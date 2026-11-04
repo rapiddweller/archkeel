@@ -1,4 +1,5 @@
 /** AD-290: the layout of the Explore lens: callers left, callees right, unknown calls below. */
+import { cardHeight } from "./measure";
 import { Link, Model, groupOf, links, moduleIndex, shortName } from "./model";
 import type { UnknownRow } from "./api";
 
@@ -57,7 +58,7 @@ export interface LensLayout {
 
 const CARD_WIDTH = 236;
 const CARD_HEIGHT = 54;
-const CENTER_HEIGHT = 172;
+const CENTER_MIN = 172;
 const COLUMN_LEFT = 30;
 const COLUMN_RIGHT = 676;
 const CENTER_LEFT = 365;
@@ -111,8 +112,16 @@ function column(model: Model, list: readonly Link[], side: Side, open: OpenGroup
   return { items: sorted.map(node), head: `${name} · ${list.length}` };
 }
 
+/** The height of a neighbor card: its name over as many lines as it needs, then one short fact. */
+function heightOf(model: Model, item: LensItem): number {
+  if (item.kind === "node") return Math.max(CARD_HEIGHT, cardHeight(CARD_WIDTH, model.graph.symbols[item.symbol][1], ["✓ line 99999"]));
+  if (item.kind === "group") return Math.max(CARD_HEIGHT, cardHeight(CARD_WIDTH, item.group, ["99 callers · open"]));
+  return CARD_HEIGHT;
+}
+
 interface Row {
   readonly item: LensItem;
+  readonly height: number;
   readonly y: number;
   readonly module: number | null;
   readonly starts: boolean;
@@ -131,8 +140,9 @@ function arrange(model: Model, items: readonly LensItem[]): { rows: Row[]; heigh
       if (module !== null) y += 22;
       last = module;
     }
-    rows.push({ item, y, module, starts });
-    y += CARD_HEIGHT + 8;
+    const height = heightOf(model, item);
+    rows.push({ item, height, y, module, starts });
+    y += height + 8;
   }
   return { rows, height: y };
 }
@@ -149,6 +159,9 @@ function elbow(x1: number, y1: number, x2: number, y2: number, turn: number): st
 }
 
 export function layoutLens(model: Model, center: number, open: OpenGroup | null): LensLayout {
+  // The center card grows with its name, its definition line and its chips.
+  const [, centerName, , , centerText] = model.graph.symbols[center];
+  const CENTER_HEIGHT = Math.max(CENTER_MIN, 40 + cardHeight(CENTER_WIDTH, "x".repeat(Math.ceil(centerName.length * 1.2)), [centerText, "x".repeat(96)]));
   const incoming = column(model, model.incoming[center], Side.In, open);
   const outgoing = column(model, model.outgoing[center], Side.Out, open);
   const left = arrange(model, incoming.items);
@@ -177,14 +190,14 @@ export function layoutLens(model: Model, center: number, open: OpenGroup | null)
     for (const row of arranged.rows) {
       const y = start + row.y;
       if (row.module !== null) {
-        if (row.starts) drafts.push({ module: row.module, y0: y - 22, y1: y + CARD_HEIGHT });
-        else drafts[drafts.length - 1].y1 = y + CARD_HEIGHT;
+        if (row.starts) drafts.push({ module: row.module, y0: y - 22, y1: y + row.height });
+        else drafts[drafts.length - 1].y1 = y + row.height;
       }
-      items.push({ item: row.item, side, x, y, width: CARD_WIDTH, height: CARD_HEIGHT });
+      items.push({ item: row.item, side, x, y, width: CARD_WIDTH, height: row.height });
       if (row.item.kind === "node" || row.item.kind === "group") {
         const own = items.length - 1;
         const kind = row.item.kind === "group" ? "neutral" : row.item.partial ? "claim" : "proven";
-        const mid = y + CARD_HEIGHT / 2;
+        const mid = y + row.height / 2;
         const path =
           side === Side.In
             ? elbow(x + CARD_WIDTH, mid, CENTER_LEFT, hub, CENTER_LEFT - 34)
@@ -203,6 +216,8 @@ export function layoutLens(model: Model, center: number, open: OpenGroup | null)
   place(right, COLUMN_RIGHT, Side.Out);
 
   const unknownRows = model.unknown[center].slice(0, UNKNOWN_SHOWN);
+  // The two cards of unknown calls are as tall as the longer text needs.
+  const unknownHeight = Math.max(UNKNOWN_HEIGHT, ...unknownRows.map((row) => cardHeight(UNKNOWN_WIDTH, row[1], [`? ${row[2]}`])));
   const unknownTop = top - 6 + plateHeight + 52;
   const turn = top - 6 + plateHeight + 26;
   const unknown = unknownRows.map((row, index) => {
@@ -215,13 +230,13 @@ export function layoutLens(model: Model, center: number, open: OpenGroup | null)
         ? `M${centerX} ${from} V${unknownTop}`
         : `M${centerX} ${from} V${turn - RADIUS} Q${centerX} ${turn} ${centerX + dir * RADIUS} ${turn} H${target - dir * RADIUS} Q${target} ${turn} ${target} ${turn + RADIUS} V${unknownTop}`;
     lines.push({ path, kind: "unknown", item: null, from: [centerX, from], to: [target, unknownTop] });
-    return { row, x, y: unknownTop, width: UNKNOWN_WIDTH, height: UNKNOWN_HEIGHT };
+    return { row, x, y: unknownTop, width: UNKNOWN_WIDTH, height: unknownHeight };
   });
 
   const bottom = Math.max(
     columnTop(left.height) + left.height,
     columnTop(right.height) + right.height,
-    unknownTop + (unknown.length > 0 ? UNKNOWN_HEIGHT + 10 : 0),
+    unknownTop + (unknown.length > 0 ? unknownHeight + 10 : 0),
     top - 6 + plateHeight + 30,
   );
   // Both heads sit above the tallest column, on one line.

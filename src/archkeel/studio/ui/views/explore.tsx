@@ -1,8 +1,8 @@
 /** AD-290: Explore: the lens around one function, with its structure, place and search. */
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
 import { Box, Page, ProofMark, View, viewHref } from "../components";
-import { Evidence, Proof, proofOf } from "../evidence";
+import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { LensItem, LensLayout, OpenGroup, Rect, Side, layoutLens } from "../lens-layout";
 import {
   Level,
@@ -15,12 +15,10 @@ import {
   locate,
   moduleIndex,
   shortName,
-  tailName,
   tailPath,
 } from "../model";
-import { Workbench } from "../workbench";
+import { ARROWS, Selection, Workbench, nearest } from "../workbench";
 
-const TAIL = 34;
 const LIST_SHOWN = 30;
 
 const place = (box: Rect): Record<string, string> => ({
@@ -39,18 +37,33 @@ const unknownText = (model: Model, symbol: number): string => {
 
 const colour = (component: number): string => `comp-${component % 10}`;
 
-function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side }; onOpen: (open: OpenGroup | null) => void; onHot: (hot: boolean) => void }) {
+interface Select {
+  readonly selected: number | null;
+  readonly pick: (symbol: number | null) => void;
+}
+
+function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side }; onOpen: (open: OpenGroup | null) => void; onHot: (hot: boolean) => void; select: Select }) {
   const { model, placed } = props;
   const { item } = placed;
   switch (item.kind) {
     case "node": {
       const proof = proofOf(item.partial);
+      const href = viewHref(View.Explore, item.symbol);
+      const chosen = props.select.selected === item.symbol;
       return (
         <a
-          class={`lens-card ${proof}`}
+          class={`lens-card ${proof}${chosen ? " pinned" : ""}`}
+          data-key={`${item.symbol}`}
           style={place(placed)}
-          href={viewHref(View.Explore, item.symbol)}
-          title={fullName(model, item.symbol)}
+          href={href}
+          aria-pressed={chosen}
+          onClick={(event) => {
+            // A click selects the neighbor; a double click or Enter moves the lens to it.
+            if (event.detail === 0 || event.metaKey || event.ctrlKey) return;
+            event.preventDefault();
+            if (event.detail === 1) props.select.pick(chosen ? null : item.symbol);
+            else location.hash = href;
+          }}
           onMouseEnter={() => props.onHot(true)}
           onMouseLeave={() => props.onHot(false)}
           onFocus={() => props.onHot(true)}
@@ -58,7 +71,7 @@ function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side
         >
           <b>{model.graph.symbols[item.symbol][1]}</b>
           <span class="meta">
-            <ProofMark proof={proof} /> · {tailPath(fileName(model, item.symbol))}:{model.graph.symbols[item.symbol][2]}
+            <span aria-hidden="true">{proofKind(proof).glyph}</span> line {item.line}
           </span>
         </a>
       );
@@ -87,7 +100,7 @@ function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side
   }
 }
 
-function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen: (open: OpenGroup | null) => void }) {
+function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen: (open: OpenGroup | null) => void; select: Select }) {
   const { model, layout, center } = props;
   const names = model.graph.modules;
   const [, , , , , unknown, outside] = model.graph.symbols[center];
@@ -98,9 +111,9 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
     <>
       {[...layout.plates, layout.centerPlate].map((plate, index) => (
         <div key={`${plate.module}:${index}`} class={`plate ${colour(names[plate.module][2])}`} style={place(plate)}>
-          <span title={names[plate.module][0]}>
+          <span>
             <i class="dot" aria-hidden="true" />
-            {tailName(names[plate.module][3], TAIL)}
+            {names[plate.module][3]}
           </span>
         </div>
       ))}
@@ -124,9 +137,9 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
         </p>
       ))}
       {layout.items.map((placed, index) => (
-        <Item key={index} model={model} placed={placed} onOpen={props.onOpen} onHot={(on) => setHot(on ? index : null)} />
+        <Item key={index} model={model} placed={placed} onOpen={props.onOpen} select={props.select} onHot={(on) => setHot(on ? index : null)} />
       ))}
-      <div class="lens-card center" style={place(layout.center)} title={fullName(model, center)}>
+      <div class="lens-card center" style={place(layout.center)}>
         <b>{model.graph.symbols[center][1]}</b>
         <span class="def">{model.graph.symbols[center][4]}</span>
         <span class="chips">
@@ -134,26 +147,23 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
           <span class="chip">
             {tailPath(fileName(model, center))}:{model.graph.symbols[center][2]}
           </span>
-          <span class="chip">
-            {counted(model.incoming[center].length, "caller")} · {counted(model.outgoing[center].length, "callee")}
-          </span>
           {unknown > 0 ? <span class="chip unknown">{unknownText(model, center)}</span> : null}
           {outside > 0 ? <span class="chip">{outside} outside the scan</span> : null}
         </span>
       </div>
       <div class="siblings" style={place(layout.siblings)}>
         {layout.siblings.shown.map((symbol) => (
-          <a key={symbol} class="pill" href={viewHref(View.Explore, symbol)} title={model.graph.symbols[symbol][1]}>
+          <a key={symbol} class="pill" href={viewHref(View.Explore, symbol)}>
             {shortName(model, symbol)}
           </a>
         ))}
-        <em>{layout.siblings.more > 0 ? `+${layout.siblings.more} in this module` : "same module"}</em>
+        {layout.siblings.more > 0 ? <em>+{layout.siblings.more} in this module</em> : null}
       </div>
       {layout.unknown.map((card) => (
         <div key={`${card.row[1]}:${card.row[3]}`} class="lens-card unknown" style={place(card)}>
           <b>{card.row[1]}</b>
           <span class="meta">
-            <ProofMark proof={Proof.Unknown} /> · {card.row[2]}
+            <span aria-hidden="true">{proofKind(Proof.Unknown).glyph}</span> {card.row[2]}
           </span>
         </div>
       ))}
@@ -229,11 +239,53 @@ function Details(props: { model: Model; symbol: number }) {
   );
 }
 
+/** The selected neighbor of the lens: its name in full, its place, its facts and the way to open it. */
+function Chosen(props: { model: Model; symbol: number; center: number }) {
+  const { model, symbol } = props;
+  const [, name, line, , definition, unresolved] = model.graph.symbols[symbol];
+  const link = [...model.outgoing[props.center], ...model.incoming[props.center]].find((item) => item.other === symbol);
+  const calls = model.outgoing[props.center].some((item) => item.other === symbol);
+  return (
+    <Selection
+      name={name}
+      kind="Function"
+      where={["Architecture", ...locate(model, symbol).map((part) => part.label), name].join(" › ")}
+      facts={[
+        `${calls ? "called by" : "calls"} ${model.graph.symbols[props.center][1]}${link === undefined ? "" : link.partial ? " · claim" : " · proven"}`,
+        `${counted(model.incoming[symbol].length, "caller")} · ${counted(model.outgoing[symbol].length, "callee")}`,
+        `${unresolved} calls with no known target`,
+        `defined at ${fileName(model, symbol).split("/").pop()}:${line}`,
+      ]}
+      text={definition}
+      open={{ href: viewHref(View.Explore, symbol), label: "Open in the lens →" }}
+    />
+  );
+}
+
 /** One lens. The page keys it by the function, so the open group starts fresh. */
 function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
   const { model, symbol } = props;
   const [open, setOpen] = useState<OpenGroup | null>(null);
+  // A click selects a neighbor; a double click or Enter moves the lens to it.
+  const [selected, setSelected] = useState<number | null>(null);
   const layout = useMemo(() => layoutLens(model, symbol, open), [model, symbol, open]);
+  const boxes = useMemo(
+    () => new Map(layout.items.flatMap((placed) => (placed.item.kind === "node" ? [[`${placed.item.symbol}`, placed] as const] : []))),
+    [layout],
+  );
+  useEffect(() => {
+    const listener = (event: KeyboardEvent): void => {
+      const step = ARROWS[event.key];
+      if (step === undefined || event.target instanceof HTMLInputElement) return;
+      const next = nearest(boxes, selected === null ? ([...boxes.keys()][0] ?? "") : `${selected}`, step, selected === null);
+      if (next === null) return;
+      event.preventDefault();
+      setSelected(Number(next));
+      document.querySelector<HTMLElement>(`[data-key="${next}"]`)?.focus({ preventScroll: true });
+    };
+    addEventListener("keydown", listener);
+    return () => removeEventListener("keydown", listener);
+  }, [boxes, selected]);
   const module = moduleIndex(model, symbol);
   const file = fileName(model, symbol).split("/").pop() ?? "";
   return (
@@ -242,6 +294,7 @@ function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
       where={{ level: Level.Function, id: symbol, pkg: null }}
       chat={props.chat}
       symbol={symbol}
+      focus={{ active: selected !== null, clear: () => setSelected(null) }}
       name="Explore"
       here={{
         name: model.graph.symbols[symbol][1],
@@ -256,10 +309,14 @@ function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
         height: layout.height,
         label: "Lens",
         fitKey: `${symbol}:${open?.group}:${open?.side}`,
-        children: <Lens model={model} layout={layout} center={symbol} onOpen={setOpen} />,
+        children: <Lens model={model} layout={layout} center={symbol} onOpen={setOpen} select={{ selected, pick: setSelected }} />,
       }}
-      note="Module-level calls are not shown."
-      details={<Details model={model} symbol={symbol} />}
+      details={
+        <>
+          {selected === null ? null : <Chosen model={model} symbol={selected} center={symbol} />}
+          <Details model={model} symbol={symbol} />
+        </>
+      }
     />
   );
 }

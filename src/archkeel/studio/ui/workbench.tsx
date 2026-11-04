@@ -7,7 +7,7 @@ import { Proof, proofKind, proofOf } from "./evidence";
 import { LevelBox, LevelLayout, LevelLink, LevelStub, cardKey, stubKey, tileKey } from "./level-layout";
 import { makeRouter, midOf, roundedPath } from "./level-route";
 import { Side } from "./lens-layout";
-import { Level, Model, Tally, Where, compact, fileName, fullName, opened, shortName, tailName } from "./model";
+import { Level, Model, Tally, Where, compact, fileName, fullName, opened, shortName } from "./model";
 import { SearchBox, StructureTree } from "./navigation";
 import { Viewport } from "./viewport";
 
@@ -24,6 +24,18 @@ export function Counts(props: { tally: Tally }) {
       {proven > 0 || claim === 0 ? mark(Proof.Proven, proven) : null}
       {proven > 0 && claim > 0 ? " · " : null}
       {claim > 0 ? mark(Proof.Claim, claim) : null}
+    </>
+  );
+}
+
+/** Proven and claim call sites as glyph and number: the legend says what the glyphs mean. */
+export function Glyphs(props: { tally: Tally }) {
+  const { proven, claim } = props.tally;
+  return (
+    <>
+      {proven > 0 || claim === 0 ? `✓ ${compact(proven)}` : ""}
+      {proven > 0 && claim > 0 ? " · " : ""}
+      {claim > 0 ? `✎ ${compact(claim)}` : ""}
     </>
   );
 }
@@ -185,18 +197,12 @@ export function Workbench(props: {
 export interface CardInfo {
   readonly href: string;
   readonly name: string;
-  /** The module path of a function, or the file path of a module. */
-  readonly path: string;
-  readonly title: string;
   readonly meta: ComponentChildren;
 }
 
 export interface StubInfo {
   readonly href: string;
   readonly name: string;
-  readonly title: string;
-  /** The end of the module path, or the responsibility of a component. */
-  readonly path: string;
 }
 
 /** The focus of a level: a pinned card (click) or a hovered one, and a row of the side panel that lights one line. */
@@ -251,35 +257,40 @@ export function linksOf(layout: LevelLayout, key: string | null): readonly { lin
     .map((link) => ({ link, other: link.a === key ? link.b : link.a, outgoing: link.a === key }));
 }
 
-const TIP_MS = 400;
-let tipTimer: number | undefined;
-let tipBox: HTMLDivElement | null = null;
+export const ARROWS: Record<string, readonly [number, number]> = {
+  ArrowRight: [1, 0],
+  ArrowLeft: [-1, 0],
+  ArrowDown: [0, 1],
+  ArrowUp: [0, -1],
+};
 
-/** One compact tooltip for all cards (a name and a path): after 400 ms, below the card, so it never covers its own text. */
-function showTip(card: Element, text: string, x: number): void {
-  window.clearTimeout(tipTimer);
-  tipTimer = window.setTimeout(() => {
-    if (tipBox === null) {
-      tipBox = document.createElement("div");
-      tipBox.className = "tip";
-      tipBox.setAttribute("role", "tooltip");
-      document.body.append(tipBox);
+const centreOf = (box: LevelBox): readonly [number, number] => [box.x + box.width / 2, box.y + box.height / 2];
+
+/** The first box in reading order: where an arrow starts when nothing is selected. */
+const firstKey = (boxes: ReadonlyMap<string, LevelBox>): string =>
+  [...boxes.entries()].sort(([, a], [, b]) => a.y - b.y || a.x - b.x)[0]?.[0] ?? "";
+
+/** The box nearest in a direction; with `start` set the first box itself is the answer. */
+export function nearest(boxes: ReadonlyMap<string, LevelBox>, from: string, step: readonly [number, number], start: boolean): string | null {
+  if (start) return from === "" ? null : from;
+  const origin = boxes.get(from);
+  if (origin === undefined) return null;
+  const [ox, oy] = centreOf(origin);
+  let best: string | null = null;
+  let cost = Infinity;
+  for (const [key, box] of boxes) {
+    if (key === from) continue;
+    const [x, y] = centreOf(box);
+    const along = (x - ox) * step[0] + (y - oy) * step[1];
+    const across = Math.abs((x - ox) * step[1]) + Math.abs((y - oy) * step[0]);
+    if (along <= 1) continue;
+    const distance = along + 2 * across;
+    if (distance < cost) {
+      cost = distance;
+      best = key;
     }
-    tipBox.textContent = text;
-    tipBox.hidden = false;
-    const box = card.getBoundingClientRect();
-    const below = box.bottom + 4;
-    const fits = below + tipBox.offsetHeight < innerHeight;
-    // Right of the pointer, below the card: the text of the card stays free.
-    const left = Math.min(Math.max(8, x), innerWidth - tipBox.offsetWidth - 8);
-    tipBox.style.left = `${left}px`;
-    tipBox.style.top = `${fits ? below : Math.max(8, box.top - tipBox.offsetHeight - 4)}px`;
-  }, TIP_MS);
-}
-
-function hideTip(): void {
-  window.clearTimeout(tipTimer);
-  if (tipBox !== null) tipBox.hidden = true;
+  }
+  return best;
 }
 
 const quiet = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -327,23 +338,41 @@ export function LevelCanvas(props: {
     return [...new Set(other.link.pairs.map((pair) => props.fnName(stub.side === Side.In ? pair.source : pair.target)))];
   };
   const calm = quiet();
-  const tip = (key: string, text: string) => ({
-    onMouseEnter: (event: MouseEvent) => {
-      focus.over(key);
-      if (event.currentTarget instanceof Element) showTip(event.currentTarget, text, event.clientX + 12);
-    },
-    onMouseLeave: () => {
-      focus.over(null);
-      hideTip();
-    },
+  const hover = (key: string) => ({
+    onMouseEnter: () => focus.over(key),
+    onMouseLeave: () => focus.over(null),
     onFocus: () => focus.over(key),
     onBlur: () => focus.over(null),
   });
+  // A click selects (the focus is pinned); a double click or Enter opens the card or the stub.
+  const select = (key: string, href: string) => ({
+    onClick: (event: MouseEvent) => {
+      if (event.detail === 0 || event.metaKey || event.ctrlKey) return;
+      event.preventDefault();
+      if (event.detail === 1) focus.pin(focus.pinned === key ? null : key);
+      else location.hash = href;
+    },
+  });
+  // Arrows move the selection to the nearest card in that direction; the card takes the keyboard focus.
+  useEffect(() => {
+    const listener = (event: KeyboardEvent): void => {
+      const step = ARROWS[event.key];
+      if (step === undefined || event.target instanceof HTMLInputElement) return;
+      const here = focus.pinned ?? focus.hover;
+      const next = nearest(boxes, here ?? firstKey(boxes), step, here === null);
+      if (next === null) return;
+      event.preventDefault();
+      focus.pin(next);
+      document.querySelector<HTMLElement>(`[data-key="${next}"]`)?.focus({ preventScroll: true });
+    };
+    addEventListener("keydown", listener);
+    return () => removeEventListener("keydown", listener);
+  }, [boxes, focus.pinned, focus.hover]);
   return (
     <>
       {layout.plates.map((plate) => (
         <div key={plate.label} class={`plate ${props.plate} comp-${props.colour(0) % 10}`} style={place(plate)}>
-          <span>{tailName(plate.label, 38)}</span>
+          <span>{plate.label.split(".").slice(-2).join(".")}</span>
         </div>
       ))}
       <svg class="lines" width={layout.width} height={layout.height} aria-hidden="true">
@@ -391,20 +420,14 @@ export function LevelCanvas(props: {
         return (
           <a
             key={key}
+            data-key={key}
             class={`lens-card level-card comp-${props.colour(card.index) % 10}${dim(key)}${focus.pinned === key ? " pinned" : ""}`}
             data-drill
             style={place(card)}
             href={info.href}
             aria-pressed={focus.pinned === key}
-            aria-label={info.title}
-            onClick={(event) => {
-              // A click pins the focus; Enter (no pointer) and a double click open the card.
-              if (event.detail === 0 || event.metaKey || event.ctrlKey) return;
-              event.preventDefault();
-              if (event.detail === 1) focus.pin(focus.pinned === key ? null : key);
-              else location.hash = info.href;
-            }}
-            {...tip(key, `${info.name}\n${info.path}`)}
+            {...select(key, info.href)}
+            {...hover(key)}
           >
             <b>{info.name}</b>
             <span class="meta">{info.meta}</span>
@@ -414,15 +437,8 @@ export function LevelCanvas(props: {
       {layout.tiles.map((tile) => {
         const key = tileKey(tile.label);
         return (
-          <button
-            key={key}
-            type="button"
-            class={`lens-card tile${dim(key)}`}
-            style={place(tile)}
-            onClick={() => props.onOpen(tile.label)}
-            {...tip(key, `${tile.label}\n+${tile.hidden} more, click to open`)}
-          >
-            <b>{tailName(tile.label, 24)}</b>
+          <button key={key} data-key={key} type="button" class={`lens-card tile${dim(key)}`} style={place(tile)} onClick={() => props.onOpen(tile.label)} {...hover(key)}>
+            <b>{tile.label.split(".").slice(-2).join(".")}</b>
             <span class="meta">+{tile.hidden} more · open</span>
           </button>
         );
@@ -432,11 +448,21 @@ export function LevelCanvas(props: {
         const key = stubKey(stub.side, stub.ref);
         const chips = names(stub);
         return (
-          <a key={key} class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`} data-side={stub.side} data-drill style={place(stub)} href={info.href} aria-label={info.title} {...tip(key, `${info.name}\n${info.path}`)}>
+          <a
+            key={key}
+            data-key={key}
+            class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}${focus.pinned === key ? " pinned" : ""}`}
+            data-side={stub.side}
+            data-drill
+            style={place(stub)}
+            href={info.href}
+            aria-pressed={focus.pinned === key}
+            {...select(key, info.href)}
+            {...hover(key)}
+          >
             <b>{info.name}</b>
-            <span class="meta path">{info.path}</span>
             <span class="meta">
-              <Counts tally={stub} />
+              <Glyphs tally={stub} />
             </span>
             <span class="meta names">
               {chips.slice(0, CHIPS).join(" · ")}
@@ -491,19 +517,34 @@ export function Breakable(props: { text: string }) {
 
 const ROWS_SHOWN = 10;
 
-/** The side panel of a focus: each connected card with its module, file, line and proof; a row lights its line. */
-export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; title: string; open: { href: string; label: string } | null }) {
-  const { focus } = props;
-  const [all, setAll] = useState(false);
-  if (focus.key === null) {
-    return (
-      <Box title="Focus">
-        <p class="more">Hover a card to see its lines. Click it to pin them; Esc clears. Dots show the direction of the call.</p>
-      </Box>
-    );
-  }
+/** What is selected: its name in full (it wraps), what it is, where it lies, the facts and an Open button. */
+export function Selection(props: {
+  name: string;
+  kind: string;
+  where: string;
+  facts: readonly string[];
+  /** A sentence of the code or of the contract, in full. */
+  text?: string;
+  open: { readonly href: string; readonly label: string } | null;
+}) {
   return (
-    <Box title={`Focus · ${props.title}`}>
+    <Box title={`Selected · ${props.kind}`}>
+      <p class="here-name">
+        <b>
+          <Breakable text={props.name} />
+        </b>
+      </p>
+      <p class="where">
+        <Breakable text={props.where} />
+      </p>
+      {props.facts.length > 0 ? (
+        <ul class="pairs">
+          {props.facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+      ) : null}
+      {props.text ? <p class="story-text">{props.text}</p> : null}
       {props.open === null ? null : (
         <p>
           <a class="toggle" href={props.open.href}>
@@ -511,6 +552,25 @@ export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; titl
           </a>
         </p>
       )}
+    </Box>
+  );
+}
+
+/** The side panel of a focus: the selection, then each connected card with its module, file, line and proof. */
+export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; selection: ComponentChildren }) {
+  const { focus } = props;
+  const [all, setAll] = useState(false);
+  if (focus.pinned === null) {
+    return (
+      <Box title="Selection">
+        <p class="more">Click a card to select it; hover shows its lines. Double click or Enter opens it, Esc clears. Dots show the direction of the call.</p>
+      </Box>
+    );
+  }
+  return (
+    <>
+      {props.selection}
+      <Box title="Calls and callers">
       <p class="more">Dots show the direction of the call: from the caller to the callee.</p>
       {props.rows.length === 0 ? <p class="more">No call to or from a card of this page.</p> : null}
       <ul class="pairs focus-rows">
@@ -540,7 +600,8 @@ export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; titl
           {all ? "Show fewer" : `Show all ${props.rows.length}`}
         </button>
       ) : null}
-    </Box>
+      </Box>
+    </>
   );
 }
 

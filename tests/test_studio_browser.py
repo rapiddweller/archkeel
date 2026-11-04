@@ -111,7 +111,7 @@ def _check_the_levels(page, width: int, height: int) -> None:
     transition = lambda: page.locator("section.canvas").get_attribute("data-transition")  # noqa: E731
     assert _where(page) == ([], "Architecture")
     _no_overflow(page)
-    page.locator(".map-card", has_text="app").click()
+    page.locator(".map-card", has_text="app").dblclick()
     page.wait_for_url("**/#/component/*")
     page.get_by_role("heading", name="Component", exact=True).wait_for()
     assert _where(page) == (["Architecture"], "app")
@@ -127,14 +127,14 @@ def _check_the_levels(page, width: int, height: int) -> None:
     assert {stub.split("\n")[0] for stub in stubs.all_inner_texts()} == {"store"}
     _no_overflow(page)
     # A stub opens that component; Esc goes back up to the Map.
-    stubs.filter(has_text="store").click()
+    stubs.filter(has_text="store").dblclick()
     page.get_by_role("navigation", name="Location").locator("b", has_text="store").wait_for()
     assert _where(page) == (["Architecture"], "store")
     page.keyboard.press("Escape")
     page.get_by_role("navigation", name="Location").locator("b", has_text="Architecture").wait_for()
     assert _where(page) == ([], "Architecture")
     assert transition() == "out"
-    page.locator(".map-card", has_text="app").click()
+    page.locator(".map-card", has_text="app").dblclick()
     page.locator(".level-card", has_text="orders.py").dblclick()
     page.wait_for_url("**/#/module/*")
     page.get_by_role("heading", name="Module", exact=True).wait_for()
@@ -153,7 +153,7 @@ def _check_the_levels(page, width: int, height: int) -> None:
     bar.locator("b", has_text="app").wait_for()
     page.get_by_role("navigation", name="Location").get_by_role("link", name="Architecture").click()
     page.wait_for_url("**/#/map")
-    page.locator(".map-card", has_text="app").click()
+    page.locator(".map-card", has_text="app").dblclick()
     page.locator(".level-card", has_text="orders.py").dblclick()
     page.locator(".level-card", has_text="place").dblclick()
     page.locator(".lens-card.center").wait_for()
@@ -170,7 +170,7 @@ def _check_the_lens(page, width: int, height: int) -> None:
     # The callee `save` proves its call with a glyph and a word. A module-level call is no edge.
     callee = page.locator("a.lens-card.proven", has_text="save")
     assert callee.inner_text().replace("\n", " ").startswith("save")
-    assert "✓ proven" in callee.inner_text()
+    assert "✓" in callee.inner_text()  # glyph and line, no word
     assert page.locator(".plate").count() == 2
     assert _where(page) == (["Architecture", "app", "orders.py"], "place")
     _no_overflow(page)
@@ -451,7 +451,7 @@ _ANSWER = {
 
 def _lens(page, studio: Studio) -> None:
     page.goto(studio.url)
-    page.locator(".map-card", has_text="app").click()
+    page.locator(".map-card", has_text="app").dblclick()
     page.locator(".level-card", has_text="orders.py").dblclick()
     page.locator(".level-card", has_text="place").dblclick()
     page.locator(".lens-card.center").wait_for()
@@ -600,9 +600,7 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
             )
             page.route(
                 "**/api/v1/stories/check-flow",
-                lambda route: route.fulfill(
-                    json=_answer(_checked())
-                ),
+                lambda route: route.fulfill(json=_answer(_checked())),
             )
             page.goto(studio.url)
             page.get_by_role("link", name="Stories", exact=True).click()
@@ -645,9 +643,9 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
             assert step.get_by_text("Question for the architect").is_visible()
             # The card cuts a long name in the middle; the panel has the full name.
             card = page.locator(".story-card").nth(4)
-            # The end of the name that fits; the panel and the tooltip have the full name.
-            assert card.locator("b").inner_text() == "collect_response"
-            assert card.get_attribute("title") == _CHECKED["story"]["steps"][4]["node"]
+            # The whole qualified name shows, over as many lines as it needs; nothing is cut.
+            assert card.locator("b").inner_text() == _CHECKED["story"]["steps"][4]["node"]
+            assert card.get_attribute("title") is None
             assert page.evaluate("document.documentElement.scrollWidth") <= 1440
             # No arrow encodes a flow: the route has no marker.
             assert page.locator("svg.routes [marker-end], svg.routes marker").count() == 0
@@ -667,9 +665,7 @@ def test_reduced_motion_plays_to_the_final_state(studio: Studio) -> None:
             page = browser.new_page(viewport={"width": 800, "height": 600}, reduced_motion="reduce")
             page.route(
                 "**/api/v1/stories/check-flow",
-                lambda route: route.fulfill(
-                    json=_answer(_checked())
-                ),
+                lambda route: route.fulfill(json=_answer(_checked())),
             )
             page.goto(studio.url + "#/stories/check-flow")
             page.get_by_role("button", name="Play story").click()
@@ -782,12 +778,10 @@ def test_no_text_crosses_the_border_of_a_card_on_any_level(
                 page.wait_for_timeout(700)  # the cards fade in
                 _no_overflow(page)
                 assert page.evaluate("document.documentElement.scrollWidth") <= width, fragment
-            # A story card shows the longest end of a name that fits.
+            # A story card shows the whole qualified name; nothing is cut.
             names = page.locator(".story-card b").all_inner_texts()
-            assert "check.run.observe_revision" in names  # more than the last part, as it fits
-            assert not any(
-                "…" in name for name in names
-            )  # a cut only when the last part is too long
+            assert names == [step["node"] for step in _CHECKED["story"]["steps"]]
+            assert not any("…" in name for name in names)
         finally:
             browser.close()
 
@@ -925,7 +919,7 @@ def test_a_level_is_calm_until_a_card_has_the_focus(studio: Studio) -> None:
             page.locator(".level-card.pinned").wait_for()
             page.mouse.move(5, 5)
             assert page.locator(".focus-line").count() >= 1
-            focus = page.get_by_text("Focus ·").first
+            focus = page.get_by_text("Selected ·").first
             assert focus.is_visible()
             page.keyboard.press("Escape")
             page.locator(".level-card.pinned").wait_for(state="detached")
@@ -1114,7 +1108,7 @@ def test_check_evaluation_has_callers_and_no_overlap_on_the_real_snapshot(
                 page.locator(".map-card").first.wait_for()
                 page.wait_for_timeout(700)
                 assert _boxes_overlap(page) == []
-                page.locator(".map-card", has_text="Authenticate inputs").first.click()
+                page.locator(".map-card", has_text="check").first.dblclick()
                 page.locator(".stage .lens-card").first.wait_for()
                 page.wait_for_timeout(700)
                 assert _boxes_overlap(page) == []
@@ -1141,7 +1135,7 @@ def test_check_evaluation_has_callers_and_no_overlap_on_the_real_snapshot(
 
 
 @pytest.mark.browser
-def test_a_dimmed_stub_keeps_its_name_and_the_tooltip_is_small_and_below_the_card(
+def test_a_dimmed_stub_keeps_its_name_and_there_is_no_tooltip(
     studio: Studio,
 ) -> None:
     api = pytest.importorskip("playwright.sync_api")
@@ -1161,14 +1155,9 @@ def test_a_dimmed_stub_keeps_its_name_and_the_tooltip_is_small_and_below_the_car
             assert stub.locator("b").is_visible()
             assert stub.locator("b").inner_text().strip() != ""
             assert stub.locator("b").evaluate("(b) => getComputedStyle(b).visibility") == "visible"
-            # The tooltip: two lines at most, after a delay, below the card.
+            # There is no tooltip: the panel replaces it.
             page.wait_for_timeout(600)
-            tip = page.locator(".tip")
-            tip.wait_for(state="visible")
-            assert len(tip.inner_text().splitlines()) <= 2
-            box, tip_box = card.bounding_box(), tip.bounding_box()
-            assert tip_box["y"] >= box["y"] + box["height"], (box, tip_box)
-            assert tip_box["height"] <= 48
+            assert page.locator(".tip").count() == 0
             # The side panel keeps a function name first and wraps at the separators.
             card.click()
             row = page.locator(".focus-rows li").first
@@ -1185,7 +1174,7 @@ def test_the_lens_shows_the_direction_of_the_line_under_the_pointer(studio: Stud
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             page.goto(studio.url)
-            page.locator(".map-card", has_text="app").click()
+            page.locator(".map-card", has_text="app").dblclick()
             page.locator(".level-card", has_text="orders.py").dblclick()
             page.locator(".level-card", has_text="place").dblclick()
             page.locator(".lens-card.center").wait_for()

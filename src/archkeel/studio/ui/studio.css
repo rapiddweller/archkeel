@@ -119,22 +119,18 @@ a.map-card:hover, .map-card.hl, a.map-card:focus-visible { border-color: var(--p
   box-shadow: 0 0 26px color-mix(in srgb, var(--proven) 15%, transparent); }
 .map-card h2 { display: flex; align-items: center; margin: 0; font: 700 14.5px ui-monospace, Menlo, monospace; }
 .map-card h2 small { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 400; }
-.map-card .desc { margin: 0; flex: 0 1 auto; min-height: 0; color: var(--muted); font-size: 11.5px; line-height: 1.4;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.map-card .stat { display: block; flex: none; font: 10.5px/1.5 ui-monospace, Menlo, monospace; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; }
+
+.map-card .stat { display: block; flex: none; font: 11px/1.45 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
 .map-card .stat.first { margin-top: auto; }
 .map-card .stat.unknown { color: var(--unknown); }
-.map-card h2 .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-card h2 { line-height: 1.3; }
+.map-card h2 .nm { min-width: 0; overflow-wrap: anywhere; }
 .map-card h2 small { flex: none; padding-left: 8px; }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.chip { max-width: 100%; overflow-wrap: anywhere;
   font: 9.5px ui-monospace, Menlo, monospace; padding: 2px 7px; border-radius: 999px;
   background: var(--hover); color: var(--text); }
 .chip.unknown { color: var(--unknown); }
-.busiest { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; }
-.busiest b { color: var(--text); font-weight: 500; }
 
 .plate { border: 1px solid color-mix(in srgb, var(--c) 25%, transparent); border-radius: 14px;
   background: color-mix(in srgb, var(--c) 7%, transparent); }
@@ -143,10 +139,10 @@ a.map-card:hover, .map-card.hl, a.map-card:focus-visible { border-color: var(--p
 .lens-card { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 10px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 11px; color: var(--text);
   text-decoration: none; text-align: left; font: inherit; overflow: hidden; cursor: pointer; }
-.lens-card b { font: 600 11.5px ui-monospace, Menlo, monospace; word-break: break-all; line-height: 1.25;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.lens-card .meta, .lens-card .def { font: 10px ui-monospace, Menlo, monospace; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.lens-card b { font: 600 12px/1.35 ui-monospace, Menlo, monospace; display: block; overflow-wrap: anywhere; }
+
+.lens-card .meta, .lens-card .def { font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
 a.lens-card:hover, button.lens-card:hover { border-color: var(--proven); }
 .lens-card.proven { border-color: color-mix(in srgb, var(--proven) 45%, var(--line)); }
 .lens-card.claim, .lens-card.unknown { border-style: dashed; }
@@ -155,9 +151,9 @@ a.lens-card:hover, button.lens-card:hover { border-color: var(--proven); }
 .lens-card.more { justify-content: center; border-style: dashed; color: var(--muted); font-size: 11.5px; }
 .lens-card.center { gap: 4px; padding: 10px 14px; cursor: default; border-color: var(--target);
   background: color-mix(in srgb, var(--target) 12%, var(--panel)); }
-.lens-card.center b { font-size: 15px; white-space: nowrap; display: block; text-overflow: ellipsis; }
+.lens-card.center b { font-size: 15px; }
 .siblings { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px; align-content: flex-start; }
-.pill { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.pill { max-width: 100%; overflow-wrap: anywhere;
   font: 10px ui-monospace, Menlo, monospace; padding: 3px 8px; border-radius: 999px;
   background: var(--hover); color: var(--text); text-decoration: none; border: 1px solid transparent; }
 .pill:hover { border-color: var(--proven); }
@@ -238,7 +234,7 @@ p.tn { margin: 0; color: var(--muted); cursor: default; }
 .chat { display: flex; flex-direction: column; gap: 10px; min-height: 0; height: 100%; }
 .chat header .label { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
 .agent-name { margin: 0 0 6px; color: var(--muted); font: 11px ui-monospace, Menlo, monospace; }
-.chip.context { display: inline-block; margin: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip.context { display: inline-block; margin: 0; max-width: 100%; overflow-wrap: anywhere; }
 .thread { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .msg { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; line-height: 1.5; }
 .msg.user { align-self: flex-end; max-width: 92%; background: var(--hover); border-radius: 14px 14px 4px 14px;
@@ -301,9 +297,10 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .story-card.claim, .story-card.unknown { border-style: dashed; }
 .story-card.claim { border-color: var(--claim); } .story-card.unknown { border-color: var(--unknown); }
 .story-card { overflow: hidden; min-width: 0; }
-.story-card b { display: block; font: 600 11.5px ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; }
-.story-card .meta { display: block; font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.story-card b { display: block; font: 600 11.5px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+
+.story-card .meta { display: block; font: 10.5px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
 .externals { top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .externals .head { margin: 0 0 2px; position: static; }
 .system { margin: 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; font: 12px ui-monospace, Menlo, monospace;
@@ -338,8 +335,8 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
   color: var(--muted); }
 .lens-card .meta { display: block; }
 .level-card, .stub, .tile { gap: 3px; padding: 6px 12px; transition: opacity .2s, border-color .2s, box-shadow .2s; }
-.level-card b, .stub b, .tile b { display: block; font: 600 13px/1.35 ui-monospace, Menlo, monospace; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; word-break: normal; -webkit-line-clamp: unset; }
+
+.level-card b, .stub b, .tile b { display: block; font: 600 13px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
 .level-card .meta, .stub .meta, .tile .meta { font-size: 11.5px; line-height: 1.35; }
 .stub .meta.path, .stub .meta.names { color: var(--muted); }
 .level-card { border-left: 3px solid color-mix(in srgb, var(--c, var(--line)) 50%, var(--line)); }
@@ -368,11 +365,10 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .focus-line .chevron { fill: none; stroke: var(--proven); stroke-width: 1.5; }
 .focus-line.claim .chevron { stroke: var(--claim); }
 @keyframes flow { from { offset-distance: 0%; } to { offset-distance: 100%; } }
-.tip { position: fixed; z-index: 50; max-width: 360px; padding: 4px 10px; border-radius: 8px; pointer-events: none;
-  background: var(--raised); border: 1px solid var(--line); color: var(--text); font: 12px/1.4 ui-monospace, Menlo, monospace;
-  white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .stub.dim .meta.path, .stub.dim .meta.names { visibility: hidden; }
 .stub.dim { opacity: .5; }
+.pinned { outline: 2px solid var(--target); outline-offset: 2px; }
+.map-card.pinned, .lens-card.pinned { box-shadow: 0 0 0 1px var(--target); }
 .stub.dim b { color: var(--muted); }
 .focus-line.off { opacity: .2; }
 .focus-rows .item { display: block; margin-top: 2px; }

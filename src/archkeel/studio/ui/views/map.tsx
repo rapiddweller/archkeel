@@ -1,12 +1,12 @@
 /** AD-290: Map: the components of the snapshot as a dependency graph of the measured calls. */
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
 import { Badge, Box, Page, ProofLegend, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { MAP_CARD, MapLine, layoutMap } from "../map-layout";
 import { Level, Model, Tally, counted, fileName, links, pairs, shortName, tailPath } from "../model";
 import { ComponentSource, ContractState } from "../vocabulary";
-import { Counts, Workbench } from "../workbench";
+import { ARROWS, Counts, Glyphs, Selection, Workbench, nearest } from "../workbench";
 
 const PAIRS_SHOWN = 16;
 
@@ -76,8 +76,30 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
   const layout = useMemo(() => layoutMap(model), [model]);
   const [hot, setHot] = useState<number | null>(null);
   const [pair, setPair] = useState<Pair | null>(null);
+  // A click selects a component; a double click or Enter opens it.
+  const [selected, setSelected] = useState<number | null>(null);
   const neighbors = (component: number): boolean =>
     hot !== null && (component === hot || model.flows.some((f) => (f.from === hot && f.to === component) || (f.to === hot && f.from === component)));
+  const boxes = useMemo(
+    () => new Map(layout.positions.map(([x, y], component) => [`${component}`, { x, y, width: MAP_CARD.width, height: layout.cardHeight }])),
+    [layout],
+  );
+  useEffect(() => {
+    const listener = (event: KeyboardEvent): void => {
+      const step = ARROWS[event.key];
+      if (step === undefined || event.target instanceof HTMLInputElement) return;
+      const from = selected === null ? "" : `${selected}`;
+      const next = nearest(boxes, from === "" ? "0" : from, step, selected === null);
+      if (next === null) return;
+      event.preventDefault();
+      setSelected(Number(next));
+      document.querySelector<HTMLElement>(`[data-key="${next}"]`)?.focus({ preventScroll: true });
+    };
+    addEventListener("keydown", listener);
+    return () => removeEventListener("keydown", listener);
+  }, [boxes, selected]);
+  const stat = selected === null ? null : model.stats[selected];
+  const flowsOf = (component: number, out: boolean) => model.flows.filter((flow) => (out ? flow.from === component : flow.to === component)).sort((a, b) => b.proven + b.claim - (a.proven + a.claim));
   return (
     <Workbench
       model={model}
@@ -85,12 +107,12 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
       chat={props.chat}
       symbol={null}
       reveal={pair}
+      focus={{ active: selected !== null, clear: () => setSelected(null) }}
       name="Map"
       here={{
         name: "Architecture",
         counts: `${counted(model.graph.components.length, "component")} · ${counted(model.graph.modules.length, "module")} · ${counted(model.graph.symbols.length, "function")}`,
-        meaning:
-          "A card is a component. A line is the sum of the call sites between two components. Click a card to open its modules.",
+        meaning: "A card is a component. A line is the sum of the call sites between two components. Click selects, double click or Enter opens its modules.",
         up: null,
         upName: null,
       }}
@@ -144,18 +166,26 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                 </button>
               );
             })}
-          {model.graph.components.map(([id, responsibility], component) => {
+          {model.graph.components.map(([id], component) => {
             const [x, y] = layout.positions[component];
-            const stat = model.stats[component];
-            const box = { left: `${x}px`, top: `${y}px`, width: `${MAP_CARD.width}px`, height: `${MAP_CARD.height}px` };
+            const own = model.stats[component];
+            const box = { left: `${x}px`, top: `${y}px`, width: `${MAP_CARD.width}px`, height: `${layout.cardHeight}px` };
+            const href = viewHref(View.Component, component);
             return (
               <a
                 key={id}
-                class={`map-card comp-${component % 10}${neighbors(component) ? " hl" : ""}`}
+                data-key={`${component}`}
+                class={`map-card comp-${component % 10}${neighbors(component) ? " hl" : ""}${selected === component ? " pinned" : ""}`}
                 data-drill
                 style={box}
-                href={viewHref(View.Component, component)}
-                title={`${id}: ${responsibility || "No responsibility declared."}`}
+                href={href}
+                aria-pressed={selected === component}
+                onClick={(event) => {
+                  if (event.detail === 0 || event.metaKey || event.ctrlKey) return;
+                  event.preventDefault();
+                  if (event.detail === 1) setSelected(selected === component ? null : component);
+                  else location.hash = href;
+                }}
                 onMouseEnter={() => setHot(component)}
                 onMouseLeave={() => setHot(null)}
                 onFocus={() => setHot(component)}
@@ -164,28 +194,13 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                 <h2>
                   <span class="dot" aria-hidden="true" />
                   <span class="nm">{id}</span>
-                  <small>{layout.bandNames[layout.band[component]]}</small>
                 </h2>
-                <p class="desc">{responsibility || "No responsibility declared."}</p>
-                <span class="stat first">
-                  {counted(stat.modules, "module")} · {counted(stat.symbols, "function")}
+                <span class="stat">
+                  {counted(own.modules, "module")} · {counted(own.symbols, "function")}
                 </span>
                 <span class="stat">
-                  in <Counts tally={stat.callsIn} />
+                  in <Glyphs tally={own.callsIn} /> · out <Glyphs tally={own.callsOut} />
                 </span>
-                <span class="stat">
-                  out <Counts tally={stat.callsOut} />
-                </span>
-                {stat.withUnknown > 0 ? (
-                  <span class="stat unknown">
-                    <span aria-hidden="true">?</span> {counted(stat.withUnknown, "function")} with unknown calls
-                  </span>
-                ) : null}
-                {stat.busiest !== null ? (
-                  <span class="stat busiest">
-                    busiest: <b>{shortName(model, stat.busiest)}</b> · {counted(links(model, stat.busiest), "link")}
-                  </span>
-                ) : null}
               </a>
             );
           })}
@@ -193,11 +208,45 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
       ) }}
       details={
         <>
+          {selected === null || stat === null ? null : (
+            <>
+              <Selection
+                name={model.graph.components[selected][0]}
+                kind="Component"
+                where={`Architecture › ${model.graph.components[selected][0]}`}
+                facts={[
+                  `${counted(stat.modules, "module")} · ${counted(stat.symbols, "function")}`,
+                  `calls in: ${stat.callsIn.proven} proven · ${stat.callsIn.claim} claim`,
+                  `calls out: ${stat.callsOut.proven} proven · ${stat.callsOut.claim} claim`,
+                  `${counted(stat.withUnknown, "function")} with unknown calls`,
+                  ...(stat.busiest === null ? [] : [`busiest function: ${shortName(model, stat.busiest)}`]),
+                ]}
+                text={model.graph.components[selected][1] || "No responsibility declared."}
+                open={{ href: viewHref(View.Component, selected), label: "Open the component →" }}
+              />
+              {(["Called by", "Calls"] as const).map((title, index) => (
+                <Box key={title} title={title}>
+                  <ul class="pairs">
+                    {flowsOf(selected, index === 1).slice(0, 8).map((flow) => {
+                      const other = index === 1 ? flow.to : flow.from;
+                      return (
+                        <li key={other}>
+                          <a href={viewHref(View.Component, other)}>{model.graph.components[other][0]}</a> <Glyphs tally={flow} />
+                        </li>
+                      );
+                    })}
+                    {flowsOf(selected, index === 1).length === 0 ? <li class="more">none</li> : null}
+                  </ul>
+                </Box>
+              ))}
+            </>
+          )}
           {pair === null ? (
-            <Box title="Dependencies">
-              <p>Hover a card to light its lines. Select a line or a count to see the calls behind it.</p>
-              <p>Click a card to open the modules of that component.</p>
-            </Box>
+            selected === null ? (
+              <Box title="Dependencies">
+                <p>Click a card to select it. Hover a card to light its lines. Select a line or a count to see the calls behind it.</p>
+              </Box>
+            ) : null
           ) : (
             <Pairs model={model} pair={pair} />
           )}

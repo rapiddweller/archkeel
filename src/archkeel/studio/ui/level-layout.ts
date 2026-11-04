@@ -1,10 +1,17 @@
 /** AD-290: the layouts of the levels below the Map: the modules of a component, the functions of a module. Pure. */
 import { Side } from "./lens-layout";
+import { cardHeight } from "./measure";
 import { Level, Model, Tally } from "./model";
 
 /** Sizes at scale 1. The default fit shows them at about 0.9, so no text is below 10 px. */
 export const LEVEL_CARD = { width: 200, height: 56, gap: 24 } as const;
 export const LEVEL_STUB = { width: 170, height: 92, gap: 14 } as const;
+
+/** What a card says, so that the layout can size it to the text. */
+export interface LevelText {
+  readonly card: (index: number) => { readonly name: string; readonly facts: readonly string[] };
+  readonly stub: (ref: string) => { readonly name: string; readonly facts: readonly string[] };
+}
 const HEAD = 30;
 const SPREAD = 56;
 const COLUMNS = 2;
@@ -161,8 +168,13 @@ function arrange(
   stubsIn: readonly RawStub[],
   stubsOut: readonly RawStub[],
   links: readonly RawLink[],
+  text: LevelText,
 ): LevelLayout {
-  const { width: cardWidth, height: cardHeight, gap } = LEVEL_CARD;
+  const { width: cardWidth, height: minimum, gap } = LEVEL_CARD;
+  const heightOf = (index: number): number => {
+    const { name, facts } = text.card(index);
+    return Math.max(minimum, cardHeight(cardWidth, name, facts));
+  };
   const total = groups.reduce((sum, group) => sum + group.items.length + group.rest.length, 0);
   const columns = total <= 1 ? 1 : COLUMNS;
   const plateWidth = columns * cardWidth + (columns + 1) * gap;
@@ -176,43 +188,54 @@ function arrange(
     group.rest.forEach((index) => tileOf.set(cardKey(level, index), tileKey(group.label)));
     if (group.items.length === 0) {
       // A folded package has no plate: one tile in its place.
-      tiles.push({ label: group.label, hidden: group.rest.length, x: left, y, width: plateWidth, height: cardHeight });
-      y += cardHeight + gap;
+      tiles.push({ label: group.label, hidden: group.rest.length, x: left, y, width: plateWidth, height: minimum });
+      y += minimum + gap;
       continue;
     }
-    const rows = Math.ceil(group.items.length / columns);
+    // A row of cards is as tall as its tallest card; every card of the row has that height.
+    const rows: number[][] = [];
+    group.items.forEach((index, order) => {
+      if (order % columns === 0) rows.push([]);
+      rows[rows.length - 1].push(index);
+    });
+    const rowHeights = rows.map((row) => Math.max(...row.map(heightOf)));
+    const body = rowHeights.reduce((sum, height) => sum + height + gap, gap);
     // The tile of the rest sits in a row of its own at the bottom of the plate.
-    const height = HEAD + rows * cardHeight + (rows + 1) * gap + (group.rest.length > 0 ? cardHeight + gap : 0);
+    const height = HEAD + body + (group.rest.length > 0 ? minimum + gap : 0);
     plates.push({ label: group.label, x: left, y, width: plateWidth, height });
     if (group.rest.length > 0) {
-      tiles.push({ label: group.label, hidden: group.rest.length, x: left + gap, y: y + height - gap - cardHeight, width: plateWidth - 2 * gap, height: cardHeight });
+      tiles.push({ label: group.label, hidden: group.rest.length, x: left + gap, y: y + height - gap - minimum, width: plateWidth - 2 * gap, height: minimum });
     }
-    group.items.forEach((index, order) => {
-      cards.push({
-        index,
-        x: left + gap + (order % columns) * (cardWidth + gap),
-        y: y + HEAD + gap + Math.floor(order / columns) * (cardHeight + gap),
-        width: cardWidth,
-        height: cardHeight,
+    let top = y + HEAD + gap;
+    rows.forEach((row, at) => {
+      row.forEach((index, order) => {
+        cards.push({ index, x: left + gap + order * (cardWidth + gap), y: top, width: cardWidth, height: rowHeights[at] });
       });
+      top += rowHeights[at] + gap;
     });
     y += height + gap;
   }
   const centerHeight = Math.max(0, y - gap);
-  const stubHeight = (count: number): number => Math.min(count, STUBS_SHOWN) * (LEVEL_STUB.height + LEVEL_STUB.gap);
-  const height = Math.max(centerHeight, TOP + stubHeight(stubsIn.length), TOP + stubHeight(stubsOut.length)) + 24;
+  const stubSize = (stub: RawStub): number => {
+    const { name, facts } = text.stub(stub.ref);
+    // One more line holds the functions on the other side while a card has the focus.
+    return Math.max(minimum, cardHeight(LEVEL_STUB.width, name, [...facts, ""]));
+  };
+  const shownStubs = (stubs: readonly RawStub[]): RawStub[] =>
+    [...stubs].sort((a, b) => b.proven + b.claim - (a.proven + a.claim)).slice(0, STUBS_SHOWN);
+  const stackHeight = (stubs: readonly RawStub[]): number =>
+    shownStubs(stubs).reduce((sum, stub) => sum + stubSize(stub) + LEVEL_STUB.gap, 0);
+  const height = Math.max(centerHeight, TOP + stackHeight(stubsIn), TOP + stackHeight(stubsOut)) + 24;
   const place = (side: Side, stubs: readonly RawStub[]): LevelStub[] => {
-    const rows = [...stubs].sort((a, b) => b.proven + b.claim - (a.proven + a.claim)).slice(0, STUBS_SHOWN);
+    const rows = shownStubs(stubs);
     const x = side === Side.In ? 0 : left + plateWidth + SPREAD;
-    const top = Math.max(TOP, (height - rows.length * (LEVEL_STUB.height + LEVEL_STUB.gap)) / 2);
-    return rows.map((stub, order) => ({
-      ...stub,
-      side,
-      x,
-      y: top + order * (LEVEL_STUB.height + LEVEL_STUB.gap),
-      width: LEVEL_STUB.width,
-      height: LEVEL_STUB.height,
-    }));
+    let top = Math.max(TOP, (height - stackHeight(stubs)) / 2);
+    return rows.map((stub) => {
+      const size = stubSize(stub);
+      const placed = { ...stub, side, x, y: top, width: LEVEL_STUB.width, height: size };
+      top += size + LEVEL_STUB.gap;
+      return placed;
+    });
   };
   const stubs = [...place(Side.In, stubsIn), ...place(Side.Out, stubsOut)];
   const merged = remap(links, tileOf);
@@ -266,7 +289,7 @@ function fold(groups: readonly { label: string; items: readonly number[] }[], op
 const packageOf = (model: Model, module: number): string => model.folders[module].join(".");
 
 /** The modules of one component (or of one package of it), the links between them and the other components and packages as stubs. */
-export function layoutComponent(model: Model, component: number, pkg: string | null, opened: ReadonlySet<string>): LevelLayout {
+export function layoutComponent(model: Model, component: number, pkg: string | null, opened: ReadonlySet<string>, text: LevelText): LevelLayout {
   const { graph } = model;
   const inside = (module: number): boolean => {
     if (graph.modules[module][2] !== component) return false;
@@ -324,11 +347,11 @@ export function layoutComponent(model: Model, component: number, pkg: string | n
   });
   const stubs = (found: Map<string, Sites>): RawStub[] =>
     [...found.entries()].map(([ref, sites]) => ({ ref, proven: sites.proven.size, claim: sites.claim.size }));
-  return arrange(Level.Module, fold(groups, opened, MODULES_SHOWN), stubs(callers), stubs(callees), links);
+  return arrange(Level.Module, fold(groups, opened, MODULES_SHOWN), stubs(callers), stubs(callees), links, text);
 }
 
 /** The functions of one module, their calls, and the modules that call in or are called as stubs. */
-export function layoutModule(model: Model, module: number, showAll: boolean): LevelLayout {
+export function layoutModule(model: Model, module: number, showAll: boolean, text: LevelText): LevelLayout {
   const { graph } = model;
   const all = [...model.members[module]].sort((a, b) => graph.symbols[a][2] - graph.symbols[b][2]);
   const shownFunctions = showAll ? all : all.slice(0, FUNCTIONS_SHOWN);
@@ -379,5 +402,5 @@ export function layoutModule(model: Model, module: number, showAll: boolean): Le
   const stubs = (found: Map<string, Tally>): RawStub[] => [...found.entries()].map(([ref, sites]) => ({ ref, ...sites }));
   const label = graph.modules[module][1].split("/").pop() ?? graph.modules[module][0];
   const groups: Group[] = [{ label, items: shownFunctions, rest: all.slice(shownFunctions.length) }];
-  return arrange(Level.Function, groups, stubs(callers), stubs(callees), links);
+  return arrange(Level.Function, groups, stubs(callers), stubs(callees), links, text);
 }

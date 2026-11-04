@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { CheckStatus, CheckedStory, StepLink, StoryAnswer, StoryRow, StorySource, StoryStep, readStories, readStory } from "../api";
 import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
-import { STORY, cardName, layoutStory } from "../story-layout";
+import { STORY, layoutStory } from "../story-layout";
 
 const STEP_MS = 4000;
 
@@ -186,7 +186,7 @@ function Player(props: { answer: StoryAnswer }) {
   useEffect(() => {
     if (layout === null || stage.current === null) return;
     const card = layout.cards[current];
-    const top = card.y * scale - stage.current.clientHeight / 2 + (STORY.card.height * scale) / 2;
+    const top = card.y * scale - stage.current.clientHeight / 2 + (card.height * scale) / 2;
     const left = card.x * scale - stage.current.clientWidth / 2 + (STORY.card.width * scale) / 2;
     stage.current.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: reduced() ? "auto" : "smooth" });
   }, [current, layout, scale]);
@@ -238,12 +238,11 @@ function Player(props: { answer: StoryAnswer }) {
                 key={step.index}
                 type="button"
                 class={`story-card ${proof}${index <= current ? " show" : ""}${index === current ? " now" : ""}`}
-                style={{ left: `${place.x}px`, top: `${place.y}px`, width: `${STORY.card.width}px`, height: `${STORY.card.height}px` }}
-                title={step.node}
+                style={{ left: `${place.x}px`, top: `${place.y}px`, width: `${STORY.card.width}px`, height: `${place.height}px` }}
                 aria-current={index === current ? "step" : undefined}
                 onClick={() => go(index)}
               >
-                <b>{cardName(step.node)}</b>
+                <b>{step.node}</b>
                 <span class="meta">
                   <ProofMark proof={proof} /> ·{" "}
                   {candidatesOf(step, link(index)) === null

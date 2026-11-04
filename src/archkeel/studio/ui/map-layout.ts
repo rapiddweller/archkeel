@@ -1,7 +1,8 @@
 /** AD-290: the layout of the component Map: role bands by net call flow, and the lines. */
+import { cardHeight } from "./measure";
 import type { Model, Tally } from "./model";
 
-export const MAP_CARD = { width: 250, height: 204, gapX: 210, gapY: 30, left: 40, top: 70 } as const;
+export const MAP_CARD = { width: 250, height: 96, gapX: 210, gapY: 30, left: 40, top: 70 } as const;
 
 const STRONG_SHARE = 0.06;
 const LABEL_SHARE = 0.12;
@@ -24,6 +25,8 @@ export interface MapLayout {
   readonly bandNames: readonly string[];
   readonly band: readonly number[];
   readonly positions: readonly (readonly [number, number])[];
+  /** The height of every card. */
+  readonly cardHeight: number;
   readonly width: number;
   readonly height: number;
   readonly lines: readonly MapLine[];
@@ -56,8 +59,9 @@ function curve(
   to: readonly [number, number],
   fromBand: number,
   toBand: number,
+  height: number,
 ): { path: string; middle: readonly [number, number] } {
-  const { width, height } = MAP_CARD;
+  const { width } = MAP_CARD;
   const y1 = from[1] + height / 2;
   const y2 = to[1] + height / 2;
   if (toBand > fromBand) {
@@ -106,7 +110,9 @@ export function layoutMap(model: Model): MapLayout {
     column.forEach((component, row) => rank.set(component, row));
   });
   const tallest = Math.max(...columns.map((column) => column.length));
-  const { width, height, gapX, gapY, left, top } = MAP_CARD;
+  const { width, gapX, gapY, left, top } = MAP_CARD;
+  // A card is as tall as its longest component name needs; the two facts are one line each.
+  const height = Math.max(MAP_CARD.height, ...model.graph.components.map(([id]) => cardHeight(width, id, ["x".repeat(30), "x".repeat(34), ""])));
   const positions: (readonly [number, number])[] = new Array(count);
   columns.forEach((column, level) => {
     const offset = ((tallest - column.length) * (height + gapY)) / 2;
@@ -119,7 +125,7 @@ export function layoutMap(model: Model): MapLayout {
     .sort((a, b) => a.proven + a.claim - (b.proven + b.claim))
     .map<MapLine>((flow) => {
       const calls = flow.proven + flow.claim;
-      const { path, middle } = curve(positions[flow.from], positions[flow.to], band[flow.from], band[flow.to]);
+      const { path, middle } = curve(positions[flow.from], positions[flow.to], band[flow.from], band[flow.to], height);
       return {
         from: flow.from,
         to: flow.to,
@@ -137,6 +143,7 @@ export function layoutMap(model: Model): MapLayout {
     bandNames: BAND_NAMES[bands] ?? BAND_NAMES[3],
     band,
     positions,
+    cardHeight: height,
     width: Math.max(left + bands * (width + gapX) - gapX + 120, 900),
     height: Math.max(tallest * (height + gapY) + 130, 520),
     lines,
