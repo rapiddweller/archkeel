@@ -37,7 +37,8 @@ Run this command. `<root>` is the repository root. Add the scope options only wh
 
 The first output line is `ArchKeel Studio: <URL>`. The URL token logs the browser in once.
 Studio then sets an `HttpOnly`, `SameSite=Strict` cookie; later requests need that cookie.
-Do not share or log the URL. A second call for the same root prints
+Treat the URL as secret. Do not put it in logs or public channels. Share it only with the owner
+through a private channel. A second call for the same root prints
 `ArchKeel Studio: <URL> (already running)` with the same URL and starts no second server.
 The server keeps the scope options of its first start. To change them, stop it and start again.
 

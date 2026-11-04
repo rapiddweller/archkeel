@@ -9,6 +9,7 @@ import io
 import json
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -139,7 +140,8 @@ def test_explore_skill_starts_studio_for_an_agent() -> None:
         "run_in_background",
         "HttpOnly",
         "SameSite=Strict",
-        "Do not share or log the URL",
+        "Do not put it in logs or public channels",
+        "Share it only with the owner",
     ):
         assert text in body, text
     keys = [
@@ -170,6 +172,9 @@ def test_explain_flow_skill_traces_chooses_writes_and_checks() -> None:
         "Without `--to`, trace resolved calls",
         "With `--to`, the trace also searches paths with partial calls",
         "stored story is reviewed repository documentation",
+        "Leave unresolved steps `unknown` without `claim`",
+        "only for a deliberate",
+        "assertion that the snapshot cannot verify",
     ):
         assert text.lower() in body.lower(), text
     keys = [
@@ -632,7 +637,10 @@ def test_flow_section_states_the_proof_rules() -> None:
     assert '"claim": true' in section
     assert "`unknown`" in section and "`missing`" in section
     assert "not runtime order" in section
-    assert "except as a claim" in section
+    assert "except when you deliberately assert it" in section
+    assert "Keep an `unknown` step without `claim`" in section
+    assert "deliberately assert it" in section
+    assert "This specific exception does not allow other drafts or evidence in Git." in section
     assert "`status` or `evidence`" in section
     assert "not an execution trace" in section
     assert "`target: unavailable`" in section
@@ -642,6 +650,29 @@ def test_flow_section_states_the_proof_rules() -> None:
     assert "archkeel/schema/" in ASSET.read_text(encoding="utf-8")
     # The same file serves Codex and Claude Code: name commands, not one agent's tools.
     assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
+
+
+def test_offline_schema_guidance_matches_installed_files_and_cli_help() -> None:
+    """The local schema path is shipped in the distribution and named by real CLI help."""
+    from importlib.metadata import distribution
+
+    installed = distribution("archkeel")
+    schema = next(
+        path
+        for path in installed.files or ()
+        if str(path) == "archkeel/schema/view-spec.schema.json"
+    )
+    assert installed.locate_file(schema).is_file()
+    assert (ROOT / "schema/view-spec.schema.json").is_file()
+
+    result = subprocess.run(
+        [shutil.which("archkeel") or "archkeel", "view", "check", "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    assert "View spec JSON (schema/view-spec.schema.json)." in result.stdout
 
 
 def _agent_spec(snapshot: Path, steps: list[str], edges: list[dict]) -> dict:

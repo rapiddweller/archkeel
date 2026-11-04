@@ -484,7 +484,7 @@ def test_detect_source_names_root_search_when_src_has_no_python_package(tmp_path
     with pytest.raises(DiagnosticError) as raised:
         detect_source(tmp_path)
 
-    assert "found none. Searched directory `.`." in raised.value.diagnostic.unknown_claim
+    assert "found none. Searched directories `src`, `.`." in raised.value.diagnostic.unknown_claim
 
 
 @pytest.mark.parametrize("pyproject", [None, "[project\n", '[project]\nversion = "1"\n'])
@@ -497,7 +497,7 @@ def test_detect_source_fails_closed_without_a_readable_project_name(
     assert "[project] name (missing); found archkeel_core, tests_pkg." in (
         raised.value.diagnostic.unknown_claim
     )
-    assert raised.value.diagnostic.unknown_claim.endswith("Searched directory `.`.")
+    assert raised.value.diagnostic.unknown_claim.endswith("Searched directories `.`.")
 
 
 def test_interface_entries_applies_the_ad9_module_entry_rule() -> None:

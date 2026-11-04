@@ -82,13 +82,14 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    of the first command. Use module names as nodes: a child component is `unknown` as a node.
    Use module nodes for import checks; function nodes support calls only. Source text names
    candidates, not proof. Read the evidence lines from the check.
-4. Write the spec in a new temporary folder: never in the repository, never in an output folder
-   (`explore` and `view show` clear theirs). Follow the [schema](https://github.com/rapiddweller/archkeel/blob/main/schema/view-spec.schema.json)
+4. Write the working spec in a new temporary folder outside the repository and outside an output
+   folder (`explore` and `view show` clear theirs). Follow the [schema reference](https://github.com/rapiddweller/archkeel/blob/main/schema/view-spec.schema.json)
    and the [example](https://github.com/rapiddweller/archkeel/blob/main/fixtures/F-architecture-view/place-order.json).
    Copy `source.source_digest` and `contract.digest` of the snapshot into `snapshot`. Give each
    later step and each edge a `kind` (`imports` or `calls`); the first step takes none.
-   Keep no node or edge that the check makes `missing`, except as a claim when the owner needs
-   the unproved step: set `"claim": true` and give its reason in `note`.
+   Keep no node or edge that the check makes `missing`, except when you deliberately assert it.
+   Set `"claim": true` and explain why in `note`. Keep an `unknown` step without `claim` so its
+   cause stays visible.
    Never write `status` or `evidence`: the check decides, and such a spec is rejected (exit 2).
 5. Run `archkeel view check <spec> --snapshot <snapshot> --json` and read each status:
    - `proven`: observed, with `evidence` (`file`, `line`). Read those lines: a module edge can
@@ -113,7 +114,8 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
 A graph path is not an execution trace. An import proves only that one module imports the other.
 Without a contract the result has `target: unavailable` and `declared_rules: UNKNOWN`, never PASS.
 Your explanation is your own text, without authority. Never change source or contract for a view.
-The `explain-flow` skill stores reviewed story documentation under `.archkeel/stories/`.
+The `explain-flow` skill stores the final checked story under `.archkeel/stories/` as reviewed
+documentation (AD-291). This specific exception does not allow other drafts or evidence in Git.
 
 ## Onboarding (first time in this repository): a target, not a description
 
@@ -640,5 +642,6 @@ to observed crossings; `validate` defaults to the full list and offers
 an empty compact list with a positive total still needs decisions. `draft_sizes` records
 each component's measured size only for `init`. Unavailable summaries remain `null`.
 Use the CLI’s bundled schemas for offline validation; pin schema and CLI together.
-The installed files are under `archkeel/schema/`; run `archkeel view --help` for the current
-spec path and command options. Do not fetch a schema from the network for local validation.
+In a checkout, schemas are under `schema/`. The installed distribution includes them under
+`archkeel/schema/`. `archkeel view check --help` names the spec schema. Use a schema from the same
+CLI version. Do not fetch a schema from the network for local validation.

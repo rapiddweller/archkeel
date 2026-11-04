@@ -25,8 +25,9 @@ archkeel story trace --from <function> --to <function> --snapshot <dir>/architec
 2. Read `paths`. A hop is `proven` (a resolved call) or `claim` (a partial call, with its seam).
 3. Read `seams`: an unresolved call is a gap. Name it in the story. Do not hide it.
    Check each call-site file and line in the source before you write its words.
-4. Choose one path. Do not invent a hop that no path has. Keep a partial hop as `claim`; use
-   `claim: true` only for a needed step with no measured path.
+4. Choose one path. Do not invent a hop that no path has. Keep a partial hop as `claim`.
+   Leave unresolved steps `unknown` without `claim`. Set `claim: true` only for a deliberate
+   assertion that the snapshot cannot verify, and give its reason in `note`.
 
 ## 3. Write the story spec
 
