@@ -268,6 +268,35 @@ Next. `?tour=3` opens stop 3; `?flow=1` opens the flow. An incomplete scan is dr
 check does not run (exit 2), the command writes nothing. A snapshot without an Explorer prints
 the check result, writes nothing, says "not drawn" on stderr and exits 2.
 
+## Stories
+
+A story explains one flow through the code. ArchKeel proposes the path and proves each step. You
+write only the words ([AD-291](architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md)).
+The `explain-flow` skill gives an agent the same steps.
+
+`archkeel story trace --from NAME [--to NAME] [--snapshot architecture.json] [--max-paths N] [--max-hops N] --json`
+reads a saved snapshot and prints candidate paths over its call graph. `NAME` is the qualified name of a
+function or method. [`schema/story-trace.schema.json`](../schema/story-trace.schema.json) defines the result.
+
+- With `--to`, it lists simple paths. Paths over resolved calls come first, then paths that cross a seam.
+  Shorter paths come first. Without `--to`, it follows resolved calls only and lists the farthest functions.
+- A hop is `proven` (a resolved call, with each call site) or `claim` (a partial call: the analysis lists
+  `candidates` and does not prove the target). An unresolved call is a seam of its function.
+- Each function has its `lane` (the contract component, else the second name of its module), its
+  `defined_at` line and the external systems whose client library its module imports. The catalog is:
+  redis, sqlalchemy, pymongo, boto3, botocore, minio, azure.storage, kafka and pika.
+- `complete: false` means that the search stopped at its work limit (200,000 steps).
+- No path is `"paths": []` with exit 0. A name that is no function of the snapshot is exit 2.
+
+To tell the story, write a view spec with `"schema_version": "1.2.0"` and a `story`:
+`id`, `title` and `chapters` (`id`, `title`). Each step can add `chapter`, `title`, `question`
+and `external` (`system`, `direction`). The step `note` is the story text. These fields are author
+text. A node can be a function or a method. `archkeel view check` then adds, for each step, the
+status and call sites as for any step, and a `story` block with the `lane`, `defined_at`, `seam`
+and external `touched` systems of each step by `index`, and a `verdict` of counts. A partial call
+is `claim`. An unresolved call makes the step `unknown`. A process boundary is not detected: use
+`"claim": true`. A spec of version 1.0.0 or 1.1.0 cannot have a story, and its result is unchanged.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.
@@ -288,6 +317,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 | `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
 | `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`, or no Explorer for the snapshot; nothing written |
+| `story trace` | The trace ran; no path is an empty list | — | Invalid option, snapshot or name; the name is not a function of the snapshot |
 | `studio` | Stopped (Ctrl-C, SIGTERM, `--idle-exit`), reused, or `--stop` done | `--stop`: still running after 15 s | The server could not start |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,

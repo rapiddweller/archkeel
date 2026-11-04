@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
-from typing import Final
+from typing import Final, TypeVar
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
@@ -24,6 +24,19 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.decisions import declares_a_target
 from archkeel.ir.facts import Evidence
+from archkeel.ir.flow_graph import (
+    CallEdge,
+    CallGraph,
+    Direction,
+    ExternalSystem,
+    Seam,
+    Site,
+    Touch,
+    build_call_graph,
+    module_lanes,
+    module_names,
+    touchpoints,
+)
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.model import Observation, RawJson, Record, RecordData, Verdict
 from archkeel.ir.source_graph import observed_graph
@@ -40,11 +53,18 @@ LIMITS: Final = (
     "An unknown reference is a coverage gap, never a proven absence.",
     "A claim is author text: the check does not look for it in the graph.",
 )
+STORY_LIMITS: Final = (
+    "A proven step is one resolved call between two functions: structure, not runtime order.",
+    "A partial call is a claim: the analysis lists candidates and does not prove the target.",
+    "A process boundary is not detected. Title, note, question and each direction are claims.",
+    "A touched system is an import of a client library of the catalog, not a proven access.",
+)
 
 
 class ViewSpecVersion(StrEnum):
     # Newest first: the schema `$id` names the first member, as for the graph versions.
-    # AD-289: stops need 1.1.0; a 1.0.0 spec keeps its meaning.
+    # AD-289: stops need 1.1.0. AD-291: a story needs 1.2.0. An older spec keeps its meaning.
+    V1_2_0 = "1.2.0"
     V1_1_0 = "1.1.0"
     V1_0_0 = "1.0.0"
 
@@ -75,11 +95,32 @@ class ViewEdge:
 
 
 @dataclass(frozen=True, slots=True)
+class ViewExternal:
+    """An author claim: the step reaches this system. The check observes the touchpoint."""
+
+    system: ExternalSystem
+    direction: Direction
+
+
+@dataclass(frozen=True, slots=True)
 class ViewStep:
     node: str
     note: str | None = None
     kind: RelationshipKind | None = None
     claim: bool = False
+    # AD-291: story fields, author text; they need a story and schema_version 1.2.0.
+    chapter: str | None = None
+    title: str | None = None
+    question: str | None = None
+    external: tuple[ViewExternal, ...] = ()
+
+    def has_story_fields(self) -> bool:
+        return (
+            self.chapter is not None
+            or self.title is not None
+            or self.question is not None
+            or bool(self.external)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +133,19 @@ class ViewStop:
 
 
 @dataclass(frozen=True, slots=True)
+class ViewChapter:
+    id: str
+    title: str
+
+
+@dataclass(frozen=True, slots=True)
+class ViewStory:
+    id: str
+    title: str
+    chapters: tuple[ViewChapter, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class ViewSpec:
     schema_version: ViewSpecVersion
     title: str
@@ -101,6 +155,7 @@ class ViewSpec:
     steps: tuple[ViewStep, ...] = ()
     notes: tuple[str, ...] = ()
     stops: tuple[ViewStop, ...] = ()
+    story: ViewStory | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +236,54 @@ class StopCheck:
 
 
 @dataclass(frozen=True, slots=True)
+class ExternalCheck:
+    """`touched` is observed with import evidence; `direction` is the author claim, if any."""
+
+    system: ExternalSystem
+    touched: bool
+    evidence: tuple[Touch, ...] = ()
+    direction: Direction | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StoryStepCheck:
+    """The facts of one story step. Its status and call sites are `steps[index]` of the check."""
+
+    index: int
+    node: str
+    chapter: str | None
+    title: str | None
+    question: str | None
+    lane: str | None
+    defined_at: Site | None
+    seam: Seam | None
+    external: tuple[ExternalCheck, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StoryVerdict:
+    """Counts only. A claim is never counted as proven."""
+
+    proven: int
+    declared: int
+    claim: int
+    unknown: int
+    missing: int
+    systems: tuple[ExternalSystem, ...]
+    modules: int
+
+
+@dataclass(frozen=True, slots=True)
+class StoryCheck:
+    id: str
+    title: str
+    chapters: tuple[ViewChapter, ...]
+    steps: tuple[StoryStepCheck, ...]
+    verdict: StoryVerdict
+    limits: tuple[str, ...] = STORY_LIMITS
+
+
+@dataclass(frozen=True, slots=True)
 class ViewCheck:
     schema_version: ViewSpecVersion
     title: str
@@ -195,6 +298,8 @@ class ViewCheck:
     author_notes: tuple[str, ...]
     stops: tuple[StopCheck, ...]
     limits: tuple[str, ...] = LIMITS
+    # AD-291: only a 1.2.0 spec with a story has this block; the JSON leaves it out otherwise.
+    story: StoryCheck | None = None
 
 
 def _fields(
@@ -242,6 +347,44 @@ def _note(raw: RawJson, label: str) -> str | None:
     return None if raw is None else _text(raw, f"{label}.note")
 
 
+_E = TypeVar("_E", bound=StrEnum)
+
+
+def _member(kind: type[_E], raw: RawJson, label: str) -> _E:
+    try:
+        return kind(_text(raw, label))
+    except ValueError:
+        raise ValueError(f"{label} must be one of {[item.value for item in kind]}") from None
+
+
+def _optional(raw: RawJson, label: str) -> str | None:
+    return None if raw is None else _text(raw, label)
+
+
+def _external(raw: RawJson, label: str) -> ViewExternal:
+    item = _fields(raw, label, {"system", "direction"}, set())
+    return ViewExternal(
+        _member(ExternalSystem, item["system"], f"{label}.system"),
+        _member(Direction, item["direction"], f"{label}.direction"),
+    )
+
+
+def _chapter(raw: RawJson, label: str) -> ViewChapter:
+    item = _fields(raw, label, {"id", "title"}, set())
+    return ViewChapter(_text(item["id"], f"{label}.id"), _text(item["title"], f"{label}.title"))
+
+
+def _story(raw: RawJson) -> ViewStory:
+    item = _fields(raw, "story", {"id", "title"}, {"chapters"})
+    chapters = tuple(
+        _chapter(entry, f"story.chapters[{index}]")
+        for index, entry in enumerate(_items(item.get("chapters", ()), "story.chapters"))
+    )
+    if len({chapter.id for chapter in chapters}) != len(chapters):
+        raise ValueError("story.chapters must have unique ids")
+    return ViewStory(_text(item["id"], "story.id"), _text(item["title"], "story.title"), chapters)
+
+
 def _edge(raw: RawJson, label: str) -> ViewEdge:
     item = _fields(raw, label, {"source", "target"}, {"kind", "claim", "note"})
     return ViewEdge(
@@ -254,12 +397,24 @@ def _edge(raw: RawJson, label: str) -> ViewEdge:
 
 
 def _step(raw: RawJson, label: str) -> ViewStep:
-    item = _fields(raw, label, {"node"}, {"note", "kind", "claim"})
+    item = _fields(
+        raw, label, {"node"}, {"note", "kind", "claim", "chapter", "title", "question", "external"}
+    )
+    external = tuple(
+        _external(entry, f"{label}.external[{index}]")
+        for index, entry in enumerate(_items(item.get("external", ()), f"{label}.external"))
+    )
+    if len({entry.system for entry in external}) != len(external):
+        raise ValueError(f"{label}.external names a system twice")
     return ViewStep(
         _text(item["node"], f"{label}.node"),
         _note(item.get("note"), label),
         _kind(item.get("kind"), label),
         _claim(item.get("claim", False), label),
+        _optional(item.get("chapter"), f"{label}.chapter"),
+        _optional(item.get("title"), f"{label}.title"),
+        _optional(item.get("question"), f"{label}.question"),
+        external,
     )
 
 
@@ -279,7 +434,7 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         raw,
         "view spec",
         {"schema_version", "title", "snapshot", "nodes"},
-        {"edges", "steps", "notes", "stops"},
+        {"edges", "steps", "notes", "stops", "story"},
     )
     snapshot = _fields(
         item["snapshot"],
@@ -303,6 +458,8 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
     version = ViewSpecVersion(_text(item["schema_version"], "schema_version"))
     if "stops" in item and version is ViewSpecVersion.V1_0_0:
         raise ValueError("stops need schema_version 1.1.0")
+    story = _story(item["story"]) if "story" in item else None
+    _check_story_fields(version, story, steps)
     if len(set(nodes)) != len(nodes):
         raise ValueError("nodes must be unique")
     named = {edge.source for edge in edges} | {edge.target for edge in edges}
@@ -325,7 +482,26 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         steps,
         _texts(item.get("notes", ()), "notes"),
         stops,
+        story,
     )
+
+
+def _check_story_fields(
+    version: ViewSpecVersion, story: ViewStory | None, steps: tuple[ViewStep, ...]
+) -> None:
+    used = any(step.has_story_fields() for step in steps)
+    if (story is not None or used) and version is not ViewSpecVersion.V1_2_0:
+        raise ValueError("a story needs schema_version 1.2.0")
+    if story is None:
+        if used:
+            raise ValueError("chapter, title, question and external need a story")
+        return
+    known = {chapter.id for chapter in story.chapters}
+    for index, step in enumerate(steps):
+        if step.chapter is None and known:
+            raise ValueError(f"steps[{index}] must name a chapter of the story")
+        if step.chapter is not None and step.chapter not in known:
+            raise ValueError(f"steps[{index}].chapter names no chapter of the story")
 
 
 def snapshot_identity(observation: Observation) -> ViewSnapshot:
@@ -358,18 +534,9 @@ class _Graph:
     # AD-289: the violation and unknown records whose subject or fact lies in each module.
     violations: Mapping[str, tuple[Record, ...]]
     unknowns: Mapping[str, tuple[Record, ...]]
-
-
-def _module_names(entities: Mapping[str, Entity]) -> dict[str, str]:
-    """Map each entity id to the name of the module that contains it."""
-    result: dict[str, str] = {}
-    for identity, entity in entities.items():
-        current: Entity | None = entity
-        while current is not None and current.kind != EntityKind.MODULE:
-            current = entities.get(current.parent_id) if current.parent_id else None
-        if current is not None:
-            result[identity] = current.qualified_name
-    return result
+    # AD-291: the call graph exists for a spec with a story only; lanes name each module's lane.
+    calls: CallGraph | None
+    lanes: Mapping[str, str]
 
 
 def _sites(
@@ -398,7 +565,7 @@ def _observed_layers(
         for record in observation.records("imports") or ()
         if record.data.get("under_type_checking") is True
     )
-    module_of = _module_names(entities)
+    module_of = module_names(entities)
     kinds = tuple(kind for kind in RelationshipKind if kind != RelationshipKind.REQUIRES)
     complete = {
         (coverage.scope_id, kind)
@@ -474,7 +641,7 @@ def _touched(
     touches its target, a re-export included.
     """
     entities = {entity.id: entity for entity in graph.entities}
-    module_of = _module_names(entities)
+    module_of = module_names(entities)
     names = {
         entity.qualified_name: module_of[entity.id]
         for entity in graph.entities
@@ -521,7 +688,7 @@ def _requires(components: Mapping[str, Record]) -> _Layer:
     return _Layer(edges, {}, None if declared else "the contract declares no requires entry")
 
 
-def _view_graph(observation: Observation) -> _Graph:
+def _view_graph(observation: Observation, *, story: bool) -> _Graph:
     """The one graph loader: a snapshot with or without a contract gives the same shape."""
     graph = observed_graph(observation)
     declarations = observation.records("declarations") or ()
@@ -558,6 +725,8 @@ def _view_graph(observation: Observation) -> _Graph:
         declares_a_target(observation),
         touched["violations"],
         touched["unknowns"],
+        build_call_graph(graph, observation.records("imports") or ()) if story else None,
+        module_lanes(observation, modules),
     )
 
 
@@ -578,6 +747,11 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
             module.id,
             module.file_path,
         )
+    function = graph.calls.functions.get(node) if graph.calls is not None else None
+    if function is not None:
+        file = function.defined_at.file if function.defined_at is not None else None
+        reason = f"an observed {function.kind}"
+        return NodeCheck(node, ViewStatus.PROVEN, reason, function.kind, function.entity_id, file)
     if node in graph.components and not graph.declared:
         owned = len(graph.members[node])
         reason = f"a component group that declares nothing; observed modules it holds: {owned}"
@@ -696,6 +870,67 @@ def _one_kind(
     return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
 
 
+def call_evidence(edge: CallEdge) -> tuple[ViewEvidence, ...]:
+    return tuple(
+        ViewEvidence(
+            site.record_id,
+            RelationshipKind.CALLS,
+            edge.source,
+            edge.target,
+            site.evidence_id,
+            site.file,
+            site.line,
+        )
+        for site in edge.sites
+    )
+
+
+def call_status(edge: CallEdge) -> tuple[ViewStatus, str]:
+    """A resolved call proves the pair. A partial call is a claim: the target is a candidate."""
+    if edge.seam is None:
+        return ViewStatus.PROVEN, "an observed resolved call"
+    reason = (
+        f"a partial call with {edge.seam.candidates} candidates: "
+        "the analysis does not prove the target"
+    )
+    return ViewStatus.CLAIM, reason
+
+
+def _function_link(
+    graph: _Graph,
+    calls: CallGraph,
+    source: str,
+    target: str,
+    kind: RelationshipKind | None,
+    note: str | None,
+    *,
+    step: bool,
+) -> LinkCheck:
+    """AD-291: two functions relate by one direct call; a partial call is a claim, never proof."""
+    if source not in calls.functions or target not in calls.functions:
+        reason = "a function and a module are not one step: name two functions or two modules"
+        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind, note=note)
+    if kind not in {None, RelationshipKind.CALLS}:
+        reason = f"two functions relate by calls, not {kind}"
+        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind, note=note)
+    calling = RelationshipKind.CALLS
+    edge = calls.edges.get(source, {}).get(target)
+    if edge is None:
+        seam = calls.unresolved.get(source)
+        everywhere = graph.layers[calling].everywhere
+        if seam is not None:
+            reason = f"{seam.calls} calls of {source} have no named target: {seam.reason}"
+        else:
+            reason = (
+                everywhere or f"no call from {source} to {target}, and the coverage is complete"
+            )
+        status = ViewStatus.UNKNOWN if seam is not None or everywhere else ViewStatus.MISSING
+        return LinkCheck(source, target, status, reason, calling, note=note)
+    status, reason = call_status(edge)
+    path = (source, target) if step else ()
+    return LinkCheck(source, target, status, reason, calling, path, call_evidence(edge), note)
+
+
 def _link(
     graph: _Graph,
     nodes: Mapping[str, NodeCheck],
@@ -714,6 +949,9 @@ def _link(
     for status in (ViewStatus.MISSING, ViewStatus.UNKNOWN):
         if status in ends:
             return LinkCheck(source, target, status, f"an end node is {status}", kind, note=note)
+    calls = graph.calls
+    if calls is not None and (source in calls.functions or target in calls.functions):
+        return _function_link(graph, calls, source, target, kind, note, step=step)
     results = [
         _one_kind(graph, source, target, item, step=step)
         for item in ((kind,) if kind is not None else _DEFAULT_KINDS)
@@ -737,6 +975,73 @@ def _stop_check(stop: ViewStop, node: NodeCheck, graph: _Graph | None) -> StopCh
         else None
     )
     return StopCheck(stop.node, node.status, node.reason, stop.title, stop.note, facts)
+
+
+def _module_of(graph: _Graph, node: str) -> str | None:
+    function = graph.calls.functions.get(node) if graph.calls is not None else None
+    return function.module if function is not None else node if node in graph.modules else None
+
+
+def _seam_into(calls: CallGraph, before: str | None, node: str) -> Seam | None:
+    """The seam of the call from the step before: its partial call, else its unresolved calls."""
+    if before is None or node not in calls.functions:
+        return None
+    edge = calls.edges.get(before, {}).get(node)
+    return edge.seam if edge is not None else calls.unresolved.get(before)
+
+
+def external_checks(
+    touches: tuple[Touch, ...], claims: Mapping[ExternalSystem, Direction] | None = None
+) -> tuple[ExternalCheck, ...]:
+    """One entry per system: the observed touchpoints and the claimed direction, if any."""
+    claimed = claims or {}
+    found: dict[ExternalSystem, list[Touch]] = {}
+    for touch in touches:
+        found.setdefault(touch.system, []).append(touch)
+    return tuple(
+        ExternalCheck(system, system in found, tuple(found.get(system, ())), claimed.get(system))
+        for system in sorted(claimed.keys() | found.keys())
+    )
+
+
+def _story_check(
+    spec: ViewSpec, story: ViewStory, graph: _Graph | None, steps: tuple[LinkCheck, ...]
+) -> StoryCheck:
+    """Facts for each step, from the call graph only; the author text is copied, not read."""
+    calls = graph.calls if graph is not None else None
+    checked: list[StoryStepCheck] = []
+    modules: set[str] = set()
+    for index, step in enumerate(spec.steps):
+        module = _module_of(graph, step.node) if graph is not None else None
+        modules |= {module} if module is not None else set()
+        function = calls.functions.get(step.node) if calls is not None else None
+        before = spec.steps[index - 1].node if index else None
+        touches = touchpoints(calls, step.node) if calls is not None else ()
+        checked.append(
+            StoryStepCheck(
+                index,
+                step.node,
+                step.chapter,
+                step.title,
+                step.question,
+                graph.lanes.get(module) if graph is not None and module is not None else None,
+                function.defined_at if function is not None else None,
+                _seam_into(calls, before, step.node) if calls is not None else None,
+                external_checks(touches, {item.system: item.direction for item in step.external}),
+            )
+        )
+    counts = Counter(link.status for link in steps)
+    systems = sorted({item.system for step in checked for item in step.external if item.touched})
+    verdict = StoryVerdict(
+        counts[ViewStatus.PROVEN],
+        counts[ViewStatus.DECLARED],
+        counts[ViewStatus.CLAIM],
+        counts[ViewStatus.UNKNOWN],
+        counts[ViewStatus.MISSING],
+        tuple(systems),
+        len(modules),
+    )
+    return StoryCheck(story.id, story.title, story.chapters, tuple(checked), verdict)
 
 
 def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> ViewCheck:
@@ -763,7 +1068,7 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
             for before, step in pairs
         )
     else:
-        graph = _view_graph(observation)
+        graph = _view_graph(observation, story=spec.story is not None)
         checked = {node: _node(graph, node) for node in spec.nodes}
         nodes = tuple(checked.values())
         edges = tuple(
@@ -817,12 +1122,16 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
         steps,
         spec.notes,
         stops,
+        story=_story_check(spec, spec.story, graph, steps) if spec.story is not None else None,
     )
 
 
 def view_check_json(check: ViewCheck) -> str:
     """The same check gives the same text."""
-    return json.dumps(asdict(check), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    data = asdict(check)
+    if check.story is None:
+        del data["story"]
+    return json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def view_summary(check: ViewCheck) -> str:
@@ -837,6 +1146,14 @@ def view_summary(check: ViewCheck) -> str:
         found = ", ".join(f"{counts[status]} {status}" for status in ViewStatus if counts[status])
         lines.append(f"{label}: {found or 'none'}")
     lines.append(check.limits[0])
+    if check.story is not None:
+        verdict = check.story.verdict
+        systems = ", ".join(verdict.systems) or "none"
+        lines.append(
+            f"Story {check.story.id!r}: {verdict.proven} proven, {verdict.claim} claim, "
+            f"{verdict.unknown} unknown, {verdict.missing} missing; systems touched: {systems}; "
+            f"modules touched: {verdict.modules}"
+        )
     if check.stops:
         measured = sum(stop.facts is not None for stop in check.stops)
         lines.append(f"Stops: {len(check.stops)}, {measured} with measured facts")

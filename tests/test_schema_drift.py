@@ -817,3 +817,10 @@ def test_view_spec_schema_matches_its_dataclasses() -> None:
     assert not validator.is_valid(old)
     with pytest.raises(ValueError, match="1.1.0"):
         parse_view_spec(old)
+
+
+def test_story_trace_schema_matches_its_dataclasses() -> None:
+    """AD-291: the dataclasses are the one source of the trace result schema."""
+    from tools.architecture_graph_schema import story_trace_schema
+
+    assert _schema("story-trace.schema.json") == story_trace_schema()

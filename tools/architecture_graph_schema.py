@@ -25,6 +25,7 @@ from archkeel.ir.command_view import ArchitectureCommandEnvelope
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
 from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import Coverage, Diagnostic, FilteredViolation, Record
+from archkeel.ir.story import TraceResult
 from archkeel.ir.view_spec import ViewCheck, ViewSpec
 
 
@@ -118,12 +119,30 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                         }
                     ]
                 if annotation is ViewSpec:
-                    # AD-289: a 1.0.0 spec has no stops.
+                    # AD-289: a 1.0.0 spec has no stops. AD-291: only a 1.2.0 spec has a story.
+                    story_fields = ("chapter", "title", "question", "external")
                     definition["allOf"] = [
                         {
                             "if": {"properties": {"schema_version": {"const": "1.0.0"}}},
                             "then": {"not": {"required": ["stops"]}},
-                        }
+                        },
+                        {
+                            "if": {"properties": {"schema_version": {"enum": ["1.0.0", "1.1.0"]}}},
+                            "then": {
+                                "not": {"required": ["story"]},
+                                "properties": {
+                                    "steps": {
+                                        "items": {
+                                            "not": {
+                                                "anyOf": [
+                                                    {"required": [name]} for name in story_fields
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                            },
+                        },
                     ]
                 definitions[name] = definition
             return {"$ref": f"#/$defs/{name}"}
@@ -354,7 +373,9 @@ def view_spec_schema() -> dict[str, object]:
         "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: "
         "`archkeel view check` assigns proven, declared, unknown or missing; claim is author text. "
         "Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. "
-        "A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289)."
+        "A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289). "
+        "A story, and the step fields chapter, title, question and external, need 1.2.0 (AD-291); "
+        "the step note is the story text."
     )
     return schema
 
@@ -366,7 +387,19 @@ def view_check_schema() -> dict[str, object]:
         "edge and step carries its status, reason, kind, path and evidence. A proven step is "
         "static structure, not runtime order; title, notes and claims are author text. A stop "
         "carries its node status and facts measured from the snapshot; its title and note are "
-        "author text (AD-289)."
+        "author text (AD-289). A 1.2.0 spec with a story adds `story`: for each step, by index "
+        "into `steps`, its lane, definition, seam and external systems, and a verdict that counts "
+        "statuses and never says PASS (AD-291)."
+    )
+    return schema
+
+
+def story_trace_schema() -> dict[str, object]:
+    schema = _schema(TraceResult, "story-trace", "Story trace result")
+    schema["$comment"] = (
+        "Generated from archkeel.ir.story (AD-291). Candidate paths over the call graph of one "
+        "snapshot. A hop is proven (a resolved call) or a claim (a partial call, with its seam). "
+        "An unresolved call is a seam of its function. Author text is not part of this result."
     )
     return schema
 
@@ -816,6 +849,7 @@ def main() -> None:
     parser.add_argument("--source-profile", type=Path)
     parser.add_argument("--view-spec", type=Path)
     parser.add_argument("--view-check", type=Path)
+    parser.add_argument("--story-trace", type=Path)
     args = parser.parse_args()
     output = args.output
     output.write_text(json.dumps(graph_schema(), indent=2) + "\n", encoding="utf-8")
@@ -842,6 +876,10 @@ def main() -> None:
         _update_source_profile_schema(args.source_profile)
     if args.view_spec is not None:
         args.view_spec.write_text(json.dumps(view_spec_schema(), indent=2) + "\n", encoding="utf-8")
+    if args.story_trace is not None:
+        args.story_trace.write_text(
+            json.dumps(story_trace_schema(), indent=2) + "\n", encoding="utf-8"
+        )
     if args.view_check is not None:
         args.view_check.write_text(
             json.dumps(view_check_schema(), indent=2) + "\n", encoding="utf-8"

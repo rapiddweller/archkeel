@@ -197,7 +197,9 @@
         "archkeel.ir.amendment_codec",
         "archkeel.ir.collection_features",
         "archkeel.ir.findings",
-        "archkeel.ir.view_spec"
+        "archkeel.ir.view_spec",
+        "archkeel.ir.flow_graph",
+        "archkeel.ir.story"
       ],
       "responsibilities": [
         "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
@@ -308,7 +310,8 @@
         "archkeel.ir.findings:findings_note",
         "archkeel.ir.findings:findings_state",
         "archkeel.ir.findings:evidence_locations",
-        "archkeel.ir.view_spec"
+        "archkeel.ir.view_spec",
+        "archkeel.ir.story"
       ]
     },
     {

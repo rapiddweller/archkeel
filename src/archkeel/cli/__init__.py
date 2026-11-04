@@ -41,6 +41,7 @@ from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..ir.codec import decode_json, parse_contract
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
+from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
     ViewCheck,
     check_view,
@@ -787,6 +788,51 @@ def build_parser() -> _Parser:
     )
     show.set_defaults(show=True)
 
+    story = commands.add_parser(
+        Command.STORY.value,
+        help="Propose the path of a story from a saved architecture.json.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "trace lists candidate paths over the call graph of a saved snapshot, from one\n"
+            "function or method to another (--to), or to the farthest functions. A hop is\n"
+            "proven (a resolved call) or a claim (a partial call, marked as a seam). Unresolved\n"
+            "calls are listed as seams of their function. Each function has its lane and the\n"
+            "external systems whose client library its module imports. The result is one JSON\n"
+            "document. You choose a path and write the words; view check proves the story\n"
+            "(AD-291).\n\n"
+            "Examples:\n"
+            "  archkeel story trace --from shop.cli.main.main --to shop.render.text._indent\n"
+            "  archkeel story trace --from shop.cli.main.main --snapshot build/arch.json\n\n"
+            "Exit codes:\n"
+            "  0  the trace ran; no path is an empty list\n"
+            "  2  invalid input: a name not in the snapshot, a bad option, an invalid snapshot\n\n"
+            f"Reference: {_DOCS}/reference.md#stories"
+        ),
+    )
+    story_actions = story.add_subparsers(dest="story_action", required=True, metavar="action")
+    trace = story_actions.add_parser("trace", help="Print the candidate paths as JSON.")
+    trace.add_argument(
+        "--from",
+        dest="source",
+        required=True,
+        metavar="NAME",
+        help="Qualified name of the first function or method.",
+    )
+    trace.add_argument(
+        "--to", dest="target", metavar="NAME", help="Qualified name of the last function or method."
+    )
+    trace.add_argument(
+        "--snapshot",
+        type=Path,
+        default=_SNAPSHOT_PATH,
+        help=f"Saved architecture.json. Default: {_SNAPSHOT_PATH}.",
+    )
+    trace.add_argument("--max-paths", type=int, default=5, help="Paths to list. Default: 5.")
+    trace.add_argument("--max-hops", type=int, default=12, help="Longest path. Default: 12.")
+    trace.add_argument(
+        "--json", action="store_true", help="Print the JSON result even in an interactive terminal."
+    )
+
     studio = commands.add_parser(
         Command.STUDIO.value,
         parents=[scoped],
@@ -877,6 +923,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.config = CONFIG_PATH
         if command is Command.GUIDE:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
+        if command is Command.STORY:
+            subject = str(args.snapshot)
+            trace_result = trace_flow(
+                read_saved_snapshot(args.snapshot),
+                args.source,
+                args.target,
+                max_paths=args.max_paths,
+                max_hops=args.max_hops,
+            )
+            sys.stdout.write(
+                trace_summary(trace_result) + "\n" if interactive else trace_json(trace_result)
+            )
+            return 0
         if command is Command.VIEW:
             spec_path: Path = args.spec
             subject = str(spec_path)
@@ -1186,10 +1245,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Command.REPORT if command is Command.EXPLORE else command, subject, error
             )
         )
-    if interactive and command is Command.VIEW:
-        # A view check that did not run has no scan or rule verdicts to show.
+    if interactive and command in {Command.VIEW, Command.STORY}:
+        # A view check or trace that did not run has no scan or rule verdicts to show.
+        name = "view check" if command is Command.VIEW else "story trace"
         for item in result.diagnostics:
-            print(f"archkeel view check did not run on {item.subject}: {item.unknown_claim}")
+            print(f"archkeel {name} did not run on {item.subject}: {item.unknown_claim}")
             print(item.remedy)
         return result.exit_code
     if interactive:
