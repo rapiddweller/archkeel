@@ -37,6 +37,7 @@ from archkeel.ir.flow_graph import (
     module_names,
     touchpoints,
 )
+from archkeel.ir.graph_codec import non_empty_text
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.model import Observation, RawJson, Record, RecordData, Verdict
 from archkeel.ir.source_graph import observed_graph
@@ -325,17 +326,8 @@ def _fields(
     return raw
 
 
-def _text(raw: RawJson, label: str) -> str:
-    if not isinstance(raw, str):
-        raise ValueError(f"{label} must be non-empty text")
-    text: str = raw
-    if not text.strip():
-        raise ValueError(f"{label} must be non-empty text")
-    return text
-
-
 def _texts(raw: RawJson, label: str) -> tuple[str, ...]:
-    return tuple(_text(item, label) for item in _items(raw, label))
+    return tuple(non_empty_text(item, label) for item in _items(raw, label))
 
 
 def _items(raw: RawJson, label: str) -> tuple[RawJson, ...]:
@@ -351,11 +343,11 @@ def _claim(raw: RawJson, label: str) -> bool:
 
 
 def _kind(raw: RawJson, label: str) -> RelationshipKind | None:
-    return None if raw is None else RelationshipKind(_text(raw, f"{label}.kind"))
+    return None if raw is None else RelationshipKind(non_empty_text(raw, f"{label}.kind"))
 
 
 def _note(raw: RawJson, label: str) -> str | None:
-    return None if raw is None else _text(raw, f"{label}.note")
+    return None if raw is None else non_empty_text(raw, f"{label}.note")
 
 
 _E = TypeVar("_E", bound=StrEnum)
@@ -365,13 +357,13 @@ _PROVENANCE_KEYS: Final = ("created", "git_head", "author_kind", "agent")
 
 def _member(kind: type[_E], raw: RawJson, label: str) -> _E:
     try:
-        return kind(_text(raw, label))
+        return kind(non_empty_text(raw, label))
     except ValueError:
         raise ValueError(f"{label} must be one of {[item.value for item in kind]}") from None
 
 
 def _optional(raw: RawJson, label: str) -> str | None:
-    return None if raw is None else _text(raw, label)
+    return None if raw is None else non_empty_text(raw, label)
 
 
 def _external(raw: RawJson, label: str) -> ViewExternal:
@@ -384,7 +376,9 @@ def _external(raw: RawJson, label: str) -> ViewExternal:
 
 def _chapter(raw: RawJson, label: str) -> ViewChapter:
     item = _fields(raw, label, {"id", "title"}, set())
-    return ViewChapter(_text(item["id"], f"{label}.id"), _text(item["title"], f"{label}.title"))
+    return ViewChapter(
+        non_empty_text(item["id"], f"{label}.id"), non_empty_text(item["title"], f"{label}.title")
+    )
 
 
 def _story(raw: RawJson) -> ViewStory:
@@ -395,14 +389,18 @@ def _story(raw: RawJson) -> ViewStory:
     )
     if len({chapter.id for chapter in chapters}) != len(chapters):
         raise ValueError("story.chapters must have unique ids")
-    return ViewStory(_text(item["id"], "story.id"), _text(item["title"], "story.title"), chapters)
+    return ViewStory(
+        non_empty_text(item["id"], "story.id"),
+        non_empty_text(item["title"], "story.title"),
+        chapters,
+    )
 
 
 def _edge(raw: RawJson, label: str) -> ViewEdge:
     item = _fields(raw, label, {"source", "target"}, {"kind", "claim", "note"})
     return ViewEdge(
-        _text(item["source"], f"{label}.source"),
-        _text(item["target"], f"{label}.target"),
+        non_empty_text(item["source"], f"{label}.source"),
+        non_empty_text(item["target"], f"{label}.target"),
         _kind(item.get("kind"), label),
         _claim(item.get("claim", False), label),
         _note(item.get("note"), label),
@@ -420,7 +418,7 @@ def _step(raw: RawJson, label: str) -> ViewStep:
     if len({entry.system for entry in external}) != len(external):
         raise ValueError(f"{label}.external names a system twice")
     return ViewStep(
-        _text(item["node"], f"{label}.node"),
+        non_empty_text(item["node"], f"{label}.node"),
         _note(item.get("note"), label),
         _kind(item.get("kind"), label),
         _claim(item.get("claim", False), label),
@@ -435,8 +433,8 @@ def _stop(raw: RawJson, label: str) -> ViewStop:
     item = _fields(raw, label, {"node"}, {"title", "note"})
     title = item.get("title")
     return ViewStop(
-        _text(item["node"], f"{label}.node"),
-        None if title is None else _text(title, f"{label}.title"),
+        non_empty_text(item["node"], f"{label}.node"),
+        None if title is None else non_empty_text(title, f"{label}.title"),
         _note(item.get("note"), label),
     )
 
@@ -468,7 +466,7 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         _stop(entry, f"stops[{index}]")
         for index, entry in enumerate(_items(item.get("stops", ()), "stops"))
     )
-    version = ViewSpecVersion(_text(item["schema_version"], "schema_version"))
+    version = ViewSpecVersion(non_empty_text(item["schema_version"], "schema_version"))
     if "stops" in item and version is ViewSpecVersion.V1_0_0:
         raise ValueError("stops need schema_version 1.1.0")
     story = _story(item["story"]) if "story" in item else None
@@ -491,10 +489,10 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         raise ValueError("the first step has no step before it, so it takes no kind or claim")
     return ViewSpec(
         version,
-        _text(item["title"], "title"),
+        non_empty_text(item["title"], "title"),
         ViewSnapshot(
-            _text(snapshot["source_digest"], "snapshot.source_digest"),
-            _text(snapshot["contract_digest"], "snapshot.contract_digest"),
+            non_empty_text(snapshot["source_digest"], "snapshot.source_digest"),
+            non_empty_text(snapshot["contract_digest"], "snapshot.contract_digest"),
         ),
         nodes,
         edges,

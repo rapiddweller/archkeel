@@ -82,7 +82,8 @@ def _array(value: RawJson, label: str) -> tuple[RawJson, ...]:
     return tuple(value)
 
 
-def _text(value: RawJson, label: str) -> str:
+def non_empty_text(value: RawJson, label: str) -> str:
+    """Text with a visible character, else a ValueError that names the field."""
     if not isinstance(value, str):
         raise ValueError(f"{label} must be non-empty text")
     text: str = value
@@ -92,11 +93,11 @@ def _text(value: RawJson, label: str) -> str:
 
 
 def _nullable(value: RawJson, label: str) -> str | None:
-    return None if value is None else _text(value, label)
+    return None if value is None else non_empty_text(value, label)
 
 
 def _texts(value: RawJson, label: str) -> tuple[str, ...]:
-    entries = tuple(_text(entry, label) for entry in _array(value, label))
+    entries = tuple(non_empty_text(entry, label) for entry in _array(value, label))
     if len(set(entries)) != len(entries):
         raise ValueError(f"{label} must be unique")
     return entries
@@ -117,8 +118,10 @@ def _integer(value: RawJson, label: str) -> int:
 def _visibility(value: RawJson) -> Visibility:
     item = _fields(value, set(), {"kind", "basis", "spelling"}, "visibility")
     return Visibility(
-        VisibilityKind(_text(item.get("kind", VisibilityKind.UNKNOWN), "visibility.kind")),
-        VisibilityBasis(_text(item.get("basis", VisibilityBasis.UNKNOWN), "visibility.basis")),
+        VisibilityKind(non_empty_text(item.get("kind", VisibilityKind.UNKNOWN), "visibility.kind")),
+        VisibilityBasis(
+            non_empty_text(item.get("basis", VisibilityBasis.UNKNOWN), "visibility.basis")
+        ),
         _nullable(item.get("spelling"), "visibility.spelling"),
     )
 
@@ -129,9 +132,9 @@ def _parameter(value: RawJson) -> Parameter:
     if default is not None and not isinstance(default, str):
         raise ValueError("parameter.default must be text or null")
     return Parameter(
-        _text(item["name"], "parameter.name"),
+        non_empty_text(item["name"], "parameter.name"),
         _nullable(item.get("annotation"), "parameter.annotation"),
-        ParameterKind(_text(item.get("kind", ParameterKind.UNKNOWN), "parameter.kind")),
+        ParameterKind(non_empty_text(item.get("kind", ParameterKind.UNKNOWN), "parameter.kind")),
         default,
         _boolean(item.get("default_known", False), "parameter.default_known"),
     )
@@ -167,8 +170,8 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
     )
     public, planned, decider = item.get("public"), item.get("planned"), item.get("decided_by")
     return ComponentIntent(
-        component_id=_text(item["component_id"], "component_intent.component_id"),
-        role=ComponentRole(_text(item["role"], "component_intent.role")),
+        component_id=non_empty_text(item["component_id"], "component_intent.component_id"),
+        role=ComponentRole(non_empty_text(item["role"], "component_intent.role")),
         packages=_texts(item.get("packages", ()), "component_intent.packages"),
         exact_modules=_texts(item.get("exact_modules", ()), "component_intent.exact_modules"),
         namespace=_nullable(item.get("namespace"), "component_intent.namespace"),
@@ -180,12 +183,12 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         ),
         decided_by=None
         if decider is None
-        else DecisionMaker(_text(decider, "component_intent.decided_by")),
+        else DecisionMaker(non_empty_text(decider, "component_intent.decided_by")),
         inside=_nullable(item.get("inside"), "component_intent.inside"),
         parent_id=_nullable(item.get("parent_id"), "component_intent.parent_id"),
         label=_nullable(item.get("label"), "component_intent.label"),
         layout_rule_ids=_texts(item.get("layout_rule_ids", ()), "component_intent.layout_rule_ids"),
-        layer=_text(item["layer"], "component_intent.layer")
+        layer=non_empty_text(item["layer"], "component_intent.layer")
         if item.get("layer", _MISSING) is not _MISSING
         else None,
     )
@@ -198,12 +201,12 @@ def parse_module_inventory(value: RawJson) -> ModuleInventory:
         module = _fields(value, {"path", "responsibility"}, set(), "module target")
         modules.append(
             ContractModuleTarget(
-                _text(module["path"], "module target.path"),
-                _text(module["responsibility"], "module target.responsibility"),
+                non_empty_text(module["path"], "module target.path"),
+                non_empty_text(module["responsibility"], "module target.responsibility"),
             )
         )
     return ModuleInventory(
-        _text(item["id"], "module inventory.id"),
+        non_empty_text(item["id"], "module inventory.id"),
         tuple(modules),
         _texts(item["provenance"], "module inventory.provenance"),
         _nullable(item.get("component_id"), "module inventory.component_id"),
@@ -213,8 +216,8 @@ def parse_module_inventory(value: RawJson) -> ModuleInventory:
 def parse_public_api_entry(value: RawJson) -> PublicAPIEntry:
     item = _fields(value, {"id", "selector", "provenance"}, set(), "public API entry")
     return PublicAPIEntry(
-        _text(item["id"], "public API entry.id"),
-        _text(item["selector"], "public API entry.selector"),
+        non_empty_text(item["id"], "public API entry.id"),
+        non_empty_text(item["selector"], "public API entry.selector"),
         _texts(item["provenance"], "public API entry.provenance"),
     )
 
@@ -226,17 +229,17 @@ def parse_layout_rule(value: RawJson) -> RootLayoutRule:
         set(),
         "layout rule",
     )
-    kind = ArchitectureRuleKind(_text(item["kind"], "layout rule.kind"))
+    kind = ArchitectureRuleKind(non_empty_text(item["kind"], "layout rule.kind"))
     if kind is not ArchitectureRuleKind.ROOT_LAYOUT:
         raise ValueError("layout rule.kind has an invalid vocabulary value")
     return RootLayoutRule(
-        _text(item["id"], "layout rule.id"),
+        non_empty_text(item["id"], "layout rule.id"),
         kind,
-        _text(item["root"], "layout rule.root"),
+        non_empty_text(item["root"], "layout rule.root"),
         _texts(item["allowed_children"], "layout rule.allowed_children"),
-        _text(item["rationale"], "layout rule.rationale"),
+        non_empty_text(item["rationale"], "layout rule.rationale"),
         _texts(item["provenance"], "layout rule.provenance"),
-        DecisionMaker(_text(item["decided_by"], "layout rule.decided_by")),
+        DecisionMaker(non_empty_text(item["decided_by"], "layout rule.decided_by")),
     )
 
 
@@ -247,17 +250,17 @@ def parse_external_scope(value: RawJson) -> ExternalDependencyScopeRule:
         {"exact_sources"},
         "external scope",
     )
-    kind = ArchitectureRuleKind(_text(item["kind"], "external scope.kind"))
+    kind = ArchitectureRuleKind(non_empty_text(item["kind"], "external scope.kind"))
     if kind is not ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE:
         raise ValueError("external scope.kind has an invalid vocabulary value")
     return ExternalDependencyScopeRule(
-        _text(item["id"], "external scope.id"),
+        non_empty_text(item["id"], "external scope.id"),
         kind,
-        _text(item["dependency"], "external scope.dependency"),
+        non_empty_text(item["dependency"], "external scope.dependency"),
         _texts(item["allowed_sources"], "external scope.allowed_sources"),
-        _text(item["rationale"], "external scope.rationale"),
+        non_empty_text(item["rationale"], "external scope.rationale"),
         _texts(item["provenance"], "external scope.provenance"),
-        DecisionMaker(_text(item["decided_by"], "external scope.decided_by")),
+        DecisionMaker(non_empty_text(item["decided_by"], "external scope.decided_by")),
         _texts(item.get("exact_sources", ()), "external scope.exact_sources"),
     )
 
@@ -265,8 +268,8 @@ def parse_external_scope(value: RawJson) -> ExternalDependencyScopeRule:
 def _definition_context(value: RawJson) -> DefinitionContext:
     item = _fields(value, {"kind", "branch", "evidence_ids"}, set(), "definition context")
     return DefinitionContext(
-        DefinitionContextKind(_text(item["kind"], "definition context.kind")),
-        DefinitionBranchKind(_text(item["branch"], "definition context.branch")),
+        DefinitionContextKind(non_empty_text(item["kind"], "definition context.kind")),
+        DefinitionBranchKind(non_empty_text(item["branch"], "definition context.branch")),
         _texts(item["evidence_ids"], "definition context.evidence_ids"),
     )
 
@@ -294,19 +297,21 @@ def parse_entity(value: RawJson) -> Entity:
     )
     signature = item.get("signature")
     return Entity(
-        _text(item["id"], "entity.id"),
-        EntityKind(_text(item["kind"], "entity.kind")),
-        _text(item["qualified_name"], "entity.qualified_name"),
-        _text(item["language"], "entity.language"),
+        non_empty_text(item["id"], "entity.id"),
+        EntityKind(non_empty_text(item["kind"], "entity.kind")),
+        non_empty_text(item["qualified_name"], "entity.qualified_name"),
+        non_empty_text(item["language"], "entity.language"),
         _nullable(item.get("parent_id"), "entity.parent_id"),
         _visibility(item.get("visibility", {})),
         None if signature is None else _signature(signature),
         _nullable(item.get("annotation"), "entity.annotation"),
         tuple(
-            ModifierKind(_text(entry, "modifier"))
+            ModifierKind(non_empty_text(entry, "modifier"))
             for entry in _texts(item.get("modifiers", ()), "modifiers")
         ),
-        PresenceKind(_text(item.get("presence", PresenceKind.UNSPECIFIED), "entity.presence")),
+        PresenceKind(
+            non_empty_text(item.get("presence", PresenceKind.UNSPECIFIED), "entity.presence")
+        ),
         _texts(item.get("responsibilities", ()), "entity.responsibilities"),
         _texts(item.get("evidence_ids", ()), "entity.evidence_ids"),
         _texts(item.get("provenance", ()), "entity.provenance"),
@@ -343,12 +348,14 @@ def parse_relationship(value: RawJson) -> Relationship:
     count = item.get("candidate_count")
     decider = item.get("decided_by")
     return Relationship(
-        _text(item["id"], "relationship.id"),
-        RelationshipKind(_text(item["kind"], "relationship.kind")),
-        _text(item["source_id"], "relationship.source_id"),
+        non_empty_text(item["id"], "relationship.id"),
+        RelationshipKind(non_empty_text(item["kind"], "relationship.kind")),
+        non_empty_text(item["source_id"], "relationship.source_id"),
         _nullable(item.get("target_id"), "relationship.target_id"),
         ResolutionKind(
-            _text(item.get("resolution", ResolutionKind.NOT_APPLICABLE), "relationship.resolution")
+            non_empty_text(
+                item.get("resolution", ResolutionKind.NOT_APPLICABLE), "relationship.resolution"
+            )
         ),
         _texts(item.get("candidate_ids", ()), "relationship.candidate_ids"),
         _nullable(item.get("expression"), "relationship.expression"),
@@ -359,18 +366,20 @@ def parse_relationship(value: RawJson) -> Relationship:
         _boolean(item.get("candidates_truncated", False), "relationship.candidates_truncated"),
         _nullable(item.get("reason"), "relationship.reason"),
         _texts(item.get("through", ()), "relationship.through"),
-        None if decider is None else DecisionMaker(_text(decider, "relationship.decided_by")),
+        None
+        if decider is None
+        else DecisionMaker(non_empty_text(decider, "relationship.decided_by")),
     )
 
 
 def _kinds(item: dict[str, RawJson]) -> tuple[tuple[EntityKind, ...], tuple[RelationshipKind, ...]]:
     return (
         tuple(
-            EntityKind(_text(entry, "entity kind"))
+            EntityKind(non_empty_text(entry, "entity kind"))
             for entry in _texts(item.get("entity_kinds", ()), "entity_kinds")
         ),
         tuple(
-            RelationshipKind(_text(entry, "relationship kind"))
+            RelationshipKind(non_empty_text(entry, "relationship kind"))
             for entry in _texts(item.get("relationship_kinds", ()), "relationship_kinds")
         ),
     )
@@ -382,10 +391,12 @@ def _coverage(value: RawJson) -> Coverage:
     )
     entity_kinds, relationship_kinds = _kinds(item)
     return Coverage(
-        _text(item["scope_id"], "coverage.scope_id"),
+        non_empty_text(item["scope_id"], "coverage.scope_id"),
         entity_kinds,
         relationship_kinds,
-        CoverageStatus(_text(item.get("status", CoverageStatus.UNAVAILABLE), "coverage.status")),
+        CoverageStatus(
+            non_empty_text(item.get("status", CoverageStatus.UNAVAILABLE), "coverage.status")
+        ),
         _nullable(item.get("reason"), "coverage.reason"),
     )
 
@@ -399,9 +410,9 @@ def _target_scope(value: RawJson) -> TargetScope:
     )
     entity_kinds, relationship_kinds = _kinds(item)
     return TargetScope(
-        _text(item["scope_id"], "scope_id"),
-        CompletenessMode(_text(item["mode"], "mode")),
-        _text(item["rationale"], "rationale"),
+        non_empty_text(item["scope_id"], "scope_id"),
+        CompletenessMode(non_empty_text(item["mode"], "mode")),
+        non_empty_text(item["rationale"], "rationale"),
         _texts(item["provenance"], "provenance"),
         entity_kinds,
         relationship_kinds,
@@ -416,8 +427,8 @@ def _evidence(value: RawJson) -> Evidence:
     if not isinstance(excerpt, str):
         raise ValueError("evidence.excerpt must be text")
     return Evidence(
-        _text(item["id"], "evidence.id"),
-        _text(item["file"], "evidence.file"),
+        non_empty_text(item["id"], "evidence.id"),
+        non_empty_text(item["file"], "evidence.file"),
         _integer(item["line"], "evidence.line"),
         _integer(item["end_line"], "evidence.end_line"),
         _integer(item["column"], "evidence.column"),
@@ -443,14 +454,14 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         },
         "graph",
     )
-    version = GraphSchemaVersion(_text(item["schema_version"], "graph.schema_version"))
+    version = GraphSchemaVersion(non_empty_text(item["schema_version"], "graph.schema_version"))
     if version != GraphSchemaVersion.V1_2_0 and any(
         _object(entry) and entry.get("layer", _MISSING) is not _MISSING
         for entry in _array(item.get("component_intents", ()), "component_intents")
     ):
         raise ValueError("layer requires graph schema_version 1.2.0")
     graph = ArchitectureGraph(
-        OriginKind(_text(item["origin"], "graph.origin")),
+        OriginKind(non_empty_text(item["origin"], "graph.origin")),
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
         tuple(
             parse_relationship(entry)
@@ -496,7 +507,9 @@ def parse_target(value: RawJson) -> TargetDefinition:
             for entry in _array(item.get("relationships", ()), "relationships")
         ),
         tuple(_target_scope(entry) for entry in _array(item.get("scopes", ()), "scopes")),
-        schema_version=GraphSchemaVersion(_text(item["schema_version"], "uml.schema_version")),
+        schema_version=GraphSchemaVersion(
+            non_empty_text(item["schema_version"], "uml.schema_version")
+        ),
     )
 
 
@@ -522,12 +535,12 @@ def _assessment(value: RawJson) -> GraphAssessment:
         "assessment",
     )
     return GraphAssessment(
-        _text(item["id"], "assessment.id"),
-        _text(item["subject_id"], "assessment.subject_id"),
-        AssessmentAspect(_text(item["aspect"], "assessment.aspect")),
-        AssessmentStatus(_text(item["status"], "assessment.status")),
-        AssessmentChange(_text(item["change"], "assessment.change")),
-        _text(item["reason"], "assessment.reason"),
+        non_empty_text(item["id"], "assessment.id"),
+        non_empty_text(item["subject_id"], "assessment.subject_id"),
+        AssessmentAspect(non_empty_text(item["aspect"], "assessment.aspect")),
+        AssessmentStatus(non_empty_text(item["status"], "assessment.status")),
+        AssessmentChange(non_empty_text(item["change"], "assessment.change")),
+        non_empty_text(item["reason"], "assessment.reason"),
         _texts(item.get("observed_ids", ()), "assessment.observed_ids"),
         _texts(item.get("evidence_ids", ()), "assessment.evidence_ids"),
         _texts(item.get("fact_ids", ()), "assessment.fact_ids"),
@@ -539,13 +552,15 @@ def parse_comparison(value: RawJson) -> GraphComparison:
         value, {"status", "schema_version"}, {"assessments", "correspondences"}, "comparison"
     )
     try:
-        version = GraphSchemaVersion(_text(item["schema_version"], "comparison.schema_version"))
+        version = GraphSchemaVersion(
+            non_empty_text(item["schema_version"], "comparison.schema_version")
+        )
     except (TypeError, ValueError) as exc:
         raise ValueError("unsupported comparison schema_version") from exc
     if version is not GraphSchemaVersion.V1_0_0:
         raise ValueError("unsupported comparison schema_version")
     comparison = GraphComparison(
-        AssessmentStatus(_text(item["status"], "comparison.status")),
+        AssessmentStatus(non_empty_text(item["status"], "comparison.status")),
         tuple(_assessment(entry) for entry in _array(item.get("assessments", ()), "assessments")),
         correspondences=tuple(
             _correspondence(entry)
@@ -559,7 +574,7 @@ def parse_comparison(value: RawJson) -> GraphComparison:
 def _correspondence(value: RawJson) -> EntityCorrespondence:
     item = _fields(value, {"target_id", "observed_ids"}, set(), "correspondence")
     return EntityCorrespondence(
-        _text(item["target_id"], "correspondence.target_id"),
+        non_empty_text(item["target_id"], "correspondence.target_id"),
         _texts(item["observed_ids"], "correspondence.observed_ids"),
     )
 
@@ -578,7 +593,9 @@ def parse_report(value: RawJson) -> ArchitectureReport:
         "report",
     )
     try:
-        version = ReportSchemaVersion(_text(item["schema_version"], "report.schema_version"))
+        version = ReportSchemaVersion(
+            non_empty_text(item["schema_version"], "report.schema_version")
+        )
     except (TypeError, ValueError) as exc:
         raise ValueError("unsupported report schema_version") from exc
     observed, target, comparison = item["observed"], item["target"], item.get("comparison")
@@ -605,8 +622,8 @@ def parse_report(value: RawJson) -> ArchitectureReport:
 def _decision_gap(value: RawJson) -> DependencyDecisionGap:
     item = _fields(value, {"source_id", "target_id", "relationship_ids"}, set(), "decision gap")
     return DependencyDecisionGap(
-        _text(item["source_id"], "decision gap.source_id"),
-        _text(item["target_id"], "decision gap.target_id"),
+        non_empty_text(item["source_id"], "decision gap.source_id"),
+        non_empty_text(item["target_id"], "decision gap.target_id"),
         _texts(item["relationship_ids"], "decision gap.relationship_ids"),
     )
 
@@ -614,7 +631,7 @@ def _decision_gap(value: RawJson) -> DependencyDecisionGap:
 def _membership(value: RawJson) -> ComponentMembership:
     item = _fields(value, {"component_id", "module_ids"}, set(), "membership")
     return ComponentMembership(
-        _text(item["component_id"], "membership.component_id"),
+        non_empty_text(item["component_id"], "membership.component_id"),
         _texts(item["module_ids"], "membership.module_ids"),
     )
 
@@ -636,22 +653,22 @@ def _report_finding(value: RawJson) -> ReportFinding:
         set(),
         "finding",
     )
-    status = AssessmentStatus(_text(item["status"], "finding.status"))
+    status = AssessmentStatus(non_empty_text(item["status"], "finding.status"))
     if status is AssessmentStatus.PASS:
         raise ValueError("finding.status has an invalid vocabulary value")
     return ReportFinding(
-        _text(item["id"], "finding.id"),
-        _text(item["kind"], "finding.kind"),
-        _text(item["title"], "finding.title"),
+        non_empty_text(item["id"], "finding.id"),
+        non_empty_text(item["kind"], "finding.kind"),
+        non_empty_text(item["title"], "finding.title"),
         status,
         _texts(item["rule_ids"], "finding.rule_ids"),
         tuple(
-            _text(entry, "finding.subjects")
+            non_empty_text(entry, "finding.subjects")
             for entry in _array(item["subjects"], "finding.subjects")
         ),
         _texts(item["graph_subject_ids"], "finding.graph_subject_ids"),
         tuple(
-            _text(entry, "finding.evidence_ids")
+            non_empty_text(entry, "finding.evidence_ids")
             for entry in _array(item["evidence_ids"], "finding.evidence_ids")
         ),
         _texts(item["provenance"], "finding.provenance"),
