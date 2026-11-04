@@ -195,7 +195,7 @@ def _edges(
     reexports: frozenset[str],
 ) -> tuple[dict[str, dict[str, CallEdge]], dict[str, Seam]]:
     proven: dict[tuple[str, str], list[Site]] = {}
-    guessed: dict[tuple[str, str], tuple[list[Site], list[Seam]]] = {}
+    guessed: dict[tuple[str, str], list[tuple[Site, Seam]]] = {}
     reasons: dict[str, Counter[str]] = {}
     for item in graph.relationships:
         source = names.get(item.source_id)
@@ -213,20 +213,17 @@ def _edges(
             seam = Seam(SeamKind.PARTIAL_CALL, source, item.reason, candidates=count)
             for candidate in item.candidate_ids:
                 if (target := names.get(candidate)) is not None:
-                    found_sites, found_seams = guessed.setdefault((source, target), ([], []))
-                    found_sites.append(site)
-                    found_seams.append(seam)
+                    guessed.setdefault((source, target), []).append((site, seam))
             if item.candidates_truncated:
                 reasons.setdefault(source, Counter())[_TRUNCATED] += 1
         elif item.resolution == ResolutionKind.UNRESOLVED:
             reasons.setdefault(source, Counter())[item.reason or _NO_REASON] += 1
     edges: dict[str, dict[str, CallEdge]] = {}
     # A resolved call proves the pair; a partial call to the same pair adds nothing.
-    for (source, target), (partial_sites, partial_seams) in sorted(guessed.items()):
+    for (source, target), partial in sorted(guessed.items()):
         if (source, target) not in proven:
-            edges.setdefault(source, {})[target] = CallEdge(
-                source, target, tuple(partial_sites), tuple(partial_seams)
-            )
+            sites, seams = zip(*partial, strict=True)
+            edges.setdefault(source, {})[target] = CallEdge(source, target, sites, seams)
     for (source, target), resolved_sites in sorted(proven.items()):
         edges.setdefault(source, {})[target] = CallEdge(source, target, tuple(resolved_sites))
     ordered = {source: dict(sorted(row.items())) for source, row in sorted(edges.items())}
