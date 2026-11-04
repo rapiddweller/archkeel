@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -54,11 +55,22 @@ def _stop(server: Studio) -> None:
     server.server_close()
 
 
+@contextmanager
+def running(root: Path, cache: Path, *options: str, explored: bool = False) -> Iterator[Studio]:
+    """A started Studio that stops afterwards; `explored` waits for the snapshot first."""
+    server = _start(root, cache, *options)
+    try:
+        if explored:
+            assert explore(server, login(server))["explore"] == "done"
+        yield server
+    finally:
+        _stop(server)
+
+
 @pytest.fixture
 def studio(tmp_path: Path) -> Iterator[Studio]:
-    server = _start(_repository(tmp_path / "shop"), tmp_path / "cache")
-    yield server
-    _stop(server)
+    with running(_repository(tmp_path / "shop"), tmp_path / "cache") as server:
+        yield server
 
 
 def request(
@@ -244,11 +256,8 @@ def test_the_contract_state_comes_from_the_root(tmp_path: Path) -> None:
         (broken["json"], "invalid"),
         (broken["schema"], "invalid"),
     ):
-        server = _start(folder, tmp_path / "cache")
-        try:
+        with running(folder, tmp_path / "cache") as server:
             assert state(server, login(server))["contract"] == expected
-        finally:
-            _stop(server)
 
 
 def test_explore_writes_only_the_cache_and_the_repository_stays_unchanged(
@@ -341,13 +350,8 @@ def test_the_contract_names_the_components_and_their_responsibility(tmp_path: Pa
     app["responsibilities"] = ["Place orders and keep them."]
     store["packages"] = ["shop.store.unused"]
     path.write_text(json.dumps({**contract, "components": [app, cli, store, ghost]}))
-    server = _start(root, tmp_path / "cache")
-    try:
-        cookie = login(server)
-        assert explore(server, cookie)["explore"] == "done"
-        body = graph(server, cookie)["graph"]
-    finally:
-        _stop(server)
+    with running(root, tmp_path / "cache", explored=True) as server:
+        body = graph(server, login(server))["graph"]
     assert body["components_from"] == "contract"
     assert body["components"] == [
         ["services", "Place orders and keep them."],
@@ -524,13 +528,10 @@ def test_the_graph_of_real_code_has_partial_unknown_and_outside_calls(tmp_path: 
         ),
         "pyproject.toml": '[project]\nname = "shop"\nrequires-python = ">=3.11"\n',
     }
-    server = _start(_repository(tmp_path / "shop", files), tmp_path / "cache")
-    try:
-        cookie = login(server)
-        assert explore(server, cookie)["explore"] == "done"
-        body = graph(server, cookie)["graph"]
-    finally:
-        _stop(server)
+    with running(
+        _repository(tmp_path / "shop", files), tmp_path / "cache", explored=True
+    ) as server:
+        body = graph(server, login(server))["graph"]
     by_name = {row[1]: index for index, row in enumerate(body["symbols"])}
     build, run, column = by_name["build"], by_name["run"], by_name["Table.add_column"]
     # A call on a receiver of a class of the scan is partly resolved: a claim, not a proof.
@@ -589,11 +590,8 @@ def test_decode_and_graph_of_a_real_snapshot_of_1185_modules(
 
 def test_a_failed_explore_shows_its_diagnostic(tmp_path: Path) -> None:
     # No commit: explore exits 2 and names the reason.
-    server = _start(_repository(tmp_path / "shop", commit=False), tmp_path / "cache")
-    try:
+    with running(_repository(tmp_path / "shop", commit=False), tmp_path / "cache") as server:
         result = explore(server, login(server))
-    finally:
-        _stop(server)
     assert result["explore"] == "failed"
     assert result["exit_code"] == 2
     assert result["notes"], result
@@ -648,13 +646,10 @@ def test_studio_forwards_the_scope_options_to_explore(tmp_path: Path) -> None:
     clean = next(item for item in TYPESCRIPT_VARIANTS if item.id == "typescript-clean")
     root = typescript_repository(tmp_path, clean)
     options = ("--language", "typescript", "--source", "src", "--namespace", "shop")
-    server = _start(root, tmp_path / "cache", *options, "--tsconfig", "tsconfig.json")
-    try:
+    with running(root, tmp_path / "cache", *options, "--tsconfig", "tsconfig.json") as server:
         cookie = login(server)
         result = explore(server, cookie)
         page, _ = request(server, "/files/architecture.report.html", cookie=cookie)
-    finally:
-        _stop(server)
     assert result["explore"] == "done", result
     assert page.status == 200
 

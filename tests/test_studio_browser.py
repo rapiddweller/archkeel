@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 import pytest
 from jsonschema import Draft202012Validator
 from test_explore import _repository
-from test_studio import _SCHEMA, _start, _stop, explore, login, request
+from test_studio import _SCHEMA, _start, _stop, login, request, running
 
 from archkeel.cli import main
 from archkeel.cli.config import load_config
@@ -35,10 +35,8 @@ _ENVIRONMENT = {name: os.environ.get(name) for name in ("XDG_CACHE_HOME", "HOME"
 def studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
     tmp_path = tmp_path_factory.mktemp("studio")
     # The cache folder goes to the server only: Playwright on Linux reads XDG_CACHE_HOME.
-    server = _start(_repository(tmp_path / "shop"), tmp_path / "cache")
-    assert explore(server, login(server))["explore"] == "done"
-    yield server
-    _stop(server)
+    with running(_repository(tmp_path / "shop"), tmp_path / "cache", explored=True) as server:
+        yield server
 
 
 def _camera(page) -> str:
@@ -1098,10 +1096,8 @@ def test_the_links_of_a_function_card_are_the_neighbors_in_the_panel(studio: Stu
 def archkeel_studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
     """A Studio on this repository: the real snapshot of ArchKeel itself."""
     tmp_path = tmp_path_factory.mktemp("archkeel")
-    server = _start(Path(__file__).parents[1], tmp_path / "cache")
-    assert explore(server, login(server))["explore"] == "done"
-    yield server
-    _stop(server)
+    with running(Path(__file__).parents[1], tmp_path / "cache", explored=True) as server:
+        yield server
 
 
 @pytest.mark.browser

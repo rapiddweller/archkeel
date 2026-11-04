@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 from test_explore import _repository, _tree_digest
-from test_studio import _start, _stop, explore, login, validate
+from test_studio import login, running, validate
 
 from archkeel.cli import build_parser
 from archkeel.studio.agent import Agent
@@ -130,10 +130,8 @@ def fakes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Fakes:
 @pytest.fixture(scope="module")
 def studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
     base = tmp_path_factory.mktemp("chat")
-    server = _start(_repository(base / "shop", _FILES), base / "cache")
-    assert explore(server, login(server))["explore"] == "done"
-    yield server
-    _stop(server)
+    with running(_repository(base / "shop", _FILES), base / "cache", explored=True) as server:
+        yield server
 
 
 @pytest.fixture
@@ -535,11 +533,8 @@ def test_a_bad_body_gets_400(chat: Studio, fakes: Fakes, body: object) -> None:
 
 def test_the_chat_waits_for_the_snapshot(tmp_path: Path, fakes: Fakes) -> None:
     fakes.install("claude")
-    server = _start(_repository(tmp_path / "shop", _FILES), tmp_path / "cache")
-    try:
+    with running(_repository(tmp_path / "shop", _FILES), tmp_path / "cache") as server:
         status, payload = ask(server, "ok")
-    finally:
-        _stop(server)
     assert (status, payload["error"]) == (503, "snapshot_not_ready")
 
 
