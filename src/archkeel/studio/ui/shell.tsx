@@ -1,31 +1,27 @@
-/** AD-290: the app shell: navigation, the legend, the contract state and the current view. */
+/** AD-290: the app shell: navigation, the legends, the contract state and the current view. */
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { StudioState } from "./api";
-import { Legend, NavItem } from "./components";
+import { Legend, NavItem, ProofLegend, View, viewHref } from "./components";
+import { Model } from "./model";
 import { startStore, useStudio } from "./store";
-import { ContractState } from "./vocabulary";
+import { ContractState, ExploreState } from "./vocabulary";
+import { ArchMap } from "./views/map";
 import { Explore } from "./views/explore";
 import { NotBuilt } from "./views/not-built";
 import { Overview } from "./views/overview";
-
-const View = {
-  Overview: "overview",
-  Explore: "explore",
-  Flows: "flows",
-  Impact: "impact",
-  Target: "target",
-} as const;
-type View = (typeof View)[keyof typeof View];
+import { Report } from "./views/report";
 
 const NAV: readonly { view: View; name: string }[] = [
   { view: View.Overview, name: "Overview" },
+  { view: View.Map, name: "Map" },
   { view: View.Explore, name: "Explore" },
+  { view: View.Report, name: "Report" },
   { view: View.Flows, name: "Flows" },
   { view: View.Impact, name: "Impact" },
   { view: View.Target, name: "Target / Diff" },
 ];
-const VIEWS = new Map(NAV.map((item) => [`#/${item.view}`, item.view]));
+const VIEWS = new Map<string, View>(NAV.map((item) => [item.view, item.view]));
 
 const CONTRACT: Record<ContractState, string> = {
   [ContractState.NOT_CONFIGURED]: "Contract: NOT CONFIGURED",
@@ -33,12 +29,41 @@ const CONTRACT: Record<ContractState, string> = {
   [ContractState.CONFIGURED]: "Contract: CONFIGURED",
 };
 
-function content(view: View, state: StudioState) {
+interface Route {
+  /** Null when the URL names no page: the shell then picks the Map, else Overview. */
+  readonly view: View | null;
+  /** The function of `#/explore/<n>`, else null. */
+  readonly symbol: number | null;
+}
+
+function readRoute(): Route {
+  const [, head, tail] = location.hash.split("/");
+  return {
+    view: VIEWS.get(head) ?? null,
+    symbol: tail !== undefined && /^\d+$/.test(tail) ? Number(tail) : null,
+  };
+}
+
+function useRoute(): Route {
+  const [route, setRoute] = useState(readRoute);
+  useEffect(() => {
+    const listener = (): void => setRoute(readRoute());
+    addEventListener("hashchange", listener);
+    return () => removeEventListener("hashchange", listener);
+  }, []);
+  return route;
+}
+
+function content(view: View, route: Route, state: StudioState, model: Model | null) {
   switch (view) {
     case View.Overview:
       return <Overview state={state} />;
+    case View.Map:
+      return <ArchMap model={model} />;
     case View.Explore:
-      return <Explore state={state} />;
+      return <Explore model={model} symbol={route.symbol} />;
+    case View.Report:
+      return <Report state={state} />;
     case View.Flows:
       return (
         <NotBuilt
@@ -58,20 +83,13 @@ function content(view: View, state: StudioState) {
   }
 }
 
-function useView(): View {
-  const read = (): View => VIEWS.get(location.hash) ?? View.Overview;
-  const [view, setView] = useState(read);
-  useEffect(() => {
-    const listener = (): void => setView(read());
-    addEventListener("hashchange", listener);
-    return () => removeEventListener("hashchange", listener);
-  }, []);
-  return view;
-}
+/** The Map and Explore fill the main area; the other pages scroll. */
+const FULL: ReadonlySet<View> = new Set([View.Map, View.Explore]);
 
 function Shell() {
-  const view = useView();
-  const { state, error } = useStudio();
+  const route = useRoute();
+  const { state, error, model } = useStudio();
+  const view = route.view ?? (state?.explore === ExploreState.DONE ? View.Map : View.Overview);
   return (
     <>
       <aside>
@@ -81,19 +99,21 @@ function Shell() {
         <p class="label">Workspace</p>
         <nav aria-label="Workspace">
           {NAV.map((item) => (
-            <NavItem key={item.view} href={`#/${item.view}`} current={item.view === view}>
+            <NavItem key={item.view} href={viewHref(item.view)} current={item.view === view}>
               {item.name}
             </NavItem>
           ))}
         </nav>
         <p class="label">Evidence model</p>
         <Legend />
+        <p class="label">Calls</p>
+        <ProofLegend />
         <p class="label">Contract</p>
         <p class="contract">{state ? CONTRACT[state.contract] : "Contract: …"}</p>
       </aside>
-      <main>
+      <main class={FULL.has(view) ? "full" : undefined}>
         {error ? <p role="alert">{error}</p> : null}
-        {state ? content(view, state) : <p>Reading the Studio state…</p>}
+        {state ? content(view, route, state, model) : <p>Reading the Studio state…</p>}
       </main>
     </>
   );

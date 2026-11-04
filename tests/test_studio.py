@@ -260,6 +260,19 @@ def test_the_graph_answers_like_the_state_until_the_snapshot_is_done(studio: Stu
     assert graph(studio, cookie) == {"api_version": API_VERSION, "explore": "idle", "graph": None}
 
 
+def test_an_unreadable_snapshot_gives_500_not_a_dropped_connection(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    (studio.workspace.folder / "architecture.json").write_text("{not json")
+
+    response, body = request(studio, "/api/v1/graph", cookie=cookie)
+
+    assert response.status == 500
+    assert body == b"the snapshot cannot be read\n"
+    # The state still answers: the failure is a fact about the graph, not about the server.
+    assert state(studio, cookie)["explore"] == "done"
+
+
 def _names(rows: list, column: int = 0) -> list:
     return [row[column] for row in rows]
 

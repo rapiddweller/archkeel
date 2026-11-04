@@ -157,7 +157,11 @@ class _Handler(BaseHTTPRequestHandler):
         if path is ApiPath.STATE:
             body = state_json(workspace.state())
         else:
-            body = graph_json(workspace.state().explore, workspace.graph())
+            try:
+                body = graph_json(workspace.state().explore, workspace.graph())
+            except (OSError, ValueError):
+                self._send(HTTPStatus.INTERNAL_SERVER_ERROR, b"the snapshot cannot be read\n")
+                return
         self._send(HTTPStatus.OK, body, "application/json")
 
     def _asset(self, asset: UiAsset) -> None:

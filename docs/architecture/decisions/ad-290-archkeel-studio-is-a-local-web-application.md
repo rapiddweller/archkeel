@@ -10,20 +10,22 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
 2. Three jobs, simple mode first: explain the as-is code with the agent; start a target with
    the agent (proposals read "PROPOSED - NOT APPLIED"); adopt the code through `init` and
    `init --adopt` (AD-266), with no second path. A marked area gets `label` and
-   `responsibilities` as an agent decision. Slice 1 builds Overview and Explore.
-3. Backend `archkeel.studio`, three components in `docs/architecture/contracts/studio.json`:
-   `api` (routes, typed state, no I/O), `workspace` (the explore child, into a private 0700
-   folder of this run below the explore cache; deleted at the end), `server` (HTTP, token).
-   The package imports no other component: the CLI injects the explore command and the
-   contract state (`archkeel.toml` loads and its contract parses). Planned: `agent` (a port for
-   `claude -p` or `codex exec`, read-only, no key) and `proposals` (the only writer). Edits
-   outside the package: `Command.STUDIO` in `ir/model.py`; the embed lines of item 8.
-4. API: `GET /api/v1/state`, pinned by `schema/studio-api-1.0.schema.json`; POST, PUT, PATCH
-   and DELETE get 405. Explore starts with the server, so slice 1 needs no write route.
-   `/files/<name>` serves the snapshot pages; `/ui/<name>` serves only the shell files.
-5. Versions: with `additionalProperties: false`, a new field is a new minor with a new schema file,
-   and a removed or renamed field is a new major. The client shows an error on an `api_version`
-   mismatch.
+   `responsibilities` as an agent decision. Slices 1 and 2a build Overview, Map, Explore and Report.
+3. Backend `archkeel.studio`, four components in `docs/architecture/contracts/studio.json`: `api`
+   (routes, typed answers, no I/O), `graph` (pure call graph; only `workspace` requires it, so
+   `server` cannot build one), `workspace` (the explore child, into a private 0700 folder of this
+   run below the explore cache; deleted at the end), `server` (HTTP, token). The package imports no
+   other component: the CLI injects the explore command, the contract state, the snapshot decoder
+   and the module owner of the contract. Planned: `agent` (a port for `claude -p` or `codex exec`,
+   read-only, no key), `proposals` (the only writer). Outside edits: `Command.STUDIO` in
+   `ir/model.py`; the embed lines of item 8.
+4. API: `GET /api/v1/state` and `GET /api/v1/graph` (call graph; components from the contract,
+   else the explore layout), pinned by `schema/studio-api-1.1.schema.json`; POST, PUT, PATCH
+   and DELETE get 405. Until the run is done, the graph answer says `graph: null`.
+   `/files/<name>` serves snapshot pages; `/ui/<name>` serves only the shell files.
+5. Versions: with `additionalProperties: false`, a new field or route is a new minor with a new
+   schema file (1.1 adds the graph; 1.0 stays), a removed or renamed field is a new major.
+   The client shows an error on an `api_version` mismatch.
 6. Security: 127.0.0.1 on a free port. A `secrets.token_urlsafe(32)` token in the start URL,
    then an HttpOnly SameSite=Strict cookie for each port. Another `Host` header or no token
    gives 403. The shell CSP allows only `'self'`; the Explorer pages allow no other origin.
@@ -34,11 +36,11 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    esbuild 0.28.2 of `tools/browser-runtime` into the committed `studio/ui/studio.js`; the
    wheel ships the bundle, not its sources, and users need no Node. `vocabulary.ts` is
    generated from the enums of `studio.api`. One small store, no Markdown. Always dark.
-8. Embed: the shell loads the unchanged Explorer page with `?embed`. The present parameter
+8. Embed (view Report): the shell loads the unchanged Explorer page with `?embed`. The parameter
    sets `data-embed` (`report-canvas.js`, kept by `flow.js`); `report-canvas.css` then hides the
-   report chrome and fixes the canvas to the frame. A selection posts `{kind:
-   "component-selected", id, label}` to the parent, same origin only. The shell copies its tokens
-   into the `--ak-*` variables of the frame. Without `?embed` the page does not change.
+   report chrome and fixes the canvas to the frame. A selection posts `{kind: "component-selected",
+   id, label}` to the parent, same origin only. The shell copies its tokens into the `--ak-*`
+   variables of the frame. Without `?embed` the page does not change.
 9. Enforced: `studio` requires nothing, so an import of `cli`, an analyzer or `check` fails
    `REQUIRES-COMPLETE`; only `workspace` imports `subprocess` and only `server` imports
    `http`. `docs/architecture/studio-ui.toml` checks the UI: only `api.ts` calls `fetch`, views
@@ -48,9 +50,7 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
     its stored URL answers with the Studio login redirect; `--stop` signals (SIGTERM) after the
     same check and waits for the URL to go. A live pid is no proof. `--idle-exit` counts requests.
 
-**Stack comparison.** A counter button, esbuild 0.28.2, 2026-11-03: Preact 10.29.8 + hooks is 13,580 B
-(5,668 B gzip). The Studio bundle is 20,227 B (8,152 B gzip). Preact 11 is 5 weeks old; 10.x is mature.
-
+**Size** (esbuild 0.28.2, gzip). Preact 10.29.8 + hooks: 5,668 B. Studio bundle: 8,152 B (slice 1), 17,509 B (2a).
 **Rejected.** React 19.3.1 (69,148 B gzip, a second scheduler), web components (hand-made state
 for each view), React Flow, a state library, an MCP server, 0.0.0.0, a fixed port, a
 server-rendered embed page. No demo-catalog row: `studio` runs until stopped.
@@ -58,9 +58,9 @@ server-rendered embed page. No demo-catalog row: `studio` runs until stopped.
 **Limits.**
 - Explore runs at each start (95 to 124 s on 1185 files); cache reuse is issue #814.
   Progress is elapsed seconds: explore reports no phase while it runs.
-- Flows says "Not built"; the next slice lists the view specs and plays the AD-289 tour.
-- Slice 2: system-map cards, the top bar, the Discussion panel, component data beyond id and
-  label. A link to a detail page leaves the embed mode.
+- Flows says "Not built"; slice 3 (#816) plays the AD-289 tour. Slice 2b: chat, Discussion panel.
+- The graph has no module-level call and keeps 4 unknown calls for each function; the lens shows
+  1 hop. A link to a detail page leaves the embed mode (Report).
 - A reused server keeps its scope. Two starts between `running_studio` and `write_state` (tens of
   ms) both run explore; `--stop` finds the last file, the other runs until `--idle-exit`.
 - Windows `--stop` skips the cleanup: the explore child and the `studio-*` folder can stay behind.

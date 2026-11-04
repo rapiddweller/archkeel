@@ -1,7 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-290: the Studio shell loads, navigates by keyboard and asks only its own server."""
+"""AD-290: the Studio shell loads, navigates by keyboard and asks only its own server.
+
+Run these tests with `-m browser`; they need the `playwright` package and Chromium.
+"""
 
 import os
 from collections.abc import Iterator
@@ -14,6 +17,7 @@ from test_studio import _start, _stop, explore, login
 
 from archkeel.cli import main
 from archkeel.cli.config import load_config
+from archkeel.studio.api import API_VERSION
 from archkeel.studio.server import Studio
 
 _LEGEND = ("Observed = code evidence", "Claim = agent hypothesis", "Target = architect decision")
@@ -32,6 +36,93 @@ def studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
     assert explore(server, login(server))["explore"] == "done"
     yield server
     _stop(server)
+
+
+def _camera(page) -> str:
+    """The transform of the pan and zoom surface; pan and zoom change it, Fit sets it."""
+    return page.locator(".stage").evaluate("(element) => element.style.transform")
+
+
+def _pan_and_fit(page) -> None:
+    """A drag of the empty surface pans, the zoom buttons zoom and Fit goes back to the fit."""
+    page.get_by_role("button", name="Fit").click()
+    fitted = _camera(page)
+    frame = page.locator(".viewport").bounding_box()
+    # The corner of the surface holds no card, plate or line.
+    start = (frame["x"] + frame["width"] - 40, frame["y"] + 60)
+    page.mouse.move(*start)
+    page.mouse.down()
+    page.mouse.move(start[0] - 120, start[1] + 40, steps=5)
+    page.mouse.up()
+    panned = _camera(page)
+    assert panned != fitted
+    page.get_by_role("button", name="Zoom in").click()
+    assert _camera(page) != panned
+    page.get_by_role("button", name="Fit").click()
+    assert _camera(page) == fitted
+
+
+def _check_the_map(page, width: int) -> None:
+    page.get_by_role("heading", name="Map", exact=True).wait_for()
+    # No contract: the top-level packages of the explore layout, and the root module apart.
+    cards = page.locator(".map-card")
+    cards.first.wait_for()
+    assert cards.count() == 4
+    for name in ("app", "cli", "store", "(unowned)"):
+        assert cards.filter(has_text=name).count() == 1, name
+    # Status is a glyph and a word, never a colour alone.
+    count = page.get_by_role("button", name="1 call from app to store, proven")
+    assert count.inner_text().strip() == "1 ✓ proven"
+    assert page.get_by_text("✓ proven = resolved call", exact=True).first.is_visible()
+    assert page.get_by_text("✎ claim = partly resolved call", exact=True).first.is_visible()
+    assert page.get_by_text("? unknown = no target found", exact=True).first.is_visible()
+    # A line shows the calls behind it in the side panel.
+    count.click()
+    details = page.get_by_role("complementary", name="Details")
+    details.get_by_text("Dependency · app to store").wait_for()
+    assert details.get_by_text("place", exact=True).is_visible()
+    assert details.get_by_text("✓ proven").first.is_visible()
+    assert page.evaluate("document.documentElement.scrollWidth") <= width
+
+
+def _check_the_lens(page, width: int, height: int) -> None:
+    cards = page.locator(".map-card", has_text="app")
+    cards.click()
+    page.wait_for_url("**/#/explore/*")
+    center = page.locator(".lens-card.center")
+    center.wait_for()
+    assert center.locator("b").inner_text() == "place"
+    # The callee `save` proves its call with a glyph and a word. A module-level call is no edge.
+    callee = page.locator("a.lens-card.proven", has_text="save")
+    assert callee.inner_text().replace("\n", " ").startswith("save")
+    assert "✓ proven" in callee.inner_text()
+    assert page.locator(".plate").count() == 2
+    place = page.get_by_role("navigation", name="Location")
+    assert place.locator("button").all_inner_texts() == ["app", "orders.py"]
+    assert place.locator("b").inner_text() == "place"
+    page.get_by_role("heading", name="Explore", exact=True).wait_for()
+    tree = page.get_by_role("navigation", name="Structure")
+    if width >= 1100:
+        # Only the current branch is open.
+        assert tree.is_visible()
+        assert tree.locator("a.tn.fn[aria-current='location']").inner_text() == "place"
+        assert tree.locator("a.tn.fn").count() == 1
+    else:
+        assert not tree.is_visible()
+        # On a narrow screen the tree is a panel above the canvas; close it to reach the controls.
+        page.get_by_role("button", name="Structure").click()
+        assert tree.is_visible()
+        page.get_by_role("button", name="Structure").click()
+        assert not tree.is_visible()
+    _pan_and_fit(page)
+    # Cmd/Ctrl+K searches by function or module and opens the lens at the pick.
+    page.keyboard.press("Control+k")
+    page.get_by_role("combobox").fill("sav")
+    page.get_by_role("option").filter(has_text="repository.py").click()
+    page.locator(".lens-card.center", has_text="save").wait_for()
+    assert page.get_by_role("navigation", name="Location").locator("b").inner_text() == "save"
+    assert page.evaluate("document.documentElement.scrollWidth") <= width
+    assert page.evaluate("document.documentElement.scrollHeight") <= height
 
 
 def _check_the_embedded_explorer(page, width: int, height: int) -> None:
@@ -98,6 +189,9 @@ def test_the_shell_navigates_and_stays_on_its_server(
         try:
             page.goto(studio.url)
             assert urlsplit(page.url).path == "/"
+            # The snapshot is done before the page opens: the Map is the first view.
+            _check_the_map(page, width)
+            page.get_by_role("link", name="Overview", exact=True).click()
             page.get_by_role("heading", name="Understand the codebase").wait_for()
             for text in (*_LEGEND, "Contract: NOT CONFIGURED", "As-Is / Observed"):
                 assert page.get_by_text(text, exact=True).is_visible(), text
@@ -106,13 +200,16 @@ def test_the_shell_navigates_and_stays_on_its_server(
             assert page.evaluate(background) == "rgb(10, 18, 24)"
             contract = page.get_by_text("Contract: NOT CONFIGURED", exact=True)
             assert contract.bounding_box()["height"] < 24, "the contract state wraps"
-            assert page.get_by_text("Open Explore").is_visible()
+            page.get_by_role("link", name="Open the Map").click()
+            _check_the_map(page, width)
+            _check_the_lens(page, width, height)
+            page.screenshot(path=tmp_path / f"lens-{width}.png")
 
-            page.get_by_role("link", name="Explore", exact=True).focus()
+            page.get_by_role("link", name="Report", exact=True).focus()
             page.keyboard.press("Enter")
-            assert urlsplit(page.url).fragment == "/explore"
+            assert urlsplit(page.url).fragment == "/report"
             _check_the_embedded_explorer(page, width, height)
-            page.screenshot(path=tmp_path / f"explore-{width}.png")
+            page.screenshot(path=tmp_path / f"report-{width}.png")
 
             for name, fragment, heading in (
                 ("Flows", "/flows", "Flows"),
@@ -137,6 +234,7 @@ def test_the_shell_navigates_and_stays_on_its_server(
     ]
     assert outside == []
     assert any(urlsplit(url).path == "/api/v1/state" for url in requests)
+    assert any(urlsplit(url).path == "/api/v1/graph" for url in requests)
     assert any(urlsplit(url).path == "/files/architecture.report.html" for url in requests)
 
 
@@ -164,7 +262,7 @@ def test_the_shell_shows_an_invalid_contract_and_refuses_another_api_version(
             other.goto(studio.url)
             alert = other.get_by_role("alert")
             alert.wait_for()
-            assert "2.0.0" in alert.inner_text() and "1.0.0" in alert.inner_text()
+            assert "2.0.0" in alert.inner_text() and API_VERSION in alert.inner_text()
         finally:
             browser.close()
             _stop(server)

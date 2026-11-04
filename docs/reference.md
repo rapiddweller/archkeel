@@ -193,9 +193,27 @@ a local web app, on 127.0.0.1 and opens it in the browser. It takes the scope op
 and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
 printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
-`archkeel explore` on the root into a private folder of this run below the explore cache; Overview shows the progress and
-Explore shows the Explorer. The read-only API `GET /api/v1/state` follows
-[studio-api-1.0](../schema/studio-api-1.0.schema.json). Studio writes nothing into the
+`archkeel explore` on the root into a private folder of this run below the explore cache.
+Overview shows the progress. When the snapshot is done, Studio opens on the Map:
+
+- **Map**: the components as a dependency graph of the measured calls. Three bands, by net call
+  flow: callers on the left, foundations on the right. A line is the sum of the calls between two
+  components; its width grows with the logarithm of the count. A dotted line is mostly partial.
+  A card shows the responsibility from the contract (`responsibilities`, the first entry), else
+  the top-level packages of the explore layout. A click on a line or a count lists the calls
+  behind it; a click on a card opens the lens at its busiest function.
+- **Explore**: the lens around one function: callers on the left, callees on the right, unknown
+  calls below, one hop. Cards of one module share a plate. A large neighborhood folds into
+  package groups. The structure tree, the location bar (component, package, module file,
+  function) and the search (Cmd/Ctrl+K) show where you are. Drag pans, the wheel zooms, Fit
+  fits.
+- **Report**: the Explorer page of `archkeel explore`.
+
+A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
+`✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no
+agent text. The read-only API (`GET /api/v1/state`, `GET /api/v1/graph`) follows
+[studio-api-1.1](../schema/studio-api-1.1.schema.json); the graph answer is `graph: null` until
+the run is done. The 1.0 file stays. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.
 
 A running server writes `studio.json` (pid, URL with token, port, root, start time) into the

@@ -1,6 +1,6 @@
 /** AD-290: Overview: the state of the snapshot and of the contract, from the API only. */
 import { StudioState } from "../api";
-import { Card, Page, Tabs } from "../components";
+import { Card, Page, Tabs, View, viewHref } from "../components";
 import { Evidence } from "../evidence";
 import { ContractState, ExploreState } from "../vocabulary";
 
@@ -9,7 +9,7 @@ function Snapshot(props: { state: StudioState }) {
   if (explore === ExploreState.DONE) {
     return (
       <p>
-        Map ready in {seconds} s. <a href="#/explore">Open Explore</a>.
+        Map ready in {seconds} s. <a href={viewHref(View.Map)}>Open the Map</a>.
       </p>
     );
   }
@@ -35,7 +35,7 @@ const CONTRACT_TEXT: Record<ContractState, string> = {
     "archkeel init --adopt adopts the code as it is.",
   [ContractState.INVALID]: "archkeel.toml does not load. archkeel validate names the reason.",
   [ContractState.CONFIGURED]:
-    "archkeel report shows the contract, the deviations and PASS or FAIL.",
+    "archkeel report shows the contract and the deviations from it.",
 };
 
 export function Overview(props: { state: StudioState }) {

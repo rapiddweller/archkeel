@@ -8,14 +8,16 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 
 | File | Owner | Job |
 |---|---|---|
-| `shell.tsx` | shell | Entry. Starts the store, routes by `#/<view>`, draws nav, legend, contract state. |
-| `views/*.tsx` | views | One page each. Gets the API state as props. |
-| `components.tsx` | components | Nav item, legend, badge, tabs, card, panel, page frame. Props only. |
+| `shell.tsx` | shell | Entry. Starts the store, routes by `#/<view>[/<function>]`, draws nav, legends, contract state. |
+| `views/*.tsx` | views | One page each: Overview, Map, Explore (the lens), Report, not built. Gets the state or the model as props. |
+| `components.tsx`, `viewport.tsx` | components | Nav item, legends, proof mark, badge, tabs, card, box, panel, page frame, pan and zoom surface. Props only. |
+| `navigation.tsx` | navigation | The structure tree, the location bar and the search field. Props only. |
+| `model.ts`, `map-layout.ts`, `lens-layout.ts` | model | The indexed call graph, the search and the layouts of the Map and the lens. Pure: no DOM, no network. |
 | `canvas.tsx` | canvas | The Explorer island: the Explorer page with `?embed`; passes on its selection. |
-| `store.ts` | store | The one store: polls `GET /api/v1/state`. |
-| `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.0.schema.json`. |
+| `store.ts` | store | The one store: polls `GET /api/v1/state`, then reads `GET /api/v1/graph` once and builds the model. |
+| `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.1.schema.json`. |
 | `vocabulary.ts` | client | Generated from the enums of `archkeel.studio.api`. Never edit it. |
-| `evidence.ts` | evidence | The evidence model. |
+| `evidence.ts` | evidence | The evidence model and the call proof (proven, claim, unknown). |
 | `tokens.css` | — | The one tokens file: colours, radius, font; dark and light. A leaf. |
 | `studio.css` | — | Layout. Uses only `var(--token)` colours. |
 | `studio.js` | — | Generated bundle. Never edit it. |
@@ -26,15 +28,22 @@ Allowed imports (observed; `validate --write-graph` updates it):
 ```mermaid
 flowchart LR
     components --> evidence
+    model --> client
+    navigation --> components
+    navigation --> model
     shell --> client
     shell --> components
+    shell --> model
     shell --> store
     shell --> views
     store --> client
+    store --> model
     views --> canvas
     views --> client
     views --> components
     views --> evidence
+    views --> model
+    views --> navigation
 ```
 
 A view never imports another view. Components never import the client or the store.
@@ -49,6 +58,13 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
 - Evidence: Observed = code evidence, Claim = agent hypothesis, Target = architect decision.
   Each kind is a CSS class of the same value. An agent text is a Claim until the architect
   accepts it. A proposal reads "PROPOSED - NOT APPLIED".
+- Call proof (`Proof`): `✓ proven` = resolved call, `✎ claim` = partly resolved call, `? unknown`
+  = no target found. Always draw the glyph and the word, never a colour alone. Never show PASS.
+  No arrow encodes data flow: a line is a dependency, and the band says who calls whom.
+- The lens target is the URL hash (`#/explore/<function index>`); a card is a link, so the
+  browser Back button works and no view imports another view. Colours come from `tokens.css`,
+  also for the components (`--comp-0` to `--comp-9`). The CSP blocks inline style attributes:
+  set styles through Preact `style` objects and CSS classes.
 
 ## Add a view
 
@@ -58,6 +74,8 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
 4. Add a `View` value and a `NAV` row in `shell.tsx`.
 5. Run `make browser-runtime-generate browser-architecture-check`.
 6. Add the view to `tests/test_studio_browser.py`.
+7. A name that the TypeScript analyzer cannot read breaks `make browser-architecture-check`: do not
+   index a variable named `module`, and do not label a tuple element `symbol`.
 
 ## Floors
 
