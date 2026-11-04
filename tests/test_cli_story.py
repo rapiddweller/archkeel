@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -608,6 +609,57 @@ def test_story_checker_cache_is_cleared_for_a_new_snapshot_run(
     clear()
     check(spec, snapshot)
     assert loaded == [snapshot, snapshot]
+
+
+def test_a_session_built_during_invalidation_is_not_cached_for_the_next_run(
+    shop: Observation, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from archkeel.studio.stories import CheckResult
+
+    stale = shop
+    fresh = replace(shop, producer=shop.analyzer)
+    loaded: list[Observation] = []
+    build_started = threading.Event()
+    release_build = threading.Event()
+
+    def read(_: Path) -> Observation:
+        observation = stale if not loaded else fresh
+        loaded.append(observation)
+        return observation
+
+    class BlockingSession:
+        def __init__(self, observation: Observation) -> None:
+            self.observation = observation
+            if observation is stale:
+                build_started.set()
+                assert release_build.wait(timeout=5)
+
+    def result_for_session(spec: bytes, snapshot: Path, *, session: BlockingSession):
+        return CheckResult({"observation": id(session.observation)}, False)
+
+    monkeypatch.setattr(cli, "read_saved_snapshot", read)
+    monkeypatch.setattr(cli, "ViewCheckSession", BlockingSession)
+    monkeypatch.setattr(cli, "_check_story", result_for_session)
+    snapshot = tmp_path / "architecture.json"
+    spec = b"{}"
+    check, clear = cli._story_checker()
+    old_result: list[CheckResult] = []
+    request = threading.Thread(target=lambda: old_result.append(check(spec, snapshot)))
+    request.start()
+    assert build_started.wait(timeout=5)
+
+    try:
+        clear()  # Workspace.start() invalidates the previous run here.
+        fresh_result = check(spec, snapshot)
+    finally:
+        release_build.set()
+        request.join(timeout=5)
+
+    assert not request.is_alive()
+    assert old_result[0].result["observation"] == id(stale)
+    assert fresh_result.result["observation"] == id(fresh)
+    assert check(spec, snapshot).result["observation"] == id(fresh)
+    assert loaded == [stale, fresh]
 
 
 def test_a_path_through_a_partial_call_is_a_claim_with_a_seam(shop: Observation) -> None:

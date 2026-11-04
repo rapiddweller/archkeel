@@ -12,6 +12,7 @@ import re
 import signal
 import sys
 import tempfile
+import threading
 import webbrowser
 from collections.abc import Callable, Sequence
 from contextlib import redirect_stdout
@@ -249,18 +250,33 @@ def _story_checker() -> tuple[CheckStory, Callable[[], None]]:
     """Reuse a Workspace snapshot session; Workspace clears it before every new run."""
     cached_snapshot: Path | None = None
     cached_session: ViewCheckSession | None = None
+    generation = 0
+    cache_lock = threading.Lock()
 
     def check(spec: bytes, snapshot: Path) -> CheckResult:
         nonlocal cached_snapshot, cached_session
-        if cached_snapshot != snapshot or cached_session is None:
-            cached_snapshot = snapshot
-            cached_session = ViewCheckSession(read_saved_snapshot(snapshot))
-        return _check_story(spec, snapshot, session=cached_session)
+        with cache_lock:
+            requested_generation = generation
+            session = cached_session if cached_snapshot == snapshot else None
+        if session is None:
+            built_session = ViewCheckSession(read_saved_snapshot(snapshot))
+            with cache_lock:
+                if generation == requested_generation:
+                    if cached_snapshot != snapshot or cached_session is None:
+                        cached_snapshot = snapshot
+                        cached_session = built_session
+                    session = cached_session
+                else:
+                    # The Workspace invalidated this build while the snapshot was loading.
+                    session = built_session
+        return _check_story(spec, snapshot, session=session)
 
     def clear() -> None:
-        nonlocal cached_snapshot, cached_session
-        cached_snapshot = None
-        cached_session = None
+        nonlocal cached_snapshot, cached_session, generation
+        with cache_lock:
+            generation += 1
+            cached_snapshot = None
+            cached_session = None
 
     return check, clear
 
