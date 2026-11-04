@@ -95,6 +95,12 @@ def _validator(answer: str) -> Draft202012Validator:
     return Draft202012Validator({"$ref": f"#/$defs/{answer}", "$defs": _SCHEMA["$defs"]})
 
 
+def validate(payload: object, name: str) -> None:
+    """Check a JSON body against one definition of the API schema."""
+    schema = {"$schema": _SCHEMA["$schema"], "$defs": _SCHEMA["$defs"], "$ref": f"#/$defs/{name}"}
+    Draft202012Validator(schema).validate(payload)
+
+
 def state(server: Studio, cookie: str) -> dict:
     response, body = request(server, "/api/v1/state", cookie=cookie)
     assert response.status == 200
@@ -125,6 +131,10 @@ def explore(server: Studio, cookie: str) -> dict:
 
 def test_the_schema_has_the_version_of_the_server() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
+    assert {
+        _SCHEMA["$defs"][name]["properties"]["api_version"]["const"]
+        for name in ("state", "chat_response", "chat_error")
+    } == {API_VERSION}
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 

@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
+from .answer import Snapshot
 from .api import ContractState, Declare, Decode, ExploreState, Graph, StudioState
 from .graph import build_graph
 from .stories import Stories
@@ -58,6 +59,7 @@ class Workspace:
         self._declare = declare
         self._decode = decode
         self.stories = stories
+        self._snapshot: Snapshot | None = None
         self._lock = threading.Lock()
         # A build takes seconds on a large repository; it must not hold up the state polls.
         self._graph_lock = threading.Lock()
@@ -122,6 +124,15 @@ class Workspace:
         if not name or target.resolve().parent != self.folder or not target.is_file():
             return None
         return target
+
+    def snapshot(self) -> Snapshot | None:
+        """The index of the snapshot once explore is done, else None; built at the first call."""
+        with self._lock:
+            done = self._run.explore is ExploreState.DONE
+        if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None and done:
+            # `decode` is the canonical reader of the CLI: the format has one reader (AD-292).
+            self._snapshot = Snapshot(self._decode(path.read_bytes()))
+        return self._snapshot
 
     def close(self) -> None:
         """Stop the explore child within a bound and delete the folder of this run."""

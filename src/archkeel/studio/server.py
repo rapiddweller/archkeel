@@ -17,14 +17,22 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from .agent import Agent, build_prompt
 from .api import (
     ApiPath,
+    ChatAnswer,
+    ChatError,
+    ChatFailure,
     ExploreState,
+    MediaType,
     Route,
     UiAsset,
+    chat_json,
     draft_json,
+    failure_json,
     graph_json,
     member,
+    parse_chat_request,
     state_json,
     stories_json,
     story_json,
@@ -34,6 +42,24 @@ from .workspace import Workspace
 _UI = Path(__file__).parent / "ui"
 _LOOPBACK = "127.0.0.1"
 _PROBE_SECONDS = 2
+_BODY_LIMIT = 16 * 1024
+_SOCKET_SECONDS = 30
+# A request header that a page of another origin cannot send without a CORS preflight.
+_CHAT_HEADER = "X-Archkeel-Studio"
+_STATUS = {
+    ChatError.INVALID_REQUEST: HTTPStatus.BAD_REQUEST,
+    ChatError.UNSUPPORTED_MEDIA_TYPE: HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+    ChatError.LENGTH_REQUIRED: HTTPStatus.LENGTH_REQUIRED,
+    ChatError.BODY_TOO_LARGE: HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+    ChatError.SNAPSHOT_NOT_READY: HTTPStatus.SERVICE_UNAVAILABLE,
+    ChatError.BUSY: HTTPStatus.CONFLICT,
+    ChatError.AGENT_NOT_INSTALLED: HTTPStatus.SERVICE_UNAVAILABLE,
+    ChatError.AGENT_FAILED: HTTPStatus.BAD_GATEWAY,
+    ChatError.AGENT_TIMEOUT: HTTPStatus.GATEWAY_TIMEOUT,
+    ChatError.OUTPUT_TOO_LARGE: HTTPStatus.BAD_GATEWAY,
+    ChatError.REPOSITORY_CHANGED: HTTPStatus.BAD_GATEWAY,
+    ChatError.INVALID_ANSWER: HTTPStatus.BAD_GATEWAY,
+}
 # The shell loads only its own files and asks only its own server.
 _SHELL_CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -56,13 +82,23 @@ class _Idle(Exception):
     """No request arrived within the idle time."""
 
 
+def _route(path: str) -> tuple[Route | None, str, ApiPath | None]:
+    """The route, the rest of the path and, below `/api/`, its resource; None if unknown."""
+    head, _, name = path[1:].partition("/")
+    route = member(Route, head)
+    return route, name, member(ApiPath, name) if route is Route.API else None
+
+
 class Studio(ThreadingHTTPServer):
-    """One workspace and one token; the server itself writes no file."""
+    """One workspace, one agent and one token; the server itself writes no file."""
 
     daemon_threads = True
 
-    def __init__(self, workspace: Workspace, idle_seconds: float = 0.0) -> None:
+    def __init__(
+        self, workspace: Workspace, idle_seconds: float = 0.0, agent: Agent | None = None
+    ) -> None:
         self.workspace = workspace
+        self.agent = agent or Agent(workspace.root)
         self.token = secrets.token_urlsafe(32)
         self.idle_seconds = idle_seconds
         self.last_request = time.monotonic()
@@ -74,11 +110,14 @@ class Studio(ThreadingHTTPServer):
 
     def service_actions(self) -> None:
         """Called by `serve_forever` after each poll: end the loop when no request came."""
-        if self.idle_seconds > 0 and time.monotonic() - self.last_request > self.idle_seconds:
+        quiet = time.monotonic() - self.last_request > self.idle_seconds
+        if self.idle_seconds > 0 and quiet and not self.agent.busy:
             raise _Idle
 
 
 class _Handler(BaseHTTPRequestHandler):
+    timeout = _SOCKET_SECONDS
+
     def __init__(
         self,
         studio: Studio,
@@ -147,12 +186,13 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         url = urlsplit(self.path)
-        head, _, name = url.path[1:].partition("/")
-        route = member(Route, head)
+        route, name, resource = _route(url.path)
         if self._refused(route, url.query):
             return
         if route is Route.SHELL and not name:
             self._asset(UiAsset.INDEX)
+        elif resource is ApiPath.CHAT:
+            self._not_allowed()
         elif route is Route.API:
             self._api(name, url.query)
         elif route is Route.UI and (asset := member(UiAsset, name)) is not None:
@@ -214,14 +254,65 @@ class _Handler(BaseHTTPRequestHandler):
         kind = mimetypes.guess_type(asset.value)[0] or "application/octet-stream"
         self._send(HTTPStatus.OK, (_UI / asset.value).read_bytes(), f"{kind}; charset=utf-8")
 
-    def _read_only(self) -> None:
+    def _not_allowed(self) -> None:
+        allowed = "POST" if _route(urlsplit(self.path).path)[2] is ApiPath.CHAT else "GET"
         self._send(
             HTTPStatus.METHOD_NOT_ALLOWED,
-            b"the Studio API is read-only\n",
-            headers=(("Allow", "GET"),),
+            b"method not allowed\n",
+            headers=(("Allow", allowed),),
         )
 
-    do_POST = do_PUT = do_DELETE = do_PATCH = _read_only
+    do_PUT = do_DELETE = do_PATCH = _not_allowed
+
+    def do_POST(self) -> None:
+        url = urlsplit(self.path)
+        route, _, resource = _route(url.path)
+        if self._refused(route, url.query):
+            return
+        if resource is ApiPath.CHAT:
+            self._chat()
+        else:
+            self._not_allowed()
+
+    def _chat(self) -> None:
+        """AD-292: Host and token are checked; check the origin and the header, then answer."""
+        self.studio.last_request = time.monotonic()
+        if (
+            self.headers.get("Origin") != f"http://{self.studio.host}"
+            or self.headers.get(_CHAT_HEADER) is None
+        ):
+            self._send(HTTPStatus.FORBIDDEN, b"forbidden\n")
+            return
+        try:
+            self._send(HTTPStatus.OK, chat_json(self._answer()), "application/json")
+        except ChatFailure as failure:
+            self._send(_STATUS[failure.error], failure_json(failure), "application/json")
+
+    def _body(self) -> bytes:
+        if member(MediaType, self.headers.get_content_type()) is None:
+            raise ChatFailure(
+                ChatError.UNSUPPORTED_MEDIA_TYPE, "Content-Type must be application/json."
+            )
+        length = self.headers.get("Content-Length", "")
+        if not length.isdigit():
+            raise ChatFailure(ChatError.LENGTH_REQUIRED, "Content-Length is required.")
+        if int(length) > _BODY_LIMIT:
+            raise ChatFailure(
+                ChatError.BODY_TOO_LARGE, f"The body must have at most {_BODY_LIMIT} bytes."
+            )
+        return self.rfile.read(int(length))
+
+    def _answer(self) -> ChatAnswer:
+        request = parse_chat_request(self._body())
+        snapshot = self.studio.workspace.snapshot()
+        if snapshot is None:
+            raise ChatFailure(ChatError.SNAPSHOT_NOT_READY, "Explore has not finished.")
+        context = request.context
+        if context is not None and not snapshot.has(context):
+            raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
+        neighborhood = snapshot.neighborhood(context) if context is not None else ""
+        reply = self.studio.agent.ask(build_prompt(request, neighborhood))
+        return snapshot.check(reply.text, reply.kind)
 
 
 def is_studio(url: str) -> bool:
@@ -246,13 +337,17 @@ def is_studio(url: str) -> bool:
 
 
 def run_studio(
-    workspace: Workspace, *, ready: Callable[[str], object], idle_seconds: float = 0.0
+    workspace: Workspace,
+    *,
+    ready: Callable[[str], object],
+    idle_seconds: float = 0.0,
+    agent: Agent | None = None,
 ) -> int:
     """Make the snapshot and serve until Ctrl-C or `idle_seconds` without a request (0 = never).
 
     `ready` gets the start URL with the token.
     """
-    server = Studio(workspace, idle_seconds)
+    server = Studio(workspace, idle_seconds, agent)
     try:
         workspace.start()
         # The caller has written its state file before the URL appears: a reader can stop us.
@@ -263,5 +358,6 @@ def run_studio(
         print("ArchKeel Studio: stopped.")
     finally:
         server.server_close()
+        server.agent.close()
         workspace.close()
     return 0

@@ -290,12 +290,15 @@
         {
           "component": "studio",
           "through": [
+            "archkeel.studio.agent:Agent",
+            "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ContractState",
             "archkeel.studio.server:is_studio",
             "archkeel.studio.server:run_studio",
+            "archkeel.studio.stories:Stories",
             "archkeel.studio.workspace:Workspace"
           ],
-          "rationale": "Wire the Studio workspace to the explore command, the cache folder and the contract state, then serve it (AD-290)."
+          "rationale": "Wire the Studio workspace to the explore command, the cache folder, the contract state and the canonical snapshot reader, then serve it with the agent of the owner (AD-290, AD-292)."
         }
       ],
       "responsibilities": [
@@ -324,20 +327,24 @@
       "namespace": "archkeel.studio",
       "requires": [],
       "public": [
+        "archkeel.studio.agent:Agent",
+        "archkeel.studio.api:AgentKind",
         "archkeel.studio.api:ContractState",
         "archkeel.studio.server:is_studio",
         "archkeel.studio.server:run_studio",
+        "archkeel.studio.stories:Stories",
         "archkeel.studio.workspace:Workspace"
       ],
       "responsibilities": [
-        "Serve the local Studio app: the shell, a read-only versioned API and the explore snapshot, on 127.0.0.1 behind a per-run token."
+        "Serve the local Studio app: the shell, a versioned API, the explore snapshot and a read-only chat with the agent of the owner, on 127.0.0.1 behind a per-run token."
       ],
       "forbidden_responsibilities": [
         "Importing the CLI, analyzers or checks: the composition root injects the explore command and the contract state.",
         "Writing into the repository or a contract outside the amendment path of the architect."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "architect",
       "layer": "Edge",

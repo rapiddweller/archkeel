@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-290: the routes and the typed answers of the Studio API; `schema/studio-api-1.1` pins them."""
+"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.1`)."""
 
 import json
 from collections.abc import Callable, Mapping, Sequence
@@ -10,6 +10,8 @@ from enum import StrEnum
 from typing import Final, NamedTuple, TypeAlias, TypeVar
 
 API_VERSION: Final = "1.1.0"
+QUESTION_LIMIT: Final = 2000
+CONTEXT_LIMIT: Final = 300
 
 # The JSON shape of the decoded explore snapshot; the composition root injects the decoder.
 Json: TypeAlias = str | int | float | bool | None | Sequence["Json"] | Mapping[str, "Json"]
@@ -42,12 +44,50 @@ class Route(StrEnum):
 
 
 class ApiPath(StrEnum):
-    """The path below `/api/`: one read-only resource for each version."""
+    """The path below `/api/`: the state is read-only; the chat takes a question by POST."""
 
     STATE = "v1/state"
     GRAPH = "v1/graph"
     STORIES = "v1/stories"  # also `v1/stories/<id>`: the checked result of one story
     DRAFT = "v1/draft"  # `?from=<qualified name>`: a draft spec; nothing is written
+    CHAT = "v1/chat"
+
+
+class MediaType(StrEnum):
+    """The one body type that the chat route accepts."""
+
+    JSON = "application/json"
+
+
+class AgentKind(StrEnum):
+    """The coding agents that can answer, in the default order of trial."""
+
+    CLAUDE = "claude"
+    CODEX = "codex"
+
+
+class ChatBlockKind(StrEnum):
+    """What an agent block is: a statement about the code, or a change it suggests."""
+
+    CLAIM = "claim"
+    PROPOSAL = "proposal"
+
+
+class ChatError(StrEnum):
+    """Why the chat route gave no answer; the server maps each one to an HTTP status."""
+
+    INVALID_REQUEST = "invalid_request"
+    UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"
+    LENGTH_REQUIRED = "length_required"
+    BODY_TOO_LARGE = "body_too_large"
+    SNAPSHOT_NOT_READY = "snapshot_not_ready"
+    BUSY = "busy"
+    AGENT_NOT_INSTALLED = "agent_not_installed"
+    AGENT_FAILED = "agent_failed"
+    AGENT_TIMEOUT = "agent_timeout"
+    OUTPUT_TOO_LARGE = "output_too_large"
+    REPOSITORY_CHANGED = "repository_changed"
+    INVALID_ANSWER = "invalid_answer"
 
 
 class UiAsset(StrEnum):
@@ -221,3 +261,81 @@ def story_json(story_id: str, checked: Mapping[str, Json]) -> bytes:
 def draft_json(spec: Mapping[str, Json]) -> bytes:
     """`GET /api/v1/draft?from=NAME`: a spec 1.2 with the traced path and no text; not written."""
     return json.dumps({"api_version": API_VERSION, "spec": spec}, sort_keys=True).encode()
+
+
+class ChatFailure(Exception):
+    """A chat request that gets no answer."""
+
+    def __init__(self, error: ChatError, detail: str) -> None:
+        super().__init__(detail)
+        self.error = error
+        self.detail = detail
+
+
+@dataclass(frozen=True)
+class ChatRequest:
+    """`POST /api/v1/chat`; `context` is the qualified name of the selected node."""
+
+    question: str
+    context: str | None = None
+
+
+@dataclass(frozen=True)
+class Fact:
+    """OBSERVED: what Studio counts in the snapshot for one symbol; never agent text."""
+
+    qualified_name: str
+    file: str
+    line: int
+    resolved_callers: int
+    resolved_callees: int
+    unknown_calls: int
+
+
+@dataclass(frozen=True)
+class ChatBlock:
+    """One block of agent text. `label` is set by Studio, never by the agent."""
+
+    kind: ChatBlockKind
+    text: str
+    refs: tuple[str, ...]
+    label: str | None = None
+
+
+@dataclass(frozen=True)
+class ChatAnswer:
+    """`facts` hold one record for each valid ref; `dropped_refs` the refs the snapshot lacks."""
+
+    agent: AgentKind
+    blocks: tuple[ChatBlock, ...]
+    facts: tuple[Fact, ...]
+    dropped_refs: tuple[str, ...]
+
+
+def parse_chat_request(raw: bytes) -> ChatRequest:
+    """The request body, or a 400 that names the first break."""
+    try:
+        body = json.loads(raw)
+    except ValueError as error:
+        raise ChatFailure(ChatError.INVALID_REQUEST, f"The body is not JSON: {error}") from error
+    if not isinstance(body, dict) or not body.keys() <= {"question", "context"}:
+        raise ChatFailure(
+            ChatError.INVALID_REQUEST, 'The body must be {"question": text, "context": name}.'
+        )
+    question, context = body.get("question"), body.get("context")
+    if not isinstance(question, str) or not 0 < len(question) <= QUESTION_LIMIT:
+        raise ChatFailure(
+            ChatError.INVALID_REQUEST, f"question must be text of 1 to {QUESTION_LIMIT} characters."
+        )
+    if context is not None and (not isinstance(context, str) or len(context) > CONTEXT_LIMIT):
+        raise ChatFailure(ChatError.INVALID_REQUEST, "context must be a qualified name or null.")
+    return ChatRequest(question, context)
+
+
+def chat_json(answer: ChatAnswer) -> bytes:
+    return json.dumps({"api_version": API_VERSION, "applied": False, **asdict(answer)}).encode()
+
+
+def failure_json(failure: ChatFailure) -> bytes:
+    body = {"api_version": API_VERSION, "error": failure.error, "detail": failure.detail}
+    return json.dumps(body).encode()

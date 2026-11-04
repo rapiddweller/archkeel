@@ -16,11 +16,10 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    `server` cannot build one), `workspace` (the explore child, into a private 0700 folder of this
    run below the explore cache; deleted at the end), `server` (HTTP, token). The package imports no
    other component: the CLI injects the explore command, the contract state, the snapshot decoder
-   and the module owner of the contract. Planned: `agent` (a port for `claude -p` or `codex exec`,
-   read-only, no key), `proposals` (the only writer). Outside edits: `Command.STUDIO` in
+   and the module owner of the contract. AD-292 adds `agent` (read-only, no key). Planned: `proposals` (the only writer). Outside edits: `Command.STUDIO` in
    `ir/model.py`; the embed lines of item 8.
 4. API: `GET /api/v1/state` and `GET /api/v1/graph` (call graph; `components_from`: contract or
-   explore layout), pinned by `schema/studio-api-1.1.schema.json`; POST, PUT, PATCH, DELETE get 405.
+   explore layout), pinned by `schema/studio-api-1.1.schema.json`; `POST /api/v1/chat` (AD-292) is the only POST; PUT, PATCH, DELETE and any other POST get 405.
    The graph says `graph: null` until the run is done. `/files/<name>` serves snapshot pages,
    `/ui/<name>` the shell files.
 5. Versions: with `additionalProperties: false`, a new field or route is a new minor with a new

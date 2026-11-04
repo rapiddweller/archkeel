@@ -188,7 +188,7 @@ the contract is valid, and no rule was checked.
 
 ## Studio
 
-`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES]` serves ArchKeel Studio,
+`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES] [--agent claude|codex]` serves ArchKeel Studio,
 a local web app, on 127.0.0.1 and opens it in the browser. It takes the scope options of `explore`
 and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
@@ -218,10 +218,25 @@ Overview shows the progress. When the snapshot is done, Studio opens on the Map:
 
 A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
 `✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no
-agent text. The read-only API (`GET /api/v1/state`, `GET /api/v1/graph`) follows
+agent text. The API (`GET /api/v1/state`, `GET /api/v1/graph`, the stories routes and `POST /api/v1/chat`) follows
 [studio-api-1.1](../schema/studio-api-1.1.schema.json); the graph answer is `graph: null` until
 the run is done. The 1.0 file stays. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.
+
+The chat route ([AD-292](architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md))
+lets your own `claude` or `codex` answer a question about a selected function. Studio starts it as
+one child process in the root, on your own sign-in, with read-only tools: `claude -p` with `Read`,
+`Grep` and `Glob`, or `codex exec --sandbox read-only`. `--agent` names the one to try first;
+the default order is claude, then codex. Studio passes no API key.
+- Request: `{"question": "...", "context": "<qualified name>"}` (JSON, at most 16 KiB; `context`
+  is optional). The header `X-Archkeel-Studio` must be present and `Origin` must be the server.
+- Answer: `blocks` of agent text (`claim` or `proposal`), `facts` that Studio computes from the
+  snapshot (file, line, resolved callers and callees, unknown calls) and `dropped_refs`. Only
+  Studio makes a fact; agent text is never OBSERVED. A proposal reads `PROPOSED - NOT APPLIED`.
+  Nothing applies it.
+- Limits: one question at a time (409), 180 s, 128 KiB of output. Studio compares
+  `git status` of the root before and after the run. If a file changed, it discards the answer
+  (502 `repository_changed`). Errors are `{"api_version", "error", "detail"}`.
 
 A running server writes `studio.json` (pid, URL with token, port, root, start time) into the
 explore cache folder of the root, with mode 0600. It removes the file when it stops.

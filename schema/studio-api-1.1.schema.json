@@ -1,33 +1,74 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:studio-api:1.1.0",
-  "title": "ArchKeel Studio API 1.1: GET /api/v1/state and GET /api/v1/graph",
-  "description": "AD-290. The two answers of one Studio server. The API is read-only. Version 1.1 adds the graph; the state is the one of 1.0 with the new version.",
-  "oneOf": [{"$ref": "#/$defs/state"}, {"$ref": "#/$defs/graph"}],
+  "title": "ArchKeel Studio API 1.1: state, graph, stories, draft and chat",
+  "description": "AD-290, AD-291, AD-292. Each definition pins one JSON body. Version 1.1 adds the graph, the stories routes and the chat. The chat route never writes: a proposal is not applied. No route writes.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/state"
+    },
+    {
+      "$ref": "#/$defs/graph"
+    }
+  ],
   "$defs": {
     "explore": {
       "description": "The explore run that makes the snapshot in the cache folder.",
-      "enum": ["idle", "running", "done", "failed"]
+      "enum": [
+        "idle",
+        "running",
+        "done",
+        "failed"
+      ]
     },
     "state": {
       "title": "GET /api/v1/state",
       "type": "object",
       "additionalProperties": false,
-      "required": ["api_version", "root_name", "contract", "explore", "seconds", "exit_code", "notes"],
+      "required": [
+        "api_version",
+        "root_name",
+        "contract",
+        "explore",
+        "seconds",
+        "exit_code",
+        "notes"
+      ],
       "properties": {
-        "api_version": {"const": "1.1.0"},
-        "root_name": {"type": "string", "minLength": 1},
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "root_name": {
+          "type": "string",
+          "minLength": 1
+        },
         "contract": {
           "description": "What archkeel.toml at the root gives: no file, a file that does not load, or a loaded file.",
-          "enum": ["not_configured", "invalid", "configured"]
+          "enum": [
+            "not_configured",
+            "invalid",
+            "configured"
+          ]
         },
-        "explore": {"$ref": "#/$defs/explore"},
-        "seconds": {"type": "integer", "minimum": 0},
-        "exit_code": {"type": ["integer", "null"]},
+        "explore": {
+          "$ref": "#/$defs/explore"
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "notes": {
           "description": "The diagnostics of a failed run; else empty.",
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -36,28 +77,56 @@
       "description": "The measured call graph of the snapshot. `graph` is null until `explore` is done. Every row is an array; a number that names a row of another list is its index.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["api_version", "explore", "graph"],
+      "required": [
+        "api_version",
+        "explore",
+        "graph"
+      ],
       "properties": {
-        "api_version": {"const": "1.1.0"},
-        "explore": {"$ref": "#/$defs/explore"},
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "explore": {
+          "$ref": "#/$defs/explore"
+        },
         "graph": {
           "oneOf": [
-            {"type": "null"},
+            {
+              "type": "null"
+            },
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["components_from", "components", "modules", "symbols", "edges", "unknown"],
+              "required": [
+                "components_from",
+                "components",
+                "modules",
+                "symbols",
+                "edges",
+                "unknown"
+              ],
               "properties": {
                 "components_from": {
                   "description": "Where the components come from: the contract at the root, or the top-level packages of the explore layout. A contract that does not load gives the layout.",
-                  "enum": ["contract", "layout"]
+                  "enum": [
+                    "contract",
+                    "layout"
+                  ]
                 },
                 "components": {
                   "description": "[id, responsibility]. The id is a label of the contract, else a top-level package of the explore layout, else \"(unowned)\". The responsibility is the first one of the contract; else empty.",
                   "type": "array",
                   "items": {
                     "type": "array",
-                    "prefixItems": [{"type": "string", "minLength": 1}, {"type": "string"}],
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
                     "items": false,
                     "minItems": 2
                   }
@@ -68,10 +137,21 @@
                   "items": {
                     "type": "array",
                     "prefixItems": [
-                      {"type": "string", "minLength": 1},
-                      {"type": "string"},
-                      {"type": "integer", "minimum": 0},
-                      {"type": "string", "minLength": 1}
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     ],
                     "items": false,
                     "minItems": 4
@@ -83,13 +163,37 @@
                   "items": {
                     "type": "array",
                     "prefixItems": [
-                      {"type": "integer", "minimum": 0},
-                      {"type": "string", "minLength": 1},
-                      {"type": "integer", "minimum": 0},
-                      {"enum": ["function", "method", "class"]},
-                      {"type": "string", "maxLength": 80},
-                      {"type": "integer", "minimum": 0},
-                      {"type": "integer", "minimum": 0}
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "enum": [
+                          "function",
+                          "method",
+                          "class"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
                     ],
                     "items": false,
                     "minItems": 7
@@ -101,11 +205,25 @@
                   "items": {
                     "type": "array",
                     "prefixItems": [
-                      {"type": "integer", "minimum": 0},
-                      {"type": "integer", "minimum": 0},
-                      {"type": "boolean"},
-                      {"type": "integer", "minimum": 0},
-                      {"type": "integer", "minimum": 0}
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
                     ],
                     "items": false,
                     "minItems": 5
@@ -117,10 +235,22 @@
                   "items": {
                     "type": "array",
                     "prefixItems": [
-                      {"type": "integer", "minimum": 0},
-                      {"type": "string", "maxLength": 60},
-                      {"type": "string", "maxLength": 60},
-                      {"type": "integer", "minimum": 0}
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
                     ],
                     "items": false,
                     "minItems": 4
@@ -129,6 +259,259 @@
               }
             }
           ]
+        }
+      }
+    },
+    "chat_request": {
+      "description": "POST /api/v1/chat: Content-Type application/json, header X-Archkeel-Studio, Origin of the server. At most 16 KiB.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "context": {
+          "description": "The selected node: the qualified name of a symbol of the snapshot.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        }
+      }
+    },
+    "chat_response": {
+      "description": "200. Blocks are agent text, so claims. Facts are computed by Studio from the snapshot.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "agent",
+        "blocks",
+        "facts",
+        "dropped_refs",
+        "applied"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "agent": {
+          "description": "The agent that answered.",
+          "enum": [
+            "claude",
+            "codex"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "text",
+              "refs",
+              "label"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "claim",
+                  "proposal"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "refs": {
+                "description": "Only refs that exist in the snapshot.",
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "label": {
+                "description": "PROPOSED - NOT APPLIED for a proposal; else null.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "facts": {
+          "description": "OBSERVED: one record for each valid ref, in the order of first use.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "qualified_name",
+              "file",
+              "line",
+              "resolved_callers",
+              "resolved_callees",
+              "unknown_calls"
+            ],
+            "properties": {
+              "qualified_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "file": {
+                "description": "Empty when the snapshot holds no place.",
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resolved_callers": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resolved_callees": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown_calls": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "dropped_refs": {
+          "description": "Refs of the agent that the snapshot does not hold.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "applied": {
+          "description": "A proposal is never applied.",
+          "const": false
+        }
+      }
+    },
+    "chat_error": {
+      "description": "400, 409, 411, 413, 415, 502, 503, 504 of the chat route. A failed Origin, header or token check gets 403 with a text body.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "error",
+        "detail"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "error": {
+          "enum": [
+            "invalid_request",
+            "unsupported_media_type",
+            "length_required",
+            "body_too_large",
+            "snapshot_not_ready",
+            "busy",
+            "agent_not_installed",
+            "agent_failed",
+            "agent_timeout",
+            "output_too_large",
+            "repository_changed",
+            "invalid_answer"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    },
+    "stories": {
+      "description": "GET /api/v1/stories: the story specs in the stories folder of the root.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "stories"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "stories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "steps"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "story": {
+      "description": "GET /api/v1/stories/<id>: the result of archkeel view check; its shape is schema/view-check.schema.json.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "id",
+        "checked"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "id": {
+          "type": "string"
+        },
+        "checked": {
+          "type": "object"
+        }
+      }
+    },
+    "draft": {
+      "description": "GET /api/v1/draft?from=NAME: a spec 1.2 along the traced path, with no text. Nothing is written; its shape is schema/view-spec.schema.json.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "spec"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.1.0"
+        },
+        "spec": {
+          "type": "object"
         }
       }
     }
