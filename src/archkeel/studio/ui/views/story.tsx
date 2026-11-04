@@ -335,8 +335,13 @@ export function Stories(props: { id: string | null; ready: boolean }) {
     setError(null);
     setChecked(null);
     if (!props.ready) return;
-    const read = id === null ? readStories().then(setRows) : readStory(id).then(setChecked);
-    read.catch((failed) => setError(String(failed instanceof Error ? failed.message : failed)));
+    // The shell reuses this component across routes: an answer for a route that was left is dropped.
+    let current = true;
+    const read = id === null ? readStories().then((found) => current && setRows(found)) : readStory(id).then((found) => current && setChecked(found));
+    read.catch((failed) => current && setError(String(failed instanceof Error ? failed.message : failed)));
+    return () => {
+      current = false;
+    };
   }, [id, props.ready]);
   if (!props.ready) {
     return (

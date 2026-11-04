@@ -1565,3 +1565,44 @@ def test_a_function_that_the_snapshot_lacks_falls_back_to_the_start_in_title_and
         center = page.locator(".lens-card.center b")
         center.wait_for()
         assert _words(page.locator(".titlebar")).endswith(_words(center))
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize("late", ["story", "failure", "list-failure"])
+def test_a_late_answer_of_another_route_never_replaces_the_story_on_screen(
+    studio: Studio, late: str
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    held: list = []
+    other = _checked()
+    other["story"]["title"] = "Story A"
+    mine = _checked()
+    mine["story"]["title"] = "Story B"
+    start = "#/stories" if late == "list-failure" else "#/stories/story-a"
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.set_default_timeout(10000)
+            # The first route waits: the test answers it after the reader has moved on.
+            page.route("**/api/v1/stories", lambda route: held.append(route))
+            page.route("**/api/v1/stories/story-a", lambda route: held.append(route))
+            page.route(
+                "**/api/v1/stories/story-b",
+                lambda route: route.fulfill(json=_answer(mine, id="story-b")),
+            )
+            page.goto(studio.url + start)
+            while not held:
+                page.wait_for_timeout(50)
+            page.evaluate("location.hash = '#/stories/story-b'")
+            page.get_by_role("heading", name="Story B").wait_for()
+            if late == "story":
+                held[0].fulfill(json=_answer(other, id="story-a"))
+            else:
+                held[0].fulfill(status=500, body="the check of this story failed")
+            page.wait_for_timeout(500)
+            assert page.get_by_role("heading", name="Story B").is_visible()
+            assert page.get_by_role("heading", name="Story A").count() == 0
+            assert page.get_by_role("alert").count() == 0
+        finally:
+            browser.close()
