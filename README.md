@@ -12,7 +12,7 @@
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [Live demo](https://rapiddweller.github.io/archkeel/demos/) · [FAQ](#faq)
 
 <p>
-  <img src="docs/assets/archkeel-hero.png" alt="ArchKeel: see what your code really does, check it against what you decided. Observe, decide, enforce. A forbidden import from render to store, found by ArchKeel with its rule id and source line." width="1000">
+  <img src="docs/assets/archkeel-hero.png" alt="ArchKeel: see what your code really does, check it against what you decided. ArchKeel's own architecture, simplified: cli requires studio, render, analyzer and check, which share the ir component. PASS, 126 rules, 0 UNKNOWN." width="1000">
 </p>
 
 ArchKeel reads your code and shows how it is built: the parts, the imports between them and the
