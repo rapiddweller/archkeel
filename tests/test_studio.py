@@ -158,6 +158,24 @@ def test_the_schema_has_the_version_of_the_server() -> None:
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 
+def test_story_counts_require_the_matching_strict_api_schema() -> None:
+    schema_folder = Path(__file__).parents[1] / "schema"
+    old = json.loads((schema_folder / "studio-api-1.1.schema.json").read_bytes())
+    row = {
+        "id": "example",
+        "title": "Example",
+        "steps": 1,
+        "source": "local",
+        "created": None,
+        "checked_counts": None,
+    }
+    old_row_schema = old["$defs"]["stories"]["properties"]["stories"]["items"]
+    current_row_schema = _SCHEMA["$defs"]["stories"]["properties"]["stories"]["items"]
+
+    assert not Draft202012Validator(old_row_schema).is_valid(row)
+    assert Draft202012Validator(current_row_schema).is_valid(row)
+
+
 def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> None:
     """Negative control: `additionalProperties: false` and fixed rows hold at every level."""
     cookie = login(studio)

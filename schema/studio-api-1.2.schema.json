@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:studio-api:1.2.0",
   "title": "ArchKeel Studio API 1.2: state, graph, stories, draft and chat",
-  "description": "AD-290, AD-291, AD-292. Each definition pins one JSON body. Version 1.2 adds the graph, the stories routes and the chat. The chat route never writes: a proposal is not applied. No route writes.",
+  "description": "AD-290, AD-291, AD-292. Each definition pins one JSON body. Version 1.2 adds checked story counts to the stories list. The chat route never writes: a proposal is not applied. No route writes.",
   "oneOf": [
     {
       "$ref": "#/$defs/state"

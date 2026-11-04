@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.1`)."""
+"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.2`)."""
 
 import json
 from collections.abc import Callable, Mapping, Sequence
