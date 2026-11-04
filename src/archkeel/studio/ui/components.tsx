@@ -2,10 +2,12 @@
 import type { ComponentChildren } from "preact";
 import { EVIDENCE, Evidence, PROOF, Proof, proofKind } from "./evidence";
 
-/** The pages of the shell; the URL hash is `#/<view>`, and Explore takes `#/explore/<function>` and Stories `#/stories/<id>`. */
+/** The pages of the shell; the URL hash is `#/<view>`, and Component takes `#/component/<n>[/<package>]`, Module `#/module/<n>`, Explore `#/explore/<function>` and Stories `#/stories/<id>`. */
 export const View = {
   Overview: "overview",
   Map: "map",
+  Component: "component",
+  Module: "module",
   Explore: "explore",
   Report: "report",
   Stories: "stories",
@@ -14,8 +16,9 @@ export const View = {
 } as const;
 export type View = (typeof View)[keyof typeof View];
 
-export const viewHref = (view: View, symbol?: number | string): string =>
-  symbol === undefined ? `#/${view}` : `#/${view}/${symbol}`;
+/** `id` is the function, component, module or story; `pkg` is a package path inside a component. */
+export const viewHref = (view: View, id?: number | string, pkg?: string): string =>
+  id === undefined ? `#/${view}` : pkg === undefined ? `#/${view}/${id}` : `#/${view}/${id}/${pkg}`;
 
 export function NavItem(props: { href: string; current: boolean; children: ComponentChildren }) {
   return (

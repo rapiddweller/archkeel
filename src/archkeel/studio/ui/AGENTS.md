@@ -40,6 +40,7 @@ flowchart LR
     shell --> client
     shell --> components
     shell --> model
+    shell --> navigation
     shell --> store
     shell --> views
     store --> client
@@ -50,7 +51,12 @@ flowchart LR
     views --> components
     views --> evidence
     views --> model
-    views --> navigation
+    views --> workbench
+    workbench --> chat
+    workbench --> components
+    workbench --> evidence
+    workbench --> model
+    workbench --> navigation
 ```
 
 A view never imports another view. Components never import the client or the store.

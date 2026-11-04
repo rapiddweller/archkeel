@@ -2,9 +2,11 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { View, viewHref } from "./components";
 import {
+  Level,
   Model,
-  PlacePart,
   TreeNode,
+  Where,
+  trail,
   fileName,
   fullName,
   moduleKey,
@@ -120,23 +122,42 @@ export function StructureTree(props: { model: Model } & TreeProps) {
   );
 }
 
-/** The place of the function; a part opens its branch in the tree. */
-export function LocationBar(props: {
-  parts: readonly PlacePart[];
-  name: string;
-  onReveal: (keys: readonly string[]) => void;
-}) {
+/** One step of the location bar: the place it names and where a click goes (one level up). */
+export interface Crumb {
+  readonly label: string;
+  readonly href: string;
+}
+
+const LEVEL_VIEW: Record<Level, View> = {
+  [Level.Map]: View.Map,
+  [Level.Component]: View.Component,
+  [Level.Module]: View.Module,
+  [Level.Function]: View.Explore,
+};
+
+export const whereHref = (where: Where): string =>
+  where.id === null ? viewHref(View.Map) : viewHref(LEVEL_VIEW[where.level], where.id, where.pkg ?? undefined);
+
+/** Architecture, component, packages, module file and function of a place, as links. */
+export function crumbsOf(model: Model, where: Where): { crumbs: readonly Crumb[]; current: string } {
+  const { parts, current } = trail(model, where);
+  return {
+    crumbs: parts.map((part) => ({ label: part.label, href: part.where ? whereHref(part.where) : viewHref(View.Map) })),
+    current,
+  };
+}
+
+/** The one location bar: the same place and look on every page; each part goes up to its level. */
+export function LocationBar(props: { crumbs: readonly Crumb[]; current: string }) {
   return (
     <div class="location" role="navigation" aria-label="Location">
-      {props.parts.map((part) => (
-        <span key={part.keys.join("/")}>
-          <button type="button" onClick={() => props.onReveal(part.keys)}>
-            {part.label}
-          </button>
+      {props.crumbs.map((crumb) => (
+        <span key={crumb.href + crumb.label}>
+          <a href={crumb.href}>{crumb.label}</a>
           <i aria-hidden="true">›</i>
         </span>
       ))}
-      <b aria-current="location">{props.name}</b>
+      <b aria-current="location">{props.current}</b>
     </div>
   );
 }

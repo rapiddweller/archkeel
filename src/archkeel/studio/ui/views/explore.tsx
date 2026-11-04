@@ -1,24 +1,24 @@
 /** AD-290: Explore: the lens around one function, with its structure, place and search. */
 import { useMemo, useState } from "preact/hooks";
-import { ChatPanel, ChatState } from "../chat";
+import type { ChatState } from "../chat";
 import { Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofOf } from "../evidence";
 import { LensItem, LensLayout, OpenGroup, Rect, Side, layoutLens } from "../lens-layout";
 import {
+  Level,
   Link,
   Model,
-  branch,
   counted,
   componentOf,
   fileName,
   fullName,
   locate,
+  moduleIndex,
   shortName,
   tailName,
   tailPath,
 } from "../model";
-import { LocationBar, SearchBox, StructureTree } from "../navigation";
-import { Viewport } from "../viewport";
+import { Workbench } from "../workbench";
 
 const TAIL = 34;
 const LIST_SHOWN = 30;
@@ -213,75 +213,38 @@ function Details(props: { model: Model; symbol: number }) {
   );
 }
 
-const treeOpen = (): boolean => matchMedia("(min-width: 1100px)").matches;
-const detailsOpen = (): boolean => matchMedia("(min-width: 1500px)").matches;
-
-/** One lens. The page keys it by the function, so the open group and the tree start fresh. */
+/** One lens. The page keys it by the function, so the open group starts fresh. */
 function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
   const { model, symbol } = props;
-  const [asking, setAsking] = useState(false);
   const [open, setOpen] = useState<OpenGroup | null>(null);
-  const [opened, setOpened] = useState<ReadonlySet<string>>(() => branch(model, symbol));
-  const [tree, setTree] = useState(treeOpen);
-  const [details, setDetails] = useState(detailsOpen);
   const layout = useMemo(() => layoutLens(model, symbol, open), [model, symbol, open]);
-  const parts = locate(model, symbol);
-  const toggle = (key: string): void => {
-    const next = new Set(opened);
-    if (!next.delete(key)) next.add(key);
-    setOpened(next);
-  };
+  const module = moduleIndex(model, symbol);
+  const file = fileName(model, symbol).split("/").pop() ?? "";
   return (
-    <div class="workbench" data-tree={tree} data-details={details}>
-      <header class="toolbar">
-        <button type="button" class="toggle" aria-pressed={tree} onClick={() => setTree(!tree)}>
-          Structure
-        </button>
-        <h1>Explore</h1>
-        <SearchBox model={model} onPick={(picked) => (location.hash = viewHref(View.Explore, picked))} />
-        <button type="button" class="toggle" onClick={() => history.back()}>
-          Back
-        </button>
-        <LocationBar
-          parts={parts}
-          name={model.graph.symbols[symbol][1]}
-          onReveal={(keys) => {
-            setOpened(new Set(keys));
-            setTree(true);
-          }}
-        />
-        <span class="summary">
-          lens · 1 hop · {model.incoming[symbol].length + model.outgoing[symbol].length} neighbors · {unknownText(model, symbol)}
-        </span>
-        <button
-          type="button"
-          class="toggle"
-          aria-pressed={asking}
-          onClick={() => {
-            setAsking(!asking);
-            setDetails(true);
-          }}
-        >
-          Ask
-        </button>
-        <button type="button" class="toggle" aria-pressed={details && !asking} onClick={() => (asking ? setAsking(false) : setDetails(!details))}>
-          Details
-        </button>
-      </header>
-      <div class="structure" role="navigation" aria-label="Structure">
-        <p class="label">Structure</p>
-        <StructureTree model={model} open={opened} current={symbol} onToggle={toggle} />
-      </div>
-      <section class="canvas">
-        <Viewport width={layout.width} height={layout.height} label="Lens" fitKey={`${symbol}:${open?.group}:${open?.side}`}>
-          <Lens model={model} layout={layout} center={symbol} onOpen={setOpen} />
-        </Viewport>
-        <p class="note">Module-level calls are not shown.</p>
-      </section>
-      <aside class="details" aria-label={asking ? "Ask the agent" : "Details"}>
-        {asking ? <ChatPanel model={model} symbol={symbol} chat={props.chat} /> : <Details model={model} symbol={symbol} />}
-      </aside>
-    </div>
+    <Workbench
+      model={model}
+      where={{ level: Level.Function, id: symbol, pkg: null }}
+      chat={props.chat}
+      symbol={symbol}
+      name="Explore"
+      here={{
+        name: model.graph.symbols[symbol][1],
+        counts: `${counted(model.incoming[symbol].length, "caller")} · ${counted(model.outgoing[symbol].length, "callee")} · ${unknownText(model, symbol)}`,
+        meaning: "The center is the function. Callers are on the left, callees on the right. Click a neighbor to move the lens.",
+        up: viewHref(View.Module, module),
+        upName: file,
+      }}
+      summary={`lens · 1 hop · ${model.incoming[symbol].length + model.outgoing[symbol].length} neighbors · ${unknownText(model, symbol)}`}
+      canvas={{
+        width: layout.width,
+        height: layout.height,
+        label: "Lens",
+        fitKey: `${symbol}:${open?.group}:${open?.side}`,
+        children: <Lens model={model} layout={layout} center={symbol} onOpen={setOpen} />,
+      }}
+      note="Module-level calls are not shown."
+      details={<Details model={model} symbol={symbol} />}
+    />
   );
 }
 

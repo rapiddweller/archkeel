@@ -1,7 +1,7 @@
 /** AD-290: the layout of the component Map: role bands by net call flow, and the lines. */
 import type { Model, Tally } from "./model";
 
-export const MAP_CARD = { width: 250, height: 172, gapX: 210, gapY: 30, left: 40, top: 70 } as const;
+export const MAP_CARD = { width: 250, height: 204, gapX: 210, gapY: 30, left: 40, top: 70 } as const;
 
 const STRONG_SHARE = 0.06;
 const LABEL_SHARE = 0.12;

@@ -1,31 +1,14 @@
 /** AD-290: Map: the components of the snapshot as a dependency graph of the measured calls. */
 import { useMemo, useState } from "preact/hooks";
-import { ChatPanel, ChatState } from "../chat";
+import type { ChatState } from "../chat";
 import { Badge, Box, Page, ProofLegend, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { MAP_CARD, MapLine, layoutMap } from "../map-layout";
-import { Model, Tally, compact, counted, fileName, links, pairs, shortName, tailPath } from "../model";
+import { Level, Model, Tally, counted, fileName, links, pairs, shortName, tailPath } from "../model";
 import { ComponentSource, ContractState } from "../vocabulary";
-import { Viewport } from "../viewport";
+import { Counts, Workbench } from "../workbench";
 
 const PAIRS_SHOWN = 16;
-
-/** Proven and claim call sites apart, each with its glyph and word. */
-function Counts(props: { tally: Tally }) {
-  const { proven, claim } = props.tally;
-  const mark = (proof: Proof, count: number) => (
-    <>
-      {compact(count)} <span aria-hidden="true">{proofKind(proof).glyph}</span> {proofKind(proof).word}
-    </>
-  );
-  return (
-    <>
-      {proven > 0 || claim === 0 ? mark(Proof.Proven, proven) : null}
-      {proven > 0 && claim > 0 ? " · " : null}
-      {claim > 0 ? mark(Proof.Claim, claim) : null}
-    </>
-  );
-}
 
 const spoken = ({ proven, claim }: Tally): string =>
   [proven > 0 || claim === 0 ? `${proven} proven` : "", claim > 0 ? `${claim} claim` : ""].filter(Boolean).join(", ");
@@ -89,41 +72,37 @@ function Line(props: { line: MapLine; hot: number | null; selected: boolean; onH
 }
 
 function MapView(props: { model: Model; contract: ContractState; chat: ChatState }) {
-  const [asking, setAsking] = useState(false);
   const { model } = props;
   const layout = useMemo(() => layoutMap(model), [model]);
   const [hot, setHot] = useState<number | null>(null);
   const [pair, setPair] = useState<Pair | null>(null);
-  const [details, setDetails] = useState(() => matchMedia("(min-width: 1500px)").matches);
   const neighbors = (component: number): boolean =>
     hot !== null && (component === hot || model.flows.some((f) => (f.from === hot && f.to === component) || (f.to === hot && f.from === component)));
   return (
-    <div class="workbench" data-details={details}>
-      <header class="toolbar">
-        <h1>Map</h1>
-        <Source source={model.graph.components_from} contract={props.contract} />
-        <span class="summary">
+    <Workbench
+      model={model}
+      where={{ level: Level.Map, id: null, pkg: null }}
+      chat={props.chat}
+      symbol={null}
+      reveal={pair}
+      name="Map"
+      here={{
+        name: "Architecture",
+        counts: `${counted(model.graph.components.length, "component")} · ${counted(model.graph.modules.length, "module")} · ${counted(model.graph.symbols.length, "function")}`,
+        meaning:
+          "A card is a component. A line is the sum of the call sites between two components. Click a card to open its modules.",
+        up: null,
+        upName: null,
+      }}
+      toolbar={<Source source={model.graph.components_from} contract={props.contract} />}
+      summary={
+        <>
           {model.graph.components.length} components · {model.flows.length} dependencies · <Counts tally={model.crossing} /> calls between
           components
-        </span>
-        <ProofLegend />
-        <button
-          type="button"
-          class="toggle"
-          aria-pressed={asking}
-          onClick={() => {
-            setAsking(!asking);
-            setDetails(true);
-          }}
-        >
-          Ask
-        </button>
-        <button type="button" class="toggle" aria-pressed={details && !asking} onClick={() => (asking ? setAsking(false) : setDetails(!details))}>
-          Details
-        </button>
-      </header>
-      <section class="canvas">
-        <Viewport width={layout.width} height={layout.height} label="Component map" fitKey={model}>
+        </>
+      }
+      canvas={{ width: layout.width, height: layout.height, label: "Component map", fitKey: model, children: (
+        <>
           {layout.bandNames.map((name, band) => (
             <p
               key={name}
@@ -141,29 +120,23 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                 hot={hot}
                 selected={pair?.from === line.from && pair?.to === line.to}
                 onHot={setHot}
-                onPick={() => {
-                  setPair({ from: line.from, to: line.to });
-                  setDetails(true);
-                }}
+                onPick={() => setPair({ from: line.from, to: line.to })}
               />
             ))}
           </svg>
           {layout.lines
             .filter((line) => line.labeled)
             .map((line) => {
-              const proof = proofOf(line.claim > 0);
+              const [x, y] = line.middle;
               const [from, to] = [model.graph.components[line.from][0], model.graph.components[line.to][0]];
               return (
                 <button
-                  key={`${line.from}:${line.to}`}
+                  key={`n:${line.from}:${line.to}`}
                   type="button"
-                  class={`count ${proof}`}
+                  class={`count ${proofOf(line.claim > 0)}`}
+                  style={{ left: `${x}px`, top: `${y}px` }}
                   aria-label={`${counted(line.calls, "call")} from ${from} to ${to}: ${spoken(line)}`}
-                  style={{ left: `${line.middle[0]}px`, top: `${line.middle[1]}px` }}
-                  onClick={() => {
-                    setPair({ from: line.from, to: line.to });
-                    setDetails(true);
-                  }}
+                  onClick={() => setPair({ from: line.from, to: line.to })}
                   onMouseEnter={() => setHot(line.from)}
                   onMouseLeave={() => setHot(null)}
                 >
@@ -175,71 +148,65 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
             const [x, y] = layout.positions[component];
             const stat = model.stats[component];
             const box = { left: `${x}px`, top: `${y}px`, width: `${MAP_CARD.width}px`, height: `${MAP_CARD.height}px` };
-            const body = (
-              <>
-                <h2>
-                  <span class="dot" aria-hidden="true" />
-                  {id}
-                  <small>{layout.bandNames[layout.band[component]]}</small>
-                </h2>
-                <p>{responsibility || "No responsibility declared."}</p>
-                <span class="chips">
-                  <span class="chip">{counted(stat.modules, "module")}</span>
-                  <span class="chip">{counted(stat.symbols, "function")}</span>
-                  <span class="chip">
-                    in <Counts tally={stat.callsIn} />
-                  </span>
-                  <span class="chip">
-                    out <Counts tally={stat.callsOut} />
-                  </span>
-                  {stat.withUnknown > 0 ? (
-                    <span class="chip unknown">
-                      <span aria-hidden="true">?</span> {counted(stat.withUnknown, "function")} with unknown calls
-                    </span>
-                  ) : null}
-                </span>
-                {stat.busiest !== null ? (
-                  <span class="busiest">
-                    busiest: <b>{shortName(model, stat.busiest)}</b> · {counted(links(model, stat.busiest), "link")}
-                  </span>
-                ) : null}
-              </>
-            );
-            const className = `map-card comp-${component % 10}${neighbors(component) ? " hl" : ""}`;
-            return stat.busiest === null ? (
-              <div key={id} class={className} style={box}>
-                {body}
-              </div>
-            ) : (
+            return (
               <a
                 key={id}
-                class={className}
+                class={`map-card comp-${component % 10}${neighbors(component) ? " hl" : ""}`}
+                data-drill
                 style={box}
-                href={viewHref(View.Explore, stat.busiest)}
+                href={viewHref(View.Component, component)}
+                title={`${id}: ${responsibility || "No responsibility declared."}`}
                 onMouseEnter={() => setHot(component)}
                 onMouseLeave={() => setHot(null)}
                 onFocus={() => setHot(component)}
                 onBlur={() => setHot(null)}
               >
-                {body}
+                <h2>
+                  <span class="dot" aria-hidden="true" />
+                  <span class="nm">{id}</span>
+                  <small>{layout.bandNames[layout.band[component]]}</small>
+                </h2>
+                <p class="desc">{responsibility || "No responsibility declared."}</p>
+                <span class="stat first">
+                  {counted(stat.modules, "module")} · {counted(stat.symbols, "function")}
+                </span>
+                <span class="stat">
+                  in <Counts tally={stat.callsIn} />
+                </span>
+                <span class="stat">
+                  out <Counts tally={stat.callsOut} />
+                </span>
+                {stat.withUnknown > 0 ? (
+                  <span class="stat unknown">
+                    <span aria-hidden="true">?</span> {counted(stat.withUnknown, "function")} with unknown calls
+                  </span>
+                ) : null}
+                {stat.busiest !== null ? (
+                  <span class="stat busiest">
+                    busiest: <b>{shortName(model, stat.busiest)}</b> · {counted(links(model, stat.busiest), "link")}
+                  </span>
+                ) : null}
               </a>
             );
           })}
-        </Viewport>
-      </section>
-      <aside class="details" aria-label={asking ? "Ask the agent" : "Details"}>
-        {asking ? (
-          <ChatPanel model={model} symbol={null} chat={props.chat} />
-        ) : pair === null ? (
-          <Box title="Dependencies">
-            <p>Hover a card to light its lines. Select a line or a count to see the calls behind it.</p>
-            <p>Open a card to see its busiest function in the lens.</p>
+        </>
+      ) }}
+      details={
+        <>
+          {pair === null ? (
+            <Box title="Dependencies">
+              <p>Hover a card to light its lines. Select a line or a count to see the calls behind it.</p>
+              <p>Click a card to open the modules of that component.</p>
+            </Box>
+          ) : (
+            <Pairs model={model} pair={pair} />
+          )}
+          <Box title="Calls">
+            <ProofLegend />
           </Box>
-        ) : (
-          <Pairs model={model} pair={pair} />
-        )}
-      </aside>
-    </div>
+        </>
+      }
+    />
   );
 }
 

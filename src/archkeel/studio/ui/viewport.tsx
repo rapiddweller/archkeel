@@ -40,7 +40,8 @@ export function Viewport(props: {
 
   const fit = (): void => {
     moved.current = false;
-    const box = frame.current?.getBoundingClientRect();
+    // The layout size, not the drawn one: a zoom between levels scales the frame while it fits.
+    const box = frame.current ? { width: frame.current.clientWidth, height: frame.current.clientHeight } : null;
     if (!box) return;
     const k = clamp(Math.min((box.width - 2 * FIT_PAD) / props.width, (box.height - 2 * FIT_PAD) / props.height), FIT_MIN, FIT_MAX);
     setCamera({ k, x: (box.width - props.width * k) / 2, y: Math.max(FIT_PAD, (box.height - props.height * k) / 2) });

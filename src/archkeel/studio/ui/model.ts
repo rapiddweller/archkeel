@@ -58,10 +58,22 @@ export interface Model {
   readonly start: number | null;
 }
 
+/** The four levels of the drill-down: components, the modules of one, the functions of one, one function. */
+export const Level = { Map: "map", Component: "component", Module: "module", Function: "function" } as const;
+export type Level = (typeof Level)[keyof typeof Level];
+
+/** A place on a level: the component, module or function index, and a package path inside a component. */
+export interface Where {
+  readonly level: Level;
+  readonly id: number | null;
+  readonly pkg: string | null;
+}
+
 export interface PlacePart {
   readonly label: string;
   /** The tree keys that open down to this part. */
   readonly keys: readonly string[];
+  readonly where?: Where;
 }
 
 const SEARCH_MIN = 2;
@@ -308,6 +320,55 @@ export function locate(model: Model, symbol: number): readonly PlacePart[] {
   parts.push({ label: file.split("/").pop() ?? file, keys: [...keys, moduleKey(module)] });
   return parts;
 }
+
+/** The path of a place from the architecture down; the last part is the current one. */
+export function trail(model: Model, where: Where): { parts: readonly PlacePart[]; current: string } {
+  const root: PlacePart = { label: "Architecture", keys: [], where: { level: Level.Map, id: null, pkg: null } };
+  if (where.level === Level.Map || where.id === null) return { parts: [], current: root.label };
+  if (where.level === Level.Function) {
+    const parts = locate(model, where.id);
+    const withWhere = parts.map((part, index) => ({ ...part, where: whereOf(model, where.id as number, index) }));
+    return { parts: [root, ...withWhere], current: model.graph.symbols[where.id][1] };
+  }
+  const module = where.level === Level.Module ? where.id : null;
+  const component = module === null ? where.id : model.graph.modules[module][2];
+  const packages = module === null ? (where.pkg?.split(".") ?? []) : model.folders[module];
+  const parts: PlacePart[] = [root, { label: model.graph.components[component][0], keys: [componentKey(component)], where: { level: Level.Component, id: component, pkg: null } }];
+  packages.forEach((name, index) => {
+    const keys = [componentKey(component), ...packages.slice(0, index + 1).map((_, depth) => `${componentKey(component)}/${packages.slice(0, depth + 1).join("/")}`)];
+    parts.push({ label: name, keys, where: { level: Level.Component, id: component, pkg: packages.slice(0, index + 1).join(".") } });
+  });
+  if (module === null) {
+    const last = parts.pop();
+    return { parts, current: last?.label ?? "" };
+  }
+  return { parts, current: model.graph.modules[module][1].split("/").pop() ?? "" };
+}
+
+/** The place of part `index` of `locate(symbol)`: component, packages, then the module. */
+function whereOf(model: Model, symbol: number, index: number): Where {
+  const module = moduleIndex(model, symbol);
+  const component = model.graph.modules[module][2];
+  const packages = model.folders[module];
+  if (index === 0) return { level: Level.Component, id: component, pkg: null };
+  if (index <= packages.length) return { level: Level.Component, id: component, pkg: packages.slice(0, index).join(".") };
+  return { level: Level.Module, id: module, pkg: null };
+}
+
+/** The tree keys that open down to a place: only this branch is open. */
+export function opened(model: Model, where: Where): ReadonlySet<string> {
+  if (where.id === null || where.level === Level.Map) return new Set();
+  if (where.level === Level.Function) return branch(model, where.id);
+  if (where.level === Level.Module) return new Set(trailKeys(model, where.id));
+  const keys = [componentKey(where.id)];
+  where.pkg?.split(".").forEach((_, depth, all) => keys.push(`${componentKey(where.id as number)}/${all.slice(0, depth + 1).join("/")}`));
+  return new Set(keys);
+}
+
+const trailKeys = (model: Model, module: number): readonly string[] => {
+  const parts = locate(model, model.members[module][0] ?? 0);
+  return model.members[module].length > 0 ? parts[parts.length - 1].keys : [componentKey(model.graph.modules[module][2])];
+};
 
 /** The tree keys that show a function: all its ancestors, so only this branch is open. */
 export function branch(model: Model, symbol: number): ReadonlySet<string> {

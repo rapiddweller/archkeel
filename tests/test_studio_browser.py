@@ -88,10 +88,81 @@ def _check_the_map(page, width: int) -> None:
     assert page.evaluate("document.documentElement.scrollWidth") <= width
 
 
-def _check_the_lens(page, width: int, height: int) -> None:
-    cards = page.locator(".map-card", has_text="app")
-    cards.click()
+def _where(page) -> tuple[list[str], str]:
+    """The location bar: the links that go up, and the current place."""
+    bar = page.get_by_role("navigation", name="Location")
+    return bar.locator("a").all_inner_texts(), bar.locator("b").inner_text()
+
+
+def _no_overflow(page) -> None:
+    """No text crosses the border of a card, a stub or a tile."""
+    broken = page.evaluate(
+        "[...document.querySelectorAll('.lens-card, .map-card, .story-card')]"
+        ".filter((card) => card.scrollWidth > card.clientWidth + 1"
+        " || card.scrollHeight > card.clientHeight + 1)"
+        ".map((card) => card.className + ': ' + card.textContent.slice(0, 40))"
+    )
+    assert broken == []
+
+
+def _check_the_levels(page, width: int, height: int) -> None:
+    """Map, component, module and function: each click drills one level, Esc goes up."""
+    transition = lambda: page.locator("section.canvas").get_attribute("data-transition")  # noqa: E731
+    assert _where(page) == ([], "Architecture")
+    _no_overflow(page)
+    page.locator(".map-card", has_text="app").click()
+    page.wait_for_url("**/#/component/*")
+    page.get_by_role("heading", name="Component", exact=True).wait_for()
+    assert _where(page) == (["Architecture"], "app")
+    assert transition() == "in"
+    assert page.get_by_text("You are here").count() == 1
+    page.get_by_role("button", name="Details").click() if width < 1300 else None
+    assert page.get_by_text("You are here").is_visible()
+    page.get_by_role("button", name="Details").click() if width < 1300 else None
+    # The module card, and the other components as stubs: here only store, which `place` calls.
+    page.locator(".level-card", has_text="orders.py").wait_for()
+    assert page.locator(".lens-card.stub").all_inner_texts()
+    stubs = page.locator(".lens-card.stub")
+    assert {stub.split("\n")[0] for stub in stubs.all_inner_texts()} == {"store"}
+    _no_overflow(page)
+    # A stub opens that component; Esc goes back up to the Map.
+    stubs.filter(has_text="store").click()
+    page.get_by_role("navigation", name="Location").locator("b", has_text="store").wait_for()
+    assert _where(page) == (["Architecture"], "store")
+    page.keyboard.press("Escape")
+    page.wait_for_url("**/#/map")
+    assert _where(page) == ([], "Architecture")
+    assert transition() == "out"
+    page.locator(".map-card", has_text="app").click()
+    page.locator(".level-card", has_text="orders.py").click()
+    page.wait_for_url("**/#/module/*")
+    page.get_by_role("heading", name="Module", exact=True).wait_for()
+    assert _where(page) == (["Architecture", "app"], "orders.py")
+    _no_overflow(page)
+    assert "Up to app" in page.locator("a.up").text_content()
+    page.locator(".level-card", has_text="place").click()
     page.wait_for_url("**/#/explore/*")
+    page.get_by_role("heading", name="Explore", exact=True).wait_for()
+    assert _where(page) == (["Architecture", "app", "orders.py"], "place")
+    # Esc goes one level up; a part of the location bar goes up to its level.
+    bar = page.get_by_role("navigation", name="Location")
+    page.keyboard.press("Escape")
+    bar.locator("b", has_text="orders.py").wait_for()
+    page.keyboard.press("Escape")
+    bar.locator("b", has_text="app").wait_for()
+    page.get_by_role("navigation", name="Location").get_by_role("link", name="Architecture").click()
+    page.wait_for_url("**/#/map")
+    page.locator(".map-card", has_text="app").click()
+    page.locator(".level-card", has_text="orders.py").click()
+    page.locator(".level-card", has_text="place").click()
+    page.locator(".lens-card.center").wait_for()
+    page.get_by_role("navigation", name="Location").get_by_role("link", name="orders.py").click()
+    page.wait_for_url("**/#/module/*")
+    page.locator(".level-card", has_text="place").click()
+    page.locator(".lens-card.center").wait_for()
+
+
+def _check_the_lens(page, width: int, height: int) -> None:
     center = page.locator(".lens-card.center")
     center.wait_for()
     assert center.locator("b").inner_text() == "place"
@@ -100,12 +171,11 @@ def _check_the_lens(page, width: int, height: int) -> None:
     assert callee.inner_text().replace("\n", " ").startswith("save")
     assert "✓ proven" in callee.inner_text()
     assert page.locator(".plate").count() == 2
-    place = page.get_by_role("navigation", name="Location")
-    assert place.locator("button").all_inner_texts() == ["app", "orders.py"]
-    assert place.locator("b").inner_text() == "place"
+    assert _where(page) == (["Architecture", "app", "orders.py"], "place")
+    _no_overflow(page)
     page.get_by_role("heading", name="Explore", exact=True).wait_for()
     tree = page.get_by_role("navigation", name="Structure")
-    if width >= 1100:
+    if width >= 1500:
         # Only the current branch is open.
         assert tree.is_visible()
         assert tree.locator("a.tn.fn[aria-current='location']").inner_text() == "place"
@@ -115,6 +185,9 @@ def _check_the_lens(page, width: int, height: int) -> None:
         # On a narrow screen the tree is a panel above the canvas; close it to reach the controls.
         page.get_by_role("button", name="Structure").click()
         assert tree.is_visible()
+        # The tree opens to the current place only.
+        assert tree.locator("a.tn.fn[aria-current='location']").inner_text() == "place"
+        assert tree.locator("a.tn.fn").count() == 1
         page.get_by_role("button", name="Structure").click()
         assert not tree.is_visible()
     _pan_and_fit(page)
@@ -123,7 +196,7 @@ def _check_the_lens(page, width: int, height: int) -> None:
     page.get_by_role("combobox").fill("sav")
     page.get_by_role("option").filter(has_text="repository.py").click()
     page.locator(".lens-card.center", has_text="save").wait_for()
-    assert page.get_by_role("navigation", name="Location").locator("b").inner_text() == "save"
+    assert _where(page)[1] == "save"
     assert page.evaluate("document.documentElement.scrollWidth") <= width
     assert page.evaluate("document.documentElement.scrollHeight") <= height
 
@@ -210,10 +283,11 @@ def test_the_shell_navigates_and_stays_on_its_server(
             assert contract.bounding_box()["height"] < 24, "the contract state wraps"
             page.get_by_role("link", name="Open the Map").click()
             _check_the_map(page, width)
+            _check_the_levels(page, width, height)
             _check_the_lens(page, width, height)
             page.screenshot(path=tmp_path / f"lens-{width}.png")
 
-            page.get_by_role("link", name="Report", exact=True).focus()
+            page.get_by_role("link", name="Open the static report").focus()
             page.keyboard.press("Enter")
             assert urlsplit(page.url).fragment == "/report"
             _check_the_embedded_explorer(page, width, height)
@@ -365,6 +439,8 @@ _ANSWER = {
 def _lens(page, studio: Studio) -> None:
     page.goto(studio.url)
     page.locator(".map-card", has_text="app").click()
+    page.locator(".level-card", has_text="orders.py").click()
+    page.locator(".level-card", has_text="place").click()
     page.locator(".lens-card.center").wait_for()
 
 
