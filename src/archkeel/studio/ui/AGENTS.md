@@ -13,7 +13,7 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | `components.tsx` | components | Nav item, legend, badge, tabs, card, panel, page frame. Props only. |
 | `canvas.tsx` | canvas | The Explorer island: the Explorer page with `?embed`; passes on its selection. |
 | `store.ts` | store | The one store: polls `GET /api/v1/state`. |
-| `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.0.schema.json`. |
+| `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.1.schema.json`. |
 | `vocabulary.ts` | client | Generated from the enums of `archkeel.studio.api`. Never edit it. |
 | `evidence.ts` | evidence | The evidence model. |
 | `tokens.css` | — | The one tokens file: colours, radius, font; dark and light. A leaf. |

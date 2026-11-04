@@ -1,4 +1,4 @@
-/** AD-290: the client of schema/studio-api-1.0; it asks only its own server. */
+/** AD-290: the client of schema/studio-api-1.1; it asks only its own server. */
 import { API_VERSION, ContractState, ExploreState } from "./vocabulary";
 
 export type StudioState = {

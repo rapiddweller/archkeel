@@ -25,7 +25,7 @@ from archkeel.studio.workspace import Workspace
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
-_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.0.schema.json").read_bytes())
+_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.1.schema.json").read_bytes())
 _EXPLORE_SECONDS = 120
 
 
@@ -83,12 +83,18 @@ def login(server: Studio) -> str:
     return cookie.split(";", 1)[0]
 
 
+def validate(payload: object, name: str) -> None:
+    """Check a JSON body against one definition of the API schema."""
+    schema = {"$schema": _SCHEMA["$schema"], "$defs": _SCHEMA["$defs"], "$ref": f"#/$defs/{name}"}
+    Draft202012Validator(schema).validate(payload)
+
+
 def state(server: Studio, cookie: str) -> dict:
     response, body = request(server, "/api/v1/state", cookie=cookie)
     assert response.status == 200
     assert response.getheader("Content-Type") == "application/json"
     payload = json.loads(body)
-    Draft202012Validator(_SCHEMA).validate(payload)
+    validate(payload, "state")
     return payload
 
 
@@ -104,6 +110,10 @@ def explore(server: Studio, cookie: str) -> dict:
 
 def test_the_schema_has_the_version_of_the_server() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
+    assert {
+        _SCHEMA["$defs"][name]["properties"]["api_version"]["const"]
+        for name in ("state", "chat_response", "chat_error")
+    } == {API_VERSION}
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 
@@ -247,7 +257,9 @@ def test_the_studio_package_does_not_import_the_cli() -> None:
 
 
 def test_the_root_of_the_file_system_has_a_name() -> None:
-    workspace = Workspace(Path("/"), Path("/nothing"), (), lambda: ContractState.NOT_CONFIGURED)
+    workspace = Workspace(
+        Path("/"), Path("/nothing"), (), lambda: ContractState.NOT_CONFIGURED, lambda _raw: {}
+    )
     assert workspace.state().root_name == "/"
 
 
@@ -281,7 +293,11 @@ def test_studio_forwards_the_scope_options_to_explore(tmp_path: Path) -> None:
 def _running_child(tmp_path: Path, script: str) -> Workspace:
     """A workspace whose explore child runs `script` and touches `ready` when it is set up."""
     workspace = Workspace(
-        tmp_path, tmp_path / "run", (sys.executable, "-c", script), lambda: ContractState.CONFIGURED
+        tmp_path,
+        tmp_path / "run",
+        (sys.executable, "-c", script),
+        lambda: ContractState.CONFIGURED,
+        lambda _raw: {},
     )
     workspace.start()
     deadline = time.monotonic() + 30

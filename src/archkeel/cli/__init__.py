@@ -39,7 +39,7 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_json, parse_contract
+from ..ir.codec import decode_canonical_model, decode_json, parse_contract
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.view_spec import (
     ViewCheck,
@@ -51,7 +51,8 @@ from ..ir.view_spec import (
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from ..studio.api import ContractState
+from ..studio.agent import Agent
+from ..studio.api import AgentKind, ContractState
 from ..studio.server import run_studio
 from ..studio.workspace import Workspace
 from .arguments import (
@@ -169,6 +170,7 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         folder,
         (*explore, *scope, "--output", str(folder), "--json"),
         lambda: _contract_state(root),
+        lambda raw: decode_canonical_model(json.loads(raw)),
     )
 
 
@@ -199,8 +201,12 @@ def _studio(args: CLIArguments) -> int:
         for number in (signal.SIGTERM, signal.SIGINT)
     }
     try:
+        prefer = AgentKind(args.chat_agent.value) if args.chat_agent is not None else None
         return run_studio(
-            studio_workspace(args, cache), ready=ready, idle_seconds=args.idle_exit * 60
+            studio_workspace(args, cache),
+            ready=ready,
+            idle_seconds=args.idle_exit * 60,
+            agent=Agent(root, prefer),
         )
     finally:
         for number, handler in previous.items():
@@ -832,6 +838,15 @@ def build_parser() -> _Parser:
         default=0.0,
         metavar="MINUTES",
         help="Stop when no request came for MINUTES. Default: 0 (never).",
+    )
+    studio.add_argument(
+        "--agent",
+        dest="chat_agent",
+        choices=list(InstallationAgent),
+        type=installation_agent,
+        default=None,
+        help="Coding agent that answers the chat first. Default: claude, then codex. The chat "
+        "runs it read-only on your own sign-in.",
     )
 
     return parser

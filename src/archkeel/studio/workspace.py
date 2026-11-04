@@ -9,11 +9,14 @@ import signal
 import subprocess
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
+from .answer import Snapshot
 from .api import ContractState, ExploreState, StudioState
+
+_SNAPSHOT = "architecture.json"
 
 _NOTE_LIMIT = 2000
 # Explore needs this long to stop its collector, which runs in a session of its own.
@@ -44,11 +47,14 @@ class Workspace:
         folder: Path,
         explore: tuple[str, ...],
         contract: Callable[[], ContractState],
+        decode: Callable[[bytes], Mapping[str, object]],
     ) -> None:
         self.root = root.resolve()
         self.folder = folder.resolve()
         self._explore = explore
         self._contract = contract
+        self._decode = decode
+        self._snapshot: Snapshot | None = None
         self._lock = threading.Lock()
         # The root of the file system has no name of its own.
         name = self.root.name or str(self.root)
@@ -98,6 +104,15 @@ class Workspace:
         if not name or target.resolve().parent != self.folder or not target.is_file():
             return None
         return target
+
+    def snapshot(self) -> Snapshot | None:
+        """The index of the snapshot once explore is done, else None; built at the first call."""
+        with self._lock:
+            done = self._run.explore is ExploreState.DONE
+        if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None and done:
+            # `decode` is the canonical reader of the CLI: the format has one reader (AD-292).
+            self._snapshot = Snapshot(self._decode(path.read_bytes()))
+        return self._snapshot
 
     def close(self) -> None:
         """Stop the explore child within a bound and delete the folder of this run."""

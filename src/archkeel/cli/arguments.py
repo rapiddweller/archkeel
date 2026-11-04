@@ -34,6 +34,7 @@ class CLIArguments(argparse.Namespace):
     only: ReportMode | None = None
     action: SkillAction = SkillAction.INSTALL
     agent: InstallationAgent = InstallationAgent.CODEX
+    chat_agent: InstallationAgent | None = None
     language: Language = Language.PYTHON
 
 

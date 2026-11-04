@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:studio-api:1.1.0",
+  "title": "ArchKeel Studio API 1.1: GET /api/v1/state and POST /api/v1/chat",
+  "description": "AD-290, AD-292. Each definition pins one JSON body. The chat route never writes: a proposal is not applied.",
+  "$defs": {
+    "state": {
+      "description": "GET /api/v1/state: the state of one Studio server.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_version", "root_name", "contract", "explore", "seconds", "exit_code", "notes"],
+      "properties": {
+        "api_version": {"const": "1.1.0"},
+        "root_name": {"type": "string", "minLength": 1},
+        "contract": {
+          "description": "What archkeel.toml at the root gives: no file, a file that does not load, or a loaded file.",
+          "enum": ["not_configured", "invalid", "configured"]
+        },
+        "explore": {
+          "description": "The explore run that makes the snapshot in the cache folder.",
+          "enum": ["idle", "running", "done", "failed"]
+        },
+        "seconds": {"type": "integer", "minimum": 0},
+        "exit_code": {"type": ["integer", "null"]},
+        "notes": {
+          "description": "The diagnostics of a failed run; else empty.",
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "chat_request": {
+      "description": "POST /api/v1/chat: Content-Type application/json, header X-Archkeel-Studio, Origin of the server. At most 16 KiB.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question"],
+      "properties": {
+        "question": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "context": {
+          "description": "The selected node: the qualified name of a symbol of the snapshot.",
+          "type": ["string", "null"],
+          "maxLength": 300
+        }
+      }
+    },
+    "chat_response": {
+      "description": "200. Blocks are agent text, so claims. Facts are computed by Studio from the snapshot.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_version", "agent", "blocks", "facts", "dropped_refs", "applied"],
+      "properties": {
+        "api_version": {"const": "1.1.0"},
+        "agent": {"description": "The agent that answered.", "enum": ["claude", "codex"]},
+        "blocks": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "text", "refs", "label"],
+            "properties": {
+              "kind": {"enum": ["claim", "proposal"]},
+              "text": {"type": "string", "maxLength": 2000},
+              "refs": {
+                "description": "Only refs that exist in the snapshot.",
+                "type": "array",
+                "maxItems": 20,
+                "items": {"type": "string"}
+              },
+              "label": {
+                "description": "PROPOSED - NOT APPLIED for a proposal; else null.",
+                "type": ["string", "null"]
+              }
+            }
+          }
+        },
+        "facts": {
+          "description": "OBSERVED: one record for each valid ref, in the order of first use.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "qualified_name", "file", "line", "resolved_callers", "resolved_callees", "unknown_calls"
+            ],
+            "properties": {
+              "qualified_name": {"type": "string", "minLength": 1},
+              "file": {"description": "Empty when the snapshot holds no place.", "type": "string"},
+              "line": {"type": "integer", "minimum": 0},
+              "resolved_callers": {"type": "integer", "minimum": 0},
+              "resolved_callees": {"type": "integer", "minimum": 0},
+              "unknown_calls": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "dropped_refs": {
+          "description": "Refs of the agent that the snapshot does not hold.",
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "applied": {"description": "A proposal is never applied.", "const": false}
+      }
+    },
+    "chat_error": {
+      "description": "400, 409, 411, 413, 415, 502, 503, 504 of the chat route. A failed Origin, header or token check gets 403 with a text body.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_version", "error", "detail"],
+      "properties": {
+        "api_version": {"const": "1.1.0"},
+        "error": {
+          "enum": [
+            "invalid_request", "unsupported_media_type", "length_required", "body_too_large",
+            "snapshot_not_ready", "busy", "agent_not_installed", "agent_failed", "agent_timeout",
+            "output_too_large", "repository_changed", "invalid_answer"
+          ]
+        },
+        "detail": {"type": "string"}
+      }
+    }
+  }
+}

@@ -260,7 +260,11 @@ def test_an_idle_server_ends_by_itself(studio: Launcher) -> None:
 def test_a_request_keeps_the_server_alive(tmp_path: Path) -> None:
     idle = 1.0
     workspace = Workspace(
-        tmp_path, tmp_path / "run", (sys.executable, "-c", "pass"), lambda: ContractState.CONFIGURED
+        tmp_path,
+        tmp_path / "run",
+        (sys.executable, "-c", "pass"),
+        lambda: ContractState.CONFIGURED,
+        lambda _raw: {},
     )
     urls: list[str] = []
     codes: list[int] = []
@@ -301,7 +305,9 @@ def workspace(args, cache):
     cache.mkdir(parents=True, exist_ok=True)
     folder = Path(tempfile.mkdtemp(prefix="studio-", dir=cache))
     explore = (sys.executable, "-c", {child!r})
-    return Workspace(args.root.resolve(), folder, explore, lambda: ContractState.CONFIGURED)
+    return Workspace(
+        args.root.resolve(), folder, explore, lambda: ContractState.CONFIGURED, lambda raw: {{}}
+    )
 
 cli.studio_workspace = workspace
 sys.exit(cli.main(["studio", "--root", {root!r}, "--no-open"]))

@@ -32,8 +32,8 @@ def main() -> None:
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")
     )
     assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
-    studio_api = json.loads(schemas.joinpath("studio-api-1.0.schema.json").read_text("utf-8"))
-    assert studio_api["$id"] == "urn:archkeel:studio-api:1.0.0"
+    studio_api = json.loads(schemas.joinpath("studio-api-1.1.schema.json").read_text("utf-8"))
+    assert studio_api["$id"] == "urn:archkeel:studio-api:1.1.0"
     assert "expectation_fulfilled" in result_schema["required"]
     source_facts_5 = json.loads(
         schemas.joinpath("source-facts-5.0.schema.json").read_text(encoding="utf-8")
