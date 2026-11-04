@@ -2,19 +2,19 @@
 import type { ComponentChildren } from "preact";
 import { EVIDENCE, Evidence, PROOF, Proof, proofKind } from "./evidence";
 
-/** The pages of the shell; the URL hash is `#/<view>`, and Explore takes `#/explore/<function>`. */
+/** The pages of the shell; the URL hash is `#/<view>`, and Explore takes `#/explore/<function>` and Stories `#/stories/<id>`. */
 export const View = {
   Overview: "overview",
   Map: "map",
   Explore: "explore",
   Report: "report",
-  Flows: "flows",
+  Stories: "stories",
   Impact: "impact",
   Target: "target",
 } as const;
 export type View = (typeof View)[keyof typeof View];
 
-export const viewHref = (view: View, symbol?: number): string =>
+export const viewHref = (view: View, symbol?: number | string): string =>
   symbol === undefined ? `#/${view}` : `#/${view}/${symbol}`;
 
 export function NavItem(props: { href: string; current: boolean; children: ComponentChildren }) {

@@ -263,6 +263,18 @@ export const shortName = (model: Model, symbol: number): string => {
 export const fullName = (model: Model, symbol: number): string =>
   `${model.graph.modules[moduleIndex(model, symbol)][0]}.${model.graph.symbols[symbol][1]}`;
 
+const named = new WeakMap<Model, Map<string, number>>();
+
+/** The symbol for a qualified name (module and symbol name), or null: a chat ref is a name. */
+export function findSymbol(model: Model, name: string): number | null {
+  let index = named.get(model);
+  if (index === undefined) {
+    index = new Map(model.graph.symbols.map((_, symbol) => [fullName(model, symbol), symbol]));
+    named.set(model, index);
+  }
+  return index.get(name) ?? null;
+}
+
 export const fileName = (model: Model, symbol: number): string =>
   model.graph.modules[moduleIndex(model, symbol)][1];
 

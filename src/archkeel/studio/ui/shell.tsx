@@ -2,6 +2,7 @@
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { StudioState } from "./api";
+import { ChatState, useChat } from "./chat";
 import { Legend, NavItem, ProofLegend, View, viewHref } from "./components";
 import { Model } from "./model";
 import { startStore, useStudio } from "./store";
@@ -11,13 +12,14 @@ import { Explore } from "./views/explore";
 import { NotBuilt } from "./views/not-built";
 import { Overview } from "./views/overview";
 import { Report } from "./views/report";
+import { Stories } from "./views/story";
 
 const NAV: readonly { view: View; name: string }[] = [
   { view: View.Overview, name: "Overview" },
   { view: View.Map, name: "Map" },
   { view: View.Explore, name: "Explore" },
   { view: View.Report, name: "Report" },
-  { view: View.Flows, name: "Flows" },
+  { view: View.Stories, name: "Stories" },
   { view: View.Impact, name: "Impact" },
   { view: View.Target, name: "Target / Diff" },
 ];
@@ -34,6 +36,8 @@ interface Route {
   readonly view: View | null;
   /** The function of `#/explore/<n>`, else null. */
   readonly symbol: number | null;
+  /** The story of `#/stories/<id>`, else null. */
+  readonly story: string | null;
 }
 
 function readRoute(): Route {
@@ -41,6 +45,7 @@ function readRoute(): Route {
   return {
     view: VIEWS.get(head) ?? null,
     symbol: tail !== undefined && /^\d+$/.test(tail) ? Number(tail) : null,
+    story: tail !== undefined && /^[a-z0-9][a-z0-9-]*$/.test(tail) ? tail : null,
   };
 }
 
@@ -54,23 +59,18 @@ function useRoute(): Route {
   return route;
 }
 
-function content(view: View, route: Route, state: StudioState, model: Model | null) {
+function content(view: View, route: Route, state: StudioState, model: Model | null, chat: ChatState) {
   switch (view) {
     case View.Overview:
       return <Overview state={state} />;
     case View.Map:
-      return <ArchMap model={model} contract={state.contract} />;
+      return <ArchMap model={model} contract={state.contract} chat={chat} />;
     case View.Explore:
-      return <Explore model={model} symbol={route.symbol} />;
+      return <Explore model={model} symbol={route.symbol} chat={chat} />;
     case View.Report:
       return <Report state={state} />;
-    case View.Flows:
-      return (
-        <NotBuilt
-          title="Flows"
-          today="Today: archkeel view show SPEC draws a checked flow, and a tour if the spec has stops."
-        />
-      );
+    case View.Stories:
+      return <Stories id={route.story} ready={state.explore === ExploreState.DONE} />;
     case View.Impact:
       return <NotBuilt title="Change impact" today="Planned in issue #793." />;
     case View.Target:
@@ -89,6 +89,7 @@ const FULL: ReadonlySet<View> = new Set([View.Map, View.Explore]);
 function Shell() {
   const route = useRoute();
   const { state, error, model } = useStudio();
+  const chat = useChat();
   const view = route.view ?? (state?.explore === ExploreState.DONE ? View.Map : View.Overview);
   return (
     <>
@@ -113,7 +114,7 @@ function Shell() {
       </aside>
       <main class={FULL.has(view) ? "full" : undefined}>
         {error ? <p role="alert">{error}</p> : null}
-        {state ? content(view, route, state, model) : <p>Reading the Studio state…</p>}
+        {state ? content(view, route, state, model, chat) : <p>Reading the Studio state…</p>}
       </main>
     </>
   );

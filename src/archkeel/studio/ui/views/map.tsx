@@ -1,5 +1,6 @@
 /** AD-290: Map: the components of the snapshot as a dependency graph of the measured calls. */
 import { useMemo, useState } from "preact/hooks";
+import { ChatPanel, ChatState } from "../chat";
 import { Badge, Box, Page, ProofLegend, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { MAP_CARD, MapLine, layoutMap } from "../map-layout";
@@ -87,7 +88,8 @@ function Line(props: { line: MapLine; hot: number | null; selected: boolean; onH
   );
 }
 
-function MapView(props: { model: Model; contract: ContractState }) {
+function MapView(props: { model: Model; contract: ContractState; chat: ChatState }) {
+  const [asking, setAsking] = useState(false);
   const { model } = props;
   const layout = useMemo(() => layoutMap(model), [model]);
   const [hot, setHot] = useState<number | null>(null);
@@ -105,7 +107,18 @@ function MapView(props: { model: Model; contract: ContractState }) {
           components
         </span>
         <ProofLegend />
-        <button type="button" class="toggle" aria-pressed={details} onClick={() => setDetails(!details)}>
+        <button
+          type="button"
+          class="toggle"
+          aria-pressed={asking}
+          onClick={() => {
+            setAsking(!asking);
+            setDetails(true);
+          }}
+        >
+          Ask
+        </button>
+        <button type="button" class="toggle" aria-pressed={details && !asking} onClick={() => (asking ? setAsking(false) : setDetails(!details))}>
           Details
         </button>
       </header>
@@ -214,8 +227,10 @@ function MapView(props: { model: Model; contract: ContractState }) {
           })}
         </Viewport>
       </section>
-      <aside class="details" aria-label="Details">
-        {pair === null ? (
+      <aside class="details" aria-label={asking ? "Ask the agent" : "Details"}>
+        {asking ? (
+          <ChatPanel model={model} symbol={null} chat={props.chat} />
+        ) : pair === null ? (
           <Box title="Dependencies">
             <p>Hover a card to light its lines. Select a line or a count to see the calls behind it.</p>
             <p>Open a card to see its busiest function in the lens.</p>
@@ -237,7 +252,7 @@ function Source(props: { source: ComponentSource; contract: ContractState }) {
   return <Badge evidence={Evidence.Observed}>{`components: observed package layout${reason}`}</Badge>;
 }
 
-export function ArchMap(props: { model: Model | null; contract: ContractState }) {
+export function ArchMap(props: { model: Model | null; contract: ContractState; chat: ChatState }) {
   if (props.model === null) {
     return (
       <Page title="Map" lead="No map yet. Overview shows the progress.">
@@ -245,5 +260,5 @@ export function ArchMap(props: { model: Model | null; contract: ContractState })
       </Page>
     );
   }
-  return <MapView model={props.model} contract={props.contract} />;
+  return <MapView model={props.model} contract={props.contract} chat={props.chat} />;
 }

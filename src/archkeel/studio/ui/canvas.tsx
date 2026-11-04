@@ -25,7 +25,8 @@ export function ExplorerCanvas(props: {
   useEffect(() => {
     const listener = (event: MessageEvent): void => {
       const data = event.data;
-      if (event.origin !== location.origin || event.source !== frame.current?.contentWindow) return;
+      // The window is the identity: a sandboxed page has the opaque origin "null".
+      if (event.source !== frame.current?.contentWindow) return;
       if (data?.kind !== ExplorerMessage.COMPONENT_SELECTED) return;
       props.onSelect(typeof data.id === "string" ? { id: data.id, label: data.label ?? null } : null);
     };

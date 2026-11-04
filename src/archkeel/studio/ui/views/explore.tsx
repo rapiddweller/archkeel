@@ -1,5 +1,6 @@
 /** AD-290: Explore: the lens around one function, with its structure, place and search. */
 import { useMemo, useState } from "preact/hooks";
+import { ChatPanel, ChatState } from "../chat";
 import { Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofOf } from "../evidence";
 import { LensItem, LensLayout, OpenGroup, Rect, Side, layoutLens } from "../lens-layout";
@@ -216,8 +217,9 @@ const treeOpen = (): boolean => matchMedia("(min-width: 1100px)").matches;
 const detailsOpen = (): boolean => matchMedia("(min-width: 1500px)").matches;
 
 /** One lens. The page keys it by the function, so the open group and the tree start fresh. */
-function LensPage(props: { model: Model; symbol: number }) {
+function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
   const { model, symbol } = props;
+  const [asking, setAsking] = useState(false);
   const [open, setOpen] = useState<OpenGroup | null>(null);
   const [opened, setOpened] = useState<ReadonlySet<string>>(() => branch(model, symbol));
   const [tree, setTree] = useState(treeOpen);
@@ -251,7 +253,18 @@ function LensPage(props: { model: Model; symbol: number }) {
         <span class="summary">
           lens · 1 hop · {model.incoming[symbol].length + model.outgoing[symbol].length} neighbors · {unknownText(model, symbol)}
         </span>
-        <button type="button" class="toggle" aria-pressed={details} onClick={() => setDetails(!details)}>
+        <button
+          type="button"
+          class="toggle"
+          aria-pressed={asking}
+          onClick={() => {
+            setAsking(!asking);
+            setDetails(true);
+          }}
+        >
+          Ask
+        </button>
+        <button type="button" class="toggle" aria-pressed={details && !asking} onClick={() => (asking ? setAsking(false) : setDetails(!details))}>
           Details
         </button>
       </header>
@@ -265,14 +278,14 @@ function LensPage(props: { model: Model; symbol: number }) {
         </Viewport>
         <p class="note">Module-level calls are not shown.</p>
       </section>
-      <aside class="details" aria-label="Details">
-        <Details model={model} symbol={symbol} />
+      <aside class="details" aria-label={asking ? "Ask the agent" : "Details"}>
+        {asking ? <ChatPanel model={model} symbol={symbol} chat={props.chat} /> : <Details model={model} symbol={symbol} />}
       </aside>
     </div>
   );
 }
 
-export function Explore(props: { model: Model | null; symbol: number | null }) {
+export function Explore(props: { model: Model | null; symbol: number | null; chat: ChatState }) {
   const { model } = props;
   if (model === null) {
     return (
@@ -289,5 +302,5 @@ export function Explore(props: { model: Model | null; symbol: number | null }) {
       </Page>
     );
   }
-  return <LensPage key={symbol} model={model} symbol={symbol} />;
+  return <LensPage key={symbol} model={model} symbol={symbol} chat={props.chat} />;
 }
