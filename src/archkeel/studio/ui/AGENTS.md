@@ -27,10 +27,15 @@ Allowed imports (observed; `validate --write-graph` updates it):
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
+    chat --> client
+    chat --> components
+    chat --> evidence
+    chat --> model
     components --> evidence
     model --> client
     navigation --> components
     navigation --> model
+    shell --> chat
     shell --> client
     shell --> components
     shell --> model
@@ -39,6 +44,7 @@ flowchart LR
     store --> client
     store --> model
     views --> canvas
+    views --> chat
     views --> client
     views --> components
     views --> evidence

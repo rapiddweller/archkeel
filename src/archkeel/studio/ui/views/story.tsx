@@ -20,6 +20,10 @@ const PROOF_OF: Record<CheckStatus, Proof> = {
 const site = (file: string | null, line: number | null): string =>
   file === null ? "no place" : line === null ? file : `${file}:${line}`;
 
+/** A partial call lists candidates and proves none: the count must show beside the claim. */
+const candidatesOf = (step: StoryStep, link: StepLink): number | null =>
+  (link.evidence ?? []).find((item) => item.candidates !== undefined)?.candidates ?? step.seam?.candidates ?? null;
+
 const reduced = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function Verdict(props: { checked: CheckedStory }) {
@@ -73,6 +77,7 @@ function StepPanel(props: { step: StoryStep; link: StepLink; count: number }) {
           {(link.evidence ?? []).map((item, index) => (
             <li key={index}>
               call at <span class="where">{site(item.file, item.line)}</span>
+              {item.candidates === undefined ? "" : ` · ${item.candidates} candidates, none proven`}
             </li>
           ))}
         </ul>
@@ -214,7 +219,10 @@ function Player(props: { checked: CheckedStory }) {
               >
                 <b>{midCut(step.node.split(".").slice(-2).join("."), CARD_NAME)}</b>
                 <span class="meta">
-                  <ProofMark proof={proof} /> · {step.defined_at?.file?.split("/").pop() ?? "no file"}
+                  <ProofMark proof={proof} /> ·{" "}
+                  {candidatesOf(step, link(index)) === null
+                    ? (step.defined_at?.file?.split("/").pop() ?? "no file")
+                    : `${candidatesOf(step, link(index))} candidates`}
                 </span>
               </button>
             );

@@ -94,7 +94,7 @@ export type StepLink = {
   readonly status: CheckStatus;
   readonly reason: string;
   readonly note?: string | null;
-  readonly evidence?: readonly { readonly file: string | null; readonly line: number | null }[];
+  readonly evidence?: readonly { readonly file: string | null; readonly line: number | null; readonly candidates?: number }[];
 };
 export type StoryVerdict = Readonly<Record<CheckStatus, number>> & {
   readonly systems: readonly string[];

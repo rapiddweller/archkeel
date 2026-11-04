@@ -50,10 +50,26 @@
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow",
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readGraph",
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:SymbolKind",
-        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource"
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckStatus",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StepLink",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryRow",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryStep",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStories",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStory",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readDraft",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:askChat",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatFailed",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatAnswer",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatBlock",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Fact",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:AgentKind",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError"
       ],
       "responsibilities": [
-        "Read the state and the call graph of the own server, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
+        "Read the state, the call graph, the stories and the checked story of the own server, ask the chat and send nothing else, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
       ],
       "forbidden_responsibilities": [
         "Render, keep state or ask another origin."
@@ -72,7 +88,8 @@
       "exact_modules": [
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
         "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
-        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts"
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts"
       ],
       "public": [
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
@@ -105,7 +122,12 @@
         "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
         "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
-        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs"
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:findSymbol",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:midCut",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:StoryLayout"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -122,7 +144,8 @@
           "component": "client",
           "through": [
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Graph",
-            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow"
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory"
           ],
           "rationale": "Read the typed rows of the graph."
         }
@@ -303,14 +326,16 @@
         "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
-        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx"
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx"
       ],
       "public": [
         "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
         "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx:Report",
         "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
         "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx:ArchMap",
-        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt"
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt",
+        "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx:Stories"
       ],
       "responsibilities": [
         "Draw one page each from the API state or the model, with the shared components."
@@ -330,7 +355,14 @@
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
             "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState",
             "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
-            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource"
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckStatus",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StepLink",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryRow",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryStep",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStories",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStory"
           ],
           "rationale": "Decide what a page shows from the typed API state."
         },
@@ -394,7 +426,10 @@
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs"
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:midCut"
           ],
           "rationale": "Draw the Map and the lens from the indexed graph and their layouts."
         },
@@ -406,6 +441,14 @@
             "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:SearchBox"
           ],
           "rationale": "Show the structure tree, the place and the search in the lens."
+        },
+        {
+          "component": "chat",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatPanel",
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState"
+          ],
+          "rationale": "Show the chat panel in the Map and the lens."
         }
       ]
     },
@@ -471,9 +514,88 @@
             "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx:Report",
             "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
             "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx:ArchMap",
-            "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt"
+            "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt",
+            "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx:Stories"
           ],
           "rationale": "Mount the view of the current route."
+        },
+        {
+          "component": "chat",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState",
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:useChat"
+          ],
+          "rationale": "Keep the one conversation above the pages."
+        }
+      ]
+    },
+    {
+      "id": "UI-CHAT",
+      "label": "chat",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatPanel",
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState",
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:useChat",
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:Turn",
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:TurnKind"
+      ],
+      "responsibilities": [
+        "Draw the chat panel and keep the one conversation: agent text is a claim, a proposal is not applied, and only Studio facts read OBSERVED."
+      ],
+      "forbidden_responsibilities": [
+        "Apply a proposal, write a file or decide what is observed."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "client",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatAnswer",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatBlock",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatFailed",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Fact",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:askChat",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readDraft",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError"
+          ],
+          "rationale": "Ask the chat route and read its typed answer."
+        },
+        {
+          "component": "components",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref"
+          ],
+          "rationale": "Mark the evidence kind and link a ref to the lens."
+        },
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence"
+          ],
+          "rationale": "Mark agent text as a claim."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:findSymbol",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath"
+          ],
+          "rationale": "Turn a qualified name of the agent into a symbol of the lens."
         }
       ]
     }
