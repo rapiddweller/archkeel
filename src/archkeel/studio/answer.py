@@ -22,6 +22,7 @@ from .api import (
     data_of,
     decoded,
     first_place,
+    member,
     places,
     rows,
     text_of,
@@ -79,7 +80,7 @@ class Snapshot:
         for record in rows(model, "calls"):
             data = data_of(record)
             scope = text_of(data.get("source_scope"))
-            if text_of(data.get("status")) == CallStatus.RESOLVED:
+            if member(CallStatus, data.get("status")) is CallStatus.RESOLVED:
                 for target in texts_of(data.get("targets")):
                     self._callers[target].add(scope)
                     self._callees[scope].add(target)

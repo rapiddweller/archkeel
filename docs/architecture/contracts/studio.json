@@ -307,6 +307,7 @@
             "archkeel.studio.api:data_of",
             "archkeel.studio.api:decoded",
             "archkeel.studio.api:first_place",
+            "archkeel.studio.api:member",
             "archkeel.studio.api:places",
             "archkeel.studio.api:rows",
             "archkeel.studio.api:text_of",

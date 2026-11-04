@@ -135,14 +135,7 @@ def member(kind: type[_Member], value: JsonValue | RawJson) -> _Member | None:
 
 def parse_source_resolution(value: JsonValue | RawJson) -> SourceResolution | None:
     """Recognize source resolution at an owned port; future record data remains opaque."""
-    if isinstance(value, SourceResolution):
-        return value
-    if not isinstance(value, str):
-        return None
-    try:
-        return SourceResolution(value)
-    except ValueError:
-        return None
+    return member(SourceResolution, value)
 
 
 def source_dirty(value: bool | str) -> bool | Literal["unknown"]:
@@ -906,12 +899,7 @@ def parse_method_kind(value: JsonValue | RawJson | MethodKind) -> MethodKind | N
 
 def parse_symbol_class_kind(value: JsonValue | RawJson | SymbolClassKind) -> SymbolClassKind | None:
     """Recognize source classifier tags without assigning meaning to foreign wire data."""
-    if not isinstance(value, str):
-        return None
-    try:
-        return SymbolClassKind(value)
-    except ValueError:
-        return None
+    return member(SymbolClassKind, value)
 
 
 def parse_source_name_visibility(
