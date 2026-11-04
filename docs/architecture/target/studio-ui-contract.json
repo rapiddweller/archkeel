@@ -145,7 +145,12 @@
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelBox",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
         "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:roundedPath",
-        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter"
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:midOf",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:tileKey",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:neighbors",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:KeyKind",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:splitRef"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -439,10 +444,12 @@
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Side",
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:KeyKind",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:splitRef",
             "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MAP_CARD",
             "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MapLine",
             "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:layoutMap",
@@ -460,6 +467,7 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:links",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:locate",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:neighbors",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName",
@@ -487,6 +495,7 @@
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus"
           ],
           "rationale": "Use workbench."
@@ -667,7 +676,8 @@
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
-        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows"
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows"
       ],
       "responsibilities": [
         "Draw the shared page of every level: toolbar, structure tree, canvas, the You are here box with Up, and the zoom between levels; draw the modules or functions of a level with their stubs."
@@ -718,7 +728,9 @@
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:cardKey",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:stubKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:tileKey",
             "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:midOf",
             "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:roundedPath",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",

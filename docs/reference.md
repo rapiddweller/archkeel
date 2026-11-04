@@ -217,7 +217,10 @@ Overview shows the progress. When the snapshot is done, Studio opens on the Map:
     to dim the other cards; a click pins the focus, Esc clears it. The side panel lists each
     connected card with its module, file, line and proof. Stubs at the sides are the other
     components that call into it (left) and that it calls (right), each with its count and, while a
-    card has the focus, the functions on the other side; a click on a stub opens that component. A
+    card has the focus, the functions on the other side; a click on a stub opens that component. On a
+    package of the component, the other packages of the component are stubs too. A focused line ends on
+    its card with a port dot, and a dot runs along it from the caller to the callee (a chevron with
+    reduced motion). At rest each stub has one faint line to the nearest plate. A
     double click or Enter on a module card opens the module. A package that does not fit the first
     screen is one tile that opens it.
   - **Module** (`#/module/<n>`): the functions of the module as cards and the other modules that call
