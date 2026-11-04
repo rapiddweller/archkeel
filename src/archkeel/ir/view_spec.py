@@ -895,8 +895,7 @@ def _one_kind(
 
 def call_evidence(edge: CallEdge) -> tuple[ViewEvidence | CandidateEvidence, ...]:
     """Each call site. A partial call carries `candidates`, so it differs in shape from proof."""
-    if edge.seam is not None:
-        count = edge.seam.candidates or 0
+    if edge.seams:
         return tuple(
             CandidateEvidence(
                 site.record_id,
@@ -906,9 +905,9 @@ def call_evidence(edge: CallEdge) -> tuple[ViewEvidence | CandidateEvidence, ...
                 site.evidence_id,
                 site.file,
                 site.line,
-                candidates=count,
+                candidates=seam.candidates or 0,
             )
-            for site in edge.sites
+            for site, seam in zip(edge.sites, edge.seams, strict=True)
         )
     return tuple(
         ViewEvidence(

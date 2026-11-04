@@ -91,12 +91,21 @@ class Seam:
 
 @dataclass(frozen=True, slots=True)
 class CallEdge:
-    """Calls from one function to another; `seam` is none when a resolved call proves it."""
+    """Calls from one function to another. A resolved call proves it: then `seams` is empty.
+
+    A partial call has one seam for each site, in the order of `sites`: the sites differ in
+    candidates and reason.
+    """
 
     source: str
     target: str
     sites: tuple[Site, ...]
-    seam: Seam | None = None
+    seams: tuple[Seam, ...] = ()
+
+    @property
+    def seam(self) -> Seam | None:
+        """The seam of the first site; the edge as a whole is a claim when this is set."""
+        return self.seams[0] if self.seams else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +195,7 @@ def _edges(
     reexports: frozenset[str],
 ) -> tuple[dict[str, dict[str, CallEdge]], dict[str, Seam]]:
     proven: dict[tuple[str, str], list[Site]] = {}
-    guessed: dict[tuple[str, str], tuple[list[Site], Seam]] = {}
+    guessed: dict[tuple[str, str], tuple[list[Site], list[Seam]]] = {}
     reasons: dict[str, Counter[str]] = {}
     for item in graph.relationships:
         source = names.get(item.source_id)
@@ -204,17 +213,19 @@ def _edges(
             seam = Seam(SeamKind.PARTIAL_CALL, source, item.reason, candidates=count)
             for candidate in item.candidate_ids:
                 if (target := names.get(candidate)) is not None:
-                    guessed.setdefault((source, target), ([], seam))[0].append(site)
+                    found_sites, found_seams = guessed.setdefault((source, target), ([], []))
+                    found_sites.append(site)
+                    found_seams.append(seam)
             if item.candidates_truncated:
                 reasons.setdefault(source, Counter())[_TRUNCATED] += 1
         elif item.resolution == ResolutionKind.UNRESOLVED:
             reasons.setdefault(source, Counter())[item.reason or _NO_REASON] += 1
     edges: dict[str, dict[str, CallEdge]] = {}
     # A resolved call proves the pair; a partial call to the same pair adds nothing.
-    for (source, target), (partial_sites, seam) in sorted(guessed.items()):
+    for (source, target), (partial_sites, partial_seams) in sorted(guessed.items()):
         if (source, target) not in proven:
             edges.setdefault(source, {})[target] = CallEdge(
-                source, target, tuple(partial_sites), seam
+                source, target, tuple(partial_sites), tuple(partial_seams)
             )
     for (source, target), resolved_sites in sorted(proven.items()):
         edges.setdefault(source, {})[target] = CallEdge(source, target, tuple(resolved_sites))

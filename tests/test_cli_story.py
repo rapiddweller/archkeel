@@ -44,6 +44,7 @@ from archkeel.ir.story import trace_flow, trace_json
 from archkeel.ir.view_spec import (
     CandidateEvidence,
     ViewStatus,
+    call_evidence,
     check_view,
     parse_view_spec,
     snapshot_identity,
@@ -564,14 +565,14 @@ def test_a_wide_dispatch_is_searched_in_bounded_work_and_proven_paths_come_first
     }
     seam = Seam(SeamKind.PARTIAL_CALL, "root", None, candidates=width)
     edges: dict[str, dict[str, CallEdge]] = {
-        "root": {f"a{i}": CallEdge("root", f"a{i}", (), seam) for i in range(width)}
+        "root": {f"a{i}": CallEdge("root", f"a{i}", (), (seam,)) for i in range(width)}
     }
     edges["root"]["p1"] = CallEdge("root", "p1", ())
     edges["p1"] = {"p2": CallEdge("p1", "p2", ())}
     edges["p2"] = {"p3": CallEdge("p2", "p3", ())}
     edges["p3"] = {"sink": CallEdge("p3", "sink", ())}
     for i in range(width):
-        edges[f"a{i}"] = {f"b{j}": CallEdge(f"a{i}", f"b{j}", (), seam) for j in range(width)}
+        edges[f"a{i}"] = {f"b{j}": CallEdge(f"a{i}", f"b{j}", (), (seam,)) for j in range(width)}
         edges[f"b{i}"] = {"sink": CallEdge(f"b{i}", "sink", ())}
     edges["root"] = dict(sorted(edges["root"].items()))
     search = flow_graph.find_paths(
@@ -739,6 +740,26 @@ def test_a_resolved_call_wins_over_a_partial_call_to_the_same_pair() -> None:
     )
     edge = calls.edges["m.a"]["m.b"]
     assert edge.seam is None and len(edge.sites) == 1
+
+
+def test_each_partial_call_site_keeps_its_own_candidate_count_and_reason() -> None:
+    entities = [_module("m"), _function("m", "a"), _function("m", "b"), _function("m", "c")]
+    narrow = _call(
+        "FN-m.a", ResolutionKind.PARTIAL, candidate_ids=("FN-m.b", "FN-m.c"), candidate_count=2
+    )
+    wide = _call(
+        "FN-m.a",
+        ResolutionKind.PARTIAL,
+        candidate_ids=("FN-m.b",),
+        candidate_count=7,
+        reason="dynamic receiver",
+    )
+    calls = _calls(entities, [narrow, replace(wide, id="CALL-wide")])
+    edge = calls.edges["m.a"]["m.b"]
+    assert [site.record_id for site in edge.sites] == [narrow.id, "CALL-wide"]
+    assert [seam.candidates for seam in edge.seams] == [2, 7]
+    assert [seam.reason for seam in edge.seams] == [None, "dynamic receiver"]
+    assert [site.candidates for site in call_evidence(edge)] == [2, 7]
 
 
 def test_a_callee_reached_by_a_partial_call_adds_no_touchpoint() -> None:
