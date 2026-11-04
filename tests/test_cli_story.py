@@ -4,6 +4,9 @@
 """AD-291: a story is a checked view; the trace proposes its path from the call graph."""
 
 import json
+import os
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -13,8 +16,18 @@ from test_cli_view import ROOT, _observation, _snapshot
 
 from archkeel.cli import main
 from archkeel.ir import flow_graph
-from archkeel.ir.architecture_graph import EntityKind
+from archkeel.ir.architecture_graph import (
+    ArchitectureGraph,
+    Entity,
+    EntityKind,
+    OriginKind,
+    PresenceKind,
+    Relationship,
+    RelationshipKind,
+    ResolutionKind,
+)
 from archkeel.ir.flow_graph import (
+    MAX_HOPS,
     CallEdge,
     CallGraph,
     ExternalSystem,
@@ -22,11 +35,14 @@ from archkeel.ir.flow_graph import (
     Seam,
     SeamKind,
     Site,
+    build_call_graph,
     module_lanes,
+    touchpoints,
 )
-from archkeel.ir.model import Observation
+from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData, Section
 from archkeel.ir.story import trace_flow, trace_json
 from archkeel.ir.view_spec import (
+    CandidateEvidence,
     ViewStatus,
     check_view,
     parse_view_spec,
@@ -47,6 +63,7 @@ START, LEFT, RIGHT, FINISH, AGAIN = (
     f"shop.app.flow.{name}" for name in ("start", "left", "right", "finish", "again")
 )
 DYNAMIC, FETCH = "shop.app.flow.dynamic", "shop.store.cache.fetch"
+ONE, TWO, THREE = (f"shop.app.pure.{name}" for name in ("one", "two", "three"))
 _HEADER = (ROOT / "fixtures/F-architecture/shop/render/text.py").read_text().split('"""')[0]
 # A diamond (start-left-finish, start-right-finish), a cycle (again calls start) and one call
 # whose target the analysis cannot name (dynamic).
@@ -102,6 +119,22 @@ def fetch(key: str) -> str:
         Session.__name__
     )
 '''
+_PURE = '''"""Functions that call no builtin, so the module has no call gap."""
+
+from __future__ import annotations
+
+
+def one() -> int:
+    return two()
+
+
+def two() -> int:
+    return 1
+
+
+def three() -> int:
+    return 3
+'''
 _LOOKALIKE = '''"""A module that is named like a library and imports none."""
 
 from __future__ import annotations
@@ -118,13 +151,38 @@ def shop(tmp_path_factory: pytest.TempPathFactory) -> Observation:
 
 
 @pytest.fixture(scope="module")
-def flows(tmp_path_factory: pytest.TempPathFactory) -> Observation:
+def flows_packet(tmp_path_factory: pytest.TempPathFactory) -> bytes:
     overlay = {
         "shop/app/flow.py": _HEADER + _FLOW,
+        "shop/app/pure.py": _HEADER + _PURE,
         "shop/store/cache.py": _HEADER + _CACHE,
         "shop/store/redis_cache.py": _HEADER + _LOOKALIKE,
     }
-    return _observation(_snapshot(tmp_path_factory.mktemp("story-flows"), overlay))
+    return _snapshot(tmp_path_factory.mktemp("story-flows"), overlay)
+
+
+@pytest.fixture(scope="module")
+def flows(flows_packet: bytes) -> Observation:
+    return _observation(flows_packet)
+
+
+@pytest.fixture(scope="module")
+def limitless(flows: Observation) -> Observation:
+    """No call limit and no call from a scope without a module (a comprehension).
+
+    Both set a snapshot-wide call gap (`everywhere`); without them an absent call can be missing.
+    """
+    kept = {
+        "unknowns": lambda r: r.kind != "dynamic_call_limit",
+        "calls": lambda r: "<" not in str(r.data.get("source_scope")),
+    }
+    sections = tuple(
+        Section(item.name, tuple(r for r in item.records if kept[item.name](r)))
+        if item.name in kept
+        else item
+        for item in flows.sections
+    )
+    return replace(flows, sections=sections)
 
 
 def _spec(
@@ -162,6 +220,8 @@ def test_a_resolved_call_proves_the_step_with_its_call_site(shop: Observation) -
     assert first.status is ViewStatus.PROVEN and second.status is ViewStatus.PROVEN
     (site,) = second.evidence
     assert (site.file, site.line, site.kind) == ("shop/cli/main.py", 17, "calls")
+    assert not isinstance(site, CandidateEvidence)
+    assert "candidates" not in json.loads(view_check_json(result))["steps"][1]["evidence"][0]
     assert site.record_id.startswith("CALL-") and site.evidence_id.startswith("EVD-")
     assert result.story is not None
     start, end = result.story.steps
@@ -176,6 +236,12 @@ def test_a_partial_call_is_a_claim_with_its_candidate_count_never_proven(shop: O
     result = _check(shop, [{"node": RENDER}, {"node": TOTAL}])
     link = result.steps[1]
     assert link.status is ViewStatus.CLAIM and link.evidence
+    # AD-291: a partial call site carries `candidates`; a proof never has that shape.
+    assert all(
+        isinstance(site, CandidateEvidence) and site.candidates == 2 for site in link.evidence
+    )
+    data = json.loads(view_check_json(result))["steps"]
+    assert all("candidates" in site for site in data[1]["evidence"])
     assert "partial call" in link.reason and "does not prove" in link.reason
     assert result.story is not None
     seam = result.story.steps[1].seam
@@ -190,7 +256,8 @@ def test_an_unresolved_call_makes_the_step_unknown_and_names_the_seam(shop: Obse
     assert "have no named target" in link.reason
     assert result.story is not None
     seam = result.story.steps[1].seam
-    assert seam == Seam(SeamKind.UNRESOLVED_CALL, PLACE, "expression is dynamic", calls=1)
+    # The dynamic `.save` call and the re-exported `OrderRepository` are two calls without a name.
+    assert (seam.kind, seam.node, seam.calls) == (SeamKind.UNRESOLVED_CALL, PLACE, 2)
     assert result.exit_code == 0 and result.story.verdict.unknown == 1
 
 
@@ -487,30 +554,53 @@ def test_a_search_that_spends_its_work_says_it_is_incomplete(
     assert not _trace(flows, START, AGAIN).complete
 
 
-def test_a_wide_dispatch_is_searched_in_bounded_work() -> None:
-    """58 candidates at three levels (the EE shape): the search stays small and ordered."""
+def test_a_wide_dispatch_is_searched_in_bounded_work_and_proven_paths_come_first() -> None:
+    """58 candidates at two levels (the EE shape), and a longer path of resolved calls only."""
     width = 58
+    chain = ("root", "p1", "p2", "p3", "sink")
     functions = {
         name: Function(name, EntityKind.FUNCTION, "m", name, Site(name))
-        for name in (
-            "root",
-            "sink",
-            *(f"a{i}" for i in range(width)),
-            *(f"b{i}" for i in range(width)),
-        )
+        for name in (*chain, *(f"a{i}" for i in range(width)), *(f"b{i}" for i in range(width)))
     }
     seam = Seam(SeamKind.PARTIAL_CALL, "root", None, candidates=width)
     edges: dict[str, dict[str, CallEdge]] = {
         "root": {f"a{i}": CallEdge("root", f"a{i}", (), seam) for i in range(width)}
     }
+    edges["root"]["p1"] = CallEdge("root", "p1", ())
+    edges["p1"] = {"p2": CallEdge("p1", "p2", ())}
+    edges["p2"] = {"p3": CallEdge("p2", "p3", ())}
+    edges["p3"] = {"sink": CallEdge("p3", "sink", ())}
     for i in range(width):
         edges[f"a{i}"] = {f"b{j}": CallEdge(f"a{i}", f"b{j}", (), seam) for j in range(width)}
         edges[f"b{i}"] = {"sink": CallEdge(f"b{i}", "sink", ())}
+    edges["root"] = dict(sorted(edges["root"].items()))
     search = flow_graph.find_paths(
         CallGraph(functions, edges, {}, {}), "root", "sink", max_paths=5, max_hops=12
     )
     assert search.complete and len(search.paths) == 5
-    assert [edge.target for edge in search.paths[0]] == ["a0", "b0", "sink"]
+    named = [[edge.target for edge in path] for path in search.paths]
+    # The proven path has 4 hops and the seam paths have 3, yet the proven path comes first.
+    assert named[0] == ["p1", "p2", "p3", "sink"]
+    assert named[1] == ["a0", "b0", "sink"]
+    assert all(edge.seam is None for edge in search.paths[0])
+    assert all(any(edge.seam for edge in path) for path in search.paths[1:])
+
+
+def test_the_walk_is_bounded_by_the_hop_limit() -> None:
+    length = MAX_HOPS
+    names = [f"f{i}" for i in range(length + 1)]
+    functions = {n: Function(n, EntityKind.FUNCTION, "m", n, Site(n)) for n in names}
+    edges = {a: {b: CallEdge(a, b, ())} for a, b in zip(names, names[1:], strict=False)}
+    search = flow_graph.find_paths(
+        CallGraph(functions, edges, {}, {}), names[0], names[-1], max_paths=1, max_hops=MAX_HOPS
+    )
+    assert len(search.paths[0]) == length and search.complete
+
+
+def test_a_hop_limit_above_the_bound_is_an_input_error(flows: Observation) -> None:
+    assert _trace(flows, START, FINISH, max_hops=MAX_HOPS).paths
+    with pytest.raises(ValueError, match="--max-hops from 1 to 100"):
+        _trace(flows, START, FINISH, max_hops=MAX_HOPS + 1)
 
 
 def test_the_trace_command_prints_json_and_exits_2_on_a_bad_name(
@@ -534,3 +624,184 @@ def test_the_trace_command_prints_json_and_exits_2_on_a_bad_name(
     capsys.readouterr()
     snapshot.write_text("{}")
     assert main([*base, "--from", MAIN]) == 2
+
+
+# ---------- gaps, seams and the order of the answer ----------
+def _module(name: str) -> Entity:
+    return Entity(f"MOD-{name}", EntityKind.MODULE, name, "python", presence=PresenceKind.DEFINED)
+
+
+def _function(module: str, name: str) -> Entity:
+    return Entity(
+        f"FN-{module}.{name}",
+        EntityKind.FUNCTION,
+        f"{module}.{name}",
+        "python",
+        parent_id=f"MOD-{module}",
+        presence=PresenceKind.DEFINED,
+    )
+
+
+def _call(source: str, resolution: ResolutionKind, target: str | None = None, **fields):
+    identity = f"CALL-{source}-{target}-{resolution}-{len(fields)}"
+    return Relationship(identity, RelationshipKind.CALLS, source, target, resolution, **fields)
+
+
+def _import(module: str, library: str, identity: str = "IMP-1") -> Record:
+    entries = (("source_module", module), ("target_module", library))
+    return Record(
+        identity, EvidenceClass.FACT, "dependencies", "import", "Import", (), (), (), (), (),
+        RecordData(entries),
+    )  # fmt: skip
+
+
+def _calls(entities: list[Entity], relationships: list[Relationship], imports=()):
+    graph = ArchitectureGraph(OriginKind.OBSERVED, tuple(entities), tuple(relationships), (), ())
+    return build_call_graph(graph, imports)
+
+
+def test_a_missing_call_is_missing_only_without_a_gap_and_without_the_call_limit(
+    flows: Observation, limitless: Observation
+) -> None:
+    pairs = [{"node": ONE}, {"node": THREE}]
+    # Control: the module has no gap, so ONE -> TWO is proven and ONE -> THREE is really absent.
+    assert _check(limitless, [{"node": ONE}, {"node": TWO}]).steps[1].status is ViewStatus.PROVEN
+    absent = _check(limitless, pairs).steps[1]
+    assert absent.status is ViewStatus.MISSING and "coverage is complete" in absent.reason
+    assert _check(limitless, pairs).exit_code == 1
+    # The same pair under the dynamic call limit of the full snapshot is unknown (AD-284).
+    limited = _check(flows, pairs).steps[1]
+    assert limited.status is ViewStatus.UNKNOWN and "dynamic" in limited.reason
+
+
+def test_a_module_with_a_call_gap_makes_an_absent_call_unknown_not_missing(
+    limitless: Observation,
+) -> None:
+    # render_order calls builtins, so its module has a gap: an absent call is not proven absent.
+    result = _check(limitless, [{"node": RENDER}, {"node": "shop.app.orders.summarize"}])
+    link = result.steps[1]
+    assert link.status is ViewStatus.UNKNOWN and "re-exported" in link.reason
+    assert result.exit_code == 0
+
+
+def test_two_functions_relate_by_calls_only(flows: Observation) -> None:
+    link = _check(flows, [{"node": START}, {"node": LEFT, "kind": "imports"}]).steps[1]
+    assert link.status is ViewStatus.UNKNOWN and "calls, not imports" in link.reason
+
+
+def test_a_truncated_partial_call_and_a_re_export_are_seams_not_silence() -> None:
+    modules = [_module("pkg"), _module("other")]
+    functions = [_function("pkg", "run"), _function("pkg", "known"), _function("other", "x")]
+    reexport = Entity(
+        "REF-1", EntityKind.SYMBOL, "pkg.Thing", "python", presence=PresenceKind.REFERENCED
+    )
+    builtin = Entity(
+        "REF-2", EntityKind.SYMBOL, "builtins.sorted", "python", presence=PresenceKind.REFERENCED
+    )
+    source = "FN-pkg.run"
+    calls = _calls(
+        [*modules, *functions, reexport, builtin],
+        [
+            _call(
+                source,
+                ResolutionKind.PARTIAL,
+                candidate_ids=("FN-pkg.known",),
+                candidate_count=60,
+                candidates_truncated=True,
+            ),
+            _call(source, ResolutionKind.RESOLVED, "REF-2"),
+        ],
+    )
+    seam = calls.unresolved["pkg.run"]
+    assert seam.kind is SeamKind.UNRESOLVED_CALL and seam.calls == 1
+    assert "only some" in (seam.reason or "")
+    assert calls.edges["pkg.run"]["pkg.known"].seam is not None
+    more = _calls(
+        [*modules, *functions, reexport, builtin],
+        [
+            _call(source, ResolutionKind.RESOLVED, "REF-1"),
+            _call(source, ResolutionKind.RESOLVED, "REF-2"),
+        ],
+    )
+    # The re-export of the project is a seam; a builtin (a name outside the project) is not.
+    assert more.unresolved["pkg.run"].calls == 1
+    assert "re-export" in (more.unresolved["pkg.run"].reason or "")
+
+
+def test_a_resolved_call_wins_over_a_partial_call_to_the_same_pair() -> None:
+    entities = [_module("m"), _function("m", "a"), _function("m", "b")]
+    calls = _calls(
+        entities,
+        [
+            _call("FN-m.a", ResolutionKind.PARTIAL, candidate_ids=("FN-m.b",), candidate_count=1),
+            _call("FN-m.a", ResolutionKind.RESOLVED, "FN-m.b"),
+        ],
+    )
+    edge = calls.edges["m.a"]["m.b"]
+    assert edge.seam is None and len(edge.sites) == 1
+
+
+def test_a_callee_reached_by_a_partial_call_adds_no_touchpoint() -> None:
+    entities = [_module("m"), _module("n"), _function("m", "a"), _function("n", "b")]
+    imports = [_import("n", "redis")]
+    partial = _call("FN-m.a", ResolutionKind.PARTIAL, candidate_ids=("FN-n.b",), candidate_count=1)
+    resolved = _call("FN-m.a", ResolutionKind.RESOLVED, "FN-n.b")
+    guessed = _calls(entities, [partial], imports)
+    assert touchpoints(guessed, "m.a") == () and touchpoints(guessed, "n.b")
+    assert touchpoints(_calls(entities, [resolved], imports), "m.a")
+
+
+def test_a_first_party_package_named_like_a_client_library_is_not_that_library() -> None:
+    entities = [_module("redis.client"), _module("app"), _function("app", "a")]
+    foreign = _import("app", "redis.client", "IMP-1")
+    external = _import("app", "kafka", "IMP-2")
+    calls = _calls(entities, [], [foreign, external])
+    assert [touch.library for touch in calls.touches["app"]] == ["kafka"]
+
+
+def test_the_no_target_trace_lists_more_hops_first(flows: Observation) -> None:
+    names = [path.hops[-1].node.name for path in _trace(flows, START, max_paths=9).paths]
+    assert names == [
+        AGAIN,
+        FINISH,
+        "shop.store.redis_cache.ping",
+        DYNAMIC,
+        LEFT,
+        RIGHT,
+        FETCH,
+    ]
+    depths = [len(path.hops) for path in _trace(flows, START, max_paths=9).paths]
+    assert depths == sorted(depths, reverse=True)
+
+
+def test_a_trace_is_the_same_text_under_other_hash_seeds(
+    flows_packet: bytes, tmp_path: Path
+) -> None:
+    snapshot = tmp_path / "architecture.json"
+    snapshot.write_bytes(flows_packet)
+    command = [
+        sys.executable, "-m", "archkeel.cli", "story", "trace", "--from", START, "--to", AGAIN,
+        "--snapshot", str(snapshot), "--max-paths", "9", "--json",
+    ]  # fmt: skip
+    outputs = [
+        subprocess.run(
+            command,
+            capture_output=True,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            check=True,
+        ).stdout
+        for seed in ("1", "2", "31337")
+    ]
+    assert outputs[0] and outputs[0] == outputs[1] == outputs[2]
+
+
+def test_a_null_story_key_is_invalid_before_version_1_2_0_as_in_the_schema(
+    shop: Observation,
+) -> None:
+    raw = _spec(shop, [{"node": MAIN, "chapter": None}])
+    del raw["story"]
+    raw["schema_version"] = "1.1.0"
+    schema = json.loads((ROOT / "schema/view-spec.schema.json").read_text())
+    assert not Draft202012Validator(schema).is_valid(raw)
+    with pytest.raises(ValueError, match="1.2.0"):
+        parse_view_spec(raw)

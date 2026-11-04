@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from typing import Final, Literal
 
 from archkeel.ir.flow_graph import (
+    MAX_HOPS,
     CallEdge,
     CallGraph,
     ExternalSystem,
@@ -23,6 +24,7 @@ from archkeel.ir.flow_graph import (
 from archkeel.ir.model import Observation
 from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.view_spec import (
+    CandidateEvidence,
     ExternalCheck,
     ViewEvidence,
     ViewSnapshot,
@@ -55,7 +57,7 @@ class TraceHop:
     status: ViewStatus
     reason: str
     seam: Seam | None
-    evidence: tuple[ViewEvidence, ...]
+    evidence: tuple[ViewEvidence | CandidateEvidence, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,8 +122,8 @@ def trace_flow(
     max_hops: int,
 ) -> TraceResult:
     """Candidate paths from `source`, to `target` when given; a bad name or limit is an error."""
-    if max_paths < 1 or max_hops < 1:
-        raise ValueError("--max-paths and --max-hops must be at least 1")
+    if max_paths < 1 or not 1 <= max_hops <= MAX_HOPS:
+        raise ValueError(f"--max-paths must be at least 1 and --max-hops from 1 to {MAX_HOPS}")
     calls = build_call_graph(observed_graph(observation), observation.records("imports") or ())
     for option, name in (("--from", source), ("--to", target)):
         if name is not None and name not in calls.functions:

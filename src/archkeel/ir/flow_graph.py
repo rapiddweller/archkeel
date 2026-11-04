@@ -60,6 +60,10 @@ _LIBRARIES: Final = {
 }
 _CALLABLES: Final = frozenset({EntityKind.FUNCTION, EntityKind.METHOD})
 _NO_REASON: Final = "no reason recorded"
+_REEXPORT: Final = "call through a re-export: the analysis does not follow it"
+_TRUNCATED: Final = "partial call that lists only some of its candidates"
+# `--max-hops` bound: the path walk recurses once for each hop.
+MAX_HOPS: Final = 100
 # Each expansion of the path search costs one; a search that spends them all is not complete.
 WORK_LIMIT: Final = 200_000
 
@@ -151,7 +155,10 @@ def _second_name(module: str) -> str:
     return parts[1] if len(parts) > 1 else module
 
 
-def _system_of(library: str) -> ExternalSystem | None:
+def _system_of(library: str, namespaces: frozenset[str]) -> ExternalSystem | None:
+    # A first-party package that is named like a client library is not that library.
+    if library.split(".")[0] in namespaces:
+        return None
     return next(
         (
             system
@@ -173,7 +180,10 @@ def _site(record_id: str, evidence_ids: Sequence[str], evidence: Mapping[str, Ev
 
 
 def _edges(
-    graph: ArchitectureGraph, names: Mapping[str, str], evidence: Mapping[str, Evidence]
+    graph: ArchitectureGraph,
+    names: Mapping[str, str],
+    evidence: Mapping[str, Evidence],
+    reexports: frozenset[str],
 ) -> tuple[dict[str, dict[str, CallEdge]], dict[str, Seam]]:
     proven: dict[tuple[str, str], list[Site]] = {}
     guessed: dict[tuple[str, str], tuple[list[Site], Seam]] = {}
@@ -187,12 +197,16 @@ def _edges(
             target = names.get(item.target_id) if item.target_id else None
             if target is not None:
                 proven.setdefault((source, target), []).append(site)
+            elif item.target_id in reexports:
+                reasons.setdefault(source, Counter())[_REEXPORT] += 1
         elif item.resolution == ResolutionKind.PARTIAL:
             count = item.candidate_count if item.candidate_count is not None else 0
             seam = Seam(SeamKind.PARTIAL_CALL, source, item.reason, candidates=count)
             for candidate in item.candidate_ids:
                 if (target := names.get(candidate)) is not None:
                     guessed.setdefault((source, target), ([], seam))[0].append(site)
+            if item.candidates_truncated:
+                reasons.setdefault(source, Counter())[_TRUNCATED] += 1
         elif item.resolution == ResolutionKind.UNRESOLVED:
             reasons.setdefault(source, Counter())[item.reason or _NO_REASON] += 1
     edges: dict[str, dict[str, CallEdge]] = {}
@@ -209,14 +223,14 @@ def _edges(
 
 
 def _touches(
-    imports: Iterable[Record], evidence: Mapping[str, Evidence]
+    imports: Iterable[Record], evidence: Mapping[str, Evidence], namespaces: frozenset[str]
 ) -> dict[str, tuple[Touch, ...]]:
     found: dict[str, list[Touch]] = {}
     for record in imports:
         module, library = record.data.get("source_module"), record.data.get("target_module")
         if not isinstance(module, str) or not isinstance(library, str):
             continue
-        system = _system_of(library)
+        system = _system_of(library, namespaces)
         if system is None or record.data.get("under_type_checking") is True:
             continue
         site = _site(record.id, record.evidence_ids, evidence)
@@ -259,8 +273,16 @@ def build_call_graph(graph: ArchitectureGraph, imports: Iterable[Record] = ()) -
                     entity.qualified_name, entity.kind, module_of[entity.id], entity.id, defined
                 ),
             )
-    edges, unresolved = _edges(graph, names, evidence)
-    return CallGraph(functions, edges, unresolved, _touches(imports, evidence))
+    namespaces = frozenset(name.split(".")[0] for name in module_of.values())
+    # A defined first-party name that is only referenced is a re-export, such as `shop.store.X`.
+    reexports = frozenset(
+        entity.id
+        for entity in graph.entities
+        if entity.presence == PresenceKind.REFERENCED
+        and entity.qualified_name.split(".")[0] in namespaces
+    )
+    edges, unresolved = _edges(graph, names, evidence, reexports)
+    return CallGraph(functions, edges, unresolved, _touches(imports, evidence, namespaces))
 
 
 def touchpoints(calls: CallGraph, node: str) -> tuple[Touch, ...]:

@@ -321,11 +321,13 @@ function or method. [`schema/story-trace.schema.json`](../schema/story-trace.sch
 - With `--to`, it lists simple paths. Paths over resolved calls come first, then paths that cross a seam.
   Shorter paths come first. Without `--to`, it follows resolved calls only and lists the farthest functions.
 - A hop is `proven` (a resolved call, with each call site) or `claim` (a partial call: the analysis lists
-  `candidates` and does not prove the target). An unresolved call is a seam of its function.
+  `candidates` and does not prove the target; its call sites carry `candidates`). An unresolved call,
+  a call through a re-export and a partial call with more candidates than listed are seams of their function.
 - Each function has its `lane` (the contract component, else the second name of its module), its
   `defined_at` line and the external systems whose client library its module imports. The catalog is:
   redis, sqlalchemy, pymongo, boto3, botocore, minio, azure.storage, kafka and pika.
-- `complete: false` means that the search stopped at its work limit (200,000 steps).
+- `complete: false` means only that the path search stopped at its work limit (200,000 steps). It
+  says nothing about the call analysis. `--max-hops` is at most 100; a larger value is exit 2.
 - No path is `"paths": []` with exit 0. A name that is no function of the snapshot is exit 2.
 
 To tell the story, write a view spec with `"schema_version": "1.2.0"` and a `story`:
@@ -334,7 +336,8 @@ and `external` (`system`, `direction`). The step `note` is the story text. These
 text. A node can be a function or a method. `archkeel view check` then adds, for each step, the
 status and call sites as for any step, and a `story` block with the `lane`, `defined_at`, `seam`
 and external `touched` systems of each step by `index`, and a `verdict` of counts. A partial call
-is `claim`. An unresolved call makes the step `unknown`. A process boundary is not detected: use
+is `claim`; it does not fail `--strict`, and its call sites carry `candidates`. An unresolved call, a
+module call gap or the dynamic call limit makes a step without a call `unknown`. A process boundary is not detected: use
 `"claim": true`. A spec of version 1.0.0 or 1.1.0 cannot have a story, and its result is unchanged.
 
 ## Results
