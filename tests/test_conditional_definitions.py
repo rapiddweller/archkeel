@@ -11,7 +11,7 @@ from jsonschema import Draft202012Validator
 from test_analyzer import _observe, _parsed_module
 from test_uml_classifier_facts import _observation
 
-from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.analyzer.python.symbols import collect_symbols
@@ -30,7 +30,7 @@ def _facts(source):
     evidence = {}
     collect_imports([module], {module.module}, evidence, namespace="sample")
     symbols, _, _ = collect_symbols([module], evidence)
-    calls = collect_calls([module], build_symbol_index(symbols), evidence)
+    calls = collect_calls_with_resolvers([module], build_symbol_index(symbols), evidence)[0]
     return symbols, calls, evidence
 
 

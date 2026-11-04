@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.analyzer.python.source import parse_sources
@@ -109,7 +109,7 @@ def test_state_collection_replays_two_contracts_without_parsing_or_mutation(
     imports = collect_imports(
         parsed, {module.module for module in parsed}, initial, namespace="sample"
     )
-    calls = collect_calls(parsed, build_symbol_index(symbols), initial)
+    calls = collect_calls_with_resolvers(parsed, build_symbol_index(symbols), initial)[0]
     roots = (("sample.Bag", "missing.Root"), ("sample.Unselected", "other.Bag"))
     expected = json.loads(
         (Path(__file__).parent / "fixtures/state-facts/contracts.json").read_text()

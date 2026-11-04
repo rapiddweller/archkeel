@@ -20,10 +20,9 @@ from archkeel.analyzer.typescript.config import (
 from archkeel.analyzer.typescript.resolve import (
     SourceKind,
     _file_paths,
-    is_builtin,
-    is_relative,
     package_name,
 )
+from archkeel.analyzer.typescript.source_input import classify_specifier
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -67,7 +66,6 @@ SITES = [
         'path: str = "/" + spec if not spec.startswith("/") else spec',
     ],
     ["archkeel.analyzer.typescript.config._discover", 'if spec.rstrip("/").endswith("**"):'],
-    ["archkeel.analyzer.typescript.resolve.is_builtin", 'if specifier.startswith("node:"):'],
     [
         "archkeel.analyzer.typescript.resolve.package_name",
         'return "/".join(parts[:2]) if specifier.startswith("@") else parts[0]',
@@ -198,8 +196,8 @@ def test_dynamic_extension_rewrite_preserves_unknown_and_compound_cases(candidat
 def test_specifier_grammar_keeps_open_names_and_node_scheme_only_set(
     specifier, relative, builtin, package
 ):
-    assert is_relative(specifier) is relative
-    assert is_builtin(specifier) is builtin
+    assert classify_specifier(specifier).relative is relative
+    assert classify_specifier(specifier).builtin is builtin
     assert package_name(specifier) == package
 
 

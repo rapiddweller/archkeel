@@ -88,14 +88,6 @@ class Found:
     via_paths: bool = False
 
 
-def is_builtin(specifier: str) -> bool:
-    return classify_specifier(specifier).builtin
-
-
-def is_relative(specifier: str) -> bool:
-    return classify_specifier(specifier).relative
-
-
 def package_name(specifier: str) -> str:
     return classify_specifier(specifier).package
 

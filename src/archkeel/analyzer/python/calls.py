@@ -2291,21 +2291,6 @@ class CallCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def collect_calls(
-    parsed: Sequence[ParsedModule],
-    index: SymbolIndex,
-    evidence: dict[str, RawEvidence],
-    provider_bindings: Sequence[ProviderBinding] = (),
-    runtime: RuntimeInfo | None = None,
-    imports: Sequence[RawRecord] = (),
-) -> list[RawRecord]:
-    """Run the call collector over every module and sort the records by id."""
-    calls, _ = collect_calls_with_resolvers(
-        parsed, index, evidence, provider_bindings, runtime, imports
-    )
-    return calls
-
-
 def collect_calls_with_resolvers(
     parsed: Sequence[ParsedModule],
     index: SymbolIndex,

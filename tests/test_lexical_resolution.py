@@ -12,7 +12,7 @@ from conftest import by_python
 from test_analyzer import _observe, _parsed_module
 
 from archkeel.analyzer.python.binding_types import BindingKind
-from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.references import collect_references
 from archkeel.analyzer.python.resolve import build_symbol_index
@@ -71,7 +71,7 @@ def _facts(source):
     return (
         module,
         imports,
-        collect_calls([module], index, evidence),
+        collect_calls_with_resolvers([module], index, evidence)[0],
         collect_references([module], index, evidence, imports=()),
     )
 

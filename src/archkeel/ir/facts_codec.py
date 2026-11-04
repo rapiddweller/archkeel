@@ -589,18 +589,6 @@ def _freeze_validated(raw: RawJson) -> JsonValue:
     return _freeze_object(raw)
 
 
-def freeze_value(raw: RawJson, label: str) -> JsonValue:
-    if isinstance(raw, str):
-        return _builtins.str.__str__(raw)
-    if raw is None or isinstance(raw, (bool, int, float)):
-        return raw
-    if isinstance(raw, list):
-        return tuple(freeze_value(item, f"{label}[]") for item in raw)
-    if isinstance(raw, dict):
-        return freeze_data(raw, label)
-    raise ValueError(f"{label} is not a JSON value")
-
-
 def parse_record(raw: object, label: str = "record") -> Record:
     return _parsed_record(_record_object(raw, label), label)
 

@@ -15,10 +15,9 @@ from archkeel.analyzer.typescript.resolve import (
     ModuleFormat,
     Resolver,
     Unknown,
-    is_builtin,
-    is_relative,
     package_name,
 )
+from archkeel.analyzer.typescript.source_input import classify_specifier
 
 NODE10 = {"module": "CommonJS", "moduleResolution": "Node"}
 NODENEXT = {"module": "NodeNext", "moduleResolution": "NodeNext"}
@@ -703,12 +702,13 @@ def test_no_format_is_defined_where_the_compiler_defines_none(tmp_path: Path) ->
     ],
 )
 def test_builtin_names_follow_node(specifier: str, builtin: bool) -> None:
-    assert is_builtin(specifier) is builtin
+    assert classify_specifier(specifier).builtin is builtin
 
 
 def test_specifier_shapes() -> None:
     assert [
-        is_relative(item) for item in (".", "..", "./a", "../a", ".a", "..a", "a/./b", "/a")
+        classify_specifier(item).relative
+        for item in (".", "..", "./a", "../a", ".a", "..a", "a/./b", "/a")
     ] == [
         True,
         True,

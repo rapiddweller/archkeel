@@ -10,7 +10,7 @@ import pytest
 from test_analyzer import _parsed_module
 
 from archkeel.analyzer.python.binding_types import AliasBinding, ImportKind
-from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.constructs import collect_constructs
 from archkeel.analyzer.python.imports import collect_dynamic_imports, collect_imports
 from archkeel.analyzer.python.references import collect_references
@@ -54,7 +54,7 @@ def test_invalid_compiler_source_after_reuse_cannot_authorize_receiver():
     module = _parsed_module("def use():\n value = ''.join(['x'])\n value.encode()\n")
     LexicalScopes.for_module(module)
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "value.encode")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -110,7 +110,7 @@ def test_five_collectors_share_one_index(monkeypatch):
     evidence = {}
     imports = collect_imports([module], {module.module}, evidence, namespace="sample")
     symbols = build_symbol_index([])
-    calls = collect_calls([module], symbols, evidence)
+    calls = collect_calls_with_resolvers([module], symbols, evidence)[0]
     collect_dynamic_imports([module], calls, imports, evidence, namespace="sample")
     collect_references([module], symbols, evidence, imports=())
     collect_constructs([module], evidence, imports=imports)
