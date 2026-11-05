@@ -99,6 +99,11 @@ elif question == "story draft":
         {"node": "shop.app.orders.place", "note": "Start at the entry point."},
         {"node": "shop.missing.invented", "note": "This node was suggested by the agent."},
     ]}))
+elif question == "story wrong start":
+    print(json.dumps({"title": "Wrong starting point", "steps": [
+        {"node": "shop.store.repository.save", "note": "Different valid node."},
+        {"node": "shop.app.orders.place", "note": "Requested node appears later."},
+    ]}))
 elif question == "story malformed":
     print(json.dumps({"title": "Place an order", "steps": [], "verdict": "proven"}))
 elif question == "story bad json":
@@ -321,6 +326,21 @@ def test_story_draft_is_checked_without_promoting_agent_nodes_to_evidence(
     assert _tree_digest(chat.workspace.root) == before
     prompt = " ".join(fakes.call()["prompt"].lower().split())
     assert '{"title": "...", "steps": [{"node": "module.name", "note": "..."}]}' in prompt
+
+
+@pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])
+def test_story_draft_rejects_a_valid_candidate_with_the_wrong_start_node(
+    chat: Studio, fakes: Fakes, kind: AgentKind
+) -> None:
+    fakes.install("claude", "codex")
+    chat.agent.close()
+    chat.agent = Agent(chat.workspace.root, kind)
+
+    status, answer = ask(chat, "story wrong start", mode="story")
+
+    assert status == 502, answer
+    assert answer["error"] == "invalid_answer"
+    assert "start" in answer["detail"].lower()
 
 
 @pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])

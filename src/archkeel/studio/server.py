@@ -389,6 +389,11 @@ class _Handler(BaseHTTPRequestHandler):
                 raise ChatFailure(
                     ChatError.INVALID_REQUEST, "a story draft needs a selected starting node."
                 )
+            if candidate.steps[0].node != request.context:
+                raise ChatFailure(
+                    ChatError.INVALID_ANSWER,
+                    "The story draft must start at the selected node.",
+                )
             spec = dict(stories.draft(snapshot_path, request.context))
             story = spec.get("story")
             if not isinstance(story, dict):
