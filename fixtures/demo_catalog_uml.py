@@ -12,6 +12,7 @@ from fixtures.demo_catalog_support import Variant
 
 UML_FIXTURE_DIR = Path(__file__).resolve().parent / "H-uml"
 PLANNED_COMPONENT_FIXTURE = UML_FIXTURE_DIR.with_name("planned-component")
+PLANNED_COMPONENT_POLICY_FIXTURE = UML_FIXTURE_DIR.with_name("planned-component-policy")
 CORE_SOURCE = (UML_FIXTURE_DIR / "demo/core.py").read_text()
 
 VARIANTS = tuple(
@@ -52,6 +53,20 @@ VARIANTS = tuple(
             "UNKNOWN",
         ),
     )
+)
+
+VARIANTS += (
+    Variant(
+        id="planned-component-policy",
+        section="class_c",
+        item="planned component owner policy before package creation",
+        summary="The component policy is target intent until source exists.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+        fixture=PLANNED_COMPONENT_POLICY_FIXTURE,
+    ),
 )
 
 

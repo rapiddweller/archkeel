@@ -18,6 +18,7 @@ from archkeel.ir.architecture_graph import (
     AssessmentStatus,
     CompletenessMode,
     ComponentIntent,
+    ComponentLifecycle,
     ComponentMembership,
     ComponentRole,
     ContractModuleTarget,
@@ -165,6 +166,7 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
             "label",
             "layout_rule_ids",
             "layer",
+            "lifecycle",
         },
         "component_intent",
     )
@@ -190,6 +192,9 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         layout_rule_ids=_texts(item.get("layout_rule_ids", ()), "component_intent.layout_rule_ids"),
         layer=non_empty_text(item["layer"], "component_intent.layer")
         if item.get("layer", _MISSING) is not _MISSING
+        else None,
+        lifecycle=ComponentLifecycle(item["lifecycle"])
+        if item.get("lifecycle", _MISSING) is not _MISSING
         else None,
     )
 
@@ -455,11 +460,16 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         "graph",
     )
     version = GraphSchemaVersion(non_empty_text(item["schema_version"], "graph.schema_version"))
-    if version != GraphSchemaVersion.V1_2_0 and any(
-        _object(entry) and entry.get("layer", _MISSING) is not _MISSING
+    if version not in {GraphSchemaVersion.V1_2_0, GraphSchemaVersion.V1_3_0} and any(
+        isinstance(entry, dict) and entry.get("layer", _MISSING) is not _MISSING
         for entry in _array(item.get("component_intents", ()), "component_intents")
     ):
         raise ValueError("layer requires graph schema_version 1.2.0")
+    if version != GraphSchemaVersion.V1_3_0 and any(
+        isinstance(entry, dict) and entry.get("lifecycle", _MISSING) is not _MISSING
+        for entry in _array(item.get("component_intents", ()), "component_intents")
+    ):
+        raise ValueError("component lifecycle requires graph schema_version 1.3.0")
     graph = ArchitectureGraph(
         OriginKind(non_empty_text(item["origin"], "graph.origin")),
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
@@ -518,6 +528,8 @@ def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
     for intent in encoded["component_intents"]:
         if intent["layer"] is None:
             del intent["layer"]
+        if intent["lifecycle"] is None:
+            del intent["lifecycle"]
     return encoded
 
 

@@ -52,6 +52,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
+    ComponentLifecycle,
     ComponentRole,
     ConditionSelector,
     ConditionSelectorKind,
@@ -101,6 +102,8 @@ from archkeel.ir.model import (
 from archkeel.ir.model import ContractInputError as ContractInputError
 from archkeel.ir.model import RawJson as RawJson
 from archkeel.ir.target_graph import declared_graph
+
+_MISSING = object()
 
 _PUBLIC_ENTRY = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?::[A-Za-z_][A-Za-z0-9_]*)?$"
@@ -450,6 +453,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 def _validate_encoding_version(contract: ArchitectureContract) -> None:
     if not supports_feature(
+        contract.schema_version, ContractFeature.PLANNED_COMPONENT_OWNER
+    ) and any(component.lifecycle is not None for component in contract.components):
+        raise ValueError("component lifecycle requires contract schema_version 2.4.0")
+    if not supports_feature(
         contract.schema_version, ContractFeature.BOUNDED_NUMERIC_OPERAND
     ) and any(isinstance(rule, BoundedNumericOperandRule) for rule in contract.rules):
         raise ValueError("bounded_numeric_operand requires contract schema_version 3.8.0")
@@ -678,7 +685,7 @@ def parse_required_component(raw: RawJson, label: str = "requires") -> RequiredC
 
 
 def _component_names(
-    item: dict[str, RawJson], label: str
+    item: dict[str, RawJson], label: str, *, planned_owner: bool = False
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     packages = _contract_strings(item["packages"], f"{label}.packages")
     exact = (
@@ -688,12 +695,19 @@ def _component_names(
     )
     if any(re.fullmatch(_PACKAGE_NAME.pattern, name) is None for name in exact):
         raise ValueError(f"{label}.exact_modules must contain dotted identifiers")
-    if not packages and not exact:
+    if planned_owner and (packages or exact):
+        raise ValueError(f"{label} planned owner cannot claim package or exact-module ownership")
+    if not planned_owner and not packages and not exact:
         raise ValueError(f"{label} must claim at least one package or exact module")
     return packages, exact
 
 
 def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> ContractComponent:
+    fields = _object(raw, label)
+    if _has_field(fields, "lifecycle") and not supports_feature(
+        version, ContractFeature.PLANNED_COMPONENT_OWNER
+    ):
+        raise ValueError(f"{label}.lifecycle requires contract schema_version 2.4.0")
     if _has_field(_object(raw, label), "layer") and not supports_feature(
         version, ContractFeature.LAYERS
     ):
@@ -711,6 +725,7 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
             "namespace",
             "exact_modules",
             "layer",
+            "lifecycle",
         },
         label,
     )
@@ -719,8 +734,16 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
     except ValueError as exc:
         raise ValueError(f"{label}.role is invalid") from exc
     capability = item.get("capability_id")
+    lifecycle_raw = item.get("lifecycle", _MISSING)
+    lifecycle = (
+        ComponentLifecycle(_string(lifecycle_raw, f"{label}.lifecycle"))
+        if lifecycle_raw is not _MISSING
+        else None
+    )
     public = _public_entries(item.get("public"), f"{label}.public")
     planned = _public_entries(item.get("planned"), f"{label}.planned")
+    if lifecycle is ComponentLifecycle.PLANNED and public:
+        raise ValueError(f"{label}.planned owner cannot claim a current public API")
     requires_raw = item.get("requires")
     if requires_raw is not None and not isinstance(requires_raw, list):
         raise ValueError(f"{label}.requires must be a list")
@@ -734,7 +757,9 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
     )
     inside = item.get("inside")
     decided_by = item.get("decided_by")
-    packages, exact_modules = _component_names(item, label)
+    packages, exact_modules = _component_names(
+        item, label, planned_owner=lifecycle is ComponentLifecycle.PLANNED
+    )
     namespace_raw = item.get("namespace")
     namespace = (
         _nonempty(namespace_raw, f"{label}.namespace") if namespace_raw is not None else None
@@ -762,6 +787,7 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
         namespace,
         exact_modules or None,
         _nonempty(item["layer"], f"{label}.layer") if _has_field(item, "layer") else None,
+        lifecycle,
     )
 
 

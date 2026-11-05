@@ -25,7 +25,7 @@ export let flow;
   let sidecarModuleRequested = false;
   let atlasModule = null, atlasCell = null, atlasHint = null, atlasAllHints = false, atlasContent = null;
   let pendingAtlasFindingHash = null;
-  if (!["1.0.0", "1.2.0"].includes(DATA.schema_version)) {
+  if (!["1.0.0", "1.2.0", "1.3.0"].includes(DATA.schema_version)) {
     root.textContent = "Unsupported architecture report schema.";
     return;
   }

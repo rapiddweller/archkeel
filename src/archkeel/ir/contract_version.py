@@ -18,6 +18,7 @@ class ContractFeature(StrEnum):
     GUARDED_EFFECT = "guarded_effect"
     UML = "uml"
     LAYERS = "layers"
+    PLANNED_COMPONENT_OWNER = "planned_component_owner"
     ALIAS_BODY = "alias_body"
     KEY_ALIAS_BODY = "key_alias_body"
     LITERAL_MAPPING_ARM = "literal_mapping_arm"
@@ -34,6 +35,7 @@ class ContractVersion(StrEnum):
     V2_1 = CONTRACT_SCHEMA_VERSION
     V2_2 = "2.2.0"
     V2_3 = "2.3.0"
+    V2_4 = "2.4.0"
     V3_0 = "3.0.0"
     V3_1 = "3.1.0"
     V3_2 = "3.2.0"
@@ -65,6 +67,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.GUARDED_EFFECT: ContractVersion.V3_13,
     ContractFeature.UML: ContractVersion.V2_2,
     ContractFeature.LAYERS: ContractVersion.V2_3,
+    ContractFeature.PLANNED_COMPONENT_OWNER: ContractVersion.V2_4,
     ContractFeature.ALIAS_BODY: ContractVersion.V3_0,
     ContractFeature.KEY_ALIAS_BODY: ContractVersion.V3_1,
     ContractFeature.LITERAL_MAPPING_ARM: ContractVersion.V3_2,

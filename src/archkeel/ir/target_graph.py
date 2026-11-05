@@ -134,9 +134,13 @@ def intent_graph(
         OriginKind.DECLARED,
         (*owners, *target.entities),
         target.relationships,
-        schema_version=GraphSchemaVersion.V1_2_0
-        if any(item.layer is not None for item in component_intents)
-        else target.schema_version,
+        schema_version=(
+            GraphSchemaVersion.V1_3_0
+            if any(item.lifecycle is not None for item in component_intents)
+            else GraphSchemaVersion.V1_2_0
+            if any(item.layer is not None for item in component_intents)
+            else target.schema_version
+        ),
         target_scopes=target.scopes,
         component_intents=component_intents,
         module_inventories=module_inventories,
@@ -208,6 +212,7 @@ def _component_intent(component: ContractComponent) -> ComponentIntent:
         component.inside,
         label=component.label,
         layer=component.layer,
+        lifecycle=component.lifecycle,
     )
 
 

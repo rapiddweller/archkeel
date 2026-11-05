@@ -70,7 +70,7 @@ def test_catalog_rules_are_only_admitted_by_contract_3_14_schema():
         parse_contract(legacy)
 
     historical = _schema("architecture-contract.schema.json")
-    assert historical["$id"] == "urn:archkeel:architecture-contract:2.3.0"
+    assert historical["$id"] == "urn:archkeel:architecture-contract:2.4.0"
     assert "3.14.0" not in historical["properties"]["schema_version"]["enum"]
 
 

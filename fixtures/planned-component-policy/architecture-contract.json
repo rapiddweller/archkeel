@@ -1,0 +1,104 @@
+{
+  "schema_version": "2.4.0",
+  "components": [
+    {
+      "id": "fixture-source",
+      "label": "fixture source",
+      "role": "component",
+      "layer": "core",
+      "packages": [],
+      "exact_modules": ["archkeel"],
+      "responsibilities": ["Own the observed fixture module."],
+      "forbidden_responsibilities": [],
+      "provenance": ["README.md"]
+    },
+    {
+      "id": "mcp",
+      "label": "mcp",
+      "role": "component",
+      "layer": "adapter",
+      "lifecycle": "planned",
+      "packages": [],
+      "responsibilities": ["Expose ArchKeel target intent to local MCP clients."],
+      "forbidden_responsibilities": ["Own source analysis or duplicate checker policy."],
+      "planned": ["archkeel.mcp.server:McpServer", "archkeel.mcp.server:Transport"],
+      "requires": [{"component": "core", "rationale": "Reuse the shared operation owner."}],
+      "provenance": ["README.md"]
+    },
+    {
+      "id": "core",
+      "label": "core",
+      "role": "component",
+      "layer": "core",
+      "lifecycle": "planned",
+      "packages": [],
+      "responsibilities": ["Own shared analysis operations."],
+      "forbidden_responsibilities": [],
+      "provenance": ["README.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "PLANNED-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Observed cross-component imports must have declared permissions.",
+      "provenance": ["README.md"],
+      "decided_by": "architect"
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.2.0",
+      "entities": [
+        {
+          "id": "server",
+          "kind": "module",
+          "qualified_name": "archkeel.mcp.server",
+          "language": "python",
+          "parent_id": "mcp",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Serve the read-only MCP protocol adapter."]
+        },
+        {
+          "id": "server-class",
+          "kind": "class",
+          "qualified_name": "archkeel.mcp.server.McpServer",
+          "language": "python",
+          "parent_id": "server",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Implement the protocol transport."]
+        },
+        {
+          "id": "transport-port",
+          "kind": "interface",
+          "qualified_name": "archkeel.mcp.server.Transport",
+          "language": "python",
+          "parent_id": "server",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Define the transport-facing interface."]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "implements-transport",
+          "kind": "realizes",
+          "source_id": "server-class",
+          "target_id": "transport-port",
+          "provenance": ["README.md"]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mcp",
+          "entity_kinds": ["class", "interface"],
+          "mode": "open",
+          "rationale": "Leave implementation structure open beneath the planned owner.",
+          "provenance": ["README.md"]
+        }
+      ]
+    }
+  }
+}

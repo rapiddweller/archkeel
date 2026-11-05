@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Independent UML intent must use the shared types and survive contract round trips."""
 
+import hashlib
 import json
 import subprocess
 from dataclasses import asdict, replace
@@ -16,13 +17,17 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import observe_revision
 from archkeel.check.uml import assemble_uml
+from archkeel.check.validation.references import reference_diagnostics
 from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
+    ArchitectureReport,
     ComponentIntent,
+    ComponentLifecycle,
     ComponentRole,
     Entity,
     EntityKind,
+    GraphSchemaVersion,
     OriginKind,
     PresenceKind,
     RelationshipKind,
@@ -37,7 +42,7 @@ from archkeel.ir.codec import (
     parse_observation,
     value_bytes,
 )
-from archkeel.ir.graph_codec import graph_bytes, parse_graph, parse_target
+from archkeel.ir.graph_codec import graph_bytes, parse_graph, parse_target, report_bytes
 from archkeel.ir.model import Evidence
 from archkeel.ir.target_graph import declared_graph, declared_tree_graph
 from archkeel.ir.target_records import recorded_target_graph
@@ -377,6 +382,148 @@ def test_planned_component_presence_and_owner_identity_are_validated() -> None:
         parse_contract(raw)
 
 
+def test_planned_component_policy_and_promotion_share_one_owner() -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "planned-component-policy"
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    planned = declared_graph(parse_contract(raw))
+    planned_mcp = next(item for item in planned.component_intents if item.component_id == "mcp")
+    assert planned_mcp.planned == (
+        "archkeel.mcp.server:McpServer",
+        "archkeel.mcp.server:Transport",
+    )
+    assert any(
+        item.kind == RelationshipKind.REQUIRES
+        and item.source_id == "mcp"
+        and item.target_id == "core"
+        for item in planned.relationships
+    )
+    assert planned.schema_version == GraphSchemaVersion.V1_3_0
+    assert planned_mcp.lifecycle is ComponentLifecycle.PLANNED
+    assert planned_mcp.layer == "adapter"
+    assert any(item.id == "server" and item.parent_id == "mcp" for item in planned.entities)
+
+    promoted_raw = json.loads(json.dumps(raw))
+    for owner in promoted_raw["components"]:
+        if owner.get("lifecycle") == "planned":
+            owner.pop("lifecycle")
+            owner["packages"] = [f"archkeel.{owner['id']}"]
+    promoted = declared_graph(parse_contract(promoted_raw))
+    promoted_mcp = next(item for item in promoted.component_intents if item.component_id == "mcp")
+    assert promoted_mcp.component_id == planned_mcp.component_id
+    assert promoted_mcp.planned == planned_mcp.planned
+    assert {
+        (item.source_id, item.target_id, item.through)
+        for item in promoted.relationships
+        if item.kind == RelationshipKind.REQUIRES
+    } == {
+        (item.source_id, item.target_id, item.through)
+        for item in planned.relationships
+        if item.kind == RelationshipKind.REQUIRES
+    }
+
+
+def test_planned_component_policy_rejects_duplicate_selector_and_duplicate_uml_owner() -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "planned-component-policy"
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    mcp_index = next(index for index, owner in enumerate(raw["components"]) if owner["id"] == "mcp")
+    core_index = next(
+        index for index, owner in enumerate(raw["components"]) if owner["id"] == "core"
+    )
+    raw["components"][core_index]["planned"] = raw["components"][mcp_index]["planned"]
+    contract = parse_contract(raw)
+    diagnostics = reference_diagnostics(
+        fixture,
+        ScanConfig(("src/archkeel",), "archkeel", "architecture-contract.json", "0" * 64),
+        contract,
+    )
+    assert any(
+        item.pointer == f"/components/{mcp_index}/planned/0"
+        and "claimed by multiple components" in item.unknown_claim
+        for item in diagnostics
+    )
+
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    raw["declarations"]["uml"]["entities"].append(
+        {
+            "id": "mcp",
+            "kind": "component",
+            "qualified_name": "archkeel.mcp",
+            "language": "architecture",
+            "presence": "planned",
+            "provenance": ["README.md"],
+            "responsibilities": ["Duplicate owner."],
+        }
+    )
+    with pytest.raises(ValueError, match="duplicate contract ID"):
+        parse_contract(raw)
+
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    raw["components"][0]["lifecycle"] = None
+    with pytest.raises(ValueError, match="lifecycle"):
+        parse_contract(raw)
+
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    raw["schema_version"] = "2.3.0"
+    with pytest.raises(ValueError, match="2.4.0"):
+        parse_contract(raw)
+
+
+def test_package_less_graph_intent_requires_explicit_planned_lifecycle() -> None:
+    owner = Entity(
+        "owner",
+        EntityKind.COMPONENT,
+        "owner",
+        "architecture",
+        presence=PresenceKind.PLANNED,
+        provenance=("docs/target.md",),
+    )
+    graph = ArchitectureGraph(
+        OriginKind.DECLARED,
+        (owner,),
+        schema_version=GraphSchemaVersion.V1_3_0,
+        component_intents=(ComponentIntent("owner", ComponentRole.COMPONENT),),
+    )
+    with pytest.raises(ValueError, match="package-less component intent needs planned lifecycle"):
+        graph.validate()
+    legacy = replace(graph, schema_version=GraphSchemaVersion.V1_2_0)
+    legacy.validate()
+    assert legacy.component_intents[0].lifecycle is None
+
+
+def test_legacy_component_wire_omits_absent_lifecycle() -> None:
+    raw = _contract()
+    contract = parse_contract(raw)
+    graph = declared_graph(contract)
+
+    encoded_contract = json.loads(contract_bytes(contract))
+    assert parse_contract(encoded_contract) == contract
+    assert all("lifecycle" not in item for item in encoded_contract["components"])
+    wire = json.loads(graph_bytes(graph))
+    assert wire["schema_version"] == "1.0.0"
+    assert all("lifecycle" not in item for item in wire["component_intents"])
+    assert parse_graph(wire) == graph
+
+
+def test_active_component_contract_and_target_payload_match_origin_main_bytes() -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "H-uml"
+    contract_path = "fixtures/H-uml/architecture-contract.json"
+    contract = parse_contract(json.loads((fixture / "architecture-contract.json").read_bytes()))
+    graph = declared_graph(contract, contract_path=contract_path)
+    report = ArchitectureReport(None, graph, unavailable="compatibility probe")
+    payloads = (
+        contract_bytes(contract),
+        graph_bytes(graph),
+        report_bytes(report),
+    )
+
+    # Baseline hashes were measured on origin/main 49c5640 using this same fixture.
+    assert tuple(hashlib.sha256(payload).hexdigest() for payload in payloads) == (
+        "e9bdc9337a7dca5a3626ffcb8895d32da951338404632cf5641eeb8d769bcbe1",
+        "dbe1f88ad55e12786227012e9486d3aed261a3ee85a2953d2a7b0d4bc061103c",
+        "a5372bbc16d1af7cb61f2be0fb901b480efc18b1550c001234021732e18bc632",
+    )
+
+
 def test_permission_identity_survives_reordering_slices_and_duplicate_entries(tmp_path):
     raw = _permission_contract()
     owner = raw["components"][0]
@@ -403,6 +550,12 @@ def test_permission_identity_survives_reordering_slices_and_duplicate_entries(tm
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     declaration = next(item for item in model.records("declarations") if item.kind == "uml_target")
     assert recorded_target_graph(model, declaration) == expected
+    component_record = next(
+        item
+        for item in model.records("declarations")
+        if item.kind == "component_responsibility" and item.id == "core"
+    )
+    assert "lifecycle" not in dict(component_record.data.entries)
 
 
 @pytest.mark.parametrize("root_version", ["2.1.0", "2.2.0"])

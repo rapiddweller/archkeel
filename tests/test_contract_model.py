@@ -60,6 +60,7 @@ def test_contract_encoding_round_trips_and_matches_the_schema(path: Path) -> Non
         ContractVersion.V2_1,
         ContractVersion.V2_2,
         ContractVersion.V2_3,
+        ContractVersion.V2_4,
     }:
         version = contract.schema_version.rsplit(".", 1)[0]
         schema = json.loads(
@@ -74,6 +75,19 @@ def test_contract_encoding_round_trips_and_matches_the_schema(path: Path) -> Non
     assert not list(validator.iter_errors(raw))
     encoded = json.loads(contract_bytes(contract))
     assert not list(validator.iter_errors(encoded))
+    assert parse_contract(encoded) == contract
+
+
+def test_planned_component_policy_fixture_matches_contract_2_4_schema() -> None:
+    path = ROOT / "fixtures/planned-component-policy/architecture-contract.json"
+    raw = json.loads(path.read_bytes())
+    contract = parse_contract(raw)
+
+    assert not list(VALIDATOR.iter_errors(raw))
+    encoded = json.loads(contract_bytes(contract))
+    assert not list(VALIDATOR.iter_errors(encoded))
+    planned_owners = {item["id"]: item.get("lifecycle") for item in encoded["components"]}
+    assert planned_owners == {"fixture-source": None, "mcp": "planned", "core": "planned"}
     assert parse_contract(encoded) == contract
 
 
