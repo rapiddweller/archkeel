@@ -34,7 +34,7 @@ def _notes(stdout: bytes, stderr: bytes) -> tuple[str, ...]:
     diagnostics = result.get("diagnostics") if isinstance(result, dict) else None
     notes = tuple(
         ". ".join(
-            str(item.get(field, "")).strip()
+            f"{item.get(field, '')}".strip()
             for field in ("subject", "unknown_claim", "remedy")
             if item.get(field)
         )
