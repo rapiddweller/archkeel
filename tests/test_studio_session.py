@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-290: scope identity and serialized Studio startup."""
 
+import ctypes
 import json
 import os
 import subprocess
@@ -14,8 +15,72 @@ from types import SimpleNamespace
 import pytest
 from test_explore import _repository
 
+import archkeel.analyzer.process as process_module
 import archkeel.cli as cli
 from archkeel.cli import launcher
+
+
+def test_windows_pid_liveness_never_uses_signal_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_os = SimpleNamespace(name="nt")
+    fake_os.kill = lambda _pid, sig: pytest.fail(
+        f"Windows liveness must not call os.kill with {sig=}"
+    )
+    kernel32 = SimpleNamespace(
+        OpenProcess=lambda *_args: 123,
+        WaitForSingleObject=lambda *_args: 258,
+        CloseHandle=lambda *_args: True,
+    )
+    monkeypatch.setattr(process_module, "os", fake_os)
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: kernel32, raising=False)
+
+    assert launcher.is_process_alive(12345)
+
+
+@pytest.mark.parametrize(("wait_result", "expected"), [(0, False), (258, True)])
+def test_windows_pid_liveness_uses_synchronize_handle_and_closes_it(
+    monkeypatch: pytest.MonkeyPatch, wait_result: int, expected: bool
+) -> None:
+    calls: list[tuple[str, tuple[object, ...]]] = []
+
+    class Function:
+        def __init__(self, name: str, result: int | bool) -> None:
+            self.name = name
+            self.result = result
+
+        def __call__(self, *args: object) -> int | bool:
+            calls.append((self.name, args))
+            return self.result
+
+    kernel32 = SimpleNamespace(
+        OpenProcess=Function("OpenProcess", 123),
+        WaitForSingleObject=Function("WaitForSingleObject", wait_result),
+        CloseHandle=Function("CloseHandle", True),
+    )
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: kernel32, raising=False)
+
+    monkeypatch.setattr(process_module, "os", SimpleNamespace(name="nt"))
+    assert process_module.is_process_alive(12345) is expected
+    assert calls == [
+        ("OpenProcess", (0x00100000, False, 12345)),
+        ("WaitForSingleObject", (123, 0)),
+        ("CloseHandle", (123,)),
+    ]
+
+
+@pytest.mark.parametrize(("error", "expected"), [(5, True), (87, False), (1234, True)])
+def test_windows_pid_liveness_treats_open_errors_conservatively(
+    monkeypatch: pytest.MonkeyPatch, error: int, expected: bool
+) -> None:
+    kernel32 = SimpleNamespace(
+        OpenProcess=lambda *_args: 0,
+        WaitForSingleObject=lambda *_args: pytest.fail("no handle should be waited on"),
+        CloseHandle=lambda *_args: pytest.fail("no handle should be closed"),
+    )
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: kernel32, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: error, raising=False)
+    monkeypatch.setattr(process_module, "os", SimpleNamespace(name="nt"))
+
+    assert process_module.is_process_alive(12345) is expected
 
 
 def _args(root: Path, *options: str) -> cli.CLIArguments:
@@ -349,7 +414,7 @@ def test_a_timed_out_cleanup_keeps_state_and_denies_a_second_scan(
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "_STOP_SECONDS", 0.01)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
-    monkeypatch.setattr(launcher, "_pid_is_alive", lambda _pid: True)
+    monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: True)
     cache = cli._cache_folder(cli.Command.EXPLORE, cli._root_digest(root.resolve()))
     cache.mkdir(parents=True)
     active = launcher.StudioProcess(
@@ -395,7 +460,7 @@ def test_a_dead_process_allows_stale_state_cleanup(
     )
     launcher.write_state(folder, process)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
-    monkeypatch.setattr(launcher, "_pid_is_alive", lambda _pid: False)
+    monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: False)
 
     assert launcher.stop_studio(folder) == 0
     assert "not running" in capsys.readouterr().out
@@ -417,7 +482,7 @@ def test_a_verified_stop_persists_its_cleanup_marker(
     launcher.write_state(folder, process)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: True)
     monkeypatch.setattr(launcher.os, "kill", lambda *_args: None)
-    monkeypatch.setattr(launcher, "_pid_is_alive", lambda _pid: True, raising=False)
+    monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: True, raising=False)
     monkeypatch.setattr(launcher, "_STOP_SECONDS", 0.01)
     monkeypatch.setattr(
         launcher,
@@ -445,7 +510,7 @@ def test_an_unmarked_foreign_live_pid_is_stale_without_http_identity(
     )
     launcher.write_state(folder, process)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
-    monkeypatch.setattr(launcher, "_pid_is_alive", lambda _pid: True, raising=False)
+    monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: True, raising=False)
 
     assert launcher.running_studio(folder) is None
     assert not (folder / "studio.json").exists()

@@ -241,7 +241,7 @@ def test_stop_waits_for_a_posix_zombie_to_be_reaped_then_cleans_state(
     launcher.write_state(studio.folder, process)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
     sleeper.kill()
-    assert launcher._pid_is_alive(sleeper.pid)
+    assert launcher.is_process_alive(sleeper.pid)
 
     ticks = iter(range(100))
     monkeypatch.setattr(

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Bounded argv execution of a source-only collection protocol."""
+"""Bounded source collection and cross-platform process lifecycle helpers."""
 
 from __future__ import annotations
 
@@ -412,3 +412,54 @@ def _cleanup_failure(error: _ProcessCleanupError) -> str:
     if error.__cause__ is not None:
         return f"{error}: {error.__cause__}"
     return str(error)
+
+
+def is_process_alive(pid: int) -> bool:
+    """Check liveness without signaling a Windows PID; unknown results preserve state."""
+    if type(pid) is not int or pid <= 1:
+        return False
+    platform = _process_platform(os.name)
+    if platform is _ProcessPlatform.POSIX:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except OSError:
+            return True
+        return True
+    if platform is not _ProcessPlatform.WINDOWS:
+        return True
+
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        # POSIX mypy stubs omit this Windows-only API.
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        # SYNCHRONIZE permits a zero-time wait; PROCESS_TERMINATE is never requested.
+        handle = kernel32.OpenProcess(0x00100000, False, pid)
+        if not handle:
+            # ERROR_INVALID_PARAMETER means the PID is gone; other errors are UNKNOWN.
+            error: int = ctypes.get_last_error()  # type: ignore[attr-defined]
+            return error != 87
+
+        try:
+            result = kernel32.WaitForSingleObject(handle, 0)
+        finally:
+            closed = kernel32.CloseHandle(handle)
+        if not closed:
+            return True
+        if result == 0:  # WAIT_OBJECT_0: process exited.
+            return False
+        if result == 258:  # WAIT_TIMEOUT: process remains live.
+            return True
+        return True  # WAIT_FAILED and unexpected values are UNKNOWN.
+    except (AttributeError, OSError, TypeError, ValueError, ctypes.ArgumentError):
+        return True

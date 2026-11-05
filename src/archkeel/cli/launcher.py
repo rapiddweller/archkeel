@@ -15,6 +15,7 @@ from typing import Final
 from filelock import FileLock
 from filelock import Timeout as StudioLockTimeout
 
+from ..analyzer.process import is_process_alive
 from ..studio.api import AgentKind
 from ..studio.server import is_studio
 
@@ -122,22 +123,11 @@ def _read(folder: Path) -> StudioProcess | None:
     return process if type(process.pid) is int and process.pid > 1 else None
 
 
-def _pid_is_alive(pid: int) -> bool:
-    """Use PID liveness only to preserve a cleanup barrier after the HTTP listener closes."""
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
 def running_studio(folder: Path) -> StudioProcess | None:
     """Return an HTTP-verified server or preserve an HTTP-verified stop in progress."""
     process = _read(folder)
     if process is not None:
-        if is_studio(process.url) or (process.stopping and _pid_is_alive(process.pid)):
+        if is_studio(process.url) or (process.stopping and is_process_alive(process.pid)):
             return process
     if process is None:
         _path(folder).unlink(missing_ok=True)
@@ -179,7 +169,7 @@ def _stop_studio(folder: Path) -> int:
         forget_state(folder, process.pid)
         print("ArchKeel Studio: not running.")
         return 0
-    elif not _pid_is_alive(process.pid):
+    elif not is_process_alive(process.pid):
         forget_state(folder, process.pid)
         print("ArchKeel Studio: not running.")
         return 0
@@ -190,7 +180,7 @@ def _stop_studio(folder: Path) -> int:
         if current is None or current.pid != process.pid:
             print("ArchKeel Studio: stopped.")
             return 0
-        if not _pid_is_alive(process.pid):
+        if not is_process_alive(process.pid):
             forget_state(folder, process.pid)
             print("ArchKeel Studio: stopped.")
             return 0

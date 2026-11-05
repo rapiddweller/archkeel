@@ -1,10 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""POSIX simulation of ProcessCollector's Windows helper argv/environment boundary."""
+"""Windows process safety and ProcessCollector startup boundaries."""
 
 import os
+import subprocess
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +16,7 @@ import pytest
 from test_collection_protocol import _request
 
 import archkeel.analyzer.process as process_module
+from archkeel.analyzer.process import is_process_alive
 from archkeel.ir.facts_codec import decode_request
 from archkeel.ir.protocol import CollectionError
 
@@ -46,3 +49,19 @@ def test_windows_helper_does_not_import_project_sitecustomize_before_platform_gu
     assert not marker.exists(), (
         "Windows helper imported project PYTHONPATH before checking the platform"
     )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires native Windows process handles")
+def test_windows_pid_liveness_does_not_terminate_a_live_process() -> None:
+    process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        assert is_process_alive(process.pid)
+        time.sleep(0.2)
+        assert process.poll() is None
+        process.terminate()
+        process.wait(timeout=5)
+        assert not is_process_alive(process.pid)
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=5)

@@ -262,7 +262,7 @@
       "requires": [
         {
           "component": "analyzer",
-          "rationale": "Supply the concrete source analyzer to report and check workflows."
+          "rationale": "Supply source collection and the non-destructive process-liveness port to CLI workflows."
         },
         {
           "component": "check",
@@ -415,10 +415,11 @@
       "inside": "docs/architecture/contracts/analyzer.json",
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
+        "archkeel.analyzer.process:is_process_alive",
         "archkeel.analyzer.python.collect:PythonProviderCollector"
       ],
       "responsibilities": [
-        "Collect source-only facts through bounded, replaceable language processes."
+        "Collect source-only facts through bounded, replaceable language processes and report process liveness safely."
       ],
       "forbidden_responsibilities": [
         "Rule evaluation, baselines, ownership, verdicts, and importing sibling language adapters.",
