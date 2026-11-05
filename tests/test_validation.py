@@ -9,6 +9,7 @@ from typing import get_args, get_origin, get_type_hints
 from unittest.mock import Mock
 
 import pytest
+from conftest import SELF_RULE_UNKNOWN
 from test_analyzer import _component
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
@@ -107,18 +108,54 @@ def self_validation() -> RunResult:
     return result
 
 
-def test_validate_accepts_archkeel_self_contract(self_validation: RunResult) -> None:
+def test_validate_reports_exact_unknown_for_archkeel_mcp_self_contract(
+    self_validation: RunResult,
+) -> None:
     result = self_validation
     assert result.exit_code == 0
     assert result.observation_complete == "PASS"
-    assert result.declared_rules == "PASS"
+    assert result.coverage is not None
+    assert result.coverage.status == result.coverage.rules == "PASS"
+    assert result.declared_rules == "UNKNOWN"
     assert not result.diagnostics
     assert result.rule_assessments
+    unknown = {row.id for row in result.rule_assessments if row.status == "UNKNOWN"}
+    assert unknown == SELF_RULE_UNKNOWN
     assert all(
-        row.status == "PASS" and row.evaluation_proven and row.count == row.undecided == 0
+        row.status == "UNKNOWN"
+        and not row.evaluation_proven
+        and row.count == row.undecided == 0
+        and row.reason == "No complete evaluator receipt exists for this rule and scope."
+        if row.id in unknown
+        else row.status == "PASS" and row.evaluation_proven and row.count == row.undecided == 0
         for row in result.rule_assessments
     )
+    assert result.measurements is not None
+    assert result.measurements.scalars.violations == 0
+    assert result.measurements.scalars.unknown_positions == 0
     assert result.expectation_fulfilled == "n/a"
+
+
+def test_self_contract_models_mcp_over_existing_check_and_ir_interfaces() -> None:
+    raw = json.loads((ROOT / "architecture-contract.json").read_text())
+    assert raw["schema_version"] == "2.4.0"
+    owner = next(item for item in raw["components"] if item["id"] == "COMP-MCP")
+    assert owner["lifecycle"] == "planned"
+    assert owner["packages"] == []
+    requirements = {item["component"]: set(item.get("through", ())) for item in owner["requires"]}
+    assert requirements == {
+        "check": {
+            "archkeel.check.report:run_report",
+            "archkeel.check.ports:Analyzer",
+            "archkeel.check.ports:ScanConfig",
+        },
+        "ir": {
+            "archkeel.ir.model:RunResult",
+            "archkeel.ir.architecture_graph:ArchitectureReport",
+            "archkeel.ir.report_graph:architecture_report",
+            "archkeel.ir.story",
+        },
+    }
 
 
 def test_validate_reports_no_check_types_declared_violation_against_this_repository(

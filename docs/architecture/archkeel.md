@@ -47,6 +47,8 @@ flowchart LR
     cli --> render
     cli --> studio
     host --> ir
+    mcp --> check
+    mcp --> ir
     render --> ir
 ```
 
