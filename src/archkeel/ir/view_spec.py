@@ -1096,6 +1096,68 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
     return _check_view(spec, observation, strict=strict)
 
 
+def _unchecked_links(
+    spec: ViewSpec,
+    pairs: tuple[tuple[str | None, ViewStep], ...],
+    reason: str,
+) -> tuple[tuple[LinkCheck, ...], tuple[LinkCheck, ...]]:
+    edges = tuple(
+        LinkCheck(edge.source, edge.target, ViewStatus.UNKNOWN, reason, edge.kind, note=edge.note)
+        for edge in spec.edges
+    )
+    steps = tuple(
+        LinkCheck(before, step.node, ViewStatus.UNKNOWN, reason, step.kind, note=step.note)
+        for before, step in pairs
+    )
+    return edges, steps
+
+
+def _checked_links(
+    graph: _Graph,
+    checked: Mapping[str, NodeCheck],
+    spec: ViewSpec,
+    pairs: tuple[tuple[str | None, ViewStep], ...],
+) -> tuple[tuple[LinkCheck, ...], tuple[LinkCheck, ...]]:
+    story_context = spec.story is not None
+    edges = tuple(
+        _link(
+            graph,
+            checked,
+            edge.source,
+            edge.target,
+            edge.kind,
+            claim=edge.claim,
+            note=edge.note,
+            step=False,
+            story_context=story_context,
+        )
+        for edge in spec.edges
+    )
+    steps = tuple(
+        LinkCheck(
+            None,
+            step.node,
+            checked[step.node].status,
+            checked[step.node].reason,
+            note=step.note,
+        )
+        if before is None
+        else _link(
+            graph,
+            checked,
+            before,
+            step.node,
+            step.kind,
+            claim=step.claim,
+            note=step.note,
+            step=True,
+            story_context=story_context,
+        )
+        for before, step in pairs
+    )
+    return edges, steps
+
+
 def _check_view(
     spec: ViewSpec,
     observation: Observation,
@@ -1107,63 +1169,16 @@ def _check_view(
     current = identity == spec.snapshot
     befores = (None, *(step.node for step in spec.steps[:-1])) if spec.steps else ()
     pairs = tuple(zip(befores, spec.steps, strict=True))
-    nodes: tuple[NodeCheck, ...]
-    edges: tuple[LinkCheck, ...]
-    steps: tuple[LinkCheck, ...]
-    graph: _Graph | None = None
     if not current:
-        stale = "the view names another snapshot: check it against that snapshot"
-        nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, stale) for node in spec.nodes)
-        edges = tuple(
-            LinkCheck(
-                edge.source, edge.target, ViewStatus.UNKNOWN, stale, edge.kind, note=edge.note
-            )
-            for edge in spec.edges
-        )
-        steps = tuple(
-            LinkCheck(before, step.node, ViewStatus.UNKNOWN, stale, step.kind, note=step.note)
-            for before, step in pairs
-        )
+        reason = "the view names another snapshot: check it against that snapshot"
+        nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, reason) for node in spec.nodes)
+        edges, steps = _unchecked_links(spec, pairs, reason)
+        graph = None
     else:
         graph = prepared_graph or _view_graph(observation, story=spec.story is not None)
         checked = {node: _node(graph, node) for node in spec.nodes}
         nodes = tuple(checked.values())
-        edges = tuple(
-            _link(
-                graph,
-                checked,
-                edge.source,
-                edge.target,
-                edge.kind,
-                claim=edge.claim,
-                note=edge.note,
-                step=False,
-                story_context=spec.story is not None,
-            )
-            for edge in spec.edges
-        )
-        steps = tuple(
-            LinkCheck(
-                None,
-                step.node,
-                checked[step.node].status,
-                checked[step.node].reason,
-                note=step.note,
-            )
-            if before is None
-            else _link(
-                graph,
-                checked,
-                before,
-                step.node,
-                step.kind,
-                claim=step.claim,
-                note=step.note,
-                step=True,
-                story_context=spec.story is not None,
-            )
-            for before, step in pairs
-        )
+        edges, steps = _checked_links(graph, checked, spec, pairs)
     by_id = {node.id: node for node in nodes}
     stops = tuple(_stop_check(stop, by_id[stop.node], graph) for stop in spec.stops)
     statuses = {node.status for node in nodes} | {link.status for link in (*edges, *steps)}

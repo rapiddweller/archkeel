@@ -70,6 +70,13 @@ export const CheckStatus = {
 } as const;
 export type CheckStatus = (typeof CheckStatus)[keyof typeof CheckStatus];
 
+export const SnapshotCompleteness = {
+  Complete: "complete",
+  Incomplete: "incomplete",
+} as const;
+export type SnapshotCompleteness =
+  (typeof SnapshotCompleteness)[keyof typeof SnapshotCompleteness];
+
 /** Where a story spec lies: committed in the repository, or in the local cache folder. */
 export const StorySource = { Repository: "repository", Local: "local" } as const;
 export type StorySource = (typeof StorySource)[keyof typeof StorySource];
@@ -134,7 +141,7 @@ export type CheckedStory = {
   readonly result_schema_version: "1.3.0";
   readonly title: string;
   readonly snapshot_current: boolean;
-  readonly snapshot_completeness: "complete" | "incomplete";
+  readonly snapshot_completeness: SnapshotCompleteness;
   readonly steps: readonly StepLink[];
   readonly author_notes: readonly string[];
   readonly story: {

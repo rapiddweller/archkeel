@@ -1,6 +1,17 @@
 /** AD-290, AD-291: Stories: the list of the story specs and the player of one checked story. */
 import { useEffect, useRef, useState } from "preact/hooks";
-import { CheckStatus, CheckedStory, StepLink, StoryAnswer, StoryRow, StorySource, StoryStep, readStories, readStory } from "../api";
+import {
+  CheckStatus,
+  CheckedStory,
+  SnapshotCompleteness,
+  StepLink,
+  StoryAnswer,
+  StoryRow,
+  StorySource,
+  StoryStep,
+  readStories,
+  readStory,
+} from "../api";
 import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
 import { baseName } from "../model";
@@ -202,7 +213,7 @@ function Player(props: { answer: StoryAnswer }) {
         <h1>{story.title}</h1>
         <Verdict checked={checked} />
       </div>
-      {checked.snapshot_completeness === "incomplete" ? (
+      {checked.snapshot_completeness === SnapshotCompleteness.Incomplete ? (
         <p class="more" role="status">The source snapshot is incomplete; UNKNOWN means evidence is missing.</p>
       ) : null}
       <Origin answer={props.answer} />
