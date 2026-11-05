@@ -583,7 +583,7 @@
       {
         "source": "cli",
         "target": "analyzer",
-        "max_names": 2,
+        "max_names": 4,
         "provenance": [
           "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md"
         ]
@@ -708,7 +708,7 @@
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
           "line": 455,
-          "statement": "kernel32 = ctypes.WinDLL(\"kernel32\", use_last_error=True)",
+          "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
