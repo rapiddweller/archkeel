@@ -112,10 +112,10 @@ def _declared_runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
                 ),
                 default=None,
             )
-            if runtime.name == Language.PYTHON and lower is not None:
+            if runtime.name == Language.PYTHON:
                 remedy = (
-                    "Run Archkeel with a matching Python, for example: "
-                    f"uvx --python {lower.major}.{lower.minor} archkeel <command>"
+                    "Select a Python version that satisfies the full project range, then run: "
+                    "uvx --python <compatible-version> archkeel <command>"
                 )
             comparison = "<" if lower is not None and actual < lower else "does not satisfy"
             subject = f"{runtime.name} {runtime.version} {comparison} {label} {runtime.required}"

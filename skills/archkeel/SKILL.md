@@ -12,6 +12,11 @@ contracts; nothing is enforced by convention alone.
 
 ## First run on a codebase
 
+If `explore` reports `runtime_mismatch`, do not use its result as a complete scan. Read the
+reported current Python version and full `requires-python` range. Select a Python version that
+satisfies that range, then retry with `uvx --python <compatible-version> archkeel explore --json`.
+Archkeel does not install or switch Python versions.
+
 Use this procedure when a repository has no `archkeel.toml`. The first run gives the owner content
 from the measured code: how the system starts, an overview, and one sentence for each component.
 After the draft, continue with "Onboarding" below. When the owner wants to see the map in the

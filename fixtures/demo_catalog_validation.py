@@ -1038,8 +1038,8 @@ _VALIDATION_RUNTIME_MISMATCH = Variant(
     section="validation",
     item="runtime_mismatch",
     summary='pyproject.toml declares requires-python "<3.0", which the running interpreter '
-    "never satisfies; the analyzer reports an uncoded runtime_mismatch diagnostic "
-    "regardless of the rest of the scan.",
+    "does not satisfy; the report names both versions, gives a safe command template and "
+    "does not claim a complete scan.",
     files={
         "pyproject.toml": '[project]\nname = "shop-architecture-fixture"\n'
         'version = "0.1.0"\nrequires-python = "<3.0"\n'

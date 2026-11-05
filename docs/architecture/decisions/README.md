@@ -306,3 +306,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-296 | [Traces display source labels and keep canonical names](ad-296-traces-display-source-labels-and-keep-canonical-names.md) |
 | AD-297 | [An incomplete call list is explained as unavailable](ad-297-an-incomplete-call-list-is-explained-as-unavailable.md) |
 | AD-298 | [Studio keeps a readable incomplete snapshot](ad-298-studio-keeps-a-readable-incomplete-snapshot.md) |
+| AD-300 | [A Python runtime mismatch shows a safe retry](ad-300-a-python-runtime-mismatch-shows-a-safe-retry.md) |
