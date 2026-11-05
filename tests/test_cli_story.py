@@ -662,6 +662,112 @@ def test_a_session_built_during_invalidation_is_not_cached_for_the_next_run(
     assert loaded == [stale, fresh]
 
 
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
+    shop: Observation,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    returncode: int,
+) -> None:
+    from archkeel.studio.api import ContractState, ExploreState
+    from archkeel.studio.stories import CheckResult, Stories
+    from archkeel.studio.workspace import Workspace
+
+    previous = shop
+    current = replace(shop, producer=shop.analyzer)
+    loaded: list[Observation] = []
+    selected = [previous]
+    admitted = threading.Event()
+    allow_check = threading.Event()
+    finish_run = threading.Event()
+    run_finished = threading.Event()
+
+    def read(_: Path) -> Observation:
+        observation = selected[0]
+        loaded.append(observation)
+        return observation
+
+    class Session:
+        def __init__(self, observation: Observation) -> None:
+            self.observation = observation
+
+    def result_for_session(spec: bytes, snapshot: Path, *, session: Session):
+        return CheckResult({"observation": id(session.observation)}, False)
+
+    monkeypatch.setattr(cli, "read_saved_snapshot", read)
+    monkeypatch.setattr(cli, "ViewCheckSession", Session)
+    monkeypatch.setattr(cli, "_check_story", result_for_session)
+    snapshot = tmp_path / "cache" / "architecture.json"
+    spec = b"{}"
+    check, clear = cli._story_checker()
+    stories = Stories((), check, lambda path, source: {}, lambda: None, clear)
+    workspace = Workspace(
+        tmp_path,
+        tmp_path / "cache",
+        (),
+        lambda: ContractState.NOT_CONFIGURED,
+        lambda modules: [],
+        lambda raw: shop,
+        stories,
+    )
+    workspace._run = replace(workspace._run, explore=ExploreState.DONE)
+    original_wait = workspace._wait
+
+    def wait_for_run(child: subprocess.Popen[bytes]) -> None:
+        original_wait(child)
+        run_finished.set()
+
+    monkeypatch.setattr(workspace, "_wait", wait_for_run)
+
+    class RunningChild:
+        def __init__(self) -> None:
+            self.returncode = returncode
+
+        def communicate(self) -> tuple[bytes, bytes]:
+            assert finish_run.wait(timeout=5)
+            return b"", b""
+
+        def poll(self) -> int:
+            return self.returncode if finish_run.is_set() else None
+
+    monkeypatch.setattr(
+        "archkeel.studio.workspace.subprocess.Popen",
+        lambda *args, **kwargs: RunningChild(),
+    )
+
+    admitted_result: list[CheckResult] = []
+
+    def admitted_request() -> None:
+        admitted.set()  # The route already observed DONE and captured this stable path.
+        assert allow_check.wait(timeout=5)
+        admitted_result.append(check(spec, snapshot))
+
+    request = threading.Thread(target=admitted_request)
+    request.start()
+    assert admitted.wait(timeout=5)
+    workspace.start()  # This request passed the DONE check before the run started.
+    try:
+        allow_check.set()
+        request.join(timeout=5)
+    finally:
+        allow_check.set()
+        request.join(timeout=5)
+
+    assert not request.is_alive()
+    assert admitted_result[0].result["observation"] == id(previous)
+    assert loaded == [previous]
+
+    selected[0] = current  # The new explore run has replaced architecture.json.
+    finish_run.set()
+    assert run_finished.wait(timeout=5)
+    expected_state = ExploreState.DONE if returncode == 0 else ExploreState.FAILED
+    assert workspace.state().explore is expected_state
+
+    next_result = check(spec, snapshot)
+    assert next_result.result["observation"] == id(current)
+    assert loaded == [previous, current]
+
+
 def test_a_path_through_a_partial_call_is_a_claim_with_a_seam(shop: Observation) -> None:
     (path,) = _trace(shop, MAIN, TOTAL).paths
     assert [hop.status for hop in path.hops] == [ViewStatus.PROVEN, ViewStatus.CLAIM]

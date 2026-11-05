@@ -102,6 +102,9 @@ class Workspace:
         stdout, stderr = child.communicate()
         failed = child.returncode != 0
         with self._lock:
+            # A new run reuses the snapshot path; discard any session built before it replaced it.
+            if self.stories is not None:
+                self.stories.invalidate_check()
             self._run = replace(
                 self._run,
                 explore=ExploreState.FAILED if failed else ExploreState.DONE,
