@@ -360,7 +360,7 @@ def test_planned_component_promotes_to_existing_owner_contract() -> None:
             "forbidden_responsibilities": [],
             "planned": ["archkeel.mcp.server.McpServer"],
             "requires": [{"component": "core", "rationale": "Reuse the existing core."}],
-            "provenance": ["fixtures/planned-component/README.md"],
+            "provenance": ["README.md"],
         },
         {
             "id": "core",
@@ -369,7 +369,7 @@ def test_planned_component_promotes_to_existing_owner_contract() -> None:
             "packages": ["archkeel.core"],
             "responsibilities": ["Own shared analysis operations."],
             "forbidden_responsibilities": [],
-            "provenance": ["fixtures/planned-component/README.md"],
+            "provenance": ["README.md"],
         },
     ]
 

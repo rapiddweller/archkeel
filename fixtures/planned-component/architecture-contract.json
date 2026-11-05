@@ -12,7 +12,7 @@
           "qualified_name": "archkeel.mcp",
           "language": "architecture",
           "presence": "planned",
-          "provenance": ["fixtures/planned-component/README.md"],
+          "provenance": ["README.md"],
           "responsibilities": ["Expose ArchKeel target intent to local MCP clients."]
         },
         {
@@ -22,7 +22,7 @@
           "language": "python",
           "parent_id": "mcp",
           "presence": "planned",
-          "provenance": ["fixtures/planned-component/README.md"],
+          "provenance": ["README.md"],
           "responsibilities": ["Serve the read-only MCP protocol adapter."]
         },
         {
@@ -32,7 +32,7 @@
           "language": "python",
           "parent_id": "server",
           "presence": "planned",
-          "provenance": ["fixtures/planned-component/README.md"],
+          "provenance": ["README.md"],
           "responsibilities": ["Implement the protocol transport."]
         },
         {
@@ -42,7 +42,7 @@
           "language": "python",
           "parent_id": "server",
           "presence": "planned",
-          "provenance": ["fixtures/planned-component/README.md"],
+          "provenance": ["README.md"],
           "responsibilities": ["Define the transport-facing interface."]
         }
       ],
@@ -52,7 +52,7 @@
           "kind": "realizes",
           "source_id": "server-class",
           "target_id": "transport-port",
-          "provenance": ["fixtures/planned-component/README.md"]
+          "provenance": ["README.md"]
         }
       ]
     }

@@ -276,8 +276,13 @@ def _authenticate_rules(tree: InsideContractTree, known: dict[str, Record]) -> N
 
 
 def _target_definition(graph: ArchitectureGraph) -> TargetDefinition:
+    component_owners = {intent.component_id for intent in graph.component_intents}
     return TargetDefinition(
-        entities=tuple(entity for entity in graph.entities if entity.kind != _EntityKind.COMPONENT),
+        entities=tuple(
+            entity
+            for entity in graph.entities
+            if entity.kind != _EntityKind.COMPONENT or entity.id not in component_owners
+        ),
         relationships=tuple(
             edge for edge in graph.relationships if edge.kind != _RelationshipKind.REQUIRES
         ),
