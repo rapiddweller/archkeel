@@ -459,6 +459,7 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
     ("explore", "expected", "role"),
     [
         ("failed", "Explore failed · exit code 1", "alert"),
+        ("done", "Explore finished, but no graph is available", "alert"),
         ("running", "Explore is running · 8 s", "status"),
     ],
 )
@@ -480,7 +481,14 @@ def test_briefing_shows_the_current_explore_status_and_next_step(
         try:
             page = browser.new_page(viewport={"width": width, "height": height})
             page.route("**/api/v1/state", lambda route: route.fulfill(json=state_answer))
-            page.goto(studio.url)
+            if explore == "done":
+                page.route(
+                    "**/api/v1/graph",
+                    lambda route: route.fulfill(
+                        json={"api_version": API_VERSION, "explore": "done", "graph": None}
+                    ),
+                )
+            page.goto(studio.url + "#/overview")
             status = page.get_by_role(role)
             status.get_by_text(expected, exact=True).wait_for()
             assert status.get_by_text("Next:", exact=False).is_visible()
@@ -504,6 +512,10 @@ def test_briefing_shows_the_current_explore_status_and_next_step(
                 assert stories_status.get_by_text("128 diagnostic notes", exact=False).is_visible()
                 assert not stories_status.get_by_text(
                     "TypeScript diagnostics are unavailable for this fixture.", exact=True
+                ).is_visible()
+            if explore == "done":
+                assert status.get_by_text(
+                    "Next: restart Studio to run Explore again.", exact=True
                 ).is_visible()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
         finally:

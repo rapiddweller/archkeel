@@ -51,7 +51,7 @@ function SnapshotStatus(props: { state: StudioState; withGraph: boolean }) {
   ) : (
     <section class="brief-status failed" role="alert">
       <strong>Explore finished, but no graph is available</strong>
-      <span>Next: run archkeel explore again and review its output.</span>
+      <span>Next: restart Studio to run Explore again.</span>
     </section>
   );
 }
