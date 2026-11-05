@@ -32,8 +32,8 @@ Run this command. `<root>` is the repository root. Add the scope options only wh
 
 - Claude Code: run it as a background Bash command (`run_in_background`). Read the URL from its output.
 - Codex: run it outside the sandbox. The server needs a local port.
-- Scope flags: `--language`, `--source`, `--namespace`, `--tsconfig`, `--agent`; match `explore`'s
-  scope. TypeScript and Dart need language options.
+- Explore scope flags: `--language`, `--source`, `--namespace`, `--tsconfig`; match `explore`'s scope (TypeScript and Dart need language options).
+- Studio chat option: `--agent {claude,codex}`; this does not change scan scope.
 
 The first output line is `ArchKeel Studio: <URL>`. The URL token logs the browser in once.
 Studio then sets an `HttpOnly`, `SameSite=Strict` cookie; later requests need that cookie.
