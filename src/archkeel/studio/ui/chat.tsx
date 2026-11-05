@@ -254,7 +254,9 @@ function StoryDraftView(props: {
   const verdict = checked.story?.verdict;
   return (
     <section class="blk story-draft" aria-label="Checked story draft">
-      <h5>{checked.title} · checked draft</h5>
+      <h5>
+        <Badge evidence={Evidence.Claim}>Claim: {checked.title}</Badge> · checked draft
+      </h5>
       <p class="more" role="status">
         Explore: {props.exploreCompleteness}; source coverage: {checked.snapshot_completeness}. {props.exploreCompleteness === SnapshotCompleteness.INCOMPLETE || checked.snapshot_completeness === SnapshotCompleteness.INCOMPLETE
           ? "At least one completeness check is incomplete; UNKNOWN does not establish absence."
@@ -273,7 +275,9 @@ function StoryDraftView(props: {
             {step.source === null ? "Start" : step.source} → {step.target}: {" "}
             <ProofMark proof={proofOfCheck(step.status)} />
             {step.reason ? ` · ${step.reason}` : ""}
-            {step.note ? ` · ${step.note}` : ""}
+            {step.note ? (
+              <> · <Badge evidence={Evidence.Claim}>Claim: {step.note}</Badge></>
+            ) : null}
           </li>
         ))}
       </ol>

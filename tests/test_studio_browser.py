@@ -803,22 +803,32 @@ def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown
 ) -> None:
     api = pytest.importorskip("playwright.sync_api")
     checked = _checked(snapshot_completeness="incomplete")
-    checked["steps"][0]["status"] = "declared"
-    checked["steps"][1]["status"] = "missing"
+    checked["steps"][1]["status"] = "declared"
+    checked["steps"][2]["status"] = "missing"
+    checked["steps"][0]["note"] = "This call encrypts every request."
+    checked["title"] = "Every request is encrypted"
+    checked["story"]["title"] = checked["title"]
     checked["story"]["verdict"].update(proven=3, declared=1, missing=1)
     nodes = [step["node"] for step in checked["story"]["steps"]]
     candidate = {
         "schema_version": "1.2.0",
-        "title": "The checked flow",
+        "title": checked["title"],
         "snapshot": checked["snapshot"],
         "nodes": nodes,
-        "story": {"id": "check-flow", "title": "The checked flow", "chapters": []},
-        "steps": [{"node": node, "note": "Agent-authored text."} for node in nodes],
+        "story": {"id": "check-flow", "title": checked["title"], "chapters": []},
+        "steps": [
+            {
+                "node": node,
+                "note": checked["steps"][index]["note"] or "Agent-authored text.",
+            }
+            for index, node in enumerate(nodes)
+        ],
         "author_kind": "agent",
         "agent": "codex",
     }
-    for link in checked["steps"]:
-        link["note"] = "Agent-authored text."
+    for index, link in enumerate(checked["steps"]):
+        if index != 0:
+            link["note"] = "Agent-authored text."
     answer = {
         "api_version": API_VERSION,
         "agent": "codex",
@@ -849,12 +859,17 @@ def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown
             draft.get_by_text(
                 "At least one completeness check is incomplete; UNKNOWN does not establish absence."
             ).wait_for()
+            title_claim = draft.locator("h5 .badge.claim")
+            assert "claim: every request is encrypted" in title_claim.inner_text().lower()
             first_status = draft.locator("ol li").nth(0)
-            claim_mark = first_status.locator(".mark.claim")
-            claim_mark.wait_for()
-            assert "claim" in claim_mark.inner_text()
+            assert first_status.locator(".mark.proven").count() == 1
+            note_claim = first_status.locator(".badge.claim")
+            assert "claim: this call encrypts every request." in note_claim.inner_text().lower()
             assert first_status.get_by_text("declared", exact=True).count() == 0
-            second_status = draft.locator("ol li").nth(1)
+            declared_status = draft.locator("ol li").nth(1)
+            assert declared_status.locator(".mark.claim").count() == 1
+            assert declared_status.get_by_text("declared", exact=True).count() == 0
+            second_status = draft.locator("ol li").nth(2)
             unknown_mark = second_status.locator(".mark.unknown")
             unknown_mark.wait_for()
             assert "unknown" in unknown_mark.inner_text()
