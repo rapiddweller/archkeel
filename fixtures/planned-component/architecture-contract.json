@@ -54,6 +54,15 @@
           "target_id": "transport-port",
           "provenance": ["README.md"]
         }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mcp",
+          "entity_kinds": ["class", "interface"],
+          "mode": "open",
+          "rationale": "Leave implementation structure open beneath the planned owner.",
+          "provenance": ["README.md"]
+        }
       ]
     }
   }

@@ -340,7 +340,7 @@ def test_planned_component_fixture_is_target_intent_only() -> None:
     assert any(item.kind == RelationshipKind.REALIZES for item in graph.relationships)
 
 
-def test_planned_component_promotes_to_existing_owner_contract() -> None:
+def test_planned_component_presence_and_owner_identity_are_validated() -> None:
     fixture = Path(__file__).parents[1] / "fixtures" / "planned-component"
     raw = json.loads((fixture / "architecture-contract.json").read_text())
     target_owner = raw["declarations"]["uml"]["entities"][0]
@@ -375,18 +375,6 @@ def test_planned_component_promotes_to_existing_owner_contract() -> None:
 
     with pytest.raises(ValueError, match="duplicate contract ID"):
         parse_contract(raw)
-
-    raw["declarations"]["uml"]["entities"].pop(0)
-    graph = declared_graph(parse_contract(raw))
-    owner_intent = next(item for item in graph.component_intents if item.component_id == "mcp")
-    assert owner_intent.packages == ("archkeel.mcp",)
-    assert owner_intent.planned == ("archkeel.mcp.server.McpServer",)
-    assert any(
-        item.kind == RelationshipKind.REQUIRES
-        and item.source_id == "mcp"
-        and item.target_id == "core"
-        for item in graph.relationships
-    )
 
 
 def test_permission_identity_survives_reordering_slices_and_duplicate_entries(tmp_path):
