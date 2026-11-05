@@ -117,8 +117,8 @@ def intent_graph(
     external_scopes: tuple[ExternalDependencyScopeRule, ...] = (),
 ) -> ArchitectureGraph:
     for entity in target.entities:
-        if entity.kind == EntityKind.COMPONENT:
-            raise ValueError("UML cannot redeclare an existing component owner")
+        if entity.kind == EntityKind.COMPONENT and entity.presence != PresenceKind.PLANNED:
+            raise ValueError("UML component owners need planned intent")
         if (
             entity.presence not in {PresenceKind.PLANNED, PresenceKind.REFERENCED}
             or entity.record_ids

@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.2.0",
+  "components": [],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.2.0",
+      "entities": [
+        {
+          "id": "mcp",
+          "kind": "component",
+          "qualified_name": "archkeel.mcp",
+          "language": "architecture",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Expose ArchKeel target intent to local MCP clients."]
+        },
+        {
+          "id": "server",
+          "kind": "module",
+          "qualified_name": "archkeel.mcp.server",
+          "language": "python",
+          "parent_id": "mcp",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Serve the read-only MCP protocol adapter."]
+        },
+        {
+          "id": "server-class",
+          "kind": "class",
+          "qualified_name": "archkeel.mcp.server.McpServer",
+          "language": "python",
+          "parent_id": "server",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Implement the protocol transport."]
+        },
+        {
+          "id": "transport-port",
+          "kind": "interface",
+          "qualified_name": "archkeel.mcp.server.Transport",
+          "language": "python",
+          "parent_id": "server",
+          "presence": "planned",
+          "provenance": ["README.md"],
+          "responsibilities": ["Define the transport-facing interface."]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "implements-transport",
+          "kind": "realizes",
+          "source_id": "server-class",
+          "target_id": "transport-port",
+          "provenance": ["README.md"]
+        }
+      ],
+      "scopes": [
+        {
+          "scope_id": "mcp",
+          "entity_kinds": ["class", "interface"],
+          "mode": "open",
+          "rationale": "Leave implementation structure open beneath the planned owner.",
+          "provenance": ["README.md"]
+        }
+      ]
+    }
+  }
+}

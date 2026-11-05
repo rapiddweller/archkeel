@@ -17,13 +17,16 @@ from archkeel.check.validation import COMPONENT_GRAPH_MARKER
 from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.ir import decisions as decision_derivation
+from archkeel.ir.architecture_graph import CompletenessMode, EntityKind, RelationshipKind
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
-from archkeel.ir.codec import baseline_bytes
+from archkeel.ir.codec import baseline_bytes, decode_canonical_model, parse_observation
+from archkeel.ir.report_graph import architecture_report
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_rule_field
 
 ROOT = Path(__file__).parents[1]
+PLANNED_COMPONENT_FIXTURE = ROOT / "fixtures" / "planned-component"
 _PROBE = (
     "# Archkeel\n# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.\n"
     "# SPDX-License-Identifier: MIT\n"
@@ -963,6 +966,98 @@ def test_validate_write_graph_regenerates_both_marked_graphs(
 
     assert main(["validate", "--root", str(root), "--write-graph", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["artifact"] is None
+
+
+def _planned_component_repository(tmp_path: Path) -> Path:
+    return _prepare_repo(tmp_path, {}, fixture=PLANNED_COMPONENT_FIXTURE)
+
+
+def test_planned_component_fixture_cli_validate_has_no_parse_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _planned_component_repository(tmp_path)
+    assert main(["validate", "--root", str(root), "--json"]) == 0
+    validation = json.loads(capsys.readouterr().out)
+    assert validation["diagnostics"] == []
+
+
+def test_planned_component_fixture_cli_report_reconstructs_target(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _planned_component_repository(tmp_path)
+    output = tmp_path / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(output), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["diagnostics"] == []
+
+    observation = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    target = architecture_report(observation).target
+    assert target is not None
+    owner = next(item for item in target.entities if item.id == "mcp")
+    assert owner.kind == EntityKind.COMPONENT
+    assert any(item.id == "server" and item.parent_id == owner.id for item in target.entities)
+    assert any(
+        item.id == "implements-transport" and item.kind == RelationshipKind.REALIZES
+        for item in target.relationships
+    )
+    assert [(item.scope_id, item.mode) for item in target.target_scopes] == [
+        ("mcp", CompletenessMode.OPEN)
+    ]
+
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_bytes())
+    contract["declarations"]["uml"]["entities"].pop(0)
+    contract["components"] = [
+        {
+            "id": "mcp",
+            "label": "mcp",
+            "role": "component",
+            "packages": ["archkeel.mcp"],
+            "namespace": "archkeel.mcp",
+            "responsibilities": ["Expose ArchKeel target intent to local MCP clients."],
+            "forbidden_responsibilities": [],
+            "planned": ["archkeel.mcp.server.McpServer"],
+            "requires": [{"component": "core", "rationale": "Reuse the existing core."}],
+            "provenance": ["README.md"],
+        },
+        {
+            "id": "core",
+            "label": "core",
+            "role": "component",
+            "packages": ["archkeel.core"],
+            "responsibilities": ["Own shared analysis operations."],
+            "forbidden_responsibilities": [],
+            "provenance": ["README.md"],
+        },
+    ]
+    contract_path.write_text(json.dumps(contract))
+    for package in ("mcp", "core"):
+        package_path = root / "src" / "archkeel" / package
+        package_path.mkdir()
+        (package_path / "__init__.py").write_text("")
+
+    promoted_output = tmp_path / "promoted-architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(promoted_output), "--json"]) == 0
+    promoted_result = json.loads(capsys.readouterr().out)
+    assert promoted_result["diagnostics"] == []
+    promoted_observation = parse_observation(
+        decode_canonical_model(json.loads(promoted_output.read_bytes()))
+    )
+    promoted = architecture_report(promoted_observation).target
+    assert promoted is not None
+    assert sum(item.id == "mcp" for item in promoted.entities) == 1
+    intent = next(item for item in promoted.component_intents if item.component_id == "mcp")
+    assert intent.packages == ("archkeel.mcp",)
+    assert intent.planned == ("archkeel.mcp.server.McpServer",)
+    assert any(
+        item.kind == RelationshipKind.REQUIRES
+        and item.source_id == "mcp"
+        and item.target_id == "core"
+        for item in promoted.relationships
+    )
+    assert [(item.scope_id, item.mode) for item in promoted.target_scopes] == [
+        ("mcp", CompletenessMode.OPEN)
+    ]
 
 
 def test_validate_writes_graph_and_baseline_in_one_run(
