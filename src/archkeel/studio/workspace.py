@@ -92,7 +92,8 @@ class Workspace:
             self._started = time.monotonic()
             self._graph = None
             # The folder is reused on restart; an older valid snapshot cannot prove this run.
-            (self.folder / _SNAPSHOT).unlink(missing_ok=True)
+            snapshot_path: Path = self.folder / _SNAPSHOT
+            snapshot_path.unlink(missing_ok=True)
             self._snapshot = None
             self._child = subprocess.Popen(
                 self._explore,
@@ -108,8 +109,9 @@ class Workspace:
         snapshot_error = False
         if child.returncode in (0, 2):
             try:
+                snapshot_path: Path = self.folder / _SNAPSHOT
                 graph = build_graph(
-                    self._decode((self.folder / _SNAPSHOT).read_bytes()), self._declare
+                    self._decode(snapshot_path.read_bytes()), self._declare
                 )
             except (OSError, ValueError):
                 snapshot_error = True
