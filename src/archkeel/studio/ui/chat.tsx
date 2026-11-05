@@ -139,9 +139,11 @@ function Observed(props: {
 function Proposal(props: { model: Model; block: ChatBlock; context: string | null; ask: ChatState["ask"] }) {
   const { block } = props;
   const from = block.refs[0] ?? props.context;
+  const fromSymbol = from === null ? null : findSymbol(props.model, from);
+  const canDraftStory = fromSymbol !== null && isCallable(props.model, fromSymbol);
   const [draft, setDraft] = useState<string | null>(null);
   const pin = (): void => {
-    if (from === null) return;
+    if (from === null || !canDraftStory) return;
     readDraft(from).then(
       (spec) => setDraft(JSON.stringify(spec, null, 2)),
       (error) => setDraft(String(error)),
@@ -160,16 +162,19 @@ function Proposal(props: { model: Model; block: ChatBlock; context: string | nul
         <button
           type="button"
           class="toggle"
-          disabled={from === null}
-          onClick={() => props.ask(
-            `Draft a story that starts at ${from} and follows the listed calls.`,
-            from,
-            "story",
-          )}
+          disabled={!canDraftStory}
+          onClick={() => {
+            if (from === null || !canDraftStory) return;
+            props.ask(
+              `Draft a story that starts at ${from} and follows the listed calls.`,
+              from,
+              "story",
+            );
+          }}
         >
           Draft a story
         </button>
-        <button type="button" class="toggle" disabled={from === null} onClick={pin}>
+        <button type="button" class="toggle" disabled={!canDraftStory} onClick={pin}>
           Pin to story
         </button>
       </p>
