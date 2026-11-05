@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import builtins
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -278,6 +279,23 @@ class ComponentIntent:
         builtins.object.__setattr__(
             self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
         )
+
+
+def component_ancestor_ids(
+    intents: Mapping[str, ComponentIntent], component_id: str
+) -> frozenset[str]:
+    """Return a component's parent identifiers after validating the full chain."""
+    intent = intents.get(component_id)
+    if intent is None:
+        raise ValueError("unknown component intent")
+    ancestors: set[str] = set()
+    parent = intent.parent_id
+    while parent is not None:
+        if parent not in intents or parent in ancestors or parent == component_id:
+            raise ValueError("invalid component containment")
+        ancestors.add(parent)
+        parent = intents[parent].parent_id
+    return frozenset(ancestors)
 
 
 @dataclass(frozen=True, slots=True)
@@ -712,13 +730,7 @@ class ArchitectureGraph:
                 raise ValueError("package-less component intent needs planned lifecycle")
             if set(intent.public or ()) & set(intent.planned or ()):
                 raise ValueError("a component API entry cannot be public and planned")
-            parent = intent.parent_id
-            ancestors: set[str] = {intent.component_id}
-            while parent is not None:
-                if parent not in intents or parent in ancestors:
-                    raise ValueError("invalid component containment")
-                ancestors.add(parent)
-                parent = intents[parent].parent_id
+            component_ancestor_ids(intents, intent.component_id)
             for identity in intent.layout_rule_ids:
                 if identity not in layouts or identity in assigned_layouts:
                     raise ValueError("invalid component layout reference")

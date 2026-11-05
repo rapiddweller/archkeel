@@ -437,6 +437,128 @@ def test_planned_component_policy_and_promotion_share_one_owner() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("scope_case", "encodable"),
+    [
+        ("ancestor", True),
+        ("unrelated", True),
+        ("sibling-package", False),
+        ("sibling-exact", False),
+        ("mixed", False),
+        ("explicit-ancestor-selector", False),
+    ],
+)
+def test_authenticated_nested_planned_selector_encoders_respect_component_scope(
+    tmp_path: Path, scope_case: str, encodable: bool
+) -> None:
+    root, config = _nested_repository(tmp_path, root_version="2.4.0")
+    root_raw, inside_raw, _ = _nested_contracts("2.4.0")
+    root_raw["components"][0].update(id="ROOT", inside="inside.json")
+    root_raw["components"][0]["packages"] = ["sample"]
+    root_raw["components"][0]["namespace"] = "sample"
+    inside_raw["components"][0].update(label="service", inside="leaf.json")
+    inside_raw["schema_version"] = "2.4.0"
+    inside_raw["components"].append(
+        {
+            "id": "future",
+            "label": "future",
+            "role": "component",
+            "lifecycle": "planned",
+            "packages": [],
+            "planned": ["sample.future:run"],
+            "responsibilities": [],
+            "forbidden_responsibilities": [],
+            "provenance": ["docs/target.md"],
+        }
+    )
+    if scope_case == "explicit-ancestor-selector":
+        root_raw["components"][0]["public"] = ["sample.future:run"]
+    if scope_case in {"sibling-package", "mixed"}:
+        inside_raw["components"].append(
+            {
+                "id": "sibling",
+                "label": "sibling",
+                "role": "component",
+                "packages": ["sample.future"],
+                "responsibilities": ["Own the sibling package."],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/target.md"],
+            }
+        )
+    elif scope_case == "sibling-exact":
+        inside_raw["components"].append(
+            {
+                "id": "sibling",
+                "label": "sibling",
+                "role": "component",
+                "packages": [],
+                "exact_modules": ["sample.future"],
+                "responsibilities": ["Own the exact sibling module."],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/target.md"],
+            }
+        )
+    elif scope_case == "unrelated":
+        inside_raw["components"].append(
+            {
+                "id": "unrelated",
+                "label": "unrelated",
+                "role": "component",
+                "packages": ["other.package"],
+                "responsibilities": ["Own an unrelated package."],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/target.md"],
+            }
+        )
+    if scope_case == "mixed":
+        inside_raw["components"].append(
+            {
+                "id": "unrelated",
+                "label": "unrelated",
+                "role": "component",
+                "packages": ["other.package"],
+                "responsibilities": ["Own an unrelated package."],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/target.md"],
+            }
+        )
+    (root / config.contract).write_text(json.dumps(root_raw))
+    (root / "inside.json").write_text(json.dumps(inside_raw))
+
+    root_bytes = (root / config.contract).read_bytes()
+    tree = load_inside_contract_tree(
+        config.contract,
+        parse_contract(json.loads(root_bytes)),
+        hashlib.sha256(root_bytes).hexdigest(),
+        config.contract,
+        lambda path: ((root / path).read_bytes(), path),
+    )
+    assert not tree.issues
+    graph = declared_tree_graph(tree, root_path=config.contract)
+
+    if not encodable:
+        with pytest.raises(WireComponentSelectorError, match="planned API selector"):
+            graph_bytes(graph)
+        report = ArchitectureReport(
+            None,
+            graph,
+            unavailable="Source graph was omitted for this nested target probe.",
+            schema_version=ReportSchemaVersion.V1_3_0,
+        )
+        with pytest.raises(WireComponentSelectorError, match="planned API selector"):
+            report_bytes(report)
+        return
+
+    assert parse_graph(json.loads(graph_bytes(graph))) == graph
+    report = ArchitectureReport(
+        None,
+        graph,
+        unavailable="Source graph was omitted for this nested target probe.",
+        schema_version=ReportSchemaVersion.V1_3_0,
+    )
+    assert parse_report(json.loads(report_bytes(report))) == report
+
+
 def test_planned_component_policy_rejects_duplicate_selector_and_duplicate_uml_owner() -> None:
     fixture = Path(__file__).parents[1] / "fixtures" / "planned-component-policy"
     raw = json.loads((fixture / "architecture-contract.json").read_text())
@@ -740,6 +862,30 @@ def test_graph_and_report_encoders_roundtrip_unambiguous_planned_selector(encode
         )
         payload = json.loads(report_bytes(report))
         assert parse_report(payload) == report
+
+
+@pytest.mark.parametrize("containment", ["missing", "cycle"])
+def test_planned_selector_validation_rejects_invalid_component_ancestry(containment: str) -> None:
+    graph = _ambiguous_selector_graph("none")
+    active, planned = graph.component_intents
+    broken = (
+        (active, replace(planned, parent_id="missing"))
+        if containment == "missing"
+        else (
+            replace(active, parent_id=planned.component_id),
+            replace(planned, parent_id=active.component_id),
+        )
+    )
+    invalid_graph = replace(graph, component_intents=broken)
+
+    with pytest.raises(ValueError, match="invalid component containment"):
+        graph_bytes(invalid_graph)
+    wire = json.loads(graph_bytes(graph))
+    wire["component_intents"][1]["parent_id"] = "missing" if containment == "missing" else "active"
+    if containment == "cycle":
+        wire["component_intents"][0]["parent_id"] = "future"
+    with pytest.raises(ValueError, match="invalid component containment"):
+        parse_graph(wire)
 
 
 @pytest.mark.parametrize(

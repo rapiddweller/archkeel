@@ -55,6 +55,7 @@ from archkeel.ir.architecture_graph import (
     Visibility,
     VisibilityBasis,
     VisibilityKind,
+    component_ancestor_ids,
 )
 from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.facts import Evidence
@@ -110,16 +111,18 @@ def _texts(value: RawJson, label: str) -> tuple[str, ...]:
 
 
 def _validate_wire_component_selectors(graph: ArchitectureGraph) -> None:
+    intents = {item.component_id: item for item in graph.component_intents}
     for intent in graph.component_intents:
         if intent.lifecycle is not ComponentLifecycle.PLANNED:
             continue
+        ancestors = component_ancestor_ids(intents, intent.component_id)
         for selector in intent.planned or ():
             for owner in graph.component_intents:
                 if owner.component_id == intent.component_id:
                     continue
-                if ModuleSelection(owner.packages, owner.exact_modules).matches_api_selector(
-                    selector
-                ):
+                if owner.component_id not in ancestors and ModuleSelection(
+                    owner.packages, owner.exact_modules
+                ).matches_api_selector(selector):
                     raise WireComponentSelectorError(
                         f"planned API selector {selector!r} is owned by active package component "
                         f"{owner.component_id!r}"

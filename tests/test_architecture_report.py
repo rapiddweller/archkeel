@@ -45,6 +45,10 @@ def test_report_standard_retains_independent_graphs_and_core_comparison(tmp_path
             for intent in graph["component_intents"]:
                 if intent["layer"] is None:
                     del intent["layer"]
+                if intent["lifecycle"] is None:
+                    del intent["lifecycle"]
+    for graph_name in ("observed", "target"):
+        assert all("lifecycle" not in intent for intent in wire[graph_name]["component_intents"])
     assert (
         set(wire)
         == set(legacy_payload)
