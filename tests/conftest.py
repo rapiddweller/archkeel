@@ -19,6 +19,14 @@ from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation
 
 ROOT = Path(__file__).parents[1]
+SELF_RULE_UNKNOWN = frozenset(
+    {
+        "COMPONENT-NO-CYCLES",
+        "INTERFACE-BOUNDARY",
+        "MODULE-NO-CYCLES",
+        "REQUIRES-COMPLETE",
+    }
+)
 
 
 @pytest.fixture(autouse=True)
@@ -38,11 +46,23 @@ def _parse_self_run(artifact: bytes, stdout: str) -> SelfRun:
     result = json.loads(stdout)
     assert result["diagnostics"] == []
     assert result["observation_complete"] == "PASS"
-    assert result["declared_rules"] == "PASS", [
-        (rule["id"], rule["status"], rule["undecided"])
-        for rule in result["rule_assessments"]
-        if rule["status"] != "PASS"
-    ]
+    assert result["declared_rules"] == "UNKNOWN"
+    assessments = result["rule_assessments"]
+    assert {rule["id"] for rule in assessments if rule["status"] == "UNKNOWN"} == set(
+        SELF_RULE_UNKNOWN
+    )
+    assert all(
+        rule["status"] == "UNKNOWN"
+        and not rule["evaluation_proven"]
+        and rule["count"] == rule["undecided"] == 0
+        and rule["reason"] == "No complete evaluator receipt exists for this rule and scope."
+        if rule["id"] in SELF_RULE_UNKNOWN
+        else rule["status"] == "PASS"
+        and rule["evaluation_proven"]
+        and rule["count"] == rule["undecided"] == 0
+        for rule in assessments
+    )
+    assert result["measurements"]["scalars"]["unknown_positions"] == 0
     assert result["expectation_fulfilled"] == "n/a"
     observation = parse_observation(decode_canonical_model(json.loads(artifact)))
     return SelfRun(observation, stdout, artifact)

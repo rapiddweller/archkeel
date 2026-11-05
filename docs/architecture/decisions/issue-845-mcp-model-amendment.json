@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "b8f7d38429080d34e9a9d95ad5e97435035994ccffc53f8b07b9ab5c2027c420",
+  "after_digest": "b493c1d6e702880400469aeb4a5b6a405fb450a5ced1bd5cd8c2bc42b5e82e3f",
+  "before_baseline_digest": "b8f7d38429080d34e9a9d95ad5e97435035994ccffc53f8b07b9ab5c2027c420",
+  "before_digest": "009935d0852740b3f12aa3b29c3bb27b4b89d9e5be566125bfe1220e8e092d03",
+  "decided_by": "Architecture team",
+  "rationale": "CI run 42119546343, job 127568556866, at source head 2cf15320e4496fb91a6ccd6376831a6a961ceb6d against base 45a9d55f22c2f0da3162203a3760a0bca8f66c82 measured 957 unresolved calls of 31,062, 56 typing positions, and zero architecture violations. The only gate is the planned root component mcp added with widened presence. This amendment rebinds that contract change to the current composite contract and baseline digests; it changes no baseline or budget.",
+  "schema_version": "2.0.0"
+}

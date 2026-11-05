@@ -280,7 +280,9 @@ def test_absent_binding_preserves_prechange_contracts_payloads_repr_ids_and_obse
     )
     assert _hash(encode_canonical_model(raw_observation())) == pinned["wire_sha256"]
     assert (
-        hashlib.sha256((ROOT / "schema/architecture-contract.schema.json").read_bytes()).hexdigest()
+        hashlib.sha256(
+            (ROOT / "schema/architecture-contract-2.3.schema.json").read_bytes()
+        ).hexdigest()
         == pinned["legacy_schema_sha256"]
     )
     assert (
