@@ -672,6 +672,7 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
     from archkeel.studio.api import ContractState, ExploreState
     from archkeel.studio.stories import CheckResult, Stories
     from archkeel.studio.workspace import Workspace
+    from archkeel.cli import _decode_snapshot
 
     previous = shop
     current = replace(shop, producer=shop.analyzer)
@@ -698,6 +699,9 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
     monkeypatch.setattr(cli, "ViewCheckSession", Session)
     monkeypatch.setattr(cli, "_check_story", result_for_session)
     snapshot = tmp_path / "cache" / "architecture.json"
+    snapshot.parent.mkdir()
+    snapshot_bytes = _snapshot(tmp_path / "source")
+    snapshot.write_bytes(snapshot_bytes)
     spec = b"{}"
     check, clear = cli._story_checker()
     stories = Stories((), check, lambda path, source: {}, lambda: None, clear)
@@ -707,7 +711,7 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
         (),
         lambda: ContractState.NOT_CONFIGURED,
         lambda modules: [],
-        lambda raw: shop,
+        _decode_snapshot,
         stories,
     )
     workspace._run = replace(workspace._run, explore=ExploreState.DONE)
@@ -725,6 +729,7 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
 
         def communicate(self) -> tuple[bytes, bytes]:
             assert finish_run.wait(timeout=5)
+            snapshot.write_bytes(snapshot_bytes)
             return b"", b""
 
         def poll(self) -> int:
