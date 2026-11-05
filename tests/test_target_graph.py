@@ -538,6 +538,9 @@ def test_report_html_marks_ambiguous_target_unavailable(tmp_path: Path) -> None:
     assert "archkeel.mcp.server:McpServer" in detail
     assert "UNKNOWN" in main
     assert "archkeel.mcp.server:McpServer" in main
+    assert "no rule is declared" not in detail
+    assert "Whole-run rules: UNKNOWN" in detail
+    assert "no rule is declared" not in main
     report_wire = {
         key: report[key]
         for key in (
@@ -572,11 +575,16 @@ def test_report_html_marks_ambiguous_target_unavailable(tmp_path: Path) -> None:
         id="unlinked-finding",
         graph_subject_ids=(),
     )
+    mixed_finding = replace(
+        source_finding,
+        id="mixed-finding",
+        graph_subject_ids=(source_report.observed.entities[0].id, "mcp"),
+    )
     safe_report, _, warning = _html_report_payload(
-        replace(source_report, findings=(source_finding, unlinked_finding))
+        replace(source_report, findings=(source_finding, unlinked_finding, mixed_finding))
     )
     assert warning is not None and "UNKNOWN" in warning
-    assert "findings without source graph subjects omitted" in warning
+    assert "findings not attributable only to source graph omitted" in warning
     assert safe_report.findings == (source_finding,)
 
 

@@ -149,7 +149,7 @@ def _html_report_payload(
             if item.graph_subject_ids and set(item.graph_subject_ids) <= source_ids
         )
         if len(source_findings) != len(report.findings):
-            warning += "; findings without source graph subjects omitted"
+            warning += "; findings not attributable only to source graph omitted"
         if report.unavailable:
             warning += f"; source graph unavailable: {report.unavailable}"
         report = replace(
