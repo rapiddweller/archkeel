@@ -66,12 +66,14 @@
       ],
       "forbidden_responsibilities": [
         "Network, process or file access.",
-        "A route that writes: only a planned proposals component may take a write, after an explicit architect action."
+        "A route that writes: only a planned proposals component may take a write, after an explicit architect action.",
+        "MCP protocol types or stdio transport: the separate local MCP adapter owns that boundary (AD-303)."
       ],
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
         "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md",
-        "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md"
+        "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md",
+        "docs/architecture/decisions/ad-303-local-mcp-adapts-shared-read-only-project-operations.md"
       ],
       "decided_by": "agent",
       "requires": [],
@@ -341,11 +343,13 @@
         "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token, check and route each chat request, end after an idle time and tell whether a URL is a Studio."
       ],
       "forbidden_responsibilities": [
-        "Starting processes, analyzing source or writing files."
+        "Starting processes, analyzing source or writing files.",
+        "Serving MCP or owning MCP tool results."
       ],
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
-        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md",
+        "docs/architecture/decisions/ad-303-local-mcp-adapts-shared-read-only-project-operations.md"
       ],
       "decided_by": "agent",
       "requires": [
