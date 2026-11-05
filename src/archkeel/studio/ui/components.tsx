@@ -76,6 +76,37 @@ export function Panel(props: { title: string; children: ComponentChildren }) {
   );
 }
 
+export function DiagnosticNotes(props: { notes: readonly string[] }) {
+  if (props.notes.length === 0) return null;
+  const counts = new Map<string, number>();
+  props.notes.forEach((note) => counts.set(note, (counts.get(note) ?? 0) + 1));
+  return (
+    <details class="diagnostics">
+      <summary>
+        Show diagnostic details · {props.notes.length} diagnostic{" "}
+        {props.notes.length === 1 ? "note" : "notes"}
+      </summary>
+      <ul>
+        {[...counts].map(([note, count]) => (
+          <li key={note}>
+            {count > 1 ? <b>{count} × </b> : null}{note}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+export function ExploreFailure(props: { exitCode: number | null; notes: readonly string[] }) {
+  return (
+    <section class="brief-status failed" role="alert">
+      <strong>Explore failed{props.exitCode === null ? "" : ` · exit code ${props.exitCode}`}</strong>
+      <span>Next: fix the cause, then restart Studio to run Explore again.</span>
+      <DiagnosticNotes notes={props.notes} />
+    </section>
+  );
+}
+
 export function Page(props: { title: string; lead: string; children: ComponentChildren }) {
   return (
     <>

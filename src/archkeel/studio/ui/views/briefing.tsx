@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { StoryAnswer, StoryRow, StudioState, readStories, readStory } from "../api";
 import type { ChatState } from "../chat";
-import { Box, Legend, Page, ProofLegend, View, viewHref } from "../components";
+import { Box, DiagnosticNotes, ExploreFailure, Legend, Page, ProofLegend, View, viewHref } from "../components";
 import { Evidence } from "../evidence";
 import { Model, compact, counted, cycles, entry, fullName, hubs, seams, shortName, unknownByComponent } from "../model";
 import { ContractState, ExploreState } from "../vocabulary";
@@ -24,24 +24,6 @@ function Number_(props: { value: string; label: string; note?: string }) {
   );
 }
 
-function DiagnosticNotes(props: { notes: readonly string[] }) {
-  if (props.notes.length === 0) return null;
-  const counts = new Map<string, number>();
-  props.notes.forEach((note) => counts.set(note, (counts.get(note) ?? 0) + 1));
-  return (
-    <details class="diagnostics">
-      <summary>Show diagnostic details · {counted(props.notes.length, "diagnostic note")}</summary>
-      <ul>
-        {[...counts].map(([note, count]) => (
-          <li key={note}>
-            {count > 1 ? <b>{count} × </b> : null}{note}
-          </li>
-        ))}
-      </ul>
-    </details>
-  );
-}
-
 function SnapshotStatus(props: { state: StudioState; withGraph: boolean }) {
   const { state } = props;
   if (state.explore === ExploreState.INCOMPLETE) {
@@ -49,19 +31,17 @@ function SnapshotStatus(props: { state: StudioState; withGraph: boolean }) {
       <section class="brief-status incomplete" role="status">
         <strong>Snapshot is incomplete</strong>
         <span>{props.withGraph ? "UNKNOWN calls remain counted below." : "No graph is available."}</span>
-        <span>Next: review the notes, then rerun archkeel explore.</span>
+        <span>
+          {props.withGraph
+            ? "Next: check notes; UNKNOWN calls remain visible."
+            : "Next: inspect the diagnostic details."}
+        </span>
         <DiagnosticNotes notes={state.notes} />
       </section>
     );
   }
   if (state.explore === ExploreState.FAILED) {
-    return (
-      <section class="brief-status failed" role="alert">
-        <strong>Explore failed · exit code {state.exit_code}</strong>
-        <span>Next: review the notes, then run archkeel explore again.</span>
-        <DiagnosticNotes notes={state.notes} />
-      </section>
-    );
+    return <ExploreFailure exitCode={state.exit_code} notes={state.notes} />;
   }
   return state.explore === ExploreState.IDLE || state.explore === ExploreState.RUNNING ? (
     <section class="brief-status running" role="status">

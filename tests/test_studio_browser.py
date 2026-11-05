@@ -425,6 +425,9 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             page.goto(studio.url)
             page.get_by_text("Snapshot is incomplete", exact=False).wait_for()
             assert page.get_by_text("3 diagnostic notes", exact=False).is_visible()
+            assert page.get_by_text(
+                "Next: check notes; UNKNOWN calls remain visible.", exact=True
+            ).is_visible()
             assert not page.get_by_text(
                 "The TypeScript alias is unresolved.", exact=False
             ).is_visible()
@@ -470,7 +473,7 @@ def test_briefing_shows_the_current_explore_status_and_next_step(
         "explore": explore,
         "seconds": 8,
         "exit_code": 1 if explore == "failed" else None,
-        "notes": ["Explore could not resolve the source."],
+        "notes": ["TypeScript diagnostics are unavailable for this fixture."] * 128,
     }
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -482,9 +485,25 @@ def test_briefing_shows_the_current_explore_status_and_next_step(
             status.get_by_text(expected, exact=True).wait_for()
             assert status.get_by_text("Next:", exact=False).is_visible()
             if explore == "failed":
+                assert status.get_by_text("128 diagnostic notes", exact=False).is_visible()
                 assert status.locator("details").count() == 1
                 assert not status.get_by_text(
-                    "Explore could not resolve the source.", exact=True
+                    "TypeScript diagnostics are unavailable for this fixture.", exact=True
+                ).is_visible()
+                assert status.get_by_text(
+                    "Next: fix the cause, then restart Studio to run Explore again.", exact=True
+                ).is_visible()
+                page.get_by_role("link", name="Open the static report").click()
+                report_status = page.get_by_role("alert")
+                assert report_status.get_by_text("128 diagnostic notes", exact=False).is_visible()
+                assert not report_status.get_by_text(
+                    "TypeScript diagnostics are unavailable for this fixture.", exact=True
+                ).is_visible()
+                page.get_by_role("link", name="Stories", exact=True).click()
+                stories_status = page.get_by_role("alert")
+                assert stories_status.get_by_text("128 diagnostic notes", exact=False).is_visible()
+                assert not stories_status.get_by_text(
+                    "TypeScript diagnostics are unavailable for this fixture.", exact=True
                 ).is_visible()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
         finally:
