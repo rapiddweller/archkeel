@@ -704,6 +704,18 @@
           "line": 60,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
+        },
+        {
+          "qualified_name": "archkeel.analyzer.process.is_process_alive",
+          "line": 455,
+          "statement": "kernel32 = ctypes.WinDLL(\"kernel32\", use_last_error=True)",
+          "tag": "[attr-defined]"
+        },
+        {
+          "qualified_name": "archkeel.analyzer.process.is_process_alive",
+          "line": 467,
+          "statement": "error: int = ctypes.get_last_error()",
+          "tag": "[attr-defined]"
         }
       ],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",

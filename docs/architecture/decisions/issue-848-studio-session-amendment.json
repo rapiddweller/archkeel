@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "127c37ecf0a6cf3c0059d0f81e370b952719652bdfb126a483df6c58f5cd282f",
-  "after_digest": "c6958d8ca6875c7ba41df23c448da2bc4126533f40a7de8bae4fc18b4957768f",
+  "after_baseline_digest": "b2ba6e18a5d0ec543324710150474886a784973b70a3dd931786f660912445be",
+  "after_digest": "7edfc1ca18827a14c492e8c514daea3426346e0b2e7c749f5e10a7f4de46cec1",
   "before_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
-  "before_digest": "9e1fb48b873895baedb63fba35f69e9f8128ea43034f2621378c11b98aa1c354",
+  "before_digest": "bec9a69595f4146cbf737d9f4e55878dad56c5bcb9df0a104a32f4a8ad23802a",
   "decided_by": "Alexander Kell (architect; standing approval for justified budget changes)",
-  "rationale": "CI run 42054960502, job 127340714236, at head ffa7dc12 reports Rules PASS, no diagnostics, and calls_unresolved 942→945/30900. The three added calls are cli._studio lock.enter_context (dynamic receiver), cli.launcher._stop_studio _path(folder).unlink (dynamic expression), and studio.server.Studio.service_actions serving (callable not proven). Set the ceiling to the measured 945; no other measurement budgets change.",
+  "rationale": "CI run 42073355433, job 127407849484, at head 01f417ea measured calls_unresolved 948/30915, typing_positions 54, and cli -> analyzer coupling 4. The unresolved-call ceiling increases from 945 to 948 for the new process safety API and Windows-only liveness path; no other unresolved-call budget changes. The two exact ctypes attr-defined ignores are limited to is_process_alive lines 455 and 467 because POSIX mypy stubs omit these Windows-only APIs. The measured cli -> analyzer coupling adds is_process_alive and is_safe_process_id. Update only these measured baseline values.",
   "schema_version": "2.0.0"
 }
