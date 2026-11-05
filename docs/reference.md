@@ -266,9 +266,9 @@ current Windows stop path cannot clean up the Explore child before terminating i
 A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
 `✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no
 agent text outside the chat. The API (`GET /api/v1/state`, `GET /api/v1/graph`, `GET /api/v1/stories`, `GET /api/v1/stories/<id>`, `GET /api/v1/draft` and `POST /api/v1/chat`) follows
-[studio-api-1.4](../schema/studio-api-1.4.schema.json); the graph answer is `graph: null` until
+[studio-api-1.5](../schema/studio-api-1.5.schema.json); the graph answer is `graph: null` until
 a valid snapshot is ready. Exit 2 with a valid snapshot is `incomplete`; Studio shows its graph and
-notes. The 1.0, 1.1, 1.2 and 1.3 files stay as history. Studio writes nothing into the
+notes. The 1.0 through 1.4 files stay as history. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.
 
 The chat route ([AD-292](architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md))

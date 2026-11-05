@@ -4,6 +4,7 @@
 """AD-290: serve the shell, the read-only API and the snapshot files on 127.0.0.1."""
 
 import http.client
+import json
 import mimetypes
 import secrets
 import socket
@@ -17,16 +18,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from .agent import Agent
+from .agent import Agent, Reply
+from .answer import Snapshot
 from .api import (
     AgentKind,
     ApiPath,
     ChatAnswer,
     ChatError,
     ChatFailure,
+    ChatMode,
+    ChatRequest,
     ExploreState,
     MediaType,
     Route,
+    StoryDraft,
     UiAsset,
     chat_json,
     draft_json,
@@ -34,6 +39,7 @@ from .api import (
     graph_json,
     member,
     parse_chat_request,
+    parse_story_candidate,
     state_json,
     stories_json,
     story_json,
@@ -365,9 +371,84 @@ class _Handler(BaseHTTPRequestHandler):
         context = request.context
         if context is not None and not snapshot.has(context):
             raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
+        if request.mode is ChatMode.STORY and (
+            context is None or not snapshot.is_callable(context)
+        ):
+            raise ChatFailure(
+                ChatError.INVALID_REQUEST,
+                "a story draft needs a selected function or method.",
+            )
         neighborhood = snapshot.neighborhood(context) if context is not None else ""
         reply = self.studio.agent.ask(request, neighborhood, snapshot.completeness)
+        if request.mode is ChatMode.STORY:
+            return self._answer_story(request, snapshot, reply)
         return snapshot.check(reply.text, reply.kind)
+
+    def _answer_story(self, request: ChatRequest, snapshot: Snapshot, reply: Reply) -> ChatAnswer:
+        stories = self.studio.workspace.stories
+        snapshot_path = self.studio.workspace.file("architecture.json")
+        if (
+            stories is None
+            or snapshot_path is None
+            or self.studio.workspace.snapshot() is not snapshot
+        ):
+            raise ChatFailure(
+                ChatError.SNAPSHOT_NOT_READY,
+                "The snapshot changed while the story was being drafted. Refresh and try again.",
+            )
+        candidate = parse_story_candidate(reply.text)
+        if request.context is None:
+            raise ChatFailure(
+                ChatError.INVALID_REQUEST, "a story draft needs a selected starting node."
+            )
+        if candidate.steps[0].node != request.context:
+            raise ChatFailure(
+                ChatError.INVALID_ANSWER,
+                "The story draft must start at the selected node.",
+            )
+        try:
+            spec = dict(stories.draft(snapshot_path, request.context))
+        except (OSError, ValueError) as error:
+            raise ChatFailure(
+                ChatError.SNAPSHOT_NOT_READY,
+                "The current snapshot could not seed a story draft. Refresh and try again.",
+            ) from error
+        story = spec.get("story")
+        if not isinstance(story, dict):
+            raise ChatFailure(ChatError.INVALID_ANSWER, "The current snapshot cannot seed a story.")
+        spec["title"] = candidate.title
+        spec["nodes"] = list(dict.fromkeys(step.node for step in candidate.steps))
+        spec["steps"] = [{"node": step.node, "note": step.note} for step in candidate.steps]
+        story = dict(story)
+        story["title"] = candidate.title
+        spec["story"] = story
+        spec["author_kind"] = "agent"
+        spec["agent"] = reply.kind.value
+        try:
+            checked = stories.check(json.dumps(spec).encode(), snapshot_path).result
+        except OSError as error:
+            raise ChatFailure(
+                ChatError.SNAPSHOT_NOT_READY,
+                "The snapshot could not be checked. Refresh and try again.",
+            ) from error
+        except ValueError as error:
+            raise ChatFailure(
+                ChatError.INVALID_ANSWER,
+                "The story draft could not be checked against the current snapshot.",
+            ) from error
+        if self.studio.workspace.snapshot() is not snapshot:
+            raise ChatFailure(
+                ChatError.SNAPSHOT_NOT_READY,
+                "The snapshot changed while the story was being checked. Refresh and try again.",
+            )
+        return ChatAnswer(
+            reply.kind,
+            snapshot.completeness,
+            (),
+            (),
+            (),
+            StoryDraft(spec, checked),
+        )
 
 
 def is_studio(url: str) -> bool:

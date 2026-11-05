@@ -1,4 +1,6 @@
 /** AD-290: the evidence model. Decide on these values, never on a label text. */
+import { CheckStatus } from "./api";
+
 export const Evidence = {
   Observed: "observed",
   Claim: "claim",
@@ -26,6 +28,17 @@ export const Proof = {
   Unknown: "unknown",
 } as const;
 export type Proof = (typeof Proof)[keyof typeof Proof];
+
+/** A check has five statuses; only proven is proven when shown as a three-part proof. */
+const PROOF_OF_CHECK: Readonly<Record<CheckStatus, Proof>> = {
+  [CheckStatus.Proven]: Proof.Proven,
+  [CheckStatus.Declared]: Proof.Claim,
+  [CheckStatus.Claim]: Proof.Claim,
+  [CheckStatus.Unknown]: Proof.Unknown,
+  [CheckStatus.Missing]: Proof.Unknown,
+};
+
+export const proofOfCheck = (status: CheckStatus): Proof => PROOF_OF_CHECK[status];
 
 interface ProofKind {
   readonly proof: Proof;

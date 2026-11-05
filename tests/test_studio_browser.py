@@ -639,6 +639,7 @@ _ANSWER = {
     ],
     "facts": [_FACT],
     "dropped_refs": ["shop.nothing"],
+    "story": None,
 }
 
 
@@ -648,6 +649,110 @@ def _lens(page, studio: Studio) -> None:
     page.locator(".level-card", has_text="orders.py").dblclick()
     page.locator(".level-card", has_text="place").dblclick()
     page.locator(".lens-card.center").wait_for()
+
+
+@pytest.mark.browser
+def test_story_draft_action_requires_a_function_or_method_selection(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    graph = {
+        **_MIXED,
+        "symbols": [
+            *_MIXED["symbols"],
+            [0, "Widget", 8, "class", "class Widget:", 0, 0],
+            [0, "Widget.run", 9, "method", "def run(self):", 0, 0],
+        ],
+    }
+    graph_answer = {"api_version": API_VERSION, "explore": "done", "graph": graph}
+    asks: list[dict] = []
+
+    def reply(route) -> None:
+        asks.append(route.request.post_data_json)
+        route.fulfill(json=_ANSWER)
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=graph_answer))
+            page.route("**/api/v1/chat", reply)
+
+            page.goto(studio.url + "#/explore/0")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            draft = chat.get_by_role("button", name="Draft story")
+            assert not draft.is_disabled()
+
+            page.goto(studio.url + "#/explore/3")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            assert not chat.get_by_role("button", name="Draft story").is_disabled()
+
+            page.goto(studio.url + "#/explore/2")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            draft = chat.get_by_role("button", name="Draft story")
+            assert draft.is_disabled()
+            chat.get_by_text(
+                "Story drafts start from a function or method. Select one to enable Draft story."
+            ).wait_for()
+            chat.get_by_role("textbox", name="Question").fill("What does this class do?")
+            chat.get_by_role("button", name="Ask", exact=True).click()
+            chat.get_by_role("region", name="Claim").wait_for()
+            assert asks == [
+                {"question": "What does this class do?", "context": "m.a.Widget", "mode": "answer"}
+            ]
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_class_proposal_does_not_offer_story_actions(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    graph = {
+        **_MIXED,
+        "symbols": [
+            *_MIXED["symbols"],
+            [0, "Widget", 8, "class", "class Widget:", 0, 0],
+            [0, "Widget.run", 9, "method", "def run(self):", 0, 0],
+        ],
+    }
+    graph_answer = {"api_version": API_VERSION, "explore": "done", "graph": graph}
+    class_answer = {
+        **_ANSWER,
+        "blocks": [
+            _ANSWER["blocks"][0],
+            {
+                "kind": "proposal",
+                "text": "Inspect this class.",
+                "refs": ["m.a.Widget"],
+                "label": "PROPOSED - NOT APPLIED",
+            },
+        ],
+    }
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=graph_answer))
+            page.route("**/api/v1/chat", lambda route: route.fulfill(json=class_answer))
+            page.goto(studio.url + "#/explore/2")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+
+            chat = page.get_by_role("region", name="Ask the agent")
+            chat.get_by_role("textbox", name="Question").fill("What does this class do?")
+            chat.get_by_role("button", name="Ask", exact=True).click()
+            proposal = chat.get_by_role("region", name="Proposed")
+            proposal.get_by_text("Inspect this class.").wait_for()
+            assert chat.get_by_role("button", name="Draft story").is_disabled()
+            assert proposal.get_by_role("button", name="Draft a story").is_disabled()
+            assert proposal.get_by_role("button", name="Pin to story").is_disabled()
+        finally:
+            browser.close()
 
 
 @pytest.mark.browser
@@ -675,7 +780,11 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             chat.get_by_role("textbox", name="Question").fill("What does place do?")
             chat.get_by_role("button", name="Ask", exact=True).click()
             chat.get_by_text("CLAIM", exact=False).first.wait_for()
-            assert seen[0]["body"] == {"question": "What does place do?", "context": _PLACE}
+            assert seen[0]["body"] == {
+                "question": "What does place do?",
+                "context": _PLACE,
+                "mode": "answer",
+            }
             assert seen[0]["headers"]["x-archkeel-studio"]
             assert seen[0]["headers"]["content-type"] == "application/json"
             # Three kinds, three marks: agent text never reads OBSERVED.
@@ -790,6 +899,97 @@ def _checked(**changes) -> dict:
         }
     ]
     return checked | changes
+
+
+@pytest.mark.browser
+def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown(
+    studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    checked = _checked(snapshot_completeness="incomplete")
+    checked["steps"][1]["status"] = "declared"
+    checked["steps"][2]["status"] = "missing"
+    checked["steps"][0]["note"] = "This call encrypts every request."
+    checked["title"] = "Every request is encrypted"
+    checked["story"]["title"] = checked["title"]
+    checked["story"]["verdict"].update(proven=3, declared=1, missing=1)
+    nodes = [step["node"] for step in checked["story"]["steps"]]
+    candidate = {
+        "schema_version": "1.2.0",
+        "title": checked["title"],
+        "snapshot": checked["snapshot"],
+        "nodes": nodes,
+        "story": {"id": "check-flow", "title": checked["title"], "chapters": []},
+        "steps": [
+            {
+                "node": node,
+                "note": checked["steps"][index]["note"] or "Agent-authored text.",
+            }
+            for index, node in enumerate(nodes)
+        ],
+        "author_kind": "agent",
+        "agent": "codex",
+    }
+    for index, link in enumerate(checked["steps"]):
+        if index != 0:
+            link["note"] = "Agent-authored text."
+    answer = {
+        "api_version": API_VERSION,
+        "agent": "codex",
+        "snapshot_completeness": "incomplete",
+        "blocks": [],
+        "facts": [],
+        "dropped_refs": [],
+        "story": {"candidate": candidate, "checked": checked},
+        "applied": False,
+    }
+    seen: list[dict] = []
+
+    def reply(route) -> None:
+        seen.append(route.request.post_data_json)
+        route.fulfill(json=answer)
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/chat", reply)
+            _lens(page, studio)
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            chat.get_by_role("textbox", name="Question").fill("Explain this flow")
+            chat.get_by_role("button", name="Draft story").click()
+            draft = page.get_by_role("region", name="Checked story draft")
+            draft.get_by_text(
+                "At least one completeness check is incomplete; UNKNOWN does not establish absence."
+            ).wait_for()
+            title_claim = draft.locator("h5 .badge.claim")
+            assert "claim: every request is encrypted" in title_claim.inner_text().lower()
+            first_status = draft.locator("ol li").nth(0)
+            assert first_status.locator(".mark.proven").count() == 1
+            note_claim = first_status.locator(".badge.claim")
+            assert "claim: this call encrypts every request." in note_claim.inner_text().lower()
+            assert first_status.get_by_text("declared", exact=True).count() == 0
+            declared_status = draft.locator("ol li").nth(1)
+            assert declared_status.locator(".mark.claim").count() == 1
+            assert declared_status.get_by_text("declared", exact=True).count() == 0
+            second_status = draft.locator("ol li").nth(2)
+            unknown_mark = second_status.locator(".mark.unknown")
+            unknown_mark.wait_for()
+            assert "unknown" in unknown_mark.inner_text()
+            assert second_status.get_by_text("missing", exact=True).count() == 0
+            draft.get_by_text("1 declared", exact=False).wait_for()
+            draft.get_by_text("Agent-authored text.", exact=False).first.wait_for()
+            draft.get_by_text("View candidate JSON").click()
+            draft.get_by_text("Agent-authored text.", exact=False).first.wait_for()
+            with page.expect_download() as pending:
+                draft.get_by_role("button", name="Download checked story JSON").click()
+            download = pending.value
+            assert download.suggested_filename == "check-flow.story.json"
+            assert json.loads(Path(download.path()).read_text()) == candidate
+            assert seen == [{"question": "Explain this flow", "context": _PLACE, "mode": "story"}]
+        finally:
+            browser.close()
 
 
 @pytest.mark.browser
