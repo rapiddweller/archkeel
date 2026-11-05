@@ -400,7 +400,8 @@
         {
           "component": "agent",
           "through": [
-            "archkeel.studio.agent:Agent"
+            "archkeel.studio.agent:Agent",
+            "archkeel.studio.agent:Reply"
           ],
           "rationale": "Let the one agent answer a question; the server starts no process."
         },
@@ -413,6 +414,13 @@
             "archkeel.studio.stories:provenance"
           ],
           "rationale": "Read provenance and pass the candidate through the injected draft and check owner."
+        },
+        {
+          "component": "answer",
+          "through": [
+            "archkeel.studio.answer:Snapshot"
+          ],
+          "rationale": "Keep the drafted story bound to the exact snapshot that was checked."
         }
       ],
       "exact_modules": [
