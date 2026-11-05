@@ -1611,6 +1611,7 @@ def test_the_briefing_shows_the_numbers_of_the_graph_and_each_show_link_opens_it
             page.locator(".lens-card.center").wait_for()
             # Each Show link opens the lens or the component it names.
             page.goto(studio.url + "#/overview")
+            page.locator(".briefing-signals > summary").click()
             first = page.locator(".stand", has_text="Most called").locator("a").first
             href = first.get_attribute("href")
             first.click()
@@ -1870,8 +1871,8 @@ def test_only_proven_calls_make_an_observed_cycle(
     answer = _small_graph(_TWO_MODULES, symbols, edges)
     with _page_on(studio, answer, "#/overview") as page:
         page.get_by_role("heading", name="Briefing").wait_for()
-        page.locator(".stand").first.wait_for()
         page.locator(".briefing-signals > summary").click()
+        page.locator(".stand").first.wait_for()
         text = _words(page.locator(".page"))
         assert ("Components call each other in a cycle" in text) is cycle
 
