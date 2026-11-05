@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
+  "after_digest": "9e1fb48b873895baedb63fba35f69e9f8128ea43034f2621378c11b98aa1c354",
+  "before_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
+  "before_digest": "7feb476a2642486333b204676ad5aad92be9f4ce6320db6915cdbe9878f05bfa",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "CI job 127221703786 classified the two new Studio API/server forbidden_responsibilities statements as ir.widening. They add boundaries; the generic comparator fail-closed classifies these unmodeled prose changes as widening.",
+  "schema_version": "2.0.0"
+}
