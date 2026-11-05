@@ -7,7 +7,8 @@
   typed runtime units, external systems, directed communication intent, and references to existing
   component contracts. It may describe an empty greenfield system and use multiple system,
   runtime, and component levels. Share submodels only through explicit references when needed;
-  no directory or contract tree is mandatory. Contract definitions stay in their current files and
+  multiple runtime units may reference the same component without copying its definition. No
+  directory or contract tree is mandatory. Contract definitions stay in their current files and
   have one owner.
 - Resolve the manifest and every referenced contract from one immutable Git revision, or one
   explicitly identified immutable snapshot such as an uncommitted design draft. A result identifies
@@ -19,9 +20,10 @@
   `CALLS`, and component containment. Imports or calls alone do not establish a runtime flow;
   combined, unambiguous evidence may support one in a later implementation.
 - Keep declared architecture intent distinct from deployment declarations and observed facts.
-  A deployment target says what should be placed where; an observation proves only what its
-  evidence covers. Incomplete or unavailable evidence remains UNKNOWN. A manifest never asserts
-  an unobserved data flow as fact.
+  A deployment target may distinguish environments and says what should be placed where; an
+  observation proves only what its evidence covers. Known communication protocols may be recorded
+  when available. Agent inference stays separate from both Target and observation. Incomplete or
+  unavailable evidence remains UNKNOWN. A manifest never asserts an unobserved data flow as fact.
 - Use Git as storage and history. Do not add a database absent a measured query or scale need.
   Top-down drilldown follows the manifest's contract references and then each contract's existing
   component hierarchy; it does not create a second policy or graph API.
