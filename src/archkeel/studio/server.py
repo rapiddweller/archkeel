@@ -371,6 +371,13 @@ class _Handler(BaseHTTPRequestHandler):
         context = request.context
         if context is not None and not snapshot.has(context):
             raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
+        if request.mode is ChatMode.STORY and (
+            context is None or not snapshot.is_callable(context)
+        ):
+            raise ChatFailure(
+                ChatError.INVALID_REQUEST,
+                "a story draft needs a selected function or method.",
+            )
         neighborhood = snapshot.neighborhood(context) if context is not None else ""
         reply = self.studio.agent.ask(request, neighborhood, snapshot.completeness)
         if request.mode is ChatMode.STORY:

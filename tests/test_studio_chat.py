@@ -53,6 +53,8 @@ _FILES = {
 }
 PLACE = "shop.app.orders.place"
 SAVE = "shop.store.repository.save"
+STORE_CLASS = "shop.store.repository.Store"
+STORE_PUT = "shop.store.repository.Store.put"
 
 # The fake reads the question from the prompt, so the tests need no variable of the environment:
 # the agent starts without the variables of its parent.
@@ -94,6 +96,10 @@ elif question == "edits":
     with open("shop/app/orders.py", "a") as handle:
         handle.write("# edited\\n")
     print(json.dumps(answer))
+elif question == "story method draft":
+    print(json.dumps({"title": "Store puts a value", "steps": [
+        {"node": "STORE_PUT", "note": "Stores the value."},
+    ]}))
 elif question == "story draft":
     print(json.dumps({"title": "Place an order", "steps": [
         {"node": "shop.app.orders.place", "note": "Start at the entry point."},
@@ -145,6 +151,7 @@ class Fakes:
     def install(self, *names: str) -> None:
         script = _FAKE.replace("PYTHON", sys.executable).replace("WORK", str(self.work))
         script = script.replace("PLACE", PLACE).replace("SAVE", SAVE)
+        script = script.replace("STORE_PUT", STORE_PUT)
         for name in names:
             (self.bin / name).write_text(script)
             (self.bin / name).chmod(stat.S_IRWXU)
@@ -303,6 +310,38 @@ def test_chat_uses_an_incomplete_snapshot_and_labels_its_limited_evidence(
     assert "do not make negative or exhaustive claims" in prompt
 
 
+def test_story_draft_rejects_class_context_before_agent_call(chat: Studio, fakes: Fakes) -> None:
+    fakes.install("claude")
+    assert chat.workspace.snapshot() is not None
+    assert chat.workspace.snapshot().has(STORE_CLASS)
+
+    status, answer = ask(chat, "story draft", context=STORE_CLASS, mode="story")
+
+    assert status == 400, answer
+    assert answer["error"] == "invalid_request"
+    assert "function or method" in answer["detail"].lower()
+    assert not (fakes.work / "call.json").exists()
+
+
+def test_chat_about_class_still_uses_agent(chat: Studio, fakes: Fakes) -> None:
+    fakes.install("claude")
+
+    status, answer = ask(chat, "ok", context=STORE_CLASS)
+
+    assert status == 200, answer
+    assert f"Selected node: {STORE_CLASS}" in fakes.call()["prompt"]
+
+
+def test_story_draft_accepts_method_start(chat: Studio, fakes: Fakes) -> None:
+    fakes.install("claude")
+
+    status, answer = ask(chat, "story method draft", context=STORE_PUT, mode="story")
+
+    assert status == 200, answer
+    assert answer["story"]["candidate"]["steps"][0]["node"] == STORE_PUT
+    assert f"Selected node: {STORE_PUT}" in fakes.call()["prompt"]
+
+
 @pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])
 def test_story_draft_is_checked_without_promoting_agent_nodes_to_evidence(
     chat: Studio, fakes: Fakes, kind: AgentKind
@@ -312,7 +351,7 @@ def test_story_draft_is_checked_without_promoting_agent_nodes_to_evidence(
     chat.agent.close()
     chat.agent = Agent(chat.workspace.root, kind)
 
-    status, answer = ask(chat, "story draft", mode="story")
+    status, answer = ask(chat, "story draft", context=PLACE, mode="story")
 
     assert status == 200, answer
     assert answer["snapshot_completeness"] == "complete"
@@ -344,7 +383,7 @@ def test_story_draft_rejects_a_valid_candidate_with_the_wrong_start_node(
     chat.agent.close()
     chat.agent = Agent(chat.workspace.root, kind)
 
-    status, answer = ask(chat, "story wrong start", mode="story")
+    status, answer = ask(chat, "story wrong start", context=PLACE, mode="story")
 
     assert status == 502, answer
     assert answer["error"] == "invalid_answer"
@@ -359,7 +398,7 @@ def test_story_draft_preserves_unknowns_from_a_real_incomplete_snapshot(
     chat.agent.close()
     chat.agent = Agent(chat.workspace.root, kind)
 
-    status, answer = ask(chat, "story draft", mode="story")
+    status, answer = ask(chat, "story draft", context=PLACE, mode="story")
 
     assert status == 200, answer
     assert answer["snapshot_completeness"] == "incomplete"
@@ -372,7 +411,7 @@ def test_story_draft_preserves_unknowns_from_a_real_incomplete_snapshot(
 
 @pytest.mark.parametrize("question", ["story malformed", "story bad json"])
 def test_story_draft_rejects_invalid_structured_answers(chat: Studio, question: str) -> None:
-    status, answer = ask(chat, question, mode="story")
+    status, answer = ask(chat, question, context=PLACE, mode="story")
 
     assert status == 502
     assert answer["error"] == "invalid_answer"
@@ -380,7 +419,7 @@ def test_story_draft_rejects_invalid_structured_answers(chat: Studio, question: 
 
 @pytest.mark.parametrize("question", ["story empty note", "story whitespace note"])
 def test_story_draft_rejects_empty_or_whitespace_notes(chat: Studio, question: str) -> None:
-    status, answer = ask(chat, question, mode="story")
+    status, answer = ask(chat, question, context=PLACE, mode="story")
 
     assert status == 502, answer
     assert answer["error"] == "invalid_answer"
@@ -414,7 +453,7 @@ def test_story_draft_returns_structured_errors_for_expected_owner_failures(
     else:
         monkeypatch.setattr(stories, "check", fail)
 
-    status, answer = ask(chat, "story draft", mode="story")
+    status, answer = ask(chat, "story draft", context=PLACE, mode="story")
 
     assert status == status_code, answer
     assert answer["error"] == error_code
@@ -433,7 +472,7 @@ def test_story_result_is_discarded_if_the_snapshot_changes_while_the_agent_runs(
 
     monkeypatch.setattr(chat.agent, "ask", change_snapshot)
 
-    status, answer = ask(chat, "story draft", mode="story")
+    status, answer = ask(chat, "story draft", context=PLACE, mode="story")
 
     assert status == 503
     assert answer["error"] == "snapshot_not_ready"

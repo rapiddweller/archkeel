@@ -652,6 +652,63 @@ def _lens(page, studio: Studio) -> None:
 
 
 @pytest.mark.browser
+def test_story_draft_action_requires_a_function_or_method_selection(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    graph = {
+        **_MIXED,
+        "symbols": [
+            *_MIXED["symbols"],
+            [0, "Widget", 8, "class", "class Widget:", 0, 0],
+            [0, "Widget.run", 9, "method", "def run(self):", 0, 0],
+        ],
+    }
+    graph_answer = {"api_version": API_VERSION, "explore": "done", "graph": graph}
+    asks: list[dict] = []
+
+    def reply(route) -> None:
+        asks.append(route.request.post_data_json)
+        route.fulfill(json=_ANSWER)
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=graph_answer))
+            page.route("**/api/v1/chat", reply)
+
+            page.goto(studio.url + "#/explore/0")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            draft = chat.get_by_role("button", name="Draft story")
+            assert not draft.is_disabled()
+
+            page.goto(studio.url + "#/explore/3")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            assert not chat.get_by_role("button", name="Draft story").is_disabled()
+
+            page.goto(studio.url + "#/explore/2")
+            page.locator(".lens-card.center").wait_for()
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            draft = chat.get_by_role("button", name="Draft story")
+            assert draft.is_disabled()
+            chat.get_by_text(
+                "Story drafts start from a function or method. Select one to enable Draft story."
+            ).wait_for()
+            chat.get_by_role("textbox", name="Question").fill("What does this class do?")
+            chat.get_by_role("button", name="Ask", exact=True).click()
+            chat.get_by_role("region", name="Claim").wait_for()
+            assert asks == [
+                {"question": "What does this class do?", "context": "m.a.Widget", "mode": "answer"}
+            ]
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
 def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> None:
     api = pytest.importorskip("playwright.sync_api")
     seen: list[dict] = []

@@ -322,6 +322,7 @@
             "archkeel.studio.api:Json",
             "archkeel.studio.api:Place",
             "archkeel.studio.api:SnapshotCompleteness",
+            "archkeel.studio.api:SymbolKind",
             "archkeel.studio.api:data_of",
             "archkeel.studio.api:decoded",
             "archkeel.studio.api:first_place",

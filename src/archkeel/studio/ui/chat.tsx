@@ -4,7 +4,7 @@ import { ChatFailed, SnapshotCompleteness, askChat, readDraft } from "./api";
 import type { ChatAnswer, ChatBlock, ChatMode, Fact } from "./api";
 import { Badge, ProofMark, View, viewHref } from "./components";
 import { Evidence, proofOfCheck } from "./evidence";
-import { Model, findSymbol, fullName, shortName, tailPath } from "./model";
+import { Model, findSymbol, fullName, isCallable, shortName, tailPath } from "./model";
 import { ChatBlockKind, ChatError } from "./vocabulary";
 import type { AgentKind } from "./vocabulary";
 
@@ -297,6 +297,7 @@ export function ChatPanel(props: { model: Model; symbol: number | null; chat: Ch
   const { model, symbol, chat } = props;
   const [text, setText] = useState("");
   const context = symbol === null ? null : fullName(model, symbol);
+  const canDraftStory = symbol !== null && isCallable(model, symbol);
   const last = [...chat.turns].reverse().find((turn) => turn.kind === TurnKind.Answer);
   const send = (question: string): void => {
     const trimmed = question.trim();
@@ -371,7 +372,7 @@ export function ChatPanel(props: { model: Model; symbol: number | null; chat: Ch
         <button
           type="button"
           class="toggle"
-          disabled={chat.busy || context === null}
+          disabled={chat.busy || !canDraftStory}
           onClick={() => {
             chat.ask(text.trim() || "Draft a story for this flow.", context, "story");
             setText("");
@@ -380,6 +381,9 @@ export function ChatPanel(props: { model: Model; symbol: number | null; chat: Ch
           Draft story
         </button>
       </form>
+      {context !== null && !canDraftStory ? (
+        <p class="more">Story drafts start from a function or method. Select one to enable Draft story.</p>
+      ) : null}
     </section>
   );
 }

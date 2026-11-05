@@ -1,6 +1,7 @@
 /** AD-290: the indexed call graph of the snapshot. Pure functions; no DOM, no network. */
 import type { Graph, UnknownRow } from "./api";
 import { better, proofOf } from "./evidence";
+import { SymbolKind } from "./vocabulary";
 
 /** One distinct neighbor of a function. */
 export interface Link {
@@ -58,6 +59,12 @@ export interface Model {
   readonly folders: readonly (readonly string[])[];
   /** The function that the lens shows when the user chose none. */
   readonly start: number | null;
+}
+
+/** Story traces start only from function or method symbols in this graph. */
+export function isCallable(model: Model, symbol: number): boolean {
+  const kind = model.graph.symbols[symbol]?.[3];
+  return kind === SymbolKind.FUNCTION || kind === SymbolKind.METHOD;
 }
 
 /** The four levels of the drill-down: components, the modules of one, the functions of one, one function. */

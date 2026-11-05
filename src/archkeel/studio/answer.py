@@ -20,6 +20,7 @@ from .api import (
     Json,
     Place,
     SnapshotCompleteness,
+    SymbolKind,
     data_of,
     decoded,
     first_place,
@@ -95,6 +96,13 @@ class Snapshot:
 
     def has(self, name: str) -> bool:
         return name in self._symbols
+
+    def is_callable(self, name: str) -> bool:
+        symbol = self._symbols.get(name)
+        if symbol is None:
+            return False
+        kind = member(SymbolKind, symbol[0])
+        return kind is SymbolKind.FUNCTION or kind is SymbolKind.METHOD
 
     def fact(self, name: str) -> Fact:
         _, place = self._symbols[name]
