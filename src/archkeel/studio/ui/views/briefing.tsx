@@ -2,12 +2,13 @@
 import { useEffect, useState } from "preact/hooks";
 import { StoryAnswer, StoryRow, StudioState, readStories, readStory } from "../api";
 import type { ChatState } from "../chat";
-import { Box, DiagnosticNotes, ExploreFailure, Legend, Page, ProofLegend, View, viewHref } from "../components";
+import { Badge, Box, DiagnosticNotes, ExploreFailure, Legend, Page, ProofLegend, View, viewHref } from "../components";
 import { Evidence } from "../evidence";
 import { Model, compact, counted, cycles, entry, fullName, hubs, seams, shortName, unknownByComponent } from "../model";
-import { ContractState, ExploreState } from "../vocabulary";
+import { ComponentSource, ContractState, ExploreState } from "../vocabulary";
 
 const STORIES_SHOWN = 5;
+const COMPONENTS_SHOWN = 6;
 const WHY: Record<ContractState, string> = {
   [ContractState.NOT_CONFIGURED]: "No contract: a policy verdict does not apply. archkeel init drafts one.",
   [ContractState.INVALID]: "archkeel.toml does not load. archkeel validate names the reason.",
@@ -30,12 +31,8 @@ function SnapshotStatus(props: { state: StudioState; withGraph: boolean }) {
     return (
       <section class="brief-status incomplete" role="status">
         <strong>Snapshot is incomplete</strong>
-        <span>{props.withGraph ? "UNKNOWN calls remain counted below." : "No graph is available."}</span>
-        <span>
-          {props.withGraph
-            ? "Next: check notes; UNKNOWN calls remain visible."
-            : "Next: inspect the diagnostic details."}
-        </span>
+        {props.withGraph ? null : <span>No graph is available.</span>}
+        <span>{props.withGraph ? "Next: inspect notes." : "Next: inspect diagnostic details."}</span>
         <DiagnosticNotes notes={state.notes} />
       </section>
     );
@@ -102,14 +99,50 @@ function Standing(props: { model: Model; state: StudioState }) {
   }
   rows.push({ text: WHY[props.state.contract], shows: [] });
   return (
-    <Box title="What stands out" evidence={Evidence.Observed}>
-      <p class="more">Measured from the call graph of this snapshot. No opinion.</p>
-      <ul class="stands">
-        {rows.slice(0, 6).map((row) => (
-          <Row key={row.text} text={row.text} shows={row.shows} />
-        ))}
-      </ul>
-    </Box>
+    <details class="briefing-signals">
+      <summary>What stands out · {Math.min(rows.length, 6)} measured facts</summary>
+      <Box title="What stands out" evidence={Evidence.Observed}>
+        <ul class="stands">
+          {rows.slice(0, 6).map((row) => (
+            <Row key={row.text} text={row.text} shows={row.shows} />
+          ))}
+        </ul>
+      </Box>
+    </details>
+  );
+}
+
+function Components(props: { model: Model }) {
+  const { model } = props;
+  const components = model.graph.components
+    .map(([name], component) => ({ name, component, stats: model.stats[component] }))
+    .sort((a, b) => b.stats.modules - a.stats.modules || b.stats.symbols - a.stats.symbols || a.name.localeCompare(b.name))
+    .slice(0, COMPONENTS_SHOWN);
+  const source = model.graph.components_from === ComponentSource.CONTRACT;
+  return (
+    <section aria-labelledby="components-heading">
+      <div class="briefing-section-title">
+        <h2 id="components-heading">Components</h2>
+        <span class="briefing-component-count">{components.length} of {model.graph.components.length} · <a href={viewHref(View.Map)}>See all in Architecture</a></span>
+        <Badge evidence={source ? Evidence.Target : Evidence.Observed}>
+          {source ? "Declared by contract" : "Observed package layout"}
+        </Badge>
+      </div>
+      {components.length === 0 ? (
+        <p class="more">No components found in this snapshot.</p>
+      ) : (
+        <div class="cards component-cards">
+          {components.map(({ name, component, stats }) => (
+            <a key={component} class="card component-card" href={viewHref(View.Component, component)}>
+              <h3>{name}</h3>
+              <Badge evidence={Evidence.Observed}>Measured</Badge>
+              <span>{counted(stats.modules, "module")} · {counted(stats.symbols, "function")}</span>
+              <span>{counted(stats.withUnknown, "function")} with unknown calls</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -209,11 +242,12 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
   return (
     <Page
       title="Briefing"
-      lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""} · digest ${snapshot.source_digest.slice(0, 8)} · explored in ${state.seconds} s · contract ${state.contract.replace("_", " ")}`}
+      lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""}`}
     >
       {state.explore === ExploreState.INCOMPLETE ? (
         <SnapshotStatus state={state} withGraph />
       ) : null}
+      <Components model={model} />
       <div class="figures">
         <Number_ value={compact(model.graph.modules.length)} label="modules" />
         <Number_ value={compact(model.graph.symbols.length)} label="functions" />

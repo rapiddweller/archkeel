@@ -425,14 +425,13 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             page.goto(studio.url)
             page.get_by_text("Snapshot is incomplete", exact=False).wait_for()
             assert page.get_by_text("3 diagnostic notes", exact=False).is_visible()
-            assert page.get_by_text(
-                "Next: check notes; UNKNOWN calls remain visible.", exact=True
-            ).is_visible()
+            assert page.get_by_text("Next: inspect notes.", exact=True).is_visible()
             assert not page.get_by_text(
                 "The TypeScript alias is unresolved.", exact=False
             ).is_visible()
             page.get_by_text("Show diagnostic details", exact=False).click()
             assert page.get_by_text("The TypeScript alias is unresolved.", exact=False).is_visible()
+            page.locator(".briefing-signals > summary").click()
             assert page.get_by_text("Most unknown calls: alpha (1).", exact=False).is_visible()
             page.get_by_role("link", name="Architecture", exact=True).click()
             page.get_by_role("group", name="Component map").wait_for()
@@ -1540,6 +1539,9 @@ def _top_callers(graph_body: dict, count: int = 3) -> list[int]:
 def _briefing_facts(page, graph_body: dict) -> None:
     """The numbers of the Briefing are the values of the graph route; Show opens the right place."""
     page.get_by_role("heading", name="Briefing", exact=True).wait_for()
+    signals = page.locator(".briefing-signals")
+    if not signals.evaluate("element => element.open"):
+        signals.locator("summary").click()
     figures = [" ".join(text.split()) for text in page.locator(".figure").all_inner_texts()]
     totals = graph_body["totals"]
     assert any(
@@ -1625,6 +1627,79 @@ def test_the_briefing_shows_the_numbers_of_the_graph_and_each_show_link_opens_it
             ).wait_for()
         finally:
             browser.close()
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize(("width", "height"), [(800, 600), (1440, 900)])
+def test_briefing_shows_six_measured_component_cards(
+    studio: Studio, width: int, height: int
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    components = [[f"component-{index}", ""] for index in range(8)]
+    modules = [
+        [f"component-{index}.module", f"component_{index}.py", index, ""] for index in range(8)
+    ]
+    symbols = [_function(index, f"function_{index}") for index in range(8)]
+    symbols[0][5] = 2
+    graph = {
+        "components_from": "explore",
+        "totals": _TOTALS,
+        "snapshot": _REVISION,
+        "components": components,
+        "modules": modules,
+        "symbols": symbols,
+        "edges": [],
+        "unknown": [],
+    }
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": graph}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url + "#/overview")
+            cards = page.locator(".component-card")
+            cards.first.wait_for()
+            assert cards.count() == 6
+            first_card = cards.first.bounding_box()
+            assert (
+                first_card is not None
+                and first_card["y"] >= 0
+                and first_card["y"] + first_card["height"] <= height
+            )
+            assert [card.get_attribute("href") for card in cards.all()] == [
+                f"#/component/{index}" for index in range(6)
+            ]
+            assert all(
+                "observed" in card.locator(".badge").get_attribute("class") for card in cards.all()
+            )
+            assert "1 function with unknown calls" in _words(cards.first)
+            assert page.evaluate("document.documentElement.scrollWidth") <= width
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_briefing_names_an_empty_graph_without_inventing_components(studio: Studio) -> None:
+    graph = {
+        "components_from": "layout",
+        "totals": {"analyzed": 0, "resolved": 0, "partial": 0, "unresolved": 0},
+        "snapshot": _REVISION,
+        "components": [],
+        "modules": [],
+        "symbols": [],
+        "edges": [],
+        "unknown": [],
+    }
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": graph}
+    with _page_on(studio, answer, "#/overview") as page:
+        page.get_by_role("heading", name="Briefing", exact=True).wait_for()
+        assert page.get_by_text("0 of 0 · See all in Architecture").is_visible()
+        assert page.get_by_text("No components found in this snapshot.", exact=True).is_visible()
+        assert page.locator(".component-card").count() == 0
+        figures = [_words(figure).upper() for figure in page.locator(".figure").all()]
+        assert any(text.startswith("0 MODULES") for text in figures)
+        assert any(text.startswith("0 FUNCTIONS") for text in figures)
 
 
 @pytest.mark.browser
@@ -1742,6 +1817,7 @@ def test_only_proven_calls_make_an_observed_cycle(
     with _page_on(studio, answer, "#/overview") as page:
         page.get_by_role("heading", name="Briefing").wait_for()
         page.locator(".stand").first.wait_for()
+        page.locator(".briefing-signals > summary").click()
         text = _words(page.locator(".page"))
         assert ("Components call each other in a cycle" in text) is cycle
 
