@@ -1,8 +1,8 @@
 {
   "after_baseline_digest": "b9dcb7be09a036d85b74452c24f6a09a2891ea311c162c4f029a31c1e9ddb7e0",
-  "after_digest": "a83c99e327acc26c211f7074c566a2dd68750f60ae1a76c4ec2bf9c813aaa1a1",
+  "after_digest": "025fd081a79116ef65b8dffe602ffd5bdc7eeb07f5ab46c2da1416f7cb66022f",
   "before_baseline_digest": "b9dcb7be09a036d85b74452c24f6a09a2891ea311c162c4f029a31c1e9ddb7e0",
-  "before_digest": "63fe66f6768eef38e1cbd448473c8321468c91afdf54008a1a92bb038d551b8e",
+  "before_digest": "5700ac1106b8695ef6a519554212c3b9e0956003bbb6066c205cc3572bc3da8e",
   "decided_by": "Architecture team",
   "rationale": "CI run 42113038578, job 127545334379, at source head b18efda92dca6f7e32aeeb41199013ef86557e10 against base 7356558f61f320e8a93d65490373683eb4e2a8c2 measured 950 unresolved calls of 30,995, 56 typing positions, and zero architecture violations. The only gate is the planned root component mcp added with widened presence. This amendment records that measured contract change; the baseline and all budgets stay unchanged.",
   "schema_version": "2.0.0"
