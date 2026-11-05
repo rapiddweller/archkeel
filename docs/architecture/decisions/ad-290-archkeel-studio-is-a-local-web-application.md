@@ -46,13 +46,9 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    `REQUIRES-COMPLETE`; only `workspace` imports `subprocess` and only `server` imports
    `http`. `docs/architecture/studio-ui.toml` checks the UI: only `api.ts` calls `fetch`, views
    never import views, components never import the client, Preact is the only package.
-10. Launcher: while a server runs, the CLI keeps `studio.json` (pid, URL, port, root, start time
-    and scope; mode 0600) in the explore cache folder of the root; `Studio` writes no file. Scope
-    is language, sources, namespace and tsconfig. A start reuses a server only when the scope
-    matches; a mismatch or legacy state with unknown scope asks the user to stop it first. A
-    per-root lock serializes start through state publication and stop through cleanup. `--stop`
-    signals (SIGTERM) only after the stored URL answers with the Studio login redirect and waits
-    for the URL to go. A live pid is no proof. `--idle-exit` counts requests.
+10. Launcher: the CLI stores `studio.json` (pid, URL, port, root, start time and scope; mode 0600)
+    in the explore cache; `Studio` writes no file. AD-305 specifies scope/agent matching, the
+    per-root lock, verified stop and cleanup. `--idle-exit` counts requests.
 
 **Rejected.** React 19.3.1 (69,148 B gzip; Preact 10.29.8 + hooks: 5,668 B), web components, React
 Flow, a state library, an MCP server, 0.0.0.0, a fixed port, a server-rendered embed page. No

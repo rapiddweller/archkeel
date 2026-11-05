@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """AD-11 Studio lifecycle catalog harness tests."""
 
 import os
