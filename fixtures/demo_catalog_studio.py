@@ -45,15 +45,20 @@ CATALOG: tuple[StudioDemoVariant, ...] = (
 _START_SECONDS = 90
 
 
+def _child_environment(cache: Path | None = None) -> dict[str, str]:
+    """Keep caller Git redirection and config out of every demo child process."""
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    environment.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+    if cache is not None:
+        environment["XDG_CACHE_HOME"] = str(cache)
+    return environment
+
+
 def _fixture(root: Path) -> None:
     """Create a small committed Python project with no external or private inputs."""
     hooks = root.parent / "empty-hooks"
     hooks.mkdir()
-    git_environment = {
-        **{key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_GLOBAL": os.devnull,
-    }
+    git_environment = _child_environment()
     (root / "src/demo").mkdir(parents=True)
     (root / "src/demo/__init__.py").write_text("", encoding="utf-8")
     (root / "src/demo/service.py").write_text(
@@ -136,7 +141,7 @@ def _run_cli(root: Path, cache: Path, *arguments: str) -> tuple[int, str]:
             *arguments,
         ],
         cwd=root,
-        env={**os.environ, "XDG_CACHE_HOME": str(cache)},
+        env=_child_environment(cache),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -184,7 +189,7 @@ def run(variant: StudioDemoVariant) -> str:
         cache = workspace / "cache"
         root.mkdir()
         _fixture(root)
-        environment = {**os.environ, "XDG_CACHE_HOME": str(cache)}
+        environment = _child_environment(cache)
         output_path = workspace / "server.stdout"
         error_path = workspace / "server.stderr"
         with (

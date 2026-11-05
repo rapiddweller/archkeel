@@ -8,7 +8,68 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from fixtures.demo_catalog_studio import _cleanup_group, _fixture
+from fixtures.demo_catalog_studio import _cleanup_group, _fixture, _run_cli
+
+
+def test_demo_cli_ignores_inherited_git_repository_redirection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    subprocess.run(["git", "init", "-q", str(protected)], check=True)
+    (protected / "sentinel").write_text("keep", encoding="utf-8")
+    subprocess.run(["git", "-C", str(protected), "add", "sentinel"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(protected),
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "protected",
+        ],
+        check=True,
+    )
+    git_environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
+    git_environment.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+
+    def protected_git(*arguments: str) -> bytes:
+        return subprocess.check_output(
+            ["git", "-C", str(protected), *arguments], env=git_environment
+        )
+
+    before_head = protected_git("rev-parse", "HEAD")
+    before_status = protected_git("status", "--porcelain")
+    before_index = (protected / ".git" / "index").read_bytes()
+    before_sentinel = (protected / "sentinel").read_bytes()
+    monkeypatch.setenv("GIT_DIR", str(protected / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(protected))
+    captured: dict[str, object] = {}
+    child = Mock(returncode=0)
+    child.communicate.return_value = ("", None)
+
+    def fake_popen(_command: list[str], **kwargs: object) -> Mock:
+        captured.update(kwargs)
+        return child
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(subprocess, "Popen", fake_popen)
+        _run_cli(tmp_path / "project", tmp_path / "cache", "--stop")
+
+    child_environment = captured["env"]
+    assert isinstance(child_environment, dict)
+    assert "GIT_DIR" not in child_environment
+    assert "GIT_WORK_TREE" not in child_environment
+    assert protected_git("rev-parse", "HEAD") == before_head
+    assert protected_git("status", "--porcelain") == before_status
+    assert (protected / ".git" / "index").read_bytes() == before_index
+    assert (protected / "sentinel").read_bytes() == before_sentinel
 
 
 def test_fixture_ignores_inherited_git_repository_redirection(
