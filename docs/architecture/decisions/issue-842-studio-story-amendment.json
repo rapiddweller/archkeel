@@ -4,6 +4,6 @@
   "before_baseline_digest": "b9dcb7be09a036d85b74452c24f6a09a2891ea311c162c4f029a31c1e9ddb7e0",
   "before_digest": "5700ac1106b8695ef6a519554212c3b9e0956003bbb6066c205cc3572bc3da8e",
   "decided_by": "Alexander Kell (architect; standing approval for justified budget changes)",
-  "rationale": "CI run 42112806080, job 127544500242, measured PR head e92001577fd3081c6e75eb8aa70718403765f324. GitHub CI built merge commit 37f621d88 on base 7356558f61f320e8a93d65490373683eb4e2a8c2. It measured calls_unresolved 957/31062 and zero architecture violations. The budget stays at 957; this update refreshes only the digest binding for the callable-story guard. The stale status came from the prior digest pair. This is the only Issue 842 amendment.",
+  "rationale": "CI run 42112806080, job 127544500242, measured PR head e92001577fd3081c6e75eb8aa70718403765f324. GitHub CI built merge commit 37f621d88 on base 7356558f61f320e8a93d65490373683eb4e2a8c2. It measured calls_unresolved 950 on base and 957/31062 on the branch, with zero violations. The seven added calls are in parse_story_candidate: body.keys, title.strip, raw_step.keys, node.strip and note.strip; and _Handler._answer_story: stories.draft and json.dumps(spec).encode. These calls parse structured candidates and pass them through the existing checker. CI confirms the budget remains 957 after the callable-story guard. The amendment refreshes only the stale digest binding. This is the only Issue 842 amendment.",
   "schema_version": "2.0.0"
 }
