@@ -19,7 +19,7 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | `store.ts` | store | The one store: polls `GET /api/v1/state`, then reads `GET /api/v1/graph` once and builds the model. |
 | `api.ts` | client | The only `fetch`; typed API responses and shared response value sets from `schema/studio-api-1.5.schema.json`. |
 | `vocabulary.ts` | client | Generated from the enums of `archkeel.studio.api`. Never edit it. |
-| `evidence.ts` | evidence | The evidence model and the call proof (proven, claim, unknown). |
+| `evidence.ts` | evidence | The evidence model and the shared mapping from checked-story statuses to call proof. |
 | `tokens.css` | — | The one tokens file: colours, radius, font; dark and light. A leaf. |
 | `studio.css` | — | Layout. Uses only `var(--token)` colours. |
 | `studio.js` | — | Generated bundle. Never edit it. |
@@ -34,6 +34,7 @@ flowchart LR
     chat --> evidence
     chat --> model
     components --> evidence
+    evidence --> client
     model --> client
     model --> evidence
     navigation --> components

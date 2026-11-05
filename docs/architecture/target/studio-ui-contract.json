@@ -17,10 +17,11 @@
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf",
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
-        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:better"
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:better",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOfCheck"
       ],
       "responsibilities": [
-        "Own the evidence model and the call proof: Observed, Claim and Target, and proven, claim and unknown, as typed values with their legend text."
+        "Own evidence kinds and map checked-story statuses to the shared proof values."
       ],
       "forbidden_responsibilities": [
         "Render, fetch or decide on label text."
@@ -29,7 +30,15 @@
         "src/archkeel/studio/ui/AGENTS.md"
       ],
       "decided_by": "agent",
-      "requires": []
+      "requires": [
+        {
+          "component": "client",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckStatus"
+          ],
+          "rationale": "Map checked-story statuses to the shared proof values."
+        }
+      ]
     },
     {
       "id": "UI-API-CLIENT",
@@ -447,7 +456,8 @@
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOfCheck"
           ],
           "rationale": "Mark each card, tab and call with its evidence kind or proof."
         },
@@ -673,16 +683,18 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref"
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark"
           ],
           "rationale": "Mark the evidence kind and link a ref to the lens."
         },
         {
           "component": "evidence",
           "through": [
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOfCheck"
           ],
-          "rationale": "Mark agent text as a claim."
+          "rationale": "Mark agent text as a claim and checked-story statuses with the shared proof labels."
         },
         {
           "component": "model",

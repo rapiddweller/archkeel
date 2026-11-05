@@ -803,6 +803,9 @@ def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown
 ) -> None:
     api = pytest.importorskip("playwright.sync_api")
     checked = _checked(snapshot_completeness="incomplete")
+    checked["steps"][0]["status"] = "declared"
+    checked["steps"][1]["status"] = "missing"
+    checked["story"]["verdict"].update(proven=3, declared=1, missing=1)
     nodes = [step["node"] for step in checked["story"]["steps"]]
     candidate = {
         "schema_version": "1.2.0",
@@ -846,7 +849,17 @@ def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown
             draft.get_by_text(
                 "At least one completeness check is incomplete; UNKNOWN does not establish absence."
             ).wait_for()
-            draft.get_by_text("unknown", exact=True).first.wait_for()
+            first_status = draft.locator("ol li").nth(0)
+            claim_mark = first_status.locator(".mark.claim")
+            claim_mark.wait_for()
+            assert "claim" in claim_mark.inner_text()
+            assert first_status.get_by_text("declared", exact=True).count() == 0
+            second_status = draft.locator("ol li").nth(1)
+            unknown_mark = second_status.locator(".mark.unknown")
+            unknown_mark.wait_for()
+            assert "unknown" in unknown_mark.inner_text()
+            assert second_status.get_by_text("missing", exact=True).count() == 0
+            draft.get_by_text("1 declared", exact=False).wait_for()
             draft.get_by_text("Agent-authored text.", exact=False).first.wait_for()
             draft.get_by_text("View candidate JSON").click()
             draft.get_by_text("Agent-authored text.", exact=False).first.wait_for()

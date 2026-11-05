@@ -529,7 +529,7 @@ def parse_story_candidate(raw: str) -> StoryCandidate:
             raise ChatFailure(
                 ChatError.INVALID_ANSWER, f"Story step {index + 1} needs a node name."
             )
-        if note is not None and (not isinstance(note, str) or len(note) > 2000):
+        if note is not None and (not isinstance(note, str) or not note.strip() or len(note) > 2000):
             raise ChatFailure(
                 ChatError.INVALID_ANSWER, f"Story step {index + 1} has an invalid note."
             )

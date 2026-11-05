@@ -2,8 +2,8 @@
 import { useState } from "preact/hooks";
 import { ChatFailed, SnapshotCompleteness, askChat, readDraft } from "./api";
 import type { ChatAnswer, ChatBlock, ChatMode, Fact } from "./api";
-import { Badge, View, viewHref } from "./components";
-import { Evidence } from "./evidence";
+import { Badge, ProofMark, View, viewHref } from "./components";
+import { Evidence, proofOfCheck } from "./evidence";
 import { Model, findSymbol, fullName, shortName, tailPath } from "./model";
 import { ChatBlockKind, ChatError } from "./vocabulary";
 import type { AgentKind } from "./vocabulary";
@@ -262,13 +262,16 @@ function StoryDraftView(props: {
       </p>
       {verdict === undefined ? null : (
         <p class="more">
-          {verdict.proven} proven · {verdict.claim} claim · {verdict.unknown} unknown · {verdict.missing} missing
+          {verdict.proven} proven · {verdict.claim} claim · {verdict.unknown} unknown
+          {verdict.declared > 0 ? ` · ${verdict.declared} declared` : ""}
+          {verdict.missing > 0 ? ` · ${verdict.missing} missing` : ""}
         </p>
       )}
       <ol>
         {checked.steps.map((step, index) => (
           <li key={index}>
-            {step.source === null ? "Start" : step.source} → {step.target}: <b>{step.status}</b>
+            {step.source === null ? "Start" : step.source} → {step.target}: {" "}
+            <ProofMark proof={proofOfCheck(step.status)} />
             {step.reason ? ` · ${step.reason}` : ""}
             {step.note ? ` · ${step.note}` : ""}
           </li>

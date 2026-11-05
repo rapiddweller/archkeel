@@ -394,7 +394,13 @@ class _Handler(BaseHTTPRequestHandler):
                     ChatError.INVALID_ANSWER,
                     "The story draft must start at the selected node.",
                 )
-            spec = dict(stories.draft(snapshot_path, request.context))
+            try:
+                spec = dict(stories.draft(snapshot_path, request.context))
+            except (OSError, ValueError) as error:
+                raise ChatFailure(
+                    ChatError.SNAPSHOT_NOT_READY,
+                    "The current snapshot could not seed a story draft. Refresh and try again.",
+                ) from error
             story = spec.get("story")
             if not isinstance(story, dict):
                 raise ChatFailure(
@@ -408,7 +414,18 @@ class _Handler(BaseHTTPRequestHandler):
             spec["story"] = story
             spec["author_kind"] = "agent"
             spec["agent"] = reply.kind.value
-            checked = stories.check(json.dumps(spec).encode(), snapshot_path).result
+            try:
+                checked = stories.check(json.dumps(spec).encode(), snapshot_path).result
+            except OSError as error:
+                raise ChatFailure(
+                    ChatError.SNAPSHOT_NOT_READY,
+                    "The snapshot could not be checked. Refresh and try again.",
+                ) from error
+            except ValueError as error:
+                raise ChatFailure(
+                    ChatError.INVALID_ANSWER,
+                    "The story draft could not be checked against the current snapshot.",
+                ) from error
             if self.studio.workspace.snapshot() is not snapshot:
                 raise ChatFailure(
                     ChatError.SNAPSHOT_NOT_READY,

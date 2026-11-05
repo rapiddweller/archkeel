@@ -104,6 +104,14 @@ elif question == "story wrong start":
         {"node": "shop.store.repository.save", "note": "Different valid node."},
         {"node": "shop.app.orders.place", "note": "Requested node appears later."},
     ]}))
+elif question == "story empty note":
+    print(json.dumps({"title": "Place an order", "steps": [
+        {"node": "shop.app.orders.place", "note": ""},
+    ]}))
+elif question == "story whitespace note":
+    print(json.dumps({"title": "Place an order", "steps": [
+        {"node": "shop.app.orders.place", "note": " \t "},
+    ]}))
 elif question == "story malformed":
     print(json.dumps({"title": "Place an order", "steps": [], "verdict": "proven"}))
 elif question == "story bad json":
@@ -368,6 +376,49 @@ def test_story_draft_rejects_invalid_structured_answers(chat: Studio, question: 
 
     assert status == 502
     assert answer["error"] == "invalid_answer"
+
+
+@pytest.mark.parametrize("question", ["story empty note", "story whitespace note"])
+def test_story_draft_rejects_empty_or_whitespace_notes(chat: Studio, question: str) -> None:
+    status, answer = ask(chat, question, mode="story")
+
+    assert status == 502, answer
+    assert answer["error"] == "invalid_answer"
+
+
+@pytest.mark.parametrize(
+    ("operation", "failure", "status_code", "error_code"),
+    [
+        ("draft", ValueError, 503, "snapshot_not_ready"),
+        ("draft", OSError, 503, "snapshot_not_ready"),
+        ("check", ValueError, 502, "invalid_answer"),
+        ("check", OSError, 503, "snapshot_not_ready"),
+    ],
+)
+def test_story_draft_returns_structured_errors_for_expected_owner_failures(
+    chat: Studio,
+    monkeypatch: pytest.MonkeyPatch,
+    operation: str,
+    failure: type[Exception],
+    status_code: int,
+    error_code: str,
+) -> None:
+    stories = chat.workspace.stories
+    assert stories is not None
+
+    def fail(*_args, **_kwargs):
+        raise failure("private snapshot detail")
+
+    if operation == "draft":
+        monkeypatch.setattr(stories, "draft", fail)
+    else:
+        monkeypatch.setattr(stories, "check", fail)
+
+    status, answer = ask(chat, "story draft", mode="story")
+
+    assert status == status_code, answer
+    assert answer["error"] == error_code
+    assert "private snapshot detail" not in answer["detail"]
 
 
 def test_story_result_is_discarded_if_the_snapshot_changes_while_the_agent_runs(
