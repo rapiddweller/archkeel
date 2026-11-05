@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "2.3.0",
+  "schema_version": "2.4.0",
   "components": [
     {
       "id": "COMP-API",
@@ -352,6 +352,48 @@
       "decided_by": "architect",
       "layer": "Edge",
       "inside": "docs/architecture/contracts/studio.json"
+    },
+    {
+      "id": "COMP-MCP",
+      "label": "mcp",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [],
+      "lifecycle": "planned",
+      "requires": [
+        {
+          "component": "check",
+          "through": [
+            "archkeel.check.report:run_report",
+            "archkeel.check.ports:Analyzer",
+            "archkeel.check.ports:ScanConfig"
+          ],
+          "rationale": "Invoke the existing typed report workflow with its declared analyzer and scan configuration; do not collect or evaluate source facts in the adapter."
+        },
+        {
+          "component": "ir",
+          "through": [
+            "archkeel.ir.model:RunResult",
+            "archkeel.ir.architecture_graph:ArchitectureReport",
+            "archkeel.ir.report_graph:architecture_report",
+            "archkeel.ir.story"
+          ],
+          "rationale": "Consume the existing typed result and reuse the published architecture and story modules."
+        }
+      ],
+      "responsibilities": [
+        "Own MCP protocol registration, tool input/output mapping and the local stdio boundary."
+      ],
+      "forbidden_responsibilities": [
+        "Owning project discovery, source collection, snapshot decoding, graph derivation, rule evaluation or story calculations.",
+        "Depending on CLI workflows or Studio HTTP, server or Workspace types."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-303-local-mcp-adapts-shared-read-only-project-operations.md"
+      ],
+      "decided_by": "architect",
+      "public": [],
+      "layer": "Adapters"
     },
     {
       "id": "COMP-HOST",

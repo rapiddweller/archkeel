@@ -1,68 +1,56 @@
-# AD-303 Local MCP adapts shared read-only project operations
+# AD-303 Local MCP adapts existing read-only operations
 
-**Status.** Accepted for issue #845, model only. Builds on AD-290 and AD-292. Checked sources on
+**Status.** Accepted for issue #845, model only. Builds on AD-290, AD-292 and AD-304. Sources checked
 2026-11-05.
 
 **Decision.**
-1. Use the separate FastMCP distribution. FastMCP 4.1.6 is the latest stable release on
-   2026-11-05; its PyPI metadata supports Python 3.10 and later. Pin an exact release when code
-   uses it. FastMCP can change behavior in minor releases; see the linked install guidance.
-2. Start with a local stdio server and read-only tools. The client starts the process. The server
-   reads MCP messages on stdin and writes only MCP messages on stdout. Log on stderr.
-3. Keep the MCP adapter in its own component. It owns FastMCP registration, MCP input and output,
-   and the stdio lifecycle. It does not own CLI parsing, HTTP routes, project discovery, snapshot
-   decoding, graph derivation, story checks, or source analysis.
-4. Keep one owner for each operation. Reuse check, IR, graph and story services through typed
-   interfaces. Do not call another adapter or duplicate checks. `Workspace` owns one Studio
-   explore child, snapshot and graph in-process; it has no session handle, attach API or revision
-   (`src/archkeel/studio/workspace.py`). It is only a candidate for shared state ownership.
-5. Target outputs identify the project root, source scope and snapshot revision. Source and
-   contract digests are candidate identity inputs; the owner and calculation remain undecided.
-   Report freshness as current, stale or unknown. Missing or incomplete evidence stays UNKNOWN.
-6. Goal: CLI, Studio HTTP and MCP expose separate wire contracts over one typed operation-result
-   port. No shared port is proven today; derive its first result type from existing APIs. Adapters
-   must not import one another's wire types.
-7. Add write tools only after a separate decision defines the user approval step, scope, and
-   failure behavior. MCP tool annotations alone are not approval.
-8. Target invariants: one canonical root and source scope map to one shared session; MCP does not
-   start a second scan when attached. Each operation reads one immutable snapshot revision and
-   names it in the result. If the revision changes during a call, return stale or retry; never mix
-   revisions. Missing evidence stays UNKNOWN.
-9. The MCP process must reach the session owner across a process boundary. A stdio server is a
-   separate client-launched process, and Studio keeps its workspace and snapshot in memory. A
-   shared typed session interface is required. Session identity must be bound by a trusted owner,
-   not selected by an MCP caller. Who creates, discovers, transfers and authenticates it is open.
-   No session ID argument, attach endpoint or IPC mechanism is established. Do not route MCP
-   through Studio HTTP or a CLI subprocess.
-10. A first read-only slice can use a standalone session if it cannot attach to Studio. It must
-    report that limit and must not claim live sharing. No authentication mechanism is selected.
-    External MCP clients also differ from
-    Studio chat: embedded Claude uses strict MCP configuration, and Codex ignores user
-    configuration. Neither sees this server by default.
-11. The self-contract records the existing HTTP API/server ownership and their MCP exclusions; it
-    cannot represent an MCP owner without a package or exact module, and UML Target rejects owner
-    entities. #846 should add a target-only owner declaration. Until then, no MCP implementation
-    boundary is enforced. Add that owner before adapter behavior, once its package exists.
+1. Use the separate FastMCP distribution, not the official SDK. FastMCP 4.1.6 is the latest stable
+   release on 2026-11-05 and supports Python 3.10+. Pin an exact release when code uses it.
+2. Start with a local stdio server and read-only tools. The client launches the process; stdin/stdout
+   carry MCP messages, and logs go to stderr.
+3. Root `COMP-MCP` is the canonical planned owner (`lifecycle: planned`, no packages), under the same
+   `components[]` policy used after promotion. It owns protocol registration, tool mapping and stdio.
+   It requires existing `check.report:run_report` and the typed CHECK/IR interfaces declared in the
+   root contract. It does not own collection, snapshot decoding, graph derivation, evaluation or
+   story calculations. It does not depend on CLI or Studio HTTP/server/Workspace APIs.
+4. Existing CHECK operation: `run_report(root, config: ScanConfig, analyzer: Analyzer, ...)` returns
+   `tuple[RunResult, bytes | None]`. Existing IR owns `RunResult`, `ArchitectureReport`,
+   `report_graph:architecture_report` and the public `ir.story` module. These are current interfaces,
+   not a new shared result port. A common typed operation/session port has not been proven.
+5. `run_report` needs an injected Analyzer. The CLI currently composes it through
+   `cli.observe:observer_for`; MCP cannot import CLI under this boundary. No shared composition
+   factory or session owner is established, so executable MCP composition remains open.
+6. A second process cannot share Studio's in-memory `Workspace` directly. Target invariant: one
+   canonical root/scope per session, one immutable snapshot revision per operation, and no second
+   scan when attached. Results name root, scope, revision and current/stale/unknown freshness.
+   Missing or incomplete evidence remains UNKNOWN. Source and contract digests may contribute to
+   identity; their derivation is open. Live sharing requires a typed session interface that reaches
+   its owner across processes; none is proven.
+7. A trusted owner binds session identity; an MCP caller cannot choose it. Session creation,
+   discovery, transfer, authentication and IPC remain open. A revision race is stale or UNKNOWN,
+   never a mixed result.
+8. A standalone local first slice may operate without Studio attachment; it must state this limit.
+   Embedded Claude uses `--strict-mcp-config`; Codex uses `--ignore-user-config`, so neither
+   automatically sees an external stdio server. Local stdio does not send source to remote services
+   itself, but clients may forward tool outputs to their providers; do not promise all data stays
+   local. Write tools require explicit approval, scope and failure behavior in a separate decision.
+9. The planned owner has no source package. Consequently `COMPONENT-NO-CYCLES`, `INTERFACE-BOUNDARY`,
+   `MODULE-NO-CYCLES` and `REQUIRES-COMPLETE` remain UNKNOWN in ArchKeel's self-contract; other rule
+   assessments must retain their measured status. Self-validation must report UNKNOWN, not PASS.
 
-**Compatibility.** The MCP specification names 2026-07-28 as current and documents older-revision
-compatibility. Claude Code and Codex document local stdio servers. These facts do not prove that
-FastMCP 4.1.6 works with a particular client release. Probe both clients before claiming support
-and record their versions. Claude Code allows less than one second for stdio shutdown on macOS,
-Linux, and Windows; the adapter must not rely on a long cleanup window.
+**Compatibility.** MCP names 2026-07-28 as current and documents older revisions. Claude Code and
+Codex document local stdio servers, but this does not prove client compatibility with FastMCP 4.1.6.
+Probe versions before claiming support. Claude Code's stdio shutdown window is under one second on
+macOS, Linux and Windows.
 
-**Rejected.** FastMCP inside the HTTP server; MCP calls to Studio HTTP; duplicated command or
-checker logic; writable tools in the first slice; a compatibility promise without client probes.
+**Rejected.** FastMCP in the HTTP server; MCP calls through Studio HTTP or CLI subprocesses; duplicate
+checker/story logic; writable first-slice tools; compatibility claims without client probes.
 
-**Limits.** A second process cannot reuse `Workspace` objects directly. No session interface or
-MCP adapter exists. Target invariants above do not prove session ownership, IPC, race handling,
-runtime behavior or client support. The self-contract cannot yet model the absent MCP owner.
+**Limits.** Contract ownership and `requires` are target intent, not source evidence. The four rules
+above stay UNKNOWN until MCP code exists and is scanned. The model establishes no shared live Studio
+state, IPC/authentication, session lifecycle, race handling, runtime behavior or client support.
 
-**Sources checked 2026-11-05.** [FastMCP 4.1.6 on PyPI](https://pypi.org/project/fastmcp/4.1.6/);
-[FastMCP install and pin guidance](https://gofastmcp.com/getting-started/installation);
-[MCP versioning](https://modelcontextprotocol.io/specification/versioning) and
-[stdio transport](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports);
-[Claude Code MCP](https://code.claude.com/docs/en/mcp) and
-[Codex MCP](https://developers.openai.com/codex/mcp).
-
-**Validation.** `make self-validate` checks the declared Studio boundary. Prototype the session
-boundary before adding adapter or lifecycle conformance tests.
+**Sources.** Checked 2026-11-05: [FastMCP 4.1.6](https://pypi.org/project/fastmcp/4.1.6/);
+[installation](https://gofastmcp.com/getting-started/installation); [MCP versioning](https://modelcontextprotocol.io/specification/versioning)
+and [stdio](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports); [Claude Code](https://code.claude.com/docs/en/mcp)
+and [Codex](https://developers.openai.com/codex/mcp).

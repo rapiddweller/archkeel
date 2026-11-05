@@ -17,6 +17,37 @@ from test_codec import raw_observation
 from archkeel.ir.codec import canonical_report_bytes, parse_observation
 
 
+def _successful_result() -> dict[str, object]:
+    unknown_reason = "No complete evaluator receipt exists for this rule and scope."
+    return {
+        "diagnostics": [],
+        "observation_complete": "PASS",
+        "declared_rules": "UNKNOWN",
+        "rule_assessments": [
+            {
+                "id": rule_id,
+                "status": "UNKNOWN",
+                "evaluation_proven": False,
+                "count": 0,
+                "undecided": 0,
+                "reason": unknown_reason,
+            }
+            for rule_id in sorted(conftest.SELF_RULE_UNKNOWN)
+        ]
+        + [
+            {
+                "id": "ROOT-LAYOUT",
+                "status": "PASS",
+                "evaluation_proven": True,
+                "count": 0,
+                "undecided": 0,
+            }
+        ],
+        "measurements": {"scalars": {"unknown_positions": 0}},
+        "expectation_fulfilled": "n/a",
+    }
+
+
 @pytest.fixture
 def observation():
     model = parse_observation(raw_observation())
@@ -38,13 +69,7 @@ def test_shared_run_generates_once_and_reuses_complete_output(tmp_path, monkeypa
         output = Path(args[args.index("--output") + 1])
         output.write_bytes(canonical_report_bytes(observation))
         output.with_name("architecture.report.html").write_text("report")
-        result = {
-            "diagnostics": [],
-            "observation_complete": "PASS",
-            "declared_rules": "PASS",
-            "expectation_fulfilled": "n/a",
-        }
-        return subprocess.CompletedProcess(args, 0, json.dumps(result), "")
+        return subprocess.CompletedProcess(args, 0, json.dumps(_successful_result()), "")
 
     monkeypatch.setattr(conftest.subprocess, "run", report)
     with ThreadPoolExecutor(max_workers=2) as workers:
@@ -85,7 +110,8 @@ def test_fixture_generates_once_per_serial_or_parallel_session(tmp_path, observa
     tests.mkdir(parents=True)
     (root / "seed.json").write_bytes(canonical_report_bytes(observation))
     fixture_code = Path(conftest.__file__).read_text()
-    fixture_code += """
+    result_payload = json.dumps(_successful_result())
+    fixture_code += f"""
 from types import SimpleNamespace
 import subprocess as real_subprocess
 
@@ -96,10 +122,7 @@ def _report(args, **kwargs):
     output = Path(args[args.index("--output") + 1])
     output.write_bytes((ROOT / "seed.json").read_bytes())
     output.with_name("architecture.report.html").write_text("report")
-    return real_subprocess.CompletedProcess(args, 0, json.dumps({
-        "diagnostics": [], "observation_complete": "PASS",
-        "declared_rules": "PASS", "expectation_fulfilled": "n/a",
-    }), "")
+    return real_subprocess.CompletedProcess(args, 0, {result_payload!r}, "")
 
 subprocess = SimpleNamespace(run=_report)
 """
