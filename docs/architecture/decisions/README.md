@@ -308,3 +308,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-298 | [Studio keeps a readable incomplete snapshot](ad-298-studio-keeps-a-readable-incomplete-snapshot.md) |
 | AD-300 | [A Python runtime mismatch shows a safe retry](ad-300-a-python-runtime-mismatch-shows-a-safe-retry.md) |
 | AD-301 | [Studio keeps Briefing status and diagnostics scannable](ad-301-studio-briefing-keeps-status-and-diagnostics-scannable.md) |
+| AD-302 | [Studio Briefing leads with component facts](ad-302-studio-briefing-leads-with-component-facts.md) |

@@ -1,4 +1,4 @@
-/** AD-290: Level 3: the functions of one module, their calls, and the modules that call in or are called as stubs. */
+/** AD-290: Level 3: the symbols of one module, their calls, and the modules that call in or are called as stubs. */
 import { useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
 import { View, viewHref } from "../components";
@@ -19,8 +19,8 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
   const layout = useMemo(() => layoutModule(model, module, all, text), [model, module, all]);
   const [, , component] = model.graph.modules[module];
   const packages = model.folders[module];
-  const functions = model.members[module];
-  const unknown = functions.reduce((sum, symbol) => sum + model.graph.symbols[symbol][5], 0);
+  const symbols = model.members[module];
+  const unknown = symbols.reduce((sum, symbol) => sum + model.graph.symbols[symbol][5], 0);
   const part = focus.pinned === null ? null : parseKey(focus.pinned);
   const selection = () => {
     if (part === null || part.kind === KeyKind.Tile) return null;
@@ -65,17 +65,17 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
       name="Module"
       here={{
         name: model.graph.modules[module][0],
-        counts: `${counted(functions.length, "function")} · ${unknown} unknown calls`,
+        counts: `${counted(symbols.length, "symbol")} · ${unknown} unknown calls`,
         meaning:
-          "A card is a function. Click selects, double click or Enter opens its lens. Hover a card to see its callers and callees. Stubs on the left are modules that call in; stubs on the right are modules that are called.",
+          "A card is a symbol. Click selects, double click or Enter opens its lens. Hover a card to see its callers and callees. Stubs on the left are modules that call in; stubs on the right are modules that are called.",
         up: viewHref(View.Component, component, packages.length > 0 ? packages.join(".") : undefined),
         upName: packages.length > 0 ? packages[packages.length - 1] : model.graph.components[component][0],
       }}
-      summary={`${counted(functions.length, "function")} · ${counted(layout.stubs.length, "stub")} · ${unknown} unknown`}
+      summary={`${counted(symbols.length, "symbol")} · ${counted(layout.stubs.length, "stub")} · ${unknown} unknown`}
       canvas={{
         width: layout.width,
         height: layout.height,
-        label: "Functions",
+        label: "Symbols",
         fitKey: `${module}:${all}`,
         children: (
           <LevelCanvas
