@@ -669,10 +669,10 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
     monkeypatch: pytest.MonkeyPatch,
     returncode: int,
 ) -> None:
+    from archkeel.cli import _decode_snapshot
     from archkeel.studio.api import ContractState, ExploreState
     from archkeel.studio.stories import CheckResult, Stories
     from archkeel.studio.workspace import Workspace
-    from archkeel.cli import _decode_snapshot
 
     previous = shop
     current = replace(shop, producer=shop.analyzer)
