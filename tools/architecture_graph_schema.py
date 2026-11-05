@@ -18,6 +18,7 @@ from archkeel.ir.architecture_graph import (
     ArchitectureReport,
     ComponentIntent,
     GraphComparison,
+    GraphSchemaVersion,
     TargetDefinition,
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
@@ -939,6 +940,41 @@ def _update_contract_schema(path: Path) -> None:
         }
     schema["$defs"]["uml"] = target_schema()
     schema["$defs"]["declarations"]["properties"]["uml"] = {"$ref": "#/$defs/uml"}
+    schema_versions = schema["properties"]["schema_version"]
+    declared_versions = schema_versions.get("enum")
+    if declared_versions is None:
+        declared_version = schema_versions.get("const")
+        declared_versions = [declared_version] if isinstance(declared_version, str) else []
+    legacy_versions = [
+        value
+        for value in declared_versions
+        if isinstance(value, str)
+        and not supports_feature(ContractVersion(value), ContractFeature.PLANNED_COMPONENT_OWNER)
+    ]
+    if legacy_versions:
+        version_gate = {
+            "if": {"properties": {"schema_version": {"enum": legacy_versions}}},
+            "then": {
+                "properties": {
+                    "components": {"items": {"not": {"required": ["lifecycle"]}}},
+                    "declarations": {
+                        "properties": {
+                            "uml": {
+                                "not": {
+                                    "properties": {
+                                        "schema_version": {"const": GraphSchemaVersion.V1_3_0.value}
+                                    },
+                                    "required": ["schema_version"],
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+        }
+        all_of = schema.setdefault("allOf", [])
+        if version_gate not in all_of:
+            all_of.append(version_gate)
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
 
 

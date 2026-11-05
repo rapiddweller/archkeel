@@ -15,7 +15,9 @@ from typing import Final, Literal
 from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
     DecisionMaker,
+    GraphSchemaVersion,
     NumericOperandForm,
+    TargetDefinition,
     _validate_module_target_path,
     validate_layout_rule,
     validate_module_target,
@@ -156,6 +158,15 @@ def _contract_record(
     return item, _nonempty(item["id"], label + ".id"), provenance
 
 
+def _validate_uml_contract_version(version: ContractVersion, uml: TargetDefinition | None) -> None:
+    if (
+        uml is not None
+        and uml.schema_version == GraphSchemaVersion.V1_3_0
+        and not supports_feature(version, ContractFeature.PLANNED_COMPONENT_OWNER)
+    ):
+        raise ValueError("UML schema_version 1.3.0 requires contract schema_version 2.4.0")
+
+
 def parse_contract(raw: object) -> ArchitectureContract:
     """Parse Contract 2.0 structure without repository-dependent reference checks."""
     root = _contract_fields(
@@ -279,6 +290,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
     if _has_field(declarations, "uml") and not supports_feature(version, ContractFeature.UML):
         raise ValueError("UML declarations require contract schema_version 2.2.0")
     uml = parse_target(declarations["uml"]) if _has_field(declarations, "uml") else None
+    _validate_uml_contract_version(version, uml)
     kinds = tuple(_rule_kind(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     if (
         not supports_feature(version, ContractFeature.BOUNDED_NUMERIC_OPERAND)
@@ -452,6 +464,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 
 def _validate_encoding_version(contract: ArchitectureContract) -> None:
+    _validate_uml_contract_version(
+        contract.schema_version,
+        contract.declarations.uml if contract.declarations is not None else None,
+    )
     if not supports_feature(
         contract.schema_version, ContractFeature.PLANNED_COMPONENT_OWNER
     ) and any(component.lifecycle is not None for component in contract.components):

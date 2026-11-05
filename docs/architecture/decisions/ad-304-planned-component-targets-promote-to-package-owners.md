@@ -22,7 +22,8 @@
 - `lifecycle` requires Contract 2.4.0 and an explicit graph/report 1.3.0 wire value. Legacy lifecycle
   fields stay absent. Graphs 1.0–1.2 retain their existing interpretation; graph 1.3 requires the
   explicit value for a package-less owner. Current reports expose source-rule UNKNOWN by scope,
-  not as a per-component verdict.
+  not as a per-component verdict. Contract 2.3 keeps its UML target schema at 1.2; target 1.3
+  requires Contract 2.4. Parser, encoder, and schemas enforce this same version boundary.
 - A referenced/defined UML component is invalid. Promotion is an authored contract edit; ArchKeel
   does not infer package creation or migration history. Existing scanned-package reference checks
   remain unchanged.

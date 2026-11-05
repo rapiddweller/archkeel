@@ -46,6 +46,7 @@ from archkeel.ir.codec import (
     parse_observation,
     value_bytes,
 )
+from archkeel.ir.contract_version import ContractVersion
 from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.graph_codec import (
     WireComponentSelectorError,
@@ -1691,6 +1692,84 @@ def test_uml_contract_schema_is_generated_from_the_shared_dataclasses() -> None:
     old = _contract()
     old["schema_version"] = "2.1.0"
     assert list(validator.iter_errors(old))
+
+
+@pytest.mark.parametrize(
+    ("contract_version", "target_version", "accepted"),
+    [("2.3.0", "1.3.0", False), ("2.3.0", "1.2.0", True), ("2.4.0", "1.3.0", True)],
+)
+def test_uml_target_version_matches_outer_contract_schema(
+    contract_version: str, target_version: str, accepted: bool
+) -> None:
+    raw = _contract()
+    raw["schema_version"] = contract_version
+    raw["declarations"]["uml"]["schema_version"] = target_version
+    schema_names = (
+        ("architecture-contract-2.3.schema.json", "architecture-contract.schema.json")
+        if contract_version == "2.3.0"
+        else ("architecture-contract.schema.json",)
+    )
+    for schema_name in schema_names:
+        schema = json.loads((Path(__file__).parents[1] / "schema" / schema_name).read_bytes())
+        schema_errors = list(Draft202012Validator(schema).iter_errors(raw))
+        assert bool(schema_errors) is (not accepted), schema_name
+    if accepted:
+        parsed = parse_contract(raw)
+        assert parsed.declarations.uml.schema_version == target_version
+    else:
+        with pytest.raises(
+            ValueError,
+            match="UML schema_version 1.3.0 requires contract schema_version 2.4.0",
+        ):
+            parse_contract(raw)
+
+
+@pytest.mark.parametrize(("contract_version", "accepted"), [("2.3.0", False), ("2.4.0", True)])
+def test_planned_component_lifecycle_matches_contract_schema_version(
+    contract_version: str, accepted: bool
+) -> None:
+    raw = _contract()
+    raw["schema_version"] = contract_version
+    component = raw["components"][0]
+    component["packages"] = []
+    component.pop("namespace")
+    component["lifecycle"] = "planned"
+
+    schema_names = (
+        ("architecture-contract-2.3.schema.json", "architecture-contract.schema.json")
+        if contract_version == "2.3.0"
+        else ("architecture-contract.schema.json",)
+    )
+    for schema_name in schema_names:
+        schema = json.loads((Path(__file__).parents[1] / "schema" / schema_name).read_bytes())
+        schema_errors = list(Draft202012Validator(schema).iter_errors(raw))
+        assert bool(schema_errors) is (not accepted), schema_name
+    if accepted:
+        parsed = parse_contract(raw)
+        assert parsed.components[0].lifecycle.value == "planned"
+        with pytest.raises(
+            ValueError, match="component lifecycle requires contract schema_version 2.4.0"
+        ):
+            contract_bytes(replace(parsed, schema_version=ContractVersion.V2_3))
+    else:
+        with pytest.raises(ValueError, match="lifecycle requires contract schema_version 2.4.0"):
+            parse_contract(raw)
+
+
+def test_contract_encoder_rejects_uml_target_version_newer_than_contract() -> None:
+    raw = _contract()
+    raw["schema_version"] = "2.3.0"
+    raw["declarations"]["uml"]["schema_version"] = "1.2.0"
+    parsed = parse_contract(raw)
+    declarations = replace(
+        parsed.declarations,
+        uml=replace(parsed.declarations.uml, schema_version=GraphSchemaVersion.V1_3_0),
+    )
+    with pytest.raises(
+        ValueError,
+        match="UML schema_version 1.3.0 requires contract schema_version 2.4.0",
+    ):
+        contract_bytes(replace(parsed, declarations=declarations))
 
 
 def _repository(tmp_path: Path) -> tuple[Path, ScanConfig]:
