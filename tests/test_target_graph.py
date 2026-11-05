@@ -48,6 +48,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.graph_codec import (
+    WireComponentSelectorError,
     graph_bytes,
     parse_graph,
     parse_report,
@@ -630,16 +631,17 @@ def test_graph_wire_rejects_ambiguous_planned_api_selector(wire: str, conflict: 
     else:
         payload = graph_payload
 
-    expected_error = (
-        "selector.*active package"
-        if conflict == "active-package"
-        else "planned API selector is claimed by multiple components"
-    )
-    with pytest.raises(ValueError, match=expected_error):
+    with pytest.raises(WireComponentSelectorError) as error:
         if wire == "graph":
             parse_graph(json.loads(json.dumps(payload)))
         else:
             parse_report(json.loads(json.dumps(payload)))
+    expected_reason = (
+        "is owned by active package component"
+        if conflict == "active-package"
+        else "is claimed by multiple components"
+    )
+    assert f"planned API selector 'pkg:Foo' {expected_reason}" in str(error.value)
 
 
 def _ambiguous_selector_graph(conflict: str) -> ArchitectureGraph:
