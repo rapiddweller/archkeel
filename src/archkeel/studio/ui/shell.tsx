@@ -96,7 +96,12 @@ function content(view: View, route: Route, state: StudioState, model: Model | nu
     case View.Report:
       return <Report state={state} />;
     case View.Stories:
-      return <Stories id={route.story} ready={state.explore === ExploreState.DONE} />;
+      return (
+        <Stories
+          id={route.story}
+          state={state}
+        />
+      );
     case View.Impact:
       return <NotBuilt title="Change impact" today="Planned in issue #793." />;
     case View.Target:

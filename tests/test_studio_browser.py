@@ -30,6 +30,9 @@ _LOCAL_SCHEMES = {"data", "blob", "about"}
 
 
 _ENVIRONMENT = {name: os.environ.get(name) for name in ("XDG_CACHE_HOME", "HOME")}
+_VIEW_CHECK_SCHEMA = json.loads(
+    (Path(__file__).parents[1] / "schema/view-check.schema.json").read_bytes()
+)
 
 
 @pytest.fixture(scope="module")
@@ -384,8 +387,37 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
         browser = playwright.chromium.launch(headless=True)
         try:
             page = browser.new_page(viewport={"width": width, "height": height})
+            detail_payload = _answer(_checked(snapshot_completeness="incomplete"), id="partial")
             page.route("**/api/v1/state", lambda route: route.fulfill(json=state_answer))
             page.route("**/api/v1/graph", lambda route: route.fulfill(json=graph_answer))
+            page.route(
+                "**/api/v1/stories",
+                lambda route: route.fulfill(
+                    json={
+                        "api_version": API_VERSION,
+                        "stories": [
+                            {
+                                "id": "partial",
+                                "title": "Partial source flow",
+                                "steps": 2,
+                                "source": "repository",
+                                "created": None,
+                                "checked_counts": {
+                                    "proven": 1,
+                                    "declared": 0,
+                                    "claim": 0,
+                                    "unknown": 1,
+                                    "missing": 0,
+                                },
+                            }
+                        ],
+                    }
+                ),
+            )
+            page.route(
+                "**/api/v1/stories/partial", lambda route: route.fulfill(json=detail_payload)
+            )
+            Draft202012Validator(_VIEW_CHECK_SCHEMA).validate(detail_payload["checked"])
             page.goto(studio.url)
             page.get_by_text("Snapshot is incomplete.", exact=False).wait_for()
             assert page.get_by_text("The TypeScript alias is unresolved.", exact=False).is_visible()
@@ -393,6 +425,18 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             page.get_by_role("link", name="Architecture", exact=True).click()
             page.get_by_role("group", name="Component map").wait_for()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
+            page.get_by_role("link", name="Stories", exact=True).click()
+            page.get_by_text("Counts use an incomplete snapshot.", exact=False).wait_for()
+            assert page.get_by_text("1 unknown", exact=False).is_visible()
+            page.get_by_role("link", name="Partial source flow", exact=False).click()
+            page.get_by_role("heading", name=detail_payload["checked"]["story"]["title"]).wait_for()
+            assert page.get_by_text(
+                "The source snapshot is incomplete; UNKNOWN means evidence is missing."
+            ).is_visible()
+            page.get_by_role("link", name="Open the static report").click()
+            page.get_by_text(
+                "The source snapshot is incomplete; UNKNOWN means evidence is missing."
+            ).wait_for()
         finally:
             browser.close()
 
@@ -612,14 +656,32 @@ def _answer(checked: dict, **changes: object) -> dict:
 
 
 def _checked(**changes) -> dict:
-    """The checked `check` flow, plus a claim with 58 candidates and a Redis touchpoint."""
+    """API 1.3 checked flow, plus a claim with 58 candidates and a Redis touchpoint."""
     checked = json.loads(json.dumps(_CHECKED))
+    # The stored fixture predates API 1.3's result version, completeness and step label fields.
+    checked["result_schema_version"] = "1.3.0"
+    checked["snapshot_completeness"] = "complete"
     story = checked["story"]
+    for step in story["steps"]:
+        step.setdefault("label", step["node"])
     story["steps"][2]["external"] = [
         {"system": "redis", "touched": True, "direction": "reads", "evidence": []}
     ]
     story["verdict"]["systems"] = ["redis"]
-    checked["steps"][5]["evidence"] = [{"file": "src/archkeel/x.py", "line": 7, "candidates": 58}]
+    link = checked["steps"][5]
+    link["evidence"] = [
+        {
+            "record_id": "CALL-TEST",
+            "kind": link["kind"],
+            "source": link["source"],
+            "target": link["target"],
+            "evidence_id": None,
+            "file": "src/archkeel/x.py",
+            "line": 7,
+            "type_only": False,
+            "candidates": 58,
+        }
+    ]
     return checked | changes
 
 
@@ -632,24 +694,53 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
         "title": _CHECKED["story"]["title"],
         "steps": len(_CHECKED["steps"]),
         "source": "repository",
+        "created": None,
+        "checked_counts": None,
     }
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             page.on("request", lambda item: requests.append(item.url))
+            # This fixture starts the server without launching Explore; provide the ready state.
+            page.route(
+                "**/api/v1/state",
+                lambda route: route.fulfill(
+                    json={
+                        "api_version": API_VERSION,
+                        "root_name": "shop",
+                        "contract": "not_configured",
+                        "explore": "done",
+                        "seconds": 8,
+                        "exit_code": 0,
+                        "notes": [],
+                    }
+                ),
+            )
+            page.route(
+                "**/api/v1/graph",
+                lambda route: route.fulfill(
+                    json={"api_version": API_VERSION, "explore": "done", "graph": _MIXED}
+                ),
+            )
             page.route(
                 "**/api/v1/stories",
                 lambda route: route.fulfill(json={"api_version": API_VERSION, "stories": [row]}),
             )
             page.route(
                 "**/api/v1/stories/check-flow",
-                lambda route: route.fulfill(json=_answer(_checked())),
+                lambda route: route.fulfill(
+                    json=_answer(_checked(snapshot_completeness="incomplete"))
+                ),
             )
             page.goto(studio.url)
             page.get_by_role("link", name="Stories", exact=True).click()
+            page.get_by_role("link", name=_CHECKED["story"]["title"]).wait_for()
             page.get_by_role("link", name=_CHECKED["story"]["title"]).click()
             page.get_by_role("heading", name=row["title"]).wait_for()
+            page.get_by_text(
+                "The source snapshot is incomplete; UNKNOWN means evidence is missing."
+            ).wait_for()
             verdict = page.get_by_label("Verdict").inner_text().replace("\n", " ")
             assert "5 ✓ proven · 1 ✎ claim · 2 ? unknown" in verdict
             assert "systems: redis" in verdict

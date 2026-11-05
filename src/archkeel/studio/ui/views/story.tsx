@@ -9,6 +9,7 @@ import {
   StoryRow,
   StorySource,
   StoryStep,
+  StudioState,
   readStories,
   readStory,
 } from "../api";
@@ -16,6 +17,7 @@ import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
 import { baseName } from "../model";
 import { STORY, layoutStory } from "../story-layout";
+import { ExploreState } from "../vocabulary";
 
 const STEP_MS = 4000;
 
@@ -345,15 +347,17 @@ function List(props: { rows: readonly StoryRow[] }) {
 }
 
 /** `id` is the story of `#/stories/<id>`, else null for the list. */
-export function Stories(props: { id: string | null; ready: boolean }) {
+export function Stories(props: { id: string | null; state: StudioState }) {
   const { id } = props;
+  const ready = props.state.explore === ExploreState.DONE || props.state.explore === ExploreState.INCOMPLETE;
+  const incomplete = props.state.explore === ExploreState.INCOMPLETE;
   const [rows, setRows] = useState<readonly StoryRow[] | null>(null);
   const [checked, setChecked] = useState<StoryAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setError(null);
     setChecked(null);
-    if (!props.ready) return;
+    if (!ready) return;
     // The shell reuses this component across routes: an answer for a route that was left is dropped.
     let current = true;
     const read = id === null ? readStories().then((found) => current && setRows(found)) : readStory(id).then((found) => current && setChecked(found));
@@ -361,11 +365,15 @@ export function Stories(props: { id: string | null; ready: boolean }) {
     return () => {
       current = false;
     };
-  }, [id, props.ready]);
-  if (!props.ready) {
+  }, [id, ready]);
+  if (!ready) {
     return (
-      <Page title="Stories" lead="No map yet. A story is checked against the snapshot. Overview shows the progress.">
-        {null}
+      <Page title="Stories" lead="Stories are checked against a readable snapshot.">
+        {props.state.explore === ExploreState.FAILED ? (
+          <p role="alert">Explore failed (exit code {props.state.exit_code}). {props.state.notes.join(" ")}</p>
+        ) : (
+          <p>Waiting for Explore to write a readable snapshot.</p>
+        )}
       </Page>
     );
   }
@@ -377,6 +385,17 @@ export function Stories(props: { id: string | null; ready: boolean }) {
       </Page>
     );
   }
-  if (id === null) return rows === null ? <p>Reading the stories…</p> : <List rows={rows} />;
+  if (id === null) {
+    return rows === null ? (
+      <p>Reading the stories…</p>
+    ) : (
+      <>
+        {incomplete ? (
+          <p role="status">Counts use an incomplete snapshot. UNKNOWN means evidence is missing.</p>
+        ) : null}
+        <List rows={rows} />
+      </>
+    );
+  }
   return checked === null ? <p>Checking the story…</p> : <Player answer={checked} />;
 }

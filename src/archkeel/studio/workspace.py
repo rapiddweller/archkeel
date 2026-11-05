@@ -91,6 +91,9 @@ class Workspace:
             )
             self._started = time.monotonic()
             self._graph = None
+            # The folder is reused on restart; an older valid snapshot cannot prove this run.
+            (self.folder / _SNAPSHOT).unlink(missing_ok=True)
+            self._snapshot = None
             self._child = subprocess.Popen(
                 self._explore,
                 stdout=subprocess.PIPE,
@@ -152,7 +155,7 @@ class Workspace:
         return target
 
     def snapshot(self) -> Snapshot | None:
-        """The index of a valid snapshot, else None; built at the first call."""
+        """The index of a complete snapshot, else None; chat cannot label partial evidence."""
         with self._lock:
             done = self._run.explore is ExploreState.DONE
         if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None and done:

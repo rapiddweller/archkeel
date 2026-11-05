@@ -500,6 +500,43 @@ def test_a_damaged_columnar_snapshot_stays_failed_without_a_graph(studio: Studio
     assert answer["graph"] is None
 
 
+def test_a_restart_cannot_reuse_a_previous_snapshot(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    snapshot = studio.workspace.folder / "architecture.json"
+    studio.workspace._explore = (sys.executable, "-c", "raise SystemExit(2)")
+
+    studio.workspace.start()
+    deadline = time.monotonic() + 10
+    while studio.workspace.state().explore is ExploreState.RUNNING and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert studio.workspace.state().explore is ExploreState.FAILED
+    assert not snapshot.exists()
+    assert studio.workspace.graph() is None
+
+
+def test_a_nonzero_exit_stays_failed_even_if_it_writes_a_snapshot(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    snapshot = studio.workspace.folder / "architecture.json"
+    contents = snapshot.read_bytes()
+    script = (
+        "from pathlib import Path; "
+        f"Path({str(snapshot)!r}).write_bytes({contents!r}); "
+        "raise SystemExit(7)"
+    )
+    studio.workspace._explore = (sys.executable, "-c", script)
+
+    studio.workspace.start()
+    deadline = time.monotonic() + 10
+    while studio.workspace.state().explore is ExploreState.RUNNING and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert studio.workspace.state().explore is ExploreState.FAILED
+    assert studio.workspace.graph() is None
+
+
 def test_call_status_has_the_values_of_the_source_resolution_of_the_ir() -> None:
     # Studio may not import `ir`: its vocabulary is a copy, and this test ties it to the source.
     assert {member.value for member in CallStatus} == {member.value for member in SourceResolution}
@@ -671,14 +708,45 @@ def test_exit_two_with_a_snapshot_exposes_the_graph_and_diagnostic(
     assert partial.unknown
 
     with running(root, tmp_path / "cache", *options) as server:
+        story_folder = root / ".archkeel/stories"
+        story_folder.mkdir(parents=True)
+        (story_folder / "partial.story.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.2.0",
+                    "title": "Partial source flow",
+                    "snapshot": {"source_digest": "a" * 64, "contract_digest": "b" * 64},
+                    "nodes": ["demo.uncertain", "demo.missingService.run"],
+                    "story": {"id": "partial", "title": "Partial source flow", "chapters": []},
+                    "steps": [
+                        {
+                            "node": "demo.uncertain",
+                            "note": "The function calls an unresolved alias.",
+                        },
+                        {"node": "demo.missingService.run", "note": "The unresolved target."},
+                    ],
+                }
+            )
+        )
         result = explore(server, login(server))
-        answer = graph(server, login(server))
+        cookie = login(server)
+        answer = graph(server, cookie)
+        listing = json.loads(_get(server, cookie, "/api/v1/stories")[1])["stories"]
+        checked = json.loads(_get(server, cookie, "/api/v1/stories/partial")[1])
+        draft_response, draft_body = _get(server, cookie, "/api/v1/draft?from=demo.uncertain")
+        report_response, _ = request(server, "/files/architecture.report.html", cookie=cookie)
     assert result["explore"] == "incomplete"
     assert result["exit_code"] == 2
     assert result["notes"], result
     assert answer["explore"] == "incomplete"
     assert answer["graph"] is not None
     assert answer["graph"]["unknown"]
+    assert listing[0]["checked_counts"]["unknown"] > 0
+    assert checked["checked"]["snapshot_completeness"] == "incomplete"
+    assert "unknown" in [step["status"] for step in checked["checked"]["steps"]]
+    assert draft_response.status == 503
+    assert b"incomplete snapshot" in draft_body
+    assert report_response.status == 200
 
 
 def test_a_story_route_reports_failed_explore_and_its_notes(tmp_path: Path) -> None:

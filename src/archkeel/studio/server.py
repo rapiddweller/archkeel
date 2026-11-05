@@ -239,7 +239,9 @@ class _Handler(BaseHTTPRequestHandler):
         elif path is ApiPath.STORIES and story_id is None:
             state = workspace.state()
             snapshot = (
-                workspace.file("architecture.json") if state.explore is ExploreState.DONE else None
+                workspace.file("architecture.json")
+                if state.explore in (ExploreState.DONE, ExploreState.INCOMPLETE)
+                else None
             )
             self._send(HTTPStatus.OK, stories_json(stories.rows(snapshot)), "application/json")
         else:
@@ -253,7 +255,16 @@ class _Handler(BaseHTTPRequestHandler):
                     f"{message}\n{detail}\n".encode(),
                 )
                 return
-            if state.explore is not ExploreState.DONE or snapshot is None:
+            if state.explore is ExploreState.INCOMPLETE and path is ApiPath.DRAFT:
+                self._send(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    b"cannot draft from an incomplete snapshot; UNKNOWN evidence may be missing\n",
+                )
+                return
+            if (
+                state.explore not in (ExploreState.DONE, ExploreState.INCOMPLETE)
+                or snapshot is None
+            ):
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, b"explore has not finished\n")
                 return
             try:
@@ -335,7 +346,13 @@ class _Handler(BaseHTTPRequestHandler):
         request = parse_chat_request(self._body())
         snapshot = self.studio.workspace.snapshot()
         if snapshot is None:
-            raise ChatFailure(ChatError.SNAPSHOT_NOT_READY, "Explore has not finished.")
+            state = self.studio.workspace.state()
+            message = (
+                "Explore produced an incomplete snapshot; chat needs a complete snapshot."
+                if state.explore is ExploreState.INCOMPLETE
+                else "Explore has not finished."
+            )
+            raise ChatFailure(ChatError.SNAPSHOT_NOT_READY, message)
         context = request.context
         if context is not None and not snapshot.has(context):
             raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
