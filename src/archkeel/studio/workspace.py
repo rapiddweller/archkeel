@@ -20,6 +20,7 @@ from .stories import Stories
 
 _SNAPSHOT = "architecture.json"
 _NOTE_LIMIT = 2000
+_SNAPSHOT_INVALID = "Explore did not write a readable architecture.json snapshot."
 # Explore needs this long to stop its collector, which runs in a session of its own.
 _UNWIND_SECONDS = 10
 
@@ -100,24 +101,44 @@ class Workspace:
 
     def _wait(self, child: "subprocess.Popen[bytes]") -> None:
         stdout, stderr = child.communicate()
-        failed = child.returncode != 0
-        with self._lock:
+        graph = None
+        snapshot_error = False
+        if child.returncode in (0, 2):
+            try:
+                graph = build_graph(
+                    self._decode((self.folder / _SNAPSHOT).read_bytes()), self._declare
+                )
+            except (OSError, ValueError):
+                snapshot_error = True
+        failed = child.returncode not in (0, 2) or graph is None
+        with self._graph_lock, self._lock:
             # A new run reuses the snapshot path; discard any session built before it replaced it.
             if self.stories is not None:
                 self.stories.invalidate_check()
+            self._graph = graph if not failed else None
+            state = (
+                ExploreState.FAILED
+                if failed
+                else ExploreState.INCOMPLETE
+                if child.returncode == 2
+                else ExploreState.DONE
+            )
+            notes = _notes(stdout, stderr) if failed or state is ExploreState.INCOMPLETE else ()
+            if snapshot_error:
+                notes = (*notes, _SNAPSHOT_INVALID)
             self._run = replace(
                 self._run,
-                explore=ExploreState.FAILED if failed else ExploreState.DONE,
+                explore=state,
                 seconds=int(time.monotonic() - self._started),
                 exit_code=child.returncode,
-                notes=_notes(stdout, stderr) if failed else (),
+                notes=notes,
             )
 
     def graph(self) -> Graph | None:
-        """The call graph of the finished snapshot, built once; None until the run is done."""
+        """The call graph of a valid snapshot; None until the run finishes."""
         with self._graph_lock:
             with self._lock:
-                done = self._run.explore is ExploreState.DONE
+                done = self._run.explore in (ExploreState.DONE, ExploreState.INCOMPLETE)
             if self._graph is None and done:
                 snapshot = self.folder / _SNAPSHOT
                 self._graph = build_graph(self._decode(snapshot.read_bytes()), self._declare)
@@ -131,7 +152,7 @@ class Workspace:
         return target
 
     def snapshot(self) -> Snapshot | None:
-        """The index of the snapshot once explore is done, else None; built at the first call."""
+        """The index of a valid snapshot, else None; built at the first call."""
         with self._lock:
             done = self._run.explore is ExploreState.DONE
         if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None and done:

@@ -32,7 +32,7 @@ def main() -> None:
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")
     )
     assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
-    for version in ("1.0.0", "1.1.0"):
+    for version in ("1.0.0", "1.1.0", "1.2.0", "1.3.0"):
         name = f"studio-api-{version[:-2]}.schema.json"
         studio_api = json.loads(schemas.joinpath(name).read_text("utf-8"))
         assert studio_api["$id"] == f"urn:archkeel:studio-api:{version}"

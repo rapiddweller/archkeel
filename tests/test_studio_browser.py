@@ -360,6 +360,44 @@ _MIXED = {
 
 
 @pytest.mark.browser
+@pytest.mark.parametrize(("width", "height"), [(800, 600), (1440, 900)])
+def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
+    studio: Studio, width: int, height: int
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    state_answer = {
+        "api_version": API_VERSION,
+        "root_name": "shop",
+        "contract": "not_configured",
+        "explore": "incomplete",
+        "seconds": 8,
+        "exit_code": 2,
+        "notes": ["The TypeScript alias is unresolved."],
+    }
+    graph_body = {
+        **_MIXED,
+        "symbols": [[0, "caller", 1, "function", "function caller()", 1, 0], _MIXED["symbols"][1]],
+        "unknown": [[0, "aliasCall()", "unresolved alias", 2]],
+    }
+    graph_answer = {"api_version": API_VERSION, "explore": "incomplete", "graph": graph_body}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.route("**/api/v1/state", lambda route: route.fulfill(json=state_answer))
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=graph_answer))
+            page.goto(studio.url)
+            page.get_by_text("Snapshot is incomplete.", exact=False).wait_for()
+            assert page.get_by_text("The TypeScript alias is unresolved.", exact=False).is_visible()
+            assert page.get_by_text("Most unknown calls: alpha (1).", exact=False).is_visible()
+            page.get_by_role("link", name="Architecture", exact=True).click()
+            page.get_by_role("group", name="Component map").wait_for()
+            assert page.evaluate("document.documentElement.scrollWidth") <= width
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
 def test_a_line_with_claims_is_a_claim_and_shows_both_counts(studio: Studio) -> None:
     api = pytest.importorskip("playwright.sync_api")
     answer = {"api_version": API_VERSION, "explore": "done", "graph": _MIXED}
