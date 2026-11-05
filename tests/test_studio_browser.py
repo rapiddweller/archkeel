@@ -1782,6 +1782,14 @@ def test_briefing_names_an_empty_graph_without_inventing_components(studio: Stud
         figures = [_words(figure).upper() for figure in page.locator(".figure").all()]
         assert any(text.startswith("0 MODULES") for text in figures)
         assert any(text.startswith("0 SYMBOLS") for text in figures)
+        assert (
+            _words(page.locator(".briefing-signals > summary"))
+            == "What stands out · 0 measured facts"
+        )
+        assert page.get_by_text(
+            "No contract · no policy verdict. archkeel init drafts one.", exact=True
+        ).is_visible()
+        assert page.locator(".briefing-signals .box").count() == 0
 
 
 @pytest.mark.browser
