@@ -78,6 +78,7 @@ CATALOG: tuple[Variant, ...] = (
 REPORT_CASES = {
     "uml-match": ("uml-match", 0),
     "uml-complete": ("uml-complete", 0),
+    "uml-planned-component": ("uml-planned-component", 0),
     "uml-dart-match": ("uml-dart-match", 0),
     "uml-dart-signature-fail": ("uml-dart-signature-fail", 2),
     "uml-dart-missing-member-fail": ("uml-dart-missing-member-fail", 2),
@@ -220,6 +221,7 @@ PROJECT_REPORT_GROUPS = (
 UML_DEMO_COMPARISONS = {
     "uml-match": "PASS",
     "uml-complete": "UNKNOWN",
+    "uml-planned-component": "UNKNOWN",
     "uml-mismatch": "FAIL",
     "uml-partial": "UNKNOWN",
     "uml-dart-match": "PASS",

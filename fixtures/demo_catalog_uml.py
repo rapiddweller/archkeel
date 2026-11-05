@@ -11,6 +11,7 @@ from archkeel.ir.model import stable_id
 from fixtures.demo_catalog_support import Variant
 
 UML_FIXTURE_DIR = Path(__file__).resolve().parent / "H-uml"
+PLANNED_COMPONENT_FIXTURE = UML_FIXTURE_DIR.with_name("planned-component")
 CORE_SOURCE = (UML_FIXTURE_DIR / "demo/core.py").read_text()
 
 VARIANTS = tuple(
@@ -180,6 +181,17 @@ VARIANTS += (
         expected_codes=(),
         expected_declared_rules="UNKNOWN",
         fixture=UML_FIXTURE_DIR,
+    ),
+    Variant(
+        id="uml-planned-component",
+        section="class_c",
+        item="planned component owner before package creation",
+        summary="A package-less owner remains target intent through CLI validation and reporting.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        expected_declared_rules="UNKNOWN",
+        fixture=PLANNED_COMPONENT_FIXTURE,
     ),
 )
 

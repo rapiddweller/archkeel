@@ -21,6 +21,7 @@ from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe, observer_for
+from archkeel.ir.architecture_graph import EntityKind, PresenceKind
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (
@@ -141,6 +142,27 @@ def test_target_hierarchy_demo_reports_declared_targets(
             )["status"]
             == "PASS"
         )
+
+
+def test_planned_component_demo_catalog_replays_target_owner(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "uml-planned-component.json"
+
+    assert demo_main(["--replay", "uml-planned-component", "--output", str(output)]) == 0
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert validation["command"] == "validate"
+    assert validation["exit_code"] == 0
+    assert report["command"] == "report"
+    assert report["declared_rules"] == "UNKNOWN"
+
+    model = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    target = architecture_report(model).target
+    assert target is not None
+    owner = next(item for item in target.entities if item.id == "mcp")
+    assert owner.kind == EntityKind.COMPONENT
+    assert owner.presence == PresenceKind.PLANNED
+    assert any(item.id == "server" and item.parent_id == owner.id for item in target.entities)
 
 
 def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:
