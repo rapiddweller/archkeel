@@ -578,6 +578,7 @@ def project_inside_declarations(
                 **({"public": sorted(component.public)} if component.public is not None else {}),
                 **({"planned": sorted(component.planned)} if component.planned is not None else {}),
                 "role": component.role.value,
+                **({"lifecycle": component.lifecycle.value} if component.lifecycle else {}),
                 **({"layer": component.layer} if component.layer is not None else {}),
                 "forbidden_responsibilities": sorted(component.forbidden_responsibilities),
                 **(
@@ -649,6 +650,7 @@ def project_declarations(
                         else {}
                     ),
                     "role": component.role.value,
+                    **({"lifecycle": component.lifecycle.value} if component.lifecycle else {}),
                     **({"layer": component.layer} if component.layer is not None else {}),
                     **({"inside": component.inside} if component.inside else {}),
                     **({"namespace": component.namespace} if component.namespace else {}),

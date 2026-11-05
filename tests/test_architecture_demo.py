@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import get_args, get_type_hints
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
@@ -21,8 +22,15 @@ from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe, observer_for
-from archkeel.ir.architecture_graph import EntityKind, PresenceKind
+from archkeel.ir.architecture_graph import (
+    ComponentLifecycle,
+    EntityKind,
+    GraphSchemaVersion,
+    PresenceKind,
+    ReportSchemaVersion,
+)
 from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.graph_codec import graph_bytes, parse_report, report_bytes
 from archkeel.ir.measurements import SCALARS, compare_measurements
 from archkeel.ir.model import (
     ArchitectureRule,
@@ -157,12 +165,82 @@ def test_planned_component_demo_catalog_replays_target_owner(
     assert report["declared_rules"] == "UNKNOWN"
 
     model = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
-    target = architecture_report(model).target
+    result = architecture_report(model)
+    target = result.target
     assert target is not None
     owner = next(item for item in target.entities if item.id == "mcp")
     assert owner.kind == EntityKind.COMPONENT
     assert owner.presence == PresenceKind.PLANNED
     assert any(item.id == "server" and item.parent_id == owner.id for item in target.entities)
+
+
+def test_planned_component_policy_demo_keeps_observed_and_planned_owners_separate(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "planned-component-policy.json"
+
+    assert demo_main(["--replay", "planned-component-policy", "--output", str(output)]) == 0
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert validation["exit_code"] == 0
+    assert report["declared_rules"] == "UNKNOWN"
+    assert any(item["status"] == "UNKNOWN" for item in report["rule_assessments"])
+    requires_assessment = next(
+        item for item in report["rule_assessments"] if item["id"] == "PLANNED-REQUIRES-COMPLETE"
+    )
+    assert requires_assessment["status"] == "UNKNOWN"
+    assert "mcp" not in requires_assessment["components"]
+
+    active_root = _prepare_repo(
+        tmp_path / "active-control", {}, fixture=ROOT / "fixtures/planned-component-policy"
+    )
+    active_contract_path = active_root / "architecture-contract.json"
+    active_contract = json.loads(active_contract_path.read_bytes())
+    active_contract["components"] = [
+        owner for owner in active_contract["components"] if owner["id"] == "fixture-source"
+    ]
+    active_contract.pop("declarations")
+    active_contract_path.write_text(json.dumps(active_contract))
+    subprocess.run(["git", "add", "architecture-contract.json"], cwd=active_root, check=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "promote control owners"],
+        cwd=active_root,
+        check=True,
+        capture_output=True,
+    )
+    active_report, _ = run_report(active_root, config=load_config(active_root), analyzer=observe)
+    active_requires = next(
+        item
+        for item in active_report.rule_assessments or ()
+        if item.id == "PLANNED-REQUIRES-COMPLETE"
+    )
+    assert active_requires.status.value == "PASS"
+
+    model = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    result = architecture_report(model)
+    target = result.target
+    assert target is not None
+    mcp = next(item for item in target.component_intents if item.component_id == "mcp")
+    assert mcp.lifecycle is ComponentLifecycle.PLANNED
+    assert not mcp.packages
+    assert mcp.planned == (
+        "archkeel.mcp.server:McpServer",
+        "archkeel.mcp.server:Transport",
+    )
+    assert any(
+        item.kind.value == "requires" and item.source_id == "mcp" and item.target_id == "core"
+        for item in target.relationships
+    )
+    assert result.schema_version == ReportSchemaVersion.V1_3_0
+    assert target.schema_version == GraphSchemaVersion.V1_3_0
+    assert mcp.lifecycle is ComponentLifecycle.PLANNED
+    Draft202012Validator(
+        json.loads((ROOT / "schema/architecture-graph.schema.json").read_bytes())
+    ).validate(json.loads(graph_bytes(target)))
+    report_wire = json.loads(report_bytes(result))
+    Draft202012Validator(
+        json.loads((ROOT / "schema/architecture-report.schema.json").read_bytes())
+    ).validate(report_wire)
+    assert parse_report(report_wire) == result
 
 
 def test_recursive_wide_package_root_executes(tmp_path: Path) -> None:

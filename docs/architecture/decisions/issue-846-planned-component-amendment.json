@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "b9dcb7be09a036d85b74452c24f6a09a2891ea311c162c4f029a31c1e9ddb7e0",
+  "after_digest": "5700ac1106b8695ef6a519554212c3b9e0956003bbb6066c205cc3572bc3da8e",
+  "before_baseline_digest": "7ad8e9975767ff3ba79b46749b23c32d8de2bd8d3c1c80071abe88bcc0f50b97",
+  "before_digest": "ed6f2f6aa18cf1d0be197bcd2d13e41d868817850596393f315843fe3ca8e487",
+  "decided_by": "Architecture team (standing approval for justified budget changes)",
+  "rationale": "CI run 42094752815, job 127481748405, at source head 45584dfc measured 950 unresolved calls versus the prior baseline 948, typing positions 56, and zero architecture violations. Raise only calls_unresolved to 950. The two net new unresolved calls are graph_codec._validate_wire_component_selectors calling ModuleSelection(...).matches_api_selector and render.html._html_report_payload calling payload_text.encode; other added and removed call-site names pair under helper/caller movement. Public ir.graph_codec.WireComponentSelectorError is consumed by render.html._html_report_payload to preserve a typed target-unavailable outcome when wire validation rejects an ambiguous selector.",
+  "schema_version": "2.0.0"
+}

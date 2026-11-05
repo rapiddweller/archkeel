@@ -18,7 +18,9 @@ from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.report import run_report
 from archkeel.cli import main
+from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
+from archkeel.ir.architecture_graph import GraphSchemaVersion, ReportSchemaVersion
 from archkeel.ir.baseline import select_violations
 from archkeel.ir.codec import (
     canonical_report_bytes,
@@ -76,6 +78,72 @@ def test_report_pages_derive_one_graph_per_page(tmp_path):
         entry.callcount for entry in work.getstats() if entry.code is architecture_report.__code__
     )
     assert graph_builds == 2
+
+
+@pytest.mark.browser
+def test_planned_component_graph_and_report_schema_1_3_render_in_browser(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    root = _prepare_repo(
+        tmp_path, {}, fixture=Path(__file__).parents[1] / "fixtures/planned-component-policy"
+    )
+    _, encoded = run_report(root, config=load_config(root), analyzer=observe)
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(model)
+    assert report.schema_version == ReportSchemaVersion.V1_3_0
+    assert report.target is not None
+    assert report.target.schema_version == GraphSchemaVersion.V1_3_0
+
+    html = html_renderer.render_html(
+        replace(_result(model), architecture_projection=None),
+        model,
+        repository="Planned component policy",
+        architecture_href="architecture.json",
+    ).decode()
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    assert match is not None
+    payload = json.loads(match.group(1))
+    assert payload["schema_version"] == "1.3.0"
+    assert payload["target"]["schema_version"] == "1.3.0"
+    assert any(
+        intent["component_id"] == "mcp" and intent["lifecycle"] == "planned"
+        for intent in payload["target"]["component_intents"]
+    )
+
+    errors: list[str] = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        assert not errors, f"The 1.3 report failed in the browser runtime: {errors}"
+        assert "Unsupported architecture report schema." not in page.locator("#flow").inner_text()
+        page.locator(".flow-nodes > g").first.wait_for()
+        for version in ("1.2.0", "1.0.0"):
+            legacy = json.loads(json.dumps(payload))
+            legacy["schema_version"] = version
+            for graph in (legacy["observed"], legacy["target"]):
+                if graph is None:
+                    continue
+                graph["schema_version"] = version
+                for intent in graph["component_intents"]:
+                    intent.pop("lifecycle", None)
+                    if version == "1.0.0":
+                        intent.pop("layer", None)
+            legacy_html = (
+                html[: match.start(1)]
+                + json.dumps(legacy).replace("<", "\\u003c")
+                + html[match.end(1) :]
+            )
+            errors.clear()
+            page.set_content(legacy_html, wait_until="load")
+            assert not errors, (
+                f"The legacy {version} report failed in the browser runtime: {errors}"
+            )
+            assert (
+                "Unsupported architecture report schema." not in page.locator("#flow").inner_text()
+            )
+            page.locator(".flow-nodes > g").first.wait_for()
+    finally:
+        browser.close()
+        playwright.stop()
 
 
 def test_atlas_structure_overview_retains_canonical_component_route(tmp_path):

@@ -18,6 +18,7 @@ from archkeel.ir.architecture_graph import (
     AssessmentStatus,
     CompletenessMode,
     ComponentIntent,
+    ComponentLifecycle,
     ComponentMembership,
     ComponentRole,
     ContractModuleTarget,
@@ -54,11 +55,17 @@ from archkeel.ir.architecture_graph import (
     Visibility,
     VisibilityBasis,
     VisibilityKind,
+    component_ancestor_ids,
 )
+from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.facts import Evidence
 from archkeel.ir.model import RawJson
 
 _MISSING = object()
+
+
+class WireComponentSelectorError(ValueError):
+    """A target graph's API ownership cannot be represented unambiguously on the wire."""
 
 
 def _object(value: RawJson) -> TypeGuard[dict[str, RawJson]]:
@@ -101,6 +108,33 @@ def _texts(value: RawJson, label: str) -> tuple[str, ...]:
     if len(set(entries)) != len(entries):
         raise ValueError(f"{label} must be unique")
     return entries
+
+
+def _validate_wire_component_selectors(graph: ArchitectureGraph) -> None:
+    intents = {item.component_id: item for item in graph.component_intents}
+    for intent in graph.component_intents:
+        if intent.lifecycle is not ComponentLifecycle.PLANNED:
+            continue
+        ancestors = component_ancestor_ids(intents, intent.component_id)
+        for selector in intent.planned or ():
+            for owner in graph.component_intents:
+                if owner.component_id == intent.component_id:
+                    continue
+                if owner.component_id not in ancestors and ModuleSelection(
+                    owner.packages, owner.exact_modules
+                ).matches_api_selector(selector):
+                    raise WireComponentSelectorError(
+                        f"planned API selector {selector!r} is owned by active package component "
+                        f"{owner.component_id!r}"
+                    )
+                if any(
+                    ModuleSelection.api_selectors_overlap(selector, other)
+                    for other in (*(owner.public or ()), *(owner.planned or ()))
+                ):
+                    raise WireComponentSelectorError(
+                        f"planned API selector {selector!r} is claimed by multiple components "
+                        f"including {owner.component_id!r}"
+                    )
 
 
 def _boolean(value: RawJson, label: str) -> bool:
@@ -165,6 +199,7 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
             "label",
             "layout_rule_ids",
             "layer",
+            "lifecycle",
         },
         "component_intent",
     )
@@ -190,6 +225,11 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         layout_rule_ids=_texts(item.get("layout_rule_ids", ()), "component_intent.layout_rule_ids"),
         layer=non_empty_text(item["layer"], "component_intent.layer")
         if item.get("layer", _MISSING) is not _MISSING
+        else None,
+        lifecycle=ComponentLifecycle(
+            non_empty_text(item["lifecycle"], "component_intent.lifecycle")
+        )
+        if item.get("lifecycle", _MISSING) is not _MISSING
         else None,
     )
 
@@ -455,11 +495,16 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         "graph",
     )
     version = GraphSchemaVersion(non_empty_text(item["schema_version"], "graph.schema_version"))
-    if version != GraphSchemaVersion.V1_2_0 and any(
-        _object(entry) and entry.get("layer", _MISSING) is not _MISSING
+    if version not in {GraphSchemaVersion.V1_2_0, GraphSchemaVersion.V1_3_0} and any(
+        isinstance(entry, dict) and entry.get("layer", _MISSING) is not _MISSING
         for entry in _array(item.get("component_intents", ()), "component_intents")
     ):
         raise ValueError("layer requires graph schema_version 1.2.0")
+    if version != GraphSchemaVersion.V1_3_0 and any(
+        isinstance(entry, dict) and entry.get("lifecycle", _MISSING) is not _MISSING
+        for entry in _array(item.get("component_intents", ()), "component_intents")
+    ):
+        raise ValueError("component lifecycle requires graph schema_version 1.3.0")
     graph = ArchitectureGraph(
         OriginKind(non_empty_text(item["origin"], "graph.origin")),
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
@@ -494,6 +539,7 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
             for entry in _array(item.get("public_api", ()), "public_api")
         ),
     )
+    _validate_wire_component_selectors(graph)
     graph.validate()
     return graph
 
@@ -518,11 +564,14 @@ def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
     for intent in encoded["component_intents"]:
         if intent["layer"] is None:
             del intent["layer"]
+        if intent["lifecycle"] is None:
+            del intent["lifecycle"]
     return encoded
 
 
 def graph_bytes(graph: ArchitectureGraph) -> bytes:
     graph.validate()
+    _validate_wire_component_selectors(graph)
     text: str = json.dumps(_graph_payload(graph), sort_keys=True, ensure_ascii=False) + "\n"
     return text.encode()
 
@@ -677,6 +726,9 @@ def _report_finding(value: RawJson) -> ReportFinding:
 
 def report_bytes(report: ArchitectureReport) -> bytes:
     report.validate()
+    for graph in (report.observed, report.target):
+        if graph is not None:
+            _validate_wire_component_selectors(graph)
     payload = {
         "observed": None if report.observed is None else _graph_payload(report.observed),
         "target": None if report.target is None else _graph_payload(report.target),

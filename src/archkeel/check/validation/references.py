@@ -16,6 +16,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.facts import SourceNameVisibility
 from archkeel.ir.model import (
     ArchitectureContract,
+    ComponentLifecycle,
     ContractComponent,
     Diagnostic,
     Observation,
@@ -56,14 +57,32 @@ def _entry_ownership_diagnostics(
     for item, entry in enumerate(entries or ()):
         module, _, name = entry.partition(":")
         pointer = f"/components/{index}/{field}/{item}"
-        if contract.component_for(module) is not component:
+        if component.lifecycle is ComponentLifecycle.PLANNED:
+            conflict = any(
+                _planned_selector_overlaps(entry, other_entry)
+                for other in contract.components
+                if other is not component
+                for other_entry in (*(other.public or ()), *(other.planned or ()))
+            )
+            owned = not conflict and contract.component_for(module) is None
+            claim = (
+                "The planned API selector is claimed by multiple components."
+                if conflict
+                else "The planned API selector is owned by a package-backed component."
+            )
+            remedy = "Keep one owner for the selector and remove conflicting declarations."
+        else:
+            owned = contract.component_for(module) is component
+            claim = "The public entry's module is not owned by this component."
+            remedy = "Move the entry to its owning component or correct the module."
+        if not owned:
             diagnostics.append(
                 _diagnostic(
                     _DiagnosticCode.REFERENCE_PUBLIC_OWNER,
                     pointer,
                     entry,
-                    "The public entry's module is not owned by this component.",
-                    "Move the entry to its owning component or correct the module.",
+                    claim,
+                    remedy,
                 )
             )
         if _source_name_visibility(name) is SourceNameVisibility.PRIVATE:
@@ -77,6 +96,14 @@ def _entry_ownership_diagnostics(
                 )
             )
     return diagnostics
+
+
+def _planned_selector_overlaps(first: str, second: str) -> bool:
+    first_module, first_separator, first_name = first.partition(":")
+    second_module, second_separator, second_name = second.partition(":")
+    return first_module == second_module and (
+        not first_separator or not second_separator or first_name == second_name
+    )
 
 
 def _public_diagnostics(contract: ArchitectureContract) -> list[Diagnostic]:
