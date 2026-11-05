@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "127c37ecf0a6cf3c0059d0f81e370b952719652bdfb126a483df6c58f5cd282f",
+  "after_digest": "c6958d8ca6875c7ba41df23c448da2bc4126533f40a7de8bae4fc18b4957768f",
+  "before_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
+  "before_digest": "9e1fb48b873895baedb63fba35f69e9f8128ea43034f2621378c11b98aa1c354",
+  "decided_by": "Alexander Kell (architect; standing approval for justified budget changes)",
+  "rationale": "CI run 42054960502, job 127340714236, at head ffa7dc12 reports Rules PASS, no diagnostics, and calls_unresolved 942→945/30900. The three added calls are cli._studio lock.enter_context (dynamic receiver), cli.launcher._stop_studio _path(folder).unlink (dynamic expression), and studio.server.Studio.service_actions serving (callable not proven). Set the ceiling to the measured 945; no other measurement budgets change.",
+  "schema_version": "2.0.0"
+}
