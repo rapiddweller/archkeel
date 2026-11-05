@@ -34,7 +34,12 @@ from archkeel.ir.codec import (
     observation_payload,
     parse_contract,
 )
-from archkeel.ir.decisions import RuleUncertaintyCause, rule_uncertainty_evidence
+from archkeel.ir.decisions import (
+    RuleUncertaintyCause,
+    rule_assessments,
+    rule_uncertainty_evidence,
+    unknown_positions_by_rule,
+)
 from archkeel.ir.digest import package_digest
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
@@ -352,6 +357,72 @@ def test_an_inside_crossing_no_requires_entry_covers_becomes_a_violation(tmp_pat
     assert violations[0].data.get("target_module") == "sample.core.a"
     declared = {record.id for record in result.observation.records("declarations") or ()}
     assert "core:REQUIRES-COMPLETE" in declared
+
+
+@pytest.mark.parametrize(
+    ("known_violation", "expected_status"), [(True, "FAIL"), (False, "UNKNOWN")]
+)
+def test_planned_component_does_not_mask_known_rule_failures(
+    tmp_path: Path, known_violation: bool, expected_status: str
+) -> None:
+    source = _component("a")
+    target = _component("b", public=["sample.b:public"])
+    planned = {
+        "id": "COMP-C",
+        "label": "c",
+        "role": "component",
+        "lifecycle": "planned",
+        "packages": [],
+        "planned": ["sample.c.future:build"],
+        "responsibilities": [],
+        "forbidden_responsibilities": [],
+        "provenance": ["docs/architecture/sample.md"],
+    }
+    if not known_violation:
+        source["requires"] = [{"component": "b", "rationale": "Probe."}]
+    contract = {
+        "schema_version": "2.4.0",
+        "components": [source, target, planned],
+        "rules": [
+            {
+                "id": "REQUIRES-COMPLETE",
+                "kind": "complete_requires",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "INTERFACE",
+                "kind": "interface_boundary",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    (tmp_path / "contract.json").write_text(json.dumps(contract))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/a.py").write_text(
+        "from sample.b import public\n" if not known_violation else "from sample.b import private\n"
+    )
+    (tmp_path / "sample/b.py").write_text("public = 1\nprivate = 2\n")
+
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assessments = {
+        item.id: item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+    }
+    assert assessments["REQUIRES-COMPLETE"].status.value == expected_status
+    assert assessments["INTERFACE"].status.value == expected_status
+
+    violations = result.observation.records("violations") or ()
+    assert {item.kind for item in violations} == (
+        {"complete_requires", "interface_boundary"} if known_violation else set()
+    )
 
 
 def test_an_inside_without_its_rule_decides_nothing(tmp_path: Path) -> None:
