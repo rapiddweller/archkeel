@@ -1,7 +1,6 @@
 /** AD-290, AD-291: Stories: the list of the story specs and the player of one checked story. */
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  CheckStatus,
   CheckedStory,
   SnapshotCompleteness,
   StepLink,
@@ -14,21 +13,12 @@ import {
   readStory,
 } from "../api";
 import { Badge, Box, ExploreFailure, Page, ProofMark, View, viewHref } from "../components";
-import { Evidence, Proof, proofKind } from "../evidence";
+import { Evidence, Proof, proofKind, proofOfCheck } from "../evidence";
 import { baseName } from "../model";
 import { STORY, layoutStory } from "../story-layout";
 import { ExploreState } from "../vocabulary";
 
 const STEP_MS = 4000;
-
-/** The check has five statuses and the proof three. Only `proven` is proven: never round up. */
-const PROOF_OF: Record<CheckStatus, Proof> = {
-  [CheckStatus.Proven]: Proof.Proven,
-  [CheckStatus.Declared]: Proof.Claim,
-  [CheckStatus.Claim]: Proof.Claim,
-  [CheckStatus.Unknown]: Proof.Unknown,
-  [CheckStatus.Missing]: Proof.Unknown,
-};
 
 const site = (file: string | null, line: number | null): string =>
   file === null ? "no place" : line === null ? file : `${file}:${line}`;
@@ -56,7 +46,7 @@ function Verdict(props: { checked: CheckedStory }) {
 
 function StepPanel(props: { step: StoryStep; link: StepLink; count: number }) {
   const { step, link } = props;
-  const proof = PROOF_OF[link.status];
+  const proof = proofOfCheck(link.status);
   const touched = step.external.filter((item) => item.touched || item.direction);
   return (
     <aside class="story-panel" aria-label="Step">
@@ -208,7 +198,7 @@ function Player(props: { answer: StoryAnswer }) {
     return <p class="more">This spec has no story: it has no steps to play.</p>;
   }
   const link = (index: number): StepLink => checked.steps[index];
-  const proofAt = (index: number): Proof => PROOF_OF[link(index).status];
+  const proofAt = (index: number): Proof => proofOfCheck(link(index).status);
   return (
     <div class="story-player">
       <div class="story-head">

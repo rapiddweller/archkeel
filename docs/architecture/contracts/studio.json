@@ -15,6 +15,7 @@
         "archkeel.studio.api:ChatBlockKind",
         "archkeel.studio.api:ChatError",
         "archkeel.studio.api:ChatFailure",
+        "archkeel.studio.api:ChatMode",
         "archkeel.studio.api:ChatRequest",
         "archkeel.studio.api:ComponentRow",
         "archkeel.studio.api:ComponentSource",
@@ -35,7 +36,10 @@
         "archkeel.studio.api:SnapshotCompleteness",
         "archkeel.studio.api:SnapshotInfo",
         "archkeel.studio.api:StoryCounts",
+        "archkeel.studio.api:StoryCandidate",
+        "archkeel.studio.api:StoryDraft",
         "archkeel.studio.api:StoryRow",
+        "archkeel.studio.api:StoryStepDraft",
         "archkeel.studio.api:StorySource",
         "archkeel.studio.api:StudioState",
         "archkeel.studio.api:SymbolKind",
@@ -53,6 +57,7 @@
         "archkeel.studio.api:member",
         "archkeel.studio.api:number_at",
         "archkeel.studio.api:parse_chat_request",
+        "archkeel.studio.api:parse_story_candidate",
         "archkeel.studio.api:places",
         "archkeel.studio.api:rows",
         "archkeel.studio.api:state_json",
@@ -62,7 +67,7 @@
         "archkeel.studio.api:texts_at"
       ],
       "responsibilities": [
-        "Declare the versioned HTTP API: its routes, the served UI files, the typed state, graph, story and chat bodies with their JSON forms, and the closed vocabularies that decode the snapshot."
+        "Declare the versioned HTTP API: routes, served UI files, typed state, graph, story and chat bodies, JSON forms and decoded snapshot vocabularies. Story candidates use the existing ViewSpec checker; no agent verdict is evidence."
       ],
       "forbidden_responsibilities": [
         "Network, process or file access.",
@@ -72,6 +77,7 @@
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
         "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md",
+        "docs/architecture/decisions/ad-306-studio-chat-exports-checked-story-drafts.md",
         "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md",
         "docs/architecture/decisions/ad-303-local-mcp-adapts-shared-read-only-project-operations.md"
       ],
@@ -260,7 +266,8 @@
         "Passing an API key or reading an auth file."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md",
+        "docs/architecture/decisions/ad-306-studio-chat-exports-checked-story-drafts.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -270,6 +277,7 @@
             "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ChatError",
             "archkeel.studio.api:ChatFailure",
+            "archkeel.studio.api:ChatMode",
             "archkeel.studio.api:ChatRequest",
             "archkeel.studio.api:SnapshotCompleteness"
           ],
@@ -314,6 +322,7 @@
             "archkeel.studio.api:Json",
             "archkeel.studio.api:Place",
             "archkeel.studio.api:SnapshotCompleteness",
+            "archkeel.studio.api:SymbolKind",
             "archkeel.studio.api:data_of",
             "archkeel.studio.api:decoded",
             "archkeel.studio.api:first_place",
@@ -340,7 +349,7 @@
         "archkeel.studio.server:run_studio"
       ],
       "responsibilities": [
-        "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token, check and route each chat request, end after an idle time and tell whether a URL is a Studio."
+        "Serve the shell, the API and snapshot files on 127.0.0.1 behind a per-run token; route chat and pass story candidates through the injected checker; end after idle time and identify Studio URLs."
       ],
       "forbidden_responsibilities": [
         "Starting processes, analyzing source or writing files.",
@@ -349,7 +358,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
         "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md",
-        "docs/architecture/decisions/ad-303-local-mcp-adapts-shared-read-only-project-operations.md"
+        "docs/architecture/decisions/ad-303-local-mcp-adapts-shared-read-only-project-operations.md",
+        "docs/architecture/decisions/ad-306-studio-chat-exports-checked-story-drafts.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -361,6 +371,9 @@
             "archkeel.studio.api:ChatAnswer",
             "archkeel.studio.api:ChatError",
             "archkeel.studio.api:ChatFailure",
+            "archkeel.studio.api:ChatMode",
+            "archkeel.studio.api:ChatRequest",
+            "archkeel.studio.api:StoryDraft",
             "archkeel.studio.api:ExploreState",
             "archkeel.studio.api:MediaType",
             "archkeel.studio.api:Route",
@@ -371,6 +384,7 @@
             "archkeel.studio.api:graph_json",
             "archkeel.studio.api:member",
             "archkeel.studio.api:parse_chat_request",
+            "archkeel.studio.api:parse_story_candidate",
             "archkeel.studio.api:state_json",
             "archkeel.studio.api:stories_json",
             "archkeel.studio.api:story_json"
@@ -387,16 +401,27 @@
         {
           "component": "agent",
           "through": [
-            "archkeel.studio.agent:Agent"
+            "archkeel.studio.agent:Agent",
+            "archkeel.studio.agent:Reply"
           ],
           "rationale": "Let the one agent answer a question; the server starts no process."
         },
         {
           "component": "stories",
           "through": [
+            "archkeel.studio.stories:CheckStory",
+            "archkeel.studio.stories:DraftStory",
+            "archkeel.studio.stories:Stories",
             "archkeel.studio.stories:provenance"
           ],
-          "rationale": "Read the optional fields of a stored story that say where it comes from."
+          "rationale": "Read provenance and pass the candidate through the injected draft and check owner."
+        },
+        {
+          "component": "answer",
+          "through": [
+            "archkeel.studio.answer:Snapshot"
+          ],
+          "rationale": "Keep the drafted story bound to the exact snapshot that was checked."
         }
       ],
       "exact_modules": [

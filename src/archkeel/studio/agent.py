@@ -17,7 +17,7 @@ from pathlib import Path
 from string import Template
 from typing import IO, Final
 
-from .api import AgentKind, ChatError, ChatFailure, ChatRequest, SnapshotCompleteness
+from .api import AgentKind, ChatError, ChatFailure, ChatMode, ChatRequest, SnapshotCompleteness
 
 _TIMEOUT_SECONDS: Final = 180.0
 _OUTPUT_LIMIT: Final = 128 * 1024
@@ -30,16 +30,7 @@ You answer one question about the code in the current folder.
 $tools
 
 Reply with one JSON object and no other text. Use this shape:
-{"blocks": [{"kind": "claim", "text": "...", "refs": ["module.qualified_name"]}]}
-
-Rules:
-1. Use kind "claim" for a statement about the code. Use kind "proposal" for a change that you
-   suggest. Nothing applies a proposal.
-2. Put in refs the qualified name of each function or class that a block is about. Write the
-   module path and the name, for example shop.app.orders.place. Studio drops each name that its
-   snapshot does not hold.
-3. Write at most 10 blocks, at most 2000 characters in each text and at most 20 refs in each block.
-4. Say what you could not check. Do not guess.
+$shape
 
 Snapshot completeness: $completeness
 
@@ -55,6 +46,12 @@ this is an incomplete snapshot: it may omit files, symbols, or calls. Missing na
 UNKNOWN, not evidence of absence. Do not make negative or exhaustive claims from these lists.
 """
 )
+_ANSWER_SHAPE: Final = """{"blocks": [{"kind": "claim", "text": "...", "refs": ["module.name"]}]}
+Rules: use claim for statements and proposal for suggestions; nothing applies a proposal. Refs
+name symbols; say what you could not check. Do not guess."""
+_STORY_SHAPE: Final = """{"title": "...", "steps": [{"node": "module.name", "note": "..."}]}
+Rules: return 1 to 50 ordered steps. Each step has a qualified node name and optional author note.
+Do not add verdicts or evidence. A node name is only a candidate; Studio checks every step."""
 # What each agent can do, in the words of its prompt. Codex runs shell commands of the model in
 # its read-only sandbox and can read the whole disk: its prompt must not say "no commands".
 _TOOLS: Final = {
@@ -122,6 +119,7 @@ def _prompt(
 ) -> str:
     return _PROMPT.substitute(
         tools=_TOOLS[kind],
+        shape=_STORY_SHAPE if request.mode is ChatMode.STORY else _ANSWER_SHAPE,
         question=request.question,
         node=request.context or "none",
         facts=neighborhood or "none",

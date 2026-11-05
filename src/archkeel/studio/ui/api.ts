@@ -1,4 +1,4 @@
-/** AD-290: the client of schema/studio-api-1.4; it asks only its own server. */
+/** AD-290: the client of schema/studio-api-1.5; it asks only its own server. */
 import {
   API_VERSION,
   AgentKind,
@@ -168,14 +168,24 @@ export type ChatBlock = {
   readonly refs: readonly string[];
   readonly label: string | null;
 };
+export type StoryDraft = {
+  /** The unchanged ViewSpec for the owner's explicit download. */
+  readonly candidate: Readonly<Record<string, unknown>> & {
+    readonly story: { readonly id: string };
+  };
+  /** The result of the existing ViewSpec checker on this candidate. */
+  readonly checked: CheckedStory;
+};
 export type ChatAnswer = {
   readonly agent: AgentKind;
   readonly snapshot_completeness: SnapshotCompleteness;
   readonly blocks: readonly ChatBlock[];
   readonly facts: readonly Fact[];
   readonly dropped_refs: readonly string[];
+  readonly story: StoryDraft | null;
   readonly applied: false;
 };
+export type ChatMode = "answer" | "story";
 
 /** A chat request that got no answer: the code of the JSON error body, else only the HTTP status. */
 export class ChatFailed extends Error {
@@ -216,13 +226,17 @@ export async function readGraph(): Promise<Graph | null> {
 /** The header a page of another origin cannot send without a preflight (AD-292). */
 const CHAT_HEADER = "X-Archkeel-Studio";
 
-/** AD-292: ask the owner's agent; the answer is claims and proposals, and Studio's own facts. */
-export async function askChat(question: string, context: string | null): Promise<ChatAnswer> {
+/** Ask a question or request a structured story candidate checked by Studio. */
+export async function askChat(
+  question: string,
+  context: string | null,
+  mode: ChatMode = "answer",
+): Promise<ChatAnswer> {
   const response = await fetch("/api/v1/chat", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", [CHAT_HEADER]: "1" },
-    body: JSON.stringify({ question, context }),
+    body: JSON.stringify({ question, context, mode }),
   });
   if (!response.ok) {
     // A 403 or 405 has a text body; the others have {error, detail}.
