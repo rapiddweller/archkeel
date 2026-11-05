@@ -223,7 +223,9 @@ def parse_component_intent(value: RawJson) -> ComponentIntent:
         layer=non_empty_text(item["layer"], "component_intent.layer")
         if item.get("layer", _MISSING) is not _MISSING
         else None,
-        lifecycle=ComponentLifecycle(item["lifecycle"])
+        lifecycle=ComponentLifecycle(
+            non_empty_text(item["lifecycle"], "component_intent.lifecycle")
+        )
         if item.get("lifecycle", _MISSING) is not _MISSING
         else None,
     )

@@ -644,6 +644,18 @@ def test_graph_wire_rejects_ambiguous_planned_api_selector(wire: str, conflict: 
     assert f"planned API selector 'pkg:Foo' {expected_reason}" in str(error.value)
 
 
+@pytest.mark.parametrize("lifecycle", [None, 1, "future"])
+def test_graph_wire_rejects_invalid_component_lifecycle(lifecycle: object) -> None:
+    payload = asdict(_ambiguous_selector_graph("planned-owner"))
+    for intent in payload["component_intents"]:
+        if intent["layer"] is None:
+            del intent["layer"]
+    payload["component_intents"][0]["lifecycle"] = lifecycle
+
+    with pytest.raises(ValueError):
+        parse_graph(payload)
+
+
 def _ambiguous_selector_graph(conflict: str) -> ArchitectureGraph:
     first_intent = (
         ComponentIntent(

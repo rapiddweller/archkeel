@@ -134,7 +134,7 @@ def _html_report_payload(
     """Keep invalid target intent UNKNOWN while producing only valid report wire data."""
     warning: str | None = None
     try:
-        encoded = report_bytes(report)
+        encoded_bytes = report_bytes(report)
     except WireComponentSelectorError as error:
         warning = f"UNKNOWN: Target graph unavailable: {error}"
         source_ids = (
@@ -161,9 +161,9 @@ def _html_report_payload(
             memberships=(),
             decision_gaps=(),
         )
-        encoded = report_bytes(report)
+        encoded_bytes = report_bytes(report)
 
-    payload = json.loads(encoded)
+    payload = json.loads(encoded_bytes)
     for side in ("observed", "target"):
         graph = payload[side]
         if graph is None:
@@ -171,8 +171,8 @@ def _html_report_payload(
         for collection in ("entities", "relationships"):
             for item in graph[collection]:
                 del item["record_ids"]
-    encoded: str = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
-    return report, encoded.encode("utf-8"), warning
+    payload_text = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
+    return report, payload_text.encode("utf-8"), warning
 
 
 def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
