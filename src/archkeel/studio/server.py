@@ -351,12 +351,12 @@ class _Handler(BaseHTTPRequestHandler):
         snapshot = self.studio.workspace.snapshot()
         if snapshot is None:
             state = self.studio.workspace.state()
-            message = {
-                ExploreState.INCOMPLETE: (
-                    "Explore was incomplete, but no readable snapshot is available."
-                ),
-                ExploreState.FAILED: "Explore did not produce a readable snapshot.",
-            }.get(state.explore, "Explore has not finished.")
+            if state.explore is ExploreState.INCOMPLETE:
+                message = "Explore was incomplete, but no readable snapshot is available."
+            elif state.explore is ExploreState.FAILED:
+                message = "Explore did not produce a readable snapshot."
+            else:
+                message = "Explore has not finished."
             raise ChatFailure(ChatError.SNAPSHOT_NOT_READY, message)
         context = request.context
         if context is not None and not snapshot.has(context):

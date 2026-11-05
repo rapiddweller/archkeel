@@ -76,3 +76,6 @@ was not listed, and an incomplete snapshot cannot establish absence. Studio comp
 existing positive facts and counts, preserves UNKNOWN, and still applies no proposal. Missing-agent
 and sign-in failures show actionable detail without exposing stderr. `tests/test_studio_chat.py`,
 `tests/test_studio.py` and `tests/test_studio_browser.py` cover the extension.
+
+The API owns `SnapshotCompleteness` as typed run state. The workspace derives it from Explore,
+the snapshot index carries it into checked answers, and the agent uses it to qualify its prompt.
