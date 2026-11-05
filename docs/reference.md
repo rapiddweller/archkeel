@@ -111,6 +111,10 @@ For a new setup, `archkeel init --collector-output-limit-bytes 268435456` uses t
 limit for initialization and saves it in the generated config. `report`, `validate`
 and `check` use the configured limit; `check` binds it to the accepted config like
 the other scan inputs. See [AD-224](architecture/decisions/ad-224-configurable-collector-output-limit.md).
+Contract-free `explore` and `studio` also accept
+`--collector-output-limit-bytes BYTES` for one run. The default remains 64 MiB. A larger
+limit can use much more memory after decompression and parsing. Studio reuses a running session
+only when its requested limit matches. See [AD-308](architecture/decisions/ad-308-finite-per-run-collector-limit-for-explore-and-studio.md).
 
 The collector deadline defaults to 300 seconds. A large repository that times out may set
 `collector_timeout_seconds = 900` in `[scan]`; the value must be a positive integer no larger
@@ -169,7 +173,7 @@ imports and gives no verdicts.
 
 ## Explore without a contract
 
-`archkeel explore [--root PATH] [--output DIR]` shows a repository that has no ArchKeel file
+`archkeel explore [--root PATH] [--output DIR] [--collector-output-limit-bytes BYTES]` shows a repository that has no ArchKeel file
 ([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)). It finds the one
 top-level Python package as `init` does, or reads the `init` options `--language`, `--source`,
 `--namespace` and `--tsconfig`, and groups the modules by the package layout. A Python component
@@ -188,7 +192,7 @@ the contract is valid, and no rule was checked.
 
 ## Studio
 
-`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES] [--agent claude|codex]` serves ArchKeel Studio,
+`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES] [--agent claude|codex] [--collector-output-limit-bytes BYTES]` serves ArchKeel Studio,
 a local web app, on 127.0.0.1 and opens it in the browser. It takes the scope options of `explore`
 and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
@@ -295,7 +299,7 @@ A running server writes `studio.json` (pid, URL with token, port, root, start ti
 the explore cache folder of the root, with mode 0600. It removes the file when it stops.
 
 - A second `archkeel studio` for the same root reuses the server only if the requested
-  `--language`, `--source`, `--namespace`, `--tsconfig` and `--agent` match its stored scope and a request to
+  `--language`, `--source`, `--namespace`, `--tsconfig`, `--agent` and `--collector-output-limit-bytes` match its stored scope and a request to
   the stored URL gets the Studio login redirect (303 with the cookie `archkeel_studio_<port>`).
   A mismatch or older state without scope exits 2 with a `--stop` hint; it does not start another
   scan. Unknown or malformed saved scope is treated as UNKNOWN. A live pid is not enough. A per-root

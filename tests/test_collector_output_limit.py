@@ -13,7 +13,7 @@ from test_onboarding import _repository
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
-from archkeel.cli import main
+from archkeel.cli import build_parser, main
 from archkeel.cli.config import ConfigError, parse_config
 from archkeel.cli.observe import observer_for
 from archkeel.ir.facts import Language
@@ -102,6 +102,15 @@ def test_init_rejects_invalid_output_limits_without_writing_files(
     )
     assert json.loads(capsys.readouterr().out)["diagnostics"]
     assert not (root / "archkeel.toml").exists()
+
+
+@pytest.mark.parametrize("command", ["explore", "studio"])
+@pytest.mark.parametrize("value", ["0", "-1", "unlimited"])
+def test_per_run_collector_output_limit_must_be_finite_and_positive(
+    command: str, value: str
+) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        build_parser().parse_cli_args([command, "--collector-output-limit-bytes", value])
 
 
 def test_observer_carries_the_bundler_flag() -> None:

@@ -894,6 +894,15 @@ def test_studio_forwards_the_scope_options_to_explore(tmp_path: Path) -> None:
     assert page.status == 200
 
 
+def test_studio_forwards_the_collector_output_limit(tmp_path: Path) -> None:
+    root = _repository(tmp_path / "shop")
+    workspace = _workspace(root, tmp_path / "cache", "--collector-output-limit-bytes", "104857600")
+    try:
+        assert "--collector-output-limit-bytes=104857600" in workspace._explore
+    finally:
+        workspace.close()
+
+
 def _running_child(tmp_path: Path, script: str) -> Workspace:
     """A workspace whose explore child runs `script` and touches `ready` when it is set up."""
     workspace = Workspace(

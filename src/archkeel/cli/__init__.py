@@ -109,6 +109,17 @@ def _sha(value: str) -> str:
     return value
 
 
+def _positive_bytes(value: str) -> int:
+    """Parse a finite positive byte limit for one observation."""
+    try:
+        limit = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a positive integer") from error
+    if limit <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return limit
+
+
 class _Parser(argparse.ArgumentParser):
     def parse_cli_args(self, args: Sequence[str] | None = None) -> CLIArguments:
         arguments = argparse.ArgumentParser.parse_args(self, args, CLIArguments())
@@ -299,6 +310,8 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         for name, value in (("namespace", args.namespace), ("tsconfig", args.tsconfig))
         if value is not None
     ]
+    if args.collector_output_limit_bytes is not None:
+        scope.append(f"--collector-output-limit-bytes={args.collector_output_limit_bytes}")
     explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
     check_story, clear_story_check = _story_checker()
     return Workspace(
@@ -335,6 +348,7 @@ def _studio(args: CLIArguments) -> int:
         args.namespace,
         args.tsconfig,
         AgentKind(args.chat_agent.value),
+        args.collector_output_limit_bytes,
     )
     lock: ExitStack = ExitStack()
     session_lock = studio_lock(cache)
@@ -491,6 +505,16 @@ def _observing(parser: _Parser, output_help: str | None) -> None:
         "--json",
         action="store_true",
         help="Print the JSON result even in an interactive terminal.",
+    )
+
+
+def _collector_output_limit(parser: _Parser) -> None:
+    parser.add_argument(
+        "--collector-output-limit-bytes",
+        type=_positive_bytes,
+        metavar="BYTES",
+        help="Finite collector stdout limit for this run. Default: 67108864 (64 MiB). "
+        "Higher values can use much more memory; no unlimited mode exists.",
     )
 
 
@@ -662,6 +686,7 @@ def build_parser() -> _Parser:
         "Folder for architecture.json and the report pages, outside the repository. "
         "Default: $XDG_CACHE_HOME/archkeel/explore/<root hash> (~/.cache by default).",
     )
+    _collector_output_limit(explore)
 
     validate = commands.add_parser(
         Command.VALIDATE.value,
@@ -1055,6 +1080,7 @@ def build_parser() -> _Parser:
             "  2  the server could not start"
         ),
     )
+    _collector_output_limit(studio)
     studio.add_argument(
         "--root", type=Path, default=Path.cwd(), help="Repository root. Default: this folder."
     )
@@ -1206,7 +1232,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 artifact: Path = folder / _ARCHITECTURE_JSON
                 result, architecture = run_explore(
                     root,
-                    observer=observer_for(args.language, tsconfig=args.tsconfig or "tsconfig.json"),
+                    observer=observer_for(
+                        args.language,
+                        tsconfig=args.tsconfig or "tsconfig.json",
+                        output_limit_bytes=args.collector_output_limit_bytes,
+                    ),
                     source=tuple(args.source) if args.source is not None else None,
                     namespace=args.namespace,
                     language=args.language,

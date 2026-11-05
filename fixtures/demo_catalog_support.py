@@ -179,6 +179,8 @@ class Variant:
     expected_declared_rules: Literal["PASS", "FAIL", "UNKNOWN"] | None = None
     # AD-285: the row runs `archkeel explore` on a fixture with no ArchKeel file.
     explore: bool = False
+    # Extra CLI scope for a contract-free explore row, including finite collector limits.
+    explore_options: tuple[str, ...] = ()
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:

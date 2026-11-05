@@ -217,6 +217,34 @@ def test_a_legacy_studio_without_scope_metadata_is_not_reused(
     assert "--stop" in output
 
 
+def test_a_legacy_scope_without_output_limit_remains_readable_with_unknown_scope(
+    tmp_path: Path,
+) -> None:
+    folder = tmp_path / "cache"
+    folder.mkdir()
+    legacy = {
+        "pid": os.getpid(),
+        "url": "http://127.0.0.1:1234/?token=legacy",
+        "port": 1234,
+        "root": str(tmp_path),
+        "started": "2026-11-05T00:00:00Z",
+        "scope": {
+            "language": "typescript",
+            "sources": ["src"],
+            "namespace": "shop",
+            "tsconfig": "tsconfig.json",
+            "agent": "claude",
+        },
+    }
+    (folder / "studio.json").write_text(json.dumps(legacy))
+
+    saved = launcher._read(folder)
+
+    assert saved is not None
+    assert saved.scope is None
+    assert saved.pid == os.getpid()
+
+
 def test_a_scope_missing_optional_fields_and_with_an_unknown_field_is_unknown(
     tmp_path: Path,
 ) -> None:
@@ -300,6 +328,46 @@ def test_a_different_chat_agent_does_not_reuse_a_live_studio(
     assert result != 0
     assert "claude" in output.lower()
     assert "codex" in output.lower()
+    assert "--stop" in output
+
+
+def test_a_different_collector_limit_does_not_reuse_a_live_studio(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(tmp_path / "shop")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    active = SimpleNamespace(
+        root=str(root),
+        url="http://127.0.0.1:1234/?token=active",
+        scope=cli.StudioScope(
+            "typescript", ("src",), "shop", "tsconfig.json", cli.AgentKind.CLAUDE, 1
+        ),
+        stopping=False,
+    )
+    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(
+        cli, "studio_workspace", lambda *_args: pytest.fail("limit mismatch must not scan")
+    )
+
+    result = cli._studio(
+        _args(
+            root,
+            "--language",
+            "typescript",
+            "--source",
+            "src",
+            "--namespace",
+            "shop",
+            "--tsconfig",
+            "tsconfig.json",
+            "--collector-output-limit-bytes",
+            "104857600",
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert result == 2
+    assert "scope" in output.lower()
     assert "--stop" in output
 
 
