@@ -4,6 +4,7 @@
 """AD-290: serve the shell, the read-only API and the snapshot files on 127.0.0.1."""
 
 import http.client
+import json
 import mimetypes
 import secrets
 import socket
@@ -24,9 +25,11 @@ from .api import (
     ChatAnswer,
     ChatError,
     ChatFailure,
+    ChatMode,
     ExploreState,
     MediaType,
     Route,
+    StoryDraft,
     UiAsset,
     chat_json,
     draft_json,
@@ -34,6 +37,7 @@ from .api import (
     graph_json,
     member,
     parse_chat_request,
+    parse_story_candidate,
     state_json,
     stories_json,
     story_json,
@@ -367,6 +371,53 @@ class _Handler(BaseHTTPRequestHandler):
             raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
         neighborhood = snapshot.neighborhood(context) if context is not None else ""
         reply = self.studio.agent.ask(request, neighborhood, snapshot.completeness)
+        if request.mode is ChatMode.STORY:
+            stories = self.studio.workspace.stories
+            snapshot_path = self.studio.workspace.file("architecture.json")
+            if (
+                stories is None
+                or snapshot_path is None
+                or self.studio.workspace.snapshot() is not snapshot
+            ):
+                raise ChatFailure(
+                    ChatError.SNAPSHOT_NOT_READY,
+                    "The snapshot changed while the story was being drafted. "
+                    "Refresh and try again.",
+                )
+            candidate = parse_story_candidate(reply.text)
+            if request.context is None:
+                raise ChatFailure(
+                    ChatError.INVALID_REQUEST, "a story draft needs a selected starting node."
+                )
+            spec = dict(stories.draft(snapshot_path, request.context))
+            story = spec.get("story")
+            if not isinstance(story, dict):
+                raise ChatFailure(
+                    ChatError.INVALID_ANSWER, "The current snapshot cannot seed a story."
+                )
+            spec["title"] = candidate.title
+            spec["nodes"] = list(dict.fromkeys(step.node for step in candidate.steps))
+            spec["steps"] = [{"node": step.node, "note": step.note} for step in candidate.steps]
+            story = dict(story)
+            story["title"] = candidate.title
+            spec["story"] = story
+            spec["author_kind"] = "agent"
+            spec["agent"] = reply.kind.value
+            checked = stories.check(json.dumps(spec).encode(), snapshot_path).result
+            if self.studio.workspace.snapshot() is not snapshot:
+                raise ChatFailure(
+                    ChatError.SNAPSHOT_NOT_READY,
+                    "The snapshot changed while the story was being checked. "
+                    "Refresh and try again.",
+                )
+            return ChatAnswer(
+                reply.kind,
+                snapshot.completeness,
+                (),
+                (),
+                (),
+                StoryDraft(spec, checked),
+            )
         return snapshot.check(reply.text, reply.kind)
 
 

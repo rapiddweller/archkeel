@@ -31,7 +31,7 @@ from archkeel.studio.workspace import Workspace
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
-_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.4.schema.json").read_bytes())
+_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.5.schema.json").read_bytes())
 # The real ArchKeel snapshot takes 95 to 124 s on a laptop and more on a loaded 4 vCPU runner.
 _EXPLORE_SECONDS = 300
 
@@ -116,8 +116,13 @@ def validate(payload: object, name: str) -> None:
     checked_schema = json.loads(
         (Path(__file__).parents[1] / "schema/view-check-1.3.schema.json").read_bytes()
     )
-    registry = Registry().with_resource(
-        checked_schema["$id"], Resource.from_contents(checked_schema)
+    candidate_schema = json.loads(
+        (Path(__file__).parents[1] / "schema/view-spec.schema.json").read_bytes()
+    )
+    registry = (
+        Registry()
+        .with_resource(checked_schema["$id"], Resource.from_contents(checked_schema))
+        .with_resource(candidate_schema["$id"], Resource.from_contents(candidate_schema))
     )
     Draft202012Validator(schema, registry=registry).validate(payload)
 

@@ -639,6 +639,7 @@ _ANSWER = {
     ],
     "facts": [_FACT],
     "dropped_refs": ["shop.nothing"],
+    "story": None,
 }
 
 
@@ -675,7 +676,11 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             chat.get_by_role("textbox", name="Question").fill("What does place do?")
             chat.get_by_role("button", name="Ask", exact=True).click()
             chat.get_by_text("CLAIM", exact=False).first.wait_for()
-            assert seen[0]["body"] == {"question": "What does place do?", "context": _PLACE}
+            assert seen[0]["body"] == {
+                "question": "What does place do?",
+                "context": _PLACE,
+                "mode": "answer",
+            }
             assert seen[0]["headers"]["x-archkeel-studio"]
             assert seen[0]["headers"]["content-type"] == "application/json"
             # Three kinds, three marks: agent text never reads OBSERVED.
@@ -790,6 +795,69 @@ def _checked(**changes) -> dict:
         }
     ]
     return checked | changes
+
+
+@pytest.mark.browser
+def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown(
+    studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    checked = _checked(snapshot_completeness="incomplete")
+    nodes = [step["node"] for step in checked["story"]["steps"]]
+    candidate = {
+        "schema_version": "1.2.0",
+        "title": "The checked flow",
+        "snapshot": checked["snapshot"],
+        "nodes": nodes,
+        "story": {"id": "check-flow", "title": "The checked flow", "chapters": []},
+        "steps": [{"node": node, "note": "Agent-authored text."} for node in nodes],
+        "author_kind": "agent",
+        "agent": "codex",
+    }
+    for link in checked["steps"]:
+        link["note"] = "Agent-authored text."
+    answer = {
+        "api_version": API_VERSION,
+        "agent": "codex",
+        "snapshot_completeness": "incomplete",
+        "blocks": [],
+        "facts": [],
+        "dropped_refs": [],
+        "story": {"candidate": candidate, "checked": checked},
+        "applied": False,
+    }
+    seen: list[dict] = []
+
+    def reply(route) -> None:
+        seen.append(route.request.post_data_json)
+        route.fulfill(json=answer)
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/chat", reply)
+            _lens(page, studio)
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            chat.get_by_role("textbox", name="Question").fill("Explain this flow")
+            chat.get_by_role("button", name="Draft story").click()
+            draft = page.get_by_role("region", name="Checked story draft")
+            draft.get_by_text(
+                "At least one completeness check is incomplete; UNKNOWN does not establish absence."
+            ).wait_for()
+            draft.get_by_text("unknown", exact=True).first.wait_for()
+            draft.get_by_text("Agent-authored text.", exact=False).first.wait_for()
+            draft.get_by_text("View candidate JSON").click()
+            draft.get_by_text("Agent-authored text.", exact=False).first.wait_for()
+            with page.expect_download() as pending:
+                draft.get_by_role("button", name="Download checked story JSON").click()
+            download = pending.value
+            assert download.suggested_filename == "check-flow.story.json"
+            assert json.loads(Path(download.path()).read_text()) == candidate
+            assert seen == [{"question": "Explain this flow", "context": _PLACE, "mode": "story"}]
+        finally:
+            browser.close()
 
 
 @pytest.mark.browser

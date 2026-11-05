@@ -1,6 +1,7 @@
 /** AD-290, AD-292: the chat panel. Agent text is a claim; only Studio makes an OBSERVED fact. */
 import { useState } from "preact/hooks";
-import { ChatAnswer, ChatBlock, ChatFailed, Fact, SnapshotCompleteness, askChat, readDraft } from "./api";
+import { ChatFailed, SnapshotCompleteness, askChat, readDraft } from "./api";
+import type { ChatAnswer, ChatBlock, ChatMode, Fact } from "./api";
 import { Badge, View, viewHref } from "./components";
 import { Evidence } from "./evidence";
 import { Model, findSymbol, fullName, shortName, tailPath } from "./model";
@@ -23,7 +24,7 @@ export interface ChatState {
   /** The chat panel is open: the page that asks (the Briefing) opens it for the pages after it. */
   readonly shown: boolean;
   readonly show: (open: boolean) => void;
-  readonly ask: (question: string, context: string | null) => void;
+  readonly ask: (question: string, context: string | null, mode?: ChatMode) => void;
 }
 
 const REASON: Record<ChatError, string> = {
@@ -65,11 +66,11 @@ export function useChat(
   const [turns, setTurns] = useState<readonly Turn[]>([]);
   const [busy, setBusy] = useState(false);
   const [shown, show] = useState(false);
-  const ask = (question: string, context: string | null): void => {
+  const ask = (question: string, context: string | null, mode: ChatMode = "answer"): void => {
     if (busy) return;
     setTurns((before) => [...before, { kind: TurnKind.Ask, text: question }]);
     setBusy(true);
-    askChat(question, context).then(
+    askChat(question, context, mode).then(
       (answer) => setTurns((before) => [...before, { kind: TurnKind.Answer, answer }]),
       (error) => setTurns((before) => [...before, { kind: TurnKind.Failed, text: failure(error) }]),
     ).finally(() => setBusy(false));
@@ -160,7 +161,11 @@ function Proposal(props: { model: Model; block: ChatBlock; context: string | nul
           type="button"
           class="toggle"
           disabled={from === null}
-          onClick={() => props.ask(`Draft a story that starts at ${from} and follows the resolved calls.`, props.context)}
+          onClick={() => props.ask(
+            `Draft a story that starts at ${from} and follows the listed calls.`,
+            from,
+            "story",
+          )}
         >
           Draft a story
         </button>
@@ -197,6 +202,11 @@ function Claim(props: { model: Model; block: ChatBlock }) {
 
 function Answer(props: { model: Model; answer: ChatAnswer; context: string | null; ask: ChatState["ask"] }) {
   const { answer, model } = props;
+  if (answer.story) {
+    return (
+      <StoryDraftView draft={answer.story} exploreCompleteness={answer.snapshot_completeness} />
+    );
+  }
   return (
     <div class="msg agent">
       <p class="more" role="status">
@@ -222,6 +232,57 @@ function Answer(props: { model: Model; answer: ChatAnswer; context: string | nul
         </p>
       ) : null}
     </div>
+  );
+}
+
+function StoryDraftView(props: {
+  draft: NonNullable<ChatAnswer["story"]>;
+  exploreCompleteness: SnapshotCompleteness;
+}) {
+  const download = (): void => {
+    const id = props.draft.candidate.story.id;
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(props.draft.candidate, null, 2)], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${id}.story.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const checked = props.draft.checked;
+  const verdict = checked.story?.verdict;
+  return (
+    <section class="blk story-draft" aria-label="Checked story draft">
+      <h5>{checked.title} · checked draft</h5>
+      <p class="more" role="status">
+        Explore: {props.exploreCompleteness}; source coverage: {checked.snapshot_completeness}. {props.exploreCompleteness === SnapshotCompleteness.INCOMPLETE || checked.snapshot_completeness === SnapshotCompleteness.INCOMPLETE
+          ? "At least one completeness check is incomplete; UNKNOWN does not establish absence."
+          : "Statuses come from the current snapshot."}
+      </p>
+      {verdict === undefined ? null : (
+        <p class="more">
+          {verdict.proven} proven · {verdict.claim} claim · {verdict.unknown} unknown · {verdict.missing} missing
+        </p>
+      )}
+      <ol>
+        {checked.steps.map((step, index) => (
+          <li key={index}>
+            {step.source === null ? "Start" : step.source} → {step.target}: <b>{step.status}</b>
+            {step.reason ? ` · ${step.reason}` : ""}
+            {step.note ? ` · ${step.note}` : ""}
+          </li>
+        ))}
+      </ol>
+      <details>
+        <summary>View candidate JSON</summary>
+        <pre class="code draft">{JSON.stringify(props.draft.candidate, null, 2)}</pre>
+      </details>
+      <p class="actions">
+        <button type="button" class="toggle" onClick={download}>Download checked story JSON</button>
+      </p>
+      <p class="more">The downloaded candidate is unchanged. Studio did not save it in the project.</p>
+    </section>
   );
 }
 
@@ -299,6 +360,17 @@ export function ChatPanel(props: { model: Model; symbol: number | null; chat: Ch
         />
         <button type="submit" class="go" disabled={chat.busy || text.trim() === ""}>
           Ask
+        </button>
+        <button
+          type="button"
+          class="toggle"
+          disabled={chat.busy || context === null}
+          onClick={() => {
+            chat.ask(text.trim() || "Draft a story for this flow.", context, "story");
+            setText("");
+          }}
+        >
+          Draft story
         </button>
       </form>
     </section>

@@ -14,12 +14,11 @@ import sys
 import threading
 import time
 from collections.abc import Iterator
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from test_explore import _repository, _tree_digest
-from test_studio import login, running, state, validate
+from test_studio import explore, login, running, state, validate
 
 from archkeel.cli import build_parser
 from archkeel.studio.agent import Agent
@@ -95,6 +94,15 @@ elif question == "edits":
     with open("shop/app/orders.py", "a") as handle:
         handle.write("# edited\\n")
     print(json.dumps(answer))
+elif question == "story draft":
+    print(json.dumps({"title": "Place an order", "steps": [
+        {"node": "shop.app.orders.place", "note": "Start at the entry point."},
+        {"node": "shop.missing.invented", "note": "This node was suggested by the agent."},
+    ]}))
+elif question == "story malformed":
+    print(json.dumps({"title": "Place an order", "steps": [], "verdict": "proven"}))
+elif question == "story bad json":
+    print("{not json")
 elif question == "wait":
     (work / "started").touch()
     while not (work / "release").exists():
@@ -153,6 +161,20 @@ def chat(studio: Studio, fakes: Fakes) -> Iterator[Studio]:
     studio.agent.close()
 
 
+@pytest.fixture
+def incomplete_chat(tmp_path: Path, fakes: Fakes) -> Iterator[Studio]:
+    """A real exit-2 snapshot whose malformed source leaves observation coverage incomplete."""
+    fakes.install("claude", "codex")
+    files = {**_FILES, "shop/app/broken.py": "def broken(: int\n    return 1\n"}
+    root = _repository(tmp_path / "shop", files)
+    with running(root, tmp_path / "cache") as server:
+        assert explore(server, login(server))["explore"] == "incomplete"
+        server.agent.close()
+        server.agent = Agent(server.workspace.root)
+        yield server
+        server.agent.close()
+
+
 def post(
     server: Studio,
     cookie: str | None,
@@ -178,8 +200,16 @@ def post(
     return response.status, dict(response.getheaders()), response.read()
 
 
-def ask(server: Studio, question: str, context: str | None = PLACE) -> tuple[int, dict]:
-    status, _, raw = post(server, login(server), {"question": question, "context": context})
+def ask(
+    server: Studio,
+    question: str,
+    context: str | None = PLACE,
+    mode: str | None = None,
+) -> tuple[int, dict]:
+    body = {"question": question, "context": context}
+    if mode is not None:
+        body["mode"] = mode
+    status, _, raw = post(server, login(server), body)
     payload = json.loads(raw)
     defined = "chat_response" if status == 200 else "chat_error"
     validate(payload, defined)
@@ -241,13 +271,12 @@ def test_an_answer_is_checked_and_its_facts_come_from_the_snapshot(
 
 @pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])
 def test_chat_uses_an_incomplete_snapshot_and_labels_its_limited_evidence(
-    chat: Studio, fakes: Fakes, kind: AgentKind
+    incomplete_chat: Studio, fakes: Fakes, kind: AgentKind
 ) -> None:
+    chat = incomplete_chat
     fakes.install("claude", "codex")
     chat.agent.close()
     chat.agent = Agent(chat.workspace.root, kind)
-    chat.workspace._snapshot = None
-    chat.workspace._run = replace(chat.workspace._run, explore=ExploreState.INCOMPLETE)
 
     assert state(chat, login(chat))["agent"] == kind.value
     status, answer = ask(chat, "ok")
@@ -259,6 +288,85 @@ def test_chat_uses_an_incomplete_snapshot_and_labels_its_limited_evidence(
     assert "incomplete snapshot" in prompt
     assert "missing names and calls are unknown, not evidence of absence" in prompt
     assert "do not make negative or exhaustive claims" in prompt
+
+
+@pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])
+def test_story_draft_is_checked_without_promoting_agent_nodes_to_evidence(
+    chat: Studio, fakes: Fakes, kind: AgentKind
+) -> None:
+    before = _tree_digest(chat.workspace.root)
+    fakes.install("claude", "codex")
+    chat.agent.close()
+    chat.agent = Agent(chat.workspace.root, kind)
+
+    status, answer = ask(chat, "story draft", mode="story")
+
+    assert status == 200, answer
+    assert answer["snapshot_completeness"] == "complete"
+    candidate = answer["story"]["candidate"]
+    assert candidate["nodes"] == [PLACE, "shop.missing.invented"]
+    assert candidate["steps"] == [
+        {"node": PLACE, "note": "Start at the entry point."},
+        {"node": "shop.missing.invented", "note": "This node was suggested by the agent."},
+    ]
+    assert "edges" not in candidate
+    checked = answer["story"]["checked"]
+    assert checked["snapshot_completeness"] == "complete"
+    assert checked["snapshot_current"] is True
+    assert checked["snapshot"] == candidate["snapshot"]
+    assert candidate["title"] == candidate["story"]["title"]
+    assert candidate["story"]["id"] == checked["story"]["id"]
+    statuses = [step["status"] for step in checked["steps"]]
+    assert statuses[-1] in {"unknown", "missing"}
+    assert _tree_digest(chat.workspace.root) == before
+    prompt = " ".join(fakes.call()["prompt"].lower().split())
+    assert '{"title": "...", "steps": [{"node": "module.name", "note": "..."}]}' in prompt
+
+
+@pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])
+def test_story_draft_preserves_unknowns_from_a_real_incomplete_snapshot(
+    incomplete_chat: Studio, fakes: Fakes, kind: AgentKind
+) -> None:
+    chat = incomplete_chat
+    chat.agent.close()
+    chat.agent = Agent(chat.workspace.root, kind)
+
+    status, answer = ask(chat, "story draft", mode="story")
+
+    assert status == 200, answer
+    assert answer["snapshot_completeness"] == "incomplete"
+    checked = answer["story"]["checked"]
+    assert checked["snapshot_completeness"] == "incomplete"
+    assert checked["snapshot_current"] is True
+    assert [step["status"] for step in checked["steps"]][-1] in {"unknown", "missing"}
+    assert "incomplete snapshot" in " ".join(fakes.call()["prompt"].lower().split())
+
+
+@pytest.mark.parametrize("question", ["story malformed", "story bad json"])
+def test_story_draft_rejects_invalid_structured_answers(chat: Studio, question: str) -> None:
+    status, answer = ask(chat, question, mode="story")
+
+    assert status == 502
+    assert answer["error"] == "invalid_answer"
+
+
+def test_story_result_is_discarded_if_the_snapshot_changes_while_the_agent_runs(
+    chat: Studio, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ask_agent = chat.agent.ask
+
+    def change_snapshot(*args, **kwargs):
+        answer = ask_agent(*args, **kwargs)
+        chat.workspace._snapshot = None
+        return answer
+
+    monkeypatch.setattr(chat.agent, "ask", change_snapshot)
+
+    status, answer = ask(chat, "story draft", mode="story")
+
+    assert status == 503
+    assert answer["error"] == "snapshot_not_ready"
+    assert "snapshot changed" in answer["detail"].lower()
 
 
 def test_a_restart_cannot_pair_a_cached_snapshot_with_the_next_run(
@@ -779,6 +887,7 @@ def test_the_dropped_refs_are_capped_in_count_and_length() -> None:
             "blocks": [],
             "facts": [],
             "dropped_refs": list(checked.dropped_refs),
+            "story": None,
             "applied": False,
         },
         "chat_response",

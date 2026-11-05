@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.4`)."""
+"""AD-290, AD-292, AD-306: typed bodies of the Studio API (`schema/studio-api-1.5`)."""
 
 import json
 from collections.abc import Callable, Mapping, Sequence
@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Final, NamedTuple, TypeAlias, TypeVar
 
-API_VERSION: Final = "1.4.0"
+API_VERSION: Final = "1.5.0"
 QUESTION_LIMIT: Final = 2000
 CONTEXT_LIMIT: Final = 300
 
@@ -118,6 +118,13 @@ class MediaType(StrEnum):
     JSON = "application/json"
 
 
+class ChatMode(StrEnum):
+    """AD-306: answer a question or return a structured story candidate for checking."""
+
+    ANSWER = "answer"
+    STORY = "story"
+
+
 class AgentKind(StrEnum):
     """The coding agents that can answer. Claude is the default; codex is an opt-in."""
 
@@ -182,7 +189,7 @@ class ExploreState(StrEnum):
 
 
 class SnapshotCompleteness(StrEnum):
-    """Whether Explore completed; neither state proves semantic absence from source."""
+    """Whether the evidence scope is complete; neither state proves semantic absence."""
 
     COMPLETE = "complete"
     INCOMPLETE = "incomplete"
@@ -403,10 +410,35 @@ class ChatFailure(Exception):
 
 @dataclass(frozen=True)
 class ChatRequest:
-    """`POST /api/v1/chat`; `context` is the qualified name of the selected node."""
+    """`POST /api/v1/chat`; omitted mode keeps the original answer behavior."""
 
     question: str
     context: str | None = None
+    mode: ChatMode = ChatMode.ANSWER
+
+
+@dataclass(frozen=True)
+class StoryStepDraft:
+    """Agent-authored story words and node name; the checker decides the status."""
+
+    node: str
+    note: str | None = None
+
+
+@dataclass(frozen=True)
+class StoryCandidate:
+    """Closed output shape accepted from the agent before it is checked."""
+
+    title: str
+    steps: tuple[StoryStepDraft, ...]
+
+
+@dataclass(frozen=True)
+class StoryDraft:
+    """The unchanged exported ViewSpec and its result from the existing checker."""
+
+    candidate: Mapping[str, Json]
+    checked: Mapping[str, Json]
 
 
 @dataclass(frozen=True)
@@ -440,6 +472,7 @@ class ChatAnswer:
     blocks: tuple[ChatBlock, ...]
     facts: tuple[Fact, ...]
     dropped_refs: tuple[str, ...]
+    story: StoryDraft | None = None
 
 
 def parse_chat_request(raw: bytes) -> ChatRequest:
@@ -448,9 +481,10 @@ def parse_chat_request(raw: bytes) -> ChatRequest:
         body = json.loads(raw)
     except (ValueError, RecursionError) as error:
         raise ChatFailure(ChatError.INVALID_REQUEST, "The body is not JSON.") from error
-    if not isinstance(body, dict) or not body.keys() <= {"question", "context"}:
+    if not isinstance(body, dict) or not body.keys() <= {"question", "context", "mode"}:
         raise ChatFailure(
-            ChatError.INVALID_REQUEST, 'The body must be {"question": text, "context": name}.'
+            ChatError.INVALID_REQUEST,
+            'The body must be {"question": text, "context": name, "mode": answer|story}.',
         )
     question, context = body.get("question"), body.get("context")
     if not isinstance(question, str) or not 0 < len(question) <= QUESTION_LIMIT:
@@ -459,7 +493,48 @@ def parse_chat_request(raw: bytes) -> ChatRequest:
         )
     if context is not None and (not isinstance(context, str) or len(context) > CONTEXT_LIMIT):
         raise ChatFailure(ChatError.INVALID_REQUEST, "context must be a qualified name or null.")
-    return ChatRequest(question, context)
+    mode = member(ChatMode, body.get("mode", ChatMode.ANSWER.value))
+    if mode is None:
+        raise ChatFailure(ChatError.INVALID_REQUEST, "mode must be answer or story.")
+    if mode is ChatMode.STORY and context is None:
+        raise ChatFailure(
+            ChatError.INVALID_REQUEST, "a story draft needs a selected starting node."
+        )
+    return ChatRequest(question, context, mode)
+
+
+def parse_story_candidate(raw: str) -> StoryCandidate:
+    """Accept only title and authored node/note steps; never accept an agent verdict."""
+    body = decoded(raw)
+    if body is None or len(body) != 2 or not body.keys() <= {"title", "steps"}:
+        raise ChatFailure(ChatError.INVALID_ANSWER, "A story draft needs only title and steps.")
+    title = body.get("title")
+    steps = body.get("steps")
+    if not isinstance(title, str) or not title.strip() or len(title) > 2000:
+        raise ChatFailure(ChatError.INVALID_ANSWER, "A story title must be non-empty text.")
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 50:
+        raise ChatFailure(ChatError.INVALID_ANSWER, "A story needs 1 to 50 steps.")
+    parsed: list[StoryStepDraft] = []
+    for index, raw_step in enumerate(steps):
+        if (
+            not isinstance(raw_step, Mapping)
+            or not raw_step.keys() <= {"node", "note"}
+            or not raw_step
+        ):
+            raise ChatFailure(
+                ChatError.INVALID_ANSWER, f"Story step {index + 1} needs only node and note."
+            )
+        node, note = raw_step.get("node"), raw_step.get("note")
+        if not isinstance(node, str) or not node.strip() or len(node) > CONTEXT_LIMIT:
+            raise ChatFailure(
+                ChatError.INVALID_ANSWER, f"Story step {index + 1} needs a node name."
+            )
+        if note is not None and (not isinstance(note, str) or len(note) > 2000):
+            raise ChatFailure(
+                ChatError.INVALID_ANSWER, f"Story step {index + 1} has an invalid note."
+            )
+        parsed.append(StoryStepDraft(node, note))
+    return StoryCandidate(title, tuple(parsed))
 
 
 def chat_json(answer: ChatAnswer) -> bytes:
