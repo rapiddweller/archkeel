@@ -64,9 +64,13 @@ def architecture_report(model: Observation) -> ArchitectureReport:
             declared,
             unavailable=str(error),
             findings=_findings(model, None, declared),
-            schema_version=ReportSchemaVersion.V1_2_0
-            if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
-            else ReportSchemaVersion.V1_0_0,
+            schema_version=(
+                ReportSchemaVersion.V1_3_0
+                if declared is not None and declared.schema_version == GraphSchemaVersion.V1_3_0
+                else ReportSchemaVersion.V1_2_0
+                if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
+                else ReportSchemaVersion.V1_0_0
+            ),
         )
         report.validate()
         return report
@@ -97,9 +101,13 @@ def architecture_report(model: Observation) -> ArchitectureReport:
         observed,
         declared,
         comparison,
-        schema_version=ReportSchemaVersion.V1_2_0
-        if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
-        else ReportSchemaVersion.V1_0_0,
+        schema_version=(
+            ReportSchemaVersion.V1_3_0
+            if declared is not None and declared.schema_version == GraphSchemaVersion.V1_3_0
+            else ReportSchemaVersion.V1_2_0
+            if declared is not None and declared.schema_version == GraphSchemaVersion.V1_2_0
+            else ReportSchemaVersion.V1_0_0
+        ),
         findings=_findings(model, observed, declared),
         memberships=_memberships(model, observed, declared),
         decision_gaps=_decision_gaps(model, observed, declared),

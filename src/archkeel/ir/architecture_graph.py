@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import builtins
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PurePosixPath
@@ -37,6 +38,7 @@ class EntityKind(StrEnum):
 
 
 class GraphSchemaVersion(StrEnum):
+    V1_3_0 = "1.3.0"
     V1_2_0 = "1.2.0"
     V1_1_0 = "1.1.0"
     V1_0_0 = "1.0.0"
@@ -151,6 +153,7 @@ class AssessmentChange(StrEnum):
 
 
 class ReportSchemaVersion(StrEnum):
+    V1_3_0 = "1.3.0"
     V1_2_0 = "1.2.0"
     V1_0_0 = "1.0.0"
 
@@ -221,6 +224,10 @@ class ComponentRole(StrEnum):
     FOUNDATION = "foundation"
 
 
+class ComponentLifecycle(StrEnum):
+    PLANNED = "planned"
+
+
 @dataclass(frozen=True, slots=True)
 class RuleAssessment:
     """One rule's evaluator-backed state for the current observation."""
@@ -260,12 +267,35 @@ class ComponentIntent:
     label: str | None = None
     layout_rule_ids: tuple[str, ...] = ()
     layer: str | None = None
+    lifecycle: ComponentLifecycle | None = None
 
     def __post_init__(self) -> None:
         builtins.object.__setattr__(self, "role", ComponentRole(self.role))
         builtins.object.__setattr__(
+            self,
+            "lifecycle",
+            None if self.lifecycle is None else ComponentLifecycle(self.lifecycle),
+        )
+        builtins.object.__setattr__(
             self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
         )
+
+
+def component_ancestor_ids(
+    intents: Mapping[str, ComponentIntent], component_id: str
+) -> frozenset[str]:
+    """Return a component's parent identifiers after validating the full chain."""
+    intent = intents.get(component_id)
+    if intent is None:
+        raise ValueError("unknown component intent")
+    ancestors: set[str] = set()
+    parent = intent.parent_id
+    while parent is not None:
+        if parent not in intents or parent in ancestors or parent == component_id:
+            raise ValueError("invalid component containment")
+        ancestors.add(parent)
+        parent = intents[parent].parent_id
+    return frozenset(ancestors)
 
 
 @dataclass(frozen=True, slots=True)
@@ -670,11 +700,19 @@ class ArchitectureGraph:
         layouts = {rule.id for rule in self.layout_rules}
         assigned_layouts: set[str] = set()
         for intent in self.component_intents:
+            if intent.lifecycle is not None:
+                if self.schema_version != GraphSchemaVersion.V1_3_0:
+                    raise ValueError("component lifecycle requires graph schema_version 1.3.0")
+                if intent.packages or intent.exact_modules or intent.public:
+                    raise ValueError("planned component intent cannot claim source ownership")
             if intent.layer is not None:
                 layer: str = intent.layer
                 if not isinstance(layer, str) or not layer.strip():
                     raise ValueError("component layer must be non-empty text")
-                if self.schema_version != GraphSchemaVersion.V1_2_0:
+                if self.schema_version not in {
+                    GraphSchemaVersion.V1_2_0,
+                    GraphSchemaVersion.V1_3_0,
+                }:
                     raise ValueError("component layer requires graph schema_version 1.2.0")
             owner = entities.get(intent.component_id)
             if (
@@ -683,15 +721,16 @@ class ArchitectureGraph:
                 or owner.kind != EntityKind.COMPONENT
             ):
                 raise ValueError("component intent needs a declared component")
+            if (
+                self.schema_version == GraphSchemaVersion.V1_3_0
+                and not intent.packages
+                and not intent.exact_modules
+                and intent.lifecycle is None
+            ):
+                raise ValueError("package-less component intent needs planned lifecycle")
             if set(intent.public or ()) & set(intent.planned or ()):
                 raise ValueError("a component API entry cannot be public and planned")
-            parent = intent.parent_id
-            ancestors: set[str] = {intent.component_id}
-            while parent is not None:
-                if parent not in intents or parent in ancestors:
-                    raise ValueError("invalid component containment")
-                ancestors.add(parent)
-                parent = intents[parent].parent_id
+            component_ancestor_ids(intents, intent.component_id)
             for identity in intent.layout_rule_ids:
                 if identity not in layouts or identity in assigned_layouts:
                     raise ValueError("invalid component layout reference")
@@ -1064,10 +1103,16 @@ class ArchitectureReport:
         if self.observed is None and not self.unavailable:
             raise ValueError("missing observed graph needs an unavailable reason")
         if self.schema_version == ReportSchemaVersion.V1_0_0 and any(
-            graph is not None and graph.schema_version == GraphSchemaVersion.V1_2_0
+            graph is not None
+            and graph.schema_version in {GraphSchemaVersion.V1_2_0, GraphSchemaVersion.V1_3_0}
             for graph in (self.observed, self.target)
         ):
             raise ValueError("graph layer vocabulary requires report schema_version 1.2.0")
+        if self.schema_version != ReportSchemaVersion.V1_3_0 and any(
+            graph is not None and graph.schema_version == GraphSchemaVersion.V1_3_0
+            for graph in (self.observed, self.target)
+        ):
+            raise ValueError("graph schema_version 1.3.0 requires report schema_version 1.3.0")
         for graph, origin in (
             (self.observed, OriginKind.OBSERVED),
             (self.target, OriginKind.DECLARED),

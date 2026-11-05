@@ -40,6 +40,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
+    ComponentLifecycle,
     ConstructSelector,
     ContractComponent,
     ContractDeclarations,
@@ -2411,6 +2412,8 @@ def _cycle_scan_coverage(
         namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
     else:
         return False, ()
+    if any(component.lifecycle is ComponentLifecycle.PLANNED for component in contract.components):
+        namespace_complete = False
     return namespace_complete, components
 
 
@@ -2597,6 +2600,8 @@ def _scan_covers_ownership(
     profile: Profile,
     roots: tuple[str, ...],
 ) -> bool:
+    if component.lifecycle is ComponentLifecycle.PLANNED:
+        return False
     scan_roots = tuple(_relative_path(root) for root in roots)
     return (
         bool(scan_roots)
@@ -2925,6 +2930,8 @@ def _inside_rule_scope_is_complete(
     receipt_scope_complete: bool,
 ) -> bool:
     if not receipt_scope_complete or not observed:
+        return False
+    if any(component.lifecycle is ComponentLifecycle.PLANNED for component in contract.components):
         return False
     ownership = tuple(
         (

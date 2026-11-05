@@ -34,7 +34,7 @@ from archkeel.ir.decisions import agent_decisions, declares_a_target, open_decis
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.findings import findings_note
-from archkeel.ir.graph_codec import report_bytes
+from archkeel.ir.graph_codec import WireComponentSelectorError, report_bytes
 from archkeel.ir.interfaces import (
     InterfaceEdge,
     InterfaceName,
@@ -128,9 +128,42 @@ def _verdict_card(row: VerdictRow) -> str:
       </article>"""
 
 
-def _html_report_bytes(report: ArchitectureReport) -> bytes:
-    """Keep source-record IDs in canonical JSON, not the duplicate HTML graph snapshot."""
-    payload = json.loads(report_bytes(report))
+def _html_report_payload(
+    report: ArchitectureReport,
+) -> tuple[ArchitectureReport, bytes, str | None]:
+    """Keep invalid target intent UNKNOWN while producing only valid report wire data."""
+    warning: str | None = None
+    try:
+        encoded_bytes = report_bytes(report)
+    except WireComponentSelectorError as error:
+        warning = f"UNKNOWN: Target graph unavailable: {error}"
+        source_ids = (
+            {entity.id for entity in report.observed.entities}
+            | {edge.id for edge in report.observed.relationships}
+            if report.observed is not None
+            else set()
+        )
+        source_findings = tuple(
+            item
+            for item in report.findings
+            if item.graph_subject_ids and set(item.graph_subject_ids) <= source_ids
+        )
+        if len(source_findings) != len(report.findings):
+            warning += "; findings not attributable only to source graph omitted"
+        if report.unavailable:
+            warning += f"; source graph unavailable: {report.unavailable}"
+        report = replace(
+            report,
+            target=None,
+            comparison=None,
+            unavailable=warning,
+            findings=source_findings,
+            memberships=(),
+            decision_gaps=(),
+        )
+        encoded_bytes = report_bytes(report)
+
+    payload = json.loads(encoded_bytes)
     for side in ("observed", "target"):
         graph = payload[side]
         if graph is None:
@@ -138,8 +171,8 @@ def _html_report_bytes(report: ArchitectureReport) -> bytes:
         for collection in ("entities", "relationships"):
             for item in graph[collection]:
                 del item["record_ids"]
-    encoded: str = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
-    return encoded.encode("utf-8")
+    payload_text = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
+    return report, payload_text.encode("utf-8"), warning
 
 
 def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
@@ -771,10 +804,11 @@ def _explorer_section(payload: str, *, atlas: bool = False, view_check: str | No
 
 def _flow_section(observation: Observation) -> str:
     """Render the validated report boundary through one UML scene renderer."""
-    encoded: bytes = _html_report_bytes(architecture_report(observation))
+    _, encoded, warning = _html_report_payload(architecture_report(observation))
     payload: str = encoded.decode("utf-8")
+    warning = f'<p class="atlas-target-warning">{_text(warning)}</p>' if warning is not None else ""
     # A literal closing script tag must not escape the embedded JSON element.
-    return _explorer_section(payload.replace("<", "\\u003c"))
+    return warning + _explorer_section(payload.replace("<", "\\u003c"))
 
 
 def _atlas_section(payload: dict[str, object], view_check: str | None = None) -> str:
@@ -1047,6 +1081,22 @@ def _atlas_structure_overview(
     )
 
 
+def _atlas_source_details(
+    result: RunResult, observation: Observation, architecture_href: str
+) -> str:
+    return f"""<details class="atlas-source"><summary>Snapshot and audit</summary>
+      <p>Git head <code>{_text(observation.source.git_head)}</code>
+      · Source digest <code>{_text(observation.source.source_digest)}</code>
+      · Dirty {_text(observation.source.dirty)}.</p>
+      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
+      {_root_line(result)}
+      <p>Contract <code>{_text(observation.contract.path)}</code>
+      · {_text(observation.contract.digest)}</p>
+      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
+      </a></p>
+      </details>"""
+
+
 def _atlas_content(
     result: RunResult,
     observation: Observation,
@@ -1069,6 +1119,12 @@ def _atlas_content(
     )
     atlas = data.get("atlas")
     navigation = data.get("navigation")
+    target_unavailable = data.get("target_unavailable")
+    target_warning = (
+        f'<p class="atlas-target-warning">{_text(target_unavailable)}</p>'
+        if isinstance(target_unavailable, str)
+        else ""
+    )
     symbols_complete = (
         atlas.get("symbols_complete") is True
         if isinstance(atlas, dict)
@@ -1104,6 +1160,7 @@ def _atlas_content(
       · {components}</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
+      {target_warning}
       {status_header}
       {_NO_TARGET_STYLE if result.target is TargetStatus.UNAVAILABLE else ""}
       {_atlas_section(data, view_check)}
@@ -1112,17 +1169,7 @@ def _atlas_content(
         if not detail_page
         else ""
     }
-      <details class="atlas-source"><summary>Snapshot and audit</summary>
-      <p>Git head <code>{_text(observation.source.git_head)}</code>
-      · Source digest <code>{_text(observation.source.source_digest)}</code>
-      · Dirty {_text(observation.source.dirty)}.</p>
-      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
-      {_root_line(result)}
-      <p>Contract <code>{_text(observation.contract.path)}</code>
-      · {_text(observation.contract.digest)}</p>
-      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
-      </a></p>
-      </details>"""
+      {_atlas_source_details(result, observation, architecture_href)}"""
 
 
 def _atlas_projection(result: RunResult, observation: Observation) -> ArchitectureProjection:
@@ -1141,6 +1188,7 @@ def _atlas_document(
     architecture_href: str,
     levels: tuple[ModuleExploreLevel, ...] | None = None,
     view_check: str | None = None,
+    target_warning: str | None = None,
 ) -> bytes:
     projection = _atlas_projection(result, observation)
     data: dict[str, object] = {"schema_version": report.schema_version}
@@ -1154,6 +1202,8 @@ def _atlas_document(
         exploration_levels=levels,
     )
     data["boundary_permissions"] = boundary_permissions_payload(observation, report, projection)
+    if target_warning is not None:
+        data["target_unavailable"] = target_warning
     data["navigation"] = {
         "repository": repository,
         "main_href": f"{_PurePosixPath(architecture_href).stem}.report.html",
@@ -1237,7 +1287,7 @@ def render_architecture_details(
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     if result.architecture_projection.source != observation.source:
         raise ValueError("Atlas requires its matching authenticated Core projection")
-    report = architecture_report(observation)
+    report, payload, warning = _html_report_payload(architecture_report(observation))
     return _architecture_details(
         result,
         observation,
@@ -1245,6 +1295,8 @@ def render_architecture_details(
         result.architecture_projection,
         repository=repository,
         architecture_href=architecture_href,
+        embedded_report=payload,
+        target_warning=warning,
     )
 
 
@@ -1256,6 +1308,8 @@ def _architecture_details(
     *,
     repository: str,
     architecture_href: str,
+    embedded_report: bytes,
+    target_warning: str | None,
     levels: tuple[ModuleExploreLevel, ...] | None = None,
 ) -> dict[str, bytes]:
     target_modules = (
@@ -1263,7 +1317,9 @@ def _architecture_details(
         if report.target
         else ()
     )
-    data = json.loads(_html_report_bytes(report))
+    data = json.loads(embedded_report)
+    if target_warning is not None:
+        data["target_unavailable"] = target_warning
     data["boundary_permissions"] = boundary_permissions_payload(observation, report, projection)
     data["initial_view"] = "diagram"
     data["navigation"] = _component_navigation(
@@ -2112,12 +2168,14 @@ def render_architecture_html(
     """
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     if result.report_filter is None and result.architecture_projection is not None:
+        report, _, warning = _html_report_payload(architecture_report(observation))
         return _atlas_document(
             result,
             observation,
-            architecture_report(observation),
+            report,
             repository=repository,
             architecture_href=architecture_href,
+            target_warning=warning,
         )
     return render_html(
         replace(
@@ -2159,7 +2217,7 @@ def render_architecture_pages(
             ),
         )
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
-    report = architecture_report(observation)
+    report, embedded_report, warning = _html_report_payload(architecture_report(observation))
     projection = _atlas_projection(result, observation)
     levels = module_exploration(observation, report=report)
     main = _atlas_document(
@@ -2170,6 +2228,7 @@ def render_architecture_pages(
         architecture_href=architecture_href,
         levels=levels,
         view_check=view_check,
+        target_warning=warning,
     )
     pages = _architecture_details(
         result,
@@ -2178,6 +2237,8 @@ def render_architecture_pages(
         projection,
         repository=repository,
         architecture_href=architecture_href,
+        embedded_report=embedded_report,
+        target_warning=warning,
         levels=levels,
     )
     pages[filename] = main

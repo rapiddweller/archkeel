@@ -29,6 +29,8 @@ from archkeel.ir.model import EvidenceClass as _EvidenceClass
 from archkeel.ir.model import Observation, Record, RecordData, stable_id
 from archkeel.ir.target_graph import component_permissions, intent_graph
 
+_MISSING = object()
+
 
 def _inside_levels(declaration: Record) -> tuple[RecordData, ...]:
     levels = declaration.data.get("inside_levels", ())
@@ -56,6 +58,8 @@ def _inside_levels(declaration: Record) -> tuple[RecordData, ...]:
 def _recorded_intent(
     owner: Record, parent_id: str | None, layout_rule_ids: tuple[str, ...]
 ) -> ComponentIntent:
+    owner_data = dict(owner.data.entries)
+    lifecycle = owner_data.get("lifecycle", _MISSING)
     metadata = RecordData(
         (
             ("component_id", owner.id),
@@ -66,6 +70,7 @@ def _recorded_intent(
             ("packages", owner.subjects),
             ("exact_modules", owner.data.get("exact_modules", ())),
             ("forbidden_responsibilities", owner.data.get("forbidden_responsibilities", ())),
+            *((("lifecycle", lifecycle),) if lifecycle is not _MISSING else ()),
             *(
                 (key, owner.data.get(key))
                 for key in ("role", "namespace", "public", "planned", "decided_by", "inside")

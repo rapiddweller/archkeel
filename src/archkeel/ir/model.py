@@ -16,6 +16,7 @@ from .amendment import AmendmentStatus as AmendmentStatus
 from .architecture_graph import ArchitectureRuleGrammar, TargetDefinition
 from .architecture_graph import ArchitectureRuleKind as ArchitectureRuleKind
 from .architecture_graph import AssessmentStatus as AssessmentStatus
+from .architecture_graph import ComponentLifecycle as ComponentLifecycle
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import DecisionMaker as DecisionMaker
@@ -249,10 +250,13 @@ class ContractComponent:
     # canonical bytes for contracts that do not declare exact modules.
     exact_modules: tuple[str, ...] | None = None
     layer: str | None = None
+    lifecycle: ComponentLifecycle | None = None
 
     def __post_init__(self) -> None:
         if self.decided_by is not None:
             builtins.object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
+        if self.lifecycle is not None:
+            builtins.object.__setattr__(self, "lifecycle", ComponentLifecycle(self.lifecycle))
 
 
 ModuleExports: TypeAlias = dict[str, frozenset[str] | None]

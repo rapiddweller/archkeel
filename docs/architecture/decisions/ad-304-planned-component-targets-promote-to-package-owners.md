@@ -1,30 +1,39 @@
-# AD-304 Planned component targets promote to package owners
+# AD-304 Planned component owners carry policy before code
 
-**Status.** First slice for issue #846; full pre-promotion API and dependency-policy modeling
-remains open. Checked against the contract and target graph on 2026-11-05.
+**Status.** Issue #846 target-owner policy model. Checked against the contract and target graph on
+2026-11-05.
 
 **Decision.**
-- UML may declare a component only with `presence: planned`, responsibility, and provenance.
-- Its child entities and supported structural UML relationships remain independent target intent.
-  The planned owner is not a source observation and does not claim package ownership.
-- UML `requires` remains invalid. Before promotion, UML can describe structural interfaces and
-  signatures; it cannot declare component `public`/`planned` API selectors, forbidden
-  responsibilities, or allowed dependency permissions.
-- Promote by removing the UML component entity and adding a `components[]` owner with the same
-  ID, concrete package or exact-module ownership, and any API or `requires` declarations. The
-  existing component contract then owns and enforces those fields. Child UML parent IDs remain
-  stable across the edit.
-- A referenced/defined UML component is invalid. The transition is an authored contract edit;
-  ArchKeel does not infer package creation or migration history. Existing scanned-package
-  reference checks remain unchanged.
+- Keep the existing UML-only planned component form valid for structural target intent. The
+  package-less `components[]` form below adds owner policy. One identity cannot be declared in both
+  forms at once.
+- A component may be declared before code with `lifecycle: planned` and empty `packages`. It is
+  the same `components[]` owner used after implementation, not a second UML policy source.
+- Reuse its existing `planned` API selectors, `forbidden_responsibilities`, and `requires`. Planned
+  API selectors identify their target modules directly; duplicate selectors across owners are
+  invalid. UML remains structural and may describe child interfaces and signatures under that
+  owner.
+- `packages` and `exact_modules` continue to mean observed source ownership. Promotion keeps the
+  component ID and policy, removes `lifecycle: planned`, and supplies concrete package or exact
+  module ownership. Child UML parent IDs remain stable.
+- Schema and target checks can validate declarations before code. API existence and dependency
+  compliance require source evidence; an unscanned planned owner cannot pass source-level rules.
+  Missing evidence remains UNKNOWN.
+- `lifecycle` requires Contract 2.4.0 and an explicit graph/report 1.3.0 wire value. Legacy lifecycle
+  fields stay absent. Graphs 1.0–1.2 retain their existing interpretation; graph 1.3 requires the
+  explicit value for a package-less owner. Current reports expose source-rule UNKNOWN by scope,
+  not as a per-component verdict. Contract 2.3 keeps its UML target schema at 1.2; target 1.3
+  requires Contract 2.4. Parser, encoder, and schemas enforce this same version boundary.
+- A referenced/defined UML component is invalid. Promotion is an authored contract edit; ArchKeel
+  does not infer package creation or migration history. Existing scanned-package reference checks
+  remain unchanged.
 
-**Rejected.** An unscanned package placeholder would imply ownership and trigger current package
-checks. UML dependency permissions would create a second source for `requires`.
+**Rejected.** Treating planned packages as scanned ownership would imply source evidence that does
+not exist. UML dependency permissions would create a second source for `requires`.
 
-**Limits.** Pre-promotion UML expresses target structure, not component API ownership or dependency
-policy. The public fixture demonstrates target-only intent and the authored promotion shape. It
-does not prove implementation, package discovery, or source compatibility.
+**Limits.** Pre-promotion declarations do not prove implementation, package discovery, or source
+compatibility. Dependency permissions remain target policy until source is observed.
 
-**Validation.** `tests/test_target_graph.py` covers planned target, invalid presence, structural
-relationship, and promotion through existing owner fields. `tests/test_validation.py` retains
-the missing scanned-package diagnostic.
+**Validation.** `tests/test_target_graph.py` covers planned owner policy, selector conflicts,
+round-trip, promotion, and UNKNOWN source checks. `tests/test_validation.py` retains the missing
+scanned-package diagnostic.

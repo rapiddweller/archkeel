@@ -22,6 +22,7 @@ VERSIONS = (
     "2.1.0",
     "2.2.0",
     "2.3.0",
+    "2.4.0",
     "3.0.0",
     "3.1.0",
     "3.2.0",
@@ -74,6 +75,7 @@ def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
     [
         ("UML", "2.1.0", "2.2.0"),
         ("LAYERS", "2.2.0", "2.3.0"),
+        ("PLANNED_COMPONENT_OWNER", "2.3.0", "2.4.0"),
         ("ALIAS_BODY", "2.3.0", "3.0.0"),
         ("KEY_ALIAS_BODY", "3.0.0", "3.1.0"),
         ("LITERAL_MAPPING_ARM", "3.1.0", "3.2.0"),

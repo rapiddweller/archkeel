@@ -18,6 +18,7 @@ from archkeel.ir.architecture_graph import (
     ArchitectureReport,
     ComponentIntent,
     GraphComparison,
+    GraphSchemaVersion,
     TargetDefinition,
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
@@ -77,6 +78,7 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                 properties = {field.name: shape(hints[field.name]) for field in fields(annotation)}
                 if annotation is ComponentIntent:
                     properties["layer"] = {"type": "string", "pattern": "\\S"}
+                    properties["lifecycle"] = {"const": "planned"}
                 definition: dict[str, object] = {
                     "type": "object",
                     "properties": properties,
@@ -98,7 +100,58 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                     "component_intents": {"items": {"not": {"required": ["layer"]}}}
                                 }
                             },
-                        }
+                        },
+                        {
+                            "if": {
+                                "properties": {
+                                    "schema_version": {"enum": ["1.0.0", "1.1.0", "1.2.0"]}
+                                }
+                            },
+                            "then": {
+                                "properties": {
+                                    "component_intents": {
+                                        "items": {"not": {"required": ["lifecycle"]}}
+                                    }
+                                }
+                            },
+                        },
+                        {
+                            "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
+                            "then": {
+                                "properties": {
+                                    "component_intents": {
+                                        "items": {
+                                            "allOf": [
+                                                {
+                                                    "if": {
+                                                        "required": ["lifecycle"],
+                                                        "properties": {
+                                                            "lifecycle": {"const": "planned"}
+                                                        },
+                                                    },
+                                                    "then": {
+                                                        "properties": {
+                                                            "packages": {"maxItems": 0},
+                                                            "exact_modules": {"maxItems": 0},
+                                                            "public": {"maxItems": 0},
+                                                        }
+                                                    },
+                                                },
+                                                {
+                                                    "if": {
+                                                        "properties": {
+                                                            "packages": {"maxItems": 0},
+                                                            "exact_modules": {"maxItems": 0},
+                                                        }
+                                                    },
+                                                    "then": {"required": ["lifecycle"]},
+                                                },
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                        },
                     ]
                 if annotation is ArchitectureReport:
                     definition["allOf"] = [
@@ -109,14 +162,31 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                     key: {
                                         "not": {
                                             "type": "object",
-                                            "properties": {"schema_version": {"const": "1.2.0"}},
+                                            "properties": {
+                                                "schema_version": {"enum": ["1.2.0", "1.3.0"]}
+                                            },
                                             "required": ["schema_version"],
                                         }
                                     }
                                     for key in ("observed", "target")
                                 }
                             },
-                        }
+                        },
+                        {
+                            "if": {"properties": {"schema_version": {"const": "1.2.0"}}},
+                            "then": {
+                                "properties": {
+                                    key: {
+                                        "not": {
+                                            "type": "object",
+                                            "properties": {"schema_version": {"const": "1.3.0"}},
+                                            "required": ["schema_version"],
+                                        }
+                                    }
+                                    for key in ("observed", "target")
+                                }
+                            },
+                        },
                     ]
                 if annotation is ViewSpec:
                     # AD-289: a 1.0.0 spec has no stops. AD-291: only a 1.2.0 spec has a story.
@@ -433,6 +503,34 @@ def _update_contract_schema(path: Path) -> None:
     version = ContractVersion(raw_version) if raw_version is not None else None
     if version is not None:
         schema["$id"] = f"urn:archkeel:architecture-contract:{version.value}"
+    if version is not None and supports_feature(version, ContractFeature.PLANNED_COMPONENT_OWNER):
+        component = schema["$defs"]["component"]
+        component.pop("anyOf", None)
+        component["properties"]["lifecycle"] = {"const": "planned"}
+        component["allOf"] = [
+            {
+                "if": {
+                    "required": ["lifecycle"],
+                    "properties": {"lifecycle": {"const": "planned"}},
+                },
+                "then": {
+                    "properties": {
+                        "packages": {"maxItems": 0},
+                        "exact_modules": {"maxItems": 0},
+                        "public": {"maxItems": 0},
+                    }
+                },
+                "else": {
+                    "anyOf": [
+                        {"properties": {"packages": {"minItems": 1}}},
+                        {
+                            "required": ["exact_modules"],
+                            "properties": {"exact_modules": {"minItems": 1}},
+                        },
+                    ]
+                },
+            }
+        ]
     if version is not None and supports_feature(version, ContractFeature.KEY_ALIAS_BODY):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {
@@ -842,6 +940,41 @@ def _update_contract_schema(path: Path) -> None:
         }
     schema["$defs"]["uml"] = target_schema()
     schema["$defs"]["declarations"]["properties"]["uml"] = {"$ref": "#/$defs/uml"}
+    schema_versions = schema["properties"]["schema_version"]
+    declared_versions = schema_versions.get("enum")
+    if declared_versions is None:
+        declared_version = schema_versions.get("const")
+        declared_versions = [declared_version] if isinstance(declared_version, str) else []
+    legacy_versions = [
+        value
+        for value in declared_versions
+        if isinstance(value, str)
+        and not supports_feature(ContractVersion(value), ContractFeature.PLANNED_COMPONENT_OWNER)
+    ]
+    if legacy_versions:
+        version_gate = {
+            "if": {"properties": {"schema_version": {"enum": legacy_versions}}},
+            "then": {
+                "properties": {
+                    "components": {"items": {"not": {"required": ["lifecycle"]}}},
+                    "declarations": {
+                        "properties": {
+                            "uml": {
+                                "not": {
+                                    "properties": {
+                                        "schema_version": {"const": GraphSchemaVersion.V1_3_0.value}
+                                    },
+                                    "required": ["schema_version"],
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+        }
+        all_of = schema.setdefault("allOf", [])
+        if version_gate not in all_of:
+            all_of.append(version_gate)
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
 
 
