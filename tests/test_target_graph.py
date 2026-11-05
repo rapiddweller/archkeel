@@ -22,6 +22,10 @@ from archkeel.ir.architecture_graph import (
     ComponentIntent,
     ComponentRole,
     Entity,
+    EntityKind,
+    OriginKind,
+    PresenceKind,
+    RelationshipKind,
     Signature,
     Visibility,
 )
@@ -317,6 +321,72 @@ def test_uml_cannot_redeclare_component_permissions():
     )
     with pytest.raises(ValueError, match="component requires"):
         parse_contract(raw)
+
+
+def test_planned_component_fixture_is_target_intent_only() -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "planned-component"
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    contract = parse_contract(raw)
+
+    graph = declared_graph(
+        contract, contract_path="fixtures/planned-component/architecture-contract.json"
+    )
+
+    owner = next(item for item in graph.entities if item.id == "mcp")
+    assert owner.kind == EntityKind.COMPONENT
+    assert owner.presence == PresenceKind.PLANNED
+    assert graph.origin == OriginKind.DECLARED
+    assert any(item.id == "server" and item.parent_id == owner.id for item in graph.entities)
+    assert any(item.kind == RelationshipKind.REALIZES for item in graph.relationships)
+
+
+def test_planned_component_promotes_to_existing_owner_contract() -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "planned-component"
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    target_owner = raw["declarations"]["uml"]["entities"][0]
+    for presence in ("referenced", "defined"):
+        target_owner["presence"] = presence
+        with pytest.raises(ValueError, match="UML component owners need planned intent"):
+            parse_contract(raw)
+
+    raw["components"] = [
+        {
+            "id": "mcp",
+            "label": "mcp",
+            "role": "component",
+            "packages": ["archkeel.mcp"],
+            "namespace": "archkeel.mcp",
+            "responsibilities": ["Expose ArchKeel target intent to local MCP clients."],
+            "forbidden_responsibilities": [],
+            "planned": ["archkeel.mcp.server.McpServer"],
+            "requires": [{"component": "core", "rationale": "Reuse the existing core."}],
+            "provenance": ["fixtures/planned-component/README.md"],
+        },
+        {
+            "id": "core",
+            "label": "core",
+            "role": "component",
+            "packages": ["archkeel.core"],
+            "responsibilities": ["Own shared analysis operations."],
+            "forbidden_responsibilities": [],
+            "provenance": ["fixtures/planned-component/README.md"],
+        },
+    ]
+
+    with pytest.raises(ValueError, match="duplicate contract ID"):
+        parse_contract(raw)
+
+    raw["declarations"]["uml"]["entities"].pop(0)
+    graph = declared_graph(parse_contract(raw))
+    owner_intent = next(item for item in graph.component_intents if item.component_id == "mcp")
+    assert owner_intent.packages == ("archkeel.mcp",)
+    assert owner_intent.planned == ("archkeel.mcp.server.McpServer",)
+    assert any(
+        item.kind == RelationshipKind.REQUIRES
+        and item.source_id == "mcp"
+        and item.target_id == "core"
+        for item in graph.relationships
+    )
 
 
 def test_permission_identity_survives_reordering_slices_and_duplicate_entries(tmp_path):
