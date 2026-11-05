@@ -29,11 +29,31 @@ h1 { margin: 0 0 4px; font-size: 26px; }
 .badge { background: var(--raised); border-radius: 6px; padding: 4px 10px;
   font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .cards { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.component-cards { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 16px 20px; }
 .card h2 { font-size: 16px; margin: 0 0 8px; }
 .card p { margin: 0 0 8px; }
 .card .badge { display: inline-block; margin-top: 4px; }
+.briefing-section-title { display: flex; align-items: center; gap: 12px; margin: 14px 0 8px; }
+.briefing-section-title h2 { margin: 0; font-size: 16px; }
+.briefing-component-count { color: var(--muted); font-size: 12px; }
+.component-card { display: flex; flex-direction: column; gap: 4px; color: var(--text); text-decoration: none; padding: 12px 16px; }
+.component-card:hover, .component-card:focus-visible { border-color: var(--observed); }
+.component-card h3 { margin: 0; font: 600 14px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.component-card span { color: var(--muted); font: 11px/1.4 ui-monospace, Menlo, monospace; }
+.briefing-signals { margin: 14px 0; }
+.briefing-signals > summary { width: fit-content; color: var(--observed); cursor: pointer; }
+@media (max-width: 900px) {
+  .page:has(.component-cards) { padding: 12px 20px 8px; }
+  .figures { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+  .figure { min-width: 0; padding: 6px 8px; }
+  .figure b { font-size: 22px; }
+  .figure span { font-size: 10px; }
+  .figure small { font-size: 10px; }
+  .brief-status { gap: 4px 8px; margin: 8px 0; padding: 8px 10px; }
+  .briefing-section-title { margin-top: 8px; }
+}
 code { color: var(--observed); }
 .report { flex: 1; min-height: 0; display: grid; gap: var(--gap); margin-top: 16px;
   grid-template-columns: minmax(0, 1fr) 240px; }
