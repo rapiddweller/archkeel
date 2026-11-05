@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.2.0",
+  "title": "A claim cannot add a node",
+  "snapshot": {
+    "source_digest": "a2b33780fb9cdaa921addace8cfba2580d9e53563493204bcc4af0f4d119d7c1",
+    "contract_digest": "184c5ba894f680a0b501a2bce14ac297000a4aba51e19511e2711a0aa696dfdb"
+  },
+  "nodes": [
+    "shop.cli.main.main",
+    "shop.cli.main.invented"
+  ],
+  "steps": [
+    {"node": "shop.cli.main.main"},
+    {
+      "node": "shop.cli.main.invented",
+      "claim": true,
+      "note": "A claim cannot prove that a node exists."
+    }
+  ],
+  "story": {"id": "missing-node", "title": "A claim cannot add a node"}
+}
