@@ -393,6 +393,14 @@ nav .planned small { font-size: 10px; text-transform: uppercase; letter-spacing:
 .figure b { font-size: 28px; letter-spacing: -.5px; }
 .figure span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .figure small { color: var(--muted); font: 11px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.brief-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 16px 0; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--unknown); border-radius: var(--radius); }
+.brief-status strong { color: var(--text); }
+.brief-status > span { color: var(--muted); }
+.brief-status .diagnostics { flex-basis: 100%; }
+.diagnostics summary { width: fit-content; color: var(--observed); cursor: pointer; }
+.diagnostics ul { margin: 8px 0 0; padding-left: 20px; }
+.diagnostics li { margin: 4px 0; overflow-wrap: anywhere; }
 .page > .box { margin-bottom: var(--gap); }
 .stands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .stand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }

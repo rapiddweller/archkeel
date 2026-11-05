@@ -255,6 +255,8 @@
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:DiagnosticNotes",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ExploreFailure",
         "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge"
       ],
@@ -424,6 +426,8 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:DiagnosticNotes",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ExploreFailure",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel",

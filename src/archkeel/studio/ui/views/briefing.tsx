@@ -2,7 +2,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { StoryAnswer, StoryRow, StudioState, readStories, readStory } from "../api";
 import type { ChatState } from "../chat";
-import { Box, Legend, Page, ProofLegend, View, viewHref } from "../components";
+import { Box, DiagnosticNotes, ExploreFailure, Legend, Page, ProofLegend, View, viewHref } from "../components";
 import { Evidence } from "../evidence";
 import { Model, compact, counted, cycles, entry, fullName, hubs, seams, shortName, unknownByComponent } from "../model";
 import { ContractState, ExploreState } from "../vocabulary";
@@ -20,6 +20,38 @@ function Number_(props: { value: string; label: string; note?: string }) {
       <b>{props.value}</b>
       <span>{props.label}</span>
       {props.note ? <small>{props.note}</small> : null}
+    </section>
+  );
+}
+
+function SnapshotStatus(props: { state: StudioState; withGraph: boolean }) {
+  const { state } = props;
+  if (state.explore === ExploreState.INCOMPLETE) {
+    return (
+      <section class="brief-status incomplete" role="status">
+        <strong>Snapshot is incomplete</strong>
+        <span>{props.withGraph ? "UNKNOWN calls remain counted below." : "No graph is available."}</span>
+        <span>
+          {props.withGraph
+            ? "Next: check notes; UNKNOWN calls remain visible."
+            : "Next: inspect the diagnostic details."}
+        </span>
+        <DiagnosticNotes notes={state.notes} />
+      </section>
+    );
+  }
+  if (state.explore === ExploreState.FAILED) {
+    return <ExploreFailure exitCode={state.exit_code} notes={state.notes} />;
+  }
+  return state.explore === ExploreState.IDLE || state.explore === ExploreState.RUNNING ? (
+    <section class="brief-status running" role="status">
+      <strong>{state.explore === ExploreState.IDLE ? "Explore is starting" : `Explore is running · ${state.seconds} s`}</strong>
+      <span>Next: wait for the snapshot; this page updates when it is ready.</span>
+    </section>
+  ) : (
+    <section class="brief-status failed" role="alert">
+      <strong>Explore finished, but no graph is available</strong>
+      <span>Next: restart Studio to run Explore again.</span>
     </section>
   );
 }
@@ -168,13 +200,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
   if (!ready) {
     return (
       <Page title="Briefing" lead={`${state.root_name}: no measured snapshot yet.`}>
-        <p>
-          {state.explore === ExploreState.FAILED
-            ? `archkeel explore stopped with exit code ${state.exit_code}. ${state.notes.join(" ")}`
-            : state.explore === ExploreState.INCOMPLETE
-              ? `Snapshot is incomplete, but no graph is available. ${state.notes.join(" ")}`
-            : `Making the map: ${state.seconds} s. A large repository takes about 2 minutes.`}
-        </p>
+        <SnapshotStatus state={state} withGraph={false} />
       </Page>
     );
   }
@@ -186,7 +212,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
       lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""} · digest ${snapshot.source_digest.slice(0, 8)} · explored in ${state.seconds} s · contract ${state.contract.replace("_", " ")}`}
     >
       {state.explore === ExploreState.INCOMPLETE ? (
-        <p role="status">Snapshot is incomplete. {state.notes.join(" ")}</p>
+        <SnapshotStatus state={state} withGraph />
       ) : null}
       <div class="figures">
         <Number_ value={compact(model.graph.modules.length)} label="modules" />

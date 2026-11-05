@@ -13,7 +13,7 @@ import {
   readStories,
   readStory,
 } from "../api";
-import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
+import { Badge, Box, ExploreFailure, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
 import { baseName } from "../model";
 import { STORY, layoutStory } from "../story-layout";
@@ -370,7 +370,7 @@ export function Stories(props: { id: string | null; state: StudioState }) {
     return (
       <Page title="Stories" lead="Stories are checked against a readable snapshot.">
         {props.state.explore === ExploreState.FAILED ? (
-          <p role="alert">Explore failed (exit code {props.state.exit_code}). {props.state.notes.join(" ")}</p>
+          <ExploreFailure exitCode={props.state.exit_code} notes={props.state.notes} />
         ) : (
           <p>Waiting for Explore to write a readable snapshot.</p>
         )}

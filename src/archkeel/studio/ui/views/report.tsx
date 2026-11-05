@@ -2,7 +2,7 @@
 import { useState } from "preact/hooks";
 import { EXPLORER_PAGE, StudioState } from "../api";
 import { ExplorerCanvas, SelectedComponent } from "../canvas";
-import { Page, Panel } from "../components";
+import { ExploreFailure, Page, Panel } from "../components";
 import { ExploreState } from "../vocabulary";
 
 export function Report(props: { state: StudioState }) {
@@ -12,7 +12,7 @@ export function Report(props: { state: StudioState }) {
     return (
       <Page title="Report of the code as it is" lead="The Explorer page of archkeel explore.">
         {failed ? (
-          <p role="alert">Explore failed (exit code {props.state.exit_code}). {props.state.notes.join(" ")}</p>
+          <ExploreFailure exitCode={props.state.exit_code} notes={props.state.notes} />
         ) : (
           <p>Waiting for Explore to write a readable snapshot.</p>
         )}
