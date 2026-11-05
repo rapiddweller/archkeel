@@ -416,10 +416,11 @@
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
         "archkeel.analyzer.process:is_process_alive",
+        "archkeel.analyzer.process:is_valid_process_id",
         "archkeel.analyzer.python.collect:PythonProviderCollector"
       ],
       "responsibilities": [
-        "Collect source-only facts through bounded, replaceable language processes and report process liveness safely."
+        "Collect source-only facts through bounded, replaceable language processes, validate native PID ranges and report process liveness safely."
       ],
       "forbidden_responsibilities": [
         "Rule evaluation, baselines, ownership, verdicts, and importing sibling language adapters.",

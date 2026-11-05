@@ -17,9 +17,10 @@
   never trusted by PID alone. PID reuse can make an old marked state appear live; after verifying
   that no Studio or Explore process for the root remains, the user may remove the reported state
   file manually. On Windows, liveness uses a synchronization-only process handle; access errors
-  remain UNKNOWN/alive and never signal the PID. Wait at most 60 seconds for the session lock; on
-  timeout, report that nothing was started or stopped. A stable lock file is not removed while
-  other processes may be waiting on it.
+  remain UNKNOWN/alive and never signal the PID. An out-of-range state PID is also UNKNOWN: retain
+  it as a cleanup barrier and never pass it to a process API. Wait at most 60 seconds for the
+  session lock; on timeout, report that nothing was started or stopped. A stable lock file is not
+  removed while other processes may be waiting on it.
 - Keep the root-keyed cache and existing CLI options. A different scope requires `--stop` first.
 
 **Rejected.** Put scope in the cache key (would allow several Studio servers per root); trust

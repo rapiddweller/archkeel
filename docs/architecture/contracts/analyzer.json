@@ -8,7 +8,7 @@
       "role": "component",
       "packages": [],
       "responsibilities": [
-        "Bound collector execution, validate protocol responses, clean up child processes and check process liveness without signaling Windows PIDs."
+        "Bound collector execution, validate protocol responses, clean up child processes, validate native PID ranges and check liveness without signaling Windows PIDs."
       ],
       "forbidden_responsibilities": [
         "Parsing sources, importing language collectors, or deciding architecture policy.",
@@ -30,6 +30,7 @@
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
         "archkeel.analyzer.process:is_process_alive",
+        "archkeel.analyzer.process:is_valid_process_id",
         "archkeel.analyzer.runtime:collector_provenance",
         "archkeel.analyzer.runtime:python_requirement",
         "archkeel.analyzer.bootstrap:is_direct_entrypoint"

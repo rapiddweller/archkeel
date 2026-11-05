@@ -55,6 +55,9 @@ class _ProcessCleanupError(RuntimeError):
 
 _CLEANUP_TIMEOUT_SECONDS = 2
 _STDERR_LINES_REPORTED = 20
+# Supported POSIX targets use signed 32-bit pid_t; Windows process IDs are DWORDs.
+_POSIX_PID_MAX = (1 << 31) - 1
+_WINDOWS_PID_MAX = (1 << 32) - 1
 
 
 class _ProcessPlatform(Enum):
@@ -67,6 +70,18 @@ def _process_platform(name: str) -> _ProcessPlatform | None:
         return _ProcessPlatform(name)
     except ValueError:
         return None
+
+
+def is_valid_process_id(pid: int) -> bool:
+    """Whether a PID fits the native process-ID type on this supported platform."""
+    if type(pid) is not int or pid <= 1:
+        return False
+    platform = _process_platform(os.name)
+    if platform is _ProcessPlatform.POSIX:
+        return pid <= _POSIX_PID_MAX
+    if platform is _ProcessPlatform.WINDOWS:
+        return pid <= _WINDOWS_PID_MAX
+    return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -419,6 +434,8 @@ def is_process_alive(pid: int) -> bool:
     if type(pid) is not int or pid <= 1:
         return False
     platform = _process_platform(os.name)
+    if platform is None or not is_valid_process_id(pid):
+        return True
     if platform is _ProcessPlatform.POSIX:
         try:
             os.kill(pid, 0)

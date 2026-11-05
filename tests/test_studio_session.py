@@ -36,6 +36,77 @@ def test_windows_pid_liveness_never_uses_signal_zero(monkeypatch: pytest.MonkeyP
     assert launcher.is_process_alive(12345)
 
 
+def test_windows_oversized_pid_is_unknown_without_probing_or_signaling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    def open_process(*args: object) -> int:
+        calls.append(args)
+        return 123
+
+    fake_os = SimpleNamespace(
+        name="nt",
+        kill=lambda _pid, sig: pytest.fail(f"must not signal an oversized PID: {sig=}"),
+    )
+    kernel32 = SimpleNamespace(
+        OpenProcess=open_process,
+        WaitForSingleObject=lambda *_args: 258,
+        CloseHandle=lambda *_args: True,
+    )
+    monkeypatch.setattr(process_module, "os", fake_os)
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: kernel32, raising=False)
+
+    assert launcher.is_process_alive((1 << 32) + 12345)
+    assert calls == []
+
+
+def test_unrepresentable_state_pid_is_never_signaled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "cache"
+    folder.mkdir()
+    url = "http://127.0.0.1:1234/?token=verified"
+    launcher.write_state(
+        folder,
+        launcher.StudioProcess(
+            (1 << 32) + 12345,
+            url,
+            1234,
+            str(tmp_path),
+            "2026-11-05T00:00:00Z",
+            stopping=True,
+        ),
+    )
+    verified_urls: list[str] = []
+    signals: list[tuple[int, int]] = []
+    monkeypatch.setattr(launcher, "is_studio", lambda value: verified_urls.append(value) or True)
+    monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: True)
+    monkeypatch.setattr(launcher, "_STOP_SECONDS", 0.01)
+    monkeypatch.setattr(
+        launcher,
+        "os",
+        SimpleNamespace(kill=lambda pid, sig: signals.append((pid, sig))),
+    )
+
+    launcher._stop_studio(folder)
+
+    assert signals == []
+    assert (folder / "studio.json").exists()
+    assert verified_urls == []
+
+
+@pytest.mark.parametrize(("platform", "maximum"), [("nt", (1 << 32) - 1), ("posix", (1 << 31) - 1)])
+def test_process_id_validation_uses_native_width(
+    monkeypatch: pytest.MonkeyPatch, platform: str, maximum: int
+) -> None:
+    monkeypatch.setattr(process_module, "os", SimpleNamespace(name=platform))
+
+    assert process_module.is_valid_process_id(maximum)
+    assert not process_module.is_valid_process_id(maximum + 1)
+    assert not process_module.is_valid_process_id(1)
+
+
 @pytest.mark.parametrize(("wait_result", "expected"), [(0, False), (258, True)])
 def test_windows_pid_liveness_uses_synchronize_handle_and_closes_it(
     monkeypatch: pytest.MonkeyPatch, wait_result: int, expected: bool
