@@ -1081,6 +1081,22 @@ def _atlas_structure_overview(
     )
 
 
+def _atlas_source_details(
+    result: RunResult, observation: Observation, architecture_href: str
+) -> str:
+    return f"""<details class="atlas-source"><summary>Snapshot and audit</summary>
+      <p>Git head <code>{_text(observation.source.git_head)}</code>
+      · Source digest <code>{_text(observation.source.source_digest)}</code>
+      · Dirty {_text(observation.source.dirty)}.</p>
+      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
+      {_root_line(result)}
+      <p>Contract <code>{_text(observation.contract.path)}</code>
+      · {_text(observation.contract.digest)}</p>
+      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
+      </a></p>
+      </details>"""
+
+
 def _atlas_content(
     result: RunResult,
     observation: Observation,
@@ -1153,17 +1169,7 @@ def _atlas_content(
         if not detail_page
         else ""
     }
-      <details class="atlas-source"><summary>Snapshot and audit</summary>
-      <p>Git head <code>{_text(observation.source.git_head)}</code>
-      · Source digest <code>{_text(observation.source.source_digest)}</code>
-      · Dirty {_text(observation.source.dirty)}.</p>
-      <p>Scope: {_text(", ".join(observation.source.scope))}</p>
-      {_root_line(result)}
-      <p>Contract <code>{_text(observation.contract.path)}</code>
-      · {_text(observation.contract.digest)}</p>
-      <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
-      </a></p>
-      </details>"""
+      {_atlas_source_details(result, observation, architecture_href)}"""
 
 
 def _atlas_projection(result: RunResult, observation: Observation) -> ArchitectureProjection:

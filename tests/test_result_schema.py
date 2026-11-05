@@ -123,6 +123,79 @@ def _validator(schema_name: str) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=registry)
 
 
+@pytest.mark.parametrize(
+    ("schema_name", "schema_version"),
+    [
+        ("architecture-contract-2.3.schema.json", "2.3.0"),
+        ("architecture-contract.schema.json", "2.4.0"),
+    ],
+)
+def test_command_result_open_decisions_resolve_legacy_and_current_contract_schemas(
+    schema_name: str, schema_version: str
+) -> None:
+    provenance = ["docs/architecture/dependencies.md"]
+    allowed = {
+        "id": "ALLOW",
+        "kind": "allowed_dependency",
+        "source": "sample.source",
+        "target": "sample.target",
+        "rationale": "Permit the service edge.",
+        "provenance": provenance,
+        "decided_by": "architect",
+    }
+    forbidden = {
+        "id": "FORBID",
+        "kind": "forbidden_dependency",
+        "source": "sample.source",
+        "target": "sample.other",
+        "include_type_checking": False,
+        "rationale": "Keep the storage boundary closed.",
+        "provenance": provenance,
+        "decided_by": "architect",
+    }
+    contract = {
+        "schema_version": schema_version,
+        "components": [
+            {
+                "id": "source",
+                "label": "source",
+                "role": "component",
+                "packages": ["sample.source"],
+                "responsibilities": ["Own the source service."],
+                "forbidden_responsibilities": [],
+                "provenance": provenance,
+            },
+            {
+                "id": "target",
+                "label": "target",
+                "role": "component",
+                "packages": ["sample.target"],
+                "responsibilities": ["Own the target service."],
+                "forbidden_responsibilities": [],
+                "provenance": provenance,
+            },
+        ],
+        "rules": [allowed, forbidden],
+    }
+    contract_schema = json.loads((ROOT / "schema" / schema_name).read_bytes())
+    Draft202012Validator(contract_schema).validate(contract)
+
+    result_validator = _validator("command-result.schema.json")
+    decision_validator = result_validator.evolve(
+        schema=result_validator.schema["$defs"]["openDecision"]
+    )
+    decision = {
+        "source": "sample.source",
+        "target": "sample.target",
+        "observed": True,
+        "import_sites": 1,
+        "source_package": "sample.source",
+        "target_package": "sample.target",
+        "options": {"allowed_dependency": allowed, "forbidden_dependency": forbidden},
+    }
+    assert not list(decision_validator.iter_errors(decision))
+
+
 def test_historical_python_call_binding_reference_resolves_frozen_v4_schema() -> None:
     validator = _validator("architecture-ir-python-decoded-2.6.schema.json")
     call_binding = validator.evolve(

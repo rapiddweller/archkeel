@@ -729,6 +729,12 @@ def _parse_component(raw: RawJson, label: str, *, version: ContractVersion) -> C
         },
         label,
     )
+    return _component_from_fields(item, item_id, provenance, label)
+
+
+def _component_from_fields(
+    item: dict[str, RawJson], item_id: str, provenance: tuple[str, ...], label: str
+) -> ContractComponent:
     try:
         role = ComponentRole(_string(item["role"], f"{label}.role"))
     except ValueError as exc:
