@@ -313,3 +313,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-304 | [Planned component targets promote to package owners](ad-304-planned-component-targets-promote-to-package-owners.md) |
 | AD-305 | [Studio starts one scope per root](ad-305-studio-starts-one-scope-per-root.md) |
 | AD-306 | [Studio chat exports checked story drafts](ad-306-studio-chat-exports-checked-story-drafts.md) |
+| AD-307 | [A Git manifest composes the system landscape](ad-307-git-versioned-system-landscape.md) |
