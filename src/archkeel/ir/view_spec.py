@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
-from typing import Final, TypeVar
+from typing import Final, Literal, TypeVar
 
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
@@ -33,6 +33,7 @@ from archkeel.ir.flow_graph import (
     Site,
     Touch,
     build_call_graph,
+    function_label,
     module_lanes,
     module_names,
     touchpoints,
@@ -263,6 +264,7 @@ class StoryStepCheck:
 
     index: int
     node: str
+    label: str
     chapter: str | None
     title: str | None
     question: str | None
@@ -297,6 +299,7 @@ class StoryCheck:
 
 @dataclass(frozen=True, slots=True)
 class ViewCheck:
+    result_schema_version: Literal["1.3.0"]
     schema_version: ViewSpecVersion
     title: str
     exit_code: int
@@ -304,6 +307,7 @@ class ViewCheck:
     snapshot: ViewSnapshot
     view_snapshot: ViewSnapshot
     snapshot_current: bool
+    snapshot_completeness: Literal["complete", "incomplete"]
     nodes: tuple[NodeCheck, ...]
     edges: tuple[LinkCheck, ...]
     steps: tuple[LinkCheck, ...]
@@ -979,14 +983,18 @@ def _link(
     claim: bool,
     note: str | None,
     step: bool,
+    story_context: bool,
 ) -> LinkCheck:
-    if claim:
+    if claim and not (story_context and step):
         reason = "author claim: not checked against the graph"
         return LinkCheck(source, target, ViewStatus.CLAIM, reason, kind, note=note)
     ends = {nodes[source].status, nodes[target].status}
     for status in (ViewStatus.MISSING, ViewStatus.UNKNOWN):
         if status in ends:
             return LinkCheck(source, target, status, f"an end node is {status}", kind, note=note)
+    if claim:
+        reason = "author claim: not checked against the graph"
+        return LinkCheck(source, target, ViewStatus.CLAIM, reason, kind, note=note)
     calls = graph.calls
     if calls is not None and (source in calls.functions or target in calls.functions):
         return _function_link(graph, calls, source, target, kind, note, step=step)
@@ -1059,6 +1067,7 @@ def _story_check(
             StoryStepCheck(
                 index,
                 step.node,
+                function_label(function) if function is not None else step.node,
                 step.chapter,
                 step.title,
                 step.question,
@@ -1084,70 +1093,98 @@ def _story_check(
 
 def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> ViewCheck:
     """Check each reference against the snapshot the spec names; a claim stays author text."""
+    return _check_view(spec, observation, strict=strict)
+
+
+def _unchecked_links(
+    spec: ViewSpec,
+    pairs: tuple[tuple[str | None, ViewStep], ...],
+    reason: str,
+) -> tuple[tuple[LinkCheck, ...], tuple[LinkCheck, ...]]:
+    edges = tuple(
+        LinkCheck(edge.source, edge.target, ViewStatus.UNKNOWN, reason, edge.kind, note=edge.note)
+        for edge in spec.edges
+    )
+    steps = tuple(
+        LinkCheck(before, step.node, ViewStatus.UNKNOWN, reason, step.kind, note=step.note)
+        for before, step in pairs
+    )
+    return edges, steps
+
+
+def _checked_links(
+    graph: _Graph,
+    checked: Mapping[str, NodeCheck],
+    spec: ViewSpec,
+    pairs: tuple[tuple[str | None, ViewStep], ...],
+) -> tuple[tuple[LinkCheck, ...], tuple[LinkCheck, ...]]:
+    story_context = spec.story is not None
+    edges = tuple(
+        _link(
+            graph,
+            checked,
+            edge.source,
+            edge.target,
+            edge.kind,
+            claim=edge.claim,
+            note=edge.note,
+            step=False,
+            story_context=story_context,
+        )
+        for edge in spec.edges
+    )
+    steps = tuple(
+        LinkCheck(
+            None,
+            step.node,
+            checked[step.node].status,
+            checked[step.node].reason,
+            note=step.note,
+        )
+        if before is None
+        else _link(
+            graph,
+            checked,
+            before,
+            step.node,
+            step.kind,
+            claim=step.claim,
+            note=step.note,
+            step=True,
+            story_context=story_context,
+        )
+        for before, step in pairs
+    )
+    return edges, steps
+
+
+def _check_view(
+    spec: ViewSpec,
+    observation: Observation,
+    *,
+    strict: bool,
+    prepared_graph: _Graph | None = None,
+) -> ViewCheck:
     identity = snapshot_identity(observation)
     current = identity == spec.snapshot
     befores = (None, *(step.node for step in spec.steps[:-1])) if spec.steps else ()
     pairs = tuple(zip(befores, spec.steps, strict=True))
-    nodes: tuple[NodeCheck, ...]
-    edges: tuple[LinkCheck, ...]
-    steps: tuple[LinkCheck, ...]
-    graph: _Graph | None = None
     if not current:
-        stale = "the view names another snapshot: check it against that snapshot"
-        nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, stale) for node in spec.nodes)
-        edges = tuple(
-            LinkCheck(
-                edge.source, edge.target, ViewStatus.UNKNOWN, stale, edge.kind, note=edge.note
-            )
-            for edge in spec.edges
-        )
-        steps = tuple(
-            LinkCheck(before, step.node, ViewStatus.UNKNOWN, stale, step.kind, note=step.note)
-            for before, step in pairs
-        )
+        reason = "the view names another snapshot: check it against that snapshot"
+        nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, reason) for node in spec.nodes)
+        edges, steps = _unchecked_links(spec, pairs, reason)
+        graph = None
     else:
-        graph = _view_graph(observation, story=spec.story is not None)
+        graph = prepared_graph or _view_graph(observation, story=spec.story is not None)
         checked = {node: _node(graph, node) for node in spec.nodes}
         nodes = tuple(checked.values())
-        edges = tuple(
-            _link(
-                graph,
-                checked,
-                edge.source,
-                edge.target,
-                edge.kind,
-                claim=edge.claim,
-                note=edge.note,
-                step=False,
-            )
-            for edge in spec.edges
-        )
-        steps = tuple(
-            LinkCheck(
-                None,
-                step.node,
-                checked[step.node].status,
-                checked[step.node].reason,
-                note=step.note,
-            )
-            if before is None
-            else _link(
-                graph,
-                checked,
-                before,
-                step.node,
-                step.kind,
-                claim=step.claim,
-                note=step.note,
-                step=True,
-            )
-            for before, step in pairs
-        )
+        edges, steps = _checked_links(graph, checked, spec, pairs)
     by_id = {node.id: node for node in nodes}
     stops = tuple(_stop_check(stop, by_id[stop.node], graph) for stop in spec.stops)
     statuses = {node.status for node in nodes} | {link.status for link in (*edges, *steps)}
     failed = ViewStatus.MISSING in statuses or (strict and ViewStatus.UNKNOWN in statuses)
     return ViewCheck(
+        "1.3.0",
         spec.schema_version,
         spec.title,
         2 if not current else 1 if failed else 0,
@@ -1155,6 +1192,9 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
         identity,
         spec.snapshot,
         current,
+        "complete"
+        if observation.coverage.status is Verdict.PASS and not observation.coverage.failures
+        else "incomplete",
         nodes,
         edges,
         steps,
@@ -1162,6 +1202,17 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
         stops,
         story=_story_check(spec, spec.story, graph, steps) if spec.story is not None else None,
     )
+
+
+class ViewCheckSession:
+    """Reuse one snapshot graph when several stored stories are checked together."""
+
+    def __init__(self, observation: Observation) -> None:
+        self.observation = observation
+        self._graph = _view_graph(observation, story=True)
+
+    def check(self, spec: ViewSpec, *, strict: bool) -> ViewCheck:
+        return _check_view(spec, self.observation, strict=strict, prepared_graph=self._graph)
 
 
 def view_check_json(check: ViewCheck) -> str:
@@ -1179,6 +1230,10 @@ def view_summary(check: ViewCheck) -> str:
         2: "not checked: the view names another snapshot",
     }
     lines = [f"View check {check.title!r}: exit {check.exit_code}, {verdicts[check.exit_code]}."]
+    if check.snapshot_completeness == "incomplete":
+        lines.append(
+            "Warning: the source snapshot is incomplete; UNKNOWN means evidence is missing."
+        )
     for label, items in (("Nodes", check.nodes), ("Edges", check.edges), ("Steps", check.steps)):
         counts = Counter(item.status for item in items)
         found = ", ".join(f"{counts[status]} {status}" for status in ViewStatus if counts[status])

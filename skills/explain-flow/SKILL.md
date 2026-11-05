@@ -22,12 +22,15 @@ archkeel story trace --from <function> --to <function> --snapshot <dir>/architec
 
 1. Give qualified names, such as `shop.cli.main.main`. Without `--to`, trace resolved calls to
    the farthest functions. With `--to`, the trace also searches paths with partial calls.
-2. Read `paths`. A hop is `proven` (a resolved call) or `claim` (a partial call, with its seam).
-3. Read `seams`: an unresolved call is a gap. Name it in the story. Do not hide it.
+2. Read the top-level `paths` array. A hop in each path is `proven` (a resolved call) or
+   `claim` (a partial call, with its seam).
+3. Read `seams` on each path (`paths[].seams`): an unresolved call is a gap. Name it in the
+   story. Do not hide it. A path with no gaps has an empty `seams` array.
    Check each call-site file and line in the source before you write its words.
-4. Choose one path. Do not invent a hop that no path has. Keep a partial hop as `claim`.
+4. Choose one path. Do not report an unlisted hop as proven. Keep a partial hop as `claim`.
    Leave unresolved steps `unknown` without `claim`. Set `claim: true` only for a deliberate
-   assertion that the snapshot cannot verify, and give its reason in `note`.
+   assertion between existing nodes whose transition it cannot verify; give its reason in `note`.
+   A claim cannot create a missing node. External systems need the explicit `external` field.
 
 ## 3. Write the story spec
 

@@ -1,6 +1,17 @@
 /** AD-290, AD-291: Stories: the list of the story specs and the player of one checked story. */
 import { useEffect, useRef, useState } from "preact/hooks";
-import { CheckStatus, CheckedStory, StepLink, StoryAnswer, StoryRow, StorySource, StoryStep, readStories, readStory } from "../api";
+import {
+  CheckStatus,
+  CheckedStory,
+  SnapshotCompleteness,
+  StepLink,
+  StoryAnswer,
+  StoryRow,
+  StorySource,
+  StoryStep,
+  readStories,
+  readStory,
+} from "../api";
 import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
 import { baseName } from "../model";
@@ -50,13 +61,13 @@ function StepPanel(props: { step: StoryStep; link: StepLink; count: number }) {
       <p class="step-no">
         STEP {step.index + 1} / {props.count} <ProofMark proof={proof} />
       </p>
-      <h2>{step.title ?? step.node}</h2>
+      <h2>{step.title ?? step.label}</h2>
       <Box title="Story" evidence={Evidence.Claim}>
         <p class="story-text">{link.note ?? "No text yet. The author adds the words."}</p>
         <p class="more">Author text is a claim. The status below comes from the check.</p>
       </Box>
       <Box title="Evidence" evidence={Evidence.Observed}>
-        <p class="code">{step.node}</p>
+        <p class="code">{step.label}</p>
         <p>
           <ProofMark proof={proof} /> {link.reason}
         </p>
@@ -202,6 +213,9 @@ function Player(props: { answer: StoryAnswer }) {
         <h1>{story.title}</h1>
         <Verdict checked={checked} />
       </div>
+      {checked.snapshot_completeness === SnapshotCompleteness.Incomplete ? (
+        <p class="more" role="status">The source snapshot is incomplete; UNKNOWN means evidence is missing.</p>
+      ) : null}
       <Origin answer={props.answer} />
       <div class="story-stage" ref={stage} data-reduced={reduced()}>
         <div class="story-fit" style={{ width: `${layout.width * scale}px`, height: `${layout.height * scale}px` }}>
@@ -243,7 +257,7 @@ function Player(props: { answer: StoryAnswer }) {
                 aria-current={index === current ? "step" : undefined}
                 onClick={() => go(index)}
               >
-                <b>{step.node}</b>
+                <b>{step.label}</b>
                 <span class="meta">
                   <ProofMark proof={proof} /> ·{" "}
                   {candidatesOf(step, link(index)) === null
@@ -314,6 +328,11 @@ function List(props: { rows: readonly StoryRow[] }) {
               <p>
                 {row.id} · {row.steps} steps
               </p>
+              {row.checked_counts === null ? null : (
+                <p class="more">
+                  {row.checked_counts.proven} proven · {row.checked_counts.declared} declared · {row.checked_counts.claim} claim · {row.checked_counts.unknown} unknown · {row.checked_counts.missing} missing
+                </p>
+              )}
               <span class="chips">
                 <span class="chip">{row.source === StorySource.Repository ? "repository" : "local"}</span>
               </span>

@@ -18,6 +18,7 @@ from archkeel.ir.flow_graph import (
     Site,
     build_call_graph,
     find_paths,
+    function_label,
     module_lanes,
     touchpoints,
 )
@@ -40,12 +41,14 @@ TRACE_LIMITS: Final = (
     "A claim hop is a partial call: the analysis lists candidates and does not prove the target.",
     "An unresolved call is a seam of its function, not a hop. A process boundary is not detected.",
     "The search lists some paths, not the best path. Author text is not part of this result.",
+    "Node names are stable IDs; labels use the observed source path and symbol name for display.",
 )
 
 
 @dataclass(frozen=True, slots=True)
 class TraceNode:
     name: str
+    label: str
     lane: str | None
     defined_at: Site | None
     external: tuple[ExternalCheck, ...]
@@ -70,7 +73,7 @@ class TracePath:
 
 @dataclass(frozen=True, slots=True)
 class TraceResult:
-    schema_version: Literal["1.0.0"]
+    schema_version: Literal["1.1.0"]
     snapshot: ViewSnapshot
     source: str
     target: str | None
@@ -85,6 +88,7 @@ def _node(calls: CallGraph, lanes: dict[str, str], name: str) -> TraceNode:
     function = calls.functions[name]
     return TraceNode(
         name,
+        function_label(function),
         lanes.get(function.module),
         function.defined_at,
         external_checks(touchpoints(calls, name)),
@@ -133,7 +137,7 @@ def trace_flow(
     lanes = module_lanes(observation, {item.module for item in calls.functions.values()})
     search = find_paths(calls, source, target, max_paths=max_paths, max_hops=max_hops)
     return TraceResult(
-        "1.0.0",
+        "1.1.0",
         snapshot_identity(observation),
         source,
         target,
@@ -155,7 +159,7 @@ def trace_summary(result: TraceResult) -> str:
     if not result.complete:
         lines.append("The search stopped at its work limit: the list can be incomplete.")
     for number, path in enumerate(result.paths, 1):
-        names = " -> ".join((path.start.name, *(hop.node.name for hop in path.hops)))
+        names = " -> ".join((path.start.label, *(hop.node.label for hop in path.hops)))
         seams = f", {len(path.seams)} seams" if path.seams else ""
         lines.append(f"{number}. {names} ({len(path.hops)} hops{seams})")
     lines.append(result.limits[0])

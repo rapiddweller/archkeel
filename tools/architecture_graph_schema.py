@@ -388,15 +388,20 @@ def view_spec_schema() -> dict[str, object]:
 
 def view_check_schema() -> dict[str, object]:
     schema = _schema(ViewCheck, "view-check", "View check result")
+    # The result schema versions independently from the spec version it records.
+    schema["$id"] = "urn:archkeel:view-check:1.3.0"
     schema["$comment"] = (
-        "Generated from archkeel.ir.view_spec (AD-284). The result is self-contained: each node, "
-        "edge and step carries its status, reason, kind, path and evidence. A proven step is "
+        "Generated from archkeel.ir.view_spec (AD-284, result schema 1.3.0). "
+        "The result is self-contained: each node, edge and step carries its status, reason, "
+        "kind, path and evidence. A proven step is "
         "static structure, not runtime order; title, notes and claims are author text. A stop "
         "carries its node status and facts measured from the snapshot; its title and note are "
         "author text (AD-289). A 1.2.0 spec with a story adds `story`: for each step, by index "
         "into `steps`, its lane, definition, seam and external systems, and a verdict that counts "
-        "statuses and never says PASS (AD-291). The call site of a partial call carries "
-        "`candidates`, so a claim never has the shape of proof."
+        "statuses and never says PASS (AD-291). Snapshot completeness is measured from source "
+        "coverage, never inferred from the exit code. The call site of a partial call carries "
+        "`candidates`, so a claim never has the shape of proof. A claimed relation cannot create "
+        "a node (AD-294)."
     )
     return schema
 

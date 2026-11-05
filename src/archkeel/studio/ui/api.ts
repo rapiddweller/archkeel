@@ -1,4 +1,4 @@
-/** AD-290: the client of schema/studio-api-1.1; it asks only its own server. */
+/** AD-290: the client of schema/studio-api-1.2; it asks only its own server. */
 import {
   API_VERSION,
   AgentKind,
@@ -70,11 +70,32 @@ export const CheckStatus = {
 } as const;
 export type CheckStatus = (typeof CheckStatus)[keyof typeof CheckStatus];
 
+export const SnapshotCompleteness = {
+  Complete: "complete",
+  Incomplete: "incomplete",
+} as const;
+export type SnapshotCompleteness =
+  (typeof SnapshotCompleteness)[keyof typeof SnapshotCompleteness];
+
 /** Where a story spec lies: committed in the repository, or in the local cache folder. */
 export const StorySource = { Repository: "repository", Local: "local" } as const;
 export type StorySource = (typeof StorySource)[keyof typeof StorySource];
 
-export type StoryRow = { readonly id: string; readonly title: string; readonly steps: number; readonly source: StorySource; readonly created: string | null };
+export type StoryCounts = {
+  readonly proven: number;
+  readonly declared: number;
+  readonly claim: number;
+  readonly unknown: number;
+  readonly missing: number;
+};
+export type StoryRow = {
+  readonly id: string;
+  readonly title: string;
+  readonly steps: number;
+  readonly source: StorySource;
+  readonly created: string | null;
+  readonly checked_counts: StoryCounts | null;
+};
 type Site = { readonly file: string | null; readonly line: number | null };
 type Seam = {
   readonly kind: "partial_call" | "unresolved_call";
@@ -93,6 +114,7 @@ type ExternalCheck = {
 export type StoryStep = {
   readonly index: number;
   readonly node: string;
+  readonly label: string;
   readonly chapter: string | null;
   readonly title: string | null;
   readonly question: string | null;
@@ -116,8 +138,10 @@ type StoryVerdict = Readonly<Record<CheckStatus, number>> & {
 };
 /** The part of the `archkeel view check` result (schema/view-check.schema.json) that the player draws. */
 export type CheckedStory = {
+  readonly result_schema_version: "1.3.0";
   readonly title: string;
   readonly snapshot_current: boolean;
+  readonly snapshot_completeness: SnapshotCompleteness;
   readonly steps: readonly StepLink[];
   readonly author_notes: readonly string[];
   readonly story: {
@@ -169,7 +193,8 @@ export const EXPLORER_PAGE = "/files/architecture.report.html";
 async function get<Answer extends { readonly api_version: string }>(path: string): Promise<Answer> {
   const response = await fetch(path, { credentials: "same-origin" });
   if (!response.ok) {
-    throw new Error(`GET ${path}: ${response.status}`);
+    const detail = (await response.text()).trim();
+    throw new Error(`GET ${path}: ${response.status}${detail ? ` · ${detail}` : ""}`);
   }
   const answer: Answer = await response.json();
   // One wheel ships both sides; a mismatch means a page of another Studio run.

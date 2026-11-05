@@ -17,7 +17,7 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | `model.ts`, `map-layout.ts`, `lens-layout.ts`, `story-layout.ts`, `level-layout.ts` | model | The indexed call graph, the search and the layouts of the Map, the component, the module, the lens and a story. Pure: no DOM, no network. |
 | `canvas.tsx` | canvas | The Explorer island: the Explorer page with `?embed`; passes on its selection. |
 | `store.ts` | store | The one store: polls `GET /api/v1/state`, then reads `GET /api/v1/graph` once and builds the model. |
-| `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.1.schema.json`. |
+| `api.ts` | client | The only `fetch`; typed API responses and shared response value sets from `schema/studio-api-1.2.schema.json`. |
 | `vocabulary.ts` | client | Generated from the enums of `archkeel.studio.api`. Never edit it. |
 | `evidence.ts` | evidence | The evidence model and the call proof (proven, claim, unknown). |
 | `tokens.css` | — | The one tokens file: colours, radius, font; dark and light. A leaf. |
@@ -69,7 +69,7 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
 - Files: kebab-case. Components: PascalCase functions. Slice 1 is always dark.
 - A closed set is a `const` object with `as const` and a type of the same name, as in
   `evidence.ts`. Do not use `enum`: the collector cannot decide an enum in its own module.
-- Decide on a typed value (`Evidence.Claim`), never on a label or a string literal.
+- Decide on a typed value (`Evidence.Claim`), never on a label or a string literal. API response values such as snapshot completeness are owned by `api.ts`; pages use its exported value.
 - Evidence: Observed = code evidence, Claim = agent hypothesis, Target = architect decision.
   Each kind is a CSS class of the same value. An agent text is a Claim until the architect
   accepts it. A proposal reads "PROPOSED - NOT APPLIED".

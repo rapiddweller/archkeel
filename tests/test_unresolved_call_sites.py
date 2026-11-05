@@ -616,6 +616,16 @@ def test_default_report_json_carries_no_call_list(
     assert result["unresolved_call_changes"] is None
 
 
+def test_only_calls_explains_null_call_list_on_an_incomplete_snapshot(tmp_path: Path) -> None:
+    root = _prepare_repo(tmp_path, {_PROBE_PATH: "def broken(:\n"})
+    result, _ = run_report(root, config=CONFIG, analyzer=observe, only_calls=True)
+
+    assert result.observation_complete.value == "UNKNOWN"
+    assert result.filtered_calls is None
+    assert "call list unavailable" in report_summary(result).sentence
+    assert "source observation is incomplete" in report_summary(result).sentence
+
+
 def test_only_calls_page_shows_the_call_table_instead_of_the_other_sections(
     tmp_path: Path,
 ) -> None:

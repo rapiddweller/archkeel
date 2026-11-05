@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 from test_explore import _repository, _tree_digest
 
 from archkeel.cli import _decode_snapshot as _decode
@@ -29,7 +30,7 @@ from archkeel.studio.workspace import Workspace
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
-_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.1.schema.json").read_bytes())
+_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.2.schema.json").read_bytes())
 # The real ArchKeel snapshot takes 95 to 124 s on a laptop and more on a loaded 4 vCPU runner.
 _EXPLORE_SECONDS = 300
 
@@ -111,7 +112,13 @@ def _validator(answer: str) -> Draft202012Validator:
 def validate(payload: object, name: str) -> None:
     """Check a JSON body against one definition of the API schema."""
     schema = {"$schema": _SCHEMA["$schema"], "$defs": _SCHEMA["$defs"], "$ref": f"#/$defs/{name}"}
-    Draft202012Validator(schema).validate(payload)
+    checked_schema = json.loads(
+        (Path(__file__).parents[1] / "schema/view-check-1.3.schema.json").read_bytes()
+    )
+    registry = Registry().with_resource(
+        checked_schema["$id"], Resource.from_contents(checked_schema)
+    )
+    Draft202012Validator(schema, registry=registry).validate(payload)
 
 
 def state(server: Studio, cookie: str) -> dict:
@@ -149,6 +156,24 @@ def test_the_schema_has_the_version_of_the_server() -> None:
         for name in ("state", "chat_response", "chat_error")
     } == {API_VERSION}
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
+
+
+def test_story_counts_require_the_matching_strict_api_schema() -> None:
+    schema_folder = Path(__file__).parents[1] / "schema"
+    old = json.loads((schema_folder / "studio-api-1.1.schema.json").read_bytes())
+    row = {
+        "id": "example",
+        "title": "Example",
+        "steps": 1,
+        "source": "local",
+        "created": None,
+        "checked_counts": None,
+    }
+    old_row_schema = old["$defs"]["stories"]["properties"]["stories"]["items"]
+    current_row_schema = _SCHEMA["$defs"]["stories"]["properties"]["stories"]["items"]
+
+    assert not Draft202012Validator(old_row_schema).is_valid(row)
+    assert Draft202012Validator(current_row_schema).is_valid(row)
 
 
 def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> None:
@@ -598,6 +623,18 @@ def test_a_failed_explore_shows_its_diagnostic(tmp_path: Path) -> None:
     assert result["notes"], result
 
 
+def test_a_story_route_reports_failed_explore_and_its_notes(tmp_path: Path) -> None:
+    with running(_repository(tmp_path / "shop", commit=False), tmp_path / "cache") as server:
+        cookie = login(server)
+        result = explore(server, cookie)
+        assert result["explore"] == "failed"
+        response, body = _get(server, cookie, "/api/v1/stories/any-story")
+
+    assert response.status == 503
+    assert b"explore failed" in body.lower()
+    assert any(note.encode() in body for note in result["notes"] if note)
+
+
 @pytest.mark.parametrize(
     "name", ["../shop/pyproject.toml", "..%2Fshop%2Fpyproject.toml", "nothing.html", ""]
 )
@@ -742,14 +779,27 @@ def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studi
     (folder / "broken.story.json").write_text("{")
     validate(json.loads(_get(studio, cookie, "/api/v1/stories")[1]), "stories")
     listing = json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"]
+    story_answer = json.loads(_get(studio, cookie, "/api/v1/stories/place-draft")[1])
+    checked_counts = story_answer["checked"]["story"]["verdict"]
     assert listing == [
-        {"id": "broken", "title": "broken", "steps": 0, "source": "local", "created": None},
+        {
+            "id": "broken",
+            "title": "broken",
+            "steps": 0,
+            "source": "local",
+            "created": None,
+            "checked_counts": None,
+        },
         {
             "id": "place-draft",
             "title": f"Story from {_PLACE}",
             "steps": len(spec["steps"]),
             "source": "local",
             "created": None,
+            "checked_counts": {
+                key: checked_counts[key]
+                for key in ("proven", "declared", "claim", "unknown", "missing")
+            },
         },
     ]
 

@@ -18,6 +18,7 @@ from archkeel.cli.config import CONFIG_PATH
 from archkeel.ir.model import DiagnosticCode, DiagnosticKind
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "F-architecture"
+TYPESCRIPT_STORY_FIXTURE_DIR = Path(__file__).resolve().parent / "F-typescript-story"
 Section = Literal[
     "showcase", "clean", "class_a", "validation", "class_b", "protocol", "class_c", "class_d"
 ]
@@ -99,6 +100,9 @@ class TraceExpectation:
     source: str
     target: str
     hops: tuple[str, ...]
+    names: tuple[str, ...] = ()
+    labels: tuple[str, ...] = ()
+    observation_complete: Literal["PASS", "UNKNOWN"] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +122,20 @@ class ViewExpectation:
     # AD-291: the proven, claim and unknown step counts of the story verdict, and a story trace.
     verdict: tuple[int, int, int] | None = None
     trace: TraceExpectation | None = None
+    nodes: tuple[str, ...] = ()
+    snapshot_completeness: Literal["complete", "incomplete"] | None = None
+    bind_to_snapshot: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ReportExpectation:
+    """AD-60: a valid incomplete snapshot has no measured call list."""
+
+    scenario: Literal["incomplete_source"]
+    exit_code: Literal[2]
+    filtered_calls: None
+    observation_complete: Literal["UNKNOWN"]
+    summary_contains: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +166,8 @@ class Variant:
     evidence: str | None = None
     check: CheckExpectation | None = None
     view: ViewExpectation | None = None
+    report: ReportExpectation | None = None
+    typescript_trace: TraceExpectation | None = None
     against: AgainstExpectation | None = None
     # The scan configuration the row runs, relative to the sample root (AD-101): the product's
     # own file, or a second one that governs another scope, such as tests, beside it.

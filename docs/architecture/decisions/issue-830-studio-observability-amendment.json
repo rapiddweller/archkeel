@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
+  "after_digest": "643183f2c5f6ee4bd9cbe5f58058b72a5dd43834ba2628c1e1af313f93154f3e",
+  "before_baseline_digest": "20b5faaa8a288832765716327d987934a4a3a5d56a2b7a4fe9e7b77ddfbe2162",
+  "before_digest": "312247d0af1d3ba1985be70ec51b424cd452f6693c7e40d2f7635215f1b3c647",
+  "decided_by": "Architect (standing approval for justified budget changes); recorded by manager",
+  "rationale": "CI run 41965830692, job 127042491931, at source head 1a3c0485 measured 942 unresolved calls; the prior baseline is 941. The one-call increase is archkeel.ir.flow_graph.function_label calling function.name.removeprefix through a dynamic receiver. Set only calls_unresolved to the CI value 942. The Studio API 1.2 response for GET /api/v1/stories includes five fixed typed values, proven, declared, claim, unknown and missing, in StoryRow.checked_counts. StoryCounts must therefore be public in archkeel.studio.api and pass through the stories -> api contract. This records the issue #830 API contract; it adds no route and does not convert UNKNOWN into a verdict. Standing approval by the architect covers justified budget changes only. It does not approve this PR, its merge or release.",
+  "schema_version": "2.0.0"
+}

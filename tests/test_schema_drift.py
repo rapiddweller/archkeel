@@ -776,6 +776,8 @@ def test_view_spec_schema_matches_its_dataclasses() -> None:
     from tools.architecture_graph_schema import view_check_schema, view_spec_schema
 
     assert _schema("view-check.schema.json") == view_check_schema()
+    assert _schema("view-check-1.2.schema.json")["$id"] == "urn:archkeel:view-check:1.2.0"
+    assert _schema("view-check-1.3.schema.json") == _schema("view-check.schema.json")
     schema = _schema("view-spec.schema.json")
     assert schema == view_spec_schema()
     example = json.loads((ROOT / "fixtures/F-architecture-view/place-order.json").read_bytes())

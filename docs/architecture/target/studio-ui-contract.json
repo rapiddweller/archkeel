@@ -69,16 +69,18 @@
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError",
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryAnswer",
-        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StorySource"
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StorySource",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:SnapshotCompleteness"
       ],
       "responsibilities": [
-        "Read the state, the call graph, the stories and the checked story of the own server, ask the chat and send nothing else, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
+        "Read the state, call graph, stories and checked story from the own server; send chat requests only. Expose generated API vocabulary and typed schema-aligned response values."
       ],
       "forbidden_responsibilities": [
         "Render, keep state or ask another origin."
       ],
       "provenance": [
-        "src/archkeel/studio/ui/AGENTS.md"
+        "src/archkeel/studio/ui/AGENTS.md",
+        "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md"
       ],
       "decided_by": "agent",
       "requires": []
@@ -391,7 +393,8 @@
         "Import another view, poll the API or keep shared state."
       ],
       "provenance": [
-        "src/archkeel/studio/ui/AGENTS.md"
+        "src/archkeel/studio/ui/AGENTS.md",
+        "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -401,6 +404,7 @@
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckStatus",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:SnapshotCompleteness",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StepLink",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryAnswer",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryRow",

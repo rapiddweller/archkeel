@@ -33,6 +33,7 @@
         "archkeel.studio.api:Route",
         "archkeel.studio.api:ScopeKind",
         "archkeel.studio.api:SnapshotInfo",
+        "archkeel.studio.api:StoryCounts",
         "archkeel.studio.api:StoryRow",
         "archkeel.studio.api:StorySource",
         "archkeel.studio.api:StudioState",
@@ -68,7 +69,8 @@
       ],
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
-        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md",
+        "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md"
       ],
       "decided_by": "agent",
       "requires": [],
@@ -156,7 +158,8 @@
       ],
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
-        "docs/architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md"
+        "docs/architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md",
+        "docs/architecture/decisions/ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -164,6 +167,7 @@
           "component": "api",
           "through": [
             "archkeel.studio.api:Json",
+            "archkeel.studio.api:StoryCounts",
             "archkeel.studio.api:StoryRow",
             "archkeel.studio.api:StorySource",
             "archkeel.studio.api:decoded"

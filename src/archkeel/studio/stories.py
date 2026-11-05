@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from .api import Json, StoryRow, StorySource, decoded
+from .api import Json, StoryCounts, StoryRow, StorySource, decoded
 
 SUFFIX: Final = ".story.json"
 # A name that cannot leave the folder: no dot, no slash.
@@ -55,11 +55,18 @@ class Stories:
         check: CheckStory,
         draft: DraftStory,
         head: HeadOf,
+        clear_check: Callable[[], None] | None = None,
     ) -> None:
         self.folders = tuple((source, folder.resolve()) for source, folder in folders)
         self.check = check
         self.draft = draft
         self.head = head
+        self.clear_check = clear_check
+
+    def invalidate_check(self) -> None:
+        """Drop checker state before Workspace starts a new explore run."""
+        if self.clear_check is not None:
+            self.clear_check()
 
     def find(self, story_id: str) -> Found | None:
         """The spec of one id from the first folder that has it; never a path outside a folder."""
@@ -71,7 +78,7 @@ class Stories:
                 return Found(source, target.read_bytes())
         return None
 
-    def rows(self) -> list[StoryRow]:
+    def rows(self, snapshot: Path | None = None) -> list[StoryRow]:
         """One row for each id; a file that does not parse is a row with zero steps."""
         rows: dict[str, StoryRow] = {}
         for source, folder in self.folders:
@@ -83,12 +90,16 @@ class Stories:
                 title = body.get("title") if body is not None else None
                 steps = body.get("steps") if body is not None else None
                 made = body.get("created") if body is not None else None
+                checked_counts = (
+                    _checked_counts(self, path, snapshot) if snapshot is not None else None
+                )
                 rows[story_id] = StoryRow(
                     story_id,
                     title if isinstance(title, str) else story_id,
                     len(steps) if isinstance(steps, list) else 0,
                     source,
                     made if isinstance(made, str) else None,
+                    checked_counts,
                 )
         return sorted(rows.values(), key=lambda row: row.id)
 
@@ -98,6 +109,36 @@ def _read(path: Path) -> Mapping[str, Json] | None:
         return decoded(path.read_bytes())
     except OSError:
         return None
+
+
+def _checked_counts(stories: Stories, path: Path, snapshot: Path) -> StoryCounts | None:
+    try:
+        checked = stories.check(path.read_bytes(), snapshot).result
+    except (OSError, ValueError):
+        return None
+    story = checked.get("story")
+    verdict = story.get("verdict") if isinstance(story, Mapping) else None
+    if not isinstance(verdict, Mapping):
+        return None
+    proven = verdict.get("proven")
+    declared = verdict.get("declared")
+    claim = verdict.get("claim")
+    unknown = verdict.get("unknown")
+    missing = verdict.get("missing")
+    if not (
+        isinstance(proven, int)
+        and not isinstance(proven, bool)
+        and isinstance(declared, int)
+        and not isinstance(declared, bool)
+        and isinstance(claim, int)
+        and not isinstance(claim, bool)
+        and isinstance(unknown, int)
+        and not isinstance(unknown, bool)
+        and isinstance(missing, int)
+        and not isinstance(missing, bool)
+    ):
+        return None
+    return StoryCounts(proven, declared, claim, unknown, missing)
 
 
 def provenance(spec: bytes) -> dict[str, str | None]:

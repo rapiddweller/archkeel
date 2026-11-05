@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:story-trace:1.0.0",
+  "$id": "urn:archkeel:story-trace:1.1.0",
   "title": "Story trace result",
   "$comment": "Generated from archkeel.ir.story (AD-291). Candidate paths over the call graph of one snapshot. A hop is proven (a resolved call) or a claim (a partial call, with its seam). An unresolved call is a seam of its function. Author text is not part of this result. `complete` is false only when the path search stopped at its work limit; it says nothing about the call analysis.",
   "$ref": "#/$defs/TraceResult",
@@ -10,7 +10,7 @@
       "properties": {
         "schema_version": {
           "enum": [
-            "1.0.0"
+            "1.1.0"
           ]
         },
         "snapshot": {
@@ -125,6 +125,9 @@
         "name": {
           "type": "string"
         },
+        "label": {
+          "type": "string"
+        },
         "lane": {
           "anyOf": [
             {
@@ -154,6 +157,7 @@
       },
       "required": [
         "name",
+        "label",
         "lane",
         "defined_at",
         "external"

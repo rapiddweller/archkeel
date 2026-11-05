@@ -301,3 +301,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-291 | [A story is a checked view, and the trace proposes its path](ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md) |
 | AD-292 | [The Studio chat lets the owner's agent answer read-only; Studio decides what is observed](ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md) |
 | AD-293 | [Python detection checks `src` before the repository root](ad-293-python-detection-checks-src-before-the-repository-root.md) |
+| AD-294 | [A story claim cannot create a node](ad-294-a-story-claim-cannot-create-a-node.md) |
+| AD-295 | [View checks name incomplete source and stories show checked counts](ad-295-view-checks-name-incomplete-source-and-stories-show-checked-counts.md) |
+| AD-296 | [Traces display source labels and keep canonical names](ad-296-traces-display-source-labels-and-keep-canonical-names.md) |
+| AD-297 | [An incomplete call list is explained as unavailable](ad-297-an-incomplete-call-list-is-explained-as-unavailable.md) |

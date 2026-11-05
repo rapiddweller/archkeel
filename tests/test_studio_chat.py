@@ -22,7 +22,7 @@ from test_studio import login, running, validate
 from archkeel.cli import build_parser
 from archkeel.studio.agent import Agent
 from archkeel.studio.answer import Snapshot
-from archkeel.studio.api import AgentKind, ChatError, ChatFailure, ChatRequest
+from archkeel.studio.api import API_VERSION, AgentKind, ChatError, ChatFailure, ChatRequest
 from archkeel.studio.server import Studio
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
@@ -677,7 +677,7 @@ def test_the_dropped_refs_are_capped_in_count_and_length() -> None:
     assert all(len(ref) <= 300 for ref in checked.dropped_refs)
     validate(
         {
-            "api_version": "1.1.0",
+            "api_version": API_VERSION,
             "agent": "claude",
             "blocks": [],
             "facts": [],

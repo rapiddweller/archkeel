@@ -16,7 +16,7 @@ import pytest
 
 from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
+from archkeel.check.report import run_report, run_saved_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
@@ -33,6 +33,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
+from archkeel.ir.view_spec import snapshot_identity
 from archkeel.render.html import render_architecture_html
 from archkeel.render.summary import badge, report_summary
 from fixtures import architecture_demo
@@ -51,6 +52,8 @@ _SAMPLE_VARIANTS = [
     and variant.check is None
     and variant.against is None
     and variant.view is None
+    and variant.report is None
+    and variant.typescript_trace is None
     and not variant.explore
 ]
 _CHECK_VARIANTS = [variant for variant in CATALOG if variant.check is not None]
@@ -1227,8 +1230,19 @@ def test_view_variant_produces_the_catalogued_statuses(
     assert architecture is not None
     snapshot = tmp_path / "architecture.json"
     snapshot.write_bytes(architecture)
+    spec_path = view.spec
+    if view.bind_to_snapshot:
+        model = parse_observation(decode_canonical_model(json.loads(architecture)))
+        identity = snapshot_identity(model)
+        raw_spec = json.loads(view.spec.read_text(encoding="utf-8"))
+        raw_spec["snapshot"] = {
+            "source_digest": identity.source_digest,
+            "contract_digest": identity.contract_digest,
+        }
+        spec_path = tmp_path / view.spec.name
+        spec_path.write_text(json.dumps(raw_spec), encoding="utf-8")
     action, output = ("show", ["--output", str(tmp_path / "view")]) if view.show else ("check", [])
-    arguments = ["view", action, str(view.spec), "--snapshot", str(snapshot), "--json", *output]
+    arguments = ["view", action, str(spec_path), "--snapshot", str(snapshot), "--json", *output]
     assert main(arguments) == view.exit_code
     result = json.loads(capsys.readouterr().out)
     assert tuple(item["status"] for item in result["edges"]) == view.edges
@@ -1237,8 +1251,12 @@ def test_view_variant_produces_the_catalogued_statuses(
     if view.verdict is not None:
         verdict = result["story"]["verdict"]
         assert (verdict["proven"], verdict["claim"], verdict["unknown"]) == view.verdict
-    elif view.trace is None:
+    elif view.trace is None and not view.nodes:
         assert "story" not in result
+    if view.nodes:
+        assert tuple(item["status"] for item in result["nodes"]) == view.nodes
+    if view.snapshot_completeness is not None:
+        assert result["snapshot_completeness"] == view.snapshot_completeness
     if view.trace is not None:
         trace = view.trace
         trace_arguments = ["story", "trace", "--from", trace.source, "--to", trace.target]
@@ -1249,6 +1267,81 @@ def test_view_variant_produces_the_catalogued_statuses(
         page = (tmp_path / "view/architecture.report.html").read_text()
         embedded = page.split('<script id="view-check-data" type="application/json">')[1]
         assert json.loads(embedded.split("</script>")[0]) == result
+
+
+@pytest.mark.parametrize(
+    "variant", [item for item in CATALOG if item.report is not None], ids=lambda v: v.id
+)
+def test_report_variant_produces_the_catalogued_nullable_result(
+    tmp_path: Path, variant: Variant, capsys: pytest.CaptureFixture
+) -> None:
+    report = variant.report
+    assert report is not None
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    config = load_config(root, variant.config)
+    live, architecture = run_report(root, config=config, analyzer=observe, only_calls=True)
+    assert live.observation_complete.value == report.observation_complete
+    assert architecture is not None
+    snapshot = tmp_path / "architecture.json"
+    snapshot.write_bytes(architecture)
+
+    assert main(["report", "--input", str(snapshot), "--only", "calls", "--json"]) == (
+        report.exit_code
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["filtered_calls"] is report.filtered_calls
+    assert result["observation_complete"] == report.observation_complete
+    summary = report_summary(run_saved_report(snapshot, only_calls=True)).sentence
+    for phrase in report.summary_contains:
+        assert phrase in summary
+
+
+@pytest.mark.parametrize(
+    "variant", [item for item in CATALOG if item.typescript_trace is not None], ids=lambda v: v.id
+)
+def test_typescript_trace_variant_keeps_ids_and_displays_source_labels(
+    tmp_path: Path, variant: Variant, capsys: pytest.CaptureFixture
+) -> None:
+    trace = variant.typescript_trace
+    assert trace is not None
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    config = load_config(root, variant.config)
+    report, architecture = run_report(
+        root,
+        config=config,
+        analyzer=observer_for(
+            config.language,
+            collector_argv=config.collector_argv,
+            tsconfig=config.tsconfig,
+            bundler=config.bundler,
+        ),
+    )
+    if trace.observation_complete is not None:
+        assert report.observation_complete.value == trace.observation_complete
+    assert architecture is not None
+    snapshot = tmp_path / "architecture.json"
+    snapshot.write_bytes(architecture)
+    assert (
+        main(
+            [
+                "story",
+                "trace",
+                "--from",
+                trace.source,
+                "--to",
+                trace.target,
+                "--snapshot",
+                str(snapshot),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    (path,) = json.loads(capsys.readouterr().out)["paths"]
+    nodes = (path["start"], *(hop["node"] for hop in path["hops"]))
+    assert tuple(node["name"] for node in nodes) == trace.names
+    assert tuple(node["label"] for node in nodes) == trace.labels
+    assert tuple(hop["status"] for hop in path["hops"]) == trace.hops
 
 
 @pytest.mark.parametrize("variant", _AGAINST_VARIANTS, ids=lambda v: v.id)

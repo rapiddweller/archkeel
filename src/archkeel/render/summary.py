@@ -195,6 +195,15 @@ def _report_filter_line(result: RunResult) -> str:
         facets.append(f"rule {report_filter.rule}")
     if report_filter.component is not None:
         facets.append(f"component {report_filter.component}")
+    if (
+        report_filter.only_calls
+        and result.filtered_calls is None
+        and result.observation_complete is _AssessmentStatus.UNKNOWN
+    ):
+        return (
+            f"\n\nFiltered ({', '.join(facets)}): call list unavailable; the source observation "
+            "is incomplete, so no call count is claimed."
+        )
     if result.filtered_calls is not None:
         listed = len(result.filtered_calls)
         return (

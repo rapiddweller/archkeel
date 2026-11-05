@@ -171,10 +171,11 @@ def test_explain_flow_skill_traces_chooses_writes_and_checks() -> None:
         "author text, a claim",
         "Without `--to`, trace resolved calls",
         "With `--to`, the trace also searches paths with partial calls",
+        "`paths[].seams`",
         "stored story is reviewed repository documentation",
         "Leave unresolved steps `unknown` without `claim`",
         "only for a deliberate",
-        "assertion that the snapshot cannot verify",
+        "assertion between existing nodes",
     ):
         assert text.lower() in body.lower(), text
     keys = [
