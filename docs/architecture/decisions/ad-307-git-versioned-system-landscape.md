@@ -3,14 +3,18 @@
 **Status.** Issue #853 architecture decision. No runtime implementation is selected.
 
 **Decision.**
-- Keep a small, Git-versioned system manifest as the entry point for a top-down view. It names
-  typed runtime units, external systems, directed communication intent, and references to existing
-  component contracts. It may describe an empty greenfield system and use multiple system,
+- The Git-versioned root architecture contract may itself be the system manifest and entry point
+  for a top-down view. Prefer its existing optional `declarations.uml` Target section and shared
+  Target graph owner for typed runtime units, external systems, directed communication intent, and
+  references to existing component owners. Resolve references to unique owner identities through
+  that graph; if the current linker cannot bind an owner, extend it in place rather than copying
+  the definition. Do not assume a separate sidecar manifest or parser.
+  It may describe an empty greenfield system and use multiple system,
   runtime, and component levels. Share submodels only through explicit references when needed;
   multiple runtime units may reference the same component without copying its definition. No
   directory or contract tree is mandatory. Contract definitions stay in their current files and
   have one owner.
-- Resolve the manifest and every referenced contract from one immutable Git revision, or one
+- Resolve the root contract and every referenced contract from one immutable Git revision, or one
   explicitly identified immutable snapshot such as an uncommitted design draft. A result identifies
   that revision or snapshot content. Never mix states. Missing, ambiguous, or invalid references
   are errors or UNKNOWN; never silently resolve them from another state.
@@ -28,10 +32,11 @@
   Top-down drilldown follows the manifest's contract references and then each contract's existing
   component hierarchy; it does not create a second policy or graph API.
 
-**Alternatives.** Extending component contracts alone would mix system/runtime relationships with
-source ownership and contract-level `requires`. Using `inside` or `requires` for system links would
-change their established meanings: `inside` mounts another contract level, while `requires` grants
-component import permission. A separate database would duplicate Git history and add an unproven
+**Alternatives.** Adding system/runtime relationships directly to `components[]` would mix them
+with source ownership and contract-level `requires`; the existing separate `declarations.uml`
+Target section is a valid and preferred place for this intent. `inside` mounts a scoped contract
+tree and does not provide reusable sharing; `requires` grants component import permission. Neither
+is a system-link mechanism. A separate database would duplicate Git history and add an unproven
 consistency owner. None is justified.
 
 **Limits.** This decision does not define a manifest schema, graph wire version, deployment format,
