@@ -522,6 +522,36 @@ def test_package_less_graph_intent_requires_explicit_planned_lifecycle() -> None
 @pytest.mark.parametrize("wire", ["graph", "report"])
 @pytest.mark.parametrize("conflict", ["active-package", "planned-owner"])
 def test_graph_wire_rejects_ambiguous_planned_api_selector(wire: str, conflict: str) -> None:
+    graph = _ambiguous_selector_graph(conflict)
+    graph_payload = asdict(graph)
+    for intent in graph_payload["component_intents"]:
+        if intent["layer"] is None:
+            del intent["layer"]
+        if intent["lifecycle"] is None:
+            del intent["lifecycle"]
+    if wire == "report":
+        payload = {
+            "observed": None,
+            "target": graph_payload,
+            "unavailable": "Source graph was omitted for this decoder probe.",
+            "schema_version": ReportSchemaVersion.V1_3_0.value,
+        }
+    else:
+        payload = graph_payload
+
+    expected_error = (
+        "selector.*active package"
+        if conflict == "active-package"
+        else "planned API selector is claimed by multiple components"
+    )
+    with pytest.raises(ValueError, match=expected_error):
+        if wire == "graph":
+            parse_graph(json.loads(json.dumps(payload)))
+        else:
+            parse_report(json.loads(json.dumps(payload)))
+
+
+def _ambiguous_selector_graph(conflict: str) -> ArchitectureGraph:
     first_intent = (
         ComponentIntent(
             "active",
@@ -530,9 +560,11 @@ def test_graph_wire_rejects_ambiguous_planned_api_selector(wire: str, conflict: 
             lifecycle=ComponentLifecycle.PLANNED,
         )
         if conflict == "planned-owner"
-        else ComponentIntent("active", ComponentRole.COMPONENT, packages=("pkg",))
+        else ComponentIntent("active", ComponentRole.COMPONENT, packages=("other",))
     )
-    graph = ArchitectureGraph(
+    if conflict == "active-package":
+        first_intent = ComponentIntent("active", ComponentRole.COMPONENT, packages=("pkg",))
+    return ArchitectureGraph(
         OriginKind.DECLARED,
         (
             Entity(
@@ -563,32 +595,45 @@ def test_graph_wire_rejects_ambiguous_planned_api_selector(wire: str, conflict: 
             ),
         ),
     )
-    graph_payload = asdict(graph)
-    for intent in graph_payload["component_intents"]:
-        if intent["layer"] is None:
-            del intent["layer"]
-        if intent["lifecycle"] is None:
-            del intent["lifecycle"]
-    if wire == "report":
-        payload = {
-            "observed": None,
-            "target": graph_payload,
-            "unavailable": "Source graph was omitted for this decoder probe.",
-            "schema_version": ReportSchemaVersion.V1_3_0.value,
-        }
-    else:
-        payload = graph_payload
 
-    expected_error = (
-        "selector.*active package"
-        if conflict == "active-package"
-        else "planned API selector is claimed by multiple components"
-    )
-    with pytest.raises(ValueError, match=expected_error):
-        if wire == "graph":
-            parse_graph(json.loads(json.dumps(payload)))
+
+@pytest.mark.parametrize("encoder", ["graph", "report"])
+@pytest.mark.parametrize("conflict", ["active-package", "planned-owner"])
+def test_graph_and_report_encoders_reject_ambiguous_planned_api_selector(
+    encoder: str, conflict: str
+) -> None:
+    graph = _ambiguous_selector_graph(conflict)
+
+    with pytest.raises(ValueError, match="planned API selector"):
+        if encoder == "graph":
+            graph_bytes(graph)
         else:
-            parse_report(json.loads(json.dumps(payload)))
+            report_bytes(
+                ArchitectureReport(
+                    None,
+                    graph,
+                    unavailable="Source graph was omitted for this encoder probe.",
+                    schema_version=ReportSchemaVersion.V1_3_0,
+                )
+            )
+
+
+@pytest.mark.parametrize("encoder", ["graph", "report"])
+def test_graph_and_report_encoders_roundtrip_unambiguous_planned_selector(encoder: str) -> None:
+    graph = _ambiguous_selector_graph("none")
+
+    if encoder == "graph":
+        payload = json.loads(graph_bytes(graph))
+        assert parse_graph(payload) == graph
+    else:
+        report = ArchitectureReport(
+            None,
+            graph,
+            unavailable="Source graph was omitted for this roundtrip probe.",
+            schema_version=ReportSchemaVersion.V1_3_0,
+        )
+        payload = json.loads(report_bytes(report))
+        assert parse_report(payload) == report
 
 
 @pytest.mark.parametrize(

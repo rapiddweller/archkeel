@@ -556,6 +556,7 @@ def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
 
 def graph_bytes(graph: ArchitectureGraph) -> bytes:
     graph.validate()
+    _validate_wire_component_selectors(graph)
     text: str = json.dumps(_graph_payload(graph), sort_keys=True, ensure_ascii=False) + "\n"
     return text.encode()
 
@@ -710,6 +711,9 @@ def _report_finding(value: RawJson) -> ReportFinding:
 
 def report_bytes(report: ArchitectureReport) -> bytes:
     report.validate()
+    for graph in (report.observed, report.target):
+        if graph is not None:
+            _validate_wire_component_selectors(graph)
     payload = {
         "observed": None if report.observed is None else _graph_payload(report.observed),
         "target": None if report.target is None else _graph_payload(report.target),
