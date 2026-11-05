@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
+  "after_digest": "7feb476a2642486333b204676ad5aad92be9f4ce6320db6915cdbe9878f05bfa",
+  "before_baseline_digest": "57ae9bc2fea0453e47b06c62f7706f21386180adc6df4bba57bba2aa4dd463be",
+  "before_digest": "643183f2c5f6ee4bd9cbe5f58058b72a5dd43834ba2628c1e1af313f93154f3e",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "CI run 42012088354, job 127193356448, at source head 67f49136 measured exactly four contract widenings: api.public adds SnapshotCompleteness, and agent, answer and workspace add that API port. This records the API-owned typed completeness state those components already use. No measurement budget changes.",
+  "schema_version": "2.0.0"
+}
