@@ -19,8 +19,9 @@
 5. Target outputs identify the project root, source scope and snapshot revision. Source and
    contract digests are candidate identity inputs; the owner and calculation remain undecided.
    Report freshness as current, stale or unknown. Missing or incomplete evidence stays UNKNOWN.
-6. Keep CLI output, Studio HTTP JSON, and MCP results as separate wire contracts. Their adapters
-   map the same typed operation results. No adapter imports another adapter's wire types.
+6. Goal: CLI, Studio HTTP and MCP expose separate wire contracts over one typed operation-result
+   port. No shared port is proven today; derive its first result type from existing APIs. Adapters
+   must not import one another's wire types.
 7. Add write tools only after a separate decision defines the user approval step, scope, and
    failure behavior. MCP tool annotations alone are not approval.
 8. Target invariants: one canonical root and source scope map to one shared session; MCP does not
