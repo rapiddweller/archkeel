@@ -63,6 +63,10 @@ from archkeel.ir.model import RawJson
 _MISSING = object()
 
 
+class WireComponentSelectorError(ValueError):
+    """A target graph's API ownership cannot be represented unambiguously on the wire."""
+
+
 def _object(value: RawJson) -> TypeGuard[dict[str, RawJson]]:
     return isinstance(value, dict) and all(isinstance(key, str) for key in value)
 
@@ -116,12 +120,18 @@ def _validate_wire_component_selectors(graph: ArchitectureGraph) -> None:
                 if ModuleSelection(owner.packages, owner.exact_modules).matches_api_selector(
                     selector
                 ):
-                    raise ValueError("planned API selector is owned by an active package component")
+                    raise WireComponentSelectorError(
+                        f"planned API selector {selector!r} is owned by active package component "
+                        f"{owner.component_id!r}"
+                    )
                 if any(
                     ModuleSelection.api_selectors_overlap(selector, other)
                     for other in (*(owner.public or ()), *(owner.planned or ()))
                 ):
-                    raise ValueError("planned API selector is claimed by multiple components")
+                    raise WireComponentSelectorError(
+                        f"planned API selector {selector!r} is claimed by multiple components "
+                        f"including {owner.component_id!r}"
+                    )
 
 
 def _boolean(value: RawJson, label: str) -> bool:

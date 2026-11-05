@@ -18,10 +18,12 @@ from archkeel.check.report import run_report
 from archkeel.check.run import observe_revision
 from archkeel.check.uml import assemble_uml
 from archkeel.check.validation.references import reference_diagnostics
+from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
+    AssessmentStatus,
     ComponentIntent,
     ComponentLifecycle,
     ComponentRole,
@@ -31,6 +33,7 @@ from archkeel.ir.architecture_graph import (
     OriginKind,
     PresenceKind,
     RelationshipKind,
+    ReportFinding,
     ReportSchemaVersion,
     Signature,
     Visibility,
@@ -52,9 +55,11 @@ from archkeel.ir.graph_codec import (
     report_bytes,
 )
 from archkeel.ir.model import Evidence
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.target_graph import declared_graph, declared_tree_graph
 from archkeel.ir.target_records import recorded_target_graph
 from archkeel.ir.widening import contract_widenings
+from archkeel.render.html import _html_report_payload, render_architecture_pages
 from tools.architecture_graph_schema import graph_schema, target_schema
 
 
@@ -495,6 +500,84 @@ def test_contract_uml_selector_conflict_remains_a_reference_diagnostic() -> None
         and "package-backed component" in item.unknown_claim
         for item in diagnostics
     )
+
+
+def test_report_html_marks_ambiguous_target_unavailable(tmp_path: Path) -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "planned-component-policy"
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    active = next(owner for owner in raw["components"] if owner["id"] == "fixture-source")
+    active["packages"] = ["archkeel"]
+    active["exact_modules"] = []
+    root = _prepare_repo(
+        tmp_path,
+        {"architecture-contract.json": json.dumps(raw)},
+        fixture,
+    )
+    config = load_config(root, "archkeel.toml")
+    result, architecture = run_report(root, config=config, analyzer=observe)
+
+    assert architecture is not None
+    pages = render_architecture_pages(
+        result,
+        architecture,
+        repository="fixture",
+        architecture_href="architecture.json",
+    )
+    main = next(payload.decode("utf-8") for name, payload in pages if name.endswith(".report.html"))
+    detail = next(
+        payload.decode("utf-8") for name, payload in pages if name.endswith(".detail.html")
+    )
+    embedded = detail.split('<script id="flow-data" type="application/json">', 1)[1]
+    report = json.loads(embedded.split("</script>", 1)[0])
+
+    assert report["target"] is None
+    assert report["comparison"] is None
+    assert "UNKNOWN" in report["unavailable"]
+    assert "archkeel.mcp.server:McpServer" in report["unavailable"]
+    assert "UNKNOWN" in detail
+    assert "archkeel.mcp.server:McpServer" in detail
+    assert "UNKNOWN" in main
+    assert "archkeel.mcp.server:McpServer" in main
+    report_wire = {
+        key: report[key]
+        for key in (
+            "observed",
+            "target",
+            "comparison",
+            "unavailable",
+            "schema_version",
+            "findings",
+            "memberships",
+            "decision_gaps",
+        )
+    }
+    assert parse_report(report_wire).target is None
+
+    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
+    source_report = architecture_report(observation)
+    assert source_report.observed is not None
+    source_finding = ReportFinding(
+        "source-finding",
+        "unknown",
+        "Observed source evidence",
+        AssessmentStatus.UNKNOWN,
+        (),
+        (),
+        (source_report.observed.entities[0].id,),
+        (),
+        (),
+    )
+    unlinked_finding = replace(
+        source_finding,
+        id="unlinked-finding",
+        graph_subject_ids=(),
+    )
+    safe_report, _, warning = _html_report_payload(
+        replace(source_report, findings=(source_finding, unlinked_finding))
+    )
+    assert warning is not None and "UNKNOWN" in warning
+    assert "findings without source graph subjects omitted" in warning
+    assert safe_report.findings == (source_finding,)
 
 
 def test_package_less_graph_intent_requires_explicit_planned_lifecycle() -> None:
