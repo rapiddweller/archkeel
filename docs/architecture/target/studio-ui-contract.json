@@ -559,7 +559,9 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
             "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
-            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState"
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:AgentKind",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:SnapshotCompleteness"
           ],
           "rationale": "Show the contract state of the API."
         },
@@ -660,7 +662,9 @@
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:askChat",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readDraft",
             "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
-            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError"
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:SnapshotCompleteness",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:AgentKind"
           ],
           "rationale": "Ask the chat route and read its typed answer."
         },

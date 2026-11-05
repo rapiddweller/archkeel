@@ -9,20 +9,29 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import sys
 import threading
 import time
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from test_explore import _repository, _tree_digest
-from test_studio import login, running, validate
+from test_studio import login, running, state, validate
 
 from archkeel.cli import build_parser
 from archkeel.studio.agent import Agent
 from archkeel.studio.answer import Snapshot
-from archkeel.studio.api import API_VERSION, AgentKind, ChatError, ChatFailure, ChatRequest
+from archkeel.studio.api import (
+    API_VERSION,
+    AgentKind,
+    ChatError,
+    ChatFailure,
+    ChatRequest,
+    ExploreState,
+)
 from archkeel.studio.server import Studio
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
@@ -197,6 +206,7 @@ def test_an_answer_is_checked_and_its_facts_come_from_the_snapshot(
 
     assert status == 200, answer
     assert answer["agent"] == "claude"
+    assert answer["snapshot_completeness"] == "complete"
     assert answer["applied"] is False
     claim, proposal = answer["blocks"]
     assert (claim["kind"], claim["refs"], claim["label"]) == ("claim", [PLACE], None)
@@ -227,6 +237,92 @@ def test_an_answer_is_checked_and_its_facts_come_from_the_snapshot(
     assert "callers: shop.cli.__main__" in call["prompt"]
     assert f"callees: {SAVE}" in call["prompt"]
     assert "unknown calls (1): callback" in call["prompt"]
+
+
+@pytest.mark.parametrize("kind", [AgentKind.CLAUDE, AgentKind.CODEX])
+def test_chat_uses_an_incomplete_snapshot_and_labels_its_limited_evidence(
+    chat: Studio, fakes: Fakes, kind: AgentKind
+) -> None:
+    fakes.install("claude", "codex")
+    chat.agent.close()
+    chat.agent = Agent(chat.workspace.root, kind)
+    chat.workspace._snapshot = None
+    chat.workspace._run = replace(chat.workspace._run, explore=ExploreState.INCOMPLETE)
+
+    assert state(chat, login(chat))["agent"] == kind.value
+    status, answer = ask(chat, "ok")
+
+    assert status == 200, answer
+    assert answer["snapshot_completeness"] == "incomplete"
+    assert answer["facts"][0]["qualified_name"] == PLACE
+    prompt = " ".join(fakes.call()["prompt"].lower().split())
+    assert "incomplete snapshot" in prompt
+    assert "missing names and calls are unknown, not evidence of absence" in prompt
+    assert "do not make negative or exhaustive claims" in prompt
+
+
+def test_a_restart_cannot_pair_a_cached_snapshot_with_the_next_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with running(
+        _repository(tmp_path / "shop", _FILES), tmp_path / "cache", explored=True
+    ) as server:
+        workspace = server.workspace
+        snapshot_path = workspace.file("architecture.json")
+        assert snapshot_path is not None
+        next_snapshot = tmp_path / "next-architecture.json"
+        next_snapshot.write_bytes(snapshot_path.read_bytes())
+        workspace._snapshot = None
+        workspace._explore = (
+            sys.executable,
+            "-c",
+            "import shutil, sys; shutil.copyfile(sys.argv[1], sys.argv[2]); raise SystemExit(2)",
+            str(next_snapshot),
+            str(snapshot_path),
+        )
+
+        decoding = threading.Event()
+        resume = threading.Event()
+        original_decode = workspace._decode
+
+        def blocked_decode(raw: bytes):
+            decoding.set()
+            assert resume.wait(10)
+            return original_decode(raw)
+
+        monkeypatch.setattr(workspace, "_decode", blocked_decode)
+        read: list[Snapshot | None] = []
+        reader = threading.Thread(target=lambda: read.append(workspace.snapshot()))
+        reader.start()
+        assert decoding.wait(5)
+
+        spawned = threading.Event()
+        original_popen = subprocess.Popen
+
+        def record_popen(*args, **kwargs):
+            child = original_popen(*args, **kwargs)
+            spawned.set()
+            return child
+
+        monkeypatch.setattr("archkeel.studio.workspace.subprocess.Popen", record_popen)
+        restart = threading.Thread(target=workspace.start)
+        restart.start()
+        try:
+            assert not spawned.wait(0.1)
+        finally:
+            resume.set()
+            reader.join(10)
+            restart.join(10)
+
+        assert not reader.is_alive() and not restart.is_alive()
+        assert read and read[0] is not None
+        assert read[0].completeness.value == "complete"
+        deadline = time.monotonic() + 5
+        while workspace.state().explore is ExploreState.RUNNING and time.monotonic() < deadline:
+            time.sleep(0.01)
+        snapshot = workspace.snapshot()
+        assert snapshot is not None
+        assert snapshot.completeness.value == "incomplete"
 
 
 def test_one_fenced_block_is_accepted(chat: Studio) -> None:
@@ -679,6 +775,7 @@ def test_the_dropped_refs_are_capped_in_count_and_length() -> None:
         {
             "api_version": API_VERSION,
             "agent": "claude",
+            "snapshot_completeness": "complete",
             "blocks": [],
             "facts": [],
             "dropped_refs": list(checked.dropped_refs),

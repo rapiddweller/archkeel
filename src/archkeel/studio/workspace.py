@@ -14,7 +14,15 @@ from dataclasses import replace
 from pathlib import Path
 
 from .answer import Snapshot
-from .api import ContractState, Declare, Decode, ExploreState, Graph, StudioState
+from .api import (
+    ContractState,
+    Declare,
+    Decode,
+    ExploreState,
+    Graph,
+    SnapshotCompleteness,
+    StudioState,
+)
 from .graph import build_graph
 from .stories import Stories
 
@@ -159,13 +167,22 @@ class Workspace:
         return target
 
     def snapshot(self) -> Snapshot | None:
-        """The index of a complete snapshot, else None; chat cannot label partial evidence."""
-        with self._lock:
-            done = self._run.explore is ExploreState.DONE
-        if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None and done:
-            # `decode` is the canonical reader of the CLI: the format has one reader (AD-292).
-            self._snapshot = Snapshot(self._decode(path.read_bytes()))
-        return self._snapshot
+        """The index of the current readable snapshot, complete or incomplete."""
+        with self._graph_lock:
+            with self._lock:
+                state = self._run.explore
+                done = state in (ExploreState.DONE, ExploreState.INCOMPLETE)
+                if not done:
+                    return None
+            completeness = (
+                SnapshotCompleteness.INCOMPLETE
+                if state is ExploreState.INCOMPLETE
+                else SnapshotCompleteness.COMPLETE
+            )
+            if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None:
+                # `decode` is the canonical reader of the CLI: the format has one reader (AD-292).
+                self._snapshot = Snapshot(self._decode(path.read_bytes()), completeness)
+            return self._snapshot
 
     def close(self) -> None:
         """Stop the explore child within a bound and delete the folder of this run."""

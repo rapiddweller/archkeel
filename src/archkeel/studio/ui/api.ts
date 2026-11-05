@@ -1,4 +1,4 @@
-/** AD-290: the client of schema/studio-api-1.3; it asks only its own server. */
+/** AD-290: the client of schema/studio-api-1.4; it asks only its own server. */
 import {
   API_VERSION,
   AgentKind,
@@ -8,11 +8,17 @@ import {
   ContractState,
   ExploreState,
   SymbolKind,
+  SnapshotCompleteness as SnapshotCompletenessValue,
 } from "./vocabulary";
+import type { SnapshotCompleteness as SnapshotCompletenessType } from "./vocabulary";
+
+export const SnapshotCompleteness = SnapshotCompletenessValue;
+export type SnapshotCompleteness = SnapshotCompletenessType;
 
 export type StudioState = {
   readonly api_version: typeof API_VERSION;
   readonly root_name: string;
+  readonly agent: AgentKind;
   readonly contract: ContractState;
   readonly explore: ExploreState;
   readonly seconds: number;
@@ -69,13 +75,6 @@ export const CheckStatus = {
   Missing: "missing",
 } as const;
 export type CheckStatus = (typeof CheckStatus)[keyof typeof CheckStatus];
-
-export const SnapshotCompleteness = {
-  Complete: "complete",
-  Incomplete: "incomplete",
-} as const;
-export type SnapshotCompleteness =
-  (typeof SnapshotCompleteness)[keyof typeof SnapshotCompleteness];
 
 /** Where a story spec lies: committed in the repository, or in the local cache folder. */
 export const StorySource = { Repository: "repository", Local: "local" } as const;
@@ -171,6 +170,7 @@ export type ChatBlock = {
 };
 export type ChatAnswer = {
   readonly agent: AgentKind;
+  readonly snapshot_completeness: SnapshotCompleteness;
   readonly blocks: readonly ChatBlock[];
   readonly facts: readonly Fact[];
   readonly dropped_refs: readonly string[];

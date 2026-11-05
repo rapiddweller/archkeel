@@ -370,6 +370,7 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
     api = pytest.importorskip("playwright.sync_api")
     state_answer = {
         "api_version": API_VERSION,
+        "agent": "codex",
         "root_name": "shop",
         "contract": "not_configured",
         "explore": "incomplete",
@@ -436,6 +437,29 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             page.get_by_role("link", name="Architecture", exact=True).click()
             page.get_by_role("group", name="Component map").wait_for()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
+            incomplete_answer = {
+                "api_version": API_VERSION,
+                "agent": "codex",
+                "snapshot_completeness": "incomplete",
+                "blocks": [
+                    {"kind": "claim", "text": "Snapshot-local claim.", "refs": [], "label": None}
+                ],
+                "facts": [],
+                "dropped_refs": ["shop.missing"],
+                "applied": False,
+            }
+            page.route("**/api/v1/chat", lambda route: route.fulfill(json=incomplete_answer))
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            assert chat.get_by_text("Selected agent: codex").is_visible()
+            assert chat.get_by_text("Snapshot: incomplete").is_visible()
+            chat.get_by_role("textbox", name="Question").fill("What is missing?")
+            chat.get_by_role("button", name="Ask", exact=True).click()
+            chat.get_by_text("Missing refs or calls do not establish absence.").wait_for()
+            assert chat.get_by_text("Agent: codex · snapshot: incomplete", exact=False).is_visible()
+            assert chat.get_by_text(
+                "not found by exact name in this snapshot", exact=False
+            ).is_visible()
             page.get_by_role("link", name="Stories", exact=True).click()
             page.get_by_text("Counts use an incomplete snapshot.", exact=False).wait_for()
             assert page.get_by_text("1 unknown", exact=False).is_visible()
@@ -532,7 +556,7 @@ def test_a_line_with_claims_is_a_claim_and_shows_both_counts(studio: Studio) -> 
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
             page.goto(studio.url)
-            page.get_by_text("components: declared by the contract", exact=True).wait_for()
+            page.get_by_text("Declared groups: contract", exact=True).wait_for()
             label = page.locator("button.count")
             # 3 proven and 2 claim call sites: a line with a claim is never read as proven.
             assert label.inner_text().strip() == "3 ✓ proven · 2 ✎ claim"
@@ -602,6 +626,7 @@ _FACT = {
 _ANSWER = {
     "api_version": API_VERSION,
     "agent": "claude",
+    "snapshot_completeness": "complete",
     "applied": False,
     "blocks": [
         {"kind": "claim", "text": "place saves the order.", "refs": [_PLACE, _SAVE], "label": None},
@@ -645,6 +670,7 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             page.get_by_role("button", name="Ask", exact=True).click()
             chat = page.get_by_role("region", name="Ask the agent")
             assert chat.get_by_text("Context: place").is_visible()
+            assert chat.get_by_text("Selected agent: claude").is_visible()
             assert chat.get_by_role("button").filter(has_text="?").count() == 4  # quick questions
             chat.get_by_role("textbox", name="Question").fill("What does place do?")
             chat.get_by_role("button", name="Ask", exact=True).click()
@@ -662,8 +688,9 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             assert "✓ OBSERVED" in flat(observed)
             assert "OBSERVED" not in flat(claim) + flat(proposal)
             assert "orders.py:4" in flat(observed)
-            assert "1 reference of the agent dropped" in flat(chat)
-            assert chat.get_by_text("Agent: claude").is_visible()
+            assert "1 reference not found by exact name" in flat(chat)
+            assert chat.get_by_text("Selected agent: claude", exact=True).is_visible()
+            assert chat.get_by_text("Agent: claude · snapshot: complete", exact=False).is_visible()
             # "Pin to story" shows the draft of the trace and writes nothing.
             proposal.get_by_role("button", name="Pin to story").click()
             proposal.locator("pre.draft").wait_for()
@@ -916,7 +943,7 @@ def test_a_story_of_the_root_is_checked_by_the_server(studio: Studio) -> None:
             browser.close()
 
 
-_WITH_FUNCTIONS = re.compile(r"[1-9]\d* function")
+_WITH_SYMBOLS = re.compile(r"[1-9]\d* symbol")
 _LONG = "a_component_with_a_very_long_name_that_keeps_going"
 _STRESS = {
     "components_from": "contract",
@@ -1338,7 +1365,7 @@ def test_check_evaluation_has_callers_and_no_overlap_on_the_real_snapshot(
                 assert callers.count() >= 1
                 assert "evaluation" not in " ".join(callers.all_inner_texts()).split("\\n")[0]
                 assert _boxes_overlap(page) == []
-                page.locator(".level-card", has_text=_WITH_FUNCTIONS).first.dblclick()
+                page.locator(".level-card", has_text=_WITH_SYMBOLS).first.dblclick()
                 page.locator(".stage .level-card").first.wait_for()
                 page.wait_for_timeout(700)
                 assert _boxes_overlap(page) == []
@@ -1755,6 +1782,14 @@ def test_briefing_names_an_empty_graph_without_inventing_components(studio: Stud
         figures = [_words(figure).upper() for figure in page.locator(".figure").all()]
         assert any(text.startswith("0 MODULES") for text in figures)
         assert any(text.startswith("0 SYMBOLS") for text in figures)
+        assert (
+            _words(page.locator(".briefing-signals > summary"))
+            == "What stands out · 0 measured facts"
+        )
+        assert page.get_by_text(
+            "No contract · no policy verdict. archkeel init drafts one.", exact=True
+        ).is_visible()
+        assert page.locator(".briefing-signals .box").count() == 0
 
 
 @pytest.mark.browser

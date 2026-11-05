@@ -32,6 +32,7 @@
         "archkeel.studio.api:Place",
         "archkeel.studio.api:Route",
         "archkeel.studio.api:ScopeKind",
+        "archkeel.studio.api:SnapshotCompleteness",
         "archkeel.studio.api:SnapshotInfo",
         "archkeel.studio.api:StoryCounts",
         "archkeel.studio.api:StoryRow",
@@ -208,9 +209,10 @@
             "archkeel.studio.api:Decode",
             "archkeel.studio.api:ExploreState",
             "archkeel.studio.api:Graph",
+            "archkeel.studio.api:SnapshotCompleteness",
             "archkeel.studio.api:StudioState"
           ],
-          "rationale": "Report the run, the contract and the injected decoders as the typed values of the API."
+          "rationale": "Report the run, its snapshot completeness, the contract and the injected decoders as typed API values."
         },
         {
           "component": "graph",
@@ -266,9 +268,10 @@
             "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ChatError",
             "archkeel.studio.api:ChatFailure",
-            "archkeel.studio.api:ChatRequest"
+            "archkeel.studio.api:ChatRequest",
+            "archkeel.studio.api:SnapshotCompleteness"
           ],
-          "rationale": "Name the agent, the request and each break with the typed vocabulary of the API."
+          "rationale": "Name the agent, the request, snapshot completeness and each break with the typed vocabulary of the API."
         }
       ],
       "exact_modules": [
@@ -308,6 +311,7 @@
             "archkeel.studio.api:Fact",
             "archkeel.studio.api:Json",
             "archkeel.studio.api:Place",
+            "archkeel.studio.api:SnapshotCompleteness",
             "archkeel.studio.api:data_of",
             "archkeel.studio.api:decoded",
             "archkeel.studio.api:first_place",
@@ -317,7 +321,7 @@
             "archkeel.studio.api:text_at",
             "archkeel.studio.api:texts_at"
           ],
-          "rationale": "Build the typed answer and name each break with the typed vocabulary of the API."
+          "rationale": "Build the typed answer with the snapshot completeness it carries, and name each break with the API vocabulary."
         }
       ],
       "exact_modules": [

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.3`)."""
+"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.4`)."""
 
 import json
 from collections.abc import Callable, Mapping, Sequence
@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Final, NamedTuple, TypeAlias, TypeVar
 
-API_VERSION: Final = "1.3.0"
+API_VERSION: Final = "1.4.0"
 QUESTION_LIMIT: Final = 2000
 CONTEXT_LIMIT: Final = 300
 
@@ -181,6 +181,13 @@ class ExploreState(StrEnum):
     FAILED = "failed"
 
 
+class SnapshotCompleteness(StrEnum):
+    """Whether Explore completed; neither state proves semantic absence from source."""
+
+    COMPLETE = "complete"
+    INCOMPLETE = "incomplete"
+
+
 class SymbolKind(StrEnum):
     """The kinds of symbol that the graph keeps."""
 
@@ -228,8 +235,10 @@ class StudioState:
     notes: tuple[str, ...] = ()
 
 
-def state_json(state: StudioState) -> bytes:
-    return json.dumps({"api_version": API_VERSION, **asdict(state)}, sort_keys=True).encode()
+def state_json(state: StudioState, agent: AgentKind) -> bytes:
+    return json.dumps(
+        {"api_version": API_VERSION, **asdict(state), "agent": agent}, sort_keys=True
+    ).encode()
 
 
 class ComponentRow(NamedTuple):
@@ -424,9 +433,10 @@ class ChatBlock:
 
 @dataclass(frozen=True)
 class ChatAnswer:
-    """`facts` hold one record for each valid ref; `dropped_refs` the refs the snapshot lacks."""
+    """Refs anchor agent text to listed symbols; facts are counts local to this snapshot."""
 
     agent: AgentKind
+    snapshot_completeness: SnapshotCompleteness
     blocks: tuple[ChatBlock, ...]
     facts: tuple[Fact, ...]
     dropped_refs: tuple[str, ...]

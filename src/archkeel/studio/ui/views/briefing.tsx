@@ -102,18 +102,22 @@ function Standing(props: { model: Model; state: StudioState }) {
       shows: unknown.map((entryRow) => ({ label: model.graph.components[entryRow.component][0], href: viewHref(View.Component, entryRow.component) })),
     });
   }
-  rows.push({ text: WHY[props.state.contract], shows: [] });
   return (
-    <details class="briefing-signals">
-      <summary>What stands out · {Math.min(rows.length, 6)} measured facts</summary>
-      <Box title="What stands out" evidence={Evidence.Observed}>
-        <ul class="stands">
-          {rows.slice(0, 6).map((row) => (
-            <Row key={row.text} text={row.text} shows={row.shows} />
-          ))}
-        </ul>
-      </Box>
-    </details>
+    <>
+      <details class="briefing-signals">
+        <summary>What stands out · {Math.min(rows.length, 6)} measured facts</summary>
+        {rows.length > 0 ? (
+          <Box title="What stands out" evidence={Evidence.Observed}>
+            <ul class="stands">
+              {rows.slice(0, 6).map((row) => (
+                <Row key={row.text} text={row.text} shows={row.shows} />
+              ))}
+            </ul>
+          </Box>
+        ) : null}
+      </details>
+      <p class="more">{WHY[props.state.contract]}</p>
+    </>
   );
 }
 

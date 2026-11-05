@@ -19,6 +19,7 @@ from .api import (
     Fact,
     Json,
     Place,
+    SnapshotCompleteness,
     data_of,
     decoded,
     first_place,
@@ -67,7 +68,12 @@ def _object(text: str) -> Mapping[str, Json]:
 class Snapshot:
     """The symbols and calls of the explore snapshot; the only source of a fact."""
 
-    def __init__(self, model: Mapping[str, Json]) -> None:
+    def __init__(
+        self,
+        model: Mapping[str, Json],
+        completeness: SnapshotCompleteness = SnapshotCompleteness.COMPLETE,
+    ) -> None:
+        self.completeness = completeness
         found = places(model)
         self._symbols: dict[str, tuple[str, Place]] = {}
         for record in rows(model, "symbols"):
@@ -114,7 +120,11 @@ class Snapshot:
             )
         )
 
-    def check(self, text: str, agent: AgentKind) -> ChatAnswer:
+    def check(
+        self,
+        text: str,
+        agent: AgentKind,
+    ) -> ChatAnswer:
         """Parse the agent text strictly. Keep the refs that exist; report the others."""
         body = _object(text)
         blocks = body.get("blocks")
@@ -149,5 +159,9 @@ class Snapshot:
             label = PROPOSAL_LABEL if kind is ChatBlockKind.PROPOSAL else None
             kept.append(ChatBlock(kind, words, tuple(valid), label))
         return ChatAnswer(
-            agent, tuple(kept), tuple(facts.values()), tuple(dropped)[:_DROPPED_LIMIT]
+            agent,
+            self.completeness,
+            tuple(kept),
+            tuple(facts.values()),
+            tuple(dropped)[:_DROPPED_LIMIT],
         )

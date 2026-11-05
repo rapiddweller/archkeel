@@ -20,6 +20,7 @@ from archkeel.studio.api import (
     ComponentSource,
     ContractState,
     ExploreState,
+    SnapshotCompleteness,
     SymbolKind,
 )
 
@@ -49,6 +50,7 @@ def vocabulary_source() -> str:
         ComponentSource,
         ContractState,
         ExploreState,
+        SnapshotCompleteness,
         SymbolKind,
     ):
         name = domain.__name__

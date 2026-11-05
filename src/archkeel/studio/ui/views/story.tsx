@@ -215,7 +215,7 @@ function Player(props: { answer: StoryAnswer }) {
         <h1>{story.title}</h1>
         <Verdict checked={checked} />
       </div>
-      {checked.snapshot_completeness === SnapshotCompleteness.Incomplete ? (
+      {checked.snapshot_completeness === SnapshotCompleteness.INCOMPLETE ? (
         <p class="more" role="status">The source snapshot is incomplete; UNKNOWN means evidence is missing.</p>
       ) : null}
       <Origin answer={props.answer} />
