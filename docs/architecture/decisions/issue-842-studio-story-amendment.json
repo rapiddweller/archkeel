@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7d6b20ba4e97b0affadfc0c131bda8a15d198192b490325ebe0dc097f6a0fa9c",
+  "after_digest": "d6a0af8633028d85bd855b93e67f09831ed9820069adc54faf3535e30b95962c",
+  "before_baseline_digest": "7ad8e9975767ff3ba79b46749b23c32d8de2bd8d3c1c80071abe88bcc0f50b97",
+  "before_digest": "ed6f2f6aa18cf1d0be197bcd2d13e41d868817850596393f315843fe3ca8e487",
+  "decided_by": "Alexander Kell (architect; standing approval for justified budget changes)",
+  "rationale": "CI run 42093528884, job 127477500746, at HEAD 6051a391 measured calls_unresolved 954/30973 against 948 on origin/main, zero violations, and typing_positions 56. Set only calls_unresolved to 954. The six net new unresolved sites are api.parse_story_candidate body.keys, title.strip, raw_step.keys and node.strip, plus server._Handler._answer stories.draft and json.dumps(spec).encode; two preexisting _child_env fullmatch pairs moved line numbers only. The same CI run measured Studio API/server widening: API public adds ChatMode, StoryCandidate, StoryDraft, StoryStepDraft and parse_story_candidate; the agent consumes ChatMode; server uses ChatMode and passes drafts through Stories.DraftStory and Stories.CheckStory. It also includes the API/server responsibility clarifications. This binds all AD-306 widenings with the six measured calls in this single v2 amendment. All other budgets remain unchanged.",
+  "schema_version": "2.0.0"
+}
