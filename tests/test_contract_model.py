@@ -91,6 +91,20 @@ def test_planned_component_policy_fixture_matches_contract_2_4_schema() -> None:
     assert parse_contract(encoded) == contract
 
 
+@pytest.mark.parametrize("minor", range(15))
+def test_planned_component_owner_matches_each_contract_3_schema(minor: int) -> None:
+    raw = json.loads(
+        (ROOT / "fixtures/planned-component-policy/architecture-contract.json").read_bytes()
+    )
+    raw["schema_version"] = f"3.{minor}.0"
+    contract = parse_contract(raw)
+    schema = json.loads((ROOT / f"schema/architecture-contract-3.{minor}.schema.json").read_bytes())
+
+    encoded = json.loads(contract_bytes(contract))
+    assert not list(Draft202012Validator(schema).iter_errors(encoded))
+    assert parse_contract(encoded) == contract
+
+
 def test_contract_schema_is_draft_2020_12() -> None:
     Draft202012Validator.check_schema(SCHEMA)
 
@@ -861,26 +875,40 @@ _NON_REFERENCE_STRINGS = frozenset(
 
 def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
-    documents = [
-        json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in (
-            "3.0.0",
-            "3.1.0",
-            "3.2.0",
-            "3.3.0",
-            "3.4.0",
-            "3.5.0",
-            "3.6.0",
-            "3.7.0",
-            "3.8.0",
-            "3.9.0",
-            "3.10.0",
-            "3.14.0",
-            "3.11.0",
-            "3.12.0",
-            "3.13.0",
-        )
-    ]
+    versions = (
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+        "3.6.0",
+        "3.7.0",
+        "3.8.0",
+        "3.9.0",
+        "3.10.0",
+        "3.14.0",
+        "3.11.0",
+        "3.12.0",
+        "3.13.0",
+    )
+    documents = []
+    for version in versions:
+        raw = _maximal_contract(version)
+        if version == "3.14.0":
+            raw["components"].append(
+                {
+                    "id": "COMP-PLANNED",
+                    "label": "planned",
+                    "role": "component",
+                    "lifecycle": "planned",
+                    "packages": [],
+                    "responsibilities": ["Describe a planned component."],
+                    "forbidden_responsibilities": [],
+                    "provenance": _PROVENANCE,
+                }
+            )
+        documents.append(json.loads(contract_bytes(parse_contract(raw))))
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []
 

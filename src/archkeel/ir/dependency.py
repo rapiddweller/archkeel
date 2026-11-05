@@ -42,6 +42,19 @@ class ModuleSelection:
     def matches(self, module: str) -> bool:
         return module_in_ownership(module, self.packages, self.exact_modules)
 
+    def matches_api_selector(self, selector: str) -> bool:
+        """Match a `module[:symbol]` API selector using this module ownership."""
+        return self.matches(selector.partition(":")[0])
+
+    @staticmethod
+    def api_selectors_overlap(first: str, second: str) -> bool:
+        """Whether two module or module-symbol API selectors name overlapping surfaces."""
+        first_module, first_separator, first_name = first.partition(":")
+        second_module, second_separator, second_name = second.partition(":")
+        return first_module == second_module and (
+            not first_separator or not second_separator or first_name == second_name
+        )
+
     def __iter__(self) -> Iterator[tuple[str, ...]]:
         """Keep existing ownership-selector unpacking compatible."""
         yield self.packages

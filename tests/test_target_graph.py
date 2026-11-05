@@ -31,6 +31,7 @@ from archkeel.ir.architecture_graph import (
     OriginKind,
     PresenceKind,
     RelationshipKind,
+    ReportSchemaVersion,
     Signature,
     Visibility,
 )
@@ -42,7 +43,14 @@ from archkeel.ir.codec import (
     parse_observation,
     value_bytes,
 )
-from archkeel.ir.graph_codec import graph_bytes, parse_graph, parse_target, report_bytes
+from archkeel.ir.dependency import ModuleSelection
+from archkeel.ir.graph_codec import (
+    graph_bytes,
+    parse_graph,
+    parse_report,
+    parse_target,
+    report_bytes,
+)
 from archkeel.ir.model import Evidence
 from archkeel.ir.target_graph import declared_graph, declared_tree_graph
 from archkeel.ir.target_records import recorded_target_graph
@@ -468,6 +476,27 @@ def test_planned_component_policy_rejects_duplicate_selector_and_duplicate_uml_o
         parse_contract(raw)
 
 
+def test_contract_uml_selector_conflict_remains_a_reference_diagnostic() -> None:
+    fixture = Path(__file__).parents[1] / "fixtures" / "planned-component-policy"
+    raw = json.loads((fixture / "architecture-contract.json").read_text())
+    active = next(owner for owner in raw["components"] if owner["id"] == "fixture-source")
+    active["packages"] = ["archkeel"]
+    active["exact_modules"] = []
+    contract = parse_contract(raw)
+
+    diagnostics = reference_diagnostics(
+        fixture,
+        ScanConfig(("src/archkeel",), "archkeel", "architecture-contract.json", "0" * 64),
+        contract,
+    )
+
+    assert any(
+        item.pointer == "/components/1/planned/0"
+        and "package-backed component" in item.unknown_claim
+        for item in diagnostics
+    )
+
+
 def test_package_less_graph_intent_requires_explicit_planned_lifecycle() -> None:
     owner = Entity(
         "owner",
@@ -488,6 +517,97 @@ def test_package_less_graph_intent_requires_explicit_planned_lifecycle() -> None
     legacy = replace(graph, schema_version=GraphSchemaVersion.V1_2_0)
     legacy.validate()
     assert legacy.component_intents[0].lifecycle is None
+
+
+@pytest.mark.parametrize("wire", ["graph", "report"])
+@pytest.mark.parametrize("conflict", ["active-package", "planned-owner"])
+def test_graph_wire_rejects_ambiguous_planned_api_selector(wire: str, conflict: str) -> None:
+    first_intent = (
+        ComponentIntent(
+            "active",
+            ComponentRole.COMPONENT,
+            planned=("pkg:Foo",),
+            lifecycle=ComponentLifecycle.PLANNED,
+        )
+        if conflict == "planned-owner"
+        else ComponentIntent("active", ComponentRole.COMPONENT, packages=("pkg",))
+    )
+    graph = ArchitectureGraph(
+        OriginKind.DECLARED,
+        (
+            Entity(
+                "active",
+                EntityKind.COMPONENT,
+                "active",
+                "architecture",
+                presence=PresenceKind.PLANNED,
+                provenance=("docs/target.md",),
+            ),
+            Entity(
+                "future",
+                EntityKind.COMPONENT,
+                "future",
+                "architecture",
+                presence=PresenceKind.PLANNED,
+                provenance=("docs/target.md",),
+            ),
+        ),
+        schema_version=GraphSchemaVersion.V1_3_0,
+        component_intents=(
+            first_intent,
+            ComponentIntent(
+                "future",
+                ComponentRole.COMPONENT,
+                planned=("pkg:Foo",),
+                lifecycle=ComponentLifecycle.PLANNED,
+            ),
+        ),
+    )
+    graph_payload = asdict(graph)
+    for intent in graph_payload["component_intents"]:
+        if intent["layer"] is None:
+            del intent["layer"]
+        if intent["lifecycle"] is None:
+            del intent["lifecycle"]
+    if wire == "report":
+        payload = {
+            "observed": None,
+            "target": graph_payload,
+            "unavailable": "Source graph was omitted for this decoder probe.",
+            "schema_version": ReportSchemaVersion.V1_3_0.value,
+        }
+    else:
+        payload = graph_payload
+
+    expected_error = (
+        "selector.*active package"
+        if conflict == "active-package"
+        else "planned API selector is claimed by multiple components"
+    )
+    with pytest.raises(ValueError, match=expected_error):
+        if wire == "graph":
+            parse_graph(json.loads(json.dumps(payload)))
+        else:
+            parse_report(json.loads(json.dumps(payload)))
+
+
+@pytest.mark.parametrize(
+    ("selector", "packages", "exact_modules", "owned"),
+    [
+        ("pkg:Foo", ("pkg",), (), True),
+        ("pkg.child:Foo", ("pkg",), (), True),
+        ("pkg2:Foo", ("pkg",), (), False),
+        ("pkg:Foo", (), ("pkg",), True),
+        ("pkg.child:Foo", (), ("pkg",), False),
+    ],
+)
+def test_api_selector_ownership_uses_module_package_and_exact_boundaries(
+    selector: str,
+    packages: tuple[str, ...],
+    exact_modules: tuple[str, ...],
+    owned: bool,
+) -> None:
+    assert ModuleSelection(packages, exact_modules).matches_api_selector(selector) is owned
 
 
 def test_legacy_component_wire_omits_absent_lifecycle() -> None:

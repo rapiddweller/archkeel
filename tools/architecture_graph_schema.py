@@ -502,6 +502,34 @@ def _update_contract_schema(path: Path) -> None:
     version = ContractVersion(raw_version) if raw_version is not None else None
     if version is not None:
         schema["$id"] = f"urn:archkeel:architecture-contract:{version.value}"
+    if version is not None and supports_feature(version, ContractFeature.PLANNED_COMPONENT_OWNER):
+        component = schema["$defs"]["component"]
+        component.pop("anyOf", None)
+        component["properties"]["lifecycle"] = {"const": "planned"}
+        component["allOf"] = [
+            {
+                "if": {
+                    "required": ["lifecycle"],
+                    "properties": {"lifecycle": {"const": "planned"}},
+                },
+                "then": {
+                    "properties": {
+                        "packages": {"maxItems": 0},
+                        "exact_modules": {"maxItems": 0},
+                        "public": {"maxItems": 0},
+                    }
+                },
+                "else": {
+                    "anyOf": [
+                        {"properties": {"packages": {"minItems": 1}}},
+                        {
+                            "required": ["exact_modules"],
+                            "properties": {"exact_modules": {"minItems": 1}},
+                        },
+                    ]
+                },
+            }
+        ]
     if version is not None and supports_feature(version, ContractFeature.KEY_ALIAS_BODY):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {

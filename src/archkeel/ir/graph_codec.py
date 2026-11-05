@@ -56,6 +56,7 @@ from archkeel.ir.architecture_graph import (
     VisibilityBasis,
     VisibilityKind,
 )
+from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.facts import Evidence
 from archkeel.ir.model import RawJson
 
@@ -102,6 +103,25 @@ def _texts(value: RawJson, label: str) -> tuple[str, ...]:
     if len(set(entries)) != len(entries):
         raise ValueError(f"{label} must be unique")
     return entries
+
+
+def _validate_wire_component_selectors(graph: ArchitectureGraph) -> None:
+    for intent in graph.component_intents:
+        if intent.lifecycle is not ComponentLifecycle.PLANNED:
+            continue
+        for selector in intent.planned or ():
+            for owner in graph.component_intents:
+                if owner.component_id == intent.component_id:
+                    continue
+                if ModuleSelection(owner.packages, owner.exact_modules).matches_api_selector(
+                    selector
+                ):
+                    raise ValueError("planned API selector is owned by an active package component")
+                if any(
+                    ModuleSelection.api_selectors_overlap(selector, other)
+                    for other in (*(owner.public or ()), *(owner.planned or ()))
+                ):
+                    raise ValueError("planned API selector is claimed by multiple components")
 
 
 def _boolean(value: RawJson, label: str) -> bool:
@@ -504,6 +524,7 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
             for entry in _array(item.get("public_api", ()), "public_api")
         ),
     )
+    _validate_wire_component_selectors(graph)
     graph.validate()
     return graph
 

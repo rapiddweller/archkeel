@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.11.schema.json",
+  "$id": "urn:archkeel:architecture-contract:3.11.0",
   "title": "Archkeel architecture contract",
   "description": "Contract 3.11.0 structure. Rule semantics are cataloged in docs/rules.md.",
   "type": "object",
@@ -668,25 +668,6 @@
         "forbidden_responsibilities",
         "provenance"
       ],
-      "anyOf": [
-        {
-          "properties": {
-            "packages": {
-              "minItems": 1
-            }
-          }
-        },
-        {
-          "required": [
-            "exact_modules"
-          ],
-          "properties": {
-            "exact_modules": {
-              "minItems": 1
-            }
-          }
-        }
-      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -767,8 +748,59 @@
         "layer": {
           "type": "string",
           "pattern": "\\S"
+        },
+        "lifecycle": {
+          "const": "planned"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "lifecycle"
+            ],
+            "properties": {
+              "lifecycle": {
+                "const": "planned"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "packages": {
+                "maxItems": 0
+              },
+              "exact_modules": {
+                "maxItems": 0
+              },
+              "public": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "anyOf": [
+              {
+                "properties": {
+                  "packages": {
+                    "minItems": 1
+                  }
+                }
+              },
+              {
+                "required": [
+                  "exact_modules"
+                ],
+                "properties": {
+                  "exact_modules": {
+                    "minItems": 1
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "decidedBy": {
       "enum": [
