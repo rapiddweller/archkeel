@@ -110,9 +110,7 @@ class Workspace:
         if child.returncode in (0, 2):
             try:
                 snapshot_path: Path = self.folder / _SNAPSHOT
-                graph = build_graph(
-                    self._decode(snapshot_path.read_bytes()), self._declare
-                )
+                graph = build_graph(self._decode(snapshot_path.read_bytes()), self._declare)
             except (OSError, ValueError):
                 snapshot_error = True
         failed = child.returncode not in (0, 2) or graph is None
