@@ -159,6 +159,52 @@ def test_the_schema_has_the_version_of_the_server() -> None:
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 
+def test_a_story_response_resolves_its_view_check_schema() -> None:
+    check = {
+        "result_schema_version": "1.3.0",
+        "schema_version": "1.2.0",
+        "title": "Example",
+        "exit_code": 0,
+        "strict": False,
+        "snapshot": {"source_digest": "a" * 64, "contract_digest": "b" * 64},
+        "view_snapshot": {"source_digest": "a" * 64, "contract_digest": "b" * 64},
+        "snapshot_current": True,
+        "snapshot_completeness": "complete",
+        "nodes": [],
+        "edges": [],
+        "steps": [],
+        "author_notes": [],
+        "stops": [],
+        "story": {
+            "id": "example",
+            "title": "Example",
+            "chapters": [],
+            "steps": [],
+            "verdict": {
+                "proven": 0,
+                "declared": 0,
+                "claim": 0,
+                "unknown": 0,
+                "missing": 0,
+                "systems": [],
+                "modules": 0,
+            },
+        },
+    }
+    validate(
+        {
+            "api_version": API_VERSION,
+            "id": "example",
+            "source": "local",
+            "checked": check,
+            "rebound": False,
+            "created": {"created": None, "git_head": None, "author_kind": None, "agent": None},
+            "head": None,
+        },
+        "story",
+    )
+
+
 def test_the_state_names_the_selected_agent(studio: Studio) -> None:
     answer = state(studio, login(studio))
     assert answer["agent"] == "claude"

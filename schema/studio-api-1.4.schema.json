@@ -618,7 +618,7 @@
           "type": "string"
         },
         "checked": {
-          "$ref": "urn:archkeel:view-check:1.4.0"
+          "$ref": "urn:archkeel:view-check:1.3.0"
         },
         "source": {
           "enum": [
