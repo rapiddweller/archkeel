@@ -161,9 +161,11 @@ patches a stdlib module at run time, is not tracked either.
 
 ArchKeel reads Python source with the `ast` module of the interpreter that runs it. Code with newer
 syntax (for example `except A, B:` from Python 3.14, PEP 758) is a parse failure on an older
-interpreter. The report then shows a `runtime_mismatch` diagnostic. Run ArchKeel with the Python
-version of the project: `uvx --python 3.14 archkeel report`. The tool supports Python 3.11 and
-newer. The nightly job checks 3.12, 3.13 and 3.14 (#724, #743).
+interpreter. A `runtime_mismatch` diagnostic names the running version and the full
+`requires-python` range. It blocks a complete scan. Select a Python version that satisfies the
+full range, then retry with `uvx --python <compatible-version> archkeel <command>`. ArchKeel does
+not install or select that interpreter. The tool supports Python 3.11 and newer. The nightly job
+checks 3.12, 3.13 and 3.14 (#724, #743).
 
 ## Other static blind spots
 

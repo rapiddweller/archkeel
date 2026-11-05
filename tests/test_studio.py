@@ -749,6 +749,24 @@ def test_exit_two_with_a_snapshot_exposes_the_graph_and_diagnostic(
     assert report_response.status == 200
 
 
+def test_a_runtime_mismatch_note_shows_current_and_required_python() -> None:
+    from archkeel.studio.workspace import _notes
+
+    notes = _notes(
+        b'{"diagnostics":[{"kind":"runtime_mismatch",'
+        b'"subject":"python 3.11.12 < requires-python >=3.12",'
+        b'"unknown_claim":"AST may differ from target runtime",'
+        b'"remedy":"uvx --python <compatible-version> archkeel <command>"}]}',
+        b"",
+    )
+
+    assert notes == (
+        "python 3.11.12 < requires-python >=3.12. "
+        "AST may differ from target runtime. "
+        "uvx --python <compatible-version> archkeel <command>",
+    )
+
+
 def test_a_story_route_reports_failed_explore_and_its_notes(tmp_path: Path) -> None:
     with running(_repository(tmp_path / "shop", commit=False), tmp_path / "cache") as server:
         cookie = login(server)

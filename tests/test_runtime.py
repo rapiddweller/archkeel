@@ -89,8 +89,8 @@ def test_pep695_fixture_reports_actual_runtime(tmp_path: Path, minor: int) -> No
             "subject": f"python {version} < requires-python >=3.12",
             "unknown_claim": "AST may differ from target runtime; parse errors may be "
             "parser limitations, not source defects",
-            "remedy": "Run Archkeel with a matching Python, for example: "
-            "uvx --python 3.12 archkeel <command>",
+            "remedy": "Select a Python version that satisfies the full project range, then run: "
+            "uvx --python <compatible-version> archkeel <command>",
         }
         assert observation["coverage"]["files_parsed"] == 0
     else:
@@ -211,6 +211,19 @@ def test_poetry_caret_runtime_range_includes_lower_and_excludes_next_major() -> 
     assert runtime_diagnostic(RuntimeInfo("python", "3.9.0", required)) is None
     assert runtime_diagnostic(RuntimeInfo("python", "3.8.9", required)) is not None
     assert runtime_diagnostic(RuntimeInfo("python", "4.0.0", required)) is not None
+
+
+def test_python_mismatch_recommends_a_version_matching_the_full_range() -> None:
+    from archkeel.check.runtime import runtime_diagnostic
+    from archkeel.ir.facts import RuntimeInfo
+
+    diagnostic = runtime_diagnostic(RuntimeInfo("python", "3.12.5", ">3.12.5,<3.13"))
+
+    assert diagnostic is not None
+    assert diagnostic.subject == "python 3.12.5 does not satisfy requires-python >3.12.5,<3.13"
+    assert "satisfies the full project range" in diagnostic.remedy
+    assert "uvx --python <compatible-version> archkeel <command>" in diagnostic.remedy
+    assert "--python 3.12 " not in diagnostic.remedy
 
 
 @pytest.mark.parametrize(
