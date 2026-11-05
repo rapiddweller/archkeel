@@ -5,14 +5,19 @@
 **Decision.**
 - Keep a small, Git-versioned system manifest as the entry point for a top-down view. It names
   typed runtime units, external systems, directed communication intent, and references to existing
-  component contracts. Contract definitions stay in their current files and have one owner.
-- Resolve the manifest and every referenced contract from one immutable repository revision. A
-  result identifies that revision. Missing, ambiguous, or invalid references are errors or UNKNOWN;
-  never silently resolve them from the working tree or another revision.
+  component contracts. It may describe an empty greenfield system and use multiple system,
+  runtime, and component levels. Share submodels only through explicit references when needed;
+  no directory or contract tree is mandatory. Contract definitions stay in their current files and
+  have one owner.
+- Resolve the manifest and every referenced contract from one immutable Git revision, or one
+  explicitly identified immutable snapshot such as an uncommitted design draft. A result identifies
+  that revision or snapshot content. Never mix states. Missing, ambiguous, or invalid references
+  are errors or UNKNOWN; never silently resolve them from another state.
 - Project this composition through ArchKeel's existing Target/Observed graph owner. A later
   implementation must add nominal kinds for runtime units, external systems, and communication
   where needed. Communication is a directed Target relation, distinct from source `IMPORTS`,
-  `CALLS`, and component containment. Do not infer a runtime flow from code imports or calls.
+  `CALLS`, and component containment. Imports or calls alone do not establish a runtime flow;
+  combined, unambiguous evidence may support one in a later implementation.
 - Keep declared architecture intent distinct from deployment declarations and observed facts.
   A deployment target says what should be placed where; an observation proves only what its
   evidence covers. Incomplete or unavailable evidence remains UNKNOWN. A manifest never asserts
