@@ -30,7 +30,7 @@
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
         "archkeel.analyzer.process:is_process_alive",
-        "archkeel.analyzer.process:is_valid_process_id",
+        "archkeel.analyzer.process:is_safe_process_id",
         "archkeel.analyzer.runtime:collector_provenance",
         "archkeel.analyzer.runtime:python_requirement",
         "archkeel.analyzer.bootstrap:is_direct_entrypoint"

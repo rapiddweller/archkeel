@@ -72,8 +72,8 @@ def _process_platform(name: str) -> _ProcessPlatform | None:
         return None
 
 
-def is_valid_process_id(pid: int) -> bool:
-    """Whether a PID fits the native process-ID type on this supported platform."""
+def is_safe_process_id(pid: int) -> bool:
+    """Whether a PID is safe for Studio process APIs on this platform (PID 0/1 are rejected)."""
     if type(pid) is not int or pid <= 1:
         return False
     platform = _process_platform(os.name)
@@ -434,7 +434,7 @@ def is_process_alive(pid: int) -> bool:
     if type(pid) is not int or pid <= 1:
         return False
     platform = _process_platform(os.name)
-    if platform is None or not is_valid_process_id(pid):
+    if platform is None or not is_safe_process_id(pid):
         return True
     if platform is _ProcessPlatform.POSIX:
         try:

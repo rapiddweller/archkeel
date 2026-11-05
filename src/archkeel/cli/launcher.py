@@ -15,7 +15,7 @@ from typing import Final
 from filelock import FileLock
 from filelock import Timeout as StudioLockTimeout
 
-from ..analyzer.process import is_process_alive, is_valid_process_id
+from ..analyzer.process import is_process_alive, is_safe_process_id
 from ..studio.api import AgentKind
 from ..studio.server import is_studio
 
@@ -121,7 +121,7 @@ def _read(folder: Path) -> StudioProcess | None:
         return None
     if type(process.pid) is not int or process.pid <= 1:
         return None
-    if not is_valid_process_id(process.pid):
+    if not is_safe_process_id(process.pid):
         # Preserve an UNKNOWN cleanup barrier without exposing an out-of-range PID to the OS.
         return replace(process, stopping=True)
     return process
@@ -161,7 +161,7 @@ def _stop_studio(folder: Path) -> int:
         print("ArchKeel Studio: not running.")
         return 0
 
-    if not is_valid_process_id(process.pid):
+    if not is_safe_process_id(process.pid):
         print(
             "ArchKeel Studio: saved PID is outside this platform's process-ID range; no signal "
             f"was sent. {_recovery_hint(folder)}"

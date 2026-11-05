@@ -102,9 +102,9 @@ def test_process_id_validation_uses_native_width(
 ) -> None:
     monkeypatch.setattr(process_module, "os", SimpleNamespace(name=platform))
 
-    assert process_module.is_valid_process_id(maximum)
-    assert not process_module.is_valid_process_id(maximum + 1)
-    assert not process_module.is_valid_process_id(1)
+    assert process_module.is_safe_process_id(maximum)
+    assert not process_module.is_safe_process_id(maximum + 1)
+    assert not process_module.is_safe_process_id(1)
 
 
 @pytest.mark.parametrize(("wait_result", "expected"), [(0, False), (258, True)])

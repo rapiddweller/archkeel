@@ -416,7 +416,7 @@
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
         "archkeel.analyzer.process:is_process_alive",
-        "archkeel.analyzer.process:is_valid_process_id",
+        "archkeel.analyzer.process:is_safe_process_id",
         "archkeel.analyzer.python.collect:PythonProviderCollector"
       ],
       "responsibilities": [
