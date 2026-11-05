@@ -28,8 +28,9 @@ interface ComponentStats {
   readonly symbols: number;
   readonly callsIn: Tally;
   readonly callsOut: Tally;
+  /** Symbols with one or more unknown calls; this is a symbol count, not a call-site count. */
   readonly withUnknown: number;
-  /** The function with most links, or null for a component without functions. */
+  /** The symbol with most links, or null for a component without symbols. */
   readonly busiest: number | null;
 }
 

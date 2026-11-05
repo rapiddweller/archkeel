@@ -16,7 +16,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const focus = useFocus();
   const unknownOf = (module: number): number => model.members[module].reduce((sum, symbol) => sum + model.graph.symbols[symbol][5], 0);
-  const meta = (module: number): string => `${counted(model.members[module].length, "function")}${unknownOf(module) > 0 ? ` · ? ${unknownOf(module)}` : ""}`;
+  const meta = (module: number): string => `${counted(model.members[module].length, "symbol")}${unknownOf(module) > 0 ? ` · ? ${unknownOf(module)}` : ""}`;
   /** A stub of this page: another component, or another package of this component. */
   const stubName = (ref: string): string => {
     const { id: other, pkg: inner } = splitRef(ref);
@@ -31,7 +31,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
   const layout = useMemo(() => layoutComponent(model, component, pkg, opened, text), [model, component, pkg, opened]);
   const [id] = model.graph.components[component];
   const modules = layout.cards.length + layout.tiles.reduce((sum, tile) => sum + tile.hidden, 0);
-  const functions = model.graph.modules.reduce((sum, row, module) => sum + (row[2] === component ? model.members[module].length : 0), 0);
+  const symbols = model.graph.modules.reduce((sum, row, module) => sum + (row[2] === component ? model.members[module].length : 0), 0);
   const stubHref = (ref: string): string => {
     const { id: other, pkg: inner } = splitRef(ref);
     return viewHref(View.Component, other, inner ?? undefined);
@@ -56,7 +56,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
           name={name}
           kind="Module"
           where={trail}
-          facts={[`${counted(model.members[module].length, "function")}`, `${unknownOf(module)} calls with no known target`, `file ${file}`]}
+          facts={[`${counted(model.members[module].length, "symbol")}`, `${unknownOf(module)} calls with no known target`, `file ${file}`]}
           open={{ href: viewHref(View.Module, module), label: "Open the module →" }}
         />
       );
@@ -87,7 +87,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
       name="Component"
       here={{
         name: pkg === null ? id : `${id} › ${pkg.split(".").join(" › ")}`,
-        counts: `${counted(modules, "module")} · ${counted(functions, "function")}`,
+        counts: `${counted(modules, "module")} · ${counted(symbols, "symbol")}`,
         meaning:
           "A card is a module. Click selects, double click or Enter opens. Hover a card to see who calls it and whom it calls. Stubs on the left call into this page; stubs on the right are called by it.",
         up: pkg === null ? viewHref(View.Map) : parentOf(component, pkg),

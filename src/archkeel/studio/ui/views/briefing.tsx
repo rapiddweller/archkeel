@@ -10,9 +10,14 @@ import { ComponentSource, ContractState, ExploreState } from "../vocabulary";
 const STORIES_SHOWN = 5;
 const COMPONENTS_SHOWN = 6;
 const WHY: Record<ContractState, string> = {
-  [ContractState.NOT_CONFIGURED]: "No contract: a policy verdict does not apply. archkeel init drafts one.",
+  [ContractState.NOT_CONFIGURED]: "No contract · no policy verdict. archkeel init drafts one.",
   [ContractState.INVALID]: "archkeel.toml does not load. archkeel validate names the reason.",
   [ContractState.CONFIGURED]: "The contract loads: archkeel report shows the deviations from it.",
+};
+const CONTRACT_STATUS: Record<ContractState, string> = {
+  [ContractState.NOT_CONFIGURED]: "No contract · no policy verdict",
+  [ContractState.INVALID]: "Contract invalid",
+  [ContractState.CONFIGURED]: "Contract configured",
 };
 
 function Number_(props: { value: string; label: string; note?: string }) {
@@ -118,14 +123,14 @@ function Components(props: { model: Model }) {
     .map(([name], component) => ({ name, component, stats: model.stats[component] }))
     .sort((a, b) => b.stats.modules - a.stats.modules || b.stats.symbols - a.stats.symbols || a.name.localeCompare(b.name))
     .slice(0, COMPONENTS_SHOWN);
-  const source = model.graph.components_from === ComponentSource.CONTRACT;
+  const declared = model.graph.components_from === ComponentSource.CONTRACT;
   return (
     <section aria-labelledby="components-heading">
       <div class="briefing-section-title">
         <h2 id="components-heading">Components</h2>
         <span class="briefing-component-count">{components.length} of {model.graph.components.length} · <a href={viewHref(View.Map)}>See all in Architecture</a></span>
-        <Badge evidence={source ? Evidence.Target : Evidence.Observed}>
-          {source ? "Declared by contract" : "Observed package layout"}
+        <Badge evidence={declared ? Evidence.Target : Evidence.Observed}>
+          {declared ? "Declared groups: contract" : "Base groups: observed package layout"}
         </Badge>
       </div>
       {components.length === 0 ? (
@@ -136,8 +141,8 @@ function Components(props: { model: Model }) {
             <a key={component} class="card component-card" href={viewHref(View.Component, component)}>
               <h3>{name}</h3>
               <Badge evidence={Evidence.Observed}>Measured</Badge>
-              <span>{counted(stats.modules, "module")} · {counted(stats.symbols, "function")}</span>
-              <span>{counted(stats.withUnknown, "function")} with unknown calls</span>
+              <span>{counted(stats.modules, "module")} · {counted(stats.symbols, "symbol")}</span>
+              <span>{counted(stats.withUnknown, "symbol")} with unknown calls</span>
             </a>
           ))}
         </div>
@@ -242,7 +247,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
   return (
     <Page
       title="Briefing"
-      lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""}`}
+      lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""} · ${CONTRACT_STATUS[state.contract]}`}
     >
       {state.explore === ExploreState.INCOMPLETE ? (
         <SnapshotStatus state={state} withGraph />
@@ -250,7 +255,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
       <Components model={model} />
       <div class="figures">
         <Number_ value={compact(model.graph.modules.length)} label="modules" />
-        <Number_ value={compact(model.graph.symbols.length)} label="functions" />
+        <Number_ value={compact(model.graph.symbols.length)} label="symbols" />
         {percent === null ? (
           <Number_ value="–" label="calls resolved" note="This snapshot has no call totals." />
         ) : (

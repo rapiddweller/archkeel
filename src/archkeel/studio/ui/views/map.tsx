@@ -111,7 +111,7 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
       name="Map"
       here={{
         name: "Architecture",
-        counts: `${counted(model.graph.components.length, "component")} · ${counted(model.graph.modules.length, "module")} · ${counted(model.graph.symbols.length, "function")}`,
+        counts: `${counted(model.graph.components.length, "component")} · ${counted(model.graph.modules.length, "module")} · ${counted(model.graph.symbols.length, "symbol")}`,
         meaning: "A card is a component. A line is the sum of the call sites between two components. Click selects, double click or Enter opens its modules.",
         up: null,
         upName: null,
@@ -196,7 +196,7 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                   <span class="nm">{id}</span>
                 </h2>
                 <span class="stat">
-                  {counted(own.modules, "module")} · {counted(own.symbols, "function")}
+                  {counted(own.modules, "module")} · {counted(own.symbols, "symbol")}
                 </span>
                 <span class="stat">
                   in <Counts tally={own.callsIn} />
@@ -218,11 +218,11 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                 kind="Component"
                 where={`Architecture › ${model.graph.components[selected][0]}`}
                 facts={[
-                  `${counted(stat.modules, "module")} · ${counted(stat.symbols, "function")}`,
+                  `${counted(stat.modules, "module")} · ${counted(stat.symbols, "symbol")}`,
                   `calls in: ${stat.callsIn.proven} proven · ${stat.callsIn.claim} claim`,
                   `calls out: ${stat.callsOut.proven} proven · ${stat.callsOut.claim} claim`,
-                  `${counted(stat.withUnknown, "function")} with unknown calls`,
-                  ...(stat.busiest === null ? [] : [`busiest function: ${shortName(model, stat.busiest)}`]),
+                  `${counted(stat.withUnknown, "symbol")} with unknown calls`,
+                  ...(stat.busiest === null ? [] : [`busiest symbol: ${shortName(model, stat.busiest)}`]),
                 ]}
                 text={model.graph.components[selected][1] || "No responsibility declared."}
                 open={{ href: viewHref(View.Component, selected), label: "Open the component →" }}
@@ -262,10 +262,10 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
 /** Where the components come from: the contract is an architect decision, the layout is observed. */
 function Source(props: { source: ComponentSource; contract: ContractState }) {
   if (props.source === ComponentSource.CONTRACT) {
-    return <Badge evidence={Evidence.Target}>components: declared by the contract</Badge>;
+    return <Badge evidence={Evidence.Target}>Declared groups: contract</Badge>;
   }
   const reason = props.contract === ContractState.INVALID ? " (the contract does not load)" : "";
-  return <Badge evidence={Evidence.Observed}>{`components: observed package layout${reason}`}</Badge>;
+  return <Badge evidence={Evidence.Observed}>{`Base groups: observed package layout${reason}`}</Badge>;
 }
 
 export function ArchMap(props: { model: Model | null; contract: ContractState; chat: ChatState }) {

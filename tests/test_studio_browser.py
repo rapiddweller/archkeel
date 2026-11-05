@@ -78,7 +78,7 @@ def _check_the_map(page, width: int) -> None:
     # Status is a glyph and a word, never a colour alone.
     count = page.get_by_role("button", name="1 call from app to store: 1 proven")
     assert count.inner_text().strip() == "1 ✓ proven"
-    assert page.get_by_text("components: observed package layout", exact=True).is_visible()
+    assert page.get_by_text("Base groups: observed package layout", exact=True).is_visible()
     # The legend of the marks is in the side panel; a narrow screen opens it on demand.
     for mark in (
         "✓ proven = resolved call",
@@ -281,7 +281,7 @@ def test_the_shell_navigates_and_stays_on_its_server(
             _check_the_map(page, width)
             page.get_by_role("link", name="Briefing", exact=True).click()
             page.get_by_role("heading", name="Briefing", exact=True).wait_for()
-            for text in (*_LEGEND, "No contract: a policy verdict does not apply"):
+            for text in (*_LEGEND, "No contract · no policy verdict"):
                 assert page.get_by_text(text, exact=False).first.is_visible(), text
             background = "getComputedStyle(document.body).backgroundColor"
             assert page.evaluate(background) == "rgb(10, 18, 24)"
@@ -1635,21 +1635,42 @@ def test_briefing_shows_six_measured_component_cards(
     studio: Studio, width: int, height: int
 ) -> None:
     api = pytest.importorskip("playwright.sync_api")
-    components = [[f"component-{index}", ""] for index in range(8)]
-    modules = [
-        [f"component-{index}.module", f"component_{index}.py", index, ""] for index in range(8)
+    components = [[f"component-{index}", ""] for index in range(8)] + [
+        ["(unowned)", "Modules without a single owning component."]
     ]
-    symbols = [_function(index, f"function_{index}") for index in range(8)]
-    symbols[0][5] = 2
+    modules = (
+        [
+            [f"component-0.module-{part}", f"component_0_{part}.py", 0, f"module_{part}"]
+            for part in range(2)
+        ]
+        + [
+            [f"component-{index}.module", f"component_{index}.py", index, ""]
+            for index in range(1, 8)
+        ]
+        + [["unowned.module", "unowned.py", 8, ""]]
+    )
+    symbols = [_function(0, "function_0"), _function(1, "function_1")]
+    symbols.extend(
+        [
+            [2, "Class1", 1, "class", "class Class1:", 1, 0],
+            [2, "function_1", 2, "function", "def function_1():", 2, 0],
+        ]
+    )
+    symbols.extend(_function(module, f"function_{module}") for module in range(3, 9))
+    symbols.append([9, "UnownedClass", 1, "class", "class UnownedClass:", 0, 0])
     graph = {
-        "components_from": "explore",
-        "totals": _TOTALS,
+        "components_from": "contract",
+        "totals": {"analyzed": 3, "resolved": 0, "partial": 0, "unresolved": 3},
         "snapshot": _REVISION,
         "components": components,
         "modules": modules,
         "symbols": symbols,
         "edges": [],
-        "unknown": [],
+        "unknown": [
+            [2, "Class1.call()", "unresolved", 1],
+            [3, "function_1()", "unresolved", 2],
+            [3, "function_1()", "unresolved", 3],
+        ],
     }
     answer = {"api_version": API_VERSION, "explore": "done", "graph": graph}
     with api.sync_playwright() as playwright:
@@ -1667,14 +1688,47 @@ def test_briefing_shows_six_measured_component_cards(
                 and first_card["y"] >= 0
                 and first_card["y"] + first_card["height"] <= height
             )
-            assert [card.get_attribute("href") for card in cards.all()] == [
-                f"#/component/{index}" for index in range(6)
+            assert [card.locator("h3").inner_text() for card in cards.all()] == [
+                "component-0",
+                "component-1",
+                "(unowned)",
+                "component-2",
+                "component-3",
+                "component-4",
             ]
+            assert [card.get_attribute("href") for card in cards.all()] == [
+                "#/component/0",
+                "#/component/1",
+                "#/component/8",
+                "#/component/2",
+                "#/component/3",
+                "#/component/4",
+            ]
+            assert page.get_by_text("Declared groups: contract", exact=True).is_visible()
+            assert page.get_by_text("Declared by contract", exact=True).count() == 0
             assert all(
                 "observed" in card.locator(".badge").get_attribute("class") for card in cards.all()
             )
-            assert "1 function with unknown calls" in _words(cards.first)
+            assert "2 symbols with unknown calls" in _words(cards.nth(1))
+            figures = [_words(figure).upper() for figure in page.locator(".figure").all()]
+            assert any(text.startswith("11 SYMBOLS") for text in figures)
+            assert any(text.startswith("3 UNKNOWN CALLS") for text in figures)
             assert page.evaluate("document.documentElement.scrollWidth") <= width
+            page.get_by_role("link", name="See all in Architecture").click()
+            page.get_by_role("heading", name="Map", exact=True).wait_for()
+            assert page.get_by_text("Declared groups: contract", exact=True).is_visible()
+            map_card = page.locator(".map-card", has_text="component-1")
+            assert "1 module · 2 symbols" in _words(map_card)
+            map_card.dblclick()
+            page.get_by_role("heading", name="Component", exact=True).wait_for()
+            if width < 1300:
+                page.get_by_role("button", name="Details").click()
+            page.locator(".details").get_by_text("1 module · 2 symbols", exact=True).wait_for()
+            page.locator(".level-card", has_text="component_1.py").dblclick()
+            page.get_by_role("heading", name="Module", exact=True).wait_for()
+            if width < 1300:
+                page.get_by_role("button", name="Details").click()
+            page.locator(".details").get_by_text("2 symbols", exact=False).wait_for()
         finally:
             browser.close()
 
@@ -1699,7 +1753,7 @@ def test_briefing_names_an_empty_graph_without_inventing_components(studio: Stud
         assert page.locator(".component-card").count() == 0
         figures = [_words(figure).upper() for figure in page.locator(".figure").all()]
         assert any(text.startswith("0 MODULES") for text in figures)
-        assert any(text.startswith("0 FUNCTIONS") for text in figures)
+        assert any(text.startswith("0 SYMBOLS") for text in figures)
 
 
 @pytest.mark.browser
@@ -1834,11 +1888,11 @@ def test_a_lens_neighbor_names_its_proof_in_words(studio: Studio) -> None:
 
 
 @pytest.mark.browser
-def test_a_snapshot_without_functions_opens_a_module(studio: Studio) -> None:
+def test_a_snapshot_without_symbols_opens_a_module(studio: Studio) -> None:
     answer = _small_graph([["m.a", "m/a.py", 0, "a"]], [], [])
     with _page_on(studio, answer, "#/module/0") as page:
         page.get_by_role("heading", name="m.a").or_(page.locator(".titlebar")).first.wait_for()
-        page.get_by_text("0 functions").first.wait_for()
+        page.get_by_text("0 symbols").first.wait_for()
 
 
 @pytest.mark.browser

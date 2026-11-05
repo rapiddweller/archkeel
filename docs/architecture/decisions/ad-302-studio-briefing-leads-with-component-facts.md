@@ -4,8 +4,8 @@
 
 **Decision.**
 1. The Briefing shows at most six components, ordered by module count, then function count. Each card opens the component view. A link opens the full Architecture map.
-2. The component source badge names the contract or observed package layout. An observed badge marks measured counts. A card counts functions with unknown calls; the global unknown figure counts call sites.
-3. The component cards follow the snapshot status and precede the totals. At 800 × 600, the first card stays visible. Detailed patterns stay collapsed.
+2. A source badge scopes contract evidence to declared groups. Each card marks measured counts. Cards count symbols with unknown calls; the global unknown figure counts call sites.
+3. The lead keeps the repository, revision and contract status visible. Component cards follow the snapshot status and precede totals. At 800 × 600, the first card stays visible. Detailed patterns stay collapsed.
 4. Incomplete snapshots keep their status, notes and measured UNKNOWN total. A failed or missing graph shows no measured facts.
 5. An empty graph states that it has no components. Studio does not invent cards.
 
