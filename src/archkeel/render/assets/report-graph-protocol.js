@@ -29,6 +29,8 @@ var ArchkeelGraphProtocol;
     let EntityKind;
     (function (EntityKind) {
         EntityKind["COMPONENT"] = "component";
+        EntityKind["RUNTIME_UNIT"] = "runtime_unit";
+        EntityKind["EXTERNAL_SYSTEM"] = "external_system";
         EntityKind["PACKAGE"] = "package";
         EntityKind["MODULE"] = "module";
         EntityKind["CLASS"] = "class";
@@ -52,6 +54,7 @@ var ArchkeelGraphProtocol;
     // archkeel.ir.architecture_graph.RelationshipKind
     let RelationshipKind;
     (function (RelationshipKind) {
+        RelationshipKind["COMMUNICATES"] = "communicates";
         RelationshipKind["IMPORTS"] = "imports";
         RelationshipKind["CALLS"] = "calls";
         RelationshipKind["REFERENCES"] = "references";
@@ -183,6 +186,7 @@ var ArchkeelGraphProtocol;
     // archkeel.ir.architecture_graph.GraphSchemaVersion
     let GraphSchemaVersion;
     (function (GraphSchemaVersion) {
+        GraphSchemaVersion["V1_4_0"] = "1.4.0";
         GraphSchemaVersion["V1_3_0"] = "1.3.0";
         GraphSchemaVersion["V1_2_0"] = "1.2.0";
         GraphSchemaVersion["V1_1_0"] = "1.1.0";
@@ -293,7 +297,8 @@ var ArchkeelGraphSceneProtocol;
     function isRelationship(value) {
         return isRecord(value) && isText(value.id) && G.isRelationshipKind(value.kind)
             && isText(value.source_id) && isNullableText(value.target_id)
-            && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution);
+            && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution)
+            && (value.protocol === undefined || isText(value.protocol) && value.protocol.trim() !== "");
     }
     function isIntent(value) {
         return isRecord(value) && isText(value.component_id)

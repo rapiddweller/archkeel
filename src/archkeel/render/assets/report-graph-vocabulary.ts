@@ -26,6 +26,8 @@ namespace ArchkeelGraphProtocol {
   // archkeel.ir.architecture_graph.EntityKind
   export enum EntityKind {
     COMPONENT = "component",
+    RUNTIME_UNIT = "runtime_unit",
+    EXTERNAL_SYSTEM = "external_system",
     PACKAGE = "package",
     MODULE = "module",
     CLASS = "class",
@@ -49,6 +51,7 @@ namespace ArchkeelGraphProtocol {
   }
   // archkeel.ir.architecture_graph.RelationshipKind
   export enum RelationshipKind {
+    COMMUNICATES = "communicates",
     IMPORTS = "imports",
     CALLS = "calls",
     REFERENCES = "references",
@@ -180,6 +183,7 @@ namespace ArchkeelGraphProtocol {
   }
   // archkeel.ir.architecture_graph.GraphSchemaVersion
   export enum GraphSchemaVersion {
+    V1_4_0 = "1.4.0",
     V1_3_0 = "1.3.0",
     V1_2_0 = "1.2.0",
     V1_1_0 = "1.1.0",

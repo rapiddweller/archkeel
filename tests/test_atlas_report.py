@@ -146,6 +146,44 @@ def test_planned_component_graph_and_report_schema_1_3_render_in_browser(tmp_pat
         playwright.stop()
 
 
+@pytest.mark.browser
+def test_system_landscape_graph_and_report_schema_1_4_render_in_browser(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    root = _prepare_repo(
+        tmp_path, {}, fixture=Path(__file__).parents[1] / "fixtures/F-system-landscape"
+    )
+    _, encoded = run_report(root, config=load_config(root), analyzer=observe)
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(model)
+    assert report.schema_version == ReportSchemaVersion.V1_4_0
+    assert report.target is not None
+    assert report.target.schema_version == GraphSchemaVersion.V1_4_0
+
+    html = html_renderer.render_html(
+        replace(_result(model), architecture_projection=None),
+        model,
+        repository="Greenfield system",
+        architecture_href="architecture.json",
+    ).decode()
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    assert match is not None
+    payload = json.loads(match.group(1))
+    assert payload["schema_version"] == "1.4.0"
+    assert payload["target"]["schema_version"] == "1.4.0"
+
+    errors: list[str] = []
+    playwright, browser, page = _browser_page(api, html, errors=errors)
+    try:
+        assert not errors, f"The 1.4 report failed in the browser runtime: {errors}"
+        assert "Unsupported architecture report schema." not in page.locator("#flow").inner_text()
+        page.locator('[data-flow-view="target"]').click()
+        assert page.locator(".flow-nodes > g").count() >= 2
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def test_atlas_structure_overview_retains_canonical_component_route(tmp_path):
     model = _sample(
         tmp_path,

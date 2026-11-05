@@ -11,6 +11,8 @@ declare namespace ArchkeelGraphProtocol {
     function isOriginKind(value: unknown): value is OriginKind;
     enum EntityKind {
         COMPONENT = "component",
+        RUNTIME_UNIT = "runtime_unit",
+        EXTERNAL_SYSTEM = "external_system",
         PACKAGE = "package",
         MODULE = "module",
         CLASS = "class",
@@ -28,6 +30,7 @@ declare namespace ArchkeelGraphProtocol {
     }
     function isEntityKind(value: unknown): value is EntityKind;
     enum RelationshipKind {
+        COMMUNICATES = "communicates",
         IMPORTS = "imports",
         CALLS = "calls",
         REFERENCES = "references",
@@ -105,6 +108,7 @@ declare namespace ArchkeelGraphProtocol {
     }
     function isAssessmentChange(value: unknown): value is AssessmentChange;
     enum GraphSchemaVersion {
+        V1_4_0 = "1.4.0",
         V1_3_0 = "1.3.0",
         V1_2_0 = "1.2.0",
         V1_1_0 = "1.1.0",
@@ -173,6 +177,7 @@ declare namespace ArchkeelGraphSceneProtocol {
         target_id: string | null;
         candidate_ids: string[];
         resolution: G.ResolutionKind;
+        protocol?: string;
     }
     interface ComponentIntent {
         component_id: string;

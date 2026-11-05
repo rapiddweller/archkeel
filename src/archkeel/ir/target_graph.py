@@ -135,7 +135,9 @@ def intent_graph(
         (*owners, *target.entities),
         target.relationships,
         schema_version=(
-            GraphSchemaVersion.V1_3_0
+            GraphSchemaVersion.V1_4_0
+            if target.schema_version == GraphSchemaVersion.V1_4_0
+            else GraphSchemaVersion.V1_3_0
             if any(item.lifecycle is not None for item in component_intents)
             else GraphSchemaVersion.V1_2_0
             if any(item.layer is not None for item in component_intents)

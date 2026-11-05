@@ -19,6 +19,7 @@ from archkeel.ir.architecture_graph import (
     ComponentIntent,
     GraphComparison,
     GraphSchemaVersion,
+    Relationship,
     TargetDefinition,
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
@@ -79,6 +80,8 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                 if annotation is ComponentIntent:
                     properties["layer"] = {"type": "string", "pattern": "\\S"}
                     properties["lifecycle"] = {"const": "planned"}
+                if annotation is Relationship:
+                    properties["protocol"] = {"type": "string", "pattern": "\\S"}
                 definition: dict[str, object] = {
                     "type": "object",
                     "properties": properties,
@@ -93,6 +96,44 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                 }
                 if annotation is ArchitectureGraph:
                     definition["allOf"] = [
+                        {
+                            "if": {
+                                "properties": {
+                                    "schema_version": {"enum": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]}
+                                }
+                            },
+                            "then": {
+                                "properties": {
+                                    "entities": {
+                                        "items": {
+                                            "not": {
+                                                "properties": {
+                                                    "kind": {
+                                                        "enum": ["runtime_unit", "external_system"]
+                                                    }
+                                                },
+                                                "required": ["kind"],
+                                            }
+                                        }
+                                    },
+                                    "relationships": {
+                                        "items": {
+                                            "not": {
+                                                "anyOf": [
+                                                    {
+                                                        "properties": {
+                                                            "kind": {"const": "communicates"}
+                                                        },
+                                                        "required": ["kind"],
+                                                    },
+                                                    {"required": ["protocol"]},
+                                                ]
+                                            }
+                                        }
+                                    },
+                                }
+                            },
+                        },
                         {
                             "if": {"properties": {"schema_version": {"enum": ["1.0.0", "1.1.0"]}}},
                             "then": {
@@ -163,7 +204,9 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                         "not": {
                                             "type": "object",
                                             "properties": {
-                                                "schema_version": {"enum": ["1.2.0", "1.3.0"]}
+                                                "schema_version": {
+                                                    "enum": ["1.2.0", "1.3.0", "1.4.0"]
+                                                }
                                             },
                                             "required": ["schema_version"],
                                         }
@@ -179,7 +222,9 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                     key: {
                                         "not": {
                                             "type": "object",
-                                            "properties": {"schema_version": {"const": "1.3.0"}},
+                                            "properties": {
+                                                "schema_version": {"enum": ["1.3.0", "1.4.0"]}
+                                            },
                                             "required": ["schema_version"],
                                         }
                                     }
@@ -187,6 +232,79 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                 }
                             },
                         },
+                        {
+                            "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
+                            "then": {
+                                "properties": {
+                                    key: {
+                                        "not": {
+                                            "type": "object",
+                                            "properties": {"schema_version": {"const": "1.4.0"}},
+                                            "required": ["schema_version"],
+                                        }
+                                    }
+                                    for key in ("observed", "target")
+                                }
+                            },
+                        },
+                    ]
+                if annotation is Relationship:
+                    definition["allOf"] = [
+                        {
+                            "if": {
+                                "properties": {"kind": {"const": "communicates"}},
+                                "required": ["kind"],
+                            },
+                            "then": {
+                                "properties": {
+                                    "source_id": {"type": "string", "pattern": "\\S"},
+                                    "target_id": {"type": "string", "pattern": "\\S"},
+                                },
+                                "required": ["target_id"],
+                            },
+                            "else": {"not": {"required": ["protocol"]}},
+                        }
+                    ]
+                if annotation is TargetDefinition:
+                    definition["allOf"] = [
+                        {
+                            "if": {
+                                "properties": {
+                                    "schema_version": {"enum": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]}
+                                }
+                            },
+                            "then": {
+                                "properties": {
+                                    "entities": {
+                                        "items": {
+                                            "not": {
+                                                "properties": {
+                                                    "kind": {
+                                                        "enum": ["runtime_unit", "external_system"]
+                                                    }
+                                                },
+                                                "required": ["kind"],
+                                            }
+                                        }
+                                    },
+                                    "relationships": {
+                                        "items": {
+                                            "not": {
+                                                "anyOf": [
+                                                    {
+                                                        "properties": {
+                                                            "kind": {"const": "communicates"}
+                                                        },
+                                                        "required": ["kind"],
+                                                    },
+                                                    {"required": ["protocol"]},
+                                                ]
+                                            }
+                                        }
+                                    },
+                                }
+                            },
+                        }
                     ]
                 if annotation is ViewSpec:
                     # AD-289: a 1.0.0 spec has no stops. AD-291: only a 1.2.0 spec has a story.
@@ -246,6 +364,25 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
     }
 
 
+def _without_system_landscape_vocabulary(schema: dict[str, object]) -> dict[str, object]:
+    """Keep existing result formats from admitting Target-only vocabulary."""
+    target_only = {"runtime_unit", "external_system", "communicates"}
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            enum = value.get("enum")
+            if isinstance(enum, list):
+                value["enum"] = [item for item in enum if item not in target_only]
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(schema)
+    return schema
+
+
 def graph_schema() -> dict[str, object]:
     return _schema(ArchitectureGraph, "architecture-graph", "Shared architecture graph")
 
@@ -263,8 +400,10 @@ def report_schema() -> dict[str, object]:
 
 
 def projection_schema() -> dict[str, object]:
-    schema = _schema(
-        ArchitectureProjection, "architecture-projection", "Focused architecture projection"
+    schema = _without_system_landscape_vocabulary(
+        _schema(
+            ArchitectureProjection, "architecture-projection", "Focused architecture projection"
+        )
     )
     schema["$comment"] = (
         "Generated from archkeel.ir.architecture_projection. Source authenticity "
@@ -274,8 +413,8 @@ def projection_schema() -> dict[str, object]:
 
 
 def command_schema() -> dict[str, object]:
-    schema = _schema(
-        ArchitectureCommandEnvelope, "architecture-command", "Focused architecture command"
+    schema = _without_system_landscape_vocabulary(
+        _schema(ArchitectureCommandEnvelope, "architecture-command", "Focused architecture command")
     )
     schema["$id"] = "urn:archkeel:architecture-command:2.0.0"
     schema["$comment"] = (
@@ -443,7 +582,9 @@ def command_schema() -> dict[str, object]:
 
 
 def view_spec_schema() -> dict[str, object]:
-    schema = _schema(ViewSpec, "view-spec", "Checked view spec")
+    schema = _without_system_landscape_vocabulary(
+        _schema(ViewSpec, "view-spec", "Checked view spec")
+    )
     schema["$comment"] = (
         "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: "
         "`archkeel view check` assigns proven, declared, unknown or missing; claim is author text. "
@@ -457,7 +598,9 @@ def view_spec_schema() -> dict[str, object]:
 
 
 def view_check_schema() -> dict[str, object]:
-    schema = _schema(ViewCheck, "view-check", "View check result")
+    schema = _without_system_landscape_vocabulary(
+        _schema(ViewCheck, "view-check", "View check result")
+    )
     # The result schema versions independently from the spec version it records.
     schema["$id"] = "urn:archkeel:view-check:1.3.0"
     schema["$comment"] = (
@@ -477,7 +620,9 @@ def view_check_schema() -> dict[str, object]:
 
 
 def story_trace_schema() -> dict[str, object]:
-    schema = _schema(TraceResult, "story-trace", "Story trace result")
+    schema = _without_system_landscape_vocabulary(
+        _schema(TraceResult, "story-trace", "Story trace result")
+    )
     schema["$comment"] = (
         "Generated from archkeel.ir.story (AD-291). Candidate paths over the call graph of one "
         "snapshot. A hop is proven (a resolved call) or a claim (a partial call, with its seam). "
@@ -975,6 +1120,26 @@ def _update_contract_schema(path: Path) -> None:
         all_of = schema.setdefault("allOf", [])
         if version_gate not in all_of:
             all_of.append(version_gate)
+    if version is not None and not supports_feature(version, ContractFeature.SYSTEM_LANDSCAPE):
+        system_landscape_gate = {
+            "properties": {
+                "declarations": {
+                    "properties": {
+                        "uml": {
+                            "not": {
+                                "properties": {
+                                    "schema_version": {"const": GraphSchemaVersion.V1_4_0.value}
+                                },
+                                "required": ["schema_version"],
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        all_of = schema.setdefault("allOf", [])
+        if system_landscape_gate not in all_of:
+            all_of.append(system_landscape_gate)
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
 
 

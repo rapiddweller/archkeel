@@ -47,7 +47,7 @@ namespace ArchkeelGraphSceneProtocol {
   }
   export interface Relationship {
     id: string; kind: G.RelationshipKind; source_id: string; target_id: string | null;
-    candidate_ids: string[]; resolution: G.ResolutionKind;
+    candidate_ids: string[]; resolution: G.ResolutionKind; protocol?: string;
   }
   export interface ComponentIntent {
     component_id: string; role?: G.ComponentRole; parent_id?: string | null; label?: string | null;
@@ -140,7 +140,8 @@ namespace ArchkeelGraphSceneProtocol {
   function isRelationship(value: unknown): value is Relationship {
     return isRecord(value) && isText(value.id) && G.isRelationshipKind(value.kind)
       && isText(value.source_id) && isNullableText(value.target_id)
-      && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution);
+      && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution)
+      && (value.protocol === undefined || isText(value.protocol) && value.protocol.trim() !== "");
   }
   function isIntent(value: unknown): value is ComponentIntent {
     return isRecord(value) && isText(value.component_id)

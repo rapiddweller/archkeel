@@ -29,6 +29,7 @@ class ContractFeature(StrEnum):
     BOUNDED_NUMERIC_OPERAND = "bounded_numeric_operand"
     PROTOCOL_DECLARATIONS = "protocol_declarations"
     SOURCE_OWNERSHIP = "source_ownership"
+    SYSTEM_LANDSCAPE = "system_landscape"
 
 
 class ContractVersion(StrEnum):
@@ -51,6 +52,7 @@ class ContractVersion(StrEnum):
     V3_12 = "3.12.0"
     V3_13 = "3.13.0"
     V3_14 = "3.14.0"
+    V3_15 = "3.15.0"
 
 
 # Declaration order is the supported contract evolution order.
@@ -77,6 +79,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
     ContractFeature.PROTOCOL_DECLARATIONS: ContractVersion.V3_9,
     ContractFeature.SOURCE_OWNERSHIP: ContractVersion.V3_12,
+    ContractFeature.SYSTEM_LANDSCAPE: ContractVersion.V3_15,
 }
 
 

@@ -17,6 +17,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import observe_revision
 from archkeel.check.uml import assemble_uml
+from archkeel.check.uml_compare import compare_graphs
 from archkeel.check.validation.references import reference_diagnostics
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
@@ -62,7 +63,7 @@ from archkeel.ir.target_graph import declared_graph, declared_tree_graph
 from archkeel.ir.target_records import recorded_target_graph
 from archkeel.ir.widening import contract_widenings
 from archkeel.render.html import _html_report_payload, render_architecture_pages
-from tools.architecture_graph_schema import graph_schema, target_schema
+from tools.architecture_graph_schema import graph_schema, report_schema, target_schema
 
 
 def _contract():
@@ -1828,16 +1829,23 @@ def test_uml_contract_schema_is_generated_from_the_shared_dataclasses() -> None:
     schema = json.loads(
         (Path(__file__).parents[1] / "schema/architecture-contract.schema.json").read_bytes()
     )
-    assert schema["$defs"]["uml"] == target_schema()
-    shared = graph_schema()["$defs"]
-    for name in ("Entity", "Relationship", "Signature", "Parameter", "Visibility", "TargetScope"):
-        assert schema["$defs"]["uml"]["$defs"][name] == shared[name]
+    assert schema["$defs"]["uml"]["$id"] == "urn:archkeel:architecture-target:1.3.0"
     validator = Draft202012Validator(schema)
     validator.validate(_contract())
     validator.validate(json.loads(contract_bytes(parse_contract(_contract()))))
     old = _contract()
     old["schema_version"] = "2.1.0"
     assert list(validator.iter_errors(old))
+
+
+def test_system_landscape_schema_is_generated_from_the_shared_dataclasses() -> None:
+    root = Path(__file__).parents[1]
+    schema = json.loads((root / "schema/architecture-contract-3.15.schema.json").read_bytes())
+    assert schema["$defs"]["uml"] == target_schema()
+    assert schema["$defs"]["uml"]["$id"] == "urn:archkeel:architecture-target:1.4.0"
+    shared = graph_schema()["$defs"]
+    for name in ("Entity", "Relationship", "Signature", "Parameter", "Visibility", "TargetScope"):
+        assert schema["$defs"]["uml"]["$defs"][name] == shared[name]
 
 
 @pytest.mark.parametrize(
@@ -1902,6 +1910,87 @@ def test_planned_component_lifecycle_matches_contract_schema_version(
             parse_contract(raw)
 
 
+def test_greenfield_system_manifest_round_trips_runtime_communication() -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    contract = parse_contract(raw)
+    schema = json.loads((root / "schema" / "architecture-contract-3.15.schema.json").read_bytes())
+    Draft202012Validator(schema).validate(raw)
+
+    assert not contract.components
+    assert contract.declarations is not None
+    assert contract.declarations.uml is not None
+    assert contract.declarations.uml.schema_version.value == "1.4.0"
+
+    graph = declared_graph(contract, contract_path="architecture-contract.json")
+    assert graph.origin == OriginKind.DECLARED
+    assert {entity.kind.value for entity in graph.entities} == {"runtime_unit", "external_system"}
+    assert len(graph.relationships) == 1
+    relationship = graph.relationships[0]
+    assert relationship.kind.value == "communicates"
+    assert relationship.source_id == "runtime-api"
+    assert relationship.target_id == "external-ledger"
+    assert relationship.protocol == "HTTPS"
+    assert not graph.evidence
+    assert parse_graph(json.loads(graph_bytes(graph))) == graph
+    comparison = compare_graphs(
+        ArchitectureGraph(OriginKind.OBSERVED, schema_version=GraphSchemaVersion.V1_4_0), graph
+    )
+    assert {assessment.status for assessment in comparison.assessments} == {
+        AssessmentStatus.UNKNOWN
+    }
+    assert {assessment.subject_id for assessment in comparison.assessments} == {
+        "runtime-api",
+        "external-ledger",
+        "api-ledger-communication",
+    }
+    report = ArchitectureReport(
+        ArchitectureGraph(OriginKind.OBSERVED, schema_version=GraphSchemaVersion.V1_4_0),
+        graph,
+        unavailable="No source snapshot was supplied.",
+        schema_version=ReportSchemaVersion.V1_4_0,
+    )
+    report_payload = json.loads(report_bytes(report))
+    assert parse_report(report_payload) == report
+    Draft202012Validator(report_schema()).validate(report_payload)
+
+
+@pytest.mark.parametrize(
+    ("contract_version", "target_version", "accepted"),
+    [
+        ("2.4.0", "1.4.0", False),
+        ("3.14.0", "1.4.0", False),
+        ("3.15.0", "1.4.0", True),
+        ("2.4.0", "1.3.0", True),
+        ("3.14.0", "1.3.0", True),
+    ],
+)
+def test_system_landscape_feature_does_not_change_historical_contracts(
+    contract_version: str, target_version: str, accepted: bool
+) -> None:
+    raw = _contract()
+    raw["schema_version"] = contract_version
+    raw["declarations"]["uml"]["schema_version"] = target_version
+    schema_name = {
+        "2.4.0": "architecture-contract.schema.json",
+        "3.14.0": "architecture-contract-3.14.schema.json",
+        "3.15.0": "architecture-contract-3.15.schema.json",
+    }[contract_version]
+    if accepted:
+        parsed = parse_contract(raw)
+        assert parsed.declarations.uml.schema_version.value == target_version
+        schema = json.loads((Path(__file__).parents[1] / "schema" / schema_name).read_bytes())
+        Draft202012Validator(schema).validate(raw)
+    else:
+        schema = json.loads((Path(__file__).parents[1] / "schema" / schema_name).read_bytes())
+        schema_errors = list(Draft202012Validator(schema).iter_errors(raw))
+        assert schema_errors, schema_name
+        with pytest.raises(ValueError):
+            parse_contract(raw)
+
+
 def test_contract_encoder_rejects_uml_target_version_newer_than_contract() -> None:
     raw = _contract()
     raw["schema_version"] = "2.3.0"
@@ -1914,6 +2003,19 @@ def test_contract_encoder_rejects_uml_target_version_newer_than_contract() -> No
     with pytest.raises(
         ValueError,
         match="UML schema_version 1.3.0 requires contract schema_version 2.4.0",
+    ):
+        contract_bytes(replace(parsed, declarations=declarations))
+
+    raw["schema_version"] = "3.14.0"
+    raw["declarations"]["uml"]["schema_version"] = "1.3.0"
+    parsed = parse_contract(raw)
+    declarations = replace(
+        parsed.declarations,
+        uml=replace(parsed.declarations.uml, schema_version=GraphSchemaVersion.V1_4_0),
+    )
+    with pytest.raises(
+        ValueError,
+        match="UML schema_version 1.4.0 requires contract schema_version 3.15.0",
     ):
         contract_bytes(replace(parsed, declarations=declarations))
 

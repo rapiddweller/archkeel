@@ -38,6 +38,7 @@ VERSIONS = (
     "3.12.0",
     "3.13.0",
     "3.14.0",
+    "3.15.0",
 )
 
 
@@ -64,7 +65,7 @@ def test_contract_version_field_has_a_concrete_nominal_type():
     assert isinstance(annotation, type) and issubclass(annotation, StrEnum)
 
 
-@pytest.mark.parametrize("invalid", [None, True, 1, {}, [], "", "2.0.0", "3.15.0"])
+@pytest.mark.parametrize("invalid", [None, True, 1, {}, [], "", "2.0.0"])
 def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
     with pytest.raises(ContractVersionError):
         parse_contract({"schema_version": invalid, "components": [], "rules": []})
@@ -92,6 +93,7 @@ def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
         ("CONSTRUCT_SELECTOR", "3.10.0", "3.11.0"),
         ("SOURCE_OWNERSHIP", "3.11.0", "3.12.0"),
         ("GUARDED_EFFECT", "3.12.0", "3.13.0"),
+        ("SYSTEM_LANDSCAPE", "3.14.0", "3.15.0"),
     ],
 )
 def test_feature_policy_keeps_each_existing_introduction_boundary(feature, before, first):

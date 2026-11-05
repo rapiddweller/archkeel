@@ -1,0 +1,4 @@
+[scan]
+roots = ["docs"]
+namespace = "system_manifest"
+contract = "architecture-contract.json"

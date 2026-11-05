@@ -357,6 +357,16 @@ def _entity(
 ) -> tuple[GraphAssessment, ...]:
     if wanted.kind == EntityKind.COMPONENT:
         return ()
+    if wanted.kind in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM}:
+        return (
+            _result(
+                wanted.id,
+                AssessmentAspect.EXISTENCE,
+                AssessmentStatus.UNKNOWN,
+                AssessmentChange.UNAVAILABLE,
+                "This target-only entity kind has no observed source mapping.",
+            ),
+        )
     matches = _matches(observed, wanted)
     if wanted.presence == PresenceKind.REFERENCED:
         if (
@@ -432,6 +442,14 @@ def _entity(
 def _relationship(
     observed: ArchitectureGraph, target: ArchitectureGraph, wanted: Relationship
 ) -> GraphAssessment:
+    if wanted.kind == RelationshipKind.COMMUNICATES:
+        return _result(
+            wanted.id,
+            AssessmentAspect.RELATIONSHIP,
+            AssessmentStatus.UNKNOWN,
+            AssessmentChange.UNAVAILABLE,
+            "Communication intent has no observed source mapping.",
+        )
     entities = {item.id: item for item in target.entities}
     sources = _matches(observed, entities[wanted.source_id])
     targets = _matches(observed, entities[wanted.target_id]) if wanted.target_id is not None else ()

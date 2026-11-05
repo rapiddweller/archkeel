@@ -382,6 +382,7 @@ def parse_relationship(value: RawJson) -> Relationship:
             "reason",
             "through",
             "decided_by",
+            "protocol",
         },
         "relationship",
     )
@@ -409,6 +410,9 @@ def parse_relationship(value: RawJson) -> Relationship:
         None
         if decider is None
         else DecisionMaker(non_empty_text(decider, "relationship.decided_by")),
+        non_empty_text(item["protocol"], "relationship.protocol")
+        if item.get("protocol", _MISSING) is not _MISSING
+        else None,
     )
 
 
@@ -495,12 +499,16 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
         "graph",
     )
     version = GraphSchemaVersion(non_empty_text(item["schema_version"], "graph.schema_version"))
-    if version not in {GraphSchemaVersion.V1_2_0, GraphSchemaVersion.V1_3_0} and any(
+    if version not in {
+        GraphSchemaVersion.V1_2_0,
+        GraphSchemaVersion.V1_3_0,
+        GraphSchemaVersion.V1_4_0,
+    } and any(
         isinstance(entry, dict) and entry.get("layer", _MISSING) is not _MISSING
         for entry in _array(item.get("component_intents", ()), "component_intents")
     ):
         raise ValueError("layer requires graph schema_version 1.2.0")
-    if version != GraphSchemaVersion.V1_3_0 and any(
+    if version not in {GraphSchemaVersion.V1_3_0, GraphSchemaVersion.V1_4_0} and any(
         isinstance(entry, dict) and entry.get("lifecycle", _MISSING) is not _MISSING
         for entry in _array(item.get("component_intents", ()), "component_intents")
     ):
@@ -566,7 +574,28 @@ def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
             del intent["layer"]
         if intent["lifecycle"] is None:
             del intent["lifecycle"]
+    _remove_absent_protocols(encoded["relationships"])
     return encoded
+
+
+def target_payload(target: TargetDefinition) -> dict[str, RawJson]:
+    """Serialize Target intent while keeping absent optional fields off the wire."""
+    raw: RawJson = json.loads(json.dumps(asdict(target)))
+    if not _object(raw):
+        raise TypeError("encoded Target must be an object")
+    encoded = raw
+    _remove_absent_protocols(encoded["relationships"])
+    return encoded
+
+
+def _remove_absent_protocols(relationships: object) -> None:
+    if not isinstance(relationships, list | tuple):
+        raise TypeError("encoded relationships must be a sequence")
+    for relationship in relationships:
+        if not isinstance(relationship, dict):
+            raise TypeError("encoded relationship must be an object")
+        if relationship["protocol"] is None:
+            del relationship["protocol"]
 
 
 def graph_bytes(graph: ArchitectureGraph) -> bytes:
