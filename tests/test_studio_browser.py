@@ -375,7 +375,11 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
         "explore": "incomplete",
         "seconds": 8,
         "exit_code": 2,
-        "notes": ["The TypeScript alias is unresolved."],
+        "notes": [
+            "The TypeScript alias is unresolved.",
+            "The TypeScript alias is unresolved.",
+            "The TypeScript alias is unresolved.",
+        ],
     }
     graph_body = {
         **_MIXED,
@@ -419,7 +423,12 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             )
             Draft202012Validator(_VIEW_CHECK_SCHEMA).validate(detail_payload["checked"])
             page.goto(studio.url)
-            page.get_by_text("Snapshot is incomplete.", exact=False).wait_for()
+            page.get_by_text("Snapshot is incomplete", exact=False).wait_for()
+            assert page.get_by_text("3 diagnostic notes", exact=False).is_visible()
+            assert not page.get_by_text(
+                "The TypeScript alias is unresolved.", exact=False
+            ).is_visible()
+            page.get_by_text("Show diagnostic details", exact=False).click()
             assert page.get_by_text("The TypeScript alias is unresolved.", exact=False).is_visible()
             assert page.get_by_text("Most unknown calls: alpha (1).", exact=False).is_visible()
             page.get_by_role("link", name="Architecture", exact=True).click()
@@ -437,6 +446,47 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             page.get_by_text(
                 "The source snapshot is incomplete; UNKNOWN means evidence is missing."
             ).wait_for()
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize(("width", "height"), [(800, 600), (1440, 900)])
+@pytest.mark.parametrize(
+    ("explore", "expected", "role"),
+    [
+        ("failed", "Explore failed · exit code 1", "alert"),
+        ("running", "Explore is running · 8 s", "status"),
+    ],
+)
+def test_briefing_shows_the_current_explore_status_and_next_step(
+    studio: Studio, width: int, height: int, explore: str, expected: str, role: str
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    state_answer = {
+        "api_version": API_VERSION,
+        "root_name": "shop",
+        "contract": "not_configured",
+        "explore": explore,
+        "seconds": 8,
+        "exit_code": 1 if explore == "failed" else None,
+        "notes": ["Explore could not resolve the source."],
+    }
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.route("**/api/v1/state", lambda route: route.fulfill(json=state_answer))
+            page.goto(studio.url)
+            status = page.get_by_role(role)
+            status.get_by_text(expected, exact=True).wait_for()
+            assert status.get_by_text("Next:", exact=False).is_visible()
+            if explore == "failed":
+                assert status.locator("details").count() == 1
+                assert not status.get_by_text(
+                    "Explore could not resolve the source.", exact=True
+                ).is_visible()
+            assert page.evaluate("document.documentElement.scrollWidth") <= width
         finally:
             browser.close()
 

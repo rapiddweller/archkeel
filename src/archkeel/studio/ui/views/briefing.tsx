@@ -24,6 +24,58 @@ function Number_(props: { value: string; label: string; note?: string }) {
   );
 }
 
+function DiagnosticNotes(props: { notes: readonly string[] }) {
+  if (props.notes.length === 0) return null;
+  const counts = new Map<string, number>();
+  props.notes.forEach((note) => counts.set(note, (counts.get(note) ?? 0) + 1));
+  return (
+    <details class="diagnostics">
+      <summary>Show diagnostic details · {counted(props.notes.length, "diagnostic note")}</summary>
+      <ul>
+        {[...counts].map(([note, count]) => (
+          <li key={note}>
+            {count > 1 ? <b>{count} × </b> : null}{note}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function SnapshotStatus(props: { state: StudioState; withGraph: boolean }) {
+  const { state } = props;
+  if (state.explore === ExploreState.INCOMPLETE) {
+    return (
+      <section class="brief-status incomplete" role="status">
+        <strong>Snapshot is incomplete</strong>
+        <span>{props.withGraph ? "UNKNOWN calls remain counted below." : "No graph is available."}</span>
+        <span>Next: review the notes, then rerun archkeel explore.</span>
+        <DiagnosticNotes notes={state.notes} />
+      </section>
+    );
+  }
+  if (state.explore === ExploreState.FAILED) {
+    return (
+      <section class="brief-status failed" role="alert">
+        <strong>Explore failed · exit code {state.exit_code}</strong>
+        <span>Next: review the notes, then run archkeel explore again.</span>
+        <DiagnosticNotes notes={state.notes} />
+      </section>
+    );
+  }
+  return state.explore === ExploreState.IDLE || state.explore === ExploreState.RUNNING ? (
+    <section class="brief-status running" role="status">
+      <strong>{state.explore === ExploreState.IDLE ? "Explore is starting" : `Explore is running · ${state.seconds} s`}</strong>
+      <span>Next: wait for the snapshot; this page updates when it is ready.</span>
+    </section>
+  ) : (
+    <section class="brief-status failed" role="alert">
+      <strong>Explore finished, but no graph is available</strong>
+      <span>Next: run archkeel explore again and review its output.</span>
+    </section>
+  );
+}
+
 /** One measured sentence and where it opens. */
 function Row(props: { text: string; shows: readonly { label: string; href: string }[] }) {
   return (
@@ -168,13 +220,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
   if (!ready) {
     return (
       <Page title="Briefing" lead={`${state.root_name}: no measured snapshot yet.`}>
-        <p>
-          {state.explore === ExploreState.FAILED
-            ? `archkeel explore stopped with exit code ${state.exit_code}. ${state.notes.join(" ")}`
-            : state.explore === ExploreState.INCOMPLETE
-              ? `Snapshot is incomplete, but no graph is available. ${state.notes.join(" ")}`
-            : `Making the map: ${state.seconds} s. A large repository takes about 2 minutes.`}
-        </p>
+        <SnapshotStatus state={state} withGraph={false} />
       </Page>
     );
   }
@@ -186,7 +232,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
       lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""} · digest ${snapshot.source_digest.slice(0, 8)} · explored in ${state.seconds} s · contract ${state.contract.replace("_", " ")}`}
     >
       {state.explore === ExploreState.INCOMPLETE ? (
-        <p role="status">Snapshot is incomplete. {state.notes.join(" ")}</p>
+        <SnapshotStatus state={state} withGraph />
       ) : null}
       <div class="figures">
         <Number_ value={compact(model.graph.modules.length)} label="modules" />
