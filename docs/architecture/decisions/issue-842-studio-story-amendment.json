@@ -1,9 +1,9 @@
 {
   "after_baseline_digest": "b8f7d38429080d34e9a9d95ad5e97435035994ccffc53f8b07b9ab5c2027c420",
-  "after_digest": "3c9feb72dcb181cf185179e0c0717712e679dc57d82f10a8cabe39a97da64d4b",
+  "after_digest": "009935d0852740b3f12aa3b29c3bb27b4b89d9e5be566125bfe1220e8e092d03",
   "before_baseline_digest": "b9dcb7be09a036d85b74452c24f6a09a2891ea311c162c4f029a31c1e9ddb7e0",
   "before_digest": "5700ac1106b8695ef6a519554212c3b9e0956003bbb6066c205cc3572bc3da8e",
   "decided_by": "Alexander Kell (architect; standing approval for justified budget changes)",
-  "rationale": "CI run 42107068767, job 127524573013, at HEAD 9af08a21 measured calls_unresolved 957/31058 against 950 on origin/main, with zero violations and typing_positions 56. Set only calls_unresolved to 957. The seven net new unresolved calls are api.parse_story_candidate body.keys, title.strip, raw_step.keys, node.strip and note.strip; server._Handler._answer_story calls stories.draft and json.dumps(spec).encode. CI confirms the same Studio API/server contract widenings and typed server-to-agent Reply and server-to-answer Snapshot dependencies. This single v2 amendment binds those measured API/contract changes to this CI evidence. No other budgets change.",
+  "rationale": "CI run 42112806080, job 127544500242, measured PR head e92001577fd3081c6e75eb8aa70718403765f324. GitHub CI built merge commit 37f621d88 on base 7356558f61f320e8a93d65490373683eb4e2a8c2. It measured calls_unresolved 957/31062 and zero architecture violations. The budget stays at 957; this update refreshes only the digest binding for the callable-story guard. The stale status came from the prior digest pair. This is the only Issue 842 amendment.",
   "schema_version": "2.0.0"
 }
