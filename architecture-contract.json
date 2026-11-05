@@ -828,6 +828,19 @@
       "decided_by": "architect"
     },
     {
+      "id": "EXTERNAL-FILELOCK-STUDIO-LAUNCHER",
+      "kind": "external_dependency_scope",
+      "dependency": "filelock",
+      "exact_sources": [
+        "archkeel.cli.launcher"
+      ],
+      "rationale": "Only the Studio launcher coordinates cross-platform starts and stops for one root; no other module owns process locking.",
+      "provenance": [
+        "docs/architecture/decisions/ad-305-studio-starts-one-scope-per-root.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "EXTERNAL-TREE-SITTER-TYPESCRIPT-PARSE",
       "kind": "external_dependency_scope",
       "dependency": "tree_sitter",

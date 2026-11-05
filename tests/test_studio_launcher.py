@@ -15,6 +15,7 @@ from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from test_explore import _repository
@@ -135,7 +136,9 @@ def test_the_state_file_holds_the_process_and_is_private(studio: Launcher) -> No
     assert state["root"] == str(studio.root)
     assert state["started"].endswith("Z")
     assert studio.state.stat().st_mode & 0o777 == 0o600
-    assert [item.name for item in studio.folder.iterdir() if item.name.startswith(".")] == []
+    assert {item.name for item in studio.folder.iterdir() if item.name.startswith(".")} == {
+        ".studio.lock"
+    }
 
 
 def test_a_second_start_prints_the_same_url_and_starts_no_second_server(studio: Launcher) -> None:
@@ -220,19 +223,38 @@ def test_a_stale_delete_keeps_the_file_of_a_run_that_replaced_it(
     assert json.loads(studio.state.read_text())["pid"] == os.getpid()
 
 
-def test_stop_waits_for_the_url_not_for_the_file(
-    studio: Launcher, monkeypatch: pytest.MonkeyPatch
+def test_stop_waits_for_a_posix_zombie_to_be_reaped_then_cleans_state(
+    studio: Launcher,
+    sleeper: subprocess.Popen[bytes],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # Windows ends the server without its cleanup: the file stays and only the URL goes.
-    child, _ = studio.start()
-    kill = os.kill
-    monkeypatch.setattr(launcher.os, "kill", lambda pid, number: kill(pid, signal.SIGKILL))
-    started = time.monotonic()
+    process = launcher.StudioProcess(
+        pid=sleeper.pid,
+        url="http://127.0.0.1:1234/?token=fake",
+        port=1234,
+        root=str(studio.root),
+        started="2026-11-05T00:00:00Z",
+        stopping=True,
+    )
+    studio.folder.mkdir(parents=True)
+    launcher.write_state(studio.folder, process)
+    monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
+    sleeper.kill()
+    assert launcher._pid_is_alive(sleeper.pid)
 
+    ticks = iter(range(100))
+    monkeypatch.setattr(
+        launcher,
+        "time",
+        SimpleNamespace(monotonic=lambda: next(ticks), sleep=lambda _seconds: None),
+    )
+    assert launcher.stop_studio(studio.folder) == 1
+    assert "still stopping" in capsys.readouterr().out
+    assert studio.state.exists()
+
+    assert sleeper.wait(10) != 0
     assert launcher.stop_studio(studio.folder) == 0
-
-    assert time.monotonic() - started < launcher._STOP_SECONDS
-    assert child.wait(_WAIT) == -signal.SIGKILL
     assert not studio.state.exists()
 
 
@@ -269,13 +291,22 @@ def test_a_request_keeps_the_server_alive(tmp_path: Path) -> None:
     )
     urls: list[str] = []
     codes: list[int] = []
+    service_started = threading.Event()
     serving = threading.Thread(
-        target=lambda: codes.append(run_studio(workspace, ready=urls.append, idle_seconds=idle))
+        target=lambda: codes.append(
+            run_studio(
+                workspace,
+                ready=urls.append,
+                serving=service_started.set,
+                idle_seconds=idle,
+            )
+        )
     )
     serving.start()
     deadline = time.monotonic() + _WAIT
     while not urls and time.monotonic() < deadline:
         time.sleep(0.05)
+    assert service_started.wait(_WAIT)
     for _ in range(4):
         time.sleep(0.4)
         assert is_studio(urls[0])

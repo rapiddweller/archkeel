@@ -46,10 +46,13 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    `REQUIRES-COMPLETE`; only `workspace` imports `subprocess` and only `server` imports
    `http`. `docs/architecture/studio-ui.toml` checks the UI: only `api.ts` calls `fetch`, views
    never import views, components never import the client, Preact is the only package.
-10. Launcher: while a server runs, the CLI keeps `studio.json` (pid, URL, port; mode 0600) in the
-    explore cache folder of the root; `Studio` writes no file. A start reuses a server only if
-    its stored URL answers with the Studio login redirect; `--stop` signals (SIGTERM) after the
-    same check and waits for the URL to go. A live pid is no proof. `--idle-exit` counts requests.
+10. Launcher: while a server runs, the CLI keeps `studio.json` (pid, URL, port, root, start time
+    and scope; mode 0600) in the explore cache folder of the root; `Studio` writes no file. Scope
+    is language, sources, namespace and tsconfig. A start reuses a server only when the scope
+    matches; a mismatch or legacy state with unknown scope asks the user to stop it first. A
+    per-root lock serializes start through state publication and stop through cleanup. `--stop`
+    signals (SIGTERM) only after the stored URL answers with the Studio login redirect and waits
+    for the URL to go. A live pid is no proof. `--idle-exit` counts requests.
 
 **Rejected.** React 19.3.1 (69,148 B gzip; Preact 10.29.8 + hooks: 5,668 B), web components, React
 Flow, a state library, an MCP server, 0.0.0.0, a fixed port, a server-rendered embed page. No
@@ -61,8 +64,7 @@ demo-catalog row: `studio` runs until stopped.
   module-level call, counts a call to a target outside the scan apart (neither edge nor unknown),
   and keeps the true count of unknown calls with the first 4. The lens shows 1 hop. A link to a
   detail page leaves the embed mode (Report).
-- A reused server keeps its scope. Two starts between `running_studio` and `write_state` (tens of
-  ms) both run explore; `--stop` finds the last file, the other runs until `--idle-exit`.
+- One running Studio is allowed per root; a different requested scope requires stopping it first.
 - Windows `--stop` skips the cleanup: the explore child and the `studio-*` folder can stay behind.
 - Only `subprocess` and `http` imports are scoped; tests check that the repository stays
   unchanged. Type-only imports stay undecided.

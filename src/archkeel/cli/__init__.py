@@ -15,7 +15,7 @@ import tempfile
 import threading
 import webbrowser
 from collections.abc import Callable, Sequence
-from contextlib import redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 from dataclasses import replace
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -82,10 +82,14 @@ from .config import (
 )
 from .guide import GUIDE_PATH, run_guide
 from .launcher import (
+    StudioLockTimeout,
     StudioProcess,
+    StudioScope,
     forget_state,
+    _recovery_hint,
     running_studio,
     stop_studio,
+    studio_lock,
     write_state,
 )
 from .observe import observer_for
@@ -324,37 +328,80 @@ def _studio(args: CLIArguments) -> int:
     cache = _cache_folder(Command.EXPLORE, _root_digest(root))
     if args.stop:
         return stop_studio(cache)
-    if (live := running_studio(cache)) is not None:
-        print(f"ArchKeel Studio: {live.url} (already running)", flush=True)
-        if not args.no_open:
-            webbrowser.open(live.url)
-        return 0
 
-    def ready(url: str) -> None:
-        port = urlsplit(url).port
-        started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        write_state(cache, StudioProcess(os.getpid(), url, port, str(root), started))
-        if not args.no_open:
-            webbrowser.open(url)
-
-    # SIGTERM stops the server like Ctrl-C: the workspace and the state file are cleaned up.
-    # A shell starts a background job with SIGINT ignored; the explore child would inherit that
-    # and could not unwind on the SIGINT of `Workspace.close`. A Python handler resets on exec.
-    previous = {
-        number: signal.signal(number, signal.default_int_handler)
-        for number in (signal.SIGTERM, signal.SIGINT)
-    }
+    requested_scope = StudioScope(
+        args.language.value,
+        tuple(args.source or ()),
+        args.namespace,
+        args.tsconfig,
+        AgentKind(args.chat_agent.value),
+    )
+    lock: ExitStack = ExitStack()
+    session_lock = studio_lock(cache)
     try:
+        lock.enter_context(session_lock)
+    except StudioLockTimeout:
+        print(
+            "ArchKeel Studio: another start or stop has held the session lock for "
+            f"{session_lock.timeout:g} seconds; "
+            "no session was started. Retry when it finishes, or interrupt the stuck CLI process.",
+            file=sys.stderr,
+        )
+        return 1
+    previous = None
+    try:
+        if (live := running_studio(cache)) is not None:
+            if live.stopping:
+                print(
+                    "ArchKeel Studio: the previous session is still cleaning up; no new session "
+                    "was started. Retry after `archkeel studio --stop` finishes. "
+                    f"{_recovery_hint(cache)}"
+                )
+                return 1
+            if live.scope != requested_scope:
+                active = "unknown" if live.scope is None else repr(live.scope)
+                print(
+                    "ArchKeel Studio: an active session has a different or unknown scope "
+                    f"({active}); requested {requested_scope!r}. Run `archkeel studio --stop` "
+                    "before starting with this scope.",
+                    flush=True,
+                )
+                return 2
+            print(f"ArchKeel Studio: {live.url} (already running)", flush=True)
+            if not args.no_open:
+                webbrowser.open(live.url)
+            return 0
+
+        def ready(url: str) -> None:
+            port = urlsplit(url).port
+            started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            write_state(
+                cache,
+                StudioProcess(os.getpid(), url, port, str(root), started, requested_scope),
+            )
+            if not args.no_open:
+                webbrowser.open(url)
+
+        # SIGTERM stops the server like Ctrl-C: the workspace and the state file are cleaned up.
+        # A shell starts a background job with SIGINT ignored; the explore child would inherit that
+        # and could not unwind on the SIGINT of `Workspace.close`. A Python handler resets on exec.
+        previous = {
+            number: signal.signal(number, signal.default_int_handler)
+            for number in (signal.SIGTERM, signal.SIGINT)
+        }
         return run_studio(
             studio_workspace(args, cache),
             ready=ready,
+            serving=lock.close,
             idle_seconds=args.idle_exit * 60,
             agent=AgentKind(args.chat_agent.value),
         )
     finally:
-        for number, handler in previous.items():
-            signal.signal(number, handler)
-        forget_state(cache, os.getpid())
+        if previous is not None:
+            for number, handler in previous.items():
+                signal.signal(number, handler)
+            forget_state(cache, os.getpid())
+        lock.close()
 
 
 def _write_json(artifact: Path, architecture: bytes) -> None:

@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 name = "archkeel"
 source = { editable = "." }
 dependencies = [
+    { name = "filelock" },
     { name = "packaging" },
     { name = "rich" },
     { name = "rich-argparse" },
@@ -16,7 +17,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "filelock" },
     { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
@@ -26,6 +26,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "filelock", specifier = "==4.0.10" },
     { name = "packaging", specifier = ">=24.2,<27" },
     { name = "rich", specifier = ">=13.9,<16" },
     { name = "rich-argparse", specifier = ">=1.6,<2" },
@@ -36,7 +37,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "filelock", specifier = "==4.0.10" },
     { name = "jsonschema", specifier = "==4.25.1" },
     { name = "mypy", specifier = "==1.18.2" },
     { name = "pytest", specifier = ">=8.3.4,<9" },
