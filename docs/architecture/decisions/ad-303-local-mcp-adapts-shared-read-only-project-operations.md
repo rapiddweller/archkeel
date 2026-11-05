@@ -12,39 +12,36 @@
 3. Keep the MCP adapter in its own component. It owns FastMCP registration, MCP input and output,
    and the stdio lifecycle. It does not own CLI parsing, HTTP routes, project discovery, snapshot
    decoding, graph derivation, story checks, or source analysis.
-4. Keep one owner for each operation. Reuse the check, IR, workspace, graph and story services
-   through typed interfaces. Do not call another adapter or duplicate checks. The existing
-   Studio `Workspace` is the candidate session owner; test it before changing its ownership.
-5. Bind one explicit project root and source scope for a server process. Every result names the
-   project and snapshot identity. The shared workspace owns one current snapshot and revision.
-   Use source and contract digests to identify it. Report freshness as current, stale, or unknown.
-   Missing or incomplete evidence stays UNKNOWN.
+4. Keep one owner for each operation. Reuse check, IR, graph and story services through typed
+   interfaces. Do not call another adapter or duplicate checks. `Workspace` owns one Studio
+   explore child, snapshot and graph in-process; it has no session handle, attach API or revision
+   (`src/archkeel/studio/workspace.py`). It is only a candidate for shared state ownership.
+5. Target outputs identify the project root, source scope and snapshot revision. Source and
+   contract digests are candidate identity inputs; the owner and calculation remain undecided.
+   Report freshness as current, stale or unknown. Missing or incomplete evidence stays UNKNOWN.
 6. Keep CLI output, Studio HTTP JSON, and MCP results as separate wire contracts. Their adapters
    map the same typed operation results. No adapter imports another adapter's wire types.
 7. Add write tools only after a separate decision defines the user approval step, scope, and
    failure behavior. MCP tool annotations alone are not approval.
-8. The target has one session for one canonical root and source scope. Studio creates the opaque
-   session identity; the MCP client must not choose or forge it. MCP attaches to that session and
-   never starts a second scan. The session returns one immutable snapshot revision per operation.
-   Results name the revision. If it advances during a call, return stale or retry; never mix
-   revisions.
+8. Target invariants: one canonical root and source scope map to one shared session; MCP does not
+   start a second scan when attached. Each operation reads one immutable snapshot revision and
+   names it in the result. If the revision changes during a call, return stale or retry; never mix
+   revisions. Missing evidence stays UNKNOWN.
 9. The MCP process must reach the session owner across a process boundary. A stdio server is a
    separate client-launched process, and Studio keeps its workspace and snapshot in memory. A
-   shared typed session interface is required. `run_stdio(root, sources)` does not accept a
-   caller-supplied session ID: there is no proven secure handoff from Studio to this separate
-   process, and a user-provided ID would not establish authorization. Session discovery, local
-   transport, access control, shutdown and cross-platform behavior remain open until a prototype
-   proves them. Do not route MCP through Studio HTTP or a CLI subprocess.
+   shared typed session interface is required. Session identity must be bound by a trusted owner,
+   not selected by an MCP caller. Who creates, discovers, transfers and authenticates it is open.
+   No session ID argument, attach endpoint or IPC mechanism is established. Do not route MCP
+   through Studio HTTP or a CLI subprocess.
 10. A first read-only slice can use a standalone session if it cannot attach to Studio. It must
-    report that limit and must not claim live sharing. An opaque session ID is an internal
-    binding identity, not a public run option; no authentication mechanism is selected yet.
+    report that limit and must not claim live sharing. No authentication mechanism is selected.
     External MCP clients also differ from
     Studio chat: embedded Claude uses strict MCP configuration, and Codex ignores user
     configuration. Neither sees this server by default.
-11. The current self-contract marks only planned `Workspace` session ports. It cannot represent a
-    planned MCP owner: components need a package or exact module, and UML Target rejects owners.
-    Add the owner and adapter symbols once its package exists, before adapter behavior; then add
-    transport and lifecycle checks. The current model does not enforce an absent adapter.
+11. The self-contract records the existing HTTP API/server ownership and their MCP exclusions; it
+    cannot represent an MCP owner without a package or exact module, and UML Target rejects owner
+    entities. #846 should add a target-only owner declaration. Until then, no MCP implementation
+    boundary is enforced. Add that owner before adapter behavior, once its package exists.
 
 **Compatibility.** The MCP specification names 2026-07-28 as current and documents older-revision
 compatibility. Claude Code and Codex document local stdio servers. These facts do not prove that
@@ -55,10 +52,9 @@ Linux, and Windows; the adapter must not rely on a long cleanup window.
 **Rejected.** FastMCP inside the HTTP server; MCP calls to Studio HTTP; duplicated command or
 checker logic; writable tools in the first slice; a compatibility promise without client probes.
 
-**Limits.** `Workspace` owns a private in-memory snapshot and graph under locks. A second process
-cannot reuse those objects directly. No session interface or MCP adapter exists. The current
-contract can track planned Workspace ports; it cannot model an owner without a package/module or
-prove IPC, race handling, runtime behavior, or client support.
+**Limits.** A second process cannot reuse `Workspace` objects directly. No session interface or
+MCP adapter exists. Target invariants above do not prove session ownership, IPC, race handling,
+runtime behavior or client support. The self-contract cannot yet model the absent MCP owner.
 
 **Sources checked 2026-11-05.** [FastMCP 4.1.6 on PyPI](https://pypi.org/project/fastmcp/4.1.6/);
 [FastMCP install and pin guidance](https://gofastmcp.com/getting-started/installation);
@@ -67,4 +63,5 @@ prove IPC, race handling, runtime behavior, or client support.
 [Claude Code MCP](https://code.claude.com/docs/en/mcp) and
 [Codex MCP](https://developers.openai.com/codex/mcp).
 
-**Checks.** `tests/test_studio_mcp_target.py`; prototype the session boundary before adapter conformance tests.
+**Validation.** `make self-validate` checks the declared Studio boundary. Prototype the session
+boundary before adding adapter or lifecycle conformance tests.

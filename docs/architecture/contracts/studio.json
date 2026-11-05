@@ -190,12 +190,6 @@
       "public": [
         "archkeel.studio.workspace:Workspace"
       ],
-      "planned": [
-        "archkeel.studio.workspace:SessionHandle",
-        "archkeel.studio.workspace:attach_session",
-        "archkeel.studio.workspace:read_snapshot",
-        "archkeel.studio.workspace:current_revision"
-      ],
       "responsibilities": [
         "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name, build its call graph and index it once and delete the folder at the end."
       ],
