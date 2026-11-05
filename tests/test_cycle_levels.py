@@ -95,6 +95,94 @@ def _observe(
     return result.observation
 
 
+@pytest.mark.parametrize(
+    ("planned", "cycle", "scoped", "expected"),
+    [
+        (False, False, False, "PASS"),
+        (False, False, True, "PASS"),
+        (True, False, False, "UNKNOWN"),
+        (True, False, True, "UNKNOWN"),
+        (True, True, False, "FAIL"),
+        (True, True, True, "FAIL"),
+    ],
+    ids=[
+        "active-only",
+        "active-scoped",
+        "planned-owner",
+        "planned-scoped",
+        "observed-cycle",
+        "scoped-cycle",
+    ],
+)
+@pytest.mark.parametrize("level", [None, "module"], ids=["component-level", "module-level"])
+def test_unscanned_planned_owner_does_not_prove_cycle_scan_complete(
+    tmp_path: Path,
+    planned: bool,
+    cycle: bool,
+    scoped: bool,
+    expected: str,
+    level: str | None,
+) -> None:
+    components = [_component("core"), _component("cli")]
+    if planned:
+        components.append(
+            {
+                "id": "COMP-FUTURE",
+                "label": "future",
+                "role": "component",
+                "lifecycle": "planned",
+                "packages": [],
+                "planned": ["sample.future:build"],
+                "responsibilities": [],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/architecture/sample.md"],
+            }
+        )
+    sources = (
+        {"core/a.py": "from sample.cli import main\n", "cli/main.py": "from sample.core import a\n"}
+        if cycle
+        else {"core/a.py": "VALUE = 1\n", "cli/main.py": "VALUE = 1\n"}
+    )
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.4.0" if planned else "2.1.0",
+                "components": components,
+                "rules": [
+                    {
+                        "id": "RULE",
+                        "kind": "no_component_cycles",
+                        **({"level": level} if level is not None else {}),
+                        "rationale": "Probe.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                        **({"components": ["core"]} if scoped else {}),
+                    }
+                ],
+            }
+        )
+    )
+    for relative, source in sources.items():
+        path = tmp_path / "sample" / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+
+    result = observe(
+        tmp_path,
+        roots=(".",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.diagnostics
+    (assessment,) = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == expected
+
+
 def _violations(observation: Observation) -> list[tuple[str, tuple[str, ...]]]:
     return [(item.kind, item.subjects) for item in observation.records("violations") or ()]
 

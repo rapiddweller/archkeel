@@ -2412,6 +2412,8 @@ def _cycle_scan_coverage(
         namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
     else:
         return False, ()
+    if any(component.lifecycle is ComponentLifecycle.PLANNED for component in contract.components):
+        namespace_complete = False
     return namespace_complete, components
 
 
@@ -2598,6 +2600,8 @@ def _scan_covers_ownership(
     profile: Profile,
     roots: tuple[str, ...],
 ) -> bool:
+    if component.lifecycle is ComponentLifecycle.PLANNED:
+        return False
     scan_roots = tuple(_relative_path(root) for root in roots)
     return (
         bool(scan_roots)
