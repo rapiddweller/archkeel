@@ -109,6 +109,7 @@ class Studio(ThreadingHTTPServer):
         self.agent = Agent(workspace.root, agent)
         self.token = secrets.token_urlsafe(32)
         self.idle_seconds = idle_seconds
+        self.serving: Callable[[], object] | None = None
         self.last_request = time.monotonic()
         super().__init__((_LOOPBACK, 0), partial(_Handler, self))
         self.port: int = self.socket.getsockname()[1]
@@ -117,7 +118,10 @@ class Studio(ThreadingHTTPServer):
         self.url = f"http://{self.host}/?token={self.token}"
 
     def service_actions(self) -> None:
-        """Called by `serve_forever` after each poll: end the loop when no request came."""
+        """Called by `serve_forever` after its first poll and on each idle check."""
+        if self.serving is not None:
+            serving, self.serving = self.serving, None
+            serving()
         quiet = time.monotonic() - self.last_request > self.idle_seconds
         if self.idle_seconds > 0 and quiet and not self.agent.busy:
             raise _Idle
@@ -391,6 +395,7 @@ def run_studio(
     workspace: Workspace,
     *,
     ready: Callable[[str], object],
+    serving: Callable[[], object] | None = None,
     idle_seconds: float = 0.0,
     agent: AgentKind = AgentKind.CLAUDE,
 ) -> int:
@@ -399,6 +404,7 @@ def run_studio(
     `ready` gets the start URL with the token.
     """
     server = Studio(workspace, idle_seconds, agent)
+    server.serving = serving
     try:
         workspace.start()
         # The caller has written its state file before the URL appears: a reader can stop us.

@@ -196,6 +196,11 @@ printed URL carries a token for this run; a request without it gets 403. At star
 `archkeel explore` on the root into a private folder of this run below the explore cache.
 The Briefing shows the progress. When the snapshot is done, Studio opens on the Map:
 
+`make demo-studio` runs the `studio-scope-mismatch-stop` CLI catalog case on a temporary Python
+project. It starts one scope, rejects a conflicting scope with exit 2, then stops the active
+session and checks its state and run folder were removed. The demo skips on Windows because the
+current Windows stop path cannot clean up the Explore child before terminating it.
+
 - **Briefing** (`#/overview`, the first item): the numbers that explore measured (modules, functions,
   calls resolved in percent, unknown calls), at most six measured sentences of what stands out, each
   with a "Show" link, the five newest stories with their `✓ proven · ✎ claim · ? unknown` counts, a
@@ -286,21 +291,27 @@ agent. The files an agent reads go to its provider.
   `git status` of the root, with size and mtime of the listed files, before and after the run. If
   they differ, it discards the answer (502 `repository_changed`); the edit may stay on disk. Errors are `{"api_version", "error", "detail"}`.
 
-A running server writes `studio.json` (pid, URL with token, port, root, start time) into the
-explore cache folder of the root, with mode 0600. It removes the file when it stops.
+A running server writes `studio.json` (pid, URL with token, port, root, start time and scope) into
+the explore cache folder of the root, with mode 0600. It removes the file when it stops.
 
-- A second `archkeel studio` for the same root prints `ArchKeel Studio: <URL> (already running)`
-  and starts no second server. It reuses the server only if a request to the stored URL gets the
-  Studio login redirect (303 with the cookie `archkeel_studio_<port>`). A live pid is not enough.
-  The scope options of the first start stay in force.
-- `archkeel studio --stop [--root PATH]` sends SIGTERM to a server that passed the same check,
-  waits up to 15 seconds until its URL stops answering and prints `ArchKeel Studio: stopped.`.
-  Without a verified server it deletes a stale file (only if it still holds the pid that it read)
-  and prints `ArchKeel Studio: not running.`. The command can return while the server still
-  unwinds its explore child.
+- A second `archkeel studio` for the same root reuses the server only if the requested
+  `--language`, `--source`, `--namespace`, `--tsconfig` and `--agent` match its stored scope and a request to
+  the stored URL gets the Studio login redirect (303 with the cookie `archkeel_studio_<port>`).
+  A mismatch or older state without scope exits 2 with a `--stop` hint; it does not start another
+  scan. Unknown or malformed saved scope is treated as UNKNOWN. A live pid is not enough. A per-root
+  lock serializes startup and stop, including concurrent
+  CLI processes. Lock acquisition waits up to 60 seconds; if it times out, the command says that
+  no start or stop was performed and asks you to retry after the other CLI finishes.
+- `archkeel studio --stop [--root PATH]` sends SIGTERM only to a server that passed the same HTTP
+  check, then records that cleanup is in progress. It waits up to 15 seconds for the process state
+  to disappear after workspace cleanup. On timeout, it leaves that marker intact; new starts refuse
+  to scan while the marked process is alive. An unmarked state without a valid Studio response is
+  stale, even if its PID belongs to another live process. If a marked state stays stuck, the
+  command prints its path; first verify no Studio or Explore process for that root remains, then
+  remove that state file manually. PID reuse can otherwise preserve an old marker.
 - SIGTERM and Ctrl-C stop the server the same way: the explore child unwinds and the file goes.
-  Windows ends the process at once on `--stop`, with no cleanup: the file is deleted by `--stop`,
-  but the explore child and the `studio-*` folder of the run can stay behind.
+  Windows ends the process at once on `--stop`, with no cleanup: `--stop` removes the dead
+  process state, but the explore child and the `studio-*` folder of the run can stay behind.
 - `--idle-exit MINUTES` stops the server when no HTTP request came for that time. The default 0
   means never. Only requests count. A running Explore does not keep the server alive; the open
   page polls the state, and each poll is a request.

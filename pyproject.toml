@@ -24,6 +24,7 @@ classifiers = [
 # Dart and TypeScript need grammar parsers to observe declarations and expression sites.
 dependencies = [
     "packaging>=24.2,<27",
+    "filelock==4.0.10",
     "rich>=13.9,<16",
     "rich-argparse>=1.6,<2",
     "tree-sitter>=0.26,<0.27",
@@ -93,8 +94,6 @@ dev = [
     "ruff==0.16.0",
     "pytest>=8.3.4,<9",
     "pytest-xdist==3.8.0",
-    # One lazy self-report shared by local pytest workers on Windows and Unix.
-    "filelock==4.0.10",
     "mypy==1.18.2",
     "jsonschema==4.25.1",
 ]

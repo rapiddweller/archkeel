@@ -131,6 +131,7 @@ def test_explore_skill_starts_studio_for_an_agent() -> None:
     body = (ROOT / EXPLORE_FILES[0]).read_text(encoding="utf-8")
     assert body.startswith("---\nname: explore\ndescription: Use when the owner wants to see")
     assert len(body.splitlines()) < 60
+    normalized_body = " ".join(body.split())
     for text in (
         "uvx archkeel studio --help",
         "uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio",
@@ -142,8 +143,16 @@ def test_explore_skill_starts_studio_for_an_agent() -> None:
         "SameSite=Strict",
         "Do not put it in logs or public channels",
         "Share it only with the owner",
+        "`--agent {claude,codex}`",
+        "Explore scope flags:",
+        "Studio chat option:",
+        "does not change scan scope",
+        "Same root, scope and agent",
+        "mismatch exits 2",
+        "starts stay blocked by its marker",
+        "verify no Studio/Explore for this root remains",
     ):
-        assert text in body, text
+        assert text in normalized_body, text
     keys = [
         line.split(":")[0].strip()
         for line in (ROOT / EXPLORE_FILES[1]).read_text(encoding="utf-8").splitlines()

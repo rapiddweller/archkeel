@@ -32,15 +32,14 @@ Run this command. `<root>` is the repository root. Add the scope options only wh
 
 - Claude Code: run it as a background Bash command (`run_in_background`). Read the URL from its output.
 - Codex: run it outside the sandbox. The server needs a local port.
-- Scope options: `--language`, `--source`, `--namespace` and `--tsconfig`. TypeScript and Dart need
-  them. Use the same values as for `archkeel explore`.
+- Explore scope flags: `--language`, `--source`, `--namespace`, `--tsconfig`; match `explore`'s scope (TypeScript and Dart need language options).
+- Studio chat option: `--agent {claude,codex}`; this does not change scan scope.
 
 The first output line is `ArchKeel Studio: <URL>`. The URL token logs the browser in once.
 Studio then sets an `HttpOnly`, `SameSite=Strict` cookie; later requests need that cookie.
 Treat the URL as secret. Do not put it in logs or public channels. Share it only with the owner
-through a private channel. A second call for the same root prints
-`ArchKeel Studio: <URL> (already running)` with the same URL and starts no second server.
-The server keeps the scope options of its first start. To change them, stop it and start again.
+privately. Same root, scope and agent reuses the server; mismatch exits 2 without a second server.
+Stop first to change scope or agent.
 
 ## 3. Give the owner the URL
 
@@ -55,5 +54,6 @@ The server keeps the scope options of its first start. To change them, stop it a
 <archkeel> studio --stop --root <root>
 ```
 
-It prints `ArchKeel Studio: stopped.` or `ArchKeel Studio: not running.` Both are fine. Exit code 1
-means that the server still runs after 15 seconds: tell the owner.
+It prints `ArchKeel Studio: stopped.` or `ArchKeel Studio: not running.` Exit 1 means cleanup remains
+after 15 seconds; starts stay blocked by its marker. For a stale marker, verify no Studio/Explore
+for this root remains before removing the printed state file; PID reuse can keep markers alive.

@@ -555,7 +555,9 @@ def test_launch_oserror_keeps_existing_missing_tool_text(name):
     assert result == ("missing_tool", "collector-tool", "Collector could not execute: unavailable")
 
 
-def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_probe=False):
+def _platform_repository(
+    tmp_path, *, changed=None, changed_in=None, relocate=False, collect_probe=False
+):
     target = json.loads((_PROCESS_ROOT / "docs/architecture/contracts/analyzer.json").read_text())
     target.pop("$schema", None)
     target["components"] = [target["components"][0]]
@@ -597,8 +599,30 @@ def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_prob
     source = (_PROCESS_ROOT / "src/archkeel/analyzer/process.py").read_text()
     if changed is not None:
         old, new = changed
-        assert source.count(old) == 1
-        source = source.replace(old, new, 1)
+        if changed_in is None:
+            assert source.count(old) == 1
+            source = source.replace(old, new, 1)
+        else:
+            lines = source.splitlines(keepends=True)
+            start = next(
+                index
+                for index, line in enumerate(lines)
+                if line.lstrip().startswith(f"def {changed_in}(")
+            )
+            indent = len(lines[start]) - len(lines[start].lstrip())
+            end = next(
+                (
+                    index
+                    for index in range(start + 1, len(lines))
+                    if len(lines[index]) - len(lines[index].lstrip()) == indent
+                    and lines[index].lstrip().startswith("def ")
+                ),
+                len(lines),
+            )
+            body = "".join(lines[start:end])
+            assert body.count(old) == 1
+            lines[start:end] = [body.replace(old, new, 1)]
+            source = "".join(lines)
     extra = {}
     if relocate:
         block = 'class _ProcessPlatform(Enum):\n    POSIX = "posix"\n    WINDOWS = "nt"\n\n\n'
@@ -802,8 +826,16 @@ def test_actual_root_placement_rejects_process_enum_relocation(tmp_path):
     ],
 )
 def test_actual_os_comparison_mutations_keep_native_control_trace(tmp_path, old, new, rule_id):
+    changed_in = {
+        _PLATFORM_GUARD: "_process_platform",
+        _CLEANUP_GUARD: "_terminate_process_tree",
+        _COLLECT_PROBE: "collect_response",
+    }[rule_id]
     root, config = _platform_repository(
-        tmp_path, changed=(old, new), collect_probe=rule_id == _COLLECT_PROBE
+        tmp_path,
+        changed=(old, new),
+        changed_in=changed_in,
+        collect_probe=rule_id == _COLLECT_PROBE,
     )
     model = _model(root, config)
     violations = [row for row in trace_valid_violations(model) if rule_id in row.rule_ids]
