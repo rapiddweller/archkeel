@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.2`)."""
+"""AD-290, AD-292: the routes and typed bodies of the Studio API (`schema/studio-api-1.3`)."""
 
 import json
 from collections.abc import Callable, Mapping, Sequence
@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Final, NamedTuple, TypeAlias, TypeVar
 
-API_VERSION: Final = "1.2.0"
+API_VERSION: Final = "1.3.0"
 QUESTION_LIMIT: Final = 2000
 CONTEXT_LIMIT: Final = 300
 
@@ -170,12 +170,14 @@ class ExploreState(StrEnum):
     """The explore run that makes the snapshot in the cache folder.
 
     IDLE is the state between a new workspace and its start: `run_studio` starts the run before
-    it serves, so a browser does not see IDLE, but a workspace does report it.
+    it serves, so a browser does not see IDLE, but a workspace does report it. INCOMPLETE means
+    exit 2 with a readable snapshot.
     """
 
     IDLE = "idle"
     RUNNING = "running"
     DONE = "done"
+    INCOMPLETE = "incomplete"
     FAILED = "failed"
 
 
@@ -216,7 +218,7 @@ class ScopeKind(StrEnum):
 
 @dataclass(frozen=True)
 class StudioState:
-    """`GET /api/v1/state`; `notes` explain a failed run."""
+    """`GET /api/v1/state`; `notes` explain an incomplete or failed run."""
 
     root_name: str
     contract: ContractState
@@ -299,7 +301,7 @@ class Graph:
 
 
 def graph_json(explore: ExploreState, graph: Graph | None) -> bytes:
-    """`GET /api/v1/graph`; `graph` is null while the explore run is not done."""
+    """`GET /api/v1/graph`; `graph` is null until a valid snapshot is ready."""
     body = None
     if graph is not None:
         body = {

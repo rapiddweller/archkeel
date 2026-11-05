@@ -1,4 +1,4 @@
-/** AD-290: the client of schema/studio-api-1.2; it asks only its own server. */
+/** AD-290: the client of schema/studio-api-1.3; it asks only its own server. */
 import {
   API_VERSION,
   AgentKind,
@@ -208,7 +208,7 @@ async function get<Answer extends { readonly api_version: string }>(path: string
 
 export const readState = (): Promise<StudioState> => get<StudioState>("/api/v1/state");
 
-/** The call graph of the finished snapshot; null while the explore run is not done. */
+/** The call graph of a valid snapshot; null until the explore run finishes. */
 export async function readGraph(): Promise<Graph | null> {
   return (await get<GraphAnswer>("/api/v1/graph")).graph;
 }

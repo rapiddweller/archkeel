@@ -28,7 +28,7 @@ const REASON: Record<ChatError, string> = {
   [ChatError.UNSUPPORTED_MEDIA_TYPE]: "The request was not JSON.",
   [ChatError.LENGTH_REQUIRED]: "The request had no length.",
   [ChatError.BODY_TOO_LARGE]: "The question is too long.",
-  [ChatError.SNAPSHOT_NOT_READY]: "The map is not ready yet. Wait for Explore to finish.",
+  [ChatError.SNAPSHOT_NOT_READY]: "This snapshot is not available for chat.",
   [ChatError.BUSY]: "The agent still answers the last question. Ask again when it is done.",
   [ChatError.AGENT_NOT_INSTALLED]: "No agent found. Install claude or codex and start Studio again.",
   [ChatError.AGENT_FAILED]: "The agent failed.",
@@ -41,6 +41,7 @@ const REASON: Record<ChatError, string> = {
 function failure(error: unknown): string {
   if (error instanceof ChatFailed) {
     const reason = error.code === null ? null : REASON[error.code];
+    if (error.code === ChatError.SNAPSHOT_NOT_READY) return `${reason} ${error.message}`;
     // Without a code the route is missing or refused: an older Studio, or a wrong origin.
     return reason ?? `The chat is not available (${error.status}): ${error.message}`;
   }

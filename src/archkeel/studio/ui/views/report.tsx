@@ -7,10 +7,15 @@ import { ExploreState } from "../vocabulary";
 
 export function Report(props: { state: StudioState }) {
   const [selected, setSelected] = useState<SelectedComponent | null>(null);
-  if (props.state.explore !== ExploreState.DONE) {
+  if (props.state.explore !== ExploreState.DONE && props.state.explore !== ExploreState.INCOMPLETE) {
+    const failed = props.state.explore === ExploreState.FAILED;
     return (
-      <Page title="Report of the code as it is" lead="No report yet. Overview shows the progress.">
-        {null}
+      <Page title="Report of the code as it is" lead="The Explorer page of archkeel explore.">
+        {failed ? (
+          <p role="alert">Explore failed (exit code {props.state.exit_code}). {props.state.notes.join(" ")}</p>
+        ) : (
+          <p>Waiting for Explore to write a readable snapshot.</p>
+        )}
       </Page>
     );
   }
@@ -19,6 +24,9 @@ export function Report(props: { state: StudioState }) {
       title="Report of the code as it is"
       lead="The Explorer page of archkeel explore: modules and imports, each with its evidence."
     >
+      {props.state.explore === ExploreState.INCOMPLETE ? (
+        <p role="status">The source snapshot is incomplete; UNKNOWN means evidence is missing.</p>
+      ) : null}
       <div class="report">
         <ExplorerCanvas src={EXPLORER_PAGE} onSelect={setSelected} />
         <Panel title="Selected component">

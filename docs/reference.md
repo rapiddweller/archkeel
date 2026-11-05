@@ -261,8 +261,9 @@ The Briefing shows the progress. When the snapshot is done, Studio opens on the 
 A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
 `✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no
 agent text outside the chat. The API (`GET /api/v1/state`, `GET /api/v1/graph`, `GET /api/v1/stories`, `GET /api/v1/stories/<id>`, `GET /api/v1/draft` and `POST /api/v1/chat`) follows
-[studio-api-1.2](../schema/studio-api-1.2.schema.json); the graph answer is `graph: null` until
-the run is done. The 1.0 file stays. Studio writes nothing into the
+[studio-api-1.3](../schema/studio-api-1.3.schema.json); the graph answer is `graph: null` until
+a valid snapshot is ready. Exit 2 with a valid snapshot is `incomplete`; Studio shows its graph and
+notes. The 1.0, 1.1 and 1.2 files stay as history. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.
 
 The chat route ([AD-292](architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md))

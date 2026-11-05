@@ -160,7 +160,8 @@ function Ask(props: { chat: ChatState }) {
 export function Briefing(props: { state: StudioState; model: Model | null; chat: ChatState }) {
   const { state, model } = props;
   const [rows, setRows] = useState<readonly StoryRow[] | null>(null);
-  const ready = state.explore === ExploreState.DONE && model !== null;
+  const ready =
+    (state.explore === ExploreState.DONE || state.explore === ExploreState.INCOMPLETE) && model !== null;
   useEffect(() => {
     if (ready) readStories().then(setRows, () => setRows([]));
   }, [ready]);
@@ -170,6 +171,8 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
         <p>
           {state.explore === ExploreState.FAILED
             ? `archkeel explore stopped with exit code ${state.exit_code}. ${state.notes.join(" ")}`
+            : state.explore === ExploreState.INCOMPLETE
+              ? `Snapshot is incomplete, but no graph is available. ${state.notes.join(" ")}`
             : `Making the map: ${state.seconds} s. A large repository takes about 2 minutes.`}
         </p>
       </Page>
@@ -182,6 +185,9 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
       title="Briefing"
       lead={`${state.root_name} · ${snapshot.git_head === "" ? "no Git revision" : snapshot.git_head.slice(0, 8)}${snapshot.dirty ? " (with changes)" : ""} · digest ${snapshot.source_digest.slice(0, 8)} · explored in ${state.seconds} s · contract ${state.contract.replace("_", " ")}`}
     >
+      {state.explore === ExploreState.INCOMPLETE ? (
+        <p role="status">Snapshot is incomplete. {state.notes.join(" ")}</p>
+      ) : null}
       <div class="figures">
         <Number_ value={compact(model.graph.modules.length)} label="modules" />
         <Number_ value={compact(model.graph.symbols.length)} label="functions" />

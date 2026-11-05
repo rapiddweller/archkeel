@@ -5,6 +5,7 @@
 
 import http.client
 import json
+import shutil
 import subprocess
 import sys
 import threading
@@ -30,7 +31,7 @@ from archkeel.studio.workspace import Workspace
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
-_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.2.schema.json").read_bytes())
+_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.3.schema.json").read_bytes())
 # The real ArchKeel snapshot takes 95 to 124 s on a laptop and more on a loaded 4 vCPU runner.
 _EXPLORE_SECONDS = 300
 
@@ -158,9 +159,10 @@ def test_the_schema_has_the_version_of_the_server() -> None:
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 
-def test_story_counts_require_the_matching_strict_api_schema() -> None:
+def test_story_counts_and_incomplete_state_require_the_matching_api_schema() -> None:
     schema_folder = Path(__file__).parents[1] / "schema"
     old = json.loads((schema_folder / "studio-api-1.1.schema.json").read_bytes())
+    previous = json.loads((schema_folder / "studio-api-1.2.schema.json").read_bytes())
     row = {
         "id": "example",
         "title": "Example",
@@ -174,6 +176,8 @@ def test_story_counts_require_the_matching_strict_api_schema() -> None:
 
     assert not Draft202012Validator(old_row_schema).is_valid(row)
     assert Draft202012Validator(current_row_schema).is_valid(row)
+    assert not Draft202012Validator(previous["$defs"]["explore"]).is_valid("incomplete")
+    assert Draft202012Validator(_SCHEMA["$defs"]["explore"]).is_valid("incomplete")
 
 
 def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> None:
@@ -313,17 +317,27 @@ def test_the_graph_answers_like_the_state_until_the_snapshot_is_done(studio: Stu
     assert graph(studio, cookie) == {"api_version": API_VERSION, "explore": "idle", "graph": None}
 
 
-def test_an_unreadable_snapshot_gives_500_not_a_dropped_connection(studio: Studio) -> None:
-    cookie = login(studio)
-    assert explore(studio, cookie)["explore"] == "done"
-    (studio.workspace.folder / "architecture.json").write_text("{not json")
+@pytest.mark.parametrize("snapshot", ["missing", "corrupt"])
+def test_a_missing_or_unreadable_snapshot_stays_failed_without_a_graph(
+    tmp_path: Path, snapshot: str
+) -> None:
+    root = _repository(tmp_path / "shop")
+    with running(root, tmp_path / "cache") as server:
+        path = server.workspace.folder / "architecture.json"
+        script = (
+            "pass"
+            if snapshot == "missing"
+            else (f"from pathlib import Path; Path({str(path)!r}).write_text('{{not json')")
+        )
+        server.workspace._explore = (sys.executable, "-c", script)
+        cookie = login(server)
 
-    response, body = request(studio, "/api/v1/graph", cookie=cookie)
+        result = explore(server, cookie)
+        answer = graph(server, cookie)
 
-    assert response.status == 500
-    assert body == b"the snapshot cannot be read\n"
-    # The state still answers: the failure is a fact about the graph, not about the server.
-    assert state(studio, cookie)["explore"] == "done"
+    assert result["explore"] == "failed"
+    assert result["notes"] and "readable architecture.json" in result["notes"][-1]
+    assert answer == {"api_version": API_VERSION, "explore": "failed", "graph": None}
 
 
 def _names(rows: list, column: int = 0) -> list:
@@ -465,20 +479,62 @@ def test_the_graph_of_a_large_repository_is_small_and_fast() -> None:
     assert sum(edge.partial for edge in built.edges) == 2 * len(built.symbols)
 
 
-def test_a_damaged_columnar_snapshot_gives_500_too(studio: Studio) -> None:
+def test_a_damaged_columnar_snapshot_stays_failed_without_a_graph(studio: Studio) -> None:
     cookie = login(studio)
     assert explore(studio, cookie)["explore"] == "done"
     path = studio.workspace.folder / "architecture.json"
     damaged = json.loads(path.read_text())
     # A string reference past the end of the table raises IndexError inside the codec.
     damaged["string_table"] = damaged["string_table"][:2]
-    path.write_text(json.dumps(damaged))
+    server_script = (
+        "from pathlib import Path; "
+        f"Path({str(path)!r}).write_text({json.dumps(json.dumps(damaged))!r})"
+    )
+    studio.workspace._explore = (sys.executable, "-c", server_script)
 
-    response, body = request(studio, "/api/v1/graph", cookie=cookie)
+    result = explore(studio, cookie)
+    answer = graph(studio, cookie)
 
-    assert response.status == 500
-    assert body == b"the snapshot cannot be read\n"
-    assert state(studio, cookie)["explore"] == "done"
+    assert result["explore"] == "failed"
+    assert result["notes"] and "readable architecture.json" in result["notes"][-1]
+    assert answer["graph"] is None
+
+
+def test_a_restart_cannot_reuse_a_previous_snapshot(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    snapshot = studio.workspace.folder / "architecture.json"
+    studio.workspace._explore = (sys.executable, "-c", "raise SystemExit(2)")
+
+    studio.workspace.start()
+    deadline = time.monotonic() + 10
+    while studio.workspace.state().explore is ExploreState.RUNNING and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert studio.workspace.state().explore is ExploreState.FAILED
+    assert not snapshot.exists()
+    assert studio.workspace.graph() is None
+
+
+def test_a_nonzero_exit_stays_failed_even_if_it_writes_a_snapshot(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    snapshot = studio.workspace.folder / "architecture.json"
+    contents = snapshot.read_bytes()
+    script = (
+        "from pathlib import Path; "
+        f"Path({str(snapshot)!r}).write_bytes({contents!r}); "
+        "raise SystemExit(7)"
+    )
+    studio.workspace._explore = (sys.executable, "-c", script)
+
+    studio.workspace.start()
+    deadline = time.monotonic() + 10
+    while studio.workspace.state().explore is ExploreState.RUNNING and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert studio.workspace.state().explore is ExploreState.FAILED
+    assert studio.workspace.graph() is None
 
 
 def test_call_status_has_the_values_of_the_source_resolution_of_the_ir() -> None:
@@ -614,13 +670,83 @@ def test_decode_and_graph_of_a_real_snapshot_of_1185_modules(
     assert finished - started < 10, (decoded - started, finished - decoded)
 
 
-def test_a_failed_explore_shows_its_diagnostic(tmp_path: Path) -> None:
-    # No commit: explore exits 2 and names the reason.
-    with running(_repository(tmp_path / "shop", commit=False), tmp_path / "cache") as server:
+def test_exit_two_with_a_snapshot_exposes_the_graph_and_diagnostic(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Keep the public alias fixture, then add one parse failure and one unknown call.
+    root = tmp_path / "typescript-shop"
+    shutil.copytree(Path(__file__).parents[1] / "fixtures/F-typescript-story", root)
+    order = root / "src/app/order.ts"
+    order.write_text(
+        order.read_text() + "\nexport function uncertain() { return missingService.run(); }\n"
+    )
+    (root / "src/app/broken.ts").write_text("export function broken(: number { return 1; }\n")
+    for command in (
+        ("git", "init", "-q"),
+        ("git", "config", "user.email", "studio-test@example.invalid"),
+        ("git", "config", "user.name", "Studio test"),
+        ("git", "add", "-A"),
+        ("git", "commit", "-qm", "generic TypeScript fixture"),
+    ):
+        subprocess.run(command, cwd=root, check=True, capture_output=True)
+    options = (
+        "--language",
+        "typescript",
+        "--source",
+        "src",
+        "--namespace",
+        "demo",
+        "--tsconfig",
+        "tsconfig.json",
+    )
+    output = tmp_path / "preflight"
+    code = main(["explore", "--root", str(root), *options, "--output", str(output), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 2, payload
+    assert (output / "architecture.json").is_file()
+    partial = build_graph(_decode((output / "architecture.json").read_bytes()), _no_contract)
+    assert partial.unknown
+
+    with running(root, tmp_path / "cache", *options) as server:
+        story_folder = root / ".archkeel/stories"
+        story_folder.mkdir(parents=True)
+        (story_folder / "partial.story.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.2.0",
+                    "title": "Partial source flow",
+                    "snapshot": {"source_digest": "a" * 64, "contract_digest": "b" * 64},
+                    "nodes": ["demo.uncertain", "demo.missingService.run"],
+                    "story": {"id": "partial", "title": "Partial source flow", "chapters": []},
+                    "steps": [
+                        {
+                            "node": "demo.uncertain",
+                            "note": "The function calls an unresolved alias.",
+                        },
+                        {"node": "demo.missingService.run", "note": "The unresolved target."},
+                    ],
+                }
+            )
+        )
         result = explore(server, login(server))
-    assert result["explore"] == "failed"
+        cookie = login(server)
+        answer = graph(server, cookie)
+        listing = json.loads(_get(server, cookie, "/api/v1/stories")[1])["stories"]
+        checked = json.loads(_get(server, cookie, "/api/v1/stories/partial")[1])
+        draft_response, draft_body = _get(server, cookie, "/api/v1/draft?from=demo.uncertain")
+        report_response, _ = request(server, "/files/architecture.report.html", cookie=cookie)
+    assert result["explore"] == "incomplete"
     assert result["exit_code"] == 2
     assert result["notes"], result
+    assert answer["explore"] == "incomplete"
+    assert answer["graph"] is not None
+    assert answer["graph"]["unknown"]
+    assert listing[0]["checked_counts"]["unknown"] > 0
+    assert checked["checked"]["snapshot_completeness"] == "incomplete"
+    assert "unknown" in [step["status"] for step in checked["checked"]["steps"]]
+    assert draft_response.status == 503
+    assert b"incomplete snapshot" in draft_body
+    assert report_response.status == 200
 
 
 def test_a_story_route_reports_failed_explore_and_its_notes(tmp_path: Path) -> None:
