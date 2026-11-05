@@ -18,6 +18,7 @@ from test_explore import _repository
 import archkeel.analyzer.process as process_module
 import archkeel.cli as cli
 from archkeel.cli import launcher
+from archkeel.ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
 
 
 def test_windows_pid_liveness_never_uses_signal_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -245,6 +246,37 @@ def test_a_legacy_scope_without_output_limit_remains_readable_with_unknown_scope
     assert saved.pid == os.getpid()
 
 
+def test_a_previous_explicit_scope_with_null_limit_means_the_default(tmp_path: Path) -> None:
+    folder = tmp_path / "cache"
+    folder.mkdir()
+    (folder / "studio.json").write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "url": "http://127.0.0.1:1234/?token=legacy",
+                "port": 1234,
+                "root": str(tmp_path),
+                "started": "2026-11-05T00:00:00Z",
+                "scope": {
+                    "language": "typescript",
+                    "sources": ["src"],
+                    "namespace": "shop",
+                    "tsconfig": "tsconfig.json",
+                    "agent": "claude",
+                    "collector_output_limit_bytes": None,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    saved = launcher._read(folder)
+
+    assert saved is not None
+    assert saved.scope is not None
+    assert saved.scope.collector_output_limit_bytes == DEFAULT_RESPONSE_LIMIT_BYTES
+
+
 def test_a_scope_missing_optional_fields_and_with_an_unknown_field_is_unknown(
     tmp_path: Path,
 ) -> None:
@@ -369,6 +401,39 @@ def test_a_different_collector_limit_does_not_reuse_a_live_studio(
     assert result == 2
     assert "scope" in output.lower()
     assert "--stop" in output
+
+
+@pytest.mark.parametrize("active_uses_default", [True, False])
+def test_default_and_explicit_default_collector_limits_share_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    active_uses_default: bool,
+) -> None:
+    root = _repository(tmp_path / "shop")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    active = SimpleNamespace(
+        root=str(root),
+        url="http://127.0.0.1:1234/?token=active",
+        scope=(
+            cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE)
+            if active_uses_default
+            else cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE, 64 * 1024 * 1024)
+        ),
+        stopping=False,
+    )
+    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(
+        cli, "studio_workspace", lambda *_args: pytest.fail("equivalent scope must be reused")
+    )
+
+    options = (
+        ("--collector-output-limit-bytes", str(64 * 1024 * 1024)) if active_uses_default else ()
+    )
+    result = cli._studio(_args(root, *options))
+
+    assert result == 0
+    assert "already running" in capsys.readouterr().out
 
 
 def test_a_timed_out_start_does_not_scan_and_reports_retry(

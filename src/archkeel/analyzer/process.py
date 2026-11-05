@@ -27,6 +27,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts_codec import (
     DEFAULT_RESPONSE_LIMIT_BYTES,
+    MAX_RESPONSE_LIMIT_BYTES,
     ProtocolError,
     decode_response,
     encode_request,
@@ -54,6 +55,7 @@ class _ProcessCleanupError(RuntimeError):
 
 
 _CLEANUP_TIMEOUT_SECONDS = 2
+_DEFAULT_OUTPUT_LIMIT_REMEDY = "Increase the finite collector output limit and retry."
 _STDERR_LINES_REPORTED = 20
 # Supported POSIX targets use signed 32-bit pid_t; Windows process IDs are DWORDs.
 _POSIX_PID_MAX = (1 << 31) - 1
@@ -92,17 +94,21 @@ class ProcessCollector:
     stderr_limit_bytes: int = 64 * 1024
     # Set only for a run with --timings; None measures nothing.
     clock: PhaseClock | None = None
+    output_limit_remedy: str = _DEFAULT_OUTPUT_LIMIT_REMEDY
 
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
             raise ValueError("collector argv must contain nonempty arguments")
         if (
             not 0 < self.timeout_seconds <= TIMEOUT_MAX
-            or self.output_limit_bytes <= 0
+            or type(self.output_limit_bytes) is not int
+            or not 0 < self.output_limit_bytes <= MAX_RESPONSE_LIMIT_BYTES
             or self.stderr_limit_bytes <= 0
         ):
             raise ValueError(
-                "collector limits must be positive; timeout must fit threading.TIMEOUT_MAX"
+                "collector output limit must be a positive integer no greater than "
+                f"{MAX_RESPONSE_LIMIT_BYTES} bytes; other limits must be positive and timeout "
+                "must fit threading.TIMEOUT_MAX"
             )
 
     def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
@@ -235,7 +241,7 @@ class ProcessCollector:
                     "stdout",
                     process.stdout,
                     self.output_limit_bytes,
-                    " Raise collector_output_limit_bytes in [scan].",
+                    f" {self.output_limit_remedy}",
                     False,
                 ),
                 daemon=True,

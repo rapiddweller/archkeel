@@ -63,8 +63,9 @@
         "collector_output_limit_bytes": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 576460752303423487,
           "default": 67108864,
-          "description": "Finite collector stdout limit in bytes. Raise explicitly for large valid scopes; protocol validation and the complete source scope remain unchanged."
+          "description": "Finite collector stdout limit in bytes. This static maximum is the 64-bit Py_ssize_t ceiling divided by 16; runtime validation uses the active interpreter's sys.maxsize // 16. Raise explicitly for large valid scopes; protocol validation and the complete source scope remain unchanged."
         },
         "collector_timeout_seconds": {
           "type": "integer",

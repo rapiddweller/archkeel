@@ -9,6 +9,7 @@ import builtins as _builtins
 import hashlib
 import json
 import re
+import sys
 import zlib
 from enum import StrEnum
 from math import isfinite
@@ -261,6 +262,7 @@ _SELECTOR_OWNER_PROTOCOLS = frozenset(
 _COLUMNAR_V2_PROTOCOLS = frozenset({ProtocolVersion.V6, ProtocolVersion.V7})
 DEFAULT_RESPONSE_LIMIT_BYTES = 64 * 1024 * 1024
 _DECOMPRESSION_BOUND_FACTOR = 16
+MAX_RESPONSE_LIMIT_BYTES = sys.maxsize // _DECOMPRESSION_BOUND_FACTOR
 _ZLIB_CMF = 0x78
 # Level 1 is enough to keep the byte cap meaningful; higher levels cost collector time.
 _V8_COMPRESSION_LEVEL = 1
@@ -1522,6 +1524,11 @@ def decode_response(
     payload: bytes, *, output_limit: int = DEFAULT_RESPONSE_LIMIT_BYTES
 ) -> CollectionResponse:
     """Decode a collector reply; `output_limit` is the transport cap on the bytes received."""
+    if type(output_limit) is not int or not 0 < output_limit <= MAX_RESPONSE_LIMIT_BYTES:
+        raise ProtocolError(
+            "collector output limit must be a positive integer no greater than "
+            f"{MAX_RESPONSE_LIMIT_BYTES} bytes"
+        )
     # Plain JSON never starts with the zlib CMF byte, so the first byte names the framing.
     compressed = bool(payload) and payload[0] == _ZLIB_CMF
     document = (

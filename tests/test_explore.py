@@ -440,6 +440,8 @@ def test_explore_accepts_a_finite_collector_output_limit(
     )
     limited = json.loads(capsys.readouterr().out)
     assert "1 byte limit" in limited["diagnostics"][0]["unknown_claim"]
+    assert "--collector-output-limit-bytes" in limited["diagnostics"][0]["unknown_claim"]
+    assert "[scan]" not in limited["diagnostics"][0]["unknown_claim"]
 
     assert (
         main(

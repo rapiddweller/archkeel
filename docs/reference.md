@@ -104,9 +104,10 @@ Collector stdout defaults to a finite 64 MiB limit; protocol 8.0.0 replies are
 zlib-compressed, so the limit counts compressed bytes and the decompressed size is
 bounded at 16 times the limit. Large valid scopes may set
 `collector_output_limit_bytes = 268435456` (256 MiB) in `[scan]`. The value must
-be a positive integer; it changes transport capacity, not source scope or protocol
-validation. Larger replies also require more memory to decode and assess. Existing
-configurations retain the default; stderr and execution time remain bounded.
+be a positive integer no greater than `sys.maxsize // 16`; it changes transport
+capacity, not source scope or protocol validation. Larger replies also require
+more memory to decode and assess. Existing configurations retain the default;
+stderr and execution time remain bounded.
 For a new setup, `archkeel init --collector-output-limit-bytes 268435456` uses that
 limit for initialization and saves it in the generated config. `report`, `validate`
 and `check` use the configured limit; `check` binds it to the accepted config like

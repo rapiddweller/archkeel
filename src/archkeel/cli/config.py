@@ -15,6 +15,7 @@ from typing import Final
 
 from archkeel.check.git import read_blob
 from archkeel.check.ports import Language, ScanConfig
+from archkeel.ir.facts_codec import MAX_RESPONSE_LIMIT_BYTES
 
 CONFIG_PATH: Final = "archkeel.toml"
 # AD-266: the baseline `init --adopt` writes; `validate --baseline` reads the same name.
@@ -168,8 +169,13 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     else:
         collector_argv = None
     output_limit = scan.get("collector_output_limit_bytes")
-    if output_limit is not None and (type(output_limit) is not int or output_limit <= 0):
-        raise ConfigError("scan.collector_output_limit_bytes must be a positive integer")
+    if output_limit is not None and (
+        type(output_limit) is not int or not 0 < output_limit <= MAX_RESPONSE_LIMIT_BYTES
+    ):
+        raise ConfigError(
+            "scan.collector_output_limit_bytes must be a positive integer no greater than "
+            f"{MAX_RESPONSE_LIMIT_BYTES} bytes"
+        )
     timeout_seconds = _collector_timeout(scan.get("collector_timeout_seconds"))
     roots_raw = scan["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:

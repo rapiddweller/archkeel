@@ -8,7 +8,11 @@ silently narrow the scan or remove source facts.
 An optional positive integer `scan.collector_output_limit_bytes` overrides the
 collector stdout limit for report, validate and historical check. Absent means
 the existing process-port default. The parser rejects booleans, non-integers,
-zero and negatives. The configuration schema documents the same positive bound.
+zero and negatives. All entry points also enforce the active interpreter's
+`sys.maxsize // 16`, so the decompressed-size bound remains representable. The
+schema's static maximum is the equivalent 64-bit ceiling; runtime validation
+remains authoritative on any narrower platform. The package does not declare a
+32-bit support guarantee.
 `init --collector-output-limit-bytes` uses and persists the chosen limit, so a
 large project can initialize without an existing configuration.
 

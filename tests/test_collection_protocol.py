@@ -4,6 +4,7 @@
 """The collection process exchanges source inputs, never architecture policy."""
 
 import json
+import sys
 import zlib
 
 import pytest
@@ -1022,6 +1023,21 @@ def test_v8_decompression_is_bounded_at_sixteen_times_the_output_limit() -> None
     # Within the bound the stream is accepted as framing; the response is then judged on content.
     with pytest.raises(ProtocolError, match="response fields mismatch"):
         decode_response(bomb, output_limit=2_000)
+
+
+def test_v8_decoder_rejects_a_limit_that_overflows_decompression_bound() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+
+    payload = encode_response(_response_with("8.0.0"))
+    with pytest.raises(ProtocolError, match="collector output limit"):
+        decode_response(payload, output_limit=sys.maxsize)
+
+
+def test_v8_decoder_accepts_the_largest_limit_with_a_representable_decompression_bound() -> None:
+    from archkeel.ir.facts_codec import decode_response, encode_response
+
+    response = _response_with("8.0.0")
+    assert decode_response(encode_response(response), output_limit=sys.maxsize // 16) == response
 
 
 def _emitting(payload: bytes, **limits):

@@ -903,6 +903,31 @@ def test_studio_forwards_the_collector_output_limit(tmp_path: Path) -> None:
         workspace.close()
 
 
+def test_studio_output_limit_note_points_to_the_per_run_option(tmp_path: Path) -> None:
+    clean = next(item for item in TYPESCRIPT_VARIANTS if item.id == "typescript-clean")
+    root = typescript_repository(tmp_path, clean)
+    options = (
+        "--language",
+        "typescript",
+        "--source",
+        "src",
+        "--namespace",
+        "shop",
+        "--tsconfig",
+        "tsconfig.json",
+        "--collector-output-limit-bytes",
+        "1",
+    )
+    with running(root, tmp_path / "cache", *options) as server:
+        result = explore(server, login(server))
+
+    assert result["explore"] == "failed"
+    note = " ".join(result["notes"])
+    assert "1 byte limit" in note
+    assert "--collector-output-limit-bytes" in note
+    assert "[scan]" not in note
+
+
 def _running_child(tmp_path: Path, script: str) -> Workspace:
     """A workspace whose explore child runs `script` and touches `ready` when it is set up."""
     workspace = Workspace(

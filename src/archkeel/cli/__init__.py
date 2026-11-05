@@ -41,6 +41,7 @@ from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..ir.codec import RawJson, decode_canonical_model, decode_json, parse_contract
+from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
@@ -115,9 +116,18 @@ def _positive_bytes(value: str) -> int:
         limit = int(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError("must be a positive integer") from error
-    if limit <= 0:
-        raise argparse.ArgumentTypeError("must be a positive integer")
+    if not 0 < limit <= MAX_RESPONSE_LIMIT_BYTES:
+        raise argparse.ArgumentTypeError(
+            f"must be a positive integer no greater than {MAX_RESPONSE_LIMIT_BYTES} bytes"
+        )
     return limit
+
+
+_CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
+_PER_RUN_LIMIT_REMEDY: Final = (
+    "Retry with a larger finite --collector-output-limit-bytes value; "
+    "larger values need more memory."
+)
 
 
 class _Parser(argparse.ArgumentParser):
@@ -348,7 +358,11 @@ def _studio(args: CLIArguments) -> int:
         args.namespace,
         args.tsconfig,
         AgentKind(args.chat_agent.value),
-        args.collector_output_limit_bytes,
+        (
+            args.collector_output_limit_bytes
+            if args.collector_output_limit_bytes is not None
+            else DEFAULT_RESPONSE_LIMIT_BYTES
+        ),
     )
     lock: ExitStack = ExitStack()
     session_lock = studio_lock(cache)
@@ -861,10 +875,10 @@ def build_parser() -> _Parser:
     )
     init.add_argument(
         "--collector-output-limit-bytes",
-        type=int,
+        type=_positive_bytes,
         metavar="BYTES",
-        help="Positive collector stdout limit in bytes, saved in archkeel.toml. "
-        "Default: 67108864 (64 MiB).",
+        help="Finite collector stdout limit in bytes, saved in archkeel.toml. "
+        f"Default: {DEFAULT_RESPONSE_LIMIT_BYTES} (64 MiB). Higher values need more memory.",
     )
     init.add_argument(
         "--collector-timeout-seconds",
@@ -1203,6 +1217,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                     tsconfig=args.tsconfig or "tsconfig.json",
                     output_limit_bytes=args.collector_output_limit_bytes,
+                    output_limit_remedy=_PER_RUN_LIMIT_REMEDY,
                     timeout_seconds=args.collector_timeout_seconds,
                 )
                 result, requested_files = run_init(
@@ -1236,6 +1251,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         args.language,
                         tsconfig=args.tsconfig or "tsconfig.json",
                         output_limit_bytes=args.collector_output_limit_bytes,
+                        output_limit_remedy=_PER_RUN_LIMIT_REMEDY,
                     ),
                     source=tuple(args.source) if args.source is not None else None,
                     namespace=args.namespace,
@@ -1291,6 +1307,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                         clock=clock,
@@ -1374,6 +1391,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),
@@ -1413,6 +1431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),

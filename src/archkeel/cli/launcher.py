@@ -16,6 +16,7 @@ from filelock import FileLock
 from filelock import Timeout as StudioLockTimeout
 
 from ..analyzer.process import is_process_alive, is_safe_process_id
+from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
 from ..studio.api import AgentKind
 from ..studio.server import is_studio
 
@@ -44,7 +45,7 @@ class StudioScope:
     namespace: str | None
     tsconfig: str | None
     agent: AgentKind
-    collector_output_limit_bytes: int | None = None
+    collector_output_limit_bytes: int = DEFAULT_RESPONSE_LIMIT_BYTES
 
 
 def studio_lock(folder: Path) -> FileLock:
@@ -111,7 +112,7 @@ def _read(folder: Path) -> StudioProcess | None:
                 raw_scope["collector_output_limit_bytes"] is None
                 or (
                     type(raw_scope["collector_output_limit_bytes"]) is int
-                    and raw_scope["collector_output_limit_bytes"] > 0
+                    and 0 < raw_scope["collector_output_limit_bytes"] <= MAX_RESPONSE_LIMIT_BYTES
                 )
             )
         ):
@@ -121,7 +122,11 @@ def _read(folder: Path) -> StudioProcess | None:
                 raw_scope["namespace"],
                 raw_scope["tsconfig"],
                 AgentKind(raw_scope["agent"]),
-                raw_scope["collector_output_limit_bytes"],
+                (
+                    raw_scope["collector_output_limit_bytes"]
+                    if raw_scope["collector_output_limit_bytes"] is not None
+                    else DEFAULT_RESPONSE_LIMIT_BYTES
+                ),
             )
         process = StudioProcess(
             pid=value["pid"],
