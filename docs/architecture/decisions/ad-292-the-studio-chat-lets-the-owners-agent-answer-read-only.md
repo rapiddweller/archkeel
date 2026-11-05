@@ -66,3 +66,13 @@ Repair of a broken answer. A session or resume. Streaming. A second parser of `a
 - Verified with one real call each: the flags above and the stdout. Not verified: other versions.
 
 **Checks.** `tests/test_studio_chat.py`, `tests/test_studio.py`.
+
+**Amendment for issue #841 (2026-11-05).** API 1.4 keeps the 1.3 schema as history.
+`GET /api/v1/state` names the selected, allow-listed agent before a question is sent; each chat
+response names its agent and snapshot completeness. A readable incomplete snapshot may answer read-only.
+The prompt and UI label all evidence as snapshot-local. An exact ref proves only that the symbol
+name is listed; it does not verify the agent's statement. A dropped ref means only that the name
+was not listed, and an incomplete snapshot cannot establish absence. Studio computes only the
+existing positive facts and counts, preserves UNKNOWN, and still applies no proposal. Missing-agent
+and sign-in failures show actionable detail without exposing stderr. `tests/test_studio_chat.py`,
+`tests/test_studio.py` and `tests/test_studio_browser.py` cover the extension.

@@ -370,6 +370,7 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
     api = pytest.importorskip("playwright.sync_api")
     state_answer = {
         "api_version": API_VERSION,
+        "agent": "codex",
         "root_name": "shop",
         "contract": "not_configured",
         "explore": "incomplete",
@@ -437,6 +438,29 @@ def test_an_incomplete_snapshot_remains_visible_with_its_notes_and_unknowns(
             page.get_by_role("link", name="Architecture", exact=True).click()
             page.get_by_role("group", name="Component map").wait_for()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
+            incomplete_answer = {
+                "api_version": API_VERSION,
+                "agent": "codex",
+                "snapshot_completeness": "incomplete",
+                "blocks": [
+                    {"kind": "claim", "text": "Snapshot-local claim.", "refs": [], "label": None}
+                ],
+                "facts": [],
+                "dropped_refs": ["shop.missing"],
+                "applied": False,
+            }
+            page.route("**/api/v1/chat", lambda route: route.fulfill(json=incomplete_answer))
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            assert chat.get_by_text("Selected agent: codex").is_visible()
+            assert chat.get_by_text("Snapshot: incomplete").is_visible()
+            chat.get_by_role("textbox", name="Question").fill("What is missing?")
+            chat.get_by_role("button", name="Ask", exact=True).click()
+            chat.get_by_text("Missing refs or calls do not establish absence.").wait_for()
+            assert chat.get_by_text("Agent: codex · snapshot: incomplete", exact=False).is_visible()
+            assert chat.get_by_text(
+                "not found by exact name in this snapshot", exact=False
+            ).is_visible()
             page.get_by_role("link", name="Stories", exact=True).click()
             page.get_by_text("Counts use an incomplete snapshot.", exact=False).wait_for()
             assert page.get_by_text("1 unknown", exact=False).is_visible()
@@ -603,6 +627,7 @@ _FACT = {
 _ANSWER = {
     "api_version": API_VERSION,
     "agent": "claude",
+    "snapshot_completeness": "complete",
     "applied": False,
     "blocks": [
         {"kind": "claim", "text": "place saves the order.", "refs": [_PLACE, _SAVE], "label": None},
@@ -646,6 +671,7 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             page.get_by_role("button", name="Ask", exact=True).click()
             chat = page.get_by_role("region", name="Ask the agent")
             assert chat.get_by_text("Context: place").is_visible()
+            assert chat.get_by_text("Selected agent: claude").is_visible()
             assert chat.get_by_role("button").filter(has_text="?").count() == 4  # quick questions
             chat.get_by_role("textbox", name="Question").fill("What does place do?")
             chat.get_by_role("button", name="Ask", exact=True).click()
@@ -663,8 +689,9 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             assert "✓ OBSERVED" in flat(observed)
             assert "OBSERVED" not in flat(claim) + flat(proposal)
             assert "orders.py:4" in flat(observed)
-            assert "1 reference of the agent dropped" in flat(chat)
-            assert chat.get_by_text("Agent: claude").is_visible()
+            assert "1 reference not found by exact name" in flat(chat)
+            assert chat.get_by_text("Selected agent: claude", exact=True).is_visible()
+            assert chat.get_by_text("Agent: claude · snapshot: complete", exact=False).is_visible()
             # "Pin to story" shows the draft of the trace and writes nothing.
             proposal.get_by_role("button", name="Pin to story").click()
             proposal.locator("pre.draft").wait_for()

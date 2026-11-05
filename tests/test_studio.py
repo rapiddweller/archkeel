@@ -31,7 +31,7 @@ from archkeel.studio.workspace import Workspace
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
-_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.3.schema.json").read_bytes())
+_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.4.schema.json").read_bytes())
 # The real ArchKeel snapshot takes 95 to 124 s on a laptop and more on a loaded 4 vCPU runner.
 _EXPLORE_SECONDS = 300
 
@@ -159,10 +159,16 @@ def test_the_schema_has_the_version_of_the_server() -> None:
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 
+def test_the_state_names_the_selected_agent(studio: Studio) -> None:
+    answer = state(studio, login(studio))
+    assert answer["agent"] == "claude"
+
+
 def test_story_counts_and_incomplete_state_require_the_matching_api_schema() -> None:
     schema_folder = Path(__file__).parents[1] / "schema"
     old = json.loads((schema_folder / "studio-api-1.1.schema.json").read_bytes())
     previous = json.loads((schema_folder / "studio-api-1.2.schema.json").read_bytes())
+    prior = json.loads((schema_folder / "studio-api-1.3.schema.json").read_bytes())
     row = {
         "id": "example",
         "title": "Example",
@@ -177,6 +183,7 @@ def test_story_counts_and_incomplete_state_require_the_matching_api_schema() -> 
     assert not Draft202012Validator(old_row_schema).is_valid(row)
     assert Draft202012Validator(current_row_schema).is_valid(row)
     assert not Draft202012Validator(previous["$defs"]["explore"]).is_valid("incomplete")
+    assert prior["$id"] == "urn:archkeel:studio-api:1.3.0"
     assert Draft202012Validator(_SCHEMA["$defs"]["explore"]).is_valid("incomplete")
 
 

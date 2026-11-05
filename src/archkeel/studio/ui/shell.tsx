@@ -7,7 +7,7 @@ import { NavItem, View, viewHref } from "./components";
 import { Level, Model, Where, lensSymbol } from "./model";
 import { Crumb, LocationBar, crumbsOf } from "./navigation";
 import { startStore, useStudio } from "./store";
-import { ContractState, ExploreState } from "./vocabulary";
+import { AgentKind, ContractState, ExploreState, SnapshotCompleteness } from "./vocabulary";
 import { ComponentLevel } from "./views/component";
 import { ArchMap } from "./views/map";
 import { ModuleLevel } from "./views/module";
@@ -153,7 +153,12 @@ const FULL: ReadonlySet<View> = new Set([View.Map, View.Component, View.Module, 
 function Shell() {
   const route = useRoute();
   const { state, error, model } = useStudio();
-  const chat = useChat();
+  const chat = useChat(
+    state?.agent ?? AgentKind.CLAUDE,
+    state?.explore === ExploreState.INCOMPLETE
+      ? SnapshotCompleteness.INCOMPLETE
+      : SnapshotCompleteness.COMPLETE,
+  );
   const view = route.view ?? (state?.explore === ExploreState.DONE ? View.Map : View.Overview);
   return (
     <>

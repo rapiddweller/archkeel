@@ -17,7 +17,7 @@ from pathlib import Path
 from string import Template
 from typing import IO, Final
 
-from .api import AgentKind, ChatError, ChatFailure, ChatRequest
+from .api import AgentKind, ChatError, ChatFailure, ChatRequest, SnapshotCompleteness
 
 _TIMEOUT_SECONDS: Final = 180.0
 _OUTPUT_LIMIT: Final = 128 * 1024
@@ -41,11 +41,18 @@ Rules:
 3. Write at most 10 blocks, at most 2000 characters in each text and at most 20 refs in each block.
 4. Say what you could not check. Do not guess.
 
+Snapshot completeness: $completeness
+
 Question: $question
 
 Selected node: $node
 Facts that ArchKeel measured for the selected node:
 $facts
+
+An exact ref means only that the name is listed in this snapshot; it does not verify the meaning
+of your text. Never infer that a missing ref is absent from the code. If completeness is incomplete,
+this is an incomplete snapshot: it may omit files, symbols, or calls. Missing names and calls are
+UNKNOWN, not evidence of absence. Do not make negative or exhaustive claims from these lists.
 """
 )
 # What each agent can do, in the words of its prompt. Codex runs shell commands of the model in
@@ -107,12 +114,18 @@ class Reply:
     text: str
 
 
-def _prompt(kind: AgentKind, request: ChatRequest, neighborhood: str) -> str:
+def _prompt(
+    kind: AgentKind,
+    request: ChatRequest,
+    neighborhood: str,
+    completeness: SnapshotCompleteness,
+) -> str:
     return _PROMPT.substitute(
         tools=_TOOLS[kind],
         question=request.question,
         node=request.context or "none",
         facts=neighborhood or "none",
+        completeness=completeness.value,
     )
 
 
@@ -197,7 +210,12 @@ class Agent:
     def busy(self) -> bool:
         return self._run.locked()
 
-    def ask(self, request: ChatRequest, neighborhood: str) -> Reply:
+    def ask(
+        self,
+        request: ChatRequest,
+        neighborhood: str,
+        completeness: SnapshotCompleteness = SnapshotCompleteness.COMPLETE,
+    ) -> Reply:
         """Run the agent. Raise a `ChatFailure` for each break, also when the run changed a file."""
         if not self._run.acquire(blocking=False):
             raise ChatFailure(ChatError.BUSY, "Another question runs. Wait until it ends.")
@@ -207,7 +225,9 @@ class Agent:
             failure: ChatFailure | None = None
             text = ""
             try:
-                text = self._execute(program, _prompt(self.kind, request, neighborhood))
+                text = self._execute(
+                    program, _prompt(self.kind, request, neighborhood, completeness)
+                )
             except ChatFailure as error:
                 failure = error
             if _tree_state(self.root) != before:

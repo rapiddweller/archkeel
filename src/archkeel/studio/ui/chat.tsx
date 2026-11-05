@@ -1,10 +1,11 @@
 /** AD-290, AD-292: the chat panel. Agent text is a claim; only Studio makes an OBSERVED fact. */
 import { useState } from "preact/hooks";
-import { ChatAnswer, ChatBlock, ChatFailed, Fact, askChat, readDraft } from "./api";
+import { ChatAnswer, ChatBlock, ChatFailed, Fact, SnapshotCompleteness, askChat, readDraft } from "./api";
 import { Badge, View, viewHref } from "./components";
 import { Evidence } from "./evidence";
 import { Model, findSymbol, fullName, shortName, tailPath } from "./model";
 import { ChatBlockKind, ChatError } from "./vocabulary";
+import type { AgentKind } from "./vocabulary";
 
 /** What the conversation holds, in order. */
 const TurnKind = { Ask: "ask", Answer: "answer", Failed: "failed" } as const;
@@ -17,6 +18,8 @@ type Turn =
 export interface ChatState {
   readonly turns: readonly Turn[];
   readonly busy: boolean;
+  readonly agent: AgentKind;
+  readonly snapshotCompleteness: SnapshotCompleteness;
   /** The chat panel is open: the page that asks (the Briefing) opens it for the pages after it. */
   readonly shown: boolean;
   readonly show: (open: boolean) => void;
@@ -41,7 +44,13 @@ const REASON: Record<ChatError, string> = {
 function failure(error: unknown): string {
   if (error instanceof ChatFailed) {
     const reason = error.code === null ? null : REASON[error.code];
-    if (error.code === ChatError.SNAPSHOT_NOT_READY) return `${reason} ${error.message}`;
+    if (
+      error.code === ChatError.SNAPSHOT_NOT_READY ||
+      error.code === ChatError.AGENT_NOT_INSTALLED ||
+      error.code === ChatError.AGENT_FAILED
+    ) {
+      return `${reason} ${error.message}`;
+    }
     // Without a code the route is missing or refused: an older Studio, or a wrong origin.
     return reason ?? `The chat is not available (${error.status}): ${error.message}`;
   }
@@ -49,7 +58,10 @@ function failure(error: unknown): string {
 }
 
 /** The one conversation; the shell keeps it, so it survives a change of page. */
-export function useChat(): ChatState {
+export function useChat(
+  agent: AgentKind,
+  snapshotCompleteness: SnapshotCompleteness,
+): ChatState {
   const [turns, setTurns] = useState<readonly Turn[]>([]);
   const [busy, setBusy] = useState(false);
   const [shown, show] = useState(false);
@@ -62,7 +74,7 @@ export function useChat(): ChatState {
       (error) => setTurns((before) => [...before, { kind: TurnKind.Failed, text: failure(error) }]),
     ).finally(() => setBusy(false));
   };
-  return { turns, busy, shown, show, ask };
+  return { turns, busy, agent, snapshotCompleteness, shown, show, ask };
 }
 
 const QUICK: readonly string[] = [
@@ -87,11 +99,18 @@ function Refs(props: { model: Model; refs: readonly string[] }) {
   );
 }
 
-function Observed(props: { model: Model; facts: readonly Fact[] }) {
+function Observed(props: {
+  model: Model;
+  facts: readonly Fact[];
+  completeness: SnapshotCompleteness;
+}) {
+  const note = props.completeness === SnapshotCompleteness.INCOMPLETE
+    ? "incomplete snapshot; zero cannot establish absence"
+    : "snapshot-local counts; zero does not prove absence";
   return (
     <section class="blk obs" aria-label="Observed">
       <h5>
-        <span aria-hidden="true">✓</span> OBSERVED <small>measured by Studio</small>
+        <span aria-hidden="true">✓</span> OBSERVED <small>{note}</small>
       </h5>
       <ul class="pairs">
         {props.facts.map((fact) => {
@@ -166,7 +185,7 @@ function Claim(props: { model: Model; block: ChatBlock }) {
   return (
     <section class="blk cl" aria-label="Claim">
       <h5>
-        <span aria-hidden="true">✎</span> CLAIM <small>agent text, not proof</small>
+        <span aria-hidden="true">✎</span> CLAIM <small>agent text; refs only anchor listed names</small>
       </h5>
       <p class="text">{props.block.text}</p>
       <p class="refs">
@@ -180,6 +199,12 @@ function Answer(props: { model: Model; answer: ChatAnswer; context: string | nul
   const { answer, model } = props;
   return (
     <div class="msg agent">
+      <p class="more" role="status">
+        Agent: {answer.agent} · snapshot: {answer.snapshot_completeness}. Refs show names listed in this snapshot;
+        they do not verify the claim. {answer.snapshot_completeness === SnapshotCompleteness.INCOMPLETE
+          ? "Missing refs or calls do not establish absence."
+          : "A missing ref does not establish absence from the code."}
+      </p>
       {answer.blocks.map((block, index) =>
         block.kind === ChatBlockKind.PROPOSAL ? (
           <Proposal key={index} model={model} block={block} context={props.context} ask={props.ask} />
@@ -187,11 +212,13 @@ function Answer(props: { model: Model; answer: ChatAnswer; context: string | nul
           <Claim key={index} model={model} block={block} />
         ),
       )}
-      {answer.facts.length > 0 ? <Observed model={model} facts={answer.facts} /> : null}
+      {answer.facts.length > 0 ? (
+        <Observed model={model} facts={answer.facts} completeness={answer.snapshot_completeness} />
+      ) : null}
       {answer.dropped_refs.length > 0 ? (
         <p class="more">
-          {answer.dropped_refs.length} reference{answer.dropped_refs.length === 1 ? "" : "s"} of the agent dropped:
-          not in the snapshot.
+          {answer.dropped_refs.length} reference{answer.dropped_refs.length === 1 ? "" : "s"} not found by exact name
+          in this snapshot; this does not establish absence from the code.
         </p>
       ) : null}
     </div>
@@ -215,7 +242,8 @@ export function ChatPanel(props: { model: Model; symbol: number | null; chat: Ch
         <p class="label">
           Ask the agent <Badge evidence={Evidence.Claim}>Claim</Badge>
         </p>
-        <p class="agent-name">Agent: {last?.kind === TurnKind.Answer ? last.answer.agent : "not asked yet"}</p>
+        <p class="agent-name">Selected agent: {chat.agent}</p>
+        <p class="more">Snapshot: {chat.snapshotCompleteness}</p>
         <p class="chip context" title={context ?? undefined}>
           {symbol === null ? "No function selected" : `Context: ${shortName(model, symbol)}`}
         </p>

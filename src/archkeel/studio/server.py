@@ -219,7 +219,11 @@ class _Handler(BaseHTTPRequestHandler):
         if path is None:
             self._send(HTTPStatus.NOT_FOUND, b"not found\n")
         elif path is ApiPath.STATE:
-            self._send(HTTPStatus.OK, state_json(workspace.state()), "application/json")
+            self._send(
+                HTTPStatus.OK,
+                state_json(workspace.state(), self.studio.agent.kind),
+                "application/json",
+            )
         elif path is ApiPath.GRAPH:
             try:
                 body = graph_json(workspace.state().explore, workspace.graph())
@@ -347,17 +351,18 @@ class _Handler(BaseHTTPRequestHandler):
         snapshot = self.studio.workspace.snapshot()
         if snapshot is None:
             state = self.studio.workspace.state()
-            message = (
-                "Explore produced an incomplete snapshot; chat needs a complete snapshot."
-                if state.explore is ExploreState.INCOMPLETE
-                else "Explore has not finished."
-            )
+            message = {
+                ExploreState.INCOMPLETE: (
+                    "Explore was incomplete, but no readable snapshot is available."
+                ),
+                ExploreState.FAILED: "Explore did not produce a readable snapshot.",
+            }.get(state.explore, "Explore has not finished.")
             raise ChatFailure(ChatError.SNAPSHOT_NOT_READY, message)
         context = request.context
         if context is not None and not snapshot.has(context):
             raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
         neighborhood = snapshot.neighborhood(context) if context is not None else ""
-        reply = self.studio.agent.ask(request, neighborhood)
+        reply = self.studio.agent.ask(request, neighborhood, snapshot.completeness)
         return snapshot.check(reply.text, reply.kind)
 
 
