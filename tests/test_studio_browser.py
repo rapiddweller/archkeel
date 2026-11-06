@@ -1101,6 +1101,54 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
 
 
 @pytest.mark.browser
+def test_a_declared_story_route_uses_target_color_not_proven_color(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    checked = _checked()
+    checked["steps"][1]["status"] = "declared"
+    checked["story"]["verdict"].update(proven=4, declared=1)
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route(
+                "**/api/v1/stories/check-flow",
+                lambda route: route.fulfill(json=_answer(checked)),
+            )
+            page.goto(studio.url + "#/stories/check-flow")
+            declared = page.locator("svg.routes .leg.declared")
+            declared.locator("path").wait_for()
+            declared_path_color = declared.locator("path").evaluate(
+                "(path) => getComputedStyle(path).stroke"
+            )
+            declared_marker_color = declared.locator("circle").evaluate(
+                "(circle) => getComputedStyle(circle).fill"
+            )
+            proven = page.locator("svg.routes .leg.proven").first
+            proven_path_color = proven.locator("path").evaluate(
+                "(path) => getComputedStyle(path).stroke"
+            )
+            proven_marker_color = proven.locator("circle").evaluate(
+                "(circle) => getComputedStyle(circle).fill"
+            )
+            token_colors = page.evaluate(
+                """() => Object.fromEntries(["target", "proven"].map((name) => {
+                  const probe = document.createElement("span");
+                  probe.style.color = `var(--${name})`;
+                  document.body.append(probe);
+                  const color = getComputedStyle(probe).color;
+                  probe.remove();
+                  return [name, color];
+                }))"""
+            )
+            assert declared_path_color == token_colors["target"]
+            assert declared_marker_color == token_colors["target"]
+            assert proven_path_color == token_colors["proven"]
+            assert proven_marker_color == token_colors["proven"]
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
 def test_reduced_motion_plays_to_the_final_state(studio: Studio) -> None:
     api = pytest.importorskip("playwright.sync_api")
     with api.sync_playwright() as playwright:

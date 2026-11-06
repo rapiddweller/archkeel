@@ -27,5 +27,6 @@ The graph API reports outside-scan counts but does not identify each external ta
 not infer external or unloaded targets from missing edges.
 
 **Check.** Browser tests cover call counts, detail labels, the agent chat claim, checked story
-statuses and grouped views. `make browser-runtime-generate` type-checks and rebuilds the bundle.
+statuses, declared-route target colors and grouped views.
+`make browser-runtime-generate` type-checks and rebuilds the bundle.
 `make browser-architecture-check` checks UI boundaries.

@@ -308,6 +308,7 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .leg.show { opacity: .5; } .leg.now { opacity: 1; }
 .leg path { stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke: var(--proven); }
 .leg circle { stroke: none; fill: var(--proven); }
+.leg.declared path { stroke: var(--target); } .leg.declared circle { fill: var(--target); }
 .leg.claim path { stroke: var(--claim); stroke-dasharray: 1 7; } .leg.claim circle { fill: var(--claim); }
 .leg.unknown path { stroke: var(--unknown); stroke-dasharray: 1 7; } .leg.unknown circle { fill: var(--unknown); }
 .story-card { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 12px; text-align: left;
