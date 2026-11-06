@@ -490,24 +490,30 @@ def _relationship(
             "Relationship endpoints cannot be identified uniquely.",
             (*sources, *targets),
         )
-    if sources[0].definition_contexts or targets[0].definition_contexts:
+    return _relationship_observation(observed, wanted, sources[0], targets[0])
+
+
+def _relationship_observation(
+    observed: ArchitectureGraph, wanted: Relationship, source: Entity, target: Entity
+) -> GraphAssessment:
+    if source.definition_contexts or target.definition_contexts:
         return _result(
             wanted.id,
             AssessmentAspect.RELATIONSHIP,
             AssessmentStatus.UNKNOWN,
             AssessmentChange.UNAVAILABLE,
             "A relationship endpoint is conditional; its namespace binding is not proven.",
-            (*sources, *targets),
+            (source, target),
         )
     sites = tuple(
         item
         for item in observed.relationships
-        if item.kind == wanted.kind and item.source_id == sources[0].id
+        if item.kind == wanted.kind and item.source_id == source.id
     )
     matched = tuple(
         item
         for item in sites
-        if item.target_id == targets[0].id
+        if item.target_id == target.id
         and item.resolution in {ResolutionKind.RESOLVED, ResolutionKind.NOT_APPLICABLE}
     )
     if matched:
@@ -533,7 +539,7 @@ def _relationship(
             "Unresolved source sites may refer to this endpoint.",
             uncertain,
         )
-    complete = _complete(observed, sources[0], wanted.kind)
+    complete = _complete(observed, source, wanted.kind)
     return _result(
         wanted.id,
         AssessmentAspect.RELATIONSHIP,
@@ -542,7 +548,7 @@ def _relationship(
         "Relationship is absent from a complete resolved inventory."
         if complete
         else "Relationship coverage is unavailable or partial.",
-        sources,
+        (source,),
     )
 
 

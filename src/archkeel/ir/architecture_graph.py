@@ -39,6 +39,9 @@ class EntityKind(StrEnum):
     SYMBOL = "symbol"
 
 
+TARGET_ONLY_ENTITY_KINDS = (EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM)
+
+
 class GraphSchemaVersion(StrEnum):
     V1_4_0 = "1.4.0"
     V1_3_0 = "1.3.0"
@@ -571,7 +574,7 @@ class TargetDefinition:
         """Check system-landscape invariants that are local to the inner Target."""
         entities = {entity.id: entity for entity in self.entities}
         for entity in self.entities:
-            if entity.kind in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM} and (
+            if entity.kind in TARGET_ONLY_ENTITY_KINDS and (
                 entity.presence != PresenceKind.PLANNED
             ):
                 raise ValueError("runtime and external systems must be planned declarations")
@@ -601,11 +604,12 @@ def _validate_graph_version(
         or any(EntityKind.ENUM_LITERAL in item.entity_kinds for item in coverage)
     ):
         raise ValueError("enum literal needs graph schema_version 1.1.0")
+    if version != GraphSchemaVersion.V1_4_0 and any(
+        kind in TARGET_ONLY_ENTITY_KINDS for item in coverage for kind in item.entity_kinds
+    ):
+        raise ValueError("target-only coverage kinds need graph schema_version 1.4.0")
     if version != GraphSchemaVersion.V1_4_0 and (
-        any(
-            entity.kind in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM}
-            for entity in entities
-        )
+        any(entity.kind in TARGET_ONLY_ENTITY_KINDS for entity in entities)
         or any(edge.kind == RelationshipKind.COMMUNICATES for edge in relationships)
     ):
         raise ValueError("system landscape needs graph schema_version 1.4.0")
@@ -787,6 +791,8 @@ class ArchitectureGraph:
         for item in self.coverage:
             if self.origin != OriginKind.OBSERVED or item.scope_id not in entities:
                 raise ValueError("coverage describes an observed scope")
+            if any(kind in TARGET_ONLY_ENTITY_KINDS for kind in item.entity_kinds):
+                raise ValueError("target-only entities cannot be covered by source coverage")
             if item.status != CoverageStatus.COMPLETE and not item.reason:
                 raise ValueError("limited coverage needs a reason")
         self._validate_scopes(entities)
@@ -874,7 +880,7 @@ class ArchitectureGraph:
         for entity in self.entities:
             if not entity.id or not entity.qualified_name or not entity.language:
                 raise ValueError("empty entity identity")
-            if entity.kind in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM} and (
+            if entity.kind in TARGET_ONLY_ENTITY_KINDS and (
                 self.origin != OriginKind.DECLARED or entity.presence != PresenceKind.PLANNED
             ):
                 raise ValueError("runtime and external systems are target-only declarations")

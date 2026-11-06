@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal, Union, get_args, get_origin, get_type_hints
 
 from archkeel.ir.architecture_graph import (
+    TARGET_ONLY_ENTITY_KINDS,
     ArchitectureGraph,
     ArchitectureReport,
     ComponentIntent,
@@ -29,6 +30,19 @@ from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import Coverage, Diagnostic, FilteredViolation, Record
 from archkeel.ir.story import TraceResult
 from archkeel.ir.view_spec import ViewCheck, ViewSpec
+
+_TARGET_ONLY_ENTITY_VALUES = [item.value for item in TARGET_ONLY_ENTITY_KINDS]
+
+
+def _source_coverage_kinds() -> dict[str, object]:
+    return {
+        "items": {
+            "not": {
+                "properties": {"entity_kinds": {"contains": {"enum": _TARGET_ONLY_ENTITY_VALUES}}},
+                "required": ["entity_kinds"],
+            }
+        }
+    }
 
 
 def _schema(root: type, name: str, title: str) -> dict[str, object]:
@@ -104,13 +118,12 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                             },
                             "then": {
                                 "properties": {
+                                    "coverage": _source_coverage_kinds(),
                                     "entities": {
                                         "items": {
                                             "not": {
                                                 "properties": {
-                                                    "kind": {
-                                                        "enum": ["runtime_unit", "external_system"]
-                                                    }
+                                                    "kind": {"enum": _TARGET_ONLY_ENTITY_VALUES}
                                                 },
                                                 "required": ["kind"],
                                             }
@@ -141,13 +154,12 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                             },
                             "then": {
                                 "properties": {
+                                    "coverage": _source_coverage_kinds(),
                                     "entities": {
                                         "items": {
                                             "not": {
                                                 "properties": {
-                                                    "kind": {
-                                                        "enum": ["runtime_unit", "external_system"]
-                                                    }
+                                                    "kind": {"enum": _TARGET_ONLY_ENTITY_VALUES}
                                                 },
                                                 "required": ["kind"],
                                             }
@@ -177,9 +189,7 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                     "items": {
                                         "if": {
                                             "properties": {
-                                                "kind": {
-                                                    "enum": ["runtime_unit", "external_system"]
-                                                }
+                                                "kind": {"enum": _TARGET_ONLY_ENTITY_VALUES}
                                             },
                                             "required": ["kind"],
                                         },
@@ -333,9 +343,7 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                         "items": {
                                             "not": {
                                                 "properties": {
-                                                    "kind": {
-                                                        "enum": ["runtime_unit", "external_system"]
-                                                    }
+                                                    "kind": {"enum": _TARGET_ONLY_ENTITY_VALUES}
                                                 },
                                                 "required": ["kind"],
                                             }
@@ -365,9 +373,7 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                     "items": {
                                         "if": {
                                             "properties": {
-                                                "kind": {
-                                                    "enum": ["runtime_unit", "external_system"]
-                                                }
+                                                "kind": {"enum": _TARGET_ONLY_ENTITY_VALUES}
                                             },
                                             "required": ["kind"],
                                         },
@@ -437,7 +443,7 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
 
 def _without_system_landscape_vocabulary(schema: dict[str, object]) -> dict[str, object]:
     """Keep existing result formats from admitting Target-only vocabulary."""
-    target_only = {"runtime_unit", "external_system", "communicates"}
+    target_only = {*_TARGET_ONLY_ENTITY_VALUES, "communicates"}
 
     def visit(value: object) -> None:
         if isinstance(value, dict):

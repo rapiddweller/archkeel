@@ -7,10 +7,12 @@ import json
 from dataclasses import replace
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
+    ArchitectureReport,
     Coverage,
     Entity,
     Parameter,
@@ -20,7 +22,8 @@ from archkeel.ir.architecture_graph import (
     Visibility,
 )
 from archkeel.ir.facts import Evidence
-from archkeel.ir.graph_codec import graph_bytes, parse_graph
+from archkeel.ir.graph_codec import graph_bytes, parse_graph, parse_report, report_bytes
+from tools.architecture_graph_schema import graph_schema, report_schema
 
 PROOF = Evidence("proof", "sample.py", 1, 1, 0, "def run(value): ...")
 
@@ -242,8 +245,17 @@ def test_closed_scope_without_coverage_is_unknown_even_when_every_listed_entity_
     assert _assessments(observed, target, "completeness")[0].status == "UNKNOWN"
 
 
-def test_target_only_relationships_cannot_satisfy_closed_scope_completeness():
+@pytest.mark.parametrize("coverage_status,expected", [("complete", "FAIL"), ("partial", "UNKNOWN")])
+def test_target_only_relationships_cannot_satisfy_closed_scope_completeness(
+    coverage_status, expected
+):
     observed, target = _connections()
+    if coverage_status == "partial":
+        observed = replace(
+            observed,
+            relationships=(),
+            coverage=(replace(observed.coverage[0], status="partial", reason="limited"),),
+        )
     runtime = Entity(
         "runtime",
         "runtime_unit",
@@ -284,10 +296,81 @@ def test_target_only_relationships_cannot_satisfy_closed_scope_completeness():
         ),
     )
 
-    result = _assessments(observed, target, "completeness")[0]
+    comparison = compare_graphs(observed, target)
+    result = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "module" and item.aspect == "completeness"
+    )
+    relationship = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "target-call" and item.aspect == "relationship"
+    )
 
-    assert result.status == "FAIL"
-    assert result.observed_ids == ("site",)
+    assert result.status == expected
+    assert result.observed_ids == (("site",) if coverage_status == "complete" else ("module",))
+    assert relationship.status == "UNKNOWN"
+
+
+def test_target_only_parent_cannot_satisfy_child_containment():
+    observed, target = _graphs()
+    parent = Entity(
+        "runtime",
+        "runtime_unit",
+        "sample.Service",
+        "python",
+        parent_id="module",
+        presence="planned",
+        responsibilities=("Run the service.",),
+        provenance=("docs/target.md",),
+    )
+    child = replace(
+        _intent(_entity("child", "class", "sample.Service.Client", "runtime")), id="child"
+    )
+    target = replace(
+        target,
+        schema_version="1.4.0",
+        entities=(target.entities[0], parent, child),
+    )
+    source_parent = _entity("source-parent", "class", "sample.Service", "module")
+    source_child = _entity("source-child", "class", "sample.Service.Client", "source-parent")
+    observed = replace(
+        observed,
+        entities=(observed.entities[0], source_parent, source_child),
+    )
+
+    result = next(
+        item
+        for item in compare_graphs(observed, target).assessments
+        if item.subject_id == "child" and item.aspect == "containment"
+    )
+
+    assert result.status == "UNKNOWN"
+    assert result.reason == "Lexical parent cannot be identified."
+
+
+@pytest.mark.parametrize("version", ["1.3.0", "1.4.0"])
+def test_observed_graph_cannot_claim_target_only_entity_coverage(version):
+    observed, _ = _graphs()
+    payload = json.loads(graph_bytes(observed))
+    payload["schema_version"] = version
+    payload["coverage"][0]["entity_kinds"] = ["runtime_unit"]
+
+    assert not Draft202012Validator(graph_schema()).is_valid(payload)
+    with pytest.raises(ValueError, match="target-only"):
+        parse_graph(payload)
+
+
+def test_report_schema_and_decoder_reject_target_only_observed_coverage():
+    observed, _ = _graphs()
+    report = ArchitectureReport(observed, None, unavailable="No target was declared.")
+    payload = json.loads(report_bytes(report))
+    payload["observed"]["coverage"][0]["entity_kinds"] = ["external_system"]
+
+    assert not Draft202012Validator(report_schema()).is_valid(payload)
+    with pytest.raises(ValueError, match="target-only"):
+        parse_report(payload)
 
 
 def test_entity_with_different_lexical_parent_does_not_satisfy_containment():

@@ -105,6 +105,25 @@
           },
           "then": {
             "properties": {
+              "coverage": {
+                "items": {
+                  "not": {
+                    "properties": {
+                      "entity_kinds": {
+                        "contains": {
+                          "enum": [
+                            "runtime_unit",
+                            "external_system"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "entity_kinds"
+                    ]
+                  }
+                }
+              },
               "entities": {
                 "items": {
                   "not": {
@@ -161,6 +180,25 @@
           },
           "then": {
             "properties": {
+              "coverage": {
+                "items": {
+                  "not": {
+                    "properties": {
+                      "entity_kinds": {
+                        "contains": {
+                          "enum": [
+                            "runtime_unit",
+                            "external_system"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "entity_kinds"
+                    ]
+                  }
+                }
+              },
               "entities": {
                 "items": {
                   "not": {
