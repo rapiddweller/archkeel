@@ -91,6 +91,7 @@ from .constructs import collect_constructs
 from .imports import (
     collect_dynamic_imports,
     collect_imports,
+    collect_package_bindings,
     explicit_factory_unsafe_providers,
     resolve_reexports,
 )
@@ -488,6 +489,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         excluded_modules, excluded_prefixes = _excluded_test_modules(
             root, request.scope.roots, request.scope.namespace
         )
+        package_bindings = collect_package_bindings(modules)
         for import_record in imports:
             data = import_record.get("data")
             target = data.get("target_module") if isinstance(data, dict) else None
@@ -496,7 +498,11 @@ def collect(request: CollectionRequest) -> SourceFacts:
             if not isinstance(target, str) or not isinstance(source_module, str):
                 continue
             import_candidates = [target]
-            if isinstance(symbol, str) and symbol.isidentifier():
+            if (
+                isinstance(symbol, str)
+                and symbol.isidentifier()
+                and symbol not in package_bindings.get(target, frozenset())
+            ):
                 import_candidates.append(f"{target}.{symbol}")
             excluded_target = next(
                 (
