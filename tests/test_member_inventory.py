@@ -188,7 +188,7 @@ def test_actual_source_scope_needs_one_unconditional_source_definition(tmp_path,
     }[state]
     observation = _observation(tmp_path, "from dataclasses import dataclass\n" + source)
     graph = observed_graph(observation)
-    target = _target("roots", "namespace")
+    target = _target("roots", "namespace", "exclude_test_sources")
     target = replace(
         target,
         entities=tuple(

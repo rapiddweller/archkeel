@@ -45,6 +45,7 @@ ANALYZER_PUBLIC_IR = frozenset(
         "archkeel.ir.identity",
         "archkeel.ir.phases",
         "archkeel.ir.protocol",
+        "archkeel.ir.profiles:is_test_source",
         "archkeel.ir.state_facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",

@@ -65,9 +65,11 @@ from .config import (
 from .parse import parse, umd_publication
 from .resolve import Found, Resolver, Unknown
 from .source_input import (
+    FileSuffix,
     ModuleFormat,
     PathToken,
     SourceKind,
+    SpecifierInfo,
     SpecifierKind,
     classify_asset,
     classify_file,
@@ -2193,28 +2195,12 @@ class _Collection:
         source = classify_specifier(specifier)
         path: str = found.path
         suffix = classify_file(path)
-        if self.snapshot.read(path) is None:
-            return self._unresolved(
-                module, identity, specifier, f"Unavailable local target: {specifier}"
-            )
-        if any(
-            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")
-        ) or (not self._selected(path) and found.external):
-            if source.kind is SpecifierKind.IMPORTS:
-                reason = f"External package alias identity is not observed: {specifier}"
-            elif source.relative:
-                reason = f"Unidentified external package: {specifier}"
-            else:
-                return ExternalPackageTarget(identity, source.package)
-            return self._unresolved(module, identity, specifier, reason)
-        if self.bundler and not (
-            self._selected(path) and suffix is not None and suffix.source_kind is not None
-        ):
-            if classify_asset(path) is not None:
-                return ExternalPackageTarget(identity, BUNDLER_ASSET)
-            if found.via_paths and not source.relative and source.npm_package:
-                # A workspace alias outside the scan roots is a dependency on that package.
-                return ExternalPackageTarget(identity, source.package)
+        target = self._excluded_test_target(rel, module, reference, identity, specifier, path)
+        if target is not None:
+            return target
+        target = self._other_local_target(module, identity, specifier, source, path, suffix, found)
+        if target is not None:
+            return target
         type_only = reference.type_only
         relative = source.relative_path
         lookup = join(posixpath.dirname(rel) or ".", specifier)
@@ -2272,3 +2258,63 @@ class _Collection:
         return LocalTarget(
             identity, module_identity(self.namespace, file), file, runtime, declaration
         )
+
+    def _excluded_test_target(
+        self,
+        rel: str,
+        module: str,
+        reference: Reference,
+        identity: str,
+        specifier: str,
+        path: str,
+    ) -> ImportTarget | None:
+        if not self._excluded_test(path):
+            return None
+        if (
+            self._observe(
+                path,
+                evidence=(self._cite(rel, reference.span),),
+                module=module,
+            )
+            is None
+        ):
+            return self._unresolved(
+                module,
+                identity,
+                specifier,
+                f"Excluded test source is unavailable: {path}",
+            )
+        return UnresolvedTarget(identity, specifier, f"Excluded test source: {path}")
+
+    def _other_local_target(
+        self,
+        module: str,
+        identity: str,
+        specifier: str,
+        source: SpecifierInfo,
+        path: str,
+        suffix: FileSuffix | None,
+        found: Found,
+    ) -> ImportTarget | None:
+        if self.snapshot.read(path) is None:
+            return self._unresolved(
+                module, identity, specifier, f"Unavailable local target: {specifier}"
+            )
+        if any(
+            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")
+        ) or (not self._selected(path) and found.external):
+            if source.kind is SpecifierKind.IMPORTS:
+                reason = f"External package alias identity is not observed: {specifier}"
+            elif source.relative:
+                reason = f"Unidentified external package: {specifier}"
+            else:
+                return ExternalPackageTarget(identity, source.package)
+            return self._unresolved(module, identity, specifier, reason)
+        if self.bundler and not (
+            self._selected(path) and suffix is not None and suffix.source_kind is not None
+        ):
+            if classify_asset(path) is not None:
+                return ExternalPackageTarget(identity, BUNDLER_ASSET)
+            if found.via_paths and not source.relative and source.npm_package:
+                return ExternalPackageTarget(identity, source.package)
+        return None
