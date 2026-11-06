@@ -8,7 +8,7 @@
       "role": "component",
       "packages": [],
       "responsibilities": [
-        "Bound collector execution, validate protocol responses, clean up child processes, validate native PID ranges and check liveness without signaling Windows PIDs."
+        "Bound source and explicit control protocol execution through one process lifecycle; validate source responses, clean up child processes, validate native PID ranges and check liveness without signaling Windows PIDs."
       ],
       "forbidden_responsibilities": [
         "Parsing sources, importing language collectors, or deciding architecture policy.",
@@ -29,6 +29,7 @@
       "planned": [],
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
+        "archkeel.analyzer.process:BoundedControlResult",
         "archkeel.analyzer.process:is_process_alive",
         "archkeel.analyzer.process:is_safe_process_id",
         "archkeel.analyzer.runtime:collector_provenance",
@@ -198,7 +199,7 @@
           "parent_id": "TARGET-PROCESS",
           "presence": "planned",
           "responsibilities": [
-            "Execute a bounded collector process and validate its source-only response."
+            "Own the bounded process boundary shared by validated source responses and explicit bounded control protocols."
           ],
           "provenance": [
             "docs/architecture/language-adapter-target.md"
@@ -219,7 +220,7 @@
           ],
           "presence": "planned",
           "responsibilities": [
-            "Own bounded process execution, protocol validation and cleanup; do not evaluate architecture."
+            "Own bounded process execution, source protocol validation and cleanup; do not evaluate architecture."
           ],
           "provenance": [
             "docs/architecture/language-adapter-target.md"
@@ -581,6 +582,169 @@
           "provenance": [
             "docs/architecture/language-adapter-target.md"
           ]
+        },
+        {
+          "id": "process.control_result",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.process.BoundedControlResult",
+          "language": "python",
+          "parent_id": "archkeel.analyzer.process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ],
+          "presence": "planned",
+          "responsibilities": [
+            "Separate bounded control-protocol bytes from validated source facts and typed process errors."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.control_result.stdout",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.process.BoundedControlResult.stdout",
+          "language": "python",
+          "parent_id": "process.control_result",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bytes | None",
+          "presence": "planned",
+          "responsibilities": [
+            "Hold the bounded bytes from a successful control protocol only."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.control_result.error",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.process.BoundedControlResult.error",
+          "language": "python",
+          "parent_id": "process.control_result",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "CollectionError | None",
+          "presence": "planned",
+          "responsibilities": [
+            "Hold the typed process failure when no control bytes were produced."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.control_result.__post_init__",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.process.BoundedControlResult.__post_init__",
+          "language": "python",
+          "parent_id": "process.control_result",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Require exactly one of stdout or error."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process.run_control",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector.run_control",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "request",
+                "annotation": "CollectionRequest",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "BoundedControlResult"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Run a bounded control protocol while keeping its bytes outside the validated source-response API."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "process._run_process",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.process.ProcessCollector._run_process",
+          "language": "python",
+          "parent_id": "process",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "request",
+                "annotation": "CollectionRequest",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bytes | CollectionError"
+          },
+          "presence": "planned",
+          "responsibilities": [
+            "Own the single bounded process exchange and cleanup shared by source and control protocols."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
         }
       ],
       "relationships": [
@@ -642,9 +806,47 @@
           "decided_by": null
         },
         {
-          "id": "PORT-REL-PROVIDER-EXCHANGE",
+          "id": "PORT-REL-PROVIDER-RUNNER",
           "kind": "calls",
           "source_id": "process.collect_response",
+          "target_id": "process._run_process",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "The source response API delegates one bounded exchange before validating its protocol.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-CONTROL-RUNNER",
+          "kind": "calls",
+          "source_id": "process.run_control",
+          "target_id": "process._run_process",
+          "resolution": "not_applicable",
+          "candidate_ids": [],
+          "expression": null,
+          "evidence_ids": [],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "record_ids": [],
+          "candidate_count": null,
+          "candidates_truncated": false,
+          "reason": "Control protocols share process limits and cleanup without becoming SourceFacts responses.",
+          "through": [],
+          "decided_by": null
+        },
+        {
+          "id": "PORT-REL-RUNNER-EXCHANGE",
+          "kind": "calls",
+          "source_id": "process._run_process",
           "target_id": "process._exchange",
           "resolution": "not_applicable",
           "candidate_ids": [],
@@ -656,7 +858,7 @@
           "record_ids": [],
           "candidate_count": null,
           "candidates_truncated": false,
-          "reason": "The shared response runner owns bounded pipe exchange and cleanup.",
+          "reason": "The shared process boundary owns bounded pipe exchange and cleanup.",
           "through": [],
           "decided_by": null
         }

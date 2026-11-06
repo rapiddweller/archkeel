@@ -5,6 +5,7 @@
 
 import argparse
 from enum import StrEnum
+from pathlib import Path
 from typing import NoReturn
 
 from ..check.ports import Language
@@ -22,6 +23,11 @@ class SkillAction(StrEnum):
     INSTALL = "install"
 
 
+class StreamAction(StrEnum):
+    BUILD = "build"
+    PAGE = "page"
+
+
 class ConfigurationSource(StrEnum):
     DEFAULT = "default"
     CUSTOM = "custom"
@@ -37,6 +43,24 @@ class CLIArguments(argparse.Namespace):
     chat_agent: InstallationAgent = InstallationAgent.CLAUDE
     language: Language = Language.PYTHON
     collector_output_limit_bytes: int | None = None
+
+
+class StreamArguments(argparse.Namespace):
+    """Stream-only parser result, normalized before the stream workflow runs."""
+
+    command: Command | None = None
+    stream_action: StreamAction
+    root: Path | None = None
+    source: list[str] | None = None
+    namespace: str | None = None
+    tsconfig: str | None = None
+    output: Path | None = None
+    snapshot: Path | None = None
+    section: str | None = None
+    limit: int = 100
+    cursor: str | None = None
+    bundler: bool = False
+    json: bool = False
 
 
 def configuration_source(path: str | None, default: str) -> ConfigurationSource:

@@ -1176,3 +1176,386 @@ def test_esm_escaped_or_computed_host_roots_cannot_hide_dependencies(tmp_path, e
     )
     assert not facts.coverage.full_scope
     assert facts.coverage.gaps
+
+
+def test_sqlite_symbol_stream_preserves_canonical_facts_and_aborts_without_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    import importlib
+    import sqlite3
+
+    from archkeel.cli import main
+    from archkeel.ir.facts_codec import (
+        evidence_payload,
+        parse_evidence,
+        parse_record,
+        record_payload,
+    )
+
+    files = {
+        "src/service.ts": (
+            "import { Port as LocalPort } from './ports.js';\n"
+            "import { ExternalPort as VendorPort } from 'public-package';\n"
+            "import { MissingPort } from './missing.js';\n"
+            "export function open(port: LocalPort): VendorPort { return port; }\n"
+            "export type Missing = MissingPort;\n"
+        ),
+        "src/ports.ts": "export interface Port { id: string }\n",
+    }
+    tsconfig = {"compilerOptions": NODENEXT, "include": ["src"]}
+    for rel, content in {"tsconfig.json": json.dumps(tsconfig), **files}.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(content)
+    excluded_test = tmp_path / "tests" / "not_selected.ts"
+    excluded_test.parent.mkdir()
+    excluded_test.write_text("export function testOnly() {}\n")
+    request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("src",), "app"),
+        TypeScriptSettings(),
+    )
+    expected = decode_response(encode_response(CollectionResponse(collect(request)))).facts
+    expected_symbols = next(
+        section.records for section in expected.sections if section.name == "symbols"
+    )
+
+    def evidence_ids(value: object) -> set[str]:
+        found: set[str] = set()
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == "evidence_id" and isinstance(child, str):
+                    found.add(child)
+                elif key == "evidence_ids" and isinstance(child, list):
+                    found.update(item for item in child if isinstance(item, str))
+                else:
+                    found.update(evidence_ids(child))
+        elif isinstance(value, list):
+            for child in value:
+                found.update(evidence_ids(child))
+        return found
+
+    expected_records = [record_payload(record) for record in expected_symbols]
+    wanted_evidence = evidence_ids(expected_records)
+    expected_evidence = {
+        evidence.id: evidence_payload(evidence)
+        for evidence in expected.evidence
+        if evidence.id in wanted_evidence
+    }
+
+    collector_module = importlib.import_module("archkeel.analyzer.typescript.collect")
+    stream_module = importlib.import_module("archkeel.analyzer.typescript.stream")
+
+    def forbid_full_source_facts(*_args, **_kwargs):
+        raise AssertionError("symbol streaming must not construct complete SourceFacts")
+
+    monkeypatch.setattr(collector_module, "SourceFacts", forbid_full_source_facts)
+    artifact_root = tmp_path.parent / f"{tmp_path.name}-stream-artifacts"
+    artifact_root.mkdir()
+    database = artifact_root / "typescript.sqlite"
+    summary = stream_module.build_snapshot(request, database)
+    assert summary["coverage"] == "INCOMPLETE"
+    assert summary["source_revision"] == "a" * 40
+
+    assert (
+        main(
+            [
+                "stream",
+                "page",
+                "--snapshot",
+                str(database),
+                "--section",
+                "symbols",
+                "--limit",
+                "2",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    first = json.loads(capsys.readouterr().out)
+    assert first["snapshot"]["coverage"] == "INCOMPLETE"
+    assert first["snapshot"]["selected_file_count"] == 2
+    assert first["rows"][0]["sequence"] == 0
+    assert all(row["record"]["id"].startswith("TSDEF-") for row in first["rows"])
+    assert first["next_cursor"]
+    second_payload = stream_module.page(
+        database,
+        section="symbols",
+        limit=2,
+        cursor=first["next_cursor"],
+    )
+    actual_rows = [*first["rows"], *second_payload["rows"]]
+    actual_records = [record_payload(parse_record(row["record"])) for row in actual_rows]
+    actual_evidence = {
+        evidence["id"]: evidence_payload(parse_evidence(evidence))
+        for row in actual_rows
+        for evidence in row["evidence"]
+    }
+
+    assert actual_records == expected_records
+    assert actual_evidence == expected_evidence
+    assert len(actual_records) == len(expected_symbols)
+    evidence_order = {record["id"]: record["evidence_ids"] for record in expected_records}
+    for row in actual_rows:
+        evidence_ids = [item["id"] for item in row["evidence"]]
+        assert (
+            evidence_ids[: len(evidence_order[row["record"]["id"]])]
+            == evidence_order[row["record"]["id"]]
+        )
+    first_unknown = stream_module.page(database, section="unknowns", limit=1)
+    assert first_unknown["rows"][0]["sequence"] == 0
+    assert first_unknown["rows"][0]["record"]["evidence_class"] == "UNKNOWN"
+
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE evidence SET payload = ? WHERE id = ("
+            "SELECT re.evidence_id FROM record_evidence AS re "
+            "WHERE re.section = 'symbols' AND re.record_id = ("
+            "SELECT id FROM records WHERE section = 'symbols' AND sequence = 0))",
+            (json.dumps({"large": "x" * 1_000_000}),),
+        )
+    with pytest.raises(StreamSnapshotError, match="exceeds the 1000000 byte page limit"):
+        stream_module.page(database, section="symbols", limit=1)
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert {
+            row[0] for row in connection.execute("SELECT path FROM inputs WHERE role = 'selected'")
+        } == {"src/service.ts", "src/ports.ts"}
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM records WHERE section = 'unknowns'"
+            ).fetchone()[0]
+            > 0
+        )
+
+    monkeypatch.undo()
+    cli_database = artifact_root / "cli-typescript.sqlite"
+    assert (
+        main(
+            [
+                "stream",
+                "build",
+                "--root",
+                str(tmp_path),
+                "--source",
+                "src",
+                "--namespace",
+                "app",
+                "--tsconfig",
+                "tsconfig.json",
+                "--output",
+                str(cli_database),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["coverage"] == "INCOMPLETE"
+    assert (
+        main(
+            [
+                "stream",
+                "page",
+                "--snapshot",
+                str(cli_database),
+                "--section",
+                "symbols",
+                "--limit",
+                "1",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["rows"]
+
+    original = database.read_bytes()
+    write_record = stream_module._write_record
+    written = 0
+
+    def interrupt_after_first(*args, **kwargs):
+        nonlocal written
+        written += 1
+        if written == 2:
+            raise OSError("injected interrupted snapshot write")
+        return write_record(*args, **kwargs)
+
+    monkeypatch.setattr(stream_module, "_write_record", interrupt_after_first)
+    with pytest.raises(OSError, match="injected interrupted snapshot write"):
+        stream_module.build_snapshot(request, database)
+    assert database.read_bytes() == original
+    assert not tuple(artifact_root.glob(".typescript.sqlite.*.building"))
+
+
+def _stream_identity_fixture(tmp_path: Path):
+    import importlib
+
+    from archkeel.analyzer.typescript.stream import build_snapshot
+
+    files = {
+        "tsconfig.json": json.dumps({"compilerOptions": NODENEXT, "include": ["src"]}),
+        "src/entry.ts": "export function run() { return true; }\n",
+    }
+    for rel, content in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(content)
+    request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("src",), "app"),
+        TypeScriptSettings(),
+    )
+    facts = decode_response(encode_response(CollectionResponse(collect(request)))).facts
+    artifacts = tmp_path.parent / f"{tmp_path.name}-identity-artifacts"
+    artifacts.mkdir()
+    database = artifacts / "snapshot.sqlite"
+    summary = build_snapshot(request, database)
+    return importlib.import_module("archkeel.analyzer.typescript.stream"), facts, database, summary
+
+
+def test_sqlite_stream_rejects_mismatched_evidence_dictionary_identity(tmp_path: Path) -> None:
+    import sqlite3
+
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+    from archkeel.ir.facts_codec import evidence_payload
+
+    stream_module, facts, database, _ = _stream_identity_fixture(tmp_path)
+    evidence = facts.evidence[0]
+    connection = sqlite3.connect(database)
+    try:
+        with pytest.raises(StreamSnapshotError, match="evidence identity"):
+            stream_module._write_evidence(
+                connection,
+                {evidence.id + "-wrong": evidence_payload(evidence)},
+            )
+    finally:
+        connection.rollback()
+        connection.close()
+
+
+def test_sqlite_stream_rejects_record_id_collision_across_sections(tmp_path: Path) -> None:
+    import sqlite3
+
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+    from archkeel.ir.facts_codec import record_payload
+
+    stream_module, facts, database, _ = _stream_identity_fixture(tmp_path)
+    symbols = next(section.records for section in facts.sections if section.name == "symbols")
+    record = record_payload(symbols[0])
+    connection = sqlite3.connect(database)
+    try:
+        with pytest.raises(StreamSnapshotError, match="global record identity"):
+            stream_module._write_record(connection, "unknowns", 100_000, record)
+    finally:
+        connection.rollback()
+        connection.close()
+
+
+def test_sqlite_stream_rejects_record_id_collision_with_file_identity(tmp_path: Path) -> None:
+    import sqlite3
+
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+    from archkeel.ir.facts_codec import record_payload
+
+    stream_module, facts, database, _ = _stream_identity_fixture(tmp_path)
+    symbols = next(section.records for section in facts.sections if section.name == "symbols")
+    record = {**record_payload(symbols[0]), "id": facts.files[0].id}
+    connection = sqlite3.connect(database)
+    try:
+        with pytest.raises(StreamSnapshotError, match="global record identity"):
+            stream_module._write_record(connection, "symbols", 100_000, record)
+    finally:
+        connection.rollback()
+        connection.close()
+
+
+def test_sqlite_stream_rejects_cursor_outside_signed_sqlite_integer_range(
+    tmp_path: Path,
+) -> None:
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+
+    stream_module, _, database, summary = _stream_identity_fixture(tmp_path)
+    cursor = stream_module._encode_cursor(summary["snapshot_id"], "symbols", 1, 1 << 63)
+    with pytest.raises(StreamSnapshotError, match="cursor"):
+        stream_module.page(database, section="symbols", limit=1, cursor=cursor)
+
+
+def test_sqlite_stream_rejects_cursor_past_section_end(tmp_path: Path) -> None:
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+
+    stream_module, _, database, summary = _stream_identity_fixture(tmp_path)
+    cursor = stream_module._encode_cursor(
+        summary["snapshot_id"], "symbols", 1, summary["symbol_count"]
+    )
+    with pytest.raises(StreamSnapshotError, match="cursor"):
+        stream_module.page(database, section="symbols", limit=1, cursor=cursor)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["snapshot_id", "source_git_head", "source_dirty", "source_digest", "contract_identity"],
+)
+def test_sqlite_stream_rejects_oversized_snapshot_identity_metadata(
+    tmp_path: Path, field: str
+) -> None:
+    import sqlite3
+
+    from archkeel.analyzer.typescript.stream import StreamSnapshotError
+
+    stream_module, _, database, _ = _stream_identity_fixture(tmp_path)
+    with sqlite3.connect(database) as connection:
+        connection.execute(f"UPDATE snapshot SET {field} = ?", ("x" * 1_000_001,))
+
+    with pytest.raises(StreamSnapshotError, match="snapshot metadata"):
+        stream_module.page(database, section="symbols", limit=1)
+
+
+def test_sqlite_stream_page_uses_stored_counts_and_indexed_cursor_query(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sqlite3
+
+    stream_module, _, database, summary = _stream_identity_fixture(tmp_path)
+    statements: list[str] = []
+    original_connect = sqlite3.connect
+
+    def traced_connect(*args: object, **kwargs: object) -> sqlite3.Connection:
+        connection = original_connect(*args, **kwargs)
+        connection.set_trace_callback(statements.append)
+        return connection
+
+    monkeypatch.setattr(stream_module.sqlite3, "connect", traced_connect)
+    try:
+        result = stream_module.page(database, section="symbols", limit=1)
+        connection = original_connect(database)
+        plan = connection.execute(
+            "EXPLAIN QUERY PLAN SELECT r.sequence, r.id, "
+            "length(CAST(r.payload AS BLOB)) AS record_bytes, "
+            "COUNT(re.evidence_id) AS evidence_count, "
+            "COALESCE(SUM(length(CAST(e.payload AS BLOB))), 0) AS evidence_bytes "
+            "FROM records AS r LEFT JOIN record_evidence AS re "
+            "ON re.section = r.section AND re.record_id = r.id "
+            "LEFT JOIN evidence AS e ON e.id = re.evidence_id "
+            "WHERE r.section = 'symbols' AND r.sequence > 0 "
+            "GROUP BY r.sequence, r.id ORDER BY r.sequence LIMIT 2"
+        ).fetchall()
+    finally:
+        if "connection" in locals():
+            connection.close()
+
+    assert result["snapshot"]["record_counts"] == {
+        "symbols": summary["symbol_count"],
+        "unknowns": summary["unknown_count"],
+    }
+    assert not any(
+        "COUNT(*)" in statement.upper() and "FROM RECORDS" in statement.upper()
+        for statement in statements
+    )
+    assert any(
+        "SEARCH r USING" in row[3] and "section=? AND sequence>?" in row[3] for row in plan
+    ), plan

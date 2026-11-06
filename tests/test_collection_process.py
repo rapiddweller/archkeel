@@ -40,6 +40,51 @@ def test_unsupported_collector_timeout_is_rejected_before_execution(timeout):
         _collector("pass", timeout_seconds=timeout)
 
 
+@pytest.mark.parametrize(
+    ("code", "limits", "message"),
+    [
+        (
+            "import sys; sys.stdin.buffer.read(); sys.stdout.buffer.write(b'x' * 10000)",
+            {"output_limit_bytes": 1000},
+            "output exceeded",
+        ),
+        ("import time; time.sleep(30)", {"timeout_seconds": 0.1}, "exceeded 0.1 seconds"),
+    ],
+)
+def test_non_facts_child_protocol_keeps_process_output_and_time_bounded(
+    tmp_path, code, limits, message
+) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.facts_codec import decode_request
+
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+    result = _collector(code, **limits).run_control(request)
+
+    assert result.stdout is None
+    assert result.error is not None
+    assert message in result.error.message
+
+
+def test_bounded_control_result_separates_success_bytes_from_failures(tmp_path) -> None:
+    from dataclasses import replace
+
+    from archkeel.analyzer.process import BoundedControlResult
+    from archkeel.ir.facts_codec import decode_request
+
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+    result = _collector(
+        "import sys; sys.stdin.buffer.read(); sys.stdout.buffer.write(b'control')"
+    ).run_control(request)
+
+    assert result.stdout == b"control"
+    assert result.error is None
+    with pytest.raises(ValueError, match="exactly one"):
+        BoundedControlResult(None, None)
+
+
 def _assert_process_exited(pid: int) -> None:
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline:
@@ -607,6 +652,12 @@ def _platform_repository(
         "process.stderr_limit_bytes",
         "process.collect",
         "process.collect_response",
+        "process.control_result",
+        "process.control_result.stdout",
+        "process.control_result.error",
+        "process.control_result.__post_init__",
+        "process.run_control",
+        "process._run_process",
         "process.__post_init__",
         "process._exchange",
         "PROCESS-PLATFORM",
@@ -626,7 +677,7 @@ def _platform_repository(
             {
                 "id": _COLLECT_PROBE,
                 "kind": "forbidden_construct",
-                "source": "archkeel.analyzer.process.ProcessCollector.collect_response",
+                "source": "archkeel.analyzer.process.ProcessCollector._run_process",
                 "constructs": ["string_literal_compare"],
                 "rationale": "Trace an OS mutation while retaining the real filename grammar.",
                 "provenance": ["docs/architecture/language-adapter-target.md"],
@@ -698,7 +749,7 @@ def test_native_actual_process_target_and_os_control_sites(tmp_path):
     sites = [
         (row.data.get("owner"), excerpt)
         for owner in (
-            "archkeel.analyzer.process.ProcessCollector.collect_response",
+            "archkeel.analyzer.process.ProcessCollector._run_process",
             "archkeel.analyzer.process._terminate_process_tree",
             "archkeel.analyzer.process._process_platform",
         )
@@ -715,7 +766,7 @@ def test_native_actual_process_target_and_os_control_sites(tmp_path):
     assert [
         excerpt
         for _, excerpt in _comparison_sites(
-            model, "archkeel.analyzer.process.ProcessCollector.collect_response"
+            model, "archkeel.analyzer.process.ProcessCollector._run_process"
         )
     ] == ['if Path(executable).suffix.lower() in {".bat", ".cmd"}:']
 
@@ -737,7 +788,7 @@ def test_native_actual_process_target_and_os_control_sites(tmp_path):
                 "stdout, stderr = self._exchange(process, payload, workers)",
                 "stdout, stderr = self.collect_response(request)",
             ),
-            "PORT-REL-PROVIDER-EXCHANGE",
+            "PORT-REL-RUNNER-EXCHANGE",
             "UNKNOWN",
         ),
     ],
@@ -750,7 +801,9 @@ def test_required_process_call_path_keeps_both_direct_edges(tmp_path, changed, m
     )["declarations"]["uml"]["relationships"]
     required = {
         "PORT-REL-9": ("process.collect", "process.collect_response"),
-        "PORT-REL-PROVIDER-EXCHANGE": ("process.collect_response", "process._exchange"),
+        "PORT-REL-PROVIDER-RUNNER": ("process.collect_response", "process._run_process"),
+        "PORT-REL-CONTROL-RUNNER": ("process.run_control", "process._run_process"),
+        "PORT-REL-RUNNER-EXCHANGE": ("process._run_process", "process._exchange"),
     }
     relationships = [row for row in authored if row["id"] in required]
     assert {row["id"]: (row["source_id"], row["target_id"]) for row in relationships} == required
@@ -778,7 +831,7 @@ def test_required_process_call_path_keeps_both_direct_edges(tmp_path, changed, m
             )
             assert not any(
                 row.data.get("source_scope")
-                == "archkeel.analyzer.process.ProcessCollector.collect_response"
+                == "archkeel.analyzer.process.ProcessCollector._run_process"
                 and row.data.get("targets")
                 == ("archkeel.analyzer.process.ProcessCollector._exchange",)
                 for row in model.records("calls")
@@ -788,13 +841,16 @@ def test_required_process_call_path_keeps_both_direct_edges(tmp_path, changed, m
         calls = {
             (row.data.get("source_scope"), row.data.get("targets"))
             for row in model.records("calls")
-            if row.data.get("expression") in {"self.collect_response", "self._exchange"}
+            if row.data.get("expression")
+            in {"self.collect_response", "self.run_control", "self._run_process", "self._exchange"}
             and row.data.get("status") == "resolved"
         }
         prefix = "archkeel.analyzer.process.ProcessCollector."
         assert calls == {
             (prefix + "collect", (prefix + "collect_response",)),
-            (prefix + "collect_response", (prefix + "_exchange",)),
+            (prefix + "collect_response", (prefix + "_run_process",)),
+            (prefix + "run_control", (prefix + "_run_process",)),
+            (prefix + "_run_process", (prefix + "_exchange",)),
         }
     assert target_path.read_bytes() == intent
 
@@ -866,7 +922,7 @@ def test_actual_os_comparison_mutations_keep_native_control_trace(tmp_path, old,
     changed_in = {
         _PLATFORM_GUARD: "_process_platform",
         _CLEANUP_GUARD: "_terminate_process_tree",
-        _COLLECT_PROBE: "collect_response",
+        _COLLECT_PROBE: "_run_process",
     }[rule_id]
     root, config = _platform_repository(
         tmp_path,
@@ -881,7 +937,7 @@ def test_actual_os_comparison_mutations_keep_native_control_trace(tmp_path, old,
         facts = [
             row
             for row, excerpt in _comparison_sites(
-                model, "archkeel.analyzer.process.ProcessCollector.collect_response"
+                model, "archkeel.analyzer.process.ProcessCollector._run_process"
             )
             if excerpt == 'if os.name == "nt":'
         ]

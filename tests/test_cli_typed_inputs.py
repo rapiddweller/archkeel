@@ -10,7 +10,14 @@ import pytest
 
 from archkeel.check.ports import Language
 from archkeel.cli import build_parser
-from archkeel.cli.arguments import CLIArguments, Command, ReportMode, SkillAction
+from archkeel.cli.arguments import (
+    CLIArguments,
+    Command,
+    ReportMode,
+    SkillAction,
+    StreamAction,
+    StreamArguments,
+)
 from archkeel.cli.skill import InstallationAgent, install_skill
 
 
@@ -87,6 +94,19 @@ def test_installer_rejects_an_invalid_agent_before_writing(tmp_path: Path, agent
 
 def test_no_subcommand_remains_an_overview_request():
     assert build_parser().parse_cli_args([]).command is None
+
+
+def test_stream_arguments_use_their_own_normalized_namespace():
+    parser = build_parser()
+    argv = ["stream", "page", "--snapshot", "snapshot.sqlite", "--section", "symbols"]
+
+    assert parser.parse_cli_args(argv).command is Command.STREAM
+    stream_args = parser.parse_stream_args(argv)
+    assert isinstance(stream_args, StreamArguments)
+    assert stream_args.command is Command.STREAM
+    assert stream_args.stream_action is StreamAction.PAGE
+    assert stream_args.snapshot == Path("snapshot.sqlite")
+    assert stream_args.section == "symbols"
 
 
 def test_check_subcommand_is_typed_after_required_inputs_are_validated():

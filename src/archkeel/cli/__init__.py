@@ -66,6 +66,8 @@ from .arguments import (
     ConfigurationSource,
     ReportMode,
     SkillAction,
+    StreamAction,
+    StreamArguments,
     configuration_source,
     installation_agent,
     report_mode,
@@ -135,6 +137,16 @@ class _Parser(argparse.ArgumentParser):
         arguments = argparse.ArgumentParser.parse_args(self, args, CLIArguments())
         if arguments.command is not None:
             arguments.command = Command(arguments.command)
+        return arguments
+
+    def parse_stream_args(self, args: Sequence[str] | None = None) -> StreamArguments:
+        arguments = argparse.ArgumentParser.parse_args(self, args, StreamArguments())
+        if arguments.command is None:
+            raise ValueError("stream command is required")
+        arguments.command = Command(arguments.command)
+        if arguments.command is not Command.STREAM:
+            raise ValueError("stream command is required")
+        arguments.stream_action = StreamAction(arguments.stream_action)
         return arguments
 
     def error(self, message: str) -> NoReturn:
@@ -563,6 +575,31 @@ def build_parser() -> _Parser:
     parser.add_argument("--version", action="version", version=f"archkeel {installed}")
     parser.set_defaults(command=None, json=False, config=CONFIG_PATH, show=False)
     commands = parser.add_subparsers(dest="command", title="commands", metavar="<command>")
+    stream = commands.add_parser(
+        Command.STREAM.value,
+        help="Build or page an experimental, explicitly incomplete TypeScript SQLite snapshot.",
+    )
+    stream_actions = stream.add_subparsers(dest="stream_action", required=True, metavar="action")
+    stream_build = stream_actions.add_parser(
+        StreamAction.BUILD.value,
+        help="Write canonical TypeScript symbol facts to an atomic SQLite snapshot.",
+    )
+    stream_build.add_argument("--root", type=Path, default=Path.cwd())
+    stream_build.add_argument("--source", action="append", required=True)
+    stream_build.add_argument("--namespace", required=True)
+    stream_build.add_argument("--tsconfig", required=True)
+    stream_build.add_argument("--output", type=Path, required=True)
+    stream_build.add_argument("--bundler", action="store_true")
+    stream_build.add_argument("--json", action="store_true", help="Accepted; output is JSON.")
+    stream_page = stream_actions.add_parser(
+        StreamAction.PAGE.value,
+        help="Read one bounded page from an INCOMPLETE TypeScript SQLite snapshot.",
+    )
+    stream_page.add_argument("--snapshot", type=Path, required=True)
+    stream_page.add_argument("--section", choices=("symbols", "unknowns"), required=True)
+    stream_page.add_argument("--limit", type=int, default=100)
+    stream_page.add_argument("--cursor")
+    stream_page.add_argument("--json", action="store_true", help="Accepted; output is JSON.")
     # The two commands that read a scan configuration from the working tree share one option.
     configured = _Parser(add_help=False)
     configured.add_argument(
@@ -1156,6 +1193,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         command = args.command
         interactive = interactive and not args.json
+        if command is Command.STREAM:
+            from .stream import run_stream
+
+            return run_stream(parser.parse_stream_args(argv))
         if command is Command.SKILL:
             path = install_skill(args.root.resolve(), args.agent)
             print(

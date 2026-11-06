@@ -8,7 +8,8 @@
       "role": "component",
       "packages": [
         "archkeel.analyzer.typescript.entry",
-        "archkeel.analyzer.typescript.collect"
+        "archkeel.analyzer.typescript.collect",
+        "archkeel.analyzer.typescript.stream"
       ],
       "responsibilities": [
         "Assemble TypeScript facts from source, configuration and resolution evidence."
@@ -47,7 +48,12 @@
           "decided_by": "architect"
         }
       ],
-      "public": []
+      "public": [
+        "archkeel.analyzer.typescript.stream:build_snapshot",
+        "archkeel.analyzer.typescript.stream:page",
+        "archkeel.analyzer.typescript.stream:StreamCoverage",
+        "archkeel.analyzer.typescript.stream:StreamContractEvaluation"
+      ]
     },
     {
       "id": "TARGET-SOURCE",

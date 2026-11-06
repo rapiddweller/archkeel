@@ -114,6 +114,15 @@ def test_native_typescript_api_matches_the_independent_target(tmp_path):
     assert not trace_valid_violations(model)
 
 
+def test_sqlite_stream_api_and_module_are_declared_under_entry_target():
+    entry = next(row for row in _contract()["components"] if row["id"] == "TARGET-ENTRY")
+    assert "archkeel.analyzer.typescript.stream" in entry["packages"]
+    assert "archkeel.analyzer.typescript.stream:build_snapshot" in entry["public"]
+    assert "archkeel.analyzer.typescript.stream:page" in entry["public"]
+    assert "archkeel.analyzer.typescript.stream:StreamCoverage" in entry["public"]
+    assert "archkeel.analyzer.typescript.stream:StreamContractEvaluation" in entry["public"]
+
+
 @pytest.mark.parametrize(
     ("module", "old", "new"),
     [

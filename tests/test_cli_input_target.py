@@ -186,3 +186,29 @@ def test_own_native_cli_target_pins_actual_closed_fields_and_parser(self_observa
             row.subject_id == target_id and row.aspect == aspect and row.status == "PASS"
             for row in comparison.assessments
         ), (target_id, aspect)
+
+
+def test_stream_cli_module_and_arguments_are_declared_at_their_component_boundary():
+    contract = _cli_contract()
+    composition = next(row for row in contract["components"] if row["id"] == "CLI-COMPOSITION")
+    assert "archkeel.cli.stream" in composition["exact_modules"]
+    arguments_requirement = next(
+        row for row in composition["requires"] if row["component"] == "arguments"
+    )
+    assert "archkeel.cli.arguments:StreamArguments" in arguments_requirement["through"]
+    assert (
+        "archkeel.cli.arguments:StreamAction"
+        in next(row for row in contract["components"] if row["id"] == "CLI-ARGUMENTS")["public"]
+    )
+    assert any(
+        row["qualified_name"] == "archkeel.cli.arguments.StreamArguments.stream_action"
+        and row["annotation"] == "StreamAction"
+        for row in contract["declarations"]["uml"]["entities"]
+    )
+    analyzer = json.loads((ROOT / "architecture-contract.json").read_text())
+    cli = next(row for row in analyzer["components"] if row["id"] == "COMP-CLI")
+    analyzer_requirement = next(row for row in cli["requires"] if row["component"] == "analyzer")
+    assert "archkeel.analyzer.process:BoundedControlResult" in analyzer_requirement.get(
+        "through", []
+    )
+    assert "archkeel.analyzer.typescript.stream:page" in analyzer_requirement.get("through", [])

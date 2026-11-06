@@ -88,6 +88,18 @@ def is_safe_process_id(pid: int) -> bool:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundedControlResult:
+    """A byte-limited control-protocol response or its process failure."""
+
+    stdout: bytes | None
+    error: CollectionError | None
+
+    def __post_init__(self) -> None:
+        if (self.stdout is None) == (self.error is None):
+            raise ValueError("bounded control result needs exactly one of stdout or error")
+
+
+@dataclass(frozen=True, slots=True)
 class ProcessCollector:
     argv: tuple[str, ...]
     timeout_seconds: float = 300
@@ -123,14 +135,39 @@ class ProcessCollector:
         return response if isinstance(response, CollectionError) else response.facts
 
     def collect_response(self, request: CollectionRequest) -> CollectionResponse | CollectionError:
+        """Return a bounded and validated source-protocol response."""
+        wire_request = (
+            replace(request, protocol_version=self.protocol_version)
+            if self.protocol_version is not None
+            else request
+        )
+        result = self._run_process(wire_request)
+        if isinstance(result, CollectionError):
+            return result
+        try:
+            return self._decode_response(result, wire_request)
+        except (ProtocolError, _OutputLimitError) as error:
+            return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, self.argv[0], str(error))
+
+    def run_control(self, request: CollectionRequest) -> BoundedControlResult:
+        """Run a bounded control protocol without treating its bytes as source facts."""
+        wire_request = (
+            replace(request, protocol_version=self.protocol_version)
+            if self.protocol_version is not None
+            else request
+        )
+        result = self._run_process(wire_request)
+        return (
+            BoundedControlResult(None, result)
+            if isinstance(result, CollectionError)
+            else BoundedControlResult(result, None)
+        )
+
+    def _run_process(self, request: CollectionRequest) -> bytes | CollectionError:
+        """Supervise one request exchange; callers choose and validate its response protocol."""
         subject = self.argv[0]
         try:
-            wire_request = (
-                replace(request, protocol_version=self.protocol_version)
-                if self.protocol_version is not None
-                else request
-            )
-            payload = encode_request(wire_request)
+            payload = encode_request(request)
             command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
             platform = _process_platform(os.name)
@@ -182,7 +219,7 @@ class ProcessCollector:
                     )
             if self.clock is not None:
                 self.clock.count(WorkCounter.COLLECTOR_WIRE_BYTES, len(stdout))
-            return self._decode_response(stdout, wire_request)
+            return stdout
         except subprocess.TimeoutExpired:
             return CollectionError(
                 CollectionErrorKind.TIMEOUT,

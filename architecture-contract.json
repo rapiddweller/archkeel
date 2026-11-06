@@ -265,7 +265,13 @@
       "requires": [
         {
           "component": "analyzer",
-          "rationale": "Supply source collection and the non-destructive process-liveness port to CLI workflows."
+          "through": [
+            "archkeel.analyzer.process:BoundedControlResult",
+            "archkeel.analyzer.typescript.stream:StreamCoverage",
+            "archkeel.analyzer.typescript.stream:StreamContractEvaluation",
+            "archkeel.analyzer.typescript.stream:page"
+          ],
+          "rationale": "Supply source collection, the bounded control result and the explicitly incomplete TypeScript SQLite page to CLI workflows."
         },
         {
           "component": "check",
@@ -463,12 +469,17 @@
       "inside": "docs/architecture/contracts/analyzer.json",
       "public": [
         "archkeel.analyzer.process:ProcessCollector",
+        "archkeel.analyzer.process:BoundedControlResult",
         "archkeel.analyzer.process:is_process_alive",
         "archkeel.analyzer.process:is_safe_process_id",
-        "archkeel.analyzer.python.collect:PythonProviderCollector"
+        "archkeel.analyzer.python.collect:PythonProviderCollector",
+        "archkeel.analyzer.typescript.stream:build_snapshot",
+        "archkeel.analyzer.typescript.stream:page",
+        "archkeel.analyzer.typescript.stream:StreamCoverage",
+        "archkeel.analyzer.typescript.stream:StreamContractEvaluation"
       ],
       "responsibilities": [
-        "Collect source-only facts through bounded, replaceable language processes, validate native PID ranges and report process liveness safely."
+        "Collect source-only facts through bounded, replaceable language processes; supervise explicitly typed control protocols through the same process boundary; validate native PID ranges and report process liveness safely."
       ],
       "forbidden_responsibilities": [
         "Rule evaluation, baselines, ownership, verdicts, and importing sibling language adapters.",
@@ -755,13 +766,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 483,
+          "line": 520,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 495,
+          "line": 532,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

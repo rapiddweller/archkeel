@@ -8,9 +8,11 @@
       "role": "component",
       "public": [
         "archkeel.cli.arguments:CLIArguments",
+        "archkeel.cli.arguments:StreamArguments",
         "archkeel.cli.arguments:Command",
         "archkeel.cli.arguments:ReportMode",
         "archkeel.cli.arguments:SkillAction",
+        "archkeel.cli.arguments:StreamAction",
         "archkeel.cli.arguments:ConfigurationSource",
         "archkeel.cli.arguments:configuration_source",
         "archkeel.cli.arguments:report_mode",
@@ -95,6 +97,8 @@
             "archkeel.cli.arguments:Command",
             "archkeel.cli.arguments:ReportMode",
             "archkeel.cli.arguments:SkillAction",
+            "archkeel.cli.arguments:StreamAction",
+            "archkeel.cli.arguments:StreamArguments",
             "archkeel.cli.arguments:ConfigurationSource",
             "archkeel.cli.arguments:configuration_source",
             "archkeel.cli.arguments:report_mode",
@@ -118,7 +122,8 @@
         "archkeel.cli.config",
         "archkeel.cli.observe",
         "archkeel.cli.guide",
-        "archkeel.cli.launcher"
+        "archkeel.cli.launcher",
+        "archkeel.cli.stream"
       ],
       "packages": []
     }
@@ -178,6 +183,20 @@
           "presence": "planned",
           "responsibilities": [
             "Name the mutually exclusive report projections selected by --only."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-StreamAction",
+          "kind": "enum",
+          "qualified_name": "archkeel.cli.arguments.StreamAction",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the explicit build and page actions for the incomplete SQLite stream."
           ],
           "provenance": [
             "docs/architecture/cli-input-types.md"
@@ -315,6 +334,35 @@
           "annotation": "Language"
         },
         {
+          "id": "CLI-INPUT-StreamArguments",
+          "kind": "class",
+          "qualified_name": "archkeel.cli.arguments.StreamArguments",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry only normalized arguments for the explicit SQLite stream command."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-StreamArguments.stream_action",
+          "kind": "attribute",
+          "qualified_name": "archkeel.cli.arguments.StreamArguments.stream_action",
+          "language": "python",
+          "parent_id": "CLI-INPUT-StreamArguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the required normalized stream action."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "annotation": "StreamAction"
+        },
+        {
           "id": "CLI-INPUT-Parser",
           "kind": "class",
           "qualified_name": "archkeel.cli._Parser",
@@ -357,6 +405,37 @@
               }
             ],
             "returns": "CLIArguments"
+          }
+        },
+        {
+          "id": "CLI-INPUT-Parser.parse_stream_args",
+          "kind": "method",
+          "qualified_name": "archkeel.cli._Parser.parse_stream_args",
+          "language": "python",
+          "parent_id": "CLI-INPUT-Parser",
+          "presence": "planned",
+          "responsibilities": [
+            "Normalize the stream subcommand into its separate typed argument namespace."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "args",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Sequence[str] | None",
+                "default": "None"
+              }
+            ],
+            "returns": "StreamArguments"
           }
         },
         {

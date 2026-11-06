@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import posixpath
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import replace
 from enum import Enum
 from typing import Final
@@ -250,12 +250,9 @@ class _Collection:
         self.script_vendor_writes_unbounded = False
 
     def facts(self) -> SourceFacts:
-        index = 0
         if self.requested_bundler and not self.bundler and self.resolver.blocked is None:
             self._gap("Bundler mode requires moduleResolution bundler", kind=_GapKind.RESOLUTION)
-        while index < len(self.queue):
-            self._file(self.queue[index])
-            index += 1
+        self._scan_files()
         self._named_imports()
         self._script_dependencies()
         symbols, calls, references, bindings = self._inner_facts()
@@ -1163,6 +1160,25 @@ class _Collection:
         self,
     ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], list[RawRecord]]:
         """Publish syntax facts only; unresolved dispatch remains local to each site."""
+        definitions, ids, by_qualified, scope_ids = self._inner_index()
+        symbols = list(self._inner_symbols(definitions, ids, by_qualified, scope_ids))
+        calls, references, bindings = self._inner_sites(definitions, ids, by_qualified, scope_ids)
+        return symbols, calls, references, bindings
+
+    def _scan_files(self) -> None:
+        index = 0
+        while index < len(self.queue):
+            self._file(self.queue[index])
+            index += 1
+
+    def _inner_index(
+        self,
+    ) -> tuple[
+        list[tuple[str, str, Definition]],
+        dict[tuple[str, int, int], str],
+        dict[str, list[tuple[str, Definition]]],
+        dict[tuple[str, int, int], str],
+    ]:
         definitions: list[tuple[str, str, Definition]] = []
         for rel, syntax in self.syntax.items():
             module = self.modules[rel]
@@ -1195,10 +1211,7 @@ class _Collection:
             ): ids[(rel, definition.span.line, definition.span.column)]
             for rel, module, definition in definitions
         }
-
-        symbols = self._inner_symbols(definitions, ids, by_qualified, scope_ids)
-        calls, references, bindings = self._inner_sites(definitions, ids, by_qualified, scope_ids)
-        return symbols, calls, references, bindings
+        return definitions, ids, by_qualified, scope_ids
 
     def _inner_symbols(
         self,
@@ -1206,8 +1219,7 @@ class _Collection:
         ids: dict[tuple[str, int, int], str],
         by_qualified: dict[str, list[tuple[str, Definition]]],
         scope_ids: dict[tuple[str, int, int], str],
-    ) -> list[RawRecord]:
-        symbols: list[RawRecord] = []
+    ) -> Iterator[RawRecord]:
         for rel, module, definition in definitions:
             qualified = (
                 f"{module}.{definition.parent}.{definition.name}"
@@ -1261,25 +1273,21 @@ class _Collection:
                 ]
                 if definition.kind is DefinitionKind.METHOD:
                     data["method_kind"] = "static" if definition.static else "instance"
-            symbols.append(
-                classified(
-                    item_id=identity,
-                    evidence_class=EvidenceClass.FACT,
-                    area="source",
-                    kind=(
-                        "class"
-                        if definition.kind
-                        in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
-                        else definition.kind.value
-                    ),
-                    title=f"{qualified} declaration",
-                    subjects=[qualified],
-                    evidence_ids=[evidence],
-                    data=data,
-                )
+            yield classified(
+                item_id=identity,
+                evidence_class=EvidenceClass.FACT,
+                area="source",
+                kind=(
+                    "class"
+                    if definition.kind
+                    in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
+                    else definition.kind.value
+                ),
+                title=f"{qualified} declaration",
+                subjects=[qualified],
+                evidence_ids=[evidence],
+                data=data,
             )
-
-        return symbols
 
     def _symbol_metadata(
         self,

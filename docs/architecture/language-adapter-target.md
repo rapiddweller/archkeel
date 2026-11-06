@@ -24,6 +24,13 @@ baseline or verdict. The shared [protocol](../../src/archkeel/ir/protocol.py) an
 references and coverage. Adapter-local ASTs never cross the port. Diagnostics use
 stderr; stdout carries one response. The process boundary is not an OS sandbox.
 
+`ProcessCollector.collect_response` keeps this validated source-response contract.
+The explicit `run_control` interface returns bounded control bytes in
+`BoundedControlResult`; it does not decode or present them as `SourceFacts`. Both
+entry points share one private process runner, including output limits, deadlines,
+stderr draining and process-tree cleanup. The control caller must validate its own
+protocol before using the result.
+
 Adapters cannot import each other or Core evaluation. Active
 [contracts](contracts/) govern the dependency boundaries. Python retains specialist
 collectors; Dart targets a Python-hosted parser and bounded resolver
