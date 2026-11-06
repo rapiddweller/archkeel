@@ -104,6 +104,8 @@
         "archkeel.ir.story",
         "archkeel.ir.facts",
         "archkeel.ir.facts_codec",
+        "archkeel.ir.facts_codec:DEFAULT_RESPONSE_LIMIT_BYTES",
+        "archkeel.ir.facts_codec:MAX_RESPONSE_LIMIT_BYTES",
         "archkeel.ir.protocol",
         "archkeel.ir.state_facts",
         "archkeel.ir.type_shapes",
@@ -278,12 +280,14 @@
           "component": "ir",
           "through": [
             "archkeel.ir.codec",
+            "archkeel.ir.facts_codec:DEFAULT_RESPONSE_LIMIT_BYTES",
+            "archkeel.ir.facts_codec:MAX_RESPONSE_LIMIT_BYTES",
             "archkeel.ir.model:Command",
             "archkeel.ir.phases",
             "archkeel.ir.story",
             "archkeel.ir.view_spec"
           ],
-          "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary, check a view spec against a saved snapshot (AD-284) and trace the candidate paths of a story (AD-291)."
+          "rationale": "Serialize typed observations, use the codec-owned collector default and safe ceiling for CLI limits and Studio scopes, check saved view specs (AD-284) and trace story candidates (AD-291)."
         },
         {
           "component": "render",
@@ -751,13 +755,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 455,
+          "line": 465,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 467,
+          "line": 477,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

@@ -16,6 +16,7 @@ from filelock import FileLock
 from filelock import Timeout as StudioLockTimeout
 
 from ..analyzer.process import is_process_alive, is_safe_process_id
+from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
 from ..studio.api import AgentKind
 from ..studio.server import is_studio
 
@@ -44,6 +45,7 @@ class StudioScope:
     namespace: str | None
     tsconfig: str | None
     agent: AgentKind
+    collector_output_limit_bytes: int = DEFAULT_RESPONSE_LIMIT_BYTES
 
 
 def studio_lock(folder: Path) -> FileLock:
@@ -90,7 +92,15 @@ def _read(folder: Path) -> StudioProcess | None:
         scope = None
         if (
             isinstance(raw_scope, dict)
-            and set(raw_scope) == {"language", "sources", "namespace", "tsconfig", "agent"}
+            and set(raw_scope)
+            == {
+                "language",
+                "sources",
+                "namespace",
+                "tsconfig",
+                "agent",
+                "collector_output_limit_bytes",
+            }
             and isinstance(raw_scope["language"], str)
             and isinstance(raw_scope["sources"], list)
             and all(isinstance(source, str) for source in raw_scope["sources"])
@@ -98,6 +108,13 @@ def _read(folder: Path) -> StudioProcess | None:
             and (raw_scope["tsconfig"] is None or isinstance(raw_scope["tsconfig"], str))
             and isinstance(raw_scope["agent"], str)
             and raw_scope["agent"] in {agent.value for agent in AgentKind}
+            and (
+                raw_scope["collector_output_limit_bytes"] is None
+                or (
+                    type(raw_scope["collector_output_limit_bytes"]) is int
+                    and 0 < raw_scope["collector_output_limit_bytes"] <= MAX_RESPONSE_LIMIT_BYTES
+                )
+            )
         ):
             scope = StudioScope(
                 raw_scope["language"],
@@ -105,6 +122,11 @@ def _read(folder: Path) -> StudioProcess | None:
                 raw_scope["namespace"],
                 raw_scope["tsconfig"],
                 AgentKind(raw_scope["agent"]),
+                (
+                    raw_scope["collector_output_limit_bytes"]
+                    if raw_scope["collector_output_limit_bytes"] is not None
+                    else DEFAULT_RESPONSE_LIMIT_BYTES
+                ),
             )
         process = StudioProcess(
             pid=value["pid"],

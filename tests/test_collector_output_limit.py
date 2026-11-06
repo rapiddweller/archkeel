@@ -13,7 +13,7 @@ from test_onboarding import _repository
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
-from archkeel.cli import main
+from archkeel.cli import build_parser, main
 from archkeel.cli.config import ConfigError, parse_config
 from archkeel.cli.observe import observer_for
 from archkeel.ir.facts import Language
@@ -41,8 +41,8 @@ def test_configured_output_limit_keeps_a_finite_default(language: str, limit: in
     Draft202012Validator(schema).validate(tomllib.loads(payload))
 
 
-@pytest.mark.parametrize("value", ["0", "-1", "true", "false", "1.5", '"1000"', "[]"])
-def test_output_limit_rejects_nonpositive_or_noninteger_configuration(value: str) -> None:
+@pytest.mark.parametrize("value", ["0", "-1", "true", "false", "1.5", '"1000"', "[]", str(2**60)])
+def test_output_limit_rejects_out_of_range_or_noninteger_configuration(value: str) -> None:
     payload = CONFIG + f"collector_output_limit_bytes = {value}\n"
     with pytest.raises(ConfigError, match="collector_output_limit_bytes.*positive integer"):
         parse_config(payload.encode())
@@ -57,6 +57,8 @@ def test_init_persists_the_limit_that_made_its_scope_observable(tmp_path: Path, 
     assert main([*args, "1000"]) == 2
     failed = json.loads(capsys.readouterr().out)
     assert "1000 byte limit" in failed["diagnostics"][0]["unknown_claim"]
+    assert "--collector-output-limit-bytes" in failed["diagnostics"][0]["unknown_claim"]
+    assert "[scan]" not in failed["diagnostics"][0]["unknown_claim"]
     assert not (root / "archkeel.toml").exists()
     assert not (root / "architecture-contract.json").exists()
 
@@ -83,6 +85,8 @@ def test_configured_limit_bounds_the_same_complete_cli_scope(
     failed = json.loads(capsys.readouterr().out)
     assert failed["observation_complete"] == "UNKNOWN"
     assert "1000 byte limit" in failed["diagnostics"][0]["unknown_claim"]
+    assert "collector_output_limit_bytes" in failed["diagnostics"][0]["unknown_claim"]
+    assert "[scan]" in failed["diagnostics"][0]["unknown_claim"]
 
     config_path.write_text(config + "collector_output_limit_bytes = 10485760\n")
     assert main(args) == (0 if command == "report" else 2)
@@ -92,7 +96,7 @@ def test_configured_limit_bounds_the_same_complete_cli_scope(
     assert not any("byte limit" in item["unknown_claim"] for item in observed["diagnostics"])
 
 
-@pytest.mark.parametrize("value", ["0", "-1", "1.5", "unlimited"])
+@pytest.mark.parametrize("value", ["0", "-1", "1.5", "unlimited", str(2**60)])
 def test_init_rejects_invalid_output_limits_without_writing_files(
     tmp_path: Path, capsys, value: str
 ) -> None:
@@ -104,6 +108,21 @@ def test_init_rejects_invalid_output_limits_without_writing_files(
     assert not (root / "archkeel.toml").exists()
 
 
+@pytest.mark.parametrize("command", ["explore", "studio"])
+@pytest.mark.parametrize("value", ["0", "-1", "unlimited", str(2**60)])
+def test_per_run_collector_output_limit_must_be_finite_and_positive(
+    command: str, value: str
+) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        build_parser().parse_cli_args([command, "--collector-output-limit-bytes", value])
+
+
 def test_observer_carries_the_bundler_flag() -> None:
     assert observer_for(Language.TYPESCRIPT).bundler is False
     assert observer_for(Language.TYPESCRIPT, bundler=True).bundler is True
+
+
+@pytest.mark.parametrize("limit", [2**60, True])
+def test_process_collector_rejects_an_unsafe_or_overflowing_limit(limit: int | bool) -> None:
+    with pytest.raises(ValueError, match="collector output limit"):
+        ProcessCollector(("collector",), output_limit_bytes=limit)
