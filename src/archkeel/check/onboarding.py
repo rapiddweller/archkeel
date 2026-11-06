@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import tomllib
 from collections.abc import Iterable
@@ -60,7 +61,7 @@ from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
-from archkeel.ir.profiles import Language
+from archkeel.ir.profiles import Language, is_test_source
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 from archkeel.ir.structure import StructureLevel, StructureMetric, scope_metrics
 
@@ -77,6 +78,9 @@ GUIDE_PATH: Final = "docs/architecture/contract-guide.md"
 # AD-266: the plain sentence that says the adopted state was observed, not reviewed.
 ADOPTED_RATIONALE: Final = "Observed when the contract was drafted; not reviewed."
 _REQUIRES_COMPLETE_ID: Final = "REQUIRES-COMPLETE"
+_SOURCE_DISCOVERY_EXCLUDED_DIRS: Final = frozenset(
+    {".git", ".venv", "venv", "env", "docs", "build", "dist", "node_modules", "vendor"}
+)
 
 
 def _project_import_name(root: Path) -> str | None:
@@ -95,11 +99,11 @@ def detect_source(root: Path) -> tuple[str, str]:
     package named after the project when there are several (AD-47)."""
     src = root / "src"
     base = src if src.is_dir() else root
-    packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
+    packages = _python_source_roots(base)
     searched = [base.relative_to(root).as_posix()]
     if base == src and not packages:
         base = root
-        packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
+        packages = _python_source_roots(base)
         searched.append(base.relative_to(root).as_posix())
     name = _project_import_name(root)
     chosen = packages if len(packages) == 1 else [p for p in packages if p.name.lower() == name]
@@ -117,6 +121,57 @@ def detect_source(root: Path) -> tuple[str, str]:
             )
         )
     return chosen[0].relative_to(root).as_posix(), chosen[0].name
+
+
+def _python_source_roots(base: Path) -> list[Path]:
+    """Find immediate package roots, including production namespace packages."""
+    directories = sorted(
+        path
+        for path in base.iterdir()
+        if path.is_dir()
+        and not path.is_symlink()
+        and path.name.isidentifier()
+        and path.name not in _SOURCE_DISCOVERY_EXCLUDED_DIRS
+        and not is_test_source(path.name + "/__init__.py", Language.PYTHON)
+    )
+    roots = [
+        path
+        for path in directories
+        if (path / "__init__.py").is_file() and not (path / "__init__.py").is_symlink()
+    ]
+    for path in directories:
+        if (path / "__init__.py").is_file() and not (path / "__init__.py").is_symlink():
+            continue
+        if _contains_production_python(path, base):
+            roots.append(path)
+    return sorted(roots)
+
+
+def _contains_production_python(root: Path, base: Path) -> bool:
+    """Stop at a source file and prune tests, generated trees, dependencies and symlinks."""
+    for current, directories, files in os.walk(root, followlinks=False, onerror=_raise_walk_error):
+        current_path = Path(current)
+        relative = current_path.relative_to(base).as_posix()
+        directories[:] = [
+            name
+            for name in directories
+            if name not in _SOURCE_DISCOVERY_EXCLUDED_DIRS
+            and not name.startswith(".")
+            and not is_test_source(f"{relative}/{name}/__init__.py", Language.PYTHON)
+            and not (current_path / name).is_symlink()
+        ]
+        if any(
+            name.endswith(".py")
+            and not (current_path / name).is_symlink()
+            and not is_test_source(f"{relative}/{name}", Language.PYTHON)
+            for name in files
+        ):
+            return True
+    return False
+
+
+def _raise_walk_error(error: OSError) -> None:
+    raise error
 
 
 def scan_scope(

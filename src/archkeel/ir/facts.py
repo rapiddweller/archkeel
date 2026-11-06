@@ -1032,6 +1032,18 @@ class Record:
     data: RecordData
 
 
+def import_has_resolution_gap(
+    gaps: tuple[Record, ...], source_module: JsonValue, evidence_ids: tuple[str, ...]
+) -> bool:
+    """Return whether a collector gap already identifies this import site."""
+    return any(
+        gap.data.get("resolution_dimension") == SourceSectionName.IMPORTS
+        and gap.data.get("module") == source_module
+        and gap.evidence_ids == evidence_ids
+        for gap in gaps
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Evidence:
     id: str

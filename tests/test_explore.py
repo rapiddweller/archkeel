@@ -580,6 +580,54 @@ def test_explore_marks_imports_into_excluded_test_modules_unknown(
 
 
 @pytest.mark.parametrize(
+    "import_statement",
+    ["import shop.tests", "from shop import tests"],
+)
+def test_explore_keeps_namespace_test_package_import_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    import_statement: str,
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": f"{import_statement}\n",
+            "src/shop/tests/test_helper.py": "def helper() -> int:\n    return 1\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    gaps = [
+        item
+        for item in model.coverage.failures
+        if item.data.get("resolution_dimension") == "imports"
+    ]
+    assert len(gaps) == 1
+    assert "shop.tests" in gaps[0].title
+    evidence = {item.id: item for item in model.evidence}
+    assert any(evidence[item].file == "src/shop/app.py" for item in gaps[0].evidence_ids)
+    assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
+
+
+@pytest.mark.parametrize(
     ("import_statement", "test_path", "target_module"),
     [
         (

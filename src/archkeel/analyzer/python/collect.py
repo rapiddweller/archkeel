@@ -283,23 +283,23 @@ def _excluded_test_modules(
         if not source_root.is_dir():
             continue
         paths = set(source_root.rglob("*.py"))
-        for alias_directory in source_root.rglob("*"):
-            if not alias_directory.is_symlink() or not alias_directory.is_dir():
+        for directory in source_root.rglob("*"):
+            if not directory.is_dir():
                 continue
-            resolved_directory = alias_directory.resolve()
+            resolved_directory = directory.resolve()
             if not resolved_directory.is_relative_to(repository):
                 continue
-            alias_relative = alias_directory.relative_to(repository).as_posix()
+            relative = directory.relative_to(repository).as_posix()
             resolved_relative = resolved_directory.relative_to(repository).as_posix()
             if not (
-                is_test_source(f"{alias_relative}/__init__.py", Language.PYTHON)
+                is_test_source(f"{relative}/__init__.py", Language.PYTHON)
                 or is_test_source(f"{resolved_relative}/__init__.py", Language.PYTHON)
             ):
                 continue
             try:
                 prefixes.add(
                     module_for(
-                        alias_directory / "__init__.py",
+                        directory / "__init__.py",
                         root=repository,
                         namespace=namespace,
                     )

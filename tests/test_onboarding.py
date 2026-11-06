@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 import json
 import subprocess
+import tempfile
 from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import FrozenInstanceError
@@ -475,6 +476,62 @@ def test_detect_source_keeps_src_when_it_has_a_python_package(tmp_path: Path) ->
     (root / "pyproject.toml").write_text('[project]\nname = "shop"\n')
 
     assert detect_source(root) == ("src/shop", "shop")
+
+
+@pytest.mark.parametrize("ignored_root", ["docs", ".venv"])
+def test_detect_source_finds_namespace_package_without_scanning_irrelevant_roots(
+    tmp_path: Path, ignored_root: str
+) -> None:
+    (tmp_path / "shop" / "app").mkdir(parents=True)
+    (tmp_path / "shop" / "app" / "orders.py").touch()
+    decoy = tmp_path / ignored_root / "generated_package"
+    decoy.mkdir(parents=True)
+    (decoy / "__init__.py").touch()
+    (tmp_path / "pyproject.toml").write_text(f'[project]\nname = "{ignored_root}"\n')
+
+    assert detect_source(tmp_path) == ("shop", "shop")
+
+
+@pytest.mark.parametrize("decoy_root", [".tox", "bad-name"])
+def test_detect_source_ignores_hidden_and_non_identifier_roots(
+    tmp_path: Path, decoy_root: str
+) -> None:
+    (tmp_path / "shop" / "app").mkdir(parents=True)
+    (tmp_path / "shop" / "app" / "orders.py").touch()
+    decoy = tmp_path / decoy_root / "generated_package"
+    decoy.mkdir(parents=True)
+    (decoy / "__init__.py").touch()
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "unmatched"\n')
+
+    assert detect_source(tmp_path) == ("shop", "shop")
+
+
+def test_detect_source_does_not_follow_out_of_root_package_symlink(tmp_path: Path) -> None:
+    (tmp_path / "shop" / "app").mkdir(parents=True)
+    (tmp_path / "shop" / "app" / "orders.py").touch()
+    with tempfile.TemporaryDirectory(dir=tmp_path.parent) as external_dir:
+        external = Path(external_dir)
+        (external / "__init__.py").touch()
+        try:
+            (tmp_path / "linked_package").symlink_to(external, target_is_directory=True)
+        except OSError as error:
+            pytest.skip(f"directory symlinks unavailable: {error}")
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "linked-package"\n')
+
+        assert detect_source(tmp_path) == ("shop", "shop")
+
+
+def test_detect_source_stays_ambiguous_for_multiple_namespace_packages(tmp_path: Path) -> None:
+    for name in ("alpha", "beta"):
+        package = tmp_path / name / "api"
+        package.mkdir(parents=True)
+        (package / "routes.py").touch()
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "unmatched"\n')
+
+    with pytest.raises(DiagnosticError) as raised:
+        detect_source(tmp_path)
+
+    assert "found alpha, beta" in raised.value.diagnostic.unknown_claim
 
 
 def test_detect_source_names_root_search_when_src_has_no_python_package(tmp_path: Path) -> None:
