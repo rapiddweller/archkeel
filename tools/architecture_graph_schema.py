@@ -458,8 +458,43 @@ def graph_schema() -> dict[str, object]:
     return _schema(ArchitectureGraph, "architecture-graph", "Shared architecture graph")
 
 
-def target_schema() -> dict[str, object]:
-    return _schema(TargetDefinition, "architecture-target", "Independent UML declarations")
+def target_schema(
+    version: GraphSchemaVersion = GraphSchemaVersion.V1_4_0,
+) -> dict[str, object]:
+    schema = _schema(TargetDefinition, "architecture-target", "Independent UML declarations")
+    if version == GraphSchemaVersion.V1_4_0:
+        return schema
+    if version != GraphSchemaVersion.V1_3_0:
+        raise ValueError(f"unsupported generated target schema version: {version}")
+
+    schema["$id"] = "urn:archkeel:architecture-target:1.3.0"
+    _without_system_landscape_vocabulary(schema)
+    definitions = schema.get("$defs")
+    if not isinstance(definitions, dict):
+        raise ValueError("generated target schema has no definitions")
+    target_definition = definitions.get("TargetDefinition")
+    if not isinstance(target_definition, dict):
+        raise ValueError("generated target schema has no TargetDefinition")
+    properties = target_definition.get("properties")
+    if not isinstance(properties, dict):
+        raise ValueError("generated TargetDefinition has no properties")
+    version_schema = properties.get("schema_version")
+    if not isinstance(version_schema, dict):
+        raise ValueError("generated TargetDefinition has no schema_version")
+    versions = version_schema.get("enum")
+    if not isinstance(versions, list) or "1.4.0" not in versions:
+        raise ValueError("generated TargetDefinition has no 1.4.0 schema version")
+    versions.remove("1.4.0")
+    target_definition.pop("allOf")
+    relationship = definitions.get("Relationship")
+    if not isinstance(relationship, dict):
+        raise ValueError("generated target schema has no Relationship")
+    relationship_properties = relationship.get("properties")
+    if not isinstance(relationship_properties, dict):
+        raise ValueError("generated Relationship has no properties")
+    relationship_properties.pop("protocol")
+    relationship.pop("allOf")
+    return schema
 
 
 def comparison_schema() -> dict[str, object]:
@@ -1154,7 +1189,12 @@ def _update_contract_schema(path: Path) -> None:
         schema["$defs"]["forbiddenConstruct"]["properties"]["selector"] = {
             "$ref": "#/$defs/constructSelector"
         }
-    schema["$defs"]["uml"] = target_schema()
+    target_version = (
+        GraphSchemaVersion.V1_4_0
+        if version is not None and supports_feature(version, ContractFeature.SYSTEM_LANDSCAPE)
+        else GraphSchemaVersion.V1_3_0
+    )
+    schema["$defs"]["uml"] = target_schema(target_version)
     schema["$defs"]["declarations"]["properties"]["uml"] = {"$ref": "#/$defs/uml"}
     schema_versions = schema["properties"]["schema_version"]
     declared_versions = schema_versions.get("enum")
@@ -1191,26 +1231,6 @@ def _update_contract_schema(path: Path) -> None:
         all_of = schema.setdefault("allOf", [])
         if version_gate not in all_of:
             all_of.append(version_gate)
-    if version is not None and not supports_feature(version, ContractFeature.SYSTEM_LANDSCAPE):
-        system_landscape_gate = {
-            "properties": {
-                "declarations": {
-                    "properties": {
-                        "uml": {
-                            "not": {
-                                "properties": {
-                                    "schema_version": {"const": GraphSchemaVersion.V1_4_0.value}
-                                },
-                                "required": ["schema_version"],
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        all_of = schema.setdefault("allOf", [])
-        if system_landscape_gate not in all_of:
-            all_of.append(system_landscape_gate)
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
 
 

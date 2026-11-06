@@ -339,6 +339,7 @@ def test_explicit_origin_rename_comparison_preserves_shape_change_as_widening():
         "architecture-contract.schema.json",
         "architecture-contract-3.0.schema.json",
         "architecture-contract-3.1.schema.json",
+        "architecture-contract-3.15.schema.json",
     ],
 )
 def test_schema_refresh_preserves_version_vocabulary_and_repairs_owned_fragments(name, tmp_path):
@@ -369,6 +370,7 @@ def test_schema_refresh_preserves_version_vocabulary_and_repairs_owned_fragments
         "architecture-contract.schema.json",
         "architecture-contract-3.0.schema.json",
         "architecture-contract-3.1.schema.json",
+        "architecture-contract-3.15.schema.json",
     ],
 )
 def test_schema_refresh_retains_target_owned_root_constraints(name, tmp_path):
@@ -399,7 +401,11 @@ def test_schema_refresh_cli_updates_explicit_targets_and_keeps_single_target(rep
     names = ["architecture-contract.schema.json"]
     if repeated:
         names.extend(
-            ["architecture-contract-3.0.schema.json", "architecture-contract-3.1.schema.json"]
+            [
+                "architecture-contract-3.0.schema.json",
+                "architecture-contract-3.1.schema.json",
+                "architecture-contract-3.15.schema.json",
+            ]
         )
     for name in names:
         target = tmp_path / name
