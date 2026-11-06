@@ -831,7 +831,15 @@ def run_explore(
                 unknown_claim=error.diagnostic.unknown_claim + found,
             )
         ) from error
-    config = ScanConfig(roots, namespace, EXPLORE_CONTRACT, "", language, tsconfig)
+    config = ScanConfig(
+        roots,
+        namespace,
+        EXPLORE_CONTRACT,
+        "",
+        language,
+        tsconfig,
+        exclude_test_sources=language in {Language.PYTHON, Language.TYPESCRIPT},
+    )
     with TemporaryDirectory(prefix="archkeel-explore-") as temporary:
         scaffold = Path(temporary)
         contract: Path = scaffold / EXPLORE_CONTRACT

@@ -50,6 +50,7 @@ from archkeel.ir.facts_codec import (
     record_evidence,
 )
 from archkeel.ir.identity import module_identity
+from archkeel.ir.profiles import is_test_source
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
 from .config import (
@@ -64,9 +65,11 @@ from .config import (
 from .parse import parse, umd_publication
 from .resolve import Found, Resolver, Unknown
 from .source_input import (
+    FileSuffix,
     ModuleFormat,
     PathToken,
     SourceKind,
+    SpecifierInfo,
     SpecifierKind,
     classify_asset,
     classify_file,
@@ -225,7 +228,7 @@ class _Collection:
             and self.config.options.resolution is ModuleResolution.BUNDLER
         )
         # Every file to read, in discovery order; an entry added while walking is walked too.
-        self.queue: list[str] = list(self.config.files)
+        self.queue: list[str] = [rel for rel in self.config.files if self._selected(rel)]
         self.evidence: dict[str, RawEvidence] = {}
         self.imports: list[RawRecord] = []
         self.gaps: dict[str, RawRecord] = {}
@@ -1893,9 +1896,34 @@ class _Collection:
         )
 
     def _selected(self, rel: str) -> bool:
-        return not self.snapshot.installed(rel) and any(within(root, rel) for root in self.roots)
+        resolved = self.snapshot.real(rel)
+        return (
+            not self.snapshot.installed(rel)
+            and any(within(root, rel) for root in self.roots)
+            and not (
+                self.request.scope.exclude_test_sources
+                and (
+                    is_test_source(rel, Language.TYPESCRIPT)
+                    or (resolved is not None and is_test_source(resolved, Language.TYPESCRIPT))
+                )
+            )
+        )
 
-    def _observe(self, rel: str) -> bytes | None:
+    def _excluded_test(self, rel: str) -> bool:
+        if not self.request.scope.exclude_test_sources:
+            return False
+        resolved = self.snapshot.real(rel)
+        return is_test_source(rel, Language.TYPESCRIPT) or (
+            resolved is not None and is_test_source(resolved, Language.TYPESCRIPT)
+        )
+
+    def _observe(
+        self,
+        rel: str,
+        *,
+        evidence: tuple[str, ...] = (),
+        module: str = "",
+    ) -> bytes | None:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
         suffix = classify_file(rel)
@@ -1908,10 +1936,18 @@ class _Collection:
             if rel not in self.queue:
                 self.queue.append(rel)
         elif content is not None:
-            self._gap(
-                f"Local dependency outside selected source scope: {rel}",
-                kind=_GapKind.RESOLUTION,
-            )
+            if self._excluded_test(rel):
+                self._gap(
+                    f"Production import targets excluded test source: {rel}",
+                    evidence,
+                    module,
+                    kind=_GapKind.RESOLUTION,
+                )
+            else:
+                self._gap(
+                    f"Local dependency outside selected source scope: {rel}",
+                    kind=_GapKind.RESOLUTION,
+                )
         return content
 
     def _file(self, rel: str) -> None:
@@ -2159,28 +2195,12 @@ class _Collection:
         source = classify_specifier(specifier)
         path: str = found.path
         suffix = classify_file(path)
-        if self.snapshot.read(path) is None:
-            return self._unresolved(
-                module, identity, specifier, f"Unavailable local target: {specifier}"
-            )
-        if any(
-            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")
-        ) or (not self._selected(path) and found.external):
-            if source.kind is SpecifierKind.IMPORTS:
-                reason = f"External package alias identity is not observed: {specifier}"
-            elif source.relative:
-                reason = f"Unidentified external package: {specifier}"
-            else:
-                return ExternalPackageTarget(identity, source.package)
-            return self._unresolved(module, identity, specifier, reason)
-        if self.bundler and not (
-            self._selected(path) and suffix is not None and suffix.source_kind is not None
-        ):
-            if classify_asset(path) is not None:
-                return ExternalPackageTarget(identity, BUNDLER_ASSET)
-            if found.via_paths and not source.relative and source.npm_package:
-                # A workspace alias outside the scan roots is a dependency on that package.
-                return ExternalPackageTarget(identity, source.package)
+        target = self._excluded_test_target(rel, module, reference, identity, specifier, path)
+        if target is not None:
+            return target
+        target = self._other_local_target(module, identity, specifier, source, path, suffix, found)
+        if target is not None:
+            return target
         type_only = reference.type_only
         relative = source.relative_path
         lookup = join(posixpath.dirname(rel) or ".", specifier)
@@ -2196,7 +2216,14 @@ class _Collection:
             # Compiler substitution does not prove the file Node loads.
             if explicit and self.snapshot.is_file(lookup):
                 real = self.snapshot.real(lookup) or lookup
-                if self._observe(real) is not None:
+                if (
+                    self._observe(
+                        real,
+                        evidence=(self._cite(rel, reference.span),),
+                        module=module,
+                    )
+                    is not None
+                ):
                     runtime = real
             elif declaration or (explicit and direct):
                 runtime = None
@@ -2206,7 +2233,11 @@ class _Collection:
                     else f"CommonJS runtime file is unavailable: {specifier}",
                     kind=_GapKind.RESOLUTION,
                 )
-        self._observe(path)
+        self._observe(
+            path,
+            evidence=(self._cite(rel, reference.span),),
+            module=module,
+        )
         alias_proven = self.bundler and found.via_paths and not found.directory_package
         # A bundler resolves `.` and `..` like `./index`; Node does not prove them.
         proven_relative = relative or (self.bundler and source.relative)
@@ -2227,3 +2258,63 @@ class _Collection:
         return LocalTarget(
             identity, module_identity(self.namespace, file), file, runtime, declaration
         )
+
+    def _excluded_test_target(
+        self,
+        rel: str,
+        module: str,
+        reference: Reference,
+        identity: str,
+        specifier: str,
+        path: str,
+    ) -> ImportTarget | None:
+        if self.snapshot.installed(path) or not self._excluded_test(path):
+            return None
+        if (
+            self._observe(
+                path,
+                evidence=(self._cite(rel, reference.span),),
+                module=module,
+            )
+            is None
+        ):
+            return self._unresolved(
+                module,
+                identity,
+                specifier,
+                f"Excluded test source is unavailable: {path}",
+            )
+        return UnresolvedTarget(identity, specifier, f"Excluded test source: {path}")
+
+    def _other_local_target(
+        self,
+        module: str,
+        identity: str,
+        specifier: str,
+        source: SpecifierInfo,
+        path: str,
+        suffix: FileSuffix | None,
+        found: Found,
+    ) -> ImportTarget | None:
+        if self.snapshot.read(path) is None:
+            return self._unresolved(
+                module, identity, specifier, f"Unavailable local target: {specifier}"
+            )
+        if any(
+            PathToken.parse(segment) is PathToken.NODE_MODULES for segment in path.split("/")
+        ) or (not self._selected(path) and found.external):
+            if source.kind is SpecifierKind.IMPORTS:
+                reason = f"External package alias identity is not observed: {specifier}"
+            elif source.relative:
+                reason = f"Unidentified external package: {specifier}"
+            else:
+                return ExternalPackageTarget(identity, source.package)
+            return self._unresolved(module, identity, specifier, reason)
+        if self.bundler and not (
+            self._selected(path) and suffix is not None and suffix.source_kind is not None
+        ):
+            if classify_asset(path) is not None:
+                return ExternalPackageTarget(identity, BUNDLER_ASSET)
+            if found.via_paths and not source.relative and source.npm_package:
+                return ExternalPackageTarget(identity, source.package)
+        return None

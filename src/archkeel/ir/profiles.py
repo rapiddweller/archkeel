@@ -8,9 +8,11 @@ silent PASS) and `check` reads it to leave a scalar the profile never measured `
 than 0. One table, so the two can never disagree about what a Dart scan saw.
 """
 
+import re
 import sys
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import PurePosixPath
 from typing import Final, Literal, TypeAlias
 
 from .facts import Language as Language
@@ -32,6 +34,19 @@ DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupli
 PYTHON_ANALYZER: Final = SourceProfile.PYTHON.value
 DART_ANALYZER: Final = SourceProfile.DART.value
 TYPESCRIPT_ANALYZER: Final = SourceProfile.TYPESCRIPT.value
+
+
+def is_test_source(path: str, language: Language) -> bool:
+    """Recognize test files by directory or the language's supported file convention."""
+    parts = PurePosixPath(path).parts
+    if any(part in {"test", "tests", "__tests__"} for part in parts[:-1]):
+        return True
+    name = parts[-1] if parts else ""
+    if language is Language.PYTHON:
+        return (name.startswith("test_") and name.endswith(".py")) or name.endswith("_test.py")
+    if language is Language.TYPESCRIPT:
+        return re.search(r"\.(?:test|spec)\.[^.]+$", name) is not None
+    return False
 
 
 @dataclass(frozen=True, slots=True)

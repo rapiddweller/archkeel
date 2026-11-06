@@ -30,6 +30,7 @@ from archkeel.ir.facts import (
     SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
+    import_has_resolution_gap,
     parse_source_resolution,
 )
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
@@ -1090,11 +1091,23 @@ def evaluate_source(
     unresolved_targets = {
         target.import_id: target for target in facts.imports if isinstance(target, UnresolvedTarget)
     }
+    import_records = {
+        record.id: record
+        for section in facts.sections
+        if section.name is SourceSectionName.IMPORTS
+        for record in section.records
+    }
     unresolved_imports = [item for item in imports if item["id"] in unresolved_targets]
     imports = [item for item in imports if item["id"] not in unresolved_targets]
     for item in unresolved_imports:
         unresolved = unresolved_targets[item["id"]]
         item["data"]["resolution"] = "unresolved"
+        import_record = import_records[item["id"]]
+        source_module = item["data"]["source_module"]
+        if import_has_resolution_gap(
+            facts.coverage.gaps, source_module, import_record.evidence_ids
+        ):
+            continue
         failures.append(
             classified(
                 item_id=stable_id("UNKNOWN-IMPORT", item["id"]),

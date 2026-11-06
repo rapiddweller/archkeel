@@ -236,7 +236,7 @@ def test_import_survey_rejects_provider_sources_and_keeps_positional_settings(
         _request_validator.validate(payload)
 
 
-@pytest.mark.parametrize("version", ["0.0.0", "9.0.0", None, True])
+@pytest.mark.parametrize("version", ["0.0.0", "10.0.0", None, True])
 def test_collection_request_rejects_incompatible_version(version: object) -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_request
 
@@ -540,12 +540,12 @@ def test_encoders_reject_unsupported_versions(tmp_path) -> None:
         SnapshotInput("/source-project", "a" * 40, False),
         SourceScope(("src",), "project"),
         PythonSettings(),
-        "9.0.0",
+        "10.0.0",
     )
     with pytest.raises(ProtocolError, match="version"):
         encode_request(request)
     with pytest.raises(ProtocolError, match="version"):
-        encode_response(CollectionResponse(_facts(tmp_path), "9.0.0"))
+        encode_response(CollectionResponse(_facts(tmp_path), "10.0.0"))
 
 
 def test_legacy_encoder_rejects_nondefault_runtime_state(tmp_path) -> None:
@@ -968,6 +968,26 @@ def test_v8_request_roundtrips_with_features(_request_validator) -> None:
     assert decode_request(encoded) == request
 
 
+def test_v9_request_carries_explore_scope_without_changing_v8() -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.facts_codec import ProtocolError, decode_request, encode_request
+    from archkeel.ir.protocol import ProtocolVersion, SourceScope
+
+    request = replace(
+        decode_request(_request()),
+        protocol_version=ProtocolVersion.V9,
+        scope=SourceScope(("src",), "project", exclude_test_sources=True),
+    )
+    encoded = encode_request(request)
+    assert json.loads(encoded)["scope"]["exclude_test_sources"] is True
+    assert decode_request(encoded) == request
+
+    legacy = replace(request, protocol_version=ProtocolVersion.V8)
+    with pytest.raises(ProtocolError, match="require collection protocol 9"):
+        encode_request(legacy)
+
+
 def test_v8_response_is_zlib_framed_ordinary_facts(_request_validator) -> None:
     from archkeel.ir.facts_codec import decode_response, encode_response
 
@@ -1025,13 +1045,13 @@ def test_every_protocol_version_decodes_what_it_encodes(version: str) -> None:
     assert decode_response(encode_response(response)) == response
 
 
-def test_only_v8_responses_are_compressed() -> None:
+def test_only_v8_and_v9_responses_are_compressed() -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
 
     plain_v8 = zlib.decompress(encode_response(_response_with("8.0.0")))
-    with pytest.raises(ProtocolError, match="only collection protocol 8.0.0"):
+    with pytest.raises(ProtocolError, match="only collection protocols 8.0.0 and 9.0.0"):
         decode_response(plain_v8)
-    with pytest.raises(ProtocolError, match="only collection protocol 8.0.0"):
+    with pytest.raises(ProtocolError, match="only collection protocols 8.0.0 and 9.0.0"):
         decode_response(zlib.compress(encode_response(_response_with("7.0.0")), 1))
 
 

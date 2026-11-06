@@ -149,6 +149,7 @@
         "archkeel.ir.profiles:Language",
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
+        "archkeel.ir.profiles:is_test_source",
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
         "archkeel.ir.profiles:ObservedSection"
@@ -4494,7 +4495,7 @@
           ],
           "presence": "planned",
           "responsibilities": [
-            "Select source roots and their namespace without architecture policy."
+            "Select source roots, their namespace and optional test-source exclusion without architecture policy."
           ],
           "provenance": [
             "docs/architecture/language-adapter-target.md"
@@ -4533,6 +4534,25 @@
           "presence": "planned",
           "responsibilities": [
             "Carry namespace as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "scope.exclude-test-sources",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SourceScope.exclude_test_sources",
+          "language": "python",
+          "parent_id": "scope",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool",
+          "presence": "planned",
+          "responsibilities": [
+            "Request test-source exclusion as source scope data."
           ],
           "provenance": [
             "docs/architecture/language-adapter-target.md"

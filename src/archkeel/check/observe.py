@@ -22,7 +22,9 @@ from archkeel.ir.facts import (
     RULE_FAMILY_NOT_COLLECTED_KIND,
     SOURCE_RESOLUTION_GAP_KIND,
     SourceFacts,
+    SourceSectionName,
     UnresolvedTarget,
+    import_has_resolution_gap,
 )
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.model import (
@@ -48,6 +50,7 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     DartSettings,
+    ProtocolVersion,
     PythonSettings,
     ResolverSettings,
     SnapshotInput,
@@ -247,10 +250,21 @@ def _partial_uml_source_is_eligible(
     source_gap_ids = {item.id for item in gaps}
     if any(failures.get(item.id) != item for item in gaps):
         return False
+    imports = {
+        record.id: record
+        for section in facts.sections
+        if section.name is SourceSectionName.IMPORTS
+        for record in section.records
+    }
     derived_ids = {
         stable_id("UNKNOWN-IMPORT", item.import_id)
         for item in facts.imports
         if isinstance(item, UnresolvedTarget)
+        and not import_has_resolution_gap(
+            gaps,
+            imports[item.import_id].data.get("source_module"),
+            imports[item.import_id].evidence_ids,
+        )
     }
     if set(failures) != source_gap_ids | derived_ids:
         return False
@@ -300,6 +314,7 @@ def _observe(
     contract_root: Path,
     language: Language = Language.PYTHON,
     bundler: bool = False,
+    exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
     source_root = source_root.resolve()
@@ -340,8 +355,9 @@ def _observe(
         )
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
-            SourceScope(roots, namespace),
+            SourceScope(roots, namespace, exclude_test_sources),
             resolver,
+            ProtocolVersion.V9 if exclude_test_sources else ProtocolVersion.V3,
         )
         facts = collector.collect(request)
         if isinstance(facts, CollectionError):
@@ -409,6 +425,7 @@ class Observer:
         dirty: bool,
         contract_root: Path,
         language: Language = Language.PYTHON,
+        exclude_test_sources: bool = False,
     ) -> ObservationResult:
         return _observe(
             self.collector,
@@ -422,5 +439,6 @@ class Observer:
             contract_root=contract_root,
             language=language,
             bundler=self.bundler,
+            exclude_test_sources=exclude_test_sources,
             clock=self.clock,
         )

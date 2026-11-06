@@ -74,6 +74,21 @@ def _repository(root: Path, files: dict[str, str] = _SOURCES, *, commit: bool = 
     return root
 
 
+def _repository_with_symlink(root: Path, files: dict[str, str], link: str, target: str) -> Path:
+    repository = _repository(root, files, commit=False)
+    try:
+        link_path = repository / link
+        target_path = repository / target
+        link_path.symlink_to(
+            os.path.relpath(target_path, link_path.parent), target_is_directory=target_path.is_dir()
+        )
+    except (NotImplementedError, OSError) as error:
+        pytest.skip(f"symlinks unavailable: {error}")
+    _git(repository, "add", ".")
+    _git(repository, "commit", "-qm", "snapshot")
+    return repository
+
+
 def _explore(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, dict]:
     code = main(["explore", *args, "--json"])
     return code, json.loads(capsys.readouterr().out)
@@ -427,6 +442,483 @@ def test_explore_reads_a_typescript_project_through_the_init_options(
     assert code == 0, payload["diagnostics"]
     assert (payload["target"], payload["declared_rules"]) == ("unavailable", "UNKNOWN")
     assert architecture_report(_snapshot(tmp_path / "out" / "architecture.json")).memberships
+
+
+@pytest.mark.parametrize("language", ["python", "typescript"])
+def test_explore_excludes_tests_but_keeps_production_and_marks_boundary_unknown(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], language: str
+) -> None:
+    files = {
+        "src/shop/latest.py": (
+            "from .test_support import value\n\ndef latest() -> int:\n    return value()\n"
+        ),
+        "src/shop/__init__.py": "",
+        "src/shop/test_support.py": "def value() -> int:\n    return 1\n",
+        "src/shop/tests/__init__.py": "",
+        "src/shop/tests/test_inner.py": "def test_inner() -> None:\n    pass\n",
+        "tests/test_outer.py": "def test_outer() -> None:\n    pass\n",
+    }
+    options = []
+    excluded = {
+        "src/shop/test_support.py",
+        "src/shop/tests/test_inner.py",
+        "tests/test_outer.py",
+    }
+    if language == "typescript":
+        files = {
+            "src/shop/latest.ts": (
+                'import { value } from "./testSupport.test";\n'
+                "export function latest(): number { return value(); }\n"
+            ),
+            "src/shop/testSupport.test.ts": "export function value(): number { return 1; }\n",
+            "src/shop/__tests__/inner.test.ts": "export const testInner = 1;\n",
+            "tests/outer.test.ts": "export const testOuter = 1;\n",
+            "tsconfig.json": json.dumps({"include": ["src/**/*.ts", "tests/**/*.ts"]}),
+        }
+        options = [
+            "--language",
+            language,
+            "--source",
+            "src",
+            "--namespace",
+            "shop",
+            "--tsconfig",
+            "tsconfig.json",
+        ]
+        excluded = {
+            "src/shop/testSupport.test.ts",
+            "src/shop/__tests__/inner.test.ts",
+            "tests/outer.test.ts",
+        }
+        production = "src/shop/latest.ts"
+    else:
+        files["pyproject.toml"] = '[project]\nname = "shop"\n'
+        production = "src/shop/latest.py"
+    root = _repository(tmp_path / "repo", files)
+
+    code, payload = _explore(
+        capsys, "--root", str(root), "--output", str(tmp_path / "out"), *options
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    observed = {item.data.get("file") for item in model.records("modules") or ()}
+    assert production in observed
+    assert not (excluded & observed)
+    if language == "typescript":
+        gaps = [
+            item
+            for item in model.coverage.failures
+            if item.kind == "source_resolution_gap" and "testSupport.test.ts" in item.title
+        ]
+        assert len(gaps) == 1
+        evidence = {item.id: item for item in model.evidence}
+        assert any(evidence[item].file == production for item in gaps[0].evidence_ids)
+        assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
+    # A production import into excluded test code keeps the implementation scope incomplete.
+
+
+@pytest.mark.parametrize(
+    "import_statement",
+    [
+        "from .tests import helper as support",
+        "from shop.tests import helper as support",
+    ],
+)
+def test_explore_marks_imports_into_excluded_test_modules_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    import_statement: str,
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/latest.py": (
+                f"{import_statement}\n\ndef latest() -> int:\n    return support.value()\n"
+            ),
+            "src/shop/tests/helper.py": "def value() -> int:\n    return 1\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    production = next(
+        item
+        for item in model.records("modules") or ()
+        if item.data.get("file") == "src/shop/latest.py"
+    )
+    gaps = [
+        item
+        for item in model.coverage.failures
+        if item.data.get("resolution_dimension") == "imports"
+    ]
+    assert len(gaps) == 1
+    assert gaps[0].data.get("source_module") == production.data.get("qualified_name")
+    assert "excluded test source" in gaps[0].title
+    assert gaps[0].evidence_ids
+    assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
+
+
+def test_explore_does_not_mistake_package_attribute_for_excluded_test_module(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "test_support = 1\n",
+            "src/shop/latest.py": (
+                "from shop import test_support\n\ndef latest() -> int:\n    return test_support\n"
+            ),
+            "src/shop/test_support.py": "def test_support() -> int:\n    return 2\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 0, payload
+    assert payload["observation_complete"] == "PASS"
+    model = _snapshot(tmp_path / "out" / "architecture.json")
+    observed = {item.data.get("file") for item in model.records("modules") or ()}
+    assert "src/shop/latest.py" in observed
+    assert "src/shop/test_support.py" not in observed
+    assert not any(item.kind == "source_resolution_gap" for item in model.coverage.failures)
+
+
+@pytest.mark.parametrize(
+    "import_statement",
+    ["import shop.tests", "from shop import tests"],
+)
+def test_explore_keeps_namespace_test_package_import_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    import_statement: str,
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": f"{import_statement}\n",
+            "src/shop/tests/test_helper.py": "def helper() -> int:\n    return 1\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    gaps = [
+        item
+        for item in model.coverage.failures
+        if item.data.get("resolution_dimension") == "imports"
+    ]
+    assert len(gaps) == 1
+    assert "shop.tests" in gaps[0].title
+    evidence = {item.id: item for item in model.evidence}
+    assert any(evidence[item].file == "src/shop/app.py" for item in gaps[0].evidence_ids)
+    assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
+
+
+@pytest.mark.parametrize(
+    ("import_statement", "test_path", "target_module"),
+    [
+        (
+            "import tests.test_helper as support",
+            "src/tests/test_helper.py",
+            "tests.test_helper",
+        ),
+        (
+            "from tests import helper as support",
+            "src/tests/helper.py",
+            "tests.helper",
+        ),
+    ],
+)
+def test_explore_keeps_unmapped_test_imports_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    import_statement: str,
+    test_path: str,
+    target_module: str,
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/latest.py": (
+                f"{import_statement}\n\ndef latest() -> int:\n    return support.value()\n"
+            ),
+            test_path: "def value() -> int:\n    return 1\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    gaps = [
+        item
+        for item in model.coverage.failures
+        if item.data.get("resolution_dimension") == "imports"
+    ]
+    assert len(gaps) == 1
+    assert target_module in gaps[0].title
+    assert gaps[0].evidence_ids
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        'import importlib\nimportlib.import_module("shop.tests.helper")',
+        'import importlib\n__import__("shop.tests.helper")',
+    ],
+)
+def test_explore_keeps_dynamic_imports_of_excluded_tests_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    statement: str,
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": f"{statement}\n",
+            "src/shop/tests/helper.py": "value = 1\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    model = _snapshot(tmp_path / "out" / "architecture.json")
+    gaps = [item for item in model.coverage.failures if "excluded test source" in item.title]
+    assert len(gaps) == 1
+    assert gaps[0].evidence_ids
+
+
+@pytest.mark.parametrize(
+    ("language", "alias_kind"),
+    [
+        ("python", "file"),
+        ("python", "directory"),
+        ("typescript", "file"),
+        ("typescript", "directory"),
+    ],
+)
+def test_explore_symlink_alias_to_test_source_stays_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    language: str,
+    alias_kind: str,
+) -> None:
+    if language == "python" and alias_kind == "file":
+        files = {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": "from shop.latest import value\n\nvalue()\n",
+            "src/shop/tests/test_latest.py": "def value() -> int:\n    return 1\n",
+        }
+        link, target, alias = (
+            "src/shop/latest.py",
+            "src/shop/tests/test_latest.py",
+            "src/shop/latest.py",
+        )
+    elif language == "python":
+        files = {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": "from shop.latest.helper import value\n\nvalue()\n",
+            "src/shop/tests/__init__.py": "",
+            "src/shop/tests/helper.py": "def value() -> int:\n    return 1\n",
+        }
+        link, target, alias = (
+            "src/shop/latest",
+            "src/shop/tests",
+            "src/shop/latest/helper.py",
+        )
+    elif alias_kind == "file":
+        files = {
+            "src/shop/app.ts": 'import { value } from "./latest";\nvalue();\n',
+            "src/shop/tests/latest.test.ts": "export function value(): number { return 1; }\n",
+            "tsconfig.json": json.dumps({"include": ["src/**/*.ts"]}),
+        }
+        link, target, alias = (
+            "src/shop/latest.ts",
+            "src/shop/tests/latest.test.ts",
+            "src/shop/latest.ts",
+        )
+    else:
+        files = {
+            "src/shop/app.ts": 'import { value } from "./latest/helper";\nvalue();\n',
+            "src/shop/tests/helper.ts": "export function value(): number { return 1; }\n",
+            "tsconfig.json": json.dumps({"include": ["src/**/*.ts"]}),
+        }
+        link, target, alias = (
+            "src/shop/latest",
+            "src/shop/tests",
+            "src/shop/latest/helper.ts",
+        )
+    root = _repository_with_symlink(tmp_path / "repo", files, link, target)
+    options = (
+        [
+            "--language",
+            "typescript",
+            "--source",
+            "src",
+            "--namespace",
+            "shop",
+            "--tsconfig",
+            "tsconfig.json",
+        ]
+        if language == "typescript"
+        else ["--source", "src", "--namespace", "shop"]
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        *options,
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    observed = {item.data.get("file") for item in model.records("modules") or ()}
+    assert alias not in observed
+    gaps = [item for item in model.coverage.failures if "excluded test source" in item.title]
+    assert len(gaps) == 1
+    evidence = {item.id: item for item in model.evidence}
+    suffix = "ts" if language == "typescript" else "py"
+    assert any(evidence[item].file.endswith(f"app.{suffix}") for item in gaps[0].evidence_ids)
+    assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
+
+
+@pytest.mark.parametrize("alias_kind", ["file", "directory"])
+def test_explore_symlink_to_test_outside_source_root_stays_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    alias_kind: str,
+) -> None:
+    if alias_kind == "file":
+        files = {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": "from shop.latest import value\n\nvalue()\n",
+            "tests/test_latest.py": "def value() -> int:\n    return 1\n",
+        }
+        link, target, alias = (
+            "src/shop/latest.py",
+            "tests/test_latest.py",
+            "src/shop/latest.py",
+        )
+    else:
+        files = {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": "from shop.latest.helper import value\n\nvalue()\n",
+            "tests/helper.py": "def value() -> int:\n    return 1\n",
+        }
+        link, target, alias = "src/shop/latest", "tests", "src/shop/latest/helper.py"
+    root = _repository_with_symlink(tmp_path / "repo", files, link, target)
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    assert payload["observation_complete"] == "UNKNOWN"
+    artifact = tmp_path / "out" / "architecture.json"
+    assert artifact.exists(), json.dumps(payload["diagnostics"])
+    model = _snapshot(artifact)
+    observed = {item.data.get("file") for item in model.records("modules") or ()}
+    assert alias not in observed
+    gaps = [item for item in model.coverage.failures if "excluded test source" in item.title]
+    assert len(gaps) == 1
+    evidence = {item.id: item for item in model.evidence}
+    assert any(evidence[item].file == "src/shop/app.py" for item in gaps[0].evidence_ids)
+    assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
 
 
 def test_explore_accepts_a_finite_collector_output_limit(
