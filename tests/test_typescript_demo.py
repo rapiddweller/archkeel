@@ -584,6 +584,7 @@ def test_native_typescript_uses_v8_compression_and_explicit_collector_keeps_v3(
     from archkeel.ir.facts_codec import decode_response
     from archkeel.ir.profiles import Language
     from archkeel.ir.protocol import (
+        CollectionError,
         CollectionRequest,
         CollectionResponse,
         ProtocolVersion,
@@ -628,6 +629,20 @@ def test_native_typescript_uses_v8_compression_and_explicit_collector_keeps_v3(
     assert custom.protocol_version is ProtocolVersion.V3
     assert compressed.facts == custom.facts
     assert len(frames[0]) < len(frames[1])
+
+    bounded_native = observer_for(Language.TYPESCRIPT, output_limit_bytes=8 * 1024).collector
+    bounded_custom = observer_for(
+        Language.TYPESCRIPT,
+        collector_argv=native.argv,
+        output_limit_bytes=8 * 1024,
+    ).collector
+    bounded_result = bounded_native.collect_response(request)
+    assert isinstance(bounded_result, CollectionResponse)
+    assert bounded_result.protocol_version is ProtocolVersion.V8
+    over_limit_result = bounded_custom.collect_response(request)
+    assert isinstance(over_limit_result, CollectionError)
+    assert over_limit_result.kind == "protocol_error"
+    assert "limit" in over_limit_result.message
 
 
 def test_same_snapshot_produces_identical_observation(tmp_path: Path) -> None:

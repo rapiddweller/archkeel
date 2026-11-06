@@ -168,6 +168,19 @@ def test_typescript_explore_demo_sets_a_finite_collector_limit(
     assert output.is_file()
 
 
+def test_typescript_v8_transport_demo_fits_an_8_kib_limit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "architecture.json"
+    variant = next(item for item in EXPLORE_VARIANTS if item.id == "explore-typescript-v8-8kib")
+
+    assert replay(variant.id, output) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["observation_complete"] == "PASS"
+    assert output.is_file()
+
+
 def test_explore_never_writes_into_the_repository(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

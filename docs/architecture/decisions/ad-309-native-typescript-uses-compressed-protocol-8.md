@@ -9,7 +9,9 @@ remains the trust boundary for response validation, compressed-byte limits, deco
 and damaged frames.
 
 **Reason.** TypeScript facts use the existing JSON envelope. Protocol 8 compresses that envelope
-with the bounded codec. Incremental JSON encoding avoids a full JSON string and byte copy.
+with the bounded codec. Incremental JSON encoding avoids a full JSON string and byte copy. The
+existing `0x78` zlib header remains the wire marker ([wire vocabulary](../collector-wire-vocabulary.md),
+[AD-259](ad-259-one-plain-wire-one-validation.md)).
 
 **Measurement.** Three separate-process pairs used the public TypeScript fixture and 30,000
 synthetic 1 KiB evidence entries. Both variants decoded to the same facts and plain JSON digest.
@@ -19,6 +21,8 @@ Median encode time rose from 0.257 s to 0.450 s. This measures the fixture and e
 **Limit.** A separate Platform scan stopped at the 1.5 GiB RSS guard. Its 2.8 GiB sampled peak
 does not identify the phase that used memory. This change does not claim to solve that scan.
 
-**Check.** The public TypeScript fixture checks that built-in V8 is smaller than explicit V3 and
-decodes to the same facts. Process tests reject version mismatch. Codec tests cover damaged and
-oversized frames and preserve the 16x decompression bound.
+**Check.** The public TypeScript fixture produced 5,625 V8 bytes and 28,654 V3 bytes locally; both
+decode to the same facts. Its Explore catalog row succeeds under an 8 KiB limit, and the V3
+comparison exceeds that limit. These sizes describe this fixture, not a general ratio. Process
+tests reject version mismatch. Codec tests cover damaged and oversized frames and preserve the
+16x decompression bound.
