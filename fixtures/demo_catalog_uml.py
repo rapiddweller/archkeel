@@ -15,6 +15,33 @@ PLANNED_COMPONENT_FIXTURE = UML_FIXTURE_DIR.with_name("planned-component")
 PLANNED_COMPONENT_POLICY_FIXTURE = UML_FIXTURE_DIR.with_name("planned-component-policy")
 CORE_SOURCE = (UML_FIXTURE_DIR / "demo/core.py").read_text()
 
+_LEGACY_1_3_SCOPE_ENTITY_KINDS = (
+    EntityKind.PACKAGE,
+    EntityKind.MODULE,
+    EntityKind.CLASS,
+    EntityKind.INTERFACE,
+    EntityKind.ENUM,
+    EntityKind.MIXIN,
+    EntityKind.ENUM_LITERAL,
+    EntityKind.METHOD,
+    EntityKind.FUNCTION,
+    EntityKind.ATTRIBUTE,
+    EntityKind.TYPE_ALIAS,
+    EntityKind.CONSTANT,
+    EntityKind.BINDING,
+)
+_LEGACY_1_3_SCOPE_RELATIONSHIP_KINDS = (
+    RelationshipKind.IMPORTS,
+    RelationshipKind.CALLS,
+    RelationshipKind.REFERENCES,
+    RelationshipKind.INHERITS,
+    RelationshipKind.REALIZES,
+    RelationshipKind.MIXES_IN,
+    RelationshipKind.CREATES,
+    RelationshipKind.INSTANCE_OF,
+    RelationshipKind.OWNS,
+)
+
 VARIANTS = tuple(
     Variant(
         id=identity,
@@ -166,14 +193,8 @@ for scope in ("demo-component", "init-module", "core-module", "app-module"):
             "mode": "closed",
             "rationale": "Declare every static demo definition and use.",
             "provenance": ["docs/target.md"],
-            "entity_kinds": [
-                kind for kind in EntityKind if kind not in {EntityKind.COMPONENT, EntityKind.SYMBOL}
-            ],
-            "relationship_kinds": [
-                kind
-                for kind in RelationshipKind
-                if kind not in {RelationshipKind.REQUIRES, RelationshipKind.PUBLISHES}
-            ],
+            "entity_kinds": list(_LEGACY_1_3_SCOPE_ENTITY_KINDS),
+            "relationship_kinds": list(_LEGACY_1_3_SCOPE_RELATIONSHIP_KINDS),
         }
     )
 complete_contract["declarations"]["modules"] = [

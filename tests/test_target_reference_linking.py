@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: MIT
 """Target references bind to one independently declared definition."""
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 
 import pytest
 
 from archkeel.ir.architecture_graph import Entity, Relationship, Signature, TargetDefinition
 from archkeel.ir.codec import parse_contract
+from archkeel.ir.graph_codec import target_payload
 from archkeel.ir.target_graph import declared_graph
 
 PROVENANCE = ("docs/target.md",)
@@ -58,7 +59,7 @@ def _contract(*, references=(), definitions=(), relationships=()):
             ],
             "rules": [],
             "declarations": {
-                "uml": asdict(
+                "uml": target_payload(
                     TargetDefinition(
                         entities=(*definitions, *references), relationships=relationships
                     )
@@ -220,12 +221,18 @@ def test_inner_contract_references_bind_to_the_authenticated_nested_definition(
         entity["qualified_name"] = entity["qualified_name"].replace(".Service", ".NestedService")
     (root / "leaf.json").write_text(json.dumps(leaf))
     inner = json.loads((root / "inside.json").read_bytes())
-    inner["declarations"]["uml"]["entities"].append(
-        asdict(_reference("nested-ref", "class", "sample.core.NestedService"))
+    nested_target = target_payload(
+        TargetDefinition(
+            entities=(_reference("nested-ref", "class", "sample.core.NestedService"),),
+            relationships=(
+                Relationship(
+                    "nested-use", "references", "run", "nested-ref", provenance=PROVENANCE
+                ),
+            ),
+        )
     )
-    inner["declarations"]["uml"]["relationships"].append(
-        asdict(Relationship("nested-use", "references", "run", "nested-ref", provenance=PROVENANCE))
-    )
+    inner["declarations"]["uml"]["entities"].extend(nested_target["entities"])
+    inner["declarations"]["uml"]["relationships"].extend(nested_target["relationships"])
     (root / "inside.json").write_text(json.dumps(inner))
     payload = (root / config.contract).read_bytes()
     tree = load_inside_contract_tree(

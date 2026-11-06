@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "29cfa1fc7a877adbff8aeb21b731356ee134bc1c87d7995d772f4e7d3c83bf94",
+  "after_digest": "2d053f839b3a46cb9ea29481d6869b652e539d161ca57eacde87c0113525ba4e",
+  "before_baseline_digest": "b8f7d38429080d34e9a9d95ad5e97435035994ccffc53f8b07b9ab5c2027c420",
+  "before_digest": "b493c1d6e702880400469aeb4a5b6a405fb450a5ced1bd5cd8c2bc42b5e82e3f",
+  "decided_by": "Architecture team (standing approval for justified budget changes)",
+  "rationale": "CI run 42139389671, job 127635593117, at source head 1baffc209c1c58a7cfa8da1293639ab19e45eafb against base fc8c1dd13f7cde790f5aadb55fdada1f7b60e6c9 measured 957 unresolved calls of 31,101, 57 typing positions, and zero architecture violations. The measured typing increase is the single new object_annotation TYPE-6d64420120c807d1 at archkeel.ir.graph_codec._remove_absent_protocols:relationships: object; the serializer helper validates dynamic asdict sequence and relationship shapes before omitting absent protocol fields. The only contract widening is ir.public adding archkeel.ir.graph_codec:target_payload, the canonical Target serializer required to omit absent protocol values. Baseline changes only typing_positions from 56 to 57. This v2 amendment binds the contract and baseline composites; no other budget or rule changes.",
+  "schema_version": "2.0.0"
+}
