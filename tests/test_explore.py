@@ -725,6 +725,47 @@ def test_explore_keeps_unmapped_test_imports_unknown(
 
 
 @pytest.mark.parametrize(
+    "statement",
+    [
+        'import importlib\nimportlib.import_module("shop.tests.helper")',
+        'import importlib\n__import__("shop.tests.helper")',
+    ],
+)
+def test_explore_keeps_dynamic_imports_of_excluded_tests_unknown(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    statement: str,
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "",
+            "src/shop/app.py": f"{statement}\n",
+            "src/shop/tests/helper.py": "value = 1\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 2, payload
+    model = _snapshot(tmp_path / "out" / "architecture.json")
+    gaps = [item for item in model.coverage.failures if "excluded test source" in item.title]
+    assert len(gaps) == 1
+    assert gaps[0].evidence_ids
+
+
+@pytest.mark.parametrize(
     ("language", "alias_kind"),
     [
         ("python", "file"),

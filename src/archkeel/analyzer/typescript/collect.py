@@ -2268,7 +2268,7 @@ class _Collection:
         specifier: str,
         path: str,
     ) -> ImportTarget | None:
-        if not self._excluded_test(path):
+        if self.snapshot.installed(path) or not self._excluded_test(path):
             return None
         if (
             self._observe(

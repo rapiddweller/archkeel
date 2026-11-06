@@ -48,6 +48,7 @@ def _facts(
     paths: dict[str, list[str]] | None = None,
     roots: tuple[str, ...] = ("src",),
     include: tuple[str, ...] = ("src",),
+    exclude_test_sources: bool = False,
 ) -> SourceFacts:
     compiler: dict[str, object] = {**(options or BUNDLER)}
     if paths is not None:
@@ -58,7 +59,7 @@ def _facts(
         (root / rel).write_text(content)
     request = CollectionRequest(
         SnapshotInput(str(root), "a" * 40, False),
-        SourceScope(roots, "app"),
+        SourceScope(roots, "app", exclude_test_sources=exclude_test_sources),
         TypeScriptSettings(bundler=bundler),
     )
     facts = decode_response(encode_response(CollectionResponse(collect(request)))).facts
@@ -80,6 +81,20 @@ def _kinds(facts: SourceFacts) -> list[type[ImportTarget]]:
 
 def _package(name: str, **fields: object) -> dict[str, str]:
     return {f"node_modules/{name}/package.json": json.dumps({"name": name, **fields})}
+
+
+def test_installed_package_with_tests_path_stays_external(tmp_path):
+    files = {
+        "src/main.ts": 'import { test } from "@playwright/test";\ntest("x", () => {});\n',
+        **_package("@playwright/test", types="index.d.ts"),
+        "node_modules/@playwright/test/index.d.ts": (
+            "export declare function test(...args: unknown[]): void;\n"
+        ),
+    }
+    facts = _facts(tmp_path, files, bundler=False, exclude_test_sources=True)
+
+    assert _external(facts) == ["@playwright/test"]
+    assert not any("excluded test source" in gap for gap in _gaps(facts))
 
 
 @pytest.mark.parametrize("bundler", [True, False])
