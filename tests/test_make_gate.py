@@ -283,6 +283,13 @@ def test_every_job_runs_on_a_pinned_runner_image() -> None:
             assert not re.search(r"runs-on: .*-latest", body), (path.name, job)
 
 
+def test_full_report_job_allows_the_browser_suite_to_finish() -> None:
+    body = _jobs("full-verification.yml")["full-suite-and-reports"]
+    timeout = re.search(r"^    timeout-minutes: (\d+)$", body, re.MULTILINE)
+    assert timeout is not None
+    assert int(timeout.group(1)) >= 30
+
+
 def test_no_job_is_skipped_by_a_condition() -> None:
     # A job-level if: shows a skipped check; only an aggregate runs always, so it never skips.
     for path in (ROOT / ".github/workflows").glob("*.yml"):
