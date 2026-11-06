@@ -99,6 +99,7 @@ AREAS: dict[str, tuple[str, ...]] = {
     ),
     "type and wire guards": ("test_typed_*.py", "test_*_types.py", "test_codec*.py"),
     "collectors": (
+        "test_fact_batch_staging.py",
         "test_typescript_*.py",
         "test_dart_*.py",
         "test_flutter_*.py",

@@ -24,6 +24,7 @@ from .codec_strings import (
 from .codec_strings import (
     intern_strings as intern_strings,
 )
+from .fact_batches import FACT_BATCH_FORMAT_VERSION, FactBatch
 from .facts import (
     EVIDENCE_FIELDS,
     GATED_RESOLUTION_FEATURES,
@@ -690,6 +691,73 @@ def evidence_payload(evidence: Evidence) -> dict[str, RawJson]:
         "column": evidence.column,
         "excerpt": evidence.excerpt,
     }
+
+
+def encode_fact_batch(batch: FactBatch) -> bytes:
+    """Encode one bounded transport unit using the canonical record and evidence codecs."""
+    if (
+        not isinstance(batch.snapshot_id, str)
+        or not batch.snapshot_id
+        or "\x00" in batch.snapshot_id
+    ):
+        raise ProtocolError("fact batch snapshot_id must be a nonempty string")
+    if not isinstance(batch.sequence, int) or isinstance(batch.sequence, bool):
+        raise ProtocolError("fact batch sequence must be an integer")
+    if not 0 <= batch.sequence <= (1 << 63) - 1:
+        raise ProtocolError("fact batch sequence is outside the supported range")
+    raw: dict[str, RawJson] = {
+        "format_version": FACT_BATCH_FORMAT_VERSION,
+        "snapshot_id": batch.snapshot_id,
+        "sequence": batch.sequence,
+        "records": [record_payload(record) for record in batch.records],
+        "evidence": [evidence_payload(item) for item in batch.evidence],
+    }
+    _check_json_value(raw)
+    try:
+        return json.dumps(
+            raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as error:
+        raise ProtocolError(f"invalid fact batch: {error}") from error
+
+
+def decode_fact_batch(payload: bytes, *, max_bytes: int) -> FactBatch:
+    """Decode one frame with the existing strict JSON and canonical fact parsers."""
+    if not isinstance(payload, bytes):
+        raise ProtocolError("fact batch frame must be bytes")
+    if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0:
+        raise ValueError("max_bytes must be a positive integer")
+    if len(payload) > max_bytes:
+        raise ProtocolError("fact batch frame exceeds byte limit")
+    raw = _object(
+        _decode(payload),
+        {"format_version", "snapshot_id", "sequence", "records", "evidence"},
+        "fact batch",
+    )
+    if raw["format_version"] != FACT_BATCH_FORMAT_VERSION:
+        raise ProtocolError("unsupported fact batch format version")
+    snapshot_id = _string(raw["snapshot_id"], "fact batch.snapshot_id")
+    sequence = raw["sequence"]
+    if not isinstance(sequence, int) or isinstance(sequence, bool):
+        raise ProtocolError("fact batch sequence must be an integer")
+    if not 0 <= sequence <= (1 << 63) - 1:
+        raise ProtocolError("fact batch sequence is outside the supported range")
+    raw_records = raw["records"]
+    raw_evidence = raw["evidence"]
+    if not isinstance(raw_records, list) or not isinstance(raw_evidence, list):
+        raise ProtocolError("fact batch records and evidence must be arrays")
+    return FactBatch(
+        snapshot_id,
+        sequence,
+        tuple(
+            parse_record(item, f"fact batch.records[{index}]")
+            for index, item in enumerate(raw_records)
+        ),
+        tuple(
+            parse_evidence(item, f"fact batch.evidence[{index}]")
+            for index, item in enumerate(raw_evidence)
+        ),
+    )
 
 
 def _array(value: RawJson, label: str) -> list[RawJson]:

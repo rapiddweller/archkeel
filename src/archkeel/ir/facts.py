@@ -195,6 +195,10 @@ class EvidenceClass(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class SnapshotStatus(StrEnum):
+    INCOMPLETE = "INCOMPLETE"
+
+
 def dart_module_name(path: str) -> str | None:
     """Retain the directive profile's legacy module spelling, including collisions."""
     segments = path.split("/")
