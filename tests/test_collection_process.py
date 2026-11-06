@@ -177,10 +177,7 @@ def test_configured_executable_collects_facts_without_receiving_policy(tmp_path)
 def test_configured_executable_response_may_use_a_different_valid_version(tmp_path) -> None:
     response = _response()
     encoded = json.dumps(response)
-    code = (
-        "import sys; sys.stdin.buffer.read(); "
-        f"sys.stdout.buffer.write({encoded!r}.encode())"
-    )
+    code = f"import sys; sys.stdin.buffer.read(); sys.stdout.buffer.write({encoded!r}.encode())"
     request = decode_request(_request())
     from dataclasses import replace
 
