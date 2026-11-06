@@ -67,8 +67,7 @@
       "public": [
         "archkeel.ir.protocol",
         "archkeel.ir.fact_batches",
-        "archkeel.ir.fact_batches:FactBatch",
-        "archkeel.ir.fact_batches:FACT_BATCH_FORMAT_VERSION"
+        "archkeel.ir.fact_batches:FactBatch"
       ]
     },
     {
@@ -113,9 +112,6 @@
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_codec:DEFAULT_RESPONSE_LIMIT_BYTES",
         "archkeel.ir.facts_codec:MAX_RESPONSE_LIMIT_BYTES",
-        "archkeel.ir.facts_codec:encode_fact_batch",
-        "archkeel.ir.facts_codec:decode_fact_batch",
-        "archkeel.ir.facts_codec:encode_fact_batch",
         "archkeel.ir.facts_codec:decode_fact_batch",
         "archkeel.ir.guard_paths:GuardedCallPath",
         "archkeel.ir.guard_paths:guarded_call_paths",

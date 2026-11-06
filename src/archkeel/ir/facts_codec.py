@@ -222,6 +222,10 @@ class _PathToken(StrEnum):
     SLASH = "/"
 
 
+class _FactBatchVersion(StrEnum):
+    V1 = FACT_BATCH_FORMAT_VERSION
+
+
 class _SourceFactsField(StrEnum):
     SECTIONS = "sections"
     EVIDENCE = "evidence"
@@ -698,7 +702,7 @@ def encode_fact_batch(batch: FactBatch) -> bytes:
     if (
         not isinstance(batch.snapshot_id, str)
         or not batch.snapshot_id
-        or "\x00" in batch.snapshot_id
+        or _PathToken.NUL in batch.snapshot_id
     ):
         raise ProtocolError("fact batch snapshot_id must be a nonempty string")
     if not isinstance(batch.sequence, int) or isinstance(batch.sequence, bool):
@@ -734,7 +738,7 @@ def decode_fact_batch(payload: bytes, *, max_bytes: int) -> FactBatch:
         {"format_version", "snapshot_id", "sequence", "records", "evidence"},
         "fact batch",
     )
-    if raw["format_version"] != FACT_BATCH_FORMAT_VERSION:
+    if _fact_batch_version(raw["format_version"]) is not _FactBatchVersion.V1:
         raise ProtocolError("unsupported fact batch format version")
     snapshot_id = _string(raw["snapshot_id"], "fact batch.snapshot_id")
     sequence = raw["sequence"]
@@ -758,6 +762,15 @@ def decode_fact_batch(payload: bytes, *, max_bytes: int) -> FactBatch:
             for index, item in enumerate(raw_evidence)
         ),
     )
+
+
+def _fact_batch_version(value: RawJson) -> _FactBatchVersion:
+    if not isinstance(value, str):
+        raise ProtocolError("unsupported fact batch format version")
+    try:
+        return _FactBatchVersion(value)
+    except ValueError as error:
+        raise ProtocolError("unsupported fact batch format version") from error
 
 
 def _array(value: RawJson, label: str) -> list[RawJson]:

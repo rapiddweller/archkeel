@@ -256,9 +256,13 @@ class SQLiteFactBatchStore:
             connection.rollback()
             connection.close()
             if _primary_error_code(error) == sqlite3.SQLITE_FULL:
-                raise ValueError("fact batch database size limit exceeded; transaction rolled back") from error
+                raise ValueError(
+                    "fact batch database size limit exceeded; transaction rolled back"
+                ) from error
             if _primary_error_code(error) == sqlite3.SQLITE_IOERR:
-                raise ValueError("fact batch database write failed; transaction rolled back") from error
+                raise ValueError(
+                    "fact batch database write failed; transaction rolled back"
+                ) from error
             raise
         return FactBatchTransaction(self, connection, snapshot_id)
 
@@ -381,9 +385,13 @@ class FactBatchTransaction:
         except sqlite3.Error as error:
             self._rollback_and_close()
             if _primary_error_code(error) == sqlite3.SQLITE_FULL:
-                raise ValueError("fact batch database size limit exceeded; snapshot rolled back") from error
+                raise ValueError(
+                    "fact batch database size limit exceeded; snapshot rolled back"
+                ) from error
             if _primary_error_code(error) == sqlite3.SQLITE_IOERR:
-                raise ValueError("fact batch database write failed; snapshot rolled back") from error
+                raise ValueError(
+                    "fact batch database write failed; snapshot rolled back"
+                ) from error
             raise
         except ValueError:
             self._rollback_and_close()
@@ -417,9 +425,13 @@ class FactBatchTransaction:
         except sqlite3.Error as error:
             self._rollback_and_close()
             if _primary_error_code(error) == sqlite3.SQLITE_FULL:
-                raise ValueError("fact batch database size limit exceeded; snapshot rolled back") from error
+                raise ValueError(
+                    "fact batch database size limit exceeded; snapshot rolled back"
+                ) from error
             if _primary_error_code(error) == sqlite3.SQLITE_IOERR:
-                raise ValueError("fact batch database write failed; snapshot rolled back") from error
+                raise ValueError(
+                    "fact batch database write failed; snapshot rolled back"
+                ) from error
             raise
         self._close()
         return SnapshotStatus.INCOMPLETE

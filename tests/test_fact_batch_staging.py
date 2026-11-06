@@ -48,6 +48,16 @@ def _batch(
     return encode_fact_batch(FactBatch(snapshot_id, sequence, (record,), (evidence,)))
 
 
+def test_fact_batch_decoder_rejects_unsupported_format_version():
+    from archkeel.ir.facts_codec import ProtocolError, decode_fact_batch
+
+    payload = json.loads(_batch())
+    payload["format_version"] = "2.0.0"
+
+    with pytest.raises(ProtocolError, match="unsupported fact batch format version"):
+        decode_fact_batch(json.dumps(payload).encode(), max_bytes=4096)
+
+
 def _sqlite_artifact_bytes(path):
     return sum(
         candidate.stat().st_size
@@ -253,9 +263,7 @@ def test_sqlite_page_limit_rolls_back_without_replacing_previous_snapshot(tmp_pa
     exceeded = False
     for sequence in range(128):
         try:
-            transaction.append(
-                _batch(sequence, snapshot_id="snapshot-1", excerpt="x" * (8 * 1024))
-            )
+            transaction.append(_batch(sequence, snapshot_id="snapshot-1", excerpt="x" * (8 * 1024)))
         except ValueError as error:
             assert "database size limit" in str(error)
             exceeded = True
@@ -284,7 +292,7 @@ def test_fact_batch_staging_modules_are_declared_in_architecture_contracts():
 
     assert "archkeel.ir.fact_batches" in ir_protocol["packages"]
     assert "archkeel.ir.fact_batches:FactBatch" in ir_protocol["public"]
-    assert "archkeel.ir.facts_codec:encode_fact_batch" in ir_codec["public"]
+    assert "archkeel.ir.facts_codec:encode_fact_batch" not in ir_codec["public"]
     assert "archkeel.ir.facts_codec:decode_fact_batch" in ir_codec["public"]
     assert "archkeel.ir.facts:SnapshotStatus" in ir_facts["public"]
     assert "archkeel.check.fact_batch_store" in check_inputs["packages"]
