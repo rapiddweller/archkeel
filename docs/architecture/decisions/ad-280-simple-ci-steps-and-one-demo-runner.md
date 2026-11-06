@@ -11,7 +11,8 @@
 3. Full verification runs nightly, on dispatch, before a release and on a PR that changes a CI
    path (its own `pull_request` path filter). It runs all tests, the compatibility jobs and the
    demos. `make python-compat` runs each test marked `requires_python` and the files that
-   `tests/areas.py` lists. One step runs the Chromium tests (`make report-browser-tests`).
+   `tests/areas.py` lists. One step runs the Chromium tests (`make report-browser-tests`). The
+   architecture, build and report job has a 30-minute limit for its sequential checks.
 4. `pages.yml` publishes the gallery after a Full run on `main`. It publishes only when that run
    passed and its commit is the current `main`. It uses the report and the demo build of that run.
 5. No workflow prunes registrations or artifacts. AD-281 removed the maintenance workflow and its
@@ -37,5 +38,14 @@ PR runner minutes grow, because seven area jobs build the self report and each P
 A CI-change PR runs the PR set and Full. 13 of the last 60 commits on `main` match the path filter
 (about 22 %); each such PR costs about 70 more runner minutes. Rejected: dispatch Full by hand for
 such a PR, because a break would then show only in the nightly run.
+
+**Follow-up (2026-11-06).** Runs 42150127105 and 42157104908 hit the 20-minute job limit before
+the Chromium suite finished. The suite started at 16 and 19 minutes. Its progress reached 59 and
+60 percent; cancellation produced no test report, so the active tests are unknown. Earlier Main
+run 42002379431 reported two Playwright timeouts: one stale label later fixed by 78097cf8, and
+`test_check_evaluation_has_callers_and_no_overlap_on_the_real_snapshot` waiting for a function
+card. These failures do not identify the active tests in the canceled runs. Keep every gate and
+test timeout. A separate job needs new aggregate and artifact wiring. The 30-minute limit gives
+the same sequential checks time to finish; it does not claim faster tests.
 
 **Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.
