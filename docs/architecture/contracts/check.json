@@ -221,10 +221,12 @@
         "archkeel.check.git",
         "archkeel.check.python_profile",
         "archkeel.check.runtime",
-        "archkeel.check.ordering"
+        "archkeel.check.ordering",
+        "archkeel.check.fact_batch_store"
       ],
       "responsibilities": [
-        "Acquire immutable repository, runtime and forge inputs through typed ports."
+        "Acquire immutable repository, runtime and forge inputs through typed ports.",
+        "Stage untrusted fact batches privately before semantic SourceFacts validation."
       ],
       "forbidden_responsibilities": [
         "Architecture verdicts.",
@@ -261,6 +263,8 @@
         "archkeel.check.ports:SourceCollector",
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
+        "archkeel.check.fact_batch_store:SQLiteFactBatchStore",
+        "archkeel.check.fact_batch_store:FactBatchTransaction",
         "archkeel.check.python_profile:crossing_imports",
         "archkeel.check.python_profile:is_crossing_import",
         "archkeel.check.runtime:runtime_diagnostic",

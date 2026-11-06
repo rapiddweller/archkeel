@@ -33,7 +33,8 @@
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
         "archkeel.ir.identity:module_identity",
-        "archkeel.ir.facts:ReservedString"
+        "archkeel.ir.facts:ReservedString",
+        "archkeel.ir.facts:SnapshotStatus"
       ]
     },
     {
@@ -41,10 +42,11 @@
       "label": "protocol",
       "role": "component",
       "packages": [
-        "archkeel.ir.protocol"
+        "archkeel.ir.protocol",
+        "archkeel.ir.fact_batches"
       ],
       "responsibilities": [
-        "Own typed request and response envelopes for collector processes."
+        "Own typed request and response envelopes and versioned fact batches for collector processes."
       ],
       "forbidden_responsibilities": [
         "Policy and I/O.",
@@ -63,7 +65,9 @@
         }
       ],
       "public": [
-        "archkeel.ir.protocol"
+        "archkeel.ir.protocol",
+        "archkeel.ir.fact_batches",
+        "archkeel.ir.fact_batches:FactBatch"
       ]
     },
     {
@@ -108,6 +112,7 @@
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_codec:DEFAULT_RESPONSE_LIMIT_BYTES",
         "archkeel.ir.facts_codec:MAX_RESPONSE_LIMIT_BYTES",
+        "archkeel.ir.facts_codec:decode_fact_batch",
         "archkeel.ir.guard_paths:GuardedCallPath",
         "archkeel.ir.guard_paths:guarded_call_paths",
         "archkeel.ir.codec_strings:StringTablePolicy",

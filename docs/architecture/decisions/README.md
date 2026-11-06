@@ -318,3 +318,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-309 | [Native TypeScript uses compressed protocol 8](ad-309-native-typescript-uses-compressed-protocol-8.md) |
 | AD-310 | [SQLite stores derived streaming snapshots](ad-310-sqlite-derived-streaming-snapshots.md) |
 | AD-311 | [Studio separates call resolution and claim status](ad-311-studio-separates-call-resolution-and-claim-status.md) |
+| AD-312 | [Private SQLite staging for versioned fact batches](ad-312-private-sqlite-staging-for-versioned-fact-batches.md) |
