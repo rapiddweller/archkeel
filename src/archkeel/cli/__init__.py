@@ -345,14 +345,8 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     )
 
 
-def _studio(args: CLIArguments) -> int:
-    """AD-290: reuse the running Studio of the root, stop it, or serve a new one."""
-    root = args.root.resolve()
-    cache = _cache_folder(Command.EXPLORE, _root_digest(root))
-    if args.stop:
-        return stop_studio(cache)
-
-    requested_scope = StudioScope(
+def _studio_scope(args: CLIArguments) -> StudioScope:
+    return StudioScope(
         args.language.value,
         tuple(args.source or ()),
         args.namespace,
@@ -364,6 +358,17 @@ def _studio(args: CLIArguments) -> int:
             else DEFAULT_RESPONSE_LIMIT_BYTES
         ),
     )
+
+
+def _studio(args: CLIArguments) -> int:
+    """AD-290: reuse the running Studio of the root, stop it, or serve a new one."""
+    root = args.root.resolve()
+    cache = _cache_folder(Command.EXPLORE, _root_digest(root))
+    if args.stop:
+        return stop_studio(cache)
+
+    requested_scope = _studio_scope(args)
+    agent = requested_scope.agent
     lock: ExitStack = ExitStack()
     session_lock = studio_lock(cache)
     try:
@@ -422,7 +427,7 @@ def _studio(args: CLIArguments) -> int:
             ready=ready,
             serving=lock.close,
             idle_seconds=args.idle_exit * 60,
-            agent=AgentKind(args.chat_agent.value),
+            agent=agent,
         )
     finally:
         if previous is not None:
