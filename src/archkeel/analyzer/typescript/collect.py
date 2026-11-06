@@ -50,6 +50,7 @@ from archkeel.ir.facts_codec import (
     record_evidence,
 )
 from archkeel.ir.identity import module_identity
+from archkeel.ir.profiles import is_test_source
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
 from .config import (
@@ -225,7 +226,7 @@ class _Collection:
             and self.config.options.resolution is ModuleResolution.BUNDLER
         )
         # Every file to read, in discovery order; an entry added while walking is walked too.
-        self.queue: list[str] = list(self.config.files)
+        self.queue: list[str] = [rel for rel in self.config.files if self._selected(rel)]
         self.evidence: dict[str, RawEvidence] = {}
         self.imports: list[RawRecord] = []
         self.gaps: dict[str, RawRecord] = {}
@@ -1893,9 +1894,34 @@ class _Collection:
         )
 
     def _selected(self, rel: str) -> bool:
-        return not self.snapshot.installed(rel) and any(within(root, rel) for root in self.roots)
+        resolved = self.snapshot.real(rel)
+        return (
+            not self.snapshot.installed(rel)
+            and any(within(root, rel) for root in self.roots)
+            and not (
+                self.request.scope.exclude_test_sources
+                and (
+                    is_test_source(rel, Language.TYPESCRIPT)
+                    or (resolved is not None and is_test_source(resolved, Language.TYPESCRIPT))
+                )
+            )
+        )
 
-    def _observe(self, rel: str) -> bytes | None:
+    def _excluded_test(self, rel: str) -> bool:
+        if not self.request.scope.exclude_test_sources:
+            return False
+        resolved = self.snapshot.real(rel)
+        return is_test_source(rel, Language.TYPESCRIPT) or (
+            resolved is not None and is_test_source(resolved, Language.TYPESCRIPT)
+        )
+
+    def _observe(
+        self,
+        rel: str,
+        *,
+        evidence: tuple[str, ...] = (),
+        module: str = "",
+    ) -> bytes | None:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
         suffix = classify_file(rel)
@@ -1908,10 +1934,18 @@ class _Collection:
             if rel not in self.queue:
                 self.queue.append(rel)
         elif content is not None:
-            self._gap(
-                f"Local dependency outside selected source scope: {rel}",
-                kind=_GapKind.RESOLUTION,
-            )
+            if self._excluded_test(rel):
+                self._gap(
+                    f"Production import targets excluded test source: {rel}",
+                    evidence,
+                    module,
+                    kind=_GapKind.RESOLUTION,
+                )
+            else:
+                self._gap(
+                    f"Local dependency outside selected source scope: {rel}",
+                    kind=_GapKind.RESOLUTION,
+                )
         return content
 
     def _file(self, rel: str) -> None:
@@ -2196,7 +2230,14 @@ class _Collection:
             # Compiler substitution does not prove the file Node loads.
             if explicit and self.snapshot.is_file(lookup):
                 real = self.snapshot.real(lookup) or lookup
-                if self._observe(real) is not None:
+                if (
+                    self._observe(
+                        real,
+                        evidence=(self._cite(rel, reference.span),),
+                        module=module,
+                    )
+                    is not None
+                ):
                     runtime = real
             elif declaration or (explicit and direct):
                 runtime = None
@@ -2206,7 +2247,11 @@ class _Collection:
                     else f"CommonJS runtime file is unavailable: {specifier}",
                     kind=_GapKind.RESOLUTION,
                 )
-        self._observe(path)
+        self._observe(
+            path,
+            evidence=(self._cite(rel, reference.span),),
+            module=module,
+        )
         alias_proven = self.bundler and found.via_paths and not found.directory_package
         # A bundler resolves `.` and `..` like `./index`; Node does not prove them.
         proven_relative = relative or (self.bundler and source.relative)

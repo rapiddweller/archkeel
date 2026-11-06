@@ -48,6 +48,7 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     DartSettings,
+    ProtocolVersion,
     PythonSettings,
     ResolverSettings,
     SnapshotInput,
@@ -300,6 +301,7 @@ def _observe(
     contract_root: Path,
     language: Language = Language.PYTHON,
     bundler: bool = False,
+    exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
     source_root = source_root.resolve()
@@ -340,8 +342,9 @@ def _observe(
         )
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
-            SourceScope(roots, namespace),
+            SourceScope(roots, namespace, exclude_test_sources),
             resolver,
+            ProtocolVersion.V9 if exclude_test_sources else ProtocolVersion.V3,
         )
         facts = collector.collect(request)
         if isinstance(facts, CollectionError):
@@ -409,6 +412,7 @@ class Observer:
         dirty: bool,
         contract_root: Path,
         language: Language = Language.PYTHON,
+        exclude_test_sources: bool = False,
     ) -> ObservationResult:
         return _observe(
             self.collector,
@@ -422,5 +426,6 @@ class Observer:
             contract_root=contract_root,
             language=language,
             bundler=self.bundler,
+            exclude_test_sources=exclude_test_sources,
             clock=self.clock,
         )

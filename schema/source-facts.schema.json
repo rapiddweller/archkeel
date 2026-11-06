@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://archkeel.dev/schema/source-facts/6.0.0",
-  "title": "ArchKeel source collection protocols 1.0.0-8.0.0",
+  "title": "ArchKeel source collection protocols 1.0.0-9.0.0",
   "description": "Structural wire contract. facts_validation additionally checks section payloads, scope, digests, unique identities, coverage and references. Architecture policy never crosses this port.",
   "$defs": {
     "StringTableReference": {
@@ -1418,7 +1418,8 @@
             "5.0.0",
             "6.0.0",
             "7.0.0",
-            "8.0.0"
+            "8.0.0",
+            "9.0.0"
           ]
         },
         "snapshot": {
@@ -1467,6 +1468,9 @@
             "namespace": {
               "type": "string",
               "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+            },
+            "exclude_test_sources": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -1595,13 +1599,31 @@
         {
           "if": {
             "properties": {
+              "protocol_version": { "const": "9.0.0" }
+            }
+          },
+          "then": {
+            "properties": {
+              "scope": { "required": ["exclude_test_sources"] }
+            }
+          },
+          "else": {
+            "properties": {
+              "scope": { "not": { "required": ["exclude_test_sources"] } }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "protocol_version": {
                 "enum": [
                   "4.0.0",
                   "5.0.0",
                   "6.0.0",
                   "7.0.0",
-                  "8.0.0"
+                  "8.0.0",
+                  "9.0.0"
                 ]
               },
               "resolver": {
@@ -1641,7 +1663,8 @@
               "protocol_version": {
                 "enum": [
                   "7.0.0",
-                  "8.0.0"
+                  "8.0.0",
+                  "9.0.0"
                 ]
               }
             }
@@ -1690,7 +1713,8 @@
             "5.0.0",
             "6.0.0",
             "7.0.0",
-            "8.0.0"
+            "8.0.0",
+            "9.0.0"
           ]
         },
         "facts": {

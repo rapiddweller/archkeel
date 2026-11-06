@@ -33,6 +33,7 @@ from archkeel.ir.facts_codec import (
     encode_request,
 )
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured
+from archkeel.ir.profiles import is_test_source
 from archkeel.ir.protocol import (
     FEATURE_GATED_PROTOCOLS,
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -127,7 +128,7 @@ class ProcessCollector:
         try:
             wire_request = (
                 replace(request, protocol_version=self.protocol_version)
-                if self.protocol_version is not None
+                if self.protocol_version is not None and not request.scope.exclude_test_sources
                 else request
             )
             payload = encode_request(wire_request)
@@ -343,6 +344,10 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
         for path in facts.coverage.selected_files
     ):
         raise ProtocolError("collector selected files escape requested scope")
+    if request.scope.exclude_test_sources and any(
+        is_test_source(path, request.resolver.language) for path in facts.coverage.selected_files
+    ):
+        raise ProtocolError("collector selected a test source excluded by Explore scope")
     providers = (
         request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
     )
