@@ -1740,7 +1740,7 @@ def encode_response(response: CollectionResponse) -> bytes:
     payload = text.encode()
     _check_json_value(raw)
     # AD-259: a V8 encoder does not validate its own output; decode_response is the trust boundary.
-    if version not in _COLUMNAR_V2_PROTOCOLS and version is not ProtocolVersion.V8:
+    if version not in _COLUMNAR_V2_PROTOCOLS:
         _response(raw)
     return payload
 

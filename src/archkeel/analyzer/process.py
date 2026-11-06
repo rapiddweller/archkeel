@@ -40,9 +40,9 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
+    ProtocolVersion,
     PythonCollectionPhase,
     PythonSettings,
-    ProtocolVersion,
     collected_resolution_features,
 )
 

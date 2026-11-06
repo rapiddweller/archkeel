@@ -181,10 +181,7 @@ def test_selected_protocol_version_rejects_a_mismatched_response(tmp_path) -> No
     from archkeel.ir.protocol import CollectionError, CollectionErrorKind, ProtocolVersion
 
     legacy = json.dumps(_response(), sort_keys=True, separators=(",", ":")).encode()
-    code = (
-        "import sys; sys.stdin.buffer.read(); "
-        f"sys.stdout.buffer.write({legacy!r})"
-    )
+    code = f"import sys; sys.stdin.buffer.read(); sys.stdout.buffer.write({legacy!r})"
     request = decode_request(_request())
     request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
 
