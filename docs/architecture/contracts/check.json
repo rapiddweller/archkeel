@@ -1902,7 +1902,7 @@
           "presence": "planned",
           "parent_id": "archkeel.check.ports",
           "responsibilities": [
-            "Observe the supplied immutable scope; the implementation returns diagnostics rather than granting missing evidence."
+            "Observe the supplied immutable scope, including an optional test-source exclusion; the implementation returns diagnostics rather than granting missing evidence."
           ],
           "provenance": [
             "docs/architecture/target/design.md"
@@ -1916,7 +1916,7 @@
           "presence": "planned",
           "parent_id": "COMPACT-PORT-ANALYZER",
           "responsibilities": [
-            "Observe the supplied immutable scope; the implementation returns diagnostics rather than granting missing evidence."
+            "Observe the supplied immutable scope, including an optional test-source exclusion; the implementation returns diagnostics rather than granting missing evidence."
           ],
           "provenance": [
             "docs/architecture/target/design.md"
@@ -1984,6 +1984,13 @@
                 "annotation": "Language",
                 "kind": "keyword_only",
                 "default": null,
+                "default_known": true
+              },
+              {
+                "name": "exclude_test_sources",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "False",
                 "default_known": true
               }
             ],
@@ -2110,7 +2117,7 @@
           "presence": "planned",
           "parent_id": "COMPACT-OBSERVER",
           "responsibilities": [
-            "Validate selected inputs, collect once and return conservative typed observation/error evidence."
+            "Validate selected inputs, collect once, optionally exclude test sources and return conservative typed observation/error evidence."
           ],
           "provenance": [
             "docs/architecture/target/design.md"
@@ -2178,6 +2185,13 @@
                 "annotation": "Language",
                 "kind": "keyword_only",
                 "default": "Language.PYTHON",
+                "default_known": true
+              },
+              {
+                "name": "exclude_test_sources",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "False",
                 "default_known": true
               }
             ],

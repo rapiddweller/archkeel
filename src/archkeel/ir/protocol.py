@@ -28,10 +28,13 @@ class ProtocolVersion(StrEnum):
     V6 = "6.0.0"
     V7 = "7.0.0"
     V8 = "8.0.0"
+    V9 = "9.0.0"
 
 
-# 8.0.0 keeps the 7.0.0 semantics (AD-257 feature gating) on a plain, compressed wire (AD-259).
-FEATURE_GATED_PROTOCOLS: Final = frozenset({ProtocolVersion.V7, ProtocolVersion.V8})
+# 8.0.0 keeps 7.0.0 semantics on a compressed wire. 9.0.0 adds an explicit Explore source role.
+FEATURE_GATED_PROTOCOLS: Final = frozenset(
+    {ProtocolVersion.V7, ProtocolVersion.V8, ProtocolVersion.V9}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +48,7 @@ class SnapshotInput:
 class SourceScope:
     roots: tuple[str, ...]
     namespace: str
+    exclude_test_sources: bool = False
 
 
 @dataclass(frozen=True, slots=True)
