@@ -182,18 +182,7 @@ class ProcessCollector:
                     )
             if self.clock is not None:
                 self.clock.count(WorkCounter.COLLECTOR_WIRE_BYTES, len(stdout))
-            with measured(self.clock, Phase.DECODE):
-                response = decode_response(stdout, output_limit=self.output_limit_bytes)
-                if (
-                    self.protocol_version is not None
-                    and response.protocol_version is not wire_request.protocol_version
-                ):
-                    raise ProtocolError(
-                        "collector response protocol version does not match its request"
-                    )
-                _requested_facts(response.facts, wire_request)
-                _requested_provider_sources(response, wire_request)
-            return response
+            return self._decode_response(stdout, wire_request)
         except subprocess.TimeoutExpired:
             return CollectionError(
                 CollectionErrorKind.TIMEOUT,
@@ -207,6 +196,20 @@ class ProcessCollector:
             )
         except (ProtocolError, _OutputLimitError) as error:
             return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, subject, str(error))
+
+    def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
+        with measured(self.clock, Phase.DECODE):
+            response = decode_response(stdout, output_limit=self.output_limit_bytes)
+            if (
+                self.protocol_version is not None
+                and response.protocol_version is not request.protocol_version
+            ):
+                raise ProtocolError(
+                    "collector response protocol version does not match its request"
+                )
+            _requested_facts(response.facts, request)
+            _requested_provider_sources(response, request)
+        return response
 
     def _exchange(
         self, process: subprocess.Popen[bytes], payload: bytes, workers: list[Thread]
