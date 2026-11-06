@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "fcd9210b6334b0702dbc20781cf0c5df01b774708e2ff1df699c7c1fc682fef7",
+  "after_digest": "797284058fbe76dae97f5dacb98f5bc24d367723005b5c8ae7d8d81ba92bff99",
+  "before_baseline_digest": "b8f7d38429080d34e9a9d95ad5e97435035994ccffc53f8b07b9ab5c2027c420",
+  "before_digest": "b493c1d6e702880400469aeb4a5b6a405fb450a5ced1bd5cd8c2bc42b5e82e3f",
+  "decided_by": "Alexander Kell (architect; standing approval for justified budget changes)",
+  "rationale": "CI run 42139239429, job 127635056721, at source head 87a8a67d642e308e29be4dd699db4b242c431b98 against base fc8c1dd13f7cde790f5aadb55fdada1f7b60e6c9 measured 959 unresolved calls of 31,085 and 58 typing positions, with zero architecture violations. Set only calls_unresolved from 957 to 959 and typing_positions from 56 to 58. The two added unresolved calls are the finite output-limit argument registration in cli._collector_output_limit (cli/__init__.py:531) and forwarding the explicit per-run limit into the Studio explore scope (cli/__init__.py:324). The two new typing positions are raw TOML boundary annotations at cli.config._collector_timeout (config.py:107) and cli.config._bundler (config.py:119); both validate untyped decoded TOML values before use. Contract changes expose codec-owned DEFAULT_RESPONSE_LIMIT_BYTES and MAX_RESPONSE_LIMIT_BYTES to the CLI, declare those two constants public in ir, and move the two existing, exact Windows-only ctypes attr-defined allowances to their current lines (process.py:465 and :477); the allowed statements are unchanged. This binds the measured contract and baseline changes only.",
+  "schema_version": "2.0.0"
+}

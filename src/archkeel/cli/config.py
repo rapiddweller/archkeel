@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import re
 import tomllib
+from collections.abc import Mapping
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from threading import TIMEOUT_MAX
@@ -15,6 +16,7 @@ from typing import Final
 
 from archkeel.check.git import read_blob
 from archkeel.check.ports import Language, ScanConfig
+from archkeel.ir.facts_codec import MAX_RESPONSE_LIMIT_BYTES
 
 CONFIG_PATH: Final = "archkeel.toml"
 # AD-266: the baseline `init --adopt` writes; `validate --baseline` reads the same name.
@@ -102,9 +104,11 @@ def project_name(root: Path, config: ScanConfig) -> str:
     return config.namespace
 
 
-def _collector_timeout(raw: int | None) -> int | None:
+def _collector_timeout(raw: object) -> int | None:
     # Reject here: a bad deadline would otherwise fail later, when a command builds the collector.
-    if raw is not None and (type(raw) is not int or not 0 < raw <= TIMEOUT_MAX):
+    if raw is None:
+        return None
+    if not isinstance(raw, int) or isinstance(raw, bool) or not 0 < raw <= TIMEOUT_MAX:
         raise ConfigError(
             "scan.collector_timeout_seconds must be a positive integer no larger than "
             f"{int(TIMEOUT_MAX)}"
@@ -112,7 +116,7 @@ def _collector_timeout(raw: int | None) -> int | None:
     return raw
 
 
-def _bundler(raw: bool | None, language: Language) -> bool:
+def _bundler(raw: object, language: Language) -> bool:
     # AD-260: an explicit opt-in, valid only for TypeScript.
     if raw is not None and language != Language.TYPESCRIPT:
         raise ConfigError("scan.bundler is only valid when scan.language is typescript")
@@ -121,24 +125,12 @@ def _bundler(raw: bool | None, language: Language) -> bool:
     return raw is True
 
 
-def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
-    """Parse and validate config syntax without touching the filesystem; `name` is the file."""
-    try:
-        raw = tomllib.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
-        raise ConfigError(f"invalid {name}: {exc}") from exc
-    if not _fields_match(set(raw), {"scan"}, set()) or not isinstance(raw["scan"], dict):
-        raise ConfigError("configuration must contain only [scan]")
-    scan = raw["scan"]
-    if not _fields_match(set(scan), _REQUIRED_SCAN, _OPTIONAL_SCAN):
-        raise ConfigError(
-            "[scan] requires roots, namespace, and contract; language, tsconfig, "
-            "collector_argv, collector_output_limit_bytes, collector_timeout_seconds, "
-            "and bundler are optional"
-        )
+def _language_settings(scan: Mapping[str, object]) -> tuple[Language, str | None, bool]:
     # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
     language_value = scan.get("language", Language.PYTHON)
     try:
+        if not isinstance(language_value, str):
+            raise TypeError
         language = Language(language_value)
     except (ValueError, TypeError) as error:
         raise ConfigError('scan.language must be "python", "dart", or "typescript"') from error
@@ -153,24 +145,45 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         else None
     )
     bundler = _bundler(scan.get("bundler"), language)
+
+    return language, tsconfig, bundler
+
+
+def _collector_settings(
+    scan: Mapping[str, object],
+) -> tuple[tuple[str, ...] | None, int | None, int | None]:
     argv_raw = scan.get("collector_argv")
+    collector_argv: tuple[str, ...] | None = None
     if argv_raw is not None:
-        if (
-            not isinstance(argv_raw, list)
-            or not argv_raw
-            or not all(
-                isinstance(value, str) and value and _PathToken.NUL not in value
-                for value in argv_raw
-            )
-        ):
+        if not isinstance(argv_raw, list) or not argv_raw:
             raise ConfigError("scan.collector_argv must be a non-empty array of non-empty strings")
-        collector_argv = tuple(argv_raw)
-    else:
-        collector_argv = None
+        arguments: list[str] = []
+        for value in argv_raw:
+            if not isinstance(value, str) or not value or _PathToken.NUL in value:
+                raise ConfigError(
+                    "scan.collector_argv must be a non-empty array of non-empty strings"
+                )
+            arguments.append(value)
+        collector_argv = tuple(arguments)
     output_limit = scan.get("collector_output_limit_bytes")
-    if output_limit is not None and (type(output_limit) is not int or output_limit <= 0):
-        raise ConfigError("scan.collector_output_limit_bytes must be a positive integer")
+    validated_limit: int | None = None
+    if output_limit is not None:
+        if (
+            not isinstance(output_limit, int)
+            or isinstance(output_limit, bool)
+            or not 0 < output_limit <= MAX_RESPONSE_LIMIT_BYTES
+        ):
+            raise ConfigError(
+                "scan.collector_output_limit_bytes must be a positive integer no greater than "
+                f"{MAX_RESPONSE_LIMIT_BYTES} bytes"
+            )
+        validated_limit = output_limit
     timeout_seconds = _collector_timeout(scan.get("collector_timeout_seconds"))
+
+    return collector_argv, validated_limit, timeout_seconds
+
+
+def _source_scope(scan: Mapping[str, object]) -> tuple[tuple[str, ...], str, str]:
     roots_raw = scan["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:
         raise ConfigError("scan.roots must be a non-empty list")
@@ -189,8 +202,30 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     if not isinstance(namespace, str) or _NAMESPACE.fullmatch(namespace) is None:
         raise ConfigError("scan.namespace must be an ASCII dotted namespace")
     contract = _path(scan["contract"], field="scan.contract", allow_dot=False)
+
+    return canonical_roots, namespace, contract
+
+
+def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
+    """Parse and validate config syntax without touching the filesystem; `name` is the file."""
+    try:
+        raw = tomllib.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"invalid {name}: {exc}") from exc
+    if not _fields_match(set(raw), {"scan"}, set()) or not isinstance(raw["scan"], dict):
+        raise ConfigError("configuration must contain only [scan]")
+    scan = raw["scan"]
+    if not _fields_match(set(scan), _REQUIRED_SCAN, _OPTIONAL_SCAN):
+        raise ConfigError(
+            "[scan] requires roots, namespace, and contract; language, tsconfig, "
+            "collector_argv, collector_output_limit_bytes, collector_timeout_seconds, "
+            "and bundler are optional"
+        )
+    language, tsconfig, bundler = _language_settings(scan)
+    collector_argv, output_limit, timeout_seconds = _collector_settings(scan)
+    roots, namespace, contract = _source_scope(scan)
     return ScanConfig(
-        roots=canonical_roots,
+        roots=roots,
         namespace=namespace,
         contract=PurePosixPath(contract).as_posix(),
         digest=hashlib.sha256(payload).hexdigest(),

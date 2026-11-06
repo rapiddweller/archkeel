@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fixtures.demo_catalog_support import Variant
+from fixtures.demo_catalog_typescript import TYPESCRIPT_FIXTURE_DIR
 
 EXPLORE_FIXTURE_DIR = Path(__file__).resolve().parent / "N-explore"
 
@@ -58,5 +59,30 @@ VARIANTS: tuple[Variant, ...] = (
         fixture=EXPLORE_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
         explore=True,
+    ),
+    Variant(
+        id="explore-typescript-explicit-output-limit",
+        section="showcase",
+        item="explore:typescript-output-limit",
+        summary="explore accepts an explicit finite TypeScript stdout limit; larger values can "
+        "need more memory.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        fixture=TYPESCRIPT_FIXTURE_DIR,
+        expected_declared_rules="UNKNOWN",
+        explore=True,
+        explore_options=(
+            "--language",
+            "typescript",
+            "--source",
+            "src",
+            "--namespace",
+            "shop",
+            "--tsconfig",
+            "tsconfig.json",
+            "--collector-output-limit-bytes",
+            str(96 * 1024 * 1024),
+        ),
     ),
 )
