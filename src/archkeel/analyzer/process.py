@@ -96,7 +96,7 @@ class ProcessCollector:
     # Set only for a run with --timings; None measures nothing.
     clock: PhaseClock | None = None
     output_limit_remedy: str = _DEFAULT_OUTPUT_LIMIT_REMEDY
-    # Native adapters pin a wire version; custom callers accept any valid response version.
+    # Collectors without a pinned version accept any valid response version.
     protocol_version: ProtocolVersion | None = None
 
     def __post_init__(self) -> None:
