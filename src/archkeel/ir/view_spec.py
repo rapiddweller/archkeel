@@ -50,6 +50,13 @@ _DYNAMIC_CALLS: Final = "dynamic_call_limit"
 # Without a stated kind, a reference is checked as an import, then as a call; never as a mix.
 _DEFAULT_KINDS: Final = (RelationshipKind.IMPORTS, RelationshipKind.CALLS)
 _TYPE_ONLY: Final = "type-only import: not executed at runtime"
+
+
+def _validate_view_kind(kind: RelationshipKind | None) -> None:
+    if kind == RelationshipKind.COMMUNICATES:
+        raise ValueError("communicates is not a view relationship kind")
+
+
 LIMITS: Final = (
     "A proven step is one direct edge of its kind: structure, not runtime order.",
     "An unknown reference is a coverage gap, never a proven absence.",
@@ -102,6 +109,9 @@ class ViewEdge:
     claim: bool = False
     note: str | None = None
 
+    def __post_init__(self) -> None:
+        _validate_view_kind(self.kind)
+
 
 @dataclass(frozen=True, slots=True)
 class ViewExternal:
@@ -122,6 +132,9 @@ class ViewStep:
     title: str | None = None
     question: str | None = None
     external: tuple[ViewExternal, ...] = ()
+
+    def __post_init__(self) -> None:
+        _validate_view_kind(self.kind)
 
 
 @dataclass(frozen=True, slots=True)
