@@ -702,6 +702,8 @@ def collect(request: CollectionRequest) -> SourceFacts:
             )
             gaps.append(gap)
             excluded_import_gaps.append(raw_record(gap))
+        if excluded_import_gaps:
+            coverage = replace(coverage, full_scope=False, gaps=tuple(gaps))
     imports.extend(dynamic_imports)
     references = collect_references(
         modules,
