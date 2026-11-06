@@ -21,6 +21,8 @@ Median encode time rose from 0.257 s to 0.450 s. This measures the fixture and e
 **Limit.** A separate Platform scan stopped at the 1.5 GiB RSS guard. Its 2.8 GiB sampled peak
 does not identify the phase that used memory. This change does not claim to solve that scan.
 
+The current contract and call-budget changes are bound by the [CI amendment](ad-309-v8-contract-amendment.json).
+
 **Check.** The public TypeScript fixture produced 5,625 V8 bytes and 28,654 V3 bytes locally; both
 decode to the same facts. Its Explore catalog row succeeds under an 8 KiB limit, and the V3
 comparison exceeds that limit. These sizes describe this fixture, not a general ratio. Process
