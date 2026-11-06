@@ -56,6 +56,7 @@ from archkeel.ir.graph_codec import (
     parse_report,
     parse_target,
     report_bytes,
+    target_payload,
 )
 from archkeel.ir.model import Evidence
 from archkeel.ir.report_graph import architecture_report
@@ -2046,12 +2047,16 @@ def test_system_landscape_contract_enforces_protocol_and_presence_at_each_bounda
     parsed = parse_contract(raw)
     uml = parsed.declarations.uml
 
-    legacy_null_protocol = json.loads(json.dumps(raw))
-    legacy_null_protocol["declarations"]["uml"]["relationships"][0]["protocol"] = None
-    parsed_legacy_null = parse_contract(legacy_null_protocol)
-    assert parsed_legacy_null.declarations.uml.relationships[0].protocol is None
-    encoded_legacy_null = json.loads(contract_bytes(parsed_legacy_null))
-    assert "protocol" not in encoded_legacy_null["declarations"]["uml"]["relationships"][0]
+    without_protocol = replace(
+        uml,
+        relationships=tuple(replace(edge, protocol=None) for edge in uml.relationships),
+    )
+    encoded_without_protocol = json.loads(
+        contract_bytes(
+            replace(parsed, declarations=replace(parsed.declarations, uml=without_protocol))
+        )
+    )
+    assert "protocol" not in encoded_without_protocol["declarations"]["uml"]["relationships"][0]
 
     invalid_protocol = json.loads(json.dumps(raw))
     invalid_protocol["declarations"]["uml"]["relationships"][0]["kind"] = "imports"
@@ -2059,11 +2064,8 @@ def test_system_landscape_contract_enforces_protocol_and_presence_at_each_bounda
     with pytest.raises(ValueError):
         parse_contract(invalid_protocol)
 
-    invalid_relationship = replace(uml.relationships[0], kind=RelationshipKind.IMPORTS)
-    invalid_uml = replace(uml, relationships=(invalid_relationship,))
-    invalid_declarations = replace(parsed.declarations, uml=invalid_uml)
-    with pytest.raises(ValueError):
-        contract_bytes(replace(parsed, declarations=invalid_declarations))
+    with pytest.raises(ValueError, match="protocol"):
+        replace(uml.relationships[0], kind=RelationshipKind.IMPORTS)
 
     for kind in ("runtime_unit", "external_system"):
         invalid_presence = json.loads(json.dumps(raw))
@@ -2086,6 +2088,47 @@ def test_system_landscape_contract_enforces_protocol_and_presence_at_each_bounda
         invalid_declarations = replace(parsed.declarations, uml=invalid_uml)
         with pytest.raises(ValueError):
             contract_bytes(replace(parsed, declarations=invalid_declarations))
+
+
+@pytest.mark.parametrize("boundary", ("target", "graph", "report"))
+def test_null_protocol_is_not_a_wire_absence(boundary: str) -> None:
+    root = Path(__file__).parents[1]
+    contract_wire = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    uml_wire = contract_wire["declarations"]["uml"]
+    uml_wire["relationships"][0].pop("protocol")
+    target = parse_target(uml_wire)
+    target_wire = json.loads(json.dumps(target_payload(target)))
+    graph = declared_graph(
+        parse_contract(contract_wire), contract_path="architecture-contract.json"
+    )
+    graph_wire = json.loads(graph_bytes(graph))
+    report = ArchitectureReport(
+        ArchitectureGraph(OriginKind.OBSERVED, schema_version=GraphSchemaVersion.V1_4_0),
+        graph,
+        unavailable="No source snapshot was supplied.",
+        schema_version=ReportSchemaVersion.V1_4_0,
+    )
+    report_wire = json.loads(report_bytes(report))
+    payload, parser, schema = {
+        "target": (target_wire, parse_target, target_schema()),
+        "graph": (graph_wire, parse_graph, graph_schema()),
+        "report": (report_wire, parse_report, report_schema()),
+    }[boundary]
+
+    Draft202012Validator(schema).validate(payload)
+    assert parser(payload)
+
+    malformed = json.loads(json.dumps(payload))
+    relationships = (
+        malformed["relationships"] if boundary != "report" else malformed["target"]["relationships"]
+    )
+    relationships[0]["protocol"] = None
+
+    assert not Draft202012Validator(schema).is_valid(malformed)
+    with pytest.raises(ValueError, match="protocol"):
+        parser(malformed)
 
 
 @pytest.mark.parametrize(

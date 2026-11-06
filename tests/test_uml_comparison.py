@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 """UML conformance uses recorded facts and coverage, never the absence of findings."""
 
-from dataclasses import asdict, replace
+import json
+from dataclasses import replace
 
 import pytest
 
@@ -19,7 +20,7 @@ from archkeel.ir.architecture_graph import (
     Visibility,
 )
 from archkeel.ir.facts import Evidence
-from archkeel.ir.graph_codec import parse_graph
+from archkeel.ir.graph_codec import graph_bytes, parse_graph
 
 PROOF = Evidence("proof", "sample.py", 1, 1, 0, "def run(value): ...")
 
@@ -413,7 +414,7 @@ def test_mixin_composition_is_an_exact_classifier_relationship():
             ),
         ),
     )
-    assert parse_graph(asdict(target)) == target
+    assert parse_graph(json.loads(graph_bytes(target))) == target
 
     comparison = compare_graphs(observed, target)
     relationships = [item for item in comparison.assessments if item.aspect == "relationship"]

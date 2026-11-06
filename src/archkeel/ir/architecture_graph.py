@@ -504,6 +504,11 @@ class Relationship:
         builtins.object.__setattr__(
             self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
         )
+        if self.protocol is not None:
+            if not isinstance(self.protocol, str) or not self.protocol.strip():
+                raise ValueError("relationship.protocol must be non-empty text")
+            if self.kind != RelationshipKind.COMMUNICATES:
+                raise ValueError("protocol belongs to communication relationships")
 
 
 @dataclass(frozen=True, slots=True)
@@ -571,10 +576,6 @@ class TargetDefinition:
             ):
                 raise ValueError("runtime and external systems must be planned declarations")
         for edge in self.relationships:
-            if edge.protocol is not None and (
-                edge.kind != RelationshipKind.COMMUNICATES or not edge.protocol.strip()
-            ):
-                raise ValueError("protocol belongs to communication relationships")
             if edge.kind == RelationshipKind.COMMUNICATES and (
                 entities.get(edge.source_id) is None
                 or entities[edge.source_id].kind != EntityKind.RUNTIME_UNIT
@@ -1018,11 +1019,7 @@ class ArchitectureGraph:
                 raise ValueError("unknown relationship target")
             self._validate_classifier_relationship(edge, entities)
             self._validate_permission_metadata(edge, entities)
-            if edge.protocol is not None and (
-                edge.kind != RelationshipKind.COMMUNICATES
-                or self.origin != OriginKind.DECLARED
-                or not edge.protocol.strip()
-            ):
+            if edge.protocol is not None and self.origin != OriginKind.DECLARED:
                 raise ValueError("protocol belongs to declared communication relationships")
             if edge.kind == RelationshipKind.COMMUNICATES and (
                 self.origin != OriginKind.DECLARED

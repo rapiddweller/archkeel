@@ -411,7 +411,7 @@ def parse_relationship(value: RawJson) -> Relationship:
         if decider is None
         else DecisionMaker(non_empty_text(decider, "relationship.decided_by")),
         non_empty_text(item["protocol"], "relationship.protocol")
-        if item.get("protocol", _MISSING) is not _MISSING and item["protocol"] is not None
+        if item.get("protocol", _MISSING) is not _MISSING
         else None,
     )
 

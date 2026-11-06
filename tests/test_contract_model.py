@@ -5,7 +5,7 @@
 
 import json
 from collections.abc import Iterator
-from dataclasses import asdict, fields, is_dataclass, replace
+from dataclasses import fields, is_dataclass, replace
 from pathlib import Path
 from types import NoneType, UnionType
 from typing import get_args, get_origin, get_type_hints
@@ -24,6 +24,7 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.contract_version import ContractVersion
+from archkeel.ir.graph_codec import target_payload
 from archkeel.ir.model import ArchitectureContract, module_references
 
 ROOT = Path(__file__).parents[1]
@@ -424,7 +425,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "literal_mapping_arm": "list[dict[str, str]]",
             }
         )
-    declarations["uml"] = asdict(
+    declarations["uml"] = target_payload(
         TargetDefinition(
             entities=(
                 Entity(
