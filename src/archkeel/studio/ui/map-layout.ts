@@ -10,7 +10,7 @@ const LABEL_SHARE = 0.12;
 export interface MapLine extends Tally {
   readonly from: number;
   readonly to: number;
-  /** Proven and claim call sites together; the width and the strength follow this number. */
+  /** Proven and partial call sites together; the width and the strength follow this number. */
   readonly calls: number;
   readonly path: string;
   readonly width: number;
@@ -42,8 +42,8 @@ const BAND_NAMES: Record<number, readonly string[]> = {
 function bandsOf(model: Model): number[] {
   const count = model.graph.components.length;
   const score = model.stats.map((stat, index) => {
-    const out = stat.callsOut.proven + stat.callsOut.claim;
-    const into = stat.callsIn.proven + stat.callsIn.claim;
+    const out = stat.callsOut.proven + stat.callsOut.partial;
+    const into = stat.callsIn.proven + stat.callsIn.partial;
     return { index, net: (out - into) / Math.max(1, out + into), total: out + into };
   });
   score.sort((a, b) => b.net - a.net || b.total - a.total);
@@ -89,7 +89,7 @@ export function layoutMap(model: Model): MapLayout {
   const bands = Math.max(0, ...band) + 1;
   const columns: number[][] = Array.from({ length: bands }, () => []);
   model.stats.forEach((_, index) => columns[band[index]].push(index));
-  const shares = new Map(model.flows.map((flow) => [flow.from * count + flow.to, flow.proven + flow.claim]));
+  const shares = new Map(model.flows.map((flow) => [flow.from * count + flow.to, flow.proven + flow.partial]));
   const rank = new Map<number, number>();
   columns.forEach((column, level) => {
     if (level > 0) {
@@ -120,17 +120,17 @@ export function layoutMap(model: Model): MapLayout {
       positions[component] = [left + level * (width + gapX), top + offset + row * (height + gapY)];
     });
   });
-  const strongest = Math.max(1, ...model.flows.map((flow) => flow.proven + flow.claim));
+  const strongest = Math.max(1, ...model.flows.map((flow) => flow.proven + flow.partial));
   const lines = [...model.flows]
-    .sort((a, b) => a.proven + a.claim - (b.proven + b.claim))
+    .sort((a, b) => a.proven + a.partial - (b.proven + b.partial))
     .map<MapLine>((flow) => {
-      const calls = flow.proven + flow.claim;
+      const calls = flow.proven + flow.partial;
       const { path, middle } = curve(positions[flow.from], positions[flow.to], band[flow.from], band[flow.to], height);
       return {
         from: flow.from,
         to: flow.to,
         proven: flow.proven,
-        claim: flow.claim,
+        partial: flow.partial,
         calls,
         path,
         width: 0.8 + Math.log10(calls + 1) * 1.5,

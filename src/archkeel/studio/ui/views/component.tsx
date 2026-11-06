@@ -26,7 +26,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
   };
   const text: LevelText = {
     card: (module) => ({ name: fileOf(model, module), facts: [meta(module)] }),
-    stub: (ref) => ({ name: stubName(ref), facts: ["9999 ✓ proven · 9999 ✎ claim"] }),
+    stub: (ref) => ({ name: stubName(ref), facts: ["9999 ✓ proven · 9999 ✎ partial"] }),
   };
   const layout = useMemo(() => layoutComponent(model, component, pkg, opened, text), [model, component, pkg, opened]);
   const [id] = model.graph.components[component];
@@ -69,7 +69,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
           name={stubName(part.ref)}
           kind={inner === null ? "Component" : "Package"}
           where={["Architecture", model.graph.components[other][0], ...(inner === null ? [] : [inner])].join(" › ")}
-          facts={stub === undefined ? [] : [`${stub.proven} proven call sites · ${stub.claim} claim`, part.stub === Side.In ? "calls into this page" : "is called from this page"]}
+          facts={stub === undefined ? [] : [`${stub.proven} proven call sites · ${stub.partial} partial`, part.stub === Side.In ? "calls into this page" : "is called from this page"]}
           text={model.graph.components[other][1] || undefined}
           open={{ href: stubHref(part.ref), label: `Open ${inner === null ? "the component" : "the package"} →` }}
         />

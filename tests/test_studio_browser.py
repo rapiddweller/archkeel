@@ -24,7 +24,7 @@ from archkeel.cli.config import load_config
 from archkeel.studio.api import API_VERSION
 from archkeel.studio.server import Studio
 
-_LEGEND = ("Observed = code evidence", "Claim = agent hypothesis", "Target = architect decision")
+_LEGEND = ("Observed = code evidence", "Claim = authored assertion", "Target = architect decision")
 # Data and blob URLs are page content, not requests to a host.
 _LOCAL_SCHEMES = {"data", "blob", "about"}
 
@@ -82,8 +82,8 @@ def _check_the_map(page, width: int) -> None:
     # The legend of the marks is in the side panel; a narrow screen opens it on demand.
     for mark in (
         "✓ proven = resolved call",
-        "✎ claim = partly resolved call",
-        "? unknown = no target found",
+        "✎ partial = observed call with unresolved candidates",
+        "? unknown = target not resolved by available evidence",
     ):
         assert page.get_by_text(mark, exact=True).count() >= 1
     # A line shows the calls behind it in the side panel.
@@ -546,7 +546,7 @@ def test_briefing_shows_the_current_explore_status_and_next_step(
 
 
 @pytest.mark.browser
-def test_a_line_with_claims_is_a_claim_and_shows_both_counts(studio: Studio) -> None:
+def test_a_line_with_partial_calls_shows_both_counts(studio: Studio) -> None:
     api = pytest.importorskip("playwright.sync_api")
     answer = {"api_version": API_VERSION, "explore": "done", "graph": _MIXED}
     Draft202012Validator({"$ref": "#/$defs/graph", "$defs": _SCHEMA["$defs"]}).validate(answer)
@@ -558,21 +558,22 @@ def test_a_line_with_claims_is_a_claim_and_shows_both_counts(studio: Studio) -> 
             page.goto(studio.url)
             page.get_by_text("Declared groups: contract", exact=True).wait_for()
             label = page.locator("button.count")
-            # 3 proven and 2 claim call sites: a line with a claim is never read as proven.
-            assert label.inner_text().strip() == "3 ✓ proven · 2 ✎ claim"
-            assert "claim" in label.get_attribute("class").split()
+            # 3 proven and 2 partial call sites: a line with a partial call is never read as proven.
+            assert label.inner_text().strip() == "3 ✓ proven · 2 ✎ partial"
+            assert "partial" in label.get_attribute("class").split()
             assert (
-                label.get_attribute("aria-label") == "5 calls from alpha to beta: 3 proven, 2 claim"
+                label.get_attribute("aria-label")
+                == "5 calls from alpha to beta: 3 proven, 2 partial"
             )
-            assert page.locator("path.link.claim").count() == 1
+            assert page.locator("path.link.partial").count() == 1
             assert page.locator("path.link.proven").count() == 0
-            # The toolbar counts sites too: the claim with two edges is one claim.
-            assert "3 ✓ proven · 2 ✎ claim calls between components" in page.locator(
+            # The toolbar counts sites too: the partial call with two edges is one site.
+            assert "3 ✓ proven · 2 ✎ partial calls between components" in page.locator(
                 ".summary"
             ).inner_text().replace("\n", " ")
             label.click()
             details = page.get_by_role("complementary", name="Details")
-            details.get_by_text("3 ✓ proven · 2 ✎ claim · 1 distinct pair").wait_for()
+            details.get_by_text("3 ✓ proven · 2 ✎ partial · 1 distinct pair").wait_for()
         finally:
             browser.close()
 
@@ -971,8 +972,9 @@ def test_chat_downloads_the_unchanged_checked_story_and_shows_incomplete_unknown
             assert "claim: this call encrypts every request." in note_claim.inner_text().lower()
             assert first_status.get_by_text("declared", exact=True).count() == 0
             declared_status = draft.locator("ol li").nth(1)
-            assert declared_status.locator(".mark.claim").count() == 1
-            assert declared_status.get_by_text("declared", exact=True).count() == 0
+            declared_mark = declared_status.locator(".mark.declared")
+            assert declared_mark.count() == 1
+            assert "declared" in declared_mark.inner_text()
             second_status = draft.locator("ol li").nth(2)
             unknown_mark = second_status.locator(".mark.unknown")
             unknown_mark.wait_for()
@@ -1096,6 +1098,54 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
     assert [
         url for url in requests if urlsplit(url).netloc not in {f"127.0.0.1:{studio.port}", ""}
     ] == [url for url in requests if urlsplit(url).scheme in _LOCAL_SCHEMES]
+
+
+@pytest.mark.browser
+def test_a_declared_story_route_uses_target_color_not_proven_color(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    checked = _checked()
+    checked["steps"][1]["status"] = "declared"
+    checked["story"]["verdict"].update(proven=4, declared=1)
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route(
+                "**/api/v1/stories/check-flow",
+                lambda route: route.fulfill(json=_answer(checked)),
+            )
+            page.goto(studio.url + "#/stories/check-flow")
+            declared = page.locator("svg.routes .leg.declared")
+            declared.locator("path").wait_for()
+            declared_path_color = declared.locator("path").evaluate(
+                "(path) => getComputedStyle(path).stroke"
+            )
+            declared_marker_color = declared.locator("circle").evaluate(
+                "(circle) => getComputedStyle(circle).fill"
+            )
+            proven = page.locator("svg.routes .leg.proven").first
+            proven_path_color = proven.locator("path").evaluate(
+                "(path) => getComputedStyle(path).stroke"
+            )
+            proven_marker_color = proven.locator("circle").evaluate(
+                "(circle) => getComputedStyle(circle).fill"
+            )
+            token_colors = page.evaluate(
+                """() => Object.fromEntries(["target", "proven"].map((name) => {
+                  const probe = document.createElement("span");
+                  probe.style.color = `var(--${name})`;
+                  document.body.append(probe);
+                  const color = getComputedStyle(probe).color;
+                  probe.remove();
+                  return [name, color];
+                }))"""
+            )
+            assert declared_path_color == token_colors["target"]
+            assert declared_marker_color == token_colors["target"]
+            assert proven_path_color == token_colors["proven"]
+            assert proven_marker_color == token_colors["proven"]
+        finally:
+            browser.close()
 
 
 @pytest.mark.browser
@@ -2060,7 +2110,7 @@ _TWO_MODULES = [["m.a", "m/a.py", 0, "a"], ["m.b", "m/b.py", 1, "b"]]
 
 
 @pytest.mark.browser
-def test_the_module_level_counts_every_call_site_and_keeps_the_claim(studio: Studio) -> None:
+def test_the_module_level_counts_every_call_site_and_keeps_partial(studio: Studio) -> None:
     # f calls g at two resolved sites and one partial site, and f calls its sibling h the same way.
     modules = [["m.a", "m/a.py", 0, "a"], ["m.b", "m/b.py", 1, "b"]]
     symbols = [_function(0, "f"), _function(0, "h"), _function(1, "g")]
@@ -2073,16 +2123,43 @@ def test_the_module_level_counts_every_call_site_and_keeps_the_claim(studio: Stu
     with _page_on(studio, answer, "#/module/0") as page:
         stub = page.locator("a.lens-card.stub")
         stub.wait_for()
-        assert _words(stub.locator(".meta").first) == "2 ✓ proven · 1 ✎ claim"
+        assert _words(stub.locator(".meta").first) == "2 ✓ proven · 1 ✎ partial"
         page.locator(".level-card", has_text="f").first.click()
         page.locator(".level-card.pinned").wait_for()
-        # A line with a claim is a claim, to the sibling and to the stub alike.
-        assert page.locator("g.focus-line.claim").count() == 2
+        # A line with a partial call stays partial, to the sibling and to the stub alike.
+        assert page.locator("g.focus-line.partial").count() == 2
         assert page.locator("g.focus-line.proven").count() == 0
 
 
 @pytest.mark.browser
-def test_a_call_with_candidates_in_two_folded_modules_is_one_claim(studio: Studio) -> None:
+def test_partial_call_is_observed_and_agent_claim_stays_claim(studio: Studio) -> None:
+    symbols = [_function(0, "f"), _function(1, "g")]
+    answer = _small_graph(_TWO_MODULES, symbols, [[0, 1, True, 5, 0]])
+    with _page_on(studio, answer, "#/explore/0") as page:
+        page.locator("a.lens-card", has_text="g").click()
+        details = page.get_by_role("complementary", name="Details")
+        selection = details.locator(
+            ".box", has=page.get_by_role("heading", name="Selected · Function")
+        )
+        selection.get_by_text("Observed · called by f · partial", exact=True).wait_for()
+        assert selection.locator(".badge.observed").count() == 1
+        page.get_by_text(
+            "✎ partial = observed call with unresolved candidates", exact=True
+        ).wait_for()
+        page.get_by_text(
+            "✎ claim = author assertion or partly resolved call", exact=True
+        ).wait_for()
+
+        page.route("**/api/v1/chat", lambda route: route.fulfill(json=_ANSWER))
+        page.get_by_role("button", name="Ask", exact=True).click()
+        chat = page.get_by_role("region", name="Ask the agent")
+        chat.get_by_role("textbox", name="Question").fill("What does f do?")
+        chat.get_by_role("button", name="Ask", exact=True).click()
+        chat.get_by_role("region", name="Claim").wait_for()
+
+
+@pytest.mark.browser
+def test_a_call_with_candidates_in_two_folded_modules_is_one_partial(studio: Studio) -> None:
     # 12 modules in one package: 8 show, 4 fold into a tile. One partial call names two folded ones.
     modules = [[f"alpha.p.m{k:02}", f"alpha/p/m{k:02}.py", 0, f"p.m{k:02}"] for k in range(12)]
     symbols = [_function(k, f"fn{k}") for k in range(12)]
@@ -2093,7 +2170,7 @@ def test_a_call_with_candidates_in_two_folded_modules_is_one_claim(studio: Studi
         page.locator(".level-card", has_text="m00").click()
         page.locator(".level-card.pinned").wait_for()
         rows = _words(page.locator(".focus-rows"))
-        assert "1 ✎ claim" in rows and "2 ✎ claim" not in rows
+        assert "1 ✎ partial" in rows and "2 ✎ partial" not in rows
 
 
 @pytest.mark.browser
@@ -2120,7 +2197,7 @@ def test_a_lens_neighbor_names_its_proof_in_words(studio: Studio) -> None:
     with _page_on(studio, answer, "#/explore/0") as page:
         page.locator(".lens-card.center").wait_for()
         assert _words(page.locator("a.lens-card", has_text="g")) == "g ✓ proven line 5"
-        assert _words(page.locator("a.lens-card", has_text="h")) == "h ✎ claim line 6"
+        assert _words(page.locator("a.lens-card", has_text="h")) == "h ✎ partial line 6"
 
 
 @pytest.mark.browser
@@ -2145,21 +2222,21 @@ def test_a_function_that_the_snapshot_lacks_falls_back_to_the_start_in_title_and
 
 @pytest.mark.browser
 def test_the_map_cards_and_their_call_lists_name_the_proof_in_words(studio: Studio) -> None:
-    # f calls g at one resolved and one partial site: alpha calls beta, one proven and one claim.
+    # f calls g at one resolved and one partial site: alpha calls beta, one proven and one partial.
     symbols = [_function(0, "f"), _function(1, "g")]
     answer = _small_graph(_TWO_MODULES, symbols, [[0, 1, False, 5, 0], [0, 1, True, 6, 1]])
     with _page_on(studio, answer, "#/map") as page:
         card = page.locator("a.map-card", has_text="alpha")
         card.wait_for()
-        assert "out 1 ✓ proven · 1 ✎ claim" in _words(card)
+        assert "out 1 ✓ proven · 1 ✎ partial" in _words(card)
         assert "in 0 ✓ proven" in _words(card)
         card.click()
         details = page.get_by_role("complementary", name="Details")
         calls = details.locator(".box", has=page.get_by_role("heading", name="Calls", exact=True))
-        assert "beta 1 ✓ proven · 1 ✎ claim" in _words(calls)
+        assert "beta 1 ✓ proven · 1 ✎ partial" in _words(calls)
         page.locator("a.map-card", has_text="beta").click()
         called_by = details.locator(".box", has=page.get_by_role("heading", name="Called by"))
-        assert "alpha 1 ✓ proven · 1 ✎ claim" in _words(called_by)
+        assert "alpha 1 ✓ proven · 1 ✎ partial" in _words(called_by)
 
 
 @pytest.mark.browser

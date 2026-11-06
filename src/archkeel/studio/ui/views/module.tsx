@@ -14,7 +14,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
   const meta = (symbol: number): string => `${counted(neighbors(model, symbol), "link")}${model.graph.symbols[symbol][5] > 0 ? ` · ? ${model.graph.symbols[symbol][5]}` : ""}`;
   const text: LevelText = {
     card: (symbol) => ({ name: model.graph.symbols[symbol][1], facts: [meta(symbol)] }),
-    stub: (ref) => ({ name: fileOf(model, Number(ref)), facts: ["9999 ✓ proven · 9999 ✎ claim"] }),
+    stub: (ref) => ({ name: fileOf(model, Number(ref)), facts: ["9999 ✓ proven · 9999 ✎ partial"] }),
   };
   const layout = useMemo(() => layoutModule(model, module, all, text), [model, module, all]);
   const [, , component] = model.graph.modules[module];
@@ -50,7 +50,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
         name={model.graph.modules[other][0]}
         kind="Module"
         where={["Architecture", model.graph.components[model.graph.modules[other][2]][0], ...model.folders[other], fileOf(model, other)].join(" › ")}
-        facts={stub === undefined ? [] : [`${stub.proven} proven call sites · ${stub.claim} claim`, part.stub === Side.In ? "calls into this module" : "is called from this module"]}
+        facts={stub === undefined ? [] : [`${stub.proven} proven call sites · ${stub.partial} partial`, part.stub === Side.In ? "calls into this module" : "is called from this module"]}
         open={{ href: viewHref(View.Module, other), label: "Open the module →" }}
       />
     );
