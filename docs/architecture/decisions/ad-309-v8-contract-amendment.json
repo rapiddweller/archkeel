@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "28f91c6c3023d06d1a112c11c345db55b7faa7edd61ef90db87c52d3ed8580a9",
+  "after_digest": "44f4c9868d089316cc9f8dbd04e75ce5b415597b90fe9e77bb51ff13ce0f7e44",
+  "before_baseline_digest": "fcd9210b6334b0702dbc20781cf0c5df01b774708e2ff1df699c7c1fc682fef7",
+  "before_digest": "797284058fbe76dae97f5dacb98f5bc24d367723005b5c8ae7d8d81ba92bff99",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "CI run 42150889427, job 127673579752, compared HEAD 5703fa11616b4c0db3265cff43eb00b7a2e8f1e9 with base d202138f95dde0a8588d52ef4b12d664b5c97c34. It measured calls_unresolved 959\u2192965, typing positions 58 and zero architecture violations. The six added calls are encoder.iterencode, chunk.encode, compressor.compress, compressed.extend at two sites, and compressor.flush in ir.facts_codec._encode_v8_response. CI run 42154647696, job 127685781032, compares HEAD e9f21950d1c451636687deb6cc168fb5d8bc0a93 with the same base. It confirms 965 unresolved calls, 58 typing positions, zero violations and zero coverage failures; no budget changes. The response decode extraction moves the two existing exact type-ignore allowances from process.py lines 480/492 to 483/495; function, statements, tags and scope are unchanged. The only new CLI IR through-reference against this base is ProtocolVersion for AD-309. These before/after digests bind the complete contract tree for d202138f\u2192e9f21950.",
+  "schema_version": "2.0.0"
+}

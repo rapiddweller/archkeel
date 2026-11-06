@@ -572,6 +572,79 @@ def test_replacement_executable_is_actually_called(tmp_path: Path) -> None:
     assert artifact is not None
 
 
+def test_native_typescript_uses_v8_compression_and_explicit_collector_keeps_v3(
+    tmp_path: Path,
+) -> None:
+    import shutil
+    import zlib
+    from unittest.mock import patch
+
+    from archkeel.analyzer.python.collect import PythonProviderCollector
+    from archkeel.cli.observe import observer_for
+    from archkeel.ir.facts_codec import decode_response
+    from archkeel.ir.profiles import Language
+    from archkeel.ir.protocol import (
+        CollectionError,
+        CollectionRequest,
+        CollectionResponse,
+        ProtocolVersion,
+        SnapshotInput,
+        SourceScope,
+        TypeScriptSettings,
+    )
+    from fixtures.demo_catalog_typescript import TYPESCRIPT_FIXTURE_DIR
+
+    root = tmp_path / "typescript"
+    shutil.copytree(TYPESCRIPT_FIXTURE_DIR, root)
+    shutil.copytree(root / "resolver-inputs", root / "node_modules")
+    request = CollectionRequest(
+        SnapshotInput(str(root), "a" * 40, False),
+        SourceScope(("src",), "shop"),
+        TypeScriptSettings(),
+    )
+    native = observer_for(Language.TYPESCRIPT).collector
+    python = observer_for(Language.PYTHON).collector
+    dart = observer_for(Language.DART).collector
+    assert isinstance(python, PythonProviderCollector)
+    assert python.collector.protocol_version is None
+    assert dart.protocol_version is None
+    frames: list[bytes] = []
+
+    def decode(frame: bytes, *, output_limit: int) -> CollectionResponse:
+        frames.append(frame)
+        return decode_response(frame, output_limit=output_limit)
+
+    with patch("archkeel.analyzer.process.decode_response", side_effect=decode):
+        compressed = native.collect_response(request)
+
+    assert isinstance(compressed, CollectionResponse)
+    assert compressed.protocol_version is ProtocolVersion.V8
+    assert frames[0].startswith(b"\x78")
+    assert json.loads(zlib.decompress(frames[0]))["protocol_version"] == "8.0.0"
+
+    configured = observer_for(Language.TYPESCRIPT, collector_argv=native.argv).collector
+    with patch("archkeel.analyzer.process.decode_response", side_effect=decode):
+        custom = configured.collect_response(request)
+    assert isinstance(custom, CollectionResponse)
+    assert custom.protocol_version is ProtocolVersion.V3
+    assert compressed.facts == custom.facts
+    assert len(frames[0]) < len(frames[1])
+
+    bounded_native = observer_for(Language.TYPESCRIPT, output_limit_bytes=8 * 1024).collector
+    bounded_custom = observer_for(
+        Language.TYPESCRIPT,
+        collector_argv=native.argv,
+        output_limit_bytes=8 * 1024,
+    ).collector
+    bounded_result = bounded_native.collect_response(request)
+    assert isinstance(bounded_result, CollectionResponse)
+    assert bounded_result.protocol_version is ProtocolVersion.V8
+    over_limit_result = bounded_custom.collect_response(request)
+    assert isinstance(over_limit_result, CollectionError)
+    assert over_limit_result.kind == "protocol_error"
+    assert "limit" in over_limit_result.message
+
+
 def test_same_snapshot_produces_identical_observation(tmp_path: Path) -> None:
     from archkeel.check.report import run_report
     from archkeel.cli.config import load_config

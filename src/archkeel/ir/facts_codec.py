@@ -1691,6 +1691,18 @@ def _facts_payload(
     }
 
 
+def _encode_v8_response(raw: RawJson) -> bytes:
+    encoder = json.JSONEncoder(
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    compressor = zlib.compressobj(_V8_COMPRESSION_LEVEL)
+    compressed = bytearray()
+    for chunk in encoder.iterencode(raw):
+        compressed.extend(compressor.compress(chunk.encode("utf-8")))
+    compressed.extend(compressor.flush())
+    return bytes(compressed)
+
+
 def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
     version = _version(response.protocol_version)
@@ -1719,17 +1731,18 @@ def encode_response(response: CollectionResponse) -> bytes:
         raw["facts"] = _compact_source_facts(raw["facts"])
     elif version in _COLUMNAR_V2_PROTOCOLS:
         raw["facts"] = _compact_source_facts_v6(raw["facts"])
+    if version is ProtocolVersion.V8:
+        _check_json_value(raw)
+        return _encode_v8_response(raw)
     text: str = json.dumps(
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     )
     payload = text.encode()
     _check_json_value(raw)
     # AD-259: a V8 encoder does not validate its own output; decode_response is the trust boundary.
-    if version not in _COLUMNAR_V2_PROTOCOLS and version is not ProtocolVersion.V8:
+    if version not in _COLUMNAR_V2_PROTOCOLS:
         _response(raw)
-    return (
-        zlib.compress(payload, _V8_COMPRESSION_LEVEL) if version is ProtocolVersion.V8 else payload
-    )
+    return payload
 
 
 def raw_record(record: Record) -> RawRecord:

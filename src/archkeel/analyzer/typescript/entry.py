@@ -16,7 +16,9 @@ def main() -> int:
     request = decode_request(sys.stdin.buffer.read())
     if not isinstance(request.resolver, TypeScriptSettings):
         raise ValueError("TypeScript collector requires the TypeScript resolver")
-    sys.stdout.buffer.write(encode_response(CollectionResponse(collect(request))))
+    sys.stdout.buffer.write(
+        encode_response(CollectionResponse(collect(request), request.protocol_version))
+    )
     return 0
 
 

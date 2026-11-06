@@ -11,7 +11,7 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
@@ -40,6 +40,7 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
+    ProtocolVersion,
     PythonCollectionPhase,
     PythonSettings,
     collected_resolution_features,
@@ -95,6 +96,8 @@ class ProcessCollector:
     # Set only for a run with --timings; None measures nothing.
     clock: PhaseClock | None = None
     output_limit_remedy: str = _DEFAULT_OUTPUT_LIMIT_REMEDY
+    # Collectors without a pinned version accept any valid response version.
+    protocol_version: ProtocolVersion | None = None
 
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
@@ -122,7 +125,12 @@ class ProcessCollector:
     def collect_response(self, request: CollectionRequest) -> CollectionResponse | CollectionError:
         subject = self.argv[0]
         try:
-            payload = encode_request(request)
+            wire_request = (
+                replace(request, protocol_version=self.protocol_version)
+                if self.protocol_version is not None
+                else request
+            )
+            payload = encode_request(wire_request)
             command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
             platform = _process_platform(os.name)
@@ -174,11 +182,7 @@ class ProcessCollector:
                     )
             if self.clock is not None:
                 self.clock.count(WorkCounter.COLLECTOR_WIRE_BYTES, len(stdout))
-            with measured(self.clock, Phase.DECODE):
-                response = decode_response(stdout, output_limit=self.output_limit_bytes)
-                _requested_facts(response.facts, request)
-                _requested_provider_sources(response, request)
-            return response
+            return self._decode_response(stdout, wire_request)
         except subprocess.TimeoutExpired:
             return CollectionError(
                 CollectionErrorKind.TIMEOUT,
@@ -192,6 +196,20 @@ class ProcessCollector:
             )
         except (ProtocolError, _OutputLimitError) as error:
             return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, subject, str(error))
+
+    def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
+        with measured(self.clock, Phase.DECODE):
+            response = decode_response(stdout, output_limit=self.output_limit_bytes)
+            if (
+                self.protocol_version is not None
+                and response.protocol_version is not request.protocol_version
+            ):
+                raise ProtocolError(
+                    "collector response protocol version does not match its request"
+                )
+            _requested_facts(response.facts, request)
+            _requested_provider_sources(response, request)
+        return response
 
     def _exchange(
         self, process: subprocess.Popen[bytes], payload: bytes, workers: list[Thread]
