@@ -1524,7 +1524,11 @@ def decode_response(
     payload: bytes, *, output_limit: int = DEFAULT_RESPONSE_LIMIT_BYTES
 ) -> CollectionResponse:
     """Decode a collector reply; `output_limit` is the transport cap on the bytes received."""
-    if type(output_limit) is not int or not 0 < output_limit <= MAX_RESPONSE_LIMIT_BYTES:
+    if (
+        not isinstance(output_limit, int)
+        or isinstance(output_limit, bool)
+        or not 0 < output_limit <= MAX_RESPONSE_LIMIT_BYTES
+    ):
         raise ProtocolError(
             "collector output limit must be a positive integer no greater than "
             f"{MAX_RESPONSE_LIMIT_BYTES} bytes"

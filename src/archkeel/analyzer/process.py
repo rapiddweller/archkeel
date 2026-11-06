@@ -99,17 +99,21 @@ class ProcessCollector:
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
             raise ValueError("collector argv must contain nonempty arguments")
+        if not 0 < self.timeout_seconds <= TIMEOUT_MAX:
+            raise ValueError(
+                "collector limits must be positive; timeout must fit threading.TIMEOUT_MAX"
+            )
         if (
-            not 0 < self.timeout_seconds <= TIMEOUT_MAX
-            or type(self.output_limit_bytes) is not int
+            not isinstance(self.output_limit_bytes, int)
+            or isinstance(self.output_limit_bytes, bool)
             or not 0 < self.output_limit_bytes <= MAX_RESPONSE_LIMIT_BYTES
-            or self.stderr_limit_bytes <= 0
         ):
             raise ValueError(
                 "collector output limit must be a positive integer no greater than "
-                f"{MAX_RESPONSE_LIMIT_BYTES} bytes; other limits must be positive and timeout "
-                "must fit threading.TIMEOUT_MAX"
+                f"{MAX_RESPONSE_LIMIT_BYTES} bytes"
             )
+        if self.stderr_limit_bytes <= 0:
+            raise ValueError("collector limits must be positive")
 
     def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
         response = self.collect_response(request)

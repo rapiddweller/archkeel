@@ -1025,12 +1025,13 @@ def test_v8_decompression_is_bounded_at_sixteen_times_the_output_limit() -> None
         decode_response(bomb, output_limit=2_000)
 
 
-def test_v8_decoder_rejects_a_limit_that_overflows_decompression_bound() -> None:
+@pytest.mark.parametrize("limit", [sys.maxsize, True])
+def test_v8_decoder_rejects_a_limit_that_is_unsafe_or_exceeds_bound(limit: int | bool) -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
 
     payload = encode_response(_response_with("8.0.0"))
     with pytest.raises(ProtocolError, match="collector output limit"):
-        decode_response(payload, output_limit=sys.maxsize)
+        decode_response(payload, output_limit=limit)
 
 
 def test_v8_decoder_accepts_the_largest_limit_with_a_representable_decompression_bound() -> None:

@@ -122,6 +122,7 @@ def test_observer_carries_the_bundler_flag() -> None:
     assert observer_for(Language.TYPESCRIPT, bundler=True).bundler is True
 
 
-def test_process_collector_rejects_a_limit_that_overflows_decompression_bound() -> None:
+@pytest.mark.parametrize("limit", [2**60, True])
+def test_process_collector_rejects_an_unsafe_or_overflowing_limit(limit: int | bool) -> None:
     with pytest.raises(ValueError, match="collector output limit"):
-        ProcessCollector(("collector",), output_limit_bytes=2**60)
+        ProcessCollector(("collector",), output_limit_bytes=limit)
