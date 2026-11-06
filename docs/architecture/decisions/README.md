@@ -314,3 +314,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-305 | [Studio starts one scope per root](ad-305-studio-starts-one-scope-per-root.md) |
 | AD-306 | [Studio chat exports checked story drafts](ad-306-studio-chat-exports-checked-story-drafts.md) |
 | AD-307 | [A Git manifest composes the system landscape](ad-307-git-versioned-system-landscape.md) |
+| AD-309 | [Native TypeScript uses compressed protocol 8](ad-309-native-typescript-uses-compressed-protocol-8.md) |

@@ -174,6 +174,27 @@ def test_configured_executable_collects_facts_without_receiving_policy(tmp_path)
     assert facts.files[0].module == "project.app"
 
 
+def test_selected_protocol_version_rejects_a_mismatched_response(tmp_path) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.facts_codec import decode_request
+    from archkeel.ir.protocol import CollectionError, CollectionErrorKind, ProtocolVersion
+
+    legacy = json.dumps(_response(), sort_keys=True, separators=(",", ":")).encode()
+    code = (
+        "import sys; sys.stdin.buffer.read(); "
+        f"sys.stdout.buffer.write({legacy!r})"
+    )
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+
+    result = _collector(code, protocol_version=ProtocolVersion.V8).collect_response(request)
+
+    assert isinstance(result, CollectionError)
+    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
+    assert "does not match its request" in result.message
+
+
 def test_nonzero_process_exit_cannot_be_a_complete_collection(tmp_path) -> None:
     from dataclasses import replace
 

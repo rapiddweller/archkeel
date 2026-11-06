@@ -982,6 +982,38 @@ def test_v8_response_is_zlib_framed_ordinary_facts(_request_validator) -> None:
     assert envelope["facts"] == json.loads(encode_response(_response_with("4.0.0")))["facts"]
 
 
+def test_large_v8_response_roundtrips_with_compressed_facts() -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.facts import Evidence
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
+
+    response = _response_with("8.0.0")
+    evidence = tuple(
+        Evidence(
+            f"SYNTHETIC-{index:04d}",
+            response.facts.inputs[0].path,
+            0,
+            0,
+            0,
+            f"candidate-{index:04d}-" + "x" * 2048,
+        )
+        for index in range(256)
+    )
+    large = CollectionResponse(
+        replace(response.facts, candidate_evidence=evidence), ProtocolVersion.V8
+    )
+    encoded = encode_response(large)
+    plain = zlib.decompress(encoded)
+
+    assert encoded.startswith(b"\x78")
+    assert len(plain) > 256 * 1024
+    assert len(encoded) < len(plain) <= 16 * 64 * 1024 * 1024
+    assert len(encoded) <= 64 * 1024 * 1024
+    assert decode_response(encoded) == large
+
+
 @pytest.mark.parametrize(
     "version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0", "8.0.0"]
 )

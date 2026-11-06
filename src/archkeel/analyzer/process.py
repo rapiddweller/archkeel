@@ -11,7 +11,7 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
@@ -41,6 +41,7 @@ from archkeel.ir.protocol import (
     CollectionResponse,
     PythonCollectionPhase,
     PythonSettings,
+    ProtocolVersion,
     collected_resolution_features,
 )
 
@@ -92,6 +93,8 @@ class ProcessCollector:
     stderr_limit_bytes: int = 64 * 1024
     # Set only for a run with --timings; None measures nothing.
     clock: PhaseClock | None = None
+    # Native adapters can select and require one wire version. Custom callers keep their request.
+    protocol_version: ProtocolVersion | None = None
 
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
@@ -112,7 +115,12 @@ class ProcessCollector:
     def collect_response(self, request: CollectionRequest) -> CollectionResponse | CollectionError:
         subject = self.argv[0]
         try:
-            payload = encode_request(request)
+            wire_request = (
+                replace(request, protocol_version=self.protocol_version)
+                if self.protocol_version is not None
+                else request
+            )
+            payload = encode_request(wire_request)
             command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
             platform = _process_platform(os.name)
@@ -166,8 +174,15 @@ class ProcessCollector:
                 self.clock.count(WorkCounter.COLLECTOR_WIRE_BYTES, len(stdout))
             with measured(self.clock, Phase.DECODE):
                 response = decode_response(stdout, output_limit=self.output_limit_bytes)
-                _requested_facts(response.facts, request)
-                _requested_provider_sources(response, request)
+                if (
+                    self.protocol_version is not None
+                    and response.protocol_version is not wire_request.protocol_version
+                ):
+                    raise ProtocolError(
+                        "collector response protocol version does not match its request"
+                    )
+                _requested_facts(response.facts, wire_request)
+                _requested_provider_sources(response, wire_request)
             return response
         except subprocess.TimeoutExpired:
             return CollectionError(

@@ -15,6 +15,7 @@ from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ObservationResult
 from archkeel.ir.codec import RawJson, observation_payload
 from archkeel.ir.phases import PhaseClock
+from archkeel.ir.protocol import ProtocolVersion
 
 
 def observer_for(
@@ -28,9 +29,14 @@ def observer_for(
     clock: PhaseClock | None = None,
 ) -> Observer:
     native_python = collector_argv is None and language == Language.PYTHON
+    native_typescript = collector_argv is None and language == Language.TYPESCRIPT
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
-    collector = ProcessCollector(collector_argv, clock=clock)
+    collector = ProcessCollector(
+        collector_argv,
+        clock=clock,
+        protocol_version=ProtocolVersion.V8 if native_typescript else None,
+    )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)
     if timeout_seconds is not None:
