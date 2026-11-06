@@ -316,3 +316,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-307 | [A Git manifest composes the system landscape](ad-307-git-versioned-system-landscape.md) |
 | AD-308 | [Finite per-run collector limit for explore and Studio](ad-308-finite-per-run-collector-limit-for-explore-and-studio.md) |
 | AD-309 | [Native TypeScript uses compressed protocol 8](ad-309-native-typescript-uses-compressed-protocol-8.md) |
+| AD-310 | [SQLite stores derived streaming snapshots](ad-310-sqlite-derived-streaming-snapshots.md) |
