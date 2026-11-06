@@ -124,12 +124,19 @@ pub fn collect_import_batch(source: &str, target: &str) -> Batch {
     };
 
     let mut line_starts = vec![0];
-    line_starts.extend(
-        source
-            .bytes()
-            .enumerate()
-            .filter_map(|(index, byte)| (byte == b'\n').then_some(index + 1)),
-    );
+    let bytes = source.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'\r' {
+            if bytes.get(index + 1) == Some(&b'\n') {
+                index += 1;
+            }
+            line_starts.push(index + 1);
+        } else if bytes[index] == b'\n' {
+            line_starts.push(index + 1);
+        }
+        index += 1;
+    }
     let mut collector = ImportCollector {
         line_starts,
         imports: Vec::new(),

@@ -82,3 +82,22 @@ fn unsupported_syntax_for_explicit_target_is_unknown_and_has_no_complete_batch()
     assert_eq!(batch["reason"], "unsupported_syntax");
     assert!(batch["imports"].as_array().unwrap().is_empty());
 }
+
+#[test]
+fn line_and_column_positions_handle_lf_crlf_and_bare_cr() {
+    let output = run("import first\rimport second\r\nimport third\n");
+    assert!(output.status.success());
+    let batch: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let imports = batch["imports"].as_array().unwrap();
+    assert_eq!(imports.len(), 3);
+    for (item, (line, name)) in imports
+        .iter()
+        .zip([(1, "first"), (2, "second"), (3, "third")])
+    {
+        assert_eq!(item["line"], line);
+        assert_eq!(item["column"], 7);
+        assert_eq!(item["end_line"], line);
+        assert_eq!(item["end_column"], 7 + name.len());
+        assert_eq!(item["name"], name);
+    }
+}

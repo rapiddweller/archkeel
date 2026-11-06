@@ -9,6 +9,10 @@ import sys
 from pathlib import Path
 
 
+class RustUnsupportedSyntaxError(ValueError):
+    """Identify a scratch parser rejection in collector coverage."""
+
+
 def main() -> int:
     repository = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repository / "src"))
@@ -29,7 +33,7 @@ def main() -> int:
     def parse_with_rust_target(text: str, filename: str):
         batch = json.loads(core.collect_import_batch_json(text, target))
         if batch["status"] != "COMPLETE" or not batch["complete"]:
-            raise ValueError(f"Rust parser target is UNKNOWN: {batch['reason']}")
+            raise RustUnsupportedSyntaxError(batch["reason"])
         return parse_bounded(text, filename)
 
     source._parse_bounded = parse_with_rust_target

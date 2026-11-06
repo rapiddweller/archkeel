@@ -50,16 +50,33 @@ python rust-spike/collector_probe.py
 extension in 3.11. The recorded host used `/usr/local/bin/python`, CPython 3.11.12,
 and arm64 macOS.
 
+To compare explicit files, call `compare_files.py` with their paths and the Rust binary:
+
+```bash
+python rust-spike/compare_files.py \
+  --rust-binary rust-spike/target/debug/archkeel-import-facts-spike \
+  --target 3.11 path/to/first.py path/to/second.py
+```
+
+The runner excludes test paths and prints aggregate categories only. It accepts at most
+100 files, limits parser input to 256 KiB per file and 10 MiB total, and gives each parser
+call three seconds. It reads one extra byte to detect an input over a limit. The 4 MiB
+output limit is checked after capture; it is not a memory limit. It compares Python parser
+errors, Rust `UNKNOWN`, and fact mismatches in separate categories. It does not save source
+text, file paths or comparison results.
+
 ## Observed results
 
-- Three Rust tests pass. The target-version negative test checks `UNKNOWN`, an
+- Four Rust tests pass. The target-version negative test checks `UNKNOWN`, an
   incomplete batch and no imports for unsupported syntax.
+- A line-position test covers LF, CRLF and bare CR endings.
 - One synthetic fixture has eight import occurrences. Their normalized facts and
   positions match CPython's `ast` output.
-- The synthetic ProcessCollector child probe reports one coverage gap and zero import
-  targets when Python 3.11 syntax is not supported by the parser target.
+- The ProcessCollector child probe uses syntax accepted by CPython 3.11 but unsupported
+  by its explicit 3.9 target. It reports one Rust-specific gap and keeps one valid import.
 - No performance claim is measured here. The earlier local project comparison is not
   part of this prototype or its evidence.
+- The generic file runner is only a tool. No real project scan or output is committed.
 
 ## Limits
 
