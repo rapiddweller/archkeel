@@ -56,6 +56,8 @@ def _result(
 
 
 def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
+    if wanted.kind in _TARGET_ONLY_ENTITY_KINDS:
+        return ()
     namespace = wanted.kind in {EntityKind.MODULE, EntityKind.PACKAGE}
     type_only = {EntityKind.INTERFACE, EntityKind.TYPE_ALIAS}
     value_only = {
@@ -106,8 +108,6 @@ def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
 
 
 def _scope(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
-    if wanted.kind in _TARGET_ONLY_ENTITY_KINDS:
-        return ()
     if wanted.kind != EntityKind.COMPONENT:
         return _matches(graph, wanted)
     packages = tuple(
@@ -710,7 +710,6 @@ def compare_graphs(observed: ArchitectureGraph, target: ArchitectureGraph) -> Gr
     correspondences = tuple(
         EntityCorrespondence(entity.id, tuple(sorted(item.id for item in matches)))
         for entity in target.entities
-        if entity.kind not in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM}
         if (matches := _scope(observed, entity))
     )
     comparison = GraphComparison.from_assessments(assessments, correspondences=correspondences)

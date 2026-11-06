@@ -242,6 +242,54 @@ def test_closed_scope_without_coverage_is_unknown_even_when_every_listed_entity_
     assert _assessments(observed, target, "completeness")[0].status == "UNKNOWN"
 
 
+def test_target_only_relationships_cannot_satisfy_closed_scope_completeness():
+    observed, target = _connections()
+    runtime = Entity(
+        "runtime",
+        "runtime_unit",
+        "sample.run",
+        "python",
+        parent_id="module",
+        presence="planned",
+        responsibilities=("Run the service.",),
+        provenance=("docs/target.md",),
+    )
+    external = Entity(
+        "external",
+        "external_system",
+        "sample.helper",
+        "python",
+        parent_id="module",
+        presence="planned",
+        responsibilities=("Receive the call.",),
+        provenance=("docs/target.md",),
+    )
+    target = replace(
+        target,
+        schema_version="1.4.0",
+        entities=(target.entities[0], runtime, external),
+        relationships=(
+            Relationship(
+                "target-call", "calls", "runtime", "external", provenance=("docs/target.md",)
+            ),
+        ),
+        target_scopes=(
+            TargetScope(
+                "module",
+                "closed",
+                "List calls.",
+                ("docs/target.md",),
+                relationship_kinds=("calls",),
+            ),
+        ),
+    )
+
+    result = _assessments(observed, target, "completeness")[0]
+
+    assert result.status == "FAIL"
+    assert result.observed_ids == ("site",)
+
+
 def test_entity_with_different_lexical_parent_does_not_satisfy_containment():
     observed, target = _graphs()
     other = _entity("other", "module", "elsewhere")
