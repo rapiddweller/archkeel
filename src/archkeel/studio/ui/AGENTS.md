@@ -71,12 +71,15 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
 - A closed set is a `const` object with `as const` and a type of the same name, as in
   `evidence.ts`. Do not use `enum`: the collector cannot decide an enum in its own module.
 - Decide on a typed value (`Evidence.Claim`), never on a label or a string literal. API response values such as snapshot completeness are owned by `api.ts`; pages use its exported value.
-- Evidence: Observed = code evidence, Claim = agent hypothesis, Target = architect decision.
-  Each kind is a CSS class of the same value. An agent text is a Claim until the architect
-  accepts it. A proposal reads "PROPOSED - NOT APPLIED".
-- Call proof (`Proof`): `✓ proven` = resolved call, `✎ claim` = partly resolved call, `? unknown`
-  = no target found. Always draw the glyph and the word, never a colour alone. Never show PASS.
-  A line is `proven` only with no claim in it. Count call sites, never edges (`site` of an edge).
+- Evidence: Observed = code evidence, Claim = authored assertion, Target = architect decision.
+  Each kind is a CSS class of the same value. Agent text is a Claim until the architect accepts it.
+  A proposal reads "PROPOSED - NOT APPLIED".
+- Call proof (`Proof`): `✓ proven` = resolved call, `✎ partial` = observed call with unresolved
+  candidates, `? unknown` = target not resolved by available evidence. Story `declared` comes from
+  the architecture target. Story `claim` can mean author text or a partial call; the current API
+  does not always expose which one. Do not infer the author from that status. Always draw the glyph
+  and word, never colour alone. Never show PASS. A line is proven only with no partial call. Count
+  call sites, never edges (`site` of an edge).
   No arrow encodes data flow: a line is a dependency, and the band says who calls whom.
 - The levels are the URL hash: `#/map`, `#/component/<n>[/<package>]`, `#/module/<n>`, `#/explore/<function index>`. Esc goes one level up; a card is a link, so the
   browser Back button works and no view imports another view. Colours come from `tokens.css`,
@@ -116,7 +119,8 @@ the shell in Chromium at both sizes. Write the failing test first.
 
 ## Stories and chat
 
-- The check has five statuses; the proof has three. `proven` is the only status that shows as proven. `declared` shows as claim, `missing` as unknown.
+- The check has five statuses. `proven`, `declared` and `claim` keep separate marks; `missing` and
+  `unknown` show as unknown. `claim` does not identify its source when a partial-call seam is also present.
 - A claim step shows its candidate count. The verdict line is always visible.
 - Chat tests mock `POST /api/v1/chat` in the browser (`page.route`); the product code has no mock path.
 - "Pin to story" only shows a draft. A route that writes needs the AD-290 hard gate first.

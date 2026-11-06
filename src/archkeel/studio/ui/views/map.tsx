@@ -10,8 +10,8 @@ import { ARROWS, Counts, Selection, Workbench, nearest } from "../workbench";
 
 const PAIRS_SHOWN = 16;
 
-const spoken = ({ proven, claim }: Tally): string =>
-  [proven > 0 || claim === 0 ? `${proven} proven` : "", claim > 0 ? `${claim} claim` : ""].filter(Boolean).join(", ");
+const spoken = ({ proven, partial }: Tally): string =>
+  [proven > 0 || partial === 0 ? `${proven} proven` : "", partial > 0 ? `${partial} partial` : ""].filter(Boolean).join(", ");
 
 interface Pair {
   readonly from: number;
@@ -28,9 +28,9 @@ function Pairs(props: { model: Model; pair: Pair }) {
     <>
       <Box title={`Dependency · ${names[pair.from][0]} to ${names[pair.to][0]}`}>
         <p>
-          <Counts tally={flow ?? { proven: 0, claim: 0 }} /> · {counted(found.length, "distinct pair")}
+          <Counts tally={flow ?? { proven: 0, partial: 0 }} /> · {counted(found.length, "distinct pair")}
         </p>
-        <p class="more">A partly resolved call with two candidates is one claim.</p>
+        <p class="more">A partly resolved call with two candidates is one partial.</p>
       </Box>
       <Box title="Calls behind this line, most shared callees first" evidence={Evidence.Observed}>
         <ul class="pairs">
@@ -54,8 +54,8 @@ function Pairs(props: { model: Model; pair: Pair }) {
 function Line(props: { line: MapLine; hot: number | null; selected: boolean; onHot: (component: number | null) => void; onPick: () => void }) {
   const { line, hot } = props;
   const touches = hot !== null && (line.from === hot || line.to === hot);
-  // A line is proven only when it holds no claim.
-  const kind = proofOf(line.claim > 0);
+  // A line is proven only when it holds no partial.
+  const kind = proofOf(line.partial > 0);
   const state = hot === null ? (line.strong ? "strong" : "faint") : touches ? "lit" : "dim";
   return (
     <g>
@@ -99,7 +99,7 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
     return () => removeEventListener("keydown", listener);
   }, [boxes, selected]);
   const stat = selected === null ? null : model.stats[selected];
-  const flowsOf = (component: number, out: boolean) => model.flows.filter((flow) => (out ? flow.from === component : flow.to === component)).sort((a, b) => b.proven + b.claim - (a.proven + a.claim));
+  const flowsOf = (component: number, out: boolean) => model.flows.filter((flow) => (out ? flow.from === component : flow.to === component)).sort((a, b) => b.proven + b.partial - (a.proven + a.partial));
   return (
     <Workbench
       model={model}
@@ -155,7 +155,7 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                 <button
                   key={`n:${line.from}:${line.to}`}
                   type="button"
-                  class={`count ${proofOf(line.claim > 0)}`}
+                  class={`count ${proofOf(line.partial > 0)}`}
                   style={{ left: `${x}px`, top: `${y}px` }}
                   aria-label={`${counted(line.calls, "call")} from ${from} to ${to}: ${spoken(line)}`}
                   onClick={() => setPair({ from: line.from, to: line.to })}
@@ -219,8 +219,8 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                 where={`Architecture › ${model.graph.components[selected][0]}`}
                 facts={[
                   `${counted(stat.modules, "module")} · ${counted(stat.symbols, "symbol")}`,
-                  `calls in: ${stat.callsIn.proven} proven · ${stat.callsIn.claim} claim`,
-                  `calls out: ${stat.callsOut.proven} proven · ${stat.callsOut.claim} claim`,
+                  `calls in: ${stat.callsIn.proven} proven · ${stat.callsIn.partial} partial`,
+                  `calls out: ${stat.callsOut.proven} proven · ${stat.callsOut.partial} partial`,
                   `${counted(stat.withUnknown, "symbol")} with unknown calls`,
                   ...(stat.busiest === null ? [] : [`busiest symbol: ${shortName(model, stat.busiest)}`]),
                 ]}

@@ -1,7 +1,7 @@
 /** AD-290: Explore: the lens around one function, with its structure, place and search. */
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
-import { Box, Page, ProofMark, View, viewHref } from "../components";
+import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofOf } from "../evidence";
 import { LensItem, LensLayout, OpenGroup, Rect, Side, layoutLens } from "../lens-layout";
 import {
@@ -126,7 +126,7 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
         {layout.lines
           .filter((line) => hot !== null && line.item === hot)
           .map((line) => (
-            <g key={`dot:${line.item}`} class={`focus-line ${line.kind === "claim" ? "claim" : "proven"}`}>
+            <g key={`dot:${line.item}`} class={`focus-line ${line.kind === "partial" ? "partial" : "proven"}`}>
               <circle class="port" cx={line.from[0]} cy={line.from[1]} r="2.5" />
               <circle class="port" cx={line.to[0]} cy={line.to[1]} r="2.5" />
               {calm ? null : <circle class="flow" r="3" style={{ offsetPath: `path("${line.path}")` }} />}
@@ -253,7 +253,10 @@ function Chosen(props: { model: Model; symbol: number; center: number }) {
       kind="Function"
       where={["Architecture", ...locate(model, symbol).map((part) => part.label), name].join(" › ")}
       facts={[
-        `${calls ? "called by" : "calls"} ${model.graph.symbols[props.center][1]}${link === undefined ? "" : ` · ${proofOf(link.partial)}`}`,
+        <>
+          <Badge evidence={Evidence.Observed}>Observed</Badge> · {calls ? "called by" : "calls"} {model.graph.symbols[props.center][1]}
+          {link === undefined ? "" : ` · ${proofOf(link.partial)}`}
+        </>,
         `${counted(model.incoming[symbol].length, "caller")} · ${counted(model.outgoing[symbol].length, "callee")}`,
         `${unresolved} calls with no known target`,
         `defined at ${baseName(fileName(model, symbol))}:${line}`,

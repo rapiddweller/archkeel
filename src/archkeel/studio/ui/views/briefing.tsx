@@ -263,7 +263,7 @@ export function Briefing(props: { state: StudioState; model: Model | null; chat:
         {percent === null ? (
           <Number_ value="–" label="calls resolved" note="This snapshot has no call totals." />
         ) : (
-          <Number_ value={`${percent} %`} label="calls resolved" note={`✓ ${compact(totals.resolved)} of ${compact(totals.analyzed)} · ✎ ${compact(totals.partial)} claim`} />
+          <Number_ value={`${percent} %`} label="calls resolved" note={`✓ ${compact(totals.resolved)} of ${compact(totals.analyzed)} · ✎ ${compact(totals.partial)} partial`} />
         )}
         <Number_ value={compact(totals.unresolved)} label="unknown calls" note="? no target found" />
       </div>

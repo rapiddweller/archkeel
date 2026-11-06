@@ -98,12 +98,12 @@ interface RawLink {
   readonly a: string;
   readonly b: string;
   readonly proven: ReadonlySet<number>;
-  readonly claim: ReadonlySet<number>;
+  readonly partial: ReadonlySet<number>;
   readonly pairs: readonly LevelPair[];
 }
 interface Sites {
   readonly proven: Set<number>;
-  readonly claim: Set<number>;
+  readonly partial: Set<number>;
   readonly pairs: Map<string, LevelPair>;
 }
 
@@ -130,7 +130,7 @@ export function splitRef(ref: string): { readonly id: number; readonly pkg: stri
 }
 
 const bump = (found: Map<string, Sites>, key: string, pair: LevelPair, site: number): void => {
-  const sites = found.get(key) ?? { proven: new Set<number>(), claim: new Set<number>(), pairs: new Map<string, LevelPair>() };
+  const sites = found.get(key) ?? { proven: new Set<number>(), partial: new Set<number>(), pairs: new Map<string, LevelPair>() };
   sites[proofOf(pair.partial)].add(site);
   const id = `${pair.source}:${pair.target}`;
   if (better(sites.pairs.get(id), pair)) sites.pairs.set(id, pair);
@@ -140,12 +140,12 @@ const raw = (key: [string, string], sites: Sites): RawLink => ({
   a: key[0],
   b: key[1],
   proven: sites.proven,
-  claim: sites.claim,
+  partial: sites.partial,
   pairs: [...sites.pairs.values()].slice(0, PAIRS_KEPT),
 });
-const toLink = (link: RawLink): LevelLink => ({ a: link.a, b: link.b, proven: link.proven.size, claim: link.claim.size, pairs: link.pairs });
+const toLink = (link: RawLink): LevelLink => ({ a: link.a, b: link.b, proven: link.proven.size, partial: link.partial.size, pairs: link.pairs });
 const stubsOf = (found: ReadonlyMap<string, Sites>): RawStub[] =>
-  [...found.entries()].map(([ref, sites]) => ({ ref, proven: sites.proven.size, claim: sites.claim.size }));
+  [...found.entries()].map(([ref, sites]) => ({ ref, proven: sites.proven.size, partial: sites.partial.size }));
 
 /** A link to a card that a tile holds ends on the tile; two links with the same ends become one and share their sites. */
 function remap(links: readonly RawLink[], tileOf: ReadonlyMap<string, string>): RawLink[] {
@@ -160,7 +160,7 @@ function remap(links: readonly RawLink[], tileOf: ReadonlyMap<string, string>): 
       a,
       b,
       proven: new Set([...(known?.proven ?? []), ...link.proven]),
-      claim: new Set([...(known?.claim ?? []), ...link.claim]),
+      partial: new Set([...(known?.partial ?? []), ...link.partial]),
       pairs: [...(known?.pairs ?? []), ...link.pairs].slice(0, PAIRS_KEPT),
     });
   }
@@ -227,7 +227,7 @@ function arrange(
     return Math.max(minimum, cardHeight(LEVEL_STUB.width, name, [...facts, ""]));
   };
   const shownStubs = (stubs: readonly RawStub[]): RawStub[] =>
-    [...stubs].sort((a, b) => b.proven + b.claim - (a.proven + a.claim)).slice(0, STUBS_SHOWN);
+    [...stubs].sort((a, b) => b.proven + b.partial - (a.proven + a.partial)).slice(0, STUBS_SHOWN);
   const stackHeight = (stubs: readonly RawStub[]): number =>
     shownStubs(stubs).reduce((sum, stub) => sum + stubSize(stub) + LEVEL_STUB.gap, 0);
   const height = Math.max(centerHeight, TOP + stackHeight(stubsIn), TOP + stackHeight(stubsOut)) + 24;

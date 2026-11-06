@@ -11,9 +11,9 @@ import { Level, Model, Tally, Where, baseName, compact, fileName, fileOf, fullNa
 import { SearchBox, StructureTree } from "./navigation";
 import { Viewport } from "./viewport";
 
-/** Proven and claim call sites apart, each with its glyph and word. */
+/** Proven and partial call sites apart, each with its glyph and word. */
 export function Counts(props: { tally: Tally }) {
-  const { proven, claim } = props.tally;
+  const { proven, partial } = props.tally;
   const mark = (proof: Proof, count: number) => (
     <>
       {compact(count)} <span aria-hidden="true">{proofKind(proof).glyph}</span> {proofKind(proof).word}
@@ -21,9 +21,9 @@ export function Counts(props: { tally: Tally }) {
   );
   return (
     <>
-      {proven > 0 || claim === 0 ? mark(Proof.Proven, proven) : null}
-      {proven > 0 && claim > 0 ? " · " : null}
-      {claim > 0 ? mark(Proof.Claim, claim) : null}
+      {proven > 0 || partial === 0 ? mark(Proof.Proven, proven) : null}
+      {proven > 0 && partial > 0 ? " · " : null}
+      {partial > 0 ? mark(Proof.Partial, partial) : null}
     </>
   );
 }
@@ -378,7 +378,7 @@ export function LevelCanvas(props: {
             ))
           : null}
         {lines.map(({ link, points }) => {
-          const kind = link.claim > 0 ? "claim" : "proven";
+          const kind = link.partial > 0 ? "partial" : "proven";
           const far = link.a === focus.key ? link.b : link.a;
           const state = focus.line === null ? "" : focus.line === far ? " on" : " off";
           const d = roundedPath(points);
@@ -444,7 +444,7 @@ export function LevelCanvas(props: {
           <a
             key={key}
             data-key={key}
-            class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}${focus.pinned === key ? " pinned" : ""}`}
+            class={`lens-card stub ${stub.partial > 0 ? "partial" : "proven"}${dim(key)}${focus.pinned === key ? " pinned" : ""}`}
             data-side={stub.side}
             data-drill
             style={place(stub)}
@@ -515,7 +515,7 @@ export function Selection(props: {
   name: string;
   kind: string;
   where: string;
-  facts: readonly string[];
+  facts: readonly ComponentChildren[];
   /** A sentence of the code or of the contract, in full. */
   text?: string;
   open: { readonly href: string; readonly label: string } | null;
@@ -532,8 +532,8 @@ export function Selection(props: {
       </p>
       {props.facts.length > 0 ? (
         <ul class="pairs">
-          {props.facts.map((fact) => (
-            <li key={fact}>{fact}</li>
+          {props.facts.map((fact, index) => (
+            <li key={index}>{fact}</li>
           ))}
         </ul>
       ) : null}
@@ -634,7 +634,7 @@ export function functionRows(model: Model, symbol: number, module: number): Focu
   const direction = (entry: { out: boolean; into: boolean }): string => (entry.out && entry.into ? "calls and is called by" : entry.out ? "is called by this" : "calls this");
   const rows: FocusRow[] = [];
   const groups = new Map<number, FocusItem[]>();
-  const tallies = new Map<number, { proven: number; claim: number }>();
+  const tallies = new Map<number, { proven: number; partial: number }>();
   for (const [other, entry] of found) {
     const where = `${baseName(fileName(model, other))}:${model.graph.symbols[other][2]}`;
     const home = model.graph.symbols[other][0];
@@ -643,9 +643,9 @@ export function functionRows(model: Model, symbol: number, module: number): Focu
       rows.push({ key: cardKey(Level.Function, other), name: item.name, href: item.href, where: `${item.direction} · ${where}`, tally: tallyOf(entry.partial), neighbor: true, items: [] });
     } else {
       groups.set(home, [...(groups.get(home) ?? []), item]);
-      const now = tallies.get(home) ?? { proven: 0, claim: 0 };
+      const now = tallies.get(home) ?? { proven: 0, partial: 0 };
       const one = tallyOf(entry.partial);
-      tallies.set(home, { proven: now.proven + one.proven, claim: now.claim + one.claim });
+      tallies.set(home, { proven: now.proven + one.proven, partial: now.partial + one.partial });
     }
   }
   groups.forEach((items, home) => {

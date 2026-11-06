@@ -10,10 +10,10 @@ export interface Link {
   readonly line: number;
 }
 
-/** Proven calls (resolved) and claims (partly resolved), counted as call sites, never as edges. */
+/** Proven and partial calls, counted as call sites, never as edges. */
 export interface Tally {
   readonly proven: number;
-  readonly claim: number;
+  readonly partial: number;
 }
 
 /** The call sites from one component to another. */
@@ -131,19 +131,19 @@ function countSites(graph: Graph): Counting {
     from: number;
     to: number;
     proven: Set<number>;
-    claim: Set<number>;
+    partial: Set<number>;
     edges: number[];
   }
   const count = graph.components.length;
   const found = new Map<number, Draft>();
-  const out = graph.components.map(() => ({ proven: new Set<number>(), claim: new Set<number>() }));
-  const crossing = { proven: new Set<number>(), claim: new Set<number>() };
+  const out = graph.components.map(() => ({ proven: new Set<number>(), partial: new Set<number>() }));
+  const crossing = { proven: new Set<number>(), partial: new Set<number>() };
   graph.edges.forEach(([source, target, partial, , site], index) => {
     const from = graph.modules[graph.symbols[source][0]][2];
     const to = graph.modules[graph.symbols[target][0]][2];
     if (from === to) return;
     const key = from * count + to;
-    const flow = found.get(key) ?? { from, to, proven: new Set<number>(), claim: new Set<number>(), edges: [] };
+    const flow = found.get(key) ?? { from, to, proven: new Set<number>(), partial: new Set<number>(), edges: [] };
     const kind = proofOf(partial);
     flow[kind].add(site);
     out[from][kind].add(site);
@@ -155,19 +155,19 @@ function countSites(graph: Graph): Counting {
     from: flow.from,
     to: flow.to,
     proven: flow.proven.size,
-    claim: flow.claim.size,
+    partial: flow.partial.size,
     edges: flow.edges,
   }));
-  // A claim with candidates in two components is one site for each of them.
-  const into = graph.components.map<{ proven: number; claim: number }>(() => ({ proven: 0, claim: 0 }));
+  // A partial call with candidates in two components is one site for each of them.
+  const into = graph.components.map<{ proven: number; partial: number }>(() => ({ proven: 0, partial: 0 }));
   for (const flow of flows) {
     into[flow.to].proven += flow.proven;
-    into[flow.to].claim += flow.claim;
+    into[flow.to].partial += flow.partial;
   }
   return {
     flows,
-    crossing: { proven: crossing.proven.size, claim: crossing.claim.size },
-    out: out.map((sites) => ({ proven: sites.proven.size, claim: sites.claim.size })),
+    crossing: { proven: crossing.proven.size, partial: crossing.partial.size },
+    out: out.map((sites) => ({ proven: sites.proven.size, partial: sites.partial.size })),
     into,
   };
 }
@@ -228,8 +228,8 @@ export function buildModel(graph: Graph): Model {
   const stats = graph.components.map<{ -readonly [K in keyof ComponentStats]: ComponentStats[K] }>(() => ({
     modules: 0,
     symbols: 0,
-    callsIn: { proven: 0, claim: 0 },
-    callsOut: { proven: 0, claim: 0 },
+    callsIn: { proven: 0, partial: 0 },
+    callsOut: { proven: 0, partial: 0 },
     withUnknown: 0,
     busiest: null,
   }));
@@ -296,8 +296,8 @@ export function findSymbol(model: Model, name: string): number | null {
   return index.get(name) ?? null;
 }
 
-/** One call as a tally: proven when resolved, a claim when partly resolved. */
-export const tallyOf = (partial: boolean): Tally => ({ proven: 0, claim: 0, [proofOf(partial)]: 1 });
+/** One call as a tally: proven when resolved, partial when partly resolved. */
+export const tallyOf = (partial: boolean): Tally => ({ proven: 0, partial: 0, [proofOf(partial)]: 1 });
 
 export const fileName = (model: Model, symbol: number): string =>
   model.graph.modules[moduleIndex(model, symbol)][1];
@@ -437,7 +437,7 @@ export function unknownByComponent(model: Model, count: number): { component: nu
     .slice(0, count);
 }
 
-/** Groups of components that call each other in a loop (strongly connected, more than one). Only proven calls close a loop: a claim is a candidate. */
+/** Groups of components that call each other in a loop (strongly connected, more than one). Only proven calls close a loop: a partial call is a candidate. */
 export function cycles(model: Model): number[][] {
   const count = model.graph.components.length;
   const next = model.graph.components.map((_, from) => model.flows.filter((flow) => flow.from === from && flow.proven > 0).map((flow) => flow.to));

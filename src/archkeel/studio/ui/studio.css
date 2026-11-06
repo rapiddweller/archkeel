@@ -114,12 +114,14 @@ main.full .page { padding: 0; overflow: hidden; }
   background: var(--c); margin-right: 6px; }
 .mark { font: 600 10px ui-monospace, Menlo, monospace; white-space: nowrap; }
 .mark.claim { color: var(--claim); }
+.mark.partial { color: var(--claim); }
+.mark.declared { color: var(--target); }
 
 .band, .head { font: 600 10.5px ui-monospace, Menlo, monospace; letter-spacing: .14em;
   text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .link { fill: none; stroke-linecap: round; transition: opacity .2s; }
 .link.proven, .route.proven, .route.neutral { stroke: var(--proven); }
-.link.claim, .route.claim { stroke: var(--claim); stroke-dasharray: 1 6; }
+.link.partial, .route.partial, .route.claim { stroke: var(--claim); stroke-dasharray: 1 6; }
 .route.unknown { stroke: var(--unknown); stroke-dasharray: 1 6; }
 .link.strong { opacity: .45; } .link.faint { opacity: .16; } .link.dim { opacity: .05; }
 .link.lit, .link.selected { opacity: .95; }
@@ -129,7 +131,7 @@ main.full .page { padding: 0; overflow: hidden; }
 .count { transform: translate(-50%, -50%); background: var(--bg); color: var(--proven);
   border: 1px solid var(--proven); border-radius: 9px; padding: 1px 8px; cursor: pointer;
   font: 600 10px ui-monospace, Menlo, monospace; white-space: nowrap; }
-.count.claim { color: var(--claim); border-color: var(--claim); }
+.count.partial { color: var(--claim); border-color: var(--claim); }
 
 .map-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 13px; overflow: hidden; min-width: 0;
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; color: var(--text);
@@ -164,8 +166,8 @@ a.map-card:hover, .map-card.hl, a.map-card:focus-visible { border-color: var(--p
 .lens-card .meta, .lens-card .def { font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
 a.lens-card:hover, button.lens-card:hover { border-color: var(--proven); }
 .lens-card.proven { border-color: color-mix(in srgb, var(--proven) 45%, var(--line)); }
-.lens-card.claim, .lens-card.unknown { border-style: dashed; }
-.lens-card.claim { border-color: var(--claim); }
+.lens-card.partial, .lens-card.unknown { border-style: dashed; }
+.lens-card.partial { border-color: var(--claim); }
 .lens-card.unknown { border-color: var(--unknown); cursor: default; }
 .lens-card.more { justify-content: center; border-style: dashed; color: var(--muted); font-size: 11.5px; }
 .lens-card.center { gap: 4px; padding: 10px 14px; cursor: default; border-color: var(--target);
@@ -315,6 +317,7 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .story-card.now { opacity: 1; transform: scale(1.035); border-color: var(--target); }
 .story-card.claim, .story-card.unknown { border-style: dashed; }
 .story-card.claim { border-color: var(--claim); } .story-card.unknown { border-color: var(--unknown); }
+.story-card.declared { border-color: var(--target); }
 .story-card { overflow: hidden; min-width: 0; }
 
 .story-card b { display: block; font: 600 11.5px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
@@ -334,6 +337,7 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .dotbar { flex: 1; max-width: 48px; height: 6px; border: 0; border-radius: 3px; background: var(--hover); cursor: pointer; padding: 0; }
 .dotbar.proven { background: color-mix(in srgb, var(--proven) 70%, transparent); }
 .dotbar.claim { background: color-mix(in srgb, var(--claim) 80%, transparent); }
+.dotbar.declared { background: color-mix(in srgb, var(--target) 80%, transparent); }
 .dotbar.unknown { background: color-mix(in srgb, var(--unknown) 85%, transparent); }
 .dotbar.now { outline: 2px solid var(--target); outline-offset: 2px; }
 .hint { color: var(--muted); font-size: 12px; }
@@ -375,14 +379,14 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .focus-line .halo { fill: none; stroke: var(--bg); stroke-width: 5; stroke-linecap: round; opacity: .9; }
 .focus-line .stroke { fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; opacity: .85;
   stroke: var(--proven); }
-.focus-line.claim .stroke { stroke: var(--claim); stroke-dasharray: 1 6; }
+.focus-line.partial .stroke { stroke: var(--claim); stroke-dasharray: 1 6; }
 .focus-line.on .stroke { stroke-width: 2.25; opacity: 1; }
 .focus-line .port { fill: var(--proven); }
-.focus-line.claim .port, .focus-line.claim .flow { fill: var(--claim); }
+.focus-line.partial .port, .focus-line.partial .flow { fill: var(--claim); }
 .focus-line .flow { fill: var(--proven); offset-rotate: 0deg; animation: flow 2s linear infinite; }
 .focus-line.off .flow { animation-play-state: paused; }
 .focus-line .chevron { fill: none; stroke: var(--proven); stroke-width: 1.5; }
-.focus-line.claim .chevron { stroke: var(--claim); }
+.focus-line.partial .chevron { stroke: var(--claim); }
 @keyframes flow { from { offset-distance: 0%; } to { offset-distance: 100%; } }
 .stub.dim .meta.path, .stub.dim .meta.names { visibility: hidden; }
 .stub.dim { opacity: .5; }
