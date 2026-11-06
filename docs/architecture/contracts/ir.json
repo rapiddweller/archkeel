@@ -106,6 +106,8 @@
       ],
       "public": [
         "archkeel.ir.facts_codec",
+        "archkeel.ir.facts_codec:DEFAULT_RESPONSE_LIMIT_BYTES",
+        "archkeel.ir.facts_codec:MAX_RESPONSE_LIMIT_BYTES",
         "archkeel.ir.guard_paths:GuardedCallPath",
         "archkeel.ir.guard_paths:guarded_call_paths",
         "archkeel.ir.codec_strings:StringTablePolicy",

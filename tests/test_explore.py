@@ -30,7 +30,13 @@ from archkeel.render.terminal import print_result
 from fixtures.architecture_demo import CATALOG, replay
 from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
-from fixtures.demo_catalog_explore import EXPLORE_FIXTURE_DIR, nested_engine_files
+from fixtures.demo_catalog_explore import (
+    EXPLORE_FIXTURE_DIR,
+    nested_engine_files,
+)
+from fixtures.demo_catalog_explore import (
+    VARIANTS as EXPLORE_VARIANTS,
+)
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
@@ -145,6 +151,21 @@ def test_root_package_with_rust_only_src_demo_uses_root_scope(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["scan_roots"] == ["shop"]
+
+
+def test_typescript_explore_demo_sets_a_finite_collector_limit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "architecture.json"
+    variant = next(
+        item for item in EXPLORE_VARIANTS if item.id == "explore-typescript-explicit-output-limit"
+    )
+
+    assert replay(variant.id, output) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["observation_complete"] == "PASS"
+    assert output.is_file()
 
 
 def test_explore_never_writes_into_the_repository(
@@ -393,6 +414,51 @@ def test_explore_reads_a_typescript_project_through_the_init_options(
     assert code == 0, payload["diagnostics"]
     assert (payload["target"], payload["declared_rules"]) == ("unavailable", "UNKNOWN")
     assert architecture_report(_snapshot(tmp_path / "out" / "architecture.json")).memberships
+
+
+def test_explore_accepts_a_finite_collector_output_limit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clean = next(item for item in TYPESCRIPT_VARIANTS if item.id == "typescript-clean")
+    root = typescript_repository(tmp_path, clean)
+    options = ["--language", "typescript", "--source", "src", "--namespace", "shop"]
+    common = ["--root", str(root), "--output", str(tmp_path / "out"), *options]
+
+    assert (
+        main(
+            [
+                "explore",
+                *common,
+                "--tsconfig",
+                "tsconfig.json",
+                "--json",
+                "--collector-output-limit-bytes",
+                "1",
+            ]
+        )
+        == 2
+    )
+    limited = json.loads(capsys.readouterr().out)
+    assert "1 byte limit" in limited["diagnostics"][0]["unknown_claim"]
+    assert "--collector-output-limit-bytes" in limited["diagnostics"][0]["unknown_claim"]
+    assert "[scan]" not in limited["diagnostics"][0]["unknown_claim"]
+
+    assert (
+        main(
+            [
+                "explore",
+                *common,
+                "--tsconfig",
+                "tsconfig.json",
+                "--json",
+                "--collector-output-limit-bytes",
+                str(16 * 1024 * 1024),
+            ]
+        )
+        == 0
+    )
+    complete = json.loads(capsys.readouterr().out)
+    assert complete["observation_complete"] == "PASS"
 
 
 def test_explore_keeps_its_findings_one_click_away(

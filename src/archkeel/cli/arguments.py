@@ -36,6 +36,7 @@ class CLIArguments(argparse.Namespace):
     agent: InstallationAgent = InstallationAgent.CODEX
     chat_agent: InstallationAgent = InstallationAgent.CLAUDE
     language: Language = Language.PYTHON
+    collector_output_limit_bytes: int | None = None
 
 
 def configuration_source(path: str | None, default: str) -> ConfigurationSource:

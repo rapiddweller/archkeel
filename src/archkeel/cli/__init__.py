@@ -41,6 +41,7 @@ from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..ir.codec import RawJson, decode_canonical_model, decode_json, parse_contract
+from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
@@ -107,6 +108,26 @@ def _sha(value: str) -> str:
     if re.fullmatch("[0-9a-f]{40}", value) is None:
         raise argparse.ArgumentTypeError("must be a full lowercase Git SHA")
     return value
+
+
+def _positive_bytes(value: str) -> int:
+    """Parse a finite positive byte limit for one observation."""
+    try:
+        limit = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a positive integer") from error
+    if not 0 < limit <= MAX_RESPONSE_LIMIT_BYTES:
+        raise argparse.ArgumentTypeError(
+            f"must be a positive integer no greater than {MAX_RESPONSE_LIMIT_BYTES} bytes"
+        )
+    return limit
+
+
+_CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
+_PER_RUN_LIMIT_REMEDY: Final = (
+    "Retry with a larger finite --collector-output-limit-bytes value; "
+    "larger values need more memory."
+)
 
 
 class _Parser(argparse.ArgumentParser):
@@ -299,6 +320,8 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         for name, value in (("namespace", args.namespace), ("tsconfig", args.tsconfig))
         if value is not None
     ]
+    if args.collector_output_limit_bytes is not None:
+        scope.append(f"--collector-output-limit-bytes={args.collector_output_limit_bytes}")
     explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
     check_story, clear_story_check = _story_checker()
     return Workspace(
@@ -322,6 +345,21 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     )
 
 
+def _studio_scope(args: CLIArguments) -> StudioScope:
+    return StudioScope(
+        args.language.value,
+        tuple(args.source or ()),
+        args.namespace,
+        args.tsconfig,
+        AgentKind(args.chat_agent.value),
+        (
+            args.collector_output_limit_bytes
+            if args.collector_output_limit_bytes is not None
+            else DEFAULT_RESPONSE_LIMIT_BYTES
+        ),
+    )
+
+
 def _studio(args: CLIArguments) -> int:
     """AD-290: reuse the running Studio of the root, stop it, or serve a new one."""
     root = args.root.resolve()
@@ -329,13 +367,8 @@ def _studio(args: CLIArguments) -> int:
     if args.stop:
         return stop_studio(cache)
 
-    requested_scope = StudioScope(
-        args.language.value,
-        tuple(args.source or ()),
-        args.namespace,
-        args.tsconfig,
-        AgentKind(args.chat_agent.value),
-    )
+    requested_scope = _studio_scope(args)
+    agent = requested_scope.agent
     lock: ExitStack = ExitStack()
     session_lock = studio_lock(cache)
     try:
@@ -394,7 +427,7 @@ def _studio(args: CLIArguments) -> int:
             ready=ready,
             serving=lock.close,
             idle_seconds=args.idle_exit * 60,
-            agent=AgentKind(args.chat_agent.value),
+            agent=agent,
         )
     finally:
         if previous is not None:
@@ -491,6 +524,16 @@ def _observing(parser: _Parser, output_help: str | None) -> None:
         "--json",
         action="store_true",
         help="Print the JSON result even in an interactive terminal.",
+    )
+
+
+def _collector_output_limit(parser: _Parser) -> None:
+    parser.add_argument(
+        "--collector-output-limit-bytes",
+        type=_positive_bytes,
+        metavar="BYTES",
+        help="Finite collector stdout limit for this run. Default: 67108864 (64 MiB). "
+        "Higher values can use much more memory; no unlimited mode exists.",
     )
 
 
@@ -662,6 +705,7 @@ def build_parser() -> _Parser:
         "Folder for architecture.json and the report pages, outside the repository. "
         "Default: $XDG_CACHE_HOME/archkeel/explore/<root hash> (~/.cache by default).",
     )
+    _collector_output_limit(explore)
 
     validate = commands.add_parser(
         Command.VALIDATE.value,
@@ -836,10 +880,10 @@ def build_parser() -> _Parser:
     )
     init.add_argument(
         "--collector-output-limit-bytes",
-        type=int,
+        type=_positive_bytes,
         metavar="BYTES",
-        help="Positive collector stdout limit in bytes, saved in archkeel.toml. "
-        "Default: 67108864 (64 MiB).",
+        help="Finite collector stdout limit in bytes, saved in archkeel.toml. "
+        f"Default: {DEFAULT_RESPONSE_LIMIT_BYTES} (64 MiB). Higher values need more memory.",
     )
     init.add_argument(
         "--collector-timeout-seconds",
@@ -1055,6 +1099,7 @@ def build_parser() -> _Parser:
             "  2  the server could not start"
         ),
     )
+    _collector_output_limit(studio)
     studio.add_argument(
         "--root", type=Path, default=Path.cwd(), help="Repository root. Default: this folder."
     )
@@ -1177,6 +1222,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                     tsconfig=args.tsconfig or "tsconfig.json",
                     output_limit_bytes=args.collector_output_limit_bytes,
+                    output_limit_remedy=_PER_RUN_LIMIT_REMEDY,
                     timeout_seconds=args.collector_timeout_seconds,
                 )
                 result, requested_files = run_init(
@@ -1206,7 +1252,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 artifact: Path = folder / _ARCHITECTURE_JSON
                 result, architecture = run_explore(
                     root,
-                    observer=observer_for(args.language, tsconfig=args.tsconfig or "tsconfig.json"),
+                    observer=observer_for(
+                        args.language,
+                        tsconfig=args.tsconfig or "tsconfig.json",
+                        output_limit_bytes=args.collector_output_limit_bytes,
+                        output_limit_remedy=_PER_RUN_LIMIT_REMEDY,
+                    ),
                     source=tuple(args.source) if args.source is not None else None,
                     namespace=args.namespace,
                     language=args.language,
@@ -1261,6 +1312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                         clock=clock,
@@ -1344,6 +1396,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),
@@ -1383,6 +1436,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),

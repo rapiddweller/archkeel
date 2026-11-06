@@ -411,7 +411,15 @@ def replay(variant_id: str, output: Path) -> int:
                 if output.name != "architecture.json":
                     raise ValueError("explore writes architecture.json; name the output so")
                 return archkeel_main(
-                    ["explore", "--root", str(root), "--output", str(output.parent), "--json"]
+                    [
+                        "explore",
+                        "--root",
+                        str(root),
+                        "--output",
+                        str(output.parent),
+                        "--json",
+                        *variant.explore_options,
+                    ]
                 )
             validate = ["validate", "--root", str(root), "--config", variant.config]
             if variant.baseline is not None:

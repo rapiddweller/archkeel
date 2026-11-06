@@ -24,6 +24,7 @@ def observer_for(
     collector_argv: tuple[str, ...] | None = None,
     tsconfig: str = "tsconfig.json",
     output_limit_bytes: int | None = None,
+    output_limit_remedy: str | None = None,
     timeout_seconds: int | None = None,
     bundler: bool = False,
     clock: PhaseClock | None = None,
@@ -39,6 +40,8 @@ def observer_for(
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)
+    if output_limit_remedy is not None:
+        collector = replace(collector, output_limit_remedy=output_limit_remedy)
     if timeout_seconds is not None:
         collector = replace(collector, timeout_seconds=timeout_seconds)
     return Observer(
