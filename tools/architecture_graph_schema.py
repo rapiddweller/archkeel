@@ -135,6 +135,60 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                             },
                         },
                         {
+                            "if": {
+                                "properties": {"origin": {"const": "observed"}},
+                                "required": ["origin"],
+                            },
+                            "then": {
+                                "properties": {
+                                    "entities": {
+                                        "items": {
+                                            "not": {
+                                                "properties": {
+                                                    "kind": {
+                                                        "enum": ["runtime_unit", "external_system"]
+                                                    }
+                                                },
+                                                "required": ["kind"],
+                                            }
+                                        }
+                                    },
+                                    "relationships": {
+                                        "items": {
+                                            "not": {
+                                                "anyOf": [
+                                                    {
+                                                        "properties": {
+                                                            "kind": {"const": "communicates"}
+                                                        },
+                                                        "required": ["kind"],
+                                                    },
+                                                    {"required": ["protocol"]},
+                                                ]
+                                            }
+                                        }
+                                    },
+                                }
+                            },
+                        },
+                        {
+                            "properties": {
+                                "entities": {
+                                    "items": {
+                                        "if": {
+                                            "properties": {
+                                                "kind": {
+                                                    "enum": ["runtime_unit", "external_system"]
+                                                }
+                                            },
+                                            "required": ["kind"],
+                                        },
+                                        "then": {"properties": {"presence": {"const": "planned"}}},
+                                    }
+                                }
+                            }
+                        },
+                        {
                             "if": {"properties": {"schema_version": {"enum": ["1.0.0", "1.1.0"]}}},
                             "then": {
                                 "properties": {
@@ -304,7 +358,24 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                                     },
                                 }
                             },
-                        }
+                        },
+                        {
+                            "properties": {
+                                "entities": {
+                                    "items": {
+                                        "if": {
+                                            "properties": {
+                                                "kind": {
+                                                    "enum": ["runtime_unit", "external_system"]
+                                                }
+                                            },
+                                            "required": ["kind"],
+                                        },
+                                        "then": {"properties": {"presence": {"const": "planned"}}},
+                                    }
+                                }
+                            }
+                        },
                     ]
                 if annotation is ViewSpec:
                     # AD-289: a 1.0.0 spec has no stops. AD-291: only a 1.2.0 spec has a story.

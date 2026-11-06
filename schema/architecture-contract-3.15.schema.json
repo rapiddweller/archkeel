@@ -203,6 +203,34 @@
                   }
                 }
               }
+            },
+            {
+              "properties": {
+                "entities": {
+                  "items": {
+                    "if": {
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "runtime_unit",
+                            "external_system"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "presence": {
+                          "const": "planned"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           ]
         },

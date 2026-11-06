@@ -369,26 +369,39 @@ def _entity(
         )
     matches = _matches(observed, wanted)
     if wanted.presence == PresenceKind.REFERENCED:
-        if (
-            wanted.signature is None
-            and wanted.visibility.kind == VisibilityKind.UNKNOWN
-            and wanted.annotation is None
-            and not wanted.modifiers
-            and wanted.initializer is None
-        ):
-            return ()
-        if len(matches) == 1:
-            return _details(wanted, matches[0])
-        return (
-            _result(
-                wanted.id,
-                AssessmentAspect.EXISTENCE,
-                AssessmentStatus.UNKNOWN,
-                AssessmentChange.AMBIGUOUS if matches else AssessmentChange.UNAVAILABLE,
-                "Referenced endpoint metadata cannot be identified uniquely.",
-                matches,
-            ),
-        )
+        return _referenced_entity(wanted, matches)
+    return _defined_entity(observed, target, wanted, matches)
+
+
+def _referenced_entity(wanted: Entity, matches: tuple[Entity, ...]) -> tuple[GraphAssessment, ...]:
+    if (
+        wanted.signature is None
+        and wanted.visibility.kind == VisibilityKind.UNKNOWN
+        and wanted.annotation is None
+        and not wanted.modifiers
+        and wanted.initializer is None
+    ):
+        return ()
+    if len(matches) == 1:
+        return _details(wanted, matches[0])
+    return (
+        _result(
+            wanted.id,
+            AssessmentAspect.EXISTENCE,
+            AssessmentStatus.UNKNOWN,
+            AssessmentChange.AMBIGUOUS if matches else AssessmentChange.UNAVAILABLE,
+            "Referenced endpoint metadata cannot be identified uniquely.",
+            matches,
+        ),
+    )
+
+
+def _defined_entity(
+    observed: ArchitectureGraph,
+    target: ArchitectureGraph,
+    wanted: Entity,
+    matches: tuple[Entity, ...],
+) -> tuple[GraphAssessment, ...]:
     if not matches:
         return (_absence(observed, target, wanted),)
     if len(matches) > 1:
@@ -682,6 +695,7 @@ def compare_graphs(observed: ArchitectureGraph, target: ArchitectureGraph) -> Gr
     correspondences = tuple(
         EntityCorrespondence(entity.id, tuple(sorted(item.id for item in matches)))
         for entity in target.entities
+        if entity.kind not in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM}
         if (matches := _scope(observed, entity))
     )
     comparison = GraphComparison.from_assessments(assessments, correspondences=correspondences)

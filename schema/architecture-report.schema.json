@@ -361,6 +361,90 @@
         {
           "if": {
             "properties": {
+              "origin": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "origin"
+            ]
+          },
+          "then": {
+            "properties": {
+              "entities": {
+                "items": {
+                  "not": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "runtime_unit",
+                          "external_system"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  }
+                }
+              },
+              "relationships": {
+                "items": {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "kind": {
+                            "const": "communicates"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "protocol"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "entities": {
+              "items": {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "runtime_unit",
+                        "external_system"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "presence": {
+                      "const": "planned"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "schema_version": {
                 "enum": [
                   "1.0.0",

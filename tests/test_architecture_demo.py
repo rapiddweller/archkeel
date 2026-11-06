@@ -174,6 +174,32 @@ def test_planned_component_demo_catalog_replays_target_owner(
     assert any(item.id == "server" and item.parent_id == owner.id for item in target.entities)
 
 
+def test_system_landscape_demo_catalog_replays_greenfield_target(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "system-landscape.json"
+
+    assert demo_main(["--replay", "system-landscape-greenfield", "--output", str(output)]) == 0
+    validation, report = (json.loads(line) for line in capsys.readouterr().out.splitlines())
+    assert validation["exit_code"] == 0
+    assert report["declared_rules"] == "UNKNOWN"
+
+    model = parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+    result = architecture_report(model)
+    target = result.target
+    assert target is not None
+    assert {item.kind.value for item in target.entities} >= {
+        "component",
+        "runtime_unit",
+        "external_system",
+    }
+    assert len(target.relationships) == 1
+    assert target.relationships[0].kind.value == "communicates"
+    assert target.relationships[0].protocol == "HTTPS"
+    assert result.comparison is not None
+    assert {item.status.value for item in result.comparison.assessments} == {"UNKNOWN"}
+
+
 def test_planned_component_policy_demo_keeps_observed_and_planned_owners_separate(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -177,6 +177,22 @@ def test_system_landscape_graph_and_report_schema_1_4_render_in_browser(tmp_path
     try:
         assert not errors, f"The 1.4 report failed in the browser runtime: {errors}"
         assert "Unsupported architecture report schema." not in page.locator("#flow").inner_text()
+        decode_graph = """graph => {
+          try { window.ArchkeelGraphSceneProtocol.decodeGraph(graph); return true; }
+          catch { return false; }
+        }"""
+        assert page.evaluate(decode_graph, payload["target"])
+        observed_target = {**payload["target"], "origin": "observed"}
+        assert not page.evaluate(decode_graph, observed_target)
+        defined_runtime = json.loads(json.dumps(payload["target"]))
+        runtime = next(
+            entity for entity in defined_runtime["entities"] if entity["kind"] == "runtime_unit"
+        )
+        runtime["presence"] = "defined"
+        assert not page.evaluate(decode_graph, defined_runtime)
+        wrong_protocol = json.loads(json.dumps(payload["target"]))
+        wrong_protocol["relationships"][0]["kind"] = "imports"
+        assert not page.evaluate(decode_graph, wrong_protocol)
         page.locator('[data-flow-view="target"]').click()
         assert page.locator(".flow-nodes > g").count() >= 2
     finally:

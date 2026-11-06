@@ -1825,11 +1825,14 @@ def test_graph_wire_decoder_rejects_unknown_fields_versions_and_wrong_types() ->
             parse_graph(invalid)
 
 
-def test_uml_contract_schema_is_generated_from_the_shared_dataclasses() -> None:
+def test_uml_contract_schema_preserves_the_frozen_target_1_3_definition() -> None:
     schema = json.loads(
         (Path(__file__).parents[1] / "schema/architecture-contract.schema.json").read_bytes()
     )
     assert schema["$defs"]["uml"]["$id"] == "urn:archkeel:architecture-target:1.3.0"
+    assert hashlib.sha256(
+        json.dumps(schema["$defs"]["uml"], sort_keys=True).encode()
+    ).hexdigest() == ("f57d3653790a83c65a5531e220c6f90380bc43d38827631d372ff9490b1d178b")
     validator = Draft202012Validator(schema)
     validator.validate(_contract())
     validator.validate(json.loads(contract_bytes(parse_contract(_contract()))))
@@ -1926,6 +1929,7 @@ def test_greenfield_system_manifest_round_trips_runtime_communication() -> None:
 
     graph = declared_graph(contract, contract_path="architecture-contract.json")
     assert graph.origin == OriginKind.DECLARED
+    assert not contract.components
     assert {entity.kind.value for entity in graph.entities} == {"runtime_unit", "external_system"}
     assert len(graph.relationships) == 1
     relationship = graph.relationships[0]
@@ -1955,6 +1959,133 @@ def test_greenfield_system_manifest_round_trips_runtime_communication() -> None:
     report_payload = json.loads(report_bytes(report))
     assert parse_report(report_payload) == report
     Draft202012Validator(report_schema()).validate(report_payload)
+
+
+def test_system_landscape_wire_schemas_reject_target_only_values_as_observed() -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    graph = declared_graph(parse_contract(raw), contract_path="architecture-contract.json")
+    target_payload = json.loads(graph_bytes(graph))
+    graph_validator = Draft202012Validator(graph_schema())
+    assert graph_validator.is_valid(target_payload)
+
+    observed_payload = {**target_payload, "origin": OriginKind.OBSERVED.value}
+    assert not graph_validator.is_valid(observed_payload)
+    with pytest.raises(ValueError):
+        parse_graph(observed_payload)
+
+    observed = ArchitectureGraph(OriginKind.OBSERVED, schema_version=GraphSchemaVersion.V1_4_0)
+    report = ArchitectureReport(
+        observed,
+        graph,
+        unavailable="No source snapshot was supplied.",
+        schema_version=ReportSchemaVersion.V1_4_0,
+    )
+    report_payload = json.loads(report_bytes(report))
+    report_validator = Draft202012Validator(report_schema())
+    assert report_validator.is_valid(report_payload)
+
+    report_payload["observed"] = observed_payload
+    assert not report_validator.is_valid(report_payload)
+    with pytest.raises(ValueError):
+        parse_report(report_payload)
+
+
+def test_system_landscape_never_matches_source_entities_by_qualified_name() -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    target = declared_graph(parse_contract(raw), contract_path="architecture-contract.json")
+    observed = ArchitectureGraph(
+        OriginKind.OBSERVED,
+        (
+            Entity(
+                "source-api-class",
+                EntityKind.CLASS,
+                "system_manifest.api_service",
+                "architecture",
+                presence=PresenceKind.DEFINED,
+                evidence_ids=("source-api-evidence",),
+            ),
+        ),
+        evidence=(Evidence("source-api-evidence", "src/api.py", 1, 1, 0, "class API"),),
+        schema_version=GraphSchemaVersion.V1_4_0,
+    )
+
+    comparison = compare_graphs(observed, target)
+
+    assert not comparison.correspondences
+    assert all(item.status is AssessmentStatus.UNKNOWN for item in comparison.assessments)
+
+
+def test_report_1_4_accepts_legacy_graph_1_3() -> None:
+    observed = ArchitectureGraph(OriginKind.OBSERVED, schema_version=GraphSchemaVersion.V1_3_0)
+    report = ArchitectureReport(
+        observed,
+        None,
+        unavailable="No target was declared.",
+        schema_version=ReportSchemaVersion.V1_4_0,
+    )
+
+    payload = json.loads(report_bytes(report))
+
+    assert parse_report(payload) == report
+    Draft202012Validator(report_schema()).validate(payload)
+
+
+def test_system_landscape_contract_enforces_protocol_and_presence_at_each_boundary() -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    schema = json.loads((root / "schema" / "architecture-contract-3.15.schema.json").read_bytes())
+    validator = Draft202012Validator(schema)
+    parsed = parse_contract(raw)
+    uml = parsed.declarations.uml
+
+    legacy_null_protocol = json.loads(json.dumps(raw))
+    legacy_null_protocol["declarations"]["uml"]["relationships"][0]["protocol"] = None
+    parsed_legacy_null = parse_contract(legacy_null_protocol)
+    assert parsed_legacy_null.declarations.uml.relationships[0].protocol is None
+    encoded_legacy_null = json.loads(contract_bytes(parsed_legacy_null))
+    assert "protocol" not in encoded_legacy_null["declarations"]["uml"]["relationships"][0]
+
+    invalid_protocol = json.loads(json.dumps(raw))
+    invalid_protocol["declarations"]["uml"]["relationships"][0]["kind"] = "imports"
+    assert not validator.is_valid(invalid_protocol)
+    with pytest.raises(ValueError):
+        parse_contract(invalid_protocol)
+
+    invalid_relationship = replace(uml.relationships[0], kind=RelationshipKind.IMPORTS)
+    invalid_uml = replace(uml, relationships=(invalid_relationship,))
+    invalid_declarations = replace(parsed.declarations, uml=invalid_uml)
+    with pytest.raises(ValueError):
+        contract_bytes(replace(parsed, declarations=invalid_declarations))
+
+    for kind in ("runtime_unit", "external_system"):
+        invalid_presence = json.loads(json.dumps(raw))
+        entity = next(
+            item
+            for item in invalid_presence["declarations"]["uml"]["entities"]
+            if item["kind"] == kind
+        )
+        entity["presence"] = "defined"
+        assert not validator.is_valid(invalid_presence)
+        with pytest.raises(ValueError):
+            parse_contract(invalid_presence)
+
+        entity_model = next(item for item in uml.entities if item.kind.value == kind)
+        changed_entity = replace(entity_model, presence=PresenceKind.DEFINED)
+        invalid_entities = tuple(
+            changed_entity if item.id == entity_model.id else item for item in uml.entities
+        )
+        invalid_uml = replace(uml, entities=invalid_entities)
+        invalid_declarations = replace(parsed.declarations, uml=invalid_uml)
+        with pytest.raises(ValueError):
+            contract_bytes(replace(parsed, declarations=invalid_declarations))
 
 
 @pytest.mark.parametrize(

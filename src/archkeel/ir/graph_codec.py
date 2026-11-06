@@ -411,7 +411,7 @@ def parse_relationship(value: RawJson) -> Relationship:
         if decider is None
         else DecisionMaker(non_empty_text(decider, "relationship.decided_by")),
         non_empty_text(item["protocol"], "relationship.protocol")
-        if item.get("protocol", _MISSING) is not _MISSING
+        if item.get("protocol", _MISSING) is not _MISSING and item["protocol"] is not None
         else None,
     )
 
@@ -554,7 +554,7 @@ def parse_graph(value: RawJson) -> ArchitectureGraph:
 
 def parse_target(value: RawJson) -> TargetDefinition:
     item = _fields(value, {"schema_version"}, {"entities", "relationships", "scopes"}, "uml")
-    return TargetDefinition(
+    target = TargetDefinition(
         tuple(parse_entity(entry) for entry in _array(item.get("entities", ()), "entities")),
         tuple(
             parse_relationship(entry)
@@ -565,6 +565,8 @@ def parse_target(value: RawJson) -> TargetDefinition:
             non_empty_text(item["schema_version"], "uml.schema_version")
         ),
     )
+    target.validate()
+    return target
 
 
 def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
@@ -580,6 +582,7 @@ def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
 
 def target_payload(target: TargetDefinition) -> dict[str, RawJson]:
     """Serialize Target intent while keeping absent optional fields off the wire."""
+    target.validate()
     raw: RawJson = json.loads(json.dumps(asdict(target)))
     if not _object(raw):
         raise TypeError("encoded Target must be an object")

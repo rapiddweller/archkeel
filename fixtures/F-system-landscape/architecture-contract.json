@@ -10,7 +10,7 @@
         {
           "id": "runtime-api",
           "kind": "runtime_unit",
-          "qualified_name": "API service",
+          "qualified_name": "system_manifest.api_service",
           "language": "architecture",
           "presence": "planned",
           "responsibilities": ["Serve application requests."],
@@ -19,7 +19,7 @@
         {
           "id": "external-ledger",
           "kind": "external_system",
-          "qualified_name": "Ledger service",
+          "qualified_name": "system_manifest.ledger",
           "language": "architecture",
           "presence": "planned",
           "responsibilities": ["Store accounting entries."],

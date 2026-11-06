@@ -562,6 +562,28 @@ class TargetDefinition:
             self.schema_version, self.entities, self.scopes, relationships=self.relationships
         )
 
+    def validate(self) -> None:
+        """Check system-landscape invariants that are local to the inner Target."""
+        entities = {entity.id: entity for entity in self.entities}
+        for entity in self.entities:
+            if entity.kind in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM} and (
+                entity.presence != PresenceKind.PLANNED
+            ):
+                raise ValueError("runtime and external systems must be planned declarations")
+        for edge in self.relationships:
+            if edge.protocol is not None and (
+                edge.kind != RelationshipKind.COMMUNICATES or not edge.protocol.strip()
+            ):
+                raise ValueError("protocol belongs to communication relationships")
+            if edge.kind == RelationshipKind.COMMUNICATES and (
+                entities.get(edge.source_id) is None
+                or entities[edge.source_id].kind != EntityKind.RUNTIME_UNIT
+                or edge.target_id is None
+                or entities.get(edge.target_id) is None
+                or entities[edge.target_id].kind != EntityKind.EXTERNAL_SYSTEM
+            ):
+                raise ValueError("communication needs a runtime and external system")
+
 
 def _validate_graph_version(
     version: GraphSchemaVersion,
@@ -1144,6 +1166,15 @@ class ArchitectureReport:
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:
             raise ValueError("missing observed graph needs an unavailable reason")
+        self._validate_graphs()
+        graphs = tuple(graph for graph in (self.observed, self.target) if graph is not None)
+        subjects: set[str] = {entity.id for graph in graphs for entity in graph.entities}
+        subjects.update(relationship.id for graph in graphs for relationship in graph.relationships)
+        self._validate_findings(subjects)
+        self._validate_memberships_and_gaps()
+        self._validate_comparison()
+
+    def _validate_graphs(self) -> None:
         if self.schema_version == ReportSchemaVersion.V1_0_0 and any(
             graph is not None
             and graph.schema_version
@@ -1155,11 +1186,16 @@ class ArchitectureReport:
             for graph in (self.observed, self.target)
         ):
             raise ValueError("graph layer vocabulary requires report schema_version 1.2.0")
-        if self.schema_version != ReportSchemaVersion.V1_3_0 and any(
+        if self.schema_version not in {
+            ReportSchemaVersion.V1_3_0,
+            ReportSchemaVersion.V1_4_0,
+        } and any(
             graph is not None and graph.schema_version == GraphSchemaVersion.V1_3_0
             for graph in (self.observed, self.target)
         ):
-            raise ValueError("graph schema_version 1.3.0 requires report schema_version 1.3.0")
+            raise ValueError(
+                "graph schema_version 1.3.0 requires report schema_version 1.3.0 or later"
+            )
         if self.schema_version != ReportSchemaVersion.V1_4_0 and any(
             graph is not None and graph.schema_version == GraphSchemaVersion.V1_4_0
             for graph in (self.observed, self.target)
@@ -1173,10 +1209,8 @@ class ArchitectureReport:
                 if graph.origin != origin:
                     raise ValueError(f"report needs {origin} origin")
                 graph.validate()
-        graphs = tuple(graph for graph in (self.observed, self.target) if graph is not None)
-        subjects: set[str] = {entity.id for graph in graphs for entity in graph.entities}
-        subjects.update(relationship.id for graph in graphs for relationship in graph.relationships)
-        self._validate_findings(subjects)
+
+    def _validate_memberships_and_gaps(self) -> None:
         components = (
             {entity.id for entity in self.target.entities if entity.kind == EntityKind.COMPONENT}
             if self.target
@@ -1223,7 +1257,6 @@ class ArchitectureReport:
                 raise ValueError(
                     "dependency decision gap needs components and observed import sites"
                 )
-        self._validate_comparison()
 
     def _validate_findings(self, subjects: set[str]) -> None:
         finding_ids = [item.id for item in self.findings]

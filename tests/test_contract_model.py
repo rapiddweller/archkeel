@@ -891,10 +891,16 @@ def test_the_maximal_contract_fills_every_field() -> None:
         "3.11.0",
         "3.12.0",
         "3.13.0",
+        "3.15.0",
     )
     documents = []
     for version in versions:
         raw = _maximal_contract(version)
+        if version == "3.15.0":
+            landscape = json.loads(
+                (ROOT / "fixtures/F-system-landscape/architecture-contract.json").read_text()
+            )
+            raw["declarations"]["uml"] = landscape["declarations"]["uml"]
         if version == "3.14.0":
             raw["components"].append(
                 {

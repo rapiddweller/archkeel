@@ -43,6 +43,7 @@ from fixtures.demo_catalog_nest_realworld import VARIANTS as _NEST_REALWORLD_VAR
 from fixtures.demo_catalog_python_realworld import VARIANTS as _PYTHON_REALWORLD_VARIANTS
 from fixtures.demo_catalog_showcase import VARIANTS as _SHOWCASE_VARIANTS
 from fixtures.demo_catalog_support import Variant, apply_overlay
+from fixtures.demo_catalog_system import VARIANTS as _SYSTEM_VARIANTS
 from fixtures.demo_catalog_test_scope import VARIANTS as _TEST_SCOPE_VARIANTS
 from fixtures.demo_catalog_types import VARIANTS as _TYPE_VARIANTS
 from fixtures.demo_catalog_uml import VARIANTS as _UML_VARIANTS
@@ -51,6 +52,7 @@ from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
 
 CATALOG: tuple[Variant, ...] = (
     *_SHOWCASE_VARIANTS,
+    *_SYSTEM_VARIANTS,
     *_COMPATIBILITY_VARIANTS,
     *_CATALOG_ENTRY_VARIANTS,
     *_CONSTRUCT_VARIANTS,
@@ -302,6 +304,18 @@ For Python, Dart and TypeScript UML examples:
 
 ```sh
 make demo-uml OUTPUT=build/uml-demo
+```
+
+The greenfield system-landscape target declares an API runtime, an external ledger and their
+communication. Its source comparison remains UNKNOWN until an observed source mapping exists. The
+demo overlay adds a separate planned report component graph and an empty Python package because the
+current CLI requires both a component graph and a source scan. Neither is mapped to the runtime
+endpoints or presented as application code or runtime evidence. A source-free CLI report remains
+future work:
+
+```sh
+uv run --locked python -m fixtures.architecture_demo --replay system-landscape-greenfield \\
+  --output build/system-landscape.json
 ```
 
 Dart has independent Target PASS, signature/member and dependency FAIL, and partial-resolution

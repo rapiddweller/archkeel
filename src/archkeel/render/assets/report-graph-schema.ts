@@ -141,20 +141,45 @@ namespace ArchkeelGraphSceneProtocol {
     return isRecord(value) && isText(value.id) && G.isRelationshipKind(value.kind)
       && isText(value.source_id) && isNullableText(value.target_id)
       && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution)
-      && (value.protocol === undefined || isText(value.protocol) && value.protocol.trim() !== "");
+      && (value.protocol === undefined || value.kind === G.RelationshipKind.COMMUNICATES
+        && isText(value.protocol) && value.protocol.trim() !== "");
   }
   function isIntent(value: unknown): value is ComponentIntent {
     return isRecord(value) && isText(value.component_id)
       && (value.role === undefined || G.isComponentRole(value.role))
       && isOptionalText(value.parent_id) && isOptionalText(value.label);
   }
-  function isGraph(value: unknown): value is Graph {
+  function hasValidSystemLandscape(graph: Graph): boolean {
+    const entities = new Map(graph.entities.map((entity): [string, Entity] => [entity.id, entity]));
+    const targetOnlyKinds = new Set<G.EntityKind>([
+      G.EntityKind.RUNTIME_UNIT,
+      G.EntityKind.EXTERNAL_SYSTEM,
+    ]);
+    const usesSystemLandscape = graph.entities.some((entity) => targetOnlyKinds.has(entity.kind))
+      || graph.relationships.some((relationship) =>
+        relationship.kind === G.RelationshipKind.COMMUNICATES || relationship.protocol !== undefined);
+    if (usesSystemLandscape && graph.schema_version !== G.GraphSchemaVersion.V1_4_0) return false;
+    if (graph.entities.some((entity) => targetOnlyKinds.has(entity.kind)
+      && (graph.origin !== G.OriginKind.DECLARED || entity.presence !== G.PresenceKind.PLANNED))) {
+      return false;
+    }
+    return graph.relationships.every((relationship) => {
+      if (relationship.kind !== G.RelationshipKind.COMMUNICATES) return true;
+      if (graph.origin !== G.OriginKind.DECLARED || relationship.target_id === null) return false;
+      return entities.get(relationship.source_id)?.kind === G.EntityKind.RUNTIME_UNIT
+        && entities.get(relationship.target_id)?.kind === G.EntityKind.EXTERNAL_SYSTEM;
+    });
+  }
+  function isGraphBase(value: unknown): value is Graph {
     return isRecord(value) && G.isOriginKind(value.origin)
       && isList(value.entities) && value.entities.every(isEntity)
       && isList(value.relationships) && value.relationships.every(isRelationship)
       && (value.component_intents === undefined || isList(value.component_intents)
         && value.component_intents.every(isIntent))
       && (value.schema_version === undefined || G.isGraphSchemaVersion(value.schema_version));
+  }
+  function isGraph(value: unknown): value is Graph {
+    return isGraphBase(value) && hasValidSystemLandscape(value);
   }
   function isAssessment(value: unknown): value is Assessment {
     return isRecord(value) && isText(value.id) && isText(value.subject_id)

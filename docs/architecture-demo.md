@@ -34,6 +34,18 @@ For Python, Dart and TypeScript UML examples:
 make demo-uml OUTPUT=build/uml-demo
 ```
 
+The greenfield system-landscape target declares an API runtime, an external ledger and their
+communication. Its source comparison remains UNKNOWN until an observed source mapping exists. The
+demo overlay adds a separate planned report component graph and an empty Python package because the
+current CLI requires both a component graph and a source scan. Neither is mapped to the runtime
+endpoints or presented as application code or runtime evidence. A source-free CLI report remains
+future work:
+
+```sh
+uv run --locked python -m fixtures.architecture_demo --replay system-landscape-greenfield \
+  --output build/system-landscape.json
+```
+
 Dart has independent Target PASS, signature/member and dependency FAIL, and partial-resolution
 UNKNOWN cases. TypeScript includes PASS, FAIL and UNKNOWN UML cases; unsupported or ambiguous
 source facts stay UNKNOWN.
