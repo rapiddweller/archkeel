@@ -579,6 +579,42 @@ def test_explore_marks_imports_into_excluded_test_modules_unknown(
     assert gaps[0].id in {item.id for item in model.records("unknowns") or ()}
 
 
+def test_explore_does_not_mistake_package_attribute_for_excluded_test_module(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(
+        tmp_path / "repo",
+        {
+            "pyproject.toml": '[project]\nname = "shop"\n',
+            "src/shop/__init__.py": "test_support = 1\n",
+            "src/shop/latest.py": (
+                "from shop import test_support\n\ndef latest() -> int:\n    return test_support\n"
+            ),
+            "src/shop/test_support.py": "def test_support() -> int:\n    return 2\n",
+        },
+    )
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        "--source",
+        "src/shop",
+        "--namespace",
+        "shop",
+    )
+
+    assert code == 0, payload
+    assert payload["observation_complete"] == "PASS"
+    model = _snapshot(tmp_path / "out" / "architecture.json")
+    observed = {item.data.get("file") for item in model.records("modules") or ()}
+    assert "src/shop/latest.py" in observed
+    assert "src/shop/test_support.py" not in observed
+    assert not any(item.kind == "source_resolution_gap" for item in model.coverage.failures)
+
+
 @pytest.mark.parametrize(
     "import_statement",
     ["import shop.tests", "from shop import tests"],
