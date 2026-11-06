@@ -485,7 +485,7 @@ def _required_relationships(
     intents = {item.component_id: item for item in target.component_intents}
     relationships = []
     for edge in target.relationships:
-        if edge.kind == RelationshipKind.REQUIRES:
+        if edge.kind in {RelationshipKind.REQUIRES, RelationshipKind.COMMUNICATES}:
             continue
         evaluations = (
             tuple(item for item in report.comparison.assessments if item.subject_id == edge.id)

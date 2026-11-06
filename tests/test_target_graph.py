@@ -25,6 +25,7 @@ from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
     AssessmentStatus,
+    CompletenessMode,
     ComponentIntent,
     ComponentLifecycle,
     ComponentRole,
@@ -33,10 +34,12 @@ from archkeel.ir.architecture_graph import (
     GraphSchemaVersion,
     OriginKind,
     PresenceKind,
+    Relationship,
     RelationshipKind,
     ReportFinding,
     ReportSchemaVersion,
     Signature,
+    TargetScope,
     Visibility,
 )
 from archkeel.ir.codec import (
@@ -64,7 +67,12 @@ from archkeel.ir.target_graph import declared_graph, declared_tree_graph
 from archkeel.ir.target_records import recorded_target_graph
 from archkeel.ir.widening import contract_widenings
 from archkeel.render.html import _html_report_payload, render_architecture_pages
-from tools.architecture_graph_schema import graph_schema, report_schema, target_schema
+from tools.architecture_graph_schema import (
+    graph_schema,
+    projection_schema,
+    report_schema,
+    target_schema,
+)
 
 
 def _contract():
@@ -2020,6 +2028,163 @@ def test_system_landscape_never_matches_source_entities_by_qualified_name() -> N
 
     assert not comparison.correspondences
     assert all(item.status is AssessmentStatus.UNKNOWN for item in comparison.assessments)
+
+
+def test_target_only_scope_does_not_match_a_source_entity() -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    target = declared_graph(parse_contract(raw), contract_path="architecture-contract.json")
+    target = replace(
+        target,
+        target_scopes=(
+            TargetScope(
+                "runtime-api",
+                CompletenessMode.OPEN,
+                "Describe runtime intent.",
+                ("docs/target.md",),
+                entity_kinds=(EntityKind.CLASS,),
+            ),
+        ),
+    )
+    observed = ArchitectureGraph(
+        OriginKind.OBSERVED,
+        (
+            Entity(
+                "source-api-class",
+                EntityKind.CLASS,
+                "system_manifest.api_service",
+                "architecture",
+                presence=PresenceKind.DEFINED,
+                evidence_ids=("source-api-evidence",),
+            ),
+        ),
+        evidence=(Evidence("source-api-evidence", "src/api.py", 1, 1, 0, "class API"),),
+        schema_version=GraphSchemaVersion.V1_4_0,
+    )
+
+    comparison = compare_graphs(observed, target)
+    scope = next(
+        item
+        for item in comparison.assessments
+        if item.subject_id == "runtime-api" and item.aspect.value == "completeness"
+    )
+
+    assert scope.status is AssessmentStatus.UNKNOWN
+    assert not scope.observed_ids
+
+
+def test_non_communication_relationship_does_not_match_target_only_endpoints() -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    target = declared_graph(parse_contract(raw), contract_path="architecture-contract.json")
+    target = replace(
+        target,
+        relationships=target.relationships
+        + (
+            Relationship(
+                "target-call",
+                RelationshipKind.CALLS,
+                "runtime-api",
+                "external-ledger",
+                provenance=("docs/target.md",),
+            ),
+        ),
+    )
+    observed = ArchitectureGraph(
+        OriginKind.OBSERVED,
+        (
+            Entity(
+                "source-api-class",
+                EntityKind.CLASS,
+                "system_manifest.api_service",
+                "architecture",
+                presence=PresenceKind.DEFINED,
+                evidence_ids=("source-api-evidence",),
+            ),
+            Entity(
+                "source-ledger-class",
+                EntityKind.CLASS,
+                "system_manifest.ledger",
+                "architecture",
+                presence=PresenceKind.DEFINED,
+                evidence_ids=("source-ledger-evidence",),
+            ),
+        ),
+        (
+            Relationship(
+                "source-call",
+                RelationshipKind.CALLS,
+                "source-api-class",
+                "source-ledger-class",
+                resolution="resolved",
+                evidence_ids=("source-call-evidence",),
+            ),
+        ),
+        evidence=(
+            Evidence("source-api-evidence", "src/api.py", 1, 1, 0, "class API"),
+            Evidence("source-ledger-evidence", "src/ledger.py", 1, 1, 0, "class Ledger"),
+            Evidence("source-call-evidence", "src/api.py", 2, 2, 0, "ledger.send()"),
+        ),
+        schema_version=GraphSchemaVersion.V1_4_0,
+    )
+
+    comparison = compare_graphs(observed, target)
+    call = next(item for item in comparison.assessments if item.subject_id == "target-call")
+
+    assert call.status is AssessmentStatus.UNKNOWN
+    assert not call.observed_ids
+
+
+def test_communication_stays_in_report_graph_and_out_of_focused_outputs(tmp_path) -> None:
+    root = Path(__file__).parents[1]
+    raw = json.loads(
+        (root / "fixtures" / "F-system-landscape" / "architecture-contract.json").read_bytes()
+    )
+    repo = _prepare_repo(
+        tmp_path,
+        {
+            "src/api.py": "class API: pass\n",
+            "architecture-contract.json": json.dumps(raw),
+            "docs/target.md": "The contract declares the system landscape.\n",
+        },
+    )
+    config = ScanConfig(("src",), "system_manifest", "architecture-contract.json", "0" * 64)
+    result, encoded = run_report(
+        repo, config=config, analyzer=observe, only_architecture=True, full_architecture=True
+    )
+    assert encoded is not None
+    observation = parse_observation(decode_canonical_model(json.loads(encoded)))
+    report = architecture_report(observation)
+    assert report.target is not None
+    assert any(item.kind is RelationshipKind.COMMUNICATES for item in report.target.relationships)
+
+    projection = result.architecture_projection
+    assert projection is not None
+    assert not any(
+        item.kind is RelationshipKind.COMMUNICATES for item in projection.required_relationships
+    )
+    projection_payload = json.loads(json.dumps(asdict(projection)))
+    Draft202012Validator(projection_schema()).validate(projection_payload)
+
+    from test_result_schema import _validator
+
+    from archkeel.ir.codec import result_payload
+
+    command_payload = result_payload(result)
+    command_validator = _validator("command-result-11.0.schema.json").evolve(
+        schema={"$ref": "urn:archkeel:architecture-command:2.0.0"}
+    )
+    command_validator.validate(command_payload)
+    assert not any(
+        item["kind"] == RelationshipKind.COMMUNICATES.value
+        for item in command_payload["architecture_projection"]["required_relationships"]
+    )
+    report_payload = json.loads(report_bytes(report))
+    Draft202012Validator(report_schema()).validate(report_payload)
 
 
 def test_report_1_4_accepts_legacy_graph_1_3() -> None:

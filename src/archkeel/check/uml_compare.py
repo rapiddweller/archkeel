@@ -29,6 +29,8 @@ from archkeel.ir.architecture_graph import (
 from archkeel.ir.facts import Language
 from archkeel.ir.model import stable_id
 
+_TARGET_ONLY_ENTITY_KINDS = frozenset({EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM})
+
 
 def _result(
     subject: str,
@@ -104,6 +106,8 @@ def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
 
 
 def _scope(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
+    if wanted.kind in _TARGET_ONLY_ENTITY_KINDS:
+        return ()
     if wanted.kind != EntityKind.COMPONENT:
         return _matches(graph, wanted)
     packages = tuple(
@@ -464,6 +468,17 @@ def _relationship(
             "Communication intent has no observed source mapping.",
         )
     entities = {item.id: item for item in target.entities}
+    endpoints = (entities[wanted.source_id],) + (
+        (entities[wanted.target_id],) if wanted.target_id is not None else ()
+    )
+    if any(endpoint.kind in _TARGET_ONLY_ENTITY_KINDS for endpoint in endpoints):
+        return _result(
+            wanted.id,
+            AssessmentAspect.RELATIONSHIP,
+            AssessmentStatus.UNKNOWN,
+            AssessmentChange.UNAVAILABLE,
+            "A target-only endpoint has no observed source mapping.",
+        )
     sources = _matches(observed, entities[wanted.source_id])
     targets = _matches(observed, entities[wanted.target_id]) if wanted.target_id is not None else ()
     if len(sources) != 1 or len(targets) != 1:
