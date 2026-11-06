@@ -4,10 +4,11 @@
 the request version. The process boundary checks for a different reply version only when the
 collector has an explicitly selected protocol version.
 
-An explicit collector command keeps its selected request version. Its TypeScript entry therefore
-keeps the V3 plain response; external collectors may also return another valid response version,
-as before. Python and Dart keep their current protocol paths. The shared decoder remains the trust
-boundary for response validation, compressed-byte limits, decompression limits and damaged frames.
+An explicit collector command preserves the request version but does not require the response to
+echo it. Its TypeScript entry therefore keeps the V3 plain response; external collectors may also
+return another valid response version, as before. Python and Dart keep their current protocol
+paths. The shared decoder remains the trust boundary for response validation, compressed-byte
+limits, decompression limits and damaged frames.
 
 **Reason.** TypeScript facts use the existing JSON envelope. Protocol 8 compresses that envelope
 with the bounded codec. Incremental JSON encoding avoids a full JSON string and byte copy. The

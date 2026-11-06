@@ -193,7 +193,7 @@ def test_configured_executable_response_may_use_a_different_valid_version(tmp_pa
     result = _collector(code).collect_response(request)
 
     assert not isinstance(result, CollectionError)
-    assert result.protocol_version.value == "3.0.0"
+    assert result.protocol_version.value == "1.0.0"
 
 
 def test_selected_protocol_version_rejects_a_mismatched_response(tmp_path) -> None:
