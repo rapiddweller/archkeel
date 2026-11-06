@@ -658,6 +658,50 @@ def collect(request: CollectionRequest) -> SourceFacts:
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
+    if request.scope.exclude_test_sources:
+        for import_record in dynamic_imports:
+            data = import_record.get("data")
+            target = data.get("target_module") if isinstance(data, dict) else None
+            source_module = data.get("source_module") if isinstance(data, dict) else None
+            if not isinstance(target, str) or not isinstance(source_module, str):
+                continue
+            excluded_target = next(
+                (
+                    name
+                    for name in (target,)
+                    if name in excluded_modules
+                    or any(
+                        name == prefix or name.startswith(f"{prefix}.")
+                        for prefix in excluded_prefixes
+                    )
+                ),
+                None,
+            )
+            if excluded_target is None:
+                continue
+            identity = stable_id(
+                "UNKNOWN", "excluded test import", import_record["id"], excluded_target
+            )
+            gap = parse_record(
+                classified(
+                    item_id=identity,
+                    evidence_class=EvidenceClass.UNKNOWN,
+                    area="source",
+                    kind=SOURCE_RESOLUTION_GAP_KIND,
+                    title=f"Production import targets excluded test source {excluded_target}",
+                    subjects=[source_module],
+                    evidence_ids=import_record["evidence_ids"],
+                    fact_ids=[import_record["id"]],
+                    data={
+                        "reason": "Import target is an excluded test source",
+                        "module": source_module,
+                        "source_module": source_module,
+                        "resolution_dimension": "imports",
+                    },
+                )
+            )
+            gaps.append(gap)
+            excluded_import_gaps.append(raw_record(gap))
     imports.extend(dynamic_imports)
     references = collect_references(
         modules,
