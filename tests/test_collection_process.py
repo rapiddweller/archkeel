@@ -152,7 +152,7 @@ def test_windows_kill_on_close_uses_extended_job_limits() -> None:
     assert len(_IoCounters._fields_) == 6
 
 
-def test_configured_executable_accepts_a_different_valid_response_version(tmp_path) -> None:
+def test_configured_executable_collects_facts_without_receiving_policy(tmp_path) -> None:
     response = _response()
     code = (
         "import json,sys; request=json.load(sys.stdin); "
@@ -168,11 +168,32 @@ def test_configured_executable_accepts_a_different_valid_response_version(tmp_pa
         protocol_version="2.0.0",
         snapshot=replace(request.snapshot, root=str(tmp_path)),
     )
+    facts = _collector(code).collect(request)
+    assert not isinstance(facts, CollectionError)
+    assert facts.adapter.name == "alternate-parser"
+    assert facts.files[0].module == "project.app"
+
+
+def test_configured_executable_response_may_use_a_different_valid_version(tmp_path) -> None:
+    response = _response()
+    encoded = json.dumps(json.dumps(response))
+    code = (
+        "import sys; sys.stdin.buffer.read(); "
+        f"sys.stdout.buffer.write({encoded!r}.encode())"
+    )
+    request = decode_request(_request())
+    from dataclasses import replace
+
+    request = replace(
+        request,
+        protocol_version="2.0.0",
+        snapshot=replace(request.snapshot, root=str(tmp_path)),
+    )
+
     result = _collector(code).collect_response(request)
+
     assert not isinstance(result, CollectionError)
     assert result.protocol_version.value == "3.0.0"
-    assert result.facts.adapter.name == "alternate-parser"
-    assert result.facts.files[0].module == "project.app"
 
 
 def test_selected_protocol_version_rejects_a_mismatched_response(tmp_path) -> None:
