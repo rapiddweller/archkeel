@@ -29,6 +29,8 @@ from archkeel.ir.architecture_graph import (
 from archkeel.ir.facts import Language
 from archkeel.ir.model import stable_id
 
+_TARGET_ONLY_ENTITY_KINDS = frozenset({EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM})
+
 
 def _result(
     subject: str,
@@ -54,6 +56,8 @@ def _result(
 
 
 def _matches(graph: ArchitectureGraph, wanted: Entity) -> tuple[Entity, ...]:
+    if wanted.kind in _TARGET_ONLY_ENTITY_KINDS:
+        return ()
     namespace = wanted.kind in {EntityKind.MODULE, EntityKind.PACKAGE}
     type_only = {EntityKind.INTERFACE, EntityKind.TYPE_ALIAS}
     value_only = {
@@ -357,28 +361,51 @@ def _entity(
 ) -> tuple[GraphAssessment, ...]:
     if wanted.kind == EntityKind.COMPONENT:
         return ()
-    matches = _matches(observed, wanted)
-    if wanted.presence == PresenceKind.REFERENCED:
-        if (
-            wanted.signature is None
-            and wanted.visibility.kind == VisibilityKind.UNKNOWN
-            and wanted.annotation is None
-            and not wanted.modifiers
-            and wanted.initializer is None
-        ):
-            return ()
-        if len(matches) == 1:
-            return _details(wanted, matches[0])
+    if wanted.kind in {EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM}:
         return (
             _result(
                 wanted.id,
                 AssessmentAspect.EXISTENCE,
                 AssessmentStatus.UNKNOWN,
-                AssessmentChange.AMBIGUOUS if matches else AssessmentChange.UNAVAILABLE,
-                "Referenced endpoint metadata cannot be identified uniquely.",
-                matches,
+                AssessmentChange.UNAVAILABLE,
+                "This target-only entity kind has no observed source mapping.",
             ),
         )
+    matches = _matches(observed, wanted)
+    if wanted.presence == PresenceKind.REFERENCED:
+        return _referenced_entity(wanted, matches)
+    return _defined_entity(observed, target, wanted, matches)
+
+
+def _referenced_entity(wanted: Entity, matches: tuple[Entity, ...]) -> tuple[GraphAssessment, ...]:
+    if (
+        wanted.signature is None
+        and wanted.visibility.kind == VisibilityKind.UNKNOWN
+        and wanted.annotation is None
+        and not wanted.modifiers
+        and wanted.initializer is None
+    ):
+        return ()
+    if len(matches) == 1:
+        return _details(wanted, matches[0])
+    return (
+        _result(
+            wanted.id,
+            AssessmentAspect.EXISTENCE,
+            AssessmentStatus.UNKNOWN,
+            AssessmentChange.AMBIGUOUS if matches else AssessmentChange.UNAVAILABLE,
+            "Referenced endpoint metadata cannot be identified uniquely.",
+            matches,
+        ),
+    )
+
+
+def _defined_entity(
+    observed: ArchitectureGraph,
+    target: ArchitectureGraph,
+    wanted: Entity,
+    matches: tuple[Entity, ...],
+) -> tuple[GraphAssessment, ...]:
     if not matches:
         return (_absence(observed, target, wanted),)
     if len(matches) > 1:
@@ -432,7 +459,26 @@ def _entity(
 def _relationship(
     observed: ArchitectureGraph, target: ArchitectureGraph, wanted: Relationship
 ) -> GraphAssessment:
+    if wanted.kind == RelationshipKind.COMMUNICATES:
+        return _result(
+            wanted.id,
+            AssessmentAspect.RELATIONSHIP,
+            AssessmentStatus.UNKNOWN,
+            AssessmentChange.UNAVAILABLE,
+            "Communication intent has no observed source mapping.",
+        )
     entities = {item.id: item for item in target.entities}
+    endpoints = (entities[wanted.source_id],) + (
+        (entities[wanted.target_id],) if wanted.target_id is not None else ()
+    )
+    if any(endpoint.kind in _TARGET_ONLY_ENTITY_KINDS for endpoint in endpoints):
+        return _result(
+            wanted.id,
+            AssessmentAspect.RELATIONSHIP,
+            AssessmentStatus.UNKNOWN,
+            AssessmentChange.UNAVAILABLE,
+            "A target-only endpoint has no observed source mapping.",
+        )
     sources = _matches(observed, entities[wanted.source_id])
     targets = _matches(observed, entities[wanted.target_id]) if wanted.target_id is not None else ()
     if len(sources) != 1 or len(targets) != 1:
@@ -444,24 +490,30 @@ def _relationship(
             "Relationship endpoints cannot be identified uniquely.",
             (*sources, *targets),
         )
-    if sources[0].definition_contexts or targets[0].definition_contexts:
+    return _relationship_observation(observed, wanted, sources[0], targets[0])
+
+
+def _relationship_observation(
+    observed: ArchitectureGraph, wanted: Relationship, source: Entity, target: Entity
+) -> GraphAssessment:
+    if source.definition_contexts or target.definition_contexts:
         return _result(
             wanted.id,
             AssessmentAspect.RELATIONSHIP,
             AssessmentStatus.UNKNOWN,
             AssessmentChange.UNAVAILABLE,
             "A relationship endpoint is conditional; its namespace binding is not proven.",
-            (*sources, *targets),
+            (source, target),
         )
     sites = tuple(
         item
         for item in observed.relationships
-        if item.kind == wanted.kind and item.source_id == sources[0].id
+        if item.kind == wanted.kind and item.source_id == source.id
     )
     matched = tuple(
         item
         for item in sites
-        if item.target_id == targets[0].id
+        if item.target_id == target.id
         and item.resolution in {ResolutionKind.RESOLVED, ResolutionKind.NOT_APPLICABLE}
     )
     if matched:
@@ -487,7 +539,7 @@ def _relationship(
             "Unresolved source sites may refer to this endpoint.",
             uncertain,
         )
-    complete = _complete(observed, sources[0], wanted.kind)
+    complete = _complete(observed, source, wanted.kind)
     return _result(
         wanted.id,
         AssessmentAspect.RELATIONSHIP,
@@ -496,7 +548,7 @@ def _relationship(
         "Relationship is absent from a complete resolved inventory."
         if complete
         else "Relationship coverage is unavailable or partial.",
-        sources,
+        (source,),
     )
 
 

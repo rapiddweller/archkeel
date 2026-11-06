@@ -339,6 +339,26 @@ def test_the_result_matches_its_schema(shop: Observation) -> None:
     assert not list(Draft202012Validator(schema).iter_errors(json.loads(view_check_json(result))))
 
 
+@pytest.mark.parametrize("location", ["edge", "step"])
+def test_target_only_relationship_kind_is_rejected_for_a_mismatched_snapshot(
+    shop: Observation, location: str
+) -> None:
+    if location == "edge":
+        fields = {"edges": [_edge("shop.cli.main", "shop.app.orders", "communicates")]}
+    else:
+        fields = {
+            "steps": [
+                {"node": "shop.cli.main"},
+                {"node": "shop.app.orders", "kind": "communicates"},
+            ]
+        }
+    raw = _spec(shop, **fields)
+    raw["snapshot"]["source_digest"] = "f" * 64
+
+    with pytest.raises(ValueError, match="communicates"):
+        parse_view_spec(raw)
+
+
 def _tampered(packet: bytes) -> str:
     """Add a fabricated render.text -> store import whose evidence is not in the snapshot."""
     raw = json.loads(packet)

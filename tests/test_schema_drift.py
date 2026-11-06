@@ -806,6 +806,40 @@ def test_view_spec_schema_matches_its_dataclasses() -> None:
         parse_view_spec(old)
 
 
+def test_system_landscape_vocabulary_is_limited_to_graph_wires() -> None:
+    """Source-result formats do not carry target-only system-landscape records."""
+    from tools.architecture_graph_schema import (
+        command_schema,
+        graph_schema,
+        projection_schema,
+        report_schema,
+        story_trace_schema,
+        view_check_schema,
+        view_spec_schema,
+    )
+
+    def enum_values(value: object) -> set[object]:
+        if isinstance(value, dict):
+            own = set(value.get("enum", ())) if isinstance(value.get("enum"), list) else set()
+            return own.union(*(enum_values(child) for child in value.values()))
+        if isinstance(value, list):
+            return set().union(*(enum_values(child) for child in value))
+        return set()
+
+    target_values = {"runtime_unit", "external_system", "communicates"}
+    for schema in (
+        command_schema(),
+        projection_schema(),
+        story_trace_schema(),
+        view_check_schema(),
+        view_spec_schema(),
+    ):
+        assert enum_values(schema).isdisjoint(target_values)
+    for schema in (graph_schema(), report_schema()):
+        assert {"runtime_unit", "external_system"} <= enum_values(schema)
+        assert "communicates" in enum_values(schema)
+
+
 def test_a_view_spec_may_say_where_it_comes_from_and_must_not_need_to() -> None:
     """AD-291: created, git_head, author_kind and agent are optional text of a 1.2.0 spec."""
     validator = Draft202012Validator(_schema("view-spec.schema.json"))

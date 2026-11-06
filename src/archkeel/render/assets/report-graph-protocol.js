@@ -29,6 +29,8 @@ var ArchkeelGraphProtocol;
     let EntityKind;
     (function (EntityKind) {
         EntityKind["COMPONENT"] = "component";
+        EntityKind["RUNTIME_UNIT"] = "runtime_unit";
+        EntityKind["EXTERNAL_SYSTEM"] = "external_system";
         EntityKind["PACKAGE"] = "package";
         EntityKind["MODULE"] = "module";
         EntityKind["CLASS"] = "class";
@@ -52,6 +54,7 @@ var ArchkeelGraphProtocol;
     // archkeel.ir.architecture_graph.RelationshipKind
     let RelationshipKind;
     (function (RelationshipKind) {
+        RelationshipKind["COMMUNICATES"] = "communicates";
         RelationshipKind["IMPORTS"] = "imports";
         RelationshipKind["CALLS"] = "calls";
         RelationshipKind["REFERENCES"] = "references";
@@ -183,6 +186,7 @@ var ArchkeelGraphProtocol;
     // archkeel.ir.architecture_graph.GraphSchemaVersion
     let GraphSchemaVersion;
     (function (GraphSchemaVersion) {
+        GraphSchemaVersion["V1_4_0"] = "1.4.0";
         GraphSchemaVersion["V1_3_0"] = "1.3.0";
         GraphSchemaVersion["V1_2_0"] = "1.2.0";
         GraphSchemaVersion["V1_1_0"] = "1.1.0";
@@ -293,20 +297,48 @@ var ArchkeelGraphSceneProtocol;
     function isRelationship(value) {
         return isRecord(value) && isText(value.id) && G.isRelationshipKind(value.kind)
             && isText(value.source_id) && isNullableText(value.target_id)
-            && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution);
+            && isTexts(value.candidate_ids) && G.isResolutionKind(value.resolution)
+            && (value.protocol === undefined || value.kind === G.RelationshipKind.COMMUNICATES
+                && isText(value.protocol) && value.protocol.trim() !== "");
     }
     function isIntent(value) {
         return isRecord(value) && isText(value.component_id)
             && (value.role === undefined || G.isComponentRole(value.role))
             && isOptionalText(value.parent_id) && isOptionalText(value.label);
     }
-    function isGraph(value) {
+    function hasValidSystemLandscape(graph) {
+        const entities = new Map(graph.entities.map((entity) => [entity.id, entity]));
+        const targetOnlyKinds = new Set([
+            G.EntityKind.RUNTIME_UNIT,
+            G.EntityKind.EXTERNAL_SYSTEM,
+        ]);
+        const usesSystemLandscape = graph.entities.some((entity) => targetOnlyKinds.has(entity.kind))
+            || graph.relationships.some((relationship) => relationship.kind === G.RelationshipKind.COMMUNICATES || relationship.protocol !== undefined);
+        if (usesSystemLandscape && graph.schema_version !== G.GraphSchemaVersion.V1_4_0)
+            return false;
+        if (graph.entities.some((entity) => targetOnlyKinds.has(entity.kind)
+            && (graph.origin !== G.OriginKind.DECLARED || entity.presence !== G.PresenceKind.PLANNED))) {
+            return false;
+        }
+        return graph.relationships.every((relationship) => {
+            if (relationship.kind !== G.RelationshipKind.COMMUNICATES)
+                return true;
+            if (graph.origin !== G.OriginKind.DECLARED || relationship.target_id === null)
+                return false;
+            return entities.get(relationship.source_id)?.kind === G.EntityKind.RUNTIME_UNIT
+                && entities.get(relationship.target_id)?.kind === G.EntityKind.EXTERNAL_SYSTEM;
+        });
+    }
+    function isGraphBase(value) {
         return isRecord(value) && G.isOriginKind(value.origin)
             && isList(value.entities) && value.entities.every(isEntity)
             && isList(value.relationships) && value.relationships.every(isRelationship)
             && (value.component_intents === undefined || isList(value.component_intents)
                 && value.component_intents.every(isIntent))
             && (value.schema_version === undefined || G.isGraphSchemaVersion(value.schema_version));
+    }
+    function isGraph(value) {
+        return isGraphBase(value) && hasValidSystemLandscape(value);
     }
     function isAssessment(value) {
         return isRecord(value) && isText(value.id) && isText(value.subject_id)

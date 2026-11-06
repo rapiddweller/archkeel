@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 
 from archkeel.ir.architecture_graph import ArchitectureGraph, TargetDefinition
@@ -23,6 +23,7 @@ from archkeel.ir.codec import (
     value_bytes,
 )
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
+from archkeel.ir.graph_codec import target_payload
 from archkeel.ir.model import (
     ARCHITECTURE_TARGET_KIND,
     RULE_KINDS,
@@ -346,7 +347,7 @@ def _target_records(
             "title": "Independent UML target" if targets else "Declared architecture target",
             "rule_ids": [],
             "data": {
-                "target": json.loads(json.dumps(asdict(target))),
+                "target": json.loads(json.dumps(target_payload(target))),
                 "owner_ids": owner_ids,
                 "module_target_ids": module_ids,
                 "layout_rule_ids": layout_ids,

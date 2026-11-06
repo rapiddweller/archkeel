@@ -21,6 +21,8 @@ from archkeel.ir.facts import ParameterKind as ParameterKind
 
 class EntityKind(StrEnum):
     COMPONENT = "component"
+    RUNTIME_UNIT = "runtime_unit"
+    EXTERNAL_SYSTEM = "external_system"
     PACKAGE = "package"
     MODULE = "module"
     CLASS = "class"
@@ -37,7 +39,11 @@ class EntityKind(StrEnum):
     SYMBOL = "symbol"
 
 
+TARGET_ONLY_ENTITY_KINDS = (EntityKind.RUNTIME_UNIT, EntityKind.EXTERNAL_SYSTEM)
+
+
 class GraphSchemaVersion(StrEnum):
+    V1_4_0 = "1.4.0"
     V1_3_0 = "1.3.0"
     V1_2_0 = "1.2.0"
     V1_1_0 = "1.1.0"
@@ -50,6 +56,7 @@ _CLASSIFIER_KINDS: frozenset[EntityKind] = frozenset(
 
 
 class RelationshipKind(StrEnum):
+    COMMUNICATES = "communicates"
     IMPORTS = "imports"
     CALLS = "calls"
     REFERENCES = "references"
@@ -153,6 +160,7 @@ class AssessmentChange(StrEnum):
 
 
 class ReportSchemaVersion(StrEnum):
+    V1_4_0 = "1.4.0"
     V1_3_0 = "1.3.0"
     V1_2_0 = "1.2.0"
     V1_0_0 = "1.0.0"
@@ -491,6 +499,7 @@ class Relationship:
 
     through: tuple[str, ...] = ()
     decided_by: DecisionMaker | None = None
+    protocol: str | None = None
 
     def __post_init__(self) -> None:
         builtins.object.__setattr__(self, "kind", RelationshipKind(self.kind))
@@ -498,6 +507,11 @@ class Relationship:
         builtins.object.__setattr__(
             self, "decided_by", None if self.decided_by is None else DecisionMaker(self.decided_by)
         )
+        if self.protocol is not None:
+            if not isinstance(self.protocol, str) or not self.protocol.strip():
+                raise ValueError("relationship.protocol must be non-empty text")
+            if self.kind != RelationshipKind.COMMUNICATES:
+                raise ValueError("protocol belongs to communication relationships")
 
 
 @dataclass(frozen=True, slots=True)
@@ -552,7 +566,27 @@ class TargetDefinition:
 
     def __post_init__(self) -> None:
         builtins.object.__setattr__(self, "schema_version", GraphSchemaVersion(self.schema_version))
-        _validate_graph_version(self.schema_version, self.entities, self.scopes)
+        _validate_graph_version(
+            self.schema_version, self.entities, self.scopes, relationships=self.relationships
+        )
+
+    def validate(self) -> None:
+        """Check system-landscape invariants that are local to the inner Target."""
+        entities = {entity.id: entity for entity in self.entities}
+        for entity in self.entities:
+            if entity.kind in TARGET_ONLY_ENTITY_KINDS and (
+                entity.presence != PresenceKind.PLANNED
+            ):
+                raise ValueError("runtime and external systems must be planned declarations")
+        for edge in self.relationships:
+            if edge.kind == RelationshipKind.COMMUNICATES and (
+                entities.get(edge.source_id) is None
+                or entities[edge.source_id].kind != EntityKind.RUNTIME_UNIT
+                or edge.target_id is None
+                or entities.get(edge.target_id) is None
+                or entities[edge.target_id].kind != EntityKind.EXTERNAL_SYSTEM
+            ):
+                raise ValueError("communication needs a runtime and external system")
 
 
 def _validate_graph_version(
@@ -560,6 +594,7 @@ def _validate_graph_version(
     entities: tuple[Entity, ...],
     scopes: tuple[TargetScope, ...] = (),
     coverage: tuple[Coverage, ...] = (),
+    relationships: tuple[Relationship, ...] = (),
 ) -> None:
     if not isinstance(version, GraphSchemaVersion):
         raise ValueError("unsupported graph schema_version")
@@ -569,6 +604,15 @@ def _validate_graph_version(
         or any(EntityKind.ENUM_LITERAL in item.entity_kinds for item in coverage)
     ):
         raise ValueError("enum literal needs graph schema_version 1.1.0")
+    if version != GraphSchemaVersion.V1_4_0 and any(
+        kind in TARGET_ONLY_ENTITY_KINDS for item in coverage for kind in item.entity_kinds
+    ):
+        raise ValueError("target-only coverage kinds need graph schema_version 1.4.0")
+    if version != GraphSchemaVersion.V1_4_0 and (
+        any(entity.kind in TARGET_ONLY_ENTITY_KINDS for entity in entities)
+        or any(edge.kind == RelationshipKind.COMMUNICATES for edge in relationships)
+    ):
+        raise ValueError("system landscape needs graph schema_version 1.4.0")
 
 
 @dataclass(frozen=True, slots=True)
@@ -679,7 +723,11 @@ class ArchitectureGraph:
 
     def validate(self) -> None:
         _validate_graph_version(
-            self.schema_version, self.entities, self.target_scopes, self.coverage
+            self.schema_version,
+            self.entities,
+            self.target_scopes,
+            self.coverage,
+            self.relationships,
         )
         if self.origin == OriginKind.DECLARED and self.evidence:
             raise ValueError("Target does not carry observed source evidence")
@@ -701,7 +749,10 @@ class ArchitectureGraph:
         assigned_layouts: set[str] = set()
         for intent in self.component_intents:
             if intent.lifecycle is not None:
-                if self.schema_version != GraphSchemaVersion.V1_3_0:
+                if self.schema_version not in {
+                    GraphSchemaVersion.V1_3_0,
+                    GraphSchemaVersion.V1_4_0,
+                }:
                     raise ValueError("component lifecycle requires graph schema_version 1.3.0")
                 if intent.packages or intent.exact_modules or intent.public:
                     raise ValueError("planned component intent cannot claim source ownership")
@@ -712,6 +763,7 @@ class ArchitectureGraph:
                 if self.schema_version not in {
                     GraphSchemaVersion.V1_2_0,
                     GraphSchemaVersion.V1_3_0,
+                    GraphSchemaVersion.V1_4_0,
                 }:
                     raise ValueError("component layer requires graph schema_version 1.2.0")
             owner = entities.get(intent.component_id)
@@ -722,7 +774,7 @@ class ArchitectureGraph:
             ):
                 raise ValueError("component intent needs a declared component")
             if (
-                self.schema_version == GraphSchemaVersion.V1_3_0
+                self.schema_version in {GraphSchemaVersion.V1_3_0, GraphSchemaVersion.V1_4_0}
                 and not intent.packages
                 and not intent.exact_modules
                 and intent.lifecycle is None
@@ -739,6 +791,8 @@ class ArchitectureGraph:
         for item in self.coverage:
             if self.origin != OriginKind.OBSERVED or item.scope_id not in entities:
                 raise ValueError("coverage describes an observed scope")
+            if any(kind in TARGET_ONLY_ENTITY_KINDS for kind in item.entity_kinds):
+                raise ValueError("target-only entities cannot be covered by source coverage")
             if item.status != CoverageStatus.COMPLETE and not item.reason:
                 raise ValueError("limited coverage needs a reason")
         self._validate_scopes(entities)
@@ -826,6 +880,10 @@ class ArchitectureGraph:
         for entity in self.entities:
             if not entity.id or not entity.qualified_name or not entity.language:
                 raise ValueError("empty entity identity")
+            if entity.kind in TARGET_ONLY_ENTITY_KINDS and (
+                self.origin != OriginKind.DECLARED or entity.presence != PresenceKind.PLANNED
+            ):
+                raise ValueError("runtime and external systems are target-only declarations")
             if entity.file_path is not None:
                 relative = contract_relative_path(entity.file_path)
                 if (
@@ -967,6 +1025,15 @@ class ArchitectureGraph:
                 raise ValueError("unknown relationship target")
             self._validate_classifier_relationship(edge, entities)
             self._validate_permission_metadata(edge, entities)
+            if edge.protocol is not None and self.origin != OriginKind.DECLARED:
+                raise ValueError("protocol belongs to declared communication relationships")
+            if edge.kind == RelationshipKind.COMMUNICATES and (
+                self.origin != OriginKind.DECLARED
+                or entities[edge.source_id].kind != EntityKind.RUNTIME_UNIT
+                or edge.target_id is None
+                or entities[edge.target_id].kind != EntityKind.EXTERNAL_SYSTEM
+            ):
+                raise ValueError("communication needs a declared runtime and external system")
             if len(set(edge.candidate_ids)) != len(edge.candidate_ids) or any(
                 candidate not in entities for candidate in edge.candidate_ids
             ):
@@ -1102,17 +1169,41 @@ class ArchitectureReport:
     def validate(self) -> None:
         if self.observed is None and not self.unavailable:
             raise ValueError("missing observed graph needs an unavailable reason")
+        self._validate_graphs()
+        graphs = tuple(graph for graph in (self.observed, self.target) if graph is not None)
+        subjects: set[str] = {entity.id for graph in graphs for entity in graph.entities}
+        subjects.update(relationship.id for graph in graphs for relationship in graph.relationships)
+        self._validate_findings(subjects)
+        self._validate_memberships_and_gaps()
+        self._validate_comparison()
+
+    def _validate_graphs(self) -> None:
         if self.schema_version == ReportSchemaVersion.V1_0_0 and any(
             graph is not None
-            and graph.schema_version in {GraphSchemaVersion.V1_2_0, GraphSchemaVersion.V1_3_0}
+            and graph.schema_version
+            in {
+                GraphSchemaVersion.V1_2_0,
+                GraphSchemaVersion.V1_3_0,
+                GraphSchemaVersion.V1_4_0,
+            }
             for graph in (self.observed, self.target)
         ):
             raise ValueError("graph layer vocabulary requires report schema_version 1.2.0")
-        if self.schema_version != ReportSchemaVersion.V1_3_0 and any(
+        if self.schema_version not in {
+            ReportSchemaVersion.V1_3_0,
+            ReportSchemaVersion.V1_4_0,
+        } and any(
             graph is not None and graph.schema_version == GraphSchemaVersion.V1_3_0
             for graph in (self.observed, self.target)
         ):
-            raise ValueError("graph schema_version 1.3.0 requires report schema_version 1.3.0")
+            raise ValueError(
+                "graph schema_version 1.3.0 requires report schema_version 1.3.0 or later"
+            )
+        if self.schema_version != ReportSchemaVersion.V1_4_0 and any(
+            graph is not None and graph.schema_version == GraphSchemaVersion.V1_4_0
+            for graph in (self.observed, self.target)
+        ):
+            raise ValueError("graph schema_version 1.4.0 requires report schema_version 1.4.0")
         for graph, origin in (
             (self.observed, OriginKind.OBSERVED),
             (self.target, OriginKind.DECLARED),
@@ -1121,10 +1212,8 @@ class ArchitectureReport:
                 if graph.origin != origin:
                     raise ValueError(f"report needs {origin} origin")
                 graph.validate()
-        graphs = tuple(graph for graph in (self.observed, self.target) if graph is not None)
-        subjects: set[str] = {entity.id for graph in graphs for entity in graph.entities}
-        subjects.update(relationship.id for graph in graphs for relationship in graph.relationships)
-        self._validate_findings(subjects)
+
+    def _validate_memberships_and_gaps(self) -> None:
         components = (
             {entity.id for entity in self.target.entities if entity.kind == EntityKind.COMPONENT}
             if self.target
@@ -1171,7 +1260,6 @@ class ArchitectureReport:
                 raise ValueError(
                     "dependency decision gap needs components and observed import sites"
                 )
-        self._validate_comparison()
 
     def _validate_findings(self, subjects: set[str]) -> None:
         finding_ids = [item.id for item in self.findings]

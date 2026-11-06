@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.15.schema.json",
+  "schema_version": "3.15.0",
+  "components": [],
+  "rules": [],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.4.0",
+      "entities": [
+        {
+          "id": "runtime-api",
+          "kind": "runtime_unit",
+          "qualified_name": "system_manifest.api_service",
+          "language": "architecture",
+          "presence": "planned",
+          "responsibilities": ["Serve application requests."],
+          "provenance": ["docs/target.md"]
+        },
+        {
+          "id": "external-ledger",
+          "kind": "external_system",
+          "qualified_name": "system_manifest.ledger",
+          "language": "architecture",
+          "presence": "planned",
+          "responsibilities": ["Store accounting entries."],
+          "provenance": ["docs/target.md"]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "api-ledger-communication",
+          "kind": "communicates",
+          "source_id": "runtime-api",
+          "target_id": "external-ledger",
+          "provenance": ["docs/target.md"],
+          "protocol": "HTTPS"
+        }
+      ],
+      "scopes": []
+    }
+  }
+}

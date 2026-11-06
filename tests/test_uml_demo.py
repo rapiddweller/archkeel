@@ -9,12 +9,61 @@ from dataclasses import replace
 
 import pytest
 
-from archkeel.ir.architecture_graph import EntityKind
+from archkeel.ir.architecture_graph import EntityKind, RelationshipKind
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import CATALOG, replay
 
-# The shared vocabulary includes mixins, but these source-backed demos are Python-only.
-_PYTHON_DEMO_ENTITY_KINDS = frozenset(EntityKind) - {EntityKind.MIXIN}
+# Freeze the historical UML vocabulary: newer target kinds must not widen old demos.
+_LEGACY_1_3_ENTITY_KINDS = frozenset(
+    {
+        EntityKind.COMPONENT,
+        EntityKind.PACKAGE,
+        EntityKind.MODULE,
+        EntityKind.CLASS,
+        EntityKind.INTERFACE,
+        EntityKind.ENUM,
+        EntityKind.MIXIN,
+        EntityKind.ENUM_LITERAL,
+        EntityKind.METHOD,
+        EntityKind.FUNCTION,
+        EntityKind.ATTRIBUTE,
+        EntityKind.TYPE_ALIAS,
+        EntityKind.CONSTANT,
+        EntityKind.BINDING,
+        EntityKind.SYMBOL,
+    }
+)
+_LEGACY_1_3_PYTHON_DEMO_ENTITY_KINDS = _LEGACY_1_3_ENTITY_KINDS - {EntityKind.MIXIN}
+_LEGACY_1_3_SCOPE_ENTITY_KINDS = frozenset(
+    {
+        EntityKind.PACKAGE,
+        EntityKind.MODULE,
+        EntityKind.CLASS,
+        EntityKind.INTERFACE,
+        EntityKind.ENUM,
+        EntityKind.MIXIN,
+        EntityKind.ENUM_LITERAL,
+        EntityKind.METHOD,
+        EntityKind.FUNCTION,
+        EntityKind.ATTRIBUTE,
+        EntityKind.TYPE_ALIAS,
+        EntityKind.CONSTANT,
+        EntityKind.BINDING,
+    }
+)
+_LEGACY_1_3_SCOPE_RELATIONSHIP_KINDS = frozenset(
+    {
+        RelationshipKind.IMPORTS,
+        RelationshipKind.CALLS,
+        RelationshipKind.REFERENCES,
+        RelationshipKind.INHERITS,
+        RelationshipKind.REALIZES,
+        RelationshipKind.MIXES_IN,
+        RelationshipKind.CREATES,
+        RelationshipKind.INSTANCE_OF,
+        RelationshipKind.OWNS,
+    }
+)
 
 
 def _demo_report(output):
@@ -74,7 +123,12 @@ def test_complete_uml_demo_declares_closed_intent_without_claiming_full_observat
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert result["declared_rules"] == "UNKNOWN"
     report = _demo_report(output)
-    assert {e.kind for e in report.target.entities} == _PYTHON_DEMO_ENTITY_KINDS
+    assert {e.kind for e in report.target.entities} == _LEGACY_1_3_PYTHON_DEMO_ENTITY_KINDS
+    assert all(
+        set(scope.entity_kinds) == _LEGACY_1_3_SCOPE_ENTITY_KINDS
+        and set(scope.relationship_kinds) == _LEGACY_1_3_SCOPE_RELATIONSHIP_KINDS
+        for scope in report.target.target_scopes
+    )
     assert report.target.target_scopes and all(
         s.mode == "closed" for s in report.target.target_scopes
     )
@@ -161,7 +215,7 @@ def test_uml_demo_uses_independent_target_and_recorded_core_comparison(
         if variant == "uml-match":
             assert {
                 item.kind for item in (*report.observed.entities, *report.target.entities)
-            } == _PYTHON_DEMO_ENTITY_KINDS
+            } == _LEGACY_1_3_PYTHON_DEMO_ENTITY_KINDS
     elif status == "FAIL":
         failed_signature = "reset" if variant == "uml-typescript-mismatch" else "run"
         assert any(

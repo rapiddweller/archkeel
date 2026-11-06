@@ -1,6 +1,7 @@
 # AD-307 A Git manifest composes the system landscape
 
-**Status.** Issue #853 architecture decision. No runtime implementation is selected.
+**Status.** Issue #853 architecture decision. The first target-graph vocabulary slice models runtime
+and external-system declarations; it does not add a collector or deployment runtime.
 
 **Decision.**
 - The Git-versioned root architecture contract may itself be the system manifest and entry point
@@ -18,11 +19,14 @@
   explicitly identified immutable snapshot such as an uncommitted design draft. A result identifies
   that revision or snapshot content. Never mix states. Missing, ambiguous, or invalid references
   are errors or UNKNOWN; never silently resolve them from another state.
-- Project this composition through ArchKeel's existing Target/Observed graph owner. A later
-  implementation must add nominal kinds for runtime units, external systems, and communication
-  where needed. Communication is a directed Target relation, distinct from source `IMPORTS`,
-  `CALLS`, and component containment. Imports or calls alone do not establish a runtime flow;
-  combined, unambiguous evidence may support one in a later implementation.
+- Project this composition through ArchKeel's existing Target/Observed graph owner. Contract 3.15
+  introduces Target graph 1.4 with nominal `runtime_unit` and `external_system` entities and a
+  directed `communicates` relation from runtime unit to external system. Its optional `protocol`
+  is declared text, not observed evidence. Existing 2.x and 3.0–3.14 contracts retain their
+  previous feature set. This relation stays distinct from source `IMPORTS`, `CALLS`, and component
+  containment. Imports or calls alone do not establish a runtime flow.
+- A target-only entity has no observed source mapping. Reused qualified names do not prove identity.
+  Scopes and relationships with these endpoints remain UNKNOWN.
 - Keep declared architecture intent distinct from deployment declarations and observed facts.
   A deployment target may distinguish environments and says what should be placed where; an
   observation proves only what its evidence covers. Known communication protocols may be recorded
@@ -39,9 +43,12 @@ tree and does not provide reusable sharing; `requires` grants component import p
 is a system-link mechanism. A separate database would duplicate Git history and add an unproven
 consistency owner. None is justified.
 
-**Limits.** This decision does not define a manifest schema, graph wire version, deployment format,
-evidence collector, API, or UI. Those require a public greenfield fixture and validation through the
-existing graph/contract owner. No real system topology or communication is asserted here.
+**Limits.** This slice does not model runtime-to-component references, deployment placement,
+observed runtime communication, an evidence collector, or a UI. Declared runtime entities and
+communication remain intent; comparison has no source mapping and must remain UNKNOWN. The full
+report graph retains declared communication. Focused projection and command formats omit it because
+they have no runtime-to-component mapping. The public greenfield fixture establishes no real
+deployment or communication.
 
 **Basis.** AD-111 owns recursive `inside` loading; AD-113 and AD-164 define `requires` as
 contract-scoped import permission; AD-161 and AD-173 keep Target intent separate from observed

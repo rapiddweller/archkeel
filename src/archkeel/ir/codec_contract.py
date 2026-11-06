@@ -37,7 +37,7 @@ from archkeel.ir.contract_version import CONTRACT_SCHEMA_VERSION as CONTRACT_SCH
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
 from archkeel.ir.facts import python_identifier
 from archkeel.ir.facts_codec import record_payload
-from archkeel.ir.graph_codec import parse_target
+from archkeel.ir.graph_codec import parse_target, target_payload
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -165,6 +165,12 @@ def _validate_uml_contract_version(version: ContractVersion, uml: TargetDefiniti
         and not supports_feature(version, ContractFeature.PLANNED_COMPONENT_OWNER)
     ):
         raise ValueError("UML schema_version 1.3.0 requires contract schema_version 2.4.0")
+    if (
+        uml is not None
+        and uml.schema_version == GraphSchemaVersion.V1_4_0
+        and not supports_feature(version, ContractFeature.SYSTEM_LANDSCAPE)
+    ):
+        raise ValueError("UML schema_version 1.4.0 requires contract schema_version 3.15.0")
 
 
 def parse_contract(raw: object) -> ArchitectureContract:
@@ -599,7 +605,7 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
     encoded = _object(_without_none(document), "contract")
     if contract.declarations is not None and contract.declarations.uml is not None:
         declarations = _object(encoded["declarations"], "declarations")
-        declarations["uml"] = asdict(contract.declarations.uml)
+        declarations["uml"] = target_payload(contract.declarations.uml)
     text: str = json.dumps(encoded, indent=2, ensure_ascii=False) + "\n"
     return text.encode()
 

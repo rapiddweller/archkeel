@@ -4,7 +4,6 @@
 """The report draws independent source and Target graphs through one UML boundary."""
 
 import json
-from dataclasses import asdict
 from unittest.mock import Mock
 
 import pytest
@@ -23,7 +22,7 @@ from archkeel.ir.architecture_graph import (
     Visibility,
 )
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.graph_codec import parse_comparison, parse_graph
+from archkeel.ir.graph_codec import parse_comparison, parse_graph, target_payload
 from archkeel.render.html import _asset, render_html
 
 
@@ -143,7 +142,7 @@ def _uml_report(
                 "provenance": list(provenance),
             }
         ],
-        "declarations": {"uml": asdict(target)},
+        "declarations": {"uml": target_payload(target)},
     }
     contract["components"][0].update(component_changes or {})
     contract["declarations"].update(declaration_changes or {})
