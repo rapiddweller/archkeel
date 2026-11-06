@@ -395,7 +395,7 @@ def test_process_limit_stops_spawned_worker(
             if limit == "timeout"
             else (
                 "Collector output exceeded its 1000 byte limit. "
-                "Set collector_output_limit_bytes to a larger finite value and retry."
+                "Raise collector_output_limit_bytes and retry."
             )
         )
         assert time.monotonic() - started < 4

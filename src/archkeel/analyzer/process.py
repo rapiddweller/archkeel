@@ -55,7 +55,7 @@ class _ProcessCleanupError(RuntimeError):
 
 
 _CLEANUP_TIMEOUT_SECONDS = 2
-_DEFAULT_OUTPUT_LIMIT_REMEDY = "Set collector_output_limit_bytes to a larger finite value and retry."
+_DEFAULT_OUTPUT_LIMIT_REMEDY = "Raise collector_output_limit_bytes and retry."
 _STDERR_LINES_REPORTED = 20
 # Supported POSIX targets use signed 32-bit pid_t; Windows process IDs are DWORDs.
 _POSIX_PID_MAX = (1 << 31) - 1
