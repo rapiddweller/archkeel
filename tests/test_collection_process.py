@@ -271,6 +271,40 @@ def test_output_limit_stops_collector_while_it_is_running(tmp_path) -> None:
     assert "limit" in result.message
 
 
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX process groups")
+def test_output_limit_with_an_exited_unreaped_collector_is_a_protocol_error(
+    tmp_path, monkeypatch
+) -> None:
+    import subprocess
+    from dataclasses import replace
+
+    terminate = process_owner._terminate_process_tree
+
+    def terminate_after_exit(process):
+        # Cleanup must see a collector that exited but is not reaped yet (a zombie).
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            state = subprocess.run(
+                ["ps", "-o", "stat=", "-p", str(process.pid)], capture_output=True, text=True
+            ).stdout.strip()
+            if state.startswith("Z"):
+                break
+            time.sleep(0.01)
+        else:
+            pytest.fail("collector did not exit within 5 seconds")
+        terminate(process)
+
+    monkeypatch.setattr(process_owner, "_terminate_process_tree", terminate_after_exit)
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+    result = _collector(
+        "import sys; sys.stdout.write('x'*100000); sys.stdout.flush()", output_limit_bytes=1000
+    ).collect(request)
+    assert isinstance(result, CollectionError)
+    assert result.kind == "protocol_error"
+    assert "limit" in result.message
+
+
 def test_timeout_also_bounds_a_process_that_never_reads_stdin(tmp_path) -> None:
     from dataclasses import replace
 
@@ -491,6 +525,22 @@ def test_platform_cleanup_keeps_exact_error_text_and_cause(name, failure, messag
     assert cause[0] == ("TimeoutExpired" if failure == "wait" else "OSError")
     if failure in ("kill", "killpg"):
         assert not any(event[0] == "wait" for event in events)
+
+
+def test_zombie_only_posix_process_group_is_a_finished_collector():
+    events = []
+    process = _LifecycleProcess(events, running=False)
+
+    def killpg(pid, signum):
+        events.append(("killpg", pid, signum))
+        raise PermissionError("macOS refuses a group that holds only zombies")
+
+    with (
+        patch.object(process_owner, "os", SimpleNamespace(name="posix", killpg=killpg)),
+        patch.object(process_owner, "signal", SimpleNamespace(SIGKILL=9)),
+    ):
+        process_owner._terminate_process_tree(process)
+    assert events == [("killpg", 17, 9), ("poll",), ("wait", 2)]
 
 
 def test_missing_posix_process_group_still_waits_without_error():
