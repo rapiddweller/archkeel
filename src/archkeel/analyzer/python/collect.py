@@ -69,6 +69,7 @@ from archkeel.ir.protocol import (
     PythonProviderSource,
     PythonSettings,
     collected_resolution_features,
+    since,
 )
 
 from .bindings import collect_bindings
@@ -78,6 +79,7 @@ from .callable_signatures import (
 )
 from .calls import collect_calls_with_resolvers
 from .constructs import collect_constructs
+from .explore_scope import ExcludedTests, selected_paths, wire_protocol
 from .imports import (
     collect_dynamic_imports,
     collect_imports,
@@ -141,7 +143,7 @@ class PythonProviderCollector:
     def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
         if not (
             isinstance(request.resolver, PythonSettings)
-            and request.protocol_version is ProtocolVersion.V3
+            and request.protocol_version in {ProtocolVersion.V3, ProtocolVersion.V9}
             and request.resolver.phase is PythonCollectionPhase.COLLECT
             and not request.resolver.provider_sources
         ):
@@ -158,7 +160,7 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
-                protocol_version=ProtocolVersion.V4,
+                protocol_version=wire_protocol(request, ProtocolVersion.V4),
             ),
         )
         if isinstance(initial_response, CollectionError):
@@ -185,10 +187,10 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=replace(request.resolver, provider_sources=providers),
-                protocol_version=ProtocolVersion.V8,
+                protocol_version=wire_protocol(request, ProtocolVersion.V8),
             )
             if providers
-            else replace(request, protocol_version=ProtocolVersion.V8)
+            else replace(request, protocol_version=wire_protocol(request, ProtocolVersion.V8))
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -223,19 +225,6 @@ def _provider_pass_problem(
     ):
         return "Collector source inputs, analyzer, or runtime changed between provider passes."
     return None
-
-
-def _selected_paths(root: Path, roots: tuple[str, ...]) -> tuple[Path, ...]:
-    selected: list[Path] = []
-    for source in roots:
-        source_root: Path = root / source
-        if not source_root.is_dir():
-            continue
-        for candidate in source_root.rglob("*.py"):
-            path: Path = candidate
-            if "__pycache__" not in path.parts and path.resolve().is_relative_to(root):
-                selected.append(path)
-    return tuple(sorted(selected))
 
 
 def _provider_origin(
@@ -375,7 +364,9 @@ def provider_sources(
 def collect(request: CollectionRequest) -> SourceFacts:
     """Collect selected Python source evidence for the requested phase."""
     root = Path(request.snapshot.root).resolve()
-    selected = _selected_paths(root, request.scope.roots)
+    selected = selected_paths(
+        root, request.scope.roots, exclude_test_sources=request.scope.exclude_test_sources
+    )
     parsed_sources = parse_sources(selected, root=root, namespace=request.scope.namespace)
     modules = parsed_sources.modules
     evidence: dict[str, RawEvidence] = {}
@@ -386,12 +377,20 @@ def collect(request: CollectionRequest) -> SourceFacts:
         evidence,
         namespace=request.scope.namespace,
     )
+    gaps = [parse_record(record) for record in parsed_sources.failures]
+    excluded = (
+        ExcludedTests.find(root, request.scope.roots, request.scope.namespace)
+        if request.scope.exclude_test_sources
+        else None
+    )
+    excluded_gaps = excluded.gaps(imports, modules, selected) if excluded else []
+    gaps.extend(excluded_gaps)
     coverage = CollectionCoverage(
         tuple(path.relative_to(root).as_posix() for path in selected),
         parsed_sources.files_read,
         len(modules),
-        len(modules) == len(selected),
-        tuple(parse_record(record) for record in parsed_sources.failures),
+        len(modules) == len(selected) and not gaps,
+        tuple(gaps),
     )
     if (
         isinstance(request.resolver, PythonSettings)
@@ -405,7 +404,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         )
         survey_records = {
             SourceSectionName.IMPORTS: imports,
-            SourceSectionName.UNKNOWNS: parsed_sources.failures,
+            SourceSectionName.UNKNOWNS: [*parsed_sources.failures, *map(raw_record, excluded_gaps)],
         }
         survey = SourceFacts(
             SourceProfile.PYTHON,
@@ -475,13 +474,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
             {EXTENDED_CALL_BINDINGS_FEATURE, CONSTRUCT_SELECTORS_FEATURE} & set(collected_features)
         ),
     )
-    if request.protocol_version in {
-        ProtocolVersion.V4,
-        ProtocolVersion.V5,
-        ProtocolVersion.V6,
-        ProtocolVersion.V7,
-        ProtocolVersion.V8,
-    }:
+    if request.protocol_version in since(ProtocolVersion.V4):
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
@@ -499,6 +492,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
+    if excluded is not None and (dynamic_gaps := excluded.dynamic_import_gaps(dynamic_imports)):
+        gaps.extend(dynamic_gaps)
+        excluded_gaps.extend(dynamic_gaps)
+        coverage = replace(coverage, full_scope=False, gaps=tuple(gaps))
     imports.extend(dynamic_imports)
     references = collect_references(
         modules,
@@ -515,8 +512,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         imports=imports,
         symbol_index=symbol_index,
         receiver_resolvers=call_resolvers,
-        include_parameter_owner_proof=request.protocol_version
-        in {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7, ProtocolVersion.V8},
+        include_parameter_owner_proof=request.protocol_version in since(ProtocolVersion.V5),
         include_selectors=CONSTRUCT_SELECTORS_FEATURE in collected_features,
         include_numeric_operands=NUMERIC_OPERANDS_FEATURE in collected_features,
     )
@@ -540,6 +536,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
             *parsed_sources.failures,
             *dynamic_limits,
             *(raw_record(record) for record in source_unknowns),
+            *map(raw_record, excluded_gaps),
         ],
     }
     for item in private_evidence:

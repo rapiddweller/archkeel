@@ -22,9 +22,9 @@ from archkeel.ir.facts import (
     RULE_FAMILY_NOT_COLLECTED_KIND,
     SOURCE_RESOLUTION_GAP_KIND,
     SourceFacts,
-    UnresolvedTarget,
 )
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
+from archkeel.ir.import_gaps import derived_unresolved_imports
 from archkeel.ir.model import (
     ArchitectureContract as _ArchitectureContract,
 )
@@ -48,6 +48,7 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     DartSettings,
+    ProtocolVersion,
     PythonSettings,
     ResolverSettings,
     SnapshotInput,
@@ -157,6 +158,8 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
 }
+# Dart has no test-source classification, so a Dart scan keeps every file.
+_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
 _SOURCE_REMEDY: Final[dict[Language, str]] = {
     Language.PYTHON: "Inspect the reported failure using the declared target runtime; "
     "rerun after resolving its cause.",
@@ -248,9 +251,7 @@ def _partial_uml_source_is_eligible(
     if any(failures.get(item.id) != item for item in gaps):
         return False
     derived_ids = {
-        stable_id("UNKNOWN-IMPORT", item.import_id)
-        for item in facts.imports
-        if isinstance(item, UnresolvedTarget)
+        stable_id("UNKNOWN-IMPORT", import_id) for import_id in derived_unresolved_imports(facts)
     }
     if set(failures) != source_gap_ids | derived_ids:
         return False
@@ -300,6 +301,7 @@ def _observe(
     contract_root: Path,
     language: Language = Language.PYTHON,
     bundler: bool = False,
+    exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
     source_root = source_root.resolve()
@@ -338,10 +340,12 @@ def _observe(
             if language == Language.DART
             else TypeScriptSettings(tsconfig, bundler)
         )
+        exclude_test_sources = exclude_test_sources and language in _TEST_SCOPE_LANGUAGES
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
-            SourceScope(roots, namespace),
+            SourceScope(roots, namespace, exclude_test_sources),
             resolver,
+            ProtocolVersion.V9 if exclude_test_sources else ProtocolVersion.V3,
         )
         facts = collector.collect(request)
         if isinstance(facts, CollectionError):
@@ -397,6 +401,7 @@ class Observer:
     tsconfig: str = "tsconfig.json"
     bundler: bool = False
     clock: PhaseClock | None = None
+    exclude_test_sources: bool = False
 
     def __call__(
         self,
@@ -422,5 +427,6 @@ class Observer:
             contract_root=contract_root,
             language=language,
             bundler=self.bundler,
+            exclude_test_sources=self.exclude_test_sources,
             clock=self.clock,
         )

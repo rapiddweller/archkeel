@@ -55,7 +55,8 @@
       "role": "component",
       "packages": [
         "archkeel.analyzer.typescript.parse",
-        "archkeel.analyzer.typescript.syntax"
+        "archkeel.analyzer.typescript.syntax",
+        "archkeel.analyzer.typescript.script_publication"
       ],
       "responsibilities": [
         "Parse TypeScript declarations and sites into the immutable syntax model."
@@ -96,7 +97,10 @@
         "archkeel.analyzer.typescript.syntax:ScriptFactoryMember",
         "archkeel.analyzer.typescript.syntax:ScriptDestructure",
         "archkeel.analyzer.typescript.parse:umd_publication",
-        "archkeel.analyzer.typescript.syntax:ScriptNamespace"
+        "archkeel.analyzer.typescript.syntax:ScriptNamespace",
+        "archkeel.analyzer.typescript.script_publication:stable_publication",
+        "archkeel.analyzer.typescript.script_publication:source_origin",
+        "archkeel.analyzer.typescript.script_publication:site_aliases"
       ],
       "requires": [
         {
@@ -194,7 +198,8 @@
       "label": "input",
       "role": "component",
       "packages": [
-        "archkeel.analyzer.typescript.source_input"
+        "archkeel.analyzer.typescript.source_input",
+        "archkeel.analyzer.typescript.explore_scope"
       ],
       "responsibilities": [
         "Own source paths, file formats and specifier classification at input boundaries."
@@ -219,7 +224,9 @@
         "archkeel.analyzer.typescript.source_input:classify_file",
         "archkeel.analyzer.typescript.source_input:split_file",
         "archkeel.analyzer.typescript.source_input:classify_specifier",
-        "archkeel.analyzer.typescript.source_input:classify_asset"
+        "archkeel.analyzer.typescript.source_input:classify_asset",
+        "archkeel.analyzer.typescript.explore_scope:is_test_path",
+        "archkeel.analyzer.typescript.explore_scope:emptied_by_exclusion"
       ]
     }
   ],

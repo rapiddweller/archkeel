@@ -190,6 +190,9 @@ with an inventory of the components before the findings. Query the snapshot like
 `archkeel report --input DIR/architecture.json --only architecture --component COMP-APP --json`.
 TypeScript and Dart need the scope options. `validate` on a contract with no rule keeps PASS:
 the contract is valid, and no rule was checked.
+Python and TypeScript Explore use collection protocol 9 to exclude recognized test sources. The
+CLI uses its built-in collectors; programmatic Explore with a V1–V8 external collector fails at
+the protocol boundary.
 
 ## Studio
 

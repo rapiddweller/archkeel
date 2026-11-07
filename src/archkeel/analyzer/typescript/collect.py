@@ -61,8 +61,10 @@ from .config import (
     standard_globals,
     within,
 )
+from .explore_scope import emptied_by_exclusion, is_test_path
 from .parse import parse, umd_publication
 from .resolve import Found, Resolver, Unknown
+from .script_publication import site_aliases, source_origin, stable_publication
 from .source_input import (
     ModuleFormat,
     PathToken,
@@ -148,62 +150,6 @@ def _package_of(module: str) -> str:
     return module.rpartition(".")[0]
 
 
-def _script_stable_publication(
-    name: str,
-    publishers: list[tuple[str, ScriptGlobal]],
-    writes: Sequence[tuple[str, str | None, Span]],
-) -> bool:
-    return (
-        len(publishers) == 1
-        and publishers[0][1].stable
-        and [
-            (writer_rel, span)
-            for writer_rel, written, span in writes
-            if written is None or written == name
-        ]
-        == [(publishers[0][0], publishers[0][1].span)]
-    )
-
-
-def _script_source_origin(
-    name: str,
-    publishers: list[tuple[str, ScriptGlobal]],
-    writes: Sequence[tuple[str, str | None, Span]],
-) -> bool:
-    return (
-        len(publishers) == 1
-        and (publishers[0][1].stable or publishers[0][1].source_origin)
-        and [(rel, span) for rel, written, span in writes if written is None or written == name]
-        == [(publishers[0][0], publishers[0][1].span)]
-    )
-
-
-def _script_site_aliases(
-    syntax: Syntax, site: Site
-) -> tuple[ScriptAlias | None, ScriptAlias | None]:
-    call = next(
-        (
-            alias
-            for alias in syntax.script_aliases
-            if (site.kind is SiteKind.CALL or alias.factory)
-            and len(site.path) == 2
-            and site.path[0] == alias.name
-            and site.span in (*alias.calls, *alias.reads)
-        ),
-        None,
-    )
-    initializer = next(
-        (
-            alias
-            for alias in syntax.script_aliases
-            if alias.reference_span == site.span
-            and (site.kind is SiteKind.REFERENCE or alias.factory)
-        ),
-        None,
-    )
-    return call, initializer
-
-
 def collect(request: CollectionRequest) -> SourceFacts:
     if not isinstance(request.resolver, TypeScriptSettings):
         raise ValueError("TypeScript collector requires the TypeScript resolver")
@@ -225,7 +171,8 @@ class _Collection:
             and self.config.options.resolution is ModuleResolution.BUNDLER
         )
         # Every file to read, in discovery order; an entry added while walking is walked too.
-        self.queue: list[str] = list(self.config.files)
+        self.queue: list[str] = [rel for rel in self.config.files if self._selected(rel)]
+        self.snapshot.problems.update(emptied_by_exclusion(request, self.config.files, self.queue))
         self.evidence: dict[str, RawEvidence] = {}
         self.imports: list[RawRecord] = []
         self.gaps: dict[str, RawRecord] = {}
@@ -474,7 +421,7 @@ class _Collection:
                                 writes,
                             )
                     continue
-                alias_call, alias_initializer = _script_site_aliases(syntax, site)
+                alias_call, alias_initializer = site_aliases(syntax, site)
                 alias = alias_call or alias_initializer
                 path = (
                     (*alias_call.path, *(() if alias_call.factory else site.path[1:]))
@@ -553,7 +500,7 @@ class _Collection:
         publications: list[tuple[str, ScriptGlobal]],
         writes: set[tuple[str, str | None, Span]],
     ) -> bool:
-        if not alias.calls or not _script_stable_publication(path[0], publications, list(writes)):
+        if not alias.calls or not stable_publication(path[0], publications, list(writes)):
             return False
         target_rel, publication = publications[0]
         self._script_alias_evidence(rel, site, alias, target_rel, publication, True)
@@ -595,12 +542,12 @@ class _Collection:
     ) -> None:
         module = self.modules[rel]
         evidence = self._cite(rel, site.span)
-        stable = _script_stable_publication(path[0], publishers, writes)
+        stable = stable_publication(path[0], publishers, writes)
         if self._script_external_dependency(rel, site, path, alias_call, publishers):
             return
         if self._script_namespace_dependency(rel, site, path, alias_call, publishers):
             return
-        declared = _script_stable_publication(path[0], publishers, self.script_source_writes)
+        declared = stable_publication(path[0], publishers, self.script_source_writes)
         if alias is not None and alias.factory and not alias.complete:
             self._gap(
                 "Factory result uses are not statically bounded",
@@ -677,7 +624,7 @@ class _Collection:
         evidence = self._cite(rel, site.span)
         target_rel = (
             publishers[0][0]
-            if _script_source_origin(path[0], publishers, self.script_source_writes)
+            if source_origin(path[0], publishers, self.script_source_writes)
             else ""
         )
         if target_rel:
@@ -1056,7 +1003,7 @@ class _Collection:
                 if publication.name == path[0]
             ]
             writes = self.script_source_writes
-            if len(path) != 2 or not _script_stable_publication(path[0], publications, writes):
+            if len(path) != 2 or not stable_publication(path[0], publications, writes):
                 return None
             source_rel, publication = publications[0]
             entries = [
@@ -1893,9 +1840,18 @@ class _Collection:
         )
 
     def _selected(self, rel: str) -> bool:
-        return not self.snapshot.installed(rel) and any(within(root, rel) for root in self.roots)
+        return (
+            not self.snapshot.installed(rel)
+            and any(within(root, rel) for root in self.roots)
+            and not self._excluded_test(rel)
+        )
 
-    def _observe(self, rel: str) -> bytes | None:
+    def _excluded_test(self, rel: str) -> bool:
+        return self.request.scope.exclude_test_sources and is_test_path(
+            rel, self.snapshot.real(rel)
+        )
+
+    def _observe(self, rel: str, importer: tuple[tuple[str, ...], str] = ((), "")) -> bytes | None:
         """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
         suffix = classify_file(rel)
@@ -1907,6 +1863,12 @@ class _Collection:
         ):
             if rel not in self.queue:
                 self.queue.append(rel)
+        elif content is not None and self._excluded_test(rel):
+            self._gap(
+                f"Production import targets excluded test source: {rel}",
+                *importer,
+                kind=_GapKind.RESOLUTION,
+            )
         elif content is not None:
             self._gap(
                 f"Local dependency outside selected source scope: {rel}",
@@ -2159,6 +2121,8 @@ class _Collection:
         source = classify_specifier(specifier)
         path: str = found.path
         suffix = classify_file(path)
+        if self._excluded_test(path) and not self.snapshot.installed(path):
+            return self._excluded_test_target(rel, module, reference, identity, path)
         if self.snapshot.read(path) is None:
             return self._unresolved(
                 module, identity, specifier, f"Unavailable local target: {specifier}"
@@ -2182,6 +2146,7 @@ class _Collection:
                 # A workspace alias outside the scan roots is a dependency on that package.
                 return ExternalPackageTarget(identity, source.package)
         type_only = reference.type_only
+        site = ((self._cite(rel, reference.span),), module)
         relative = source.relative_path
         lookup = join(posixpath.dirname(rel) or ".", specifier)
         declaration = (
@@ -2196,7 +2161,7 @@ class _Collection:
             # Compiler substitution does not prove the file Node loads.
             if explicit and self.snapshot.is_file(lookup):
                 real = self.snapshot.real(lookup) or lookup
-                if self._observe(real) is not None:
+                if self._observe(real, site) is not None:
                     runtime = real
             elif declaration or (explicit and direct):
                 runtime = None
@@ -2206,7 +2171,7 @@ class _Collection:
                     else f"CommonJS runtime file is unavailable: {specifier}",
                     kind=_GapKind.RESOLUTION,
                 )
-        self._observe(path)
+        self._observe(path, site)
         alias_proven = self.bundler and found.via_paths and not found.directory_package
         # A bundler resolves `.` and `..` like `./index`; Node does not prove them.
         proven_relative = relative or (self.bundler and source.relative)
@@ -2227,3 +2192,12 @@ class _Collection:
         return LocalTarget(
             identity, module_identity(self.namespace, file), file, runtime, declaration
         )
+
+    def _excluded_test_target(
+        self, rel: str, module: str, reference: Reference, identity: str, path: str
+    ) -> ImportTarget:
+        specifier: str = reference.specifier or ""
+        if self._observe(path, ((self._cite(rel, reference.span),), module)) is None:
+            reason = f"Excluded test source is unavailable: {path}"
+            return self._unresolved(module, identity, specifier, reason)
+        return UnresolvedTarget(identity, specifier, f"Excluded test source: {path}")

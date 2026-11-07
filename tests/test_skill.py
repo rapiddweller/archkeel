@@ -729,9 +729,9 @@ def test_agent_flow_without_a_contract_uses_explore(
 ) -> None:
     """Step 2 without `archkeel.toml`: explore, then the same check; no rule means no PASS."""
     root = _shop_without_contract(tmp_path)
-    # `shop` is a namespace package, so detection finds `tests`: the agent checks scan_roots.
+    # `shop` is a namespace package; a regular `tests` package must not win autodetection.
     assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["tests"]
+    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["shop"]
     scope = ["--source", "shop", "--namespace", "shop", "--output", str(tmp_path / "explore")]
     assert main(["explore", "--root", str(root), *scope, "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
@@ -747,6 +747,18 @@ def test_agent_flow_without_a_contract_uses_explore(
     # The section gives a kind to each later step only: the first step has none before it.
     spec["steps"][0]["kind"] = "imports"
     assert _view("check", tmp_path, snapshot, spec, capsys)[0] == 2
+
+
+def test_explore_without_a_production_package_does_not_choose_tests(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _shop_without_contract(tmp_path)
+    shutil.rmtree(root / "shop")
+
+    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["observation_complete"] == "UNKNOWN"
+    assert "Expected one top-level Python package" in result["diagnostics"][0]["unknown_claim"]
 
 
 _SCOPE = ("--source", "--namespace", "--language", "--tsconfig")

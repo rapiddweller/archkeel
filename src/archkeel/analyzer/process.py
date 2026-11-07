@@ -18,6 +18,7 @@ from queue import Empty, Queue
 from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
+from archkeel.analyzer.selected_scope import check_selected_files
 from archkeel.ir.facts import (
     Language,
     ProviderBindingKind,
@@ -127,7 +128,7 @@ class ProcessCollector:
         try:
             wire_request = (
                 replace(request, protocol_version=self.protocol_version)
-                if self.protocol_version is not None
+                if self.protocol_version is not None and not request.scope.exclude_test_sources
                 else request
             )
             payload = encode_request(wire_request)
@@ -337,12 +338,7 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
         or facts.source.dirty != request.snapshot.dirty
     ):
         raise ProtocolError("collector facts disagree with requested snapshot")
-    roots = tuple(PurePosixPath(root) for root in request.scope.roots)
-    if any(
-        not any(PurePosixPath(path).is_relative_to(root) for root in roots)
-        for path in facts.coverage.selected_files
-    ):
-        raise ProtocolError("collector selected files escape requested scope")
+    check_selected_files(facts, request)
     providers = (
         request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
     )

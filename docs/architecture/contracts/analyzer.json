@@ -22,6 +22,7 @@
       "exact_modules": [
         "archkeel.analyzer",
         "archkeel.analyzer.process",
+        "archkeel.analyzer.selected_scope",
         "archkeel.analyzer.runtime",
         "archkeel.analyzer.windows_job",
         "archkeel.analyzer.bootstrap"

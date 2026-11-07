@@ -25,6 +25,7 @@ from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.protocol import (
     CollectionRequest,
     CollectionResponse,
+    ProtocolVersion,
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
@@ -47,6 +48,7 @@ def _facts(
     paths: dict[str, list[str]] | None = None,
     roots: tuple[str, ...] = ("src",),
     include: tuple[str, ...] = ("src",),
+    exclude_test_sources: bool = False,
 ) -> SourceFacts:
     compiler: dict[str, object] = {**(options or BUNDLER)}
     if paths is not None:
@@ -57,7 +59,7 @@ def _facts(
         (root / rel).write_text(content)
     request = CollectionRequest(
         SnapshotInput(str(root), "a" * 40, False),
-        SourceScope(roots, "app"),
+        SourceScope(roots, "app", exclude_test_sources=exclude_test_sources),
         TypeScriptSettings(bundler=bundler),
     )
     facts = decode_response(encode_response(CollectionResponse(collect(request)))).facts
@@ -81,6 +83,20 @@ def _package(name: str, **fields: object) -> dict[str, str]:
     return {f"node_modules/{name}/package.json": json.dumps({"name": name, **fields})}
 
 
+def test_installed_package_with_tests_path_stays_external(tmp_path):
+    files = {
+        "src/main.ts": 'import { test } from "@playwright/test";\ntest("x", () => {});\n',
+        **_package("@playwright/test", types="index.d.ts"),
+        "node_modules/@playwright/test/index.d.ts": (
+            "export declare function test(...args: unknown[]): void;\n"
+        ),
+    }
+    facts = _facts(tmp_path, files, bundler=False, exclude_test_sources=True)
+
+    assert _external(facts) == ["@playwright/test"]
+    assert not any("excluded test source" in gap for gap in _gaps(facts))
+
+
 @pytest.mark.parametrize("bundler", [True, False])
 def test_alias_to_a_scanned_file_is_proven_only_in_bundler_mode(tmp_path, bundler):
     files = {"src/main.ts": 'import x from "@/lib/x";\nexport const y = x;\n', "src/lib/x.ts": ""}
@@ -92,6 +108,53 @@ def test_alias_to_a_scanned_file_is_proven_only_in_bundler_mode(tmp_path, bundle
     else:
         assert target.runtime_file is None
         assert any(ALIAS_GAP in gap for gap in _gaps(facts))
+
+
+@pytest.mark.parametrize("symlink_target", [False, True])
+def test_bundler_paths_alias_to_excluded_test_stays_unknown(tmp_path, symlink_target):
+    alias = "@app/helper" if symlink_target else "@tests/helper"
+    target = "src/shop/lib/helper.ts" if symlink_target else "src/shop/tests/helper.test.ts"
+    files = {
+        "src/shop/app.ts": f'import {{ value }} from "{alias}";\nvalue();\n',
+        "src/shop/tests/helper.test.ts": "export function value(): number { return 1; }\n",
+        "tsconfig.json": json.dumps(
+            {
+                "compilerOptions": {
+                    **BUNDLER,
+                    "baseUrl": ".",
+                    "paths": {alias: [target]},
+                },
+                "include": ["src/**/*.ts"],
+            }
+        ),
+    }
+    for rel, content in files.items():
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    if symlink_target:
+        link = tmp_path / target
+        link.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            link.symlink_to("../tests/helper.test.ts")
+        except (NotImplementedError, OSError) as error:
+            pytest.skip(f"symlinks unavailable: {error}")
+
+    request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("src",), "shop", exclude_test_sources=True),
+        TypeScriptSettings("tsconfig.json", bundler=True),
+        ProtocolVersion.V9,
+    )
+    facts = collect(request)
+    validate_source_facts(facts)
+
+    assert not any(isinstance(target, ExternalPackageTarget) for target in facts.imports)
+    gaps = [gap for gap in facts.coverage.gaps if "excluded test source" in gap.title]
+    assert len(gaps) == 1
+    assert gaps[0].evidence_ids
+    evidence = {item.id: item for item in facts.evidence}
+    assert any(evidence[item].file == "src/shop/app.ts" for item in gaps[0].evidence_ids)
 
 
 @pytest.mark.parametrize("bundler", [True, False])
@@ -658,3 +721,16 @@ def test_an_exported_file_that_is_no_asset_stays_a_gap_in_bundler_mode(tmp_path,
     files["src/main.ts"] = 'import "pkg/dist/data";\nexport {};\n'
     facts = _facts(tmp_path, files, bundler=True)
     assert any("Package exports target is unavailable: pkg/dist/data" in g for g in _gaps(facts))
+
+
+def test_scope_with_only_test_sources_is_not_complete(tmp_path):
+    files = {"src/shop/app.test.ts": _EMPTY, "src/shop/tests/helper.ts": _EMPTY}
+    excluded = _facts(tmp_path, files, bundler=False, exclude_test_sources=True)
+
+    assert excluded.coverage.selected_files == ()
+    assert not excluded.coverage.full_scope
+    assert _gaps(excluded) == ["No production source files in scope after the test exclusion"]
+
+    kept = _facts(tmp_path, files, bundler=False)
+    assert kept.coverage.full_scope
+    assert _gaps(kept) == []

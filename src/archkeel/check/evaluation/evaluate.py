@@ -18,7 +18,6 @@ from archkeel.ir.facts import (
     CALL_BINDINGS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
     RULE_FAMILY_NOT_COLLECTED_KIND,
-    SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     ConstructCapability,
     ConstructSupport,
@@ -42,6 +41,7 @@ from archkeel.ir.facts_codec import (
     raw_record,
 )
 from archkeel.ir.facts_validation import validate_source_facts
+from archkeel.ir.import_gaps import derived_unresolved_imports
 from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
@@ -95,6 +95,7 @@ from .topology import (
     package_records,
     transitive_path_records,
 )
+from .unknown_imports import unknown_import_failure
 
 InsideRuleResults: TypeAlias = tuple[
     list[RawRecord],
@@ -1092,22 +1093,11 @@ def evaluate_source(
     }
     unresolved_imports = [item for item in imports if item["id"] in unresolved_targets]
     imports = [item for item in imports if item["id"] not in unresolved_targets]
+    derived_unknown_imports = derived_unresolved_imports(facts)
     for item in unresolved_imports:
-        unresolved = unresolved_targets[item["id"]]
         item["data"]["resolution"] = "unresolved"
-        failures.append(
-            classified(
-                item_id=stable_id("UNKNOWN-IMPORT", item["id"]),
-                evidence_class=EvidenceClass.UNKNOWN,
-                area="analysis_coverage",
-                kind=SOURCE_RESOLUTION_GAP_KIND,
-                title=unresolved.reason,
-                subjects=item["subjects"],
-                evidence_ids=item["evidence_ids"],
-                fact_ids=[item["id"]],
-                data={"source_module": item["data"]["source_module"], "reason": unresolved.reason},
-            )
-        )
+        if item["id"] in derived_unknown_imports:
+            failures.append(unknown_import_failure(item, unresolved_targets[item["id"]].reason))
     if facts.profile == SourceProfile.TYPESCRIPT:
         targets = {target.import_id: target for target in facts.imports}
         for item in imports:

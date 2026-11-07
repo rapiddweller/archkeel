@@ -61,6 +61,28 @@ VARIANTS: tuple[Variant, ...] = (
         explore=True,
     ),
     Variant(
+        id="explore-excludes-test-sources",
+        section="showcase",
+        item="explore:test-source-exclusion",
+        summary=(
+            "Explore includes production `shop/latest.py` while excluding "
+            "`shop/tests/test_latest.py` inside the selected source root."
+        ),
+        files={
+            "shop/latest.py": "VALUE = 1\n",
+            "shop/tests/test_latest.py": (
+                "from shop.latest import VALUE\n\n\n"
+                "def test_value() -> None:\n"
+                "    assert VALUE == 1\n"
+            ),
+        },
+        expected_violations=(),
+        expected_codes=(),
+        fixture=EXPLORE_FIXTURE_DIR,
+        expected_declared_rules="UNKNOWN",
+        explore=True,
+    ),
+    Variant(
         id="explore-typescript-explicit-output-limit",
         section="showcase",
         item="explore:typescript-output-limit",

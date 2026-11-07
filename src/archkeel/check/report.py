@@ -815,7 +815,7 @@ def run_explore(
     The first pass finds the modules, the second records their layout grouping as components.
     The temporary contract has no rule, so the result has no rule verdict.
     """
-    analyzer = replace(observer, collector=_CollectOnce(observer.collector))
+    scan = replace(observer, collector=_CollectOnce(observer.collector), exclude_test_sources=True)
     try:
         roots, namespace = scan_scope(
             root, source=source, namespace=namespace, language=language, tsconfig=tsconfig
@@ -837,7 +837,7 @@ def run_explore(
         contract: Path = scaffold / EXPLORE_CONTRACT
         contract.write_bytes(contract_bytes(ArchitectureContract(ContractVersion.V2_1, (), ())))
         try:
-            observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+            observed = observe_repository(root, config, scan, contract_root=scaffold)
             if observed.observation is not None:
                 # The provenance is the layout contract itself: explore observed the grouping.
                 layout, insides = layout_contracts(
@@ -853,7 +853,7 @@ def run_explore(
                     level: Path = scaffold / path
                     level.parent.mkdir(parents=True, exist_ok=True)
                     level.write_bytes(contract_bytes(inside))
-                observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+                observed = observe_repository(root, config, scan, contract_root=scaffold)
         except SnapshotError as error:
             raise DiagnosticError(
                 Diagnostic(

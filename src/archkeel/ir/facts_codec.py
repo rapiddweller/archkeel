@@ -95,7 +95,9 @@ from .protocol import (
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
+    since,
 )
+from .scope_wire import EXCLUDE_TEST_SOURCES, scope_fields, scope_payload
 from .source_records import (
     RawData as RawData,
 )
@@ -247,18 +249,8 @@ _SOURCE_FACTS_SELECTOR_OWNER_FIELDS = frozenset(
         _SourceFactsField.RECEIVER_PARAMETER_SCOPES,
     }
 )
-_PROVIDER_PROTOCOLS = frozenset(
-    {
-        ProtocolVersion.V4,
-        ProtocolVersion.V5,
-        ProtocolVersion.V6,
-        ProtocolVersion.V7,
-        ProtocolVersion.V8,
-    }
-)
-_SELECTOR_OWNER_PROTOCOLS = frozenset(
-    {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7, ProtocolVersion.V8}
-)
+_PROVIDER_PROTOCOLS = since(ProtocolVersion.V4)
+_SELECTOR_OWNER_PROTOCOLS = since(ProtocolVersion.V5)
 _COLUMNAR_V2_PROTOCOLS = frozenset({ProtocolVersion.V6, ProtocolVersion.V7})
 DEFAULT_RESPONSE_LIMIT_BYTES = 64 * 1024 * 1024
 _DECOMPRESSION_BOUND_FACTOR = 16
@@ -401,7 +393,7 @@ def decode_request(payload: bytes) -> CollectionRequest:
         dirty_value = source_dirty(dirty_raw)
     except ValueError as error:
         raise ProtocolError("snapshot.dirty must be a boolean or unknown") from error
-    scope = _object(raw["scope"], {"roots", "namespace"}, "scope")
+    scope = _object(raw["scope"], scope_fields(version), "scope")
     roots_raw = scope["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:
         raise ProtocolError("scope.roots must be a nonempty array")
@@ -446,7 +438,11 @@ def decode_request(payload: bytes) -> CollectionRequest:
         raise ProtocolError("unsupported collection language")
     return CollectionRequest(
         SnapshotInput(source_root, _string(snapshot["git_head"], "snapshot.git_head"), dirty_value),
-        SourceScope(roots, namespace),
+        SourceScope(
+            roots,
+            namespace,
+            _boolean(scope.get(EXCLUDE_TEST_SOURCES, False), "scope." + EXCLUDE_TEST_SOURCES),
+        ),
         resolver,
         version,
     )
@@ -480,6 +476,8 @@ def _python_settings(raw: dict[str, RawJson], version: ProtocolVersion) -> Pytho
 
 def encode_request(request: CollectionRequest) -> bytes:
     version = _version(request.protocol_version)
+    if request.scope.exclude_test_sources and version not in since(ProtocolVersion.V9):
+        raise ProtocolError("test source exclusions require collection protocol 9.0.0")
     resolver: dict[str, RawJson] = {"language": request.resolver.language}
     if isinstance(request.resolver, PythonSettings):
         # Protocols before 7.0.0 mean "collect every family", so they carry no feature list.
@@ -505,7 +503,7 @@ def encode_request(request: CollectionRequest) -> bytes:
             "git_head": request.snapshot.git_head,
             "dirty": request.snapshot.dirty,
         },
-        "scope": {"roots": list(request.scope.roots), "namespace": request.scope.namespace},
+        "scope": scope_payload(request.scope, version),
         "resolver": resolver,
     }
     payload = json.dumps(raw, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
@@ -884,14 +882,7 @@ def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
         return TypeUnion(
             text, _shape(value["left"], protocol_version), _shape(value["right"], protocol_version)
         )
-    if kind is _ShapeKind.LIST and protocol_version in {
-        ProtocolVersion.V3,
-        ProtocolVersion.V4,
-        ProtocolVersion.V5,
-        ProtocolVersion.V6,
-        ProtocolVersion.V7,
-        ProtocolVersion.V8,
-    }:
+    if kind is _ShapeKind.LIST and protocol_version in since(ProtocolVersion.V3):
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
             text,
@@ -1036,16 +1027,7 @@ def _file_payload(entry: FileFact) -> dict[str, RawJson]:
 def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeInfo:
     expected = (
         {"name", "version", "required", "requirement_state"}
-        if protocol_version
-        in {
-            ProtocolVersion.V2,
-            ProtocolVersion.V3,
-            ProtocolVersion.V4,
-            ProtocolVersion.V5,
-            ProtocolVersion.V6,
-            ProtocolVersion.V7,
-            ProtocolVersion.V8,
-        }
+        if protocol_version in since(ProtocolVersion.V2)
         else {"name", "version", "required"}
     )
     if not isinstance(value, dict) or set(value) != expected:
@@ -1540,8 +1522,8 @@ def decode_response(
     )
     # The decoder owns a JSON-only tree; internal parsers retain structure and semantic checks.
     response = _response(_decode(document))
-    if compressed is not (response.protocol_version is ProtocolVersion.V8):
-        raise ProtocolError("only collection protocol 8.0.0 responses are zlib-compressed")
+    if compressed is not (response.protocol_version in since(ProtocolVersion.V8)):
+        raise ProtocolError("only collection protocols 8.0.0 and 9.0.0 are zlib-compressed")
     return response
 
 
@@ -1599,16 +1581,7 @@ def _runtime_payload(runtime: RuntimeInfo, version: ProtocolVersion) -> dict[str
         "required": runtime.required,
         **(
             {"requirement_state": runtime.requirement_state}
-            if version
-            in {
-                ProtocolVersion.V2,
-                ProtocolVersion.V3,
-                ProtocolVersion.V4,
-                ProtocolVersion.V5,
-                ProtocolVersion.V6,
-                ProtocolVersion.V7,
-                ProtocolVersion.V8,
-            }
+            if version in since(ProtocolVersion.V2)
             else {}
         ),
     }
@@ -1731,7 +1704,7 @@ def encode_response(response: CollectionResponse) -> bytes:
         raw["facts"] = _compact_source_facts(raw["facts"])
     elif version in _COLUMNAR_V2_PROTOCOLS:
         raw["facts"] = _compact_source_facts_v6(raw["facts"])
-    if version is ProtocolVersion.V8:
+    if version in since(ProtocolVersion.V8):
         _check_json_value(raw)
         return _encode_v8_response(raw)
     text: str = json.dumps(

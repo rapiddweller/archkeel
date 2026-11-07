@@ -12,7 +12,8 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.identity",
-        "archkeel.ir.source_records"
+        "archkeel.ir.source_records",
+        "archkeel.ir.import_gaps"
       ],
       "responsibilities": [
         "Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies."
@@ -32,6 +33,7 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
+        "archkeel.ir.import_gaps",
         "archkeel.ir.identity:module_identity",
         "archkeel.ir.facts:ReservedString"
       ]
@@ -41,7 +43,8 @@
       "label": "protocol",
       "role": "component",
       "packages": [
-        "archkeel.ir.protocol"
+        "archkeel.ir.protocol",
+        "archkeel.ir.scope_wire"
       ],
       "responsibilities": [
         "Own typed request and response envelopes for collector processes."
@@ -63,7 +66,8 @@
         }
       ],
       "public": [
-        "archkeel.ir.protocol"
+        "archkeel.ir.protocol",
+        "archkeel.ir.scope_wire"
       ]
     },
     {
@@ -149,6 +153,7 @@
         "archkeel.ir.profiles:Language",
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
+        "archkeel.ir.profiles:is_test_source",
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
         "archkeel.ir.profiles:ObservedSection"
@@ -4494,7 +4499,7 @@
           ],
           "presence": "planned",
           "responsibilities": [
-            "Select source roots and their namespace without architecture policy."
+            "Select source roots, their namespace and optional test-source exclusion without architecture policy."
           ],
           "provenance": [
             "docs/architecture/language-adapter-target.md"
@@ -4533,6 +4538,25 @@
           "presence": "planned",
           "responsibilities": [
             "Carry namespace as source-only protocol data."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "scope.exclude-test-sources",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.SourceScope.exclude_test_sources",
+          "language": "python",
+          "parent_id": "scope",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "bool",
+          "presence": "planned",
+          "responsibilities": [
+            "Request test-source exclusion as source scope data."
           ],
           "provenance": [
             "docs/architecture/language-adapter-target.md"

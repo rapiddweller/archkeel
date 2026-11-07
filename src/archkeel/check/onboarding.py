@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import re
-import tomllib
 from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
@@ -67,6 +66,7 @@ from archkeel.ir.structure import StructureLevel, StructureMetric, scope_metrics
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets
 from .snapshot import SnapshotError
+from .source_roots import detect_source
 from .uml import observe_repository
 from .validation import COMPONENT_GRAPH_MARKER, mermaid_edges, observed_component_edges
 
@@ -77,46 +77,6 @@ GUIDE_PATH: Final = "docs/architecture/contract-guide.md"
 # AD-266: the plain sentence that says the adopted state was observed, not reviewed.
 ADOPTED_RATIONALE: Final = "Observed when the contract was drafted; not reviewed."
 _REQUIRES_COMPLETE_ID: Final = "REQUIRES-COMPLETE"
-
-
-def _project_import_name(root: Path) -> str | None:
-    """Return pyproject.toml's `[project] name` in wheel file-name form, if one is declared."""
-    try:
-        pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
-        return None
-    project = pyproject.get("project")
-    name = project.get("name") if isinstance(project, dict) else None
-    return re.sub(r"[-_.]+", "_", name).lower() if isinstance(name, str) else None
-
-
-def detect_source(root: Path) -> tuple[str, str]:
-    """Return the scan root and namespace of the only top-level package, or of the one
-    package named after the project when there are several (AD-47)."""
-    src = root / "src"
-    base = src if src.is_dir() else root
-    packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
-    searched = [base.relative_to(root).as_posix()]
-    if base == src and not packages:
-        base = root
-        packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
-        searched.append(base.relative_to(root).as_posix())
-    name = _project_import_name(root)
-    chosen = packages if len(packages) == 1 else [p for p in packages if p.name.lower() == name]
-    if len(chosen) != 1:
-        found = ", ".join(path.relative_to(root).as_posix() for path in packages) or "none"
-        searched_directories = ", ".join(f"`{directory}`" for directory in searched)
-        raise DiagnosticError(
-            Diagnostic(
-                _DiagnosticKind.SCOPE_EMPTY,
-                str(base),
-                "Expected one top-level Python package, or one matching pyproject.toml's "
-                f"[project] name ({name or 'missing'}); found {found}. Searched directories "
-                f"{searched_directories}.",
-                "Pass --source <directory> and --namespace <package>.",
-            )
-        )
-    return chosen[0].relative_to(root).as_posix(), chosen[0].name
 
 
 def scan_scope(
