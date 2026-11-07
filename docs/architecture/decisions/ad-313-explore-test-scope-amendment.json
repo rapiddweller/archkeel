@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "after_digest": "38ccdd56025697da270f6e920c6dc992f5f3e1b5040e77387b8165e3a1d71303",
+  "before_baseline_digest": "28f91c6c3023d06d1a112c11c345db55b7faa7edd61ef90db87c52d3ed8580a9",
+  "before_digest": "44f4c9868d089316cc9f8dbd04e75ce5b415597b90fe9e77bb51ff13ce0f7e44",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base fa3456ec. AD-313 (issue 874) adds collection protocol 9 and test-source exclusion for Python and TypeScript Explore. Measured with validate --against origin/main: calls_unresolved rises from 965 to 981 (net +16) and no other budget changes. The new calls are method calls on paths and strings in python/explore_scope, selected_scope and ir.profiles.is_test_source; code that moved keeps its own calls. Widenings: component analyzer requires ir through profiles:is_test_source; component ir and component profiles gain public profiles:is_test_source; component ir gains public import_gaps:derived_unresolved_imports. New modules join existing components: python explore_scope (entry), typescript explore_scope (input), typescript script_publication (source), analyzer selected_scope (process), check source_roots (workflows), ir import_gaps (facts) and ir scope_wire (protocol); each public name that other components use is listed. ir.json declares SourceScope.exclude_test_sources. The two type-ignore allowances in analyzer.process.is_process_alive move from lines 483 and 495 to 479 and 491; function, statement and tag stay the same. The digests bind the complete contract tree and baseline of fa3456ec to the head of this branch.",
+  "schema_version": "2.0.0"
+}

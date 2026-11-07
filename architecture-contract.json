@@ -116,6 +116,7 @@
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
         "archkeel.ir.profiles:is_test_source",
+        "archkeel.ir.import_gaps:derived_unresolved_imports",
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
         "archkeel.ir.facts_validation:validate_source_facts",
@@ -757,13 +758,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 488,
+          "line": 479,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 500,
+          "line": 491,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

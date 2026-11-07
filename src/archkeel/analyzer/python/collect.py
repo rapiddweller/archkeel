@@ -31,7 +31,6 @@ from archkeel.ir.facts import (
     GUARDED_EFFECTS_FEATURE,
     NATIVE_CALL_TARGETS,
     NUMERIC_OPERANDS_FEATURE,
-    SOURCE_RESOLUTION_GAP_KIND,
     SOURCE_ROLES_FEATURE,
     BuiltinTarget,
     Capabilities,
@@ -39,7 +38,6 @@ from archkeel.ir.facts import (
     ConstructCapability,
     ConstructSupport,
     Evidence,
-    EvidenceClass,
     ExternalPackageTarget,
     FactSection,
     FileFact,
@@ -58,16 +56,8 @@ from archkeel.ir.facts import (
     UnresolvedTarget,
     stable_id,
 )
-from archkeel.ir.facts_codec import (
-    RawEvidence,
-    RawRecord,
-    classified,
-    parse_evidence,
-    parse_record,
-    raw_record,
-)
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record, raw_record
 from archkeel.ir.phases import Phase, measured
-from archkeel.ir.profiles import is_test_source
 from archkeel.ir.protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionError,
@@ -79,6 +69,7 @@ from archkeel.ir.protocol import (
     PythonProviderSource,
     PythonSettings,
     collected_resolution_features,
+    since,
 )
 
 from .bindings import collect_bindings
@@ -88,10 +79,10 @@ from .callable_signatures import (
 )
 from .calls import collect_calls_with_resolvers
 from .constructs import collect_constructs
+from .explore_scope import ExcludedTests, selected_paths, wire_protocol
 from .imports import (
     collect_dynamic_imports,
     collect_imports,
-    collect_package_bindings,
     explicit_factory_unsafe_providers,
     resolve_reexports,
 )
@@ -107,7 +98,6 @@ from .source import (
     file_evidence,
     is_stdlib_root,
     member_binding_closure,
-    module_for,
     module_registry,
     parse_provider,
     parse_sources,
@@ -170,9 +160,7 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
-                protocol_version=(
-                    ProtocolVersion.V9 if request.scope.exclude_test_sources else ProtocolVersion.V4
-                ),
+                protocol_version=wire_protocol(request, ProtocolVersion.V4),
             ),
         )
         if isinstance(initial_response, CollectionError):
@@ -199,17 +187,10 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=replace(request.resolver, provider_sources=providers),
-                protocol_version=(
-                    ProtocolVersion.V9 if request.scope.exclude_test_sources else ProtocolVersion.V8
-                ),
+                protocol_version=wire_protocol(request, ProtocolVersion.V8),
             )
             if providers
-            else replace(
-                request,
-                protocol_version=(
-                    ProtocolVersion.V9 if request.scope.exclude_test_sources else ProtocolVersion.V8
-                ),
-            )
+            else replace(request, protocol_version=wire_protocol(request, ProtocolVersion.V8))
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -244,93 +225,6 @@ def _provider_pass_problem(
     ):
         return "Collector source inputs, analyzer, or runtime changed between provider passes."
     return None
-
-
-def _selected_paths(
-    root: Path, roots: tuple[str, ...], *, exclude_test_sources: bool = False
-) -> tuple[Path, ...]:
-    repository = root.resolve()
-    selected: list[Path] = []
-    for source in roots:
-        source_root: Path = repository / source
-        if not source_root.is_dir():
-            continue
-        for candidate in source_root.rglob("*.py"):
-            path: Path = candidate
-            relative = path.relative_to(repository).as_posix()
-            resolved = path.resolve()
-            if not resolved.is_relative_to(repository):
-                continue
-            resolved_relative = resolved.relative_to(repository).as_posix()
-            if "__pycache__" not in path.parts and not (
-                exclude_test_sources
-                and (
-                    is_test_source(relative, Language.PYTHON)
-                    or is_test_source(resolved_relative, Language.PYTHON)
-                )
-            ):
-                selected.append(path)
-    return tuple(sorted(selected))
-
-
-def _excluded_test_modules(
-    root: Path, roots: tuple[str, ...], namespace: str
-) -> tuple[set[str], set[str]]:
-    repository = root.resolve()
-    modules: set[str] = set()
-    prefixes: set[str] = set()
-    for source in roots:
-        source_root = repository / source
-        if not source_root.is_dir():
-            continue
-        paths = set(source_root.rglob("*.py"))
-        for directory in source_root.rglob("*"):
-            if not directory.is_dir():
-                continue
-            resolved_directory = directory.resolve()
-            if not resolved_directory.is_relative_to(repository):
-                continue
-            relative = directory.relative_to(repository).as_posix()
-            resolved_relative = resolved_directory.relative_to(repository).as_posix()
-            if not (
-                is_test_source(f"{relative}/__init__.py", Language.PYTHON)
-                or is_test_source(f"{resolved_relative}/__init__.py", Language.PYTHON)
-            ):
-                continue
-            try:
-                prefixes.add(
-                    module_for(
-                        directory / "__init__.py",
-                        root=repository,
-                        namespace=namespace,
-                    )
-                )
-            except ValueError:
-                pass
-        for path in paths:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(repository):
-                continue
-            relative = path.relative_to(repository).as_posix()
-            resolved_relative = resolved.relative_to(repository).as_posix()
-            if not (
-                is_test_source(relative, Language.PYTHON)
-                or is_test_source(resolved_relative, Language.PYTHON)
-            ):
-                continue
-            for source_path in {path, resolved}:
-                try:
-                    modules.add(module_for(source_path, root=repository, namespace=namespace))
-                except ValueError:
-                    if not source_path.is_relative_to(source_root):
-                        continue
-                    source_relative = source_path.relative_to(source_root).with_suffix("")
-                    parts = list(source_relative.parts)
-                    if parts and parts[-1] == "__init__":
-                        parts.pop()
-                    if parts:
-                        modules.add(".".join(parts))
-    return modules, prefixes
 
 
 def _provider_origin(
@@ -470,7 +364,7 @@ def provider_sources(
 def collect(request: CollectionRequest) -> SourceFacts:
     """Collect selected Python source evidence for the requested phase."""
     root = Path(request.snapshot.root).resolve()
-    selected = _selected_paths(
+    selected = selected_paths(
         root, request.scope.roots, exclude_test_sources=request.scope.exclude_test_sources
     )
     parsed_sources = parse_sources(selected, root=root, namespace=request.scope.namespace)
@@ -484,63 +378,13 @@ def collect(request: CollectionRequest) -> SourceFacts:
         namespace=request.scope.namespace,
     )
     gaps = [parse_record(record) for record in parsed_sources.failures]
-    excluded_import_gaps: list[RawRecord] = []
-    if request.scope.exclude_test_sources:
-        excluded_modules, excluded_prefixes = _excluded_test_modules(
-            root, request.scope.roots, request.scope.namespace
-        )
-        package_bindings = collect_package_bindings(modules)
-        for import_record in imports:
-            data = import_record.get("data")
-            target = data.get("target_module") if isinstance(data, dict) else None
-            symbol = data.get("symbol") if isinstance(data, dict) else None
-            source_module = data.get("source_module") if isinstance(data, dict) else None
-            if not isinstance(target, str) or not isinstance(source_module, str):
-                continue
-            import_candidates = [target]
-            if (
-                isinstance(symbol, str)
-                and symbol.isidentifier()
-                and symbol not in package_bindings.get(target, frozenset())
-            ):
-                import_candidates.append(f"{target}.{symbol}")
-            excluded_target = next(
-                (
-                    name
-                    for name in import_candidates
-                    if name in excluded_modules
-                    or any(
-                        name == prefix or name.startswith(f"{prefix}.")
-                        for prefix in excluded_prefixes
-                    )
-                ),
-                None,
-            )
-            if excluded_target is None:
-                continue
-            identity = stable_id(
-                "UNKNOWN", "excluded test import", import_record["id"], excluded_target
-            )
-            gap = parse_record(
-                classified(
-                    item_id=identity,
-                    evidence_class=EvidenceClass.UNKNOWN,
-                    area="source",
-                    kind=SOURCE_RESOLUTION_GAP_KIND,
-                    title=f"Production import targets excluded test source {excluded_target}",
-                    subjects=[source_module],
-                    evidence_ids=import_record["evidence_ids"],
-                    fact_ids=[import_record["id"]],
-                    data={
-                        "reason": "Import target is an excluded test source",
-                        "module": source_module,
-                        "source_module": source_module,
-                        "resolution_dimension": "imports",
-                    },
-                )
-            )
-            gaps.append(gap)
-            excluded_import_gaps.append(raw_record(gap))
+    excluded = (
+        ExcludedTests.find(root, request.scope.roots, request.scope.namespace)
+        if request.scope.exclude_test_sources
+        else None
+    )
+    excluded_gaps = excluded.static_import_gaps(imports, modules) if excluded else []
+    gaps.extend(excluded_gaps)
     coverage = CollectionCoverage(
         tuple(path.relative_to(root).as_posix() for path in selected),
         parsed_sources.files_read,
@@ -560,10 +404,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         )
         survey_records = {
             SourceSectionName.IMPORTS: imports,
-            SourceSectionName.UNKNOWNS: [
-                *parsed_sources.failures,
-                *excluded_import_gaps,
-            ],
+            SourceSectionName.UNKNOWNS: [*parsed_sources.failures, *map(raw_record, excluded_gaps)],
         }
         survey = SourceFacts(
             SourceProfile.PYTHON,
@@ -633,14 +474,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
             {EXTENDED_CALL_BINDINGS_FEATURE, CONSTRUCT_SELECTORS_FEATURE} & set(collected_features)
         ),
     )
-    if request.protocol_version in {
-        ProtocolVersion.V4,
-        ProtocolVersion.V5,
-        ProtocolVersion.V6,
-        ProtocolVersion.V7,
-        ProtocolVersion.V8,
-        ProtocolVersion.V9,
-    }:
+    if request.protocol_version in since(ProtocolVersion.V4):
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
@@ -658,52 +492,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
-    if request.scope.exclude_test_sources:
-        for import_record in dynamic_imports:
-            data = import_record.get("data")
-            target = data.get("target_module") if isinstance(data, dict) else None
-            source_module = data.get("source_module") if isinstance(data, dict) else None
-            if not isinstance(target, str) or not isinstance(source_module, str):
-                continue
-            excluded_target = next(
-                (
-                    name
-                    for name in (target,)
-                    if name in excluded_modules
-                    or any(
-                        name == prefix or name.startswith(f"{prefix}.")
-                        for prefix in excluded_prefixes
-                    )
-                ),
-                None,
-            )
-            if excluded_target is None:
-                continue
-            identity = stable_id(
-                "UNKNOWN", "excluded test import", import_record["id"], excluded_target
-            )
-            gap = parse_record(
-                classified(
-                    item_id=identity,
-                    evidence_class=EvidenceClass.UNKNOWN,
-                    area="source",
-                    kind=SOURCE_RESOLUTION_GAP_KIND,
-                    title=f"Production import targets excluded test source {excluded_target}",
-                    subjects=[source_module],
-                    evidence_ids=import_record["evidence_ids"],
-                    fact_ids=[import_record["id"]],
-                    data={
-                        "reason": "Import target is an excluded test source",
-                        "module": source_module,
-                        "source_module": source_module,
-                        "resolution_dimension": "imports",
-                    },
-                )
-            )
-            gaps.append(gap)
-            excluded_import_gaps.append(raw_record(gap))
-        if excluded_import_gaps:
-            coverage = replace(coverage, full_scope=False, gaps=tuple(gaps))
+    if excluded is not None and (dynamic_gaps := excluded.dynamic_import_gaps(dynamic_imports)):
+        gaps.extend(dynamic_gaps)
+        excluded_gaps.extend(dynamic_gaps)
+        coverage = replace(coverage, full_scope=False, gaps=tuple(gaps))
     imports.extend(dynamic_imports)
     references = collect_references(
         modules,
@@ -720,14 +512,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         imports=imports,
         symbol_index=symbol_index,
         receiver_resolvers=call_resolvers,
-        include_parameter_owner_proof=request.protocol_version
-        in {
-            ProtocolVersion.V5,
-            ProtocolVersion.V6,
-            ProtocolVersion.V7,
-            ProtocolVersion.V8,
-            ProtocolVersion.V9,
-        },
+        include_parameter_owner_proof=request.protocol_version in since(ProtocolVersion.V5),
         include_selectors=CONSTRUCT_SELECTORS_FEATURE in collected_features,
         include_numeric_operands=NUMERIC_OPERANDS_FEATURE in collected_features,
     )
@@ -751,11 +536,11 @@ def collect(request: CollectionRequest) -> SourceFacts:
             *parsed_sources.failures,
             *dynamic_limits,
             *(raw_record(record) for record in source_unknowns),
-            *excluded_import_gaps,
+            *map(raw_record, excluded_gaps),
         ],
     }
-    for private_item in private_evidence:
-        evidence[private_item.id] = _raw_evidence(private_item)
+    for item in private_evidence:
+        evidence[item.id] = _raw_evidence(item)
 
     return SourceFacts(
         SourceProfile.PYTHON,

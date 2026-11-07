@@ -22,11 +22,9 @@ from archkeel.ir.facts import (
     RULE_FAMILY_NOT_COLLECTED_KIND,
     SOURCE_RESOLUTION_GAP_KIND,
     SourceFacts,
-    SourceSectionName,
-    UnresolvedTarget,
-    import_has_resolution_gap,
 )
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
+from archkeel.ir.import_gaps import derived_unresolved_imports
 from archkeel.ir.model import (
     ArchitectureContract as _ArchitectureContract,
 )
@@ -160,6 +158,8 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
 }
+# Dart has no test-source classification, so a Dart scan keeps every file.
+_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
 _SOURCE_REMEDY: Final[dict[Language, str]] = {
     Language.PYTHON: "Inspect the reported failure using the declared target runtime; "
     "rerun after resolving its cause.",
@@ -250,21 +250,8 @@ def _partial_uml_source_is_eligible(
     source_gap_ids = {item.id for item in gaps}
     if any(failures.get(item.id) != item for item in gaps):
         return False
-    imports = {
-        record.id: record
-        for section in facts.sections
-        if section.name is SourceSectionName.IMPORTS
-        for record in section.records
-    }
     derived_ids = {
-        stable_id("UNKNOWN-IMPORT", item.import_id)
-        for item in facts.imports
-        if isinstance(item, UnresolvedTarget)
-        and not import_has_resolution_gap(
-            gaps,
-            imports[item.import_id].data.get("source_module"),
-            imports[item.import_id].evidence_ids,
-        )
+        stable_id("UNKNOWN-IMPORT", import_id) for import_id in derived_unresolved_imports(facts)
     }
     if set(failures) != source_gap_ids | derived_ids:
         return False
@@ -353,6 +340,7 @@ def _observe(
             if language == Language.DART
             else TypeScriptSettings(tsconfig, bundler)
         )
+        exclude_test_sources = exclude_test_sources and language in _TEST_SCOPE_LANGUAGES
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
             SourceScope(roots, namespace, exclude_test_sources),
@@ -413,6 +401,7 @@ class Observer:
     tsconfig: str = "tsconfig.json"
     bundler: bool = False
     clock: PhaseClock | None = None
+    exclude_test_sources: bool = False
 
     def __call__(
         self,
@@ -425,7 +414,6 @@ class Observer:
         dirty: bool,
         contract_root: Path,
         language: Language = Language.PYTHON,
-        exclude_test_sources: bool = False,
     ) -> ObservationResult:
         return _observe(
             self.collector,
@@ -439,6 +427,6 @@ class Observer:
             contract_root=contract_root,
             language=language,
             bundler=self.bundler,
-            exclude_test_sources=exclude_test_sources,
+            exclude_test_sources=self.exclude_test_sources,
             clock=self.clock,
         )

@@ -18,6 +18,7 @@ from queue import Empty, Queue
 from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
+from archkeel.analyzer.selected_scope import check_selected_files
 from archkeel.ir.facts import (
     Language,
     ProviderBindingKind,
@@ -33,7 +34,6 @@ from archkeel.ir.facts_codec import (
     encode_request,
 )
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured
-from archkeel.ir.profiles import is_test_source
 from archkeel.ir.protocol import (
     FEATURE_GATED_PROTOCOLS,
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -338,16 +338,7 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
         or facts.source.dirty != request.snapshot.dirty
     ):
         raise ProtocolError("collector facts disagree with requested snapshot")
-    roots = tuple(PurePosixPath(root) for root in request.scope.roots)
-    if any(
-        not any(PurePosixPath(path).is_relative_to(root) for root in roots)
-        for path in facts.coverage.selected_files
-    ):
-        raise ProtocolError("collector selected files escape requested scope")
-    if request.scope.exclude_test_sources and any(
-        is_test_source(path, request.resolver.language) for path in facts.coverage.selected_files
-    ):
-        raise ProtocolError("collector selected a test source excluded by Explore scope")
+    check_selected_files(facts, request)
     providers = (
         request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
     )

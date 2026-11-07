@@ -8,7 +8,8 @@
       "role": "component",
       "packages": [
         "archkeel.analyzer.python.entry",
-        "archkeel.analyzer.python.collect"
+        "archkeel.analyzer.python.collect",
+        "archkeel.analyzer.python.explore_scope"
       ],
       "responsibilities": [
         "Orchestrate one Python source pass and assemble the collector response."

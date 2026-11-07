@@ -544,29 +544,16 @@ def observe_repository(
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
     """Observe the configured working tree through an injected analyzer."""
-    if config.exclude_test_sources:
-        result = analyzer(
-            root,
-            roots=config.roots,
-            namespace=config.namespace,
-            contract=config.contract,
-            git_head=resolve_commit(root, "HEAD"),
-            dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
-            contract_root=contract_root or root,
-            language=config.language,
-            exclude_test_sources=True,
-        )
-    else:
-        result = analyzer(
-            root,
-            roots=config.roots,
-            namespace=config.namespace,
-            contract=config.contract,
-            git_head=resolve_commit(root, "HEAD"),
-            dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
-            contract_root=contract_root or root,
-            language=config.language,
-        )
+    result = analyzer(
+        root,
+        roots=config.roots,
+        namespace=config.namespace,
+        contract=config.contract,
+        git_head=resolve_commit(root, "HEAD"),
+        dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
+        contract_root=contract_root or root,
+        language=config.language,
+    )
     # The analyzer's own ASSEMBLE ended inside the call; UML graphs and checks add to it.
     with measured(clock, Phase.ASSEMBLE):
         return evaluate_uml(assemble_uml(result, contract_root or root, config.contract))

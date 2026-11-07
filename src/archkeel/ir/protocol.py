@@ -31,10 +31,14 @@ class ProtocolVersion(StrEnum):
     V9 = "9.0.0"
 
 
+def since(first: ProtocolVersion) -> frozenset[ProtocolVersion]:
+    """Return the protocol version and every later one; a feature stays in later versions."""
+    versions = list(ProtocolVersion)
+    return frozenset(versions[versions.index(first) :])
+
+
 # 8.0.0 keeps 7.0.0 semantics on a compressed wire. 9.0.0 adds an explicit Explore source role.
-FEATURE_GATED_PROTOCOLS: Final = frozenset(
-    {ProtocolVersion.V7, ProtocolVersion.V8, ProtocolVersion.V9}
-)
+FEATURE_GATED_PROTOCOLS: Final = since(ProtocolVersion.V7)
 
 
 @dataclass(frozen=True, slots=True)
