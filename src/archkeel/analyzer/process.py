@@ -385,12 +385,12 @@ def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
     if platform is _ProcessPlatform.POSIX:
         try:
             os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         except OSError as error:
-            raise _ProcessCleanupError(
-                "Could not terminate the collector process group."
-            ) from error
+            # macOS fails with EPERM for a group that holds only unreaped zombies.
+            if not isinstance(error, ProcessLookupError) and process.poll() is None:
+                raise _ProcessCleanupError(
+                    "Could not terminate the collector process group."
+                ) from error
     elif platform is _ProcessPlatform.WINDOWS:
         if process.poll() is None:
             try:
