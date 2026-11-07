@@ -143,6 +143,10 @@ Architecture contracts, baselines and amendments remain reviewed source files.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a
   new import between components needs a `requires` entry with its reason. Never widen a rule to
   make a check pass.
+- **Keep a source file at 500 lines or less.** This covers each Python file under `src/` and each
+  Rust file under `native/` and `crates/` ([AD-314](docs/architecture/decisions/ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md)).
+  A split must follow a responsibility seam. A legacy file over the limit is in
+  `tests/file_size_baseline.json`. It must not grow. Remove its entry when it reaches 500 lines.
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
   before and after, on the run the change targets (`make report-timing`, or a large repository).
   Below 10 % the change is discarded; record the measurement on the issue instead.
