@@ -321,3 +321,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-313 | [Explore excludes recognized test sources](ad-313-explore-excludes-test-sources.md) |
 | AD-314 | [Source files have at most 500 lines and legacy files only shrink](ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md) |
 | AD-315 | [IR owners are inner components of Core](ad-315-ir-owners-are-inner-components-of-core.md) |
+| AD-316 | [Native collectors live in native/ and reply with protocol 8](ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md) |

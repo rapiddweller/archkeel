@@ -147,6 +147,10 @@ Architecture contracts, baselines and amendments remain reviewed source files.
   Rust file under `native/` and `crates/` ([AD-314](docs/architecture/decisions/ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md)).
   A split must follow a responsibility seam. A legacy file over the limit is in
   `tests/file_size_baseline.json`. It must not grow. Remove its entry when it reaches 500 lines.
+- **A change in `native/` needs a Rust toolchain.** `native/rust-toolchain.toml` pins it. Run
+  `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
+  Without `cargo`, the native collector tests are skipped locally. CI always has `cargo`, so they
+  fail there when it is missing.
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
   before and after, on the run the change targets (`make report-timing`, or a large repository).
   Below 10 % the change is discarded; record the measurement on the issue instead.

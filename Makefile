@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check
+.PHONY: demos demo-studio against gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
@@ -161,6 +161,13 @@ test:
 python-compat:
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
 		-q --durations=10 --selection=python-compat
+
+# Rust code in native/ (AD-316). Run from native/ so that rust-toolchain.toml selects the toolchain.
+native-check:
+	cd native && cargo fmt --all --check
+	cd native && cargo clippy --locked --all-targets -- -D warnings
+	cd native && cargo test --locked
+	cd native && cargo build --locked
 
 collector-safety:
 	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \

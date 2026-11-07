@@ -21,6 +21,7 @@ HEADER = "\n".join(
         "",
     )
 ).encode()
+RUST_HEADER = HEADER.replace(b"# ", b"// ")
 FORBIDDEN = (
     b"/" + b"Users/",
     b"/" + b"home/",
@@ -287,7 +288,7 @@ def test_source_files_stay_within_the_size_limit() -> None:
     )
 
 
-def test_tracked_python_files_have_license_header() -> None:
+def test_tracked_source_files_have_license_header() -> None:
     assert TRACKED
     snapshot = ROOT / "fixtures/K-python-realworld/SNAPSHOT.json"
     exemptions = {}
@@ -298,11 +299,12 @@ def test_tracked_python_files_have_license_header() -> None:
             for item in entries
             if item["path"].startswith("app/") and item["path"].endswith(".py")
         }
+    headers = {".py": HEADER, ".rs": RUST_HEADER}
     missing = [
         str(path.relative_to(ROOT))
         for path in TRACKED
-        if path.suffix == ".py"
-        and not path.read_bytes().startswith(HEADER)
+        if path.suffix in headers
+        and not path.read_bytes().startswith(headers[path.suffix])
         and exemptions.get(path) != hashlib.sha256(path.read_bytes()).hexdigest()
     ]
     assert missing == []
