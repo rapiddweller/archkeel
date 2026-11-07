@@ -7,7 +7,7 @@ import json
 import re
 import subprocess
 import tomllib
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 
 from archkeel.ir.lock import LOCK_PATH
@@ -53,6 +53,8 @@ SOURCES = tuple(
     path for path in TRACKED if path.suffix == ".py" and path.is_relative_to(ROOT / "src")
 )
 LONG_FUNCTION_LINES = 80
+MAX_FILE_LINES = 500
+FILE_SIZE_BASELINE = ROOT / "tests/file_size_baseline.json"
 ALLOWED_LONG_FUNCTIONS = {
     "src/archkeel/check/delta.py::require_comparable_runtime": (
         "One profile boundary retains legacy Python provenance while checking explicit runtimes."
@@ -191,6 +193,98 @@ def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
             yield from _functions(child, f"{name}.")
         else:
             yield from _functions(child, prefix)
+
+
+def _is_size_limited(relative: str) -> bool:
+    top, _, _ = relative.partition("/")
+    return (top == "src" and relative.endswith(".py")) or (
+        top in {"native", "crates"} and relative.endswith(".rs")
+    )
+
+
+def _file_size_problems(
+    root: Path, relatives: Iterable[str], baseline: Mapping[str, int]
+) -> list[str]:
+    sizes = {
+        relative: len((root / relative).read_text(encoding="utf-8").splitlines())
+        for relative in relatives
+    }
+    problems = []
+    for relative, lines in sorted(sizes.items()):
+        if lines <= MAX_FILE_LINES and relative in baseline:
+            problems.append(f"{relative} has {lines} lines, so remove its entry from the baseline.")
+        elif lines > MAX_FILE_LINES and relative not in baseline:
+            problems.append(
+                f"{relative} has {lines} lines. Split it at a responsibility seam "
+                f"to at most {MAX_FILE_LINES} lines."
+            )
+        elif relative in baseline and lines > baseline[relative]:
+            problems.append(
+                f"{relative} has {lines} lines and grew past {baseline[relative]}. "
+                f"Move code out at a responsibility seam."
+            )
+        elif relative in baseline and lines < baseline[relative]:
+            problems.append(
+                f"{relative} has {lines} lines and shrank from {baseline[relative]}. "
+                f"Lower its count in the baseline to {lines}."
+            )
+    problems.extend(
+        f"{relative} no longer exists, so remove its entry from the baseline."
+        for relative in sorted(baseline)
+        if relative not in sizes
+    )
+    return problems
+
+
+def test_file_size_check_applies_the_ratchet(tmp_path: Path) -> None:
+    sizes = (
+        ("clean.py", 3),
+        ("new.py", 501),
+        ("grown.py", 502),
+        ("shrank.py", 520),
+        ("shrunk.py", 500),
+    )
+    for name, lines in sizes:
+        (tmp_path / name).write_text("x = 1\n" * lines, encoding="utf-8")
+    baseline = {"grown.py": 501, "shrank.py": 530, "shrunk.py": 510, "gone.py": 600}
+    problems = _file_size_problems(tmp_path, [name for name, _ in sizes], baseline)
+    assert [problem.split(" ")[0] for problem in problems] == [
+        "grown.py",
+        "new.py",
+        "shrank.py",
+        "shrunk.py",
+        "gone.py",
+    ]
+    assert "responsibility seam" in problems[0]
+    assert "Lower its count in the baseline to 520" in problems[2]
+    assert "remove its entry" in problems[3]
+    assert _file_size_problems(tmp_path, ("clean.py",), {}) == []
+    held = {"grown.py": 502, "new.py": 501}
+    assert _file_size_problems(tmp_path, ("grown.py", "new.py"), held) == []
+
+
+def test_file_size_limit_covers_source_languages_only() -> None:
+    assert _is_size_limited("src/archkeel/cli/__init__.py")
+    assert _is_size_limited("native/ts/src/lib.rs")
+    assert _is_size_limited("crates/py/src/lib.rs")
+    assert not _is_size_limited("tests/test_analyzer.py")
+    assert not _is_size_limited("tools/against.py")
+    assert not _is_size_limited("src/archkeel/assets/report.js")
+
+
+def test_source_files_stay_within_the_size_limit() -> None:
+    """AD-314: a file over the limit is listed with its size, and the list only shrinks."""
+    baseline = json.loads(FILE_SIZE_BASELINE.read_text(encoding="utf-8"))
+    relatives = [
+        relative
+        for path in TRACKED
+        if _is_size_limited(relative := path.relative_to(ROOT).as_posix())
+    ]
+    assert relatives
+    problems = _file_size_problems(ROOT, relatives, baseline)
+    assert problems == [], "\n".join(
+        ("Fix each file below. Never raise a number in tests/file_size_baseline.json.", *problems)
+    )
 
 
 def test_tracked_python_files_have_license_header() -> None:
