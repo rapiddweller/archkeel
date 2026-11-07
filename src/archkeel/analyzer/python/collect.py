@@ -383,7 +383,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         if request.scope.exclude_test_sources
         else None
     )
-    excluded_gaps = excluded.static_import_gaps(imports, modules) if excluded else []
+    excluded_gaps = excluded.gaps(imports, modules, selected) if excluded else []
     gaps.extend(excluded_gaps)
     coverage = CollectionCoverage(
         tuple(path.relative_to(root).as_posix() for path in selected),

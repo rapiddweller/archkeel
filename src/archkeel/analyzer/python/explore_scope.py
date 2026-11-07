@@ -18,6 +18,8 @@ from archkeel.ir.protocol import CollectionRequest, ProtocolVersion
 from .imports import collect_package_bindings
 from .source import ParsedModule, module_for
 
+NO_PRODUCTION_SOURCE = "No production source files in scope after the test exclusion"
+
 
 def wire_protocol(request: CollectionRequest, ordinary: ProtocolVersion) -> ProtocolVersion:
     """Return protocol 9, the first version with the scope flag, when the scan excludes tests."""
@@ -59,12 +61,14 @@ class ExcludedTests:
 
     modules: frozenset[str]
     prefixes: frozenset[str]
+    files: int
 
     @classmethod
     def find(cls, root: Path, roots: tuple[str, ...], namespace: str) -> ExcludedTests:
         repository = root.resolve()
         modules: set[str] = set()
         prefixes: set[str] = set()
+        files = 0
         for source in roots:
             source_root = repository / source
             if not source_root.is_dir():
@@ -83,8 +87,9 @@ class ExcludedTests:
                         )
             for path in source_root.rglob("*.py"):
                 if _inside(repository, path) and _is_test(repository, path):
+                    files += 1
                     modules.update(_module_names(repository, source_root, path, namespace))
-        return cls(frozenset(modules), frozenset(prefixes))
+        return cls(frozenset(modules), frozenset(prefixes), files)
 
     def match(self, names: Sequence[str]) -> str | None:
         return next(
@@ -97,11 +102,15 @@ class ExcludedTests:
             None,
         )
 
-    def static_import_gaps(
-        self, imports: Sequence[RawRecord], modules: Sequence[ParsedModule]
+    def gaps(
+        self,
+        imports: Sequence[RawRecord],
+        modules: Sequence[ParsedModule],
+        selected: Sequence[Path],
     ) -> list[Record]:
-        package_bindings = collect_package_bindings(modules)
-        return self._gaps(imports, package_bindings)
+        """Return the gaps of the static imports, and one when the exclusion left no source."""
+        found = self._gaps(imports, collect_package_bindings(modules))
+        return [*found, _empty_scope_gap()] if self.files and not selected else found
 
     def dynamic_import_gaps(self, imports: Sequence[RawRecord]) -> list[Record]:
         return self._gaps(imports, None)
@@ -164,5 +173,19 @@ def _import_gap(record: RawRecord, source_module: str, excluded: str) -> Record:
                 "source_module": source_module,
                 "resolution_dimension": "imports",
             },
+        )
+    )
+
+
+def _empty_scope_gap() -> Record:
+    return parse_record(
+        classified(
+            item_id=stable_id("UNKNOWN", NO_PRODUCTION_SOURCE, ""),
+            evidence_class=EvidenceClass.UNKNOWN,
+            area="source",
+            kind="collection_gap",
+            title=NO_PRODUCTION_SOURCE,
+            subjects=[""],
+            data={"reason": NO_PRODUCTION_SOURCE, "module": ""},
         )
     )

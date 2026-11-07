@@ -61,7 +61,7 @@ from .config import (
     standard_globals,
     within,
 )
-from .explore_scope import is_test_path
+from .explore_scope import emptied_by_exclusion, is_test_path
 from .parse import parse, umd_publication
 from .resolve import Found, Resolver, Unknown
 from .script_publication import site_aliases, source_origin, stable_publication
@@ -172,6 +172,7 @@ class _Collection:
         )
         # Every file to read, in discovery order; an entry added while walking is walked too.
         self.queue: list[str] = [rel for rel in self.config.files if self._selected(rel)]
+        self.snapshot.problems.update(emptied_by_exclusion(request, self.config.files, self.queue))
         self.evidence: dict[str, RawEvidence] = {}
         self.imports: list[RawRecord] = []
         self.gaps: dict[str, RawRecord] = {}
@@ -1850,11 +1851,8 @@ class _Collection:
             rel, self.snapshot.real(rel)
         )
 
-    def _observe(self, rel: str, at: tuple[tuple[str, ...], str] = ((), "")) -> bytes | None:
-        """Read a local dependency; it joins the walk when it is a source file in scope.
-
-        `at` names the importing evidence and module for a gap about an excluded test source.
-        """
+    def _observe(self, rel: str, importer: tuple[tuple[str, ...], str] = ((), "")) -> bytes | None:
+        """Read a local dependency; it joins the walk when it is a source file in scope."""
         content = self.snapshot.read(rel)
         suffix = classify_file(rel)
         if (
@@ -1868,7 +1866,7 @@ class _Collection:
         elif content is not None and self._excluded_test(rel):
             self._gap(
                 f"Production import targets excluded test source: {rel}",
-                *at,
+                *importer,
                 kind=_GapKind.RESOLUTION,
             )
         elif content is not None:

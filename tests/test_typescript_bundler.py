@@ -721,3 +721,16 @@ def test_an_exported_file_that_is_no_asset_stays_a_gap_in_bundler_mode(tmp_path,
     files["src/main.ts"] = 'import "pkg/dist/data";\nexport {};\n'
     facts = _facts(tmp_path, files, bundler=True)
     assert any("Package exports target is unavailable: pkg/dist/data" in g for g in _gaps(facts))
+
+
+def test_scope_with_only_test_sources_is_not_complete(tmp_path):
+    files = {"src/shop/app.test.ts": _EMPTY, "src/shop/tests/helper.ts": _EMPTY}
+    excluded = _facts(tmp_path, files, bundler=False, exclude_test_sources=True)
+
+    assert excluded.coverage.selected_files == ()
+    assert not excluded.coverage.full_scope
+    assert _gaps(excluded) == ["No production source files in scope after the test exclusion"]
+
+    kept = _facts(tmp_path, files, bundler=False)
+    assert kept.coverage.full_scope
+    assert _gaps(kept) == []

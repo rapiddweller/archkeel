@@ -1216,6 +1216,47 @@ def test_an_empty_public_list_is_a_declared_interface(
     assert "target" not in payload
 
 
+def test_python_scope_with_only_test_sources_is_not_complete(tmp_path: Path) -> None:
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        ProtocolVersion,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "shop/tests").mkdir(parents=True)
+    (tmp_path / "shop/tests/__init__.py").write_text("")
+    (tmp_path / "shop/tests/test_orders.py").write_text("def test_order() -> None:\n    pass\n")
+
+    def collected(exclude: bool):
+        request = CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("shop",), "shop", exclude_test_sources=exclude),
+            PythonSettings(),
+            ProtocolVersion.V9 if exclude else ProtocolVersion.V3,
+        )
+        facts = decode_response(
+            encode_response(CollectionResponse(collect(request), request.protocol_version))
+        ).facts
+        validate_source_facts(facts)
+        return facts
+
+    excluded = collected(True)
+    assert excluded.coverage.selected_files == ()
+    assert not excluded.coverage.full_scope
+    assert [gap.title for gap in excluded.coverage.gaps] == [
+        "No production source files in scope after the test exclusion"
+    ]
+    kept = collected(False)
+    assert kept.coverage.full_scope
+    assert kept.coverage.gaps == ()
+
+
 @pytest.mark.browser
 def test_an_explore_card_shows_its_label_and_no_placeholder(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]

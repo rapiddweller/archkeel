@@ -225,7 +225,8 @@
         "archkeel.analyzer.typescript.source_input:split_file",
         "archkeel.analyzer.typescript.source_input:classify_specifier",
         "archkeel.analyzer.typescript.source_input:classify_asset",
-        "archkeel.analyzer.typescript.explore_scope:is_test_path"
+        "archkeel.analyzer.typescript.explore_scope:is_test_path",
+        "archkeel.analyzer.typescript.explore_scope:emptied_by_exclusion"
       ]
     }
   ],
