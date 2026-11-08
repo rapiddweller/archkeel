@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "69e89e5d68ef0db1545ce69d32c0b4c5ada8fe8f31bd0a6ab02e8d838128b403",
+  "after_digest": "669197deab561a24e2c4f1d8c998004c95c297d5264ea7602663f31d07ad0382",
+  "before_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "before_digest": "d6fc9118ebe234c1032ac9f15de3929187ed2a6d85f974420e4a7f64ff5e145c",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base 0dd97d3c. AD-324 and epic #880, PR H step 3. The public name archkeel.ir.graph_codec:report_payload replaces report_bytes in the public list of the ir component in the root contract, because render now reads the report as an object. Two measurement budgets rise: calls_unresolved from 972 to 976 and typing_positions from 58 to 60. The cause is the JSON writer in codec_wire and the page splice in render.html: five method calls on BytesIO that the analyzer cannot resolve, and two annotations for the JSON value of the private recursion. No rule, component, requires entry or Any permission changes. The digests bind the complete contract tree and baseline of 0dd97d3c to the head of this branch.",
+  "schema_version": "2.0.0"
+}

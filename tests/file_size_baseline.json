@@ -33,7 +33,7 @@
   "src/archkeel/cli/__init__.py": 1528,
   "src/archkeel/ir/architecture_graph.py": 1217,
   "src/archkeel/ir/codec_contract.py": 1838,
-  "src/archkeel/ir/codec_observation.py": 1034,
+  "src/archkeel/ir/codec_observation.py": 1030,
   "src/archkeel/ir/decisions.py": 1850,
   "src/archkeel/ir/facts.py": 1357,
   "src/archkeel/ir/facts_codec.py": 1745,
@@ -49,7 +49,7 @@
   "src/archkeel/ir/widening.py": 1054,
   "src/archkeel/render/atlas.py": 838,
   "src/archkeel/render/guide.py": 541,
-  "src/archkeel/render/html.py": 2244,
+  "src/archkeel/render/html.py": 2243,
   "src/archkeel/render/summary.py": 647,
   "src/archkeel/studio/api.py": 546,
   "src/archkeel/studio/server.py": 501
