@@ -63,7 +63,7 @@ def test_transitive_paths_cover_cycles_self_loops_parallel_edges_and_islands() -
     assert not any(len(path) == 2 for path in paths)  # a direct edge is no transitive path
 
 
-def test_transitive_paths_search_each_source_once(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_transitive_paths_do_not_search_for_each_pair(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, str]] = []
     real = shortest_path
 
@@ -75,4 +75,4 @@ def test_transitive_paths_search_each_source_once(monkeypatch: pytest.MonkeyPatc
     nodes = [f"n{index}" for index in range(30)]
     edges = [(nodes[index], nodes[index + 1]) for index in range(29)]
     assert len(transitive_paths(nodes, edges)) == 29 * 28 // 2
-    assert len(calls) <= len(nodes)
+    assert calls == []

@@ -162,30 +162,41 @@ def test_a_complete_scan_parses_the_same_for_both_paths(tmp_path: Path) -> None:
     assert len(lazy) == len(eager)  # a complete scan returns before the check parses anything
 
 
-@pytest.mark.parametrize("lazy", [True, False])
-@pytest.mark.parametrize("field", ["modules", "unknowns", "evidence"])
-def test_an_invalid_internal_record_still_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lazy: bool, field: str
+def _failure(root: Path, field: str, *, lazy: bool) -> tuple[int, str, str]:
+    """Run with one broken internal record; return the exit code, the diagnostic kind and claim."""
+    _project(root)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(observation, "LazyParsed", LazyParsed if lazy else _eager)
+        evaluate = observation.evaluate_source
+
+        def corrupt(*args: Any, **kwargs: Any) -> Any:
+            scan = evaluate(*args, **kwargs)
+            items = getattr(scan, field)
+            assert items
+            del items[-1]["id" if field == "evidence" else "area"]
+            return scan
+
+        patch.setattr(observation, "evaluate_source", corrupt)
+        result, encoded = run_report(root, config=CONFIG, analyzer=Observer(_TypeScriptCollector()))
+    assert encoded is None
+    (diagnostic,) = result.diagnostics
+    return result.exit_code, str(diagnostic.kind), diagnostic.unknown_claim
+
+
+@pytest.mark.parametrize(
+    ("field", "claim"),
+    [
+        ("modules", "record fields mismatch"),
+        ("unknowns", "record fields mismatch"),
+        ("evidence", "'id'"),
+    ],
+)
+def test_an_invalid_internal_record_fails_with_the_same_diagnostic_on_both_paths(
+    tmp_path: Path, field: str, claim: str
 ) -> None:
-    _project(tmp_path / "project")
-    monkeypatch.setattr(observation, "LazyParsed", LazyParsed if lazy else _eager)
-    evaluate = observation.evaluate_source
-
-    def corrupt(*args: Any, **kwargs: Any) -> Any:
-        scan = evaluate(*args, **kwargs)
-        items = getattr(scan, field)
-        assert items
-        del items[-1]["id" if field == "evidence" else "area"]
-        return scan
-
-    monkeypatch.setattr(observation, "evaluate_source", corrupt)
-    try:
-        result, encoded = run_report(
-            tmp_path / "project", config=CONFIG, analyzer=Observer(_TypeScriptCollector())
-        )
-    except (ValueError, KeyError):
-        return
-    assert encoded is None and result.exit_code != 0
+    expected = (2, "parse_error", claim)
+    assert _failure(tmp_path / "lazy", field, lazy=True) == expected
+    assert _failure(tmp_path / "eager", field, lazy=False) == expected
 
 
 def test_lazy_parsed_parses_a_key_once_and_only_when_asked() -> None:
