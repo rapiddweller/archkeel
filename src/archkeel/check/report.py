@@ -847,6 +847,7 @@ def run_explore(
                     level: Path = scaffold / path
                     level.parent.mkdir(parents=True, exist_ok=True)
                     level.write_bytes(contract_bytes(inside))
+                del observed  # AD-324: free the first observation before the second pass
                 observed = observe_repository(root, config, scan, contract_root=scaffold)
         except SnapshotError as error:
             raise DiagnosticError(
@@ -857,8 +858,7 @@ def run_explore(
                     "Create a Git commit in the repository, then retry archkeel explore.",
                 )
             ) from error
-    # Both passes are done. Free the facts before the report is encoded and rendered.
-    once.facts = None
+    once.facts = None  # Both passes are done: free the facts before the report is encoded.
     observed, notes = _range_notes(observed)
     result, architecture, encoded = _observed_report(observed, None, root=root)
     # No contract, so no pair of components waits for a decision.

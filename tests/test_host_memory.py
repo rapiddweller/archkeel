@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-324: the host writes large JSON in pieces and frees each copy as soon as it is made."""
 
+import gc
 import json
 import re
 import tracemalloc
@@ -12,6 +13,7 @@ from pathlib import Path
 import pytest
 from test_explore import _repository
 
+from archkeel.check import report as report_module
 from archkeel.check.ports import Language
 from archkeel.check.report import run_explore
 from archkeel.cli.observe import observer_for
@@ -224,3 +226,26 @@ def test_the_pages_carry_their_payload_and_no_mark(tmp_path: Path) -> None:
     observed = detail["observed"]
     assert isinstance(observed, dict) and observed["entities"]
     assert all("record_ids" not in item for item in observed["entities"])
+
+
+def test_explore_frees_the_first_observation_before_the_second_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repository(tmp_path / "repo")
+
+    def alive() -> int:
+        gc.collect()
+        return sum(isinstance(item, Observation) for item in gc.get_objects())
+
+    before, seen = alive(), []
+    real = report_module.observe_repository
+
+    def spy(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        seen.append(alive())
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(report_module, "observe_repository", spy)
+
+    run_explore(root, observer=observer_for(Language.PYTHON))
+
+    assert seen == [before, before]
