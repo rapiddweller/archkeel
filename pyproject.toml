@@ -41,7 +41,7 @@ Issues = "https://github.com/rapiddweller/archkeel/issues"
 archkeel = "archkeel.cli:main"
 
 [build-system]
-# Hatchling maps the single schema/ source into wheels without a custom build hook.
+# Hatchling maps the single schema/ source into wheels; the custom hook only bundles the binary.
 # Git tags own versions; the README hook keeps local image paths out of PyPI metadata.
 requires = ["hatchling>=1.32,<2", "hatch-vcs>=0.5,<1", "hatch-fancy-pypi-readme>=25.1,<26"]
 build-backend = "hatchling.build"
@@ -76,6 +76,10 @@ exclude = [
   "src/archkeel/studio/ui/AGENTS.md",
 ]
 
+# AD-317: only ARCHKEEL_BUNDLE_NATIVE makes a platform wheel with the native collector.
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "native/hatch_build.py"
+
 [tool.hatch.build.targets.wheel.force-include]
 "schema" = "archkeel/schema"
 "skills/archkeel/SKILL.md" = "archkeel/cli/assets/SKILL.md"
@@ -86,7 +90,8 @@ exclude = [
 # cannot offer, so a shipped-but-skipped suite would only be a second, weaker "tests pass".
 # Distributors rebuild from the Git tag. README.md is the declared readme source, so the
 # tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
-only-include = ["src", "schema", "README.md", "skills"]
+# The wheel hook is a build input; the native sources are not, so an sdist never runs cargo.
+only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py"]
 
 [dependency-groups]
 # Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.

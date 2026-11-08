@@ -152,7 +152,8 @@ Architecture contracts, baselines and amendments remain reviewed source files.
 - **A change in `native/` needs a Rust toolchain.** `native/rust-toolchain.toml` pins it. Run
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
   Without `cargo`, the native collector tests are skipped locally. CI always has `cargo`, so they
-  fail there when it is missing.
+  fail there when it is missing. `ARCHKEEL_BUNDLE_NATIVE=1 uv build --wheel` builds a platform
+  wheel with the binary ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
   before and after, on the run the change targets (`make report-timing`, or a large repository).
   Below 10 % the change is discarded; record the measurement on the issue instead.

@@ -12,8 +12,8 @@ workspace has two crates:
   `decode_response` trust boundary do not change. There is no PyO3 extension.
 
 PR 4.1 of issue #880 has two parts. PR 4.1a (this decision) adds the crates and the host
-acceptance tests. PR 4.1b adds the wheel hook, the CI jobs, the macOS job and the dependency
-policy of `cargo deny`. The binary is a drop-in for the Python TypeScript collector:
+acceptance tests. PR 4.1b adds the wheel hook (AD-317), the CI jobs, the macOS job and the
+dependency policy of `cargo deny`. The binary is a drop-in for the Python TypeScript collector:
 
 1. It reports the same profile and adapter name, `archkeel-typescript-imports`, and its own
    runtime: `rust`, the compiler version, and `>=1.88`.
@@ -40,7 +40,11 @@ are in sibling `*_tests.rs` files. The license header test covers `.rs` files.
 only one producer changes when protocol 10 gets one fact record. Protocol 9 belongs to AD-313.
 
 **Rejected.**
-- A PyO3 extension. A crash would stop the host, and the process limits would not apply.
+- A PyO3 extension. The binary reads untrusted source. In the host process, an allocation failure
+  or a stack overflow aborts the host. PyO3 turns only a panic into `PanicException`, and that is
+  a `BaseException`. The timeout, the output limit and the process group apply only to a process.
+  The process contract exists and has tests. ABI coupling is not a reason: an `abi3` wheel serves
+  CPython 3.11 and later, and only the free-threaded 3.14t needs its own wheel.
 - A new fact stream first. Two producers would change, and PR 4 would wait for its design.
 - Code from codebase-memory-mcp now. The skeleton has no resolver that needs it (YAGNI).
 
@@ -49,8 +53,8 @@ only one producer changes when protocol 10 gets one fact record. Protocol 9 belo
   files, so it can report fewer collection gaps than the Python collector.
 - A bundler request is a collection gap.
 - Without `ARCHKEEL_VERSION` at build time, the adapter version is `0+unknown`.
-- There is no wheel, no CI job and no `cargo deny` policy yet (PR 4.1b). Timings are not a
-  performance claim.
+- There is no CI job and no `cargo deny` policy yet (PR 4.1b-2). Timings are not a performance
+  claim.
 
 **Check.** `tests/test_collector_native_typescript.py` runs the host report and gets UNKNOWN.
 It decodes 3.0.0 and 8.0.0 replies with consistent coverage. It compares files, file evidence and
