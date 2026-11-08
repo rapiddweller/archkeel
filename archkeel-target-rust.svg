@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2126" width="1800" height="2126" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2190" width="1800" height="2190" font-family="Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
     </marker>
   </defs>
-  <rect width="1800" height="2126" fill="#ffffff"/>
+  <rect width="1800" height="2190" fill="#ffffff"/>
 
   <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">ArchKeel target architecture: what is Rust, what stays</text>
-  <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-08, 15 PRs merged.</text>
+  <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-08, 21 PRs merged.</text>
 
   <!-- legend -->
   <rect x="40" y="104" width="22" height="22" rx="4" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
@@ -100,12 +100,12 @@
     <text x="922" y="340" font-size="13" fill="#475569">key: source digest, producer, config</text>
     <rect x="908" y="368" width="334" height="90" rx="8" fill="#ffffff" stroke="#2563eb"/>
     <text x="922" y="392" font-size="16" font-weight="700">evidence</text>
-    <text x="922" y="414" font-size="13" fill="#475569">provenance, status, coverage</text>
+    <text x="922" y="414" font-size="13" fill="#475569">provenance, status, receipts</text>
     <text x="922" y="434" font-size="13" fill="#475569">PASS needs every file complete</text>
     <rect x="908" y="472" width="334" height="100" rx="8" fill="#ffffff" stroke="#2563eb"/>
     <text x="922" y="496" font-size="16" font-weight="700">architecture</text>
-    <text x="922" y="518" font-size="13" fill="#475569">ONE owner: identity, membership,</text>
-    <text x="922" y="538" font-size="13" fill="#475569">coverage; observed vs Target</text>
+    <text x="922" y="518" font-size="13" fill="#475569">ONE owner: identity, membership, coverage,</text>
+    <text x="922" y="538" font-size="13" fill="#475569">observed vs Target</text>
     <text x="922" y="558" font-size="13" fill="#475569">source and Target ids stay separate</text>
     <rect x="908" y="586" width="334" height="90" rx="8" fill="#ffffff" stroke="#2563eb"/>
     <text x="922" y="610" font-size="16" font-weight="700">wire (readers)</text>
@@ -177,7 +177,7 @@
   <rect x="304" y="510" width="312" height="60" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
   <rect x="452" y="502" width="156" height="19" rx="9.5" fill="#f59e0b"/><text x="530.0" y="515.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">GAPS ONLY (4.1a)</text>
   <rect x="283" y="178" width="354" height="459" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="342" y="170" width="291" height="19" rx="9.5" fill="#f59e0b"/><text x="487.5" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">4.1a, 4.1b-1, 4.1b-2 MERGED · 4.2 MERGED · 4.3a NEXT</text>
+  <rect x="342" y="170" width="291" height="19" rx="9.5" fill="#f59e0b"/><text x="487.5" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">4.1a, 4.1b-1, 4.1b-2 MERGED · 4.2 MERGED · 4.3a-1 IN REVIEW</text>
   <rect x="676" y="296" width="178" height="268" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
   <rect x="690" y="288" width="150" height="19" rx="9.5" fill="#16a34a"/><text x="765.0" y="301.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">V9 MERGED (#876)</text>
   <rect x="664" y="594" width="196" height="196" rx="10" fill="#f1f5f9"/>
@@ -193,10 +193,10 @@
   <text x="676" y="748" font-size="12.5"  fill="#475569">one side missing = UNKNOWN.</text>
   <text x="676" y="765" font-size="12.5"  fill="#475569">Declared side: #860 (Git).</text>
   <rect x="883" y="178" width="384" height="579" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="1010" y="170" width="252" height="19" rx="9.5" fill="#f59e0b"/><text x="1136.0" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">S1, S2 MERGED · S3 NEXT</text>
+  <rect x="1010" y="170" width="252" height="19" rx="9.5" fill="#f59e0b"/><text x="1136.0" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">S1 to S3 MERGED · S4 NEXT</text>
   <rect x="1122" y="258" width="112" height="19" rx="9.5" fill="#94a3b8"/><text x="1178.0" y="271.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 3 · PLANNED</text>
-  <rect x="1136" y="372" width="98" height="19" rx="9.5" fill="#94a3b8"/><text x="1185.0" y="385.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S3 · PLANNED</text>
-  <rect x="1100" y="476" width="134" height="19" rx="9.5" fill="#16a34a"/><text x="1167.0" y="489.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S2 MERGED (#894)</text>
+  <rect x="1136" y="372" width="98" height="19" rx="9.5" fill="#94a3b8"/><text x="1185.0" y="385.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S4 · PLANNED</text>
+  <rect x="1100" y="476" width="134" height="19" rx="9.5" fill="#16a34a"/><text x="1167.0" y="489.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S2, S3 MERGED</text>
   <rect x="1096" y="590" width="138" height="19" rx="9.5" fill="#94a3b8"/><text x="1165.0" y="603.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S5 · AFTER #860</text>
   <rect x="510" y="727" width="100" height="19" rx="9.5" fill="#94a3b8"/><text x="560.0" y="740.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 6 · PLANNED</text>
   <rect x="512" y="813" width="108" height="19" rx="9.5" fill="#16a34a"/><text x="566.0" y="826.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">USED IN PILOT</text>
@@ -204,22 +204,22 @@
   <rect x="486" y="641" width="134" height="19" rx="9.5" fill="#94a3b8"/><text x="553.0" y="654.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FROZEN · PR 8 LAST</text>
   <rect x="1440" y="604" width="330" height="186" rx="10" fill="#f0fdf4"/>
   <rect x="1436" y="600" width="338" height="194" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="1480" y="592" width="250" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="605.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">15 PRs MERGED INTO MAIN</text>
+  <rect x="1480" y="592" width="250" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="605.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">21 PRs MERGED INTO MAIN</text>
   <text x="1454" y="632" font-size="13" font-weight="700" fill="#14532d">#881 #882 size rule, pin tests</text>
   <text x="1454" y="649" font-size="13"  fill="#14532d">#883 #886 macOS · #876 V9 scope</text>
-  <text x="1454" y="666" font-size="13"  fill="#14532d">#884 IR owners · #894 scope owner (S2)</text>
-  <text x="1454" y="683" font-size="13"  fill="#14532d">#885 Rust skeleton (AD-316)</text>
-  <text x="1454" y="700" font-size="13"  fill="#14532d">#887 CI filter · #888 wheel hook</text>
-  <text x="1454" y="717" font-size="13"  fill="#14532d">#889 SIGINT, mutants · #890 wheel CI</text>
-  <text x="1454" y="734" font-size="13"  fill="#14532d">#891 host peak -38 % on Linux</text>
-  <text x="1454" y="751" font-size="13"  fill="#14532d">#892 memory limit, version check</text>
-  <text x="1454" y="768" font-size="13"  fill="#14532d">#893 native imports (4.2, AD-320)</text>
+  <text x="1454" y="666" font-size="13"  fill="#14532d">#884 #894 #898 #900 IR S1 to S3, levels</text>
+  <text x="1454" y="683" font-size="13"  fill="#14532d">#885 #888 #890 #892 Rust skeleton, wheels</text>
+  <text x="1454" y="700" font-size="13"  fill="#14532d">#887 CI filter · #889 SIGINT, mutants</text>
+  <text x="1454" y="717" font-size="13"  fill="#14532d">#891 #899 host peak 1 848 to 782 MiB</text>
+  <text x="1454" y="734" font-size="13"  fill="#14532d">#893 native imports (4.2, AD-320)</text>
+  <text x="1454" y="751" font-size="13"  fill="#14532d">#895 lib catalog JSON · #896 flake fix</text>
+  <text x="1454" y="768" font-size="13"  fill="#14532d">#901 C locale pin (AD-325)</text>
   <rect x="1440" y="826" width="330" height="88" rx="10" fill="#fffbeb"/>
   <rect x="1436" y="822" width="338" height="96" rx="14" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="10 5"/>
-  <rect x="1470" y="814" width="270" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="827.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR H STEP 2 · MERGED (#891)</text>
-  <text x="1454" y="844" font-size="13" font-weight="700" fill="#78350f">Host peak on Linux: 1 848 to 1 145 MiB (-38 %).</text>
-  <text x="1454" y="864" font-size="13"  fill="#78350f">Host time 62.2 to 52.5 s (-15.6 %).</text>
-  <text x="1454" y="884" font-size="13"  fill="#78350f">Gate met. 1 GiB needs a smaller payload.</text>
+  <rect x="1470" y="814" width="270" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="827.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR H · MERGED (#891, #899)</text>
+  <text x="1454" y="844" font-size="13" font-weight="700" fill="#78350f">Host peak on Linux: 1 848 to 782 MiB (-58 %).</text>
+  <text x="1454" y="864" font-size="13"  fill="#78350f">macOS: 4 243 to 1 210 MiB (-71 %).</text>
+  <text x="1454" y="884" font-size="13"  fill="#78350f">Gate and 1 GiB mark met. #902: -22 % time.</text>
   <text x="40" y="1070" font-size="22" font-weight="700" fill="#0f172a">Benchmarks, measured (details in the issue comment of 2026-11-08)</text>
   <rect x="40" y="1086" width="418" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
   <text x="54" y="1110" font-size="14" font-weight="700" fill="#1e3a8a">CBM and ArchKeel (Linux, 2 vCPU, 2 GiB)</text>
@@ -232,10 +232,10 @@
   <text x="488" y="1158" font-size="13" fill="#78350f">Host peak: 4.2 GiB macOS, 1 854 MiB Linux</text>
   <text x="488" y="1180" font-size="13" fill="#78350f">Real reply: 13.1 MB packed, 20 % of the limit</text>
   <rect x="908" y="1086" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
-  <text x="922" y="1110" font-size="14" font-weight="700" fill="#78350f">Host fixes, step 2 (merged, React UI, 907 files)</text>
-  <text x="922" y="1136" font-size="13" fill="#78350f">Linux 2 vCPU/2 GiB, 5 runs: peak 1 848 to 1 145 MiB</text>
-  <text x="922" y="1158" font-size="13" fill="#78350f">Host time 62.2 to 52.5 s (-15.6 %), wall -10.1 %</text>
-  <text x="922" y="1180" font-size="13" fill="#78350f">macOS, 3 runs: peak 4 243 to 1 888 MiB (-55 %)</text>
+  <text x="922" y="1110" font-size="14" font-weight="700" fill="#78350f">Host path (merged #891, #899; React UI, 907 files)</text>
+  <text x="922" y="1136" font-size="13" fill="#78350f">Linux 2 vCPU/2 GiB peak: 1 848, 1 145 (#891), 782 MiB (#899)</text>
+  <text x="922" y="1158" font-size="13" fill="#78350f">Host time: -15.6 % (#891), -5 % (#899)</text>
+  <text x="922" y="1180" font-size="13" fill="#78350f">macOS peak: 4 243 to 1 210 MiB. #902 (review): -22 % time</text>
   <rect x="1342" y="1086" width="418" height="112" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
   <text x="1356" y="1110" font-size="14" font-weight="700" fill="#14532d">Native imports (4.2) against Python</text>
   <text x="1356" y="1136" font-size="13" fill="#14532d">910 files, Linux: 2.16 s floor to 1.06 s (-51 %)</text>
@@ -245,22 +245,22 @@
   <text x="60" y="1270" font-size="14" font-weight="700" fill="#0f172a">Native Rust collector replaces the Python TypeScript collector</text>
   <rect x="640" y="1257" width="300" height="16" rx="8" fill="#e2e8f0"/>
   <rect x="640" y="1257" width="60" height="16" rx="8" fill="#f59e0b"/>
-  <text x="960" y="1270" font-size="13" fill="#334155">1 of 5 phases (4.2 merged; 4.3a, 4.3b, 4.4, 4.5 open). Imports work, but no scan can PASS before 4.3.</text>
+  <text x="960" y="1270" font-size="13" fill="#334155">1 of 5 phases (4.2 merged; 4.3a-1 in review; 4.3b, 4.4, 4.5 open). No scan can PASS before 4.3a-5.</text>
   <text x="60" y="1304" font-size="14" font-weight="700" fill="#0f172a">Bounded host path (Linux peak at most 1.25 GiB)</text>
   <rect x="640" y="1291" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1291" width="240" height="16" rx="8" fill="#16a34a"/>
-  <text x="960" y="1304" font-size="13" fill="#334155">Gate met in #891 (1 145 MiB). The 1 GiB mark needs a smaller render payload (about 285 MiB).</text>
+  <rect x="640" y="1291" width="300" height="16" rx="8" fill="#16a34a"/>
+  <text x="960" y="1304" font-size="13" fill="#334155">Done. Peak 1 848 to 782 MiB (#891, #899). #902 (in review) cuts host time by about 22 %.</text>
   <text x="60" y="1338" font-size="14" font-weight="700" fill="#0f172a">Simple IR: four owners, one place per concept</text>
   <rect x="640" y="1325" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1325" width="100" height="16" rx="8" fill="#f59e0b"/>
-  <text x="960" y="1338" font-size="13" fill="#334155">2 of 6 steps merged (S1, S2). S3 to S6 open. S6 renames ir.</text>
+  <rect x="640" y="1325" width="150" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1338" font-size="13" fill="#334155">3 of 6 steps merged (S1 to S3), levels.py deleted. S4 to S6 open. S6 renames ir.</text>
   <text x="60" y="1372" font-size="14" font-weight="700" fill="#0f172a">Enabling work (rules, tests, macOS fix, CI, packaging, limits)</text>
   <rect x="640" y="1359" width="300" height="16" rx="8" fill="#e2e8f0"/>
   <rect x="640" y="1359" width="300" height="16" rx="8" fill="#16a34a"/>
-  <text x="960" y="1372" font-size="13" fill="#334155">Done. 15 PRs merged. Phases 4.1 and 4.2 are complete.</text>
+  <text x="960" y="1372" font-size="13" fill="#334155">Done. 21 PRs merged. Phases 4.1 and 4.2 are complete.</text>
   <text x="60" y="1414" font-size="14" font-weight="700" fill="#b91c1c">Honest reading: imports run natively (-50 % against the equal-work floor), but nothing can PASS yet and the default stays Python until 4.4.</text>
   <text x="40" y="1462" font-size="22" font-weight="700" fill="#0f172a">Progress and current work</text>
-  <rect x="40" y="1478" width="1730" height="564" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="40" y="1478" width="1730" height="628" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
   <text x="60" y="1508" font-size="14" font-weight="700" fill="#0f172a">M0: compiler oracle, profile by function, host against collector</text>
   <rect x="600" y="1494" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1507.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
   <text x="750" y="1508" font-size="13" fill="#334155">TS calls: CBM typed 86.4 % recall without JSX, ArchKeel 14.8 %. React UI: collector 45 % of the time.</text>
@@ -297,19 +297,25 @@
   <text x="60" y="1860" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S2: one owner for scope label and membership (#894)</text>
   <rect x="600" y="1846" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1859.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
   <text x="750" y="1860" font-size="13" fill="#334155">Merged. AD-321. 3 copies to 1, key parent:label 13 places to 1, self-validate: same 134 statuses.</text>
-  <text x="60" y="1892" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S3 to S5, then S6 (rename ir)</text>
-  <rect x="600" y="1878" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1891.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="1892" font-size="13" fill="#334155">S5 waits for draft #860. S6 retires the name ir after PR 3 and PR 6 (about 480 files touched today).</text>
-  <text x="60" y="1924" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a exports, binding, script globals, calls · 4.3b resolver · 4.4 · 4.5</text>
+  <text x="60" y="1892" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S3: one owner for coverage (#898) · levels.py deleted (#900)</text>
+  <rect x="600" y="1878" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1891.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1892" font-size="13" fill="#334155">Merged. AD-322. 6 025 adversarial cases: no loosening. Three tightenings, all more cautious.</text>
+  <text x="60" y="1924" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S4 and S5, then S6 (rename ir)</text>
   <rect x="600" y="1910" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1923.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="1924" font-size="13" fill="#334155">4.3a design is written (6 small PRs, first native PASS in the last one). Waits for owner decisions.</text>
-  <text x="60" y="1956" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 5 · PR 6 · PR 7</text>
-  <rect x="600" y="1942" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1955.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="1956" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
-  <text x="60" y="1988" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
+  <text x="750" y="1924" font-size="13" fill="#334155">S5 waits for draft #860. S6 retires the name ir after PR 3 and PR 6 (about 480 files touched today).</text>
+  <text x="60" y="1956" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-1 (#897): scope, definitions, exports in Rust</text>
+  <rect x="600" y="1942" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="1955.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="1956" font-size="13" fill="#334155">Two reviews found quadratic shapes. Fix and a scaling matrix are in work. Parity: 0 differences.</text>
+  <text x="60" y="1988" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-2 to -5 · 4.3b · 4.4 · 4.5</text>
   <rect x="600" y="1974" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1987.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="1988" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
-  <text x="60" y="2020" font-size="14" font-weight="700" fill="#0f172a">PR 8: remove the Dart collector (optional, last)</text>
+  <text x="750" y="1988" font-size="13" fill="#334155">First native PASS in 4.3a-5. R0 (Rust architecture and rules) is designed and waits for owner decisions.</text>
+  <text x="60" y="2020" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 5 · PR 6 · PR 7</text>
   <rect x="600" y="2006" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2019.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="2020" font-size="13" fill="#334155">Dart is frozen. Needs an owner check. #877 and #878 were closed by the owner on 2026-11-08.</text>
+  <text x="750" y="2020" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
+  <text x="60" y="2052" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
+  <rect x="600" y="2038" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2051.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="2052" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
+  <text x="60" y="2084" font-size="14" font-weight="700" fill="#0f172a">PR 8: remove the Dart collector (optional, last)</text>
+  <rect x="600" y="2070" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2083.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="2084" font-size="13" fill="#334155">Dart is frozen. Needs an owner check. #877 and #878 were closed by the owner on 2026-11-08.</text>
 </svg>
