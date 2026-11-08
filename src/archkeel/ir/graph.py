@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from collections import deque
 from collections.abc import Iterable
 
 
@@ -54,26 +53,9 @@ def strongly_connected_components(
     return sorted(components, key=lambda component: (component[0], len(component)))
 
 
-def shortest_path(adjacency: dict[str, set[str]], source: str, target: str) -> list[str] | None:
-    """Return the lexicographically deterministic shortest directed path."""
-    queue: deque[list[str]] = deque([[source]])
-    seen = {source}
-    while queue:
-        path = queue.popleft()
-        current = path[-1]
-        if current == target:
-            return path
-        for neighbor in sorted(adjacency.get(current, set())):
-            if neighbor in seen:
-                continue
-            seen.add(neighbor)
-            queue.append([*path, neighbor])
-    return None
-
-
 def _bfs_parents(ordered: dict[str, list[str]], source: str) -> dict[str, str | None]:
     """Walk once from the source. The first node to reach a target is its parent, so the path
-    from the parents is the one that shortest_path returns for the pair."""
+    from the parents is the lexicographically first shortest path."""
     parent: dict[str, str | None] = {source: None}
     order = [source]  # first in, first out: the loop also visits what it appends
     for current in order:

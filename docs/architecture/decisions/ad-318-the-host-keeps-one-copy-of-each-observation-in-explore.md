@@ -50,7 +50,7 @@ A profile of `explore` on a React UI (907 files) found four loops that repeat wo
 of items (29 % of the host time on Linux). The output does not change.
 
 1. `transitive_paths` (`ir/graph.py`) walks once for each source and keeps the parent of each
-   node, so the path is the one `shortest_path` returns. It searched once for each pair: 64 204 times.
+   node, so the path is the one the pair search found, then deleted as unused. It searched 64 204 times.
 2. `derived_unresolved_imports` (`ir/import_gaps.py`) builds the set of (module, evidence ids) of
    the import gaps once. Each import scanned every gap: 28 million `RecordData.get` calls.
 3. `CellFindings` (`ir/report_graph.py`) indexes the findings and assessments of a report by

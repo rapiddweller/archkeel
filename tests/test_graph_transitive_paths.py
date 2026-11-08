@@ -6,12 +6,29 @@
 from __future__ import annotations
 
 import random
+from collections import deque
 from collections.abc import Iterable
 
 import pytest
 
-from archkeel.ir import graph
-from archkeel.ir.graph import shortest_path, transitive_paths
+from archkeel.ir.graph import transitive_paths
+
+
+def _shortest_path(adjacency: dict[str, set[str]], source: str, target: str) -> list[str] | None:
+    """Return the lexicographically deterministic shortest directed path."""
+    queue: deque[list[str]] = deque([[source]])
+    seen = {source}
+    while queue:
+        path = queue.popleft()
+        current = path[-1]
+        if current == target:
+            return path
+        for neighbor in sorted(adjacency.get(current, set())):
+            if neighbor in seen:
+                continue
+            seen.add(neighbor)
+            queue.append([*path, neighbor])
+    return None
 
 
 def _one_search_per_pair(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> list[list[str]]:
@@ -26,7 +43,7 @@ def _one_search_per_pair(nodes: Iterable[str], edges: Iterable[tuple[str, str]])
         for target in node_list:
             if source == target or target in adjacency[source]:
                 continue
-            path = shortest_path(adjacency, source, target)
+            path = _shortest_path(adjacency, source, target)
             if path is not None:
                 paths.append(path)
     return paths
@@ -61,18 +78,3 @@ def test_transitive_paths_cover_cycles_self_loops_parallel_edges_and_islands() -
     assert ["a", "b", "c", "d", "e"] in paths
     assert not any("island" in path for path in paths)
     assert not any(len(path) == 2 for path in paths)  # a direct edge is no transitive path
-
-
-def test_transitive_paths_do_not_search_for_each_pair(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[tuple[str, str]] = []
-    real = shortest_path
-
-    def counted(adjacency: dict[str, set[str]], source: str, target: str) -> list[str] | None:
-        calls.append((source, target))
-        return real(adjacency, source, target)
-
-    monkeypatch.setattr(graph, "shortest_path", counted)
-    nodes = [f"n{index}" for index in range(30)]
-    edges = [(nodes[index], nodes[index + 1]) for index in range(29)]
-    assert len(transitive_paths(nodes, edges)) == 29 * 28 // 2
-    assert calls == []
