@@ -328,6 +328,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-320 | [The native collector records import statements with the grammar of the Python collector](ad-320-the-native-collector-records-import-statements.md) |
 | AD-321 | [One owner for the scope label and module membership](ad-321-one-owner-for-the-scope-label-and-module-membership.md) |
 | AD-322 | [One owner for coverage and for the numeric excerpt parser](ad-322-one-owner-for-coverage-and-the-numeric-excerpt-parser.md) |
+| AD-323 | [The native collector reads the syntax facts of a file in one walk](ad-323-the-native-collector-reads-the-syntax-facts-of-a-file-in-one-walk.md) |
 | AD-324 | [The host writes a large report in pieces and frees each copy](ad-324-the-host-writes-a-large-report-in-pieces-and-frees-each-copy.md) |
 | AD-325 | [Every collector process runs in the C locale](ad-325-every-collector-process-runs-in-the-c-locale.md) |
-| AD-323 | [The native collector reads the syntax facts of a file in one walk](ad-323-the-native-collector-reads-the-syntax-facts-of-a-file-in-one-walk.md) |

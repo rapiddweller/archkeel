@@ -1,13 +1,12 @@
 # AD-323 The native collector reads the syntax facts of a file in one walk
 
 **Decision.** PR 4.3a-1 of issue #880 ports the per-file syntax facts of `analyzer/typescript/parse.py`
-to `archkeel-typescript-collector`. The wire reply does not change: it stays the legacy reply of
+to `archkeel-typescript-collector`. The wire reply does not change. It stays the legacy reply of
 AD-320, and the 4.2 gap "Script-global dependencies are not examined" stays.
 
 1. **One walk.** `scan.rs` keeps its single walk and gives each node to `walk.rs`. `walk.rs` keeps a
-   stack of the ancestors. Each entry holds the frame of the nearest scope, the nearest `var`
-   frame, the nearest definition, the run of decorators and comments before the next child, and
-   five flags. `parse.py` runs about ten walks and climbs the parents.
+   stack of the ancestors. Each entry holds the nearest scope frame, `var` frame and definition,
+   the run of decorators and comments before the next child, and five flags.
 2. **Facts.** The walk produces these fields of `Syntax`: `definitions`, `import_bindings`,
    `module_exports`, `rebound_names`, `ambient_globals`, `ambient_top_level`, `module_file`,
    `declaration_file`, `script_mode` and `script_bindings`. The structs are owned. No tree node
@@ -18,53 +17,54 @@ AD-320, and the 4.2 gap "Script-global dependencies are not examined" stays.
    and each field name that the walk reads to its id. A named kind and a token of the same text are
    one kind. A text that `_NodeKind` does not list is `K::Other`.
 5. **Cost.** No question climbs the tree. The parent kind, the grandparent kind and the run of
-   siblings come from the stack (`Place`). A definition holds the index of its parent scope, and
-   `Syntax::parent_name` builds the qualified name on demand, as `parent_name` of Python. The
-   excerpt of a span is cut from the first 1 600 bytes of the node. The UTF-16 column of a line
-   longer than 256 bytes comes from one table for the line. The first version did not: 33.6 s for
-   40 000 functions on one line, 61 s and 1.3 GB for 8 000 nested classes (release build).
+   siblings come from the stack (`Place`). A definition holds the index of its parent scope.
+   `Syntax::parent_name` builds the qualified name on demand. The excerpt of a span is cut from
+   the first 1 600 bytes of the node. A line longer than 256 bytes has one column table.
 6. **Deep nesting.** The walk and `assignment_targets` use no recursion. Python stops with
    `RecursionError` near a depth of 1 000. Native gives the facts. This is the one closed
    exception to "never complete where Python is UNKNOWN" (decision of 2026-11-08 on #880).
-7. **The `dump` feature.** `cargo build --features dump` adds `--dump`: it reads
-   `{"rel", "file"}` lines on stdin and prints the facts of each file as JSON. `dump` is not a
-   default feature. The wheel build does not set it. `make native-check` lints it, and the
-   installed wheel binary is tested for its absence.
+7. **The `dump` feature.** `cargo build --features dump` adds `--dump`. It reads `{"rel", "file"}`
+   lines on stdin and prints the facts of each file as JSON. It is not a default feature, so the
+   wheel build does not set it. `make native-check` lints it, and the wheel test checks its absence.
 
 **Oracle.** `tests/test_collector_native_syntax.py` compares the dump with `parse.parse()` field by
-field on the four fixtures, the Studio UI, the resolution grid, the symlink tree, 240 seeded
-sources, sources built from 69 syntax pieces, 600 mutated files (3 000 with
-`ARCHKEEL_SYNTAX_MUTANTS`), the hostile files, moderate sizes of the long-line and nest shapes
-and a private React UI (`ARCHKEEL_PRIVATE_UI`, totals only). There are no differences except the
-three below. The huge sizes of those shapes have no oracle: Python is quadratic on them too (614 s
-for 40 000 functions on one line). Their test bounds the wall time of the collector process. The
-cargo tests hold values that `parse.parse()` printed.
+field. It uses the four fixtures, the Studio UI, the resolution grid and the symlink tree. It uses
+240 seeded sources, sources built from 77 syntax pieces and 600 mutated files (3 000 with
+`ARCHKEEL_SYNTAX_MUTANTS`). It adds the hostile files, the column cases and a private React UI
+(`ARCHKEEL_PRIVATE_UI`, totals only). The only differences are the three below. Huge sizes of the
+long-line and nest shapes have no oracle, because Python is quadratic on them (614 s for 40 000
+functions on one line). Their tests compare moderate sizes and time the collector process.
+
+**Scaling matrix.** `tests/test_collector_native_scaling.py` builds 89 shapes. A table maps each
+kind of `kinds.rs` and each fact to its shapes. A shape is timed on n and on 2n, and the ratio must
+stay below 3 (linear is about 2, quadratic about 4). One test bounds the memory of a shape.
 
 **Differences, a closed list.**
 - *Statement order.* `_import_bindings` reads the statements from `QueryCursor.captures`, which
-  returns a set of nodes. Its order depends on addresses. The native list is in document order,
-  and the test compares the bindings of each statement in order.
-- *Locale.* The scanner of the grammar calls C `iswspace`. In `en_US.UTF-8` and `C.UTF-8`, any
-  non-ASCII space before a newline (U+00A0, U+2003, U+3000, U+2028, U+2029) ends a statement
-  that has no semicolon. In the `C` locale it does not. `const a = 1<U+00A0>\nconst b = 2` gives
-  1 binding under `LC_ALL=C` and 2 under the other two. The native binary never calls
-  `setlocale` and behaves like `C`. Python sets the locale from the environment, and PEP 538
-  makes an unset locale `C.UTF-8`, so on a default Linux or Docker host Python and native
-  differ. The severity is low: it needs a statement without a semicolon that ends in such a
-  space. 778 real files gave the same facts in both locales. The remedy is a separate PR that
-  pins `LC_ALL=C` for collector processes in `analyzer/process.py`. Until then the test runs
-  the oracle in `C`.
+  returns a set of nodes. Its order depends on addresses. The native list is in document order.
+  The test compares the bindings of each statement in order.
+- *Locale.* The scanner calls C `iswspace`. In a UTF-8 locale, a non-ASCII space before a newline
+  ends a statement without a semicolon. In the `C` locale it does not. The native binary acts
+  like `C`. AD-325 (merged) sets `LC_ALL=C` for every collector process, so the two now agree.
+  The oracle test keeps Python in `C`.
 - *Depth.* Point 6.
 
-**Reason.** The next PRs need these facts for sites, symbols and records. One walk gives them once;
-Python needs about 26 s for them on 910 files.
+**Rejected.** Queries for each fact (one tree walk each). Tree nodes in the facts, which would
+outlive the tree. A copy of the Python order of the set. A qualified name stored for each definition.
+Facts as byte ranges, cut only when needed: revisit in 4.3a-3, when facts go on the wire.
 
-**Rejected.** Queries for each fact (one tree walk each). Tree nodes in the facts (they would
-outlive the tree). A copy of the Python order of the set. A qualified name stored for each definition.
-
-**Limit.** The facts are not on the wire. Sites, comparisons and script facts are later PRs. The
-qualified name at depth n has n names, as in Python: a consumer that builds it for each definition
-pays the depth each time.
-
-**Check.** `tests/test_collector_native_syntax.py`, `tests/test_collector_native_wheel.py`, the
-`walk`, `scope` and `kinds` tests in `native/`, and `make native-check`.
+**Limit.** The facts are not on the wire. Sites, comparisons and script facts are later PRs.
+- *Quadratic loops, fixed.* The sibling scan read the whole run of comments or decorators for each
+  child. `bound_scope` climbed the whole frame chain for each write. Array constants kept their spans
+  in a `Vec`. The triple-slash check of PR 4.2 read root children by index: 64 000 lines took 16 s,
+  on the 4.2 binary too. The memo of `bound_scope` is used only for a name that the root binds.
+- *Known limit, not fixed.* n distinct imported names, each written at depth n, are still quadratic.
+  The review measured 14 s and 1.7 GB at n = 8 000, against 12.4 s and 190 MB on 4.2. The time was
+  already quadratic in 4.2. The memory is new. A linear fix needs a stack of binding frames for each name. The
+  guard is the memory limit of 4 GiB (AD-319).
+- *Dense files, accepted.* Each definition costs 1 to 2.8 µs more than in 4.2. The review measured
+  2.16 times the time for 50 000 constructor parameters and 2.11 times for 100 000 tiny classes (2.3
+  on Linux). Peak memory is up to 2.9 times: 57 MiB against 163 MiB for the tiny classes. The worst
+  file under the 4 MiB limit takes 615 MiB against 244 MiB. One class with 838 000 methods takes
+  1.18 GB against 576 MB. Real code costs 1.10 times on x35. The extra time is 0.1 s for each 100 000
+  definitions, and the file limit bounds the memory.
