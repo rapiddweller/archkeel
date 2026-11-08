@@ -44,7 +44,9 @@ def test_sigint_propagates_after_collector_tree_and_workers_stop(tmp_path: Path)
         "    count += 1\n    time.sleep(0.025)\n"
     )
     host = (
-        "import json,sys,threading\nfrom pathlib import Path\n"
+        "import json,signal,sys,threading\nfrom pathlib import Path\n"
+        # A test run started with `&`, `nohup` or an IDE inherits SIGINT as ignored.
+        "signal.signal(signal.SIGINT, signal.default_int_handler)\n"
         "from archkeel.analyzer.process import ProcessCollector\n"
         "from archkeel.ir.facts_codec import decode_request\n"
         "request=decode_request(sys.stdin.buffer.read())\n"
