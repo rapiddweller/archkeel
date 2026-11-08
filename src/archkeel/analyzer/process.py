@@ -128,7 +128,7 @@ class ProcessCollector:
             )
             payload = encode_request(wire_request)
             command = self.argv
-            environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+            environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "LC_ALL": "C"}  # AD-325
             platform = _process_platform(os.name)
             if platform is _ProcessPlatform.WINDOWS:
                 search_path = os.pathsep.join((request.snapshot.root, environment.get("PATH", "")))
