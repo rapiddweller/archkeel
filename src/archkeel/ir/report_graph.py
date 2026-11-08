@@ -25,6 +25,7 @@ from archkeel.ir.architecture_graph import EntityKind as _EntityKind
 from archkeel.ir.architecture_graph import PresenceKind as _PresenceKind
 from archkeel.ir.architecture_graph import RelationshipKind as _RelationshipKind
 from archkeel.ir.codec import decode_json, value_bytes
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.graph_codec import parse_comparison
 from archkeel.ir.interfaces import component_owners
@@ -33,7 +34,6 @@ from archkeel.ir.model import (
     UML_TARGET_KIND,
     Observation,
     Record,
-    Verdict,
     stable_id,
 )
 from archkeel.ir.ownership import containing, owner_of
@@ -134,7 +134,7 @@ def _inventory_comparison_is_bound(
         if declared is not None
         else ()
     )
-    inventory_pass = model.coverage.status != Verdict.PASS and any(
+    inventory_pass = not observation_complete(model.coverage) and any(
         a.aspect == _AssessmentAspect.COMPLETENESS
         and a.status == AssessmentStatus.PASS
         and a.id

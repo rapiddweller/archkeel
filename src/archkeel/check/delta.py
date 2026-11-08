@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from archkeel.ir.codec import value_bytes
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.measurements import RatchetError
 from archkeel.ir.model import (
     SCHEMA_VERSION,
@@ -534,9 +535,7 @@ def build_architecture_delta(
         and all(baseline.source.scope + head.source.scope)
         and sorted(baseline.source.scope) == sorted(head.source.scope)
     )
-    coverage_complete = (
-        baseline.coverage.status == Verdict.PASS and head.coverage.status == Verdict.PASS
-    )
+    coverage_complete = all(observation_complete(item.coverage) for item in (baseline, head))
     profile = profile_for(head.analyzer.name)
     try:
         if not shared:

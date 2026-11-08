@@ -35,6 +35,7 @@ from archkeel.ir.codec import (
     parse_validation_baseline,
     result_bytes,
 )
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import (
     agent_decisions,
     baseline_fingerprint_covered,
@@ -79,7 +80,6 @@ from archkeel.ir.model import (
     ReportFilter,
     RunResult,
     TargetStatus,
-    Verdict,
 )
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
@@ -721,8 +721,7 @@ def _range_notes(result: ObservationResult) -> tuple[ObservationResult, tuple[Di
         or runtime is None
         or runtime.name != Language.PYTHON
         or declares_a_target(model)
-        or model.coverage.status != Verdict.PASS
-        or model.coverage.failures
+        or not observation_complete(model.coverage)
         or not (runtime.requirement_state in _UNDECLARED_RANGE or runtime.required is None)
     ):
         return result, ()

@@ -16,6 +16,12 @@ from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
+from archkeel.ir.coverage import (
+    ModuleFile,
+    scan_covers_packages,
+    scan_domains_complete,
+    under_roots,
+)
 from archkeel.ir.facts import (
     ConstructCapability,
     ConstructSupport,
@@ -2402,83 +2408,19 @@ def _cycle_scan_coverage(
     )
     if profile.project_import_closure:
         # The caller supplies roots only after the collector proves complete project closure.
-        scan_roots = tuple(_relative_path(root) for root in roots)
-        namespace_complete = bool(modules) and all(
-            in_scope(item["data"]["qualified_name"], namespace)
-            and any(_contains(root, _relative_path(item["data"]["file"])) for root in scan_roots)
-            for item in modules
+        module_files = _module_files(modules)
+        namespace_complete = bool(module_files) and all(
+            in_scope(name, namespace) and under_roots(file, roots) for name, file in module_files
         )
     elif profile.source_suffix == ".py":
-        namespace_complete = _scan_covers_packages((namespace,), modules, profile, roots)
+        namespace_complete = scan_covers_packages(
+            (namespace,), _module_files(modules), profile, roots
+        )
     else:
         return False, ()
     if any(component.lifecycle is ComponentLifecycle.PLANNED for component in contract.components):
         namespace_complete = False
     return namespace_complete, components
-
-
-def _package_paths(
-    package: str, modules: Sequence[RawRecord], profile: Profile
-) -> frozenset[PurePosixPath]:
-    package_parts = tuple(package.split("."))
-    paths: set[PurePosixPath] = set()
-    for record in modules:
-        name = record["data"].get("qualified_name")
-        file = record["data"].get("file")
-        if not isinstance(name, str) or not isinstance(file, str) or not in_scope(name, package):
-            continue
-        if profile.source_suffix != ".py":
-            extra_modules = len(name.split(".")) - len(package_parts)
-            path = _relative_path(file).parent
-            extra_parent_steps = max(extra_modules - 1, 0)
-            for _ in range(extra_parent_steps):
-                path = path.parent
-            paths.add(path)
-            continue
-        file_path = _relative_path(file)
-        directories = file_path.parent.parts
-        module_parts = (
-            directories if file_path.name == "__init__.py" else (*directories, file_path.stem)
-        )
-        anchor = next(
-            (start for start in range(len(module_parts)) if ".".join(module_parts[start:]) == name),
-            None,
-        )
-        if anchor is None:
-            return frozenset()
-        package_path = next(
-            (
-                PurePosixPath(*directories[:end])
-                for end in range(anchor + 1, len(directories) + 1)
-                if in_scope(".".join(module_parts[anchor:end]), package)
-                and in_scope(name, ".".join(module_parts[anchor:end]))
-            ),
-            None,
-        )
-        if package_path is not None:
-            paths.add(package_path)
-        elif name == package and file_path.name != "__init__.py":
-            paths.add(file_path.parent)
-        else:
-            return frozenset()
-    return frozenset(paths)
-
-
-def _scan_covers_packages(
-    packages: Sequence[str],
-    modules: Sequence[RawRecord],
-    profile: Profile,
-    roots: tuple[str, ...],
-) -> bool:
-    """Prove every observed physical domain of each package lies under scan roots."""
-    if not packages or not roots:
-        return False
-    scan_roots = tuple(_relative_path(root) for root in roots)
-    return all(
-        (paths := _package_paths(package, modules, profile))
-        and all(any(_contains(root, path) for root in scan_roots) for path in paths)
-        for package in packages
-    )
 
 
 def source_domains_complete(
@@ -2490,9 +2432,20 @@ def source_domains_complete(
     scan_roots: tuple[str, ...],
 ) -> bool:
     """Prove that selected package and exact-module domains were fully scanned."""
-    return (
-        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
-    ) and _scan_covers_exact_modules(exact_module_scopes, modules, scan_roots)
+    return scan_domains_complete(
+        _module_files(modules), profile, package_scopes, exact_module_scopes, scan_roots
+    )
+
+
+def _module_files(modules: Sequence[RawRecord]) -> tuple[ModuleFile, ...]:
+    """Read the qualified name and the file of each module record that has both."""
+    pairs: list[ModuleFile] = []
+    for item in modules:
+        name = item["data"].get("qualified_name")
+        file = item["data"].get("file")
+        if isinstance(name, str) and isinstance(file, str):
+            pairs.append((name, file))
+    return tuple(pairs)
 
 
 def source_selector_domains(
@@ -2575,9 +2528,9 @@ def scope_receipts_complete(
             for exact_module in component.exact_modules or ()
         ),
     )
-    return (
-        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
-    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
+    return scan_domains_complete(
+        _module_files(modules), profile, package_scopes, exact_scopes, scan_roots
+    )
 
 
 def _selector_receipt_scope(
@@ -2602,38 +2555,9 @@ def _scan_covers_ownership(
 ) -> bool:
     if component.lifecycle is ComponentLifecycle.PLANNED:
         return False
-    scan_roots = tuple(_relative_path(root) for root in roots)
-    return (
-        bool(scan_roots)
-        and (
-            not component.packages
-            or _scan_covers_packages(component.packages, modules, profile, roots)
-        )
-        and _scan_covers_exact_modules(component.exact_modules or (), modules, roots)
+    return scan_domains_complete(
+        _module_files(modules), profile, component.packages, component.exact_modules or (), roots
     )
-
-
-def _scan_covers_exact_modules(
-    exact_modules: Sequence[str], modules: Sequence[RawRecord], roots: tuple[str, ...]
-) -> bool:
-    scan_roots = tuple(_relative_path(root) for root in roots)
-    return bool(scan_roots) and all(
-        any(
-            module["data"]["qualified_name"] == name
-            and any(_contains(root, _relative_path(module["data"]["file"])) for root in scan_roots)
-            for module in modules
-        )
-        for name in exact_modules
-    )
-
-
-def _relative_path(value: str) -> PurePosixPath:
-    path = PurePosixPath(value)
-    return PurePosixPath(*(part for part in path.parts if part not in {".", ""}))
-
-
-def _contains(root: PurePosixPath, path: PurePosixPath) -> bool:
-    return not root.is_absolute() and path.is_relative_to(root)
 
 
 def _forbidden_rule_modules(

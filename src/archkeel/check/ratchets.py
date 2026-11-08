@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Regression checks over the typed decoded-IR measurements of each analyzer profile."""
 
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import unknown_positions as _ir_unknown_positions
 from archkeel.ir.decisions import unknown_positions_by_rule as _ir_unknown_positions_by_rule
 from archkeel.ir.facts import SourceResolution, parse_source_resolution
@@ -75,10 +76,9 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
     coverage = observation.coverage
     profile = profile_for(observation.analyzer.name)
     if (
-        coverage.status != Verdict.PASS
+        not observation_complete(coverage)
         or coverage.rules == Verdict.FAIL
         or coverage.files_discovered == 0
-        or coverage.failures
         or len({coverage.files_discovered, coverage.files_read, coverage.files_parsed}) != 1
     ):
         raise RatchetError("scan must be complete: discovered = read = parsed, without failures")

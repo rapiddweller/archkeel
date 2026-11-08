@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "after_digest": "d6fc9118ebe234c1032ac9f15de3929187ed2a6d85f974420e4a7f64ff5e145c",
+  "before_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "before_digest": "eef0fa10a9d952d8c1da07fdac1eec5290f496550b54d4eaf1cdd6882c352c5f",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base 682714a7. AD-322 and epic #880 step S3. The new module archkeel.ir.coverage owns the completeness of an observation and the scan-root coverage of a source. It joins the architecture owner in contracts/ir.json (exact_modules and public) and the public list of the ir component in the root contract. The function parse_numeric_evidence_excerpt moves into archkeel.ir.source_proofs. It joins the public list of facts-codec, the public list of ir, and the through list of the analyzer requirement on ir, because the Python collector now calls the one parser instead of keeping a copy. No budget, rule, component, other requires entry or Any permission changes. The baseline does not change: calls_unresolved stays 972.",
+  "schema_version": "2.0.0"
+}

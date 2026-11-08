@@ -82,6 +82,7 @@
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
         "archkeel.ir.ownership",
+        "archkeel.ir.coverage",
         "archkeel.ir.identity:module_identity",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
@@ -123,6 +124,7 @@
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_proofs:class_instance_member_write_names",
+        "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt",
         "archkeel.ir.source_records:RawData",
         "archkeel.ir.source_records:RawRecord",
         "archkeel.ir.source_records:RawEvidence",
@@ -459,9 +461,10 @@
             "archkeel.ir.profiles:is_test_source",
             "archkeel.ir.guard_paths:GuardedCallPath",
             "archkeel.ir.guard_paths:guarded_call_paths",
-            "archkeel.ir.source_proofs:class_instance_member_write_names"
+            "archkeel.ir.source_proofs:class_instance_member_write_names",
+            "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt"
           ],
-          "rationale": "Adapters publish immutable facts over the shared protocol, use the IR source-profile helper to classify test paths, and use the syntax-only source proof helper to emit bounded receiver mutation evidence. Core owns validation, ownership and policy; analyzers do not import it."
+          "rationale": "Adapters publish immutable facts over the shared protocol, use the IR source-profile helper to classify test paths, and use the syntax-only source proof helpers to emit bounded receiver mutation evidence and to check that a numeric evidence excerpt replays. Core owns validation, ownership and policy; analyzers do not import it."
         }
       ],
       "inside": "docs/architecture/contracts/analyzer.json",

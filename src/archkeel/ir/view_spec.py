@@ -22,6 +22,7 @@ from archkeel.ir.architecture_graph import (
     RelationshipKind,
     ResolutionKind,
 )
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import declares_a_target
 from archkeel.ir.facts import Evidence
 from archkeel.ir.flow_graph import (
@@ -40,7 +41,7 @@ from archkeel.ir.flow_graph import (
 )
 from archkeel.ir.graph_codec import non_empty_text
 from archkeel.ir.interfaces import component_owners
-from archkeel.ir.model import Observation, RawJson, Record, RecordData, Verdict
+from archkeel.ir.model import Observation, RawJson, Record, RecordData
 from archkeel.ir.ownership import partition
 from archkeel.ir.source_graph import observed_graph
 
@@ -652,7 +653,7 @@ def _observed_layers(
             everywhere[RelationshipKind.CALLS] = f"{record.title}: a call edge is never absent"
     incomplete = (
         "the source observation is incomplete"
-        if observation.coverage.status != Verdict.PASS
+        if not observation_complete(observation.coverage)
         else None
     )
     return {
@@ -746,7 +747,7 @@ def _view_graph(observation: Observation, *, story: bool) -> _Graph:
         frozenset(record.id for record in declarations if record.kind == _INSIDE_COMPONENT),
         {identity: owned.get(record.title, ()) for identity, record in components.items()},
         layers,
-        observation.coverage.status == Verdict.PASS and not observation.coverage.failures,
+        observation_complete(observation.coverage),
         declares_a_target(observation),
         touched["violations"],
         touched["unknowns"],
@@ -1190,9 +1191,7 @@ def _check_view(
         identity,
         spec.snapshot,
         current,
-        "complete"
-        if observation.coverage.status is Verdict.PASS and not observation.coverage.failures
-        else "incomplete",
+        "complete" if observation_complete(observation.coverage) else "incomplete",
         nodes,
         edges,
         steps,

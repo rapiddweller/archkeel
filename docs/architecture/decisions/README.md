@@ -327,3 +327,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-319 | [A collector process has a memory limit and a checked adapter version](ad-319-a-collector-process-has-a-memory-limit-and-a-checked-adapter-version.md) |
 | AD-320 | [The native collector records import statements with the grammar of the Python collector](ad-320-the-native-collector-records-import-statements.md) |
 | AD-321 | [One owner for the scope label and module membership](ad-321-one-owner-for-the-scope-label-and-module-membership.md) |
+| AD-322 | [One owner for coverage and for the numeric excerpt parser](ad-322-one-owner-for-coverage-and-the-numeric-excerpt-parser.md) |

@@ -1,11 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Characterization of the duplicated coverage logic in the IR and the rules (#880, step S2).
+"""Tests of the coverage logic that the IR and the rules shared as copies (#880, steps S2 and S3).
 
 D3 is the meaning of "the observation is complete". D4 is the meaning of "the scan roots cover
-the source". Each test calls one copy with shared cases and records what it returns today. Step
-S2 of #880 may merge the copies only if these tests stay true or an AD changes them.
+the source". Each test calls one caller with shared cases. #882 pinned the copies and showed
+where they differed. AD-322 merged them into `archkeel.ir.coverage` and chose one rule for each
+difference. These tests now pin that every caller gives the same answer.
 """
 
 from dataclasses import replace
@@ -23,7 +24,8 @@ from archkeel.ir.architecture_graph import (
     PresenceKind,
     RelationshipKind,
 )
-from archkeel.ir.decisions import _source_scope_covers_rule, rule_uncertainty_evidence
+from archkeel.ir.coverage import observation_covers_rule
+from archkeel.ir.decisions import rule_uncertainty_evidence
 from archkeel.ir.facts import SourceInfo
 from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData, Section, Verdict
 from archkeel.ir.module_explore import module_exploration
@@ -63,15 +65,10 @@ _STATES: dict[str, tuple[Verdict, tuple[Record, ...]]] = {
     FAIL: (Verdict.FAIL, ()),
     FAIL_WITH_FAILURES: (Verdict.FAIL, (_FAILURE,)),
 }
-# The copies that read the status only call a PASS with failures complete.
-STATUS_ONLY = {PASS: True, PASS_WITH_FAILURES: True, FAIL: False, FAIL_WITH_FAILURES: False}
-# The copies that read the status and the failures call only a clean PASS complete.
-STATUS_AND_FAILURES = {
-    PASS: True,
-    PASS_WITH_FAILURES: False,
-    FAIL: False,
-    FAIL_WITH_FAILURES: False,
-}
+# Only a clean PASS is complete (AD-322). Before, some copies also called a PASS with failures
+# complete and the others did not. The producer never writes that state: it sets FAIL when it
+# records a failure. A saved observation that was written by hand can have it.
+COMPLETE = {PASS: True, PASS_WITH_FAILURES: False, FAIL: False, FAIL_WITH_FAILURES: False}
 
 
 def _in_state(model: Observation, state: str) -> Observation:
@@ -91,16 +88,16 @@ def inheriting_sample(tmp_path_factory: pytest.TempPathFactory) -> Observation:
 
 
 @pytest.mark.parametrize("state", list(_STATES))
-def test_source_graph_coverage_reads_the_status_only(
+def test_source_graph_coverage_reads_the_status_and_the_failures(
     state: str, inheriting_sample: Observation
 ) -> None:
-    """Characterization: records current behaviour of source_graph.observed_graph coverage.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it.
+    """Records the behaviour of source_graph.observed_graph coverage.
+    AD-322 merged the copies of this check.
 
-    The inheritance, ownership and import rows of the graph follow the status, not the failures."""
+    The inheritance, ownership and import rows are complete only for a PASS without failures."""
     graph = observed_graph(_in_state(inheriting_sample, state))
     kinds = {item.id: item.kind for item in graph.entities}
-    expected = CoverageStatus.COMPLETE if STATUS_ONLY[state] else CoverageStatus.PARTIAL
+    expected = CoverageStatus.COMPLETE if COMPLETE[state] else CoverageStatus.PARTIAL
     for entity_kind, relationship in (
         (EntityKind.CLASS, RelationshipKind.INHERITS),
         (EntityKind.PACKAGE, RelationshipKind.OWNS),
@@ -115,9 +112,9 @@ def test_source_graph_coverage_reads_the_status_only(
 
 
 @pytest.mark.parametrize("state", list(_STATES))
-def test_report_projection_import_coverage_reads_the_status_only(state: str) -> None:
-    """Characterization: records current behaviour of report_projection._import_coverage.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+def test_report_projection_import_coverage_reads_the_status_and_the_failures(state: str) -> None:
+    """Records the behaviour of report_projection._import_coverage.
+    AD-322 merged the copies of this check."""
     model = _in_state(_ownership_model(), state)
     observed = observed_graph(model)
     modules = tuple(
@@ -126,49 +123,49 @@ def test_report_projection_import_coverage_reads_the_status_only(state: str) -> 
         if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
     )
     complete, unknowns = _import_coverage(model, observed, modules)
-    assert complete is STATUS_ONLY[state]
-    assert bool(unknowns) is (not STATUS_ONLY[state])
+    assert complete is COMPLETE[state]
+    assert bool(unknowns) is (not COMPLETE[state])
 
 
 @pytest.mark.parametrize("state", list(_STATES))
-def test_module_explore_import_status_reads_the_status_only(
+def test_module_explore_import_status_reads_the_status_and_the_failures(
     state: str, sample: Observation
 ) -> None:
-    """Characterization: records current behaviour of module_explore.module_exploration.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it.
+    """Records the behaviour of module_explore.module_exploration.
+    AD-322 merged the copies of this check.
 
-    The import status and the absence hints both follow the status, not the failures."""
+    The import status and the absence hints are PASS only for a PASS without failures."""
     model = _in_state(sample, state)
     level = next(item for item in module_exploration(model) if item.parent_id is None)
-    assert (level.import_status == "PASS") is STATUS_ONLY[state]
+    assert (level.import_status == "PASS") is COMPLETE[state]
     hints = {item.kind for item in level.hint_candidates}
-    assert ("no_owner" in hints) is STATUS_ONLY[state]
+    assert ("no_owner" in hints) is COMPLETE[state]
 
 
 @pytest.mark.parametrize("state", list(_STATES))
 def test_view_spec_view_graph_reads_the_status_and_the_failures(state: str) -> None:
-    """Characterization: records current behaviour of view_spec._view_graph.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+    """Records the behaviour of view_spec._view_graph.
+    AD-322 merged the copies of this check."""
     graph = _view_graph(_in_state(_ownership_model(), state), story=False)
-    assert graph.complete is STATUS_AND_FAILURES[state]
+    assert graph.complete is COMPLETE[state]
 
 
 @pytest.mark.parametrize("state", list(_STATES))
-def test_view_spec_view_graph_layer_reads_the_status_only(state: str) -> None:
-    """Characterization: records current behaviour of view_spec._view_graph layers.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+def test_view_spec_view_graph_layer_reads_the_status_and_the_failures(state: str) -> None:
+    """Records the behaviour of view_spec._view_graph layers.
+    AD-322 merged the copies of this check."""
     graph = _view_graph(_in_state(_ownership_model(), state), story=False)
     reason = graph.layers[RelationshipKind.IMPORTS].everywhere
-    assert (reason is None) is STATUS_ONLY[state]
+    assert (reason is None) is COMPLETE[state]
 
 
 @pytest.mark.parametrize("state", list(_STATES))
 def test_view_spec_check_view_reads_the_status_and_the_failures(state: str) -> None:
-    """Characterization: records current behaviour of view_spec.check_view.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+    """Records the behaviour of view_spec.check_view.
+    AD-322 merged the copies of this check."""
     model = _in_state(_ownership_model(), state)
     spec = ViewSpec(ViewSpecVersion.V1_0_0, "title", snapshot_identity(model), ())
-    expected = "complete" if STATUS_AND_FAILURES[state] else "incomplete"
+    expected = "complete" if COMPLETE[state] else "incomplete"
     assert check_view(spec, model, strict=False).snapshot_completeness == expected
 
 
@@ -176,14 +173,14 @@ def test_view_spec_check_view_reads_the_status_and_the_failures(state: str) -> N
 def test_decisions_rule_uncertainty_adds_incomplete_execution_for_status_or_failures(
     state: str,
 ) -> None:
-    """Characterization: records current behaviour of decisions.rule_uncertainty_evidence.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it.
+    """Records the behaviour of decisions.rule_uncertainty_evidence.
+    AD-322 merged the copies of this check.
 
     The rule has no receipt, so no scope is proven in any state."""
     base = _observation((), (_declaration("RULE-A", "complete_requires", ()),))
     model = replace(base, sections=(*base.sections, Section("unknowns", ())))
     result = rule_uncertainty_evidence(_in_state(model, state))
-    if STATUS_AND_FAILURES[state]:
+    if COMPLETE[state]:
         assert result == {}
     else:
         assert [item.cause.value for item in result["RULE-A"].actions] == ["incomplete_execution"]
@@ -206,49 +203,29 @@ _OFF_LAYOUT = (*_TREE, ("sample.a.b.c", "x.py"))
 _OTHER_LANGUAGE = (*_TREE, ("sample.ui", "src/sample/ui.ts"))
 _TS_TREE = (("sample.core", "src/sample/core.ts"), ("sample.peer", "src/sample/peer.ts"))
 
-# case id -> (source, modules, root, language, decisions result, rules result). The root is the
-# directory. The decisions copy reads it as `<root>/**/*.py`, the form the collector records;
-# the rules copy reads the directory itself. A root that starts with "!" is passed unchanged to
-# both copies.
-_CASES: dict[str, tuple[str, tuple[tuple[str, str], ...], str, str, bool, bool]] = {
-    "root is the source directory": ("sample", _TREE, "src", _PYTHON, True, True),
-    "root is the project root dot": ("sample", _TREE, ".", _PYTHON, True, True),
-    "root is a subdirectory below the source": (
-        "sample",
-        _TREE,
-        "src/sample/core",
-        _PYTHON,
-        False,
-        False,
-    ),
+# case id -> (source, modules, root, language, result). The root is the directory. A saved
+# observation records it as `<root>/**/*.py`, the form the Python collector writes; the rules read
+# the directory itself. A root that starts with "!" is a recorded scope: the observation reads it
+# as written and the rules read it without a trailing Python glob.
+_CASES: dict[str, tuple[str, tuple[tuple[str, str], ...], str, str, bool]] = {
+    "root is the source directory": ("sample", _TREE, "src", _PYTHON, True),
+    "root is the project root dot": ("sample", _TREE, ".", _PYTHON, True),
+    "root is a subdirectory below the source": ("sample", _TREE, "src/sample/core", _PYTHON, False),
     "root is exactly the source subdirectory": (
         "sample.core",
         _TREE,
         "src/sample/core",
         _PYTHON,
         True,
-        True,
     ),
-    "root is a sibling directory": ("sample", _TREE, "lib", _PYTHON, False, False),
-    "root is absolute": ("sample", _TREE, "/abs/src", _PYTHON, False, False),
-    "the source has no module": ("other", _TREE, "src", _PYTHON, False, False),
-    "root has a file of another language": ("sample", _OTHER_LANGUAGE, "src", _PYTHON, True, True),
-    "a module file is off the name layout": ("sample", _OFF_LAYOUT, "src", _PYTHON, True, False),
-    "typescript files under the root": ("sample", _TS_TREE, "src", _TYPESCRIPT, True, True),
-    "root is a recorded glob": ("sample", _TREE, "!src/**/*.py", _PYTHON, True, False),
-    "root is a recorded typescript glob": (
-        "sample",
-        _TS_TREE,
-        "!src/**/*.ts",
-        _TYPESCRIPT,
-        False,
-        False,
-    ),
-}
-# The cases where the two copies disagree for the same input.
-_DIFFERENT = {
-    "a module file is off the name layout",
-    "root is a recorded glob",
+    "root is a sibling directory": ("sample", _TREE, "lib", _PYTHON, False),
+    "root is absolute": ("sample", _TREE, "/abs/src", _PYTHON, False),
+    "the source has no module": ("other", _TREE, "src", _PYTHON, False),
+    "root has a file of another language": ("sample", _OTHER_LANGUAGE, "src", _PYTHON, True),
+    "a module file is off the name layout": ("sample", _OFF_LAYOUT, "src", _PYTHON, False),
+    "typescript files under the root": ("sample", _TS_TREE, "src", _TYPESCRIPT, True),
+    "root is a recorded glob": ("sample", _TREE, "!src/**/*.py", _PYTHON, True),
+    "root is a recorded typescript glob": ("sample", _TS_TREE, "!src/**/*.ts", _TYPESCRIPT, False),
 }
 
 
@@ -277,7 +254,7 @@ def _decision_result(source: str, modules: tuple[tuple[str, str], ...], root: st
         sections=(*base.sections, Section("modules", records)),
     )
     declaration = _declaration("RULE", "source_ownership", (("source", source),))
-    return _source_scope_covers_rule(model, declaration)
+    return observation_covers_rule(model, declaration)
 
 
 def _rules_result(
@@ -292,44 +269,41 @@ def _rules_result(
         profile=profile_for(language),
         package_scopes=(source,),
         exact_module_scopes=(),
-        scan_roots=(root.removeprefix("!"),),
+        scan_roots=(root.removeprefix("!").removesuffix("/**/*.py"),),
     )
 
 
 @pytest.mark.parametrize("case", list(_CASES))
 def test_decisions_source_scope_covers_rule_by_case(case: str) -> None:
-    """Characterization: records current behaviour of decisions._source_scope_covers_rule.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    source, modules, root, _, expected, _ = _CASES[case]
+    """Records the behaviour of coverage.observation_covers_rule."""
+    source, modules, root, _, expected = _CASES[case]
     assert _decision_result(source, modules, root) is expected
 
 
 @pytest.mark.parametrize("case", list(_CASES))
 def test_rules_source_domains_complete_by_case(case: str) -> None:
-    """Characterization: records current behaviour of rules.source_domains_complete.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    source, modules, root, language, _, expected = _CASES[case]
+    """Records the behaviour of rules.source_domains_complete."""
+    source, modules, root, language, expected = _CASES[case]
     assert _rules_result(source, modules, root, language) is expected
 
 
-def test_decisions_and_rules_scope_coverage_differ_for_exactly_these_cases() -> None:
-    """Characterization: records current behaviour of decisions._source_scope_covers_rule
-    and rules.source_domains_complete. Step S2 of #880 may merge the copies only if this stays
-    true or an AD changes it.
+def test_decisions_and_rules_scope_coverage_agree_for_every_case() -> None:
+    """The saved observation and the live scan give one answer for the same input.
 
-    The decisions copy strips a Python glob and ignores a module it cannot map. The rules copy
-    does neither: it needs every module of the package to sit under a root."""
+    #882 pinned two differences. A recorded glob is the same root as its directory, which is an
+    input form. A module whose file is off its name layout had an unknown physical domain. The
+    copy in `decisions` skipped it and called the scope covered, and `rules` did not. AD-322 chose
+    the rules answer: the scope is not covered, because the evidence cannot prove the domain."""
     different = {
         case
-        for case, (source, modules, root, language, _, _) in _CASES.items()
+        for case, (source, modules, root, language, _) in _CASES.items()
         if _decision_result(source, modules, root) != _rules_result(source, modules, root, language)
     }
-    assert different == _DIFFERENT
+    assert different == set()
 
 
 def test_rules_source_domains_complete_is_false_without_a_root_or_a_module() -> None:
-    """Characterization: records current behaviour of rules.source_domains_complete.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+    """Records the behaviour of rules.source_domains_complete."""
     records: Any = [{"id": "M", "data": {"qualified_name": "sample", "file": "src/sample.py"}}]
     python = profile_for(_PYTHON)
     for modules, roots in ((records, ()), ([], ("src",))):

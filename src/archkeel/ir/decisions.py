@@ -22,6 +22,7 @@ from .architecture_graph import ComponentRole
 from .baseline import ViolationFingerprint as _ViolationFingerprint
 from .baseline import violation_rows
 from .bindings import unread_bindings
+from .coverage import observation_complete, observation_covers_rule
 from .dependency import parse_dependency_selector
 from .duplication import repeated_logic
 from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
@@ -369,7 +370,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
         for row in rule_assessments(
             observation,
             undecided_by_rule=counts,
-            complete=observation.coverage.status == Verdict.PASS,
+            complete=observation_complete(observation.coverage),
         )
         if row.evaluation_proven
     }
@@ -382,7 +383,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
     for record in (*ownership_blockers, *observation.coverage.failures):
         for rule_id in record.rule_ids:
             records_by_rule.setdefault(rule_id, []).append(record)
-    if observation.coverage.status != Verdict.PASS or observation.coverage.failures:
+    if not observation_complete(observation.coverage):
         for declaration in observation.records("declarations") or ():
             if (
                 declaration.evidence_class == EvidenceClass.DECLARED_RULE
@@ -394,9 +395,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
     result: dict[str, RuleUncertainty] = {}
     for rule_id, records in sorted(records_by_rule.items()):
         actions = {_rule_uncertainty_action(record) for record in records}
-        if (
-            observation.coverage.status != Verdict.PASS or observation.coverage.failures
-        ) and rule_id not in complete_scopes:
+        if not observation_complete(observation.coverage) and rule_id not in complete_scopes:
             actions |= {_INCOMPLETE_EXECUTION_ACTION}
         result[rule_id] = RuleUncertainty(
             tuple(sorted(actions, key=lambda item: (item.cause.value, item.next_action))),
@@ -897,8 +896,7 @@ def _numeric_receipt_complete(
         and receipt.data.get("form") == form
         and bool(selected)
         and selected == expected_modules
-        and observation.coverage.status == Verdict.PASS
-        and not observation.coverage.failures
+        and observation_complete(observation.coverage)
         and set(receipt.fact_ids) == {item.id for item in operations}
         and receipt.data.get("operation_binding") == binding
         and _numeric_scope_proven(observation, receipt)
@@ -989,8 +987,7 @@ def _selector_receipt_complete(
         expected_inventory == expected_inventory_ids
         and tuple(sorted(receipt_inventory)) == expected_inventory_ids
         and set(receipt.fact_ids) == expected_fact_ids
-        and coverage.status == Verdict.PASS
-        and not coverage.failures
+        and observation_complete(coverage)
         and bool(selected_paths)
         and len(set(selected_paths)) == len(selected_paths)
         and coverage.files_discovered
@@ -1483,7 +1480,7 @@ def _scoped_dependency_receipt(
 def _rule_scope_complete(
     observation: Observation, declaration: Record, receipt: Record | None, complete: bool
 ) -> bool:
-    return (complete and observation.coverage.status == Verdict.PASS) or _scoped_dependency_receipt(
+    return (complete and observation_complete(observation.coverage)) or _scoped_dependency_receipt(
         observation, declaration, receipt
     )
 
@@ -1496,8 +1493,7 @@ def _call_owner_receipt_complete(observation: Observation, receipt: Record | Non
     coverage = observation.coverage
     selected = proof.get("selected_files")
     return (
-        coverage.status == Verdict.PASS
-        and not coverage.failures
+        observation_complete(coverage)
         and bool(receipt.rule_ids)
         and proof.get("result_digest")
         == rule_result_digest(observation.sections, receipt.rule_ids[0])
@@ -1557,8 +1553,7 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
     records = tuple(record for section in observation.sections for record in section.records)
     rule_id = receipt.rule_ids[0]
     return (
-        coverage.status == Verdict.PASS
-        and not coverage.failures
+        observation_complete(coverage)
         and isinstance(selected, tuple)
         and bool(selected)
         and coverage.files_discovered
@@ -1610,12 +1605,11 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
         not expected_modules
         or set(receipt.subjects) != expected_modules
         or proof.get("source_modules") != tuple(sorted(expected_modules))
-        or not _source_scope_covers_rule(observation, declarations[0])
+        or not observation_covers_rule(observation, declarations[0])
     ):
         return False
     return (
-        coverage.status == Verdict.PASS
-        and not coverage.failures
+        observation_complete(coverage)
         and isinstance(selected, tuple)
         and bool(selected)
         and coverage.files_discovered
@@ -1640,66 +1634,6 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
             observation.schema_version,
         )
     )
-
-
-def _source_scope_covers_rule(observation: Observation, declaration: Record) -> bool:
-    """Require scan roots to contain the mapped physical source prefix."""
-    source_value = declaration.data.get("source")
-    if not isinstance(source_value, str):
-        return False
-    source: str = source_value
-    root_paths: list[str] = []
-    for raw_scope in observation.source.scope:
-        scope: str = raw_scope
-        root_paths.append(scope.removesuffix("/**/*.py"))
-    roots = tuple(root_paths)
-    source_parts = tuple(source.split("."))
-    mapped_prefixes = tuple(
-        prefix
-        for item in observation.records("modules") or ()
-        if isinstance(name := item.data.get("qualified_name"), str)
-        and _qualified_module_under_source(name, source_parts)
-        and isinstance(file := item.data.get("file"), str)
-        and (prefix := _physical_source_prefix(name, file, source_parts)) is not None
-    )
-    return bool(mapped_prefixes) and all(
-        _physical_path_covered(prefix, roots) for prefix in mapped_prefixes
-    )
-
-
-def _qualified_module_under_source(name: str, source_parts: tuple[str, ...]) -> bool:
-    parts = tuple(name.split("."))
-    return parts[: len(source_parts)] == source_parts
-
-
-def _physical_source_prefix(
-    module: str, file: str, source_parts: tuple[str, ...]
-) -> _PurePosixPath | None:
-    """Map a source-qualified prefix through one observed module/file pair."""
-    module_parts = tuple(module.split("."))
-    path: _PurePosixPath = _PurePosixPath(file)
-    if len(module_parts) == len(source_parts):
-        return path
-    suffix = module_parts[len(source_parts) :]
-    physical_module = (
-        path.parent
-        if path.name == "__init__.py"
-        else _PurePosixPath(file.removesuffix(path.suffix))
-    )
-    if len(suffix) > len(physical_module.parts):
-        return None
-    prefix_parts = physical_module.parts[: len(physical_module.parts) - len(suffix)]
-    return _PurePosixPath(*prefix_parts) if prefix_parts else _PurePosixPath(".")
-
-
-def _physical_path_covered(path: _PurePosixPath, roots: tuple[str, ...]) -> bool:
-    for raw_root in roots:
-        root = _PurePosixPath(raw_root)
-        if root in {_PurePosixPath(""), _PurePosixPath(".")}:
-            return True
-        if path.parts[: len(root.parts)] == root.parts:
-            return True
-    return False
 
 
 def rule_assessments(
