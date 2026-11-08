@@ -21,3 +21,6 @@ fixtures/D-self/architecture.json
 
 # Verified browser dependency bridge; source bytes remain pinned in the tool lock.
 /node_modules/elkjs/
+
+# Cargo build output of the native collectors.
+/native/target/

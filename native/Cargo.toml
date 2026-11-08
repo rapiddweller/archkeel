@@ -1,0 +1,27 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# The workspace lives in native/: a root Cargo.toml would be a stray file in the repository root.
+[workspace]
+resolver = "2"
+members = ["wire", "typescript"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+archkeel-wire = { path = "wire" }
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
