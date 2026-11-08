@@ -1,4 +1,4 @@
-# AD-318 The host keeps one copy of each observation in explore
+# AD-318 The host keeps one copy of each observation in explore and does each loop's work once
 
 **Decision.** `archkeel explore` must not decode, parse or hold its own output a second time.
 Three changes make this true. The output of the command does not change.
@@ -47,7 +47,7 @@ not change that.
 ## Note, 2026-11-08: four host loops do their work once (#880, PR H step 4)
 
 A profile of `explore` on a React UI (907 files) found four loops that repeat work for each pair
-of items. They took about 29 % of the host time on Linux. The output does not change.
+of items (29 % of the host time on Linux). The output does not change.
 
 1. `transitive_paths` (`ir/graph.py`) walks once for each source and keeps the parent of each
    node, so the path is the one `shortest_path` returns. It searched once for each pair: 64 204 times.
@@ -56,8 +56,7 @@ of items. They took about 29 % of the host time on Linux. The output does not ch
 3. `CellFindings` (`ir/report_graph.py`) indexes the findings and assessments of a report by
    subject id once. Each import cell scanned the whole report, in the result build and the render.
 4. `LazyParsed` (`ir/source_records.py`) parses a raw item at its first lookup. The dependency
-   scope check in `check/observation.py` runs only for an incomplete scan and asks for a few gap
-   records. It parsed all of them first.
+   scope check (`check/observation.py`, incomplete scans only) asks for a few gap records. It parsed all.
 
 **Limit.** With lazy parsing an invalid internal record fails later: the model parser in
 `assemble_observation` still reads every record. A parse error inside a lookup ends the check
@@ -66,5 +65,6 @@ binds it. `archkeel.api` and the file sizes of AD-314 do not grow.
 **Rejected.** A faster `_json_value` in `facts_codec.py` (PR 3 and PR 6 replace it), a path cache
 across the two passes, and a module cache keyed by `id(report)`. **Not done.** The three
 validations of the same facts, the render rebuild and the repeat of pass 2 wait for protocol 10.
-**Check.** `test_graph_transitive_paths.py`, `test_source_import_gaps.py`,
-`test_report_cell_findings.py` and `test_collector_lazy_certify.py` keep each old definition as an oracle.
+**Check.** Four tests (`test_graph_transitive_paths`, `test_source_import_gaps`,
+`test_report_cell_findings`, `test_collector_lazy_certify`) keep each old definition as an oracle.
+`test_dependency_scope_gap_check` pins that a broken gap gives no proof.
