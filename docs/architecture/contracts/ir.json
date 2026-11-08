@@ -4044,6 +4044,35 @@
           }
         },
         {
+          "id": "IR-UML-graph_codec.report_payload",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.graph_codec.report_payload",
+          "language": "python",
+          "parent_id": "IR-UML-graph_codec",
+          "presence": "planned",
+          "responsibilities": [
+            "Return the validated report boundary as its wire object; report_bytes writes it (AD-324)."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-324-the-host-writes-a-large-report-in-pieces-and-frees-each-copy.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "report",
+                "annotation": "ArchitectureReport",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "dict[str, object]"
+          }
+        },
+        {
           "id": "IR-UML-graph_codec.parse_external_scope",
           "kind": "function",
           "qualified_name": "archkeel.ir.graph_codec.parse_external_scope",

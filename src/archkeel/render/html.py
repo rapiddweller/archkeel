@@ -806,7 +806,7 @@ def _flow_section(observation: Observation) -> str:
 def _with_payload(page: bytes, payload: dict[str, object]) -> bytes:
     """AD-324: put the payload at the mark of the page as bytes. The page text never holds it."""
     if page.count(_PAYLOAD_MARK) != 1:
-        raise ValueError("an Atlas page needs its payload mark exactly once")
+        raise ValueError("the page text must hold the reserved payload mark once")
     head, _, tail = page.partition(_PAYLOAD_MARK)
     out = _BytesIO()
     out.write(head)
