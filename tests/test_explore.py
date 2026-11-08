@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-285: `archkeel explore` shows the as-is code of a repository that has no contract."""
 
+import gc
 import hashlib
 import json
 import os
@@ -17,12 +18,13 @@ from test_result_schema import _validator
 
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check import observation as observation_module
-from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
+from archkeel.check import report as report_module
+from archkeel.check.ports import Language, ScanConfig
+from archkeel.check.report import run_explore, run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
-from archkeel.cli.observe import observe
+from archkeel.cli.observe import observe, observer_for
 from archkeel.ir.codec import (
     canonical_json_bytes,
     decode_canonical_model,
@@ -30,6 +32,7 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.diagnostics import Diagnostic
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.model import Command, DiagnosticCode, DiagnosticKind, ObservationResult, RunResult
 from archkeel.ir.report_graph import architecture_report
 from archkeel.render import html as html_renderer
@@ -1325,6 +1328,29 @@ def test_an_assembled_model_reads_the_same_without_a_json_round_trip(
     assert any("rule_evaluation" in json.dumps(model, default=list) for model in models)
     for model in models:
         assert real(model) == real(decode_json(canonical_json_bytes(model)))
+
+
+def test_explore_frees_the_source_facts_before_it_encodes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repository(tmp_path / "repo")
+
+    def alive() -> int:
+        gc.collect()
+        return sum(isinstance(item, SourceFacts) for item in gc.get_objects())
+
+    before, seen = alive(), []
+    real = report_module.canonical_report_bytes
+
+    def encode(observation):
+        seen.append(alive())
+        return real(observation)
+
+    monkeypatch.setattr(report_module, "canonical_report_bytes", encode)
+
+    run_explore(root, observer=observer_for(Language.PYTHON))
+
+    assert seen == [before]
 
 
 @pytest.mark.browser

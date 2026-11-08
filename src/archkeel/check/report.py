@@ -129,10 +129,7 @@ _CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_ca
 
 
 def _baseline_report(
-    root: Path,
-    baseline: Path,
-    model: Observation,
-    current_rules: dict[str, RuleAssessment],
+    root: Path, baseline: Path, model: Observation, current_rules: dict[str, RuleAssessment]
 ) -> tuple[str, tuple[BaselineViolationComparison, ...]]:
     baseline_file = baseline if baseline.is_absolute() else root / baseline
     baseline_file = baseline_file.resolve()
@@ -815,7 +812,8 @@ def run_explore(
     The first pass finds the modules, the second records their layout grouping as components.
     The temporary contract has no rule, so the result has no rule verdict.
     """
-    scan = replace(observer, collector=_CollectOnce(observer.collector), exclude_test_sources=True)
+    once = _CollectOnce(observer.collector)
+    scan = replace(observer, collector=once, exclude_test_sources=True)
     try:
         roots, namespace = scan_scope(
             root, source=source, namespace=namespace, language=language, tsconfig=tsconfig
@@ -863,6 +861,8 @@ def run_explore(
                     "Create a Git commit in the repository, then retry archkeel explore.",
                 )
             ) from error
+    # Both passes are done. Free the facts before the report is encoded and rendered.
+    once.facts = None
     observed, notes = _range_notes(observed)
     result, architecture = _observed_report(observed, None, root=root)
     # No contract, so no pair of components waits for a decision.
