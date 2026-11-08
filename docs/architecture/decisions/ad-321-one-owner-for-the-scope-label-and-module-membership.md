@@ -16,8 +16,9 @@ owner of AD-315 and imports only `architecture_graph` and `dependency`. This is 
 (`report_graph`, `report_projection`, `module_explore`). The same membership was computed twice
 in `report_graph` and `report_projection`, and a third time in `module_explore`. `decisions` held
 the walk over the enclosing components twice. `owner_of` moves from `interfaces` to `ownership`.
-`levels`, `view_spec`, `report_graph`, `report_projection`, `module_explore`, `decisions` and
-`check.validation.observation` now call it.
+`view_spec`, `report_graph`, `report_projection`, `module_explore`, `decisions` and
+`check.validation.observation` now call it. `levels` called it too, until the update below
+deleted that module.
 
 **Two copies disagreed. This decision chooses the rule.**
 - `report_graph` used the entity name for a missing label. The others used the component id. The
@@ -36,9 +37,20 @@ Target intents, as the projection does. An inside level without an intent can no
 one-claimant rule.
 
 **Not changed.** The ownership rules in `check.evaluation.rules` count claimants per module and
-add the blank `__init__.py` exception. They stay. `inside_levels` still reads the declaration
-records and its tests stay. Only tests call it now, because the report reads the Target intents.
-Whether to delete it is a later decision.
+add the blank `__init__.py` exception. They stay.
+
+**Update 2026-11-08 (issue #880).** `archkeel.ir.levels` is deleted. After this decision only
+tests called `inside_levels`, because the report reads the Target intents. Its tests now read the
+report memberships from `architecture_report`, which call `ownership`.
+
+Two behaviours existed only in `levels`. Both are dropped.
+- The import count for each pair of sub-components. The violation records and the import sites of
+  the report carry the crossing.
+- The empty result for an observation without an inside.
+
+The baseline of `calls_unresolved` falls from 972 to 971. The amendment
+`ad-321-levels-amendment.json` binds both contracts. A module that leaves `exact_modules` counts
+as a change of the ownership list.
 
 **Reason.** One rule with three spellings gives three answers on the first edge case. The
 characterization tests of #882 pinned each copy and showed where they differ. A reader of the

@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 from test_architecture_owner_characterization import (
+    _declaration,
     _intent,
     _label_target,
     _memberships_by_id,
     _ownership_model,
     _target,
 )
-from test_levels import _declaration
 
 from archkeel.ir.ownership import (
     containing,

@@ -71,7 +71,7 @@ PR_TEST_FILES := \
 	tests/test_runtime_delta.py tests/test_delta_version_types.py tests/test_comparison_support_types.py tests/test_nullable_profile_measurements.py tests/test_source_section_types.py tests/test_graph_topology_level_types.py \
 	tests/test_collection_runtime_gate.py tests/test_ratchets.py tests/test_model.py tests/test_trace.py tests/test_violations.py \
 	tests/test_typescript_demo.py tests/test_onboarding_guidance.py \
-	tests/test_references.py tests/test_levels.py tests/test_recursive_inside_contracts.py tests/test_widening.py tests/test_measurement_budgets.py tests/test_typed_amendment_artifact.py \
+	tests/test_references.py tests/test_recursive_inside_contracts.py tests/test_widening.py tests/test_measurement_budgets.py tests/test_typed_amendment_artifact.py \
 	tests/test_onboarding.py tests/test_terminal.py tests/test_summary_badge_types.py tests/test_summary_badge_target.py \
 	tests/test_onboarding_demo.py tests/test_pypi_description.py tests/test_typescript_onboarding.py \
 	tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_inside_rule_parity.py tests/test_report_rule_evidence.py \

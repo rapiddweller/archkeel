@@ -6,13 +6,19 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from contextlib import nullcontext
 from hashlib import sha256
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from graph_report_support import commit_tree as _commit_tree
+from graph_report_support import (
+    committed_report,
+    import_sites,
+    member_modules,
+)
+from graph_report_support import scan_config as _scan_config
 from test_analyzer import _component, _observe
 from test_delta import _model
 from test_expectation import _expectation_payload
@@ -42,7 +48,6 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.graph_codec import parse_report
-from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
 from archkeel.ir.model import ArchitectureContract
 from archkeel.ir.widening import Amendment
@@ -69,10 +74,6 @@ def _contract(
     components: list[dict[str, object]], rules: list[dict[str, object]]
 ) -> dict[str, object]:
     return {"schema_version": "2.1.0", "components": components, "rules": rules}
-
-
-def _scan_config() -> ScanConfig:
-    return ScanConfig(("sample",), "sample", "contract.json", "0" * 64)
 
 
 def _load_tree(root: Path, contract: ArchitectureContract):
@@ -145,18 +146,6 @@ def _forbidden_edge() -> dict[str, object]:
         "provenance": _PROVENANCE,
         "decided_by": "architect",
     }
-
-
-def _commit_tree(root: Path) -> str:
-    for args in (
-        ["git", "init", "-q", "-b", "main"],
-        ["git", "config", "user.email", "qa@example.invalid"],
-        ["git", "config", "user.name", "QA"],
-        ["git", "add", "-A"],
-        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "base"],
-    ):
-        subprocess.run(args, cwd=root, check=True, capture_output=True)
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
 
 
 def test_one_level_explicit_inside_remains_a_supported_positive_control(tmp_path: Path) -> None:
@@ -334,22 +323,12 @@ def test_deep_inside_level_owns_its_modules_and_crossing(tmp_path: Path) -> None
         deep_rules=[_forbidden_edge()],
         source_import="from sample.layer.target.api import VALUE\n",
     )
-    result = _observe(tmp_path)
-    assert result.observation is not None
+    report = committed_report(tmp_path)
 
-    deep = next(level for level in inside_levels(result.observation) if level.parent == "app:app")
-    components = {item.label: item for item in deep.components}
-    assert components["source"].modules == (
-        "sample.layer.source",
-        "sample.layer.source.api",
-    )
-    assert components["target"].modules == (
-        "sample.layer.target",
-        "sample.layer.target.api",
-    )
-    assert [(edge.source, edge.target, edge.import_sites) for edge in deep.edges] == [
-        ("source", "target", 1)
-    ]
+    members = member_modules(report)
+    assert members["app:app:source"] == ("sample.layer.source", "sample.layer.source.api")
+    assert members["app:app:target"] == ("sample.layer.target", "sample.layer.target.api")
+    assert len(import_sites(report, "sample.layer.source.api", "sample.layer.target.api")) == 1
 
 
 def test_deep_inside_violation_is_reachable_in_rendered_flow_data(tmp_path: Path) -> None:

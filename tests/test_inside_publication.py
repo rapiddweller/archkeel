@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+from graph_report_support import committed_report, member_modules, unassigned_modules
 from test_analyzer import _component, _inside_component, _observe
 from test_recursive_inside_independent_contracts import (
     _commit_tree,
@@ -24,7 +25,6 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.levels import inside_levels
 from archkeel.ir.trace import trace_valid_violations
 
 
@@ -348,12 +348,12 @@ def test_overlapping_child_scopes_leave_init_and_ambiguous_module_unassigned(
         },
     )
 
-    result = _observe(tmp_path)
-    assert result.observation is not None, result.diagnostics
-    level = next(item for item in inside_levels(result.observation) if item.parent == "core")
-    assert level.unassigned == ("sample.core", "sample.core.api.nested")
-    owners = {item.label: item.modules for item in level.components}
-    assert owners == {"api": ("sample.core.api",), "nested": ()}
+    report = committed_report(tmp_path)
+
+    assert unassigned_modules(report)["core"] == ("sample.core", "sample.core.api.nested")
+    members = member_modules(report)
+    assert members["core:api"] == ("sample.core.api",)
+    assert members["core:nested"] == ()
 
 
 @pytest.mark.parametrize(

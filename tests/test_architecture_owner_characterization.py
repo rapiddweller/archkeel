@@ -13,7 +13,6 @@ from typing import Any
 
 import pytest
 from test_delta import _evidence, _model
-from test_levels import _declaration
 from test_module_explore import _sample
 
 from archkeel.check.evaluation.rules import (
@@ -31,7 +30,6 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.codec import parse_observation
 from archkeel.ir.interfaces import component_owners
-from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     ArchitectureContract,
     CompleteRequiresRule,
@@ -46,6 +44,23 @@ from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.view_spec import _view_graph
 
 _ANALYZER = "archkeel-python-analyzer"
+
+
+def _declaration(identifier: str, kind: str, title: str, subjects: list[str], **data: Any):
+    return {
+        "id": identifier,
+        "evidence_class": "DECLARED_RULE",
+        "area": "components",
+        "kind": kind,
+        "title": title,
+        "subjects": subjects,
+        "evidence_ids": [],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": data,
+    }
+
 
 # D2 shared cases: component -> (packages, exact modules). The set has an overlap and an exact
 # module. `shared` lies inside `core`, so a module under `sample.core.shared` has two owners.
@@ -268,18 +283,6 @@ def test_report_graph_memberships_do_not_depend_on_the_label_or_the_entity_name(
     assert by_id["COMP-LOOSE"] == ("sample.loose.m",)
 
 
-def test_levels_inside_levels_keys_a_nested_scope_by_parent_and_title() -> None:
-    """Characterization: records current behaviour of levels.inside_levels.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    levels = {item.parent: item for item in inside_levels(_inside_model())}
-    assert set(levels) == {"core", "core:a"}
-    deep = levels["core:a"]
-    assert [(item.label, item.packages, item.modules) for item in deep.components] == [
-        ("deep", ("sample.core.a.deep",), ("sample.core.a.deep.m",))
-    ]
-    assert deep.unassigned == ("sample.core.a.m",)
-
-
 def test_observation_diagnostics_inside_pointers_walks_the_parent_title_chain() -> None:
     """Characterization: records current behaviour of observation._inside_pointers.
     Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
@@ -470,9 +473,11 @@ def test_report_graph_memberships_gives_two_inside_claimants_no_module() -> None
     }
 
 
-def test_levels_inside_levels_leaves_overlapping_and_unclaimed_modules_unassigned() -> None:
-    """Characterization: records current behaviour of levels.inside_levels.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+def test_report_graph_memberships_leave_overlapping_and_unclaimed_modules_with_the_parent() -> None:
+    """Characterization: records current behaviour of report_graph._memberships.
+
+    Two siblings claim `sample.core.a`, so neither owns a module there. No sibling claims
+    `sample.core.c`. The parent keeps both. The one owner of `sample.core.b` gets its module."""
     declarations = [
         _declaration("COMP-CORE", "component_responsibility", "core", ["sample.core"]),
         *(
@@ -490,14 +495,20 @@ def test_levels_inside_levels_leaves_overlapping_and_unclaimed_modules_unassigne
             )
         ),
     ]
+    target = _target(
+        _intent("COMP-CORE", "core", packages=("sample.core",)),
+        _intent("COMP-a", "a", "COMP-CORE", packages=("sample.core.a",)),
+        _intent("COMP-b", "b", "COMP-CORE", packages=("sample.core.b",)),
+        _intent("COMP-ab", "ab", "COMP-CORE", packages=("sample.core.a",)),
+    )
     modules = ["sample.core.a.m", "sample.core.b.m", "sample.core.c", "sample.peer.p"]
-    (level,) = inside_levels(_ownership_model(declarations, modules))
-    assert {item.label: item.modules for item in level.components} == {
-        "a": (),
-        "ab": (),
-        "b": ("sample.core.b.m",),
+    members = _memberships_by_id(_ownership_model(declarations, modules), target)
+    assert {identity: set(names) for identity, names in members.items()} == {
+        "COMP-CORE": {"sample.core.a.m", "sample.core.b.m", "sample.core.c"},
+        "COMP-a": set(),
+        "COMP-ab": set(),
+        "COMP-b": {"sample.core.b.m"},
     }
-    assert level.unassigned == ("sample.core.a.m", "sample.core.c")
 
 
 def test_view_spec_view_graph_members_lists_only_unique_root_owners() -> None:

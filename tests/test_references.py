@@ -63,8 +63,7 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
     assert result.symbols > 400
     # These compatibility surfaces deliberately remain visible in the report:
     # _PropertyBinding preserves mapping/keyword construction; State and Role retain
-    # explicitly exported aliases. inside_levels reads the declaration records of an inside; since
-    # AD-321 only tests call it, because the report reads the Target intents.
+    # explicitly exported aliases.
     legacy = {
         candidate.name: (candidate.kind, candidate.visibility, candidate.module)
         for candidate in result.candidates
@@ -73,11 +72,9 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
             "archkeel.analyzer.python.source._PropertyBinding",
             "archkeel.render.summary.State",
             "archkeel.analyzer.typescript.config.Role",
-            "archkeel.ir.levels.inside_levels",
         }
     }
     assert legacy == {
-        "archkeel.ir.levels.inside_levels": ("function", "public_name", "archkeel.ir.levels"),
         "archkeel.analyzer.python.source._PropertyBinding": (
             "class",
             "private",

@@ -153,7 +153,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_projection_ownership_reuse.py",
         "test_saved_report.py",
         "test_own_uml_target.py",
-        "test_levels.py",
         "test_ownership.py",
         "test_coverage.py",
         "test_excerpt_parsers.py",
