@@ -22,7 +22,7 @@ from .architecture_graph import ComponentRole
 from .baseline import ViolationFingerprint as _ViolationFingerprint
 from .baseline import violation_rows
 from .bindings import unread_bindings
-from .codec_contract import parse_dependency_selector
+from .dependency import parse_dependency_selector
 from .duplication import repeated_logic
 from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
 from .facts import RuntimeRequirementState as _RuntimeRequirementState
@@ -904,7 +904,7 @@ def _numeric_receipt_complete(
     )
 
 
-def _rule_receipt_complete(
+def rule_receipt_complete(
     observation: Observation, declaration: Record, receipt: Record | None
 ) -> bool:
     if declaration.kind == "forbidden_construct" and declaration.data.get("selector") is not None:
@@ -1744,7 +1744,7 @@ def rule_assessments(
         undecided = undecided_by_rule.get(identifier, 0)
         violation_count = violations[identifier]
         receipt = receipts.get(identifier)
-        receipt_complete = _rule_receipt_complete(observation, declaration, receipt)
+        receipt_complete = rule_receipt_complete(observation, declaration, receipt)
         scope_complete = _rule_scope_complete(observation, declaration, receipt, complete)
         evaluation_proven = scope_complete and receipt_complete
         declared_only = declaration.kind == "allowed_dependency"

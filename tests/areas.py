@@ -164,6 +164,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_result_schema.py",
         "test_decisions.py",
         "test_repository_hygiene.py",
+        "test_ir_owners.py",
         "test_make_gate.py",
         "test_browser_*.py",
         "test_mermaid.py",

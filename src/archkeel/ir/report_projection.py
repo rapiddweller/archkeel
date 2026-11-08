@@ -35,9 +35,8 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
     UsageProjection,
 )
-from archkeel.ir.codec_contract import parse_dependency_selector
 from archkeel.ir.decisions import rule_assessment_applies_to_component
-from archkeel.ir.dependency import DependencyOwner, DependencySelector
+from archkeel.ir.dependency import DependencyOwner, DependencySelector, parse_dependency_selector
 from archkeel.ir.facts import EvidenceClass as _EvidenceClass
 from archkeel.ir.facts import Record
 from archkeel.ir.model import (

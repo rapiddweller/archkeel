@@ -10,7 +10,6 @@ from archkeel.ir.codec_contract import (
     contract_bytes,
     contract_digest,
     parse_contract,
-    parse_dependency_selector,
     parse_required_component,
 )
 from archkeel.ir.codec_delta import (
@@ -51,6 +50,7 @@ from archkeel.ir.codec_wire import (
     decode_json,
     value_bytes,
 )
+from archkeel.ir.dependency import parse_dependency_selector
 from archkeel.ir.facts_codec import (
     parse_evidence,
     parse_record,

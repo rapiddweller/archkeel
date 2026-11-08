@@ -131,8 +131,8 @@ def _repository(tmp_path, *, old=None, new=None, probe="", guard_source="archkee
     target.pop("$schema", None)
     target["components"] = [
         {
-            "id": "TARGET-GOVERNANCE",
-            "label": "governance",
+            "id": "TARGET-ARCHITECTURE",
+            "label": "architecture",
             "role": "component",
             "packages": ["archkeel.ir.host_records"],
             "responsibilities": ["Own replayable host records."],

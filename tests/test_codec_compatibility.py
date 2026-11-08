@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from archkeel.ir import codec, facts_codec, model
+from archkeel.ir import codec, dependency, facts_codec, model
 
 OWNERS = {
     "wire": ("canonical_json_bytes", "decode_json", "value_bytes"),
@@ -28,7 +28,6 @@ OWNERS = {
         "CONTRACT_SCHEMA_VERSION",
         "ContractVersionError",
         "parse_contract",
-        "parse_dependency_selector",
         "contract_bytes",
         "contract_digest",
         "absent_contract_digest",
@@ -73,6 +72,7 @@ def test_existing_value_and_fact_aliases_keep_their_owners():
     ):
         assert getattr(codec, name) is getattr(model, name)
     assert codec.parse_record is facts_codec.parse_record
+    assert codec.parse_dependency_selector is dependency.parse_dependency_selector
     assert codec.parse_evidence is facts_codec.parse_evidence
     assert not hasattr(codec, "load_observation")
 
@@ -86,6 +86,7 @@ def test_star_import_retains_the_declared_public_bindings():
         "InsideContractTree",
         "parse_record",
         "parse_evidence",
+        "parse_dependency_selector",
     }
     namespace = {}
     exec("from archkeel.ir.codec import *", namespace)

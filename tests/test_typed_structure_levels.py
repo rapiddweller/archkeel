@@ -80,8 +80,8 @@ def _repository(tmp_path, *, mutation=None, relocate=False):
     assert entities, "the consumed structure port needs independently authored intent"
     target["components"] = [
         {
-            "id": "TARGET-GOVERNANCE",
-            "label": "governance",
+            "id": "TARGET-ARCHITECTURE",
+            "label": "architecture",
             "role": "component",
             "packages": ["archkeel.ir.structure"],
             "responsibilities": ["Own pure structure measurements and their closed level."],

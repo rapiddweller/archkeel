@@ -45,8 +45,8 @@ def _contract():
         "schema_version": "3.5.0",
         "components": [
             {
-                "id": "TARGET-GOVERNANCE",
-                "label": "governance",
+                "id": "TARGET-ARCHITECTURE",
+                "label": "architecture",
                 "role": "component",
                 "packages": ["archkeel.ir"],
                 "responsibilities": ["Own canonical rule intent."],

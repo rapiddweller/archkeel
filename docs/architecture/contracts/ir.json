@@ -160,22 +160,26 @@
       ]
     },
     {
-      "id": "TARGET-GOVERNANCE",
-      "label": "governance",
+      "id": "TARGET-ARCHITECTURE",
+      "label": "architecture",
       "role": "component",
-      "packages": [
+      "packages": [],
+      "responsibilities": [
+        "Own the typed architecture model, contract and target graphs, structure, interfaces, lock, baseline, widening and diagnostics."
+      ],
+      "forbidden_responsibilities": [
+        "Wire decoding and encoding, rule decisions and report projections.",
+        "Parsing, process I/O and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md",
+        "docs/architecture/decisions/ad-315-ir-owners-are-inner-components-of-core.md"
+      ],
+      "decided_by": "architect",
+      "exact_modules": [
         "archkeel.ir.baseline",
         "archkeel.ir.bindings",
-        "archkeel.ir.codec",
-        "archkeel.ir.codec_contract",
-        "archkeel.ir.codec_delta",
-        "archkeel.ir.codec_governance",
-        "archkeel.ir.codec_inside",
-        "archkeel.ir.codec_observation",
-        "archkeel.ir.codec_result",
-        "archkeel.ir.codec_wire",
-        "archkeel.ir.decisions",
-        "archkeel.ir.digest",
         "archkeel.ir.duplication",
         "archkeel.ir.graph",
         "archkeel.ir.host_records",
@@ -183,70 +187,36 @@
         "archkeel.ir.levels",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
-        "archkeel.ir.phases",
         "archkeel.ir.model",
         "archkeel.ir.references",
-        "archkeel.ir.renames",
         "archkeel.ir.structure",
-        "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
         "archkeel.ir.widening",
         "archkeel.ir.architecture_projection",
-        "archkeel.ir.report_projection",
-        "archkeel.ir.command_view",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.graph_codec",
         "archkeel.ir.source_graph",
         "archkeel.ir.target_graph",
-        "archkeel.ir.target_records",
         "archkeel.ir.diagnostics",
         "archkeel.ir.amendment",
-        "archkeel.ir.amendment_codec",
-        "archkeel.ir.collection_features",
-        "archkeel.ir.findings",
-        "archkeel.ir.view_spec",
-        "archkeel.ir.flow_graph",
-        "archkeel.ir.story"
-      ],
-      "responsibilities": [
-        "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
-      ],
-      "forbidden_responsibilities": [
-        "Parsing, process I/O and workflow orchestration.",
-        "I/O, command orchestration and wire codecs invoking projection policy."
-      ],
-      "provenance": [
-        "docs/architecture/language-adapter-target.md",
-        "docs/architecture/target/design.md"
-      ],
-      "decided_by": "agent",
-      "exact_modules": [
-        "archkeel.ir",
-        "archkeel.ir.report_graph",
-        "archkeel.ir.module_explore"
+        "archkeel.ir"
       ],
       "requires": [
         {
           "component": "facts",
-          "rationale": "Compose source facts into governance models.",
-          "decided_by": "agent"
+          "rationale": "Compose source facts into the architecture model.",
+          "decided_by": "architect"
         },
         {
           "component": "profiles",
           "rationale": "Validate source sections against a known profile.",
-          "decided_by": "agent"
-        },
-        {
-          "component": "facts-codec",
-          "rationale": "Decode validated source sections.",
-          "decided_by": "agent"
+          "decided_by": "architect"
         },
         {
           "component": "dependency-policy",
           "through": [
             "archkeel.ir.dependency"
           ],
-          "rationale": "Use the single typed dependency selection API; retain model compatibility exports without a second matcher.",
+          "rationale": "Use the single typed dependency selection API without a second matcher.",
           "decided_by": "architect"
         },
         {
@@ -254,16 +224,13 @@
           "through": [
             "archkeel.ir.contract_version"
           ],
-          "rationale": "The model and contract codec consume one nominal version and feature-availability policy.",
+          "rationale": "The model consumes one nominal version and feature-availability policy.",
           "decided_by": "architect"
         }
       ],
       "public": [
         "archkeel.ir.baseline",
         "archkeel.ir.bindings",
-        "archkeel.ir.codec",
-        "archkeel.ir.decisions",
-        "archkeel.ir.digest",
         "archkeel.ir.duplication",
         "archkeel.ir.graph",
         "archkeel.ir.host_records",
@@ -273,17 +240,12 @@
         "archkeel.ir.measurements",
         "archkeel.ir.model",
         "archkeel.ir.references",
-        "archkeel.ir.renames",
         "archkeel.ir.structure",
-        "archkeel.ir.trace",
         "archkeel.ir.type_fanin",
         "archkeel.ir.widening",
         "archkeel.ir.architecture_graph",
-        "archkeel.ir.graph_codec",
         "archkeel.ir.source_graph",
         "archkeel.ir.target_graph",
-        "archkeel.ir.target_records",
-        "archkeel.ir.report_graph",
         "archkeel.ir.architecture_projection:ArchitectureProjection",
         "archkeel.ir.architecture_projection:ModuleProjection",
         "archkeel.ir.architecture_projection:RequiresProjection",
@@ -295,12 +257,6 @@
         "archkeel.ir.architecture_projection:RequiredRelationshipProjection",
         "archkeel.ir.architecture_projection:OwnershipGap",
         "archkeel.ir.architecture_projection:UnknownProjection",
-        "archkeel.ir.report_projection:architecture_projection",
-        "archkeel.ir.module_explore:ModuleStatistic",
-        "archkeel.ir.module_explore:ModuleImportCell",
-        "archkeel.ir.module_explore:HintCandidate",
-        "archkeel.ir.module_explore:ModuleExploreLevel",
-        "archkeel.ir.module_explore:module_exploration",
         "archkeel.ir.diagnostics:DiagnosticKind",
         "archkeel.ir.diagnostics:DiagnosticCode",
         "archkeel.ir.diagnostics:Diagnostic",
@@ -311,8 +267,210 @@
         "archkeel.ir.amendment:Amendment",
         "archkeel.ir.amendment:verify_amendment",
         "archkeel.ir.architecture_projection:PermissionStatus",
+        "archkeel.ir.amendment:AMENDMENT_SCHEMA_VERSION"
+      ]
+    },
+    {
+      "id": "TARGET-EVIDENCE",
+      "label": "evidence",
+      "role": "component",
+      "packages": [],
+      "responsibilities": [
+        "Own rule decisions, the trace of evidence, digests, phase timings and collection features."
+      ],
+      "forbidden_responsibilities": [
+        "Wire decoding and encoding, report projections and view preparation.",
+        "Parsing, process I/O and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md",
+        "docs/architecture/decisions/ad-315-ir-owners-are-inner-components-of-core.md"
+      ],
+      "decided_by": "architect",
+      "exact_modules": [
+        "archkeel.ir.decisions",
+        "archkeel.ir.digest",
+        "archkeel.ir.phases",
+        "archkeel.ir.trace",
+        "archkeel.ir.collection_features"
+      ],
+      "requires": [
+        {
+          "component": "architecture",
+          "rationale": "Decide rules on the architecture model and its graphs.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "facts",
+          "rationale": "Read source facts and evidence identities.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "facts-codec",
+          "rationale": "Read validated source sections.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "dependency-policy",
+          "through": [
+            "archkeel.ir.dependency"
+          ],
+          "rationale": "Read the dependency selector of a declaration record with the single typed grammar.",
+          "decided_by": "architect"
+        }
+      ],
+      "public": [
+        "archkeel.ir.decisions",
+        "archkeel.ir.digest",
+        "archkeel.ir.trace",
         "archkeel.ir.collection_features:required_resolution_features",
-        "archkeel.ir.collection_features:rule_resolution_features",
+        "archkeel.ir.collection_features:rule_resolution_features"
+      ]
+    },
+    {
+      "id": "TARGET-WIRE",
+      "label": "wire",
+      "role": "component",
+      "packages": [],
+      "responsibilities": [
+        "Own strict wire conversion of contracts, baselines, observations, deltas, results and graphs."
+      ],
+      "forbidden_responsibilities": [
+        "Rule decisions and report projections.",
+        "Parsing, process I/O and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md",
+        "docs/architecture/decisions/ad-315-ir-owners-are-inner-components-of-core.md"
+      ],
+      "decided_by": "architect",
+      "exact_modules": [
+        "archkeel.ir.codec",
+        "archkeel.ir.codec_contract",
+        "archkeel.ir.codec_delta",
+        "archkeel.ir.codec_governance",
+        "archkeel.ir.codec_inside",
+        "archkeel.ir.codec_observation",
+        "archkeel.ir.codec_result",
+        "archkeel.ir.codec_wire",
+        "archkeel.ir.renames",
+        "archkeel.ir.command_view",
+        "archkeel.ir.graph_codec",
+        "archkeel.ir.target_records",
+        "archkeel.ir.amendment_codec"
+      ],
+      "requires": [
+        {
+          "component": "architecture",
+          "rationale": "Convert wire values to architecture model values and back.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "facts",
+          "rationale": "Convert source facts and evidence.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "facts-codec",
+          "rationale": "Decode validated source sections.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "profiles",
+          "rationale": "Validate source sections against a known profile.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "contract-version",
+          "through": [
+            "archkeel.ir.contract_version"
+          ],
+          "rationale": "The contract codec consumes one nominal version and feature-availability policy.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "dependency-policy",
+          "through": [
+            "archkeel.ir.dependency"
+          ],
+          "rationale": "Decode dependency selectors with the single typed selector grammar.",
+          "decided_by": "architect"
+        }
+      ],
+      "public": [
+        "archkeel.ir.codec",
+        "archkeel.ir.renames",
+        "archkeel.ir.graph_codec",
+        "archkeel.ir.target_records"
+      ]
+    },
+    {
+      "id": "TARGET-VIEWS",
+      "label": "views",
+      "role": "component",
+      "packages": [],
+      "responsibilities": [
+        "Own pure projections of checked results: report graph, report projection, explore, findings, flow graph, story and view spec."
+      ],
+      "forbidden_responsibilities": [
+        "Wire decoding and encoding and rule decisions.",
+        "Parsing, process I/O and workflow orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md",
+        "docs/architecture/decisions/ad-315-ir-owners-are-inner-components-of-core.md"
+      ],
+      "decided_by": "architect",
+      "exact_modules": [
+        "archkeel.ir.report_projection",
+        "archkeel.ir.findings",
+        "archkeel.ir.view_spec",
+        "archkeel.ir.flow_graph",
+        "archkeel.ir.story",
+        "archkeel.ir.report_graph",
+        "archkeel.ir.module_explore"
+      ],
+      "requires": [
+        {
+          "component": "architecture",
+          "rationale": "Project architecture model values without a second model.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "evidence",
+          "rationale": "Project the rule decisions and the trace of evidence.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "wire",
+          "rationale": "Use the wire conversions that the views share with the result.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "facts",
+          "rationale": "Read source facts and evidence identities.",
+          "decided_by": "architect"
+        },
+        {
+          "component": "dependency-policy",
+          "through": [
+            "archkeel.ir.dependency"
+          ],
+          "rationale": "Read the dependency selection that a rule decision used.",
+          "decided_by": "architect"
+        }
+      ],
+      "public": [
+        "archkeel.ir.report_graph",
+        "archkeel.ir.report_projection:architecture_projection",
+        "archkeel.ir.module_explore:ModuleStatistic",
+        "archkeel.ir.module_explore:ModuleImportCell",
+        "archkeel.ir.module_explore:HintCandidate",
+        "archkeel.ir.module_explore:ModuleExploreLevel",
+        "archkeel.ir.module_explore:module_exploration",
         "archkeel.ir.findings:findings",
         "archkeel.ir.findings:findings_note",
         "archkeel.ir.findings:findings_state",
@@ -337,7 +495,9 @@
         "archkeel.ir.dependency:ModuleSelection",
         "archkeel.ir.dependency:SelectorMatch",
         "archkeel.ir.dependency:module_in_ownership",
-        "archkeel.ir.dependency:ImportSymbolMarker"
+        "archkeel.ir.dependency:ImportSymbolMarker",
+        "archkeel.ir.dependency:parse_dependency_selector",
+        "archkeel.ir.dependency:dependency_selector"
       ],
       "requires": [
         {
@@ -432,7 +592,7 @@
       "id": "TARGET-DEPENDENCY-BOUNDARY-TYPES",
       "kind": "boundary_types",
       "source": "archkeel.ir.dependency",
-      "rationale": "The owned dependency policy API exposes typed vocabulary and immutable selections; raw record conversion stays in codec_contract.",
+      "rationale": "The owned dependency policy API exposes typed vocabulary and immutable selections; the selector grammar reads typed record data and JSON text decoding stays in the codec.",
       "provenance": [
         "docs/architecture/dependency-selector-target.md"
       ],
@@ -629,7 +789,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.architecture_graph",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "presence": "planned",
           "responsibilities": [
             "Define immutable architecture values and identity/reference invariants without parsing or policy."
@@ -643,7 +803,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.graph_codec",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-WIRE",
           "presence": "planned",
           "responsibilities": [
             "Decode and encode the shared graph and comparison formats with strict validation."
@@ -657,7 +817,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.source_graph",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "presence": "planned",
           "responsibilities": [
             "Project recorded source facts and their limits into the shared graph without inventing intent."
@@ -671,7 +831,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.target_graph",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "presence": "planned",
           "responsibilities": [
             "Compile independent contract intent into the same graph without reading observations."
@@ -685,7 +845,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.target_records",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-WIRE",
           "presence": "planned",
           "responsibilities": [
             "Project Core-authenticated Target records without authenticating contracts again."
@@ -3784,7 +3944,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.report_graph",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-VIEWS",
           "presence": "planned",
           "responsibilities": [
             "Compose the report boundary from authenticated Core evidence without parsing source or evaluating policy."
@@ -5644,24 +5804,10 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.model",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "presence": "planned",
           "responsibilities": [
             "Retain the typed compatibility API for existing model consumers."
-          ],
-          "provenance": [
-            "docs/architecture/dependency-selector-target.md"
-          ]
-        },
-        {
-          "id": "IR-DEPENDENCY-codec_contract",
-          "kind": "module",
-          "qualified_name": "archkeel.ir.codec_contract",
-          "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
-          "presence": "planned",
-          "responsibilities": [
-            "Convert validated raw wire records into typed dependency policy."
           ],
           "provenance": [
             "docs/architecture/dependency-selector-target.md"
@@ -6381,11 +6527,11 @@
           }
         },
         {
-          "id": "IR-DEPENDENCY-codec_contract.parse_dependency_selector",
+          "id": "IR-DEPENDENCY-dependency.parse_dependency_selector",
           "kind": "function",
-          "qualified_name": "archkeel.ir.codec_contract.parse_dependency_selector",
+          "qualified_name": "archkeel.ir.dependency.parse_dependency_selector",
           "language": "python",
-          "parent_id": "IR-DEPENDENCY-codec_contract",
+          "parent_id": "IR-DEPENDENCY-dependency",
           "presence": "planned",
           "responsibilities": [
             "Validate and decode the record-to-domain boundary exactly once."
@@ -7841,7 +7987,7 @@
           "kind": "module",
           "qualified_name": "archkeel.ir.diagnostics",
           "language": "python",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "presence": "planned",
           "responsibilities": [
             "Own diagnostic values and invariants independently of workflow and codecs."
@@ -8915,7 +9061,7 @@
           "id": "COLLECTION-FEATURES",
           "kind": "module",
           "qualified_name": "archkeel.ir.collection_features",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-EVIDENCE",
           "responsibilities": [
             "Map declared rules to the gated resolution families a collector must gather."
           ]
@@ -8929,7 +9075,7 @@
           "id": "FINDINGS",
           "kind": "module",
           "qualified_name": "archkeel.ir.findings",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-VIEWS",
           "responsibilities": [
             "Rank violations, dependency cycles and hubs once for every presentation."
           ]
@@ -11230,7 +11376,7 @@
           "id": "IR-PERMISSION-module",
           "kind": "module",
           "qualified_name": "archkeel.ir.architecture_projection",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "responsibilities": [
             "Own compact authenticated projection values and the component-pair permission vocabulary."
           ]
@@ -11287,7 +11433,7 @@
           "id": "IR-HOST-module",
           "kind": "module",
           "qualified_name": "archkeel.ir.host_records",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-ARCHITECTURE",
           "responsibilities": [
             "Own replayable host evidence and its ordering vocabulary."
           ]
@@ -11959,7 +12105,7 @@
           "qualified_name": "archkeel.ir.renames",
           "language": "python",
           "presence": "planned",
-          "parent_id": "TARGET-GOVERNANCE",
+          "parent_id": "TARGET-WIRE",
           "responsibilities": [
             "Apply declared module renames to native contracts without changing their policy meaning."
           ],

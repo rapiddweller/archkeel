@@ -1,6 +1,6 @@
 # Nominal amendment artifact
 
-Part of issue #542. The existing IR/governance component owns the immutable amendment value, its supported wire versions, exact contract/baseline binding and the valid/stale verification outcome. `ir.amendment` is model-free; `ir.amendment_codec` uses existing wire validators without adding a model import cycle. Existing widening/governance/codec import paths preserve object identity.
+Part of issue #542. The IR owner `architecture` owns the immutable amendment value, its supported wire versions, exact contract/baseline binding and the valid/stale verification outcome in `ir.amendment`. The IR owner `wire` owns `ir.amendment_codec`. `ir.amendment` is model-free; `ir.amendment_codec` uses existing wire validators without adding a model import cycle. Existing widening/governance/codec import paths preserve object identity.
 
 Version 1.0.0 remains contract-only; version 2.0.0 binds both optional baseline digests. Decider and rationale are free text. Both versions preserve their exact sorted, indented UTF-8 bytes and unsupported-version errors. RunResult changes only its amendment_status field; all other controls remain outside this increment.
 

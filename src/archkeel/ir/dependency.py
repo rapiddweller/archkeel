@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TypeAlias
 
-from .facts import in_scope
+from .facts import JsonValue, Record, RecordData, in_scope
 
 ComponentOwnership: TypeAlias = tuple[str, tuple[str, ...], tuple[str, ...]]
 
@@ -127,6 +127,51 @@ class DependencySelector:
         )
 
 
+def _selector_text(value: JsonValue, label: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a string")
+    return value
+
+
+def _selector_name(value: JsonValue, label: str) -> str:
+    text = _selector_text(value, label)
+    if not text.strip():
+        raise ValueError(f"{label} must not be empty")
+    return text
+
+
+def dependency_selector(fields: RecordData, label: str) -> DependencySelector:
+    """Validate the selector grammar once for a contract rule and a declaration record."""
+    symbol = fields.get("target_symbol")
+    if symbol is not None and (not isinstance(symbol, str) or not symbol.isidentifier()):
+        raise ValueError(f"{label}.target_symbol must be an identifier")
+    return DependencySelector(
+        _selector_name(fields.get("source"), f"{label}.source"),
+        _selector_name(fields.get("target"), f"{label}.target"),
+        symbol,
+        SelectorMatch(
+            _selector_text(
+                fields.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match"
+            )
+        ),
+        SelectorMatch(
+            _selector_text(
+                fields.get("target_match", SelectorMatch.PREFIX), f"{label}.target_match"
+            )
+        ),
+        DependencyTargetKind(
+            _selector_text(
+                fields.get("target_kind", DependencyTargetKind.MODULE), f"{label}.target_kind"
+            )
+        ),
+    )
+
+
+def parse_dependency_selector(record: Record) -> DependencySelector:
+    """Decode a dependency selector once at the record-to-model boundary."""
+    return dependency_selector(record.data, "dependency declaration")
+
+
 __all__ = (
     "ComponentOwnership",
     "ImportSymbolMarker",
@@ -136,5 +181,7 @@ __all__ = (
     "DependencyTargetKind",
     "ModuleSelection",
     "SelectorMatch",
+    "dependency_selector",
     "module_in_ownership",
+    "parse_dependency_selector",
 )
