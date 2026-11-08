@@ -23,11 +23,29 @@ from archkeel.analyzer.typescript import entry
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
+# The reason that the native collector gives for each file that can use a browser global.
+GLOBALS_UNEXAMINED = "Script-global dependencies are not examined by the native collector"
+
+
+def _globals_unexamined(self: python_collector._Collection) -> None:
+    """What `_script_dependencies` does in the legacy mode: the same gap as the native collector."""
+    evidence = {file.rel_path: file.evidence_id for file in self.files}
+    for rel in self.syntax:
+        if self._global_dependency_scope(rel):
+            self._gap(
+                GLOBALS_UNEXAMINED,
+                (evidence[rel],),
+                self.modules[rel],
+                kind=python_collector._GapKind.RESOLUTION,
+            )
+
+
 # The four producers that the native collector does not have, as methods of the Python collector.
-# Each patch returns what the producer returns when it finds nothing.
+# Each patch returns what the producer returns when it finds nothing, except the script analysis,
+# which reports that it examined nothing.
 _OFF: dict[str, Callable[..., object]] = {
     "_named_imports": lambda self: None,
-    "_script_dependencies": lambda self: None,
+    "_script_dependencies": _globals_unexamined,
     "_inner_facts": lambda self: ([], [], [], []),
     "_constructs": lambda self: (),
 }

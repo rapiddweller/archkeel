@@ -6,9 +6,8 @@
 Consumer: the host (`run_report`). The native collector has the legacy capability: module-level
 imports, no symbols and no script globals. Against the Python collector in the same legacy mode
 (`native_oracle`) every verdict, cycle, dependency edge and gap must be equal. Against the Python
-default collector the verdicts differ only for the closed list below, and the reason is one of
-two: a rule on symbols that the legacy capability cannot judge, or a global script that the default
-collector reports and the native collector does not.
+default collector the native verdict is the same or more cautious: UNKNOWN where the default
+collector gives a fact, never complete where the default collector says UNKNOWN.
 """
 
 from __future__ import annotations
@@ -56,15 +55,6 @@ CAPABILITY_TEXT = {
     "typescript-unsupported-catalog_use",
     "typescript-unsupported-forbidden_construct",
 }
-# The default collector reports a global script that the native collector does not see, and it
-# stops the scan; the native scan reads as complete.
-GLOBAL_SCRIPT = {
-    "typescript-types-unlisted-global",
-    "typescript-declared-global-in-a-module",
-    "typescript-module-binding-and-global-write",
-}
-# Only the number of gaps differs: a script gap more or less in the default collector.
-GAP_COUNT = {"typescript-indirect-require", "typescript-syntax-error"}
 
 
 def _commit(root: Path) -> None:
@@ -142,14 +132,23 @@ def test_verdicts_equal_the_legacy_python_collector_on_the_demo_variants(
         assert native == oracle, variant.id
 
 
-def test_verdicts_differ_from_the_default_collector_only_in_the_closed_list(
+def test_native_is_never_less_cautious_than_the_default_collector(
     tmp_path: Path, native_binary: Path
 ) -> None:
-    differing: set[str] = set()
+    more_cautious: set[str] = set()
     for index, variant in enumerate(VARIANTS):
         root = repository(tmp_path / str(index), variant)
         default = _verdict(root, None)
         native = _verdict(root, (str(native_binary),))
-        if _short(default) != _short(native) or default["diagnostics"] != native["diagnostics"]:
-            differing.add(variant.id)
-    assert differing == SYMBOL_LEVEL | GLOBAL_SCRIPT | GAP_COUNT
+        # Missing evidence is UNKNOWN: a scan that the default collector cannot complete is never
+        # complete here, and a verdict is the default verdict or UNKNOWN.
+        if default["complete"] == "UNKNOWN":
+            assert native["complete"] == "UNKNOWN", variant.id
+        assert native["declared"] in (default["declared"], "UNKNOWN"), variant.id
+        assert native["exit"] in (default["exit"], 2), variant.id
+        if _short(default) != _short(native):
+            more_cautious.add(variant.id)
+    # The native collector examines no script global yet, so every scan with a file in the global
+    # dependency scope has a gap. Only a scan of declaration files alone can match the default.
+    assert len(more_cautious) >= 1
+    print(sorted(more_cautious))

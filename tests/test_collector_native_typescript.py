@@ -107,10 +107,15 @@ def test_reply_decodes_with_consistent_coverage(binary: Path, version: ProtocolV
     assert set(facts.capabilities.sections) == {"imports", "unknowns"}
     assert len(coverage.selected_files) == coverage.files_read == coverage.files_parsed == 7
     assert len(facts.files) == 7
-    assert coverage.full_scope and not coverage.gaps
+    # No global is examined, so the scan is not complete: one gap for each file (AD-320).
+    assert not coverage.full_scope
+    assert {gap.title for gap in coverage.gaps} == {
+        "Script-global dependencies are not examined by the native collector"
+    }
+    assert len(coverage.gaps) == len(facts.files)
     sections = {section.name.value: section.records for section in facts.sections}
     assert len(sections["imports"]) == len(facts.imports) == 8
-    assert not sections["unknowns"]
+    assert sections["unknowns"] == coverage.gaps
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)

@@ -22,6 +22,12 @@ use crate::source_input::{
     classify_asset, classify_file, classify_specifier, ModuleFormat, SourceKind, SpecifierKind,
 };
 
+/// The reason of the gap in each file that can use a browser global. The Python collector reports
+/// each unexamined global itself (`script_global` imports). This collector examines none, so the
+/// scan cannot read as complete for imports: missing evidence is UNKNOWN (issue #880).
+pub const GLOBALS_UNEXAMINED: &str =
+    "Script-global dependencies are not examined by the native collector";
+
 // The reserved identity of an asset edge; a colon cannot occur in an npm package name.
 const BUNDLER_ASSET: &str = "bundler:asset";
 
@@ -54,6 +60,20 @@ impl Collection<'_> {
         }
         let format = self.resolver.format_of(&mut self.snapshot, rel);
         let explicit = self.resolver.options.module;
+        // `collect._global_dependency_scope`: a file that is neither a declaration nor CommonJS.
+        let suffix = classify_file(rel);
+        let global_scope = suffix.is_some_and(|suffix| {
+            suffix.source_kind() != Some(SourceKind::Declaration)
+                && suffix.format_hint() != Some(ModuleFormat::Cjs)
+        }) && matches!(format, Lookup::Missing | Lookup::Hit(ModuleFormat::Esm));
+        if global_scope {
+            self.gap(
+                GLOBALS_UNEXAMINED,
+                Some(file_evidence),
+                module,
+                GapKind::Resolution,
+            );
+        }
         let cjs = classify_file(rel).and_then(|suffix| suffix.format_hint())
             == Some(ModuleFormat::Cjs)
             || explicit == Some(ModuleKind::CommonJs)
