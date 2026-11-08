@@ -29,14 +29,17 @@ def observer_for(
     bundler: bool = False,
     clock: PhaseClock | None = None,
 ) -> Observer:
-    native_python = collector_argv is None and language == Language.PYTHON
-    native_typescript = collector_argv is None and language == Language.TYPESCRIPT
+    bundled = collector_argv is None
+    native_python = bundled and language == Language.PYTHON
+    native_typescript = bundled and language == Language.TYPESCRIPT
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
     collector = ProcessCollector(
         collector_argv,
         clock=clock,
         protocol_version=ProtocolVersion.V8 if native_typescript else None,
+        # A collector of this package must report the host version; a configured one need not.
+        pin_adapter_version=bundled,
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)

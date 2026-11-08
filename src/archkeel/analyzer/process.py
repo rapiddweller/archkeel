@@ -13,19 +13,15 @@ import sys
 import time
 from dataclasses import dataclass, replace
 from enum import Enum
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from queue import Empty, Queue
 from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
-from archkeel.analyzer.selected_scope import check_selected_files
-from archkeel.ir.facts import (
-    Language,
-    ProviderBindingKind,
-    ResolutionRole,
-    SourceFacts,
-    SourceProfile,
-)
+from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES, exit_message, limit_memory
+from archkeel.analyzer.reply_checks import check_reply
+from archkeel.analyzer.runtime import package_version
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import (
     DEFAULT_RESPONSE_LIMIT_BYTES,
     MAX_RESPONSE_LIMIT_BYTES,
@@ -35,16 +31,11 @@ from archkeel.ir.facts_codec import (
 )
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured
 from archkeel.ir.protocol import (
-    FEATURE_GATED_PROTOCOLS,
-    PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
     ProtocolVersion,
-    PythonCollectionPhase,
-    PythonSettings,
-    collected_resolution_features,
 )
 
 
@@ -100,6 +91,9 @@ class ProcessCollector:
     output_limit_remedy: str = _DEFAULT_OUTPUT_LIMIT_REMEDY
     # Collectors without a pinned version accept any valid response version.
     protocol_version: ProtocolVersion | None = None
+    memory_limit_bytes: int = COLLECTOR_MEMORY_LIMIT_BYTES
+    # Set for a collector of this package: its reply must carry the host version (AD-319).
+    pin_adapter_version: bool = False
 
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
@@ -117,7 +111,7 @@ class ProcessCollector:
                 "collector output limit must be a positive integer no greater than "
                 f"{MAX_RESPONSE_LIMIT_BYTES} bytes"
             )
-        if self.stderr_limit_bytes <= 0:
+        if self.stderr_limit_bytes <= 0 or self.memory_limit_bytes <= 0:
             raise ValueError("collector limits must be positive")
 
     def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
@@ -153,7 +147,8 @@ class ProcessCollector:
                         "configure an explicit executable and script argv.",
                     )
                 helper = Path(__file__).with_name("windows_job.py")
-                command = (sys.executable, "-I", "-B", str(helper), "--", *self.argv)
+                limit = f"--memory-limit-bytes={self.memory_limit_bytes}"
+                command = (sys.executable, "-I", "-B", str(helper), limit, "--", *self.argv)
             with (
                 measured(self.clock, Phase.COLLECT),
                 subprocess.Popen(
@@ -169,6 +164,9 @@ class ProcessCollector:
             ):
                 workers: list[Thread] = []
                 try:
+                    if refused := limit_memory(process.pid, self.memory_limit_bytes):
+                        error_kind = CollectionErrorKind.EXECUTION_ERROR
+                        return CollectionError(error_kind, subject, refused)
                     stdout, stderr = self._exchange(process, payload, workers)
                 finally:
                     cleanup_error = _cleanup_exchange(process, workers)
@@ -180,7 +178,7 @@ class ProcessCollector:
                     return CollectionError(
                         CollectionErrorKind.EXECUTION_ERROR,
                         subject,
-                        f"Collector exited {process.returncode}: {message}",
+                        exit_message(process.returncode, message, self.memory_limit_bytes),
                     )
             if self.clock is not None:
                 self.clock.count(WorkCounter.COLLECTOR_WIRE_BYTES, len(stdout))
@@ -202,15 +200,12 @@ class ProcessCollector:
     def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
         with measured(self.clock, Phase.DECODE):
             response = decode_response(stdout, output_limit=self.output_limit_bytes)
-            if (
-                self.protocol_version is not None
-                and response.protocol_version is not request.protocol_version
-            ):
-                raise ProtocolError(
-                    "collector response protocol version does not match its request"
-                )
-            _requested_facts(response.facts, request)
-            _requested_provider_sources(response, request)
+            check_reply(
+                response,
+                request,
+                protocol_version=self.protocol_version,
+                adapter_version=package_version() if self.pin_adapter_version else None,
+            )
         return response
 
     def _exchange(
@@ -293,88 +288,6 @@ class ProcessCollector:
             results[name] = result
         process.wait(timeout=max(0, deadline - time.monotonic()))
         return results["stdout"], results["stderr"]
-
-
-def _requested_provider_sources(response: CollectionResponse, request: CollectionRequest) -> None:
-    discovery = (
-        isinstance(request.resolver, PythonSettings)
-        and request.resolver.phase is PythonCollectionPhase.PROVIDERS
-    )
-    expected = {
-        item.path: item.digest
-        for item in response.facts.inputs
-        if item.path.startswith(".archkeel-providers/")
-    }
-    captured = {item.path: item.digest for item in response.provider_sources}
-    if (discovery and captured != expected) or (not discovery and captured):
-        raise ProtocolError("collector captured provider sources disagree with discovery inputs")
-
-
-def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
-    profiles: dict[Language, SourceProfile] = {
-        Language.PYTHON: SourceProfile.PYTHON,
-        Language.DART: SourceProfile.DART,
-        Language.TYPESCRIPT: SourceProfile.TYPESCRIPT,
-    }
-    if facts.profile != profiles[request.resolver.language]:
-        raise ProtocolError("collector profile disagrees with requested language")
-    if (
-        isinstance(request.resolver, PythonSettings)
-        and request.resolver.phase is not PythonCollectionPhase.COLLECT
-        and frozenset(facts.capabilities.sections) != frozenset(PYTHON_IMPORT_SURVEY_SECTIONS)
-    ):
-        raise ProtocolError("collector sections disagree with requested import survey")
-    if (
-        request.protocol_version in FEATURE_GATED_PROTOCOLS
-        and isinstance(request.resolver, PythonSettings)
-        and request.resolver.phase is PythonCollectionPhase.COLLECT
-        and frozenset(facts.capabilities.resolution_features)
-        != frozenset(
-            collected_resolution_features(request.protocol_version, request.resolver.features)
-        )
-    ):
-        raise ProtocolError("collector resolution features disagree with requested features")
-    if (
-        facts.source.git_head != request.snapshot.git_head
-        or facts.source.dirty != request.snapshot.dirty
-    ):
-        raise ProtocolError("collector facts disagree with requested snapshot")
-    check_selected_files(facts, request)
-    providers = (
-        request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
-    )
-    discovery = (
-        isinstance(request.resolver, PythonSettings)
-        and request.resolver.phase is PythonCollectionPhase.PROVIDERS
-    )
-    expected = {item.path: item.digest for item in providers}
-    actual: dict[str, str] = {}
-    for item in facts.inputs:
-        path: str = item.path
-        if path.startswith(".archkeel-providers/") and item.role is ResolutionRole.RESOLUTION:
-            actual[path] = item.digest
-    if (not discovery and actual != expected) or set(actual) & set(facts.coverage.selected_files):
-        raise ProtocolError("collector provider sources disagree with requested snapshot")
-    providers_by_path = {item.path: item for item in providers}
-    evidence = {item.id: item for item in facts.evidence}
-    for binding in facts.provider_bindings:
-        if discovery:
-            continue
-        source = providers_by_path.get(evidence[binding.evidence_id].file)
-        qualified_name: str = binding.qualified_name
-        owner: str = qualified_name.rpartition(".")[0]
-        source_matches = source is not None and (
-            qualified_name == source.module
-            if binding.kind is ProviderBindingKind.MODULE
-            else owner == source.module
-            # A package initializer can publish its child through sys.modules (collections.abc).
-            or PurePosixPath(source.path).name == "__init__.py"
-            and owner.rpartition(".")[0] == source.module
-            if binding.kind is ProviderBindingKind.ALIAS
-            else qualified_name.startswith(source.module + ".")
-        )
-        if not source_matches:
-            raise ProtocolError("collector provider binding disagrees with requested source")
 
 
 def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:

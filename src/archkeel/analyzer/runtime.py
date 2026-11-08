@@ -71,14 +71,18 @@ def collector_provenance(
     for parser in _PARSERS.get(language, ()):
         digest.update(f"{parser}=={importlib.metadata.version(parser)}".encode())
         digest.update(b"\0")
-    try:
-        version = importlib.metadata.version("archkeel")
-    except importlib.metadata.PackageNotFoundError:
-        version = "0+unknown"
     return (
-        AnalyzerInfo(_ANALYZERS[language].value, version, digest.hexdigest()),
+        AnalyzerInfo(_ANALYZERS[language].value, package_version(), digest.hexdigest()),
         RuntimeInfo("python", platform.python_version(), required, requirement_state),
     )
+
+
+def package_version() -> str:
+    """The installed Archkeel version; a checkout without package metadata gives `0+unknown`."""
+    try:
+        return importlib.metadata.version("archkeel")
+    except importlib.metadata.PackageNotFoundError:
+        return "0+unknown"
 
 
 def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]:

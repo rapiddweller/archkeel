@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.typescript.collect import collect
 from archkeel.analyzer.typescript.explore_scope import NO_PRODUCTION_SOURCE
@@ -150,6 +151,23 @@ def test_files_and_inputs_match_the_python_collector(binary: Path, fixture: str)
     # The skeleton reads no file for import resolution, so it has fewer inputs.
     assert set(native.inputs) <= set(python.inputs)
     assert {item.path for item in native.inputs} >= set(native.coverage.selected_files)
+
+
+def test_a_bundled_binary_with_another_adapter_version_is_a_protocol_error(
+    binary: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request = _request(ROOT / "fixtures/H-typescript", ProtocolVersion.V8)
+    pinned = ProcessCollector((str(binary),), protocol_version=ProtocolVersion.V8)
+    version = _facts(pinned.collect(request)).adapter.version
+    bundled = replace(pinned, pin_adapter_version=True)
+
+    monkeypatch.setattr(process_owner, "package_version", lambda: version)
+    assert _facts(bundled.collect(request)).adapter.version == version
+    monkeypatch.setattr(process_owner, "package_version", lambda: f"{version}.1")
+    result = bundled.collect(request)
+    assert isinstance(result, CollectionError)
+    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
+    assert "does not match the host version" in result.message
 
 
 def test_a_missing_binary_is_a_missing_tool(tmp_path: Path) -> None:

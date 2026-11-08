@@ -97,7 +97,11 @@ pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) ->
 /// The file text without its byte order mark, then without JSONC comments and trailing commas.
 fn read_json(snapshot: &mut Snapshot, rel: &str) -> (Option<Map<String, Value>>, String) {
     let Some(raw) = snapshot.read(rel) else {
-        return (None, format!("Cannot read file '{rel}'."));
+        let reason = snapshot.size_gap(rel);
+        return (
+            None,
+            reason.unwrap_or_else(|| format!("Cannot read file '{rel}'.")),
+        );
     };
     let text = String::from_utf8_lossy(&raw);
     let plain = strip_jsonc(text.trim_start_matches('\u{feff}'));

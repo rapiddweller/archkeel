@@ -258,7 +258,7 @@ def test_removed_dart_profile_identity_is_rejected() -> None:
 
 
 def test_dart_profile_cannot_answer_a_typescript_request() -> None:
-    from archkeel.analyzer.process import _requested_facts
+    from archkeel.analyzer.reply_checks import check_requested_facts
     from archkeel.ir.protocol import (
         CollectionRequest,
         SnapshotInput,
@@ -273,7 +273,7 @@ def test_dart_profile_cannot_answer_a_typescript_request() -> None:
     )
 
     with pytest.raises(ProtocolError, match="requested language"):
-        _requested_facts(_dart_inner_facts(), request)
+        check_requested_facts(_dart_inner_facts(), request)
 
 
 @pytest.mark.parametrize(

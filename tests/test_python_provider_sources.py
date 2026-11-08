@@ -27,13 +27,10 @@ from types import FunctionType, ModuleType
 
 import pytest
 
-from archkeel.analyzer.process import (
-    ProcessCollector,
-    _requested_facts,
-    _requested_provider_sources,
-)
+from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python import collect as collect_owner
 from archkeel.analyzer.python.collect import PythonProviderCollector, collect, provider_sources
+from archkeel.analyzer.reply_checks import check_provider_sources, check_requested_facts
 from archkeel.check.evaluation.evaluate import evaluate_source
 from archkeel.check.observation import assemble_observation
 from archkeel.cli.observe import observer_for
@@ -85,7 +82,7 @@ def _native_facts(request):
     facts = decode_response(
         encode_response(CollectionResponse(collect(request), request.protocol_version))
     ).facts
-    _requested_facts(facts, request)
+    check_requested_facts(facts, request)
     return facts
 
 
@@ -1605,13 +1602,13 @@ def test_stale_or_unrequested_provider_receipts_are_rejected(tmp_path, source):
     with pytest.raises(ProtocolError, match="digest"):
         encode_request(replace(request, resolver=PythonSettings(provider_sources=(stale,))))
     with pytest.raises(ProtocolError, match="provider sources"):
-        _requested_facts(facts, replace(request, resolver=PythonSettings()))
+        check_requested_facts(facts, replace(request, resolver=PythonSettings()))
     stale_inputs = tuple(
         replace(item, digest="0" * 64) if item.path == provider.path else item
         for item in facts.inputs
     )
     with pytest.raises(ProtocolError, match="provider sources"):
-        _requested_facts(replace(facts, inputs=stale_inputs), request)
+        check_requested_facts(replace(facts, inputs=stale_inputs), request)
 
 
 @pytest.mark.parametrize("version", [ProtocolVersion.V1, ProtocolVersion.V2, ProtocolVersion.V3])
@@ -1915,9 +1912,9 @@ def test_submodule_provider_receipt_uses_its_own_source_identity(tmp_path, packa
         replace(item, digest="0" * 64) if item.path == child.path else item for item in facts.inputs
     )
     with pytest.raises(ProtocolError, match="provider sources"):
-        _requested_facts(replace(facts, inputs=stale_inputs), request)
+        check_requested_facts(replace(facts, inputs=stale_inputs), request)
     with pytest.raises(ProtocolError, match="binding disagrees with requested source"):
-        _requested_facts(
+        check_requested_facts(
             replace(facts, provider_bindings=(replace(binding, qualified_name="vendor.other"),)),
             request,
         )
@@ -3007,10 +3004,10 @@ def test_requested_registry_alias_must_name_a_child_of_its_initializer(
         ),
     )
     if accepted:
-        _requested_facts(facts, request)
+        check_requested_facts(facts, request)
     else:
         with pytest.raises(ProtocolError, match="disagrees with requested source"):
-            _requested_facts(facts, request)
+            check_requested_facts(facts, request)
 
 
 @pytest.mark.parametrize(
@@ -3410,7 +3407,7 @@ def test_captured_provider_buffers_are_bound_to_the_exact_discovery_manifest(tmp
         request = replace(request, resolver=PythonSettings())
     response = CollectionResponse(initial, ProtocolVersion.V4, providers)
     with pytest.raises(ProtocolError, match="captured provider sources disagree"):
-        _requested_provider_sources(response, request)
+        check_provider_sources(response, request)
 
 
 @pytest.mark.parametrize("change", ["digest", "duplicate", "identity", "missing-field"])

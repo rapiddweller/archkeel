@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "after_digest": "611806446cffc530bca3a5bdddd173acbeaa2c0693172a4bdcc5adc01849ff3e",
+  "before_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "before_digest": "e2298498cc0e7da170debf6b360a5e84d64839008e7c3e20dc81e30269b3322b",
+  "decided_by": "architect",
+  "rationale": "AD-319 and epic #880, PR 4.1b-3, against origin/main 57e2542f. The memory limit and the reply checks leave process.py, which falls below 500 lines (AD-314). Two modules join the process component through exact_modules: analyzer.memory_limit (the RLIMIT_AS call and the exit text) and analyzer.reply_checks (the checks of a reply that moved from process.py without change). The three allowed type ignores keep their text. Only their lines move: windows_job._create_owned_job 60 to 66, process.is_process_alive 479 to 392 and 491 to 404. No public name, budget, baseline entry or Any permission changes.",
+  "schema_version": "2.0.0"
+}

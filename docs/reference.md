@@ -123,6 +123,10 @@ than the platform's thread timeout limit. It changes only how long a collector m
 timeout still exits without a complete observation. `archkeel init --collector-timeout-seconds 900`
 saves the same value, and `report`, `validate` and `check` use it like the output limit.
 
+The host limits the memory of each collector to 4 GiB ([AD-319](architecture/decisions/ad-319-a-collector-process-has-a-memory-limit-and-a-checked-adapter-version.md)).
+Linux limits address space and Windows limits committed memory. A collector that runs out of
+memory gives an `execution_error` that names the limit. macOS has no memory limit.
+
 SourceFacts 3.0.0 introduced neutral list type syntax for explicit callback arguments.
 Readers retain 1.0.0/2.0.0 packets; those versions reject that list vocabulary,
 including nested shapes. Runtime `requirement_state` is required from SourceFacts
