@@ -526,18 +526,20 @@ def test_pathological_shapes_equal_the_python_parser(
 # under 0.1 s for the collector of PR 4.2 and for this code. The debug build of the old code took
 # 629 s, 87 s and 349 s. The process, not the dump, is timed: the dump prints the qualified name
 # of each definition, and that output is quadratic in the depth in Python too.
+# The bound of the long line is wider: the debug build needs 2 s on a laptop and 5.4 s on a CI
+# runner, and the old code needed 626 s.
 PATHOLOGICAL = (
-    ("one-line", 40_000),
-    ("nested-functions", 4_000),
-    ("nested-functions", 8_000),
-    ("nested-classes", 4_000),
-    ("nested-classes", 8_000),
+    ("one-line", 40_000, 15.0),
+    ("nested-functions", 4_000, 5.0),
+    ("nested-functions", 8_000, 5.0),
+    ("nested-classes", 4_000, 5.0),
+    ("nested-classes", 8_000, 5.0),
 )
 
 
-@pytest.mark.parametrize(("name", "count"), PATHOLOGICAL)
+@pytest.mark.parametrize(("name", "count", "bound"), PATHOLOGICAL)
 def test_pathological_shapes_take_bounded_time(
-    tmp_path: Path, native_binary: Path, name: str, count: int
+    tmp_path: Path, native_binary: Path, name: str, count: int, bound: float
 ) -> None:
     (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
     (tmp_path / "src").mkdir()
@@ -555,7 +557,7 @@ def test_pathological_shapes_take_bounded_time(
     done = subprocess.run([str(native_binary)], input=payload, capture_output=True, check=False)
     elapsed = time.perf_counter() - begin
     assert done.returncode == 0, done.stderr[-300:]
-    assert elapsed < 5.0, f"{name} {count}: {elapsed:.1f} s"
+    assert elapsed < bound, f"{name} {count}: {elapsed:.1f} s"
 
 
 def test_deeply_nested_patterns_give_their_names(tmp_path: Path, dump_binary: Path) -> None:
