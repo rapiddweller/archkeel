@@ -29,6 +29,13 @@ ignore = []
 allow = ["Apache-2.0", "MIT"]
 confidence-threshold = 0.93
 
+# `serde_json` with `preserve_order` (the order of `paths` keys and `exports` conditions decides
+# resolution) needs `indexmap`, and its `hashbrown` needs `foldhash`, which has the Zlib license.
+# Zlib is permissive and OSI approved. The exception is for this one crate (AD-320).
+[[licenses.exceptions]]
+crate = "foldhash"
+allow = ["Zlib"]
+
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
