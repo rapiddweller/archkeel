@@ -295,6 +295,43 @@ const NAMES: &[(&str, K)] = &[
     ("?", K::Question),
 ];
 
+/// The fields of a node that the syntax walk reads. Their ids are looked up once for a grammar:
+/// a lookup by name compares strings.
+#[derive(Clone, Copy)]
+pub enum F {
+    Alias,
+    Argument,
+    Body,
+    Declaration,
+    Kind,
+    Left,
+    Name,
+    Parameter,
+    Parameters,
+    Pattern,
+    ReturnType,
+    Source,
+    Type,
+    Value,
+}
+
+const FIELD_NAMES: &[(F, &str)] = &[
+    (F::Alias, "alias"),
+    (F::Argument, "argument"),
+    (F::Body, "body"),
+    (F::Declaration, "declaration"),
+    (F::Kind, "kind"),
+    (F::Left, "left"),
+    (F::Name, "name"),
+    (F::Parameter, "parameter"),
+    (F::Parameters, "parameters"),
+    (F::Pattern, "pattern"),
+    (F::ReturnType, "return_type"),
+    (F::Source, "source"),
+    (F::Type, "type"),
+    (F::Value, "value"),
+];
+
 /// The id of the node kind that the parser gives to a repaired region (`ts_builtin_sym_error`).
 const ERROR_ID: u16 = u16::MAX;
 
@@ -309,6 +346,7 @@ pub struct Info {
 /// The kind of each node id of one grammar.
 pub struct KindMap {
     table: Vec<(K, bool)>,
+    fields: Vec<u16>,
 }
 
 impl KindMap {
@@ -323,7 +361,15 @@ impl KindMap {
                 (kind, language.node_kind_is_named(id))
             })
             .collect();
-        Self { table }
+        let fields = FIELD_NAMES
+            .iter()
+            .map(|(_, name)| {
+                language
+                    .field_id_for_name(name)
+                    .map_or(0, std::num::NonZeroU16::get)
+            })
+            .collect();
+        Self { table, fields }
     }
 
     /// The kind, the name flag and the repair flag of a node, from one read of its id.
@@ -338,6 +384,14 @@ impl KindMap {
             kind,
             named,
             error: id == ERROR_ID,
+        }
+    }
+
+    /// `node.child_by_field_name`, by the id of the field.
+    pub fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
+        match self.fields.get(field as usize) {
+            Some(id) if *id != 0 => node.child_by_field_id(*id),
+            _ => None,
         }
     }
 

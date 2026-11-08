@@ -84,12 +84,12 @@ fn kind(item: DefinitionKind) -> &'static str {
     }
 }
 
-fn definition(item: &Definition) -> Value {
+fn definition(item: &Definition, parent: Option<String>) -> Value {
     json!({
         "name": item.name,
         "kind": kind(item.kind),
         "span": span(&item.span),
-        "parent": item.parent,
+        "parent": parent,
         "visibility": visibility(item.visibility),
         "static": item.is_static,
         "exported": item.exported,
@@ -114,7 +114,7 @@ fn definition(item: &Definition) -> Value {
 /// The fields of `Syntax` that this phase produces.
 pub fn syntax(found: &Syntax) -> Value {
     json!({
-        "definitions": found.definitions.iter().map(definition).collect::<Vec<_>>(),
+        "definitions": found.definitions.iter().map(|item| definition(item, found.parent_name(item))).collect::<Vec<_>>(),
         "import_bindings": found.import_bindings.iter().map(|item| json!({
             "span": span(&item.span),
             "imported": item.imported,

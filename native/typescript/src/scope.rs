@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 use tree_sitter::Node;
 
-use crate::kinds::K;
+use crate::kinds::{F, K};
 use crate::members::{has_backslash, named_children, Cx};
 
 /// The frame of the root node. Every other frame has a parent.
@@ -167,11 +167,11 @@ pub fn assignment_targets<'t>(cx: &Cx, pattern: Node<'t>) -> Vec<Node<'t>> {
             | K::RequiredParameter
             | K::OptionalParameter => {
                 let field = match kind {
-                    K::PairPattern => "value",
-                    K::RequiredParameter | K::OptionalParameter => "pattern",
-                    _ => "left",
+                    K::PairPattern => F::Value,
+                    K::RequiredParameter | K::OptionalParameter => F::Pattern,
+                    _ => F::Left,
                 };
-                match node.child_by_field_name(field) {
+                match cx.field(node, field) {
                     Some(target) => pending.push(target),
                     None => found.push(node),
                 }

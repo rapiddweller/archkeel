@@ -10,8 +10,8 @@
 
 use tree_sitter::Node;
 
-use crate::kinds::K;
-use crate::members::{children, has_backslash, named_children, static_member_name, Cx};
+use crate::kinds::{F, K};
+use crate::members::{children, has_backslash, named_children, static_member_name, Cx, Place};
 
 impl Cx<'_> {
     /// `_valid_unicode_member_name`: a code point that an escape names must exist.
@@ -27,16 +27,14 @@ impl Cx<'_> {
     }
 
     /// `_instance_constructor`: the restricted name `constructor` of a class method.
-    pub fn instance_constructor(&self, node: Node) -> bool {
-        let name = self.field(node, "name");
+    pub fn instance_constructor(&self, node: Node, place: &Place) -> bool {
+        let name = self.field(node, F::Name);
         let Some(name) = name else {
             return false;
         };
         if !matches!(self.k(node), K::MethodDefinition | K::MethodSignature)
-            || !self.class_member(node)
-            || !node
-                .parent()
-                .is_some_and(|parent| self.k(parent) == K::ClassBody)
+            || !place.class_member()
+            || place.parent_kind != K::ClassBody
             || self.modifiers(node).has_static()
             || self.k(name) == K::Other
         {
@@ -55,18 +53,18 @@ impl Cx<'_> {
     }
 
     /// `_supported_constructor`.
-    pub fn supported_constructor(&self, node: Node) -> bool {
-        let Some(name) = self.field(node, "name") else {
+    pub fn supported_constructor(&self, node: Node, place: &Place) -> bool {
+        let Some(name) = self.field(node, F::Name) else {
             return false;
         };
-        let mut previous = node.prev_named_sibling();
-        while let Some(item) = previous {
-            if self.k(item) != K::Comment {
-                break;
-            }
-            previous = item.prev_named_sibling();
-        }
-        self.instance_constructor(node)
+        // The nearest sibling that is not a comment must not be a decorator.
+        let decorated = place
+            .before
+            .iter()
+            .rev()
+            .find(|item| self.k(**item) != K::Comment)
+            .is_some_and(|item| self.k(*item) == K::Decorator);
+        self.instance_constructor(node, place)
             && static_member_name(&self.text(name)).as_deref() == Some("constructor")
             && !children(node).iter().any(|child| {
                 matches!(
@@ -74,7 +72,7 @@ impl Cx<'_> {
                     K::Get | K::Set | K::Async | K::Asterisk | K::Decorator
                 )
             })
-            && previous.is_none_or(|item| self.k(item) != K::Decorator)
+            && !decorated
     }
 }
 

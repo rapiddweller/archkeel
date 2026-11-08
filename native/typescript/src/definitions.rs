@@ -12,8 +12,10 @@ use std::collections::HashSet;
 use tree_sitter::Node;
 
 use crate::exports::ModuleExports;
-use crate::kinds::K;
-use crate::members::{has_backslash, named_children, Base, Cx, Member, Parameter, Visibility};
+use crate::kinds::{F, K};
+use crate::members::{
+    children, has_backslash, named_children, Base, Cx, Member, Parameter, Place, Visibility,
+};
 use crate::syntax::Span;
 use crate::walk::{Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_UNMODELED_BLOCK};
 
@@ -33,7 +35,8 @@ pub struct Definition {
     pub name: String,
     pub kind: DefinitionKind,
     pub span: Span,
-    pub parent: Option<String>,
+    /// The scope of the parent definition: its qualified name is `Scopes::qualified`.
+    pub parent: Option<u32>,
     pub visibility: Option<Visibility>,
     pub is_static: bool,
     pub exported: bool,
@@ -54,18 +57,43 @@ pub struct Definition {
     pub decorator_sources: Vec<(String, Span)>,
 }
 
-/// A definition that other definitions can nest in: its qualified name and its position.
-struct Scope {
-    qualified: String,
+/// A definition that other definitions can nest in. The qualified name is the chain of the names
+/// from the root scope, so a scope costs one name and not a copy of the whole chain.
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
+pub struct Scope {
+    name: String,
+    parent: Option<u32>,
     line: i64,
     column: i64,
+}
+
+/// The scopes of one file, in the order of their definitions.
+#[derive(Default)]
+pub struct Scopes(Vec<Scope>);
+
+impl Scopes {
+    /// `parent_name` of Python: `parent.name` joined with a dot, from the outermost scope in.
+    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
+    pub fn qualified(&self, at: u32) -> String {
+        let mut names = Vec::new();
+        let mut next = Some(at);
+        while let Some(index) = next {
+            let Some(scope) = self.0.get(index as usize) else {
+                break;
+            };
+            names.push(scope.name.as_str());
+            next = scope.parent;
+        }
+        names.reverse();
+        names.join(".")
+    }
 }
 
 #[derive(Default)]
 pub struct Defs {
     /// The definitions of the first walk (`_inner`).
     found: Vec<Definition>,
-    scopes: Vec<Scope>,
+    scopes: Scopes,
     /// The constants (`_variables`), before the filter for module arrays.
     constants: Vec<Definition>,
     array_spans: Vec<Span>,
@@ -91,6 +119,18 @@ fn ancestor_kind(stack: &[Entry], up: usize) -> Option<K> {
     stack.len().checked_sub(up).map(|at| stack[at].kind)
 }
 
+/// The place of the node that the walk visits: its parent, its grandparent and the run of
+/// decorators and comments before it.
+fn place_of<'a, 't>(stack: &'a [Entry<'t>]) -> Place<'a, 't> {
+    let parent = stack.last();
+    Place {
+        parent: parent.map(|entry| entry.node),
+        parent_kind: parent.map_or(K::Other, |entry| entry.kind),
+        grand_kind: ancestor_kind(stack, 2).unwrap_or(K::Other),
+        before: parent.map_or(&[], |entry| entry.run.as_slice()),
+    }
+}
+
 /// A declaration that sits at the top of the file, or in an `export` at the top of the file.
 fn top_of_file(stack: &[Entry], up: usize) -> bool {
     match ancestor_kind(stack, up) {
@@ -114,34 +154,30 @@ impl Defs {
         if node.has_error() || seen & (ERROR_ABOVE | INSIDE_NAMESPACE | IN_UNMODELED_BLOCK) != 0 {
             return None;
         }
-        let name_node = cx.field(node, "name");
+        let place = place_of(stack);
+        let name_node = cx.field(node, F::Name);
         let mut name = name_node.map_or_else(String::new, |name| cx.text(name));
-        if cx.supported_constructor(node) {
+        if cx.supported_constructor(node, &place) {
             name = "constructor".to_owned();
         }
         let name_node = name_node?;
         if name.is_empty() || matches!(cx.k(name_node), K::Other | K::ComputedPropertyName) {
             return None;
         }
-        if matches!(kind, K::MethodDefinition | K::MethodSignature) && !cx.class_member(node) {
+        if matches!(kind, K::MethodDefinition | K::MethodSignature) && !place.class_member() {
             return None;
         }
         let owner = stack.last().and_then(|entry| entry.scope);
-        let parent = owner.and_then(|at| self.scopes.get(at as usize));
-        let definition = Self::build(cx, node, (name.clone(), found), parent, stack);
-        let qualified = match parent {
-            Some(parent) if !parent.qualified.is_empty() => {
-                format!("{}.{name}", parent.qualified)
-            }
-            _ => name,
-        };
-        self.scopes.push(Scope {
-            qualified,
+        let parent = owner.and_then(|at| self.scopes.0.get(at as usize).map(|scope| (at, scope)));
+        let definition = Self::build(cx, node, (name.clone(), found), parent, (stack, &place));
+        self.scopes.0.push(Scope {
+            name,
+            parent: owner,
             line: definition.span.line,
             column: definition.span.column,
         });
         self.found.push(definition);
-        Some((self.scopes.len() - 1) as u32)
+        Some((self.scopes.0.len() - 1) as u32)
     }
 
     /// `_definition`.
@@ -149,49 +185,44 @@ impl Defs {
         cx: &Cx,
         node: Node,
         (name, kind): (String, DefinitionKind),
-        parent: Option<&Scope>,
-        stack: &[Entry],
+        parent: Option<(u32, &Scope)>,
+        (stack, place): (&[Entry], &Place),
     ) -> Definition {
-        let body = cx.field(node, "body");
+        let owner = cx.k(node);
+        let body = cx.field(node, F::Body);
         let nested = matches!(
             kind,
             DefinitionKind::Class | DefinitionKind::Interface | DefinitionKind::Enum
         ) && body.is_some();
         let (members, bases) = match body {
-            Some(body) if nested => (
-                cx.declared_members(
-                    body,
-                    kind == DefinitionKind::Class,
-                    kind == DefinitionKind::Enum,
-                ),
-                cx.bases(node),
-            ),
+            Some(body) if nested => (cx.declared_members(body, owner), cx.bases(node)),
             _ => (Vec::new(), Vec::new()),
         };
-        let modifiers = cx.modifiers(node);
-        let decorator_sources = cx.decorator_sources(node);
+        let kids = children(node);
+        let modifiers = cx.modifiers_in(&kids);
+        let decorator_sources = cx.decorator_sources_in(node, &kids, place);
         Definition {
             name,
             kind,
             span: cx.span(node),
-            parent: parent.map(|scope| scope.qualified.clone()),
-            visibility: cx.visibility(node),
+            parent: parent.map(|(at, _)| at),
+            visibility: cx.visibility_in(node, &kids),
             is_static: modifiers.has_static(),
             exported: ancestor_kind(stack, 1) == Some(K::ExportStatement),
-            annotation: cx.type_text(cx.field(node, "type").or_else(|| cx.field(node, "value"))),
-            parameters: cx.parameters(cx.field(node, "parameters")),
-            returns: cx.type_text(cx.field(node, "return_type")),
+            annotation: cx.type_text(cx.field(node, F::Type).or_else(|| cx.field(node, F::Value))),
+            parameters: cx.parameters(cx.field(node, F::Parameters)),
+            returns: cx.type_text(cx.field(node, F::ReturnType)),
             bases,
             members,
             decorators: !decorator_sources.is_empty(),
             is_abstract: modifiers.has_abstract(),
-            members_complete: cx.members_complete(body),
+            members_complete: cx.members_complete(body, owner),
             overload_signature: body.is_none(),
             top_level: top_of_file(stack, 1),
             signature_complete: cx.signature_complete(node),
-            parent_line: parent.map(|scope| scope.line),
-            parent_column: parent.map(|scope| scope.column),
-            is_async: cx.has_child(node, K::Async),
+            parent_line: parent.map(|(_, scope)| scope.line),
+            parent_column: parent.map(|(_, scope)| scope.column),
+            is_async: kids.iter().any(|child| cx.k(*child) == K::Async),
             decorator_sources,
         }
     }
@@ -205,18 +236,18 @@ impl Defs {
             return;
         }
         let module_level = top_of_file(stack, 2);
-        let name_node = cx.field(node, "name");
+        let name_node = cx.field(node, F::Name);
         let Some(name_node) = name_node.filter(|name| cx.k(*name) == K::Identifier) else {
             self.opaque |= module_level;
             return;
         };
         let name = cx.text(name_node);
         self.opaque |= module_level && (name.is_empty() || has_backslash(&name));
-        let value = cx.field(node, "value");
+        let value = cx.field(node, F::Value);
         let declaration = stack
             .last()
             .filter(|entry| entry.kind == K::LexicalDeclaration);
-        let kind_node = declaration.and_then(|entry| cx.field(entry.node, "kind"));
+        let kind_node = declaration.and_then(|entry| cx.field(entry.node, F::Kind));
         let is_array =
             value.is_some_and(|value| module_array_constant(cx, node, value, stack, seen));
         let plain = value.is_some_and(|value| {
@@ -232,16 +263,16 @@ impl Defs {
             return;
         }
         let owner = stack.last().and_then(|entry| entry.scope);
-        let owner = owner.and_then(|at| self.scopes.get(at as usize));
+        let owner = owner.and_then(|at| self.scopes.0.get(at as usize).map(|scope| (at, scope)));
         let constant = Definition {
             name,
             kind: DefinitionKind::Constant,
             span: cx.span(node),
-            parent: owner.map(|scope| scope.qualified.clone()),
+            parent: owner.map(|(at, _)| at),
             visibility: None,
             is_static: false,
             exported: ancestor_kind(stack, 2) == Some(K::ExportStatement),
-            annotation: cx.type_text(cx.field(node, "type")),
+            annotation: cx.type_text(cx.field(node, F::Type)),
             parameters: Vec::new(),
             returns: None,
             bases: Vec::new(),
@@ -252,8 +283,8 @@ impl Defs {
             overload_signature: false,
             top_level: module_level,
             signature_complete: true,
-            parent_line: owner.map(|scope| scope.line),
-            parent_column: owner.map(|scope| scope.column),
+            parent_line: owner.map(|(_, scope)| scope.line),
+            parent_column: owner.map(|(_, scope)| scope.column),
             is_async: false,
             decorator_sources: Vec::new(),
         };
@@ -268,7 +299,7 @@ impl Defs {
         mut self,
         imported: &HashSet<String>,
         exports: &ModuleExports,
-    ) -> Vec<Definition> {
+    ) -> (Vec<Definition>, Scopes) {
         let opaque = self.opaque || imported.iter().any(|name| has_backslash(name));
         self.omitted.extend(imported.iter().cloned());
         let kept = self.constants.into_iter().filter(|item| {
@@ -280,7 +311,7 @@ impl Defs {
             module_visibility(item, exports);
         }
         all.sort_by_key(|item| (item.span.line, item.span.column));
-        all
+        (all, self.scopes)
     }
 }
 

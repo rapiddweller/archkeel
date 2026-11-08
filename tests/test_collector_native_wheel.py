@@ -393,6 +393,13 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
     assert decoded["protocol_version"] == "9.0.0"
     assert decoded["facts"]["adapter"]["version"] == version
     assert decoded["facts"]["coverage"]["selected_files"] == ["src/app.ts"]
+    # AD-323: the test-only `dump` feature is not in the binary that the wheel ships. With the
+    # feature, `--dump` would read file names on stdin and print JSON. Here it is an ignored
+    # argument: the binary reads a collection request, finds none, and fails without output.
+    dumped = subprocess.run([str(installed), "--dump"], input=b"", capture_output=True)
+    assert dumped.returncode != 0
+    assert dumped.stdout == b""
+    assert b"dump request is not JSON" not in Path(installed).read_bytes()
 
 
 # The host does not use the bundled binary yet (PR 4.4 adds this lookup to cli/observe.py).

@@ -42,6 +42,14 @@ from test_collector_native_imports import (
 )
 
 from archkeel.analyzer.typescript import parse
+from archkeel.ir.facts_codec import encode_request
+from archkeel.ir.protocol import (
+    CollectionRequest,
+    ProtocolVersion,
+    SnapshotInput,
+    SourceScope,
+    TypeScriptSettings,
+)
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
@@ -374,6 +382,8 @@ SYNTAX_PIECES = (
     "import { zz } from './z'; export const zz = 1;",
     "export { yy }; const yy = 1; function yy() {}",
     "export default class Dflt {} export { Dflt as other };",
+    # A re-export names no local binding: x and K stay private and not exported.
+    "function x() {}\nclass K {}\nexport { x } from './m';\nexport { K as KK } from './n';",
 )
 
 
@@ -509,9 +519,13 @@ def test_pathological_shapes_equal_the_python_parser(
     assert result.counts["definitions"] > 100
 
 
-# Wall time of the debug build, generous. The span of each definition once decoded the whole line
-# before it and the whole text of its node: 40 000 functions on one line took 36.5 s, 4 000 nested
-# functions 1.7 s and 8 000 nested functions 7.2 s in the release build, against under 0.5 s now.
+# Wall time of the collector process (the debug build), generous. The facts of each definition
+# once decoded the line before it and the whole text of its node, and kept the qualified name of
+# each scope as a copy of its whole chain. In the release build 40 000 functions on one line took
+# 33.6 s, 4 000 nested classes 14.9 s and 8 000 nested classes 61 s (1.3 GB), against 0.2 s and
+# under 0.1 s for the collector of PR 4.2 and for this code. The debug build of the old code took
+# 629 s, 87 s and 349 s. The process, not the dump, is timed: the dump prints the qualified name
+# of each definition, and that output is quadratic in the depth in Python too.
 PATHOLOGICAL = (
     ("one-line", 40_000),
     ("nested-functions", 4_000),
@@ -523,15 +537,24 @@ PATHOLOGICAL = (
 
 @pytest.mark.parametrize(("name", "count"), PATHOLOGICAL)
 def test_pathological_shapes_take_bounded_time(
-    tmp_path: Path, dump_binary: Path, name: str, count: int
+    tmp_path: Path, native_binary: Path, name: str, count: int
 ) -> None:
-    path = tmp_path / f"{name}.ts"
-    path.write_bytes(_shape(name, count))
+    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/a.ts").write_bytes(_shape(name, count))
+    request = SnapshotInput(str(tmp_path), "a" * 40, False)
+    payload = encode_request(
+        CollectionRequest(
+            request,
+            SourceScope(("src",), "app"),
+            TypeScriptSettings("tsconfig.json", False),
+            ProtocolVersion.V8,
+        )
+    )
     begin = time.perf_counter()
-    reply = _native(dump_binary, [(f"src/{path.name}", path)])[0]
+    done = subprocess.run([str(native_binary)], input=payload, capture_output=True, check=False)
     elapsed = time.perf_counter() - begin
-    assert "syntax" in reply, reply
-    assert len(reply["syntax"]["definitions"]) >= count
+    assert done.returncode == 0, done.stderr[-300:]
     assert elapsed < 5.0, f"{name} {count}: {elapsed:.1f} s"
 
 

@@ -96,7 +96,7 @@ fn summary(syntax: &Syntax) -> Vec<String> {
             "D {} {} {} {} ex={} vis={} top={} st={} ab={} as={} dec={} mc={} ov={} sc={} ann={} ret={} pl={}:{} P[{}] B[{}] M[{}]",
             d.name,
             kind(d.kind),
-            word(d.parent.as_ref()),
+            word(syntax.parent_name(d)),
             at(&d.span),
             flag(d.exported),
             visibility(d.visibility),

@@ -13,10 +13,10 @@ use std::collections::{BTreeSet, HashSet};
 
 use tree_sitter::Node;
 
-use crate::definitions::{Definition, Defs};
+use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{ambient, export_bindings, module_exports, Named};
 use crate::import_bindings::{of_statement, ImportBinding};
-use crate::kinds::K;
+use crate::kinds::{F, K};
 use crate::members::{named_children, Cx};
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
 use crate::source_input::{SourceKind, Suffix};
@@ -45,6 +45,9 @@ pub struct Entry<'t> {
     pub var_frame: u32,
     /// The nearest definition that holds this node, this node included.
     pub scope: Option<u32>,
+    /// The decorators and comments among the named children seen so far that directly precede
+    /// the next child.
+    pub run: Vec<Node<'t>>,
 }
 
 /// The facts of `Syntax` that this phase produces. The reply does not read them yet; the `dump`
@@ -52,6 +55,8 @@ pub struct Entry<'t> {
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
 pub struct Syntax {
     pub definitions: Vec<Definition>,
+    /// The parents of the definitions: `parent_name` gives the qualified name of a definition.
+    pub scopes: Scopes,
     pub import_bindings: Vec<ImportBinding>,
     pub module_exports: Vec<(String, Span, Span)>,
     pub rebound_names: Vec<String>,
@@ -64,10 +69,17 @@ pub struct Syntax {
 }
 
 impl Syntax {
+    /// The qualified name of the parent of a definition (`Definition.parent` in Python).
+    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
+    pub fn parent_name(&self, definition: &Definition) -> Option<String> {
+        definition.parent.map(|at| self.scopes.qualified(at))
+    }
+
     /// The facts of a file that could not be parsed: none.
     pub fn empty() -> Self {
         Self {
             definitions: Vec::new(),
+            scopes: Scopes::default(),
             import_bindings: Vec::new(),
             module_exports: Vec::new(),
             rebound_names: Vec::new(),
@@ -123,6 +135,7 @@ impl<'a, 't> Walk<'a, 't> {
                 frame: parent_frame,
                 var_frame: parent_var,
                 scope: parent_scope,
+                run: Vec::new(),
             });
             return;
         }
@@ -146,6 +159,13 @@ impl<'a, 't> Walk<'a, 't> {
             scope = Some(opened);
         }
         self.defs.variable(&cx, node, kind, &self.stack, seen);
+        if let Some(parent) = self.stack.last_mut() {
+            if matches!(kind, K::Decorator | K::Comment) {
+                parent.run.push(node);
+            } else {
+                parent.run.clear();
+            }
+        }
         self.stack.push(Entry {
             node,
             kind,
@@ -153,6 +173,7 @@ impl<'a, 't> Walk<'a, 't> {
             frame,
             var_frame,
             scope,
+            run: Vec::new(),
         });
     }
 
@@ -176,7 +197,7 @@ impl<'a, 't> Walk<'a, 't> {
                 let modeled = self
                     .stack
                     .last()
-                    .and_then(|parent| parent.node.child_by_field_name("body"))
+                    .and_then(|parent| self.cx.field(parent.node, F::Body))
                     .is_some_and(|body| body == node);
                 if modeled {
                     0
@@ -195,25 +216,25 @@ impl<'a, 't> Walk<'a, 't> {
         let cx = self.cx;
         if is_function(kind) {
             for item in cx
-                .field(node, "parameters")
+                .field(node, F::Parameters)
                 .map(named_children)
                 .unwrap_or_default()
             {
                 self.frames.bind_pattern(&cx, own, item);
             }
-            if let Some(parameter) = cx.field(node, "parameter") {
+            if let Some(parameter) = cx.field(node, F::Parameter) {
                 self.frames.bind_pattern(&cx, own, parameter);
             }
         }
         match kind {
             K::CatchClause => {
-                if let Some(parameter) = cx.field(node, "parameter") {
+                if let Some(parameter) = cx.field(node, F::Parameter) {
                     self.frames.bind_pattern(&cx, own, parameter);
                 }
             }
             K::ForInStatement => {
-                let declaration = cx.field(node, "kind");
-                if let (Some(declaration), Some(left)) = (declaration, cx.field(node, "left")) {
+                let declaration = cx.field(node, F::Kind);
+                if let (Some(declaration), Some(left)) = (declaration, cx.field(node, F::Left)) {
                     let scope = if cx.k(declaration) == K::Var {
                         parent_var
                     } else {
@@ -228,7 +249,7 @@ impl<'a, 't> Walk<'a, 't> {
             kind,
             K::FunctionExpression | K::GeneratorFunction | K::Class
         ) {
-            if let Some(name) = cx.field(node, "name") {
+            if let Some(name) = cx.field(node, F::Name) {
                 self.frames.bind_pattern(&cx, own, name);
             }
         }
@@ -246,7 +267,7 @@ impl<'a, 't> Walk<'a, 't> {
     /// `_script_declaration_bindings`.
     fn bind_declaration(&mut self, node: Node<'t>, kind: K, parent_frame: u32, parent_var: u32) {
         let cx = self.cx;
-        let Some(name) = cx.field(node, "name") else {
+        let Some(name) = cx.field(node, F::Name) else {
             self.frames.blur(ROOT);
             return;
         };
@@ -274,7 +295,7 @@ impl<'a, 't> Walk<'a, 't> {
         }
         let cx = self.cx;
         if let Some(left) = cx
-            .field(node, "left")
+            .field(node, F::Left)
             .filter(|left| cx.k(*left) == K::Identifier)
         {
             self.rebound.insert(cx.text(left));
@@ -286,10 +307,10 @@ impl<'a, 't> Walk<'a, 't> {
         let cx = self.cx;
         let target = match kind {
             K::AssignmentExpression | K::AugmentedAssignmentExpression | K::ForInStatement => {
-                cx.field(node, "left")
+                cx.field(node, F::Left)
             }
-            K::UpdateExpression => cx.field(node, "argument"),
-            K::UnaryExpression if cx.has_child(node, K::Delete) => cx.field(node, "argument"),
+            K::UpdateExpression => cx.field(node, F::Argument),
+            K::UnaryExpression if cx.has_child(node, K::Delete) => cx.field(node, F::Argument),
             _ => None,
         };
         let Some(target) = target else {
@@ -305,7 +326,8 @@ impl<'a, 't> Walk<'a, 't> {
     /// Close the walk: the facts that need the whole file.
     pub fn finish(mut self, root: Node, suffix: Option<Suffix>) -> Syntax {
         let cx = self.cx;
-        let exports = module_exports(&cx, root);
+        let top = named_children(root);
+        let exports = module_exports(&cx, &top);
         // A name that an import binds counts in the frame of the file.
         for item in &self.imports {
             self.frames.bind(ROOT, item.local.clone());
@@ -331,15 +353,17 @@ impl<'a, 't> Walk<'a, 't> {
             .collect();
         let declaration_file =
             suffix.is_some_and(|s| s.source_kind() == Some(SourceKind::Declaration));
-        let (ambient_globals, ambient_top_level) = ambient(&cx, root, exports.module_syntax);
+        let (ambient_globals, ambient_top_level) = ambient(&cx, &top, exports.module_syntax);
         let hinted = suffix.is_some_and(|s| s.format_hint().is_some());
         let script_mode = suffix.is_some_and(|s| {
             s.source_kind() == Some(SourceKind::JavaScript) && s.format_hint().is_none()
         }) && !exports.module_syntax;
+        let (definitions, scopes) = self.defs.finish(&imported, &exports);
         Syntax {
             module_file: exports.module_syntax || (hinted && !declaration_file),
-            module_exports: export_bindings(&cx, root, &self.frames),
-            definitions: self.defs.finish(&imported, &exports),
+            module_exports: export_bindings(&cx, (root, &top), &self.frames),
+            definitions,
+            scopes,
             import_bindings,
             rebound_names: self.rebound.into_iter().collect(),
             ambient_globals,

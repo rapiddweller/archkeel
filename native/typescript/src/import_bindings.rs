@@ -6,7 +6,7 @@
 
 use tree_sitter::Node;
 
-use crate::kinds::K;
+use crate::kinds::{F, K};
 use crate::members::{children, Cx};
 use crate::syntax::Span;
 
@@ -54,8 +54,8 @@ pub fn of_statement(cx: &Cx, statement: Node) -> Vec<ImportBinding> {
             if cx.k(item) != K::ImportSpecifier {
                 continue;
             }
-            let imported = item.child_by_field_name("name");
-            let local = item.child_by_field_name("alias").or(imported);
+            let imported = cx.field(item, F::Name);
+            let local = cx.field(item, F::Alias).or(imported);
             if let (Some(imported), Some(local)) = (imported, local) {
                 let type_only = statement_type || cx.has_child(item, K::Type);
                 result.push(binding(&span, cx.text(imported), cx.text(local), type_only));

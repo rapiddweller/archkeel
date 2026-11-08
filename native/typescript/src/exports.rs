@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 
 use tree_sitter::Node;
 
-use crate::kinds::K;
+use crate::kinds::{F, K};
 use crate::members::{children, named_children, Cx};
 use crate::scope::{Frames, ROOT};
 use crate::syntax::Span;
@@ -41,8 +41,7 @@ fn is_declaration(kind: K) -> bool {
     )
 }
 
-pub fn module_exports(cx: &Cx, root: Node) -> ModuleExports {
-    let top = named_children(root);
+pub fn module_exports(cx: &Cx, top: &[Node]) -> ModuleExports {
     let statements: Vec<Node> = top
         .iter()
         .copied()
@@ -79,8 +78,8 @@ pub fn module_exports(cx: &Cx, root: Node) -> ModuleExports {
             if cx.k(specifier) != K::ExportSpecifier {
                 continue;
             }
-            let name = specifier.child_by_field_name("name");
-            let alias = specifier.child_by_field_name("alias");
+            let name = cx.field(specifier, F::Name);
+            let alias = cx.field(specifier, F::Alias);
             let Some(name) =
                 name.filter(|name| matches!(cx.k(*name), K::Identifier | K::TypeIdentifier))
             else {
@@ -101,23 +100,25 @@ pub fn module_exports(cx: &Cx, root: Node) -> ModuleExports {
 
 /// `_module_export_bindings`: `(name, declaration, export)` for a name exported once, declared
 /// once and bound once.
-pub fn export_bindings(cx: &Cx, root: Node, frames: &Frames) -> Vec<(String, Span, Span)> {
-    let top = named_children(root);
+pub fn export_bindings(
+    cx: &Cx,
+    (root, top): (Node, &[Node]),
+    frames: &Frames,
+) -> Vec<(String, Span, Span)> {
     if root.has_error()
         || frames.is_ambiguous(ROOT)
         || top.iter().any(|statement| {
-            cx.k(*statement) == K::ExportStatement
-                && statement.child_by_field_name("source").is_some()
+            cx.k(*statement) == K::ExportStatement && cx.field(*statement, F::Source).is_some()
         })
     {
         return Vec::new();
     }
     let mut declarations: HashMap<String, Vec<Span>> = HashMap::new();
     let mut exports: Vec<(String, Span)> = Vec::new();
-    for statement in top {
+    for statement in top.iter().copied() {
         let exported = cx.k(statement) == K::ExportStatement;
         let declaration = if exported {
-            statement.child_by_field_name("declaration")
+            cx.field(statement, F::Declaration)
         } else {
             Some(statement)
         };
@@ -138,7 +139,7 @@ pub fn export_bindings(cx: &Cx, root: Node, frames: &Frames) -> Vec<(String, Spa
             None => Vec::new(),
         };
         for node in candidates {
-            let name = node.child_by_field_name("name");
+            let name = cx.field(node, F::Name);
             let Some(name) = name.filter(|name| {
                 matches!(
                     cx.k(node),
@@ -156,7 +157,7 @@ pub fn export_bindings(cx: &Cx, root: Node, frames: &Frames) -> Vec<(String, Spa
                 exports.push((text, cx.span(statement)));
             }
         }
-        if statement.child_by_field_name("source").is_some() {
+        if cx.field(statement, F::Source).is_some() {
             continue;
         }
         let clause = if direct {
@@ -170,8 +171,8 @@ pub fn export_bindings(cx: &Cx, root: Node, frames: &Frames) -> Vec<(String, Spa
             if cx.k(specifier) != K::ExportSpecifier {
                 continue;
             }
-            let name = specifier.child_by_field_name("name");
-            let alias = specifier.child_by_field_name("alias");
+            let name = cx.field(specifier, F::Name);
+            let alias = cx.field(specifier, F::Alias);
             if let Some(name) = name {
                 if cx.valid_unicode_member_name(name)
                     && alias.is_none()
@@ -229,10 +230,10 @@ fn declared_names(cx: &Cx, declaration: Node) -> Vec<(String, Span)> {
     ) {
         named_children(declaration)
             .into_iter()
-            .map(|item| item.child_by_field_name("name"))
+            .map(|item| cx.field(item, F::Name))
             .collect()
     } else {
-        vec![declaration.child_by_field_name("name")]
+        vec![cx.field(declaration, F::Name)]
     };
     let mut found = Vec::new();
     for name in names {
@@ -252,10 +253,10 @@ fn declared_names(cx: &Cx, declaration: Node) -> Vec<(String, Span)> {
 
 /// `_ambient_globals`: the names of `declare global { }` blocks, and of the top-level `declare`
 /// statements of a file without module syntax.
-pub fn ambient(cx: &Cx, root: Node, module_syntax: bool) -> (Named, Named) {
+pub fn ambient(cx: &Cx, top: &[Node], module_syntax: bool) -> (Named, Named) {
     let mut block = Vec::new();
     let mut top_level = Vec::new();
-    for statement in named_children(root) {
+    for statement in top.iter().copied() {
         if cx.k(statement) != K::AmbientDeclaration {
             continue;
         }

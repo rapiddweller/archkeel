@@ -8,18 +8,18 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
-use crate::kinds::K;
-use crate::members::{named_children, static_member_name, Cx, Member};
+use crate::kinds::{F, K};
+use crate::members::{children, named_children, static_member_name, Cx, Member, Place};
 use crate::syntax::Span;
 
 impl Cx<'_> {
     /// `_parameter_properties`: `None` when a parameter property cannot be proven.
-    fn parameter_properties<'t>(&self, node: Node<'t>) -> Option<Vec<Node<'t>>> {
+    fn parameter_properties<'t>(&self, node: Node<'t>, place: &Place) -> Option<Vec<Node<'t>>> {
         if !matches!(self.k(node), K::MethodDefinition | K::MethodSignature) {
             return Some(Vec::new());
         }
         let properties: Vec<Node> = self
-            .field(node, "parameters")
+            .field(node, F::Parameters)
             .map(|parameters| {
                 named_children(parameters)
                     .into_iter()
@@ -28,14 +28,14 @@ impl Cx<'_> {
             })
             .unwrap_or_default();
         if !properties.is_empty()
-            && (!self.supported_constructor(node) || self.field(node, "body").is_none())
+            && (!self.supported_constructor(node, place) || self.field(node, F::Body).is_none())
         {
             return None;
         }
         for item in &properties {
             let pattern = self
-                .field(*item, "pattern")
-                .or_else(|| self.field(*item, "name"));
+                .field(*item, F::Pattern)
+                .or_else(|| self.field(*item, F::Name));
             let proven = !item.has_error()
                 && matches!(self.k(*item), K::RequiredParameter | K::OptionalParameter)
                 && pattern.is_some_and(|pattern| {
@@ -51,17 +51,17 @@ impl Cx<'_> {
     }
 
     /// `_member`.
-    fn member(&self, node: Node) -> Option<Member> {
+    fn member(&self, node: Node, place: &Place) -> Option<Member> {
         let name_node = self
-            .field(node, "name")
-            .or_else(|| self.field(node, "pattern"))
+            .field(node, F::Name)
+            .or_else(|| self.field(node, F::Pattern))
             .or_else(|| {
                 matches!(self.k(node), K::PropertyIdentifier | K::Identifier).then_some(node)
             })?;
         if matches!(self.k(name_node), K::Other | K::ComputedPropertyName) {
             return None;
         }
-        let literal = self.field(node, "value").and_then(|value| {
+        let literal = self.field(node, F::Value).and_then(|value| {
             matches!(
                 self.k(value),
                 K::String | K::Number | K::True | K::False | K::Null
@@ -71,7 +71,7 @@ impl Cx<'_> {
         Some(Member {
             name: self.text(name_node),
             span: self.span(name_node),
-            annotation: self.type_text(self.field(node, "type")),
+            annotation: self.type_text(self.field(node, F::Type)),
             visibility: self.visibility(node),
             is_static: self.modifiers(node).has_static()
                 || matches!(
@@ -79,33 +79,47 @@ impl Cx<'_> {
                     K::EnumAssignment | K::PropertyIdentifier | K::Identifier
                 ),
             literal,
-            decorator_sources: self.decorator_sources(node),
+            decorator_sources: self.decorator_sources(node, place),
         })
     }
 
-    pub fn decorator_sources(&self, node: Node) -> Vec<(String, Span)> {
-        self.decorators(node)
+    pub fn decorator_sources(&self, node: Node, place: &Place) -> Vec<(String, Span)> {
+        self.decorator_sources_in(node, &children(node), place)
+    }
+
+    pub fn decorator_sources_in(
+        &self,
+        node: Node,
+        kids: &[Node],
+        place: &Place,
+    ) -> Vec<(String, Span)> {
+        self.decorators_in(node, kids, place)
             .into_iter()
             .map(|item| (self.text(item), self.span(item)))
             .collect()
     }
 
     /// `_declared_members`.
-    pub fn declared_members(&self, body: Node, class: bool, enumeration: bool) -> Vec<Member> {
+    pub fn declared_members(&self, body: Node, owner: K) -> Vec<Member> {
+        let (class, enumeration) = (owner == K::ClassDeclaration, owner == K::EnumDeclaration);
         let mut members = Vec::new();
         let mut properties: Vec<Member> = Vec::new();
-        for item in named_children(body) {
+        let list = named_children(body);
+        for (index, item) in list.iter().copied().enumerate() {
+            let place = self.place_in(&list, index, body, owner);
             let kind = self.k(item);
             if matches!(
                 kind,
                 K::PublicFieldDefinition | K::PropertySignature | K::EnumAssignment
             ) || (enumeration && matches!(kind, K::PropertyIdentifier | K::Identifier))
             {
-                members.extend(self.member(item));
+                members.extend(self.member(item, &place));
             }
             if class {
-                for parameter in self.parameter_properties(item).unwrap_or_default() {
-                    if let Some(mut member) = self.member(parameter) {
+                for parameter in self.parameter_properties(item, &place).unwrap_or_default() {
+                    if let Some(mut member) =
+                        self.member(parameter, &Place::apart(K::FormalParameters))
+                    {
                         member.literal = None;
                         member.decorator_sources = Vec::new();
                         properties.push(member);
@@ -138,8 +152,43 @@ impl Cx<'_> {
         members
     }
 
+    /// The place of `list[index]` among the named children of `body`.
+    fn place_in<'a, 't>(
+        &self,
+        list: &'a [Node<'t>],
+        index: usize,
+        body: Node<'t>,
+        owner: K,
+    ) -> Place<'a, 't> {
+        let mut start = index;
+        while start > 0 && matches!(self.k(list[start - 1]), K::Decorator | K::Comment) {
+            start -= 1;
+        }
+        Place {
+            parent: Some(body),
+            parent_kind: self.k(body),
+            grand_kind: owner,
+            before: &list[start..index],
+        }
+    }
+
+    /// `_decorated_member(list[index]) is not None`: the first sibling after a run of decorators
+    /// and comments is a member that a decorator can belong to.
+    fn decorates_a_member(&self, list: &[Node], index: usize, body: Node, owner: K) -> bool {
+        let mut next = index + 1;
+        while list
+            .get(next)
+            .is_some_and(|item| matches!(self.k(*item), K::Decorator | K::Comment))
+        {
+            next += 1;
+        }
+        list.get(next).is_some_and(|candidate| {
+            self.decorated_member(*candidate, &self.place_in(list, next, body, owner))
+        })
+    }
+
     /// `_members_complete`.
-    pub fn members_complete(&self, body: Option<Node>) -> bool {
+    pub fn members_complete(&self, body: Option<Node>, owner: K) -> bool {
         let Some(body) = body else {
             return false;
         };
@@ -148,11 +197,13 @@ impl Cx<'_> {
         }
         let mut attributes: HashSet<String> = HashSet::new();
         let mut constructors = 0;
-        for child in named_children(body) {
+        let list = named_children(body);
+        for (index, child) in list.iter().copied().enumerate() {
             let kind = self.k(child);
-            if kind == K::Decorator && self.decorated_member(child).is_some() {
+            if kind == K::Decorator && self.decorates_a_member(&list, index, body, owner) {
                 continue;
             }
+            let place = self.place_in(&list, index, body, owner);
             if !matches!(
                 kind,
                 K::PublicFieldDefinition
@@ -169,7 +220,7 @@ impl Cx<'_> {
             if matches!(kind, K::PropertyIdentifier | K::Identifier | K::Comment) {
                 continue;
             }
-            let Some(name) = self.field(child, "name") else {
+            let Some(name) = self.field(child, F::Name) else {
                 return false;
             };
             if matches!(self.k(name), K::Other | K::ComputedPropertyName) {
@@ -186,19 +237,19 @@ impl Cx<'_> {
                 if !self.valid_unicode_member_name(name) {
                     return false;
                 }
-                let properties = self.parameter_properties(child);
-                let constructor = self.instance_constructor(child);
+                let properties = self.parameter_properties(child, &place);
+                let constructor = self.instance_constructor(child, &place);
                 constructors += usize::from(constructor);
                 if constructors > 1
                     || properties.is_none()
-                    || (constructor && !self.supported_constructor(child))
+                    || (constructor && !self.supported_constructor(child, &place))
                 {
                     return false;
                 }
                 for parameter in properties.unwrap_or_default() {
                     let pattern = self
-                        .field(parameter, "pattern")
-                        .or_else(|| self.field(parameter, "name"));
+                        .field(parameter, F::Pattern)
+                        .or_else(|| self.field(parameter, F::Name));
                     let Some(pattern) = pattern else {
                         return false;
                     };

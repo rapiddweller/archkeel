@@ -74,6 +74,30 @@ fn a_class_with_5000_methods_and_a_file_with_5000_functions_give_every_definitio
     let mut parsers = Parsers::new();
     let syntax = parse(&mut parsers, "wide.ts", text.as_bytes()).syntax;
     assert_eq!(syntax.definitions.len(), 1 + 5000 + 5000);
-    assert_eq!(syntax.definitions[1].parent.as_deref(), Some("Big"));
+    assert_eq!(
+        syntax.parent_name(&syntax.definitions[1]).as_deref(),
+        Some("Big")
+    );
     assert_eq!(syntax.module_exports.len(), 5001);
+}
+
+#[test]
+fn a_qualified_name_is_the_chain_of_the_parent_names() {
+    let text = "class A { m() { function inner() { const k = 1; } } }";
+    let mut parsers = Parsers::new();
+    let syntax = parse(&mut parsers, "chain.ts", text.as_bytes()).syntax;
+    let names: Vec<(String, Option<String>)> = syntax
+        .definitions
+        .iter()
+        .map(|item| (item.name.clone(), syntax.parent_name(item)))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            ("A".to_owned(), None),
+            ("m".to_owned(), Some("A".to_owned())),
+            ("inner".to_owned(), Some("A.m".to_owned())),
+            ("k".to_owned(), Some("A.m.inner".to_owned())),
+        ]
+    );
 }

@@ -200,6 +200,24 @@ fn tsx_tsx_has_the_syntax_of_the_python_parser() {
 }
 
 #[test]
+fn reexport_local_ts_has_the_syntax_of_the_python_parser() {
+    let got = facts(
+        "reexport_local.ts",
+        "function x() {}\nclass K {}\nexport { x } from './m';\nexport { K as KK } from './n';\n",
+    );
+    let want = [
+        "D x function None 1:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D K class None 2:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "R ",
+        "G ",
+        "T ",
+        "F module=True declaration=False script=False",
+        "B K,x",
+    ];
+    assert_eq!(got, want, "reexport_local.ts");
+}
+
+#[test]
 fn pattern_bound_ts_has_the_syntax_of_the_python_parser() {
     let got = facts(
         "pattern_bound.ts",
