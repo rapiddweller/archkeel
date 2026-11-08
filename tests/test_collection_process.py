@@ -466,7 +466,7 @@ class _LifecycleProcess:
 
     def wait(self, timeout):
         self.events.append(("wait", timeout))
-        if self.failure == "wait":
+        if self.failure in ("wait", "killpg"):
             import subprocess
 
             raise subprocess.TimeoutExpired("collector", timeout)
@@ -523,29 +523,48 @@ def test_platform_cleanup_keeps_exact_error_text_and_cause(name, failure, messag
     events, error, cause = _cleanup_observation(process_owner, name, failure=failure)
     assert error == message and cause is not None
     assert cause[0] == ("TimeoutExpired" if failure == "wait" else "OSError")
-    if failure in ("kill", "killpg"):
+    if failure == "kill":
         assert not any(event[0] == "wait" for event in events)
+    if failure == "killpg":
+        assert [event for event in events if event[0] == "wait"] == [("wait", 0.5)]
 
 
-def test_zombie_only_posix_process_group_is_a_finished_collector():
-    events = []
-    process = _LifecycleProcess(events, running=False)
-
+def _permission_denied_cleanup(process, events):
     def killpg(pid, signum):
         events.append(("killpg", pid, signum))
-        raise PermissionError("macOS refuses a group that holds only zombies")
+        raise PermissionError("macOS refuses a group while it tears down an exiting collector")
 
     with (
         patch.object(process_owner, "os", SimpleNamespace(name="posix", killpg=killpg)),
         patch.object(process_owner, "signal", SimpleNamespace(SIGKILL=9)),
     ):
         process_owner._terminate_process_tree(process)
-    assert events == [("killpg", 17, 9), ("poll",), ("wait", 2)]
+
+
+def test_posix_group_refusal_waits_briefly_for_an_exiting_collector():
+    events = []
+    _permission_denied_cleanup(_LifecycleProcess(events, running=True), events)
+    assert events == [("killpg", 17, 9), ("wait", 0.5), ("wait", 2)]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX process groups")
+def test_posix_group_refusal_accepts_a_real_collector_that_exits_soon():
+    import subprocess
+
+    events = []
+    process = subprocess.Popen([sys.executable, "-B", "-c", "import time; time.sleep(0.1)"])
+    try:
+        # The fake killpg does not signal, so the collector exits on its own after the refusal.
+        _permission_denied_cleanup(process, events)
+        assert process.poll() == 0
+    finally:
+        process.kill()
+        process.wait()
 
 
 def test_missing_posix_process_group_still_waits_without_error():
     assert _cleanup_observation(process_owner, "posix", failure="gone") == (
-        [("killpg", 17, 9), ("wait", 2)],
+        [("killpg", 17, 9), ("wait", 0.5), ("wait", 2)],
         None,
         None,
     )
