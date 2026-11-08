@@ -1,29 +1,29 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-318: the native collector extracts the same imports as the Python TypeScript collector.
+"""AD-319: the native collector extracts the same imports as the Python TypeScript collector.
 
-Consumer: the host process port. The Python collector is the oracle until it is deleted. It
-expands a statement with named bindings into one record for each binding (`_named_imports`) and it
-adds `script_global` imports and their gaps. The native collector declares the legacy capability
-and does neither, so the oracle runs without the expansion and without the script kinds. The two
-sides must then agree on files, inputs, evidence, import records, targets and gaps.
+Consumer: the host process port. The oracle is the Python collector in the legacy mode of the
+native collector (`native_oracle`): the four producers that the native collector does not have are
+off. Then the decoded files, inputs, evidence, import records, targets, gaps and coverage must be
+equal, with no filter. The oracle is temporary: PR 4.3 deletes it.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import random
-from collections.abc import Callable
+import subprocess
 from pathlib import Path
-from unittest import mock
 
 import pytest
+from native_oracle import legacy_facts
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.typescript import collect as python_collector
 from archkeel.ir.facts import SourceFacts
+from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionRequest,
@@ -34,9 +34,6 @@ from archkeel.ir.protocol import (
 )
 
 ROOT = Path(__file__).parents[1]
-# The reasons of the gaps that only the script analysis of the Python collector reports.
-SCRIPT_GAPS = ("Script ", "Escaped or computed global host", "Factory result")
-SCRIPT_TARGET = "TSGLOBAL-"
 STUDIO_UI = "src/archkeel/studio/ui"
 FIXTURES = (
     ("fixtures/H-typescript", "shop", "tsconfig.json"),
@@ -61,46 +58,24 @@ def _plain(value: object) -> object:
     return getattr(value, "value", value)
 
 
-def _view(facts: SourceFacts, *, python: bool) -> dict[str, object]:
+def _view(facts: SourceFacts) -> dict[str, object]:
     sections = {section.name.value: section.records for section in facts.sections}
-    imports = [item for item in sections["imports"] if item.kind != "script_global"]
-    gaps = [
-        gap
-        for gap in facts.coverage.gaps
-        if not (python and gap.title.startswith(SCRIPT_GAPS))
-    ]
-    targets = [item for item in facts.imports if not item.import_id.startswith(SCRIPT_TARGET)]
-    cited = {id_ for item in (*imports, *gaps) for id_ in item.evidence_ids}
-    cited |= {file.evidence_id for file in facts.files}
-    evidence = [item for item in facts.evidence if item.id in cited] if python else facts.evidence
     coverage = facts.coverage
     return {
         "files": _plain(facts.files),
         "inputs": _plain(facts.inputs),
         "source_digest": facts.source.source_digest,
         "scope": _plain(facts.source.scope),
-        "targets": _plain(targets),
-        "imports": _plain(imports),
-        "unknowns": _plain(
-            [
-                gap
-                for gap in sections["unknowns"]
-                if not (python and gap.title.startswith(SCRIPT_GAPS))
-            ]
-        ),
-        "gaps": _plain(gaps),
-        "evidence": _plain(evidence),
+        "targets": _plain(facts.imports),
+        "imports": _plain(sections["imports"]),
+        "unknowns": _plain(sections["unknowns"]),
+        "gaps": _plain(coverage.gaps),
+        "evidence": _plain(facts.evidence),
         "selected": list(coverage.selected_files),
         "read": coverage.files_read,
         "parsed": coverage.files_parsed,
-        "full_scope": not gaps,
+        "full_scope": coverage.full_scope,
     }
-
-
-def _oracle(request: CollectionRequest) -> SourceFacts:
-    # `_named_imports` is the binding expansion of PR 4.3; the native records are statements.
-    with mock.patch.object(python_collector._Collection, "_named_imports", lambda self: None):
-        return python_collector.collect(request)
 
 
 def _request(
@@ -124,7 +99,10 @@ def _request(
 def _differences(binary: Path, request: CollectionRequest) -> list[str]:
     native = ProcessCollector((str(binary),), protocol_version=ProtocolVersion.V8).collect(request)
     assert not isinstance(native, CollectionError), native
-    mine, theirs = _view(native, python=False), _view(_oracle(request), python=True)
+    oracle, scripts = legacy_facts(request)
+    # A global script gets gaps that only the script analysis can give: the tree must hold none.
+    assert scripts == (), f"the tree holds global scripts: {scripts}"
+    mine, theirs = _view(native), _view(oracle)
     found: list[str] = []
     for key, value in mine.items():
         if value == theirs[key]:
@@ -147,8 +125,7 @@ def test_fixture_imports_equal_the_python_collector(
 ) -> None:
     root = ROOT / path
     scope = (STUDIO_UI,) if path == "." else ("src",)
-    config = tsconfig if path == "." else tsconfig
-    request = _request(root, namespace, config, roots=scope)
+    request = _request(root, namespace, tsconfig, roots=scope)
     assert _differences(native_binary, request) == []
 
 
@@ -186,7 +163,7 @@ PACKAGES = {
 }
 SOURCES = {
     "src/util.ts": "",
-    "src/util.js": "",
+    "src/util.js": "export {};\n",
     "src/dir/index.ts": "",
     "src/esm.mts": "",
     "src/cjs.cts": "",
@@ -196,7 +173,7 @@ SOURCES = {
     "src/types.d.ts": "",
     "src/app/x.ts": "",
     "src/lib/index.ts": "",
-    "src/only.js": "",
+    "src/only.js": "export {};\n",
     "src/badpkg/package.json": "{nope",
     "src/tv/package.json": '{"typesVersions":{"*":{"*":["x"]}}}',
     "src/tv/index.ts": "",
@@ -225,8 +202,16 @@ CONFIGS = {
     ),
     "blocked": '{"compilerOptions":{"rootDirs":["a"]},"include":["src"]}',
     "partial": '{"compilerOptions":{"nope":1},"include":["src"]}',
-    "classic": '{"compilerOptions":{"module":"es2015","moduleResolution":"classic"},"include":["src"]}',
+    "classic": (
+        '{"compilerOptions":{"module":"es2015","moduleResolution":"classic"},"include":["src"]}'
+    ),
 }
+
+
+COMMONJS = '{"compilerOptions":{"module":"commonjs","allowJs":true},"include":["src"]}'
+BUNDLER_SRC = (
+    '{"compilerOptions":{"module":"esnext","moduleResolution":"bundler"},"include":["src"]}'
+)
 
 
 def _imports_of(specifiers: list[str]) -> str:
@@ -284,11 +269,12 @@ def test_a_commonjs_tree_resolves_like_the_python_collector(
     tmp_path: Path, native_binary: Path, form: str
 ) -> None:
     files = {
-        "tsconfig.json": '{"compilerOptions":{"module":"commonjs","allowJs":true},"include":["src"]}',
+        "tsconfig.json": COMMONJS,
         "src/a.js": 'const b = require("./b");\nconst c = require("./c.js");\n',
-        "src/b.js": "module.exports = 1;\n",
+        "src/b.js": "module.exports = 1;\nexport {};\n",
         "src/c.ts": "export const c = 1;\n",
-        "src/d.ts": f'{"import e = require" if form == "import" else "const e = require"}("./a");\n',
+        "src/d.ts": ("import e = require" if form == "import" else "const e = require")
+        + '("./a");\n',
     }
     _write(tmp_path, files)
     assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []
@@ -346,7 +332,9 @@ def _random_source(rng: random.Random) -> str:
         text = text[: rng.randint(0, len(text))]
     if rng.random() < 0.2:
         cut = rng.randint(0, len(text))
-        text = text[:cut] + rng.choice(["\x00", "�", "\\", "'", '"', "`", "{", "(", "<"]) + text[cut:]
+        text = (
+            text[:cut] + rng.choice(["\x00", "�", "\\", "'", '"', "`", "{", "(", "<"]) + text[cut:]
+        )
     return text
 
 
@@ -354,14 +342,104 @@ def test_random_sources_equal_the_python_collector(tmp_path: Path, native_binary
     rng = random.Random(880)
     files = {
         **SOURCES,
-        "tsconfig.json": '{"compilerOptions":{"module":"commonjs","allowJs":true},"include":["src"]}',
+        "tsconfig.json": COMMONJS,
     }
     for index in range(240):
         suffix = rng.choice([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"])
-        files[f"src/fuzz/f{index}{suffix}"] = _random_source(rng)
+        # A JavaScript file without module syntax is a global script, which the oracle refuses.
+        head = "export {};\n" if suffix in (".js", ".jsx") else ""
+        files[f"src/fuzz/f{index}{suffix}"] = head + _random_source(rng)
     _write(tmp_path, files)
     found = _differences(native_binary, _request(tmp_path, "app", "tsconfig.json"))
     assert found == []
+
+
+def _links(root: Path, outside: Path) -> None:
+    os.symlink("real.ts", root / "src/link.ts")
+    os.symlink("dir", root / "src/dirlink")
+    os.symlink("loop.ts", root / "src/loop.ts")
+    os.symlink(outside / "secret.ts", root / "src/escape.ts")
+    os.symlink("../vendor/linked-pkg", root / "node_modules/linked-pkg")
+    os.symlink(outside, root / "node_modules/escaping-pkg")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a symlink needs a privilege on Windows")
+def test_symlinks_and_package_metadata_equal_the_python_collector(
+    tmp_path: Path, native_binary: Path
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.ts").write_text("export const s = 1;\n")
+    (outside / "package.json").write_text('{"main":"secret.ts"}')
+    root = tmp_path / "repo"
+    imports = ["./link", "./dirlink/x", "./escape", "./loop", "bad-json", "not-object"]
+    imports += ["linked-pkg", "escaping-pkg", "node_json_bom", "typed-array", "typed-null"]
+    _write(
+        root,
+        {
+            "tsconfig.json": BUNDLER_SRC,
+            "src/real.ts": "export const r = 1;\n",
+            "src/dir/x.ts": "export const x = 1;\n",
+            "src/main.ts": _imports_of(imports),
+            "node_modules/bad-json/package.json": "{nope",
+            "node_modules/not-object/package.json": "[1]",
+            "node_modules/node_json_bom/package.json": '\ufeff{"main":"i.js"}',
+            "node_modules/node_json_bom/i.js": "",
+            "node_modules/typed-array/package.json": '{"types":["a.d.ts"],"main":3}',
+            "node_modules/typed-null/package.json": '{"exports":null,"main":null}',
+            "vendor/linked-pkg/package.json": '{"main":"index.js"}',
+            "vendor/linked-pkg/index.js": "",
+        },
+    )
+    _links(root, outside)
+    request = _request(root, "app", "tsconfig.json")
+    assert _differences(native_binary, request) == []
+    # The cases are real: a link inside the snapshot resolves to its target, a link out of it is a
+    # gap, and a package.json that is not an object or not JSON is a gap with its path.
+    native = ProcessCollector((str(native_binary),), protocol_version=ProtocolVersion.V8).collect(
+        request
+    )
+    assert isinstance(native, SourceFacts)
+    titles = {gap.title for gap in native.coverage.gaps}
+    assert "Resolver symlink outside snapshot" in titles
+    assert "Package metadata is not valid JSON: node_modules/bad-json/package.json" in titles
+    assert "Package metadata is not an object: node_modules/not-object/package.json" in titles
+    files = {getattr(target, "file", None) for target in native.imports}
+    assert {"src/real.ts", "src/dir/x.ts"} <= files
+
+
+def test_the_reply_is_the_same_bytes_on_every_run(native_binary: Path) -> None:
+    # A hash map that leaked its order into a record or the source digest would show here: each
+    # process seeds its hashes at random.
+    for path, namespace, tsconfig in FIXTURES[3:]:
+        scope = (STUDIO_UI,) if path == "." else ("src",)
+        request = encode_request(_request(ROOT / path, namespace, tsconfig, roots=scope))
+        replies = {
+            subprocess.run(
+                [str(native_binary)],
+                input=request,
+                capture_output=True,
+                check=True,
+                cwd=ROOT / path,
+            ).stdout
+            for _ in range(4)
+        }
+        assert len(replies) == 1, path
+
+
+def test_deep_nesting_gives_a_result(tmp_path: Path, native_binary: Path) -> None:
+    # The walk of the tree is iterative, so nesting cannot overflow the stack. The Python collector
+    # stops with a RecursionError long before this depth; AD-319 records that difference.
+    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
+    (tmp_path / "src").mkdir()
+    depth = 30_000
+    (tmp_path / "src/deep.ts").write_text(
+        'import a from "./a";\nconst x = ' + "[" * depth + "]" * depth + ";\nimport b from './b';\n"
+    )
+    native = ProcessCollector((str(native_binary),), protocol_version=ProtocolVersion.V8)
+    facts = native.collect(_request(tmp_path, "app", "tsconfig.json"))
+    assert isinstance(facts, SourceFacts), facts
+    assert len(facts.files) == 1
 
 
 def _pathological() -> dict[str, bytes]:
@@ -387,14 +465,14 @@ def _pathological() -> dict[str, bytes]:
 def test_pathological_sources_do_not_crash_the_native_collector(
     tmp_path: Path, native_binary: Path
 ) -> None:
-    (tmp_path / "tsconfig.json").write_text('{"compilerOptions":{"allowJs":true},"include":["src"]}')
+    (tmp_path / "tsconfig.json").write_text(
+        '{"compilerOptions":{"allowJs":true},"include":["src"]}'
+    )
     (tmp_path / "src").mkdir()
     for name, data in _pathological().items():
         (tmp_path / "src" / name).write_bytes(data)
     request = _request(tmp_path, "app", "tsconfig.json")
     native = ProcessCollector((str(native_binary),), protocol_version=ProtocolVersion.V8)
-    result: Callable[[], object] = lambda: native.collect(request)  # noqa: E731
-    facts = result()
+    facts = native.collect(request)
     assert not isinstance(facts, CollectionError), facts
-    assert isinstance(facts, SourceFacts)
     assert len(facts.files) == len(_pathological())

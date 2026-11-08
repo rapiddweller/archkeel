@@ -59,7 +59,7 @@ Measured on macOS arm64, Rust 1.88: the release binary was 879 728 bytes, 740 46
 - The tag follows the build host. A cross build gets a wrong tag. Build each wheel on its target.
 - The glibc version of the build host is the minimum. Build on a manylinux 2014 image for 2.17.
 - No wheel with a binary is published before PR 4.4, which sets the gate to `"true"`. The
-  skeleton extracts no imports, so the binary would make each TypeScript import rule UNKNOWN.
+  binary has no script globals and no named bindings yet (AD-319).
 - A prebuilt binary gets no SBOM: the hook cannot know its crates.
 - `missing_tool` for TypeScript without the binary starts when the Python collector is deleted.
 
