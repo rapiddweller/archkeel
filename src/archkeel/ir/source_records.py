@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Mutable record builders used before freezing the source protocol values."""
+"""Mutable record builders and lazy readers of raw records, used before freezing the values."""
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, Final, Generic, TypeAlias, TypedDict, TypeVar
@@ -15,7 +15,7 @@ _Raw = TypeVar("_Raw")
 _Parsed = TypeVar("_Parsed")
 
 
-class LazyParsed(Mapping[str, _Parsed], Generic[_Parsed, _Raw]):
+class LazyParsed(Mapping[str, _Parsed], Generic[_Raw, _Parsed]):
     """Raw items by id; an item is parsed once, when a lookup first asks for it."""
 
     def __init__(self, raw: Mapping[str, _Raw], parse: Callable[[_Raw], _Parsed]) -> None:
