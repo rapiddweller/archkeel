@@ -484,6 +484,13 @@ def test_deeply_nested_patterns_give_their_names(tmp_path: Path, dump_binary: Pa
     assert "z" in reply["syntax"]["script_bindings"]  # type: ignore[index]
 
 
+def test_the_dump_binary_holds_the_markers(dump_binary: Path) -> None:
+    # The control of the test above: the markers are in the binary that has the feature.
+    data = dump_binary.read_bytes()
+    assert b"--dump" in data
+    assert b"dump request is not JSON" in data
+
+
 def test_two_runs_give_the_same_bytes(tmp_path: Path, dump_binary: Path) -> None:
     files = _sources(ROOT, STUDIO_UI)[:40] + _sources(ROOT / FIXTURES[3])[:40]
     request = "".join(json.dumps({"rel": rel, "file": str(path)}) + "\n" for rel, path in files)
@@ -501,8 +508,10 @@ def test_the_release_binary_has_no_dump_feature(native_binary: Path) -> None:
     manifest = tomllib.loads((NATIVE / "typescript" / "Cargo.toml").read_text())
     assert manifest["features"] == {"dump": []}
     data = native_binary.read_bytes()
+    # Field names of `Syntax` can stay in debug information, so the markers are texts that only
+    # `dump.rs` and `main.rs` hold when the feature is on.
     assert b"--dump" not in data
-    assert b"script_bindings" not in data
+    assert b"dump request is not JSON" not in data
     done = subprocess.run(
         [str(native_binary), "--dump"], input=b"", capture_output=True, check=False
     )

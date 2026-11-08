@@ -142,7 +142,8 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
     let mut parsers = Parsers::new();
     for line in input.lines() {
         let line = line.map_err(|error| error.to_string())?;
-        let request: Value = serde_json::from_str(&line).map_err(|error| error.to_string())?;
+        let request: Value = serde_json::from_str(&line)
+            .map_err(|error| format!("dump request is not JSON: {error}"))?;
         let rel = request["rel"].as_str().unwrap_or("");
         let reply = match std::fs::read(request["file"].as_str().unwrap_or("")) {
             Ok(data) => {
