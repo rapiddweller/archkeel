@@ -85,3 +85,87 @@ fn references_and_concerns_match_the_python_parser() {
         assert_eq!(render(&parsed), expected, "{name}");
     }
 }
+
+// A generator with a fixed seed (no extra crate): the extractor must give a result, never panic.
+struct Seeded(u64);
+
+impl Seeded {
+    fn next(&mut self) -> u64 {
+        // xorshift64*
+        self.0 ^= self.0 >> 12;
+        self.0 ^= self.0 << 25;
+        self.0 ^= self.0 >> 27;
+        self.0.wrapping_mul(0x2545_f491_4f6c_dd1d)
+    }
+
+    fn below(&mut self, limit: usize) -> usize {
+        (self.next() % limit as u64) as usize
+    }
+}
+
+const FRAGMENTS: [&str; 24] = [
+    "import a from \"./a\";",
+    "import { b, type C } from './b'",
+    "export * from \"./c\"",
+    "const d = require(\"./d\")",
+    "await import(`./${e}`)",
+    "type T = import(\"./t\").T",
+    "/** @import { X } from './x' */",
+    "/// <reference path=\"./p.d.ts\" />",
+    "const { require: r } = module",
+    "module[\"req\" + \"uire\"]",
+    "<div>{x}</div>",
+    "<T>y",
+    "class A<T extends import('./z').Z> {",
+    "}}",
+    "((((",
+    "`${",
+    "/*",
+    "\"",
+    "\\",
+    "\u{2028}",
+    "\r\n",
+    "😀",
+    "\u{feff}",
+    "@",
+];
+
+#[test]
+fn random_sources_never_panic() {
+    let mut parsers = Parsers::new();
+    let mut random = Seeded(0x880);
+    for round in 0..1500 {
+        let mut text = String::new();
+        for _ in 0..random.below(12) {
+            text.push_str(FRAGMENTS[random.below(FRAGMENTS.len())]);
+            text.push(['\n', ' ', ';'][random.below(3)]);
+        }
+        // Cut inside a character, as a damaged file does, and keep the bytes as they are.
+        let mut bytes = text.into_bytes();
+        if round % 3 == 0 && !bytes.is_empty() {
+            bytes.truncate(random.below(bytes.len()));
+        }
+        let names = [
+            "a.ts", "a.tsx", "a.js", "a.jsx", "a.mts", "a.d.ts", "a.json", "a",
+        ];
+        let lossy = String::from_utf8_lossy(&bytes).into_owned();
+        let parsed = parse(
+            &mut parsers,
+            names[random.below(names.len())],
+            lossy.as_bytes(),
+        );
+        assert!(parsed.references.len() <= lossy.len() + 1);
+    }
+}
+
+#[test]
+fn deep_and_long_sources_give_a_result() {
+    let mut parsers = Parsers::new();
+    let nested = format!("const a = {}1{};", "(".repeat(4000), ")".repeat(4000));
+    let long = format!("import a from './{}';", "x".repeat(1_000_000));
+    let comment = format!("/**{}import('./a')*/", " @type {".repeat(3000));
+    for text in [nested, long, comment] {
+        parse(&mut parsers, "a.ts", text.as_bytes());
+        parse(&mut parsers, "a.js", text.as_bytes());
+    }
+}
