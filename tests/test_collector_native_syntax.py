@@ -21,6 +21,7 @@ import os
 import random
 import shutil
 import subprocess
+import time
 import tomllib
 from collections import Counter
 from collections.abc import Iterable, Iterator
@@ -473,6 +474,65 @@ def test_hostile_sources_give_facts_where_python_fails_on_depth(
     deep_names |= {"src/deep-types.ts", "src/deep-blocks.ts"}
     assert result.python_failed_names
     assert set(result.python_failed_names) <= deep_names
+
+
+def _shape(name: str, count: int) -> bytes:
+    """Files whose cost grows with the line length or the depth: a minified file and nests."""
+    match name:
+        case "one-line":
+            return b"".join(b"function f%d(a,b){return a+b;}" % index for index in range(count))
+        case "nested-functions":
+            return b"".join(b"function f%d(){" % index for index in range(count)) + b"}" * count
+        case "nested-classes":
+            return b"class C%d{m(){" * count % tuple(range(count)) + b"}}" * count
+        case _:
+            raise AssertionError(name)
+
+
+SHAPES = ("one-line", "nested-functions", "nested-classes")
+
+
+@pytest.mark.parametrize("name", SHAPES)
+def test_pathological_shapes_equal_the_python_parser(
+    tmp_path: Path, dump_binary: Path, name: str
+) -> None:
+    # Python is quadratic on these shapes (614 s for 40 000 functions on one line) and stops with a
+    # RecursionError on deep nests, so the oracle runs on sizes that it can read.
+    files: list[File] = []
+    for count in (1, 2, 7, 60, 200 if name == "one-line" else 90):
+        path = tmp_path / f"{name}-{count}.ts"
+        path.write_bytes(_shape(name, count))
+        files.append((f"src/{path.name}", path))
+    result = compare(dump_binary, files)
+    _assert_equal(result, len(files))
+    assert result.python_failed == 0
+    assert result.counts["definitions"] > 100
+
+
+# Wall time of the debug build, generous. The span of each definition once decoded the whole line
+# before it and the whole text of its node: 40 000 functions on one line took 36.5 s, 4 000 nested
+# functions 1.7 s and 8 000 nested functions 7.2 s in the release build, against under 0.5 s now.
+PATHOLOGICAL = (
+    ("one-line", 40_000),
+    ("nested-functions", 4_000),
+    ("nested-functions", 8_000),
+    ("nested-classes", 4_000),
+    ("nested-classes", 8_000),
+)
+
+
+@pytest.mark.parametrize(("name", "count"), PATHOLOGICAL)
+def test_pathological_shapes_take_bounded_time(
+    tmp_path: Path, dump_binary: Path, name: str, count: int
+) -> None:
+    path = tmp_path / f"{name}.ts"
+    path.write_bytes(_shape(name, count))
+    begin = time.perf_counter()
+    reply = _native(dump_binary, [(f"src/{path.name}", path)])[0]
+    elapsed = time.perf_counter() - begin
+    assert "syntax" in reply, reply
+    assert len(reply["syntax"]["definitions"]) >= count
+    assert elapsed < 5.0, f"{name} {count}: {elapsed:.1f} s"
 
 
 def test_deeply_nested_patterns_give_their_names(tmp_path: Path, dump_binary: Path) -> None:
