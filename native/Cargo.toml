@@ -36,3 +36,6 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+# A panic aborts the process (AD-317) and ends the whole scan: a failure must be a value.
+unwrap_used = "deny"
+expect_used = "deny"

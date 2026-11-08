@@ -169,3 +169,59 @@ fn deep_and_long_sources_give_a_result() {
         parse(&mut parsers, "a.js", text.as_bytes());
     }
 }
+
+fn corpus(directory: &std::path::Path, found: &mut Vec<Vec<u8>>) {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            corpus(&path, found);
+        } else if path
+            .extension()
+            .is_some_and(|ext| ext == "ts" || ext == "tsx")
+        {
+            found.extend(std::fs::read(&path));
+        }
+    }
+}
+
+#[test]
+fn mutated_real_sources_never_panic() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
+    let mut sources = Vec::new();
+    corpus(&root.join("fixtures/L-nest-realworld/src"), &mut sources);
+    corpus(&root.join("src/archkeel/studio/ui"), &mut sources);
+    assert!(sources.len() > 40, "the real sources are missing");
+    let mut parsers = Parsers::new();
+    let mut random = Seeded(0x4_2880);
+    for source in &sources {
+        for round in 0..30 {
+            let mut bytes = source.clone();
+            let at = random.below(bytes.len().max(1));
+            match round % 6 {
+                // A flipped byte, a deleted range, a repeated range, a cut, a stray token, a NUL.
+                0 => {
+                    let last = bytes.len() - 1;
+                    bytes[at.min(last)] ^= 1 << random.below(8);
+                }
+                1 => drop(bytes.drain(at..bytes.len().min(at + random.below(64)))),
+                2 => {
+                    let end = bytes.len().min(at + 200);
+                    let copy: Vec<u8> = bytes[at..end].to_vec();
+                    bytes.splice(at..at, copy);
+                }
+                3 => bytes.truncate(at),
+                4 => {
+                    let token = FRAGMENTS[random.below(FRAGMENTS.len())].as_bytes().to_vec();
+                    bytes.splice(at..at, token);
+                }
+                _ => bytes.insert(at, 0),
+            }
+            let lossy = String::from_utf8_lossy(&bytes).into_owned();
+            let name = if round % 2 == 0 { "a.ts" } else { "a.tsx" };
+            parse(&mut parsers, name, lossy.as_bytes());
+        }
+    }
+}

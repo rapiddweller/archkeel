@@ -1,0 +1,3 @@
+# A test may unwrap: a failed test is the expected result of a broken assumption.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
