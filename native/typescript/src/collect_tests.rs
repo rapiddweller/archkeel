@@ -87,7 +87,7 @@ fn a_source_over_the_size_limit_is_a_gap_and_the_others_are_collected() {
         titles(&facts),
         [
             "Source file over the size limit of 4194304 bytes: src/huge.ts",
-            IMPORT_GAP
+            imports::GLOBALS_UNEXAMINED
         ]
     );
 }
