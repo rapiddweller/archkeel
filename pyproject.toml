@@ -107,9 +107,10 @@ dev = [
 testpaths = ["tests"]
 # Tests import repository tools such as tools/against.py.
 pythonpath = ["."]
-addopts = "-p no:cacheprovider -m 'not browser'"
+addopts = "-p no:cacheprovider -m 'not browser and not native_wheel'"
 markers = [
     "browser: runs the rendered report in Chromium",
+    "native_wheel: builds or installs the platform wheel; make native-wheel runs it",
     "requires_python(minor, below=minor): skips outside these Python 3 versions; make python-compat runs it",
 ]
 

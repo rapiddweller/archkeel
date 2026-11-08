@@ -35,6 +35,11 @@ reads Python only. Crate boundaries and `cargo clippy -D warnings` keep the Rust
 Each crate forbids `unsafe` code. Each `.rs` file has at most 500 lines (AD-314), and unit tests
 are in sibling `*_tests.rs` files. The license header test covers `.rs` files.
 
+`native/deny.toml` is the dependency policy for the six wheel targets. It fails on each RustSec
+advisory, a license other than MIT or Apache-2.0, a source other than crates.io, a wildcard
+version, and a network, TLS or process crate. `make native-check` runs `cargo deny` with the
+pinned version. The PR gate job `Native` runs it on Linux; macOS and Windows run in Full only.
+
 **Reason.** The host already validates this wire. A drift in the native reply fails closed as
 `protocol_error`. The Python collector stays the exact difference oracle until it is deleted, and
 only one producer changes when protocol 10 gets one fact record. Protocol 9 belongs to AD-313.
@@ -53,11 +58,12 @@ only one producer changes when protocol 10 gets one fact record. Protocol 9 belo
   files, so it can report fewer collection gaps than the Python collector.
 - A bundler request is a collection gap.
 - Without `ARCHKEEL_VERSION` at build time, the adapter version is `0+unknown`.
-- There is no CI job and no `cargo deny` policy yet (PR 4.1b-2). Timings are not a performance
-  claim.
+- Timings are not a performance claim. The bans list known crates; a new crate with the same
+  purpose needs a review of its own.
 
 **Check.** `tests/test_collector_native_typescript.py` runs the host report and gets UNKNOWN.
 It decodes 3.0.0 and 8.0.0 replies with consistent coverage. It compares files, file evidence and
 inputs with the Python collector on four fixtures. It checks `missing_tool`, `execution_error`,
 `timeout`, the output limit and the 9.0.0 test exclusion. The `cargo test` expected values come
-from the Python functions. `make native-check` runs format, lint, tests and build.
+from the Python functions. `make native-check` runs format, lint, `cargo deny`, tests and build.
+`tests/test_native_ci.py` checks the pinned `cargo deny` and the PR gate job.

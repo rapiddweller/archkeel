@@ -279,6 +279,144 @@ jobs:
         shell: bash
         run: make build smoke SHELL=bash
 
+  # AD-317: build each platform wheel on its own target, then install it and run its binary.
+  native-wheel-linux:
+    name: "Native wheel: ${{ matrix.target }}"
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: manylinux x86_64
+            artifact: manylinux-x86_64
+            runner: ubuntu-24.04
+            image: quay.io/pypa/manylinux2014_x86_64:2026.11.07-1@sha256:62eeff30ef134a85ec0f97109e008a319b0315ca5e8a6d754ee771556c02622a
+            tag: py3-none-manylinux_2_17_x86_64
+          - target: manylinux aarch64
+            artifact: manylinux-aarch64
+            runner: ubuntu-24.04-arm
+            image: quay.io/pypa/manylinux2014_aarch64:2026.11.07-1@sha256:101d2292840109c9d329fcfcd7b89b46f59e19ca23cbfdcf059fb389994665fc
+            tag: py3-none-manylinux_2_17_aarch64
+          - target: musllinux x86_64
+            artifact: musllinux-x86_64
+            runner: ubuntu-24.04
+            image: quay.io/pypa/musllinux_1_2_x86_64:2026.11.07-1@sha256:cf82db9d8dc8c5c2cb27f422208baf266ebc8ad70be4ab1bc79bcc8807a6432d
+            tag: py3-none-musllinux_1_2_x86_64
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # hatch-vcs reads the version from the tags.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The image sets the oldest glibc or musl of the wheel. JavaScript actions cannot run in it.
+      - name: Build, check, install and run the wheel in the pinned image
+        env:
+          IMAGE: ${{ matrix.image }}
+          TAG: ${{ matrix.tag }}
+        run: |
+          docker run --rm -e TAG -v "$PWD:/io" -w /io "$IMAGE" bash -euo pipefail -c '
+            git config --global --add safe.directory /io
+            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal --default-toolchain 1.88.0
+            . "$HOME/.cargo/env"
+            python=/opt/python/cp311-cp311/bin/python
+            "$python" -m pip install --disable-pip-version-check --quiet uv==0.12.13
+            export PATH="$(dirname "$python"):$PATH" UV_PYTHON="$python"
+            make native-wheel NATIVE_TAG="$TAG"
+          '
+
+      - name: Upload the platform wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-wheel-${{ matrix.artifact }}
+          path: dist/native/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  native-wheel-macos:
+    name: "Native wheel: ${{ matrix.target }}"
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macOS x86_64
+            artifact: macos-x86_64
+            runner: macos-15-intel
+            tag: py3-none-macosx_10_12_x86_64
+          - target: macOS arm64
+            artifact: macos-arm64
+            runner: macos-15
+            tag: py3-none-macosx_11_0_arm64
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Build, check, install and run the wheel
+        env:
+          TAG: ${{ matrix.tag }}
+        run: make native-wheel NATIVE_TAG="$TAG"
+
+      - name: Upload the platform wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-wheel-${{ matrix.artifact }}
+          path: dist/native/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  native-wheel-windows:
+    name: "Native wheel: Windows x86_64"
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      UV_PYTHON: "3.11.12"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full-history fetches create unrelated refs that Windows cannot store. The tags give
+          # the version when the commit has a release tag.
+          fetch-depth: 1
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Install Make
+        run: choco install make --version=4.4.1 --yes --no-progress
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Build, check, install and run the wheel
+        shell: bash
+        run: make native-wheel NATIVE_TAG=py3-none-win_amd64 SHELL=bash
+
+      - name: Upload the platform wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-wheel-windows-x86_64
+          path: dist/native/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
   verified:
     name: All Full checks passed
     needs:
@@ -288,6 +426,9 @@ jobs:
       - python-compat
       - collector-safety-windows
       - language-collectors
+      - native-wheel-linux
+      - native-wheel-macos
+      - native-wheel-windows
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04

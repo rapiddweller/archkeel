@@ -207,9 +207,27 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
+  native:
+    name: "Native: Rust checks and dependency policy"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned cargo-deny and check its SHA-256
+        run: make cargo-deny-install
+
+      - name: Check format, lint, dependency policy, tests and build of native/
+        run: make native-check
+
   check:
     name: All checks passed
-    needs: [lint, tests, pr-report-check, mermaid, demos]
+    needs: [lint, tests, pr-report-check, mermaid, demos, native]
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04

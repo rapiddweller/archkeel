@@ -4,20 +4,25 @@
 """Put the native TypeScript collector into a platform wheel when a build asks for it (AD-317).
 
 `ARCHKEEL_BUNDLE_NATIVE` selects the binary: an absolute path to a prebuilt binary, or `1` to
-build it with cargo from `native/`. Without the variable the hook does nothing, so an sdist, an
-editable install and the default wheel never run cargo.
+build it with `cargo auditable` from `native/` and add a CycloneDX SBOM of its crates. Without the
+variable the hook does nothing, so an sdist, an editable install and the default wheel never run
+cargo.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
+
+Checksums = dict[tuple[str, str], str]
 
 REQUEST = "ARCHKEEL_BUNDLE_NATIVE"
 BINARY = "archkeel-typescript-collector"
@@ -78,7 +83,11 @@ def bundle(
         return
     tag = wheel_tag(platform or host_platform(_platform_tags()))
     name = BINARY + (".exe" if tag.endswith("win_amd64") else "")
-    binary = _cargo_build(root, version, tag, name) if request == "1" else _prebuilt(request)
+    if request == "1":
+        binary = _cargo_build(root, version, tag, name)
+        build_data["sbom_files"].append(str(_write_sbom(root / "native", binary, version)))
+    else:
+        binary = _prebuilt(request)
     build_data["pure_python"] = False
     build_data["tag"] = tag
     build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}"
@@ -104,20 +113,122 @@ def _cargo_build(root: Path, version: str, tag: str, name: str) -> Path:
     cargo = shutil.which("cargo")
     if cargo is None:
         raise ValueError(f"{REQUEST}=1 needs cargo. Install Rust or give a prebuilt binary.")
+    if shutil.which("cargo-auditable") is None:
+        raise ValueError(f"{REQUEST}=1 needs cargo-auditable. Run make native-tools.")
     environment = {**os.environ, "ARCHKEEL_VERSION": version}
     macos = re.fullmatch(r"py3-none-macosx_(\d+)_(\d+)_\w+", tag)
     if macos:
         environment["MACOSX_DEPLOYMENT_TARGET"] = f"{macos[1]}.{macos[2]}"
     target = native / "target"
     # The working directory selects the toolchain that native/rust-toolchain.toml pins.
+    # cargo auditable records the crates in the `.dep-v0` section for `cargo audit bin`.
     subprocess.run(
-        [cargo, "build", "--release", "--locked", "--target-dir", str(target)],
+        [cargo, "auditable", "build", "--release", "--locked", "--target-dir", str(target)],
         cwd=native,
         env=environment,
         stdout=sys.stderr,
         check=True,
     )
     return target / "release" / name
+
+
+def _write_sbom(native: Path, binary: Path, version: str) -> Path:
+    cargo = shutil.which("cargo") or "cargo"
+    host = _run([cargo, "-vV"], native).split("host: ", 1)[1].split()[0]
+    # The crates of the build host only: a crate for another platform is not in the binary.
+    metadata = json.loads(
+        _run(
+            [cargo, "metadata", "--locked", "--format-version", "1", "--filter-platform", host],
+            native,
+        )
+    )
+    lock = tomllib.loads((native / "Cargo.lock").read_text(encoding="utf-8"))
+    checksums = {
+        (crate["name"], crate["version"]): crate["checksum"]
+        for crate in lock["package"]
+        if "checksum" in crate
+    }
+    sbom = binary.with_name(f"{BINARY}.cdx.json")
+    text = json.dumps(cyclonedx(metadata, checksums, version), indent=2, sort_keys=True)
+    sbom.write_text(text + "\n", encoding="utf-8")
+    return sbom
+
+
+def _run(command: list[str], cwd: Path) -> str:
+    return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=True).stdout
+
+
+def cyclonedx(metadata: dict[str, Any], checksums: Checksums, version: str) -> dict[str, Any]:
+    """Give a CycloneDX 1.6 SBOM of the crates that the binary links (PEP 770).
+
+    The SBOM follows the normal dependencies from the binary: build and test crates are not in it.
+    A workspace crate has the version of the wheel, as the binary reports. A crates.io crate has
+    its package URL and the SHA-256 from Cargo.lock. The SBOM has no time and no local path, so the
+    same sources give the same bytes.
+    """
+    packages = {package["id"]: package for package in metadata["packages"]}
+    edges = {
+        node["id"]: sorted(
+            {dep["pkg"] for dep in node["deps"] if any(k["kind"] is None for k in dep["dep_kinds"])}
+        )
+        for node in metadata["resolve"]["nodes"]
+    }
+    (root,) = (key for key, package in packages.items() if package["name"] == BINARY)
+    linked, pending = {root}, [root]
+    while pending:
+        for dependency in edges[pending.pop()]:
+            if dependency not in linked:
+                linked.add(dependency)
+                pending.append(dependency)
+    refs = {key: _component(packages[key], checksums, version)["bom-ref"] for key in linked}
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.6",
+        "version": 1,
+        "metadata": {"component": _component(packages[root], checksums, version, "application")},
+        "components": sorted(
+            (_component(packages[key], checksums, version) for key in linked - {root}),
+            key=lambda component: component["bom-ref"],
+        ),
+        "dependencies": sorted(
+            (
+                {"ref": refs[key], "dependsOn": sorted(refs[item] for item in edges[key])}
+                for key in linked
+            ),
+            key=lambda dependency: dependency["ref"],
+        ),
+    }
+
+
+def _component(
+    package: dict[str, Any], checksums: Checksums, version: str, kind: str = "library"
+) -> dict[str, Any]:
+    name, crate_version, license = package["name"], package["version"], package["license"]
+    if not license:
+        raise ValueError(f"The crate {name} {crate_version} has no license.")
+    # cargo still accepts the old form `MIT/Apache-2.0`; SPDX writes it with OR.
+    licenses = [{"expression": re.sub(r"\s*/\s*", " OR ", license)}]
+    if package["source"] is None:
+        return {
+            "type": kind,
+            "bom-ref": name,
+            "name": name,
+            "version": version,
+            "licenses": licenses,
+        }
+    checksum = checksums.get((name, crate_version))
+    if checksum is None:
+        raise ValueError(f"The crate {name} {crate_version} has no checksum in Cargo.lock.")
+    purl = f"pkg:cargo/{name}@{crate_version}"
+    return {
+        "type": kind,
+        "bom-ref": purl,
+        "name": name,
+        "version": crate_version,
+        "purl": purl,
+        "licenses": licenses,
+        "hashes": [{"alg": "SHA-256", "content": checksum}],
+    }
 
 
 def get_build_hook() -> type:

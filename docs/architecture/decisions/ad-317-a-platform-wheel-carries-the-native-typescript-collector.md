@@ -5,8 +5,8 @@
 1. `native/hatch_build.py` is a hatch build hook of the wheel target. It keeps hatchling,
    `hatch-vcs` and the readme hook. maturin is not used.
 2. The hook acts only when `ARCHKEEL_BUNDLE_NATIVE` is set. The value is the absolute path of a
-   prebuilt binary, or `1`. With `1`, the hook runs `cargo build --release --locked` in `native/`
-   and sets `ARCHKEEL_VERSION` to the wheel version. An editable install ignores the variable.
+   prebuilt binary, or `1`. With `1`, the hook runs `cargo auditable build --release --locked` in
+   `native/` and sets `ARCHKEEL_VERSION` to the wheel version. An editable install ignores it.
 3. The hook sets the tag `py3-none-<platform>` and `Root-Is-Purelib: false`. The binary is package
    data: `archkeel/_native/archkeel-typescript-collector`, with `.exe` on Windows and mode 0755.
 4. `host_platform` takes the first supported tag of `packaging.tags.platform_tags()`. It skips
@@ -27,6 +27,14 @@
 6. The host does not use a bundled binary yet. The default TypeScript collector stays the
    Python collector. PR 4.4 adds the lookup with `importlib.resources` and switches the default.
 7. The release profile has `strip`, `lto = true`, `codegen-units = 1` and `panic = "abort"`.
+8. With `1`, the binary lists its crates for `cargo audit bin`, and the hook adds a CycloneDX 1.6
+   SBOM as `.dist-info/sboms/archkeel-typescript-collector.cdx.json` (PEP 770). It lists each
+   linked crate with license, package URL and SHA-256, and has no time and no local path.
+9. Full verification runs `make native-wheel` on each target: manylinux 2014 and musllinux 1.2
+   images pinned by digest, macOS 15 and Windows 2025. Each job checks the tag and the SBOM,
+   installs the wheel and runs the binary. `tools/publish_release.py` accepts the pure wheel,
+   the sdist and none or all six platform wheels. The release copies the platform wheels into
+   `dist/` only when `PUBLISH_NATIVE_WHEELS` in `release.yml` is `"true"`.
 
 **Reason.** Tools that read untrusted code, for example ruff, uv, ty and pyrefly, ship a Rust
 binary in platform wheels and start it as a subprocess. The binary has no Python ABI, so one wheel
@@ -44,18 +52,19 @@ Measured on macOS arm64, Rust 1.88: the release binary was 879 728 bytes, 740 46
 - `infer_tag`. It gives a tag for each CPython version, and the binary does not need that.
 - A command in `scripts/`, as ruff does. The host needs a path, not a command on `PATH`.
 - cargo at install time. An install without Rust must not fail.
+- `cargo-cyclonedx`: one more tool on six targets for one JSON file.
+- A repository variable as the release gate: its change is not reviewed and not tested.
 
 **Limit.**
 - The tag follows the build host. A cross build gets a wrong tag. Build each wheel on its target.
 - The glibc version of the build host is the minimum. Build on a manylinux 2014 image for 2.17.
-- The release workflow still builds the pure wheel only. `tools/publish_release.py` expects one
-  wheel. The wheel matrix, `cargo deny` and an SBOM come in PR 4.1b-2 of issue #880.
-- No wheel with a binary is published before PR 4.4. The skeleton extracts no imports, so the
-  binary would make each TypeScript import rule UNKNOWN.
+- No wheel with a binary is published before PR 4.4, which sets the gate to `"true"`. The
+  skeleton extracts no imports, so the binary would make each TypeScript import rule UNKNOWN.
+- A prebuilt binary gets no SBOM: the hook cannot know its crates.
 - `missing_tool` for TypeScript without the binary starts when the Python collector is deleted.
 
 **Check.** `tests/test_collector_native_wheel.py` tests the tags of the six targets, the selection
-from the tag lists of real hosts and the error for other platforms. It compares the default wheel
-with a build without hooks. It builds a wheel with `ARCHKEEL_BUNDLE_NATIVE=1` and checks the tag
-and the mode. It installs the wheel in a new venv, finds the binary with `importlib.resources`
-and runs it with a 9.0.0 request.
+from the tag lists of real hosts, the error for other platforms and the SBOM. It compares the
+default wheel with a build without hooks. Its `native_wheel` test checks the tag, the mode, the
+SBOM and the `.dep-v0` section, installs the wheel, finds the binary with `importlib.resources`
+and runs it. `tests/test_publish_release.py` and `tests/test_native_ci.py` test the gate.

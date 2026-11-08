@@ -1,0 +1,65 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-316: the dependency policy of the native collector. `make native-check` runs
+# `cargo deny check`. The binary reads untrusted source and writes one reply to stdout, so it
+# needs no network, no TLS and no child processes.
+
+[graph]
+# The six targets of the platform wheels (AD-317).
+targets = [
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "x86_64-pc-windows-msvc",
+]
+
+[advisories]
+# Each RustSec advisory fails the check, also for an unmaintained or unsound transitive crate.
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Only the licenses that the current crates need. A new license is a reviewed change.
+allow = ["Apache-2.0", "MIT"]
+confidence-threshold = 0.93
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+# The workspace crates use path dependencies; they are not published.
+allow-wildcard-paths = true
+deny = [
+    { crate = "reqwest", reason = "network: the collector reads local files only" },
+    { crate = "hyper", reason = "network: the collector reads local files only" },
+    { crate = "h2", reason = "network: the collector reads local files only" },
+    { crate = "ureq", reason = "network: the collector reads local files only" },
+    { crate = "curl", reason = "network: the collector reads local files only" },
+    { crate = "curl-sys", reason = "network: the collector reads local files only" },
+    { crate = "isahc", reason = "network: the collector reads local files only" },
+    { crate = "socket2", reason = "network: the collector reads local files only" },
+    { crate = "mio", reason = "network: the collector reads local files only" },
+    { crate = "tokio", reason = "network and async runtime: the collector is synchronous" },
+    { crate = "async-std", reason = "network and async runtime: the collector is synchronous" },
+    { crate = "smol", reason = "network and async runtime: the collector is synchronous" },
+    { crate = "openssl", reason = "TLS: the collector has no network" },
+    { crate = "openssl-sys", reason = "TLS: the collector has no network" },
+    { crate = "native-tls", reason = "TLS: the collector has no network" },
+    { crate = "rustls", reason = "TLS: the collector has no network" },
+    { crate = "boring", reason = "TLS: the collector has no network" },
+    { crate = "subprocess", reason = "process: the collector starts no child process" },
+    { crate = "duct", reason = "process: the collector starts no child process" },
+    { crate = "command-group", reason = "process: the collector starts no child process" },
+]
+
+[sources]
+# crates.io only: no other registry and no Git dependency.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
