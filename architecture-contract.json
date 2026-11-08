@@ -128,6 +128,7 @@
         "archkeel.ir.source_records:RawData",
         "archkeel.ir.source_records:RawRecord",
         "archkeel.ir.source_records:RawEvidence",
+        "archkeel.ir.source_records:LazyParsed",
         "archkeel.ir.profiles:delta_dimension_applicable",
         "archkeel.ir.source_records:FRAMEWORK_BASES",
         "archkeel.ir.source_records:is_public_method_name",

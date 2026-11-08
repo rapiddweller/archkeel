@@ -59,6 +59,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, Language, Profile, UnmeasurableScalar
+from archkeel.ir.source_records import LazyParsed
 
 from .declarations import load_contract, project_declarations, project_inside_declarations
 from .evaluation.evaluate import ScanResult, evaluate_source
@@ -1026,12 +1027,9 @@ def _certify_dependency_scopes(
         or runtime_diagnostic(facts.runtime) is not None
     ):
         return
-    records = {
-        record["id"]: parse_record(record)
-        for values in (scan.modules, scan.symbols, scan.imports, scan.references, scan.unknowns)
-        for record in values
-    }
-    evidence = {item["id"]: parse_evidence(item) for item in scan.evidence}
+    sources = (scan.modules, scan.symbols, scan.imports, scan.references, scan.unknowns)
+    records = LazyParsed({item["id"]: item for values in sources for item in values}, parse_record)
+    evidence = LazyParsed({item["id"]: item for item in scan.evidence}, parse_evidence)
     paths = {item.module: item.rel_path for item in facts.files}
     gaps = [parse_record(item) for item in scan.coverage["failures"]]
     if not gaps or any(gap.kind != "source_resolution_gap" for gap in gaps):

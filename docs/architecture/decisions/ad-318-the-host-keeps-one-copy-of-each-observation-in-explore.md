@@ -43,3 +43,28 @@ not change that.
 - `test_pages_of_the_explored_observation_equal_pages_of_its_bytes`: the pages are equal.
 - `architecture.json` differs from the old output only in `analyzer.code_digest`. Both HTML pages
   are byte-identical.
+
+## Note, 2026-11-08: four host loops do their work once (#880, PR H step 4)
+
+A profile of `explore` on a React UI (907 files) found four loops that repeat work for each pair
+of items. They took about 29 % of the host time on Linux. The output does not change.
+
+1. `transitive_paths` (`ir/graph.py`) walks once for each source and keeps the parent of each
+   node, so the path is the one `shortest_path` returns. It searched once for each pair: 64 204 times.
+2. `derived_unresolved_imports` (`ir/import_gaps.py`) builds the set of (module, evidence ids) of
+   the import gaps once. Each import scanned every gap: 28 million `RecordData.get` calls.
+3. `CellFindings` (`ir/report_graph.py`) indexes the findings and assessments of a report by
+   subject id once. Each import cell scanned the whole report, in the result build and the render.
+4. `LazyParsed` (`ir/source_records.py`) parses a raw item at its first lookup. The dependency
+   scope check in `check/observation.py` runs only for an incomplete scan and asks for a few gap
+   records. It parsed all of them first.
+
+**Limit.** With lazy parsing an invalid internal record fails later: the model parser in
+`assemble_observation` still reads every record. A parse error inside a lookup ends the check
+without a proof. `LazyParsed` is a new public name of `ir`; `ad-318-host-loops-amendment.json`
+binds it. `archkeel.api` and the file sizes of AD-314 do not grow.
+**Rejected.** A faster `_json_value` in `facts_codec.py` (PR 3 and PR 6 replace it), a path cache
+across the two passes, and a module cache keyed by `id(report)`. **Not done.** The three
+validations of the same facts, the render rebuild and the repeat of pass 2 wait for protocol 10.
+**Check.** `test_graph_transitive_paths.py`, `test_source_import_gaps.py`,
+`test_report_cell_findings.py` and `test_collector_lazy_certify.py` keep each old definition as an oracle.
