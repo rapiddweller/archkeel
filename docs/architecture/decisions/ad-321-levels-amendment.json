@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "8c86be01adaf001b5ea4720e4b1d914e844a834d19757342a146e056a4e29131",
+  "after_digest": "595a87c4cd9eb4cdcea309d192bea9a8c388063b5a7d0fd22eab8fa1b35caa7c",
+  "before_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "before_digest": "d6fc9118ebe234c1032ac9f15de3929187ed2a6d85f974420e4a7f64ff5e145c",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base d1f3e49e. AD-321 update and epic #880. The module archkeel.ir.levels is deleted because only tests called inside_levels. It leaves exact_modules and public of the architecture owner in contracts/ir.json. The widening report names exact_modules because a module leaves the list. The calls_unresolved budget falls from 972 to 971. No rule, component, requires entry or other budget changes.",
+  "schema_version": "2.0.0"
+}

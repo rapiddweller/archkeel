@@ -32,7 +32,6 @@ from archkeel.ir.codec import (
 from archkeel.ir.decisions import open_decisions, rule_assessments
 from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.interfaces import component_owners
-from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import Observation, RuleAssessment, RunResult
 from archkeel.ir.ownership import owner_of
 from archkeel.ir.trace import trace_valid_violations
@@ -867,13 +866,8 @@ def test_nested_sibling_conflict_stays_visible_with_unique_ancestor_owner(
     )
     root_observation, saved_observation = _scanned_inventory_observation(tmp_path)
     root_components = component_owners(saved_observation)
-    local = inside_levels(saved_observation)[0]
-    local_components = tuple(
-        (item.label, item.packages, item.exact_modules) for item in local.components
-    )
 
     assert owner_of("sample.core", root_components) == "app"
-    assert owner_of("sample.core", local_components) is None
     assert owner_of("sample.core", component_owners(root_observation)) == "app"
     assert "sample.core" in actual
     report = parse_report(payload)
@@ -915,13 +909,8 @@ def test_valid_exact_child_under_package_ancestor_is_not_ambiguous(
         declare_at_root=False,
     )
     root_observation, saved_observation = _scanned_inventory_observation(tmp_path)
-    local = inside_levels(saved_observation)[0]
-    local_components = tuple(
-        (item.label, item.packages, item.exact_modules) for item in local.components
-    )
 
     assert owner_of("sample.core", component_owners(root_observation)) == "app"
-    assert owner_of("sample.core", local_components) == "registry"
     assert owner_of("sample.core", component_owners(saved_observation)) == "app"
     assert "sample.core" in actual
     report = parse_report(payload)

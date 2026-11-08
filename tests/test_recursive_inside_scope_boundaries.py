@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from graph_report_support import findings_for, import_sites
+from graph_report_support import committed_report, findings_for, import_sites, member_modules
 from test_analyzer import _component, _observe
 from test_delta import _model
 from test_expectation import _expectation_payload
@@ -33,7 +33,6 @@ from archkeel.check.validation import (
 )
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import parse_contract
-from archkeel.ir.levels import inside_levels
 from archkeel.ir.lock import LOCK_PATH, LockError
 from archkeel.ir.model import ObservationResult, Record
 from archkeel.ir.report_graph import architecture_report
@@ -257,19 +256,17 @@ def test_nested_scope_escape_stays_unknown_while_valid_sibling_is_evaluated(
         any(rule_id.endswith("FOREIGN-NO-EDGE") for rule_id in item.rule_ids) for item in violations
     )
 
-    levels = {level.parent: level for level in inside_levels(result.observation)}
-    foreign_level = levels["app:app:foreign"]
-    assert {item.label: item.modules for item in foreign_level.components} == {
-        "source": (),
-        "target": (),
-    }
-    assert foreign_level.edges == ()
-    good_level = levels["app:app:good"]
-    assert {item.label: item.modules for item in good_level.components} == {
-        "source": ("sample.layer.good.source", "sample.layer.good.source.api"),
-        "target": ("sample.layer.good.target", "sample.layer.good.target.api"),
-    }
-    assert [(edge.source, edge.target) for edge in good_level.edges] == [("source", "target")]
+    members = member_modules(committed_report(tmp_path))
+    assert members["app:app:foreign:source"] == ()
+    assert members["app:app:foreign:target"] == ()
+    assert members["app:app:good:source"] == (
+        "sample.layer.good.source",
+        "sample.layer.good.source.api",
+    )
+    assert members["app:app:good:target"] == (
+        "sample.layer.good.target",
+        "sample.layer.good.target.api",
+    )
 
     report = architecture_report(result.observation)
     assert report.target is None  # The raw collector result has no authenticated Target descriptor.

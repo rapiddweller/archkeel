@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from conftest import SelfRun
+from graph_report_support import member_modules, unassigned_modules
 
 from archkeel.check.onboarding import (
     _crossing_targets,
@@ -23,7 +24,6 @@ from archkeel.check.validation.public_api import public_api_diagnostics
 from archkeel.check.validation.rationale import rationale_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import interface_profile
-from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -34,6 +34,7 @@ from archkeel.ir.model import (
     module_in_ownership,
     text_value,
 )
+from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.structure import oversized_insides
 
 # Adapters share source facts, record builders, protocol and language-specific fact values.
@@ -267,12 +268,15 @@ def test_self_public_guard_rejects_unsupported_surface(
 
 
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
-    """AD-148: each declared inside owns every module it observes, and no embedded copy."""
-    levels = inside_levels(self_observation)
-    assert levels
-    assert [level.parent for level in levels if level.unassigned] == []
-    analyzer = next(level for level in levels if level.parent == "analyzer")
-    assert all(".embedded" not in module for item in analyzer.components for module in item.modules)
+    """AD-148: each declared inside owns every module it observes, in one sub-component."""
+    report = architecture_report(self_observation)
+    unassigned = unassigned_modules(report)
+    assert unassigned
+    assert {parent: modules for parent, modules in unassigned.items() if modules} == {}
+    members = member_modules(report)
+    children = [key for key in members if key.startswith("check:") and key.count(":") == 1]
+    assert "archkeel.check" in members["check:inputs"]
+    assert sum("archkeel.check" in members[key] for key in children) == 1
 
 
 def test_process_public_interface_names_the_collector_class_only() -> None:
