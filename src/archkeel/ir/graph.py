@@ -71,20 +71,37 @@ def shortest_path(adjacency: dict[str, set[str]], source: str, target: str) -> l
     return None
 
 
+def _bfs_parents(ordered: dict[str, list[str]], source: str) -> dict[str, str | None]:
+    """Walk once from the source. The first node to reach a target is its parent, so the path
+    from the parents is the one that shortest_path returns for the pair."""
+    parent: dict[str, str | None] = {source: None}
+    order = [source]  # first in, first out: the loop also visits what it appends
+    for current in order:
+        for neighbor in ordered[current]:
+            if neighbor not in parent:
+                parent[neighbor] = current
+                order.append(neighbor)
+    return parent
+
+
 def transitive_paths(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> list[list[str]]:
     node_list = sorted(set(nodes))
     adjacency: dict[str, set[str]] = {node: set() for node in node_list}
     for source, target in sorted(set(edges)):
         if source in adjacency and target in adjacency and source != target:
             adjacency[source].add(target)
+    ordered = {node: sorted(targets) for node, targets in adjacency.items()}
     paths: list[list[str]] = []
     for source in node_list:
+        parent = _bfs_parents(ordered, source)
         for target in node_list:
-            if source == target or target in adjacency[source]:
+            if source == target or target in adjacency[source] or target not in parent:
                 continue
-            path = shortest_path(adjacency, source, target)
-            if path is not None:
-                paths.append(path)
+            path = [target]
+            while (step := parent[path[-1]]) is not None:
+                path.append(step)
+            path.reverse()
+            paths.append(path)
     return paths
 
 
