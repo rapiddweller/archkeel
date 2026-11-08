@@ -51,7 +51,7 @@ pub struct Entry<'t> {
 }
 
 /// The facts of `Syntax` that this phase produces. The reply does not read them yet; the `dump`
-/// feature does (AD-322).
+/// feature does (AD-323).
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
 pub struct Syntax {
     pub definitions: Vec<Definition>,

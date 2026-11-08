@@ -20,7 +20,7 @@ pub struct Parsed {
     /// The line of the first repair that the parser made.
     pub first_error: Option<i64>,
     /// The scopes, definitions, import bindings and exports of the file. The reply does not carry
-    /// them yet; the `dump` feature prints them (AD-322).
+    /// them yet; the `dump` feature prints them (AD-323).
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub syntax: Syntax,
 }

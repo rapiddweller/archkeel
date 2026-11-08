@@ -21,7 +21,7 @@ tree-sitter-typescript.workspace = true
 
 [features]
 # Test only: `--dump` prints the per-file syntax facts as JSON for `tests/test_collector_native_syntax.py`.
-# The release binary is built without it (AD-322).
+# The release binary is built without it (AD-323).
 dump = []
 
 [build-dependencies]

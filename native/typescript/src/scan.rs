@@ -7,7 +7,7 @@
 //! `parse.py` finds them with seven queries, and each query walks the whole tree. One walk with a
 //! match on the node kind finds the same nodes. `scan_tests.rs` keeps the seven queries as the
 //! reference and compares both on real files. The same walk feeds `Walk`, which keeps the stack of
-//! the ancestors and collects the syntax facts of the file (AD-322).
+//! the ancestors and collects the syntax facts of the file (AD-323).
 
 use tree_sitter::{Language, Node, TreeCursor};
 

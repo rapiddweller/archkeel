@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-322: the native walk reads the same syntax facts as `parse.parse()`.
+"""AD-323: the native walk reads the same syntax facts as `parse.parse()`.
 
 Consumer: the later phases of the native collector, which build records on these facts. The oracle
 is the unmodified Python `parse.parse()`. The `dump` feature of the native collector prints the
@@ -458,7 +458,7 @@ def test_hostile_sources_give_facts_where_python_fails_on_depth(
     tmp_path: Path, dump_binary: Path
 ) -> None:
     # Python recurses in `_walk` and stops with a RecursionError near a depth of 1 000. The native
-    # walk is iterative and gives facts for the same tree (AD-322). Every other file is equal.
+    # walk is iterative and gives facts for the same tree (AD-323). Every other file is equal.
     files: list[File] = []
     for name, data in _pathological().items():
         path = tmp_path / name
