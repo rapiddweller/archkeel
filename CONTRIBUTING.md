@@ -53,8 +53,9 @@ TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
-Jobs run on pinned images (`ubuntu-24.04`, `windows-2025`). A move to a new image is a deliberate
-change: run Full on the branch before you merge it.
+Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `macos-15`,
+`macos-15-intel`). The Linux wheel jobs use manylinux and musllinux images pinned by digest. A move
+to a new image is a deliberate change: run Full on the branch before you merge it.
 
 Keep four workflow files: CI, Full verification, Pages and release. Use existing Make targets
 or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
@@ -72,6 +73,7 @@ aggregate would count as passed.
 | CI: Report and renderer tests | each PR | `make ci-pr-report-check` |
 | CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Demos | each PR | `make demos` |
+| CI: Native: Rust checks and dependency policy | each PR | `make native-check` |
 | CI: All checks passed | each PR | none: it needs every CI job |
 | Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
@@ -79,6 +81,7 @@ aggregate would count as passed.
 | Full: Python 3.12.10 / 3.13.15 / 3.14.7 compatibility | same as above | `make python-compat` |
 | Full: Windows: collector safety | same as above | `make collector-safety` on Windows |
 | Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
+| Full: Native wheel: `<target>` (six targets) | same as above | `make native-wheel NATIVE_TAG=<tag>` on the target |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
 | Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
@@ -150,10 +153,12 @@ Architecture contracts, baselines and amendments remain reviewed source files.
   A split must follow a responsibility seam. A legacy file over the limit is in
   `tests/file_size_baseline.json`. It must not grow. Remove its entry when it reaches 500 lines.
 - **A change in `native/` needs a Rust toolchain.** `native/rust-toolchain.toml` pins it. Run
+  `make native-tools` once for the pinned `cargo-deny` and `cargo-auditable`. Then run
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
   Without `cargo`, the native collector tests are skipped locally. CI always has `cargo`, so they
-  fail there when it is missing. `ARCHKEEL_BUNDLE_NATIVE=1 uv build --wheel` builds a platform
-  wheel with the binary ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
+  fail there when it is missing. `make native-wheel` builds the platform wheel of your host with
+  the binary and its SBOM, then installs it and runs the binary
+  ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
   before and after, on the run the change targets (`make report-timing`, or a large repository).
   Below 10 % the change is discarded; record the measurement on the issue instead.

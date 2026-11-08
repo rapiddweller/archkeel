@@ -4,7 +4,9 @@
 """AD-317: a platform wheel carries the native TypeScript collector.
 
 Consumer: the release build, which sets `ARCHKEEL_BUNDLE_NATIVE`. The host does not use the
-bundled binary yet, so the test finds it with `importlib.resources` itself.
+bundled binary yet, so the test finds it with `importlib.resources` itself. The test marked
+`native_wheel` needs a Rust toolchain: `make native-wheel` runs it on each target of the wheel
+matrix in Full verification.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import stat
 import subprocess
 import sys
 import sysconfig
+import tomllib
 import zipfile
 import zlib
 from importlib.util import module_from_spec, spec_from_file_location
@@ -147,6 +150,107 @@ def test_a_cargo_request_without_native_sources_is_a_clear_error(tmp_path: Path)
         hook.bundle(tmp_path, VERSION, "1", _data(), platform="win_amd64")
 
 
+REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
+
+
+def _crate(name: str, version: str, license: str | None, source: str | None) -> dict[str, Any]:
+    prefix = f"{REGISTRY}#" if source else "path+file:///checkout/native/x#"
+    identity = f"{prefix}{name}@{version}"
+    return {"id": identity, "name": name, "version": version, "license": license, "source": source}
+
+
+def _metadata(*crates: dict[str, Any], edges: dict[str, list[tuple[str, str | None]]]) -> Any:
+    ids = {crate["name"]: crate["id"] for crate in crates}
+    nodes = [
+        {
+            "id": crate["id"],
+            "deps": [
+                {"pkg": ids[name], "dep_kinds": [{"kind": kind, "target": None}]}
+                for name, kind in edges.get(crate["name"], [])
+            ],
+        }
+        for crate in crates
+    ]
+    return {"packages": list(crates), "resolve": {"root": None, "nodes": nodes}}
+
+
+def test_the_sbom_lists_each_crate_that_the_binary_links() -> None:
+    metadata = _metadata(
+        _crate(hook.BINARY, "0.0.0", "MIT", None),
+        _crate("archkeel-wire", "0.0.0", "MIT", None),
+        _crate("flate2", "1.1.9", "MIT OR Apache-2.0", REGISTRY),
+        _crate("version_check", "0.9.5", "MIT/Apache-2.0", REGISTRY),
+        _crate("only-for-build", "1.0.0", "MIT", REGISTRY),
+        _crate("only-for-tests", "1.0.0", "MIT", REGISTRY),
+        edges={
+            hook.BINARY: [("archkeel-wire", None), ("only-for-build", "build")],
+            "archkeel-wire": [("flate2", None), ("only-for-tests", "dev")],
+            "flate2": [("version_check", None)],
+        },
+    )
+    lock = {("flate2", "1.1.9"): "a" * 64, ("version_check", "0.9.5"): "b" * 64}
+
+    sbom = hook.cyclonedx(metadata, lock, "5.0.0")
+
+    assert sbom["bomFormat"] == "CycloneDX" and sbom["specVersion"] == "1.6"
+    assert sbom["metadata"]["component"] == {
+        "type": "application",
+        "bom-ref": hook.BINARY,
+        "name": hook.BINARY,
+        "version": "5.0.0",
+        "licenses": [{"expression": "MIT"}],
+    }
+    assert sbom["components"] == [
+        {
+            "type": "library",
+            "bom-ref": "archkeel-wire",
+            "name": "archkeel-wire",
+            "version": "5.0.0",
+            "licenses": [{"expression": "MIT"}],
+        },
+        {
+            "type": "library",
+            "bom-ref": "pkg:cargo/flate2@1.1.9",
+            "name": "flate2",
+            "version": "1.1.9",
+            "purl": "pkg:cargo/flate2@1.1.9",
+            "licenses": [{"expression": "MIT OR Apache-2.0"}],
+            "hashes": [{"alg": "SHA-256", "content": "a" * 64}],
+        },
+        {
+            "type": "library",
+            "bom-ref": "pkg:cargo/version_check@0.9.5",
+            "name": "version_check",
+            "version": "0.9.5",
+            "purl": "pkg:cargo/version_check@0.9.5",
+            "licenses": [{"expression": "MIT OR Apache-2.0"}],
+            "hashes": [{"alg": "SHA-256", "content": "b" * 64}],
+        },
+    ]
+    assert sbom["dependencies"] == [
+        {"ref": hook.BINARY, "dependsOn": ["archkeel-wire"]},
+        {"ref": "archkeel-wire", "dependsOn": ["pkg:cargo/flate2@1.1.9"]},
+        {"ref": "pkg:cargo/flate2@1.1.9", "dependsOn": ["pkg:cargo/version_check@0.9.5"]},
+        {"ref": "pkg:cargo/version_check@0.9.5", "dependsOn": []},
+    ]
+    # A local path never goes into the SBOM: the wheel must not depend on the build directory.
+    assert "file://" not in json.dumps(sbom)
+
+
+@pytest.mark.parametrize(
+    "change,message",
+    [("license", "has no license"), ("checksum", "has no checksum in Cargo.lock")],
+)
+def test_an_sbom_without_license_or_checksum_is_a_clear_error(change: str, message: str) -> None:
+    flate2 = _crate("flate2", "1.1.9", None if change == "license" else "MIT", REGISTRY)
+    metadata = _metadata(
+        _crate(hook.BINARY, "0.0.0", "MIT", None), flate2, edges={hook.BINARY: [("flate2", None)]}
+    )
+    lock = {} if change == "checksum" else {("flate2", "1.1.9"): "a" * 64}
+    with pytest.raises(ValueError, match=f"flate2 1.1.9 {message}"):
+        hook.cyclonedx(metadata, lock, VERSION)
+
+
 def _tool(name: str) -> str:
     found = shutil.which(name)
     # A Rust toolchain is required only for changes in native/; CI always has one.
@@ -193,23 +297,53 @@ def test_the_default_wheel_is_the_pure_wheel_without_the_hook(tmp_path: Path) ->
     assert default.read_bytes() == without_hook.read_bytes()
 
 
-def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None:
+def _bundled_wheel(output: Path) -> Path:
+    # `make native-wheel` gives the wheel that CI uploads; without it, the test builds one.
+    given = os.environ.get("ARCHKEEL_NATIVE_WHEEL")
+    if given:
+        return Path(given).resolve()
     _tool("cargo")
+    _tool("cargo-auditable")
+    return _build_wheel(output, ARCHKEEL_BUNDLE_NATIVE="1")
+
+
+def _checksums() -> dict[tuple[str, str], str]:
+    lock = tomllib.loads((ROOT / "native/Cargo.lock").read_text())
+    return {
+        (crate["name"], crate["version"]): crate["checksum"]
+        for crate in lock["package"]
+        if "checksum" in crate
+    }
+
+
+@pytest.mark.native_wheel
+def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None:
     uv = _tool("uv")
-    wheel = _build_wheel(tmp_path / "dist", ARCHKEEL_BUNDLE_NATIVE="1")
+    wheel = _bundled_wheel(tmp_path / "dist")
+    version = wheel.name.split("-")[1]
 
     tag = hook.wheel_tag(hook.host_platform(platform_tags()))
-    assert wheel.name == f"archkeel-{VERSION}-{tag}.whl"
+    assert wheel.name == f"archkeel-{version}-{tag}.whl"
     # An installer of this host accepts the wheel.
     assert tag.split("-")[2] in {item.platform for item in sys_tags()}
     windows = tag.endswith("win_amd64")
     member = MEMBER + (".exe" if windows else "")
     with zipfile.ZipFile(wheel) as archive:
-        assert (
-            "Root-Is-Purelib: false" in archive.read(f"archkeel-{VERSION}.dist-info/WHEEL").decode()
-        )
+        dist_info = f"archkeel-{version}.dist-info"
+        assert "Root-Is-Purelib: false" in archive.read(f"{dist_info}/WHEEL").decode()
         if not windows:
             assert stat.S_IMODE(archive.getinfo(member).external_attr >> 16) == 0o755
+        # cargo auditable puts the dependency list into a section of the binary.
+        assert b".dep-v0" in archive.read(member)
+        sbom_member = f"{dist_info}/sboms/{hook.BINARY}.cdx.json"
+        sbom = json.loads(archive.read(sbom_member))
+        assert f"{sbom_member}," in archive.read(f"{dist_info}/RECORD").decode()
+    assert sbom["metadata"]["component"]["version"] == version
+    linked = {item["name"]: item for item in sbom["components"]}
+    assert {"archkeel-wire", "flate2", "serde_json", "sha2"} <= linked.keys()
+    assert linked["flate2"]["hashes"] == [
+        {"alg": "SHA-256", "content": _checksums()["flate2", linked["flate2"]["version"]]}
+    ]
 
     venv = tmp_path / "venv"
     for command in (
@@ -239,7 +373,7 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
     assert reply.returncode == 0, reply.stderr
     decoded = json.loads(zlib.decompress(reply.stdout))
     assert decoded["protocol_version"] == "9.0.0"
-    assert decoded["facts"]["adapter"]["version"] == VERSION
+    assert decoded["facts"]["adapter"]["version"] == version
     assert decoded["facts"]["coverage"]["selected_files"] == ["src/app.ts"]
 
 

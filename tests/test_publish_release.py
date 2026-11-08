@@ -35,8 +35,14 @@ class Remote:
             result = self.commit.encode()
         elif args[:2] == ["uv", "publish"]:
             assert self.release["draft"]
-            assert len(self.assets) == 4
-            assert len([e for e in self.events if "Accept: application/octet-stream" in e]) >= 4
+            local = {
+                path.name
+                for folder in ("dist", "plugin")
+                for path in self.root.joinpath(folder).iterdir()
+            }
+            assert set(self.assets) == local
+            downloads = [e for e in self.events if "Accept: application/octet-stream" in e]
+            assert len(downloads) >= len(local)
             result = b""
         elif args[1:3] == ("release", "create"):
             note_file = Path(args[args.index("--notes-file") + 1])
@@ -347,3 +353,74 @@ def test_plugin_upload_selects_only_archive_and_checksum_from_exporter_directory
     (dist / "archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
     _, assets = publish_release._assets(dist, download, "5.0.0")
     assert len(assets) == 4
+
+
+PLATFORM_WHEELS = [f"archkeel-5.0.0-{tag}.whl" for tag in publish_release.PLATFORM_TAGS]
+
+
+def test_the_platform_tags_are_the_six_targets_of_the_build_hook():
+    """AD-317: the pinned build images give these tags; each one is a tag of the build hook."""
+    hook = _hook()
+    assert sorted(publish_release.PLATFORM_TAGS) == sorted(
+        hook.wheel_tag(platform)
+        for platform in (
+            "macosx_14_0_x86_64",
+            "macosx_15_0_arm64",
+            "manylinux_2_17_x86_64",
+            "manylinux_2_17_aarch64",
+            "musllinux_1_2_x86_64",
+            "win_amd64",
+        )
+    )
+
+
+def test_a_release_with_every_platform_wheel_uploads_and_publishes_each_one(release):
+    remote, dist, _, _ = release
+    for name in PLATFORM_WHEELS:
+        (dist / name).write_bytes(name.encode())
+    publish(release)
+    assert not remote.release["draft"]
+    assert set(PLATFORM_WHEELS) <= set(remote.assets)
+    (upload,) = [e for e in remote.events if e[:2] == ("uv", "publish")]
+    assert sorted(Path(arg).name for arg in upload if arg.endswith((".whl", ".tar.gz"))) == sorted(
+        ["archkeel-5.0.0-py3-none-any.whl", *PLATFORM_WHEELS, "archkeel-5.0.0.tar.gz"]
+    )
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        PLATFORM_WHEELS[:5],
+        [*PLATFORM_WHEELS, "archkeel-5.0.0-py3-none-manylinux_2_28_x86_64.whl"],
+        ["archkeel-5.0.0-cp311-cp311-win_amd64.whl"],
+    ],
+    ids=["one-missing", "unknown-tag", "abi-tag"],
+)
+def test_platform_wheels_are_all_six_targets_or_none(release, names):
+    remote, dist, _, _ = release
+    for name in names:
+        (dist / name).write_bytes(name.encode())
+    with pytest.raises(ValueError, match="none or all six platform wheels"):
+        publish(release)
+    assert remote.release is None
+
+
+def test_a_release_without_the_pure_wheel_stops_before_any_mutation(release):
+    remote, dist, _, _ = release
+    (dist / "archkeel-5.0.0-py3-none-any.whl").unlink()
+    for name in PLATFORM_WHEELS:
+        (dist / name).write_bytes(name.encode())
+    with pytest.raises(ValueError, match="pure wheel"):
+        publish(release)
+    assert remote.release is None
+
+
+def _hook():
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    spec = spec_from_file_location(
+        "hatch_build", Path(__file__).parents[1] / "native/hatch_build.py"
+    )
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

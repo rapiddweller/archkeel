@@ -4,7 +4,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check
+.PHONY: demos demo-studio against gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-tools cargo-deny-install native-wheel
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
@@ -87,12 +87,48 @@ python-compat:
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
 		-q --durations=10 --selection=python-compat
 
+# Pinned Rust tools of the native checks (AD-316, AD-317).
+CARGO_DENY_VERSION := 0.20.2
+# SHA-256 of the x86_64-unknown-linux-musl release archive of cargo-deny that CI installs.
+CARGO_DENY_SHA256 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+CARGO_AUDITABLE_VERSION := 0.7.7
+
 # Rust code in native/ (AD-316). Run from native/ so that rust-toolchain.toml selects the toolchain.
 native-check:
+	@cargo deny --version 2>/dev/null | grep -qx "cargo-deny $(CARGO_DENY_VERSION)" || \
+		{ echo "native-check needs cargo-deny $(CARGO_DENY_VERSION): run make native-tools"; exit 2; }
 	cd native && cargo fmt --all --check
 	cd native && cargo clippy --locked --all-targets -- -D warnings
+	cd native && cargo deny --locked check
 	cd native && cargo test --locked
 	cd native && cargo build --locked
+
+# Build the pinned tools from crates.io with their own Cargo.lock; cargo skips an installed tool.
+native-tools:
+	cargo install --locked cargo-deny@$(CARGO_DENY_VERSION) cargo-auditable@$(CARGO_AUDITABLE_VERSION)
+
+# CI installs the prebuilt Linux x86_64 cargo-deny: it checks the SHA-256 and builds nothing.
+cargo-deny-install:
+	@set -eu; name=cargo-deny-$(CARGO_DENY_VERSION)-x86_64-unknown-linux-musl; \
+		work=$$(mktemp -d); trap 'rm -rf "$$work"' 0; \
+		curl -fsSL -o "$$work/$$name.tar.gz" \
+			"https://github.com/EmbarkStudios/cargo-deny/releases/download/$(CARGO_DENY_VERSION)/$$name.tar.gz"; \
+		echo "$(CARGO_DENY_SHA256)  $$work/$$name.tar.gz" | sha256sum --check --strict; \
+		tar -xzf "$$work/$$name.tar.gz" -C "$$work"; \
+		mkdir -p "$${CARGO_HOME:-$$HOME/.cargo}/bin"; \
+		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
+
+# AD-317: build the platform wheel of this host with the binary and its SBOM, check the tag, then
+# install the wheel and run the binary. Full verification runs it on each target of the matrix.
+NATIVE_TAG ?=
+native-wheel:
+	cargo install --locked cargo-auditable@$(CARGO_AUDITABLE_VERSION)
+	rm -rf dist/native
+	ARCHKEEL_BUNDLE_NATIVE=1 $(UV) build --wheel --no-sources --out-dir dist/native
+	@test -z "$(NATIVE_TAG)" || ls dist/native/archkeel-*-$(NATIVE_TAG).whl
+	$(UV) tool run --from twine==7.0.0 twine check --strict dist/native/*.whl
+	ARCHKEEL_NATIVE_WHEEL="$$(ls dist/native/*.whl)" $(UV) run --locked python -m pytest -q \
+		-m native_wheel tests/test_collector_native_wheel.py
 
 collector-safety:
 	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
@@ -130,7 +166,8 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py \
+	native/hatch_build.py
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 190
@@ -157,8 +194,12 @@ lint:
 	$(UV) run --locked ruff format --check $(LINT_PATHS)
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
+# The build hook imports hatchling, which is a build requirement, not a locked dependency.
+HATCHLING_VERSION := 1.33.0
+
 typecheck:
 	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py
+	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:
 	$(UV) run --locked archkeel report --root . --output test-artifacts/self-observation/architecture.json
