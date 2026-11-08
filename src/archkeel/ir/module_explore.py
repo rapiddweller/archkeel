@@ -24,13 +24,13 @@ from .architecture_graph import (
     ReportFinding,
     RuleAssessment,
 )
+from .coverage import observation_complete
 from .decisions import rule_assessments, rule_receipt_complete
 from .dependency import DependencySelection, parse_dependency_selector
 from .model import (
     JsonValue,
     Observation,
     Record,
-    Verdict,
     dependency_owners,
     in_scope,
     text_value,
@@ -223,7 +223,7 @@ def _cells(
         for item in rule_assessments(
             model,
             undecided_by_rule=undecided,
-            complete=model.coverage.status == Verdict.PASS,
+            complete=observation_complete(model.coverage),
         )
     }
     declarations = {item.id: item for item in model.records("declarations") or ()}
@@ -589,7 +589,7 @@ def module_exploration(
         replace(
             level,
             hint_candidates=_hint_candidates(
-                level, root, cells, intents, model.coverage.status == Verdict.PASS
+                level, root, cells, intents, observation_complete(model.coverage)
             ),
         )
         for level in levels
@@ -860,7 +860,7 @@ def _imports_complete(
         and item.status == CoverageStatus.COMPLETE
     }
     complete = (
-        model.coverage.status == Verdict.PASS
+        observation_complete(model.coverage)
         and model.records("imports") is not None
         and model.records("dependency_edges") is not None
         and bool(modules)

@@ -35,6 +35,7 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
     UsageProjection,
 )
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import rule_assessment_applies_to_component
 from archkeel.ir.dependency import DependencyOwner, DependencySelector, parse_dependency_selector
 from archkeel.ir.facts import EvidenceClass as _EvidenceClass
@@ -45,7 +46,6 @@ from archkeel.ir.model import (
     DiagnosticError,
     Observation,
     RequiredComponent,
-    Verdict,
     dependency_owners,
     requires_covers,
     text_value,
@@ -317,7 +317,7 @@ def _import_coverage(
         and item.status == CoverageStatus.COMPLETE
     }
     imports_complete = (
-        model.coverage.status == Verdict.PASS
+        observation_complete(model.coverage)
         and model.records("imports") is not None
         and bool(modules)
         and all(item.id in covered_imports for item in modules)

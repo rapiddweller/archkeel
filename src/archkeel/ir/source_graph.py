@@ -34,6 +34,7 @@ from archkeel.ir.architecture_graph import (
     VisibilityBasis,
     VisibilityKind,
 )
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.facts import (
     SOURCE_RESOLUTION_GAP_KIND,
     SOURCE_SCRIPT_GLOBAL_KIND,
@@ -1063,7 +1064,7 @@ def _section_coverage(
     reason: str | None = None
     if not available:
         status, reason = CoverageStatus.UNAVAILABLE, "profile does not publish this section"
-    elif observation.coverage.status != Verdict.PASS:
+    elif not observation_complete(observation.coverage):
         status, reason = CoverageStatus.PARTIAL, "source observation is incomplete"
     elif (
         section == SourceSectionName.CALLS
@@ -1165,7 +1166,7 @@ def _member_inventory_coverage(
                 raise ValueError("member inventory identities disagree with their owner")
             complete = (
                 inventory.status == InventoryStatus.COMPLETE
-                and (observation.coverage.status == Verdict.PASS or item.id in approved)
+                and (observation_complete(observation.coverage) or item.id in approved)
                 and (
                     "enum_literal" not in kinds
                     or observation.analyzer.name
@@ -1225,11 +1226,12 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
     }
     result: list[Coverage] = []
     result.extend(_member_inventory_coverage(observation, entities))
+    scan_complete = observation_complete(observation.coverage)
     for item in symbols:
         if item.data.get("base_declarations") is None:
             continue
         bases = _records(item.data.get("base_declarations"))
-        complete = observation.coverage.status == Verdict.PASS and all(
+        complete = scan_complete and all(
             parse_source_resolution(base.get("status")) is SourceResolution.RESOLVED
             for base in bases
         )
@@ -1251,12 +1253,8 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
                 Coverage(
                     entity.id,
                     relationship_kinds=(RelationshipKind.OWNS,),
-                    status=CoverageStatus.COMPLETE
-                    if observation.coverage.status == Verdict.PASS
-                    else CoverageStatus.PARTIAL,
-                    reason=None
-                    if observation.coverage.status == Verdict.PASS
-                    else "source observation is incomplete",
+                    status=CoverageStatus.COMPLETE if scan_complete else CoverageStatus.PARTIAL,
+                    reason=None if scan_complete else "source observation is incomplete",
                 )
             )
         if entity.kind != EntityKind.MODULE or entity.presence != PresenceKind.DEFINED:

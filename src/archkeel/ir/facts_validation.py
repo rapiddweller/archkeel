@@ -71,7 +71,7 @@ from .facts import (
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
 from .guard_paths import GuardedCallPath, guarded_call_paths
-from .source_proofs import class_instance_member_write_names
+from .source_proofs import class_instance_member_write_names, parse_numeric_evidence_excerpt
 from .state_facts import ArgumentPass, AttributeAccess
 from .type_shapes import TypeApplication, TypeShape
 
@@ -384,7 +384,7 @@ def _selector_evidence_excerpt(
     item: Evidence, role: JsonValue
 ) -> tuple[tuple[ast.stmt, ...], int, int] | None:
     excerpt: str = item.excerpt
-    parsed = _parse_numeric_evidence_excerpt(excerpt)
+    parsed = parse_numeric_evidence_excerpt(excerpt)
     if parsed is not None:
         roots, line_offset = parsed
         return roots, line_offset, 0
@@ -405,7 +405,7 @@ def _selector_evidence_excerpt(
     if role != "match" and stripped.endswith(("(", "[", "{")):
         for closing in range(1, 9):
             rewritten = f"{excerpt}False{')' * closing}"
-            parsed = _parse_numeric_evidence_excerpt(rewritten)
+            parsed = parse_numeric_evidence_excerpt(rewritten)
             if parsed is not None:
                 roots, line_offset = parsed
                 return roots, line_offset, 0
@@ -2443,131 +2443,8 @@ def _numeric_owner_evidence_matches(
     )
 
 
-@lru_cache(maxsize=256)
-def _parse_numeric_evidence_excerpt(
-    excerpt: str,
-) -> tuple[tuple[ast.stmt, ...], int] | None:
-    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
-        return None
-    stripped: str = excerpt.lstrip(" \t")
-    if stripped.startswith("@"):
-        return _parse_numeric_decorator_excerpt(excerpt)
-    if _numeric_elif_start(excerpt) is not None:
-        return _parse_numeric_elif_excerpt(excerpt)
-    try:
-        return tuple(ast.parse(excerpt).body), 0
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
-        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=False)
-        if parsed is not None:
-            return parsed
-        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=True)
-        if parsed is None or len(parsed[0]) != 1:
-            return None
-        return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
-
-
-def _parse_numeric_decorator_excerpt(
-    excerpt: str,
-) -> tuple[tuple[ast.stmt, ...], int] | None:
-    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
-    unit = "\t" if "\t" in indentation else "    "
-    prefix = "if True:\n" if indentation else ""
-    source = (
-        f"{prefix}{excerpt}\n"
-        f"{indentation}def __archkeel_numeric_witness__():\n"
-        f"{indentation}{unit}pass"
-    )
-    try:
-        parsed = ast.parse(source)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        return None
-    roots = tuple(parsed.body)
-    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
-        return None
-    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
-    if (
-        len(body) != 1
-        or not isinstance(body[0], ast.FunctionDef)
-        or len(body[0].decorator_list) != 1
-    ):
-        return None
-    return roots, 1 if indentation else 0
-
-
-def _numeric_elif_start(excerpt: str) -> int | None:
-    for index, character in enumerate(excerpt):
-        if character not in " \t":
-            if excerpt[index : index + 4] != "elif":
-                return None
-            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
-                return None
-            return index
-    return None
-
-
-def _parse_indented_numeric_excerpt(
-    excerpt: str, indentation: str, *, synthetic_body: bool
-) -> tuple[tuple[ast.stmt, ...], int] | None:
-    unit = "\t" if "\t" in indentation else "    "
-    depth = 1 if indentation else 0
-    wrappers = "if True:\n" if indentation else ""
-    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
-    try:
-        parsed = ast.parse(wrappers + excerpt + suffix)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        return None
-    roots = tuple(parsed.body)
-    for _ in range(depth):
-        if len(roots) != 1 or not isinstance(roots[0], ast.If):
-            return None
-        roots = tuple(roots[0].body)
-    return roots, depth
-
-
-def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
-    header_types = (
-        ast.If,
-        ast.While,
-        ast.For,
-        ast.AsyncFor,
-        ast.With,
-        ast.AsyncWith,
-        ast.FunctionDef,
-        ast.AsyncFunctionDef,
-        ast.ClassDef,
-    )
-    return (
-        isinstance(node, header_types)
-        and len(node.body) == 1
-        and isinstance(node.body[0], ast.Pass)
-    )
-
-
-def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
-    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
-    unit = "\t" if "\t" in indentation else "    "
-    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
-    for synthetic_body in (False, True):
-        parsed = _parse_indented_numeric_excerpt(source, indentation, synthetic_body=synthetic_body)
-        if parsed is None:
-            continue
-        roots, depth = parsed
-        if len(roots) != 1 or not isinstance(roots[0], ast.If):
-            return None
-        preceding = roots[0]
-        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
-            return None
-        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
-            return None
-        alternate = preceding.orelse[0]
-        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
-            return roots, depth + 2
-    return None
-
-
 def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], int] | None:
-    return _parse_numeric_evidence_excerpt(evidence.excerpt)
+    return parse_numeric_evidence_excerpt(evidence.excerpt)
 
 
 def _numeric_generic_header_index(
@@ -2663,7 +2540,7 @@ def _call_arguments_match_source(
 def _call_evidence_nodes(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
-    parsed = _parse_numeric_evidence_excerpt(excerpt)
+    parsed = parse_numeric_evidence_excerpt(excerpt)
     if parsed is not None:
         return parsed
     indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
@@ -4790,7 +4667,7 @@ def _reference_excerpt_tree(excerpt: str) -> ast.Module | None:
     try:
         return ast.parse(excerpt)
     except (IndentationError, SyntaxError, ValueError, RecursionError):
-        parsed = _parse_numeric_evidence_excerpt(excerpt)
+        parsed = parse_numeric_evidence_excerpt(excerpt)
         if parsed is not None:
             return ast.Module(body=list(parsed[0]), type_ignores=[])
     stripped: str = excerpt.rstrip()
@@ -4802,7 +4679,7 @@ def _reference_excerpt_tree(excerpt: str) -> ast.Module | None:
         try:
             return ast.parse(candidate)
         except (IndentationError, SyntaxError, ValueError, RecursionError):
-            parsed = _parse_numeric_evidence_excerpt(candidate)
+            parsed = parse_numeric_evidence_excerpt(candidate)
             if parsed is not None:
                 return ast.Module(body=list(parsed[0]), type_ignores=[])
     return None

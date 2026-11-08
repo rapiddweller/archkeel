@@ -22,13 +22,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from .architecture_graph import ResolutionKind
+from .coverage import observation_complete
 from .model import (
     FUNCTION_KINDS,
     ComparisonStatus,
     Evidence,
     Observation,
     Record,
-    Verdict,
     in_scope,
     int_value,
     text_value,
@@ -122,7 +122,7 @@ def _resolved_calls(observation: Observation) -> dict[str, tuple[str, ...]]:
     calls = observation.records("calls")
     if (
         calls is None
-        or observation.coverage.status != Verdict.PASS
+        or not observation_complete(observation.coverage)
         or observation.coverage.calls_analyzed != len(calls)
     ):
         return {}

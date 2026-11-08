@@ -119,7 +119,8 @@
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.facts_codec:source_reference_context",
-        "archkeel.ir.source_proofs:class_instance_member_write_names"
+        "archkeel.ir.source_proofs:class_instance_member_write_names",
+        "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt"
       ]
     },
     {
@@ -187,6 +188,7 @@
         "archkeel.ir.levels",
         "archkeel.ir.lock",
         "archkeel.ir.ownership",
+        "archkeel.ir.coverage",
         "archkeel.ir.measurements",
         "archkeel.ir.model",
         "archkeel.ir.references",
@@ -239,6 +241,7 @@
         "archkeel.ir.levels",
         "archkeel.ir.lock",
         "archkeel.ir.ownership",
+        "archkeel.ir.coverage",
         "archkeel.ir.measurements",
         "archkeel.ir.model",
         "archkeel.ir.references",
