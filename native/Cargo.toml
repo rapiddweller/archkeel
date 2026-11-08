@@ -20,6 +20,9 @@ flate2 = { version = "1.1", default-features = false, features = ["rust_backend"
 # `preserve_order`: the order of `paths` keys and of `exports` conditions decides the result.
 serde_json = { version = "1.0", features = ["preserve_order"] }
 sha2 = "0.10"
+tree-sitter = "0.25"
+# The grammar release of the Python collector (`tree-sitter-typescript` in uv.lock).
+tree-sitter-typescript = "=0.23.2"
 
 # AD-317: the wheel binary. A panic aborts the process, and the host reports execution_error.
 [profile.release]

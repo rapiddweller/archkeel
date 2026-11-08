@@ -10,15 +10,21 @@
 #![forbid(unsafe_code)]
 
 mod collect;
+mod concerns;
 mod config;
 mod discover;
 mod glob;
+mod jsdoc;
 mod manifest;
 mod options;
+mod parse;
 mod paths;
+mod pytext;
+mod references;
 mod resolve;
 mod snapshot;
 mod source_input;
+mod syntax;
 mod test_sources;
 #[cfg(test)]
 mod test_tree;

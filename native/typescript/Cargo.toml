@@ -16,6 +16,8 @@ build = "build.rs"
 archkeel-wire.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+tree-sitter.workspace = true
+tree-sitter-typescript.workspace = true
 
 [build-dependencies]
 sha2.workspace = true
