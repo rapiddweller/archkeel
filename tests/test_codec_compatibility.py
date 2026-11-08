@@ -12,7 +12,7 @@ import pytest
 from archkeel.ir import codec, dependency, facts_codec, model
 
 OWNERS = {
-    "wire": ("canonical_json_bytes", "decode_json", "json_arrays", "value_bytes"),
+    "wire": ("canonical_json_bytes", "decode_json", "json_arrays", "value_bytes", "write_json"),
     "governance": (
         "parse_measurements",
         "parse_lock",

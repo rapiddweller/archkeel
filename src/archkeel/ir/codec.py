@@ -50,6 +50,7 @@ from archkeel.ir.codec_wire import (
     decode_json,
     json_arrays,
     value_bytes,
+    write_json,
 )
 from archkeel.ir.dependency import parse_dependency_selector
 from archkeel.ir.facts_codec import (
@@ -108,4 +109,5 @@ __all__ = (
     "result_bytes",
     "result_payload",
     "value_bytes",
+    "write_json",
 )
