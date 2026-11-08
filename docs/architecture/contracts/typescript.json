@@ -1766,7 +1766,7 @@
             "basis": "declared"
           },
           "id": "TS-TYPED-StandardLibrary",
-          "kind": "enum",
+          "kind": "class",
           "qualified_name": "archkeel.analyzer.typescript.standard_libs.StandardLibrary",
           "parent_id": "TS-TYPED-STANDARD-LIBS",
           "responsibilities": [

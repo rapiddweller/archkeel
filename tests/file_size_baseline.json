@@ -14,7 +14,6 @@
   "src/archkeel/analyzer/typescript/config.py": 944,
   "src/archkeel/analyzer/typescript/parse.py": 3947,
   "src/archkeel/analyzer/typescript/resolve.py": 585,
-  "src/archkeel/analyzer/typescript/standard_libs.py": 1838,
   "src/archkeel/check/declarations.py": 797,
   "src/archkeel/check/delta.py": 663,
   "src/archkeel/check/evaluation/boundary_types.py": 7025,

@@ -11,6 +11,9 @@ src/archkeel/render/assets/report-graph-protocol.types.d.ts text eol=lf
 src/archkeel/render/assets/report-graph-vocabulary.ts text eol=lf
 tools/browser-runtime/protocol-exports.* text eol=lf
 
+# The native collector embeds this file, so its bytes are the same on every platform.
+src/archkeel/analyzer/typescript/standard_libs.json text eol=lf
+
 # Vendor provenance authenticates the original bytes.
 src/archkeel/render/assets/elkjs-0.12.0.bundled.js -text
 

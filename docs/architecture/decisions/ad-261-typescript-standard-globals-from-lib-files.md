@@ -5,7 +5,7 @@
   a reference to a binding, so it creates no site. A variable with the same name still does.
 - The standard-global catalog is generated, not typed. `tools/typescript_libs.py` reads the
   `lib.*.d.ts` files of the pinned `typescript` package (`tools/browser-runtime`) and writes
-  `src/archkeel/analyzer/typescript/standard_libs.py`. Per lib file it records the top-level
+  `src/archkeel/analyzer/typescript/standard_libs.json`. Per lib file it records the top-level
   `declare var|function|class|namespace|const|let` names, closed over `/// <reference lib>`.
 - A `lib` entry resolves to that file by its compiler name (`es5`, `es2015` to `es2024`,
   `esnext`, `dom`, `dom.iterable`). A name outside the pinned set still leaves the
@@ -32,7 +32,7 @@ catalog typed by hand cannot follow the compiler, and the compiler's files are i
 unmodeled until the pin moves. Only top-level values count; types such as `Document` do not.
 
 **Check.**
-- `tools/typescript_libs.py --check` regenerates the module and fails on any difference.
+- `tools/typescript_libs.py --check` regenerates the data file and fails on any difference.
 - A Vite-style `tsconfig` (`ES2020`, `DOM`, `DOM.Iterable`) with a JSX module reports no
   "Script global" gap for `className`, `Math`, `Date`, `document` or `console`.
 - The same file under `lib: ["es5"]` keeps `document` as a gap; `lib: ["es2020"]` does not
@@ -40,3 +40,12 @@ unmodeled until the pin moves. Only top-level values count; types such as `Docum
 - A local `const title` used as `title` is still a reference; the attribute `title=` is not.
 - A project with no `lib` and target ES2022 proves `document`.
 - `make against` accepts the contract entries for the new modules.
+
+**Amendment (#880, PR 4.3a-4b).** The catalog is data, so it is one JSON file and not a Python
+copy. The file `standard_libs.json` is compact and has a stable key order. The bytes are the same
+on every platform. The Python collector loads the file in `standard_libs.py`, which holds code and
+no data. `StandardLibrary` is a `str` subclass. Its constructor accepts only the names in the
+file. A missing or broken file stops the load with an error that says "broken install". The
+native collector will embed the same file, so the two collectors cannot disagree. A test pins
+the digest of the whole mapping and of every lookup. These digests were printed from the
+generated module before the change.
