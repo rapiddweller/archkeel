@@ -18,9 +18,9 @@ from archkeel.ir.architecture_graph import (
     GraphSchemaVersion,
     NumericOperandForm,
     TargetDefinition,
-    _validate_module_target_path,
     validate_layout_rule,
     validate_module_target,
+    validate_module_target_path,
 )
 from archkeel.ir.codec_governance import _measurement_budget_name
 from archkeel.ir.codec_wire import (
@@ -35,8 +35,8 @@ from archkeel.ir.codec_wire import (
 )
 from archkeel.ir.contract_version import CONTRACT_SCHEMA_VERSION as CONTRACT_SCHEMA_VERSION
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
-from archkeel.ir.facts import python_identifier
-from archkeel.ir.facts_codec import record_payload
+from archkeel.ir.dependency import dependency_selector
+from archkeel.ir.facts import JsonValue, RecordData, python_identifier
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -72,7 +72,6 @@ from archkeel.ir.model import (
     ContractReviewScope,
     CouplingBudget,
     CycleLevel,
-    DependencySelector,
     DependencyTargetKind,
     ExternalDependencyScopeRule,
     FacadeBudget,
@@ -89,7 +88,6 @@ from archkeel.ir.model import (
     ProtocolDeclarationSelector,
     ProtocolDeclarationsRule,
     ProtocolDeclarationVisibility,
-    Record,
     RequiredComponent,
     RootLayoutRule,
     SelectorMatch,
@@ -112,6 +110,14 @@ _PUBLIC_ENTRY = re.compile(
 )
 
 
+_SELECTOR_FIELDS = (
+    "source",
+    "target",
+    "target_symbol",
+    "source_match",
+    "target_match",
+    "target_kind",
+)
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
 _MODULE_SYMBOL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
@@ -662,7 +668,7 @@ def _parse_module_target(raw: RawJson, label: str) -> ContractModuleTarget:
     item = _contract_fields(raw, {"path", "responsibility"}, set(), label)
     path = _nonempty(item["path"], f"{label}.path")
     try:
-        _validate_module_target_path(path)
+        validate_module_target_path(path)
     except ValueError as error:
         raise ValueError(f"{label}.{error}") from error
     responsibility = _nonempty(item["responsibility"], f"{label}.responsibility")
@@ -925,6 +931,17 @@ def _check_interface_budgets(
             raise ValueError(f"contract.declarations.{key} repeats {repeated[0]!r}")
 
 
+def _selector_value(raw: RawJson) -> JsonValue:
+    return raw if raw is None or isinstance(raw, (str, int, float, bool)) else ()
+
+
+def _selector_data(item: dict[str, RawJson]) -> RecordData:
+    """Hand the selector fields to the grammar unchanged; the grammar rejects each non-string."""
+    return RecordData(
+        tuple((name, _selector_value(item[name])) for name in _SELECTOR_FIELDS if name in item)
+    )
+
+
 def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependencyRule:
     item, item_id, provenance = _contract_record(
         raw,
@@ -935,7 +952,7 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
     include = item["include_type_checking"]
     if not isinstance(include, bool):
         raise ValueError(f"{label}.include_type_checking must be a boolean")
-    selected = _dependency_selector(item, label)
+    selected = dependency_selector(_selector_data(item), label)
     rationale = _nonempty(item["rationale"], f"{label}.rationale")
     decided_by = _decided_by(item["decided_by"], f"{label}.decided_by")
     allowed = _contract_strings(item.get("allowed_sources", []), f"{label}.allowed_sources")
@@ -955,32 +972,6 @@ def _parse_forbidden_dependency(raw: RawJson, label: str) -> ForbiddenDependency
         selected.target_match,
         selected.target_kind,
     )
-
-
-def _dependency_selector(data: dict[str, RawJson], label: str) -> DependencySelector:
-    symbol = data.get("target_symbol")
-    if symbol is not None and (not isinstance(symbol, str) or not symbol.isidentifier()):
-        raise ValueError(f"{label}.target_symbol must be an identifier")
-    return DependencySelector(
-        _nonempty(data.get("source"), f"{label}.source"),
-        _nonempty(data.get("target"), f"{label}.target"),
-        symbol,
-        SelectorMatch(
-            _string(data.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")
-        ),
-        SelectorMatch(
-            _string(data.get("target_match", SelectorMatch.PREFIX), f"{label}.target_match")
-        ),
-        DependencyTargetKind(
-            _string(data.get("target_kind", DependencyTargetKind.MODULE), f"{label}.target_kind")
-        ),
-    )
-
-
-def parse_dependency_selector(record: Record) -> DependencySelector:
-    """Decode a dependency selector once at the record-to-model boundary."""
-    data = _object(record_payload(record)["data"], "dependency declaration")
-    return _dependency_selector(data, "dependency declaration")
 
 
 def _parse_allowed_dependency(raw: RawJson, label: str) -> AllowedDependencyRule:

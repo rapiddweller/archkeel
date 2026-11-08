@@ -320,3 +320,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-311 | [Studio separates call resolution and claim status](ad-311-studio-separates-call-resolution-and-claim-status.md) |
 | AD-313 | [Explore excludes recognized test sources](ad-313-explore-excludes-test-sources.md) |
 | AD-314 | [Source files have at most 500 lines and legacy files only shrink](ad-314-source-files-have-at-most-500-lines-and-legacy-files-only-shrink.md) |
+| AD-315 | [IR owners are inner components of Core](ad-315-ir-owners-are-inner-components-of-core.md) |

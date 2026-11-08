@@ -24,9 +24,8 @@ from .architecture_graph import (
     ReportFinding,
     RuleAssessment,
 )
-from .codec_contract import parse_dependency_selector
-from .decisions import _rule_receipt_complete, rule_assessments
-from .dependency import DependencySelection
+from .decisions import rule_assessments, rule_receipt_complete
+from .dependency import DependencySelection, parse_dependency_selector
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import (
@@ -467,7 +466,7 @@ def _cell_receipt_proven(
         record.kind == "rule_evaluation"
         and assessment.id in record.rule_ids
         and subjects <= set(record.subjects)
-        and _rule_receipt_complete(model, declaration, record)
+        and rule_receipt_complete(model, declaration, record)
         for record in model.records("scope_observations") or ()
     )
 

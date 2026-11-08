@@ -19,7 +19,7 @@ package and exact-module ownership in one representation. The model's
 `dependency_owners` adapter converts legacy tuples, preserving order and
 duplicates. Report preparation adapts ownership once before selecting policies.
 
-The 38 independent UML declarations pin the enum members, selector mode/kind
+The 37 independent declarations pin the enum members, selector mode/kind
 fields, ownership and selection fields and method signatures. They extend the
 244 existing declarations without enumerating private helpers or compatibility
 iterators. They also govern the model's
@@ -28,10 +28,12 @@ compatibility wrappers, the typed adapter signature and
 Module names, package names and symbols remain string data. The legacy ownership
 tuples and generic iterable inputs remain typed containers.
 
-`codec_contract.parse_dependency_selector(Record) -> DependencySelector`
-is the named record-to-domain conversion seam. Its raw record inspection and
-wire string validation remain codec responsibilities. The dependency module
-does not decode JSON, issue receipts or decide verdicts. Core retains verdict
+`dependency.parse_dependency_selector(Record) -> DependencySelector`
+is the named record-to-domain conversion seam (AD-315). The selector grammar and
+the record inspection live in the dependency module, so rule decisions and
+report projections need no import of the contract codec. The contract codec
+freezes the selector fields of a rule and calls the same grammar. The dependency
+module does not decode JSON text, issue receipts or decide verdicts. Core retains verdict
 authority; projections consume the shared typed selection. The new
 `boundary_types` rule covers exactly the dependency module's declared public
 surface, including the ownership input to both `component_pair` and `select`. The legacy model's generic

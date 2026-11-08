@@ -65,8 +65,7 @@ def test_dependency_guard_does_not_claim_unmigrated_codec_protection(tmp_path):
     root, config = _dependency_repository(tmp_path)
     codec = root / "archkeel/ir/codec_contract.py"
     codec.write_text(
-        codec.read_text()
-        + '\n\ndef _wire_probe(kind: str) -> bool:\n    return kind == "forbidden_dependency"\n'
+        'def _wire_probe(kind: str) -> bool:\n    return kind == "forbidden_dependency"\n'
     )
     model = _model(root, config)
     assert _guard(model).status == "PASS" and _guard(model).evaluation_proven

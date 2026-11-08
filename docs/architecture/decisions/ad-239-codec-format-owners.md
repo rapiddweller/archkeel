@@ -7,7 +7,7 @@ These formats have separate callers and validation responsibilities.
 Keep `ir.codec` as an eager compatibility facade. Flat sibling modules own
 wire values, governance persistence, contract grammar, inside topology,
 observations, deltas and result serialization. Each module names its format;
-the existing governance component owns all of them.
+the `wire` owner (AD-315) owns all of them.
 
 Wire operations depend only on immutable values. Governance adds measurements,
 locks, baselines and amendments. Contract grammar uses governance budget names;
@@ -37,8 +37,9 @@ ownership changes. The old recursive permission maps only to `_raw_object`,
 Independent signal/AST comparison retains seven annotations in these scopes;
 the unchanged baseline binds the same ceilings on both sides.
 
-Rejected: a codec package, registry, injected callbacks or lazy imports. Those
-would obscure the real dependency direction. Keeping only the initial storage
+Rejected: a codec package outside `ir`, a registry, injected callbacks or lazy imports.
+AD-315 allows the owner `wire` inside `ir`.
+The rejected options would obscure the real dependency direction. Keeping only the initial storage
 extraction would leave unrelated contract, observation and result work mixed.
 
 Limit: this is compatible responsibility extraction inside existing IR

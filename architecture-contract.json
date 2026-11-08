@@ -1160,7 +1160,7 @@
       "constructs": [
         "string_literal_compare"
       ],
-      "rationale": "Dependency policy branches on its owned SelectorMatch and DependencyTargetKind enums; raw protocol conversion belongs to the contract codec.",
+      "rationale": "Dependency policy branches on its owned SelectorMatch and DependencyTargetKind enums; the selector grammar converts record strings into them once.",
       "provenance": [
         "docs/architecture/typed-control-migration.md"
       ],

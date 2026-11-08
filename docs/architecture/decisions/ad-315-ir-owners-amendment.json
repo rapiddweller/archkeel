@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "after_digest": "c66b89c470fe609f8b66b2bb5099513adacdd32ad53f7e182804e21e2e624ec8",
+  "before_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "before_digest": "4fdb16c9f651704df65afbc4939d70f526b7c40be1ea30c2e75b328dcf51c1e1",
+  "decided_by": "architect",
+  "rationale": "AD-315 and epic #880, against origin/main f0a0d6fd. The inner component governance of ir is split into the inner components architecture, evidence, wire and views. They own the same 46 modules through exact_modules; no module moves. Every requires entry has a reason and follows the direction table in AD-315. The public lists of the old component are split by module. Three names are added: archkeel.ir.amendment:AMENDMENT_SCHEMA_VERSION (architecture) and archkeel.ir.dependency:parse_dependency_selector and dependency_selector (dependency-policy). The two dependency functions moved from ir.codec_contract; decisions, module_explore, report_projection, codec and codec_contract import them. The UML entity IR-DEPENDENCY-codec_contract.parse_dependency_selector became IR-DEPENDENCY-dependency.parse_dependency_selector, and the empty module entity IR-DEPENDENCY-codec_contract was removed. The 14 module entities with parent TARGET-GOVERNANCE now name the owner of their module. Two private cross-owner imports became public names: decisions.rule_receipt_complete and architecture_graph.validate_module_target_path. Two rule rationales (TARGET-DEPENDENCY-BOUNDARY-TYPES and DEPENDENCY-TYPED-CONTROL) no longer say that the codec owns the record conversion. No budget, baseline entry, Any permission or through selector changes. The baseline digest is the same on both sides. The local run measured calls_unresolved 981 and typing_positions 58, equal to the baseline with zero violations.",
+  "schema_version": "2.0.0"
+}

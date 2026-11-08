@@ -6,7 +6,7 @@ changes for separate reasons: selector abbreviation, permission grouping, reason
 interning and result-envelope adaptation.
 
 Move the command DTOs and preparation helpers together to `ir.command_view`,
-inside the existing governance component. It consumes shared projection and
+inside the IR owner `wire` (AD-315). It consumes shared projection and
 result values; it does not construct reports or evaluate architecture policy.
 Callers import them from `ir.command_view`; `ir.report_projection` keeps no
 aliases. `ir.codec` imports the focused command owner directly

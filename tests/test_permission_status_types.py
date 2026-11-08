@@ -109,7 +109,7 @@ def test_real_permission_producer_preserves_states_wire_and_atlas_balance(tmp_pa
 def _native_repository(tmp_path):
     contract = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
     component = copy.deepcopy(
-        next(row for row in contract["components"] if row["id"] == "TARGET-GOVERNANCE")
+        next(row for row in contract["components"] if row["id"] == "TARGET-ARCHITECTURE")
     )
     component.update(
         packages=[],

@@ -105,10 +105,6 @@ def _dependency_repository(
         )
     )
     facts = _source_members("src/archkeel/ir/facts.py", {"in_scope"})
-    codec = (
-        "from .facts import Record\nfrom .dependency import DependencySelector\n"
-        + _source_members("src/archkeel/ir/codec_contract.py", {"parse_dependency_selector"})
-    )
     root = _prepare_repo(
         tmp_path,
         {
@@ -119,7 +115,6 @@ def _dependency_repository(
             else dependency_source,
             "archkeel/ir/model.py": model if model_source is None else model_source,
             "archkeel/ir/facts.py": facts,
-            "archkeel/ir/codec_contract.py": codec,
             "archkeel/consumer.py": consumer_source
             or "from .ir.dependency import DependencySelector\n",
             "contract.json": json.dumps(_dependency_contract()),
@@ -186,7 +181,7 @@ def test_native_dependency_api_matches_the_independent_target(tmp_path):
         "archkeel.ir.model.declared_package_pair": "signature",
         "archkeel.ir.model.forbidden_dependency_scopes": "signature",
         "archkeel.ir.model.ForbiddenDependencyRule.selector": "signature",
-        "archkeel.ir.codec_contract.parse_dependency_selector": "signature",
+        "archkeel.ir.dependency.parse_dependency_selector": "signature",
     }
     target = _dependency_contract()["declarations"]["uml"]["entities"]
     for name, aspect in protected.items():

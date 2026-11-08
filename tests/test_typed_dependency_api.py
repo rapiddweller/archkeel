@@ -187,3 +187,33 @@ def test_typed_policy_consumes_named_ownership_and_reuses_immutable_modules():
     assert selection.source is owners[0].modules
     assert selection.target is owners[1].modules
     assert contract.rules[0].selector.component_pair(owners) == ("caller", "errors")
+
+
+@pytest.mark.parametrize(
+    "selectors,message",
+    [
+        ({"source": float("nan")}, "rules[0].source must be a string"),
+        ({"target": float("inf")}, "rules[0].target must be a string"),
+        ({"source": object()}, "rules[0].source must be a string"),
+        ({"target_symbol": float("nan")}, "rules[0].target_symbol must be an identifier"),
+        ({"source_match": float("nan")}, "rules[0].source_match must be a string"),
+        ({"target_match": float("-inf")}, "rules[0].target_match must be a string"),
+        ({"target_kind": ["x"]}, "rules[0].target_kind must be a string"),
+        (
+            {"target_symbol": "1x", "source": 7},
+            "rules[0].target_symbol must be an identifier",
+        ),
+        (
+            {"source_match": float("nan"), "target_kind": "unknown"},
+            "rules[0].source_match must be a string",
+        ),
+    ],
+)
+def test_contract_selector_errors_keep_their_label_and_check_order(selectors, message):
+    raw = _contract()
+    raw["schema_version"] = "3.5.0"
+    raw["rules"][0].update(selectors)
+    with pytest.raises(ValueError) as error:
+        codec.parse_contract(raw)
+    assert type(error.value) is ValueError
+    assert str(error.value) == message

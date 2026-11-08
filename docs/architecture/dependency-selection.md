@@ -7,8 +7,8 @@ module selection in `archkeel.ir.dependency`. `SelectorMatch` and
 
 Module names, package prefixes, symbols and component identities remain string
 data. The contract codec converts wire values to the owned types and rejects
-unsupported modes. `parse_dependency_selector` applies the same conversion to
-declaration records. Core evaluates rules and produces receipts; report
+unsupported modes. `dependency.parse_dependency_selector` owns that grammar and
+applies it to declaration records; the codec calls the same grammar. Core evaluates rules and produces receipts; report
 projections consume selections and Core findings. A report does not decide a
 different interpretation of a dependency rule.
 
