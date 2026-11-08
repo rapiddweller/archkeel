@@ -86,18 +86,28 @@ impl<'a> Source<'a> {
         }
     }
 
+    /// `_text(node)[:400]`. A text of 400 ASCII bytes needs no decoding. Another text is cut after
+    /// 1 600 bytes first, because 400 characters are at most 1 600 bytes, so a long node is never
+    /// decoded in full.
+    fn excerpt(&self, node: Node) -> String {
+        let (start, end) = (node.start_byte(), node.end_byte());
+        let short = &self.data[start..end.min(start + 400)];
+        if short.is_ascii() {
+            return decode(short).into_owned();
+        }
+        let head = decode(&self.data[start..end.min(start + EXCERPT_BYTES)]);
+        first_chars(&head, 400).to_owned()
+    }
+
     /// `_Source.span`: the position of `node`, with the excerpt and column of `start` if given.
     pub fn span(&self, node: Node, start: Option<Node>) -> Span {
         let first = start.unwrap_or(node);
         let line = self.line_of(first.start_byte());
-        // 400 characters are at most 1 600 bytes, so a longer text is never decoded in full.
-        let end = first.end_byte().min(first.start_byte() + EXCERPT_BYTES);
-        let head = decode(&self.data[first.start_byte()..end]);
         Span {
             line: line as i64,
             end_line: self.line_of(node.end_byte()) as i64,
             column: self.column(line, first.start_byte()),
-            excerpt: first_chars(&head, 400).to_owned(),
+            excerpt: self.excerpt(first),
         }
     }
 }
