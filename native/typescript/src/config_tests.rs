@@ -154,3 +154,15 @@ fn a_large_hostile_config_is_stripped_in_linear_time() {
     let value: Value = serde_json::from_str(&plain).unwrap();
     assert_eq!(value["include"], serde_json::json!(["src"]));
 }
+
+// Consumer: a hostile `tsconfig.json`. A deep nesting is a parse problem and not a stack overflow.
+#[test]
+fn a_deeply_nested_config_is_a_problem_and_not_a_crash() {
+    let depth = 200_000;
+    let nested = format!("{}{}", "[".repeat(depth), "]".repeat(depth));
+    let loaded = load(&[("tsconfig.json", &nested), ("src/a.ts", "")]);
+
+    assert!(loaded
+        .problems
+        .contains(&"Cannot parse 'tsconfig.json' as JSON.".to_owned()));
+}

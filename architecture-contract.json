@@ -752,19 +752,19 @@
       "allowed_type_ignores": [
         {
           "qualified_name": "archkeel.analyzer.windows_job._create_owned_job",
-          "line": 60,
+          "line": 66,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 479,
+          "line": 392,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 491,
+          "line": 404,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

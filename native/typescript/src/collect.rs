@@ -132,12 +132,11 @@ impl Collection<'_> {
 
     fn file(&mut self, rel: &str) {
         let Some(content) = self.snapshot.read(rel) else {
-            self.gap(
-                &format!("Unreadable selected source: {rel}"),
-                None,
-                "",
-                GapKind::Collection,
-            );
+            let reason = self
+                .snapshot
+                .size_gap(rel)
+                .unwrap_or_else(|| format!("Unreadable selected source: {rel}"));
+            self.gap(&reason, None, "", GapKind::Collection);
             return;
         };
         let Ok(module) = module_identity(&self.request.namespace, rel) else {

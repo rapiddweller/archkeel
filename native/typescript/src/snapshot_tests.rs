@@ -50,3 +50,31 @@ fn a_name_that_is_not_utf8_is_a_problem() {
     let problems: Vec<&String> = snapshot.problems.iter().collect();
     assert_eq!(problems, ["Source name is not UTF-8: src/b\u{fffd}.ts"]);
 }
+
+// Consumer: the bound on one file read. A file over the limit is never held in memory, and the
+// collection names it, so the collection is never complete by omission.
+
+#[test]
+fn a_file_over_the_size_limit_is_not_read() {
+    let at_limit = "a".repeat(MAX_FILE_BYTES as usize);
+    let over_limit = "a".repeat(MAX_FILE_BYTES as usize + 1);
+    let tree = Tree::new(&[("src/at.ts", &at_limit), ("src/over.ts", &over_limit)]);
+    let mut snapshot = Snapshot::new(&tree.path());
+
+    assert_eq!(
+        snapshot.read("src/at.ts").map(|raw| raw.len()),
+        Some(at_limit.len())
+    );
+    assert_eq!(snapshot.read("src/over.ts"), None);
+    assert_eq!(
+        snapshot.size_gap("src/over.ts").as_deref(),
+        Some("Source file over the size limit of 4194304 bytes: src/over.ts")
+    );
+    assert_eq!(snapshot.size_gap("src/at.ts"), None);
+    let inputs: Vec<String> = snapshot
+        .inputs()
+        .into_iter()
+        .map(|input| input.path)
+        .collect();
+    assert_eq!(inputs, ["src/at.ts"]);
+}

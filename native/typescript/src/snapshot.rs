@@ -8,7 +8,8 @@
 //! snapshot, by name or by symlink, is never read.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use archkeel_wire::identity::sha256_hex;
@@ -18,12 +19,16 @@ use crate::paths::{is_outside, join, normpath};
 
 pub const OUTSIDE: &str = "Resolver input outside snapshot";
 pub const SYMLINK: &str = "Resolver symlink outside snapshot";
+/// The largest file that the collector reads (AD-319). The largest TypeScript source of the React
+/// UI corpus has 92 KB, so a larger file is generated or hostile, and its gap names it.
+pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
 pub struct Snapshot {
     root: PathBuf,
     inputs: BTreeMap<String, (String, Role)>,
     // The snapshot does not change during one collection, so each real path is looked up once.
     reals: HashMap<String, Option<String>>,
+    oversized: BTreeSet<String>,
     /// Problems become collection gaps.
     pub problems: BTreeSet<String>,
 }
@@ -35,6 +40,7 @@ impl Snapshot {
             root,
             inputs: BTreeMap::new(),
             reals: HashMap::new(),
+            oversized: BTreeSet::new(),
             problems: BTreeSet::new(),
         }
     }
@@ -89,12 +95,21 @@ impl Snapshot {
     }
 
     /// Read and digest a file; its input role stays the one it already has.
+    ///
+    /// A file over `MAX_FILE_BYTES` is not held in memory: it gives `None`, and `size_gap` names it.
     pub fn read(&mut self, rel: &str) -> Option<Vec<u8>> {
         if !self.is_file(rel) {
             return None;
         }
-        match fs::read(self.absolute(rel)) {
-            Ok(raw) => {
+        let mut raw = Vec::new();
+        let read = File::open(self.absolute(rel))
+            .and_then(|file| file.take(MAX_FILE_BYTES + 1).read_to_end(&mut raw));
+        match read {
+            Ok(_) if raw.len() as u64 > MAX_FILE_BYTES => {
+                self.oversized.insert(rel.to_owned());
+                None
+            }
+            Ok(_) => {
                 let role = self
                     .inputs
                     .get(rel)
@@ -108,6 +123,13 @@ impl Snapshot {
                 None
             }
         }
+    }
+
+    /// The gap text of a file that `read` refused for its size.
+    pub fn size_gap(&self, rel: &str) -> Option<String> {
+        self.oversized
+            .contains(rel)
+            .then(|| format!("Source file over the size limit of {MAX_FILE_BYTES} bytes: {rel}"))
     }
 
     /// Mark a read file as a selected source file.

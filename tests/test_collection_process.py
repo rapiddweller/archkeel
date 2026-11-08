@@ -138,18 +138,201 @@ def test_failure_terminates_collector_descendants(tmp_path, monkeypatch, failure
     _assert_process_exited(int(pid_file.read_text()))
 
 
-def test_windows_kill_on_close_uses_extended_job_limits() -> None:
+def test_windows_job_kills_on_close_and_bounds_process_memory() -> None:
     from archkeel.analyzer.windows_job import (
         _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
         _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        _JOB_OBJECT_LIMIT_PROCESS_MEMORY,
         _IoCounters,
-        _kill_on_close_limit_information,
+        _job_limit_information,
     )
 
-    limits = _kill_on_close_limit_information()
+    limits = _job_limit_information(256 * 2**20)
     assert _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION == 9
-    assert limits.basic_limit_information.limit_flags == _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    assert _JOB_OBJECT_LIMIT_PROCESS_MEMORY == 0x100
+    assert limits.basic_limit_information.limit_flags == (
+        _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | _JOB_OBJECT_LIMIT_PROCESS_MEMORY
+    )
+    assert limits.process_memory_limit == 256 * 2**20
     assert len(_IoCounters._fields_) == 6
+
+
+@pytest.mark.parametrize(
+    "arguments,parsed",
+    [
+        (["--memory-limit-bytes=1024", "--", "tool", "a"], (1024, ["tool", "a"])),
+        (["--memory-limit-bytes=0", "--", "tool"], None),
+        (["--memory-limit-bytes=-1", "--", "tool"], None),
+        (["--memory-limit-bytes=abc", "--", "tool"], None),
+        (["--memory-limit-bytes=1024", "--"], None),
+        (["--", "tool"], None),
+        (["--memory-limit-bytes=1024", "tool"], None),
+    ],
+)
+def test_windows_job_reads_its_memory_limit_before_the_collector_argv(arguments, parsed) -> None:
+    from archkeel.analyzer.windows_job import _parse
+
+    assert _parse(arguments) == parsed
+
+
+_LIMITED_PLATFORM = pytest.mark.skipif(
+    sys.platform not in ("linux", "win32"),
+    reason="Linux RLIMIT_AS and the Windows job bound memory; macOS has no reliable limit",
+)
+
+
+@_LIMITED_PLATFORM
+def test_collector_over_the_memory_limit_is_a_named_execution_error(tmp_path) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.protocol import CollectionErrorKind
+
+    # The allocation follows the request, as the work of a real collector does.
+    code = "import sys; sys.stdin.buffer.read(); data = bytearray(1024 * 2**20)"
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+
+    result = _collector(code, memory_limit_bytes=256 * 2**20).collect(request)
+
+    assert isinstance(result, CollectionError)
+    assert result.kind is CollectionErrorKind.EXECUTION_ERROR
+    assert result.message.startswith(
+        "Collector exceeded its memory limit of 268435456 bytes (256 MiB)."
+    )
+    assert "MemoryError" in result.message
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires Linux RLIMIT_AS")
+def test_linux_collector_receives_its_request_under_the_address_space_limit(tmp_path) -> None:
+    from dataclasses import replace
+
+    code = (
+        "import resource, sys; sys.stdin.buffer.read(); "
+        "sys.exit('limit=%d,%d' % resource.getrlimit(resource.RLIMIT_AS))"
+    )
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+
+    result = _collector(code, memory_limit_bytes=512 * 2**20).collect(request)
+
+    assert isinstance(result, CollectionError)
+    limit = 512 * 2**20
+    assert result.message == f"Collector exited 1: limit={limit},{limit}"
+
+
+def test_default_memory_limit_has_headroom_over_the_measured_collector_peak() -> None:
+    from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES
+    from archkeel.analyzer.process import ProcessCollector
+
+    assert COLLECTOR_MEMORY_LIMIT_BYTES == 4 * 2**30
+    assert ProcessCollector(("tool",)).memory_limit_bytes == COLLECTOR_MEMORY_LIMIT_BYTES
+    with pytest.raises(ValueError, match="collector limits must be positive"):
+        ProcessCollector(("tool",), memory_limit_bytes=0)
+
+
+@pytest.mark.parametrize(
+    "platform,named",
+    [("linux", True), ("win32", True), ("darwin", False), ("freebsd", False)],
+)
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "Traceback (most recent call last):\nMemoryError",
+        "memory allocation of 1073741824 bytes failed",
+        "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory",
+    ],
+)
+def test_only_a_limited_platform_names_the_memory_limit(monkeypatch, platform, named, stderr):
+    from archkeel.analyzer import memory_limit
+
+    monkeypatch.setattr(memory_limit.sys, "platform", platform)
+    message = memory_limit.exit_message(-6, stderr, 2**30)
+
+    assert message.endswith(f"Collector exited -6: {stderr}")
+    assert message.startswith("Collector exceeded its memory limit") is named
+    assert memory_limit.exit_message(1, "ValueError: bad input", 2**30) == (
+        "Collector exited 1: ValueError: bad input"
+    )
+
+
+@pytest.mark.skipif(sys.platform == "linux", reason="Linux sets RLIMIT_AS on the collector")
+def test_platform_without_an_address_space_limit_sets_nothing() -> None:
+    from archkeel.analyzer.memory_limit import limit_memory
+
+    # PID 1 is never our child; a call that tried to limit it would fail.
+    assert limit_memory(1, 2**20) is None
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires Linux prlimit")
+def test_linux_memory_limit_ignores_a_collector_that_already_exited() -> None:
+    import subprocess
+
+    from archkeel.analyzer.memory_limit import limit_memory
+
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+
+    assert limit_memory(child.pid, 2**30) is None
+
+
+def test_refused_memory_limit_is_an_execution_error(monkeypatch, tmp_path) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.protocol import CollectionErrorKind
+
+    monkeypatch.setattr(
+        process_owner, "limit_memory", lambda pid, limit: "Could not set the limit."
+    )
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+
+    result = _collector("import time; time.sleep(30)").collect(request)
+
+    assert isinstance(result, CollectionError)
+    assert (result.kind, result.message) == (
+        CollectionErrorKind.EXECUTION_ERROR,
+        "Could not set the limit.",
+    )
+
+
+@pytest.mark.parametrize("reported,accepted", [("7.1.0", True), ("7.0.9", False)])
+def test_host_collector_must_report_the_host_adapter_version(
+    monkeypatch, tmp_path, reported, accepted
+):
+    from dataclasses import replace
+
+    from archkeel.ir.protocol import CollectionErrorKind
+
+    response = _response()
+    response["facts"]["adapter"]["version"] = reported
+    code = f"import sys; sys.stdin.buffer.read(); print({json.dumps(json.dumps(response))})"
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+
+    monkeypatch.setattr(process_owner, "package_version", lambda: "7.1.0")
+
+    result = _collector(code, pin_adapter_version=True).collect(request)
+
+    if accepted:
+        assert not isinstance(result, CollectionError), result
+        assert result.adapter.version == "7.1.0"
+    else:
+        assert isinstance(result, CollectionError)
+        assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
+        assert result.message == (
+            "collector adapter version '7.0.9' does not match the host version '7.1.0'"
+        )
+
+
+def test_observer_pins_the_adapter_version_only_for_its_own_collectors() -> None:
+    from archkeel.check.ports import Language
+    from archkeel.cli.observe import observer_for
+
+    for language in (Language.DART, Language.TYPESCRIPT):
+        assert observer_for(language).collector.pin_adapter_version
+        configured = observer_for(language, collector_argv=("external-collector",))
+        assert not configured.collector.pin_adapter_version
+    assert observer_for(Language.PYTHON).collector.collector.pin_adapter_version
 
 
 def test_configured_executable_collects_facts_without_receiving_policy(tmp_path) -> None:
@@ -351,7 +534,7 @@ def test_response_revision_must_match_requested_snapshot(tmp_path) -> None:
 def test_python_survey_response_matches_requested_phase(sections, accepted):
     from dataclasses import replace
 
-    from archkeel.analyzer.process import _requested_facts
+    from archkeel.analyzer.reply_checks import check_requested_facts
     from archkeel.ir.facts import FactSection, SourceSectionName
     from archkeel.ir.facts_codec import ProtocolError
     from archkeel.ir.protocol import ProtocolVersion, PythonCollectionPhase, PythonSettings
@@ -370,10 +553,10 @@ def test_python_survey_response_matches_requested_phase(sections, accepted):
         resolver=PythonSettings(phase=PythonCollectionPhase.IMPORTS),
     )
     if accepted:
-        _requested_facts(facts, request)
+        check_requested_facts(facts, request)
     else:
         with pytest.raises(ProtocolError, match="survey"):
-            _requested_facts(facts, request)
+            check_requested_facts(facts, request)
 
 
 @pytest.mark.parametrize("language", ["python", "dart"])
@@ -600,6 +783,7 @@ def _launch_observation(owner, request, name, executable="tool.exe", popen_error
         patch.object(owner.shutil, "which", which),
         patch.object(owner.ProcessCollector, "_exchange", lambda *args: (response, b"")),
         patch.object(owner, "_cleanup_exchange", lambda *args: None),
+        patch.object(owner, "limit_memory", lambda pid, limit: events.append(("limit", pid))),
     ):
         result = owner.ProcessCollector(("collector-tool", "script.py")).collect(request)
     if isinstance(result, CollectionError):
@@ -615,7 +799,10 @@ def test_actual_collect_keeps_launcher_session_and_unknown_fallback(name):
     assert result == expected
     launches = [event for event in events if event[0] == "launch"]
     assert len(launches) == 1
-    command = [sys.executable, "-I", "-B", "windows_job.py", "--", "collector-tool", "script.py"]
+    command = [
+        *(sys.executable, "-I", "-B", "windows_job.py", f"--memory-limit-bytes={4 * 2**30}"),
+        *("--", "collector-tool", "script.py"),
+    ]
     assert launches == [
         (
             "launch",
@@ -625,6 +812,7 @@ def test_actual_collect_keeps_launcher_session_and_unknown_fallback(name):
         )
     ]
     assert bool([event for event in events if event[0] == "which"]) is (name == "nt")
+    assert [event for event in events if event[0] == "limit"] == [("limit", 17)]
 
 
 @pytest.mark.parametrize(
