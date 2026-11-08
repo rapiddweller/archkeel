@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "after_digest": "e2298498cc0e7da170debf6b360a5e84d64839008e7c3e20dc81e30269b3322b",
+  "before_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "before_digest": "c66b89c470fe609f8b66b2bb5099513adacdd32ad53f7e182804e21e2e624ec8",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base f7ee9b1e. AD-318 gives archkeel explore one copy of its observation. The UML target of render_architecture_pages in contracts/render.json gains the keyword-only parameter observation: Observation | None = None, so that explore can pass the observation that it encoded and the renderer does not decode the bytes again. The text of its responsibility says so. No budget, rule, component or public name changes. The digests bind the complete contract tree and baseline of f7ee9b1e to the head of this branch.",
+  "schema_version": "2.0.0"
+}

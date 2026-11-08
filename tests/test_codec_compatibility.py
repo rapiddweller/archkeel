@@ -12,7 +12,7 @@ import pytest
 from archkeel.ir import codec, dependency, facts_codec, model
 
 OWNERS = {
-    "wire": ("canonical_json_bytes", "decode_json", "value_bytes"),
+    "wire": ("canonical_json_bytes", "decode_json", "json_arrays", "value_bytes"),
     "governance": (
         "parse_measurements",
         "parse_lock",
@@ -115,3 +115,20 @@ def test_eager_imports_work_from_either_side_of_the_facade(facade_first):
     )
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_json_arrays_turns_tuples_into_lists_in_place_and_reads_like_the_json_round_trip():
+    inner = {"types": ("a", ("b",)), "rows": [("c",), {"deep": ("d",)}]}
+    model = {"name": "x", "data": inner, "count": 2, "none": None}
+
+    result = codec.json_arrays(model)
+
+    assert result is model
+    assert result["data"] is inner
+    assert model == {
+        "name": "x",
+        "data": {"types": ["a", ["b"]], "rows": [["c"], {"deep": ["d"]}]},
+        "count": 2,
+        "none": None,
+    }
+    assert model == codec.decode_json(codec.canonical_json_bytes(model))

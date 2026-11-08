@@ -64,11 +64,7 @@ from archkeel.ir.module_explore import ModuleExploreLevel, module_exploration
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.structure import StructureLevel as _StructureLevel
-from archkeel.ir.structure import (
-    StructureMetric,
-    oversized_insides,
-    structure_metrics,
-)
+from archkeel.ir.structure import StructureMetric, oversized_insides, structure_metrics
 from archkeel.ir.type_fanin import MINIMUM_CROSSINGS, TypeFanin, type_fanin
 
 from .atlas import atlas_payload, boundary_permissions_payload
@@ -2196,10 +2192,12 @@ def render_architecture_pages(
     repository: str,
     architecture_href: str,
     view_check: str | None = None,
+    observation: Observation | None = None,
 ) -> tuple[tuple[str, bytes], ...]:
     """Render the main and detail pages from one strictly decoded observation.
 
     `view_check` is a `view check` result for this snapshot; the main page draws it (AD-287).
+    `observation` is the one behind `architecture_json`; without it the bytes are decoded.
     """
     filename = f"{_PurePosixPath(architecture_href).stem}.report.html"
     if result.report_filter is not None or result.architecture_projection is None:
@@ -2216,7 +2214,8 @@ def render_architecture_pages(
                 ),
             ),
         )
-    observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
+    if observation is None:
+        observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     report, embedded_report, warning = _html_report_payload(architecture_report(observation))
     projection = _atlas_projection(result, observation)
     levels = module_exploration(observation, report=report)
