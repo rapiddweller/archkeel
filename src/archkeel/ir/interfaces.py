@@ -25,8 +25,8 @@ from .model import (
     Record,
     RecordData,
     module_exports,
-    module_in_ownership,
 )
+from .ownership import owner_of
 from .source_records import source_name_visibility as _source_name_visibility
 
 _CLASS_KINDS = frozenset(
@@ -134,16 +134,6 @@ def component_owners(
             )
         )
     return tuple(components)
-
-
-def owner_of(module: str, components: tuple[ComponentOwnership, ...]) -> str | None:
-    """Return the one component owning a module, or None if zero or many components claim it."""
-    owners = [
-        label
-        for label, packages, exact_modules in components
-        if module_in_ownership(module, packages, exact_modules)
-    ]
-    return owners[0] if len(owners) == 1 else None
 
 
 def _symbols_by_name(observation: Observation) -> dict[str, Record]:

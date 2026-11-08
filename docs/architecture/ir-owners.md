@@ -21,7 +21,7 @@ markers, so that check does not read it.
 <!-- archkeel-ir-owner-graph:begin -->
 | Name | Kind | Modules | Responsibility | Requires |
 | --- | --- | --- | --- | --- |
-| `architecture` | owner | 21 | Own the typed architecture model, contract and target graphs, structure, interfaces, lock, baseline, widening and diagnostics. | `facts`, `profiles`, `dependency-policy`, `contract-version` |
+| `architecture` | owner | 22 | Own the typed architecture model, contract and target graphs, structure, interfaces, lock, baseline, widening and diagnostics. | `facts`, `profiles`, `dependency-policy`, `contract-version` |
 | `evidence` | owner | 5 | Own rule decisions, the trace of evidence, digests, phase timings and collection features. | `architecture`, `facts`, `facts-codec`, `dependency-policy` |
 | `wire` | owner | 13 | Own strict wire conversion of contracts, baselines, observations, deltas, results and graphs. | `architecture`, `facts`, `facts-codec`, `profiles`, `contract-version`, `dependency-policy` |
 | `views` | owner | 7 | Own pure projections of checked results: report graph, report projection, explore, findings, flow graph, story and view spec. | `architecture`, `evidence`, `wire`, `facts`, `dependency-policy` |
@@ -34,7 +34,7 @@ markers, so that check does not read it.
 
 ```mermaid
 graph TD
-    n_0["architecture (21 modules)"]
+    n_0["architecture (22 modules)"]
     n_1["contract-version (1 module)"]
     n_2["dependency-policy (1 module)"]
     n_3["evidence (5 modules)"]

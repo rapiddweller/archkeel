@@ -20,8 +20,9 @@ from archkeel.ir.architecture_graph import (
     ResolutionKind,
 )
 from archkeel.ir.facts import Evidence
-from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import Observation, Record
+from archkeel.ir.ownership import owner_of
 
 
 class SeamKind(StrEnum):

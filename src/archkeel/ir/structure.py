@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .facts import SourceResolution, member, parse_source_resolution
-from .interfaces import component_owners, owner_of
+from .interfaces import component_owners
 from .model import (
     ComparisonStatus,
     ComponentOwnership,
@@ -30,6 +30,7 @@ from .model import (
     int_value,
     text_value,
 )
+from .ownership import owner_of
 from .profiles import UnmeasurableScalar, profile_for
 
 

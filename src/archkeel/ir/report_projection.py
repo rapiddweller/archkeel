@@ -47,51 +47,11 @@ from archkeel.ir.model import (
     RequiredComponent,
     Verdict,
     dependency_owners,
-    module_in_ownership,
     requires_covers,
     text_value,
 )
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-
-
-def _scope_names(target: ArchitectureGraph) -> dict[str, str]:
-    intents = {item.component_id: item for item in target.component_intents}
-    names: dict[str, str] = {}
-
-    def name(identity: str) -> str:
-        if identity not in names:
-            intent = intents[identity]
-            label = intent.label or identity
-            names[identity] = f"{name(intent.parent_id)}:{label}" if intent.parent_id else label
-        return names[identity]
-
-    for identity in intents:
-        name(identity)
-    return names
-
-
-def _scope_owners(target: ArchitectureGraph, module: str, parent_id: str | None) -> tuple[str, ...]:
-    if parent_id is not None:
-        parent = next(item for item in target.component_intents if item.component_id == parent_id)
-        if _scope_owners(target, module, parent.parent_id) != (parent_id,):
-            return ()
-    return tuple(
-        sorted(
-            item.component_id
-            for item in target.component_intents
-            if item.parent_id == parent_id
-            and module_in_ownership(module, item.packages, item.exact_modules)
-        )
-    )
-
-
-def _deepest_owners(target: ArchitectureGraph, module: str) -> tuple[str, ...]:
-    parent_id = None
-    while True:
-        matches = _scope_owners(target, module, parent_id)
-        if len(matches) != 1:
-            return matches or ((parent_id,) if parent_id is not None else ())
-        parent_id = matches[0]
+from archkeel.ir.ownership import deepest_owners, scope_names, scope_owners
 
 
 def _scope_subjects(report: ArchitectureReport, module_ids: set[str]) -> set[str]:
@@ -124,7 +84,7 @@ def _scope_subjects(report: ArchitectureReport, module_ids: set[str]) -> set[str
 def _permission_rules(
     model: Observation, target: ArchitectureGraph, assessments: tuple[RuleAssessment, ...]
 ) -> tuple[PermissionRuleProjection, ...]:
-    names: dict[str, str] = _scope_names(target)
+    names: dict[str, str] = scope_names(target.component_intents)
     scope_ids = {scope: identity for identity, scope in names.items()}
     core = {item.id: item for item in assessments}
     return tuple(
@@ -397,9 +357,9 @@ def _usage_counts(
         if identity is not None
     }
     parents = {item.parent_id for item in target.component_intents}
-    deepest = {module: _deepest_owners(target, module) for module in modules}
+    deepest = {module: deepest_owners(target.component_intents, module) for module in modules}
     scoped = {
-        (module, parent): _scope_owners(target, module, parent)
+        (module, parent): scope_owners(target.component_intents, module, parent)
         for module in modules
         for parent in parents
     }
@@ -792,7 +752,7 @@ def _level_projections(
             sorted(
                 item.qualified_name
                 for item in eligible
-                if len(_scope_owners(target, item.qualified_name, parent)) != 1
+                if len(scope_owners(target.component_intents, item.qualified_name, parent)) != 1
             )
         )
         levels.append(
@@ -991,14 +951,16 @@ def architecture_projection(
     unknowns = _projection_unknowns(model, report)
     if target is None or observed is None:
         return _unavailable_projection(model, unknowns, violation_remedy, component)
-    names = _scope_names(target)
+    names = scope_names(target.component_intents)
     selected = _selected_component(target, component, names, prefer_top_label=prefer_top_label)
     modules = tuple(
         item
         for item in observed.entities
         if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
     )
-    ownership = {item.id: _deepest_owners(target, item.qualified_name) for item in modules}
+    ownership = {
+        item.id: deepest_owners(target.component_intents, item.qualified_name) for item in modules
+    }
     gaps = _ownership_gaps(modules, ownership)
     imports_complete, import_unknowns = _import_coverage(model, observed, modules)
     unknowns.extend(import_unknowns)

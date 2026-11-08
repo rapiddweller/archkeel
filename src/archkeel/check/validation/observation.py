@@ -14,6 +14,7 @@ from archkeel.ir.model import (
     text_value,
 )
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+from archkeel.ir.ownership import scope_key
 
 from .closed_world import closed_world_diagnostics
 from .diagnostics import _diagnostic, _sorted
@@ -38,7 +39,7 @@ def _inside_pointers(contract: ArchitectureContract, observation: Observation) -
     }
     declarations = observation.records("declarations") or ()
     inside_parents = {
-        f"{parent}:{record.title}": parent
+        scope_key(parent, record.title): parent
         for record in declarations
         if record.kind == "inside_component_responsibility"
         and record.data.get("inside") is not None

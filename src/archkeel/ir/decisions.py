@@ -29,7 +29,7 @@ from .facts import RuntimeRequirementState as _RuntimeRequirementState
 from .facts import SourceProfile as _SourceProfile
 from .facts_codec import thaw_data as _thaw_data
 from .facts_validation import validate_source_bindings
-from .interfaces import component_owners, owner_of
+from .interfaces import component_owners
 from .measurements import RatchetError
 from .model import (
     ARCHITECTURE_TARGET_KIND,
@@ -64,6 +64,7 @@ from .model import (
 from .model import (
     RuleUncertaintyCause as RuleUncertaintyCause,
 )
+from .ownership import owner_of, scope_key
 from .references import unreferenced_symbols
 from .structure import oversized_insides
 from .type_fanin import type_fanin
@@ -1096,6 +1097,13 @@ def _parent_scope_modules(observation: Observation, parent_id: JsonValue) -> fro
     components = tuple(
         item for item in observation.records("declarations") or () if item.kind in _COMPONENT_KINDS
     )
+    return _within_ancestors(names, components, parent_id)
+
+
+def _within_ancestors(
+    names: frozenset[str], components: tuple[Record, ...], parent_id: JsonValue
+) -> frozenset[str]:
+    """Keep the names that every enclosing component claims, from the parent key up to the root."""
     visited: set[str] = set()
     while parent_id is not None:
         if not isinstance(parent_id, str) or parent_id in visited:
@@ -1104,10 +1112,9 @@ def _parent_scope_modules(observation: Observation, parent_id: JsonValue) -> fro
         parents = tuple(
             item
             for item in components
-            if (
-                f"{ancestor}:{item.title}"
-                if isinstance(ancestor := item.data.get("parent_id"), str)
-                else item.title
+            if scope_key(
+                ancestor if isinstance(ancestor := item.data.get("parent_id"), str) else None,
+                item.title,
             )
             == parent_id
         )
@@ -1159,28 +1166,7 @@ def _source_rule_modules(observation: Observation, declaration: Record) -> froze
         if isinstance(name := item.data.get("qualified_name"), str)
         and module_in_ownership(name, packages, exact)
     )
-    visited: set[str] = set()
-    while parent_id is not None:
-        if not isinstance(parent_id, str) or parent_id in visited:
-            return frozenset()
-        visited.add(parent_id)
-        parents = tuple(
-            item
-            for item in components
-            if (
-                f"{ancestor}:{item.title}"
-                if isinstance(ancestor := item.data.get("parent_id"), str)
-                else item.title
-            )
-            == parent_id
-        )
-        if len(parents) != 1:
-            return frozenset()
-        parent = parents[0]
-        _, packages, exact = _declared_scope_ownership(parent)
-        names = frozenset(name for name in names if module_in_ownership(name, packages, exact))
-        parent_id = parent.data.get("parent_id")
-    return names
+    return _within_ancestors(names, components, parent_id)
 
 
 def _dependency_receipt_ownership(

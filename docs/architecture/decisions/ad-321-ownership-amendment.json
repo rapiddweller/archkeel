@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "after_digest": "a0077d707da606ab07617025da7e8fb983b170d61b8457bb31729befb0d4f69d",
+  "before_baseline_digest": "c407f6b9643b06b75c89c85a6999b9d542262c06b72c30802f67eb599b7d640b",
+  "before_digest": "611806446cffc530bca3a5bdddd173acbeaa2c0693172a4bdcc5adc01849ff3e",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base a3597f59. AD-321 and epic #880 step S2. The new module archkeel.ir.ownership owns the scope label and module membership. It joins the architecture owner in contracts/ir.json (exact_modules and public) and the public list of the ir component in the root contract. owner_of moves from archkeel.ir.interfaces to archkeel.ir.ownership. No budget, rule, component, requires entry or Any permission changes. The baseline lowers calls_unresolved from 981 to 972 because the removed copies held unresolved calls; the baseline digest changes for that reason only.",
+  "schema_version": "2.0.0"
+}

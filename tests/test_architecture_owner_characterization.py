@@ -30,7 +30,7 @@ from archkeel.ir.architecture_graph import (
     OriginKind,
 )
 from archkeel.ir.codec import parse_observation
-from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -38,12 +38,10 @@ from archkeel.ir.model import (
     ContractComponent,
     Observation,
 )
-from archkeel.ir.module_explore import _scope_owners as explore_scope_owners
 from archkeel.ir.module_explore import module_exploration
+from archkeel.ir.ownership import deepest_owners, owner_of, scope_names, scope_owners
 from archkeel.ir.profiles import profile_for
 from archkeel.ir.report_graph import _memberships
-from archkeel.ir.report_projection import _deepest_owners, _scope_names
-from archkeel.ir.report_projection import _scope_owners as projection_scope_owners
 from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.view_spec import _view_graph
 
@@ -219,10 +217,10 @@ def _inside_model() -> Observation:
 # ---------------------------------------------------------------------------------------------
 
 
-def test_report_projection_scope_names_falls_back_to_component_id_for_a_missing_label() -> None:
-    """Characterization: records current behaviour of report_projection._scope_names.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    assert _scope_names(_label_target()) == {
+def test_ownership_scope_names_falls_back_to_component_id_for_a_missing_label() -> None:
+    """Characterization: records the behaviour of the three copies that AD-321 merged.
+    A missing label uses the component id."""
+    assert scope_names(_label_target().component_intents) == {
         "COMP-CORE": "core",
         "COMP-A": "core:a",
         "COMP-X": "core:COMP-X",
@@ -231,47 +229,8 @@ def test_report_projection_scope_names_falls_back_to_component_id_for_a_missing_
     }
 
 
-def test_module_explore_scope_owners_falls_back_to_component_id_for_a_missing_label() -> None:
-    """Characterization: records current behaviour of module_explore._scope_owners.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    target = _label_target()
-    scope_ids, owners = explore_scope_owners(
-        _inside_model(), {item.component_id: item for item in target.component_intents}
-    )
-    assert scope_ids == {
-        "core": "COMP-CORE",
-        "core:a": "COMP-A",
-        "core:COMP-X": "COMP-X",
-        "COMP-LOOSE": "COMP-LOOSE",
-        "core:a:deep": "COMP-DEEP",
-    }
-    assert owners[None] == (("core", ("sample.core",), ()),)
-    assert owners["COMP-CORE"] == (
-        ("core:a", ("sample.core.a",), ()),
-        ("core:x", ("sample.core.x",), ()),
-    )
-    assert owners["COMP-A"] == (("core:a:deep", ("sample.core.a.deep",), ()),)
-
-
-def test_module_explore_scope_owners_raises_for_an_inside_level_without_an_intent() -> None:
-    """Characterization: records current behaviour of module_explore._scope_owners.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    declarations = [
-        *_inside_declarations(),
-        _declaration(
-            "ghost:COMP-G", "inside_component_responsibility", "g", ["sample.g"], parent_id="ghost"
-        ),
-    ]
-    target = _label_target()
-    with pytest.raises(KeyError):
-        explore_scope_owners(
-            _ownership_model(declarations, []),
-            {item.component_id: item for item in target.component_intents},
-        )
-
-
 def _memberships_by_id(model: Observation, target: ArchitectureGraph) -> dict[str, tuple[str, ...]]:
-    result = _memberships(model, observed_graph(model), target)
+    result = _memberships(observed_graph(model), target)
     names = {item.id: item.qualified_name for item in observed_graph(model).entities}
     return {item.component_id: tuple(names[x] for x in item.module_ids) for item in result}
 
@@ -288,15 +247,17 @@ def test_report_graph_memberships_scope_key_uses_the_label_and_the_nested_parent
     }
     assert set(members["COMP-A"]) == {"sample.core.a.m", "sample.core.a.deep.m"}
     assert set(members["COMP-DEEP"]) == {"sample.core.a.deep.m"}
-    assert members["COMP-X"] == ()
+    # AD-321: a component without a label owns its modules. The old copy keyed it by the entity
+    # name, found no record, and left it empty.
+    assert members["COMP-X"] == ("sample.core.x.m",)
 
 
-def test_report_graph_memberships_falls_back_to_the_entity_name_for_a_missing_label() -> None:
-    """Characterization: records current behaviour of report_graph._memberships.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it.
+def test_report_graph_memberships_do_not_depend_on_the_label_or_the_entity_name() -> None:
+    """Characterization: records the rule that AD-321 chose for report_graph._memberships.
 
-    The other copies fall back to the component id here. The component record is titled with
-    the entity name, so only the entity name finds its owner."""
+    The old copy fell back to the entity name for a missing label, so only a component whose
+    record title equalled the entity name found its modules. The target holds the packages, so
+    the membership reads them and needs no label."""
     declarations = [
         _declaration("COMP-LOOSE", "component_responsibility", "qualified.loose", ["sample.loose"])
     ]
@@ -304,7 +265,7 @@ def test_report_graph_memberships_falls_back_to_the_entity_name_for_a_missing_la
     named = _memberships_by_id(model, _label_target("qualified.loose"))
     by_id = _memberships_by_id(model, _label_target("COMP-LOOSE"))
     assert named["COMP-LOOSE"] == ("sample.loose.m",)
-    assert by_id["COMP-LOOSE"] == ()
+    assert by_id["COMP-LOOSE"] == ("sample.loose.m",)
 
 
 def test_levels_inside_levels_keys_a_nested_scope_by_parent_and_title() -> None:
@@ -360,36 +321,33 @@ def test_model_component_for_returns_none_for_zero_or_many_owners() -> None:
     assert {name: item.label if item else None for name, item in found.items()} == UNIQUE_OWNER
 
 
-def test_report_projection_deepest_owners_returns_every_claimant_for_zero_or_many() -> None:
-    """Characterization: records current behaviour of report_projection._deepest_owners.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it.
+def test_ownership_deepest_owners_returns_every_claimant_for_zero_or_many() -> None:
+    """Characterization: records current behaviour of deepest_owners (moved by AD-321).
 
     Unlike the other copies it returns the claimants, so the caller decides."""
     target = _ownership_target()
-    assert {name: _deepest_owners(target, name) for name in CLAIMS} == CLAIMS
+    assert {name: deepest_owners(target.component_intents, name) for name in CLAIMS} == CLAIMS
 
 
-def test_report_projection_deepest_owners_descends_one_unique_owner_per_level() -> None:
-    """Characterization: records current behaviour of report_projection._deepest_owners.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+def test_ownership_deepest_owners_descends_one_unique_owner_per_level() -> None:
+    """Characterization: records current behaviour of deepest_owners (moved by AD-321)."""
     target = _label_target()
-    assert _deepest_owners(target, "sample.core.a.deep.m") == ("COMP-DEEP",)
-    assert _deepest_owners(target, "sample.core.a.m") == ("COMP-A",)
-    assert _deepest_owners(target, "sample.core.c") == ("COMP-CORE",)
-    assert _deepest_owners(target, "sample.nowhere") == ()
+    assert deepest_owners(target.component_intents, "sample.core.a.deep.m") == ("COMP-DEEP",)
+    assert deepest_owners(target.component_intents, "sample.core.a.m") == ("COMP-A",)
+    assert deepest_owners(target.component_intents, "sample.core.c") == ("COMP-CORE",)
+    assert deepest_owners(target.component_intents, "sample.nowhere") == ()
 
 
-def test_report_projection_scope_owners_is_empty_below_an_ambiguous_parent() -> None:
-    """Characterization: records current behaviour of report_projection._scope_owners.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
+def test_ownership_scope_owners_is_empty_below_an_ambiguous_parent() -> None:
+    """Characterization: records current behaviour of scope_owners (moved by AD-321)."""
     both = _target(
         _intent("one", "one", packages=("sample.core",)),
         _intent("two", "two", packages=("sample.core",)),
         _intent("child", "child", "one", packages=("sample.core.a",)),
     )
-    assert projection_scope_owners(both, "sample.core.a", None) == ("one", "two")
-    assert projection_scope_owners(both, "sample.core.a", "one") == ()
-    assert _deepest_owners(both, "sample.core.a") == ("one", "two")
+    assert scope_owners(both.component_intents, "sample.core.a", None) == ("one", "two")
+    assert scope_owners(both.component_intents, "sample.core.a", "one") == ()
+    assert deepest_owners(both.component_intents, "sample.core.a") == ("one", "two")
 
 
 def _blocker_owners(modules: list[tuple[str, str]], profile_name: str = _ANALYZER):
@@ -540,18 +498,6 @@ def test_levels_inside_levels_leaves_overlapping_and_unclaimed_modules_unassigne
         "b": ("sample.core.b.m",),
     }
     assert level.unassigned == ("sample.core.a.m", "sample.core.c")
-
-
-def test_module_explore_scope_owners_hands_the_root_claims_on_without_choosing() -> None:
-    """Characterization: records current behaviour of module_explore._scope_owners.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it.
-
-    The root level keeps every claim. A later owner_of call picks the one owner."""
-    intents = {item.component_id: item for item in _ownership_target().component_intents}
-    model = _ownership_model()
-    _, owners = explore_scope_owners(model, intents)
-    assert owners == {None: _components(model)}
-    assert {name: owner_of(name, owners[None]) for name in CLAIMS} == UNIQUE_OWNER
 
 
 def test_view_spec_view_graph_members_lists_only_unique_root_owners() -> None:

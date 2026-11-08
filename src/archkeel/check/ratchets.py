@@ -6,7 +6,7 @@
 from archkeel.ir.decisions import unknown_positions as _ir_unknown_positions
 from archkeel.ir.decisions import unknown_positions_by_rule as _ir_unknown_positions_by_rule
 from archkeel.ir.facts import SourceResolution, parse_source_resolution
-from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.measurements import MeasurementResolution as _Resolution
 from archkeel.ir.measurements import (
     Measurements,
@@ -27,6 +27,7 @@ from archkeel.ir.model import (
     text_value,
 )
 from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
+from archkeel.ir.ownership import owner_of
 from archkeel.ir.profiles import profile_for
 
 from .python_profile import crossing_imports

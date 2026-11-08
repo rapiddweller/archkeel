@@ -96,6 +96,7 @@ from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
+from .ownership import sole
 from .source_records import source_name_visibility as _source_name_visibility
 
 if TYPE_CHECKING:
@@ -1071,10 +1072,8 @@ class ArchitectureContract:
 
     def component_for(self, module: str) -> ContractComponent | None:
         """Return the only component owning a module; overlapping ownership owns nothing."""
-        owners = [
-            component for component in self.components if component_owns_module(component, module)
-        ]
-        return owners[0] if len(owners) == 1 else None
+        owners = [c for c in self.components if component_owns_module(c, module)]
+        return sole(owners)
 
 
 class ContractInputError(ValueError):

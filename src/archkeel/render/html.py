@@ -41,7 +41,6 @@ from archkeel.ir.interfaces import (
     component_owners,
     interface_edges,
     interface_profile,
-    owner_of,
 )
 from archkeel.ir.measurements import MeasurementResolution as _MeasurementResolution
 from archkeel.ir.measurements import Measurements
@@ -61,6 +60,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.module_explore import ModuleExploreLevel, module_exploration
+from archkeel.ir.ownership import owner_of
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.structure import StructureLevel as _StructureLevel

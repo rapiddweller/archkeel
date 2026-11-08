@@ -20,7 +20,8 @@ from archkeel.cli.observe import observe
 from archkeel.ir.codec import contract_bytes, contract_digest, parse_contract
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.graph_codec import parse_report
-from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.interfaces import component_owners
+from archkeel.ir.ownership import owner_of
 from archkeel.ir.renames import rename_candidates, renamed_contract
 from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import Amendment, contract_widenings, verify_amendment

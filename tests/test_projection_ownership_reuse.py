@@ -8,6 +8,7 @@ from random import Random
 
 import pytest
 
+from archkeel.ir import ownership
 from archkeel.ir import report_projection as projection
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
@@ -66,12 +67,12 @@ def _reference(target, observed):
         if edge.kind != RelationshipKind.IMPORTS or edge.target_id is None:
             continue
         source, endpoint = entities[edge.source_id], entities[edge.target_id]
-        a = projection._deepest_owners(target, source.qualified_name)
-        b = projection._deepest_owners(target, endpoint.qualified_name)
+        a = ownership.deepest_owners(target.component_intents, source.qualified_name)
+        b = ownership.deepest_owners(target.component_intents, endpoint.qualified_name)
         pairs = {(a[0], b[0])} if len(a) == len(b) == 1 and a != b else set()
         for parent in {item.parent_id for item in target.component_intents}:
-            a = projection._scope_owners(target, source.qualified_name, parent)
-            b = projection._scope_owners(target, endpoint.qualified_name, parent)
+            a = ownership.scope_owners(target.component_intents, source.qualified_name, parent)
+            b = ownership.scope_owners(target.component_intents, endpoint.qualified_name, parent)
             if len(a) == len(b) == 1 and a != b:
                 key = (parent, a[0], b[0])
                 levels[key] = levels.get(key, 0) + 1
@@ -97,9 +98,12 @@ def test_usage_matches_previous_algorithm_for_nested_ambiguous_and_missing_owner
     )
     observed = replace(observed, relationships=edges)
     assert projection._usage_counts(target, observed) == _reference(target, observed)
-    assert projection._deepest_owners(target, "app.inner.empty") == ("nested",)
-    assert projection._deepest_owners(target, "app.overlap.x") == ("overlap", "overlap2")
-    assert projection._deepest_owners(target, "outside.x") == ()
+    assert ownership.deepest_owners(target.component_intents, "app.inner.empty") == ("nested",)
+    assert ownership.deepest_owners(target.component_intents, "app.overlap.x") == (
+        "overlap",
+        "overlap2",
+    )
+    assert ownership.deepest_owners(target.component_intents, "outside.x") == ()
     changed = replace(target, component_intents=target.component_intents[:2])
     assert projection._usage_counts(changed, observed) == _reference(changed, observed)
     assert projection._usage_counts(target, replace(observed, relationships=())) == ({}, {})
@@ -107,7 +111,7 @@ def test_usage_matches_previous_algorithm_for_nested_ambiguous_and_missing_owner
 
 def test_repeated_edges_do_not_repeat_module_ownership_work(monkeypatch):
     target, observed = _graphs()
-    original = projection.module_in_ownership
+    original = ownership.module_in_ownership
     visits = 0
 
     def counted(module, packages, exact_modules):
@@ -115,7 +119,7 @@ def test_repeated_edges_do_not_repeat_module_ownership_work(monkeypatch):
         visits += 1
         return original(module, packages, exact_modules)
 
-    monkeypatch.setattr(projection, "module_in_ownership", counted)
+    monkeypatch.setattr(ownership, "module_in_ownership", counted)
     edge = Relationship("edge", RelationshipKind.IMPORTS, "1", "4")
     once = projection._usage_counts(target, replace(observed, relationships=(edge,)))
     once_visits = visits
@@ -139,8 +143,11 @@ def test_ambiguous_ancestor_blocks_nested_ownership_and_empty_target_stays_unown
         observed,
         relationships=(Relationship("edge", RelationshipKind.IMPORTS, "1", "4"),),
     )
-    assert projection._deepest_owners(target, "app.inner.leaf") == ("ambiguous-app", "app")
-    assert projection._scope_owners(target, "app.inner.leaf", "nested") == ()
+    assert ownership.deepest_owners(target.component_intents, "app.inner.leaf") == (
+        "ambiguous-app",
+        "app",
+    )
+    assert ownership.scope_owners(target.component_intents, "app.inner.leaf", "nested") == ()
     assert projection._usage_counts(target, observed) == ({}, {})
     empty = replace(target, component_intents=())
     assert projection._usage_counts(empty, observed) == ({}, {})
