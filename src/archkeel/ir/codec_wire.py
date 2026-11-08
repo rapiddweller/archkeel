@@ -6,9 +6,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from io import BytesIO
+from typing import Any, BinaryIO
 
+from archkeel.ir.facts import EVIDENCE_FIELDS, RECORD_FIELDS
 from archkeel.ir.model import JsonValue, RecordData
 from archkeel.ir.model import RawJson as RawJson
 
@@ -58,11 +60,71 @@ def value_bytes(value: JsonValue) -> bytes:
     ).encode("utf-8")
 
 
+_COMPACT: tuple[str, str] = (",", ":")
+_LIST_PIECE = 4096
+_NESTING = 4
+
+
+def _dumps(value: object, separators: tuple[str, str]) -> str:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=separators)
+
+
+def _pieces(value: object, separators: tuple[str, str], depth: int = 0) -> Iterator[str]:
+    """Yield texts that join to `json.dumps(value, sort_keys=True, ensure_ascii=False)`."""
+    item_separator, key_separator = separators
+    if (
+        isinstance(value, dict)
+        and value
+        and depth < _NESTING
+        and all(isinstance(key, str) for key in value)
+    ):
+        yield "{"
+        for position, key in enumerate(sorted(value)):
+            yield (item_separator if position else "") + _dumps(key, separators) + key_separator
+            yield from _pieces(value[key], separators, depth + 1)
+        yield "}"
+    elif isinstance(value, list | tuple) and len(value) > _LIST_PIECE:
+        yield "["
+        for start in range(0, len(value), _LIST_PIECE):
+            piece = _dumps(value[start : start + _LIST_PIECE], separators)
+            yield (item_separator if start else "") + piece[1:-1]
+        yield "]"
+    else:
+        yield _dumps(value, separators)
+
+
+def write_json(
+    out: BinaryIO,
+    value: Mapping[str, object] | Sequence[object],
+    *,
+    separators: tuple[str, str] = _COMPACT,
+    html_safe: bool = False,
+) -> None:
+    """Write `json.dumps(value, sort_keys=True, ensure_ascii=False)` to `out` as UTF-8 (AD-324).
+
+    The text is made in pieces. A report of 50 MB as one text holds two bytes for each character,
+    and the usual `+ "\\n"` and `.encode()` copy it twice. `html_safe` writes `<` as `\\u003c`.
+    """
+    for piece in _pieces(value, separators):
+        out.write((piece.replace("<", "\\u003c") if html_safe else piece).encode("utf-8"))
+
+
+def json_bytes(
+    value: Mapping[str, object] | Sequence[object],
+    *,
+    separators: tuple[str, str] = _COMPACT,
+    tail: bytes = b"",
+) -> bytes:
+    """Return the JSON of `value` with sorted keys as UTF-8, then `tail`."""
+    out = BytesIO()
+    write_json(out, value, separators=separators)
+    out.write(tail)
+    return out.getvalue()
+
+
 def canonical_json_bytes(model: Mapping[str, object]) -> bytes:
     """Serialize the canonical model without time, locale, or filesystem noise."""
-    return (
-        json.dumps(dict(model), ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode("utf-8")
+    return json_bytes(dict(model), tail=b"\n")
 
 
 def json_arrays(model: dict[str, object]) -> dict[str, object]:
@@ -83,6 +145,33 @@ def json_arrays(model: dict[str, object]) -> dict[str, object]:
                 if isinstance(item, dict | list):
                     pending.append(item)
     return model
+
+
+def section_rows(
+    section: str, raw_items: RawJson, missing: RawJson
+) -> tuple[list[str], list[list[RawJson]]]:
+    """Columnize one record section: its sorted data fields and one row for each record.
+
+    A caller that passes the only reference to `raw_items` frees the raw records on return.
+    """
+    if not isinstance(raw_items, list):
+        raise ValueError(f"{section} must be an array")
+    items = [_object(entry, f"{section}[]") for entry in raw_items]
+    data_fields = sorted({key for item in items for key in _object(item["data"], "data")})
+    return data_fields, [
+        [
+            *(item[field] for field in RECORD_FIELDS[:-1]),
+            [_object(item["data"], "data").get(field, missing) for field in data_fields],
+        ]
+        for item in items
+    ]
+
+
+def evidence_rows(raw_evidence: RawJson) -> list[list[RawJson]]:
+    if not isinstance(raw_evidence, list):
+        raise ValueError("evidence must be an array")
+    items = [_object(entry, "evidence[]") for entry in raw_evidence]
+    return [[item[field] for field in EVIDENCE_FIELDS] for item in items]
 
 
 def decode_json(payload: bytes | str) -> RawJson:

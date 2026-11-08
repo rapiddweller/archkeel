@@ -13,6 +13,7 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import replace
 from importlib.resources import files
+from io import BytesIO as _BytesIO
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import Final, TypeAlias
 from urllib.parse import quote as _quote
@@ -29,12 +30,12 @@ from archkeel.ir.architecture_graph import PresenceKind as _PresenceKind
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import ViolationFingerprint, canonical_fingerprint, violation_fingerprint
 from archkeel.ir.bindings import BindingReads, unread_bindings
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import decode_canonical_model, parse_observation, write_json
 from archkeel.ir.decisions import agent_decisions, declares_a_target, open_decisions
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.findings import findings_note
-from archkeel.ir.graph_codec import WireComponentSelectorError, report_bytes
+from archkeel.ir.graph_codec import WireComponentSelectorError, report_payload
 from archkeel.ir.interfaces import (
     InterfaceEdge,
     InterfaceName,
@@ -98,6 +99,7 @@ _NO_TARGET_STYLE: Final = (
 )
 # Python runs a package's `__main__` module for `python -m`: the one observed entry point.
 _ENTRY_MODULE: Final = "__main__"
+_PAYLOAD_MARK: Final = b"\x00archkeel-payload\x00"
 
 
 def _asset(name: str) -> bytes:
@@ -126,11 +128,11 @@ def _verdict_card(row: VerdictRow) -> str:
 
 def _html_report_payload(
     report: ArchitectureReport,
-) -> tuple[ArchitectureReport, bytes, str | None]:
+) -> tuple[ArchitectureReport, dict[str, object], str | None]:
     """Keep invalid target intent UNKNOWN while producing only valid report wire data."""
     warning: str | None = None
     try:
-        encoded_bytes = report_bytes(report)
+        payload = report_payload(report)
     except WireComponentSelectorError as error:
         warning = f"UNKNOWN: Target graph unavailable: {error}"
         source_ids = (
@@ -157,18 +159,12 @@ def _html_report_payload(
             memberships=(),
             decision_gaps=(),
         )
-        encoded_bytes = report_bytes(report)
-
-    payload = json.loads(encoded_bytes)
-    for side in ("observed", "target"):
-        graph = payload[side]
-        if graph is None:
-            continue
-        for collection in ("entities", "relationships"):
-            for item in graph[collection]:
+        payload = report_payload(report)
+    for graph in (payload["observed"], payload["target"]):
+        if isinstance(graph, dict):
+            for item in (*graph["entities"], *graph["relationships"]):
                 del item["record_ids"]
-    payload_text = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
-    return report, payload_text.encode("utf-8"), warning
+    return report, payload, warning
 
 
 def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
@@ -800,18 +796,23 @@ def _explorer_section(payload: str, *, atlas: bool = False, view_check: str | No
 
 def _flow_section(observation: Observation) -> str:
     """Render the validated report boundary through one UML scene renderer."""
-    _, encoded, warning = _html_report_payload(architecture_report(observation))
-    payload: str = encoded.decode("utf-8")
+    _, data, warning = _html_report_payload(architecture_report(observation))
+    payload: str = json.dumps(data, sort_keys=True, ensure_ascii=False) + "\n"
     warning = f'<p class="atlas-target-warning">{_text(warning)}</p>' if warning is not None else ""
     # A literal closing script tag must not escape the embedded JSON element.
     return warning + _explorer_section(payload.replace("<", "\\u003c"))
 
 
-def _atlas_section(payload: dict[str, object], view_check: str | None = None) -> str:
-    encoded = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).replace("<", "\\u003c")
-    return _explorer_section(encoded, atlas=True, view_check=view_check)
+def _with_payload(page: bytes, payload: dict[str, object]) -> bytes:
+    """AD-324: put the payload at the mark of the page as bytes. The page text never holds it."""
+    if page.count(_PAYLOAD_MARK) != 1:
+        raise ValueError("the page text must hold the reserved payload mark once")
+    head, _, tail = page.partition(_PAYLOAD_MARK)
+    out = _BytesIO()
+    out.write(head)
+    write_json(out, payload, html_safe=True)
+    out.write(tail)
+    return out.getvalue()
 
 
 def _atlas_rule_counts(result: RunResult) -> str:
@@ -1159,7 +1160,7 @@ def _atlas_content(
       {target_warning}
       {status_header}
       {_NO_TARGET_STYLE if result.target is TargetStatus.UNAVAILABLE else ""}
-      {_atlas_section(data, view_check)}
+      {_explorer_section(_PAYLOAD_MARK.decode(), atlas=True, view_check=view_check)}
       {
         _atlas_structure_overview(observation, result.architecture_projection)
         if not detail_page
@@ -1204,7 +1205,7 @@ def _atlas_document(
         "repository": repository,
         "main_href": f"{_PurePosixPath(architecture_href).stem}.report.html",
     }
-    return _document(
+    page = _document(
         repository=repository,
         kind="Architecture report",
         title="ArchQ Explorer",
@@ -1217,6 +1218,7 @@ def _atlas_document(
             view_check=view_check,
         ),
     )
+    return _with_payload(page, data)
 
 
 def _component_navigation(
@@ -1291,7 +1293,7 @@ def render_architecture_details(
         result.architecture_projection,
         repository=repository,
         architecture_href=architecture_href,
-        embedded_report=payload,
+        data=payload,
         target_warning=warning,
     )
 
@@ -1304,7 +1306,7 @@ def _architecture_details(
     *,
     repository: str,
     architecture_href: str,
-    embedded_report: bytes,
+    data: dict[str, object],
     target_warning: str | None,
     levels: tuple[ModuleExploreLevel, ...] | None = None,
 ) -> dict[str, bytes]:
@@ -1313,7 +1315,6 @@ def _architecture_details(
         if report.target
         else ()
     )
-    data = json.loads(embedded_report)
     if target_warning is not None:
         data["target_unavailable"] = target_warning
     data["boundary_permissions"] = boundary_permissions_payload(observation, report, projection)
@@ -1330,22 +1331,20 @@ def _architecture_details(
         repository=repository,
         architecture_href=architecture_href,
     )
-    filename = f"{_PurePosixPath(architecture_href).stem}.detail.html"
-    return {
-        filename: _document(
+    page = _document(
+        repository=repository,
+        kind="Architecture report",
+        title="ArchQ Explorer",
+        content=_atlas_content(
+            result,
+            observation,
+            data,
             repository=repository,
-            kind="Architecture report",
-            title="ArchQ Explorer",
-            content=_atlas_content(
-                result,
-                observation,
-                data,
-                repository=repository,
-                architecture_href=architecture_href,
-                detail_page=True,
-            ),
-        )
-    }
+            architecture_href=architecture_href,
+            detail_page=True,
+        ),
+    )
+    return {f"{_PurePosixPath(architecture_href).stem}.detail.html": _with_payload(page, data)}
 
 
 def _measurements(measurements: Measurements | None) -> str:
@@ -2236,7 +2235,7 @@ def render_architecture_pages(
         projection,
         repository=repository,
         architecture_href=architecture_href,
-        embedded_report=embedded_report,
+        data=embedded_report,
         target_warning=warning,
         levels=levels,
     )

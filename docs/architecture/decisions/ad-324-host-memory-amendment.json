@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "d01925cf53585c51e523dd88d5c85b6e8c22d2474c4cb98c3751a3f69945808a",
+  "after_digest": "70d8da32bb3aa8b5b2f6a53d804c274382300a38b2622eb1e245467d67793304",
+  "before_baseline_digest": "8c86be01adaf001b5ea4720e4b1d914e844a834d19757342a146e056a4e29131",
+  "before_digest": "595a87c4cd9eb4cdcea309d192bea9a8c388063b5a7d0fd22eab8fa1b35caa7c",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base 122c0bda. AD-324 and epic #880, PR H step 3. The public list of the ir component in the root contract names report_payload and no longer names report_bytes, because render reads the report as an object. contracts/ir.json declares report_payload next to report_bytes. Two measurement budgets rise: calls_unresolved from 971 to 975 and typing_positions from 58 to 60. The head self-observation shows 8 new unresolved calls and 4 removed calls. The new calls are 6 calls on out.write and out.getvalue (3 in codec_wire, 3 in render.html), one piece.replace and one .encode on the piece loop variable. The removed calls are the old json.dumps(...).replace, payload_text.encode, the .encode on the old canonical text and one .get. The two new typing positions are the JSON value annotations of the private recursion in codec_wire. No rule, component, requires entry or Any permission changes. The digests bind the complete contract tree and baseline of 122c0bda to the head of this branch.",
+  "schema_version": "2.0.0"
+}

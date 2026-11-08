@@ -23,6 +23,8 @@ from archkeel.ir.codec_wire import (
     _string,
     _strings,
     canonical_json_bytes,
+    evidence_rows,
+    section_rows,
 )
 from archkeel.ir.facts import (
     CallBindingOrigin,
@@ -879,8 +881,13 @@ def _field_selected(name: str, excluded: set[str]) -> bool:
     return name not in excluded
 
 
-def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
-    """Losslessly columnize and intern repeated IR strings for browser-safe reports."""
+def encode_canonical_model(
+    model: dict[str, RawJson], *, consume: bool = False
+) -> dict[str, RawJson]:
+    """Losslessly columnize and intern repeated IR strings for browser-safe reports.
+
+    With `consume`, each record section leaves `model` once its rows exist (AD-324).
+    """
     profile = _observation_profile(model)
     _validate_profile_sections(model, profile)
     excluded = {*CLASSIFIED_SECTIONS, "evidence"}
@@ -889,32 +896,18 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     # AD-2: rows hold the non-JSON _MISSING_VALUE sentinel until intern writes "$m".
     rows_by_section: dict[str, list[list[Any]]] = {}
     for section in CLASSIFIED_SECTIONS:
-        raw_items = model[section]
-        if raw_items is None:
+        if model[section] is None:
             encoded[section] = None
             section_data_fields[section] = []
             continue
-        if not isinstance(raw_items, list):
-            raise ValueError(f"{section} must be an array")
-        items = [_object(entry, f"{section}[]") for entry in raw_items]
-        data_fields = sorted({key for item in items for key in _object(item["data"], "data")})
-        section_data_fields[section] = data_fields
-        rows_by_section[section] = [
-            [
-                *(item[field] for field in RECORD_FIELDS[:-1]),
-                [_object(item["data"], "data").get(field, _MISSING_VALUE) for field in data_fields],
-            ]
-            for item in items
-        ]
-    raw_evidence = model.get("evidence", [])
-    if not isinstance(raw_evidence, list):
-        raise ValueError("evidence must be an array")
-    evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
-    evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
+        section_data_fields[section], rows_by_section[section] = section_rows(
+            section, model.pop(section) if consume else model[section], _MISSING_VALUE
+        )
+    evidence = evidence_rows(model.pop("evidence", []) if consume else model.get("evidence", []))
 
     # AD-2: missing cells use a private NaN sentinel until intern writes "$m".
     interned_tree, string_table = intern_strings(
-        {"sections": rows_by_section, "evidence": evidence_rows},
+        {"sections": rows_by_section, "evidence": evidence},
         policy=StringTablePolicy.OBSERVATION,
         missing_value=_MISSING_VALUE,
     )
@@ -1022,8 +1015,11 @@ def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
 
 
 def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:
-    raw = observation_payload(model) if isinstance(model, Observation) else model
-    return canonical_json_bytes(encode_canonical_model(raw))
+    if not isinstance(model, Observation):
+        return canonical_json_bytes(encode_canonical_model(model))
+    # AD-324: the encoder consumes a payload built here, so its records are not kept.
+    raw = observation_payload(model)
+    return canonical_json_bytes(encode_canonical_model(raw, consume=True))
 
 
 def _coverage_payload(value: Coverage) -> dict[str, RawJson]:

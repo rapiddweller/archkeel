@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
 from typing import TypeGuard
 
@@ -57,6 +56,7 @@ from archkeel.ir.architecture_graph import (
     VisibilityKind,
     component_ancestor_ids,
 )
+from archkeel.ir.codec_wire import json_bytes
 from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.facts import Evidence
 from archkeel.ir.model import RawJson
@@ -572,8 +572,7 @@ def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
 def graph_bytes(graph: ArchitectureGraph) -> bytes:
     graph.validate()
     _validate_wire_component_selectors(graph)
-    text: str = json.dumps(_graph_payload(graph), sort_keys=True, ensure_ascii=False) + "\n"
-    return text.encode()
+    return json_bytes(_graph_payload(graph), separators=(", ", ": "), tail=b"\n")
 
 
 def _assessment(value: RawJson) -> GraphAssessment:
@@ -630,8 +629,7 @@ def _correspondence(value: RawJson) -> EntityCorrespondence:
 
 def comparison_bytes(comparison: GraphComparison) -> bytes:
     comparison.validate()
-    text: str = json.dumps(asdict(comparison), sort_keys=True, ensure_ascii=False) + "\n"
-    return text.encode()
+    return json_bytes(asdict(comparison), separators=(", ", ": "), tail=b"\n")
 
 
 def parse_report(value: RawJson) -> ArchitectureReport:
@@ -724,12 +722,12 @@ def _report_finding(value: RawJson) -> ReportFinding:
     )
 
 
-def report_bytes(report: ArchitectureReport) -> bytes:
+def report_payload(report: ArchitectureReport) -> dict[str, object]:
     report.validate()
     for graph in (report.observed, report.target):
         if graph is not None:
             _validate_wire_component_selectors(graph)
-    payload = {
+    return {
         "observed": None if report.observed is None else _graph_payload(report.observed),
         "target": None if report.target is None else _graph_payload(report.target),
         "comparison": None if report.comparison is None else asdict(report.comparison),
@@ -739,5 +737,7 @@ def report_bytes(report: ArchitectureReport) -> bytes:
         "memberships": [asdict(item) for item in report.memberships],
         "decision_gaps": [asdict(item) for item in report.decision_gaps],
     }
-    encoded: str = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
-    return encoded.encode("utf-8")
+
+
+def report_bytes(report: ArchitectureReport) -> bytes:
+    return json_bytes(report_payload(report), separators=(", ", ": "), tail=b"\n")

@@ -47,14 +47,14 @@ def intern_strings(
     table = sorted(
         text for text, occurrences in counts.items() if _profitable(policy, text, occurrences)
     )
-    indexes = {text: index for index, text in enumerate(table)}
+    references = {text: f"${index}" for index, text in enumerate(table)}
 
     def encode(item: object) -> RawJson:
         if missing_value is not None and item is missing_value:
             return _MISSING
         if isinstance(item, str):
-            if item in indexes:
-                return f"${indexes[item]}"
+            if item in references:
+                return references[item]
             if _reserved_reference(item, policy):
                 return f"${item}"
             return item
