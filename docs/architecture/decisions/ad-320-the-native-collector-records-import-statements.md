@@ -20,13 +20,17 @@ default until PR 4.4. The Python collector is also the oracle, in a mode that PR
 5. The nesting of a source cannot overflow the stack: the walk is iterative. A file with 30 000
    nested brackets gives a result. Python stops with a `RecursionError` at 1 000. Caps with a gap
    and its reason belong to the memory limit of PR 4.1b-3.
-6. A non-test source file holds no `unwrap` and no `expect` (clippy `deny`), because a panic
+6. Each file that is neither a declaration nor CommonJS gets one gap in the imports dimension:
+   "Script-global dependencies are not examined by the native collector". The Python collector
+   examines free global names and reports each unexamined one. This collector examines none, so
+   a scan is never complete here, and missing evidence is UNKNOWN. PR 4.3 replaces the gap.
+7. A non-test source file holds no `unwrap` and no `expect` (clippy `deny`), because a panic
    aborts the whole scan.
 
 **Acceptance.** The oracle is `tests/native_oracle.py`: the Python collector with the four
-producers off that the native collector does not have (`_named_imports`, `_script_dependencies`,
-`_inner_facts`, `_constructs`). No result is filtered by a title. These are all the allowed
-differences. A tree with a global script file fails the test. The files, inputs, evidence,
+producers off that the native collector does not have (`_named_imports`, `_inner_facts`,
+`_constructs`) and `_script_dependencies` replaced by the gap of point 6. No result is filtered by
+a title. These are all the allowed differences. A tree with a global script file fails the test. The files, inputs, evidence,
 records, targets, gaps and coverage must be equal. The host verdict, the cycles and the
 violations must be equal on the fixtures and on 53 demo variants. Two runs give the same bytes.
 
@@ -40,10 +44,10 @@ the queries 1.94 s, native with one walk 1.02 s.
 lists, which would state an absence that is not proven.
 
 **Limit.**
-- Against the Python default, the verdict differs for 8 of 53 demo variants. Three rules on
-  symbols read UNKNOWN. Three scans with a global script read complete here and UNKNOWN there
-  (`script_global` imports: 269 of 628 records in the Studio UI). Two scans have fewer gaps.
-  `test_collector_native_verdicts.py` lists them. PR 4.4 needs a decision on this.
+- Against the Python default, native is the same or more cautious on 53 demo variants: 27 equal,
+  15 PASS become UNKNOWN (not complete), 10 FAIL stay FAIL but the scan is not complete, and 1
+  FAIL becomes UNKNOWN (a rule on symbols). Native is never complete where Python is UNKNOWN. So
+  no native scan can PASS before PR 4.3: PR 4.4 cannot switch the default earlier.
 - The UNKNOWN records of a construct rule and a catalog rule have another text, as the native
   scan declares no construct capability. The verdicts are equal.
 - `serde_json` refuses `NaN` and a lone surrogate in a `package.json`. Python accepts both. The

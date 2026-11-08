@@ -103,6 +103,19 @@ def _prebuilt(request: str) -> Path:
     return binary
 
 
+def build_environment(version: str, tag: str) -> dict[str, str]:
+    environment = {**os.environ, "ARCHKEEL_VERSION": version}
+    macos = re.fullmatch(r"py3-none-macosx_(\d+)_(\d+)_\w+", tag)
+    if macos:
+        environment["MACOSX_DEPLOYMENT_TARGET"] = f"{macos[1]}.{macos[2]}"
+    if tag.startswith("py3-none-manylinux"):
+        # The C grammar parser needs `le16toh`. The headers of glibc before 2.19 declare it only
+        # for `_BSD_SOURCE`, which the strict `_POSIX_C_SOURCE` of its build script turns off.
+        flags = environment.get("CFLAGS", "")
+        environment["CFLAGS"] = f"{flags} -D_BSD_SOURCE".strip()
+    return environment
+
+
 def _cargo_build(root: Path, version: str, tag: str, name: str) -> Path:
     native = root / "native"
     if not (native / "Cargo.toml").is_file():
@@ -115,10 +128,7 @@ def _cargo_build(root: Path, version: str, tag: str, name: str) -> Path:
         raise ValueError(f"{REQUEST}=1 needs cargo. Install Rust or give a prebuilt binary.")
     if shutil.which("cargo-auditable") is None:
         raise ValueError(f"{REQUEST}=1 needs cargo-auditable. Run make native-tools.")
-    environment = {**os.environ, "ARCHKEEL_VERSION": version}
-    macos = re.fullmatch(r"py3-none-macosx_(\d+)_(\d+)_\w+", tag)
-    if macos:
-        environment["MACOSX_DEPLOYMENT_TARGET"] = f"{macos[1]}.{macos[2]}"
+    environment = build_environment(version, tag)
     target = native / "target"
     # The working directory selects the toolchain that native/rust-toolchain.toml pins.
     # cargo auditable records the crates in the `.dep-v0` section for `cargo audit bin`.
