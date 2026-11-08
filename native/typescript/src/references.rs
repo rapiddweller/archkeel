@@ -7,9 +7,10 @@
 //! One query finds the nodes. A reference inside a region that the parser had to repair is not
 //! a fact, so it is dropped (`parse._in_error`).
 
-use tree_sitter::{Node, Query, QueryCursor, StreamingIterator};
+use tree_sitter::Node;
 
-use crate::syntax::{Grammar, Source, Span};
+use crate::scan::Scan;
+use crate::syntax::{Source, Span};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Form {
@@ -44,28 +45,6 @@ pub struct Reference {
     /// A `resolution-mode` attribute replaces the mode that a resolver would derive.
     pub mode_override: bool,
     pub span: Span,
-}
-
-/// The nodes that a query captures, by capture name, in the order of the capture.
-pub fn captures<'t>(query: &Query, node: Node<'t>, source: &Source) -> Vec<(String, Node<'t>)> {
-    let names = query.capture_names();
-    let mut cursor = QueryCursor::new();
-    let mut found = Vec::new();
-    let mut matches = cursor.captures(query, node, source.data);
-    while let Some((matched, index)) = matches.next() {
-        let capture = matched.captures[*index];
-        found.push((names[capture.index as usize].to_owned(), capture.node));
-    }
-    found
-}
-
-/// The nodes that one capture name holds.
-pub fn named<'t>(found: &[(String, Node<'t>)], name: &str) -> Vec<Node<'t>> {
-    found
-        .iter()
-        .filter(|(captured, _)| captured == name)
-        .map(|(_, node)| *node)
-        .collect()
 }
 
 fn children<'t>(node: Option<Node<'t>>, kind: &str) -> Vec<Node<'t>> {
@@ -249,29 +228,12 @@ fn require(node: Node, source: &Source) -> Reference {
 }
 
 /// The trusted references of a file, in the order of their position.
-pub fn trusted(grammar: &Grammar, source: &Source, root: Node) -> Vec<Reference> {
-    let found = captures(&grammar.references, root, source);
+pub fn trusted(source: &Source, root: Node, scan: &Scan) -> Vec<Reference> {
     let mut candidates: Vec<(Node, Reference)> = Vec::new();
-    candidates.extend(
-        named(&found, "import")
-            .into_iter()
-            .map(|n| (n, import(n, source))),
-    );
-    candidates.extend(
-        named(&found, "export")
-            .into_iter()
-            .map(|n| (n, export(n, source))),
-    );
-    candidates.extend(
-        named(&found, "dynamic")
-            .into_iter()
-            .map(|n| (n, dynamic(n, source))),
-    );
-    candidates.extend(
-        named(&found, "require")
-            .into_iter()
-            .map(|n| (n, require(n, source))),
-    );
+    candidates.extend(scan.imports.iter().map(|n| (*n, import(*n, source))));
+    candidates.extend(scan.exports.iter().map(|n| (*n, export(*n, source))));
+    candidates.extend(scan.dynamic.iter().map(|n| (*n, dynamic(*n, source))));
+    candidates.extend(scan.requires.iter().map(|n| (*n, require(*n, source))));
     let broken = root.has_error();
     let mut kept: Vec<Reference> = candidates
         .into_iter()

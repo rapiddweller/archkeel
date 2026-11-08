@@ -9,9 +9,10 @@
 use tree_sitter::Node;
 
 use crate::jsdoc;
-use crate::references::{captures, literal, named, Reference};
+use crate::references::{literal, Reference};
+use crate::scan::Scan;
 use crate::source_input::{SourceKind, Suffix};
-use crate::syntax::{Grammar, Source, Span};
+use crate::syntax::{Source, Span};
 
 const LOADER: &str = "Node module loader is not observed";
 
@@ -44,14 +45,9 @@ fn concern(source: &Source, node: Node, reason: &str) -> Concern {
 }
 
 /// Report every `require` that is not a plain call; true when one may rebind the name.
-fn require_concerns(
-    grammar: &Grammar,
-    source: &Source,
-    root: Node,
-    list: &mut Vec<Concern>,
-) -> bool {
+fn require_concerns(source: &Source, scan: &Scan, list: &mut Vec<Concern>) -> bool {
     let mut shadows = false;
-    for node in named(&captures(&grammar.require_names, root, source), "name") {
+    for node in scan.require_names.iter().copied() {
         let parent = node.parent();
         if starts_with(parent, node, &["call_expression"]) {
             continue;
@@ -71,15 +67,14 @@ fn require_concerns(
         });
         shadows = shadows || !(reads || typeof_use);
     }
-    let found = captures(&grammar.require_members, root, source);
-    for node in named(&found, "member") {
+    for node in scan.require_members.iter().copied() {
         list.push(concern(source, node, "Unproven require member use"));
     }
-    for node in named(&found, "subscript") {
+    for node in scan.subscripts.iter().copied() {
         list.push(concern(source, node, "Computed require member use"));
     }
-    let modules = !named(&captures(&grammar.module_names, root, source), "name").is_empty();
-    for node in named(&found, "pair") {
+    let modules = scan.module_name;
+    for node in scan.pairs.iter().copied() {
         let Some(key) = node.child(0) else { continue };
         let computed = key.kind() == "computed_property_name";
         let inner = if computed {
@@ -106,9 +101,9 @@ fn require_concerns(
 }
 
 fn comment_concerns(
-    grammar: &Grammar,
     source: &Source,
     root: Node,
+    scan: &Scan,
     suffix: Option<Suffix>,
 ) -> Vec<Concern> {
     let mut list = Vec::new();
@@ -122,7 +117,7 @@ fn comment_concerns(
         .filter_map(|index| root.child(index))
         .find(|child| !matches!(child.kind(), "comment" | "hash_bang_line"))
         .map_or(source.data.len(), |child| child.start_byte());
-    for node in named(&captures(&grammar.comments, root, source), "comment") {
+    for node in scan.comments.iter().copied() {
         let body = source.text(node);
         let directive = if node.start_byte() < first {
             jsdoc::triple_slash(&body)
@@ -143,28 +138,23 @@ fn comment_concerns(
 
 /// The concerns of one file, in the order that `parse.parse` collects them.
 pub fn read(
-    grammar: &Grammar,
     source: &Source,
     root: Node,
+    scan: &Scan,
     references: &[Reference],
     suffix: Option<Suffix>,
 ) -> Found {
     let mut list = Vec::new();
     // `module[name]` can reach `require` without spelling it.
     let needed = contains(source.data, b"require") || contains(source.data, b"module");
-    let shadows_require = needed && require_concerns(grammar, source, root, &mut list);
+    let shadows_require = needed && require_concerns(source, scan, &mut list);
     let mut loaders: Vec<Span> = references
         .iter()
         .filter(|item| matches!(item.specifier.as_deref(), Some("module" | "node:module")))
         .map(|item| item.span.clone())
         .collect();
     if contains(source.data, b"createRequire") {
-        let found = captures(&grammar.create_require, root, source);
-        loaders.extend(
-            named(&found, "name")
-                .into_iter()
-                .map(|n| source.span(n, None)),
-        );
+        loaders.extend(scan.create_require.iter().map(|n| source.span(*n, None)));
     }
     // One gap per file: the first use already makes every later `require` unprovable.
     if let Some(first) = loaders
@@ -177,7 +167,7 @@ pub fn read(
         });
     }
     if contains(source.data, b"/**") || contains(source.data, b"///") {
-        list.extend(comment_concerns(grammar, source, root, suffix));
+        list.extend(comment_concerns(source, root, scan, suffix));
     }
     Found {
         list,

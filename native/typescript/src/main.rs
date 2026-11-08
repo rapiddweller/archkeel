@@ -22,6 +22,7 @@ mod paths;
 mod pytext;
 mod references;
 mod resolve;
+mod scan;
 mod snapshot;
 mod source_input;
 mod syntax;

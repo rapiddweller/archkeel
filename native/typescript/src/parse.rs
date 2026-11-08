@@ -5,7 +5,8 @@
 //! Read the module references and the unprovable patterns of one file (`parse.parse`).
 
 use crate::concerns::{self, Concern};
-use crate::references::{self, captures, named, Reference};
+use crate::references::{self, Reference};
+use crate::scan::scan;
 use crate::source_input::classify_file;
 use crate::syntax::{Parsers, Source};
 
@@ -34,13 +35,14 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     };
     let source = Source::new(data);
     let root = tree.root_node();
-    let references = references::trusted(grammar, &source, root);
-    let found = concerns::read(grammar, &source, root, &references, suffix);
-    let errors = named(&captures(&grammar.errors, root, &source), "error");
-    let first_error = errors
-        .into_iter()
+    let found_nodes = scan(&grammar.kinds, &source, root);
+    let references = references::trusted(&source, root, &found_nodes);
+    let found = concerns::read(&source, root, &found_nodes, &references, suffix);
+    let first_error = found_nodes
+        .errors
+        .iter()
         .min_by_key(|node| node.start_byte())
-        .map(|node| source.span(node, None).line);
+        .map(|node| source.span(*node, None).line);
     Parsed {
         references,
         concerns: found.list,

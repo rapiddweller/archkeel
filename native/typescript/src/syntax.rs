@@ -7,10 +7,11 @@
 //! This is the only module that touches the parser. The parser runs inside the collector
 //! process, which the host bounds, because it reads untrusted source.
 
-use tree_sitter::{Language, Node, Parser, Query};
+use tree_sitter::{Language, Node, Parser};
 use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
 use crate::pytext::{decode, first_chars, utf16_len};
+use crate::scan::Kinds;
 
 /// A 1-based line and UTF-16 column, as the TypeScript compiler reports them.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -70,47 +71,16 @@ impl<'a> Source<'a> {
     }
 }
 
-/// One grammar with the queries of this collector.
+/// One grammar with the node kinds that import extraction matches.
 pub struct Grammar {
     pub language: Language,
-    pub references: Query,
-    pub comments: Query,
-    pub errors: Query,
-    pub require_names: Query,
-    pub require_members: Query,
-    pub module_names: Query,
-    pub create_require: Query,
+    pub kinds: Kinds,
 }
 
 impl Grammar {
     fn new(language: Language) -> Self {
-        let query =
-            |text: &str| Query::new(&language, text).expect("the query matches the grammar");
         Self {
-            references: query(
-                "(import_statement) @import
-                 (export_statement source: (_)) @export
-                 (call_expression function: (import)) @dynamic
-                 (call_expression function: (identifier) @callee (#eq? @callee \"require\")) @require",
-            ),
-            comments: query("(comment) @comment"),
-            errors: query("[(ERROR) (MISSING)] @error"),
-            require_names: query(
-                "([(identifier) (type_identifier) (shorthand_property_identifier)
-                   (shorthand_property_identifier_pattern)] @name (#eq? @name \"require\"))",
-            ),
-            require_members: query(
-                "(member_expression property: (property_identifier) @name (#eq? @name \"require\")) @member
-                 (subscript_expression index: (string) @name (#match? @name \"^.require.$\")) @subscript
-                 (subscript_expression object: (identifier) @object (#eq? @object \"module\")) @subscript
-                 (pair_pattern key: (_) @key) @pair",
-            ),
-            module_names: query("((identifier) @name (#eq? @name \"module\"))"),
-            create_require: query(
-                "([(identifier) (property_identifier) (shorthand_property_identifier)
-                   (shorthand_property_identifier_pattern) (string_fragment)] @name
-                   (#eq? @name \"createRequire\"))",
-            ),
+            kinds: Kinds::new(&language),
             language,
         }
     }
