@@ -64,7 +64,7 @@ fn a_production_file_beside_the_tests_removes_the_gap() {
     ]);
     let facts = collect(&request(&tree, true), provenance());
     assert_eq!(facts.selected_files, ["src/a.ts"]);
-    assert_eq!(titles(&facts), [IMPORT_GAP]);
+    assert!(titles(&facts).is_empty(), "{:?}", titles(&facts));
 }
 
 // Consumer: a source file over the size limit. Its gap is UNKNOWN for that file only. The other

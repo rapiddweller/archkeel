@@ -219,6 +219,9 @@ fn is_string_list(value: &Value) -> bool {
         .is_some_and(|items| items.iter().all(Value::is_string))
 }
 
+/// Whether a lower-case option text is a value of its enumeration.
+type Accepts = fn(&str) -> bool;
+
 /// `config._invalid`: name unknown options and refuse malformed values.
 pub fn invalid(options: &Map<String, Value>) -> Vec<String> {
     let mut found: Vec<String> = options
@@ -226,7 +229,7 @@ pub fn invalid(options: &Map<String, Value>) -> Vec<String> {
         .filter(|name| !KNOWN_OPTIONS.split(' ').any(|known| known == name.as_str()))
         .map(|name| format!("Unknown compiler option '{name}'."))
         .collect();
-    let enums: [(&str, fn(&str) -> bool); 4] = [
+    let enums: [(&str, Accepts); 4] = [
         ("module", |name| module_kind(name).is_some()),
         ("moduleResolution", |name| resolution_kind(name).is_some()),
         ("moduleDetection", |name| {
