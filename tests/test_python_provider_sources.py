@@ -7,6 +7,7 @@ import abc
 import ast
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import sysconfig
@@ -3338,27 +3339,48 @@ def test_real_frozen_provider_keeps_direct_and_normal_alias_source_binding(tmp_p
 
 
 def test_provider_recapture_is_killed_by_the_native_process_deadline(tmp_path):
+    # The process deadline starts at spawn, so it also counts interpreter start and the first
+    # discovery pass. The deadline is wide enough for the child to reach the blocked capture on a
+    # loaded runner, but this is a margin and not a guarantee. The child sleeps longer than any
+    # time the test accepts, so a result in time can only come from the deadline.
+    deadline_seconds = 5
+    blocked_seconds = 30
     request = replace(
         _request(tmp_path, imported="math", binding="cos"),
         protocol_version=ProtocolVersion.V3,
     )
     marker = tmp_path / "provider-capture-started"
     code = (
-        "import time\nfrom pathlib import Path\n"
+        "import os, time\nfrom pathlib import Path\n"
         "from archkeel.analyzer.python import entry\n"
         "def blocked_capture(request, facts):\n"
-        f"    Path({str(marker)!r}).write_text('started')\n"
-        "    time.sleep(30)\n    return ()\n"
+        f"    Path({str(marker)!r}).write_text(str(os.getpid()))\n"
+        f"    time.sleep({blocked_seconds})\n    return ()\n"
         "entry.provider_sources = blocked_capture\nentry.main()\n"
     )
     started = time.monotonic()
     result = PythonProviderCollector(
-        ProcessCollector((sys.executable, "-I", "-B", "-c", code), timeout_seconds=0.6)
+        ProcessCollector((sys.executable, "-I", "-B", "-c", code), timeout_seconds=deadline_seconds)
     ).collect(request)
     elapsed = time.monotonic() - started
-    assert marker.read_text() == "started"
     assert isinstance(result, CollectionError) and result.kind is CollectionErrorKind.TIMEOUT
-    assert elapsed < 3, f"blocked provider capture escaped its process deadline: {elapsed}"
+    assert deadline_seconds * 0.9 <= elapsed < blocked_seconds / 2, (
+        f"the timeout did not come from the {deadline_seconds} s deadline: {elapsed}"
+    )
+    child = int(marker.read_text())
+    if sys.platform != "win32":  # os.kill(pid, 0) would end the process on Windows
+        end = time.monotonic() + 5
+        while time.monotonic() < end and _process_exists(child):
+            time.sleep(0.05)
+        assert not _process_exists(child), f"the blocked capture process {child} is still alive"
+
+
+def _process_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 def test_provider_capture_shares_the_native_response_output_limit(tmp_path):
