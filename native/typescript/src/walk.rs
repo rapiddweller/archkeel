@@ -341,7 +341,9 @@ impl<'a, 't> Walk<'a, 't> {
                 .iter()
                 .map(|(target, frame)| (cx.text(*target), *frame))
                 .filter(|(name, frame)| {
-                    self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT)
+                    // Only the root frame decides: a name that it does not bind needs no climb.
+                    self.frames.count(ROOT, name) > 0
+                        && self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT)
                 })
                 .map(|(name, _)| name)
                 .collect()
