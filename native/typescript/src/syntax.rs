@@ -10,6 +10,7 @@
 use tree_sitter::{Language, Node, Parser};
 use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
+use crate::kinds::KindMap;
 use crate::pytext::{decode, first_chars, utf16_len};
 use crate::scan::Kinds;
 
@@ -75,12 +76,15 @@ impl<'a> Source<'a> {
 pub struct Grammar {
     pub language: Language,
     pub kinds: Kinds,
+    /// The kind of each node id, for the syntax walk.
+    pub map: KindMap,
 }
 
 impl Grammar {
     fn new(language: Language) -> Self {
         Self {
             kinds: Kinds::new(&language),
+            map: KindMap::new(&language),
             language,
         }
     }

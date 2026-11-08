@@ -13,6 +13,8 @@ use tree_sitter::{Language, Node, Parser, Query, QueryCursor, StreamingIterator}
 use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
 use super::*;
+use crate::kinds::KindMap;
+use crate::members::Cx;
 
 const QUERIES: [(&str, &str); 7] = [
     (
@@ -100,7 +102,13 @@ fn check(reference: &Reference, data: &[u8], label: &str) {
     parser.set_language(language).expect("a language");
     let tree = parser.parse(data, None).expect("a tree");
     let root = tree.root_node();
-    let found = scan(&Kinds::new(language), &Source::new(data), root);
+    let source = Source::new(data);
+    let map = KindMap::new(language);
+    let mut walk = Walk::new(Cx {
+        kinds: &map,
+        source: &source,
+    });
+    let found = scan(&Kinds::new(language), &source, root, &mut walk);
     // The index of the query and the capture name, then what the walk found.
     let cases: [(usize, &str, Ranges); 11] = [
         (0, "import", ranges(&found.imports)),
