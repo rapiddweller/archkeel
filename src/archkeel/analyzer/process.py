@@ -57,6 +57,7 @@ class _ProcessCleanupError(RuntimeError):
 
 
 _CLEANUP_TIMEOUT_SECONDS = 2
+_EXIT_GRACE_SECONDS = 0.5
 _DEFAULT_OUTPUT_LIMIT_REMEDY = "Raise collector_output_limit_bytes and retry."
 _STDERR_LINES_REPORTED = 20
 # Supported POSIX targets use signed 32-bit pid_t; Windows process IDs are DWORDs.
@@ -382,25 +383,24 @@ def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except OSError as error:
-            # macOS fails with EPERM for a group that holds only unreaped zombies.
-            if not isinstance(error, ProcessLookupError) and process.poll() is None:
+            # macOS fails with EPERM while it tears down an exiting group.
+            try:
+                process.wait(timeout=_EXIT_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
                 raise _ProcessCleanupError(
                     "Could not terminate the collector process group."
                 ) from error
-    elif platform is _ProcessPlatform.WINDOWS:
-        if process.poll() is None:
-            try:
-                process.kill()
-            except OSError as error:
-                raise _ProcessCleanupError(
-                    "Could not terminate the Windows job launcher."
-                ) from error
     else:
+        message = (
+            "Could not terminate the Windows job launcher."
+            if platform is _ProcessPlatform.WINDOWS
+            else "Could not terminate the collector process."
+        )
         if process.poll() is None:
             try:
                 process.kill()
             except OSError as error:
-                raise _ProcessCleanupError("Could not terminate the collector process.") from error
+                raise _ProcessCleanupError(message) from error
 
     try:
         process.wait(timeout=_CLEANUP_TIMEOUT_SECONDS)
