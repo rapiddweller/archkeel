@@ -9,6 +9,7 @@ import ast
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tomllib
@@ -604,6 +605,43 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         check=True,
     ).stdout
     assert {area_of(name) for name in re.findall(r"tests/(test_\w+\.py)", pr_test)} == set(AREAS)
+
+
+def _full_filter() -> list[str]:
+    text = (ROOT / ".github/workflows/full-verification.yml").read_text()
+    listed = re.search(r"\n  pull_request:\n    paths:\n((?:      - .+\n)+)", text)
+    assert listed is not None
+    return [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()]
+
+
+def _in_filter(pattern: str, path: str) -> bool:
+    # GitHub path filter: `*` stops at a slash and `**` does not.
+    regex = re.escape(pattern).replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
+    return re.fullmatch(regex, path) is not None
+
+
+def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
+    """Full runs every area (make full-test), never the pr-test list: it is not a Full input."""
+    paths = _full_filter()
+    assert "Makefile" in paths
+    for added in ("tests/pr-test.mk", "tests/test_added_later.py"):
+        assert [path for path in paths if _in_filter(path, added)] == [], added
+    makefile = (ROOT / "Makefile").read_text()
+    recipe = re.search(r"^pr-test:.*?\n\n", makefile, re.DOTALL | re.MULTILINE)
+    assert recipe is not None
+    assert "tests/test_" not in recipe[0]
+    listed = (ROOT / "tests/pr-test.mk").read_text().split(":=", 1)[1]
+    dry_run = subprocess.run(
+        ["make", "-n", "-o", "browser-runtime-install", "pr-test"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    resolved = [a for a in shlex.split(dry_run.replace("\\\n", " ")) if a.startswith("tests/")]
+    assert resolved == shlex.split(listed.replace("\\\n", " "))
+    assert len(resolved) > 200
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:

@@ -34,8 +34,8 @@ Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
-The `pr-test` list in the `Makefile` names this fixed set file by file and test by test; there is no
-rule that selects it. `make report-browser-tests` runs the local Chromium tests; Full also runs them. Samples do not
+The `PR_TEST_FILES` list in `tests/pr-test.mk` names this fixed set file by file and test by test;
+there is no rule that selects it. `make report-browser-tests` runs the local Chromium tests; Full also runs them. Samples do not
 replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
 CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
 variant coverage stays in the full checks.
@@ -86,7 +86,9 @@ aggregate would count as passed.
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
 Full runs all tests. A PR that changes a path in the `pull_request` filter of
-`full-verification.yml` also runs Full. Pages publishes only a passed Full run of the current
+`full-verification.yml` also runs Full. The `pr-test` list is not in that filter, because Full never
+runs it. Name a new test file so that a pattern in `tests/areas.py` matches it. Then `tests/areas.py`
+stays unchanged and the PR does not run Full. Pages publishes only a passed Full run of the current
 `main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
 again.
 

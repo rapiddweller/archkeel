@@ -48,4 +48,13 @@ card. These failures do not identify the active tests in the canceled runs. Keep
 test timeout. A separate job needs new aggregate and artifact wiring. The 30-minute limit gives
 the same sequential checks time to finish; it does not claim faster tests.
 
+**Follow-up (2026-11-08).** The `pr-test` list moved from the `Makefile` to `tests/pr-test.mk`.
+Full runs every area (`make full-test`) and never this list, so the list is not in the Full path
+filter. Since the filter exists (#765), 16 of 50 merged PRs matched it. Each Full run costs about 140
+runner minutes and 18 wall minutes (median of 29 passed runs). Three PRs (#802, #820, #882) changed only the list: 5 runs, about 700
+runner minutes. Two more (#800, #884) also added the new file to `tests/areas.py`. Rejected:
+remove `tests/areas.py` from the filter. A change to it can move a file, add an area or change the
+`python-compat` selection, and each of these changes what Full runs. The rule is in the
+contributing guide: name a new test file so that an area pattern matches it.
+
 **Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.
