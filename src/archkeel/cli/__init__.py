@@ -219,9 +219,7 @@ def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
 
 
 def _check_story(
-    spec: bytes,
-    snapshot: Path,
-    session: ViewCheckSession | None = None,
+    spec: bytes, snapshot: Path, session: ViewCheckSession | None = None
 ) -> CheckResult:
     """AD-291: `archkeel view check SPEC --snapshot SNAPSHOT`, bound to this snapshot.
 
@@ -1250,7 +1248,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "--output is inside the analyzed repository; choose a folder outside it"
                     )
                 artifact: Path = folder / _ARCHITECTURE_JSON
-                result, architecture = run_explore(
+                result, architecture, observation = run_explore(
                     root,
                     observer=observer_for(
                         args.language,
@@ -1274,6 +1272,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         architecture,
                         repository=root.name,
                         architecture_href=artifact.name,
+                        observation=observation,
                     )
                     _write_pages(artifact, pages, artifacts)
             elif command is Command.REPORT and args.input is not None:

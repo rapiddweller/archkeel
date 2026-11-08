@@ -1142,7 +1142,7 @@
           "presence": "planned",
           "parent_id": "RENDER-UML-html",
           "responsibilities": [
-            "Strictly decode one observation and, for atlas pages, require its matching authenticated Core projection and share one report graph across main and detail pages. Return immutable detail-before-main filename/bytes pairs; callers own publication. Reject malformed observations and mismatched atlas source evidence before returning pages. Filtered or no-projection output preserves legacy rendering behavior and entry points."
+            "Strictly decode one observation, or take the one that the caller decoded, and, for atlas pages, require its matching authenticated Core projection and share one report graph across main and detail pages. Return immutable detail-before-main filename/bytes pairs; callers own publication. Reject malformed observations and mismatched atlas source evidence before returning pages. Filtered or no-projection output preserves legacy rendering behavior and entry points."
           ],
           "provenance": [
             "docs/architecture/target/design.md"
@@ -1180,6 +1180,13 @@
               {
                 "name": "view_check",
                 "annotation": "str | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "observation",
+                "annotation": "Observation | None",
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true

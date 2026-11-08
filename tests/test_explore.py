@@ -1272,7 +1272,7 @@ def test_python_scope_with_only_test_sources_is_not_complete(tmp_path: Path) -> 
 def test_explore_checks_its_observation_once_per_pass(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The host never decodes its own output twice: each pass parses once, the render once."""
+    """The host never decodes its own output twice: each pass parses once, the render never."""
     root = _repository(tmp_path / "repo")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     parsed = {"assemble": 0, "render": 0}
@@ -1301,7 +1301,7 @@ def test_explore_checks_its_observation_once_per_pass(
 
     assert _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))[0] == 0
 
-    assert parsed == {"assemble": 2, "render": 1}
+    assert parsed == {"assemble": 2, "render": 0}
     assert not [item for item in decoded if isinstance(item, dict) and "analyzer" in item]
 
 
@@ -1328,6 +1328,23 @@ def test_an_assembled_model_reads_the_same_without_a_json_round_trip(
     assert any("rule_evaluation" in json.dumps(model, default=list) for model in models)
     for model in models:
         assert real(model) == real(decode_json(canonical_json_bytes(model)))
+
+
+def test_pages_of_the_explored_observation_equal_pages_of_its_bytes(tmp_path: Path) -> None:
+    """The render may take the observation of explore; it must show what its bytes show."""
+    root = _repository(tmp_path / "repo")
+    result, architecture, observation = run_explore(root, observer=observer_for(Language.PYTHON))
+    assert architecture is not None
+    assert observation is not None
+    names = {"repository": root.name, "architecture_href": "architecture.json"}
+
+    from_bytes = html_renderer.render_architecture_pages(result, architecture, **names)
+    from_observation = html_renderer.render_architecture_pages(
+        result, architecture, observation=observation, **names
+    )
+
+    assert len(from_bytes) > 1
+    assert from_observation == from_bytes
 
 
 def test_explore_frees_the_source_facts_before_it_encodes(

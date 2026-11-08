@@ -748,20 +748,16 @@ def run_report(
 ) -> tuple[RunResult, bytes | None]:
     """Observe once; filters narrow report rows without changing verdicts or measurements."""
     report_filter = _report_filter(
-        only_violations,
-        rule,
-        component,
-        only_calls,
-        only_architecture,
-        full_architecture,
+        only_violations, rule, component, only_calls, only_architecture, full_architecture
     )
-    return _observed_report(
+    result, architecture, _ = _observed_report(
         observe_repository(root, config, analyzer, clock=clock),
         report_filter,
         root=root,
         baseline=baseline,
         clock=clock,
     )
+    return result, architecture
 
 
 def _observed_report(
@@ -771,7 +767,7 @@ def _observed_report(
     root: Path,
     baseline: Path | None = None,
     clock: PhaseClock | None = None,
-) -> tuple[RunResult, bytes | None]:
+) -> tuple[RunResult, bytes | None, Observation | None]:
     result = _validated_member_inventory_result(_projection_result(observed))
     architecture: bytes | None = None
     if result.observation is not None:
@@ -781,7 +777,7 @@ def _observed_report(
             _count_work(clock, result.observation, len(architecture))
     with measured(clock, Phase.RESULT):
         report = _report_result(result, report_filter, baseline_root=root, baseline=baseline)
-    return report, architecture
+    return report, architecture, result.observation
 
 
 @dataclass(slots=True)
@@ -806,11 +802,12 @@ def run_explore(
     namespace: str | None = None,
     language: Language = Language.PYTHON,
     tsconfig: str | None = None,
-) -> tuple[RunResult, bytes | None]:
+) -> tuple[RunResult, bytes | None, Observation | None]:
     """AD-285: observe a repository with no contract; the caller writes outside the root.
 
     The first pass finds the modules, the second records their layout grouping as components.
-    The temporary contract has no rule, so the result has no rule verdict.
+    The temporary contract has no rule, so the result has no rule verdict. The third value is the
+    observation behind the bytes, so the renderer does not decode them again.
     """
     once = _CollectOnce(observer.collector)
     scan = replace(observer, collector=once, exclude_test_sources=True)
@@ -864,9 +861,10 @@ def run_explore(
     # Both passes are done. Free the facts before the report is encoded and rendered.
     once.facts = None
     observed, notes = _range_notes(observed)
-    result, architecture = _observed_report(observed, None, root=root)
+    result, architecture, encoded = _observed_report(observed, None, root=root)
     # No contract, so no pair of components waits for a decision.
-    return replace(result, open_decisions=(), scan_roots=config.roots, notes=notes), architecture
+    result = replace(result, open_decisions=(), scan_roots=config.roots, notes=notes)
+    return result, architecture, encoded
 
 
 def _count_work(clock: PhaseClock, observation: Observation, architecture_bytes: int) -> None:
