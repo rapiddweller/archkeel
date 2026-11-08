@@ -18,8 +18,8 @@ default until PR 4.4. The Python collector is also the oracle, in a mode that PR
    understood makes the settings partial, and a partial setting resolves nothing. Each
    `package.json` that the resolver reads is a digested input, so the inputs equal the Python inputs.
 5. The nesting of a source cannot overflow the stack: the walk is iterative. A file with 30 000
-   nested brackets gives a result. Python stops with a `RecursionError` at 1 000. Caps with a gap
-   and its reason belong to the memory limit of PR 4.1b-3.
+   nested brackets gives a result. Python stops with a `RecursionError` at 1 000. There is no
+   nesting cap. A file over 4 MiB is a gap (AD-319); Python reads it.
 6. Each file that is neither a declaration nor CommonJS gets one gap in the imports dimension:
    "Script-global dependencies are not examined by the native collector". The Python collector
    examines free global names and reports each unexamined one. This collector examines none, so
