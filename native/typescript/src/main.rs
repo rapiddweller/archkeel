@@ -13,8 +13,10 @@ mod collect;
 mod config;
 mod discover;
 mod glob;
+mod options;
 mod paths;
 mod snapshot;
+mod source_input;
 mod test_sources;
 #[cfg(test)]
 mod test_tree;

@@ -18,7 +18,7 @@ struct Loaded {
 fn load(files: &[(&str, &str)]) -> Loaded {
     let tree = Tree::new(files);
     let mut snapshot = Snapshot::new(&tree.path());
-    let files = load_config(&mut snapshot, "tsconfig.json", &["src".to_owned()]);
+    let files = load_config(&mut snapshot, "tsconfig.json", &["src".to_owned()]).files;
     Loaded {
         files,
         problems: snapshot.problems.iter().cloned().collect(),

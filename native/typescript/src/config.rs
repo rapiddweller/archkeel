@@ -5,8 +5,8 @@
 //! The files a TSConfig selects, as `config.load_config` lists them.
 //!
 //! This reader follows `extends`, `files`, `include`, `exclude`, `allowJs`, `checkJs`, `outDir`
-//! and `declarationDir`. It does not check the other compiler options yet; the Python reader
-//! also reports those as problems.
+//! and `declarationDir`. It also reads the options of module resolution (`options.rs`) and
+//! reports each value that it does not understand as a problem.
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,8 +14,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Map, Value};
 
 use crate::discover::discover;
-use crate::paths::{dirname, is_json, is_outside, join, within};
+use crate::options::{self, Options};
+use crate::paths::{dirname, is_outside, join, within};
 use crate::snapshot::Snapshot;
+use crate::source_input::{classify_file, Suffix};
 
 const CONFIG_DIRECTORY: &str = "${configDir}";
 
@@ -27,13 +29,43 @@ pub struct Layer {
     pub specs: BTreeMap<&'static str, Vec<String>>,
     /// `outDir` and `declarationDir`, which exclude by default.
     pub outputs: BTreeMap<&'static str, Option<String>>,
+    /// The directory of `baseUrl`, and of the config that sets `paths`.
+    pub base_url: Option<String>,
+    pub paths_directory: String,
+    /// A setting that changes resolution could not be read.
+    pub partial: bool,
+}
+
+/// What the resolver and the collector need from one TSConfig.
+pub struct Config {
+    pub options: Options,
+    /// The snapshot-relative files that the config selects inside the requested roots, sorted.
+    pub files: Vec<String>,
+    pub partial: bool,
 }
 
 impl Layer {
+    /// A layer that could not be read: it sets nothing and makes the settings partial.
+    fn unread(directory: &str) -> Layer {
+        Layer {
+            paths_directory: directory.to_owned(),
+            partial: true,
+            ..Layer::default()
+        }
+    }
+
+    /// `config._overlay`: `high` wins key by key; `paths` keeps the directory of its config.
     fn overlay(mut self, high: Layer) -> Layer {
+        if high.compiler.contains_key("baseUrl") {
+            self.base_url = high.base_url;
+        }
+        if high.compiler.contains_key("paths") {
+            self.paths_directory = high.paths_directory;
+        }
         self.compiler.extend(high.compiler);
         self.specs.extend(high.specs);
         self.outputs.extend(high.outputs);
+        self.partial |= high.partial;
         self
     }
 
@@ -47,20 +79,25 @@ impl Layer {
     }
 }
 
-/// The snapshot-relative files that the TSConfig selects inside the requested roots, sorted.
-pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) -> Vec<String> {
+/// `config.load_config`: the settings and the selected files of the TSConfig.
+pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) -> Config {
     let mut problems = Vec::new();
     let own = match dirname(tsconfig) {
         "" => ".",
         directory => directory,
     };
     let layer = read_layer(snapshot, tsconfig, own, &mut problems, &[]);
-    let references = read_json(snapshot, tsconfig)
-        .0
+    let raw = read_json(snapshot, tsconfig).0;
+    let references = raw
+        .as_ref()
         .is_some_and(|raw| raw.contains_key("references"));
     if references {
         problems.push("Project references require separately observed projects".to_owned());
     }
+    let options_before = problems.len();
+    let options = options::build(&layer, &mut problems);
+    options::script_environment(raw.as_ref(), &mut problems);
+    let options_partial = problems.len() > options_before;
     let listed = discover(snapshot, &layer, own, &mut problems);
     if listed.is_empty() && !references {
         problems.push("No inputs were found in config file.".to_owned());
@@ -91,7 +128,11 @@ pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) ->
         problems.push("No selected source files".to_owned());
     }
     snapshot.problems.extend(problems);
-    chosen.into_iter().collect()
+    Config {
+        options,
+        files: chosen.into_iter().collect(),
+        partial: layer.partial || options_partial,
+    }
 }
 
 /// The file text without its byte order mark, then without JSONC comments and trailing commas.
@@ -208,33 +249,53 @@ fn read_layer(
     .to_owned();
     let Some(raw) = raw else {
         problems.push(error);
-        return Layer::default();
+        return Layer::unread(&directory);
     };
-    let mut layer = Layer::default();
+    let mut layer = Layer {
+        paths_directory: directory.clone(),
+        ..Layer::default()
+    };
     match raw.get("compilerOptions") {
         Some(Value::Object(options)) => layer.compiler = options.clone(),
         None | Some(Value::Null) => {}
         Some(_) => {
+            layer.partial = true;
             problems.push("Compiler option 5024: 'compilerOptions' must be an object.".to_owned())
         }
     }
+    let refused = options::invalid(&layer.compiler);
+    layer.partial |= !refused.is_empty();
+    problems.extend(refused);
+    let before_paths = problems.len();
+    options::paths(&layer.compiler, problems);
+    layer.partial |= problems.len() > before_paths;
     for key in ["files", "include", "exclude"] {
         match raw.get(key) {
             Some(Value::Array(items)) if items.iter().all(Value::is_string) => {
-                let specs = items
+                let items: Vec<String> = items
                     .iter()
                     .filter_map(Value::as_str)
                     .map(|item| item.replace('\\', "/"))
+                    .collect();
+                layer.partial |= items.iter().any(|item| item.starts_with('/'));
+                let specs = items
+                    .iter()
                     .filter(|item| !item.starts_with('/'))
-                    .map(|item| under(&item, &directory, own))
+                    .map(|item| under(item, &directory, own))
                     .collect();
                 layer.specs.insert(key, specs);
             }
             None | Some(Value::Null) => {}
-            Some(_) => problems.push(format!(
-                "Compiler option 5024: '{key}' must be a list of strings."
-            )),
+            Some(_) => {
+                layer.partial = true;
+                problems.push(format!(
+                    "Compiler option 5024: '{key}' must be a list of strings."
+                ));
+            }
         }
+    }
+    if let Some(Value::String(base)) = layer.compiler.get("baseUrl") {
+        layer.base_url = Some(under(base, &directory, own));
     }
     for name in ["outDir", "declarationDir"] {
         if let Some(value) = layer.compiler.get(name) {
@@ -247,23 +308,30 @@ fn read_layer(
         Some(Value::Array(items)) => items.clone(),
         Some(other) => vec![other.clone()],
     };
-    let mut inherited = Layer::default();
+    let mut inherited = Layer {
+        paths_directory: directory.clone(),
+        ..Layer::default()
+    };
     let mut chain = vec![rel.to_owned()];
     chain.extend_from_slice(stack);
     for entry in entries {
+        // An entry that cannot be followed leaves the inherited settings unknown.
         let Some(entry) = entry.as_str() else {
             problems.push(
                 "Compiler option 5024: 'extends' must be a string or a list of strings.".to_owned(),
             );
+            inherited = inherited.overlay(Layer::unread(&directory));
             continue;
         };
         let Some(path) = extended(snapshot, entry, &directory, problems) else {
+            inherited = inherited.overlay(Layer::unread(&directory));
             continue;
         };
         if chain.contains(&path) {
             problems.push(format!(
                 "Circularity detected while resolving configuration: {path}"
             ));
+            inherited = inherited.overlay(Layer::unread(&directory));
             continue;
         }
         inherited = inherited.overlay(read_layer(snapshot, &path, own, problems, &chain));
@@ -286,7 +354,7 @@ fn extended(
         return None;
     }
     let mut path = join(directory, &named);
-    if !snapshot.is_file(&path) && !is_json(&path) {
+    if !snapshot.is_file(&path) && classify_file(&path) != Some(Suffix::Json) {
         path.push_str(".json");
     }
     if snapshot.is_file(&path) {

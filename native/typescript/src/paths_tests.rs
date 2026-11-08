@@ -43,32 +43,3 @@ fn scope_tests_follow_config_within() {
     assert!(is_outside("../a") && is_outside(".."));
     assert!(!is_outside("..a"));
 }
-
-#[test]
-fn the_longest_suffix_decides_the_source_kind() {
-    assert_eq!(
-        suffix("a.d.ts"),
-        Some((".d.ts", Some(SourceKind::Declaration)))
-    );
-    assert_eq!(
-        suffix("a.tsx"),
-        Some((".tsx", Some(SourceKind::TypeScript)))
-    );
-    assert_eq!(
-        suffix("a.mjs"),
-        Some((".mjs", Some(SourceKind::JavaScript)))
-    );
-    assert_eq!(suffix("a.json"), Some((".json", None)));
-    assert_eq!(suffix("a.css"), None);
-}
-
-#[test]
-fn a_higher_priority_sibling_shadows_a_file() {
-    let known = |path: &str| ["a.ts", "a.js", "a.d.ts", "b.d.ts", "b.js", "c.mts"].contains(&path);
-    assert!(shadowed("a.js", &known));
-    assert!(shadowed("a.d.ts", &known));
-    assert!(!shadowed("a.ts", &known));
-    // A declaration does not shadow its JavaScript file.
-    assert!(!shadowed("b.js", &known));
-    assert!(!shadowed("c.mts", &known));
-}

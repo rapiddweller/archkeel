@@ -53,7 +53,7 @@ struct Collection<'a> {
 pub fn collect(request: &Request, provenance: Provenance) -> Facts {
     let roots: Vec<String> = request.roots.iter().map(|root| join(".", root)).collect();
     let mut snapshot = Snapshot::new(&request.root);
-    let listed = load_config(&mut snapshot, &request.tsconfig, &roots);
+    let listed = load_config(&mut snapshot, &request.tsconfig, &roots).files;
     let mut collection = Collection {
         request,
         snapshot,
