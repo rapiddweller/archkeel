@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The Python TypeScript collector in the legacy mode of the native collector (AD-319).
+"""The Python TypeScript collector in the legacy mode of the native collector (AD-320).
 
 The native collector of PR 4.2 records one import for each statement under the legacy capability.
 It has no binding expansion, no script globals, no symbols, calls or references. This module runs

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-319: the verdicts of the host with the native collector, against two Python collectors.
+"""AD-320: the verdicts of the host with the native collector, against two Python collectors.
 
 Consumer: the host (`run_report`). The native collector has the legacy capability: module-level
 imports, no symbols and no script globals. Against the Python collector in the same legacy mode

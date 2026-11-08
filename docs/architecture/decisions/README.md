@@ -325,3 +325,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-317 | [A platform wheel carries the native TypeScript collector](ad-317-a-platform-wheel-carries-the-native-typescript-collector.md) |
 | AD-318 | [The host keeps one copy of each observation in explore](ad-318-the-host-keeps-one-copy-of-each-observation-in-explore.md) |
 | AD-319 | [A collector process has a memory limit and a checked adapter version](ad-319-a-collector-process-has-a-memory-limit-and-a-checked-adapter-version.md) |
+| AD-320 | [The native collector records import statements with the grammar of the Python collector](ad-320-the-native-collector-records-import-statements.md) |

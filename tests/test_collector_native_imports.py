@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-319: the native collector extracts the same imports as the Python TypeScript collector.
+"""AD-320: the native collector extracts the same imports as the Python TypeScript collector.
 
 Consumer: the host process port. The oracle is the Python collector in the legacy mode of the
 native collector (`native_oracle`): the four producers that the native collector does not have are
@@ -429,7 +429,7 @@ def test_the_reply_is_the_same_bytes_on_every_run(native_binary: Path) -> None:
 
 def test_deep_nesting_gives_a_result(tmp_path: Path, native_binary: Path) -> None:
     # The walk of the tree is iterative, so nesting cannot overflow the stack. The Python collector
-    # stops with a RecursionError long before this depth; AD-319 records that difference.
+    # stops with a RecursionError long before this depth; AD-320 records that difference.
     (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
     (tmp_path / "src").mkdir()
     depth = 30_000

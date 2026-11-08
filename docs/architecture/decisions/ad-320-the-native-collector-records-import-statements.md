@@ -1,4 +1,4 @@
-# AD-319 The native collector records import statements with the grammar of the Python collector
+# AD-320 The native collector records import statements with the grammar of the Python collector
 
 **Decision.** PR 4.2 of issue #880 gives `archkeel-typescript-collector` module resolution and one
 import record for each import statement, with its target, in the protocol 8 reply of AD-316. The

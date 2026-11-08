@@ -24,7 +24,7 @@ dependency policy of `cargo deny`. The binary is a drop-in for the Python TypeSc
 4. It selects files as `config.load_config` does: `extends`, `files`, `include`, `exclude`,
    `allowJs`, `checkJs`, `outDir` and `declarationDir`. It reports the files, inputs, coverage
    and file evidence. A directory, an entry or a file name that it cannot read is a collection gap.
-5. The skeleton extracted no imports and gave each file one `source_resolution_gap`. AD-319
+5. The skeleton extracted no imports and gave each file one `source_resolution_gap`. AD-320
    replaces this with the import records. The collector invents no evidence.
 6. A 9.0.0 request with `exclude_test_sources` removes test sources with the rule of
    `profiles.is_test_source` (AD-313). When this removes every file, the gap "No production
@@ -54,7 +54,7 @@ only one producer changes when protocol 10 gets one fact record. Protocol 9 belo
 - Code from codebase-memory-mcp now. The skeleton has no resolver that needs it (YAGNI).
 
 **Limit.**
-- AD-319 reads the compiler options, the script environment and the `package.json` files.
+- AD-320 reads the compiler options, the script environment and the `package.json` files.
 - Without `ARCHKEEL_VERSION` at build time, the adapter version is `0+unknown`.
 - Timings are not a performance claim. The bans list known crates; a new crate with the same
   purpose needs a review of its own.
