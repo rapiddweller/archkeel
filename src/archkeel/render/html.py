@@ -13,6 +13,7 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import replace
 from importlib.resources import files
+from io import BytesIO as _BytesIO
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import Final, TypeAlias
 from urllib.parse import quote as _quote
@@ -29,7 +30,7 @@ from archkeel.ir.architecture_graph import PresenceKind as _PresenceKind
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import ViolationFingerprint, canonical_fingerprint, violation_fingerprint
 from archkeel.ir.bindings import BindingReads, unread_bindings
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import decode_canonical_model, parse_observation, write_json
 from archkeel.ir.decisions import agent_decisions, declares_a_target, open_decisions
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
@@ -98,6 +99,7 @@ _NO_TARGET_STYLE: Final = (
 )
 # Python runs a package's `__main__` module for `python -m`: the one observed entry point.
 _ENTRY_MODULE: Final = "__main__"
+_PAYLOAD_MARK: Final = b"\x00archkeel-payload\x00"
 
 
 def _asset(name: str) -> bytes:
@@ -801,11 +803,16 @@ def _flow_section(observation: Observation) -> str:
     return warning + _explorer_section(payload.replace("<", "\\u003c"))
 
 
-def _atlas_section(payload: dict[str, object], view_check: str | None = None) -> str:
-    encoded = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    ).replace("<", "\\u003c")
-    return _explorer_section(encoded, atlas=True, view_check=view_check)
+def _with_payload(page: bytes, payload: dict[str, object]) -> bytes:
+    """AD-324: put the payload at the mark of the page as bytes. The page text never holds it."""
+    if page.count(_PAYLOAD_MARK) != 1:
+        raise ValueError("an Atlas page needs its payload mark exactly once")
+    head, _, tail = page.partition(_PAYLOAD_MARK)
+    out = _BytesIO()
+    out.write(head)
+    write_json(out, payload, html_safe=True)
+    out.write(tail)
+    return out.getvalue()
 
 
 def _atlas_rule_counts(result: RunResult) -> str:
@@ -1153,7 +1160,7 @@ def _atlas_content(
       {target_warning}
       {status_header}
       {_NO_TARGET_STYLE if result.target is TargetStatus.UNAVAILABLE else ""}
-      {_atlas_section(data, view_check)}
+      {_explorer_section(_PAYLOAD_MARK.decode(), atlas=True, view_check=view_check)}
       {
         _atlas_structure_overview(observation, result.architecture_projection)
         if not detail_page
@@ -1198,7 +1205,7 @@ def _atlas_document(
         "repository": repository,
         "main_href": f"{_PurePosixPath(architecture_href).stem}.report.html",
     }
-    return _document(
+    page = _document(
         repository=repository,
         kind="Architecture report",
         title="ArchQ Explorer",
@@ -1211,6 +1218,7 @@ def _atlas_document(
             view_check=view_check,
         ),
     )
+    return _with_payload(page, data)
 
 
 def _component_navigation(
@@ -1323,22 +1331,20 @@ def _architecture_details(
         repository=repository,
         architecture_href=architecture_href,
     )
-    filename = f"{_PurePosixPath(architecture_href).stem}.detail.html"
-    return {
-        filename: _document(
+    page = _document(
+        repository=repository,
+        kind="Architecture report",
+        title="ArchQ Explorer",
+        content=_atlas_content(
+            result,
+            observation,
+            data,
             repository=repository,
-            kind="Architecture report",
-            title="ArchQ Explorer",
-            content=_atlas_content(
-                result,
-                observation,
-                data,
-                repository=repository,
-                architecture_href=architecture_href,
-                detail_page=True,
-            ),
-        )
-    }
+            architecture_href=architecture_href,
+            detail_page=True,
+        ),
+    )
+    return {f"{_PurePosixPath(architecture_href).stem}.detail.html": _with_payload(page, data)}
 
 
 def _measurements(measurements: Measurements | None) -> str:

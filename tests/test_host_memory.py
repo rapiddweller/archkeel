@@ -4,8 +4,10 @@
 """AD-324: the host writes large JSON in pieces and frees each copy as soon as it is made."""
 
 import json
+import re
 import tracemalloc
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from test_explore import _repository
@@ -174,3 +176,51 @@ def test_the_html_payload_is_the_report_wire_object_without_record_ids(
     assert warning is None
     assert json.loads(json.dumps(payload)) == wire
     assert "record_ids" not in json.dumps(payload)
+
+
+def test_a_page_holds_its_payload_where_the_mark_is() -> None:
+    payload = {"b": ["</script>", "é→"], "a": 1}
+    page = b"<script>" + html_renderer._PAYLOAD_MARK + b"</script>"
+
+    assert (
+        html_renderer._with_payload(page, payload)
+        == b"<script>" + _dumps(payload, _COMPACT).replace(b"<", b"\\u003c") + b"</script>"
+    )
+
+
+@pytest.mark.parametrize("page", [b"<script></script>", b"\x00archkeel-payload\x00" * 2])
+def test_a_page_needs_its_mark_exactly_once(page: bytes) -> None:
+    with pytest.raises(ValueError, match="payload mark exactly once"):
+        html_renderer._with_payload(page, {})
+
+
+def _flow_data(page: bytes) -> dict[str, object]:
+    match = re.search(rb'id="flow-data" type="application/json">(.*?)</script>', page, re.S)
+    assert match is not None
+    data: dict[str, object] = json.loads(match.group(1))
+    return data
+
+
+def test_the_pages_carry_their_payload_and_no_mark(tmp_path: Path) -> None:
+    root = _repository(tmp_path / "repo")
+    result, encoded, explored = run_explore(root, observer=observer_for(Language.PYTHON))
+    assert encoded is not None
+
+    pages = dict(
+        html_renderer.render_architecture_pages(
+            result,
+            encoded,
+            repository="repo",
+            architecture_href="architecture.json",
+            observation=explored,
+        )
+    )
+
+    assert b"\x00" not in b"".join(pages.values())
+    main = _flow_data(pages["architecture.report.html"])
+    detail = _flow_data(pages["architecture.detail.html"])
+    assert "atlas" in main
+    assert detail["initial_view"] == "diagram"
+    observed = detail["observed"]
+    assert isinstance(observed, dict) and observed["entities"]
+    assert all("record_ids" not in item for item in observed["entities"])
