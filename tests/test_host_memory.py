@@ -22,7 +22,10 @@ from archkeel.ir.codec import (
     write_json,
 )
 from archkeel.ir.codec_strings import StringTablePolicy, intern_strings
+from archkeel.ir.graph_codec import report_bytes, report_payload
 from archkeel.ir.model import CLASSIFIED_SECTIONS, Observation
+from archkeel.ir.report_graph import architecture_report
+from archkeel.render import html as html_renderer
 
 _COMPACT = (",", ":")
 _DEFAULT = (", ", ": ")
@@ -147,3 +150,27 @@ def test_the_encoder_names_a_section_that_is_no_array(
 
     with pytest.raises(ValueError, match=message):
         encode_canonical_model(raw, consume=True)
+
+
+def test_the_report_payload_is_the_wire_object_of_the_report_bytes(
+    observation: Observation,
+) -> None:
+    report = architecture_report(observation)
+
+    assert json.loads(json.dumps(report_payload(report))) == json.loads(report_bytes(report))
+
+
+def test_the_html_payload_is_the_report_wire_object_without_record_ids(
+    observation: Observation,
+) -> None:
+    report = architecture_report(observation)
+    wire = json.loads(report_bytes(report))
+    for graph in (wire["observed"], wire["target"]):
+        for item in (*graph["entities"], *graph["relationships"]) if graph else ():
+            del item["record_ids"]
+
+    _, payload, warning = html_renderer._html_report_payload(report)
+
+    assert warning is None
+    assert json.loads(json.dumps(payload)) == wire
+    assert "record_ids" not in json.dumps(payload)

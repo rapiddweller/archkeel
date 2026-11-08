@@ -34,7 +34,7 @@ from archkeel.ir.decisions import agent_decisions, declares_a_target, open_decis
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.findings import findings_note
-from archkeel.ir.graph_codec import WireComponentSelectorError, report_bytes
+from archkeel.ir.graph_codec import WireComponentSelectorError, report_payload
 from archkeel.ir.interfaces import (
     InterfaceEdge,
     InterfaceName,
@@ -126,11 +126,11 @@ def _verdict_card(row: VerdictRow) -> str:
 
 def _html_report_payload(
     report: ArchitectureReport,
-) -> tuple[ArchitectureReport, bytes, str | None]:
+) -> tuple[ArchitectureReport, dict[str, object], str | None]:
     """Keep invalid target intent UNKNOWN while producing only valid report wire data."""
     warning: str | None = None
     try:
-        encoded_bytes = report_bytes(report)
+        payload = report_payload(report)
     except WireComponentSelectorError as error:
         warning = f"UNKNOWN: Target graph unavailable: {error}"
         source_ids = (
@@ -157,18 +157,12 @@ def _html_report_payload(
             memberships=(),
             decision_gaps=(),
         )
-        encoded_bytes = report_bytes(report)
-
-    payload = json.loads(encoded_bytes)
-    for side in ("observed", "target"):
-        graph = payload[side]
-        if graph is None:
-            continue
-        for collection in ("entities", "relationships"):
-            for item in graph[collection]:
+        payload = report_payload(report)
+    for graph in (payload["observed"], payload["target"]):
+        if isinstance(graph, dict):
+            for item in (*graph["entities"], *graph["relationships"]):
                 del item["record_ids"]
-    payload_text = json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n"
-    return report, payload_text.encode("utf-8"), warning
+    return report, payload, warning
 
 
 def _document(*, repository: str, kind: str, title: str, content: str) -> bytes:
@@ -800,8 +794,8 @@ def _explorer_section(payload: str, *, atlas: bool = False, view_check: str | No
 
 def _flow_section(observation: Observation) -> str:
     """Render the validated report boundary through one UML scene renderer."""
-    _, encoded, warning = _html_report_payload(architecture_report(observation))
-    payload: str = encoded.decode("utf-8")
+    _, data, warning = _html_report_payload(architecture_report(observation))
+    payload: str = json.dumps(data, sort_keys=True, ensure_ascii=False) + "\n"
     warning = f'<p class="atlas-target-warning">{_text(warning)}</p>' if warning is not None else ""
     # A literal closing script tag must not escape the embedded JSON element.
     return warning + _explorer_section(payload.replace("<", "\\u003c"))
@@ -1291,7 +1285,7 @@ def render_architecture_details(
         result.architecture_projection,
         repository=repository,
         architecture_href=architecture_href,
-        embedded_report=payload,
+        data=payload,
         target_warning=warning,
     )
 
@@ -1304,7 +1298,7 @@ def _architecture_details(
     *,
     repository: str,
     architecture_href: str,
-    embedded_report: bytes,
+    data: dict[str, object],
     target_warning: str | None,
     levels: tuple[ModuleExploreLevel, ...] | None = None,
 ) -> dict[str, bytes]:
@@ -1313,7 +1307,6 @@ def _architecture_details(
         if report.target
         else ()
     )
-    data = json.loads(embedded_report)
     if target_warning is not None:
         data["target_unavailable"] = target_warning
     data["boundary_permissions"] = boundary_permissions_payload(observation, report, projection)
@@ -2236,7 +2229,7 @@ def render_architecture_pages(
         projection,
         repository=repository,
         architecture_href=architecture_href,
-        embedded_report=embedded_report,
+        data=embedded_report,
         target_warning=warning,
         levels=levels,
     )

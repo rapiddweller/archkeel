@@ -722,12 +722,12 @@ def _report_finding(value: RawJson) -> ReportFinding:
     )
 
 
-def report_bytes(report: ArchitectureReport) -> bytes:
+def report_payload(report: ArchitectureReport) -> dict[str, object]:
     report.validate()
     for graph in (report.observed, report.target):
         if graph is not None:
             _validate_wire_component_selectors(graph)
-    payload = {
+    return {
         "observed": None if report.observed is None else _graph_payload(report.observed),
         "target": None if report.target is None else _graph_payload(report.target),
         "comparison": None if report.comparison is None else asdict(report.comparison),
@@ -737,4 +737,7 @@ def report_bytes(report: ArchitectureReport) -> bytes:
         "memberships": [asdict(item) for item in report.memberships],
         "decision_gaps": [asdict(item) for item in report.decision_gaps],
     }
-    return json_bytes(payload, separators=(", ", ": "), tail=b"\n")
+
+
+def report_bytes(report: ArchitectureReport) -> bytes:
+    return json_bytes(report_payload(report), separators=(", ", ": "), tail=b"\n")
