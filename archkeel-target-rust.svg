@@ -1,0 +1,315 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2126" width="1800" height="2126" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="1800" height="2126" fill="#ffffff"/>
+
+  <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">ArchKeel target architecture: what is Rust, what stays</text>
+  <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-08, 15 PRs merged.</text>
+
+  <!-- legend -->
+  <rect x="40" y="104" width="22" height="22" rx="4" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="70" y="121" font-size="14" fill="#0f172a">New in Rust</text>
+  <rect x="200" y="104" width="22" height="22" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="230" y="121" font-size="14" fill="#0f172a">Python, restructured (max 500 lines per file)</text>
+  <rect x="570" y="104" width="22" height="22" rx="4" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="600" y="121" font-size="14" fill="#0f172a">Unchanged</text>
+  <rect x="720" y="104" width="22" height="22" rx="4" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="750" y="121" font-size="14" fill="#0f172a">Design source only</text>
+  <rect x="920" y="104" width="22" height="22" rx="4" fill="#fee2e2" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="950" y="121" font-size="14" fill="#0f172a">Deleted</text>
+
+  <!-- lane headers -->
+  <g font-size="14" font-weight="700" fill="#475569" letter-spacing="1">
+    <text x="40" y="168">1 INPUT</text>
+    <text x="290" y="168">2 COLLECT</text>
+    <text x="680" y="168">3 CONTRACT</text>
+    <text x="890" y="168">4 STORE AND MODEL</text>
+    <text x="1310" y="168">5 DECIDE</text>
+    <text x="1560" y="168">6 SHOW</text>
+  </g>
+
+  <!-- 1 input -->
+  <rect x="40" y="360" width="200" height="140" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="56" y="392" font-size="17" font-weight="700" fill="#0f172a">Source code</text>
+  <text x="56" y="420" font-size="14" fill="#334155">Python</text>
+  <text x="56" y="442" font-size="14" fill="#334155">TypeScript and React</text>
+  <text x="56" y="464" font-size="14" fill="#334155">Dart (later: more)</text>
+
+  <!-- 2 collect: Rust -->
+  <rect x="290" y="185" width="340" height="445" rx="12" fill="#ffedd5" stroke="#ea580c" stroke-width="3"/>
+  <text x="308" y="216" font-size="19" font-weight="700" fill="#9a3412">Rust collectors (new)</text>
+  <text x="308" y="236" font-size="13" fill="#9a3412">behind the existing wire, one run per repository</text>
+  <g font-size="14" fill="#0f172a">
+    <rect x="308" y="250" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
+    <text x="322" y="272" font-weight="700">1 discover files</text><text x="322" y="291" font-size="12.5" fill="#475569">whole repository, all packages</text>
+    <rect x="308" y="316" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
+    <text x="322" y="338" font-weight="700">2 extract per file</text><text x="322" y="357" font-size="12.5" fill="#475569">tree-sitter, parallel, keyed by file hash</text>
+    <rect x="308" y="382" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
+    <text x="322" y="404" font-weight="700">3 type registry and scope</text><text x="322" y="423" font-size="12.5" fill="#475569">CBM design, our evidence rules</text>
+    <rect x="308" y="448" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
+    <text x="322" y="470" font-weight="700">4 resolve imports, calls, JSX</text><text x="322" y="489" font-size="12.5" fill="#475569">proven · candidate · unresolved</text>
+    <rect x="308" y="514" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
+    <text x="322" y="536" font-weight="700">5 completeness</text><text x="322" y="555" font-size="12.5" fill="#475569">per file and fact kind (proof of absence)</text>
+  </g>
+  <g stroke="#334155" stroke-width="2" marker-end="url(#arr)">
+    <line x1="460" y1="302" x2="460" y2="314"/><line x1="460" y1="368" x2="460" y2="380"/>
+    <line x1="460" y1="434" x2="460" y2="446"/><line x1="460" y1="500" x2="460" y2="512"/>
+  </g>
+  <rect x="308" y="580" width="148" height="34" rx="17" fill="#ea580c"/>
+  <text x="382" y="602" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">PR 4: TS + React</text>
+  <rect x="466" y="580" width="146" height="34" rx="17" fill="#ea580c"/>
+  <text x="539" y="602" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">PR 5: Python</text>
+
+  <rect x="290" y="650" width="340" height="66" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="306" y="676" font-size="15" font-weight="700" fill="#0f172a">Dart collector: frozen</text>
+  <text x="306" y="698" font-size="13" fill="#475569">no Rust port; PR 8 may remove it</text>
+
+  <rect x="290" y="736" width="340" height="66" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="306" y="762" font-size="15" font-weight="700" fill="#991b1b">Old Python collectors for TS and Python</text>
+  <text x="306" y="784" font-size="13" fill="#991b1b">deleted in PR 6 (one producer per language)</text>
+
+  <rect x="290" y="822" width="340" height="66" rx="10" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="306" y="848" font-size="15" font-weight="700" fill="#5b21b6">CBM (C): design source, test oracle</text>
+  <text x="306" y="870" font-size="13" fill="#5b21b6">never runs in ArchKeel; feeds lane 2</text>
+  
+  <!-- 3 contract -->
+  <rect x="680" y="300" width="170" height="260" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="696" y="330" font-size="17" font-weight="700" fill="#1e3a8a">Collector wire</text>
+  <text x="696" y="354" font-size="13" fill="#1e3a8a">protocol 9 today (#876)</text>
+  <text x="696" y="386" font-size="13" font-weight="700" fill="#1e3a8a">PR 3 (later) adds</text>
+  <text x="696" y="404" font-size="13" font-weight="700" fill="#1e3a8a">one record, V10:</text>
+  <text x="696" y="428" font-size="13" fill="#1e3a8a">kind, path, span</text>
+  <text x="696" y="448" font-size="13" fill="#1e3a8a">producer + version</text>
+  <text x="696" y="468" font-size="13" fill="#1e3a8a">status:</text>
+  <text x="696" y="488" font-size="13" fill="#1e3a8a">proven, candidate,</text>
+  <text x="696" y="508" font-size="13" fill="#1e3a8a">unresolved,</text>
+  <text x="696" y="528" font-size="13" fill="#1e3a8a">unsupported</text>
+
+  <!-- 4 store and model: Python restructured -->
+  <rect x="890" y="185" width="370" height="565" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
+  <text x="908" y="216" font-size="19" font-weight="700" fill="#1e3a8a">Python, restructured</text>
+  <text x="908" y="236" font-size="13" fill="#1e3a8a">replaces ir/: 62 files, 17 of them over 500 lines</text>
+  <g font-size="14" fill="#0f172a">
+    <rect x="908" y="254" width="334" height="100" rx="8" fill="#ffffff" stroke="#2563eb"/>
+    <text x="922" y="278" font-size="16" font-weight="700">source</text>
+    <text x="922" y="300" font-size="13" fill="#475569">fact store (AD-310, SQLite)</text>
+    <text x="922" y="320" font-size="13" fill="#475569">whole-run result cache</text>
+    <text x="922" y="340" font-size="13" fill="#475569">key: source digest, producer, config</text>
+    <rect x="908" y="368" width="334" height="90" rx="8" fill="#ffffff" stroke="#2563eb"/>
+    <text x="922" y="392" font-size="16" font-weight="700">evidence</text>
+    <text x="922" y="414" font-size="13" fill="#475569">provenance, status, coverage</text>
+    <text x="922" y="434" font-size="13" fill="#475569">PASS needs every file complete</text>
+    <rect x="908" y="472" width="334" height="100" rx="8" fill="#ffffff" stroke="#2563eb"/>
+    <text x="922" y="496" font-size="16" font-weight="700">architecture</text>
+    <text x="922" y="518" font-size="13" fill="#475569">ONE owner: identity, membership,</text>
+    <text x="922" y="538" font-size="13" fill="#475569">coverage; observed vs Target</text>
+    <text x="922" y="558" font-size="13" fill="#475569">source and Target ids stay separate</text>
+    <rect x="908" y="586" width="334" height="90" rx="8" fill="#ffffff" stroke="#2563eb"/>
+    <text x="922" y="610" font-size="16" font-weight="700">wire (readers)</text>
+    <text x="922" y="632" font-size="13" fill="#475569">strict readers of saved formats:</text>
+    <text x="922" y="652" font-size="13" fill="#475569">architecture.json, contract, load_violations</text>
+  </g>
+  <text x="908" y="710" font-size="13" font-style="italic" fill="#1e3a8a">PR 1 and PR 2. Removes 2 to 4 copies of the</text>
+  <text x="908" y="730" font-size="13" font-style="italic" fill="#1e3a8a">membership code and the AST re-parse copies.</text>
+
+  <!-- 5 decide: unchanged -->
+  <rect x="1310" y="300" width="210" height="220" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="1326" y="332" font-size="17" font-weight="700" fill="#0f172a">check/ rules</text>
+  <text x="1326" y="358" font-size="13" fill="#334155">engine unchanged</text>
+  <text x="1326" y="386" font-size="14" font-weight="700" fill="#0f172a">PASS · FAIL · UNKNOWN</text>
+  <text x="1326" y="414" font-size="13" fill="#334155">reads only proven facts</text>
+  <text x="1326" y="434" font-size="13" fill="#334155">and completeness rows</text>
+  <text x="1326" y="462" font-size="13" fill="#334155">a candidate never gives</text>
+  <text x="1326" y="482" font-size="13" fill="#334155">PASS</text>
+
+  <!-- 6 show -->
+  <rect x="1560" y="230" width="210" height="96" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="1576" y="260" font-size="17" font-weight="700" fill="#0f172a">Studio</text>
+  <text x="1576" y="284" font-size="13" fill="#334155">server and UI</text>
+  <text x="1576" y="304" font-size="13" fill="#334155">unchanged</text>
+  <rect x="1560" y="344" width="210" height="96" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="1576" y="374" font-size="17" font-weight="700" fill="#0f172a">CLI, MCP, agents</text>
+  <text x="1576" y="398" font-size="13" fill="#334155">unchanged</text>
+  <rect x="1560" y="458" width="210" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="1576" y="488" font-size="17" font-weight="700" fill="#1e3a8a">Static report</text>
+  <text x="1576" y="512" font-size="13" fill="#1e3a8a">PR 7: small HTML replaces</text>
+  <text x="1576" y="532" font-size="13" fill="#1e3a8a">the interactive JS report</text>
+  <text x="1576" y="552" font-size="13" fill="#1e3a8a">PASS, FAIL, UNKNOWN + links</text>
+
+  <!-- git band -->
+  <rect x="40" y="920" width="1730" height="74" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="60" y="952" font-size="17" font-weight="700" fill="#0f172a">Git (reviewed, unchanged): architecture contract, nested contracts, Target model, system landscape (#860)</text>
+  <text x="60" y="976" font-size="13" fill="#334155">Greenfield works without source code, without a collector and without a daemon. Rules and Target identity do not depend on the collector.</text>
+
+  <!-- arrows main flow -->
+  <g stroke="#334155" stroke-width="3" marker-end="url(#arr)" fill="none">
+    <line x1="240" y1="430" x2="288" y2="430"/>
+    <line x1="630" y1="430" x2="678" y2="430"/>
+    <line x1="850" y1="430" x2="888" y2="430"/>
+    <line x1="1260" y1="410" x2="1308" y2="410"/>
+    <line x1="1520" y1="360" x2="1558" y2="290"/>
+    <line x1="1520" y1="400" x2="1558" y2="392"/>
+    <line x1="1520" y1="440" x2="1558" y2="500"/>
+  </g>
+  <!-- git arrows -->
+  <g stroke="#64748b" stroke-width="3" marker-end="url(#arr)" fill="none">
+    <line x1="1075" y1="918" x2="1075" y2="752"/>
+    <line x1="1415" y1="918" x2="1415" y2="522"/>
+  </g>
+
+  <text x="40" y="1032" font-size="14" fill="#0f172a">Rules for all new code: one owner per concept (SPOT) · one reason to change (SOC) · one producer per language and fact kind (DRY) · at most 500 lines per file · port only what a rule or a view uses (YAGNI)</text>
+
+  <!-- progress overlay -->
+  <text x="1060" y="121" font-size="14" font-weight="700" fill="#0f172a">Status:</text>
+  <rect x="1120" y="106" width="64" height="19" rx="9.5" fill="#16a34a"/><text x="1152.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <rect x="1196" y="106" width="104" height="19" rx="9.5" fill="#f59e0b"/><text x="1248.0" y="119.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <rect x="1312" y="106" width="112" height="19" rx="9.5" fill="#db2777"/><text x="1368.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DECISION OPEN</text>
+  <rect x="1436" y="106" width="76" height="19" rx="9.5" fill="#94a3b8"/><text x="1474.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <rect x="304" y="378" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
+  <rect x="476" y="370" width="132" height="19" rx="9.5" fill="#16a34a"/><text x="542.0" y="383.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PILOT DONE (scratch)</text>
+  <rect x="304" y="246" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
+  <rect x="486" y="243" width="122" height="19" rx="9.5" fill="#16a34a"/><text x="547.0" y="256.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">SKELETON MERGED</text>
+  <rect x="304" y="312" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
+  <rect x="452" y="309" width="156" height="19" rx="9.5" fill="#16a34a"/><text x="530.0" y="322.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">IMPORTS MERGED (#893)</text>
+  <rect x="304" y="510" width="312" height="60" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
+  <rect x="452" y="502" width="156" height="19" rx="9.5" fill="#f59e0b"/><text x="530.0" y="515.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">GAPS ONLY (4.1a)</text>
+  <rect x="283" y="178" width="354" height="459" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
+  <rect x="342" y="170" width="291" height="19" rx="9.5" fill="#f59e0b"/><text x="487.5" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">4.1a, 4.1b-1, 4.1b-2 MERGED · 4.2 MERGED · 4.3a NEXT</text>
+  <rect x="676" y="296" width="178" height="268" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
+  <rect x="690" y="288" width="150" height="19" rx="9.5" fill="#16a34a"/><text x="765.0" y="301.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">V9 MERGED (#876)</text>
+  <rect x="664" y="594" width="196" height="196" rx="10" fill="#f1f5f9"/>
+  <rect x="660" y="590" width="204" height="204" rx="14" fill="none" stroke="#94a3b8" stroke-width="5" stroke-dasharray="14 7"/>
+  <rect x="676" y="582" width="172" height="19" rx="9.5" fill="#94a3b8"/><text x="762.0" y="595.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED · AFTER #860</text>
+  <text x="676" y="622" font-size="15" font-weight="700" fill="#334155">Cross-boundary facts</text>
+  <text x="676" y="646" font-size="12.5"  fill="#475569">REST route and client call</text>
+  <text x="676" y="663" font-size="12.5"  fill="#475569">queue publish and consume</text>
+  <text x="676" y="680" font-size="12.5"  fill="#475569">database, broker, external</text>
+  <text x="676" y="697" font-size="12.5"  fill="#475569">system (Helm, config).</text>
+  <text x="676" y="714" font-size="12.5" font-weight="700" fill="#475569">One fact record (V10).</text>
+  <text x="676" y="731" font-size="12.5"  fill="#475569">A link needs both sides:</text>
+  <text x="676" y="748" font-size="12.5"  fill="#475569">one side missing = UNKNOWN.</text>
+  <text x="676" y="765" font-size="12.5"  fill="#475569">Declared side: #860 (Git).</text>
+  <rect x="883" y="178" width="384" height="579" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
+  <rect x="1010" y="170" width="252" height="19" rx="9.5" fill="#f59e0b"/><text x="1136.0" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">S1, S2 MERGED · S3 NEXT</text>
+  <rect x="1122" y="258" width="112" height="19" rx="9.5" fill="#94a3b8"/><text x="1178.0" y="271.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 3 · PLANNED</text>
+  <rect x="1136" y="372" width="98" height="19" rx="9.5" fill="#94a3b8"/><text x="1185.0" y="385.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S3 · PLANNED</text>
+  <rect x="1100" y="476" width="134" height="19" rx="9.5" fill="#16a34a"/><text x="1167.0" y="489.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S2 MERGED (#894)</text>
+  <rect x="1096" y="590" width="138" height="19" rx="9.5" fill="#94a3b8"/><text x="1165.0" y="603.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S5 · AFTER #860</text>
+  <rect x="510" y="727" width="100" height="19" rx="9.5" fill="#94a3b8"/><text x="560.0" y="740.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 6 · PLANNED</text>
+  <rect x="512" y="813" width="108" height="19" rx="9.5" fill="#16a34a"/><text x="566.0" y="826.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">USED IN PILOT</text>
+  <rect x="1648" y="445" width="114" height="19" rx="9.5" fill="#94a3b8"/><text x="1705.0" y="458.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 7 · PLANNED</text>
+  <rect x="486" y="641" width="134" height="19" rx="9.5" fill="#94a3b8"/><text x="553.0" y="654.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FROZEN · PR 8 LAST</text>
+  <rect x="1440" y="604" width="330" height="186" rx="10" fill="#f0fdf4"/>
+  <rect x="1436" y="600" width="338" height="194" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
+  <rect x="1480" y="592" width="250" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="605.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">15 PRs MERGED INTO MAIN</text>
+  <text x="1454" y="632" font-size="13" font-weight="700" fill="#14532d">#881 #882 size rule, pin tests</text>
+  <text x="1454" y="649" font-size="13"  fill="#14532d">#883 #886 macOS · #876 V9 scope</text>
+  <text x="1454" y="666" font-size="13"  fill="#14532d">#884 IR owners · #894 scope owner (S2)</text>
+  <text x="1454" y="683" font-size="13"  fill="#14532d">#885 Rust skeleton (AD-316)</text>
+  <text x="1454" y="700" font-size="13"  fill="#14532d">#887 CI filter · #888 wheel hook</text>
+  <text x="1454" y="717" font-size="13"  fill="#14532d">#889 SIGINT, mutants · #890 wheel CI</text>
+  <text x="1454" y="734" font-size="13"  fill="#14532d">#891 host peak -38 % on Linux</text>
+  <text x="1454" y="751" font-size="13"  fill="#14532d">#892 memory limit, version check</text>
+  <text x="1454" y="768" font-size="13"  fill="#14532d">#893 native imports (4.2, AD-320)</text>
+  <rect x="1440" y="826" width="330" height="88" rx="10" fill="#fffbeb"/>
+  <rect x="1436" y="822" width="338" height="96" rx="14" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="10 5"/>
+  <rect x="1470" y="814" width="270" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="827.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR H STEP 2 · MERGED (#891)</text>
+  <text x="1454" y="844" font-size="13" font-weight="700" fill="#78350f">Host peak on Linux: 1 848 to 1 145 MiB (-38 %).</text>
+  <text x="1454" y="864" font-size="13"  fill="#78350f">Host time 62.2 to 52.5 s (-15.6 %).</text>
+  <text x="1454" y="884" font-size="13"  fill="#78350f">Gate met. 1 GiB needs a smaller payload.</text>
+  <text x="40" y="1070" font-size="22" font-weight="700" fill="#0f172a">Benchmarks, measured (details in the issue comment of 2026-11-08)</text>
+  <rect x="40" y="1086" width="418" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="54" y="1110" font-size="14" font-weight="700" fill="#1e3a8a">CBM and ArchKeel (Linux, 2 vCPU, 2 GiB)</text>
+  <text x="54" y="1136" font-size="13" fill="#1e3a8a">CBM index, 3 806 files: 12.5 s, 550 MiB</text>
+  <text x="54" y="1158" font-size="13" fill="#1e3a8a">ArchKeel Python, 358 files: 40.0 s, 555 MiB</text>
+  <text x="54" y="1180" font-size="13" fill="#1e3a8a">ArchKeel TS UI, 907 files: 83.7 s, 1 890 MiB, exit 2</text>
+  <rect x="474" y="1086" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="488" y="1110" font-size="14" font-weight="700" fill="#78350f">React UI: collector against host (macOS)</text>
+  <text x="488" y="1136" font-size="13" fill="#78350f">Collector: 31.7 s of 71.5 s (45 %), 480 MiB</text>
+  <text x="488" y="1158" font-size="13" fill="#78350f">Host peak: 4.2 GiB macOS, 1 854 MiB Linux</text>
+  <text x="488" y="1180" font-size="13" fill="#78350f">Real reply: 13.1 MB packed, 20 % of the limit</text>
+  <rect x="908" y="1086" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="922" y="1110" font-size="14" font-weight="700" fill="#78350f">Host fixes, step 2 (merged, React UI, 907 files)</text>
+  <text x="922" y="1136" font-size="13" fill="#78350f">Linux 2 vCPU/2 GiB, 5 runs: peak 1 848 to 1 145 MiB</text>
+  <text x="922" y="1158" font-size="13" fill="#78350f">Host time 62.2 to 52.5 s (-15.6 %), wall -10.1 %</text>
+  <text x="922" y="1180" font-size="13" fill="#78350f">macOS, 3 runs: peak 4 243 to 1 888 MiB (-55 %)</text>
+  <rect x="1342" y="1086" width="418" height="112" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="1356" y="1110" font-size="14" font-weight="700" fill="#14532d">Native imports (4.2) against Python</text>
+  <text x="1356" y="1136" font-size="13" fill="#14532d">910 files, Linux: 2.16 s floor to 1.06 s (-51 %)</text>
+  <text x="1356" y="1158" font-size="13" fill="#14532d">React UI whole run: 80.7 s to 14.8 s (-82 %)</text>
+  <text x="1356" y="1180" font-size="13" fill="#14532d">Host peak 1 197 to 407 MiB. Binary 0.57 to 3.7 MB</text>
+  <text x="40" y="1230" font-size="22" font-weight="700" fill="#0f172a">Goal check: how far are we from the three goals of #880?</text>
+  <text x="60" y="1270" font-size="14" font-weight="700" fill="#0f172a">Native Rust collector replaces the Python TypeScript collector</text>
+  <rect x="640" y="1257" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1257" width="60" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1270" font-size="13" fill="#334155">1 of 5 phases (4.2 merged; 4.3a, 4.3b, 4.4, 4.5 open). Imports work, but no scan can PASS before 4.3.</text>
+  <text x="60" y="1304" font-size="14" font-weight="700" fill="#0f172a">Bounded host path (Linux peak at most 1.25 GiB)</text>
+  <rect x="640" y="1291" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1291" width="240" height="16" rx="8" fill="#16a34a"/>
+  <text x="960" y="1304" font-size="13" fill="#334155">Gate met in #891 (1 145 MiB). The 1 GiB mark needs a smaller render payload (about 285 MiB).</text>
+  <text x="60" y="1338" font-size="14" font-weight="700" fill="#0f172a">Simple IR: four owners, one place per concept</text>
+  <rect x="640" y="1325" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1325" width="100" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1338" font-size="13" fill="#334155">2 of 6 steps merged (S1, S2). S3 to S6 open. S6 renames ir.</text>
+  <text x="60" y="1372" font-size="14" font-weight="700" fill="#0f172a">Enabling work (rules, tests, macOS fix, CI, packaging, limits)</text>
+  <rect x="640" y="1359" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1359" width="300" height="16" rx="8" fill="#16a34a"/>
+  <text x="960" y="1372" font-size="13" fill="#334155">Done. 15 PRs merged. Phases 4.1 and 4.2 are complete.</text>
+  <text x="60" y="1414" font-size="14" font-weight="700" fill="#b91c1c">Honest reading: imports run natively (-50 % against the equal-work floor), but nothing can PASS yet and the default stays Python until 4.4.</text>
+  <text x="40" y="1462" font-size="22" font-weight="700" fill="#0f172a">Progress and current work</text>
+  <rect x="40" y="1478" width="1730" height="564" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="60" y="1508" font-size="14" font-weight="700" fill="#0f172a">M0: compiler oracle, profile by function, host against collector</text>
+  <rect x="600" y="1494" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1507.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1508" font-size="13" fill="#334155">TS calls: CBM typed 86.4 % recall without JSX, ArchKeel 14.8 %. React UI: collector 45 % of the time.</text>
+  <text x="60" y="1540" font-size="14" font-weight="700" fill="#0f172a">Merged: #881 #882 #883 #886 #876 #887 (rules, tests, macOS, V9, CI)</text>
+  <rect x="600" y="1526" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1539.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1540" font-size="13" fill="#334155">AD-314 is enforced. Protocol V9 carries the test scope. The pr-test list is outside the Full filter.</text>
+  <text x="60" y="1572" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S1: four IR owners as inner components (#884)</text>
+  <rect x="600" y="1558" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1571.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1572" font-size="13" fill="#334155">Merged. AD-315. A test generates the owner graph from ir.json (docs/architecture/ir-owners.md).</text>
+  <text x="60" y="1604" font-size="14" font-weight="700" fill="#0f172a">PR 4.1a: Rust skeleton collector (#885) with before/after table</text>
+  <rect x="600" y="1590" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1603.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1604" font-size="13" fill="#334155">Merged. Files, inputs, file set and verdict equal to Python. No imports yet, no speed claim.</text>
+  <text x="60" y="1636" font-size="14" font-weight="700" fill="#0f172a">Rust pilot · design · before/after harness · best-practice review</text>
+  <rect x="600" y="1622" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1635.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1636" font-size="13" fill="#334155">Review: a tool that reads untrusted code ships a binary in wheels (ruff, uv). Gaps are in the plan.</text>
+  <text x="60" y="1668" font-size="14" font-weight="700" fill="#0f172a">Issue #880 in STE with diagram, arguments, benchmarks comment</text>
+  <rect x="600" y="1654" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1667.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1668" font-size="13" fill="#334155">Why CBM-first was dropped, what we take from CBM, plan 5.1 packaging, rename step S6.</text>
+  <text x="60" y="1700" font-size="14" font-weight="700" fill="#0f172a">PR 4.1b-1: wheel hook and tags (#888)</text>
+  <rect x="600" y="1686" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1699.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1700" font-size="13" fill="#334155">Merged. CI found a Linux tag bug; fixed. Binary 880 to 568 KB. Default wheel identical to main.</text>
+  <text x="60" y="1732" font-size="14" font-weight="700" fill="#0f172a">PR H step 2: host fixes b, c, d (#891)</text>
+  <rect x="600" y="1718" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1731.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1732" font-size="13" fill="#334155">Merged. Linux host peak -38 %, host time -15.6 %, output identical except code_digest. AD-318.</text>
+  <text x="60" y="1764" font-size="14" font-weight="700" fill="#0f172a">Test audit: duplicates, speed and meaning of the tests</text>
+  <rect x="600" y="1750" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1763.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1764" font-size="13" fill="#334155">Report done. Collector work repeats in 38.5 % of runs. 21 of 24 mutants die. Two follow-up test PRs started.</text>
+  <text x="60" y="1796" font-size="14" font-weight="700" fill="#0f172a">PR 4.1b-2 (#890) and 4.1b-3 (#892): six wheels, cargo deny, SBOM, limits</text>
+  <rect x="600" y="1782" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1795.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1796" font-size="13" fill="#334155">Merged. First real Windows run of the job memory limit passed. macOS has no limit (AD-319).</text>
+  <text x="60" y="1828" font-size="14" font-weight="700" fill="#0f172a">PR 4.2: module resolution and imports (#893)</text>
+  <rect x="600" y="1814" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1827.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1828" font-size="13" fill="#334155">Merged. One walk is 50 % faster than the equal-work floor. Most of the -99 % vs full Python is less work.</text>
+  <text x="60" y="1860" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S2: one owner for scope label and membership (#894)</text>
+  <rect x="600" y="1846" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1859.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1860" font-size="13" fill="#334155">Merged. AD-321. 3 copies to 1, key parent:label 13 places to 1, self-validate: same 134 statuses.</text>
+  <text x="60" y="1892" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S3 to S5, then S6 (rename ir)</text>
+  <rect x="600" y="1878" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1891.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="1892" font-size="13" fill="#334155">S5 waits for draft #860. S6 retires the name ir after PR 3 and PR 6 (about 480 files touched today).</text>
+  <text x="60" y="1924" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a exports, binding, script globals, calls · 4.3b resolver · 4.4 · 4.5</text>
+  <rect x="600" y="1910" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1923.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="1924" font-size="13" fill="#334155">4.3a design is written (6 small PRs, first native PASS in the last one). Waits for owner decisions.</text>
+  <text x="60" y="1956" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 5 · PR 6 · PR 7</text>
+  <rect x="600" y="1942" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1955.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="1956" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
+  <text x="60" y="1988" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
+  <rect x="600" y="1974" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1987.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="1988" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
+  <text x="60" y="2020" font-size="14" font-weight="700" fill="#0f172a">PR 8: remove the Dart collector (optional, last)</text>
+  <rect x="600" y="2006" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2019.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="2020" font-size="13" fill="#334155">Dart is frozen. Needs an owner check. #877 and #878 were closed by the owner on 2026-11-08.</text>
+</svg>
