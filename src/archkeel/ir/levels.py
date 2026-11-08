@@ -18,7 +18,6 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .interfaces import owner_of
 from .model import (
     ComponentOwnership,
     Observation,
@@ -28,6 +27,7 @@ from .model import (
     module_in_ownership,
     text_value,
 )
+from .ownership import owner_of, partition, scope_key
 from .structure import module_edges
 
 
@@ -128,7 +128,7 @@ def _declared_scopes(
                 pending.append(record)
                 continue
             parent_packages, parent_exact = scopes[parent]
-            scopes[f"{parent}:{record.title}"] = (
+            scopes[scope_key(parent, record.title)] = (
                 tuple(
                     package
                     for package in record.subjects
@@ -177,29 +177,25 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
         inner = tuple(
             (
                 record.title,
-                *scopes.get(f"{parent}:{record.title}", ((), ())),
+                *scopes.get(scope_key(parent, record.title), ((), ())),
             )
             for record in records
         )
         parent_packages, parent_exact = scopes.get(parent, ((), ()))
-        owned: dict[str, list[str]] = defaultdict(list)
-        unassigned: list[str] = []
-        for module in sorted(
-            name for name in names if module_in_ownership(name, parent_packages, parent_exact)
-        ):
-            owner = owner_of(module, inner)
-            if owner is None:
-                unassigned.append(module)
-            else:
-                owned[owner].append(module)
+        owned, unassigned = partition(
+            sorted(
+                name for name in names if module_in_ownership(name, parent_packages, parent_exact)
+            ),
+            inner,
+        )
         components = tuple(
             sorted(
                 (
                     InsideComponent(
                         record.title,
-                        scopes.get(f"{parent}:{record.title}", ((), ()))[0],
-                        scopes.get(f"{parent}:{record.title}", ((), ()))[1],
-                        tuple(owned[record.title]),
+                        scopes.get(scope_key(parent, record.title), ((), ()))[0],
+                        scopes.get(scope_key(parent, record.title), ((), ()))[1],
+                        owned.get(record.title, ()),
                         _public(record),
                         _requires(record),
                     )
@@ -212,5 +208,5 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
             InsideEdge(source, target, count)
             for (source, target), count in sorted(_crossings(observation, inner).items())
         )
-        levels.append(InsideLevel(parent, components, edges, tuple(unassigned)))
+        levels.append(InsideLevel(parent, components, edges, unassigned))
     return tuple(levels)

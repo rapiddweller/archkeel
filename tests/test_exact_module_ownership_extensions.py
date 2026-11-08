@@ -31,9 +31,10 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.decisions import open_decisions, rule_assessments
 from archkeel.ir.graph_codec import parse_report
-from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import Observation, RuleAssessment, RunResult
+from archkeel.ir.ownership import owner_of
 from archkeel.ir.trace import trace_valid_violations
 
 

@@ -17,8 +17,9 @@ import builtins as _builtins
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .interfaces import component_owners, owner_of
+from .interfaces import component_owners
 from .model import FUNCTION_KINDS, ComparisonStatus, Observation, RecordData, text_value
+from .ownership import owner_of
 
 # A type used across exactly one component pair is ordinary parameter passing, not fan-in;
 # two or more is what makes it a candidate worth an architect's look.

@@ -26,10 +26,7 @@ from .architecture_graph import (
 )
 from .decisions import rule_assessments, rule_receipt_complete
 from .dependency import DependencySelection, parse_dependency_selector
-from .interfaces import component_owners, owner_of
-from .levels import inside_levels
 from .model import (
-    ComponentOwnership,
     JsonValue,
     Observation,
     Record,
@@ -38,6 +35,7 @@ from .model import (
     in_scope,
     text_value,
 )
+from .ownership import scope_names, scope_owners
 from .report_graph import architecture_report
 from .structure import module_edges
 
@@ -559,7 +557,8 @@ def module_exploration(
         )
     observed, target = report.observed, report.target
     intents = {item.component_id: item for item in target.component_intents}
-    scope_ids, owners = _scope_owners(model, intents)
+    names = scope_names(target.component_intents)
+    scope_ids = {names[identity]: identity for identity in intents}
     memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
     cells = _cells(model, report, scope_ids)
     complete = _imports_complete(model, observed, modules, cells)
@@ -578,8 +577,7 @@ def module_exploration(
             modules,
             memberships,
             records,
-            scope_ids,
-            owners,
+            target.component_intents,
             complete,
             observed,
             cells,
@@ -721,36 +719,13 @@ def _used_elsewhere_hints(
     return tuple(hints)
 
 
-def _scope_owners(
-    model: Observation, intents: dict[str, ComponentIntent]
-) -> tuple[dict[str, str], dict[str | None, tuple[ComponentOwnership, ...]]]:
-    labels: dict[str, str] = {}
-
-    def scope(identity: str) -> str:
-        if identity not in labels:
-            intent = intents[identity]
-            label = intent.label or identity
-            labels[identity] = f"{scope(intent.parent_id)}:{label}" if intent.parent_id else label
-        return labels[identity]
-
-    scope_ids = {scope(identity): identity for identity in intents}
-    owners: dict[str | None, tuple[ComponentOwnership, ...]] = {None: component_owners(model)}
-    for inside_level in inside_levels(model):
-        owners[scope_ids[inside_level.parent]] = tuple(
-            (f"{inside_level.parent}:{item.label}", item.packages, item.exact_modules)
-            for item in inside_level.components
-        )
-    return scope_ids, owners
-
-
 def _module_level(
     parent: str | None,
     groups: tuple[str, ...],
     modules: tuple[Entity, ...],
     memberships: dict[str, set[str]],
     records: dict[str, Record],
-    scope_ids: dict[str, str],
-    owners: dict[str | None, tuple[ComponentOwnership, ...]],
+    intents: tuple[ComponentIntent, ...],
     complete: bool,
     observed: ArchitectureGraph,
     cells: tuple[ModuleImportCell, ...],
@@ -764,13 +739,7 @@ def _module_level(
         members = tuple(
             identity for identity in groups if module.id in memberships.get(identity, set())
         )
-        candidates = tuple(
-            sorted(
-                scope_ids[label]
-                for candidate in owners.get(parent, ())
-                if (label := owner_of(module.qualified_name, (candidate,))) is not None
-            )
-        )
+        candidates = scope_owners(intents, module.qualified_name, parent)
         statistics.append(
             _statistic(
                 module,

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 
-from .interfaces import component_owners, owner_of
+from .interfaces import component_owners
 from .measurements import MeasurementBudget
 from .model import (
     RULE_RECORD_KINDS,
@@ -28,6 +28,7 @@ from .model import (
     ReportFilter,
     text_value,
 )
+from .ownership import owner_of
 
 # AD-99: 1.3.0 adds keyed name sets; 1.2.0 added scalar budgets (AD-89) and stays readable.
 BASELINE_SCHEMA_VERSION = "1.3.0"

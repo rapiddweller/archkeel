@@ -27,8 +27,7 @@ from archkeel.ir.architecture_graph import RelationshipKind as _RelationshipKind
 from archkeel.ir.codec import decode_json, value_bytes
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.graph_codec import parse_comparison
-from archkeel.ir.interfaces import component_owners, owner_of
-from archkeel.ir.levels import inside_levels
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
@@ -37,6 +36,7 @@ from archkeel.ir.model import (
     Verdict,
     stable_id,
 )
+from archkeel.ir.ownership import containing, owner_of
 from archkeel.ir.source_graph import observed_graph, validated_member_inventory_proof
 from archkeel.ir.target_records import recorded_target_graph
 
@@ -109,7 +109,7 @@ def architecture_report(model: Observation) -> ArchitectureReport:
             else ReportSchemaVersion.V1_0_0
         ),
         findings=_findings(model, observed, declared),
-        memberships=_memberships(model, observed, declared),
+        memberships=_memberships(observed, declared),
         decision_gaps=_decision_gaps(model, observed, declared),
     )
     report.validate()
@@ -198,40 +198,20 @@ def _decision_gaps(
 
 
 def _memberships(
-    model: Observation, observed: ArchitectureGraph, target: ArchitectureGraph | None
+    observed: ArchitectureGraph, target: ArchitectureGraph | None
 ) -> tuple[ComponentMembership, ...]:
     if target is None:
         return ()
-    intents = {item.component_id: item for item in target.component_intents}
-    entities = {item.id: item for item in target.entities}
-    keys: dict[str, str] = {}
-
-    def scope_key(identity: str) -> str:
-        if identity not in keys:
-            intent = intents[identity]
-            label = intent.label or entities[identity].qualified_name
-            keys[identity] = f"{scope_key(intent.parent_id)}:{label}" if intent.parent_id else label
-        return keys[identity]
-
-    components = {scope_key(identity): identity for identity in intents}
+    intents = target.component_intents
     modules = {
         item.qualified_name: item.id
         for item in observed.entities
         if item.kind == _EntityKind.MODULE and item.presence == _PresenceKind.DEFINED
     }
-    assigned: dict[str, set[str]] = {identity: set() for identity in intents}
-    owners = component_owners(model)
+    assigned: dict[str, set[str]] = {item.component_id: set() for item in intents}
     for name, identity in modules.items():
-        owner = owner_of(name, owners)
-        if owner is not None and owner in components:
-            owned: set[str] = assigned[components[owner]]
-            owned.add(identity)
-    for level in inside_levels(model):
-        for component in level.components:
-            component_id = components.get(f"{level.parent}:{component.label}")
-            if component_id is not None:
-                inner_modules: set[str] = assigned[component_id]
-                inner_modules.update(modules[name] for name in component.modules if name in modules)
+        for component_id in containing(intents, name):
+            assigned[component_id].add(identity)
     return tuple(
         ComponentMembership(identity, tuple(sorted(module_ids)))
         for identity, module_ids in sorted(assigned.items())

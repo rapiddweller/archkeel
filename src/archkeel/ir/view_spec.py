@@ -39,8 +39,9 @@ from archkeel.ir.flow_graph import (
     touchpoints,
 )
 from archkeel.ir.graph_codec import non_empty_text
-from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import Observation, RawJson, Record, RecordData, Verdict
+from archkeel.ir.ownership import partition
 from archkeel.ir.source_graph import observed_graph
 
 _COMPONENT: Final = "component_responsibility"
@@ -726,7 +727,7 @@ def _view_graph(observation: Observation, *, story: bool) -> _Graph:
         for entity in graph.entities
         if entity.kind == EntityKind.MODULE and entity.presence == PresenceKind.DEFINED
     }
-    owned = {name: owner_of(name, owners) for name in sorted(modules)}
+    owned, _ = partition(sorted(modules), owners)
     layers = _observed_layers(observation, graph)
     layers[RelationshipKind.REQUIRES] = _requires(components)
     touched = _touched(observation, graph)
@@ -743,10 +744,7 @@ def _view_graph(observation: Observation, *, story: bool) -> _Graph:
         observation.source.scope,
         components,
         frozenset(record.id for record in declarations if record.kind == _INSIDE_COMPONENT),
-        {
-            identity: tuple(name for name, owner in owned.items() if owner == record.title)
-            for identity, record in components.items()
-        },
+        {identity: owned.get(record.title, ()) for identity, record in components.items()},
         layers,
         observation.coverage.status == Verdict.PASS and not observation.coverage.failures,
         declares_a_target(observation),

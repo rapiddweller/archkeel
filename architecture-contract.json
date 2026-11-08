@@ -81,6 +81,7 @@
         "archkeel.ir.architecture_graph:Visibility",
         "archkeel.ir.host_records",
         "archkeel.ir.interfaces",
+        "archkeel.ir.ownership",
         "archkeel.ir.identity:module_identity",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",

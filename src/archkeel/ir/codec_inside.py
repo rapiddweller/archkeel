@@ -22,6 +22,7 @@ from archkeel.ir.model import ContractInputError as ContractInputError
 from archkeel.ir.model import InsideContractIssue as InsideContractIssue
 from archkeel.ir.model import InsideContractMount as InsideContractMount
 from archkeel.ir.model import InsideContractTree as InsideContractTree
+from archkeel.ir.ownership import scope_key
 from archkeel.ir.target_graph import scoped_target
 
 
@@ -161,7 +162,7 @@ def _inside_mount(
     parent_ids: dict[str, str],
     record_ids: set[str],
 ) -> InsideContractMount | None:
-    parent_id = f"{owner_id}:{parent.label}" if owner_id else parent.label
+    parent_id = scope_key(owner_id, parent.label)
     location = f"{pointer}/components/{index}/inside"
     reference = parent.inside
     if reference is None:
