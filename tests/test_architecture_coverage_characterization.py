@@ -343,3 +343,50 @@ def test_rules_source_domains_complete_is_false_without_a_root_or_a_module() -> 
     assert not source_domains_complete(
         modules=[], profile=python, package_scopes=(), exact_module_scopes=(), scan_roots=()
     )
+
+
+def test_decisions_source_scope_needs_every_mapped_prefix_under_a_root() -> None:
+    """Two mapped prefixes, src/sample and lib/sample: one root covers only the first.
+
+    A mutant that needs only one covered prefix (`any` instead of `all`) returns True here."""
+    modules = (
+        ("sample.core", "src/sample/core/__init__.py"),
+        ("sample.peer", "lib/sample/peer/__init__.py"),
+    )
+    assert _decision_result("sample", modules, "src") is False
+    assert _decision_result("sample", modules, ".") is True
+
+
+def test_rules_exact_module_scope_rejects_an_absolute_scan_root() -> None:
+    """A module file below an absolute root is not covered: the roots of a scan are relative.
+
+    A mutant that lets an absolute root contain a path returns True here."""
+    records: Any = [{"id": "M", "data": {"qualified_name": "sample", "file": "/abs/src/sample.py"}}]
+    assert not source_domains_complete(
+        modules=records,
+        profile=profile_for(_PYTHON),
+        package_scopes=(),
+        exact_module_scopes=("sample",),
+        scan_roots=("/abs/src",),
+    )
+
+
+def test_rules_exact_module_scope_needs_every_exact_module_under_a_root() -> None:
+    """The first exact module is under the root and the second is not: the scope is not covered.
+
+    A mutant that checks only the first exact module returns True here."""
+    records: Any = [
+        {"id": "A", "data": {"qualified_name": "sample.a", "file": "src/sample/a.py"}},
+        {"id": "B", "data": {"qualified_name": "sample.b", "file": "lib/sample/b.py"}},
+    ]
+    for scopes, expected in ((("sample.a",), True), (("sample.a", "sample.b"), False)):
+        assert (
+            source_domains_complete(
+                modules=records,
+                profile=profile_for(_PYTHON),
+                package_scopes=(),
+                exact_module_scopes=scopes,
+                scan_roots=("src",),
+            )
+            is expected
+        )

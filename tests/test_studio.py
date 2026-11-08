@@ -951,7 +951,9 @@ def test_close_lets_explore_unwind_before_it_kills(tmp_path: Path) -> None:
     unwound = tmp_path / "unwound"
     workspace = _running_child(
         tmp_path,
-        "import pathlib, time\n"
+        "import pathlib, signal, time\n"
+        # A test run started with `&`, `nohup` or an IDE inherits SIGINT as ignored.
+        "signal.signal(signal.SIGINT, signal.default_int_handler)\n"
         "try:\n"
         f"    pathlib.Path({str(tmp_path / 'ready')!r}).touch()\n"
         "    time.sleep(60)\n"
