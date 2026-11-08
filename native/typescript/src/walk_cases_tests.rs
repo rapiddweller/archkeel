@@ -218,6 +218,46 @@ fn reexport_local_ts_has_the_syntax_of_the_python_parser() {
 }
 
 #[test]
+fn decorated_ctor_ts_has_the_syntax_of_the_python_parser() {
+    let got = facts("decorated_ctor.ts", "class D1 { @d constructor(public a: number) {} }\nclass D2 { @d\n// c\n@e() /* b */ constructor(private readonly b = 1) {} m() {} }\nclass D3 { // c\nconstructor(public a: number) {} @d m(x: number) {} }\n");
+    let want = [
+        "D D1 class None 1:1 ex=False vis=None top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D constructor method D1 1:15 ex=False vis=None top=False st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=1:1 P[a:number:False:False:None] B[] M[]",
+        "D D2 class None 2:1 ex=False vis=None top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D constructor method D2 4:14 ex=False vis=None top=False st=False ab=False as=False dec=False mc=True ov=False sc=False ann=None ret=None pl=2:1 P[b:None:False:False:1] B[] M[]",
+        "D m method D2 4:53 ex=False vis=None top=False st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=2:1 P[] B[] M[]",
+        "D D3 class None 5:1 ex=False vis=None top=True st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[a:number:public:False:None:0]",
+        "D constructor method D3 6:1 ex=False vis=None top=False st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=5:1 P[a:number:False:False:None] B[] M[]",
+        "D m method D3 6:37 ex=False vis=None top=False st=False ab=False as=False dec=True mc=True ov=False sc=True ann=None ret=None pl=5:1 P[x:number:False:False:None] B[] M[]",
+        "R ",
+        "G ",
+        "T ",
+        "F module=False declaration=False script=False",
+        "B D1,D2,D3",
+    ];
+    assert_eq!(got, want, "decorated_ctor.ts");
+}
+
+#[test]
+fn sibling_writes_ts_has_the_syntax_of_the_python_parser() {
+    let got = facts("sibling_writes.ts", "import a from './a';\nfunction f() { var a; a = 1; }\nfunction g() { a = 2; }\nimport b from './b';\nfunction h() { b = 2; }\nfunction k() { var b; b = 1; }\n");
+    let want = [
+        "D f function None 2:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D g function None 3:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D h function None 5:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "D k function None 6:1 ex=False vis=private top=True st=False ab=False as=False dec=False mc=False ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
+        "I default a ns=False ty=False uniq=False 1:1",
+        "I default b ns=False ty=False uniq=False 4:1",
+        "R ",
+        "G ",
+        "T ",
+        "F module=True declaration=False script=False",
+        "B a,b,f,g,h,k",
+    ];
+    assert_eq!(got, want, "sibling_writes.ts");
+}
+
+#[test]
 fn pattern_bound_ts_has_the_syntax_of_the_python_parser() {
     let got = facts(
         "pattern_bound.ts",

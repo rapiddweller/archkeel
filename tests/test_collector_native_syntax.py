@@ -19,7 +19,6 @@ import json
 import locale
 import os
 import random
-import shutil
 import subprocess
 import time
 import tomllib
@@ -382,6 +381,17 @@ SYNTAX_PIECES = (
     "import { zz } from './z'; export const zz = 1;",
     "export { yy }; const yy = 1; function yy() {}",
     "export default class Dflt {} export { Dflt as other };",
+    # A decorator or a comment before a constructor with a parameter property: the run of siblings.
+    "class D1 { @d constructor(public a: number) {} }",
+    "class D2 { @d\n// c\n@e() /* b */ constructor(private readonly b = 1) {} m() {} }",
+    "class D3 { // c\nconstructor(public a: number) {} @d m(x: number) {} }",
+    "class D4 { @d @e f = 1; @d // c\n g() {} h() {} }",
+    # The same name is written in two sibling scopes that bind it differently: a lookup that is
+    # remembered by the name and not by the frame answers the second write with the first.
+    "import a from './a';\nfunction f() { var a; a = 1; }\nfunction g() { a = 2; }",
+    "import b from './b';\nfunction g() { b = 2; }\nfunction f() { var b; b = 1; }",
+    "import c from './c';\nfunction f() { let c; { c = 1; } }\nfunction g() { { c = 2; } }",
+    "import d from './d';\nfunction f() { function h() { d = 1; } var d; }\nfunction g() {d = 2;}",
     # A re-export names no local binding: x and K stay private and not exported.
     "function x() {}\nclass K {}\nexport { x } from './m';\nexport { K as KK } from './n';",
 )
@@ -519,45 +529,49 @@ def test_pathological_shapes_equal_the_python_parser(
     assert result.counts["definitions"] > 100
 
 
-# Wall time of the collector process (the debug build), generous. The facts of each definition
+# The time of the collector process (the debug build) grows linearly with the size: time(2n) over
+# time(n) is about 2 for a linear walk and about 4 for a quadratic one. The facts of each definition
 # once decoded the line before it and the whole text of its node, and kept the qualified name of
 # each scope as a copy of its whole chain. In the release build 40 000 functions on one line took
 # 33.6 s, 4 000 nested classes 14.9 s and 8 000 nested classes 61 s (1.3 GB), against 0.2 s and
-# under 0.1 s for the collector of PR 4.2 and for this code. The debug build of the old code took
-# 629 s, 87 s and 349 s. The process, not the dump, is timed: the dump prints the qualified name
-# of each definition, and that output is quadratic in the depth in Python too.
-# The bound of the long line is wider: the debug build needs 2 s on a laptop and 5.4 s on a CI
-# runner, and the old code needed 626 s.
-PATHOLOGICAL = (
-    ("one-line", 40_000, 15.0),
-    ("nested-functions", 4_000, 5.0),
-    ("nested-functions", 8_000, 5.0),
-    ("nested-classes", 4_000, 5.0),
-    ("nested-classes", 8_000, 5.0),
-)
+# under 0.1 s for the collector of PR 4.2. The process, not the dump, is timed: the dump prints the
+# qualified name of each definition, and that output is quadratic in the depth in Python too.
+# `test_collector_native_scaling.py` runs the same method on every construct class.
+PATHOLOGICAL = (("one-line", 20_000), ("nested-functions", 4_000), ("nested-classes", 4_000))
+# The ratio of the times, and an absolute guard against a machine that is far too slow.
+RATIO_BOUND = 3.0
+GUARD_SECONDS = 60.0
 
 
-@pytest.mark.parametrize(("name", "count", "bound"), PATHOLOGICAL)
-def test_pathological_shapes_take_bounded_time(
-    tmp_path: Path, native_binary: Path, name: str, count: int, bound: float
-) -> None:
-    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src/a.ts").write_bytes(_shape(name, count))
-    request = SnapshotInput(str(tmp_path), "a" * 40, False)
+def _process_time(binary: Path, root: Path, name: str, count: int) -> float:
+    (root / "tsconfig.json").write_text('{"include":["src"]}')
+    (root / "src").mkdir(exist_ok=True)
+    (root / "src/a.ts").write_bytes(_shape(name, count))
     payload = encode_request(
         CollectionRequest(
-            request,
+            SnapshotInput(str(root), "a" * 40, False),
             SourceScope(("src",), "app"),
             TypeScriptSettings("tsconfig.json", False),
             ProtocolVersion.V8,
         )
     )
-    begin = time.perf_counter()
-    done = subprocess.run([str(native_binary)], input=payload, capture_output=True, check=False)
-    elapsed = time.perf_counter() - begin
-    assert done.returncode == 0, done.stderr[-300:]
-    assert elapsed < bound, f"{name} {count}: {elapsed:.1f} s"
+    best = float("inf")
+    for _ in range(3):
+        begin = time.perf_counter()
+        done = subprocess.run([str(binary)], input=payload, capture_output=True, check=False)
+        best = min(best, time.perf_counter() - begin)
+        assert done.returncode == 0, done.stderr[-300:]
+    return best
+
+
+@pytest.mark.parametrize(("name", "count"), PATHOLOGICAL)
+def test_pathological_shapes_grow_linearly(
+    tmp_path: Path, native_binary: Path, name: str, count: int
+) -> None:
+    first = _process_time(native_binary, tmp_path, name, count)
+    second = _process_time(native_binary, tmp_path, name, 2 * count)
+    assert second < GUARD_SECONDS, f"{name} {2 * count}: {second:.1f} s"
+    assert second / first < RATIO_BOUND, f"{name} {count}: {first:.2f} s, 2n {second:.2f} s"
 
 
 def test_deeply_nested_patterns_give_their_names(tmp_path: Path, dump_binary: Path) -> None:
@@ -567,6 +581,91 @@ def test_deeply_nested_patterns_give_their_names(tmp_path: Path, dump_binary: Pa
     reply = _native(dump_binary, [("src/pattern.ts", path)])[0]
     assert "syntax" in reply, reply
     assert "z" in reply["syntax"]["script_bindings"]  # type: ignore[index]
+
+
+def _column_cases() -> dict[str, bytes]:
+    """Lines that stress the UTF-16 column table (lines over 256 bytes) and the 1 600-byte cut.
+
+    A column counts UTF-16 units: an astral character is two. The table is built for a long line
+    and must restart for each line. An excerpt is the first 400 characters of the node, cut from
+    its first 1 600 bytes. Every case has a definition after the character that matters.
+    """
+    letter = "\U0001d4d0"  # an astral letter that a name can hold
+    pad = "/*" + "a" * 300 + "*/ "
+    cases = {
+        # The first astral character starts at byte 1 599 (2 + 1 595 + 2 bytes of the comment).
+        "astral-at-byte-1599": ("/*" + "a" * 1595 + "*/" + "\U0001f600 function f() {}").encode(),
+        "astral-at-byte-1600": ("/*" + "a" * 1596 + "*/" + "\U0001f600 function f() {}").encode(),
+        "astral-after-pad": (pad + "\U0001f600" * 5 + " function f() {} class K {}").encode(),
+        "astral-many-definitions": (
+            pad + "".join(f"const s{i} = '\U0001f600'; function f{i}() {{}} " for i in range(40))
+        ).encode(),
+        "name-of-401-astral-letters": (
+            f"class {letter * 401} {{}}\nfunction {letter * 401}() {{}}"
+        ).encode(),
+        "name-of-399-astral-letters": (
+            f"class {letter * 399} {{}}\nclass {letter * 400} {{}}"
+        ).encode(),
+        "name-of-400-ascii-letters": (f"class {'a' * 400} {{}}\nclass {'b' * 401} {{}}").encode(),
+        # A member name is the text of its span: 400 four-byte letters are 1 600 bytes.
+        "member-named-by-401-astral-letters": (
+            f"class K {{ {letter * 401}() {{}} {letter * 400} = 1; }}\n"
+            f"interface I {{ {letter * 402}: number; }}\nenum E {{ {letter * 401} }}"
+        ).encode(),
+        "excerpt-with-two-byte-letters": (f"class {'é' * 450} {{}}").encode(),
+        "excerpt-of-long-ascii": ("function f(" + "a, " * 400 + ") {}").encode(),
+        "alternating-long-lines": "\n".join(
+            (pad + f"function a{i}() {{}}")
+            if i % 2 == 0
+            else (pad + "\U0001f600" * 9 + f"function b{i}() {{}}")
+            for i in range(9)
+        ).encode(),
+        "alternating-then-short-line": (
+            pad + "\U0001f600 const a = 1;\nconst b = 2;\n" + pad + "const c = 3;"
+        ).encode(),
+        "tabs-and-combining": (
+            pad + "\t\t" + "e\u0301" * 20 + " function f() {}\n\t" + pad + "\u0301function g() {}"
+        ).encode(),
+        "crlf-lines": "\r\n".join(
+            pad + "\U0001f600 " + f"function f{i}() {{}}" for i in range(4)
+        ).encode(),
+        "lone-cr-lines": "\r".join(
+            pad + "\U0001f600 " + f"function f{i}() {{}}" for i in range(4)
+        ).encode(),
+        "line-separators": "\u2028".join(
+            pad + "\U0001f600 " + f"function f{i}() {{}}" for i in range(4)
+        ).encode(),
+        "invalid-utf8-in-long-line": (
+            pad.encode()
+            + b"\xff\xfe\xf0\x9f function f() {}\n"
+            + pad.encode()
+            + b"\xe2\x80 class K {}"
+        ),
+        "cut-inside-a-character": (
+            "/*" + "a" * 1590 + "*/ " + "\U0001f600" * 3 + " class K {}"
+        ).encode(),
+        "long-line-then-crlf-ascii": (pad + "function f() {}\r\n" + "function g() {}\r\n").encode(),
+        "table-boundary-255-256-257": "\n".join(
+            "/*" + "a" * (width - 2) + "*/" + "\U0001f600 function f() {}"
+            for width in (252, 253, 254, 255, 256, 257, 258)
+        ).encode(),
+    }
+    return cases
+
+
+def test_the_column_table_and_the_excerpt_cut_equal_the_python_parser(
+    tmp_path: Path, dump_binary: Path
+) -> None:
+    files: list[File] = []
+    for name, data in _column_cases().items():
+        path = tmp_path / f"{name}.ts"
+        path.write_bytes(data)
+        files.append((f"src/{name}.ts", path))
+    result = compare(dump_binary, files)
+    _assert_equal(result, len(files))
+    assert result.python_failed == 0
+    # Each case holds definitions; the comparison is not empty.
+    assert result.counts["definitions"] >= len(files)
 
 
 def test_the_dump_binary_holds_the_markers(dump_binary: Path) -> None:
