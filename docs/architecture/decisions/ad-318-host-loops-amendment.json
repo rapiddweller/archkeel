@@ -4,6 +4,6 @@
   "before_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
   "before_digest": "d6fc9118ebe234c1032ac9f15de3929187ed2a6d85f974420e4a7f64ff5e145c",
   "decided_by": "owner (decision task of 2026-11-08)",
-  "rationale": "Base 0dd97d3c. AD-318 (note of 2026-11-08) and epic #880 PR H step 4. The new class archkeel.ir.source_records.LazyParsed lets the dependency scope check of archkeel.check.observation parse a raw record when a lookup asks for it. It joins the public list of the ir component in the root contract. No budget, rule, component, requires entry or Any permission changes. The baseline does not change: calls_unresolved stays 972.",
+  "rationale": "Base d1f3e49e. AD-318 (note of 2026-11-08) and epic #880 PR H step 4. The new class archkeel.ir.source_records.LazyParsed lets the dependency scope check of archkeel.check.observation parse a raw record when a lookup asks for it. It joins the public list of the ir component in the root contract. No budget, rule, component, requires entry or Any permission changes. The baseline does not change: calls_unresolved stays 972.",
   "schema_version": "2.0.0"
 }
