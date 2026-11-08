@@ -1,15 +1,37 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Mutable record builders used before freezing the source protocol values."""
+"""Mutable record builders and lazy readers of raw records, used before freezing the values."""
 
-from collections.abc import Sequence
-from typing import Any, Final, TypeAlias, TypedDict
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import Any, Final, Generic, TypeAlias, TypedDict, TypeVar
 
 from .facts import EvidenceClass, MemberInventory, SourceNameVisibility, stable_id
 
 # Mutable JSON builders remain private to collection/evaluation, never the process port.
 RawData: TypeAlias = dict[str, Any]
+
+_Raw = TypeVar("_Raw")
+_Parsed = TypeVar("_Parsed")
+
+
+class LazyParsed(Mapping[str, _Parsed], Generic[_Raw, _Parsed]):
+    """Raw items by id; an item is parsed once, when a lookup first asks for it."""
+
+    def __init__(self, raw: Mapping[str, _Raw], parse: Callable[[_Raw], _Parsed]) -> None:
+        self._raw, self._parse = raw, parse
+        self._done: dict[str, _Parsed] = {}
+
+    def __getitem__(self, key: str) -> _Parsed:
+        if key not in self._done:
+            self._done[key] = self._parse(self._raw[key])
+        return self._done[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._raw)
+
+    def __len__(self) -> int:
+        return len(self._raw)
 
 
 class RawRecord(TypedDict):

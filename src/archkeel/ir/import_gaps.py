@@ -3,17 +3,12 @@
 # SPDX-License-Identifier: MIT
 """Find the unresolved imports that no collector gap already names."""
 
-from .facts import Record, SourceFacts, SourceSectionName, UnresolvedTarget
+from .facts import JsonValue, Record, SourceFacts, SourceSectionName, UnresolvedTarget
 
 
-def _named_by_gap(gaps: tuple[Record, ...], record: Record) -> bool:
-    """Return whether a collector gap already identifies the import site of the record."""
-    return any(
-        gap.data.get("resolution_dimension") == SourceSectionName.IMPORTS
-        and gap.data.get("module") == record.data.get("source_module")
-        and gap.evidence_ids == record.evidence_ids
-        for gap in gaps
-    )
+def _site(record: Record, module_key: str) -> tuple[JsonValue, tuple[str, ...]]:
+    """Return the module and the evidence ids that identify the import site of a record."""
+    return record.data.get(module_key), record.evidence_ids
 
 
 def derived_unresolved_imports(facts: SourceFacts) -> frozenset[str]:
@@ -24,9 +19,14 @@ def derived_unresolved_imports(facts: SourceFacts) -> frozenset[str]:
         if section.name is SourceSectionName.IMPORTS
         for record in section.records
     }
+    named = {
+        _site(gap, "module")
+        for gap in facts.coverage.gaps
+        if gap.data.get("resolution_dimension") == SourceSectionName.IMPORTS
+    }
     return frozenset(
         target.import_id
         for target in facts.imports
         if isinstance(target, UnresolvedTarget)
-        and not _named_by_gap(facts.coverage.gaps, records[target.import_id])
+        and _site(records[target.import_id], "source_module") not in named
     )
