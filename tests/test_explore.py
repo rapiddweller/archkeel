@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -15,16 +16,23 @@ from rich.console import Console
 from test_result_schema import _validator
 
 from archkeel.analyzer.python.collect import PythonProviderCollector
+from archkeel.check import observation as observation_module
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
 from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, decode_json, parse_observation
+from archkeel.ir.codec import (
+    canonical_json_bytes,
+    decode_canonical_model,
+    decode_json,
+    parse_observation,
+)
 from archkeel.ir.diagnostics import Diagnostic
 from archkeel.ir.model import Command, DiagnosticCode, DiagnosticKind, ObservationResult, RunResult
 from archkeel.ir.report_graph import architecture_report
+from archkeel.render import html as html_renderer
 from archkeel.render.summary import report_summary
 from archkeel.render.terminal import print_result
 from fixtures.architecture_demo import CATALOG, replay
@@ -37,6 +45,7 @@ from fixtures.demo_catalog_explore import (
 from fixtures.demo_catalog_explore import (
     VARIANTS as EXPLORE_VARIANTS,
 )
+from fixtures.demo_catalog_support import FIXTURE_DIR as ARCHITECTURE_FIXTURE_DIR
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
@@ -1255,6 +1264,67 @@ def test_python_scope_with_only_test_sources_is_not_complete(tmp_path: Path) -> 
     kept = collected(False)
     assert kept.coverage.full_scope
     assert kept.coverage.gaps == ()
+
+
+def test_explore_checks_its_observation_once_per_pass(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The host never decodes its own output twice: each pass parses once, the render once."""
+    root = _repository(tmp_path / "repo")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    parsed = {"assemble": 0, "render": 0}
+    decoded: list[object] = []
+
+    def counting(name: str, real):
+        def parse(model):
+            parsed[name] += 1
+            return real(model)
+
+        return parse
+
+    def decoding(payload):
+        decoded.append(decode_json(payload))
+        return decoded[-1]
+
+    monkeypatch.setattr(
+        observation_module,
+        "parse_observation",
+        counting("assemble", observation_module.parse_observation),
+    )
+    monkeypatch.setattr(
+        html_renderer, "parse_observation", counting("render", html_renderer.parse_observation)
+    )
+    monkeypatch.setattr(observation_module, "decode_json", decoding)
+
+    assert _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))[0] == 0
+
+    assert parsed == {"assemble": 2, "render": 1}
+    assert not [item for item in decoded if isinstance(item, dict) and "analyzer" in item]
+
+
+def test_an_assembled_model_reads_the_same_without_a_json_round_trip(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A contract adds tuples to the model; reading them must equal reading their JSON form."""
+    root = tmp_path / "repo"
+    shutil.copytree(ARCHITECTURE_FIXTURE_DIR, root)
+    _repository(root, {})
+    models: list[object] = []
+    real = observation_module.parse_observation
+
+    def capture(model):
+        models.append(model)
+        return real(model)
+
+    monkeypatch.setattr(observation_module, "parse_observation", capture)
+
+    main(["report", "--root", str(root), "--output", str(tmp_path / "out.json"), "--json"])
+    json.loads(capsys.readouterr().out)
+
+    assert models
+    assert any("rule_evaluation" in json.dumps(model, default=list) for model in models)
+    for model in models:
+        assert real(model) == real(decode_json(canonical_json_bytes(model)))
 
 
 @pytest.mark.browser

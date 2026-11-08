@@ -48,6 +48,7 @@ from archkeel.ir.codec_result import (
 from archkeel.ir.codec_wire import (
     canonical_json_bytes,
     decode_json,
+    json_arrays,
     value_bytes,
 )
 from archkeel.ir.dependency import parse_dependency_selector
@@ -89,6 +90,7 @@ __all__ = (
     "delta_payload",
     "encode_canonical_model",
     "finding_payload",
+    "json_arrays",
     "load_inside_contract_tree",
     "observation_payload",
     "parse_amendment",

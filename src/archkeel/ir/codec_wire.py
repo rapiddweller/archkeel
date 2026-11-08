@@ -65,6 +65,26 @@ def canonical_json_bytes(model: Mapping[str, object]) -> bytes:
     ).encode("utf-8")
 
 
+def json_arrays(model: dict[str, object]) -> dict[str, object]:
+    """Turn each tuple of a built model into a list in place; a copy would double its memory."""
+    pending: list[object] = [model]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            for key, item in node.items():
+                if isinstance(item, tuple):
+                    item = node[key] = list(item)
+                if isinstance(item, dict | list):
+                    pending.append(item)
+        elif isinstance(node, list):
+            for index, item in enumerate(node):
+                if isinstance(item, tuple):
+                    item = node[index] = list(item)
+                if isinstance(item, dict | list):
+                    pending.append(item)
+    return model
+
+
 def decode_json(payload: bytes | str) -> RawJson:
     try:
         value: RawJson = json.loads(

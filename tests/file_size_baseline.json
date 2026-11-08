@@ -25,7 +25,7 @@
   "src/archkeel/check/evaluation/protocol_declarations.py": 766,
   "src/archkeel/check/evaluation/rules.py": 3138,
   "src/archkeel/check/expectation.py": 517,
-  "src/archkeel/check/observation.py": 1247,
+  "src/archkeel/check/observation.py": 1245,
   "src/archkeel/check/onboarding.py": 759,
   "src/archkeel/check/report.py": 1459,
   "src/archkeel/check/uml.py": 559,

@@ -14,6 +14,7 @@ from archkeel.ir.codec import (
     InsideContractMount,
     canonical_json_bytes,
     decode_json,
+    json_arrays,
     load_inside_contract_tree,
     parse_observation,
 )
@@ -1182,10 +1183,7 @@ def assemble_observation(
     for section in profile.optional_sections:
         if section not in scan.observed_sections:
             model[section] = None
-    normalized = decode_json(canonical_json_bytes(model))
-    if not isinstance(normalized, dict):
-        raise ValueError("assembled observation must be an object")
-    return parse_observation(normalized), 0 if scan.coverage["status"] == "PASS" else 2
+    return parse_observation(json_arrays(model)), 0 if scan.coverage["status"] == "PASS" else 2
 
 
 def analyze_source_snapshot(
