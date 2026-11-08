@@ -27,6 +27,7 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pytest
+from conftest import build_native_copy
 from test_collector_native_imports import (
     COMMONJS,
     CONFIGS,
@@ -85,20 +86,7 @@ File = tuple[str, Path]
 def dump_binary(native_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The collector built with the test-only `dump` feature, in a target directory of its own."""
     assert native_binary.is_file()
-    cargo = shutil.which("cargo") or "cargo"
-    target = NATIVE / "target" / "dump"
-    built = subprocess.run(
-        [cargo, "build", "--locked", "--features", "dump", "--target-dir", str(target)],
-        cwd=NATIVE,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert built.returncode == 0, built.stderr
-    name = "archkeel-typescript-collector" + (".exe" if os.name == "nt" else "")
-    copy = tmp_path_factory.mktemp("native-dump") / name
-    shutil.copy2(target / "debug" / name, copy)
-    return copy
+    return build_native_copy(tmp_path_factory, "native-dump", ("dump",))
 
 
 @contextlib.contextmanager
