@@ -8,16 +8,32 @@ import tracemalloc
 from io import BytesIO
 
 import pytest
+from test_explore import _repository
 
+from archkeel.check.ports import Language
+from archkeel.check.report import run_explore
+from archkeel.cli.observe import observer_for
 from archkeel.ir import codec_wire
 from archkeel.ir.codec import (
     canonical_json_bytes,
+    canonical_report_bytes,
+    encode_canonical_model,
+    observation_payload,
     write_json,
 )
 from archkeel.ir.codec_strings import StringTablePolicy, intern_strings
+from archkeel.ir.model import CLASSIFIED_SECTIONS, Observation
 
 _COMPACT = (",", ":")
 _DEFAULT = (", ", ": ")
+
+
+@pytest.fixture(scope="module")
+def observation(tmp_path_factory: pytest.TempPathFactory) -> Observation:
+    root = _repository(tmp_path_factory.mktemp("repo"))
+    _, _, observed = run_explore(root, observer=observer_for(Language.PYTHON))
+    assert observed is not None
+    return observed
 
 
 def _dumps(value: object, separators: tuple[str, str]) -> bytes:
@@ -92,3 +108,42 @@ def test_canonical_bytes_equal_the_text_of_json_dumps() -> None:
     model = {"b": [{"é": 1}], "a": ("x", None)}
 
     assert canonical_json_bytes(model) == (_dumps(model, _COMPACT) + b"\n")
+
+
+def test_the_encoder_consumes_the_record_sections_of_an_owned_payload(
+    observation: Observation,
+) -> None:
+    expected = canonical_json_bytes(encode_canonical_model(observation_payload(observation)))
+    raw = observation_payload(observation)
+
+    encoded = encode_canonical_model(raw, consume=True)
+
+    assert not {*CLASSIFIED_SECTIONS, "evidence"} & raw.keys()
+    assert canonical_json_bytes(encoded) == expected
+    assert canonical_report_bytes(observation) == expected
+
+
+def test_a_payload_that_the_caller_owns_is_not_consumed(observation: Observation) -> None:
+    raw = observation_payload(observation)
+    before = canonical_json_bytes(raw)
+
+    canonical_report_bytes(raw)
+    encode_canonical_model(raw)
+
+    assert canonical_json_bytes(raw) == before
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"evidence": {}}, "evidence must be an array"),
+        ({"symbols": {}}, "symbols must be an array"),
+    ],
+)
+def test_the_encoder_names_a_section_that_is_no_array(
+    observation: Observation, change: dict[str, object], message: str
+) -> None:
+    raw = observation_payload(observation) | change
+
+    with pytest.raises(ValueError, match=message):
+        encode_canonical_model(raw, consume=True)

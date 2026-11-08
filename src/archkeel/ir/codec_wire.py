@@ -10,6 +10,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from io import BytesIO
 from typing import Any, BinaryIO
 
+from archkeel.ir.facts import EVIDENCE_FIELDS, RECORD_FIELDS
 from archkeel.ir.model import JsonValue, RecordData
 from archkeel.ir.model import RawJson as RawJson
 
@@ -144,6 +145,33 @@ def json_arrays(model: dict[str, object]) -> dict[str, object]:
                 if isinstance(item, dict | list):
                     pending.append(item)
     return model
+
+
+def section_rows(
+    section: str, raw_items: RawJson, missing: RawJson
+) -> tuple[list[str], list[list[RawJson]]]:
+    """Columnize one record section: its sorted data fields and one row for each record.
+
+    A caller that passes the only reference to `raw_items` frees the raw records on return.
+    """
+    if not isinstance(raw_items, list):
+        raise ValueError(f"{section} must be an array")
+    items = [_object(entry, f"{section}[]") for entry in raw_items]
+    data_fields = sorted({key for item in items for key in _object(item["data"], "data")})
+    return data_fields, [
+        [
+            *(item[field] for field in RECORD_FIELDS[:-1]),
+            [_object(item["data"], "data").get(field, missing) for field in data_fields],
+        ]
+        for item in items
+    ]
+
+
+def evidence_rows(raw_evidence: RawJson) -> list[list[RawJson]]:
+    if not isinstance(raw_evidence, list):
+        raise ValueError("evidence must be an array")
+    items = [_object(entry, "evidence[]") for entry in raw_evidence]
+    return [[item[field] for field in EVIDENCE_FIELDS] for item in items]
 
 
 def decode_json(payload: bytes | str) -> RawJson:
