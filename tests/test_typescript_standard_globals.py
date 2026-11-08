@@ -123,7 +123,7 @@ def test_inherited_libraries_are_captured_and_child_selection_replaces_them(tmp_
         json.dumps({"extends": "./base.json", "compilerOptions": {"lib": ["es5"]}}),
     )
     assert not config.partial and not snapshot.problems
-    assert config.options.libs == (StandardLibrary.ES5,)
+    assert config.options.libs == (StandardLibrary("es5"),)
     assert "String" in standard_globals(config.options)
     assert not {"Map", "document"} & standard_globals(config.options)
     assert {"base.json", "tsconfig.json"} <= snapshot.inputs.keys()
@@ -131,7 +131,7 @@ def test_inherited_libraries_are_captured_and_child_selection_replaces_them(tmp_
 
 @pytest.mark.parametrize(
     "changes",
-    [{"libs": ("dom",)}, {"libs": [StandardLibrary.DOM]}, {"no_lib": 1}, {"lib_unmodeled": 1}],
+    [{"libs": ("dom",)}, {"libs": [StandardLibrary("dom")]}, {"no_lib": 1}, {"lib_unmodeled": 1}],
 )
 def test_standard_environment_has_nominal_typed_fields(changes):
     with pytest.raises(TypeError):

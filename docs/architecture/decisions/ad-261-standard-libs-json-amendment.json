@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "after_digest": "eef0fa10a9d952d8c1da07fdac1eec5290f496550b54d4eaf1cdd6882c352c5f",
+  "before_baseline_digest": "c4a24f27af4316ec1c408a641d8f131629090992a46ee1d0cec52d3e8df0bbcd",
+  "before_digest": "a0077d707da606ab07617025da7e8fb983b170d61b8457bb31729befb0d4f69d",
+  "decided_by": "Alexander Kell (architect), AD-261",
+  "rationale": "The TypeScript standard-library catalog is now data in standard_libs.json, shared with the native collector. The names of StandardLibrary come from that file, so it cannot be a Python enum any more. It becomes a str subclass with a closed constructor, and the contract entry TS-TYPED-StandardLibrary changes its kind from enum to class.",
+  "schema_version": "2.0.0"
+}
