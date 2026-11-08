@@ -24,8 +24,8 @@ dependency policy of `cargo deny`. The binary is a drop-in for the Python TypeSc
 4. It selects files as `config.load_config` does: `extends`, `files`, `include`, `exclude`,
    `allowJs`, `checkJs`, `outDir` and `declarationDir`. It reports the files, inputs, coverage
    and file evidence. A directory, an entry or a file name that it cannot read is a collection gap.
-5. It does not extract imports yet. Each observed file has one `source_resolution_gap` for
-   imports, so an import rule is UNKNOWN and never PASS. The collector invents no evidence.
+5. The skeleton extracted no imports and gave each file one `source_resolution_gap`. AD-320
+   replaces this with the import records. The collector invents no evidence.
 6. A 9.0.0 request with `exclude_test_sources` removes test sources with the rule of
    `profiles.is_test_source` (AD-313). When this removes every file, the gap "No production
    source files in scope after the test exclusion" keeps the scan incomplete.
@@ -54,14 +54,12 @@ only one producer changes when protocol 10 gets one fact record. Protocol 9 belo
 - Code from codebase-memory-mcp now. The skeleton has no resolver that needs it (YAGNI).
 
 **Limit.**
-- The skeleton does not check compiler options, the script environment or `package.json`
-  files, so it can report fewer collection gaps than the Python collector.
-- A bundler request is a collection gap.
+- AD-320 reads the compiler options, the script environment and the `package.json` files.
 - Without `ARCHKEEL_VERSION` at build time, the adapter version is `0+unknown`.
 - Timings are not a performance claim. The bans list known crates; a new crate with the same
   purpose needs a review of its own.
 
-**Check.** `tests/test_collector_native_typescript.py` runs the host report and gets UNKNOWN.
+**Check.** `tests/test_collector_native_typescript.py` runs the host report.
 It decodes 3.0.0 and 8.0.0 replies with consistent coverage. It compares files, file evidence and
 inputs with the Python collector on four fixtures. It checks `missing_tool`, `execution_error`,
 `timeout`, the output limit and the 9.0.0 test exclusion. The `cargo test` expected values come

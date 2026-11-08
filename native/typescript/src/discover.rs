@@ -8,8 +8,9 @@ use std::collections::BTreeSet;
 
 use crate::config::Layer;
 use crate::glob::{Pattern, Usage};
-use crate::paths::{basename, dirname, is_outside, join, shadowed, suffix, within, SourceKind};
+use crate::paths::{basename, dirname, is_outside, join, within};
 use crate::snapshot::Snapshot;
+use crate::source_input::{classify_file, shadowed, SourceKind, Suffix};
 
 /// The listed files first, then the found files in sorted order, as the compiler lists them.
 pub fn discover(
@@ -125,9 +126,9 @@ fn walk(
 }
 
 fn supported(name: &str, allow_js: bool) -> bool {
-    match suffix(name) {
-        Some((_, Some(SourceKind::TypeScript | SourceKind::Declaration))) => true,
-        Some((_, Some(SourceKind::JavaScript))) => allow_js,
+    match classify_file(name).and_then(Suffix::source_kind) {
+        Some(SourceKind::TypeScript | SourceKind::Declaration) => true,
+        Some(SourceKind::JavaScript) => allow_js,
         _ => false,
     }
 }

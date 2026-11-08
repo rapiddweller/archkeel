@@ -8,6 +8,9 @@
 //! `analyzer/runtime.collector_provenance` digests the Python collector: the relative path, a NUL,
 //! the bytes, a NUL. It is the same on every platform.
 
+// A build script that fails stops the build, not a scan, so it may expect.
+#![allow(clippy::expect_used)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;

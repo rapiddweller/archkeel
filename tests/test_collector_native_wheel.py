@@ -45,6 +45,24 @@ def _hook() -> ModuleType:
 hook = _hook()
 
 
+def test_only_a_manylinux_build_gets_the_bsd_source_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    # tree-sitter calls `le16toh`, which glibc before 2.19 declares only for `_BSD_SOURCE`.
+    monkeypatch.setenv("CFLAGS", "-O1")
+    flags = {
+        tag: hook.build_environment(VERSION, tag).get("CFLAGS")
+        for tag in (
+            "py3-none-manylinux_2_17_aarch64",
+            "py3-none-musllinux_1_2_x86_64",
+            "py3-none-win_amd64",
+        )
+    }
+    assert flags == {
+        "py3-none-manylinux_2_17_aarch64": "-O1 -D_BSD_SOURCE",
+        "py3-none-musllinux_1_2_x86_64": "-O1",
+        "py3-none-win_amd64": "-O1",
+    }
+
+
 @pytest.mark.parametrize(
     "platform,tag",
     [

@@ -70,6 +70,31 @@ pub struct Record {
     pub data: Map<String, Value>,
 }
 
+/// What an import resolves to (`facts.ImportTarget`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum Target {
+    Local {
+        import_id: String,
+        module: String,
+        file: String,
+        runtime_file: Option<String>,
+        declaration_file: Option<String>,
+    },
+    External {
+        import_id: String,
+        package: String,
+    },
+    Builtin {
+        import_id: String,
+        name: String,
+    },
+    Unresolved {
+        import_id: String,
+        specifier: String,
+        reason: String,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Provenance {
     pub profile: &'static str,
@@ -91,6 +116,8 @@ pub struct Facts {
     pub features: Vec<&'static str>,
     pub inputs: Vec<Input>,
     pub files: Vec<FileFact>,
+    /// The resolved target of each import record, in the order of the walk.
+    pub imports: Vec<Target>,
     pub selected_files: Vec<String>,
     pub files_read: usize,
     /// Coverage gaps. The collection is complete only when there is none.
@@ -162,7 +189,7 @@ fn facts_value(facts: &Facts) -> Value {
             "path": input.path, "digest": input.digest, "role": input.role.as_str(),
         })).collect::<Vec<_>>(),
         "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
-        "imports": [],
+        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
         "sections": facts.sections.iter().map(|(name, records)| json!({
             "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
@@ -180,6 +207,34 @@ fn facts_value(facts: &Facts) -> Value {
         "candidate_evidence": [],
         "provider_bindings": [],
     })
+}
+
+fn target_value(target: &Target) -> Value {
+    match target {
+        Target::Local {
+            import_id,
+            module,
+            file,
+            runtime_file,
+            declaration_file,
+        } => json!({
+            "kind": "local", "import_id": import_id, "module": module, "file": file,
+            "runtime_file": runtime_file, "declaration_file": declaration_file,
+        }),
+        Target::External { import_id, package } => {
+            json!({"kind": "external", "import_id": import_id, "package": package})
+        }
+        Target::Builtin { import_id, name } => {
+            json!({"kind": "builtin", "import_id": import_id, "name": name})
+        }
+        Target::Unresolved {
+            import_id,
+            specifier,
+            reason,
+        } => json!({
+            "kind": "unresolved", "import_id": import_id, "specifier": specifier, "reason": reason,
+        }),
+    }
 }
 
 fn file_value(file: &FileFact) -> Value {

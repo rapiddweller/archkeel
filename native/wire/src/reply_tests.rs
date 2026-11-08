@@ -37,6 +37,7 @@ fn facts() -> Facts {
         features: vec!["literal-imports"],
         inputs: vec![input("tsconfig.json", 'b', Role::Resolution)],
         files: vec![],
+        imports: vec![],
         selected_files: vec![],
         files_read: 0,
         gaps: vec![],
@@ -117,4 +118,62 @@ fn a_gap_makes_the_collection_partial() {
 #[test]
 fn the_plain_version_3_reply_is_not_written() {
     assert!(encode(Version::V3, &facts()).is_err());
+}
+
+#[test]
+fn a_target_has_the_fields_of_its_kind() {
+    let targets = [
+        Target::Local {
+            import_id: "IMP-1".to_owned(),
+            module: "app.b".to_owned(),
+            file: "b.ts".to_owned(),
+            runtime_file: Some("b.ts".to_owned()),
+            declaration_file: None,
+        },
+        Target::External {
+            import_id: "IMP-2".to_owned(),
+            package: "react".to_owned(),
+        },
+        Target::Builtin {
+            import_id: "IMP-3".to_owned(),
+            name: "fs".to_owned(),
+        },
+        Target::Unresolved {
+            import_id: "IMP-4".to_owned(),
+            specifier: "x".to_owned(),
+            reason: "Unresolved module: x".to_owned(),
+        },
+    ];
+    let mut with_imports = facts();
+    with_imports.imports = targets.to_vec();
+    let wire = encode(Version::V8, &with_imports).expect("encodes");
+    let mut plain = String::new();
+    ZlibDecoder::new(wire.as_slice())
+        .read_to_string(&mut plain)
+        .expect("zlib");
+    let reply: Value = serde_json::from_str(&plain).expect("JSON");
+    let kinds: Vec<(&str, usize)> = reply["facts"]["imports"]
+        .as_array()
+        .expect("a list")
+        .iter()
+        .map(|item| {
+            (
+                item["kind"].as_str().expect("a kind"),
+                item.as_object().expect("an object").len(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            ("local", 6),
+            ("external", 3),
+            ("builtin", 3),
+            ("unresolved", 4)
+        ]
+    );
+    assert_eq!(
+        reply["facts"]["imports"][0]["declaration_file"],
+        Value::Null
+    );
 }

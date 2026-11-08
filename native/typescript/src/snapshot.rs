@@ -25,6 +25,8 @@ pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
 pub struct Snapshot {
     root: PathBuf,
+    // The directories above the root, which the format lookup must also cover.
+    depth: usize,
     inputs: BTreeMap<String, (String, Role)>,
     // The snapshot does not change during one collection, so each real path is looked up once.
     reals: HashMap<String, Option<String>>,
@@ -36,13 +38,24 @@ pub struct Snapshot {
 impl Snapshot {
     pub fn new(root: &str) -> Self {
         let root = fs::canonicalize(root).unwrap_or_else(|_| PathBuf::from(root));
+        let depth = root
+            .to_string_lossy()
+            .split(std::path::MAIN_SEPARATOR)
+            .count()
+            - 1;
         Self {
             root,
+            depth,
             inputs: BTreeMap::new(),
             reals: HashMap::new(),
             oversized: BTreeSet::new(),
             problems: BTreeSet::new(),
         }
+    }
+
+    /// `Snapshot.depth`: the number of directories above the root.
+    pub fn depth(&self) -> usize {
+        self.depth
     }
 
     fn absolute(&self, rel: &str) -> PathBuf {

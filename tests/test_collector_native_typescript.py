@@ -10,8 +10,6 @@ TypeScript collector is the difference oracle for the files that the native skel
 from __future__ import annotations
 
 import json
-import os
-import shutil
 import subprocess
 import zlib
 from dataclasses import replace
@@ -43,7 +41,6 @@ from fixtures.reproduce_typescript import repository
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
-IMPORT_GAP = "Imports are not extracted by the native collector yet"
 FIXTURES = (
     "fixtures/H-typescript",
     "fixtures/H-uml-typescript",
@@ -52,28 +49,9 @@ FIXTURES = (
 )
 
 
-@pytest.fixture(scope="module")
-def binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    cargo = shutil.which("cargo")
-    # A Rust toolchain is required only for changes in native/; CI always has one.
-    if cargo is None and os.environ.get("CI"):
-        pytest.fail("CI must provide cargo for the native TypeScript collector tests.")
-    if cargo is None:
-        pytest.skip("cargo is not installed; install Rust to test changes in native/.")
-    built = subprocess.run(
-        [cargo, "build", "--manifest-path", str(NATIVE / "Cargo.toml"), "--locked"],
-        # The working directory selects the toolchain that native/rust-toolchain.toml pins.
-        cwd=NATIVE,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert built.returncode == 0, built.stderr
-    name = "archkeel-typescript-collector" + (".exe" if os.name == "nt" else "")
-    # Cargo of another test worker can link the target file again while this worker runs it.
-    copy = tmp_path_factory.mktemp("native") / name
-    shutil.copy2(NATIVE / "target" / "debug" / name, copy)
-    return copy
+@pytest.fixture
+def binary(native_binary: Path) -> Path:
+    return native_binary
 
 
 def _request(root: Path, version: ProtocolVersion = ProtocolVersion.V3) -> CollectionRequest:
@@ -91,7 +69,7 @@ def _facts(result: SourceFacts | CollectionError) -> SourceFacts:
     return result
 
 
-def test_host_report_reads_the_native_reply_as_unknown(tmp_path: Path, binary: Path) -> None:
+def test_host_report_reads_the_native_reply(tmp_path: Path, binary: Path) -> None:
     root = repository(tmp_path, VARIANTS[0])
     settings = root / "archkeel.toml"
     argv = json.dumps([str(binary)])
@@ -106,7 +84,7 @@ def test_host_report_reads_the_native_reply_as_unknown(tmp_path: Path, binary: P
 
     result, artifact = run_report(root, config=config, analyzer=observer)
 
-    # No import is extracted yet, so the clean fixture must not PASS.
+    # The legacy capability carries no symbols, so the rules of the fixture stay UNKNOWN.
     assert result.declared_rules == "UNKNOWN"
     assert artifact is not None
     errors = {kind.value for kind in CollectionErrorKind}
@@ -129,16 +107,19 @@ def test_reply_decodes_with_consistent_coverage(binary: Path, version: ProtocolV
     assert set(facts.capabilities.sections) == {"imports", "unknowns"}
     assert len(coverage.selected_files) == coverage.files_read == coverage.files_parsed == 7
     assert len(facts.files) == 7
+    # No global is examined, so the scan is not complete: one gap for each file (AD-320).
     assert not coverage.full_scope
-    assert {gap.title for gap in coverage.gaps} == {IMPORT_GAP}
-    assert sorted(gap.data.get("module") for gap in coverage.gaps) == sorted(
-        file.module for file in facts.files
-    )
-    assert facts.imports == ()
+    assert {gap.title for gap in coverage.gaps} == {
+        "Script-global dependencies are not examined by the native collector"
+    }
+    assert len(coverage.gaps) == len(facts.files)
+    sections = {section.name.value: section.records for section in facts.sections}
+    assert len(sections["imports"]) == len(facts.imports) == 8
+    assert sections["unknowns"] == coverage.gaps
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)
-def test_files_and_inputs_match_the_python_collector(binary: Path, fixture: str) -> None:
+def test_files_evidence_and_inputs_match_the_python_collector(binary: Path, fixture: str) -> None:
     request = _request(ROOT / fixture)
     native = _facts(ProcessCollector((str(binary),)).collect(request))
     python = collect(request)
@@ -148,9 +129,8 @@ def test_files_and_inputs_match_the_python_collector(binary: Path, fixture: str)
     assert native.source.scope == python.source.scope
     evidence = {item.id: item for item in python.evidence}
     assert [evidence.get(item.id) for item in native.evidence] == list(native.evidence)
-    # The skeleton reads no file for import resolution, so it has fewer inputs.
-    assert set(native.inputs) <= set(python.inputs)
-    assert {item.path for item in native.inputs} >= set(native.coverage.selected_files)
+    # The native resolver reads the same files as the Python resolver, so the inputs are equal.
+    assert native.inputs == python.inputs
 
 
 def test_a_bundled_binary_with_another_adapter_version_is_a_protocol_error(

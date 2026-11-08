@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 import contextlib
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -148,6 +150,32 @@ def self_observation(self_run: SelfRun) -> Observation:
 @pytest.fixture(scope="session")
 def self_artifact_bytes(self_run: SelfRun) -> bytes:
     return self_run.artifact
+
+
+@pytest.fixture(scope="session")
+def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The debug build of the native TypeScript collector (AD-316), copied for its own tests."""
+    cargo = shutil.which("cargo")
+    # A Rust toolchain is required only for changes in native/; CI always has one.
+    if cargo is None and os.environ.get("CI"):
+        pytest.fail("CI must provide cargo for the native TypeScript collector tests.")
+    if cargo is None:
+        pytest.skip("cargo is not installed; install Rust to test changes in native/.")
+    native = ROOT / "native"
+    built = subprocess.run(
+        [cargo, "build", "--manifest-path", str(native / "Cargo.toml"), "--locked"],
+        # The working directory selects the toolchain that native/rust-toolchain.toml pins.
+        cwd=native,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert built.returncode == 0, built.stderr
+    name = "archkeel-typescript-collector" + (".exe" if os.name == "nt" else "")
+    # Cargo of another test worker can link the target file again while this worker runs it.
+    copy = tmp_path_factory.mktemp("native") / name
+    shutil.copy2(native / "target" / "debug" / name, copy)
+    return copy
 
 
 @pytest.hookimpl(optionalhook=True)
