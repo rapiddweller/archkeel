@@ -42,7 +42,7 @@
   "src/archkeel/ir/graph_codec.py": 743,
   "src/archkeel/ir/guard_paths.py": 507,
   "src/archkeel/ir/model.py": 2042,
-  "src/archkeel/ir/module_explore.py": 876,
+  "src/archkeel/ir/module_explore.py": 866,
   "src/archkeel/ir/report_projection.py": 1011,
   "src/archkeel/ir/source_graph.py": 1290,
   "src/archkeel/ir/view_spec.py": 1256,

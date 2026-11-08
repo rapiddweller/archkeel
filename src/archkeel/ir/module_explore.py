@@ -36,7 +36,7 @@ from .model import (
     text_value,
 )
 from .ownership import scope_names, scope_owners
-from .report_graph import architecture_report
+from .report_graph import CellFindings, architecture_report
 from .structure import module_edges
 
 _HUB_FAN: Final = 10
@@ -195,6 +195,21 @@ def _dependency_selections(
     return selections
 
 
+def _import_sites(
+    relationships: tuple[Relationship, ...], modules: dict[str, str]
+) -> dict[tuple[str, str], list[Relationship]]:
+    sites: dict[tuple[str, str], list[Relationship]] = defaultdict(list)
+    for edge in relationships:
+        if (
+            edge.kind == RelationshipKind.IMPORTS
+            and edge.source_id in modules
+            and edge.target_id is not None
+            and edge.target_id in modules
+        ):
+            sites[edge.source_id, edge.target_id].append(edge)
+    return sites
+
+
 def _cells(
     model: Observation, report: ArchitectureReport, scope_ids: dict[str, str]
 ) -> tuple[ModuleImportCell, ...]:
@@ -246,15 +261,8 @@ def _cells(
         for source, target, count in module_edges(model)
         if source in identities and target in identities
     }
-    sites: dict[tuple[str, str], list[Relationship]] = defaultdict(list)
-    for edge in report.observed.relationships:
-        if (
-            edge.kind == RelationshipKind.IMPORTS
-            and edge.source_id in modules
-            and edge.target_id is not None
-            and edge.target_id in modules
-        ):
-            sites[edge.source_id, edge.target_id].append(edge)
+    sites = _import_sites(report.observed.relationships, modules)
+    findings_of = CellFindings(report)
     return tuple(
         _import_cell(
             source,
@@ -263,7 +271,7 @@ def _cells(
             weights,
             sites,
             model,
-            report,
+            findings_of,
             core_assessments,
             candidates,
             declarations,
@@ -277,24 +285,6 @@ def _cells(
     )
 
 
-def _cell_findings(
-    report: ArchitectureReport, references: set[str]
-) -> tuple[tuple[ReportFinding, ...], tuple[GraphAssessment, ...]]:
-    findings = tuple(
-        item for item in report.findings if references.intersection(item.graph_subject_ids)
-    )
-    graph_assessments = (
-        tuple(
-            item
-            for item in report.comparison.assessments
-            if references.intersection(item.observed_ids)
-        )
-        if report.comparison
-        else ()
-    )
-    return findings, graph_assessments
-
-
 def _import_cell(
     source: str,
     target: str,
@@ -302,7 +292,7 @@ def _import_cell(
     weights: dict[tuple[str, str], int],
     sites: dict[tuple[str, str], list[Relationship]],
     model: Observation,
-    report: ArchitectureReport,
+    findings_of: CellFindings,
     core_assessments: dict[str, RuleAssessment],
     candidates: tuple[RuleAssessment, ...],
     declarations: dict[str, Record],
@@ -315,7 +305,7 @@ def _import_cell(
     edges = sites[source, target]
     relationships = tuple(sorted(item.id for item in edges))
     references = set(relationships)
-    findings, graph_assessments = _cell_findings(report, references)
+    findings, graph_assessments = findings_of.of(references)
     site_results: list[tuple[tuple[RuleAssessment, ...], frozenset[str], frozenset[str]]] = []
     for edge in edges:
         site_records = tuple(

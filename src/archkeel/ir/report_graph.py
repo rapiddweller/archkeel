@@ -4,6 +4,7 @@
 """Read one standard report boundary from authenticated Core evidence."""
 
 import json
+from collections.abc import Iterable
 from dataclasses import asdict
 
 from archkeel.ir.architecture_graph import (
@@ -13,6 +14,7 @@ from archkeel.ir.architecture_graph import (
     ComponentMembership,
     DependencyDecisionGap,
     Entity,
+    GraphAssessment,
     GraphComparison,
     GraphSchemaVersion,
     Relationship,
@@ -265,3 +267,34 @@ def _findings(
                 )
             )
     return tuple(findings)
+
+
+def _by_subject(subject_ids: Iterable[Iterable[str]]) -> dict[str, list[int]]:
+    """Return, for each subject id, the position of each item that names it, in order."""
+    positions: dict[str, list[int]] = {}
+    for position, subjects in enumerate(subject_ids):
+        for subject in set(subjects):
+            named: list[int] = positions.setdefault(subject, [])
+            named.append(position)
+    return positions
+
+
+class CellFindings:
+    """Index a report once; each cell then costs its own references, not the whole report."""
+
+    def __init__(self, report: ArchitectureReport) -> None:
+        self._findings = report.findings
+        self._assessments = report.comparison.assessments if report.comparison else ()
+        self._finding_at = _by_subject(item.graph_subject_ids for item in self._findings)
+        self._assessment_at = _by_subject(item.observed_ids for item in self._assessments)
+
+    def of(
+        self, references: set[str]
+    ) -> tuple[tuple[ReportFinding, ...], tuple[GraphAssessment, ...]]:
+        """Return the findings and graph assessments that name a reference, in report order."""
+        chosen = sorted({at for name in references for at in self._finding_at.get(name, ())})
+        named = sorted({at for name in references for at in self._assessment_at.get(name, ())})
+        return (
+            tuple(self._findings[at] for at in chosen),
+            tuple(self._assessments[at] for at in named),
+        )
