@@ -119,7 +119,9 @@ impl Frames {
         names
     }
 
-    /// `_script_bound_scope`: the nearest frame, from `from` up, that binds `name`.
+    /// `_script_bound_scope`: the nearest frame, from `from` up, that binds `name`. The walk uses
+    /// the memo; the tests compare the two.
+    #[cfg(test)]
     pub fn bound_scope(&self, from: u32, name: &str) -> Option<u32> {
         let mut at = from;
         loop {
@@ -131,6 +133,39 @@ impl Frames {
             }
             at = self.list.get(at as usize)?.parent;
         }
+    }
+
+    /// `bound_scope` with a memo. Every frame that the climb passes has the same answer, so a
+    /// chain of n frames costs n steps for each name, not n steps for each write.
+    pub fn bound_scope_memo(
+        &self,
+        memo: &mut HashMap<String, HashMap<u32, Option<u32>>>,
+        from: u32,
+        name: &str,
+    ) -> Option<u32> {
+        let known = memo.entry(name.to_owned()).or_default();
+        let mut passed = Vec::new();
+        let mut at = from;
+        let found = loop {
+            if let Some(answer) = known.get(&at) {
+                break *answer;
+            }
+            passed.push(at);
+            if self.count(at, name) > 0 {
+                break Some(at);
+            }
+            if at == ROOT {
+                break None;
+            }
+            match self.list.get(at as usize) {
+                Some(frame) => at = frame.parent,
+                None => break None,
+            }
+        };
+        for frame in passed {
+            known.insert(frame, found);
+        }
+        found
     }
 
     /// Bind each name that `pattern` assigns; a target that is no plain name blurs the frame.

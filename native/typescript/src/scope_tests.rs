@@ -101,3 +101,28 @@ fn a_qualified_name_is_the_chain_of_the_parent_names() {
         ]
     );
 }
+
+#[test]
+fn the_memo_gives_the_answer_of_the_plain_climb() {
+    let mut frames = Frames::new();
+    let mut chain = vec![ROOT];
+    for _ in 0..50 {
+        chain.push(frames.push(*chain.last().unwrap_or(&ROOT)));
+    }
+    frames.bind(chain[0], "a".to_owned());
+    frames.bind(chain[20], "a".to_owned());
+    frames.bind(chain[35], "b".to_owned());
+    let mut memo = std::collections::HashMap::new();
+    // Ask from the middle first and from the ends later: a memo that kept a wrong frame shows.
+    for from in [
+        chain[25], chain[50], chain[10], chain[0], chain[36], chain[19], chain[50],
+    ] {
+        for name in ["a", "b", "c"] {
+            assert_eq!(
+                frames.bound_scope_memo(&mut memo, from, name),
+                frames.bound_scope(from, name),
+                "{from} {name}"
+            );
+        }
+    }
+}

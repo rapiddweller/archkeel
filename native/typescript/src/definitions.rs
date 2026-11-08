@@ -96,7 +96,7 @@ pub struct Defs {
     scopes: Scopes,
     /// The constants (`_variables`), before the filter for module arrays.
     constants: Vec<Definition>,
-    array_spans: Vec<Span>,
+    array_spans: HashSet<Span>,
     /// Module names that an array constant must not shadow.
     omitted: HashSet<String>,
     opaque: bool,
@@ -289,7 +289,7 @@ impl Defs {
             decorator_sources: Vec::new(),
         };
         if is_array {
-            self.array_spans.push(constant.span.clone());
+            self.array_spans.insert(constant.span.clone());
         }
         self.constants.push(constant);
     }

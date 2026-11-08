@@ -131,6 +131,20 @@ pub fn named_children(node: Node) -> Vec<Node> {
     node.named_children(&mut cursor).collect()
 }
 
+/// Call `visit` for each child, without a vector: a node with few children is read by index.
+pub fn each_child<'t>(node: Node<'t>, mut visit: impl FnMut(Node<'t>)) {
+    if node.child_count() <= FEW_CHILDREN {
+        (0..node.child_count())
+            .filter_map(|index| node.child(index))
+            .for_each(visit);
+        return;
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        visit(child);
+    }
+}
+
 pub fn children(node: Node) -> Vec<Node> {
     if node.child_count() <= FEW_CHILDREN {
         return (0..node.child_count())
@@ -190,39 +204,48 @@ impl Cx<'_> {
 
     /// Whether a child of `node` has the kind `kind`.
     pub fn has_child(&self, node: Node, kind: K) -> bool {
-        children(node).iter().any(|child| self.k(*child) == kind)
+        let mut found = false;
+        each_child(node, |child| found |= self.k(child) == kind);
+        found
     }
 
     /// `_modifiers`.
     pub fn modifiers(&self, node: Node) -> Modifiers {
-        self.modifiers_in(&children(node))
+        let mut bits = 0;
+        each_child(node, |child| bits |= self.modifier_bit(child));
+        Modifiers(bits)
     }
 
     /// `_modifiers` for the children of a node that the caller already has.
     pub fn modifiers_in(&self, kids: &[Node]) -> Modifiers {
-        let mut bits = 0;
-        for child in kids.iter().copied() {
-            if matches!(
-                self.k(child),
-                K::AccessibilityModifier
-                    | K::Static
-                    | K::Abstract
-                    | K::Override
-                    | K::Readonly
-                    | K::Declare
-            ) {
-                bits |= match self.bytes(child) {
-                    b"public" => PUBLIC,
-                    b"protected" => PROTECTED,
-                    b"private" => PRIVATE,
-                    b"static" => STATIC,
-                    b"abstract" => ABSTRACT,
-                    b"readonly" => READONLY,
-                    _ => 0,
-                };
-            }
+        Modifiers(
+            kids.iter()
+                .fold(0, |bits, child| bits | self.modifier_bit(*child)),
+        )
+    }
+
+    /// The bit of one child of a node that holds a modifier word, or zero.
+    fn modifier_bit(&self, child: Node) -> u8 {
+        if !matches!(
+            self.k(child),
+            K::AccessibilityModifier
+                | K::Static
+                | K::Abstract
+                | K::Override
+                | K::Readonly
+                | K::Declare
+        ) {
+            return 0;
         }
-        Modifiers(bits)
+        match self.bytes(child) {
+            b"public" => PUBLIC,
+            b"protected" => PROTECTED,
+            b"private" => PRIVATE,
+            b"static" => STATIC,
+            b"abstract" => ABSTRACT,
+            b"readonly" => READONLY,
+            _ => 0,
+        }
     }
 
     /// `_visibility`.
@@ -272,11 +295,10 @@ impl Cx<'_> {
         };
         let mut result = Vec::new();
         for item in named_children(node) {
-            let named = named_children(item);
             let pattern = self
                 .field(item, F::Pattern)
                 .or_else(|| self.field(item, F::Name))
-                .or_else(|| named.first().copied());
+                .or_else(|| item.named_child(0));
             let mut name = pattern.map_or_else(String::new, |pattern| self.text(pattern));
             let rest = self.k(item) == K::RestParameter
                 || pattern.is_some_and(|pattern| self.k(pattern) == K::RestPattern);

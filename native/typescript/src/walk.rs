@@ -9,7 +9,7 @@
 //! ancestors, with the frame of the scope and a few flags, and answers each question from it.
 //! The facts are owned: no tree node outlives the file.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use tree_sitter::Node;
 
@@ -332,13 +332,20 @@ impl<'a, 't> Walk<'a, 't> {
         for item in &self.imports {
             self.frames.bind(ROOT, item.local.clone());
         }
-        let written: HashSet<String> = self
-            .writes
-            .iter()
-            .map(|(target, frame)| (cx.text(*target), *frame))
-            .filter(|(name, frame)| self.frames.bound_scope(*frame, name) == Some(ROOT))
-            .map(|(name, _)| name)
-            .collect();
+        // Only an import reads the writes of the file.
+        let mut memo = HashMap::new();
+        let written: HashSet<String> = if self.imports.is_empty() {
+            HashSet::new()
+        } else {
+            self.writes
+                .iter()
+                .map(|(target, frame)| (cx.text(*target), *frame))
+                .filter(|(name, frame)| {
+                    self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT)
+                })
+                .map(|(name, _)| name)
+                .collect()
+        };
         let blurred = self.frames.is_ambiguous(ROOT);
         let mut import_bindings = self.imports;
         for item in &mut import_bindings {

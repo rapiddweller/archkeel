@@ -12,6 +12,18 @@ use crate::kinds::{F, K};
 use crate::members::{children, named_children, static_member_name, Cx, Member, Place};
 use crate::syntax::Span;
 
+/// The named children of a body with the runs of decorators and comments between them.
+struct Siblings<'a, 't> {
+    list: &'a [Node<'t>],
+    body: Node<'t>,
+    body_kind: K,
+    owner: K,
+    /// For each child: the index where the run of decorators and comments before it starts.
+    start: Vec<usize>,
+    /// For each child: the index of the first child after it that is no decorator or comment.
+    after: Vec<usize>,
+}
+
 impl Cx<'_> {
     /// `_parameter_properties`: `None` when a parameter property cannot be proven.
     fn parameter_properties<'t>(&self, node: Node<'t>, place: &Place) -> Option<Vec<Node<'t>>> {
@@ -105,8 +117,9 @@ impl Cx<'_> {
         let mut members = Vec::new();
         let mut properties: Vec<Member> = Vec::new();
         let list = named_children(body);
+        let siblings = self.siblings(&list, body, owner);
         for (index, item) in list.iter().copied().enumerate() {
-            let place = self.place_in(&list, index, body, owner);
+            let place = self.place_in(&siblings, index);
             let kind = self.k(item);
             if matches!(
                 kind,
@@ -152,39 +165,60 @@ impl Cx<'_> {
         members
     }
 
-    /// The place of `list[index]` among the named children of `body`.
-    fn place_in<'a, 't>(
-        &self,
-        list: &'a [Node<'t>],
-        index: usize,
-        body: Node<'t>,
-        owner: K,
-    ) -> Place<'a, 't> {
-        let mut start = index;
-        while start > 0 && matches!(self.k(list[start - 1]), K::Decorator | K::Comment) {
-            start -= 1;
+    /// The siblings of a body: the run of decorators and comments before each child and the first
+    /// child after each run, found in one forward and one backward pass. Asking for them for each
+    /// child by scanning the run would be quadratic in the length of the run.
+    fn siblings<'a, 't>(&self, list: &'a [Node<'t>], body: Node<'t>, owner: K) -> Siblings<'a, 't> {
+        let run: Vec<bool> = list
+            .iter()
+            .map(|item| matches!(self.k(*item), K::Decorator | K::Comment))
+            .collect();
+        let mut start = vec![0; list.len()];
+        for index in 1..list.len() {
+            start[index] = if run[index - 1] {
+                start[index - 1]
+            } else {
+                index
+            };
         }
+        let mut after = vec![list.len(); list.len()];
+        for index in (0..list.len().saturating_sub(1)).rev() {
+            after[index] = if run[index + 1] {
+                after[index + 1]
+            } else {
+                index + 1
+            };
+        }
+        Siblings {
+            list,
+            body,
+            body_kind: self.k(body),
+            owner,
+            start,
+            after,
+        }
+    }
+
+    /// The place of `list[index]` among the named children of the body.
+    fn place_in<'a, 't>(&self, siblings: &Siblings<'a, 't>, index: usize) -> Place<'a, 't> {
         Place {
-            parent: Some(body),
-            parent_kind: self.k(body),
-            grand_kind: owner,
-            before: &list[start..index],
+            parent: Some(siblings.body),
+            parent_kind: siblings.body_kind,
+            grand_kind: siblings.owner,
+            before: &siblings.list[siblings.start[index]..index],
         }
     }
 
     /// `_decorated_member(list[index]) is not None`: the first sibling after a run of decorators
     /// and comments is a member that a decorator can belong to.
-    fn decorates_a_member(&self, list: &[Node], index: usize, body: Node, owner: K) -> bool {
-        let mut next = index + 1;
-        while list
-            .get(next)
-            .is_some_and(|item| matches!(self.k(*item), K::Decorator | K::Comment))
-        {
-            next += 1;
-        }
-        list.get(next).is_some_and(|candidate| {
-            self.decorated_member(*candidate, &self.place_in(list, next, body, owner))
-        })
+    fn decorates_a_member(&self, siblings: &Siblings, index: usize) -> bool {
+        siblings
+            .list
+            .get(siblings.after[index])
+            .is_some_and(|candidate| {
+                let place = self.place_in(siblings, siblings.after[index]);
+                self.decorated_member(*candidate, &place)
+            })
     }
 
     /// `_members_complete`.
@@ -198,12 +232,13 @@ impl Cx<'_> {
         let mut attributes: HashSet<String> = HashSet::new();
         let mut constructors = 0;
         let list = named_children(body);
+        let siblings = self.siblings(&list, body, owner);
         for (index, child) in list.iter().copied().enumerate() {
             let kind = self.k(child);
-            if kind == K::Decorator && self.decorates_a_member(&list, index, body, owner) {
+            if kind == K::Decorator && self.decorates_a_member(&siblings, index) {
                 continue;
             }
-            let place = self.place_in(&list, index, body, owner);
+            let place = self.place_in(&siblings, index);
             if !matches!(
                 kind,
                 K::PublicFieldDefinition

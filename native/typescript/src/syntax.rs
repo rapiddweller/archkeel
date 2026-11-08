@@ -18,7 +18,7 @@ use crate::pytext::{decode, first_chars, utf16_len};
 use crate::scan::Kinds;
 
 /// A 1-based line and UTF-16 column, as the TypeScript compiler reports them.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Span {
     pub line: i64,
     pub end_line: i64,

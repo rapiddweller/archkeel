@@ -61,8 +61,8 @@ fn require_concerns(source: &Source, scan: &Scan, list: &mut Vec<Concern>) -> bo
         let reads = starts_with(parent, node, &["member_expression", "subscript_expression"]);
         let typeof_use = parent.is_some_and(|parent| {
             parent.kind() == "unary_expression"
-                && (0..parent.child_count())
-                    .filter_map(|index| parent.child(index))
+                && crate::members::children(parent)
+                    .into_iter()
                     .any(|child| child.kind() == "typeof")
         });
         shadows = shadows || !(reads || typeof_use);
@@ -113,8 +113,8 @@ fn comment_concerns(
         Some(SourceKind::TypeScript | SourceKind::Declaration)
     );
     // Triple-slash directives count only before the first statement of the file.
-    let first = (0..root.child_count())
-        .filter_map(|index| root.child(index))
+    let first = crate::members::children(root)
+        .into_iter()
         .find(|child| !matches!(child.kind(), "comment" | "hash_bang_line"))
         .map_or(source.data.len(), |child| child.start_byte());
     for node in scan.comments.iter().copied() {
