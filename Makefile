@@ -107,10 +107,11 @@ native-check:
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
 	cd native && cargo build --locked
+	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:
-	@for lint in indexing_slicing arithmetic_side_effects; do \
+	@for lint in indexing_slicing arithmetic_side_effects cast_possible_truncation; do \
 		printf '%s: ' $$lint; \
 		(cd native && cargo clippy --locked --message-format short -- -W clippy::$$lint 2>&1) | \
 			grep -c '^[^ ]*: warning: ' || true; \

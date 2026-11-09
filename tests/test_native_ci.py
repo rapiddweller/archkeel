@@ -91,7 +91,7 @@ def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedP
     cargo.write_text(f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n')
     cargo.chmod(0o755)
     return subprocess.run(
-        ["make", target],
+        ["make", target, "UV=true"],
         cwd=ROOT,
         env={**os.environ, "MAKEFLAGS": "", "PATH": f"{tmp_path}:{os.environ['PATH']}"},
         capture_output=True,

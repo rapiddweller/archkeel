@@ -30,7 +30,8 @@ strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
-# A wrapped integer in span math must stop the scan, not return a wrong position. Cost: AD-327.
+# An arithmetic overflow (+, -, *) stops the scan instead of wrapping. An `as` cast still
+# truncates without a check: `clippy::cast_possible_truncation` counts those in `make native-report`.
 overflow-checks = true
 
 [workspace.lints.rust]
