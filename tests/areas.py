@@ -6,7 +6,7 @@
 from fnmatch import fnmatchcase
 
 # The first area with a matching pattern owns a file, so a specific name comes before its prefix.
-# A PR job must take at most about 7 minutes on the slowest runner (AD-338). The same tests took
+# A PR job must take at most about 7 minutes on the slowest runner (AD-341). The same tests took
 # up to 2 times as long on one runner as on another, so the summed test time of an area on such a
 # runner must stay below about 24 minutes for 4 workers.
 AREAS: dict[str, tuple[str, ...]] = {

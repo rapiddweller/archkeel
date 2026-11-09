@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-338: the aggregate jobs report each job time against the time budget and never fail."""
+"""AD-341: the aggregate jobs report each job time against the time budget and never fail."""
 
 import io
 import json
@@ -63,8 +63,8 @@ def test_the_tool_never_fails_and_writes_the_summary(
         argv = ["--job-minutes", "7", "--path-minutes", "10", "--summary", str(summary)]
         assert main(argv) == 0
     out = capsys.readouterr().out
-    assert "::warning title=Time budget (AD-338)::Tests: collectors ran 8.5 min" in out
-    assert "::warning title=Time budget (AD-338)::No complete job" in out
+    assert "::warning title=Time budget (AD-341)::Tests: collectors ran 8.5 min" in out
+    assert "::warning title=Time budget (AD-341)::No complete job" in out
     assert summary.read_text().count("| Job | Run (min) | Queue (min) |") == 1
 
 

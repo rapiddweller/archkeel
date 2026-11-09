@@ -333,4 +333,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-325 | [Every collector process runs in the C locale](ad-325-every-collector-process-runs-in-the-c-locale.md) |
 | AD-327 | [Rust architecture rules are measured in the gate](ad-327-rust-architecture-rules-are-measured-in-the-gate.md) |
 | AD-336 | [A coverage gap names its real cause and never changes the exit code](ad-336-a-coverage-gap-names-its-real-cause-and-never-changes-the-exit-code.md) |
+| AD-338 | [Core validates a decoded collection once and remembers each reference verdict](ad-338-core-validates-a-decoded-collection-once-and-remembers-each-reference-verdict.md) |
 | AD-343 | [A collector reply is frozen as golden data before its code is deleted](ad-343-a-collector-reply-is-frozen-as-golden-data-before-its-code-is-deleted.md) |
+| AD-341 | [CI has a time budget, and a test runs on any free worker](ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md) |

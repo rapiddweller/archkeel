@@ -1,4 +1,4 @@
-# AD-338 CI has a time budget, and a test runs on any free worker
+# AD-341 CI has a time budget, and a test runs on any free worker
 
 **Status.** Proposed. The owner set the budget on 2026-11-09.
 

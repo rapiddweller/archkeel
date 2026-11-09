@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Report the time of each job of a workflow run against the time budget (AD-338).
+"""Report the time of each job of a workflow run against the time budget (AD-341).
 
 The input is one JSON job on each line, as `gh api .../attempts/<n>/jobs --jq '.jobs[]'` writes
 it. The aggregate job that runs this tool is not complete yet, so it is not in the table. All jobs
@@ -81,7 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print(table, end="")
     for warning in warnings:
-        print(f"::warning title=Time budget (AD-338)::{warning}")
+        print(f"::warning title=Time budget (AD-341)::{warning}")
     if args.summary is not None:
         with args.summary.open("a", encoding="utf-8") as summary:
             summary.write(table)
