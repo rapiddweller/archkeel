@@ -341,3 +341,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if _shares_a_fixture(item):
             item.add_marker(pytest.mark.xdist_group(item.path.name))
+    # The self-run takes minutes on a runner. Its consumers come last, so that the other workers run
+    # other tests while one worker builds it, and do not wait for its lock. The sort is stable.
+    items.sort(key=lambda item: "self_run" in getattr(item, "fixturenames", ()))
