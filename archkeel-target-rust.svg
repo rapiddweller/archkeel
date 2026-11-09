@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 3290" width="1800" height="3290" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 3790" width="1800" height="3790" font-family="Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
     </marker>
   </defs>
-  <rect width="1800" height="3290" fill="#ffffff"/>
+  <rect width="1800" height="3790" fill="#ffffff"/>
 
   <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">ArchKeel target architecture: what is Rust, what stays</text>
   <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-09 night, 36 PRs merged.</text>
@@ -246,215 +246,261 @@
   <circle cx="226" cy="556" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="560" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
   <circle cx="226" cy="584" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="588" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
   <circle cx="226" cy="612" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="616" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
-  <text x="40" y="1070" font-size="22" font-weight="700" fill="#0f172a">Benchmarks, measured (details in the issue comment of 2026-11-08)</text>
-  <rect x="40" y="1086" width="418" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-  <text x="54" y="1110" font-size="14" font-weight="700" fill="#1e3a8a">CBM and ArchKeel (Linux, 2 vCPU, 2 GiB)</text>
-  <text x="54" y="1136" font-size="13" fill="#1e3a8a">CBM index, 3 806 files: 12.5 s, 550 MiB</text>
-  <text x="54" y="1158" font-size="13" fill="#1e3a8a">ArchKeel Python, 358 files: 40.0 s, 555 MiB</text>
-  <text x="54" y="1180" font-size="13" fill="#1e3a8a">ArchKeel TS UI, 907 files: 83.7 s, 1 890 MiB, exit 2</text>
-  <rect x="474" y="1086" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
-  <text x="488" y="1110" font-size="14" font-weight="700" fill="#78350f">React UI: collector against host (macOS)</text>
-  <text x="488" y="1136" font-size="13" fill="#78350f">Collector: 31.7 s of 71.5 s (45 %), 480 MiB</text>
-  <text x="488" y="1158" font-size="13" fill="#78350f">Host peak: 4.2 GiB macOS, 1 854 MiB Linux</text>
-  <text x="488" y="1180" font-size="13" fill="#78350f">Real reply: 13.1 MB packed, 20 % of the limit</text>
-  <rect x="908" y="1086" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
-  <text x="922" y="1110" font-size="14" font-weight="700" fill="#78350f">Host path (merged #891, #899; React UI, 907 files)</text>
-  <text x="922" y="1136" font-size="13" fill="#78350f">Linux 2 vCPU/2 GiB peak: 1 848, 1 145 (#891), 782 MiB (#899)</text>
-  <text x="922" y="1158" font-size="13" fill="#78350f">Host time: -15.6 % (#891), -5 % (#899)</text>
-  <text x="922" y="1180" font-size="13" fill="#78350f">macOS peak: 4 243 to 1 210 MiB. #902: -22 % time</text>
-  <rect x="1342" y="1086" width="418" height="112" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
-  <text x="1356" y="1110" font-size="14" font-weight="700" fill="#14532d">Native imports (4.2) against Python</text>
-  <text x="1356" y="1136" font-size="13" fill="#14532d">910 files, Linux: 2.16 s floor to 1.06 s (-51 %)</text>
-  <text x="1356" y="1158" font-size="13" fill="#14532d">React UI whole run: 80.7 s to 14.8 s (-82 %)</text>
-  <text x="1356" y="1180" font-size="13" fill="#14532d">Host peak 1 197 to 407 MiB. Binary 0.57 to 3.7 MB</text>
-  <text x="40" y="1230" font-size="22" font-weight="700" fill="#0f172a">Goal check: how far are we from the goals of #880 and the owner budget?</text>
-  <text x="60" y="1270" font-size="14" font-weight="700" fill="#0f172a">Rust collectors replace the Python collectors (TS, Python, Dart)</text>
-  <rect x="640" y="1257" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1257" width="66" height="16" rx="8" fill="#f59e0b"/>
-  <text x="960" y="1270" font-size="13" fill="#334155">2 of 9 merged. 4.3a-2 and 3a reviewed (0 diffs), 3b in work. Python 0a/0b next. Dart design in work.</text>
-  <text x="60" y="1304" font-size="14" font-weight="700" fill="#0f172a">Bounded host path (Linux peak at most 1.25 GiB)</text>
-  <rect x="640" y="1291" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1291" width="240" height="16" rx="8" fill="#f59e0b"/>
-  <text x="960" y="1304" font-size="13" fill="#334155">Memory done (782 MiB). Time: D3 (#920) -9 to -19 % host CPU, reviewed; D1 in work. Protocol 10 for the rest.</text>
-  <text x="60" y="1338" font-size="14" font-weight="700" fill="#0f172a">Simple IR: four owners, one place per concept</text>
-  <rect x="640" y="1325" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1325" width="150" height="16" rx="8" fill="#f59e0b"/>
-  <text x="960" y="1338" font-size="13" fill="#334155">S1 to S3 merged, S4 two splits (#906, #912). Repeat audit names the owners for S5, S6 and protocol 10.</text>
-  <text x="60" y="1372" font-size="14" font-weight="700" fill="#0f172a">Enabling work and Rust rules (R0)</text>
-  <rect x="640" y="1359" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1359" width="300" height="16" rx="8" fill="#16a34a"/>
-  <text x="960" y="1372" font-size="13" fill="#334155">Done. 36 PRs merged. Rust rules in the gate (#904), no module cycles (#907).</text>
-  <text x="60" y="1406" font-size="14" font-weight="700" fill="#0f172a">CI time budget (owner): PR at most 10 min, Full at most 30 min</text>
-  <rect x="640" y="1393" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <text x="960" y="1406" font-size="13" fill="#334155">VIOLATED: PR CI 11 to 25 min, Full 17 to 33 min, queue up to 15 min. CI-B in work.</text>
-  <text x="60" y="1448" font-size="14" font-weight="700" fill="#b91c1c">Honest reading: 5 of 9 violations fixed. Open: 2 false PASS left in 5b-1 (not merged), CI over budget, needless repeats (D1, D3 in fix).</text>
-  <text x="40" y="1500" font-size="22" font-weight="700" fill="#0f172a">Violations found on 2026-11-09 and what they mean for the goal and the plan</text>
-  <text x="1060" y="1500" font-size="13" font-weight="700" fill="#b91c1c">Numbers in the diagram: where each violation sits (red open, green fixed).</text>
-  <rect x="40" y="1516" width="1730" height="340" rx="10" fill="#fef2f2" stroke="#fca5a5"/>
-  <circle cx="66" cy="1541" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1545" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
-  <text x="86" y="1546" font-size="12.5" font-weight="700" fill="#0f172a">3 false PASS in 5b-1 (#916), re-review found 2 more: sibling members, a leading ::</text>
-  <rect x="668" y="1532" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1545.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1532" width="84" height="19" rx="9.5" fill="#ea580c"/><text x="814.0" y="1545.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
-  <text x="870" y="1546" font-size="12.5" fill="#334155">Worst class. Not merged. Fix now covers every rule kind and field by a table test, not single cases.</text>
-  <circle cx="66" cy="1573" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1577" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
-  <text x="86" y="1578" font-size="12.5" font-weight="700" fill="#0f172a">5b-1: memory n squared (19 GB from 640 KB), stack abort, symlink read outside root</text>
-  <rect x="668" y="1564" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1577.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1564" width="84" height="19" rx="9.5" fill="#ea580c"/><text x="814.0" y="1577.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
-  <text x="870" y="1578" font-size="12.5" fill="#334155">Every binary needs the AD-319 limits from day one. Python PR 5 plans a large-stack thread and depth checks now.</text>
-  <circle cx="66" cy="1605" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1609" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
-  <text x="86" y="1610" font-size="12.5" font-weight="700" fill="#0f172a">Dart collector crash (SnapshotError, 3 causes) on a private repository</text>
-  <rect x="668" y="1596" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1609.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1596" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="1609.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
-  <text x="870" y="1610" font-size="12.5" fill="#334155">Fixed in #914 with facts and honest gaps. Frozen does not mean unmaintained. The corpus finds what fixtures miss.</text>
-  <circle cx="66" cy="1637" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1641" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
-  <text x="86" y="1642" font-size="12.5" font-weight="700" fill="#0f172a">Misleading diagnostics: 2 631 unresolved imports shown as parse_error</text>
-  <rect x="668" y="1628" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1641.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1628" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="1641.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
-  <text x="870" y="1642" font-size="12.5" fill="#334155">Fixed in #915 after 3 review rounds (one bad rebase undid #917, caught). Titles are shared constants now.</text>
-  <circle cx="66" cy="1669" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1673" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">5</text>
-  <text x="86" y="1674" font-size="12.5" font-weight="700" fill="#0f172a">Published result schema changed in place (#915, first version)</text>
-  <rect x="668" y="1660" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1673.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1660" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="1673.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
-  <text x="870" y="1674" font-size="12.5" fill="#334155">Merged as command-result 12.0 (#915). 6.0 to 11.0 stay byte-identical; a test rebuilds 12.0 from them.</text>
-  <circle cx="66" cy="1701" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1705" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
-  <text x="86" y="1706" font-size="12.5" font-weight="700" fill="#0f172a">CI over budget: collectors area 4:47 to 17:37 min in one day, Full hit its 20-min limit</text>
-  <rect x="668" y="1692" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1705.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1692" width="84" height="19" rx="9.5" fill="#f59e0b"/><text x="814.0" y="1705.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN WORK</text>
-  <text x="870" y="1706" font-size="12.5" fill="#334155">Every phase pays its own test time. 4.3a-2 merges after CI-B. The budget is an entry criterion for each PR.</text>
-  <circle cx="66" cy="1733" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1737" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
-  <text x="86" y="1738" font-size="12.5" font-weight="700" fill="#0f172a">14 needless repeats in one run: member inventory 10x, 89 % repeated ast.parse, facts 3x</text>
-  <rect x="668" y="1724" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1737.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1724" width="84" height="19" rx="9.5" fill="#f59e0b"/><text x="814.0" y="1737.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN WORK</text>
-  <text x="870" y="1738" font-size="12.5" fill="#334155">D3 (#920): validations 3 to 1, ast.parse -82 %, reviewed, small fixes. D1 in work. Rest: protocol 10.</text>
-  <circle cx="66" cy="1765" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1769" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
-  <text x="86" y="1770" font-size="12.5" font-weight="700" fill="#0f172a">Wrong number reported: host 82 of 92 s included a second collector run</text>
-  <rect x="668" y="1756" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1769.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1756" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="1769.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
-  <text x="870" y="1770" font-size="12.5" fill="#334155">Corrected: host 44 %. On the Python path the collector costs more, so PR 5 (Python in Rust) gains more.</text>
-  <circle cx="66" cy="1797" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="1801" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
-  <text x="86" y="1802" font-size="12.5" font-weight="700" fill="#0f172a">Ratio flake 3.02: not a quadratic, but N runs and 2N runs not interleaved</text>
-  <rect x="668" y="1788" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="1801.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="772" y="1788" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="1801.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
-  <text x="870" y="1802" font-size="12.5" fill="#334155">Fixed in #917: runs interleaved, one child timed exactly, 300 s kill. Test files 438 to 391 s.</text>
-  <text x="86" y="1834" font-size="12.5" font-weight="700" fill="#0f172a">Host levers #918: -6.5 % on macOS, inside noise on Linux</text>
-  <rect x="668" y="1820" width="96" height="19" rx="9.5" fill="#64748b"/><text x="716.0" y="1833.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">BELOW 10 %</text>
-  <rect x="772" y="1820" width="84" height="19" rx="9.5" fill="#64748b"/><text x="814.0" y="1833.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">CLOSED</text>
-  <text x="870" y="1834" font-size="12.5" fill="#334155">Closed by the owner. The real lever is one owner for the whole run (protocol 10), not a local cache.</text>
-  <text x="60" y="1878" font-size="14" font-weight="700" fill="#7f1d1d">Where each violation sits:</text>
-  <text x="60" y="1900" font-size="12.5" fill="#7f1d1d">1 Rust step 4 (scan.rs), evidence (Rust capability set, ir/profiles.py), check: PASS</text>
-  <text x="920" y="1900" font-size="12.5" fill="#7f1d1d">2 Rust steps 1 and 2 (module tree, symlinks, syn recursion)</text>
-  <text x="60" y="1918" font-size="12.5" fill="#7f1d1d">3 Dart collector</text>
-  <text x="920" y="1918" font-size="12.5" fill="#7f1d1d">4 Rust step 5 and wire: gaps carry no reason code; check maps the kind; CLI and MCP show it</text>
-  <text x="60" y="1936" font-size="12.5" fill="#7f1d1d">5 wire readers: published result schema</text>
-  <text x="920" y="1936" font-size="12.5" fill="#7f1d1d">6, 8, 9 engineering process: CI time, reported numbers, timing tests</text>
-  <text x="60" y="1954" font-size="12.5" fill="#7f1d1d">7 old Python collector (survey twice), evidence (facts 3x, excerpts), architecture (inventory 10x), report (built 2x)</text>
-  <rect x="40" y="1982" width="1730" height="176" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
-  <text x="60" y="2010" font-size="16" font-weight="700" fill="#78350f">What this means for the goal and the plan</text>
-  <text x="60" y="2036" font-size="13" fill="#78350f">The goal does not change: native collectors, a bounded host and a simple IR. The order does not change. Dates slip by about one fix round per collector PR.</text>
-  <text x="60" y="2056" font-size="13" fill="#78350f">Gate for every new collector: adversarial review (false PASS probes, deep and hostile inputs, symlinks) before merge. 5b-1 merges only after the 3 false PASS are fixed.</text>
-  <text x="60" y="2076" font-size="13" fill="#78350f">New entry criterion: the CI budget (PR at most 10 min, Full at most 30 min). Order now: CI-B, then 4.3a-2 with Full, then 5b-1, then Python 0a and 0b.</text>
-  <text x="60" y="2096" font-size="13" fill="#78350f">Host time: D1 and D3 first, then P2 and P5. Then the honest benchmark 4.0.1 against main for Python, TypeScript and Rust (owner request).</text>
-  <text x="60" y="2116" font-size="13" fill="#78350f">Protocol 10 gets three concrete jobs from the audit: one collector process per command, layout from the raw model, and reason codes for gaps.</text>
-  <text x="60" y="2136" font-size="13" fill="#78350f">Process: reviews found 3 false PASS, 1 schema break, 1 pair loop and 1 crash case that the authors missed. Keep one independent review per PR.</text>
-  <text x="40" y="2198" font-size="22" font-weight="700" fill="#0f172a">Progress and current work</text>
-  <rect x="40" y="2214" width="1730" height="1076" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
-  <text x="60" y="2244" font-size="14" font-weight="700" fill="#0f172a">M0: compiler oracle, profile by function, host against collector</text>
-  <rect x="600" y="2230" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2243.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2244" font-size="13" fill="#334155">TS calls: CBM typed 86.4 % recall without JSX, ArchKeel 14.8 %. React UI: collector 45 % of the time.</text>
-  <text x="60" y="2276" font-size="14" font-weight="700" fill="#0f172a">Merged: #881 #882 #883 #886 #876 #887 (rules, tests, macOS, V9, CI)</text>
-  <rect x="600" y="2262" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2275.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2276" font-size="13" fill="#334155">AD-314 is enforced. Protocol V9 carries the test scope. The pr-test list is outside the Full filter.</text>
-  <text x="60" y="2308" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S1: four IR owners as inner components (#884)</text>
-  <rect x="600" y="2294" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2307.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2308" font-size="13" fill="#334155">Merged. AD-315. A test generates the owner graph from ir.json (docs/architecture/ir-owners.md).</text>
-  <text x="60" y="2340" font-size="14" font-weight="700" fill="#0f172a">PR 4.1a: Rust skeleton collector (#885) with before/after table</text>
-  <rect x="600" y="2326" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2339.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2340" font-size="13" fill="#334155">Merged. Files, inputs, file set and verdict equal to Python. No imports yet, no speed claim.</text>
-  <text x="60" y="2372" font-size="14" font-weight="700" fill="#0f172a">Rust pilot · design · before/after harness · best-practice review</text>
-  <rect x="600" y="2358" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2371.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2372" font-size="13" fill="#334155">Review: a tool that reads untrusted code ships a binary in wheels (ruff, uv). Gaps are in the plan.</text>
-  <text x="60" y="2404" font-size="14" font-weight="700" fill="#0f172a">Issue #880 in STE with diagram, arguments, benchmarks comment</text>
-  <rect x="600" y="2390" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2403.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2404" font-size="13" fill="#334155">Why CBM-first was dropped, what we take from CBM, plan 5.1 packaging, rename step S6.</text>
-  <text x="60" y="2436" font-size="14" font-weight="700" fill="#0f172a">PR 4.1b-1: wheel hook and tags (#888)</text>
-  <rect x="600" y="2422" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2435.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2436" font-size="13" fill="#334155">Merged. CI found a Linux tag bug; fixed. Binary 880 to 568 KB. Default wheel identical to main.</text>
-  <text x="60" y="2468" font-size="14" font-weight="700" fill="#0f172a">PR H step 2: host fixes b, c, d (#891)</text>
-  <rect x="600" y="2454" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2467.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2468" font-size="13" fill="#334155">Merged. Linux host peak -38 %, host time -15.6 %, output identical except code_digest. AD-318.</text>
-  <text x="60" y="2500" font-size="14" font-weight="700" fill="#0f172a">Test audit: duplicates, speed and meaning of the tests</text>
-  <rect x="600" y="2486" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2499.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2500" font-size="13" fill="#334155">Report done. Collector work repeats in 38.5 % of runs. 21 of 24 mutants die. Two follow-up test PRs started.</text>
-  <text x="60" y="2532" font-size="14" font-weight="700" fill="#0f172a">PR 4.1b-2 (#890) and 4.1b-3 (#892): six wheels, cargo deny, SBOM, limits</text>
-  <rect x="600" y="2518" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2531.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2532" font-size="13" fill="#334155">Merged. First real Windows run of the job memory limit passed. macOS has no limit (AD-319).</text>
-  <text x="60" y="2564" font-size="14" font-weight="700" fill="#0f172a">PR 4.2: module resolution and imports (#893)</text>
-  <rect x="600" y="2550" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2563.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2564" font-size="13" fill="#334155">Merged. One walk is 50 % faster than the equal-work floor. Most of the -99 % vs full Python is less work.</text>
-  <text x="60" y="2596" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S2: one owner for scope label and membership (#894)</text>
-  <rect x="600" y="2582" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2595.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2596" font-size="13" fill="#334155">Merged. AD-321. 3 copies to 1, key parent:label 13 places to 1, self-validate: same 134 statuses.</text>
-  <text x="60" y="2628" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S3: one owner for coverage (#898) · levels.py deleted (#900)</text>
-  <rect x="600" y="2614" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2627.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2628" font-size="13" fill="#334155">Merged. AD-322. 6 025 adversarial cases: no loosening. Three tightenings, all more cautious.</text>
-  <text x="60" y="2660" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S4 rest, S5, then S6 (rename ir)</text>
-  <rect x="600" y="2646" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="2659.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="2660" font-size="13" fill="#334155">#906, #912 merged (widening.py 1 054 to 399 lines). Open: decisions, source_graph, model. S5 waits for #860.</text>
-  <text x="60" y="2692" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-1 (#897): scope, definitions, exports in Rust</text>
-  <rect x="600" y="2678" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2691.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2692" font-size="13" fill="#334155">Merged after 4 reviews. Scaling matrix: 93 shapes, N against 2N. Parity: 0 differences. AD-323.</text>
-  <text x="60" y="2724" font-size="14" font-weight="700" fill="#0f172a">PR H steps 3 and 4 (#899, #902) · C locale (#901)</text>
-  <rect x="600" y="2710" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2723.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2724" font-size="13" fill="#334155">Host peak 1 228 to 782 MiB, host time -22 %. Collectors run with LC_ALL=C. AD-324, AD-318, AD-325.</text>
-  <text x="60" y="2756" font-size="14" font-weight="700" fill="#0f172a">Independent review of every PR (since #895)</text>
-  <rect x="600" y="2742" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2755.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2756" font-size="13" fill="#334155">11 reviews on 8 PRs. Found: 5 quadratic shapes, 1 memory attack on macOS, 1 unpinned gap check, AD clashes.</text>
-  <text x="60" y="2788" font-size="14" font-weight="700" fill="#0f172a">Wave 1: #903 #904 #905 #906 #907 #908 #910 #911</text>
-  <rect x="600" y="2774" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2787.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2788" font-size="13" fill="#334155">Rust rules and no cycles, code digest, coverage owner, S4 split, amendment refresh, CPU-time timing tests.</text>
-  <text x="60" y="2820" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-2 (#913): sites in Rust</text>
-  <rect x="600" y="2806" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="2819.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="2820" font-size="13" fill="#334155">0 differences on 900 000+ sites, -97 % against the floor. Fixes done. Merges after CI-B and one Full run.</text>
-  <text x="60" y="2852" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-3a (#921): imports per name, exports, constructs, all wire types</text>
-  <rect x="600" y="2838" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="2851.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="2852" font-size="13" fill="#334155">Stacked on #913. 0 differences, review: ship. Found a 4.2 re-read loop: x35 1.29 to 1.08 s.</text>
-  <text x="60" y="2884" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-3b symbols · 3c calls, references, bindings · 3d capability flip</text>
-  <rect x="600" y="2870" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="2883.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="2884" font-size="13" fill="#334155">3b in work (stacked on 3a). 3c next, parallel to 3b. Only 3d can change a verdict.</text>
-  <text x="60" y="2916" font-size="14" font-weight="700" fill="#0f172a">5b-1 (#916): Rust collector for Rust source, in wheels</text>
-  <rect x="600" y="2902" width="128" height="19" rx="9.5" fill="#ea580c"/><text x="664.0" y="2915.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
-  <text x="750" y="2916" font-size="13" fill="#334155">Round 2: 3 false PASS and 6 limits fixed; re-review found 2 more false PASS. uv: 672 files, 0.8 s.</text>
-  <text x="60" y="2948" font-size="14" font-weight="700" fill="#0f172a">Real-world corpus: 5 private repos, uv, pydantic, fastapi, excalidraw, flutter</text>
-  <rect x="600" y="2934" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2947.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2948" font-size="13" fill="#334155">No false PASS, no timeout. Native TS equals Python on 2 repos. Found the Dart crash and wrong parse_error.</text>
-  <text x="60" y="2980" font-size="14" font-weight="700" fill="#0f172a">#914 Dart crash fix · #915 honest diagnostic kinds (AD-336) · #917 timing</text>
-  <rect x="600" y="2966" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2979.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="2980" font-size="13" fill="#334155">All merged. #915: schema 12.0. #917: interleaved runs, exact child CPU time.</text>
-  <text x="60" y="3012" font-size="14" font-weight="700" fill="#0f172a">CI-B: CI time budget (PR at most 10 min, Full at most 30 min)</text>
-  <rect x="600" y="2998" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3011.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="3012" font-size="13" fill="#334155">Measure, rebalance areas, build once and share binaries. 4.3a-2 waits for it.</text>
-  <text x="60" y="3044" font-size="14" font-weight="700" fill="#0f172a">Repeat audit · D1 compute once per run · D3 validate once (#920, AD-338)</text>
-  <rect x="600" y="3030" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3043.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="3044" font-size="13" fill="#334155">D3 reviewed: proof holds, fixes for an unbounded cache and a test gap. D1 in work.</text>
-  <text x="60" y="3076" font-size="14" font-weight="700" fill="#0f172a">#909: Full only when a PR changes what Full runs</text>
-  <rect x="600" y="3062" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3075.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <text x="750" y="3076" font-size="13" fill="#334155">Merged. 22 to 10 Full runs in 60 PRs.</text>
-  <text x="60" y="3108" font-size="14" font-weight="700" fill="#0f172a">Benchmark 4.0.1 against main (Python, TypeScript, Rust)</text>
-  <rect x="600" y="3094" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3107.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="3108" font-size="13" fill="#334155">Owner request. After D1, D3, 4.3a-2 and 5b-1 merge. Interleaved runs on a quiet machine.</text>
-  <text x="60" y="3140" font-size="14" font-weight="700" fill="#0f172a">PR 5: Python collector in Rust (design done)</text>
-  <rect x="600" y="3126" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3139.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="3140" font-size="13" fill="#334155">Owner priority: finish collect first. 0a, 0b after #913 and #916, then slice 1. Golden replies before delete.</text>
-  <text x="60" y="3172" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-4, 4.3a-5 · 4.4 · 4.5 · then 4.3b</text>
-  <rect x="600" y="3158" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3171.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="3172" font-size="13" fill="#334155">First native TypeScript PASS in 4.3a-5. 4.4 switches the default. 4.5 deletes the Python TS collector.</text>
-  <text x="60" y="3204" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 6 · PR 7</text>
-  <rect x="600" y="3190" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3203.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="3204" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
-  <text x="60" y="3236" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
-  <rect x="600" y="3222" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3235.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="3236" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
-  <text x="60" y="3268" font-size="14" font-weight="700" fill="#0f172a">PR 8: Dart collector in Rust (owner decision 2026-11-09)</text>
-  <rect x="600" y="3254" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3267.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="3268" font-size="13" fill="#334155">Design in work (Opus): parser by parity on mutated files, slices, golden replies, then delete Python.</text>
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker></defs>
+  <text x="40" y="1070" font-size="22" font-weight="700" fill="#0f172a">Stage 2 (collect) in Rust: the crates of native/ today and at the end of the epic</text>
+  <text x="1250" y="1070" font-size="12.5" fill="#334155">Arrow = "may use". Solid: on main. Orange dashed: open PR. Grey dashed: planned.</text>
+  <rect x="40" y="1088" width="600" height="455" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="660" y="1088" width="1110" height="455" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="60" y="1114" font-size="16" font-weight="800" fill="#0f172a">AS IS · main today (+ PR #916)</text>
+  <text x="680" y="1114" font-size="16" font-weight="800" fill="#0f172a">TARGET · stage 2 fully in Rust, the Python collectors deleted</text>
+  <rect x="60" y="1128" width="560" height="40" rx="8" fill="#e2e8f0" stroke="#64748b" stroke-width="1.5"/><text x="74" y="1153" font-size="12.5" fill="#0f172a"><tspan font-weight="700">Python host</tspan> · starts the binary, request on stdin, reply on stdout (protocol 9)</text>
+  <line x1="195" y1="1168" x2="195" y2="1194" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <rect x="60" y="1196" width="270" height="128" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="2.2"/><rect x="70" y="1206" width="34" height="17" rx="4" fill="#c2410c"/><text x="87" y="1218" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">BIN</text><text x="112" y="1220" font-size="13.5" font-weight="700" fill="#0f172a">typescript-collector</text><text x="72" y="1242" font-size="12" fill="#334155">archkeel-typescript-collector</text><text x="72" y="1259" font-size="12" fill="#334155">51 source files, imports + scope</text><text x="72" y="1276" font-size="12" fill="#334155">tree-sitter 0.25 and</text><text x="72" y="1293" font-size="12" fill="#334155">tree-sitter-typescript =0.23.2</text>
+  <rect x="370" y="1196" width="250" height="128" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2.2"/><rect x="380" y="1206" width="34" height="17" rx="4" fill="#1d4ed8"/><text x="397" y="1218" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">LIB</text><text x="422" y="1220" font-size="13.5" font-weight="700" fill="#0f172a">archkeel-wire</text><text x="382" y="1242" font-size="12" fill="#334155">protocol 9: request decode,</text><text x="382" y="1259" font-size="12" fill="#334155">reply encode, source ids,</text><text x="382" y="1276" font-size="12" fill="#334155">digests · 8 files</text><text x="382" y="1293" font-size="12" fill="#334155">uses no internal crate</text>
+  <line x1="330" y1="1260" x2="368" y2="1260" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <rect x="60" y="1352" width="270" height="100" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="70" y="1362" width="34" height="17" rx="4" fill="#c2410c"/><text x="87" y="1374" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">BIN</text><text x="112" y="1376" font-size="13.5" font-weight="700" fill="#0f172a">rust-collector</text><text x="320" y="1444" font-size="10.5" font-weight="800" fill="#ea580c" text-anchor="end">OPEN PR</text><text x="72" y="1398" font-size="12" fill="#334155">archkeel-rust-collector · syn</text><text x="72" y="1415" font-size="12" fill="#334155">crate edges of Rust code</text><text x="72" y="1432" font-size="12" fill="#334155">dogfooding: checks native/</text>
+  <rect x="370" y="1352" width="250" height="100" rx="8" fill="#eff6ff" stroke="#ea580c" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="380" y="1362" width="34" height="17" rx="4" fill="#1d4ed8"/><text x="397" y="1374" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">LIB</text><text x="422" y="1376" font-size="13.5" font-weight="700" fill="#0f172a">build-support</text><text x="610" y="1444" font-size="10.5" font-weight="800" fill="#ea580c" text-anchor="end">OPEN PR</text><text x="382" y="1398" font-size="12" fill="#334155">archkeel-build-support</text><text x="382" y="1415" font-size="12" fill="#334155">code digest at build time</text><text x="382" y="1432" font-size="12" fill="#334155">(shared by all collectors)</text>
+  <line x1="330" y1="1402" x2="368" y2="1402" stroke="#334155" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+  <line x1="300" y1="1352" x2="430" y2="1326" stroke="#334155" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+  <text x="60" y="1478" font-size="12.5" fill="#334155">Rules today: native/layers.toml + a pytest (AD-327): a collector may use the libraries,</text>
+  <text x="60" y="1496" font-size="12.5" fill="#334155">only a collector may use a tree-sitter crate, no module cycles (#907). cargo deny: bans,</text>
+  <text x="60" y="1514" font-size="12.5" fill="#334155">licences, wrappers. One binary per language in the platform wheel (AD-317).</text>
+  <rect x="680" y="1128" width="1070" height="40" rx="8" fill="#e2e8f0" stroke="#64748b" stroke-width="1.5"/><text x="694" y="1153" font-size="12.5" fill="#0f172a"><tspan font-weight="700">Python host</tspan> · picks the binary by language. Contract, evidence, check and report stay Python (stages 3 to 6). Protocol 10 later (PR 3).</text>
+  <rect x="680" y="1196" width="255" height="104" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="2.2"/><rect x="690" y="1206" width="34" height="17" rx="4" fill="#c2410c"/><text x="707" y="1218" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">BIN</text><text x="732" y="1220" font-size="13.5" font-weight="700" fill="#0f172a">typescript-collector</text><text x="692" y="1242" font-size="12" fill="#334155">tree-sitter-typescript</text><text x="692" y="1259" font-size="12" fill="#334155">4.3a-3 to 4.5 to parity,</text><text x="692" y="1276" font-size="12" fill="#334155">then 4.3b better resolver</text>
+  <line x1="807" y1="1168" x2="807" y2="1194" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="780" y1="1300" x2="780" y2="1332" stroke="#334155" stroke-width="1.8"/>
+  <rect x="951" y="1196" width="255" height="104" rx="8" fill="#fff7ed" stroke="#94a3b8" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="961" y="1206" width="34" height="17" rx="4" fill="#c2410c"/><text x="978" y="1218" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">BIN</text><text x="1003" y="1220" font-size="13.5" font-weight="700" fill="#0f172a">python-collector</text><text x="1196" y="1292" font-size="10.5" font-weight="800" fill="#94a3b8" text-anchor="end">PLANNED</text><text x="963" y="1242" font-size="12" fill="#334155">ruff_python_parser (pinned,</text><text x="963" y="1259" font-size="12" fill="#334155">CPython parity) · toolchain</text><text x="963" y="1276" font-size="12" fill="#334155">1.97 · PR 5, slices 0a to 9</text>
+  <line x1="1078" y1="1168" x2="1078" y2="1194" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="1051" y1="1300" x2="1051" y2="1332" stroke="#334155" stroke-width="1.8"/>
+  <rect x="1222" y="1196" width="255" height="104" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="1232" y="1206" width="34" height="17" rx="4" fill="#c2410c"/><text x="1249" y="1218" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">BIN</text><text x="1274" y="1220" font-size="13.5" font-weight="700" fill="#0f172a">rust-collector</text><text x="1467" y="1292" font-size="10.5" font-weight="800" fill="#ea580c" text-anchor="end">OPEN PR</text><text x="1234" y="1242" font-size="12" fill="#334155">syn · crate edges (5b-1),</text><text x="1234" y="1259" font-size="12" fill="#334155">module edges (5b-2) ·</text><text x="1234" y="1276" font-size="12" fill="#334155">checks native/ itself</text>
+  <line x1="1349" y1="1168" x2="1349" y2="1194" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="1322" y1="1300" x2="1322" y2="1332" stroke="#334155" stroke-width="1.8"/>
+  <rect x="1493" y="1196" width="255" height="104" rx="8" fill="#fff7ed" stroke="#94a3b8" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="1503" y="1206" width="34" height="17" rx="4" fill="#c2410c"/><text x="1520" y="1218" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">BIN</text><text x="1545" y="1220" font-size="13.5" font-weight="700" fill="#0f172a">dart-collector</text><text x="1738" y="1292" font-size="10.5" font-weight="800" fill="#94a3b8" text-anchor="end">PLANNED</text><text x="1505" y="1242" font-size="12" fill="#334155">vendored fork grammar</text><text x="1505" y="1259" font-size="12" fill="#334155">(4 029 of 4 029 trees equal)</text><text x="1505" y="1276" font-size="12" fill="#334155">PR 8, slices 0 to 7</text>
+  <line x1="1620" y1="1168" x2="1620" y2="1194" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="1593" y1="1300" x2="1593" y2="1332" stroke="#334155" stroke-width="1.8"/>
+  <line x1="780" y1="1332" x2="1593" y2="1332" stroke="#334155" stroke-width="1.8"/>
+  <text x="866" y="1350" font-size="11.5" font-weight="700" fill="#334155">every collector may use snapshot, wire and build-support</text>
+  <line x1="850" y1="1332" x2="850" y2="1356" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="1210" y1="1332" x2="1210" y2="1356" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="1485" y1="1332" x2="1485" y2="1356" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <rect x="680" y="1358" width="340" height="100" rx="8" fill="#eff6ff" stroke="#94a3b8" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="690" y="1368" width="34" height="17" rx="4" fill="#1d4ed8"/><text x="707" y="1380" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">LIB</text><text x="732" y="1382" font-size="13.5" font-weight="700" fill="#0f172a">archkeel-snapshot</text><text x="1010" y="1450" font-size="10.5" font-weight="800" fill="#94a3b8" text-anchor="end">PLANNED</text><text x="692" y="1404" font-size="12" fill="#334155">files, paths, symlink, size and depth</text><text x="692" y="1421" font-size="12" fill="#334155">limits: one rule set for all languages</text><text x="692" y="1438" font-size="12" fill="#334155">(moved out of TypeScript in PR 5 slice 0a)</text>
+  <rect x="1040" y="1358" width="340" height="100" rx="8" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2.2"/><rect x="1050" y="1368" width="34" height="17" rx="4" fill="#1d4ed8"/><text x="1067" y="1380" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">LIB</text><text x="1092" y="1382" font-size="13.5" font-weight="700" fill="#0f172a">archkeel-wire</text><text x="1052" y="1404" font-size="12" fill="#334155">request, reply, source ids, digests:</text><text x="1052" y="1421" font-size="12" fill="#334155">one reply format for every language</text><text x="1052" y="1438" font-size="12" fill="#334155">(protocol 10 later)</text>
+  <rect x="1400" y="1358" width="170" height="100" rx="8" fill="#eff6ff" stroke="#ea580c" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="1410" y="1368" width="34" height="17" rx="4" fill="#1d4ed8"/><text x="1427" y="1380" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">LIB</text><text x="1452" y="1382" font-size="13.5" font-weight="700" fill="#0f172a">build-support</text><text x="1560" y="1450" font-size="10.5" font-weight="800" fill="#ea580c" text-anchor="end">OPEN PR</text><text x="1412" y="1404" font-size="12" fill="#334155">code digest of</text><text x="1412" y="1421" font-size="12" fill="#334155">.rs, .c and .h</text><text x="1412" y="1438" font-size="12" fill="#334155">files</text>
+  <rect x="1590" y="1358" width="160" height="100" rx="8" fill="#f5f3ff" stroke="#94a3b8" stroke-width="2.2" stroke-dasharray="6 4"/><rect x="1600" y="1368" width="34" height="17" rx="4" fill="#6d28d9"/><text x="1617" y="1380" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">C</text><text x="1642" y="1382" font-size="13.5" font-weight="700" fill="#0f172a">dart-grammar</text><text x="1740" y="1450" font-size="10.5" font-weight="800" fill="#94a3b8" text-anchor="end">PLANNED</text><text x="1602" y="1404" font-size="12" fill="#334155">parser.c, scanner.c</text><text x="1602" y="1421" font-size="12" fill="#334155">vendored, only the</text><text x="1602" y="1438" font-size="12" fill="#334155">Dart collector</text>
+  <line x1="1700" y1="1300" x2="1700" y2="1356" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <line x1="1020" y1="1408" x2="1038" y2="1408" stroke="#334155" stroke-width="1.8" marker-end="url(#ah)"/>
+  <text x="680" y="1478" font-size="12.5" fill="#334155">Target rules: a library never uses a parser; a parser crate has exactly one collector; the Rust collector checks native/ with native/archkeel.toml</text>
+  <text x="680" y="1496" font-size="12.5" fill="#334155">(this replaces layers.toml in 5b-3). Four binaries in each of the six platform wheels; customers get them when PUBLISH_NATIVE_WHEELS is on (AD-317).</text>
+  <text x="680" y="1514" font-size="12.5" fill="#334155">Before each deletion: golden replies of the Python collector (full when small, hash and counts when large). Then tests compare Rust with them.</text>
+  <text x="40" y="1570" font-size="22" font-weight="700" fill="#0f172a">Benchmarks, measured (details in the issue comment of 2026-11-08)</text>
+  <rect x="40" y="1586" width="418" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="54" y="1610" font-size="14" font-weight="700" fill="#1e3a8a">CBM and ArchKeel (Linux, 2 vCPU, 2 GiB)</text>
+  <text x="54" y="1636" font-size="13" fill="#1e3a8a">CBM index, 3 806 files: 12.5 s, 550 MiB</text>
+  <text x="54" y="1658" font-size="13" fill="#1e3a8a">ArchKeel Python, 358 files: 40.0 s, 555 MiB</text>
+  <text x="54" y="1680" font-size="13" fill="#1e3a8a">ArchKeel TS UI, 907 files: 83.7 s, 1 890 MiB, exit 2</text>
+  <rect x="474" y="1586" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="488" y="1610" font-size="14" font-weight="700" fill="#78350f">React UI: collector against host (macOS)</text>
+  <text x="488" y="1636" font-size="13" fill="#78350f">Collector: 31.7 s of 71.5 s (45 %), 480 MiB</text>
+  <text x="488" y="1658" font-size="13" fill="#78350f">Host peak: 4.2 GiB macOS, 1 854 MiB Linux</text>
+  <text x="488" y="1680" font-size="13" fill="#78350f">Real reply: 13.1 MB packed, 20 % of the limit</text>
+  <rect x="908" y="1586" width="418" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="922" y="1610" font-size="14" font-weight="700" fill="#78350f">Host path (merged #891, #899; React UI, 907 files)</text>
+  <text x="922" y="1636" font-size="13" fill="#78350f">Linux 2 vCPU/2 GiB peak: 1 848, 1 145 (#891), 782 MiB (#899)</text>
+  <text x="922" y="1658" font-size="13" fill="#78350f">Host time: -15.6 % (#891), -5 % (#899)</text>
+  <text x="922" y="1680" font-size="13" fill="#78350f">macOS peak: 4 243 to 1 210 MiB. #902: -22 % time</text>
+  <rect x="1342" y="1586" width="418" height="112" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="1356" y="1610" font-size="14" font-weight="700" fill="#14532d">Native imports (4.2) against Python</text>
+  <text x="1356" y="1636" font-size="13" fill="#14532d">910 files, Linux: 2.16 s floor to 1.06 s (-51 %)</text>
+  <text x="1356" y="1658" font-size="13" fill="#14532d">React UI whole run: 80.7 s to 14.8 s (-82 %)</text>
+  <text x="1356" y="1680" font-size="13" fill="#14532d">Host peak 1 197 to 407 MiB. Binary 0.57 to 3.7 MB</text>
+  <text x="40" y="1730" font-size="22" font-weight="700" fill="#0f172a">Goal check: how far are we from the goals of #880 and the owner budget?</text>
+  <text x="60" y="1770" font-size="14" font-weight="700" fill="#0f172a">Rust collectors replace the Python collectors (TS, Python, Dart)</text>
+  <rect x="640" y="1757" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1757" width="66" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1770" font-size="13" fill="#334155">2 of 9 merged. 4.3a-2 and 3a reviewed (0 diffs), 3b in work. Python 0a/0b next. Dart design in work.</text>
+  <text x="60" y="1804" font-size="14" font-weight="700" fill="#0f172a">Bounded host path (Linux peak at most 1.25 GiB)</text>
+  <rect x="640" y="1791" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1791" width="240" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1804" font-size="13" fill="#334155">Memory done (782 MiB). Time: D3 (#920) -9 to -19 % host CPU, reviewed; D1 in work. Protocol 10 for the rest.</text>
+  <text x="60" y="1838" font-size="14" font-weight="700" fill="#0f172a">Simple IR: four owners, one place per concept</text>
+  <rect x="640" y="1825" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1825" width="150" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1838" font-size="13" fill="#334155">S1 to S3 merged, S4 two splits (#906, #912). Repeat audit names the owners for S5, S6 and protocol 10.</text>
+  <text x="60" y="1872" font-size="14" font-weight="700" fill="#0f172a">Enabling work and Rust rules (R0)</text>
+  <rect x="640" y="1859" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <rect x="640" y="1859" width="300" height="16" rx="8" fill="#16a34a"/>
+  <text x="960" y="1872" font-size="13" fill="#334155">Done. 36 PRs merged. Rust rules in the gate (#904), no module cycles (#907).</text>
+  <text x="60" y="1906" font-size="14" font-weight="700" fill="#0f172a">CI time budget (owner): PR at most 10 min, Full at most 30 min</text>
+  <rect x="640" y="1893" width="300" height="16" rx="8" fill="#e2e8f0"/>
+  <text x="960" y="1906" font-size="13" fill="#334155">VIOLATED: PR CI 11 to 25 min, Full 17 to 33 min, queue up to 15 min. CI-B in work.</text>
+  <text x="60" y="1948" font-size="14" font-weight="700" fill="#b91c1c">Honest reading: 5 of 9 violations fixed. Open: 2 false PASS left in 5b-1 (not merged), CI over budget, needless repeats (D1, D3 in fix).</text>
+  <text x="40" y="2000" font-size="22" font-weight="700" fill="#0f172a">Violations found on 2026-11-09 and what they mean for the goal and the plan</text>
+  <text x="1060" y="2000" font-size="13" font-weight="700" fill="#b91c1c">Numbers in the diagram: where each violation sits (red open, green fixed).</text>
+  <rect x="40" y="2016" width="1730" height="340" rx="10" fill="#fef2f2" stroke="#fca5a5"/>
+  <circle cx="66" cy="2041" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2045" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
+  <text x="86" y="2046" font-size="12.5" font-weight="700" fill="#0f172a">3 false PASS in 5b-1 (#916), re-review found 2 more: sibling members, a leading ::</text>
+  <rect x="668" y="2032" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2045.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2032" width="84" height="19" rx="9.5" fill="#ea580c"/><text x="814.0" y="2045.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
+  <text x="870" y="2046" font-size="12.5" fill="#334155">Worst class. Not merged. Fix now covers every rule kind and field by a table test, not single cases.</text>
+  <circle cx="66" cy="2073" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2077" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
+  <text x="86" y="2078" font-size="12.5" font-weight="700" fill="#0f172a">5b-1: memory n squared (19 GB from 640 KB), stack abort, symlink read outside root</text>
+  <rect x="668" y="2064" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2077.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2064" width="84" height="19" rx="9.5" fill="#ea580c"/><text x="814.0" y="2077.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
+  <text x="870" y="2078" font-size="12.5" fill="#334155">Every binary needs the AD-319 limits from day one. Python PR 5 plans a large-stack thread and depth checks now.</text>
+  <circle cx="66" cy="2105" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2109" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
+  <text x="86" y="2110" font-size="12.5" font-weight="700" fill="#0f172a">Dart collector crash (SnapshotError, 3 causes) on a private repository</text>
+  <rect x="668" y="2096" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2109.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2096" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="2109.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
+  <text x="870" y="2110" font-size="12.5" fill="#334155">Fixed in #914 with facts and honest gaps. Frozen does not mean unmaintained. The corpus finds what fixtures miss.</text>
+  <circle cx="66" cy="2137" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2141" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
+  <text x="86" y="2142" font-size="12.5" font-weight="700" fill="#0f172a">Misleading diagnostics: 2 631 unresolved imports shown as parse_error</text>
+  <rect x="668" y="2128" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2141.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2128" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="2141.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
+  <text x="870" y="2142" font-size="12.5" fill="#334155">Fixed in #915 after 3 review rounds (one bad rebase undid #917, caught). Titles are shared constants now.</text>
+  <circle cx="66" cy="2169" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2173" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">5</text>
+  <text x="86" y="2174" font-size="12.5" font-weight="700" fill="#0f172a">Published result schema changed in place (#915, first version)</text>
+  <rect x="668" y="2160" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2173.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2160" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="2173.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
+  <text x="870" y="2174" font-size="12.5" fill="#334155">Merged as command-result 12.0 (#915). 6.0 to 11.0 stay byte-identical; a test rebuilds 12.0 from them.</text>
+  <circle cx="66" cy="2201" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2205" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
+  <text x="86" y="2206" font-size="12.5" font-weight="700" fill="#0f172a">CI over budget: collectors area 4:47 to 17:37 min in one day, Full hit its 20-min limit</text>
+  <rect x="668" y="2192" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2205.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2192" width="84" height="19" rx="9.5" fill="#f59e0b"/><text x="814.0" y="2205.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN WORK</text>
+  <text x="870" y="2206" font-size="12.5" fill="#334155">Every phase pays its own test time. 4.3a-2 merges after CI-B. The budget is an entry criterion for each PR.</text>
+  <circle cx="66" cy="2233" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2237" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
+  <text x="86" y="2238" font-size="12.5" font-weight="700" fill="#0f172a">14 needless repeats in one run: member inventory 10x, 89 % repeated ast.parse, facts 3x</text>
+  <rect x="668" y="2224" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2237.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2224" width="84" height="19" rx="9.5" fill="#f59e0b"/><text x="814.0" y="2237.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN WORK</text>
+  <text x="870" y="2238" font-size="12.5" fill="#334155">D3 (#920): validations 3 to 1, ast.parse -82 %, reviewed, small fixes. D1 in work. Rest: protocol 10.</text>
+  <circle cx="66" cy="2265" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2269" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
+  <text x="86" y="2270" font-size="12.5" font-weight="700" fill="#0f172a">Wrong number reported: host 82 of 92 s included a second collector run</text>
+  <rect x="668" y="2256" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2269.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2256" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="2269.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
+  <text x="870" y="2270" font-size="12.5" fill="#334155">Corrected: host 44 %. On the Python path the collector costs more, so PR 5 (Python in Rust) gains more.</text>
+  <circle cx="66" cy="2297" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="66" y="2301" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
+  <text x="86" y="2302" font-size="12.5" font-weight="700" fill="#0f172a">Ratio flake 3.02: not a quadratic, but N runs and 2N runs not interleaved</text>
+  <rect x="668" y="2288" width="96" height="19" rx="9.5" fill="#b91c1c"/><text x="716.0" y="2301.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
+  <rect x="772" y="2288" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="2301.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
+  <text x="870" y="2302" font-size="12.5" fill="#334155">Fixed in #917: runs interleaved, one child timed exactly, 300 s kill. Test files 438 to 391 s.</text>
+  <text x="86" y="2334" font-size="12.5" font-weight="700" fill="#0f172a">Host levers #918: -6.5 % on macOS, inside noise on Linux</text>
+  <rect x="668" y="2320" width="96" height="19" rx="9.5" fill="#64748b"/><text x="716.0" y="2333.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">BELOW 10 %</text>
+  <rect x="772" y="2320" width="84" height="19" rx="9.5" fill="#64748b"/><text x="814.0" y="2333.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">CLOSED</text>
+  <text x="870" y="2334" font-size="12.5" fill="#334155">Closed by the owner. The real lever is one owner for the whole run (protocol 10), not a local cache.</text>
+  <text x="60" y="2378" font-size="14" font-weight="700" fill="#7f1d1d">Where each violation sits:</text>
+  <text x="60" y="2400" font-size="12.5" fill="#7f1d1d">1 Rust step 4 (scan.rs), evidence (Rust capability set, ir/profiles.py), check: PASS</text>
+  <text x="920" y="2400" font-size="12.5" fill="#7f1d1d">2 Rust steps 1 and 2 (module tree, symlinks, syn recursion)</text>
+  <text x="60" y="2418" font-size="12.5" fill="#7f1d1d">3 Dart collector</text>
+  <text x="920" y="2418" font-size="12.5" fill="#7f1d1d">4 Rust step 5 and wire: gaps carry no reason code; check maps the kind; CLI and MCP show it</text>
+  <text x="60" y="2436" font-size="12.5" fill="#7f1d1d">5 wire readers: published result schema</text>
+  <text x="920" y="2436" font-size="12.5" fill="#7f1d1d">6, 8, 9 engineering process: CI time, reported numbers, timing tests</text>
+  <text x="60" y="2454" font-size="12.5" fill="#7f1d1d">7 old Python collector (survey twice), evidence (facts 3x, excerpts), architecture (inventory 10x), report (built 2x)</text>
+  <rect x="40" y="2482" width="1730" height="176" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="60" y="2510" font-size="16" font-weight="700" fill="#78350f">What this means for the goal and the plan</text>
+  <text x="60" y="2536" font-size="13" fill="#78350f">The goal does not change: native collectors, a bounded host and a simple IR. The order does not change. Dates slip by about one fix round per collector PR.</text>
+  <text x="60" y="2556" font-size="13" fill="#78350f">Gate for every new collector: adversarial review (false PASS probes, deep and hostile inputs, symlinks) before merge. 5b-1 merges only after the 3 false PASS are fixed.</text>
+  <text x="60" y="2576" font-size="13" fill="#78350f">New entry criterion: the CI budget (PR at most 10 min, Full at most 30 min). Order now: CI-B, then 4.3a-2 with Full, then 5b-1, then Python 0a and 0b.</text>
+  <text x="60" y="2596" font-size="13" fill="#78350f">Host time: D1 and D3 first, then P2 and P5. Then the honest benchmark 4.0.1 against main for Python, TypeScript and Rust (owner request).</text>
+  <text x="60" y="2616" font-size="13" fill="#78350f">Protocol 10 gets three concrete jobs from the audit: one collector process per command, layout from the raw model, and reason codes for gaps.</text>
+  <text x="60" y="2636" font-size="13" fill="#78350f">Process: reviews found 3 false PASS, 1 schema break, 1 pair loop and 1 crash case that the authors missed. Keep one independent review per PR.</text>
+  <text x="40" y="2698" font-size="22" font-weight="700" fill="#0f172a">Progress and current work</text>
+  <rect x="40" y="2714" width="1730" height="1076" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="60" y="2744" font-size="14" font-weight="700" fill="#0f172a">M0: compiler oracle, profile by function, host against collector</text>
+  <rect x="600" y="2730" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2743.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2744" font-size="13" fill="#334155">TS calls: CBM typed 86.4 % recall without JSX, ArchKeel 14.8 %. React UI: collector 45 % of the time.</text>
+  <text x="60" y="2776" font-size="14" font-weight="700" fill="#0f172a">Merged: #881 #882 #883 #886 #876 #887 (rules, tests, macOS, V9, CI)</text>
+  <rect x="600" y="2762" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2775.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2776" font-size="13" fill="#334155">AD-314 is enforced. Protocol V9 carries the test scope. The pr-test list is outside the Full filter.</text>
+  <text x="60" y="2808" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S1: four IR owners as inner components (#884)</text>
+  <rect x="600" y="2794" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2807.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2808" font-size="13" fill="#334155">Merged. AD-315. A test generates the owner graph from ir.json (docs/architecture/ir-owners.md).</text>
+  <text x="60" y="2840" font-size="14" font-weight="700" fill="#0f172a">PR 4.1a: Rust skeleton collector (#885) with before/after table</text>
+  <rect x="600" y="2826" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2839.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2840" font-size="13" fill="#334155">Merged. Files, inputs, file set and verdict equal to Python. No imports yet, no speed claim.</text>
+  <text x="60" y="2872" font-size="14" font-weight="700" fill="#0f172a">Rust pilot · design · before/after harness · best-practice review</text>
+  <rect x="600" y="2858" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2871.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2872" font-size="13" fill="#334155">Review: a tool that reads untrusted code ships a binary in wheels (ruff, uv). Gaps are in the plan.</text>
+  <text x="60" y="2904" font-size="14" font-weight="700" fill="#0f172a">Issue #880 in STE with diagram, arguments, benchmarks comment</text>
+  <rect x="600" y="2890" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2903.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2904" font-size="13" fill="#334155">Why CBM-first was dropped, what we take from CBM, plan 5.1 packaging, rename step S6.</text>
+  <text x="60" y="2936" font-size="14" font-weight="700" fill="#0f172a">PR 4.1b-1: wheel hook and tags (#888)</text>
+  <rect x="600" y="2922" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2935.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2936" font-size="13" fill="#334155">Merged. CI found a Linux tag bug; fixed. Binary 880 to 568 KB. Default wheel identical to main.</text>
+  <text x="60" y="2968" font-size="14" font-weight="700" fill="#0f172a">PR H step 2: host fixes b, c, d (#891)</text>
+  <rect x="600" y="2954" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2967.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2968" font-size="13" fill="#334155">Merged. Linux host peak -38 %, host time -15.6 %, output identical except code_digest. AD-318.</text>
+  <text x="60" y="3000" font-size="14" font-weight="700" fill="#0f172a">Test audit: duplicates, speed and meaning of the tests</text>
+  <rect x="600" y="2986" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2999.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3000" font-size="13" fill="#334155">Report done. Collector work repeats in 38.5 % of runs. 21 of 24 mutants die. Two follow-up test PRs started.</text>
+  <text x="60" y="3032" font-size="14" font-weight="700" fill="#0f172a">PR 4.1b-2 (#890) and 4.1b-3 (#892): six wheels, cargo deny, SBOM, limits</text>
+  <rect x="600" y="3018" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3031.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3032" font-size="13" fill="#334155">Merged. First real Windows run of the job memory limit passed. macOS has no limit (AD-319).</text>
+  <text x="60" y="3064" font-size="14" font-weight="700" fill="#0f172a">PR 4.2: module resolution and imports (#893)</text>
+  <rect x="600" y="3050" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3063.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3064" font-size="13" fill="#334155">Merged. One walk is 50 % faster than the equal-work floor. Most of the -99 % vs full Python is less work.</text>
+  <text x="60" y="3096" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S2: one owner for scope label and membership (#894)</text>
+  <rect x="600" y="3082" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3095.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3096" font-size="13" fill="#334155">Merged. AD-321. 3 copies to 1, key parent:label 13 places to 1, self-validate: same 134 statuses.</text>
+  <text x="60" y="3128" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S3: one owner for coverage (#898) · levels.py deleted (#900)</text>
+  <rect x="600" y="3114" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3127.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3128" font-size="13" fill="#334155">Merged. AD-322. 6 025 adversarial cases: no loosening. Three tightenings, all more cautious.</text>
+  <text x="60" y="3160" font-size="14" font-weight="700" fill="#0f172a">PR 2 · S4 rest, S5, then S6 (rename ir)</text>
+  <rect x="600" y="3146" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3159.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3160" font-size="13" fill="#334155">#906, #912 merged (widening.py 1 054 to 399 lines). Open: decisions, source_graph, model. S5 waits for #860.</text>
+  <text x="60" y="3192" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-1 (#897): scope, definitions, exports in Rust</text>
+  <rect x="600" y="3178" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3191.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3192" font-size="13" fill="#334155">Merged after 4 reviews. Scaling matrix: 93 shapes, N against 2N. Parity: 0 differences. AD-323.</text>
+  <text x="60" y="3224" font-size="14" font-weight="700" fill="#0f172a">PR H steps 3 and 4 (#899, #902) · C locale (#901)</text>
+  <rect x="600" y="3210" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3223.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3224" font-size="13" fill="#334155">Host peak 1 228 to 782 MiB, host time -22 %. Collectors run with LC_ALL=C. AD-324, AD-318, AD-325.</text>
+  <text x="60" y="3256" font-size="14" font-weight="700" fill="#0f172a">Independent review of every PR (since #895)</text>
+  <rect x="600" y="3242" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3255.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3256" font-size="13" fill="#334155">11 reviews on 8 PRs. Found: 5 quadratic shapes, 1 memory attack on macOS, 1 unpinned gap check, AD clashes.</text>
+  <text x="60" y="3288" font-size="14" font-weight="700" fill="#0f172a">Wave 1: #903 #904 #905 #906 #907 #908 #910 #911</text>
+  <rect x="600" y="3274" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3287.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3288" font-size="13" fill="#334155">Rust rules and no cycles, code digest, coverage owner, S4 split, amendment refresh, CPU-time timing tests.</text>
+  <text x="60" y="3320" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-2 (#913): sites in Rust</text>
+  <rect x="600" y="3306" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3319.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3320" font-size="13" fill="#334155">0 differences on 900 000+ sites, -97 % against the floor. Fixes done. Merges after CI-B and one Full run.</text>
+  <text x="60" y="3352" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-3a (#921): imports per name, exports, constructs, all wire types</text>
+  <rect x="600" y="3338" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3351.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3352" font-size="13" fill="#334155">Stacked on #913. 0 differences, review: ship. Found a 4.2 re-read loop: x35 1.29 to 1.08 s.</text>
+  <text x="60" y="3384" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-3b symbols · 3c calls, references, bindings · 3d capability flip</text>
+  <rect x="600" y="3370" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3383.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3384" font-size="13" fill="#334155">3b in work (stacked on 3a). 3c next, parallel to 3b. Only 3d can change a verdict.</text>
+  <text x="60" y="3416" font-size="14" font-weight="700" fill="#0f172a">5b-1 (#916): Rust collector for Rust source, in wheels</text>
+  <rect x="600" y="3402" width="128" height="19" rx="9.5" fill="#ea580c"/><text x="664.0" y="3415.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
+  <text x="750" y="3416" font-size="13" fill="#334155">Round 2: 3 false PASS and 6 limits fixed; re-review found 2 more false PASS. uv: 672 files, 0.8 s.</text>
+  <text x="60" y="3448" font-size="14" font-weight="700" fill="#0f172a">Real-world corpus: 5 private repos, uv, pydantic, fastapi, excalidraw, flutter</text>
+  <rect x="600" y="3434" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3447.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3448" font-size="13" fill="#334155">No false PASS, no timeout. Native TS equals Python on 2 repos. Found the Dart crash and wrong parse_error.</text>
+  <text x="60" y="3480" font-size="14" font-weight="700" fill="#0f172a">#914 Dart crash fix · #915 honest diagnostic kinds (AD-336) · #917 timing</text>
+  <rect x="600" y="3466" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3479.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3480" font-size="13" fill="#334155">All merged. #915: schema 12.0. #917: interleaved runs, exact child CPU time.</text>
+  <text x="60" y="3512" font-size="14" font-weight="700" fill="#0f172a">CI-B: CI time budget (PR at most 10 min, Full at most 30 min)</text>
+  <rect x="600" y="3498" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3511.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3512" font-size="13" fill="#334155">Measure, rebalance areas, build once and share binaries. 4.3a-2 waits for it.</text>
+  <text x="60" y="3544" font-size="14" font-weight="700" fill="#0f172a">Repeat audit · D1 compute once per run · D3 validate once (#920, AD-338)</text>
+  <rect x="600" y="3530" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3543.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3544" font-size="13" fill="#334155">D3 reviewed: proof holds, fixes for an unbounded cache and a test gap. D1 in work.</text>
+  <text x="60" y="3576" font-size="14" font-weight="700" fill="#0f172a">#909: Full only when a PR changes what Full runs</text>
+  <rect x="600" y="3562" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="3575.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="3576" font-size="13" fill="#334155">Merged. 22 to 10 Full runs in 60 PRs.</text>
+  <text x="60" y="3608" font-size="14" font-weight="700" fill="#0f172a">Benchmark 4.0.1 against main (Python, TypeScript, Rust)</text>
+  <rect x="600" y="3594" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3607.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="3608" font-size="13" fill="#334155">Owner request. After D1, D3, 4.3a-2 and 5b-1 merge. Interleaved runs on a quiet machine.</text>
+  <text x="60" y="3640" font-size="14" font-weight="700" fill="#0f172a">PR 5: Python collector in Rust (design done)</text>
+  <rect x="600" y="3626" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3639.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="3640" font-size="13" fill="#334155">Owner priority: finish collect first. 0a, 0b after #913 and #916, then slice 1. Golden replies before delete.</text>
+  <text x="60" y="3672" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-4, 4.3a-5 · 4.4 · 4.5 · then 4.3b</text>
+  <rect x="600" y="3658" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3671.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="3672" font-size="13" fill="#334155">First native TypeScript PASS in 4.3a-5. 4.4 switches the default. 4.5 deletes the Python TS collector.</text>
+  <text x="60" y="3704" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 6 · PR 7</text>
+  <rect x="600" y="3690" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3703.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="3704" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
+  <text x="60" y="3736" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
+  <rect x="600" y="3722" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="3735.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="3736" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
+  <text x="60" y="3768" font-size="14" font-weight="700" fill="#0f172a">PR 8: Dart collector in Rust (owner decision 2026-11-09)</text>
+  <rect x="600" y="3754" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="3767.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
+  <text x="750" y="3768" font-size="13" fill="#334155">Design in work (Opus): parser by parity on mutated files, slices, golden replies, then delete Python.</text>
 </svg>
