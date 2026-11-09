@@ -14,10 +14,12 @@ parser_prefixes = ["tree-sitter"]
 
 [crates.archkeel-wire]
 role = "library"
+dir = "wire"
 may_use = []
 
 [crates.archkeel-typescript-collector]
 role = "collector"
+dir = "typescript"
 may_use = ["archkeel-wire"]
 
 # Module cycles that exist today. The list may only shrink: a cycle that is not here fails, and

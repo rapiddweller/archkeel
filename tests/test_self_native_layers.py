@@ -11,6 +11,7 @@ fixture tests; the tests of the real workspace skip without `cargo`.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -23,9 +24,14 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
-MODULE_PATH = re.compile(r"crate::(\w+)")
-MODULE_GROUP = re.compile(r"crate::\{([^}]*)\}")
-UNCHECKED = {"main", "test_tree", "dump"}
+UNCHECKED = {"main", "lib", "test_tree", "dump"}
+# Comments, raw strings, strings and characters (a lifetime has no closing quote).
+NOISE = re.compile(
+    r"//[^\n]*|/\*.*?\*/|(?<![\w])b?r(#*)\".*?\"\1|\"(?:\\.|[^\"\\])*\"|'(?:\\.[^']*|[^\\'\n])'",
+    re.S,
+)
+CFG_TEST_MODULE = re.compile(r"#\[cfg\(test\)\]\s*(?:#\[path[^\]]*\]\s*)?mod\s+\w+\s*[;{]")
+CHILD = re.compile(r'#\[path = "([\w]+\.rs)"\]\s*mod\s+\w+;')
 
 
 def crate_problems(layers: Mapping[str, Any], dependencies: Mapping[str, list[str]]) -> list[str]:
@@ -46,15 +52,81 @@ def crate_problems(layers: Mapping[str, Any], dependencies: Mapping[str, list[st
     return problems
 
 
+def _strip(text: str) -> str:
+    """Blank the comments, strings and characters, so that a path in them is not an edge."""
+    return NOISE.sub(" ", text)
+
+
+def _block_end(text: str, start: int) -> int:
+    """Return the index after the `}` that closes the `{` at or after `start`."""
+    depth = 0
+    for index in range(text.index("{", start), len(text)):
+        depth += {"{": 1, "}": -1}.get(text[index], 0)
+        if depth == 0:
+            return index + 1
+    return len(text)
+
+
+def _drop_test_modules(text: str) -> str:
+    """Remove each `#[cfg(test)] mod`: a test-only edge is not a production cycle."""
+    while match := CFG_TEST_MODULE.search(text):
+        end = match.end() if match.group(0).endswith(";") else _block_end(text, match.start())
+        text = text[: match.start()] + text[end:]
+    return text
+
+
+def _first_names(group: str) -> set[str]:
+    """Return the first path segment of each top-level item of a `{...}` use group."""
+    items, depth, current = [], 0, ""
+    for char in group:
+        depth += {"{": 1, "}": -1}.get(char, 0)
+        if char == "," and depth == 0:
+            items.append(current)
+            current = ""
+        else:
+            current += char
+    return {m.group(0) for item in [*items, current] if (m := re.search(r"\w+", item))}
+
+
+def _used(text: str, roots: set[str]) -> set[str]:
+    prefix = "|".join(sorted(roots))
+    used: set[str] = set()
+    for match in re.finditer(rf"(?<![\w:])(?:{prefix})::(\{{|\w+)", text):
+        if match.group(1) == "{":
+            used |= _first_names(text[match.end() : _block_end(text, match.end() - 1)])
+        else:
+            used.add(match.group(1))
+    return used
+
+
 def module_graph(sources: Mapping[str, str]) -> dict[str, set[str]]:
-    """Return the module edges of one crate. `sources` maps a file stem to its text."""
+    """Return the production module edges of one crate.
+
+    `sources` maps a file stem to its text. A `#[path = "x.rs"] mod x;` child is part of its
+    parent: its `crate::` edges belong to the parent, and its `super::` is the parent itself.
+    """
+    production = {name: _drop_test_modules(text) for name, text in sources.items()}
+    texts = {name: _strip(text) for name, text in production.items()}
+    children = {
+        name: {c for c in CHILD.findall(text) if c.removesuffix(".rs") in texts}
+        for name, text in production.items()
+    }
+    folded = {c.removesuffix(".rs") for kids in children.values() for c in kids}
     graph: dict[str, set[str]] = {}
-    for module, text in sources.items():
-        used = set(MODULE_PATH.findall(text))
-        for group in MODULE_GROUP.findall(text):
-            used |= {part.strip().split("::")[0] for part in group.split(",")}
-        graph[module] = (used & sources.keys()) - {module}
-    return graph
+    for name in texts.keys() - folded:
+        body = texts[name]
+        roots = {"crate"} | set(re.findall(r"\buse crate as (\w+)", body))
+        used = _used(body, roots | {"super"})
+        for child in children[name]:
+            used |= _used(texts[child.removesuffix(".rs")], {"crate"})
+        graph[name] = used
+    return {name: (used & graph.keys()) - {name} for name, used in graph.items()}
+
+
+def declared_cycles(layers: Mapping[str, Any], crate: str) -> list[list[str]]:
+    """Return the module cycles that the layer file allows for `crate` (none when absent)."""
+    entries = layers.get("cycles", {}).get(crate, [])
+    return [sorted(entry["modules"]) for entry in entries if entry["modules"]]
 
 
 def _components(graph: Mapping[str, set[str]]) -> list[list[str]]:
@@ -152,6 +224,57 @@ def test_a_cycle_that_grows_fails_and_a_cycle_that_shrinks_must_leave_the_list()
     assert cycle_problems(gone, [["a", "b"]]) == ["not a cycle any more, remove it: a, b"]
 
 
+def _edges(sources: dict[str, str]) -> dict[str, set[str]]:
+    return module_graph(sources)
+
+
+def test_nested_braces_in_a_use_group_keep_every_module() -> None:
+    graph = _edges({"a": "use crate::{x::{P, Q}, b};", "b": "", "x": ""})
+    assert graph["a"] == {"b", "x"}
+
+
+def test_super_in_a_module_file_is_an_edge_to_a_sibling() -> None:
+    assert _edges({"a": "use super::b::T;", "b": ""})["a"] == {"b"}
+
+
+def test_a_path_in_a_comment_or_a_string_is_not_an_edge() -> None:
+    text = (
+        '/// see crate::b\n// crate::b\n/* crate::b */ let s = "crate::b"; let r = r#"crate::b"#;'
+    )
+    assert _edges({"a": text, "b": ""})["a"] == set()
+
+
+def test_an_edge_inside_a_cfg_test_module_is_not_a_production_edge() -> None:
+    text = "#[cfg(test)]\nmod tests {\n    use crate::b;\n}\nfn f() {}"
+    assert _edges({"a": text, "b": ""})["a"] == set()
+
+
+def test_an_alias_of_the_crate_root_is_an_edge() -> None:
+    assert _edges({"a": "use crate as root;\nfn f() { root::b::g() }", "b": ""})["a"] == {"b"}
+
+
+def test_a_path_child_folds_into_its_parent_and_super_means_the_parent() -> None:
+    # collect -> imports (a #[path] child) -> parse -> collect is a real cycle.
+    sources = {
+        "collect": '#[path = "imports.rs"]\nmod imports;\nuse crate::parse;',
+        "imports": "use super::Thing;\nuse crate::parse;",
+        "parse": "use crate::collect;",
+    }
+    graph = _edges(sources)
+    assert set(graph) == {"collect", "parse"}
+    assert graph["collect"] == {"parse"}
+    assert cycle_problems(graph, []) == ["new module cycle: collect, parse"]
+
+
+def test_a_layer_file_without_cycles_passes_on_a_graph_without_cycles() -> None:
+    assert cycle_problems({"a": {"b"}, "b": set()}, declared_cycles(LAYERS, "ts")) == []
+
+
+def test_a_layer_file_without_cycles_fails_on_a_graph_with_a_cycle() -> None:
+    graph = {"a": {"b"}, "b": {"a"}}
+    assert cycle_problems(graph, declared_cycles(LAYERS, "ts")) == ["new module cycle: a, b"]
+
+
 def _metadata() -> dict[str, list[str]]:
     out = subprocess.run(
         ["cargo", "metadata", "--format-version", "1", "--locked", "--no-deps"],
@@ -172,18 +295,21 @@ def _sources(crate_dir: Path) -> dict[str, str]:
     }
 
 
-@pytest.mark.skipif(shutil.which("cargo") is None, reason="needs a Rust toolchain")
+def _layers() -> dict[str, Any]:
+    return tomllib.loads((NATIVE / "layers.toml").read_text())
+
+
 def test_the_native_workspace_keeps_the_declared_layers() -> None:
-    layers = tomllib.loads((NATIVE / "layers.toml").read_text())
-    assert crate_problems(layers, _metadata()) == []
+    if shutil.which("cargo") is None:
+        message = "the layer check needs a Rust toolchain"
+        if os.environ.get("CI"):
+            pytest.fail(message)  # CI always has cargo: a skip would hide the check
+        pytest.skip(message)
+    assert crate_problems(_layers(), _metadata()) == []
 
 
-def test_the_typescript_collector_adds_no_module_cycle() -> None:
-    layers = tomllib.loads((NATIVE / "layers.toml").read_text())
-    allowed = [
-        sorted(entry["modules"])
-        for entry in layers["cycles"]["archkeel-typescript-collector"]
-        if entry["modules"]
-    ]
-    graph = module_graph(_sources(NATIVE / "typescript"))
-    assert cycle_problems(graph, allowed) == []
+def test_each_declared_crate_adds_no_module_cycle() -> None:
+    layers = _layers()
+    for crate, entry in layers["crates"].items():
+        graph = module_graph(_sources(NATIVE / entry["dir"]))
+        assert cycle_problems(graph, declared_cycles(layers, crate)) == [], crate
