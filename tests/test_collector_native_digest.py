@@ -18,16 +18,20 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from conftest import install_rust_toolchain
 
 ROOT = Path(__file__).parents[1]
 PACKAGE = "archkeel-typescript-collector"
 
 
 def _require_cargo() -> None:
-    if shutil.which("cargo") is None:
+    cargo = shutil.which("cargo")
+    if cargo is None:
         if os.environ.get("CI"):
             pytest.fail("CI must provide cargo for the native TypeScript collector tests.")
         pytest.skip("cargo is not installed; install Rust to test changes in native/.")
+    # The builds below run on several workers at the same time and take no lock.
+    install_rust_toolchain(cargo)
 
 
 def _copy(destination: Path) -> Path:

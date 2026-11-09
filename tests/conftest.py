@@ -152,6 +152,21 @@ def self_artifact_bytes(self_run: SelfRun) -> bytes:
     return self_run.artifact
 
 
+def install_rust_toolchain(cargo: str) -> None:
+    """Install the toolchain that native/rust-toolchain.toml pins, under the build lock.
+
+    rustup installs a missing toolchain at the first `cargo` call. Two such calls at the same time
+    fail to rename the same download, so a test that runs `cargo` without the lock calls this first.
+    """
+    native = ROOT / "native"
+    (native / "target").mkdir(exist_ok=True)
+    with FileLock(str(native / "target" / ".pytest-native-build.lock")):
+        done = subprocess.run(
+            [cargo, "--version"], cwd=native, capture_output=True, text=True, check=False
+        )
+    assert done.returncode == 0, done.stderr
+
+
 def build_native_copy(
     factory: pytest.TempPathFactory, label: str, features: tuple[str, ...] = ()
 ) -> Path:
