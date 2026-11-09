@@ -31,6 +31,7 @@ mod options;
 mod parse;
 mod paths;
 mod pytext;
+mod records;
 mod references;
 mod resolve;
 mod scan;
@@ -77,21 +78,36 @@ fn run() -> Result<Vec<u8>, String> {
     encode(reply_version(request.version), &facts)
 }
 
-/// Test only: print the syntax facts of the files named on stdin (`dump.rs`).
+/// Test only: print the syntax facts of the files named on stdin, or with `--dump-records` the
+/// records of the request on stdin (`dump.rs`).
 #[cfg(feature = "dump")]
 fn dump_requested() -> Option<ExitCode> {
-    if std::env::args().nth(1).as_deref() != Some("--dump") {
-        return None;
-    }
+    let mode = std::env::args().nth(1)?;
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout().lock();
-    Some(match dump::run(stdin.lock(), &mut stdout) {
+    let result = match mode.as_str() {
+        "--dump" => dump::run(stdin.lock(), &mut stdout),
+        "--dump-records" => dump_records(stdin.lock(), &mut stdout),
+        _ => return None,
+    };
+    Some(match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(reason) => {
             eprintln!("archkeel-typescript-collector: {reason}");
             ExitCode::FAILURE
         }
     })
+}
+
+#[cfg(feature = "dump")]
+fn dump_records(mut input: impl Read, output: &mut impl Write) -> Result<(), String> {
+    let mut payload = Vec::new();
+    input
+        .read_to_end(&mut payload)
+        .map_err(|error| format!("cannot read the request: {error}"))?;
+    let request = decode(&payload)?;
+    let value = dump::records(&request, provenance());
+    writeln!(output, "{value}").map_err(|error| error.to_string())
 }
 
 fn main() -> ExitCode {

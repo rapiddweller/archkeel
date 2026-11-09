@@ -35,6 +35,7 @@ fn facts() -> Facts {
         scope: vec!["src/**".to_owned()],
         sections: vec![("imports", vec![]), ("unknowns", vec![])],
         features: vec!["literal-imports"],
+        constructs: vec![],
         inputs: vec![input("tsconfig.json", 'b', Role::Resolution)],
         files: vec![],
         imports: vec![],
@@ -104,6 +105,7 @@ fn a_gap_makes_the_collection_partial() {
         title: "reason".to_owned(),
         subjects: vec![],
         evidence_ids: vec![],
+        fact_ids: vec![],
         data: Map::new(),
     });
     let wire = encode(Version::V8, &partial).unwrap();
@@ -175,5 +177,65 @@ fn a_target_has_the_fields_of_its_kind() {
     assert_eq!(
         reply["facts"]["imports"][0]["declaration_file"],
         Value::Null
+    );
+}
+
+#[test]
+fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply() {
+    let mut inner = facts();
+    let record = |kind: &'static str| Record {
+        id: format!("{kind}-1"),
+        evidence_class: "FACT",
+        area: "source",
+        kind,
+        title: kind.to_owned(),
+        subjects: vec![],
+        evidence_ids: vec![],
+        fact_ids: vec!["ESM_EXPORT-1".to_owned()],
+        data: Map::new(),
+    };
+    inner.sections = [
+        "imports",
+        "symbols",
+        "calls",
+        "references",
+        "bindings",
+        "constructs",
+    ]
+    .into_iter()
+    .map(|name| (name, vec![record("kind")]))
+    .collect();
+    inner.constructs = vec![("string_literal_compare", "partial")];
+    let wire = encode(Version::V9, &inner).unwrap();
+    let mut plain = String::new();
+    ZlibDecoder::new(wire.as_slice())
+        .read_to_string(&mut plain)
+        .unwrap();
+    let reply: Value = serde_json::from_str(&plain).unwrap();
+    let facts = &reply["facts"];
+    let names: Vec<&str> = facts["sections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|section| section["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "imports",
+            "symbols",
+            "calls",
+            "references",
+            "bindings",
+            "constructs"
+        ]
+    );
+    assert_eq!(
+        facts["sections"][1]["records"][0]["fact_ids"][0],
+        "ESM_EXPORT-1"
+    );
+    assert_eq!(
+        facts["capabilities"]["constructs"][0],
+        serde_json::json!({"name": "string_literal_compare", "status": "partial"})
     );
 }

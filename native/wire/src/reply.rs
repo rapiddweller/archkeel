@@ -57,7 +57,10 @@ pub struct Evidence {
     pub excerpt: String,
 }
 
-/// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
+/// One source record. `subjects`, `evidence_ids` and `fact_ids` must be sorted, as `classified`
+/// sorts them. The five source sections of the inner-UML capability (`imports`, `symbols`,
+/// `calls`, `references`, `bindings`) and `constructs` all carry this one shape: a section is a
+/// name and a list of records, so a later phase fills a section without a change to this crate.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Record {
     pub id: String,
@@ -67,6 +70,7 @@ pub struct Record {
     pub title: String,
     pub subjects: Vec<String>,
     pub evidence_ids: Vec<String>,
+    pub fact_ids: Vec<String>,
     pub data: Map<String, Value>,
 }
 
@@ -95,6 +99,30 @@ pub enum Target {
     },
 }
 
+impl Target {
+    /// The id of the import record that this target belongs to.
+    pub fn import_id(&self) -> &str {
+        match self {
+            Target::Local { import_id, .. }
+            | Target::External { import_id, .. }
+            | Target::Builtin { import_id, .. }
+            | Target::Unresolved { import_id, .. } => import_id,
+        }
+    }
+
+    /// The same target for another import record.
+    pub fn with_import_id(&self, id: &str) -> Self {
+        let mut copy = self.clone();
+        match &mut copy {
+            Target::Local { import_id, .. }
+            | Target::External { import_id, .. }
+            | Target::Builtin { import_id, .. }
+            | Target::Unresolved { import_id, .. } => *import_id = id.to_owned(),
+        }
+        copy
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Provenance {
     pub profile: &'static str,
@@ -114,6 +142,8 @@ pub struct Facts {
     pub scope: Vec<String>,
     pub sections: Vec<(&'static str, Vec<Record>)>,
     pub features: Vec<&'static str>,
+    /// The construct capabilities: `(name, status)`, for example `("string_literal_compare", "partial")`.
+    pub constructs: Vec<(&'static str, &'static str)>,
     pub inputs: Vec<Input>,
     pub files: Vec<FileFact>,
     /// The resolved target of each import record, in the order of the walk.
@@ -183,7 +213,9 @@ fn facts_value(facts: &Facts) -> Value {
         "capabilities": {
             "sections": facts.sections.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
             "resolution_features": facts.features,
-            "constructs": [],
+            "constructs": facts.constructs.iter()
+                .map(|(name, status)| json!({"name": name, "status": status}))
+                .collect::<Vec<_>>(),
         },
         "inputs": facts.inputs.iter().map(|input| json!({
             "path": input.path, "digest": input.digest, "role": input.role.as_str(),
@@ -209,7 +241,7 @@ fn facts_value(facts: &Facts) -> Value {
     })
 }
 
-fn target_value(target: &Target) -> Value {
+pub fn target_value(target: &Target) -> Value {
     match target {
         Target::Local {
             import_id,
@@ -252,7 +284,7 @@ fn file_value(file: &FileFact) -> Value {
     })
 }
 
-fn record_value(record: &Record) -> Value {
+pub fn record_value(record: &Record) -> Value {
     json!({
         "id": record.id,
         "evidence_class": record.evidence_class,
@@ -262,13 +294,13 @@ fn record_value(record: &Record) -> Value {
         "subjects": record.subjects,
         "evidence_ids": record.evidence_ids,
         "rule_ids": [],
-        "fact_ids": [],
+        "fact_ids": record.fact_ids,
         "provenance": [],
         "data": record.data,
     })
 }
 
-fn evidence_value(evidence: &Evidence) -> Value {
+pub fn evidence_value(evidence: &Evidence) -> Value {
     json!({
         "id": evidence.id,
         "file": evidence.file,
