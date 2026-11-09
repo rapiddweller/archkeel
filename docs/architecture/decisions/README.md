@@ -336,3 +336,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-338 | [Core validates a decoded collection once and remembers each reference verdict](ad-338-core-validates-a-decoded-collection-once-and-remembers-each-reference-verdict.md) |
 | AD-339 | [The host computes each per-run result once](ad-339-the-host-computes-each-per-run-result-once.md) |
 | AD-343 | [A collector reply is frozen as golden data before its code is deleted](ad-343-a-collector-reply-is-frozen-as-golden-data-before-its-code-is-deleted.md) |
+| AD-341 | [CI has a time budget, and a test runs on any free worker](ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md) |

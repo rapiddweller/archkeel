@@ -74,7 +74,7 @@ aggregate would count as passed.
 | CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Demos | each PR | `make demos` |
 | CI: Native: Rust checks and dependency policy | each PR | `make native-check` |
-| CI: All checks passed | each PR | none: it needs every CI job |
+| CI: All checks passed | each PR | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
 | Full: Architecture, build and report checks | nightly, dispatch, release, PR that changes Full | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |

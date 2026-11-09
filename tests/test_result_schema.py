@@ -205,17 +205,19 @@ def test_historical_python_call_binding_reference_resolves_frozen_v4_schema() ->
     assert not call_binding.is_valid({})
 
 
-@pytest.fixture(scope="module")
+# A validator is read-only, so one worker can share it across files (tests/conftest.py groups
+# the tests of a module fixture on one worker).
+@pytest.fixture(scope="session")
 def legacy_validator() -> Draft202012Validator:
     return _validator("command-result.schema.json")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def validator() -> Draft202012Validator:
     return _validator("command-result-12.0.schema.json")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def current_validator() -> Draft202012Validator:
     return _validator("command-result-12.0.schema.json")
 

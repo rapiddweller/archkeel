@@ -32,7 +32,8 @@ jobs:
   full-suite-and-reports:
     name: Architecture, build and report checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -127,7 +128,8 @@ jobs:
   tests:
     name: "Tests: ${{ matrix.area }}"
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -137,8 +139,11 @@ jobs:
           - TypeScript collector target
           - boundary types
           - Python analysis
-          - CLI, contracts and dependency rules
+          - CLI and Studio
+          - contracts and dependency rules
+          - typed guards
           - type and wire guards
+          - native TypeScript collector
           - collectors
           - call and catalog rules
           - reports
@@ -168,6 +173,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      - name: Show the runner CPU
+        run: lscpu | grep -E '^(Model name|CPU\(s\)):'
+
       - name: Run every test of this area
         env:
           AREA: ${{ matrix.area }}
@@ -185,7 +193,8 @@ jobs:
   python-compat:
     name: Python ${{ matrix.python }} compatibility
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     # The analyzer reads source with the `ast` of the running interpreter (#724). The full suite
     # runs on 3.11; `make python-compat` runs each test that needs a newer version (tests/areas.py).
     strategy:
@@ -215,7 +224,8 @@ jobs:
   collector-safety-windows:
     name: "Windows: collector safety"
     runs-on: windows-2025
-    timeout-minutes: 10
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     env:
       UV_PYTHON: "3.11.12"
     steps:
@@ -248,7 +258,8 @@ jobs:
   language-collectors:
     name: "Linux: source collectors"
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     # Python 3.11 is covered by the full Linux suite; repeat compatibility on 3.12 only.
     env:
       UV_PYTHON: "3.12.10"
@@ -432,7 +443,22 @@ jobs:
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # AD-341: a warning for each job over the time budget. A failed report does not fail the run.
+      - name: Report each job time against the time budget
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' | python3 tools/ci_budget.py --job-minutes 15 --path-minutes 30 --summary "$GITHUB_STEP_SUMMARY"
+
       - name: Require every Full job
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
