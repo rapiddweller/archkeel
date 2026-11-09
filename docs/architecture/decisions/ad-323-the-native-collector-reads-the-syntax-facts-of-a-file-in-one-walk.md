@@ -28,16 +28,15 @@ AD-320, and the 4.2 gap "Script-global dependencies are not examined" stays.
    wheel build does not set it. `make native-check` lints it, and the wheel test checks its absence.
 
 **Oracle.** `tests/test_collector_native_syntax.py` compares the dump with `parse.parse()` field by
-field. It uses the four fixtures, the Studio UI, the resolution grid and the symlink tree. It uses
-240 seeded sources, sources built from 77 syntax pieces and 600 mutated files (3 000 with
-`ARCHKEEL_SYNTAX_MUTANTS`). It adds the hostile files, the column cases and a private React UI
-(`ARCHKEEL_PRIVATE_UI`, totals only). The only differences are the three below. Huge sizes of the
-long-line and nest shapes have no oracle, because Python is quadratic on them (614 s for 40 000
-functions on one line). Their tests compare moderate sizes and time the collector process.
+field. Inputs: the four fixtures, the Studio UI, the resolution grid, the symlink tree, 240 seeded
+sources, 88 syntax pieces, 600 mutated files (3 000 with `ARCHKEEL_SYNTAX_MUTANTS`), the hostile
+files, the column cases and a private React UI (`ARCHKEEL_PRIVATE_UI`, totals only). The only
+differences are the three below. Python is quadratic on huge long-line and nest shapes (614 s for
+40 000 functions on one line), so those shapes are compared small and the collector is timed.
 
-**Scaling matrix.** `tests/test_collector_native_scaling.py` builds 89 shapes. A table maps each
-kind of `kinds.rs` and each fact to its shapes. A shape is timed on n and on 2n, and the ratio must
-stay below 3 (linear is about 2, quadratic about 4). One test bounds the memory of a shape.
+**Scaling matrix.** `tests/test_collector_native_scaling.py` builds 93 shapes. It times n and 2n,
+and the ratio must stay below 3 (linear is about 2, quadratic about 4). Three shapes also have a
+memory bound. A table maps each kind and fact to its shapes, and the dump proves the kinds.
 
 **Differences, a closed list.**
 - *Statement order.* `_import_bindings` reads the statements from `QueryCursor.captures`, which
@@ -55,16 +54,17 @@ Facts as byte ranges, cut only when needed: revisit in 4.3a-3, when facts go on 
 
 **Limit.** The facts are not on the wire. Sites, comparisons and script facts are later PRs.
 - *Quadratic loops, fixed.* The sibling scan read the whole run of comments or decorators for each
-  child. `bound_scope` climbed the whole frame chain for each write. Array constants kept their spans
-  in a `Vec`. The triple-slash check of PR 4.2 read root children by index: 64 000 lines took 16 s,
-  on the 4.2 binary too. The memo of `bound_scope` is used only for a name that the root binds.
-- *Known limit, not fixed.* n distinct imported names, each written at depth n, are still quadratic.
-  The review measured 14 s and 1.7 GB at n = 8 000, against 12.4 s and 190 MB on 4.2. The time was
-  already quadratic in 4.2. The memory is new. A linear fix needs a stack of binding frames for each name. The
-  guard is the memory limit of 4 GiB (AD-319).
-- *Dense files, accepted.* Each definition costs 1 to 2.8 µs more than in 4.2. The review measured
-  2.16 times the time for 50 000 constructor parameters and 2.11 times for 100 000 tiny classes (2.3
-  on Linux). Peak memory is up to 2.9 times: 57 MiB against 163 MiB for the tiny classes. The worst
-  file under the 4 MiB limit takes 615 MiB against 244 MiB. One class with 838 000 methods takes
-  1.18 GB against 576 MB. Real code costs 1.10 times on x35. The extra time is 0.1 s for each 100 000
-  definitions, and the file limit bounds the memory.
+  child. `bound_scope` climbed the whole frame chain for each write, and its memo kept an entry
+  for each frame and name. It now runs only for a name that the root and another frame both bind.
+  Array constants kept their spans in a `Vec`. The triple-slash check of PR 4.2 read root children
+  by index: 64 000 lines took 16 s, on the 4.2 binary too.
+- *Known limit, not fixed.* A name that the root and the outermost function both bind, written at
+  depth n, still costs n squared. 8 000 such imports written in 8 000 nested functions take 4.0 s
+  and 3.7 GB, against 0.48 s and 277 MiB on 4.2. A fix needs a stack of frames for each name.
+- *No guard on macOS.* The 4 GiB limit of AD-319 exists on Linux and Windows only. macOS has none
+  (AD-319 item 4). Memory must grow linearly with the code, not stop at the limit.
+- *Dense files, accepted.* Decision of the lead, 2026-11-09, on the advice of the review. Each
+  definition costs 1 to 2.8 µs more than in 4.2. The review measured 2.16 times the time for
+  50 000 constructor parameters and 2.11 times for 100 000 tiny classes. Peak memory is up to 2.9
+  times (57 MiB against 163 MiB). The worst file under the 4 MiB limit takes 615 MiB against 244.
+  One class with 838 000 methods takes 1.18 GB against 576 MB. Real code costs 1.10 times on x35.
