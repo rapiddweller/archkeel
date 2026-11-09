@@ -47,8 +47,7 @@ tests that use it as the oracle then have nothing to compare with.
    interpreter the whole reply is compared. On another one only the rest is compared, with a
    warning. The deletion gate fails there. The cases are six fixtures, synthetic sources for each
    other kind (file failures, test exclusion, no gated feature) and two excerpts of fastapi (MIT,
-   commit `ba47d6d7`). Both are in `fixtures/golden-python`, outside the lint paths.
-   `E-runtime` is not recorded: its PEP 695 sample needs one minor.
+   commit `ba47d6d7`), in `fixtures/golden-python`. `E-runtime` is not recorded: it needs 3.12.
 
 **Rejected.**
 - **Keep the Python collector as an oracle.** It is the code that phase 4.5 deletes.
@@ -68,4 +67,4 @@ the form; a changed record, an extra section, a swapped order and a duplicate se
 subset fails without an allowance, passes with one and still compares the rest, and the gate
 ignores the allowance; the recorder refuses an empty reason, a dirty source and a missing
 variable; the kinds and features are covered (the collector writes the effect kind as a literal); Git keeps the sources in LF.
-`tests/test_collector_golden_python.py` adds: each place that gives a Python record its kind is known and covered, a pinned part is skipped only on another interpreter, the gate needs the recorded interpreter.
+`test_collector_golden_python.py`: each Python kind site is known and covered; the pin skips a part only on another interpreter.

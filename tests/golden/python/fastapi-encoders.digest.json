@@ -1,0 +1,209 @@
+{
+  "claimed": [
+    "symbols",
+    "imports",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "unknowns"
+  ],
+  "features": [
+    "canonical_call_bindings",
+    "extended_call_bindings",
+    "call_arguments",
+    "guarded_effect_paths",
+    "source_roles",
+    "construct_selectors",
+    "numeric_operands"
+  ],
+  "order": [
+    "symbols",
+    "imports",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "unknowns"
+  ],
+  "portable": {
+    "claimed": [
+      "imports",
+      "references",
+      "bindings",
+      "typing_signals",
+      "constructs",
+      "unknowns"
+    ],
+    "features": [
+      "canonical_call_bindings",
+      "extended_call_bindings",
+      "call_arguments",
+      "guarded_effect_paths",
+      "source_roles",
+      "construct_selectors",
+      "numeric_operands"
+    ],
+    "order": [
+      "imports",
+      "references",
+      "bindings",
+      "typing_signals",
+      "constructs",
+      "unknowns"
+    ],
+    "rest": {
+      "counts": {
+        "candidate_evidence": 127,
+        "files": 7,
+        "imports": 84,
+        "type_shapes": 163,
+        "uncertain_reexports": 0
+      },
+      "sha256": "26785b5fc842553130b175c51abfb765b4e82ec614bc27c222e000d86f54324a"
+    },
+    "sections": {
+      "bindings": {
+        "kinds": {},
+        "records": 0,
+        "sha256": "441c982fea7c3793a19ce4d2f45a573a0b3aa1166c815c07d6dedf40370c42a4"
+      },
+      "constructs": {
+        "kinds": {
+          "assert_statement": 1,
+          "broad_except": 3,
+          "construct_selector": 56,
+          "getattr_call": 1,
+          "string_literal_compare": 1,
+          "vars_call": 1
+        },
+        "records": 63,
+        "sha256": "a374bbc5bec92bb1b3149dc3897e975d863e1f421699fd126f4d39534152ce6d"
+      },
+      "imports": {
+        "kinds": {
+          "import": 84
+        },
+        "records": 84,
+        "sha256": "b6dc47ac168a86d4630998272e4c805295ddd65100e840c69b01f19becda6420"
+      },
+      "references": {
+        "kinds": {
+          "attribute_reference": 3,
+          "source_role": 90,
+          "value_reference": 52
+        },
+        "records": 145,
+        "sha256": "15a715b19aa4aa6696f099f4136244e6f02ab91b83dcf68cb188cca98783d100"
+      },
+      "typing_signals": {
+        "kinds": {
+          "any_annotation": 24,
+          "callable_any_annotation": 1,
+          "cast_call": 1,
+          "dict_any_annotation": 5,
+          "getattr_call": 1,
+          "object_annotation": 1,
+          "type_ignore": 5
+        },
+        "records": 38,
+        "sha256": "848e9ba4c99a3bf7030e3dfc83856aa780745601b2ee9435f3ee5b6ce6246391"
+      },
+      "unknowns": {
+        "kinds": {},
+        "records": 0,
+        "sha256": "95a5a48b5b7eccf872bc2747f4010882e0fed2dff51ebc2e2d5676a1d8c08a1f"
+      }
+    },
+    "sha256": "09e2d5ac2d12276dd017e422d6990c9b871cc95fb6bd41af1ab3935cc4af9776"
+  },
+  "rest": {
+    "counts": {
+      "candidate_evidence": 127,
+      "evidence": 644,
+      "files": 7,
+      "imports": 84,
+      "inputs": 21,
+      "provider_bindings": 21,
+      "type_shapes": 163,
+      "uncertain_reexports": 0
+    },
+    "sha256": "325083a4fe887ef6099f72894f37e8db2f61d95ddfff78db412aa71f19fa1d9c"
+  },
+  "sections": {
+    "bindings": {
+      "kinds": {},
+      "records": 0,
+      "sha256": "441c982fea7c3793a19ce4d2f45a573a0b3aa1166c815c07d6dedf40370c42a4"
+    },
+    "calls": {
+      "kinds": {
+        "partially_resolved_call": 2,
+        "resolved_call": 104,
+        "unresolved_call": 29
+      },
+      "records": 135,
+      "sha256": "8686a352e962d63bc6209e05bb5f64fc0149dd70253bb12bb156e10cec391ede"
+    },
+    "constructs": {
+      "kinds": {
+        "assert_statement": 1,
+        "broad_except": 3,
+        "construct_selector": 56,
+        "getattr_call": 1,
+        "string_literal_compare": 1,
+        "vars_call": 1
+      },
+      "records": 63,
+      "sha256": "a374bbc5bec92bb1b3149dc3897e975d863e1f421699fd126f4d39534152ce6d"
+    },
+    "imports": {
+      "kinds": {
+        "import": 84
+      },
+      "records": 84,
+      "sha256": "b6dc47ac168a86d4630998272e4c805295ddd65100e840c69b01f19becda6420"
+    },
+    "references": {
+      "kinds": {
+        "attribute_reference": 3,
+        "source_role": 90,
+        "value_reference": 52
+      },
+      "records": 145,
+      "sha256": "15a715b19aa4aa6696f099f4136244e6f02ab91b83dcf68cb188cca98783d100"
+    },
+    "symbols": {
+      "kinds": {
+        "class": 16,
+        "dynamic_binding": 7,
+        "function": 6,
+        "method": 21,
+        "type_alias": 2
+      },
+      "records": 52,
+      "sha256": "316869f6b3ae39f552d3001439280b7b9cfab94121c3d962ca5692c4003e92f6"
+    },
+    "typing_signals": {
+      "kinds": {
+        "any_annotation": 24,
+        "callable_any_annotation": 1,
+        "cast_call": 1,
+        "dict_any_annotation": 5,
+        "getattr_call": 1,
+        "object_annotation": 1,
+        "type_ignore": 5
+      },
+      "records": 38,
+      "sha256": "848e9ba4c99a3bf7030e3dfc83856aa780745601b2ee9435f3ee5b6ce6246391"
+    },
+    "unknowns": {
+      "kinds": {},
+      "records": 0,
+      "sha256": "95a5a48b5b7eccf872bc2747f4010882e0fed2dff51ebc2e2d5676a1d8c08a1f"
+    }
+  },
+  "sha256": "dc0ce92f8bfdcedf4eb6a956fcca122a92230a54398b5f50fe8092e1602832db"
+}
