@@ -35,10 +35,11 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
-from collector_timing import Taken, least_of, timed_run
+from collector_timing import Taken, interleaved_least, least_of, timed_run
 from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY, SHAPES, Shape
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
@@ -72,9 +73,11 @@ class Timing:
 
 
 # Release runs are faster: the limits of the release profile are lower, see the docstring above.
+# The release floor for `measurable` is 20 ms. A 10 ms run is too close to the start-up noise of
+# the process, so a size could look measurable before its CPU time is large enough to compare.
 TIMINGS = {
     "debug": Timing(measurable=0.25, min_time=0.1),
-    "release": Timing(measurable=0.1, min_time=0.01),
+    "release": Timing(measurable=0.02, min_time=0.01),
 }
 
 
@@ -103,16 +106,23 @@ def _request(root: Path) -> bytes:
     )
 
 
-def _once(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    """One run of the collector on the file of `shape` with n constructs."""
-    (root / "tsconfig.json").write_text('{"compilerOptions":{"allowJs":true},"include":["src"]}')
-    (root / "src").mkdir(exist_ok=True)
-    for old in (root / "src").iterdir():
-        old.unlink()
-    (root / "src" / f"a{shape.suffix}").write_bytes(shape.make(n))
+CONFIG = '{"compilerOptions":{"allowJs":true},"include":["src"]}'
+
+
+def _prepare(root: Path, shape: Shape, n: int) -> Path:
+    """Write the file of `shape` with n constructs into a root of its own, and return the root."""
+    case = root / f"n{n}"
+    (case / "src").mkdir(parents=True, exist_ok=True)
+    (case / "tsconfig.json").write_text(CONFIG)
+    (case / "src" / f"a{shape.suffix}").write_bytes(shape.make(n))
+    return case
+
+
+def _run(binary: Path, case: Path) -> Taken:
+    """One run of the collector on the prepared root `case`."""
     wall, cpu, done = timed_run(
         [str(binary)],
-        _request(root),
+        _request(case),
         preexec_fn=_limit_address_space if sys.platform == "linux" else None,
     )
     assert done.returncode == 0, done.stderr[-300:]
@@ -120,8 +130,9 @@ def _once(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
 
 
 def _least(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    """The least of the runs of the collector with n constructs."""
-    return least_of(lambda: _once(binary, root, shape, n))
+    """The least of the runs of the collector with n constructs, for the size search."""
+    case = _prepare(root, shape, n)
+    return least_of(lambda: _run(binary, case))
 
 
 def measure(binary: Path, root: Path, shape: Shape, timing: Timing) -> tuple[int, Taken, Taken]:
@@ -134,7 +145,10 @@ def measure(binary: Path, root: Path, shape: Shape, timing: Timing) -> tuple[int
             break
         n *= 2
         first = _least(binary, root, shape, n)
-    return n, first, _least(binary, root, shape, 2 * n)
+    # The final pair is interleaved, so that a slow phase of the runner hits both sizes (AD-323).
+    cases = {n: _prepare(root, shape, n), 2 * n: _prepare(root, shape, 2 * n)}
+    small, large = interleaved_least(lambda size: _run(binary, cases[size]), n, 2 * n)
+    return n, small, large
 
 
 # The peak memory of the collector, in bytes, for nests that write many names. The memo of the write
@@ -213,7 +227,7 @@ def test_the_timing_follows_the_build_profile(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("ARCHKEEL_SCALING_PROFILE", raising=False)
     assert timing_for_profile() == Timing(measurable=0.25, min_time=0.1)
     monkeypatch.setenv("ARCHKEEL_SCALING_PROFILE", "release")
-    assert timing_for_profile() == Timing(measurable=0.1, min_time=0.01)
+    assert timing_for_profile() == Timing(measurable=0.02, min_time=0.01)
     monkeypatch.setenv("ARCHKEEL_SCALING_PROFILE", "fast")
     with pytest.raises(ValueError, match="fast"):
         timing_for_profile()
@@ -224,11 +238,46 @@ def test_the_least_of_three_runs_keeps_the_least_cpu_and_the_least_wall() -> Non
     assert least_of(lambda: next(samples)) == Taken(cpu=0.1, wall=1.0)
 
 
+def test_the_interleaved_pair_alternates_the_sizes_and_keeps_the_least() -> None:
+    order: list[int] = []
+    samples = {
+        10: iter([Taken(cpu=0.3, wall=2.0), Taken(cpu=0.1, wall=3.0), Taken(cpu=0.2, wall=1.0)]),
+        20: iter([Taken(cpu=0.6, wall=5.0), Taken(cpu=0.7, wall=4.0), Taken(cpu=0.5, wall=6.0)]),
+    }
+
+    def fake(size: int) -> Taken:
+        order.append(size)
+        return next(samples[size])
+
+    small, large = interleaved_least(fake, 10, 20)
+    assert order == [10, 20, 10, 20, 10, 20]
+    assert small == Taken(cpu=0.1, wall=1.0)
+    assert large == Taken(cpu=0.5, wall=4.0)
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
 def test_the_timer_counts_the_cpu_of_the_child_not_its_sleep() -> None:
     wall, cpu, _ = timed_run([sys.executable, "-c", "import time; time.sleep(0.5)"], b"")
     assert wall >= 0.5
     assert cpu < 0.1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
+def test_the_timer_counts_only_its_own_child_cpu() -> None:
+    """A second child that burns CPU and ends inside the timed window is not counted.
+
+    The burner runs in a thread, so it is started and reaped while `timed_run` waits for the
+    sleeping child. A timer that reads the CPU of all children would count the burner.
+    """
+    burn = [sys.executable, "-c", "for _ in range(90_000_000): pass"]
+    burner = threading.Thread(target=subprocess.run, args=(burn,), kwargs={"check": True})
+    burner.start()
+    try:
+        _, cpu, done = timed_run([sys.executable, "-c", "import time; time.sleep(3)"], b"")
+    finally:
+        burner.join()
+    assert done.returncode == 0
+    assert cpu < 0.2, f"the timer counted {cpu:.2f} s of CPU that is not the sleeping child's"
 
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
