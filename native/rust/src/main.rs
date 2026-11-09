@@ -14,6 +14,7 @@ mod collect;
 mod crates;
 mod manifest;
 mod nesting;
+mod net;
 mod paths;
 mod resolve;
 mod scan;

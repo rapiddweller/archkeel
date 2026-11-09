@@ -54,7 +54,7 @@ fn a_qualified_path_in_an_item_or_a_body_is_a_reference() {
 
 #[test]
 fn a_reference_has_the_line_column_and_text_of_its_first_segment() {
-    let found = scanned("fn f() {\n    let x = serde_json::json!(1);\n}").references;
+    let found = scanned("fn f() {\n    let x = json_dep::json!(1);\n}").references;
     let site = &found[0].site;
     assert_eq!(
         (
@@ -63,7 +63,7 @@ fn a_reference_has_the_line_column_and_text_of_its_first_segment() {
             site.column,
             site.excerpt.as_str()
         ),
-        ("serde_json", 2, 12, "let x = serde_json::json!(1);")
+        ("json_dep", 2, 12, "let x = json_dep::json!(1);")
     );
 }
 
@@ -196,8 +196,8 @@ fn every_name_that_the_file_declares_or_imports_is_collected_at_any_depth_in_any
         ["c", "e", "f", "g"]
     );
     assert_eq!(
-        names("use serde_json;\nextern crate x as y;\nextern { fn ffi(); static S: u8; }"),
-        ["S", "ffi", "serde_json", "y"]
+        names("use json_dep;\nextern crate x as y;\nextern { fn ffi(); static S: u8; }"),
+        ["S", "ffi", "json_dep", "y"]
     );
     // A glob and a type parameter bind no name that the scan knows.
     assert_eq!(names("use a::*;\nfn f<T>(x: T) {}"), ["f"]);
@@ -303,4 +303,48 @@ fn a_name_that_only_its_own_crate_provides_is_no_shadow_and_any_other_source_is(
     );
     // The name is still collected.
     assert!(scanned("use anyhow::anyhow;").names.contains("anyhow"));
+}
+
+#[test]
+fn a_raw_identifier_a_one_segment_string_and_an_attribute_expression_are_read() {
+    let found = |text: &str| paths(text);
+    // r#: in a path, a use leaf, a rename and a macro path.
+    assert_eq!(
+        found("fn f() { r#base_crate::make(); }"),
+        ["base_crate::make"]
+    );
+    assert_eq!(found("use r#base_crate::make;"), ["base_crate::make"]);
+    assert!(scanned("use a::r#b as r#c;").names.contains("c"));
+    // A string that is one name, under a key that is no message key.
+    assert_eq!(
+        found("#[serde(with = \"base_crate\")]\nstruct S;"),
+        ["base_crate"]
+    );
+    assert_eq!(
+        found("#[serde(crate = \"base_crate\")]\nstruct S;"),
+        ["base_crate"]
+    );
+    assert_eq!(
+        found("#[serde(rename = \"base_crate\")]\nstruct S;"),
+        Vec::<String>::new()
+    );
+    // The value of `key = expression`, also in `doc`; a plain doc text is no code.
+    assert_eq!(
+        found("#![doc = base_crate::readme!()]"),
+        ["base_crate::readme"]
+    );
+    assert_eq!(
+        found("#[path_attr = base_crate::VALUE]\nstruct S;"),
+        ["base_crate::VALUE"]
+    );
+    assert_eq!(
+        found(
+            "/// uses base_crate::make in prose\nstruct S;\n#[doc = \"base_crate::x\"]\nfn f() {}"
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        found("#[serde_as(as = \"base_crate::X\")]\nstruct S;"),
+        ["base_crate::X"]
+    );
 }

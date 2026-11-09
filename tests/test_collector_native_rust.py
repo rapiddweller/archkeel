@@ -475,3 +475,65 @@ def test_a_name_from_another_source_stays_unknown(
 
     assert statuses(result).get("REQUIRES") != "PASS"
     assert any("A local name equals a crate name: base_crate" in c for c in _claims(result))
+
+
+HIDDEN = [
+    "pub fn run() { r#base_crate::make(); }\n",
+    "use r#base_crate::make;\n",
+    '#[serde(with = "base_crate")]\npub struct S;\n',
+    '#[serde(crate = "base_crate")]\npub struct S;\n',
+    "macro_rules! m { ($c:ident) => { $c::make() }; }\n"
+    "pub fn run() { other::call!(base_crate); }\n",
+    "#[other::attr(base_crate)]\npub struct S;\n",
+    "#![doc = base_crate::readme!()]\n",
+]
+NET_ONLY = [
+    "macro_rules! m { ($c:ident) => { $c::make() }; }\n"
+    "pub fn run() { other::call!(base_crate); }\n",
+    "#[other::attr(base_crate)]\npub struct S;\n",
+    "pub fn run() { let base_crate = 1; let _ = base_crate; }\n",
+    "pub struct S { base_crate: u8 }\n",
+    'pub const A: &str = "base_crate::make";\n',
+]
+QUIET = [
+    "// base_crate in a comment\n/* base_crate */\npub fn run() {}\n",
+    "/// base_crate::make in a doc comment\npub fn run() {}\n",
+    '#[deprecated(note = "base_crate")]\npub fn run() {}\n',
+]
+
+
+@pytest.mark.parametrize("source", HIDDEN, ids=range(len(HIDDEN)))
+def test_a_hidden_use_of_a_crate_name_is_an_edge_or_unknown_never_pass(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert statuses(result).get("REQUIRES") != "PASS"
+
+
+@pytest.mark.parametrize("source", NET_ONLY, ids=range(len(NET_ONLY)))
+def test_a_crate_name_in_a_place_nobody_reads_is_unknown_with_the_net_reason(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    reason = "The crate name base_crate appears in a place the collector does not read"
+    assert any(reason in claim for claim in _claims(result))
+
+
+@pytest.mark.parametrize("source", QUIET, ids=range(len(QUIET)))
+def test_a_crate_name_in_a_comment_or_a_message_gives_no_unknown(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert not any("appears in a place" in claim for claim in _claims(result))

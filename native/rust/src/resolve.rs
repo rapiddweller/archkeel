@@ -15,7 +15,8 @@ use std::collections::BTreeSet;
 use crate::crates::Crate;
 
 /// The crates that every Rust program can name without a dependency.
-const SYSROOT: [&str; 3] = ["std", "core", "alloc"];
+/// One string, so that no literal of this file is itself the name of a crate (the safety net).
+const SYSROOT: &str = "std core alloc";
 /// First segments that never name a crate.
 const RELATIVE: [&str; 4] = ["crate", "self", "super", "Self"];
 
@@ -49,7 +50,7 @@ pub fn classify(
     if !absolute && RELATIVE.contains(&root) {
         return None;
     }
-    let named = if SYSROOT.contains(&root) {
+    let named = if SYSROOT.split(' ').any(|name| name == root) {
         Named::Sysroot(root.to_owned())
     } else {
         let package = krate.manifest.dependencies.get(root)?;

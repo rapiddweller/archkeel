@@ -16,7 +16,7 @@ use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target
 use archkeel_wire::request::Request;
 use serde_json::{json, Map, Value};
 
-use crate::crates::{discover, Problem, Workspace};
+use crate::crates::{discover, Crate, Problem, Workspace};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
 use crate::source::Source;
@@ -130,6 +130,7 @@ impl Builder {
         let Some(krate) = workspace.crates.get(module.crate_index) else {
             return;
         };
+        let mut covered = BTreeSet::new();
         for reference in &module.scan.references {
             let found = classify(
                 &reference.root,
@@ -137,6 +138,9 @@ impl Builder {
                 &module.scan.shadows,
                 reference.absolute,
             );
+            if found.is_some() {
+                covered.insert(reference.root.clone());
+            }
             match found {
                 Some(Found::Edge(named)) => self.import(workspace, module, reference, &named),
                 Some(Found::Shadowed) => {
@@ -146,6 +150,20 @@ impl Builder {
                 }
                 None => {}
             }
+        }
+        self.net(krate, module, &covered);
+    }
+
+    /// The safety net: a reachable crate name that the file writes, and that no edge explains.
+    fn net(&mut self, krate: &Crate, module: &Module, covered: &BTreeSet<String>) {
+        let none = BTreeSet::new();
+        for name in &module.scan.mentioned {
+            if covered.contains(name) || classify(name, krate, &none, false).is_none() {
+                continue;
+            }
+            let reason =
+                format!("The crate name {name} appears in a place the collector does not read");
+            self.gap(&reason, None, &module.module);
         }
     }
 

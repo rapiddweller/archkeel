@@ -57,11 +57,21 @@ fn a_string_with_a_path_or_a_bound_gives_its_paths() {
             "crate::codec".to_owned(),
             "b::X".to_owned(),
             "c::Y".to_owned(),
-            "d::Z".to_owned()
+            "d::Z".to_owned(),
+            "text".to_owned()
         ])
     );
     assert_eq!(
         string_chains("a = \"no path here\", b = 1"),
+        Some(Vec::new())
+    );
+    // A text that is one name is a path of one segment: `with = "humantime_serde"`.
+    assert_eq!(
+        string_chains("with = \"humantime_serde\""),
+        Some(vec!["humantime_serde".to_owned()])
+    );
+    assert_eq!(
+        string_chains("note = \"humantime_serde\""),
         Some(Vec::new())
     );
 }
@@ -123,4 +133,13 @@ fn a_string_under_any_other_key_is_read_as_a_path() {
     }
     // A text that does not read under such a key is not dropped.
     assert_eq!(string_chains("getter = \"(dep::X\""), None);
+}
+
+#[test]
+fn a_raw_identifier_is_the_name_without_its_prefix() {
+    assert_eq!(plain(&"r#base_crate"), "base_crate");
+    assert_eq!(plain(&"base_crate"), "base_crate");
+    let found = chains(stream("r#base_crate::make(); x::r#y")).unwrap();
+    let names: Vec<_> = found.iter().map(|c| c.names.join("::")).collect();
+    assert_eq!(names, ["base_crate::make", "x::y"]);
 }

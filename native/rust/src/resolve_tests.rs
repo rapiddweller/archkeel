@@ -17,7 +17,7 @@ fn krate() -> Crate {
         bins: Vec::new(),
         build: None,
         dependencies: BTreeMap::from([
-            ("serde_json".to_owned(), "serde_json".to_owned()),
+            ("json_dep".to_owned(), "json_dep".to_owned()),
             ("renamed".to_owned(), "real_name".to_owned()),
             ("my_app".to_owned(), "my_app".to_owned()),
         ]),
@@ -43,13 +43,13 @@ fn edge(package: &str) -> Option<Found> {
 
 #[test]
 fn a_dependency_and_a_renamed_dependency_are_edges() {
-    assert_eq!(found("serde_json", &[], false), edge("serde_json"));
+    assert_eq!(found("json_dep", &[], false), edge("json_dep"));
     assert_eq!(found("renamed", &[], false), edge("real_name"));
 }
 
 #[test]
 fn a_sysroot_crate_is_an_edge_without_a_dependency() {
-    for name in ["std", "core", "alloc"] {
+    for name in "std core alloc".split(' ') {
         let sysroot = Some(Found::Edge(Named::Sysroot(name.to_owned())));
         assert_eq!(found(name, &[], false), sysroot);
     }
@@ -59,24 +59,21 @@ fn a_sysroot_crate_is_an_edge_without_a_dependency() {
 fn a_crate_name_that_the_file_also_declares_is_unknown_never_an_edge_and_never_hidden() {
     // The scan does not decide which one Rust picks: a type, a module, a function, an import.
     assert_eq!(
-        found("serde_json", &["serde_json"], false),
+        found("json_dep", &["json_dep"], false),
         Some(Found::Shadowed)
     );
     assert_eq!(found("renamed", &["renamed"], false), Some(Found::Shadowed));
     assert_eq!(found("std", &["std"], false), Some(Found::Shadowed));
     // Another name of the file changes nothing.
     assert_eq!(
-        found("serde_json", &["Other", "serde"], false),
-        edge("serde_json")
+        found("json_dep", &["Other", "serde"], false),
+        edge("json_dep")
     );
 }
 
 #[test]
 fn a_path_that_starts_with_two_colons_is_the_crate_whatever_the_file_declares() {
-    assert_eq!(
-        found("serde_json", &["serde_json"], true),
-        edge("serde_json")
-    );
+    assert_eq!(found("json_dep", &["json_dep"], true), edge("json_dep"));
     let sysroot = Some(Found::Edge(Named::Sysroot("std".to_owned())));
     assert_eq!(found("std", &["std"], true), sysroot);
     assert_eq!(found("crate", &[], true), None);

@@ -12,10 +12,15 @@ use std::collections::BTreeSet;
 
 use proc_macro2::Span;
 use syn::visit::{self, Visit};
-use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro, Meta, UseTree};
+use syn::{
+    Attribute, Expr, ExprLit, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Lit, Macro, Meta,
+    UseTree,
+};
 
 use crate::attrs::{hidden_by, path_literal};
-use crate::tokens::{attribute_chains, chains, string_paths, Chain, LINTS};
+use crate::tokens::{
+    attribute_chains, chains, plain, read_value, string_paths, Chain, LINTS, MESSAGE_KEYS,
+};
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
@@ -102,6 +107,8 @@ pub struct Scan {
     /// source is a `use` leaf that the crate of that name itself provides (`use anyhow::anyhow;`):
     /// whichever item a path `anyhow::x` then picks, it lies in the crate `anyhow`.
     pub shadows: BTreeSet<String>,
+    /// Every name that the file writes in any token, for the safety net of `collect.rs`.
+    pub mentioned: BTreeSet<String>,
 }
 
 /// Scan one file. A syntax error is `Err` with its line.
@@ -120,6 +127,10 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
         out: Scan::default(),
     };
     walker.visit_file(&file);
+    match crate::net::mentioned(text) {
+        Some(found) => walker.out.mentioned = found,
+        None => walker.concern("The file does not lex".to_owned(), Span::call_site()),
+    }
     Ok(walker.out)
 }
 
@@ -192,10 +203,13 @@ impl Walker<'_> {
     /// any other: it adds impls, so a path in it is an edge and it never hides one.
     fn attribute(&mut self, attr: &Attribute) {
         let path = attr.path();
-        if path.is_ident("doc") {
+        // The text of a doc comment is no code. A `doc` with an expression is read below.
+        let text =
+            matches!(&attr.meta, Meta::NameValue(pair) if matches!(pair.value, Expr::Lit(_)));
+        if path.is_ident("doc") && text {
             return;
         }
-        let names: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+        let names: Vec<String> = path.segments.iter().map(|s| plain(&s.ident)).collect();
         if names.len() > 1 {
             self.refer(
                 &names,
@@ -216,6 +230,30 @@ impl Walker<'_> {
             }
             self.attribute_strings(list);
         }
+        if let (Meta::NameValue(pair), false) = (&attr.meta, lint) {
+            self.name_value(&names, &pair.value);
+        }
+    }
+
+    /// The value of `key = value`. A string is read as under any key of a list; another
+    /// expression (`doc = crate_a::readme!()`) is walked like code.
+    fn name_value(&mut self, key: &[String], value: &Expr) {
+        let Expr::Lit(ExprLit { lit, .. }) = value else {
+            self.visit_expr(value);
+            return;
+        };
+        let (Lit::Str(text), Some(name)) = (lit, key.last()) else {
+            return;
+        };
+        if MESSAGE_KEYS.contains(&name.as_str()) {
+            return;
+        }
+        let mut found = Vec::new();
+        if read_value(&text.value(), text.span(), &mut found).is_none() {
+            let reason = "A string in an attribute holds a path that the scan cannot read";
+            self.concern(reason.to_owned(), text.span());
+        }
+        self.refer_chains(found);
     }
 
     /// The paths in the strings of an attribute, under any key but the message keys of `tokens`.
@@ -237,7 +275,7 @@ impl Walker<'_> {
     fn use_tree(&mut self, prefix: &mut Vec<String>, tree: &UseTree) {
         match tree {
             UseTree::Path(path) => {
-                prefix.push(path.ident.to_string());
+                prefix.push(plain(&path.ident));
                 self.use_tree(prefix, &path.tree);
                 prefix.pop();
             }
@@ -246,7 +284,7 @@ impl Walker<'_> {
                 let bound = if name.ident == "self" {
                     prefix.last().cloned()
                 } else {
-                    Some(name.ident.to_string())
+                    Some(plain(&name.ident))
                 };
                 bound
                     .into_iter()
@@ -254,7 +292,7 @@ impl Walker<'_> {
                 self.leaf(prefix, Some(&name.ident));
             }
             UseTree::Rename(rename) => {
-                self.bind_leaf(rename.rename.to_string(), prefix);
+                self.bind_leaf(plain(&rename.rename), prefix);
                 self.leaf(prefix, Some(&rename.ident));
             }
             UseTree::Glob(glob) => {
@@ -272,7 +310,7 @@ impl Walker<'_> {
     fn leaf(&mut self, prefix: &[String], name: Option<&syn::Ident>) {
         let Some(name) = name else { return };
         let mut names = prefix.to_vec();
-        names.push(name.to_string());
+        names.push(plain(name));
         self.refer_as(&names, name.span(), self.absolute_use);
     }
 
@@ -281,7 +319,7 @@ impl Walker<'_> {
     }
 
     fn macro_call(&mut self, node: &Macro) {
-        let Some(name) = node.path.segments.last().map(|s| s.ident.to_string()) else {
+        let Some(name) = node.path.segments.last().map(|s| plain(&s.ident)) else {
             return;
         };
         let span = node
@@ -333,7 +371,7 @@ fn item_name(item: &Item) -> Option<String> {
         Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
         _ => return None,
     };
-    Some(ident.to_string())
+    Some(plain(ident))
 }
 
 /// The name of an item of an `extern` block.
@@ -344,7 +382,7 @@ fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
         syn::ForeignItem::Type(item) => &item.ident,
         _ => return None,
     };
-    Some(ident.to_string())
+    Some(plain(ident))
 }
 
 impl<'ast> Visit<'ast> for Walker<'_> {
@@ -368,7 +406,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_path(&mut self, path: &'ast syn::Path) {
         if path.segments.len() > 1 {
-            let names: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+            let names: Vec<String> = path.segments.iter().map(|s| plain(&s.ident)).collect();
             if let Some(first) = path.segments.first() {
                 self.refer_as(&names, first.ident.span(), path.leading_colon.is_some());
             }
@@ -406,7 +444,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     }
 
     fn visit_item_extern_crate(&mut self, node: &'ast ItemExternCrate) {
-        self.refer(&[node.ident.to_string()], node.ident.span());
+        self.refer(&[plain(&node.ident)], node.ident.span());
     }
 
     fn visit_item_use(&mut self, node: &'ast ItemUse) {
@@ -423,7 +461,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {
         let span = node.mod_token.span;
         self.gate(&node.attrs, "module", span);
-        let name = node.ident.to_string();
+        let name = plain(&node.ident);
         if node.content.is_none() {
             match path_literal(&node.attrs) {
                 Ok(path) => {

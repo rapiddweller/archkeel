@@ -15,7 +15,7 @@ fn manifest(text: &str, workspace: &str) -> Manifest {
 #[test]
 fn a_dependency_has_the_name_that_source_writes() {
     let found = manifest(
-        "[package]\nname = \"app-core\"\n[dependencies]\nserde-json = \"1\"\n\
+        "[package]\nname = \"app-core\"\n[dependencies]\njson-dep = \"1\"\n\
          old = { package = \"new-name\", version = \"1\" }\n\
          [dev-dependencies]\nhelper = { workspace = true }\n\
          [build-dependencies]\nsha2 = \"0.10\"\n\
@@ -31,9 +31,9 @@ fn a_dependency_has_the_name_that_source_writes() {
         names,
         [
             ("helper", "real_helper"),
+            ("json_dep", "json_dep"),
             ("libc", "libc"),
             ("old", "new_name"),
-            ("serde_json", "serde_json"),
             ("sha2", "sha2"),
         ]
     );

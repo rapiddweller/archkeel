@@ -9,6 +9,13 @@
 
 use proc_macro2::{Span, TokenStream, TokenTree};
 
+/// The name of an identifier as the compiler compares it: a raw identifier `r#name` is `name`.
+pub fn plain(ident: &impl std::fmt::Display) -> String {
+    let text = ident.to_string();
+    text.strip_prefix("r#")
+        .map_or_else(|| text.clone(), str::to_owned)
+}
+
 /// A written path: its identifiers and the span of the first one.
 #[derive(Clone, Debug)]
 pub struct Chain {
@@ -59,7 +66,7 @@ fn collect(stream: TokenStream, depth: usize, attribute: bool, found: &mut Vec<C
                 tokens.next();
             }
             TokenTree::Ident(first) => {
-                let mut names = vec![first.to_string()];
+                let mut names = vec![plain(&first)];
                 while let Some(name) = separator_then_name(&mut tokens) {
                     names.push(name);
                 }
@@ -78,7 +85,7 @@ fn collect(stream: TokenStream, depth: usize, attribute: bool, found: &mut Vec<C
 }
 
 fn skips_group(name: &proc_macro2::Ident, next: Option<&TokenTree>) -> bool {
-    LINTS.contains(&name.to_string().as_str()) && matches!(next, Some(TokenTree::Group(_)))
+    LINTS.contains(&plain(name).as_str()) && matches!(next, Some(TokenTree::Group(_)))
 }
 
 /// Take `::` and the identifier after it, or take nothing.
@@ -97,14 +104,14 @@ fn separator_then_name(
         return None;
     };
     *tokens = ahead;
-    Some(name.to_string())
+    Some(plain(&name))
 }
 
 /// The keys whose string value is a message or a name, never a path: `deprecated(note = ...)`,
 /// `since`, `should_panic(expected = ...)`, `rename`, `alias`, `doc`, and the text keys of help.
 /// A string under any other key is read as a path, because the crates that read attributes (serde,
 /// serde_with, schemars, validator, derivative, ...) take paths under keys that no list can name.
-const MESSAGE_KEYS: [&str; 14] = [
+pub const MESSAGE_KEYS: [&str; 18] = [
     "note",
     "since",
     "reason",
@@ -119,6 +126,10 @@ const MESSAGE_KEYS: [&str; 14] = [
     "long_about",
     "description",
     "comment",
+    "must_use",
+    "deprecated",
+    "ignore",
+    "path",
 ];
 
 /// The paths in the strings of a token stream that are not under a `MESSAGE_KEYS` key.
@@ -138,7 +149,7 @@ pub fn string_paths(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -
                 (key, armed) = (None, false);
                 string_paths(group.stream(), depth + 1, found)?;
             }
-            TokenTree::Ident(name) => (key, armed) = (Some(name.to_string()), false),
+            TokenTree::Ident(name) => (key, armed) = (Some(plain(&name)), false),
             TokenTree::Punct(punct) if punct.as_char() == '=' => armed = key.is_some(),
             TokenTree::Literal(literal) => {
                 let holds_path = armed
@@ -161,14 +172,35 @@ fn read_string(literal: &proc_macro2::Literal, found: &mut Vec<Chain>) -> Option
     let Ok(text) = syn::parse_str::<syn::LitStr>(&literal.to_string()) else {
         return Some(());
     };
-    let value = text.value();
+    read_value(&text.value(), literal.span(), found)
+}
+
+/// The paths in the text of a string under a key that holds paths. A text with `::` reads as
+/// tokens, and `None` means that it does not read. A text that is one name (`with =
+/// "humantime_serde"`) is a path of one segment: the caller decides whether it names a crate.
+pub fn read_value(value: &str, span: Span, found: &mut Vec<Chain>) -> Option<()> {
     if value.contains("::") {
         for mut chain in chains(value.parse::<TokenStream>().ok()?)? {
-            chain.span = literal.span();
+            chain.span = span;
             found.push(chain);
         }
+    } else if is_name(value) {
+        let names = vec![plain(&value)];
+        found.push(Chain {
+            names,
+            span,
+            absolute: false,
+        });
     }
     Some(())
+}
+
+fn is_name(text: &str) -> bool {
+    let mut characters = text.chars();
+    characters
+        .next()
+        .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
+        && characters.all(|next| next == '_' || next.is_ascii_alphanumeric())
 }
 
 /// Split a stream at its top-level commas: `cfg_attr(a, b, c)` gives three parts.
@@ -188,7 +220,7 @@ pub fn split_commas(stream: TokenStream) -> Vec<Vec<TokenTree>> {
 /// The identifier that starts a token list, as text.
 pub fn first_name(tokens: &[TokenTree]) -> Option<String> {
     match tokens.first()? {
-        TokenTree::Ident(name) => Some(name.to_string()),
+        TokenTree::Ident(name) => Some(plain(name)),
         _ => None,
     }
 }
