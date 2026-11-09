@@ -13,6 +13,7 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.identity",
+        "archkeel.ir.identity_memo",
         "archkeel.ir.source_records",
         "archkeel.ir.import_gaps"
       ],
@@ -35,6 +36,7 @@
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
         "archkeel.ir.import_gaps",
+        "archkeel.ir.identity_memo",
         "archkeel.ir.identity:module_identity",
         "archkeel.ir.facts:ReservedString"
       ]
@@ -302,6 +304,7 @@
       "decided_by": "architect",
       "exact_modules": [
         "archkeel.ir.decisions",
+        "archkeel.ir.dependency_binding",
         "archkeel.ir.digest",
         "archkeel.ir.phases",
         "archkeel.ir.trace",

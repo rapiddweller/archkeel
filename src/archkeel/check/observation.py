@@ -12,10 +12,10 @@ from typing import Literal
 from archkeel.ir.codec import (
     ContractInputError,
     InsideContractMount,
+    InsideContractTree,
     canonical_json_bytes,
     decode_json,
     json_arrays,
-    load_inside_contract_tree,
     parse_observation,
 )
 from archkeel.ir.collection_features import required_resolution_features
@@ -56,13 +56,13 @@ from archkeel.ir.model import (
     LayerOrderRule,
     Observation,
     Section,
-    contract_relative_path,
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, Language, Profile, UnmeasurableScalar
 from archkeel.ir.source_records import LazyParsed
 
-from .declarations import load_contract, project_declarations, project_inside_declarations
+from .contract_tree import ContractInput, load_contract_input
+from .declarations import project_declarations, project_inside_declarations
 from .evaluation.evaluate import ScanResult, evaluate_source
 from .evaluation.rules import public_api_exposed_types
 from .ports import SourceCollector
@@ -75,37 +75,19 @@ DEFAULT_CONTRACT = Path("docs/architecture/architecture-contract.json")
 
 
 def _inside_levels(
-    root: Path, contract_path: Path, contract: ArchitectureContract, root_digest: str
+    tree: InsideContractTree,
 ) -> tuple[
     list[RawRecord],
     str,
     list[InsideContractMount],
     list[RawRecord],
 ]:
-    """Load and project every explicitly mounted inside contract (AD-34).
+    """Project every explicitly mounted inside contract (AD-34).
 
     A missing or invalid nested contract is an UNKNOWN in the observation, not an empty level.
     """
     records: list[RawRecord] = []
     failures: list[RawRecord] = []
-    repository = root.resolve()
-
-    def read_inside(path: str) -> tuple[bytes, str]:
-        relative = contract_relative_path(path)
-        if relative is None:
-            raise ValueError("unsafe repository path")
-        target = (repository / relative).resolve()
-        if not target.is_relative_to(repository) or not target.is_file():
-            raise ValueError("file is missing or outside the repository")
-        return target.read_bytes(), target.relative_to(repository).as_posix()
-
-    tree = load_inside_contract_tree(
-        contract_path.relative_to(repository).as_posix(),
-        contract,
-        root_digest,
-        contract_path.resolve().relative_to(repository).as_posix(),
-        read_inside,
-    )
     for issue in tree.issues:
         if issue.input_error is not None:
             raise ContractInputError(
@@ -1081,14 +1063,19 @@ def assemble_observation(
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
     language: Language = Language.PYTHON,
+    loaded: ContractInput | None = None,
 ) -> tuple[Observation, int]:
-    """Analyze explicit source bytes; keep the model open for the canonical codec boundary."""
+    """Analyze explicit source bytes; keep the model open for the canonical codec boundary.
+
+    `loaded` is the contract the caller already read; without it the contract is read here.
+    """
     git_head, dirty = facts.source.git_head, facts.source.dirty
     declarations_root, contract_file = _contract_source(contract_root, contract_root, contract_path)
     contract_reference = contract_file.relative_to(declarations_root).as_posix()
-    contract, contract_digest = load_contract(contract_file)
+    loaded = loaded or load_contract_input(declarations_root, contract_file)
+    contract, contract_digest = loaded.contract, loaded.digest
     inside_records, full_contract_digest, inside_contracts, inside_failures = _inside_levels(
-        declarations_root, contract_file, contract, contract_digest
+        loaded.tree
     )
     profile = PROFILES[language]
     scan = evaluate_source(
@@ -1210,13 +1197,14 @@ def analyze_source_snapshot(
     if dirty != "unknown" and not isinstance(dirty, bool):
         raise ValueError("dirty must be a boolean or unknown")
     features: tuple[str, ...] = ()
+    loaded: ContractInput | None = None
     if language == Language.PYTHON:
         declarations_root, contract_file = _contract_source(
             source_root, contract_root, contract_path
         )
-        contract, digest = load_contract(contract_file)
-        _, _, mounts, _ = _inside_levels(declarations_root, contract_file, contract, digest)
-        features = tuple(sorted(required_resolution_features(contract, mounts)))
+        loaded = load_contract_input(declarations_root, contract_file)
+        _, _, mounts, _ = _inside_levels(loaded.tree)
+        features = tuple(sorted(required_resolution_features(loaded.contract, mounts)))
     resolver: ResolverSettings = fixed_settings(language) or PythonSettings(features=features)
     request = CollectionRequest(
         SnapshotInput(str(source_root.resolve()), git_head, dirty),
@@ -1233,4 +1221,5 @@ def analyze_source_snapshot(
         roots=roots,
         namespace=namespace,
         language=language,
+        loaded=loaded,
     )

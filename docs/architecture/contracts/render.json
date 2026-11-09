@@ -8,7 +8,8 @@
       "role": "projection",
       "exact_modules": [
         "archkeel.render",
-        "archkeel.render.html"
+        "archkeel.render.html",
+        "archkeel.render.page_assets"
       ],
       "public": [
         "archkeel.render.html"

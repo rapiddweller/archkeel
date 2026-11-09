@@ -23,8 +23,6 @@ from archkeel.ir.baseline import (
     ViolationFingerprint,
     cycle_contractions,
     observed_violations,
-    require_declared_filter,
-    select_violations,
 )
 from archkeel.ir.codec import (
     canonical_report_bytes,
@@ -70,7 +68,6 @@ from archkeel.ir.findings import findings
 from archkeel.ir.model import (
     ArchitectureContract,
     BaselineViolationComparison,
-    CallRow,
     ContractVersion,
     EvidenceClass,
     FilteredViolation,
@@ -105,7 +102,8 @@ from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 from .observe import Observer, observation_diagnostics
 from .onboarding import layout_contracts, scan_scope
 from .ports import Analyzer, Language, ScanConfig, SourceCollector
-from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
+from .ratchets import unknown_positions_by_rule
+from .report_filter import calls_in, report_filter_of, violations_in
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
 from .snapshot import SnapshotError
@@ -273,73 +271,6 @@ def observe_repository(
 ) -> ObservationResult:
     """Retain the published facade signature while observation lives below commands."""
     return _observe_repository(root, config, analyzer, contract_root=contract_root, clock=clock)
-
-
-def _selected_violations(
-    model: Observation, report_filter: ReportFilter
-) -> tuple[FilteredViolation, ...]:
-    return tuple(
-        FilteredViolation(
-            record,
-            tuple(
-                ReportLocation(entry.file, entry.line)
-                for entry in model.evidence
-                if entry.id in record.evidence_ids
-            ),
-        )
-        for record in select_violations(model, report_filter)
-    )
-
-
-def _selected_calls(model: Observation, report_filter: ReportFilter) -> tuple[CallRow, ...]:
-    """AD-100: `--only calls`, narrowed by `--component` to the calls its modules make.
-
-    A profile that does not measure calls has none to list, and an empty list would read as a
-    count it never took: refused like an unsupported rule (AD-97).
-    """
-    if not calls_measured(model):
-        raise DiagnosticError(
-            Diagnostic(
-                _DiagnosticKind.RULE_UNSUPPORTED_BY_PROFILE,
-                "--only calls",
-                f"The {model.analyzer.name} profile does not measure calls, so it has none "
-                "to list.",
-                "Drop --only calls; only the Python profile lists unresolved calls.",
-            )
-        )
-    require_declared_filter(model, report_filter)
-    return tuple(
-        row
-        for row in call_rows(model)
-        if report_filter.component is None or row.component == report_filter.component
-    )
-
-
-def _report_filter(
-    only_violations: bool,
-    rule: str | None,
-    component: str | None,
-    only_calls: bool,
-    only_architecture: bool = False,
-    full_architecture: bool = False,
-) -> ReportFilter | None:
-    if (
-        only_violations
-        or only_calls
-        or only_architecture
-        or full_architecture
-        or rule is not None
-        or component is not None
-    ):
-        return ReportFilter(
-            only_violations,
-            rule,
-            component,
-            only_calls,
-            only_architecture,
-            full_architecture,
-        )
-    return None
 
 
 # AD-272: these diagnostics revoke every proof, so a partial run neither fails a rule nor ranks one.
@@ -526,7 +457,7 @@ def _architecture_result(
     component_rules: set[str] = set()
     try:
         selected_violations = (
-            _selected_violations(model, replace(report_filter, component=None))
+            violations_in(model, replace(report_filter, component=None))
             if findings_available and only_violations and report_filter is not None
             else ()
         )
@@ -613,7 +544,7 @@ def _report_result(
         try:
             measurements, declared = inspect_observation(model)
             filtered_violations = (
-                _selected_violations(model, report_filter)
+                violations_in(model, report_filter)
                 if report_filter is not None
                 and not only_calls
                 and not report_filter.only_architecture
@@ -621,9 +552,7 @@ def _report_result(
                 else None
             )
             filtered_calls = (
-                _selected_calls(model, report_filter)
-                if report_filter is not None and only_calls
-                else None
+                calls_in(model, report_filter) if report_filter is not None and only_calls else None
             )
         except ValueError as error:
             command_result = replace(
@@ -746,17 +675,50 @@ def run_report(
     clock: PhaseClock | None = None,
 ) -> tuple[RunResult, bytes | None]:
     """Observe once; filters narrow report rows without changing verdicts or measurements."""
-    report_filter = _report_filter(
+    result, architecture, _ = run_report_with_observation(
+        root,
+        config=config,
+        analyzer=analyzer,
+        only_violations=only_violations,
+        rule=rule,
+        component=component,
+        only_calls=only_calls,
+        only_architecture=only_architecture,
+        full_architecture=full_architecture,
+        baseline=baseline,
+        clock=clock,
+    )
+    return result, architecture
+
+
+def run_report_with_observation(
+    root: Path,
+    *,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    only_violations: bool = False,
+    rule: str | None = None,
+    component: str | None = None,
+    only_calls: bool = False,
+    only_architecture: bool = False,
+    full_architecture: bool = False,
+    baseline: Path | None = None,
+    clock: PhaseClock | None = None,
+) -> tuple[RunResult, bytes | None, Observation | None]:
+    """Observe once; filters narrow report rows without changing verdicts or measurements.
+
+    The third value is the observation behind the bytes, so a renderer reads no second copy.
+    """
+    report_filter = report_filter_of(
         only_violations, rule, component, only_calls, only_architecture, full_architecture
     )
-    result, architecture, _ = _observed_report(
+    return _observed_report(
         observe_repository(root, config, analyzer, clock=clock),
         report_filter,
         root=root,
         baseline=baseline,
         clock=clock,
     )
-    return result, architecture
 
 
 def _observed_report(
@@ -893,7 +855,7 @@ def run_saved_report(
     full_architecture: bool = False,
 ) -> RunResult:
     """Query recorded evidence without collecting, evaluating or writing a working tree."""
-    report_filter = _report_filter(
+    report_filter = report_filter_of(
         only_violations,
         rule,
         component,

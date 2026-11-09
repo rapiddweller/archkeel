@@ -24,6 +24,8 @@ from .baseline import violation_rows
 from .bindings import unread_bindings
 from .coverage import observation_complete, observation_covers_rule
 from .dependency import parse_dependency_selector
+from .dependency_binding import dependency_binding_id as dependency_binding_id
+from .dependency_binding import replayed_dependency_binding_id
 from .duplication import repeated_logic
 from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
 from .facts import RuntimeRequirementState as _RuntimeRequirementState
@@ -1199,63 +1201,6 @@ def _dependency_receipt_ownership(
     )
 
 
-def dependency_binding_id(
-    sections: _Iterable[Section],
-    failures: _Iterable[Record],
-    evidence: _Iterable[Evidence],
-    *,
-    include_calls: bool = False,
-    include_source_ownership: bool = False,
-) -> str:
-    """Bind dependency proof content identically at issuance and replay (AD-237)."""
-    bound = [
-        record
-        for section in sections
-        for record in section.records
-        if section.name in {"modules", "imports", "symbols"}
-        or section.name == "references"
-        and (
-            record.kind == "script_namespace_effect"
-            or include_calls
-            or include_source_ownership
-            and record.kind in {"source_role", "value_reference", "attribute_reference"}
-        )
-        or include_calls
-        and section.name == "calls"
-        or section.name == "declarations"
-        and (
-            record.kind
-            in {
-                "component_responsibility",
-                "inside_component_responsibility",
-                "complete_requires",
-            }
-            or include_calls
-            and record.kind
-            in {
-                "call_owner",
-                "forbidden_call_argument",
-                "catalog_argument",
-                "catalog_use",
-                "forbidden_effect_under_condition",
-            }
-            or record.kind == "protocol_declarations"
-            or include_source_ownership
-            and record.kind == "source_ownership"
-        )
-    ]
-    bound.extend(failures)
-    return stable_id(
-        "DEPENDENCY-PROOF",
-        repr(
-            (
-                tuple(sorted(bound, key=lambda item: item.id)),
-                tuple(sorted(evidence, key=lambda item: item.id)),
-            )
-        ),
-    )
-
-
 def numeric_operand_inventory_binding_id(
     sections: _Iterable[Section],
     failures: _Iterable[Record],
@@ -1428,8 +1373,7 @@ def _scoped_dependency_receipt(
         or coverage.rules != Verdict.PASS
         or proof.get("source_digest") != observation.source.source_digest
         or proof.get("contract_digest") != observation.contract.digest
-        or proof.get("binding_id")
-        != dependency_binding_id(observation.sections, coverage.failures, observation.evidence)
+        or proof.get("binding_id") != replayed_dependency_binding_id(observation)
         or proof.get("runtime")
         != RecordData(
             (
@@ -1510,9 +1454,7 @@ def _call_owner_receipt_complete(observation: Observation, receipt: Record | Non
         and proof.get("contract_digest") == observation.contract.digest
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
-            dependency_binding_id(
-                observation.sections, coverage.failures, observation.evidence, include_calls=True
-            ),
+            replayed_dependency_binding_id(observation, include_calls=True),
             receipt,
             observation.schema_version,
         )
@@ -1577,7 +1519,7 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
         and proof.get("result_digest") == protocol_declaration_result_digest(records, rule_id)
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
-            dependency_binding_id(observation.sections, coverage.failures, observation.evidence),
+            replayed_dependency_binding_id(observation),
             receipt,
             observation.schema_version,
         )
@@ -1624,12 +1566,7 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
         and proof.get("result_digest") == rule_result_digest(observation.sections, rule_id)
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
-            dependency_binding_id(
-                observation.sections,
-                coverage.failures,
-                observation.evidence,
-                include_source_ownership=True,
-            ),
+            replayed_dependency_binding_id(observation, include_source_ownership=True),
             receipt,
             observation.schema_version,
         )

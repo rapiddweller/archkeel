@@ -14,9 +14,6 @@ from archkeel.ir.codec import (
 from archkeel.ir.codec import (
     ContractInputError as _ContractInputError,
 )
-from archkeel.ir.codec import (
-    load_inside_contract_tree as _load_inside_contract_tree,
-)
 from archkeel.ir.collection_features import required_resolution_features
 from archkeel.ir.facts import (
     RULE_FAMILY_NOT_COLLECTED_KIND,
@@ -27,20 +24,13 @@ from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.import_gaps import derived_unresolved_imports
 from archkeel.ir.member_inventory import member_inventory_proof
 from archkeel.ir.model import (
-    ArchitectureContract as _ArchitectureContract,
-)
-from archkeel.ir.model import (
     Diagnostic,
     DiagnosticKind,
-    InsideContractTree,
     Observation,
     ObservationResult,
     UmlEligibility,
     Verdict,
     stable_id,
-)
-from archkeel.ir.model import (
-    contract_relative_path as _contract_relative_path,
 )
 from archkeel.ir.phases import Phase, PhaseClock, measured
 from archkeel.ir.profiles import PROFILES, Language
@@ -58,6 +48,7 @@ from archkeel.ir.protocol import (
     TypeScriptSettings,
 )
 
+from .contract_tree import ContractInput, contract_input
 from .declarations import ContractError, load_contract
 from .gap_diagnostics import gap_diagnostic
 from .observation import assemble_observation
@@ -85,40 +76,7 @@ def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
     )
 
 
-def _nested_reference_failure(
-    root: Path, contract_path: Path, contract: _ArchitectureContract, digest: str
-) -> ObservationResult | InsideContractTree:
-    repository = root.resolve()
-    identity = contract_path.resolve().relative_to(repository).as_posix()
-
-    def read_inside(reference: str) -> tuple[bytes, str]:
-        relative = _contract_relative_path(reference)
-        if relative is None:
-            raise ValueError("unsafe repository path")
-        target = (repository / relative).resolve()
-        if not target.is_relative_to(repository) or not target.is_file():
-            raise ValueError("file is missing or outside the repository")
-        return target.read_bytes(), target.relative_to(repository).as_posix()
-
-    tree = _load_inside_contract_tree(
-        identity,
-        contract,
-        digest,
-        identity,
-        read_inside,
-    )
-    for issue in tree.issues:
-        if issue.input_error is not None:
-            error = _ContractInputError(
-                f"{issue.pointer}{issue.input_error.pointer}",
-                issue.input_error.subject,
-                str(issue.input_error),
-            )
-            return _contract_input_failure(error)
-    return tree
-
-
-def _contract_tree(path: Path, contract_root: Path) -> ObservationResult | InsideContractTree:
+def _contract_tree(path: Path, contract_root: Path) -> ObservationResult | ContractInput:
     try:
         contract, digest = load_contract(path)
     except ContractVersionError as error:
@@ -137,7 +95,16 @@ def _contract_tree(path: Path, contract_root: Path) -> ObservationResult | Insid
             f"The architecture contract cannot be decoded: {error}",
             "Correct the contract structure and run report again.",
         )
-    return _nested_reference_failure(contract_root, path, contract, digest)
+    loaded = contract_input(contract_root, path, contract, digest)
+    for issue in loaded.tree.issues:
+        if issue.input_error is not None:
+            nested = _ContractInputError(
+                f"{issue.pointer}{issue.input_error.pointer}",
+                issue.input_error.subject,
+                str(issue.input_error),
+            )
+            return _contract_input_failure(nested)
+    return loaded
 
 
 # AD-97: a contract item the profile cannot decide is refused, never read as PASS.
@@ -303,9 +270,9 @@ def _observe(
     suffix = PROFILES[language].source_suffix
     try:
         contract_file = contract_root / contract
-        tree = _contract_tree(contract_file, contract_root)
-        if isinstance(tree, ObservationResult):
-            return tree
+        loaded = _contract_tree(contract_file, contract_root)
+        if isinstance(loaded, ObservationResult):
+            return loaded
         for root in roots:
             directory = source_root / root
             file_root = language == Language.TYPESCRIPT and directory.is_file()
@@ -327,7 +294,9 @@ def _observe(
                     )
         resolver: ResolverSettings = (
             PythonSettings(
-                features=tuple(sorted(required_resolution_features(tree.root, tree.mounts)))
+                features=tuple(
+                    sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
+                )
             )
             if language == Language.PYTHON
             else DartSettings()
@@ -366,6 +335,7 @@ def _observe(
                 roots=roots,
                 namespace=namespace,
                 language=language,
+                loaded=loaded,
             )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)

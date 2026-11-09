@@ -11,6 +11,7 @@
         "archkeel.check.source_roots",
         "archkeel.check.run",
         "archkeel.check.report",
+        "archkeel.check.report_filter",
         "archkeel.check.validation"
       ],
       "responsibilities": [
@@ -68,6 +69,7 @@
         "archkeel.check.gap_diagnostics",
         "archkeel.check.observation",
         "archkeel.check.observe",
+        "archkeel.check.contract_tree",
         "archkeel.check.uml"
       ],
       "responsibilities": [

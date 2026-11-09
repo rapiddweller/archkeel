@@ -33,7 +33,7 @@ PR_TEST_FILES := \
 	tests/test_typescript_decorated_inventory.py \
 	tests/test_typescript_parameter_properties.py \
 	tests/test_uml_comparison.py tests/test_saved_report.py tests/test_architecture_projection.py tests/test_cli.py tests/test_cli_view.py tests/test_cli_view_show.py tests/test_cli_story.py tests/test_studio.py tests/test_studio_chat.py tests/test_studio_launcher.py tests/test_cli_typed_inputs.py tests/test_cli_input_target.py \
-	tests/test_member_inventory.py tests/test_partial_member_inventory.py tests/test_source_values.py \
+	tests/test_member_inventory.py tests/test_partial_member_inventory.py tests/test_source_values.py tests/test_identity_memo.py tests/test_compute_once_per_run.py \
 	tests/test_report_recorded_unknowns.py \
 	tests/test_report_agent_json.py \
 	tests/test_native_violation_filter.py \
