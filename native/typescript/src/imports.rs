@@ -16,6 +16,7 @@ use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::parse;
 use crate::paths::{dirname, join, within};
+use crate::records::Kept;
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
 use crate::source_input::{
@@ -57,6 +58,10 @@ impl Collection<'_> {
                 module,
                 GapKind::Collection,
             );
+        }
+        if self.keep {
+            let kept = Kept::from_parsed(module, &parsed);
+            self.kept.insert(rel.to_owned(), kept);
         }
         let format = self.resolver.format_of(&mut self.snapshot, rel);
         let explicit = self.resolver.options.module;
@@ -144,6 +149,10 @@ impl Collection<'_> {
             "module_level_import".to_owned(),
             json!(reference.module_level),
         );
+        if self.keep {
+            let site = (rel.to_owned(), reference.span.line, reference.span.column);
+            self.sites.insert(identity.clone(), site);
+        }
         self.targets.push(target);
         self.imports.push(Record {
             id: identity,
@@ -153,6 +162,7 @@ impl Collection<'_> {
             title: format!("{module} imports {specifier}"),
             subjects,
             evidence_ids: vec![evidence.to_owned()],
+            fact_ids: Vec::new(),
             data,
         });
     }
@@ -275,7 +285,7 @@ impl Collection<'_> {
 
     /// `collect._observe`: read a local dependency; it joins the walk when it is a source file.
     fn observe(&mut self, rel: &str, importer: &Site) -> bool {
-        let present = self.snapshot.read(rel).is_some();
+        let present = self.snapshot.readable(rel);
         let source = classify_file(rel).and_then(|suffix| suffix.source_kind());
         if present && source.is_some() && self.selected(rel) {
             if self.queued.insert(rel.to_owned()) {
@@ -339,7 +349,7 @@ impl Collection<'_> {
         if self.excluded_test(&path) && !self.snapshot.installed(&path) {
             return self.excluded_test_target(module, reference, identity, &path, &site);
         }
-        if self.snapshot.read(&path).is_none() {
+        if !self.snapshot.readable(&path) {
             let reason = format!("Unavailable local target: {specifier}");
             return self.unresolved(module, identity, specifier, &reason);
         }

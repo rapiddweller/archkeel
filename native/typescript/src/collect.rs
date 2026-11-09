@@ -10,7 +10,7 @@
 //! later phases. Without them this collector declares the legacy capability: sections `imports`
 //! and `unknowns`, and no `script-globals-v1` feature. It invents no evidence.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
 use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target};
@@ -21,6 +21,7 @@ use crate::config::load_config;
 use crate::options::Resolution;
 use crate::paths::join;
 use crate::pytext::is_space;
+use crate::records::{build, Kept, Pending, Records};
 use crate::resolve::Resolver;
 use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;
@@ -61,10 +62,27 @@ struct Collection<'a> {
     imports: Vec<Record>,
     targets: Vec<Target>,
     read: usize,
+    /// Keep what the records of PR 4.3a-3a need (`records.rs`); a plain collection does not.
+    keep: bool,
+    kept: BTreeMap<String, Kept>,
+    sites: HashMap<String, (String, i64, i64)>,
 }
 
 /// Collect the facts of one request.
 pub fn collect(request: &Request, provenance: Provenance) -> Facts {
+    gather(request, provenance, false).0
+}
+
+/// The facts of one request and the records that the reply does not carry yet. Only the `dump`
+/// feature calls it (AD-323).
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
+pub fn records(request: &Request, provenance: Provenance) -> (Facts, Records) {
+    let (facts, pending) = gather(request, provenance, true);
+    let records = build(&facts, &pending);
+    (facts, records)
+}
+
+fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pending) {
     let roots: Vec<String> = request.roots.iter().map(|root| join(".", root)).collect();
     let mut snapshot = Snapshot::new(&request.root);
     let config = load_config(&mut snapshot, &request.tsconfig, &roots);
@@ -72,6 +90,7 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
     let bundler = request.bundler
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
+    let partial = config.partial;
     let listed = config.files;
     let mut collection = Collection {
         request,
@@ -89,6 +108,9 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
         imports: Vec::new(),
         targets: Vec::new(),
         read: 0,
+        keep,
+        kept: BTreeMap::new(),
+        sites: HashMap::new(),
     };
     collection.queue = listed
         .iter()
@@ -141,13 +163,19 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
     if collection.bundler {
         features.push("bundler-mode-v1");
     }
-    Facts {
+    let pending = Pending {
+        kept: collection.kept,
+        sites: collection.sites,
+        partial,
+    };
+    let facts = Facts {
         provenance,
         git_head: request.git_head.clone(),
         dirty: request.dirty.clone(),
         scope,
         sections: vec![(SECTIONS[0], imports), (SECTIONS[1], gaps.clone())],
         features,
+        constructs: Vec::new(),
         inputs: collection.snapshot.inputs(),
         files,
         imports: collection.targets,
@@ -155,7 +183,8 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
         files_read: collection.read,
         gaps,
         evidence: collection.evidence.into_values().collect(),
-    }
+    };
+    (facts, pending)
 }
 
 impl Collection<'_> {
@@ -270,6 +299,7 @@ impl Collection<'_> {
                 .map(str::to_owned)
                 .collect(),
             evidence_ids: evidence.into_iter().map(str::to_owned).collect(),
+            fact_ids: Vec::new(),
             data,
         });
     }

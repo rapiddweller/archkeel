@@ -138,6 +138,16 @@ impl Snapshot {
         }
     }
 
+    /// Whether `rel` can be read, for a caller that needs no content. A file that was read before
+    /// is not read and digested again, and a file that was refused for its size is not read again:
+    /// n imports of one file of size m would cost n times m.
+    pub fn readable(&mut self, rel: &str) -> bool {
+        if self.oversized.contains(rel) {
+            return false;
+        }
+        self.inputs.contains_key(rel) || self.read(rel).is_some()
+    }
+
     /// The gap text of a file that `read` refused for its size.
     pub fn size_gap(&self, rel: &str) -> Option<String> {
         self.oversized

@@ -23,6 +23,8 @@ use crate::source::Span;
 use crate::source_input::classify_file;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
+use archkeel_wire::reply::{evidence_value, record_value, target_value, Provenance};
+use archkeel_wire::request::Request;
 
 fn span(span: &Span) -> Value {
     json!({
@@ -258,4 +260,17 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
         writeln!(output, "{reply}").map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+/// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
+/// compares with the Python collector. The reply of the collector does not carry them yet.
+pub fn records(request: &Request, provenance: Provenance) -> Value {
+    let (_, records) = crate::collect::records(request, provenance);
+    json!({
+        "imports": records.imports.iter().map(record_value).collect::<Vec<_>>(),
+        "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
+        "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
+        "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
+        "evidence": records.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
+    })
 }
