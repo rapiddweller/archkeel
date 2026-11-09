@@ -170,18 +170,22 @@ def _git_archive_bytes(
                 mode, kind, oid = metadata.split()
                 if regular_git_blob_kind(mode, kind) is None:
                     raise SnapshotError(f"expected a regular Git blob: {name!r}")
-                payload = subprocess.run(
-                    ["git", "cat-file", "blob", oid.decode("ascii")],
-                    cwd=root,
-                    check=True,
-                    capture_output=True,
-                ).stdout
+                payload = _read_blob(root, oid)
                 member = tarfile.TarInfo(name)
                 member.size = len(payload)
                 stream.addfile(member, io.BytesIO(payload))
         return buffer.getvalue()
     except (OSError, UnicodeDecodeError, subprocess.CalledProcessError, ValueError) as exc:
         raise SnapshotError(f"cannot read snapshot blobs from Git commit {git_head}") from exc
+
+
+def _read_blob(root: Path, oid: bytes) -> bytes:
+    return subprocess.run(
+        ["git", "cat-file", "blob", oid.decode("ascii")],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    ).stdout
 
 
 def _safe_member_path(name: str) -> PurePosixPath:

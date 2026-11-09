@@ -91,7 +91,7 @@ self-validate-native:
 	cd native && cargo build --locked --bin archkeel-rust-collector
 	@mkdir -p test-artifacts/validation-native
 	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || { cat test-artifacts/validation-native/result.json; exit 1; }
-	@python3 -c 'import json; d=json.load(open("test-artifacts/validation-native/result.json")); print("Native architecture rules: %s; diagnostics: %s; full result: test-artifacts/validation-native/result.json" % (d["declared_rules"], len(d["diagnostics"])))'
+	@echo "Native architecture rules: PASS; full result: test-artifacts/validation-native/result.json"
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:

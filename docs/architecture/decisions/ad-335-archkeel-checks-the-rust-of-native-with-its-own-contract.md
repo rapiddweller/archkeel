@@ -57,7 +57,8 @@ shows that both give the same crate edges.
 **Limit.** Crate edges only. The module name holds the whole path, so a chain of n nested modules
 writes bytes in proportion to n squared. A reply of a file with many paths takes about 20 KB of memory
 for each path. The scan does not expand macros, does not read `build.rs` output and does not
-know the active features. `init` and `explore` do not support Rust yet.
+know the active features. `init` and `explore` do not support Rust yet. `syn` puts `proc-macro2` and
+`unicode-ident` into the binary, and `deny.toml` has one licence exception for `unicode-ident` (Unicode-3.0).
 
 **Check.** `cargo test` (reader, scan, tree, facts), `tests/test_collector_native_rust.py` (each
 reason, FAIL for a bad edge, a rename, a missing component and a cycle),
