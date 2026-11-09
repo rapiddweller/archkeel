@@ -380,6 +380,26 @@ SYNTAX_PIECES = (
     "import b from './b';\nfunction g() { b = 2; }\nfunction f() { var b; b = 1; }",
     "import c from './c';\nfunction f() { let c; { c = 1; } }\nfunction g() { { c = 2; } }",
     "import d from './d';\nfunction f() { function h() { d = 1; } var d; }\nfunction g() {d = 2;}",
+    # A write of an imported name: the nearest binding decides, so the frames between count.
+    "import m from './m';\nfunction f() { var q; function g() { q = 1; } }\n"
+    "function h() { m = 2; }",
+    "import a from './a';\nfunction f() { var a; function g() { a = 1; } }\n"
+    "function h() { a = 2; }",
+    "import a from './a';\nfunction f0() { let a; function f1() { function f2() { a = 1; } } }",
+    "import a from './a';\nfunction f() { class C { m() { a = 1; } } }\n"
+    "function g() { class a {} a = 2; }",
+    "import e from './e';\ntry {} catch (e) { e = 1; }\n"
+    "function f() { try {} catch (e) { } e = 2; }",
+    "import p from './p';\nfunction f(p) { p = 1; }\nfunction g() { p = 2; }\n"
+    "const k = (p) => { p = 3; };",
+    "import d from './d';\ndeclare global { var d: number; }\n"
+    "declare function df(d: number): void;\nd = 1;",
+    "import n from './n';\nnamespace N { var n; n = 1; }\nnamespace M { n = 3; }\nn = 2;",
+    "import w from './w';\nwith (o) { w = 1; }\nfunction f() { with (o) { var w; w = 2; } w = 3; }",
+    "import a, { b, c as d } from './x';\n"
+    "function f() { for (var b of x) { b = 1; } a++; d += 1; }",
+    "import a from './a'; import b from './b';\n"
+    "function f() { var b; { let a; a = 1; } b = 2; a = 3; }",
     # A re-export names no local binding: x and K stay private and not exported.
     "function x() {}\nclass K {}\nexport { x } from './m';\nexport { K as KK } from './n';",
 )
