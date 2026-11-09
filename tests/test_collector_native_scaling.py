@@ -36,6 +36,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -129,25 +130,28 @@ def _run(binary: Path, case: Path) -> Taken:
     return Taken(cpu=cpu, wall=wall)
 
 
-def _least(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    """The least of the runs of the collector with n constructs, for the size search."""
-    case = _prepare(root, shape, n)
-    return least_of(lambda: _run(binary, case))
+def _sample(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
+    """One run of the collector with n constructs, for the size search."""
+    return _run(binary, _prepare(root, shape, n))
 
 
 def measure(binary: Path, root: Path, shape: Shape, timing: Timing) -> tuple[int, Taken, Taken]:
-    """`(n, taken(n), taken(2n))` with the least n whose CPU time is measurable."""
+    """`(n, taken(n), taken(2n))` with the least n whose CPU time is measurable.
+
+    The search takes one run of n per step. The last search run of n seeds the n side of the final
+    pair, so the pair costs 2 * RUNS runs and the whole measure costs one run more than before.
+    """
     n = max(1, int(shape.base * float(os.environ.get("ARCHKEEL_SCALING_SCALE", "1"))))
-    first = _least(binary, root, shape, n)
+    first = _sample(binary, root, shape, n)
     for _ in range(MAX_DOUBLINGS):
         # The file of 2n after the doubling must still be readable: 4n of the old n.
         if first.cpu >= timing.measurable or len(shape.make(4 * n)) > MAX_BYTES:
             break
         n *= 2
-        first = _least(binary, root, shape, n)
+        first = _sample(binary, root, shape, n)
     # The final pair is interleaved, so that a slow phase of the runner hits both sizes (AD-323).
     cases = {n: _prepare(root, shape, n), 2 * n: _prepare(root, shape, 2 * n)}
-    small, large = interleaved_least(lambda size: _run(binary, cases[size]), n, 2 * n)
+    small, large = interleaved_least(lambda size: _run(binary, cases[size]), n, 2 * n, seed=first)
     return n, small, large
 
 
@@ -255,6 +259,18 @@ def test_the_interleaved_pair_alternates_the_sizes_and_keeps_the_least() -> None
     assert large == Taken(cpu=0.5, wall=4.0)
 
 
+def test_a_seed_joins_the_small_side_without_a_run() -> None:
+    order: list[int] = []
+
+    def fake(size: int) -> Taken:
+        order.append(size)
+        return Taken(cpu=0.4, wall=0.4)
+
+    small, _ = interleaved_least(fake, 10, 20, seed=Taken(cpu=0.05, wall=9.0))
+    assert order == [10, 20, 10, 20, 10, 20]
+    assert small == Taken(cpu=0.05, wall=0.4)
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
 def test_the_timer_counts_the_cpu_of_the_child_not_its_sleep() -> None:
     wall, cpu, _ = timed_run([sys.executable, "-c", "import time; time.sleep(0.5)"], b"")
@@ -266,18 +282,46 @@ def test_the_timer_counts_the_cpu_of_the_child_not_its_sleep() -> None:
 def test_the_timer_counts_only_its_own_child_cpu() -> None:
     """A second child that burns CPU and ends inside the timed window is not counted.
 
-    The burner runs in a thread, so it is started and reaped while `timed_run` waits for the
-    sleeping child. A timer that reads the CPU of all children would count the burner.
+    The burner runs in a thread and burns 0.5 s of CPU time, not a fixed amount of work, so a slow
+    runner gives it the same CPU. The test fails unless the burner ends before the timed child.
+    A timer that reads the CPU of all children would count the burner.
     """
-    burn = [sys.executable, "-c", "for _ in range(90_000_000): pass"]
-    burner = threading.Thread(target=subprocess.run, args=(burn,), kwargs={"check": True})
+    burn = (
+        "import time\n"
+        "start = time.process_time()\n"
+        "while time.process_time() - start < 0.5: pass\n"
+        "print(time.process_time() - start)\n"
+    )
+    burned: list[subprocess.CompletedProcess[bytes]] = []
+    ended: list[float] = []
+
+    def run_burner() -> None:
+        burned.append(subprocess.run([sys.executable, "-c", burn], capture_output=True, check=True))
+        ended.append(time.perf_counter())
+
+    burner = threading.Thread(target=run_burner)
     burner.start()
     try:
-        _, cpu, done = timed_run([sys.executable, "-c", "import time; time.sleep(3)"], b"")
+        begin = time.perf_counter()
+        _, cpu, done = timed_run([sys.executable, "-c", "import time; time.sleep(1.5)"], b"")
     finally:
         burner.join()
+    end = time.perf_counter()
     assert done.returncode == 0
+    assert len(burned) == 1, "the burner did not finish, so the test proves nothing"
+    assert float(burned[0].stdout) >= 0.5, "the burner did not burn its CPU time"
+    assert ended[0] < end, "the burner ended after the timed child, so it was not in the window"
+    assert begin < ended[0], "the burner ended before the window began"
     assert cpu < 0.2, f"the timer counted {cpu:.2f} s of CPU that is not the sleeping child's"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
+def test_a_hung_child_fails_at_the_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("collector_timing.CHILD_TIMEOUT", 0.3)
+    begin = time.perf_counter()
+    with pytest.raises(pytest.fail.Exception, match="ran more than 0.3 s and was killed"):
+        timed_run([sys.executable, "-c", "import time; time.sleep(60)"], b"")
+    assert time.perf_counter() - begin < 10
 
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
