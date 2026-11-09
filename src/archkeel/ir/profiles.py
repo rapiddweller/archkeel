@@ -60,8 +60,6 @@ class Profile:
     dependency_symbols: bool = True
     complete_api_crossings: bool = True
     complete_unread_binding_inventory: bool = False
-    # AD-335: the collector writes the edges between crates, not those inside one crate.
-    crate_edges_only: bool = False
     project_import_closure: bool = False
     unsupported_declarations: frozenset[DeclarationField] = frozenset()
     unmeasured: frozenset[UnmeasurableScalar] = frozenset()
@@ -81,6 +79,8 @@ class Profile:
     additional_optional_section_groups: tuple[frozenset[ObservedSection], ...] = field(
         default=(), kw_only=True
     )
+    # AD-335: the collector writes the edges between crates, not those inside one crate.
+    crate_edges_only: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         sections = set(self.optional_sections)
