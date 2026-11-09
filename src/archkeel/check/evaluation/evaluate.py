@@ -67,7 +67,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
-from .crate_scope import scope_failures
+from .crate_scope import limits_of
 from .guarded_effects import guarded_effect_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
@@ -367,12 +367,12 @@ def _inside_rule_results(
     for mount in inside_contracts:
         available = available_by_owner.get(mount.owner_id, frozenset())
         owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner)
-        parent, scoped, source_modules, scope_failures = _inside_mount_scope(
+        parent, scoped, source_modules, limits_of = _inside_mount_scope(
             mount, owner_levels, modules, available
         )
         available_by_owner[mount.parent_id] = source_modules
         contract_by_owner[mount.parent_id] = scoped
-        failures.extend(scope_failures)
+        failures.extend(limits_of)
         unknowns.extend(
             dynamic_dependency_limits(scoped, source_unknowns, source_modules=source_modules)
         )
@@ -1192,8 +1192,7 @@ def evaluate_source(
         sdk_libraries=profile.sdk_libraries
         | frozenset(target.name for target in facts.imports if isinstance(target, BuiltinTarget)),
     )
-    rule_failures.extend(profile_failures(contract, profile, facts.capabilities.constructs))
-    rule_failures.extend([*scope_failures(contract, profile, namespace), *uncollected_failures])
+    rule_failures.extend([*limits_of(contract, profile, facts, namespace), *uncollected_failures])
     scope_observations = component_scope_observations(
         components=contract.components,
         modules=module_facts,

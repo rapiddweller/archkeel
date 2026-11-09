@@ -10,7 +10,7 @@ crate. A component or a rule that names a module below a crate root would read "
 
 from __future__ import annotations
 
-from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, SourceFacts, stable_id
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -21,16 +21,27 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.profiles import Profile
 
+from .rules import profile_failures
+
 
 def _below(name: str, namespace: str) -> bool:
     """Whether a dotted name is a module below a crate root: namespace, crate, then more."""
     return name.startswith(namespace + ".") and name.count(".") > namespace.count(".") + 1
 
 
-def scope_failures(
+def limits_of(
+    contract: ArchitectureContract, profile: Profile, facts: SourceFacts, namespace: str
+) -> list[RawRecord]:
+    """The profile limits (AD-97), and one UNKNOWN record for each scope inside a crate."""
+    return [
+        *profile_failures(contract, profile, facts.capabilities.constructs),
+        *_crate_scopes(contract, profile, namespace),
+    ]
+
+
+def _crate_scopes(
     contract: ArchitectureContract, profile: Profile, namespace: str
 ) -> list[RawRecord]:
-    """One UNKNOWN record for each scope that needs the edges inside a crate."""
     if not profile.crate_edges_only:
         return []
     scopes: list[tuple[str, list[str], str]] = [

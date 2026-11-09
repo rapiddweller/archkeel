@@ -18,7 +18,7 @@
   "src/archkeel/check/delta.py": 662,
   "src/archkeel/check/evaluation/boundary_types.py": 7025,
   "src/archkeel/check/evaluation/call_argument_policy.py": 1579,
-  "src/archkeel/check/evaluation/evaluate.py": 1506,
+  "src/archkeel/check/evaluation/evaluate.py": 1505,
   "src/archkeel/check/evaluation/guarded_effects.py": 788,
   "src/archkeel/check/evaluation/protocol_declarations.py": 766,
   "src/archkeel/check/evaluation/rules.py": 3062,
