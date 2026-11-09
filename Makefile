@@ -85,8 +85,9 @@ native-check:
 	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py
 
 # AD-343: record the golden replies of the Python collector. REASON says why a reply changes.
+# The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
 golden-record:
-	$(UV) run --locked python tests/golden_record.py --language "$(LANGUAGE)" --case "$(CASE)" --reason "$(REASON)"
+	$(UV) run --locked python tests/golden_record.py --language "$(LANGUAGE)" --case "$(CASE)" --reason "$(REASON)" $(if $(ALLOW_DIRTY),--allow-dirty,)
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:

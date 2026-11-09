@@ -48,7 +48,7 @@ def _request(root: Path) -> CollectionRequest:
     return CollectionRequest(
         SnapshotInput(str(root), "a" * 40, False),
         SourceScope(config.roots, config.namespace),
-        TypeScriptSettings(config.tsconfig or "tsconfig.json"),
+        TypeScriptSettings(config.tsconfig or "tsconfig.json", bundler=config.bundler),
     )
 
 

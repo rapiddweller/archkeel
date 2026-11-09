@@ -29,19 +29,35 @@ def cases(language: str) -> dict[str, Path]:
     return {item["case"]: ROOT / item["root"] for item in listing}
 
 
-def record(language: str, names: list[str], reason: str) -> list[Path]:
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=root, capture_output=True, text=True, check=True
+    ).stdout.rstrip("\n")
+
+
+def changed_sources(root: Path, paths: list[str]) -> list[str]:
+    """The files under `paths` that differ from HEAD, tracked or not: the real source of a reply."""
+    lines = git(root, "status", "--porcelain", "--untracked-files=all", "--", *paths).splitlines()
+    return [line[3:] for line in lines]
+
+
+def record(
+    language: str, names: list[str], reason: str, *, allow_dirty: bool = False
+) -> list[Path]:
     if not reason.strip():
         raise golden_replies.GoldenError("REASON is required: say why the golden reply changes")
     known = cases(language)
     if unknown := [name for name in names if name not in known]:
         raise golden_replies.GoldenError(f"unknown case {unknown}; known cases: {sorted(known)}")
-    commit = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
+    # The reply comes from the collector (src) and the case folders. The log names their commit.
+    sources = ["src", *(str(known[name].relative_to(ROOT)) for name in names)]
+    commit = git(ROOT, "rev-parse", "--short", "HEAD").strip()
+    if changed := changed_sources(ROOT, sources):
+        if not allow_dirty:
+            raise golden_replies.GoldenError(
+                f"the source is not committed: {changed[:5]}. Commit it, or set ALLOW_DIRTY=1"
+            )
+        commit += "+dirty"
     run = golden_producers.producer("python")
     replies = {}
     for name in names:
@@ -56,15 +72,23 @@ def record(language: str, names: list[str], reason: str) -> list[Path]:
     return written
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--language", required=True)
-    parser.add_argument("--case", required=True, help="a case name, or `all`")
+    parser.add_argument("--language", default="")
+    parser.add_argument("--case", default="", help="a case name, or `all`")
     parser.add_argument("--reason", default="", help="why the golden reply changes")
-    args = parser.parse_args()
+    parser.add_argument("--allow-dirty", action="store_true", help="log the commit as +dirty")
+    args = parser.parse_args(argv)
     try:
+        if not args.language or not args.case:
+            raise golden_replies.GoldenError(
+                "LANGUAGE and CASE are required: make golden-record LANGUAGE=<language> "
+                "CASE=<case|all> REASON=<why>"
+            )
+        if not (golden_replies.GOLDEN / args.language / "cases.json").is_file():
+            raise golden_replies.GoldenError(f"no cases for language {args.language!r}")
         names = list(cases(args.language)) if args.case == "all" else [args.case]
-        for path in record(args.language, names, args.reason):
+        for path in record(args.language, names, args.reason, allow_dirty=args.allow_dirty):
             print(f"recorded {path.relative_to(ROOT)}")
     except golden_replies.GoldenError as error:
         print(f"golden-record: {error}")

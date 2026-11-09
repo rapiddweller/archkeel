@@ -14,6 +14,7 @@ import gzip
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -36,9 +37,22 @@ PROVENANCE: dict[tuple[str, ...], str] = {
 }
 # A key like these in a reply means a run id or a timing: the recorder fails and names the key.
 _VOLATILE_KEY = re.compile(r"run_id|elapsed|duration|timestamp|_seconds$|_ms$", re.IGNORECASE)
+# The recorder and the test name the phase and the mode with these variables. A phase gives nothing
+# alone: the table `allowances.json` of the language must hold it (AD-343).
+PHASE_VARIABLE = "ARCHKEEL_GOLDEN_PHASE"
+GATE_VARIABLE = "ARCHKEEL_GOLDEN_GATE"
+GATE_DELETE = "delete"
 _ROOT_MARK = "<root>"
 # The parts of `facts` outside the sections that the digest counts.
-_COUNTED = ("files", "imports", "evidence", "inputs")
+_COUNTED = (
+    "files",
+    "imports",
+    "evidence",
+    "inputs",
+    "type_shapes",
+    "uncertain_reexports",
+    "candidate_evidence",
+)
 
 
 class GoldenError(Exception):
@@ -53,7 +67,9 @@ def canonical(reply: dict[str, Any], root: Path) -> dict[str, Any]:
         for key in path[:-1]:
             holder = holder.get(key, {})
         holder.pop(path[-1], None)
-    roots = {str(root), str(root.resolve())}
+    # A real reply holds no absolute path today. The replacement guards a future field, and it
+    # covers the native and the POSIX spelling of the root.
+    roots = {str(root), str(root.resolve()), root.as_posix(), root.resolve().as_posix()}
     return _scrub(value, roots, "reply")
 
 
@@ -80,8 +96,15 @@ def _sha(value: Any) -> str:
 
 
 def digest(value: dict[str, Any]) -> dict[str, Any]:
-    """The hash of the whole reply, of each section and of the rest, with the counts."""
+    """The hash of the whole reply, of each section and of the rest, with the counts.
+
+    The rest is `facts` without its sections and without `capabilities.sections`, which `claimed`
+    and `order` describe.
+    """
     facts = value["facts"]
+    order = [section["name"] for section in facts["sections"]]
+    if duplicates := sorted({name for name in order if order.count(name) > 1}):
+        raise GoldenError(f"duplicate section name in a reply: {duplicates}")
     sections = {
         section["name"]: {
             "sha256": _sha(section),
@@ -91,9 +114,12 @@ def digest(value: dict[str, Any]) -> dict[str, Any]:
         for section in facts["sections"]
     }
     rest = {key: item for key, item in facts.items() if key != "sections"}
+    rest["capabilities"] = {k: v for k, v in rest["capabilities"].items() if k != "sections"}
     return {
         "sha256": _sha(value),
         "claimed": list(facts["capabilities"]["sections"]),
+        "order": order,
+        "features": list(facts["capabilities"].get("resolution_features", [])),
         "sections": sections,
         "rest": {"sha256": _sha(rest), "counts": {k: len(facts[k]) for k in _COUNTED}},
     }
@@ -145,37 +171,79 @@ def load(language: str, case: str) -> Golden:
 
 
 @dataclass(frozen=True)
+class Allowance:
+    """The sections that a producer may lack in one phase, and why."""
+
+    sections: tuple[str, ...]
+    reason: str
+
+
+def allowance_for(language: str, environ: Mapping[str, str]) -> Allowance | None:
+    """The allowance of the phase that `environ` names, or none.
+
+    The deletion gate (`ARCHKEEL_GOLDEN_GATE=delete`) has no allowance. A phase that the table
+    `tests/golden/<language>/allowances.json` does not hold is an error.
+    """
+    mode = environ.get(GATE_VARIABLE)
+    if mode not in (None, "", GATE_DELETE):
+        raise GoldenError(f"{GATE_VARIABLE} must be empty or {GATE_DELETE!r}, not {mode!r}")
+    phase = environ.get(PHASE_VARIABLE)
+    if mode == GATE_DELETE or not phase:
+        return None
+    table = json.loads((GOLDEN / language / "allowances.json").read_text())
+    if phase not in table:
+        raise GoldenError(f"phase {phase} has no entry in tests/golden/{language}/allowances.json")
+    return Allowance(tuple(table[phase]["sections"]), table[phase]["reason"])
+
+
+@dataclass(frozen=True)
 class Verdict:
     compared: tuple[str, ...]
     skipped: tuple[str, ...]
     mismatches: tuple[str, ...]
+    reason: str = ""
 
 
-def compare(golden: Golden, actual: dict[str, Any]) -> Verdict:
+def compare(golden: Golden, actual: dict[str, Any], allowed: Allowance | None = None) -> Verdict:
     """Compare the canonical reply of a producer with the golden reply.
 
-    A producer that claims fewer sections than the golden reply is compared on the sections that
-    it claims. The verdict names each section and field that it did not compare.
+    The whole reply must be equal, with its sections in the same order. A section that the
+    producer lacks is a mismatch, unless `allowed` names it. Then the verdict lists it as skipped,
+    and the rest of the reply (files, evidence, coverage, ...) is still compared.
     """
-    got = digest(actual)
-    want = golden.digest
-    claimed, recorded = set(got["claimed"]), set(want["claimed"])
-    mismatches = [
-        f"claims {name}, which the golden reply does not hold" for name in claimed - recorded
+    got, want = digest(actual), golden.digest
+    problems = [
+        f"has section {name}, which the golden reply does not hold"
+        for name in got["order"]
+        if name not in want["order"]
     ]
-    if claimed == recorded:
-        names = tuple(want["sections"])
-        skipped: tuple[str, ...] = ()
-    else:
-        names = tuple(name for name in want["sections"] if name in claimed)
-        skipped = (*(n for n in want["sections"] if n not in claimed), "files, imports, evidence")
+    missing = [name for name in want["order"] if name not in got["order"]]
+    if missing:
+        granted = allowed.sections if allowed else ()
+        if refused := [name for name in missing if name not in granted]:
+            hint = "no allowance for this phase" if not allowed else "not in the allowance"
+            problems.append(f"missing sections {refused}: {hint}")
+        if set(got["claimed"]) != set(got["order"]):
+            problems.append(f"claims {got['claimed']} but holds {got['order']}")
+    shared = [name for name in want["order"] if name in got["order"]]
+    if [name for name in got["order"] if name in want["order"]] != shared:
+        problems.append(f"section order {got['order']} differs from {want['order']}")
+    names = tuple(shared)
     for name in names:
-        expected, seen = want["sections"][name], got["sections"].get(name)
-        if seen is None or seen["sha256"] != expected["sha256"]:
-            mismatches.append(_describe(name, expected, seen, golden.full, actual))
-    if not skipped and got["rest"] != want["rest"]:
-        mismatches.append(_describe("rest", want["rest"], got["rest"], golden.full, actual))
-    return Verdict((*names, *(() if skipped else ("rest",))), skipped, tuple(mismatches))
+        if got["sections"][name]["sha256"] != want["sections"][name]["sha256"]:
+            problems.append(
+                _describe(name, want["sections"][name], got["sections"][name], golden.full, actual)
+            )
+    if got["rest"] != want["rest"]:
+        problems.append(_describe("rest", want["rest"], got["rest"], golden.full, actual))
+    if not missing and not problems and got["sha256"] != want["sha256"]:
+        problems.append(
+            "the whole reply differs in a field that no part covers (capabilities.sections)"
+        )
+    skipped = tuple(missing)
+    return Verdict(
+        (*names, "rest"), skipped, tuple(problems), allowed.reason if allowed and skipped else ""
+    )
 
 
 def _describe(
@@ -199,7 +267,7 @@ def _part(facts: dict[str, Any], name: str) -> Any:
 
 
 def differences(want: Any, got: Any, path: str = "reply", limit: int = 5) -> list[str]:
-    """The first paths where two JSON values differ."""
+    """The first paths where two JSON values differ. For lists of unequal length: the first element."""
     found: list[str] = []
 
     def walk(a: Any, b: Any, where: str) -> None:
@@ -208,9 +276,17 @@ def differences(want: Any, got: Any, path: str = "reply", limit: int = 5) -> lis
         if isinstance(a, dict) and isinstance(b, dict):
             for key in sorted(set(a) | set(b)):
                 walk(a.get(key, "<absent>"), b.get(key, "<absent>"), f"{where}.{key}")
-        elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
-            for index, (x, y) in enumerate(zip(a, b, strict=True)):
-                walk(x, y, f"{where}[{index}]")
+        elif isinstance(a, list) and isinstance(b, list):
+            index = next((i for i, (x, y) in enumerate(zip(a, b, strict=False)) if x != y), None)
+            if len(a) == len(b) and index is not None:
+                walk(a[index], b[index], f"{where}[{index}]")
+            elif len(a) != len(b):
+                at = min(len(a), len(b)) if index is None else index
+                found.append(
+                    f"{where}: length {len(a)} != {len(b)}; first differing element [{at}]: "
+                    f"{str(a[at] if at < len(a) else '<absent>')[:60]!r} != "
+                    f"{str(b[at] if at < len(b) else '<absent>')[:60]!r}"
+                )
         else:
             found.append(f"{where}: {str(a)[:60]!r} != {str(b)[:60]!r}")
 

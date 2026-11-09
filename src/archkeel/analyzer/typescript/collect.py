@@ -94,6 +94,10 @@ from .syntax import (
 )
 
 
+# The kind of the record of a script that writes to the shared namespace in a way that no one can bound.
+SCRIPT_NAMESPACE_EFFECT_KIND: Final = "script_namespace_effect"
+
+
 class _InventoryStatus(Enum):
     COMPLETE = "complete"
     PARTIAL = "partial"
@@ -1946,7 +1950,7 @@ class _Collection:
                 item_id=identity,
                 evidence_class=EvidenceClass.FACT,
                 area="source",
-                kind="script_namespace_effect",
+                kind=SCRIPT_NAMESPACE_EFFECT_KIND,
                 title="Opaque script runtime effect",
                 subjects=[module],
                 evidence_ids=[evidence],
