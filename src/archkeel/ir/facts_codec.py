@@ -70,14 +70,10 @@ from .facts_validation import (
     _call_excerpt_matches,
     _validate_reference_contexts,
     _validate_source_role_identities,
-    validate_source_facts,
     without_unnamed_families,
 )
 from .facts_validation import (
     selector_receiver_site_matches as selector_receiver_site_matches,
-)
-from .facts_validation import (
-    source_reference_context as source_reference_context,
 )
 from .facts_validation import (
     validate_source_role_vocabulary as validate_source_role_vocabulary,
@@ -97,6 +93,7 @@ from .protocol import (
     TypeScriptSettings,
     since,
 )
+from .reference_context import source_reference_context as source_reference_context
 from .scope_wire import EXCLUDE_TEST_SOURCES, scope_fields, scope_payload
 from .source_records import (
     RawData as RawData,
@@ -135,6 +132,7 @@ from .type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
+from .validated_facts import validate_decoded_facts
 
 validate_source_role_identities = _validate_source_role_identities
 validate_reference_contexts = _validate_reference_contexts
@@ -1115,7 +1113,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
     _contextmanager_protocol(facts, version)
     if version not in FEATURE_GATED_PROTOCOLS:
         facts = without_unnamed_families(facts)
-    validate_source_facts(facts)
+    validate_decoded_facts(facts)
     return facts
 
 

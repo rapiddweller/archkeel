@@ -28,7 +28,7 @@ markers, so that check does not read it.
 | `contract-version` | inner component | 1 | Own contract versions and the features available in each version. | none |
 | `dependency-policy` | inner component | 1 | Match owned dependency selectors and exact import-port permissions. | `facts` |
 | `facts` | inner component | 7 | Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies. | none |
-| `facts-codec` | inner component | 6 | Strictly decode, validate and encode source facts and process envelopes. Own the bounded source path grammar shared by collection and guarded-effect replay. Intern lossless JSON strings for source and observation wire encodings. | `facts`, `protocol` |
+| `facts-codec` | inner component | 8 | Strictly decode, validate and encode source facts and process envelopes. Own the bounded source path grammar shared by collection and guarded-effect replay. Intern lossless JSON strings for source and observation wire encodings. | `facts`, `protocol` |
 | `profiles` | inner component | 1 | Describe language capabilities, source requirements and comparable measurements. | `facts` |
 | `protocol` | inner component | 2 | Own typed request and response envelopes for collector processes. | `facts` |
 
@@ -39,7 +39,7 @@ graph TD
     n_2["dependency-policy (1 module)"]
     n_3["evidence (5 modules)"]
     n_4["facts (7 modules)"]
-    n_5["facts-codec (6 modules)"]
+    n_5["facts-codec (8 modules)"]
     n_6["profiles (1 module)"]
     n_7["protocol (2 modules)"]
     n_8["views (7 modules)"]

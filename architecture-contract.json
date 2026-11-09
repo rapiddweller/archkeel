@@ -122,7 +122,7 @@
         "archkeel.ir.import_gaps:derived_unresolved_imports",
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
-        "archkeel.ir.facts_validation:validate_source_facts",
+        "archkeel.ir.validated_facts:ensure_valid_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_proofs:class_instance_member_write_names",
         "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt",

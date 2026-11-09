@@ -40,7 +40,6 @@ from archkeel.ir.facts_codec import (
     raw_evidence,
     raw_record,
 )
-from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.import_gaps import derived_unresolved_imports
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -64,6 +63,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
+from archkeel.ir.validated_facts import ensure_valid_source_facts
 
 from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
@@ -980,7 +980,7 @@ def evaluate_source(
 ) -> ScanResult:
     """Evaluate a contract against one immutable collection without language parser access."""
     try:
-        validate_source_facts(facts)
+        ensure_valid_source_facts(facts)
     except ValueError as error:
         raise ProtocolError(str(error)) from error
     for file in facts.files:
