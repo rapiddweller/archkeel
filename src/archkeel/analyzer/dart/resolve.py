@@ -267,13 +267,12 @@ class Resolver:
             package, separator, raw_target = uri.removeprefix("package:").partition("/")
             target_path = unquote(raw_target)
             if (
-                not separator
+                not (separator and target_path and self.snapshot.package_name)
                 or not _PACKAGE_NAME.fullmatch(package)
-                or not target_path
                 or self._posix_path(target_path).is_absolute()
             ):
                 self._problem(
-                    rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
+                    rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unresolved URI {uri!r}"
                 )
                 return None
             module_name = self._module_path(target_path)

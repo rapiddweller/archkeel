@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A local variable in a closure is one binding, also when a declaration encloses the closure."""
+"""A local variable in a closure is one binding, also when a local declaration encloses it."""
 
 from __future__ import annotations
 
@@ -52,3 +52,11 @@ def test_collector_answers_for_a_closure_in_a_cascade(tmp_path: Path) -> None:
         if record.kind == "binding"
     ]
     assert len(bindings) == 2
+
+
+def test_closure_assigned_to_a_local_variable_gives_each_variable_one_binding_site() -> None:
+    syntax = parse(b"void f() {\n  final g = () {\n    final h = 1;\n    return h;\n  };\n}\n")
+
+    names = [site.assigned_name for site in syntax.sites if site.assigned_name]
+
+    assert sorted(names) == ["g", "h"]

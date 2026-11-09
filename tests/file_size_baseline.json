@@ -1,7 +1,7 @@
 {
   "src/archkeel/analyzer/dart/collect.py": 1538,
   "src/archkeel/analyzer/dart/parse.py": 2436,
-  "src/archkeel/analyzer/dart/resolve.py": 2018,
+  "src/archkeel/analyzer/dart/resolve.py": 2017,
   "src/archkeel/analyzer/python/callable_signatures.py": 1048,
   "src/archkeel/analyzer/python/calls.py": 2338,
   "src/archkeel/analyzer/python/collect.py": 1288,

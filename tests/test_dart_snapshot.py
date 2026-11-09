@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 import pytest
+from dart_native_helpers import collect_native_dart, require_native_dart
 
 from archkeel.analyzer.dart.snapshot import SnapshotError, read_snapshot
 from archkeel.ir.protocol import CollectionRequest, DartSettings, SnapshotInput, SourceScope
@@ -236,3 +237,25 @@ def test_replacement_with_symlink_is_rejected_before_reading(
         assert snapshot.sources == ()
         assert any(issue.path == relative for issue in snapshot.problems)
     assert replaced
+
+
+def test_unknown_package_name_leaves_package_imports_unresolved(tmp_path: Path) -> None:
+    """Without a pubspec the own package is unknown, so no `package:` import is external."""
+    lib = tmp_path / "app" / "lib"
+    lib.mkdir(parents=True)
+    (lib / "util.dart").write_text("class Util {}\n")
+    (lib / "main.dart").write_text(
+        "import 'package:app/util.dart';\nimport 'package:other/other.dart';\nclass Main {}\n"
+    )
+    collection_request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("app/lib",), "app"),
+        DartSettings(),
+    )
+
+    facts = require_native_dart(collect_native_dart(collection_request))
+
+    sections = {section.name: section.records for section in facts.sections}
+    gaps = sorted(record.kind for record in sections["unknowns"])
+    assert gaps == ["DirectiveError", "DirectiveError", "PubspecMissing"]
+    assert not sections["imports"]
