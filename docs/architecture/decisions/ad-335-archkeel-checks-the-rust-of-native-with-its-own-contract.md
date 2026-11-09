@@ -55,17 +55,15 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
     `cargo deny` `wrappers` checks the declared dependencies, the contract the used paths: two
     facts, so both stay. The oracle found `sha2` declared and unused in the TypeScript crate.
 11. `archkeel-build-support` holds the `build.rs` digest for both collectors.
-
 **Reason.** The product must check its own Rust, and layering must have one owner: the contract.
-The pytest and `layers.toml` stay until 5b-3, as the oracle test shows the same crate edges.
-
-**Rejected.** `tree-sitter-rust` (another C build). rust-analyzer (hundreds of crates).
+The pytest and `layers.toml` stay until 5b-3. **Rejected.** `tree-sitter-rust` (another C build). rust-analyzer (hundreds of crates).
 `cargo metadata` at run time (a child process; it is the oracle). UNKNOWN for each feature `cfg`.
+A model of Rust name resolution: three reviews found a false PASS in it.
 
-**Limit.** Crate edges only. About 25 KB of memory for each import (uv: 15,536 imports, 370 MiB).
-The scan does not expand macros or read `build.rs` output. `init` and `explore` do not support
-Rust. `syn` brings `unicode-ident`: `deny.toml` has one licence exception (Unicode-3.0).
+**Limit.** Crate edges only. About 25 KB of memory for each import. On uv, 261 paths are UNKNOWN
+for a local name equal to a crate name (`use anyhow::anyhow;`). The scan does not expand macros or
+read `build.rs` output. `init` and `explore` do not support Rust. `syn` brings `unicode-ident`:
+`deny.toml` has one licence exception (Unicode-3.0).
 
 **Check.** `cargo test`; `tests/test_collector_native_rust*.py` (each reason, each false PASS, the
-catalog of rule and component fields, `cargo metadata`, same bytes, seven scaling shapes); the
-language and the wheel tests.
+catalog of rule and component fields, the oracles, scaling); the language and wheel tests.
