@@ -65,7 +65,7 @@ pub struct SymbolTable<'a> {
     by_qualified: HashMap<String, Vec<usize>>,
     /// How many of the definitions of a qualified name are a class or an interface.
     classifiers: HashMap<String, usize>,
-    scope_ids: HashMap<(String, i64, i64), usize>,
+    scope_ids: HashMap<String, HashMap<(i64, i64), usize>>,
     top_by_module: HashMap<&'a str, Vec<usize>>,
     by_module: HashMap<&'a str, Vec<usize>>,
 }
@@ -115,12 +115,20 @@ impl<'a> SymbolTable<'a> {
         ];
         let id = stable_id("TSDEF", &parts);
         let at = self.entries.len();
-        self.ids.insert((rel, line, column), at);
+        let previous = self.ids.insert((rel, line, column), at);
+        // Python keeps the last definition of a position; two of them would hide one id.
+        debug_assert!(
+            previous.is_none(),
+            "two definitions at {rel}:{line}:{column}"
+        );
         self.by_qualified
             .entry(qualified.clone())
             .or_default()
             .push(at);
-        self.scope_ids.insert((qualified.clone(), line, column), at);
+        self.scope_ids
+            .entry(qualified.clone())
+            .or_default()
+            .insert((line, column), at);
         let classifier = matches!(
             definition.kind,
             DefinitionKind::Class | DefinitionKind::Interface
@@ -170,8 +178,8 @@ impl<'a> SymbolTable<'a> {
 
     /// `scope_ids[(qualified, line, column)]`: the definition with that name and position.
     pub fn scope(&self, qualified: &str, line: i64, column: i64) -> Option<&Entry<'a>> {
-        let key = (qualified.to_owned(), line, column);
-        self.scope_ids.get(&key).map(|&at| &self.entries[at])
+        let at = self.scope_ids.get(qualified)?.get(&(line, column))?;
+        self.entries.get(*at)
     }
 
     /// `top_by_module[module]`: the top-level definitions of a module, in order.

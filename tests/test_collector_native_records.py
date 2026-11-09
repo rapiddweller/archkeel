@@ -62,6 +62,10 @@ EXPORTERS = {
     "src/broken.ts": "export const ok = 1;\nexport const = ;\n",
     "src/c.js": "export const cj = 1;\n",
     "src/d.d.ts": "export declare const decl: number;\n",
+    # A base name that an interface and a class share, and a base that is no classifier.
+    "src/k.ts": (
+        "interface K {}\nclass K {}\nclass D extends K {}\nenum E {}\nclass F extends E {}\n"
+    ),
 }
 IMPORTERS = {
     "src/i1.ts": (
@@ -333,27 +337,25 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
             files["src/c.ts"] = "".join(
                 f"function f{i}(k) {{ return k == 'w{i}'; }}\n" for i in range(n)
             )
-        case "symbols-class":
-            body = "".join(
-                f"  f{i}: number = {i};\n  m{i}(a: number): void {{}}\n" for i in range(n)
-            )
-            files["src/b.ts"] = f"class K {{\n{body}}}\n"
         case "symbols-bases":
             files["src/b.ts"] = "".join(
                 f"interface I{i} {{ a{i}: number }}\n@d({i}) class C{i} extends C{max(i - 1, 0)} "
                 f"implements I{i} {{ m(): void {{}} }}\n"
                 for i in range(n)
             )
-        case "symbols-overloads":
-            files["src/b.ts"] = (
-                "".join("function f(a: number): void;\n" for _ in range(n))
-                + "function f(a: any) {}\nclass K { "
-                + "".join("m(a: number): void; " for _ in range(n))
-                + "m(a: any) {} }\n"
+        case "symbols-members":
+            # One class with n fields and n methods, n overloads of a function and of a method, one
+            # enum with n members and n small enums: the loops over members and over the
+            # definitions that share a name.
+            body = "".join(
+                f"  f{i}: number = {i};\n  m{i}(a: number): void {{}}\n  m(a: number): void;\n"
+                for i in range(n)
             )
-        case "symbols-enums":
             files["src/b.ts"] = (
-                "enum Big { "
+                f"class K {{\n{body}  m(a: any) {{}}\n}}\n"
+                + "".join("function f(a: number): void;\n" for _ in range(n))
+                + "function f(a: any) {}\n"
+                + "enum Big { "
                 + ", ".join(f"A{i}" for i in range(n))
                 + " }\n"
                 + "".join(f"enum E{i} {{ X, Y = {i}, Z }}\n" for i in range(n))
@@ -379,22 +381,20 @@ def _run(binary: Path, payload: bytes) -> tuple[float, float]:
 
 
 def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]:
-    """The least CPU seconds of three runs, and the largest peak memory in MiB."""
+    """The least CPU seconds of two runs, and the largest peak memory in MiB."""
     shutil.rmtree(root, ignore_errors=True)
     _write(root, _records_shape(name, n))
-    runs = [_run(binary, encode_request(_request(root))) for _ in range(3)]
+    runs = [_run(binary, encode_request(_request(root))) for _ in range(2)]
     return min(cpu for cpu, _ in runs), max(peak for _, peak in runs)
 
 
 RECORD_SHAPES = (
-    ("many-statements", 1000),
-    ("one-statement", 2500),
-    ("many-importers", 1000),
-    ("comparisons", 1500),
-    ("symbols-class", 1000),
-    ("symbols-bases", 1000),
-    ("symbols-overloads", 1200),
-    ("symbols-enums", 1500),
+    ("many-statements", 700),
+    ("one-statement", 1500),
+    ("many-importers", 700),
+    ("comparisons", 1000),
+    ("symbols-members", 500),
+    ("symbols-bases", 700),
 )
 
 

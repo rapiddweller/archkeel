@@ -178,3 +178,19 @@ fn a_top_level_name_without_a_visibility_is_unknown_and_a_nested_one_is_public()
         (Some("public"), Some("language"))
     );
 }
+
+#[test]
+fn a_base_name_that_several_classifiers_share_is_partially_resolved() {
+    let list = symbols("interface K {}\nclass K {}\nclass D extends K {}\n");
+    let bases = named(&list, "D").data["base_declarations"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(bases[0]["status"], "partially_resolved");
+    assert_eq!(bases[0]["candidate_count"], 2);
+    assert_eq!(
+        bases[0]["reason"],
+        "multiple classifier definition sites share the target name"
+    );
+    assert_eq!(bases[0]["targets"].as_array().unwrap().len(), 1);
+}

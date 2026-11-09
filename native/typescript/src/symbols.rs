@@ -62,6 +62,16 @@ pub fn build(table: &SymbolTable, cited: &mut Cited) -> Vec<Record> {
         .collect()
 }
 
+/// The `kind` of a symbol record and its `symbol_category`: a class, an interface and an enum are
+/// all `class`.
+fn category(kind: DefinitionKind) -> &'static str {
+    if is_classifier(kind) {
+        "class"
+    } else {
+        kind_value(kind)
+    }
+}
+
 fn is_classifier(kind: DefinitionKind) -> bool {
     matches!(
         kind,
@@ -90,11 +100,7 @@ fn record(table: &SymbolTable, methods: &Methods, cited: &mut Cited, entry: &Ent
         id: entry.id.clone(),
         evidence_class: "FACT",
         area: "source",
-        kind: if is_classifier(definition.kind) {
-            "class"
-        } else {
-            kind_value(definition.kind)
-        },
+        kind: category(definition.kind),
         title: format!("{} declaration", entry.qualified),
         subjects: vec![entry.qualified.clone()],
         evidence_ids: vec![evidence],
@@ -145,12 +151,10 @@ fn metadata(table: &SymbolTable, cited: &mut Cited, entry: &Entry) -> Map<String
             "spelling": definition.name,
         }),
     );
-    let category = if is_classifier(definition.kind) {
-        "class"
-    } else {
-        kind_value(definition.kind)
-    };
-    data.insert("symbol_category".to_owned(), json!(category));
+    data.insert(
+        "symbol_category".to_owned(),
+        json!(category(definition.kind)),
+    );
     let unique = table.count(&entry.qualified) == 1;
     data.insert("source_binding_unique".to_owned(), json!(unique));
     data.insert("source_member_binding_static".to_owned(), json!(true));
