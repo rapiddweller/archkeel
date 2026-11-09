@@ -1032,7 +1032,7 @@ def _deep_child_failure(name: str, child: str | None, summary: str) -> Variant:
         files=files,
         expected_violations=(),
         expected_codes=("contract.invalid",),
-        expected_kinds=("parse_error",),
+        expected_kinds=("incomplete_scan",),
         expected_declared_rules="UNKNOWN",
     )
 

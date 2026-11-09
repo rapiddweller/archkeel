@@ -353,7 +353,7 @@ def test_orphan_part_is_unverifiable(tmp_path: Path) -> None:
         "import 'package:app/core/api.dart';\n\nclass B {}\n",
         **{"lib/ui/orphan.dart": "part of 'b.dart';\n\nclass Orphan {}\n"},
     )
-    assert_unverifiable(result, "lib/ui/orphan.dart")
+    assert_unverifiable(result, "lib/ui/orphan.dart", kind="incomplete_scan")
 
 
 def test_first_declaration_ends_the_header(tmp_path: Path) -> None:
@@ -387,7 +387,7 @@ def test_first_declaration_ends_the_header(tmp_path: Path) -> None:
 )
 def test_interpolated_uri_is_unverifiable(tmp_path: Path, uri: str) -> None:
     result = _ui(tmp_path, f"import {uri};\n\nclass B {{}}\n")
-    assert_unverifiable(result, "lib/ui/b.dart")
+    assert_unverifiable(result, "lib/ui/b.dart", kind="incomplete_scan")
 
 
 @pytest.mark.parametrize(
@@ -474,7 +474,7 @@ def test_relative_uri_escaping_the_scan_root_is_unverifiable(tmp_path: Path, uri
         f"import {uri};\n\nclass B {{}}\n",
         **{"tool/x.dart": "class X {}\n", "lib_other/x.dart": "class X {}\n"},
     )
-    assert_unverifiable(result, "lib/ui/b.dart")
+    assert_unverifiable(result, "lib/ui/b.dart", kind="incomplete_scan")
 
 
 @pytest.mark.parametrize(
@@ -486,7 +486,9 @@ def test_relative_uri_escaping_the_scan_root_is_unverifiable(tmp_path: Path, uri
     ],
 )
 def test_unresolved_own_import_is_unverifiable(tmp_path: Path, uri: str) -> None:
-    assert_unverifiable(_ui(tmp_path, f"import {uri};\n\nclass B {{}}\n"), "lib/ui/b.dart")
+    assert_unverifiable(
+        _ui(tmp_path, f"import {uri};\n\nclass B {{}}\n"), "lib/ui/b.dart", kind="incomplete_scan"
+    )
 
 
 def test_dart_and_other_package_uris_are_external(tmp_path: Path) -> None:
@@ -546,12 +548,12 @@ def test_two_files_mapping_to_one_module_id_are_unverifiable(tmp_path: Path) -> 
         "class B {}\n",
         **{"lib/core/a.b.dart": "class A {}\n", "lib/core/a_b.dart": "class A {}\n"},
     )
-    assert_unverifiable(result, "lib/core/a.b.dart", "lib/core/a_b.dart")
+    assert_unverifiable(result, "lib/core/a.b.dart", "lib/core/a_b.dart", kind="incomplete_scan")
 
 
 def test_segment_that_is_no_identifier_is_unverifiable(tmp_path: Path) -> None:
     result = _ui(tmp_path, "class B {}\n", **{"lib/core/2fa.dart": "class TwoFactor {}\n"})
-    assert_unverifiable(result, "lib/core/2fa.dart")
+    assert_unverifiable(result, "lib/core/2fa.dart", kind="incomplete_scan")
 
 
 def _cli_report(root: Path) -> tuple[int, dict[str, object]]:

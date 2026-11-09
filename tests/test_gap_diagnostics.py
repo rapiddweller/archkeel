@@ -263,3 +263,15 @@ def test_a_result_with_a_new_kind_declares_12_and_an_old_result_keeps_11(tmp_pat
     }
     assert _validator("command-result-11.0.schema.json").is_valid(old)
     assert _validator("command-result-12.0.schema.json").is_valid(old)
+
+
+@pytest.mark.parametrize("language", ["dart", "python", "typescript"])
+def test_the_language_can_be_the_plain_string_of_the_profile(language: str) -> None:
+    """The host passes the language by value; a Dart syntax error must stay a parse error."""
+    kind = "SyntaxError" if language == "dart" else COLLECT
+    title = (
+        f"a.py:1{GapTitle.FILE_FAILURE}" if language == "python" else f"{GapTitle.SYNTAX_ERROR}a"
+    )
+    area = COV if language != "typescript" else "source"
+    assert gap_diagnostic(_gap(kind, title, area), Language(language))[0] is PARSE
+    assert gap_diagnostic(_gap(kind, title, area), language)[0] is PARSE  # type: ignore[arg-type]

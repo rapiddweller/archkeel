@@ -924,7 +924,7 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         },
         expected_violations=("DEP-STORE-NO-MONEY",),
         expected_codes=("contract.invalid", "rule.violated"),
-        expected_kinds=("parse_error",),
+        expected_kinds=("incomplete_scan",),
     ),
 )
 

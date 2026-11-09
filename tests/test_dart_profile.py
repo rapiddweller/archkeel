@@ -132,19 +132,19 @@ def test_uris_map_to_dotted_modules_and_parts_are_not_modules(tmp_path: Path) ->
 
 
 @pytest.mark.parametrize(
-    "files",
+    ("files", "kind"),
     [
-        {"lib/a.dart": "import '../outside.dart';\n"},
-        {"lib/a.dart": "import 'package:app/missing.dart';\n"},
-        {"lib/a.dart": "", "lib/orphan.dart": "part of 'a.dart';\n"},
-        {"lib/a-b.dart": "", "lib/a_b.dart": ""},
-        {"lib/a.dart": "import 'x.dart'\n"},
+        ({"lib/a.dart": "import '../outside.dart';\n"}, "incomplete_scan"),
+        ({"lib/a.dart": "import 'package:app/missing.dart';\n"}, "incomplete_scan"),
+        ({"lib/a.dart": "", "lib/orphan.dart": "part of 'a.dart';\n"}, "incomplete_scan"),
+        ({"lib/a-b.dart": "", "lib/a_b.dart": ""}, "incomplete_scan"),
+        ({"lib/a.dart": "import 'x.dart'\n"}, "parse_error"),
     ],
 )
-def test_undecidable_input_is_exit_2(tmp_path: Path, files: dict[str, str]) -> None:
+def test_undecidable_input_is_exit_2(tmp_path: Path, files: dict[str, str], kind: str) -> None:
     result = _observe(tmp_path, files)
     assert result.exit_code == 2
-    assert {item.kind for item in result.diagnostics} == {"parse_error"}
+    assert {item.kind for item in result.diagnostics} == {kind}
 
 
 def test_pubspec_name_is_not_the_module_namespace(tmp_path: Path) -> None:
