@@ -50,6 +50,8 @@ crate (it waits for the Python collector), and does not check clones. The clone 
 stdlib script) is deferred. Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
 name the TypeScript collector; a second collector must be added to them.
 
+**Amended by AD-335:** the crate-direction and module-cycle rows move to the contract of `native/` when slice 5b-3 lands.
+
 **Checked by** `make native-check`, which also runs `tests/test_self_native_layers.py`
 (it fails, not skips, when `CI` is set and `cargo` is missing): a bad crate edge, a parser crate in a library,
 a crate without an entry, a new or grown cycle and a stale entry all fail on a fixture; the real

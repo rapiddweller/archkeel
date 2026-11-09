@@ -26,8 +26,17 @@ pub struct Request {
     pub bundler: bool,
 }
 
-/// Decode the request bytes. The error text names the first field that is not valid.
+/// Decode a TypeScript request. The error text names the first field that is not valid.
 pub fn decode(payload: &[u8]) -> Result<Request, String> {
+    decode_for(payload, "typescript")
+}
+
+/// Decode a Rust request. Its resolver is `{"language": "rust"}`, so `tsconfig` is empty.
+pub fn decode_rust(payload: &[u8]) -> Result<Request, String> {
+    decode_for(payload, "rust")
+}
+
+fn decode_for(payload: &[u8], wanted: &str) -> Result<Request, String> {
     let raw: Value = serde_json::from_slice(payload)
         .map_err(|error| format!("invalid collection JSON: {error}"))?;
     let raw = object(
@@ -65,7 +74,7 @@ pub fn decode(payload: &[u8]) -> Result<Request, String> {
             .ok_or("scope.exclude_test_sources must be a boolean")?,
         None => false,
     };
-    let (tsconfig, bundler) = resolver(&raw["resolver"])?;
+    let (tsconfig, bundler) = resolver(&raw["resolver"], wanted)?;
     Ok(Request {
         version,
         root,
@@ -79,18 +88,29 @@ pub fn decode(payload: &[u8]) -> Result<Request, String> {
     })
 }
 
-fn resolver(value: &Value) -> Result<(String, bool), String> {
+fn resolver(value: &Value, wanted: &str) -> Result<(String, bool), String> {
     let fields = value.as_object().ok_or("resolver fields mismatch")?;
     let language = string(
         fields.get("language").unwrap_or(&Value::Null),
         "resolver.language",
     )?;
-    if language != "typescript" {
-        return Err(if matches!(language.as_str(), "python" | "dart") {
-            "TypeScript collector requires the TypeScript resolver".to_owned()
+    if language != wanted {
+        let label = if wanted == "rust" {
+            "Rust"
         } else {
-            "unsupported collection language".to_owned()
-        });
+            "TypeScript"
+        };
+        return Err(
+            if matches!(language.as_str(), "python" | "dart" | "typescript" | "rust") {
+                format!("{label} collector requires the {label} resolver")
+            } else {
+                "unsupported collection language".to_owned()
+            },
+        );
+    }
+    if wanted == "rust" {
+        object(value, &["language"], "resolver")?;
+        return Ok((String::new(), false));
     }
     // The host writes "bundler" only when true, so false has one canonical form: absent.
     let bundler = fields.contains_key("bundler");

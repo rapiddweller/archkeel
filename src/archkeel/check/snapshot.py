@@ -25,10 +25,12 @@ _PUBSPEC_PATH = PurePosixPath("pubspec.yaml")
 _TS_RESOLVER_SUFFIXES = frozenset(
     {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json"}
 )
-_LANGUAGE_SUFFIXES = {
+_CARGO_MANIFEST = "Cargo.toml"
+_LANGUAGE_SUFFIXES: dict[Language, frozenset[str]] = {
     Language.PYTHON: frozenset({".py"}),
     Language.DART: frozenset({".dart"}),
     Language.TYPESCRIPT: frozenset({".ts", ".tsx", ".mts", ".cts"}),
+    Language.RUST: frozenset({".rs"}),
 }
 
 
@@ -126,6 +128,9 @@ def _git_archive_bytes(
                 if not entry:
                     continue
                 metadata, raw_path = entry.split(b"\t", 1)
+                name = raw_path.decode("utf-8")
+                path = PurePosixPath(name)
+                manifest = language is Language.RUST and path.match(_CARGO_MANIFEST)
                 if language is Language.TYPESCRIPT and not (
                     raw_path.endswith(tuple(suffix.encode() for suffix in _TS_RESOLVER_SUFFIXES))
                     or (tsconfig is not None and raw_path == tsconfig.encode())
@@ -134,6 +139,7 @@ def _git_archive_bytes(
                 if (
                     language is not Language.TYPESCRIPT
                     and raw_path != metadata_path.as_posix().encode()
+                    and not manifest
                     and not (
                         raw_path.endswith(
                             tuple(suffix.encode() for suffix in _LANGUAGE_SUFFIXES[language])
@@ -146,8 +152,6 @@ def _git_archive_bytes(
                     )
                 ):
                     continue
-                name = raw_path.decode("utf-8")
-                path = PurePosixPath(name)
                 scoped = path.suffix in _LANGUAGE_SUFFIXES[language] and any(
                     path.is_relative_to(source_root) for source_root in roots
                 )
@@ -156,6 +160,8 @@ def _git_archive_bytes(
                     if language is Language.TYPESCRIPT
                     else path == _PUBSPEC_PATH
                     if language is Language.DART
+                    else manifest
+                    if language is Language.RUST
                     else path == _METADATA_PATH
                 )
                 if not scoped and not resolver:
@@ -226,6 +232,8 @@ def _materialize_archive(
                     allowed_metadata = path == _METADATA_PATH
                 elif language is Language.DART:
                     allowed_metadata = path == _PUBSPEC_PATH
+                elif language is Language.RUST:
+                    allowed_metadata = path.match(_CARGO_MANIFEST)
                 else:
                     allowed_metadata = path.name in {"package.json", "tsconfig.json"} or (
                         tsconfig is not None and path.as_posix() == tsconfig

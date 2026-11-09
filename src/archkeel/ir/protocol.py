@@ -90,13 +90,31 @@ class DartSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class RustSettings:
+    language: Literal[Language.RUST] = Language.RUST
+
+
+@dataclass(frozen=True, slots=True)
 class TypeScriptSettings:
     tsconfig: str = "tsconfig.json"
     bundler: bool = False
     language: Literal[Language.TYPESCRIPT] = Language.TYPESCRIPT
 
 
-ResolverSettings: TypeAlias = PythonSettings | DartSettings | TypeScriptSettings
+ResolverSettings: TypeAlias = PythonSettings | DartSettings | RustSettings | TypeScriptSettings
+
+
+def fixed_settings(
+    language: Language,
+) -> DartSettings | RustSettings | TypeScriptSettings | None:
+    """The settings of a language that has no choice to make; `None` for Python."""
+    if language is Language.DART:
+        return DartSettings()
+    if language is Language.RUST:
+        return RustSettings()
+    if language is Language.TYPESCRIPT:
+        return TypeScriptSettings()
+    return None
 
 
 @dataclass(frozen=True, slots=True)

@@ -133,7 +133,9 @@ def _language_settings(scan: Mapping[str, object]) -> tuple[Language, str | None
             raise TypeError
         language = Language(language_value)
     except (ValueError, TypeError) as error:
-        raise ConfigError('scan.language must be "python", "dart", or "typescript"') from error
+        raise ConfigError(
+            'scan.language must be "python", "dart", "typescript", or "rust"'
+        ) from error
     tsconfig_raw = scan.get("tsconfig")
     if tsconfig_raw is not None and language != Language.TYPESCRIPT:
         raise ConfigError("scan.tsconfig is only valid when scan.language is typescript")

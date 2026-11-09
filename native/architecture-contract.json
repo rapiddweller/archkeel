@@ -1,0 +1,167 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.1.0",
+  "components": [
+    {
+      "id": "COMP-NATIVE-WIRE",
+      "label": "wire",
+      "role": "component",
+      "packages": [
+        "native.archkeel_wire"
+      ],
+      "responsibilities": [
+        "The collector wire that every native collector shares: requests, replies and source identities."
+      ],
+      "forbidden_responsibilities": [
+        "Reading source of any language, and using a collector crate."
+      ],
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-BUILD",
+      "label": "build",
+      "role": "component",
+      "packages": [
+        "native.archkeel_build_support"
+      ],
+      "responsibilities": [
+        "Record the digest of the sources of native/ when a collector builds."
+      ],
+      "forbidden_responsibilities": [
+        "Reading source at run time, and using a collector crate."
+      ],
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TYPESCRIPT",
+      "label": "typescript",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector"
+      ],
+      "responsibilities": [
+        "Read TypeScript source and write the collection reply."
+      ],
+      "forbidden_responsibilities": [
+        "Reading Rust source."
+      ],
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "requires": [
+        {
+          "component": "wire",
+          "rationale": "The collector decodes the request and encodes the reply with the shared wire."
+        },
+        {
+          "component": "build",
+          "rationale": "The build script of the crate calls the shared helper that digests the sources, so one script owns the digest."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RUST",
+      "label": "rust",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector"
+      ],
+      "responsibilities": [
+        "Read Rust source and write the collection reply."
+      ],
+      "forbidden_responsibilities": [
+        "Reading TypeScript source."
+      ],
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "requires": [
+        {
+          "component": "wire",
+          "rationale": "The collector decodes the request and encodes the reply with the shared wire."
+        },
+        {
+          "component": "build",
+          "rationale": "The build script of the crate calls the shared helper that digests the sources, so one script owns the digest."
+        }
+      ],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "NATIVE-ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "native",
+      "rationale": "A file that no crate owns escapes every rule below.",
+      "provenance": [
+        "docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "A crate uses another crate only where requires says so; absence forbids. This is the crate direction of AD-327.",
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CRATE-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Crates stay layered: the wire is the base and no collector crate is below another.",
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-TREE-SITTER",
+      "kind": "external_dependency_scope",
+      "dependency": "tree_sitter",
+      "allowed_sources": [
+        "native.archkeel_typescript_collector"
+      ],
+      "rationale": "Only the TypeScript collector parses source with Tree-sitter. cargo deny wrappers checks the declared dependency; this rule checks the use.",
+      "provenance": [
+        "docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT",
+      "kind": "external_dependency_scope",
+      "dependency": "tree_sitter_typescript",
+      "allowed_sources": [
+        "native.archkeel_typescript_collector"
+      ],
+      "rationale": "Only the TypeScript collector loads the TypeScript grammar.",
+      "provenance": [
+        "docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SYN",
+      "kind": "external_dependency_scope",
+      "dependency": "syn",
+      "allowed_sources": [
+        "native.archkeel_rust_collector"
+      ],
+      "rationale": "Only the Rust collector parses Rust source with syn.",
+      "provenance": [
+        "docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}

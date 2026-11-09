@@ -52,6 +52,7 @@ from archkeel.ir.protocol import (
     ProtocolVersion,
     PythonSettings,
     ResolverSettings,
+    RustSettings,
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
@@ -157,6 +158,7 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
+    Language.RUST: "Rust",
 }
 # Dart has no test-source classification, so a Dart scan keeps every file.
 _TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
@@ -168,6 +170,7 @@ _SOURCE_REMEDY: Final[dict[Language, str]] = {
     ),
     Language.DART: "Correct the reported Dart source syntax, directive, URI, part declaration or "
     "pubspec name; rerun after resolving its cause.",
+    Language.RUST: "Correct the reported Rust source syntax, module file or Cargo.toml and retry.",
 }
 
 
@@ -338,6 +341,8 @@ def _observe(
             if language == Language.PYTHON
             else DartSettings()
             if language == Language.DART
+            else RustSettings()
+            if language == Language.RUST
             else TypeScriptSettings(tsconfig, bundler)
         )
         exclude_test_sources = exclude_test_sources and language in _TEST_SCOPE_LANGUAGES

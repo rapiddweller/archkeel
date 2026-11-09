@@ -8,6 +8,7 @@
       "role": "component",
       "packages": [
         "archkeel.ir.facts",
+        "archkeel.ir.languages",
         "archkeel.ir.state_facts",
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
@@ -4164,6 +4165,20 @@
           ]
         },
         {
+          "id": "archkeel.ir.languages",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.languages",
+          "language": "python",
+          "parent_id": "TARGET-FACTS",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the languages that Archkeel reads and the profile that each collector reports."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
           "id": "source-facts",
           "kind": "class",
           "qualified_name": "archkeel.ir.facts.SourceFacts",
@@ -7282,8 +7297,8 @@
           },
           "id": "IR-COLLECTOR-facts.Language",
           "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.Language",
-          "parent_id": "archkeel.ir.facts",
+          "qualified_name": "archkeel.ir.languages.Language",
+          "parent_id": "archkeel.ir.languages",
           "responsibilities": [
             "Select the collector language without duplicating its vocabulary in adapters or Core."
           ]
@@ -7435,8 +7450,8 @@
         {
           "id": "IR-COLLECTOR-facts.SourceProfile",
           "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.SourceProfile",
-          "parent_id": "archkeel.ir.facts",
+          "qualified_name": "archkeel.ir.languages.SourceProfile",
+          "parent_id": "archkeel.ir.languages",
           "language": "python",
           "presence": "planned",
           "responsibilities": [

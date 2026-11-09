@@ -34,6 +34,7 @@ DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupli
 PYTHON_ANALYZER: Final = SourceProfile.PYTHON.value
 DART_ANALYZER: Final = SourceProfile.DART.value
 TYPESCRIPT_ANALYZER: Final = SourceProfile.TYPESCRIPT.value
+RUST_ANALYZER: Final = SourceProfile.RUST.value
 
 
 def is_test_source(path: str, language: Language) -> bool:
@@ -209,15 +210,35 @@ TYPESCRIPT: Final = Profile(
     additional_optional_section_groups=(frozenset({ObservedSection.CONSTRUCTS}),),
 )
 
+# AD-335: the collector reads crate edges and the module tree. Every rule that needs a symbol, a
+# call, a type or a construct is unsupported, so it reports UNKNOWN and never PASS.
+RUST: Final = Profile(
+    analyzer=RUST_ANALYZER,
+    source_suffix=".rs",
+    dependency_symbols=False,
+    complete_api_crossings=False,
+    unsupported_rules=TYPESCRIPT.unsupported_rules,
+    # The sysroot crates are the language's own library, not an external dependency.
+    standard_library=frozenset({"std", "core", "alloc"}),
+    project_import_closure=True,
+    unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
+    unmeasured=TYPESCRIPT.unmeasured,
+    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS}),
+    optional_sections=TYPESCRIPT.optional_sections,
+    additional_optional_section_groups=TYPESCRIPT.additional_optional_section_groups,
+)
+
 PROFILES: Final[dict[Language, Profile]] = {
     Language.PYTHON: PYTHON,
     Language.DART: DART,
     Language.TYPESCRIPT: TYPESCRIPT,
+    Language.RUST: RUST,
 }
 _ANALYZER_PROFILES: Final = {
     SourceProfile.PYTHON: PYTHON,
     SourceProfile.DART: DART,
     SourceProfile.TYPESCRIPT: TYPESCRIPT,
+    SourceProfile.RUST: RUST,
 }
 
 

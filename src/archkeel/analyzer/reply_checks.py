@@ -69,6 +69,7 @@ def check_requested_facts(facts: SourceFacts, request: CollectionRequest) -> Non
         Language.PYTHON: SourceProfile.PYTHON,
         Language.DART: SourceProfile.DART,
         Language.TYPESCRIPT: SourceProfile.TYPESCRIPT,
+        Language.RUST: SourceProfile.RUST,
     }
     if facts.profile != profiles[request.resolver.language]:
         raise ProtocolError("collector profile disagrees with requested language")

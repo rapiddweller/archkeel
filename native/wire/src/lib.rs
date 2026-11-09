@@ -12,5 +12,6 @@
 
 pub mod identity;
 pub mod protocol;
+pub mod records;
 pub mod reply;
 pub mod request;

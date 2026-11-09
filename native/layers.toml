@@ -17,7 +17,17 @@ role = "library"
 dir = "wire"
 may_use = []
 
+[crates.archkeel-build-support]
+role = "library"
+dir = "build-support"
+may_use = []
+
 [crates.archkeel-typescript-collector]
 role = "collector"
 dir = "typescript"
-may_use = ["archkeel-wire"]
+may_use = ["archkeel-wire", "archkeel-build-support"]
+
+[crates.archkeel-rust-collector]
+role = "collector"
+dir = "rust"
+may_use = ["archkeel-wire", "archkeel-build-support"]

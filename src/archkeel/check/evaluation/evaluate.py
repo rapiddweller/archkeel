@@ -1098,7 +1098,7 @@ def evaluate_source(
         item["data"]["resolution"] = "unresolved"
         if item["id"] in derived_unknown_imports:
             failures.append(unknown_import_failure(item, unresolved_targets[item["id"]].reason))
-    if facts.profile == SourceProfile.TYPESCRIPT:
+    if facts.profile in {SourceProfile.TYPESCRIPT, SourceProfile.RUST}:
         targets = {target.import_id: target for target in facts.imports}
         for item in imports:
             target = targets[item["id"]]

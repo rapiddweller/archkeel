@@ -5,7 +5,7 @@
 # The workspace lives in native/: a root Cargo.toml would be a stray file in the repository root.
 [workspace]
 resolver = "2"
-members = ["wire", "typescript"]
+members = ["wire", "build-support", "typescript", "rust"]
 
 [workspace.package]
 version = "0.0.0"
@@ -15,10 +15,15 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+archkeel-build-support = { path = "build-support" }
 archkeel-wire = { path = "wire" }
 flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 # `preserve_order`: the order of `paths` keys and of `exports` conditions decides the result.
 serde_json = { version = "1.0", features = ["preserve_order"] }
+# The Rust collector reads source with `syn`, the parser of proc macros. The `span-locations`
+# feature gives the line and column of a token outside a proc macro.
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+syn = { version = "3.0", default-features = false, features = ["full", "visit", "parsing", "clone-impls"] }
 sha2 = "0.10"
 tree-sitter = "0.25"
 # The grammar release of the Python collector (`tree-sitter-typescript` in uv.lock).

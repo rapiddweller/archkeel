@@ -243,6 +243,16 @@ declarations stay UNKNOWN. Own-package resolution uses the package name from
 `pubspec.yaml`; snapshot resolution inputs must be present. Python-only
 type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 
+## Rust profile
+
+The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
+segment names another crate. Rules on the modules of one crate, symbols, calls, types and
+constructs are unsupported, so they stay UNKNOWN and never PASS. A macro body with a path, a
+`macro_rules!` definition, `include!`, a `cfg` that gates a `mod` or `use` (except `cfg(test)` and
+a declared feature), a `path` attribute that is not a literal and an attribute macro on a module
+make the scan UNKNOWN. A platform wheel carries the collector; an install without it reports
+`missing_tool` ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
+
 ## Scope and nested contracts
 
 A run covers only configured roots and namespace. Adjacent tests need another

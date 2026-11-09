@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-report native-tools cargo-deny-install native-wheel
+.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check self-validate-native native-report native-tools cargo-deny-install native-wheel
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
@@ -83,6 +83,15 @@ native-check:
 	cd native && cargo test --locked
 	cd native && cargo build --locked
 	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py
+	$(MAKE) self-validate-native
+
+# AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.
+# A source checkout has no platform wheel, so native/archkeel.toml names the debug build.
+self-validate-native:
+	cd native && cargo build --locked --bin archkeel-rust-collector
+	@mkdir -p test-artifacts/validation-native
+	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || { cat test-artifacts/validation-native/result.json; exit 1; }
+	@python3 -c 'import json; d=json.load(open("test-artifacts/validation-native/result.json")); print("Native architecture rules: %s; diagnostics: %s; full result: test-artifacts/validation-native/result.json" % (d["declared_rules"], len(d["diagnostics"])))'
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:

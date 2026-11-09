@@ -13,9 +13,9 @@
 use std::collections::{BTreeMap, HashSet};
 
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
+use archkeel_wire::records::{gap_record, GapKind};
 use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target};
 use archkeel_wire::request::Request;
-use serde_json::{Map, Value};
 
 use crate::config::load_config;
 use crate::options::Resolution;
@@ -37,11 +37,6 @@ const FEATURES: [&str; 4] = [
 ];
 // What the compiler's `trim()` removes (`collect._WHITESPACE`).
 const COMPILER_SPACE: &str = " \t\n\u{b}\u{c}\r\u{a0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
-
-enum GapKind {
-    Collection,
-    Resolution,
-}
 
 struct Collection<'a> {
     request: &'a Request,
@@ -244,34 +239,8 @@ impl Collection<'_> {
 
     /// `collect._gap`: one UNKNOWN record; the same reason, evidence and module give one record.
     fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str, kind: GapKind) {
-        let mut parts = vec![Part::Text(reason)];
-        parts.extend(evidence.map(Part::Text));
-        parts.push(Part::Text(module));
-        let id = stable_id("UNKNOWN", &parts);
-        let mut data = Map::new();
-        data.insert("reason".to_owned(), Value::from(reason));
-        data.insert("module".to_owned(), Value::from(module));
-        let kind = match kind {
-            GapKind::Collection => "collection_gap",
-            GapKind::Resolution => {
-                data.insert("resolution_dimension".to_owned(), Value::from("imports"));
-                "source_resolution_gap"
-            }
-        };
-        self.gaps.entry(id.clone()).or_insert(Record {
-            id,
-            evidence_class: "UNKNOWN",
-            area: "source",
-            kind,
-            title: reason.to_owned(),
-            subjects: [module]
-                .into_iter()
-                .filter(|m| !m.is_empty())
-                .map(str::to_owned)
-                .collect(),
-            evidence_ids: evidence.into_iter().map(str::to_owned).collect(),
-            data,
-        });
+        let record = gap_record(reason, evidence, module, kind);
+        self.gaps.entry(record.id.clone()).or_insert(record);
     }
 }
 

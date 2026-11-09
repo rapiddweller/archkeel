@@ -1,12 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Put the native TypeScript collector into a platform wheel when a build asks for it (AD-317).
+"""Put the native collectors into a platform wheel when a build asks for them (AD-317, AD-335).
 
-`ARCHKEEL_BUNDLE_NATIVE` selects the binary: an absolute path to a prebuilt binary, or `1` to
-build it with `cargo auditable` from `native/` and add a CycloneDX SBOM of its crates. Without the
-variable the hook does nothing, so an sdist, an editable install and the default wheel never run
-cargo.
+`ARCHKEEL_BUNDLE_NATIVE` selects the binaries: `1` builds both collectors (TypeScript and Rust)
+with `cargo auditable` from `native/` and adds a CycloneDX SBOM of the crates of each. An absolute
+path to a prebuilt binary bundles that one TypeScript binary only. Without the variable the hook
+does nothing, so an sdist, an editable install and the default wheel never run cargo.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ Checksums = dict[tuple[str, str], str]
 
 REQUEST = "ARCHKEEL_BUNDLE_NATIVE"
 BINARY = "archkeel-typescript-collector"
+BINARIES = (BINARY, "archkeel-rust-collector")
 PACKAGE_DATA = "archkeel/_native"
 # The minimum macOS of a binary is the default deployment target of Rust for its architecture.
 MACOS = {"x86_64": "10.12", "arm64": "11.0"}
@@ -82,15 +83,20 @@ def bundle(
     if not request:
         return
     tag = wheel_tag(platform or host_platform(_platform_tags()))
-    name = BINARY + (".exe" if tag.endswith("win_amd64") else "")
+    suffix = ".exe" if tag.endswith("win_amd64") else ""
     if request == "1":
-        binary = _cargo_build(root, version, tag, name)
-        build_data["sbom_files"].append(str(_write_sbom(root / "native", binary, version)))
+        release = _cargo_build(root, version, tag)
+        binaries = {name: release / f"{name}{suffix}" for name in BINARIES}
+        for name, binary in binaries.items():
+            build_data["sbom_files"].append(
+                str(_write_sbom(root / "native", binary, version, name))
+            )
     else:
-        binary = _prebuilt(request)
+        binaries = {BINARY: _prebuilt(request)}
     build_data["pure_python"] = False
     build_data["tag"] = tag
-    build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}"
+    for name, binary in binaries.items():
+        build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}{suffix}"
 
 
 def _prebuilt(request: str) -> Path:
@@ -116,7 +122,7 @@ def build_environment(version: str, tag: str) -> dict[str, str]:
     return environment
 
 
-def _cargo_build(root: Path, version: str, tag: str, name: str) -> Path:
+def _cargo_build(root: Path, version: str, tag: str) -> Path:
     native = root / "native"
     if not (native / "Cargo.toml").is_file():
         raise ValueError(
@@ -139,10 +145,10 @@ def _cargo_build(root: Path, version: str, tag: str, name: str) -> Path:
         stdout=sys.stderr,
         check=True,
     )
-    return target / "release" / name
+    return target / "release"
 
 
-def _write_sbom(native: Path, binary: Path, version: str) -> Path:
+def _write_sbom(native: Path, binary: Path, version: str, name: str) -> Path:
     cargo = shutil.which("cargo") or "cargo"
     host = _run([cargo, "-vV"], native).split("host: ", 1)[1].split()[0]
     # The crates of the build host only: a crate for another platform is not in the binary.
@@ -158,8 +164,8 @@ def _write_sbom(native: Path, binary: Path, version: str) -> Path:
         for crate in lock["package"]
         if "checksum" in crate
     }
-    sbom = binary.with_name(f"{BINARY}.cdx.json")
-    text = json.dumps(cyclonedx(metadata, checksums, version), indent=2, sort_keys=True)
+    sbom = binary.with_name(f"{name}.cdx.json")
+    text = json.dumps(cyclonedx(metadata, checksums, version, name), indent=2, sort_keys=True)
     sbom.write_text(text + "\n", encoding="utf-8")
     return sbom
 
@@ -168,7 +174,9 @@ def _run(command: list[str], cwd: Path) -> str:
     return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=True).stdout
 
 
-def cyclonedx(metadata: dict[str, Any], checksums: Checksums, version: str) -> dict[str, Any]:
+def cyclonedx(
+    metadata: dict[str, Any], checksums: Checksums, version: str, binary: str = BINARY
+) -> dict[str, Any]:
     """Give a CycloneDX 1.6 SBOM of the crates that the binary links (PEP 770).
 
     The SBOM follows the normal dependencies from the binary: build and test crates are not in it.
@@ -183,7 +191,7 @@ def cyclonedx(metadata: dict[str, Any], checksums: Checksums, version: str) -> d
         )
         for node in metadata["resolve"]["nodes"]
     }
-    (root,) = (key for key, package in packages.items() if package["name"] == BINARY)
+    (root,) = (key for key, package in packages.items() if package["name"] == binary)
     linked, pending = {root}, [root]
     while pending:
         for dependency in edges[pending.pop()]:

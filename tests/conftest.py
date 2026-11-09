@@ -153,7 +153,10 @@ def self_artifact_bytes(self_run: SelfRun) -> bytes:
 
 
 def build_native_copy(
-    factory: pytest.TempPathFactory, label: str, features: tuple[str, ...] = ()
+    factory: pytest.TempPathFactory,
+    label: str,
+    features: tuple[str, ...] = (),
+    binary: str = "archkeel-typescript-collector",
 ) -> Path:
     """Build the debug collector and copy it for this worker (AD-316).
 
@@ -174,7 +177,7 @@ def build_native_copy(
     if features:
         target = target / "dump"
         command += ["--features", ",".join(features), "--target-dir", str(target)]
-    name = "archkeel-typescript-collector" + (".exe" if os.name == "nt" else "")
+    name = binary + (".exe" if os.name == "nt" else "")
     copy = factory.mktemp(label) / name
     (native / "target").mkdir(exist_ok=True)
     with FileLock(str(native / "target" / ".pytest-native-build.lock")):
@@ -202,6 +205,12 @@ def build_native_copy(
 def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The debug build of the native TypeScript collector (AD-316), copied for its own tests."""
     return build_native_copy(tmp_path_factory, "native")
+
+
+@pytest.fixture(scope="session")
+def rust_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The debug build of the native Rust collector (AD-335), copied for its own tests."""
+    return build_native_copy(tmp_path_factory, "native-rust", binary="archkeel-rust-collector")
 
 
 @pytest.hookimpl(optionalhook=True)
