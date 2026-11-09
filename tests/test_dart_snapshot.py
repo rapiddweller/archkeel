@@ -97,6 +97,28 @@ def test_snapshot_fails_before_reading_symlinked_pubspec(
         read_snapshot(request(tmp_path))
 
 
+def test_snapshot_reports_a_missing_pubspec_as_a_gap_and_keeps_the_sources(
+    tmp_path: Path,
+) -> None:
+    """A package below the repository root has no root pubspec; the sources stay readable."""
+    (tmp_path / "app" / "lib").mkdir(parents=True)
+    (tmp_path / "app" / "pubspec.yaml").write_text("name: app\n", encoding="utf-8")
+    (tmp_path / "app" / "lib" / "main.dart").write_text("class Main {}\n")
+    collection_request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("app/lib",), "configured_namespace"),
+        DartSettings(),
+    )
+
+    snapshot = read_snapshot(collection_request)
+
+    assert [item.rel_path for item in snapshot.sources] == ["app/lib/main.dart"]
+    assert [(item.path, item.kind) for item in snapshot.problems] == [
+        ("pubspec.yaml", "PubspecMissing")
+    ]
+    assert "pubspec.yaml" not in {item.path for item in snapshot.inputs}
+
+
 def test_snapshot_rejects_ambiguous_pubspec_identity(tmp_path: Path) -> None:
     (tmp_path / "pubspec.yaml").write_text("name: one\nname: two\n", encoding="utf-8")
     with pytest.raises(SnapshotError, match="valid package name"):
