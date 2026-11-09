@@ -259,3 +259,25 @@ def test_unknown_package_name_leaves_package_imports_unresolved(tmp_path: Path) 
     gaps = sorted(record.kind for record in sections["unknowns"])
     assert gaps == ["DirectiveError", "DirectiveError", "PubspecMissing"]
     assert not sections["imports"]
+
+
+def test_import_of_the_analysed_package_is_a_gap_when_the_root_pubspec_names_another(
+    tmp_path: Path,
+) -> None:
+    """The root pubspec declares `other`, so `package:app/` is not a known external package."""
+    (tmp_path / "pubspec.yaml").write_text("name: other\n", encoding="utf-8")
+    lib = tmp_path / "app" / "lib"
+    lib.mkdir(parents=True)
+    (lib / "x.dart").write_text("class X {}\n")
+    (lib / "main.dart").write_text("import 'package:app/x.dart';\nclass Main {}\n")
+    collection_request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("app/lib",), "app"),
+        DartSettings(),
+    )
+
+    facts = require_native_dart(collect_native_dart(collection_request))
+
+    sections = {section.name: section.records for section in facts.sections}
+    assert [record.kind for record in sections["unknowns"]] == ["DirectiveError"]
+    assert not sections["imports"]

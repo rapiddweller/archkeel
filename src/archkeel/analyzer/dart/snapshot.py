@@ -85,6 +85,22 @@ class Snapshot:
     problems: tuple[SnapshotProblem, ...]
     roots: tuple[str, ...]
 
+    def import_gap(self, package: str, separator: str, target_path: str) -> str | None:
+        """Give the reason why a `package:` import cannot be used, or None when it can."""
+        if not separator or not target_path or PurePosixPath(target_path).is_absolute():
+            return "the URI is unreadable"
+        if not _PACKAGE_NAME.fullmatch(package):
+            return "the package name is unreadable"
+        if not self.package_name:
+            return "the snapshot root has no pubspec.yaml, so the own package is unknown"
+        if package != self.package_name and any(
+            source.module.partition(".")[0] == package for source in self.sources
+        ):
+            return (
+                "the import names the analysed package, but the root pubspec.yaml declares another"
+            )
+        return None
+
     @property
     def source_by_path(self) -> dict[str, Source]:
         return {source.rel_path: source for source in self.sources}
