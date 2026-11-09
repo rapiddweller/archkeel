@@ -65,3 +65,6 @@ inputs with the Python collector on four fixtures. It checks `missing_tool`, `ex
 `timeout`, the output limit and the 9.0.0 test exclusion. The `cargo test` expected values come
 from the Python functions. `make native-check` runs format, lint, `cargo deny`, tests and build.
 `tests/test_native_ci.py` checks the pinned `cargo deny` and the PR gate job.
+
+**Note (2026-11-09, issue #880).** `ARCHKEEL_CODE_DIGEST` covers each `.rs` and `Cargo.toml` outside
+`target/`. A new crate or directory changes it; `test_collector_native_digest.py` checks this.
