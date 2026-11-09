@@ -1,252 +1,130 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 4626" width="1800" height="4626" font-family="Helvetica, Arial, sans-serif">
-  <defs>
-    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
-    </marker>
-  </defs>
-  <rect width="1800" height="4626" fill="#ffffff"/>
-
-  <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">ArchKeel target architecture: what is Rust, what stays</text>
-  <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-09 late night, 39 PRs merged.</text>
-
-  <!-- legend -->
-  <rect x="40" y="104" width="22" height="22" rx="4" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
-  <text x="70" y="121" font-size="14" fill="#0f172a">New in Rust</text>
-  <rect x="200" y="104" width="22" height="22" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-  <text x="230" y="121" font-size="14" fill="#0f172a">Python, restructured (max 500 lines per file)</text>
-  <rect x="570" y="104" width="22" height="22" rx="4" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="600" y="121" font-size="14" fill="#0f172a">Unchanged</text>
-  <rect x="720" y="104" width="22" height="22" rx="4" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3"/>
-  <text x="750" y="121" font-size="14" fill="#0f172a">Design source only</text>
-  <rect x="920" y="104" width="22" height="22" rx="4" fill="#fee2e2" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 3"/>
-  <text x="950" y="121" font-size="14" fill="#0f172a">Deleted</text>
-
-  <!-- lane headers -->
-  <g font-size="14" font-weight="700" fill="#475569" letter-spacing="1">
-    <text x="40" y="168">1 INPUT</text>
-    <text x="290" y="168">2 COLLECT</text>
-    <text x="680" y="168">3 CONTRACT</text>
-    <text x="890" y="168">4 STORE AND MODEL</text>
-    <text x="1310" y="168">5 DECIDE</text>
-    <text x="1560" y="168">6 SHOW</text>
-  </g>
-
-  <!-- 1 input -->
-  <rect x="40" y="360" width="200" height="140" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="56" y="392" font-size="17" font-weight="700" fill="#0f172a">Source code</text>
-  <text x="56" y="420" font-size="14" fill="#334155">Python</text>
-  <text x="56" y="442" font-size="14" fill="#334155">TypeScript and React</text>
-  <text x="56" y="464" font-size="14" fill="#334155">Dart (later: more)</text>
-
-  <!-- 2 collect: Rust -->
-  <rect x="290" y="185" width="340" height="445" rx="12" fill="#ffedd5" stroke="#ea580c" stroke-width="3"/>
-  <text x="308" y="216" font-size="19" font-weight="700" fill="#9a3412">Rust collectors (new)</text>
-  <text x="308" y="236" font-size="13" fill="#9a3412">behind the existing wire, one run per repository</text>
-  <g font-size="14" fill="#0f172a">
-    <rect x="308" y="250" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
-    <text x="322" y="272" font-weight="700">1 discover files</text><text x="322" y="291" font-size="12.5" fill="#475569">whole repository, all packages</text>
-    <rect x="308" y="316" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
-    <text x="322" y="338" font-weight="700">2 extract per file</text><text x="322" y="357" font-size="12.5" fill="#475569">tree-sitter, parallel, keyed by file hash</text>
-    <rect x="308" y="382" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
-    <text x="322" y="404" font-weight="700">3 type registry and scope</text><text x="322" y="423" font-size="12.5" fill="#475569">CBM design, our evidence rules</text>
-    <rect x="308" y="448" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
-    <text x="322" y="470" font-weight="700">4 resolve imports, calls, JSX</text><text x="322" y="489" font-size="12.5" fill="#475569">proven · candidate · unresolved</text>
-    <rect x="308" y="514" width="304" height="52" rx="8" fill="#ffffff" stroke="#ea580c"/>
-    <text x="322" y="536" font-weight="700">5 completeness</text><text x="322" y="555" font-size="12.5" fill="#475569">per file and fact kind (proof of absence)</text>
-  </g>
-  <g stroke="#334155" stroke-width="2" marker-end="url(#arr)">
-    <line x1="460" y1="302" x2="460" y2="314"/><line x1="460" y1="368" x2="460" y2="380"/>
-    <line x1="460" y1="434" x2="460" y2="446"/><line x1="460" y1="500" x2="460" y2="512"/>
-  </g>
-  <rect x="308" y="580" width="148" height="34" rx="17" fill="#ea580c"/>
-  <text x="382" y="602" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">PR 4: TS + React</text>
-  <rect x="466" y="580" width="146" height="34" rx="17" fill="#ea580c"/>
-  <text x="539" y="602" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">PR 5: Python</text>
-
-  <rect x="290" y="650" width="340" height="66" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="306" y="676" font-size="15" font-weight="700" fill="#0f172a">Dart collector: to Rust</text>
-  <text x="306" y="698" font-size="13" fill="#475569">PR 8: design done, starts after 0a</text>
-
-  <rect x="290" y="736" width="340" height="66" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 4"/>
-  <text x="306" y="762" font-size="15" font-weight="700" fill="#991b1b">Old Python collectors for TS and Python</text>
-  <text x="306" y="784" font-size="13" fill="#991b1b">deleted in PR 6 (one producer per language)</text>
-
-  <rect x="290" y="822" width="340" height="66" rx="10" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6 4"/>
-  <text x="306" y="848" font-size="15" font-weight="700" fill="#5b21b6">CBM (C): design source, test oracle</text>
-  <text x="306" y="870" font-size="13" fill="#5b21b6">never runs in ArchKeel; feeds lane 2</text>
-  
-  <!-- 3 contract -->
-  <rect x="680" y="300" width="170" height="260" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-  <text x="696" y="330" font-size="17" font-weight="700" fill="#1e3a8a">Collector wire</text>
-  <text x="696" y="354" font-size="13" fill="#1e3a8a">protocol 9 today (#876)</text>
-  <text x="696" y="386" font-size="13" font-weight="700" fill="#1e3a8a">PR 3 (later) adds</text>
-  <text x="696" y="404" font-size="13" font-weight="700" fill="#1e3a8a">one record, V10:</text>
-  <text x="696" y="428" font-size="13" fill="#1e3a8a">kind, path, span</text>
-  <text x="696" y="448" font-size="13" fill="#1e3a8a">producer + version</text>
-  <text x="696" y="468" font-size="13" fill="#1e3a8a">status:</text>
-  <text x="696" y="488" font-size="13" fill="#1e3a8a">proven, candidate,</text>
-  <text x="696" y="508" font-size="13" fill="#1e3a8a">unresolved,</text>
-  <text x="696" y="528" font-size="13" fill="#1e3a8a">unsupported</text>
-
-  <!-- 4 store and model: Python restructured -->
-  <rect x="890" y="185" width="370" height="565" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
-  <text x="908" y="216" font-size="19" font-weight="700" fill="#1e3a8a">Python, restructured</text>
-  <text x="908" y="236" font-size="13" fill="#1e3a8a">replaces ir/: 62 files, 17 of them over 500 lines</text>
-  <g font-size="14" fill="#0f172a">
-    <rect x="908" y="254" width="334" height="100" rx="8" fill="#ffffff" stroke="#2563eb"/>
-    <text x="922" y="278" font-size="16" font-weight="700">source</text>
-    <text x="922" y="300" font-size="13" fill="#475569">fact store (AD-310, SQLite)</text>
-    <text x="922" y="320" font-size="13" fill="#475569">whole-run result cache</text>
-    <text x="922" y="340" font-size="13" fill="#475569">key: source digest, producer, config</text>
-    <rect x="908" y="368" width="334" height="90" rx="8" fill="#ffffff" stroke="#2563eb"/>
-    <text x="922" y="392" font-size="16" font-weight="700">evidence</text>
-    <text x="922" y="414" font-size="13" fill="#475569">provenance, status, receipts</text>
-    <text x="922" y="434" font-size="13" fill="#475569">PASS needs every file complete</text>
-    <rect x="908" y="472" width="334" height="100" rx="8" fill="#ffffff" stroke="#2563eb"/>
-    <text x="922" y="496" font-size="16" font-weight="700">architecture</text>
-    <text x="922" y="518" font-size="13" fill="#475569">ONE owner: identity, membership, coverage,</text>
-    <text x="922" y="538" font-size="13" fill="#475569">observed vs Target</text>
-    <text x="922" y="558" font-size="13" fill="#475569">source and Target ids stay separate</text>
-    <rect x="908" y="586" width="334" height="90" rx="8" fill="#ffffff" stroke="#2563eb"/>
-    <text x="922" y="610" font-size="16" font-weight="700">wire (readers)</text>
-    <text x="922" y="632" font-size="13" fill="#475569">strict readers of saved formats:</text>
-    <text x="922" y="652" font-size="13" fill="#475569">architecture.json, contract, load_violations</text>
-  </g>
-  <text x="908" y="710" font-size="13" font-style="italic" fill="#1e3a8a">PR 1 and PR 2. Removes 2 to 4 copies of the</text>
-  <text x="908" y="730" font-size="13" font-style="italic" fill="#1e3a8a">membership code and the AST re-parse copies.</text>
-
-  <!-- 5 decide: unchanged -->
-  <rect x="1310" y="300" width="210" height="220" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="1326" y="332" font-size="17" font-weight="700" fill="#0f172a">check/ rules</text>
-  <text x="1326" y="358" font-size="13" fill="#334155">engine unchanged</text>
-  <text x="1326" y="386" font-size="14" font-weight="700" fill="#0f172a">PASS · FAIL · UNKNOWN</text>
-  <text x="1326" y="414" font-size="13" fill="#334155">reads only proven facts</text>
-  <text x="1326" y="434" font-size="13" fill="#334155">and completeness rows</text>
-  <text x="1326" y="462" font-size="13" fill="#334155">a candidate never gives</text>
-  <text x="1326" y="482" font-size="13" fill="#334155">PASS</text>
-
-  <!-- 6 show -->
-  <rect x="1560" y="230" width="210" height="96" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="1576" y="260" font-size="17" font-weight="700" fill="#0f172a">Studio</text>
-  <text x="1576" y="284" font-size="13" fill="#334155">server and UI</text>
-  <text x="1576" y="304" font-size="13" fill="#334155">unchanged</text>
-  <rect x="1560" y="344" width="210" height="96" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="1576" y="374" font-size="17" font-weight="700" fill="#0f172a">CLI, MCP, agents</text>
-  <text x="1576" y="398" font-size="13" fill="#334155">unchanged</text>
-  <rect x="1560" y="458" width="210" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-  <text x="1576" y="488" font-size="17" font-weight="700" fill="#1e3a8a">Static report</text>
-  <text x="1576" y="512" font-size="13" fill="#1e3a8a">PR 7: small HTML replaces</text>
-  <text x="1576" y="532" font-size="13" fill="#1e3a8a">the interactive JS report</text>
-  <text x="1576" y="552" font-size="13" fill="#1e3a8a">PASS, FAIL, UNKNOWN + links</text>
-
-  <!-- git band -->
-  <rect x="40" y="920" width="1730" height="74" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
-  <text x="60" y="952" font-size="17" font-weight="700" fill="#0f172a">Git (reviewed, unchanged): architecture contract, nested contracts, Target model, system landscape (#860)</text>
-  <text x="60" y="976" font-size="13" fill="#334155">Greenfield works without source code, without a collector and without a daemon. Rules and Target identity do not depend on the collector.</text>
-
-  <!-- arrows main flow -->
-  <g stroke="#334155" stroke-width="3" marker-end="url(#arr)" fill="none">
-    <line x1="240" y1="430" x2="288" y2="430"/>
-    <line x1="630" y1="430" x2="678" y2="430"/>
-    <line x1="850" y1="430" x2="888" y2="430"/>
-    <line x1="1260" y1="410" x2="1308" y2="410"/>
-    <line x1="1520" y1="360" x2="1558" y2="290"/>
-    <line x1="1520" y1="400" x2="1558" y2="392"/>
-    <line x1="1520" y1="440" x2="1558" y2="500"/>
-  </g>
-  <!-- git arrows -->
-  <g stroke="#64748b" stroke-width="3" marker-end="url(#arr)" fill="none">
-    <line x1="1075" y1="918" x2="1075" y2="752"/>
-    <line x1="1415" y1="918" x2="1415" y2="522"/>
-  </g>
-
-  <text x="40" y="1032" font-size="14" fill="#0f172a">Rules for all new code: one owner per concept (SPOT) · one reason to change (SOC) · one producer per language and fact kind (DRY) · at most 500 lines per file · port only what a rule or a view uses (YAGNI)</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 4626" width="1800" height="4626" font-family="Helvetica, Arial, sans-serif"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker></defs><rect width="1800" height="4626" fill="#ffffff"/>
 
   <!-- progress overlay -->
-  <text x="1060" y="121" font-size="14" font-weight="700" fill="#0f172a">Status:</text>
-  <rect x="1120" y="106" width="64" height="19" rx="9.5" fill="#16a34a"/><text x="1152.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
-  <rect x="1196" y="106" width="104" height="19" rx="9.5" fill="#f59e0b"/><text x="1248.0" y="119.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <rect x="1312" y="106" width="70" height="19" rx="9.5" fill="#ea580c"/><text x="1347.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
-  <rect x="1394" y="106" width="86" height="19" rx="9.5" fill="#b91c1c"/><text x="1437.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">VIOLATION</text>
-  <rect x="1492" y="106" width="76" height="19" rx="9.5" fill="#94a3b8"/><text x="1530.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <rect x="304" y="378" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="476" y="370" width="132" height="19" rx="9.5" fill="#16a34a"/><text x="542.0" y="383.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">SCOPE MERGED (#897)</text>
-  <rect x="304" y="246" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="486" y="243" width="122" height="19" rx="9.5" fill="#16a34a"/><text x="547.0" y="256.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">SKELETON MERGED</text>
-  <rect x="304" y="312" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="452" y="309" width="156" height="19" rx="9.5" fill="#16a34a"/><text x="530.0" y="322.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">IMPORTS MERGED (#893)</text>
-  <rect x="304" y="510" width="312" height="60" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="452" y="502" width="156" height="19" rx="9.5" fill="#f59e0b"/><text x="530.0" y="515.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">GAPS ONLY (4.1a)</text>
-  <rect x="283" y="178" width="354" height="459" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="300" y="170" width="333" height="19" rx="9.5" fill="#f59e0b"/><text x="466.5" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">4.3a-2 TO 3c REVIEWED, MERGE QUEUE · 5b-1 FINAL</text>
-  <rect x="676" y="296" width="178" height="268" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="690" y="288" width="150" height="19" rx="9.5" fill="#16a34a"/><text x="765.0" y="301.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">V9 MERGED (#876)</text>
-  <rect x="664" y="594" width="196" height="196" rx="10" fill="#f1f5f9"/>
-  <rect x="660" y="590" width="204" height="204" rx="14" fill="none" stroke="#94a3b8" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="676" y="582" width="172" height="19" rx="9.5" fill="#94a3b8"/><text x="762.0" y="595.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED · AFTER #860</text>
-  <text x="676" y="622" font-size="15" font-weight="700" fill="#334155">Cross-boundary facts</text>
-  <text x="676" y="646" font-size="12.5"  fill="#475569">REST route and client call</text>
-  <text x="676" y="663" font-size="12.5"  fill="#475569">queue publish and consume</text>
-  <text x="676" y="680" font-size="12.5"  fill="#475569">database, broker, external</text>
-  <text x="676" y="697" font-size="12.5"  fill="#475569">system (Helm, config).</text>
-  <text x="676" y="714" font-size="12.5" font-weight="700" fill="#475569">One fact record (V10).</text>
-  <text x="676" y="731" font-size="12.5"  fill="#475569">A link needs both sides:</text>
-  <text x="676" y="748" font-size="12.5"  fill="#475569">one side missing = UNKNOWN.</text>
-  <text x="676" y="765" font-size="12.5"  fill="#475569">Declared side: #860 (Git).</text>
-  <rect x="883" y="178" width="384" height="579" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="960" y="170" width="302" height="19" rx="9.5" fill="#94a3b8"/><text x="1111.0" y="183.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S4-S6 STOPPED · MOVES INTO THE RUST CORE</text>
-  <rect x="1122" y="258" width="112" height="19" rx="9.5" fill="#94a3b8"/><text x="1178.0" y="271.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 3 · PLANNED</text>
-  <rect x="1136" y="372" width="98" height="19" rx="9.5" fill="#94a3b8"/><text x="1185.0" y="385.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S4 · PLANNED</text>
-  <rect x="1100" y="476" width="134" height="19" rx="9.5" fill="#16a34a"/><text x="1167.0" y="489.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S2, S3 MERGED</text>
-  <rect x="1096" y="590" width="138" height="19" rx="9.5" fill="#94a3b8"/><text x="1165.0" y="603.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">S5 · AFTER #860</text>
-  <rect x="510" y="727" width="100" height="19" rx="9.5" fill="#94a3b8"/><text x="560.0" y="740.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 6 · PLANNED</text>
-  <rect x="512" y="813" width="108" height="19" rx="9.5" fill="#16a34a"/><text x="566.0" y="826.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">USED IN PILOT</text>
-  <rect x="1648" y="445" width="114" height="19" rx="9.5" fill="#94a3b8"/><text x="1705.0" y="458.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 7 · PLANNED</text>
-  <rect x="456" y="641" width="164" height="19" rx="9.5" fill="#94a3b8"/><text x="538.0" y="654.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 8 · DESIGN DONE</text>
-  <rect x="1440" y="604" width="330" height="186" rx="10" fill="#f0fdf4"/>
-  <rect x="1436" y="600" width="338" height="194" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="1480" y="592" width="250" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="605.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">39 PRs MERGED INTO MAIN</text>
-  <text x="1454" y="630" font-size="12.5" font-weight="700" fill="#14532d">#881 to #892 rules, macOS, V9, skeleton, wheels</text>
-  <text x="1454" y="646" font-size="12.5"  fill="#14532d">#884 #894 #898 #900 #906 #912 IR S1 to S4</text>
-  <text x="1454" y="662" font-size="12.5"  fill="#14532d">#891 #899 #902 host 1 848 to 782 MiB, -22 %</text>
-  <text x="1454" y="678" font-size="12.5"  fill="#14532d">#893 imports (4.2) · #897 syntax (4.3a-1)</text>
-  <text x="1454" y="694" font-size="12.5"  fill="#14532d">#895 lib catalog · #896 #911 timing tests</text>
-  <text x="1454" y="710" font-size="12.5"  fill="#14532d">#901 C locale · #905 coverage owner</text>
-  <text x="1454" y="726" font-size="12.5"  fill="#14532d">#903 code digest · #904 Rust rules AD-327</text>
-  <text x="1454" y="742" font-size="12.5"  fill="#14532d">#907 cycles · #908 amend · #909 filter · #910 rule</text>
-  <text x="1454" y="758" font-size="12.5"  fill="#14532d">#914 Dart fix · #915 diagnostics · #917 timing</text>
-  <text x="1454" y="774" font-size="12.5"  fill="#14532d">#920 validate once · #923 golden · #926 Full fix</text>
-  <rect x="1440" y="826" width="330" height="88" rx="10" fill="#fffbeb"/>
-  <rect x="1436" y="822" width="338" height="96" rx="14" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="10 5"/>
-  <rect x="1470" y="814" width="270" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="827.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR H · MERGED (#891, #899)</text>
-  <text x="1454" y="844" font-size="13" font-weight="700" fill="#78350f">Host peak on Linux: 1 848 to 782 MiB (-58 %).</text>
-  <text x="1454" y="864" font-size="13"  fill="#78350f">macOS: 4 243 to 1 210 MiB (-71 %).</text>
-  <text x="1454" y="884" font-size="13"  fill="#78350f">Gate and 1 GiB met. #902: -22 % time.</text>
-  <rect x="40" y="540" width="200" height="132" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5" stroke-dasharray="8 4"/>
-  <text x="54" y="564" font-size="14" font-weight="700" fill="#7f1d1d">Engineering process</text>
-  <text x="54" y="586" font-size="12" fill="#7f1d1d">not a component:</text>
-  <text x="54" y="602" font-size="12" fill="#7f1d1d">CI time, timing tests,</text>
-  <text x="54" y="618" font-size="12" fill="#7f1d1d">reported numbers</text>
-  <text x="54" y="640" font-size="11.5" font-weight="700" fill="#7f1d1d">Red: open · green: fixed</text>
-  <text x="54" y="656" font-size="11.5" font-weight="700" fill="#7f1d1d">violations, see the table</text>
-  <circle cx="594" cy="288" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="594" y="292" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
-  <circle cx="594" cy="354" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="594" y="358" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
-  <circle cx="594" cy="484" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="594" y="488" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
-  <circle cx="594" cy="550" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="594" y="554" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
-  <circle cx="612" cy="672" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="612" y="676" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
-  <circle cx="612" cy="758" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="612" y="762" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
-  <circle cx="1236" cy="404" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1236" y="408" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
-  <circle cx="1208" cy="404" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1208" y="408" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
-  <circle cx="1236" cy="530" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1236" y="534" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
-  <circle cx="1236" cy="640" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="1236" y="644" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">5</text>
-  <circle cx="1506" cy="316" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1506" y="320" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
-  <circle cx="1478" cy="316" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="1478" y="320" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
-  <circle cx="1756" cy="372" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="1756" y="376" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
-  <circle cx="1756" cy="500" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1756" y="504" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
-  <circle cx="226" cy="556" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="560" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
-  <circle cx="226" cy="584" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="588" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
-  <circle cx="226" cy="612" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="616" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
-  <circle cx="226" cy="640" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="226" y="644" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">10</text>
+  <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">ArchKeel target architecture v2: a Rust core with one type model, Python as the shell</text>
+  <text x="40" y="80" font-size="15" fill="#475569">Source: issue #880, owner decisions 2026-11-07 and 2026-11-09 (review by Fable and Fable 5.2). PR numbers are the PRs of the plan. State: 2026-11-09 late night, 43 PRs merged.</text>
+  <rect x="40" y="104" width="22" height="22" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="70" y="121" font-size="14" fill="#0f172a">Rust collector</text>
+  <rect x="199" y="104" width="22" height="22" rx="4" fill="#ecfdf5" stroke="#047857" stroke-width="2"/>
+  <text x="229" y="121" font-size="14" fill="#0f172a">Rust core, new crate</text>
+  <rect x="403" y="104" width="22" height="22" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="433" y="121" font-size="14" fill="#0f172a">Rust core v2 (later)</text>
+  <rect x="607" y="104" width="22" height="22" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="637" y="121" font-size="14" fill="#0f172a">Python shell</text>
+  <rect x="752" y="104" width="22" height="22" rx="4" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="782" y="121" font-size="14" fill="#0f172a">Python today (frozen, replaced)</text>
+  <rect x="1037" y="104" width="22" height="22" rx="4" fill="#fee2e2" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="1067" y="121" font-size="14" fill="#0f172a">Deleted after parity</text>
+  <text x="1330" y="121" font-size="14" font-weight="700" fill="#0f172a">Status:</text>
+  <rect x="1390" y="106" width="58" height="19" rx="9.5" fill="#16a34a"/><text x="1419.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <rect x="1454" y="106" width="76" height="19" rx="9.5" fill="#f59e0b"/><text x="1492.0" y="119.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN WORK</text>
+  <rect x="1536" y="106" width="66" height="19" rx="9.5" fill="#ea580c"/><text x="1569.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXING</text>
+  <rect x="1608" y="106" width="76" height="19" rx="9.5" fill="#94a3b8"/><text x="1646.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="40" y="163" font-size="14" font-weight="700" fill="#475569" letter-spacing="1.5">1 INPUT</text>
+  <text x="250" y="163" font-size="14" font-weight="700" fill="#475569" letter-spacing="1.5">2 COLLECT</text>
+  <text x="640" y="163" font-size="14" font-weight="700" fill="#475569" letter-spacing="1.5">3 FACTS · PROTOCOL 10</text>
+  <text x="890" y="163" font-size="14" font-weight="700" fill="#475569" letter-spacing="1.5">4 STORE · CORE V1</text>
+  <text x="1140" y="163" font-size="14" font-weight="700" fill="#475569" letter-spacing="1.5">5 MODEL AND DECIDE · CORE V2</text>
+  <text x="1490" y="163" font-size="14" font-weight="700" fill="#475569" letter-spacing="1.5">6 SHOW · PYTHON SHELL</text>
+  <rect x="232" y="176" width="1206" height="700" rx="16" fill="#f7fdf9" stroke="#047857" stroke-width="3"/>
+  <text x="250" y="198" font-size="13" font-weight="800" fill="#065f46">RUST CORE · one Cargo workspace native/ · declared in native/architecture-contract.json and checked by ArchKeel itself (WP-C) · rules AD-327</text>
+  <rect x="40" y="330" width="170" height="150" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2.2"/><text x="52" y="354" font-size="15" font-weight="700" fill="#0f172a">Source code</text><text x="52" y="373" font-size="12" fill="#334155">TypeScript and React</text><text x="52" y="389" font-size="12" fill="#334155">Python</text><text x="52" y="405" font-size="12" fill="#334155">Rust</text><text x="52" y="421" font-size="12" fill="#334155">Dart</text>
+  <line x1="210" y1="405" x2="248" y2="405" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <rect x="250" y="210" width="360" height="520" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2.5"/>
+  <text x="264" y="234" font-size="16" font-weight="700" fill="#9a3412">Collectors</text>
+  <text x="264" y="251" font-size="12" fill="#9a3412">one binary per language, in the platform wheels (AD-317)</text>
+  <rect x="264" y="262" width="332" height="170" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.6"/>
+  <text x="276" y="283" font-size="14" font-weight="700" fill="#0f172a">TypeScript collector</text>
+  <circle cx="281" cy="299" r="5" fill="#16a34a"/><text x="292" y="303" font-size="12" fill="#334155">discover, snapshot, wheels (#885, #888, #890)</text>
+  <circle cx="281" cy="317" r="5" fill="#16a34a"/><text x="292" y="321" font-size="12" fill="#334155">imports 4.2 (#893) · scope 4.3a-1 (#897)</text>
+  <circle cx="281" cy="335" r="5" fill="#16a34a"/><text x="292" y="339" font-size="12" fill="#334155">sites 4.3a-2 (#913)</text>
+  <circle cx="281" cy="353" r="5" fill="#f59e0b"/><text x="292" y="357" font-size="12" fill="#334155">records 3a #921 · 3b #922 · 3c #924 (reviewed)</text>
+  <circle cx="281" cy="371" r="5" fill="#ea580c"/><text x="292" y="375" font-size="12" fill="#334155">capability flip 3d #928 (0 rules toward PASS)</text>
+  <circle cx="281" cy="389" r="5" fill="#94a3b8"/><text x="292" y="393" font-size="12" fill="#334155">script 4.3a-4/5 · JSX, switch 4.4 · delete 4.5</text>
+  <circle cx="281" cy="407" r="5" fill="#94a3b8"/><text x="292" y="411" font-size="12" fill="#334155">then 4.3b resolver; encoder to protocol 10 once</text>
+  <rect x="264" y="442" width="332" height="64" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2"/><text x="276" y="466" font-size="14" font-weight="700" fill="#0f172a">Python collector (PR 5)</text><text x="276" y="485" font-size="12" fill="#334155">ruff_python_parser, slices 0a to 9 · golden G2 in work</text>
+  <rect x="264" y="514" width="332" height="64" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="2.2"/><text x="276" y="538" font-size="14" font-weight="700" fill="#0f172a">Rust collector (5b-1, #916)</text><text x="276" y="557" font-size="12" fill="#334155">syn · crate edges · sound by construction</text>
+  <rect x="264" y="586" width="332" height="64" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2"/><text x="276" y="610" font-size="14" font-weight="700" fill="#0f172a">Dart collector (PR 8)</text><text x="276" y="629" font-size="12" fill="#334155">vendored fork grammar · design done</text>
+  <rect x="264" y="660" width="110" height="58" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2"/><text x="276" y="684" font-size="13" font-weight="700" fill="#0f172a">snapshot</text><text x="276" y="703" font-size="12" fill="#334155">PR 5 slice 0a</text>
+  <rect x="380" y="660" width="104" height="58" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="2.2"/><text x="392" y="684" font-size="13" font-weight="700" fill="#0f172a">build-supp.</text><text x="392" y="703" font-size="12" fill="#334155">#916</text>
+  <rect x="490" y="660" width="106" height="58" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2"/><text x="502" y="684" font-size="13" font-weight="700" fill="#0f172a">dart-gram.</text><text x="502" y="703" font-size="12" fill="#334155">PR 8</text>
+  <rect x="440" y="442" width="148" height="19" rx="9.5" fill="#94a3b8"/><text x="514.0" y="455.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <rect x="440" y="505" width="148" height="19" rx="9.5" fill="#f59e0b"/><text x="514.0" y="518.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">OPEN PR · FINAL CI</text>
+  <rect x="440" y="586" width="148" height="19" rx="9.5" fill="#94a3b8"/><text x="514.0" y="599.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED · AFTER 0a</text>
+  <line x1="610" y1="360" x2="638" y2="360" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <rect x="640" y="210" width="226" height="300" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="2.2"/><text x="652" y="234" font-size="15" font-weight="700" fill="#0f172a">archkeel-facts</text><text x="652" y="251" font-size="12" fill="#475569">protocol 10 (WP3a)</text><text x="652" y="270" font-size="12" fill="#334155">serde-derived Rust types</text><text x="652" y="286" font-size="12" fill="#334155">kinds closed per version</text><text x="652" y="302" font-size="12" fill="#334155">(+ versioned extension)</text><text x="652" y="318" font-size="12" fill="#334155">newtype ids: a source id</text><text x="652" y="334" font-size="12" fill="#334155">is never a Target id</text><text x="652" y="350" font-size="12" fill="#334155">producer identity</text><text x="652" y="366" font-size="12" fill="#334155">(name, version, digest)</text><text x="652" y="382" font-size="12" fill="#334155">reason codes</text><text x="652" y="398" font-size="12" fill="#334155">schema generated, published,</text><text x="652" y="414" font-size="12" fill="#334155">never changed</text>
+  <rect x="652" y="484" width="200" height="19" rx="9.5" fill="#94a3b8"/><text x="752.0" y="497.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">WP3a · AFTER WP1, WP2</text>
+  <rect x="640" y="522" width="226" height="128" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2.2"/><text x="652" y="546" font-size="15" font-weight="700" fill="#0f172a">archkeel-wire, protocol 9</text><text x="652" y="563" font-size="12" fill="#475569">today (#876)</text><text x="652" y="582" font-size="12" fill="#334155">area, kind: free strings</text><text x="652" y="598" font-size="12" fill="#334155">data: Map&lt;String, Value&gt;</text><text x="652" y="614" font-size="12" fill="#334155">JSON built by hand</text><text x="652" y="630" font-size="12" fill="#334155">two hand-written type sets</text>
+  <rect x="640" y="660" width="226" height="70" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2"/><text x="652" y="684" font-size="14" font-weight="700" fill="#0f172a">WP3b</text><text x="652" y="703" font-size="12" fill="#334155">one collector process per</text><text x="652" y="719" font-size="12" fill="#334155">command, result cache</text>
+  <rect x="640" y="752" width="226" height="112" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2" stroke-dasharray="7 4"/><text x="652" y="776" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts</text><text x="652" y="795" font-size="12" fill="#334155">REST, queue, database,</text><text x="652" y="811" font-size="12" fill="#334155">external system; both sides</text><text x="652" y="827" font-size="12" fill="#334155">or UNKNOWN; after #860</text>
+  <line x1="866" y1="360" x2="888" y2="360" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <rect x="890" y="210" width="226" height="300" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="2.2"/><text x="902" y="234" font-size="15" font-weight="700" fill="#0f172a">archkeel-store</text><text x="902" y="251" font-size="12" fill="#475569">core v1 (WP4)</text><text x="902" y="270" font-size="12" fill="#334155">validate once:</text><text x="902" y="286" font-size="12" fill="#334155">ids, coverage, paths,</text><text x="902" y="302" font-size="12" fill="#334155">references, sections</text><text x="902" y="318" font-size="12" fill="#334155">against capabilities</text><text x="902" y="334" font-size="12" fill="#334155">(generic part of</text><text x="902" y="350" font-size="12" fill="#334155">facts_validation)</text><text x="902" y="366" font-size="12" fill="#334155">result cache</text><text x="902" y="382" font-size="12" fill="#334155">PASS only from a bundled</text><text x="902" y="398" font-size="12" fill="#334155">or pinned producer</text>
+  <rect x="902" y="484" width="200" height="19" rx="9.5" fill="#94a3b8"/><text x="1002.0" y="497.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">WP4 · SCOPE FROM WP2</text>
+  <rect x="890" y="522" width="226" height="208" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2.2"/><text x="902" y="546" font-size="15" font-weight="700" fill="#0f172a">Python today, frozen</text><text x="902" y="563" font-size="12" fill="#475569">deleted in WP4</text><text x="902" y="582" font-size="12" fill="#334155">ir/facts.py 1 357 lines</text><text x="902" y="598" font-size="12" fill="#334155">ir/facts_codec.py 1 743</text><text x="902" y="614" font-size="12" fill="#334155">ir/facts_validation.py 6 251</text><text x="902" y="630" font-size="12" fill="#334155">generic checks port,</text><text x="902" y="646" font-size="12" fill="#334155">Python proofs die (WP5)</text><text x="902" y="662" font-size="12" fill="#334155">#920 validate once: merged</text><text x="902" y="678" font-size="12" fill="#334155">#925 compute once: merged</text>
+  <rect x="890" y="752" width="226" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2.2"/><text x="902" y="776" font-size="14" font-weight="700" fill="#0f172a">WP1, WP2</text><text x="902" y="795" font-size="12" fill="#334155">concept inventory;</text><text x="902" y="811" font-size="12" fill="#334155">seam measurement:</text><text x="902" y="827" font-size="12" fill="#334155">JSON read-set, PyO3</text><text x="902" y="843" font-size="12" fill="#334155">or evaluation in core</text>
+  <rect x="1012" y="759" width="96" height="19" rx="9.5" fill="#f59e0b"/><text x="1060.0" y="772.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN WORK</text>
+  <line x1="1116" y1="300" x2="1138" y2="280" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="1116" y1="420" x2="1138" y2="436" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <rect x="1140" y="210" width="284" height="140" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2" stroke-dasharray="7 4"/><text x="1152" y="234" font-size="15" font-weight="700" fill="#0f172a">archkeel-model</text><text x="1152" y="251" font-size="12" fill="#475569">core v2 (WP6)</text><text x="1152" y="270" font-size="12" fill="#334155">contract vocabulary as Rust types</text><text x="1152" y="286" font-size="12" fill="#334155">matching logic and invariants</text><text x="1152" y="302" font-size="12" fill="#334155">ported by hand first,</text><text x="1152" y="318" font-size="12" fill="#334155">then Python types generated</text>
+  <rect x="1140" y="362" width="284" height="148" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2" stroke-dasharray="7 4"/><text x="1152" y="386" font-size="15" font-weight="700" fill="#0f172a">archkeel-eval</text><text x="1152" y="403" font-size="12" fill="#475569">core v2 (WP6)</text><text x="1152" y="422" font-size="12" fill="#334155">rule families move one by one</text><text x="1152" y="438" font-size="12" fill="#334155">(read-set order), each deletes</text><text x="1152" y="454" font-size="12" fill="#334155">its Python code; golden verdict</text><text x="1152" y="470" font-size="12" fill="#334155">maps · PASS · FAIL · UNKNOWN</text>
+  <line x1="1282" y1="350" x2="1282" y2="360" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <rect x="1140" y="522" width="284" height="208" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2.2"/><text x="1152" y="546" font-size="15" font-weight="700" fill="#0f172a">Python today: model and check</text><text x="1152" y="565" font-size="12" fill="#334155">ir/model.py 2 042 lines</text><text x="1152" y="581" font-size="12" fill="#334155">check/ 28 878 lines</text><text x="1152" y="597" font-size="12" fill="#334155">stays until each family moves</text><text x="1152" y="613" font-size="12" fill="#334155">IR S1 to S3 merged (#884 #894 #898)</text><text x="1152" y="629" font-size="12" fill="#334155">S4 splits merged (#906 #912)</text><text x="1152" y="645" font-size="12" fill="#334155">S4 to S6 stopped (owner)</text><text x="1152" y="661" font-size="12" fill="#334155">a candidate never gives PASS</text>
+  <rect x="1140" y="752" width="284" height="112" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2.2"/><text x="1152" y="776" font-size="14" font-weight="700" fill="#0f172a">Gates before PASS ships</text><text x="1152" y="795" font-size="12" fill="#334155">4.4 switch: probes + owner +</text><text x="1152" y="811" font-size="12" fill="#334155">host peak not above Python;</text><text x="1152" y="827" font-size="12" fill="#334155">probe suite in Full (WP0)</text>
+  <rect x="1446" y="210" width="30" height="520" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2" stroke-dasharray="7 4"/>
+  <text transform="translate(1466,700) rotate(-90)" font-size="13" font-weight="800" fill="#5b21b6">ONE SEAM · types defined once in Rust · WP2 decides the form</text>
+  <line x1="1424" y1="436" x2="1444" y2="436" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="1424" y1="280" x2="1444" y2="280" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="1476" y1="255" x2="1488" y2="255" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="1476" y1="357" x2="1488" y2="357" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="1476" y1="464" x2="1488" y2="464" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <rect x="1490" y="210" width="280" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/><text x="1502" y="234" font-size="15" font-weight="700" fill="#0f172a">Studio</text><text x="1502" y="253" font-size="12" fill="#334155">server and UI</text><text x="1502" y="269" font-size="12" fill="#334155">unchanged</text>
+  <rect x="1490" y="312" width="280" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/><text x="1502" y="336" font-size="15" font-weight="700" fill="#0f172a">CLI, MCP, agents</text><text x="1502" y="355" font-size="12" fill="#334155">unchanged</text>
+  <rect x="1490" y="414" width="280" height="100" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/><text x="1502" y="438" font-size="15" font-weight="700" fill="#0f172a">Static report (PR 7)</text><text x="1502" y="457" font-size="12" fill="#334155">small HTML replaces</text><text x="1502" y="473" font-size="12" fill="#334155">the interactive JS report</text>
+  <rect x="1648" y="420" width="114" height="19" rx="9.5" fill="#94a3b8"/><text x="1705.0" y="433.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR 7 · PLANNED</text>
+  <rect x="1490" y="524" width="280" height="68" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2.2"/><text x="1502" y="548" font-size="14" font-weight="700" fill="#0f172a">views, render</text><text x="1502" y="567" font-size="12" fill="#334155">read the seam only</text>
+  <rect x="1490" y="606" width="280" height="200" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+  <rect x="1520" y="598" width="220" height="19" rx="9.5" fill="#16a34a"/><text x="1630.0" y="611.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">43 PRs MERGED INTO MAIN</text>
+  <text x="1502" y="630" font-size="12" font-weight="700" fill="#14532d">#881 to #892 rules, V9, skeleton, wheels</text>
+  <text x="1502" y="647" font-size="12"  fill="#14532d">#884 #894 #898 #900 #906 #912 IR</text>
+  <text x="1502" y="664" font-size="12"  fill="#14532d">#891 #899 #902 host -58 % peak</text>
+  <text x="1502" y="681" font-size="12"  fill="#14532d">#893 4.2 · #897 4.3a-1 · #913 4.3a-2</text>
+  <text x="1502" y="698" font-size="12"  fill="#14532d">#895 #896 #901 #903 #904 #905</text>
+  <text x="1502" y="715" font-size="12"  fill="#14532d">#907 #908 #909 #910 #911 #912</text>
+  <text x="1502" y="732" font-size="12"  fill="#14532d">#914 Dart fix · #915 diagnostics</text>
+  <text x="1502" y="749" font-size="12"  fill="#14532d">#917 timing · #919 CI budget</text>
+  <text x="1502" y="766" font-size="12"  fill="#14532d">#920 #925 repeats · #923 golden</text>
+  <text x="1502" y="783" font-size="12"  fill="#14532d">#926 Full fix · #927 Language ==</text>
+  <rect x="1490" y="816" width="280" height="60" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2.2"/><text x="1502" y="840" font-size="13" font-weight="700" fill="#0f172a">Host peak (2.7 to 2.9 GiB on x35)</text><text x="1502" y="859" font-size="12" fill="#334155">full-reply decode -> the seam (WP2)</text>
+  <rect x="40" y="600" width="170" height="110" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2" stroke-dasharray="7 4"/><text x="52" y="624" font-size="14" font-weight="700" fill="#0f172a">External collector</text><text x="52" y="643" font-size="12" fill="#334155">collector_argv</text><text x="52" y="659" font-size="12" fill="#334155">reaches the store,</text><text x="52" y="675" font-size="12" fill="#334155">gives at most UNKNOWN</text>
+  <path d="M210,655 H226 V742 H1000" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arr)"/>
+  <text x="640" y="739" font-size="11" fill="#334155">external producer: at most UNKNOWN (owner decision 1)</text>
+  <rect x="250" y="888" width="360" height="82" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2.2" stroke-dasharray="7 4"/><text x="262" y="912" font-size="14" font-weight="700" fill="#0f172a">Python collectors (TS, Python, Dart)</text><text x="262" y="931" font-size="12" fill="#334155">deleted after golden parity: 4.5, PR 5, PR 8</text><text x="262" y="947" font-size="12" fill="#334155">golden replies: #923 (TS), G2 (Python)</text>
+  <rect x="40" y="770" width="180" height="160" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="2.5" stroke-dasharray="8 4"/>
+  <text x="52" y="792" font-size="13.5" font-weight="700" fill="#7f1d1d">Engineering process</text>
+  <text x="52" y="812" font-size="11.5"  fill="#7f1d1d">not a component:</text>
+  <text x="52" y="828" font-size="11.5"  fill="#7f1d1d">CI time, numbers,</text>
+  <text x="52" y="844" font-size="11.5"  fill="#7f1d1d">timing tests, merge rule</text>
+  <text x="52" y="860" font-size="11.5" font-weight="700" fill="#7f1d1d">Red: open · green: fixed</text>
+  <text x="52" y="876" font-size="11.5" font-weight="700" fill="#7f1d1d">violations: see table</text>
+  <rect x="640" y="888" width="780" height="82" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2.2"/><text x="652" y="912" font-size="14" font-weight="700" fill="#0f172a">Stops (owner 2026-11-09)</text><text x="652" y="931" font-size="12" fill="#334155">Python IR steps S4 to S6, host levers P2 and P5, any Python validation rework.</text><text x="652" y="947" font-size="12" fill="#334155">The 19 bottom ir modules are frozen in behaviour (golden replies); bug fixes stay allowed.</text>
+  <rect x="40" y="980" width="1730" height="56" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="56" y="1003" font-size="16" font-weight="700" fill="#0f172a">Git (reviewed, unchanged): architecture contract, nested contracts, Target model, system landscape (#860)</text>
+  <text x="56" y="1024" font-size="12.5" fill="#475569">Greenfield works without source code, without a collector and without a daemon. Rules and Target identity do not depend on the collector.</text>
+  <line x1="1630" y1="980" x2="1630" y2="878" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <line x1="1282" y1="980" x2="1282" y2="868" stroke="#334155" stroke-width="2.2" marker-end="url(#arr)"/>
+  <circle cx="584" cy="560" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="584" y="564" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
+  <circle cx="556" cy="560" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="556" y="564" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
+  <circle cx="1100" cy="224" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1100" y="228" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
+  <circle cx="584" cy="624" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="584" y="628" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
+  <circle cx="1408" cy="536" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="1408" y="540" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
+  <circle cx="1754" cy="326" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="1754" y="330" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
+  <circle cx="850" cy="224" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="850" y="228" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">5</text>
+  <circle cx="1100" cy="536" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1100" y="540" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
+  <circle cx="1408" cy="560" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="1408" y="564" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
+  <circle cx="64" cy="908" r="12" fill="#b91c1c" stroke="#ffffff" stroke-width="2.5"/><text x="64" y="912" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
+  <circle cx="94" cy="908" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="94" y="912" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
+  <circle cx="124" cy="908" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="124" y="912" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
+  <circle cx="154" cy="908" r="12" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/><text x="154" y="912" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">10</text>
   <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker></defs>
   <text x="40" y="1070" font-size="22" font-weight="700" fill="#0f172a">Target v2: a Rust core with one type model (owner decision 2026-11-09, reviewed by Fable and Fable 5.2)</text>
   <rect x="40" y="1088" width="600" height="700" rx="12" fill="#f8fafc" stroke="#cbd5e1"/>
@@ -436,13 +314,13 @@
   <rect x="772" y="3076" width="84" height="19" rx="9.5" fill="#16a34a"/><text x="814.0" y="3089.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FIXED</text>
   <text x="870" y="3090" font-size="12.5" fill="#334155">Fixed by #926 (it also found a real bug: language compared with is). New rule: a PR that changes an output gets one Full run.</text>
   <text x="60" y="3134" font-size="14" font-weight="700" fill="#7f1d1d">Where each violation sits:</text>
-  <text x="60" y="3156" font-size="12.5" fill="#7f1d1d">1 Rust step 4 (scan.rs), evidence (Rust capability set, ir/profiles.py), check: PASS</text>
-  <text x="920" y="3156" font-size="12.5" fill="#7f1d1d">2 Rust steps 1 and 2 (module tree, symlinks, syn recursion)</text>
+  <text x="60" y="3156" font-size="12.5" fill="#7f1d1d">1 Rust collector (scan.rs) and the store (capability set of a language)</text>
+  <text x="920" y="3156" font-size="12.5" fill="#7f1d1d">2 Rust collector (module tree, symlinks, syn recursion)</text>
   <text x="60" y="3174" font-size="12.5" fill="#7f1d1d">3 Dart collector</text>
-  <text x="920" y="3174" font-size="12.5" fill="#7f1d1d">4 Rust step 5 and wire: gaps carry no reason code; check maps the kind; CLI and MCP show it</text>
-  <text x="60" y="3192" font-size="12.5" fill="#7f1d1d">5 wire readers: published result schema</text>
+  <text x="920" y="3174" font-size="12.5" fill="#7f1d1d">4 check today (kind mapping), CLI and MCP (message); reason codes come with protocol 10</text>
+  <text x="60" y="3192" font-size="12.5" fill="#7f1d1d">5 facts: published result schema</text>
   <text x="920" y="3192" font-size="12.5" fill="#7f1d1d">6, 8, 9, 10 engineering process: CI time, numbers, timing tests, merge rule</text>
-  <text x="60" y="3210" font-size="12.5" fill="#7f1d1d">7 old Python collector (survey twice), evidence (facts 3x, excerpts), architecture (inventory 10x), report (built 2x)</text>
+  <text x="60" y="3210" font-size="12.5" fill="#7f1d1d">7 Python today: store (facts 3x, excerpts) and model/check (inventory 10x, report 2x)</text>
   <rect x="40" y="3238" width="1730" height="176" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
   <text x="60" y="3266" font-size="16" font-weight="700" fill="#78350f">What this means for the goal and the plan</text>
   <text x="60" y="3292" font-size="13" fill="#78350f">The goal does not change: native collectors, a bounded host and a simple IR. The order does not change. Dates slip by about one fix round per collector PR.</text>
