@@ -19,6 +19,7 @@ from typing import Any
 import golden_record
 import golden_replies
 import pytest
+
 from archkeel.analyzer.python import collect, constructs
 from archkeel.ir.facts import (
     BASE_RESOLUTION_FEATURES,
@@ -31,10 +32,11 @@ ROOT = Path(__file__).parents[1]
 ANALYZER = ROOT / "src/archkeel/analyzer/python"
 CASES = list(golden_record.cases("python"))
 # Fixtures with a Python scan that no case freezes, with the reason.
+_STUB = "a policy fixture with one stub file: it adds no collector coverage"
 NOT_RECORDED = {
     "E-runtime": "its sample uses PEP 695 syntax: the reply depends on the minor version",
-    "planned-component": "a policy fixture with one stub file: it adds no collector coverage",
-    "planned-component-policy": "a policy fixture with one stub file: it adds no collector coverage",
+    "planned-component": _STUB,
+    "planned-component-policy": _STUB,
 }
 # Kinds that the collector can emit and that no repository file can freeze, with the reason.
 UNREACHABLE = {
