@@ -93,6 +93,7 @@ from .protocol import (
     TypeScriptSettings,
     since,
 )
+from .reference_context import source_reference_context as source_reference_context
 from .scope_wire import EXCLUDE_TEST_SOURCES, scope_fields, scope_payload
 from .source_records import (
     RawData as RawData,
@@ -131,7 +132,6 @@ from .type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
-from .reference_context import source_reference_context as source_reference_context
 from .validated_facts import validate_decoded_facts
 
 validate_source_role_identities = _validate_source_role_identities
