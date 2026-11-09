@@ -5,11 +5,7 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-import re
-from collections import Counter
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import (
@@ -36,13 +32,10 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.coverage import observation_complete
 from archkeel.ir.facts import (
-    SOURCE_RESOLUTION_GAP_KIND,
     SOURCE_SCRIPT_GLOBAL_KIND,
     InventoryStatus,
     MemberKind,
     MethodKind,
-    ResolutionInput,
-    ResolutionRole,
     SourceResolution,
     SourceSectionName,
     SymbolClassKind,
@@ -51,339 +44,22 @@ from archkeel.ir.facts import (
     parse_source_resolution,
     parse_symbol_class_kind,
 )
-from archkeel.ir.facts import RuntimeRequirementState as _RuntimeRequirementState
+from archkeel.ir.member_inventory import validated_member_inventory_proof
 from archkeel.ir.model import (
-    TARGET_GRAPH_RECORD_KINDS,
-    EvidenceClass,
     JsonValue,
     Observation,
-    RawJson,
     Record,
     RecordData,
-    Verdict,
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, UnmeasurableScalar, profile_for
+from archkeel.ir.source_values import optional_text, record_array, text_array, vocabulary_text
 
 _CLASSIFIER_RELATIONSHIPS = (
     RelationshipKind.INHERITS,
     RelationshipKind.REALIZES,
     RelationshipKind.MIXES_IN,
 )
-MEMBER_INVENTORY_PROOF = "member_inventory_proof"
-_INVENTORY_SOURCE_SECTIONS = (
-    "modules",
-    "packages",
-    "symbols",
-    "imports",
-    "references",
-    "calls",
-    "bindings",
-    "typing_signals",
-    "constructs",
-)
-
-
-def _inventory_digest(value: RawJson) -> str:
-    payload: str = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
-def _inventory_binding(model: Observation) -> str:
-    return _inventory_digest(
-        {
-            "analyzer": asdict(model.analyzer),
-            "producer": asdict(model.producer) if model.producer else None,
-            "source": asdict(model.source),
-            "contract": asdict(model.contract),
-            "runtime": asdict(model.runtime) if model.runtime else None,
-            "coverage": asdict(model.coverage),
-            "evidence": [asdict(e) for e in model.evidence],
-            "declarations": [
-                asdict(r)
-                for r in model.records("declarations") or ()
-                if r.kind not in TARGET_GRAPH_RECORD_KINDS
-            ],
-            "sections": {
-                name: [asdict(r) for r in model.records(name) or ()]
-                for name in _INVENTORY_SOURCE_SECTIONS
-            },
-        }
-    )
-
-
-def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...]) -> set[str]:
-    if model.analyzer.name not in {"archkeel-dart-analyzer", "archkeel-typescript-imports"}:
-        return set()
-    runtime = model.runtime
-    version: str = runtime.version if runtime is not None else ""
-    if (
-        runtime is None
-        or runtime.name != "python"
-        or runtime.required != ">=3.11"
-        or runtime.requirement_state != _RuntimeRequirementState.DECLARED
-        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None
-        or tuple(int(v) for v in version.split(".")) < (3, 11, 0)
-    ):
-        return set()
-    if model.producer is None or model.producer.name != model.analyzer.name:
-        return set()
-    if any(
-        re.fullmatch(r"[0-9a-f]{64}", value) is None
-        for value in (
-            model.analyzer.code_digest,
-            model.producer.code_digest,
-            model.contract.digest,
-            model.source.source_digest,
-        )
-    ):
-        return set()
-    rows: list[dict[str, str]] = []
-    for item in inputs:
-        path, digest, role = item.get("path"), item.get("digest"), item.get("role")
-        relative: PurePosixPath = PurePosixPath(str(path))
-        if (
-            set(dict(item.entries)) != {"path", "digest", "role"}
-            or not isinstance(path, str)
-            or not path
-            or path[:1] == "/"
-            or ".." in relative.parts
-            or "\\" in path
-            or ":" in path
-            or not isinstance(digest, str)
-            or re.fullmatch(r"[0-9a-f]{64}", digest) is None
-            or not isinstance(role, str)
-            or role not in {"selected", "resolution"}
-        ):
-            return set()
-        rows.append({"path": path, "digest": digest, "role": role})
-    if len({row["path"] for row in rows}) != len(rows):
-        return set()
-    listing: str = (
-        "".join(json.dumps(row, separators=(",", ":"), ensure_ascii=False) for row in rows)
-        if model.analyzer.name == "archkeel-dart-analyzer"
-        else json.dumps(rows, separators=(",", ":"), ensure_ascii=False)
-    )
-    selected = {row["path"] for row in rows if row["role"] == "selected"}
-    coverage = model.coverage
-    if (
-        hashlib.sha256(listing.encode()).hexdigest() != model.source.source_digest
-        or not selected
-        or coverage.status != Verdict.FAIL
-        or coverage.rules != Verdict.PASS
-        or not coverage.failures
-        or coverage.files_discovered != len(selected)
-        or coverage.files_read != len(selected)
-        or coverage.files_parsed != len(selected)
-    ):
-        return set()
-    return selected
-
-
-def _inventory_libraries(model: Observation, selected: set[str]) -> dict[str, set[str]]:
-    libraries: dict[str, set[str]] = {}
-    for module_record in model.records("modules") or ():
-        name, path = module_record.data.get("qualified_name"), module_record.data.get("file")
-        if not isinstance(name, str) or not isinstance(path, str) or path not in selected:
-            return {}
-        if name in libraries:
-            return {}
-        libraries[name] = {path}
-    evidence = {e.id: e for e in model.evidence}
-    for record in model.records("symbols") or ():
-        module = record.data.get("module")
-        if not isinstance(module, str) or module not in libraries or not record.evidence_ids:
-            return {}
-        paths = {evidence[key].file for key in record.evidence_ids if key in evidence}
-        if len(paths) != 1 or not paths <= selected:
-            return {}
-        libraries[module] |= paths
-    return libraries
-
-
-def _inventory_gap_files(
-    model: Observation, selected: set[str], libraries: dict[str, set[str]]
-) -> set[str] | None:
-    evidence = {e.id: e for e in model.evidence}
-    paths: set[str] = set()
-    for gap in model.coverage.failures:
-        keys = set(dict(gap.data.entries))
-        if (
-            gap.kind != SOURCE_RESOLUTION_GAP_KIND
-            or gap.evidence_class != EvidenceClass.UNKNOWN
-            or gap.area not in {"source", "analysis_coverage"}
-            or not gap.evidence_ids
-            or gap.rule_ids
-            or keys
-            - {
-                "file",
-                "line",
-                "message",
-                "module",
-                "source_module",
-                "reason",
-                "resolution_dimension",
-            }
-        ):
-            return None
-        sites = [evidence.get(key) for key in gap.evidence_ids]
-        if any(e is None or e.file not in selected or e.line <= 0 or not e.excerpt for e in sites):
-            return None
-        files = {e.file for e in sites if e is not None}
-        modules = {name for name, owned in libraries.items() if files <= owned}
-        if len(modules) != 1:
-            return None
-        file = gap.data.get("file")
-        module, source_module = gap.data.get("module"), gap.data.get("source_module")
-        reasons = [gap.data.get(key) for key in ("reason", "message") if key in keys]
-        if not reasons:
-            return None
-        for value in reasons:
-            if not isinstance(value, str):
-                return None
-            reason: str = value
-            if not reason.strip():
-                return None
-        if file is None and module is None and source_module is None:
-            return None
-        if file is not None and (
-            file not in files
-            or type(gap.data.get("line")) is not int
-            or gap.data.get("line") not in {e.line for e in sites if e}
-        ):
-            return None
-        if any(value is not None and value not in modules for value in (module, source_module)):
-            return None
-        allowed_subjects = modules | {
-            f"{e.file}:{e.line}" for e in sites if e is not None and e.file == file
-        }
-        if not gap.subjects or not set(gap.subjects) <= allowed_subjects:
-            return None
-        if gap.data.get("resolution_dimension") not in {None, "imports", "signature"}:
-            return None
-        paths.update(files)
-    return paths
-
-
-def _inventory_owners(model: Observation, selected: set[str]) -> tuple[str, ...]:
-    libraries = _inventory_libraries(model, selected)
-    gaps = _inventory_gap_files(model, selected, libraries)
-    if not libraries or gaps is None:
-        return ()
-    symbols = model.records("symbols") or ()
-    names = Counter(item.data.get("qualified_name") for item in symbols)
-    return tuple(
-        sorted(
-            item.id
-            for item in symbols
-            if item.kind == "class"
-            and not item.data.get("definition_contexts")
-            and names[item.data.get("qualified_name")] == 1
-            and isinstance((module := item.data.get("module")), str)
-            and module in libraries
-            and not libraries[module] & gaps
-            and any(
-                inv.status == InventoryStatus.COMPLETE
-                for inv in member_inventories(item.data.get("member_inventories"))
-            )
-        )
-    )
-
-
-def member_inventory_proof(
-    model: Observation, inputs: tuple[ResolutionInput, ...]
-) -> Record | None:
-    """Bind complete native direct inventories to one eligible collected snapshot."""
-    rows = tuple(
-        RecordData((("digest", item.digest), ("path", item.path), ("role", item.role)))
-        for item in inputs
-    )
-    selected = _inventory_selected_inputs(model, rows)
-    owners = _inventory_owners(model, selected) if selected else ()
-    if not owners:
-        return None
-    binding = _inventory_binding(model)
-    evidence = tuple(
-        sorted(
-            {
-                e
-                for item in model.records("symbols") or ()
-                if item.id in owners
-                for e in item.evidence_ids
-            }
-        )
-    )
-    return Record(
-        stable_id("MEMBER-INVENTORY", binding),
-        EvidenceClass.FACT,
-        "source",
-        MEMBER_INVENTORY_PROOF,
-        "Direct native member inventories have complete local source",
-        (),
-        evidence,
-        (),
-        owners,
-        (),
-        RecordData((("binding", binding), ("inputs", rows), ("schema_version", "1.0.0"))),
-    )
-
-
-def validated_member_inventory_proof(model: Observation) -> Record | None:
-    """Replay the bound local source proof; absent or changed evidence stays unknown."""
-    proofs = [
-        r for r in model.records("scope_observations") or () if r.kind == MEMBER_INVENTORY_PROOF
-    ]
-    if len(proofs) != 1:
-        return None
-    proof = proofs[0]
-    try:
-        rows = _records(proof.data.get("inputs"))
-        selected = _inventory_selected_inputs(model, rows)
-        expected = (
-            member_inventory_proof(
-                model,
-                tuple(
-                    ResolutionInput(
-                        str(row.get("path")),
-                        str(row.get("digest")),
-                        ResolutionRole(_vocabulary_text(row.get("role"))),
-                    )
-                    for row in rows
-                ),
-            )
-            if selected
-            else None
-        )
-        return proof if proof == expected else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _text(value: JsonValue) -> str | None:
-    if value is None or isinstance(value, str):
-        return value
-    raise ValueError("source graph expected text")
-
-
-def _vocabulary_text(value: JsonValue, *, default: str = "") -> str:
-    text = _text(value)
-    return default if text is None else text
-
-
-def _texts(value: JsonValue) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if not isinstance(value, tuple) or any(not isinstance(item, str) for item in value):
-        raise ValueError("source graph expected text array")
-    return tuple(item for item in value if isinstance(item, str))
-
-
-def _records(value: JsonValue) -> tuple[RecordData, ...]:
-    if value is None:
-        return ()
-    if not isinstance(value, tuple) or any(not isinstance(item, RecordData) for item in value):
-        raise ValueError("source graph expected record array")
-    return tuple(item for item in value if isinstance(item, RecordData))
 
 
 def _visibility(value: JsonValue, spelling: str | None = None) -> Visibility:
@@ -392,37 +68,37 @@ def _visibility(value: JsonValue, spelling: str | None = None) -> Visibility:
     if not isinstance(value, RecordData):
         raise ValueError("source graph expected visibility record")
     return Visibility(
-        VisibilityKind(_vocabulary_text(value.get("kind"), default=VisibilityKind.UNKNOWN)),
-        VisibilityBasis(_vocabulary_text(value.get("basis"), default=VisibilityBasis.UNKNOWN)),
-        _text(value.get("spelling")),
+        VisibilityKind(vocabulary_text(value.get("kind"), default=VisibilityKind.UNKNOWN)),
+        VisibilityBasis(vocabulary_text(value.get("basis"), default=VisibilityBasis.UNKNOWN)),
+        optional_text(value.get("spelling")),
     )
 
 
 def _signature(data: RecordData) -> Signature:
     parameters: list[Parameter] = []
-    for item in _records(data.get("parameters")):
-        name: str = _text(item.get("name")) or ""
+    for item in record_array(data.get("parameters")):
+        name: str = optional_text(item.get("name")) or ""
         if not name:
             raise ValueError("source parameter needs a name")
-        kind = ParameterKind(_vocabulary_text(item.get("kind"), default=ParameterKind.UNKNOWN))
+        kind = ParameterKind(vocabulary_text(item.get("kind"), default=ParameterKind.UNKNOWN))
         known = item.get("default_known")
         if known is not None and not isinstance(known, bool):
             raise ValueError("source default_known must be boolean")
         parameters.append(
             Parameter(
                 name.lstrip("*") if kind in {ParameterKind.VARARGS, ParameterKind.KWARGS} else name,
-                _text(item.get("annotation")),
+                optional_text(item.get("annotation")),
                 kind,
-                _text(item.get("default")),
+                optional_text(item.get("default")),
                 known is True,
             )
         )
-    return Signature(tuple(parameters), _text(data.get("returns")))
+    return Signature(tuple(parameters), optional_text(data.get("returns")))
 
 
 def _definition_contexts(value: JsonValue) -> tuple[DefinitionContext, ...]:
     result: list[DefinitionContext] = []
-    for context in _records(value):
+    for context in record_array(value):
         kind = context.get("kind")
         branch = context.get("branch")
         if (
@@ -433,9 +109,9 @@ def _definition_contexts(value: JsonValue) -> tuple[DefinitionContext, ...]:
             raise ValueError("source definition context fields mismatch")
         result.append(
             DefinitionContext(
-                DefinitionContextKind(_vocabulary_text(kind, default=DefinitionContextKind.IF)),
-                DefinitionBranchKind(_vocabulary_text(branch, default=DefinitionBranchKind.BODY)),
-                _texts(context.get("evidence_ids")),
+                DefinitionContextKind(vocabulary_text(kind, default=DefinitionContextKind.IF)),
+                DefinitionBranchKind(vocabulary_text(branch, default=DefinitionBranchKind.BODY)),
+                text_array(context.get("evidence_ids")),
             )
         )
     return tuple(result)
@@ -460,13 +136,13 @@ def _classifier_kind(value: JsonValue) -> EntityKind | None:
 
 def _symbol(record: Record, language: str) -> Entity:
     data = record.data
-    category = _text(data.get("symbol_category", record.kind))
+    category = optional_text(data.get("symbol_category", record.kind))
     aliases = {"static_constant": EntityKind.CONSTANT, "dynamic_binding": EntityKind.BINDING}
     kind = aliases.get(category or "")
     if kind is None:
-        kind = EntityKind(_vocabulary_text(category, default=EntityKind.SYMBOL))
+        kind = EntityKind(vocabulary_text(category, default=EntityKind.SYMBOL))
     if kind is EntityKind.CLASS:
-        kind = _classifier_kind(_text(data.get("class_kind"))) or kind
+        kind = _classifier_kind(optional_text(data.get("class_kind"))) or kind
     modifiers: list[ModifierKind] = []
     if data.get("mixin_capable") is True:
         modifiers.append(ModifierKind.MIXIN)
@@ -481,46 +157,46 @@ def _symbol(record: Record, language: str) -> Entity:
     return Entity(
         record.id,
         kind,
-        _text(data.get("qualified_name")) or "",
+        optional_text(data.get("qualified_name")) or "",
         language,
-        visibility=_visibility(data.get("visibility_detail"), _text(data.get("name"))),
+        visibility=_visibility(data.get("visibility_detail"), optional_text(data.get("name"))),
         signature=(
             _signature(data)
             if kind in {EntityKind.METHOD, EntityKind.FUNCTION}
             and data.get("signature_complete") is not False
             else None
         ),
-        annotation=_text(data.get("annotation")),
+        annotation=optional_text(data.get("annotation")),
         modifiers=tuple(modifiers),
         presence=PresenceKind.DEFINED,
         evidence_ids=record.evidence_ids,
         record_ids=(record.id,),
         definition_contexts=_definition_contexts(data.get("definition_contexts")),
-        initializer=_text(data.get("initializer")) if kind == EntityKind.BINDING else None,
+        initializer=optional_text(data.get("initializer")) if kind == EntityKind.BINDING else None,
     )
 
 
 def _attribute_entities(item: Record, entity: Entity, language: str) -> list[Entity]:
     fields = item.data.get("attribute_declarations", item.data.get("fields"))
-    literals = _texts(item.data.get("enum_members")) if entity.kind == EntityKind.ENUM else ()
+    literals = text_array(item.data.get("enum_members")) if entity.kind == EntityKind.ENUM else ()
     result: list[Entity] = []
-    for field in _records(fields):
-        name = _text(field.get("name")) or ""
+    for field in record_array(fields):
+        name = optional_text(field.get("name")) or ""
         static = field.get("static")
         if static is not None and not isinstance(static, bool):
             raise ValueError("attribute static modifier must be boolean")
         result.append(
             Entity(
-                _text(field.get("definition_id")) or stable_id("ATTR", item.id, name),
+                optional_text(field.get("definition_id")) or stable_id("ATTR", item.id, name),
                 EntityKind.ENUM_LITERAL if name in literals else EntityKind.ATTRIBUTE,
                 f"{entity.qualified_name}.{name}",
                 language,
                 parent_id=item.id,
                 visibility=_visibility(field.get("visibility")),
-                annotation=_text(field.get("annotation")),
+                annotation=optional_text(field.get("annotation")),
                 modifiers=(ModifierKind.STATIC,) if static is True and name not in literals else (),
                 presence=PresenceKind.DEFINED,
-                evidence_ids=_texts(field.get("evidence_ids")) or item.evidence_ids,
+                evidence_ids=text_array(field.get("evidence_ids")) or item.evidence_ids,
                 record_ids=(item.id,),
                 definition_contexts=entity.definition_contexts,
             )
@@ -532,13 +208,13 @@ def _source_entities(observation: Observation, language: str) -> list[Entity]:
     modules = observation.records("modules") or ()
     records = {item.id: item for item in modules}
     packages = observation.records("packages") or ()
-    package_ids = {_text(item.data.get("qualified_name")): item.id for item in packages}
-    module_ids = {_text(item.data.get("qualified_name")): item.id for item in modules}
+    package_ids = {optional_text(item.data.get("qualified_name")): item.id for item in packages}
+    module_ids = {optional_text(item.data.get("qualified_name")): item.id for item in modules}
     entities = [
         Entity(
             item.id,
             EntityKind.PACKAGE,
-            _text(item.data.get("qualified_name")) or "",
+            optional_text(item.data.get("qualified_name")) or "",
             language,
             presence=PresenceKind.DEFINED,
             evidence_ids=tuple(
@@ -553,10 +229,10 @@ def _source_entities(observation: Observation, language: str) -> list[Entity]:
         for item in packages
     ]
     for item in modules:
-        module_name: str = _text(item.data.get("qualified_name")) or ""
+        module_name: str = optional_text(item.data.get("qualified_name")) or ""
         module_parent = (
             module_name
-            if PurePosixPath(_text(item.data.get("file")) or "").name == "__init__.py"
+            if PurePosixPath(optional_text(item.data.get("file")) or "").name == "__init__.py"
             else module_name.rpartition(".")[0]
         )
         entities.append(
@@ -569,23 +245,25 @@ def _source_entities(observation: Observation, language: str) -> list[Entity]:
                 presence=PresenceKind.DEFINED,
                 evidence_ids=item.evidence_ids,
                 record_ids=(item.id,),
-                file_path=_text(item.data.get("file")),
+                file_path=optional_text(item.data.get("file")),
             )
         )
     symbols = observation.records("symbols") or ()
     symbol_ids: dict[str, list[str]] = {}
     for item in symbols:
-        name = _text(item.data.get("qualified_name")) or ""
+        name = optional_text(item.data.get("qualified_name")) or ""
         definitions: list[str] = symbol_ids.setdefault(name, [])
         definitions.append(item.id)
     for item in symbols:
         entity = _symbol(item, language)
-        parents = symbol_ids.get(_text(item.data.get("parent")) or "", [])
-        parent = _text(item.data.get("lexical_parent_id"))
+        parents = symbol_ids.get(optional_text(item.data.get("parent")) or "", [])
+        parent = optional_text(item.data.get("lexical_parent_id"))
         if parent is None:
             if len(parents) > 1:
                 raise ValueError("ambiguous lexical parent needs a definition-site identity")
-            parent = parents[0] if parents else module_ids.get(_text(item.data.get("module")))
+            parent = (
+                parents[0] if parents else module_ids.get(optional_text(item.data.get("module")))
+            )
         entities.append(replace(entity, parent_id=parent))
         entities.extend(_attribute_entities(item, entity, language))
     return entities
@@ -612,7 +290,7 @@ def _site_relationship(
     count = record.data.get("candidate_count")
     if count is not None and (not isinstance(count, int) or isinstance(count, bool)):
         raise ValueError("source candidate_count must be integer")
-    if count is not None and count < len(_texts(record.data.get("targets"))):
+    if count is not None and count < len(text_array(record.data.get("targets"))):
         raise ValueError("source candidate count is smaller than its listed targets")
     truncated = record.data.get("candidates_truncated")
     if truncated is not None and not isinstance(truncated, bool):
@@ -630,13 +308,13 @@ def _site_relationship(
         if status != ResolutionKind.UNRESOLVED
         else ResolutionKind.UNRESOLVED,
         candidate_ids=() if resolved else targets,
-        expression=_text(record.data.get("expression")),
+        expression=optional_text(record.data.get("expression")),
         evidence_ids=record.evidence_ids,
         record_ids=(record.id,),
         # The source count names qualified targets, not their definition sites.
         candidate_count=None if truncated is True or count is None else len(targets),
         candidates_truncated=truncated is True,
-        reason=_text(record.data.get("reason")),
+        reason=optional_text(record.data.get("reason")),
     )
 
 
@@ -671,7 +349,7 @@ def _source_endpoint(
     entities: list[Entity],
     language: str,
 ) -> tuple[str, ...]:
-    identity = _text(record.data.get("source_definition_id"))
+    identity = optional_text(record.data.get("source_definition_id"))
     if identity:
         if not any(entity.id == identity for entity in by_name.get(name, [])):
             raise ValueError("source definition does not match its recorded scope")
@@ -746,12 +424,12 @@ def _result_binding_identity(site: RecordData) -> tuple[str, str, str, str]:
         "initializer",
         "evidence_ids",
         "definition_contexts",
-    } or not _texts(site.get("evidence_ids")):
+    } or not text_array(site.get("evidence_ids")):
         raise ValueError("static result binding fields or evidence mismatch")
-    identity = _text(site.get("id")) or ""
-    name = _text(site.get("name")) or ""
-    initializer = _text(site.get("initializer")) or ""
-    target_kind = _text(site.get("target_kind")) or ""
+    identity = optional_text(site.get("id")) or ""
+    name = optional_text(site.get("name")) or ""
+    initializer = optional_text(site.get("initializer")) or ""
+    target_kind = optional_text(site.get("target_kind")) or ""
     if (
         not identity
         or not name
@@ -770,7 +448,7 @@ def _value_bindings(
     positions: dict[str, int],
     language: str,
 ) -> tuple[tuple[Entity, str], ...]:
-    sites = _records(record.data.get("result_bindings"))
+    sites = record_array(record.data.get("result_bindings"))
     if not sites:
         return ()
     owner = entities[positions[source]]
@@ -779,7 +457,7 @@ def _value_bindings(
         identity, name, initializer, target_kind = _result_binding_identity(site)
         previous_index = positions.get(identity)
         previous = entities[previous_index] if previous_index is not None else None
-        annotation = _text(site.get("annotation"))
+        annotation = optional_text(site.get("annotation"))
         definition_contexts = _definition_contexts(site.get("definition_contexts"))
         qualified_name, annotation, definition_contexts = _reconcile_result_binding(
             previous,
@@ -801,7 +479,7 @@ def _value_bindings(
             evidence_ids=tuple(
                 sorted(
                     set(record.evidence_ids)
-                    | set(_texts(site.get("evidence_ids")))
+                    | set(text_array(site.get("evidence_ids")))
                     | set(previous.evidence_ids if previous else ())
                 )
             ),
@@ -837,9 +515,9 @@ def _construction_sites(
     if not isinstance(construction, RecordData):
         raise ValueError("invalid construction record")
     status = _source_resolution(construction.get("status"), "invalid construction resolution")
-    names = _texts(construction.get("targets"))
+    names = text_array(construction.get("targets"))
     truncated = construction.get("candidates_truncated")
-    reason = _text(construction.get("reason"))
+    reason = optional_text(construction.get("reason"))
     if (
         {key for key, _ in construction.entries}
         != {"status", "targets", "candidates_truncated", "reason"}
@@ -848,7 +526,7 @@ def _construction_sites(
         or not reason
     ):
         raise ValueError("invalid construction resolution")
-    if not set(names) <= set(_texts(record.data.get("targets"))) or (
+    if not set(names) <= set(text_array(record.data.get("targets"))) or (
         status == ResolutionKind.RESOLVED
         and (
             parse_source_resolution(record.data.get("status")) is not SourceResolution.RESOLVED
@@ -891,7 +569,7 @@ def _construction_sites(
                 if unresolved
                 else ResolutionKind.PARTIAL,
                 candidate_ids=() if proven or unresolved else targets,
-                expression=_text(record.data.get("expression")),
+                expression=optional_text(record.data.get("expression")),
                 evidence_ids=record.evidence_ids,
                 record_ids=(record.id,),
                 candidate_count=None if unresolved or truncated else len(targets),
@@ -931,8 +609,8 @@ def _declaration_endpoint(
     present = keys & {key for key, _ in record.data.entries}
     if not present:
         return None
-    name = _text(record.data.get("declaration_scope"))
-    identity = _text(record.data.get("declaration_definition_id"))
+    name = optional_text(record.data.get("declaration_scope"))
+    identity = optional_text(record.data.get("declaration_definition_id"))
     if kind != "references" or present != keys or not name or not identity:
         raise ValueError("reference declaration needs a scope and definition identity")
     if not any(
@@ -968,7 +646,7 @@ def _relationships(
             if section == "references" and record.kind == "source_role":
                 continue
             source_name = (
-                _text(
+                optional_text(
                     record.data.get(
                         "source_scope" if kind != RelationshipKind.IMPORTS else "source_module"
                     )
@@ -982,7 +660,7 @@ def _relationships(
             if declaration is not None:
                 sources = (declaration,)
             if kind == RelationshipKind.IMPORTS:
-                target_name = _text(record.data.get("target_module")) or ""
+                target_name = optional_text(record.data.get("target_module")) or ""
                 targets = _endpoint(target_name, record, by_name, entities, language)
                 result.append(
                     Relationship(
@@ -1001,7 +679,7 @@ def _relationships(
                 )
             else:
                 target_ids: dict[str, None] = {}
-                for name in _texts(record.data.get("targets")):
+                for name in text_array(record.data.get("targets")):
                     for target in _endpoint(name, record, by_name, entities, language):
                         target_ids[target] = None
                 targets = tuple(target_ids)
@@ -1028,24 +706,24 @@ def _classifier_relationships(
 ) -> list[Relationship]:
     result: list[Relationship] = []
     for record in records:
-        for base in _records(record.data.get("base_declarations")):
+        for base in record_array(record.data.get("base_declarations")):
             if record.kind != "class" or base.get("relationship_kind") is None:
                 raise ValueError("typed base needs a classifier source and relationship kind")
             base_kind = RelationshipKind(
-                _vocabulary_text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)
+                vocabulary_text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)
             )
             if base_kind not in _CLASSIFIER_RELATIONSHIPS:
                 raise ValueError("invalid classifier relationship kind")
             base_targets = tuple(
                 target
-                for name in _texts(base.get("targets"))
+                for name in text_array(base.get("targets"))
                 for target in _endpoint(name, record, by_name, entities, language)
             )
             site = replace(
                 record,
-                id=_text(base.get("id")) or "",
+                id=optional_text(base.get("id")) or "",
                 data=base,
-                evidence_ids=_texts(base.get("evidence_ids")),
+                evidence_ids=text_array(base.get("evidence_ids")),
             )
             edge = _site_relationship(site, base_kind, record.id, base_targets)
             result.append(replace(edge, record_ids=(record.id,)))
@@ -1214,13 +892,13 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
     )
     profile = profile_for(observation.analyzer.name)
     value_modules = {
-        _text(item.data.get("source_module"))
+        optional_text(item.data.get("source_module"))
         for item in observation.records("calls") or ()
         if item.data.get("result_bindings") is not None
     }
     symbols = observation.records("symbols") or ()
     base_modules = {
-        _text(item.data.get("module"))
+        optional_text(item.data.get("module"))
         for item in symbols
         if item.data.get("base_declarations") is not None
     }
@@ -1230,7 +908,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
     for item in symbols:
         if item.data.get("base_declarations") is None:
             continue
-        bases = _records(item.data.get("base_declarations"))
+        bases = record_array(item.data.get("base_declarations"))
         complete = scan_complete and all(
             parse_source_resolution(base.get("status")) is SourceResolution.RESOLVED
             for base in bases

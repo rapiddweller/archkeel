@@ -19,10 +19,11 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.facts import RecordData, ResolutionInput, SourceFacts
+from archkeel.ir.member_inventory import MEMBER_INVENTORY_PROOF, member_inventory_proof
 from archkeel.ir.model import TARGET_GRAPH_RECORD_KINDS, Observation
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.source_graph import MEMBER_INVENTORY_PROOF, member_inventory_proof, observed_graph
+from archkeel.ir.source_graph import observed_graph
 
 
 @dataclass(frozen=True)
