@@ -840,7 +840,7 @@
         "archkeel.ir.codec_observation.encode_canonical_model.rows_by_section",
         "archkeel.ir.codec_observation.encode_canonical_model.intern",
         "archkeel.ir.codec_observation.decode_canonical_model.expand",
-        "archkeel.ir.widening._DataclassInstance.__dataclass_fields__",
+        "archkeel.ir.widening_change._DataclassInstance.__dataclass_fields__",
         "archkeel.check.observation"
       ],
       "rationale": "Any is allowed only where JSON enters or is assembled into the canonical JSON report: the codec, source collectors and observation encoder. The one exact widening helper exemption mirrors the typeshed dataclass protocol.",
