@@ -21,7 +21,7 @@ from archkeel.cli import main
 from archkeel.ir.facts import Record
 from archkeel.ir.facts_codec import classified, parse_record
 from archkeel.ir.model import DiagnosticKind, EvidenceClass
-from archkeel.ir.profiles import Language
+from archkeel.ir.profiles import Language, is_test_source
 from archkeel.ir.protocol import GapTitle
 
 ROOT = Path(__file__).parents[1]
@@ -263,6 +263,22 @@ def test_a_result_with_a_new_kind_declares_12_and_an_old_result_keeps_11(tmp_pat
     }
     assert _validator("command-result-11.0.schema.json").is_valid(old)
     assert _validator("command-result-12.0.schema.json").is_valid(old)
+
+
+def test_a_dart_import_error_is_unresolved_even_with_a_neutral_title() -> None:
+    """The Dart kind decides the diagnostic; the title alone would give incomplete_scan."""
+    title = "Dart file has a neutral title"
+    assert gap_diagnostic(_gap("ImportError", title, COV), DART)[0] is UNRESOLVED
+    assert gap_diagnostic(_gap("other_kind", title, COV), DART)[0] is INCOMPLETE
+
+
+@pytest.mark.parametrize(
+    ("path", "language"), [("pkg/test_a.py", "python"), ("src/a.spec.ts", "typescript")]
+)
+def test_is_test_source_accepts_the_plain_string_language(path: str, language: str) -> None:
+    """The host passes the language by value, so the comparison must use ==, not is."""
+    assert is_test_source(path, Language(language))
+    assert is_test_source(path, language)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("language", ["dart", "python", "typescript"])
