@@ -7,8 +7,9 @@
    verification takes at most 30 minutes. A PR test job takes at most about 7 minutes.
 2. A test without a module, class or package fixture runs on any free worker. The tests that
    use such a fixture stay on one worker (`xdist_group` by file in `tests/conftest.py`), so the
-   fixture runs once. This replaces the hand list of files that ran on any worker. The digest
-   tests keep one group of their own: each test does a clean `cargo build` that uses every core.
+   fixture runs once. This replaces the hand list of files that ran on any worker. Two files keep
+   one group of their own: each digest test does a clean `cargo build` that uses every core, and
+   the process limit tests of `test_source_trust_boundary.py` bound a wall time.
    The consumers of the self-run come last, so that no worker waits for its lock while another
    worker builds the self report (up to 254 s on a runner).
 3. `tests/areas.py` keeps the summed test time of an area below about 24 minutes on the slowest
@@ -48,6 +49,9 @@ to 18 minutes in the queue. The last 10 Full runs took 17 to 34 minutes; `Tests:
 - A cargo cache now: only the native area builds the binary, once for each worker lock.
 
 **Limits.** The queue time is outside this repository; only fewer runner minutes reduce it. A
-budget warning is not a gate. Moving a test out of the PR gate is an owner decision.
+budget warning is not a gate. Moving a test out of the PR gate is an owner decision. The ratio
+tests of the native collector stay on all workers: on one worker they took 16.1 minutes in Full.
+One ratio reached 3.04 against its bound of 3 on this branch (Full run 42626933584). Full runs
+42568311162, 42573462394 and 42584400956 failed on such a ratio before the change.
 
 **Checks.** `tests/test_ci_budget.py` and `tests/test_make_gate.py`.
