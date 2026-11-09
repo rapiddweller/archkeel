@@ -20,20 +20,23 @@ panic could end a scan.
 | Crate direction | `native/layers.toml` and `tests/test_self_native_layers.py` | declared | blocking |
 | Parser crates | `cargo deny` `wrappers` for `tree-sitter*` | collector only | blocking |
 | Module cycles | the same test, `crate::` paths | list in `layers.toml` | ratchet |
-| Indexing, arithmetic | `make native-report` | counts | report |
+| Indexing, arithmetic, `as` casts | `make native-report` | counts | report |
 
 1. A ratchet uses `#[expect(clippy::x, reason = "...")]` on each function over a limit. With
    `-D warnings`, an `expect` that no longer fires is an error. So the list can only shrink.
-2. The shape and panic rules cover production code. `main.rs` allows them for the test build.
+2. The rules cover production code. One test driver has an `#[expect]` for its complexity.
 3. `native/layers.toml` names each crate, its role and the crates it may use. A new crate needs an
    entry. Only a collector may use a `tree-sitter*` crate. The vocabulary (component, may use) is
    the one of an Archkeel contract, so a later move to a contract is a change of data.
 4. The module cycles of today are in `layers.toml`: `config`, `discover`, `options`, and the
    eight modules `definitions`, `exports`, `import_bindings`, `members`, `scan`, `scope`,
-   `syntax`, `walk`. A new cycle fails. A listed cycle that is gone must leave the list.
+   `syntax`, `walk`. A new cycle fails. A listed cycle that is gone must leave the list; a crate without a `cycles` section has none.
+   The check folds each `#[path]` child into its parent, strips comments and strings, and ignores
+   `#[cfg(test)]` modules: a test-only edge is not a production cycle.
 5. `overflow-checks` costs 16,560 bytes of binary. On the x35 corpus the median was 1.220 s
-   without it and 1.264 s with it (12 interleaved runs, inside the IQR). A wrapped integer in a
-   span now stops the scan with `execution_error`.
+   without it and 1.264 s with it (12 interleaved runs, inside the IQR). An overflow of
+   `+`, `-` or `*` now stops the scan with `execution_error`. An `as` cast still truncates; the
+   count is a report (`cast_possible_truncation`: 4), not a rule.
 6. The Python collector will be a second binary with its own crate, profile and code digest.
 
 **Rejected.**
@@ -45,9 +48,10 @@ panic could end a scan.
 
 **Limit.** This slice does not remove a cycle (R0-6), does not extract an `archkeel-snapshot`
 crate (it waits for the Python collector), and does not check clones. The clone check (jscpd or a
-stdlib script) is deferred. Indexing and arithmetic are reports, not rules. The `wrappers` entries
+stdlib script) is deferred. Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
 name the TypeScript collector; a second collector must be added to them.
 
-**Checked by** `tests/test_self_native_layers.py`: a bad crate edge, a parser crate in a library,
+**Checked by** `make native-check`, which also runs `tests/test_self_native_layers.py`
+(it fails, not skips, when `CI` is set and `cargo` is missing): a bad crate edge, a parser crate in a library,
 a crate without an entry, a new or grown cycle and a stale entry all fail on a fixture; the real
 workspace passes. `make native-check` checks the clippy and `cargo deny` rules.

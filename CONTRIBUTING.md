@@ -164,11 +164,13 @@ Architecture contracts, baselines and amendments remain reviewed source files.
   Below 10 % the change is discarded; record the measurement on the issue instead.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 - **Rust code follows measured rules** ([AD-327](docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md)).
-  A function has at most 100 lines, cognitive complexity 15, nesting 4 and 7 arguments. Production
+  A function has at most 100 lines, cognitive complexity 15, nesting 4 and 7 arguments. Nesting 4
+  uses the units of clippy: the function body and an `impl` block each count as a level. A free
+  function can hold 3 nested `if` blocks, and a method 2. Production
   code has no `panic!`, `unreachable!`, `todo!` or `unimplemented!`. A function over a limit carries
   `#[expect(clippy::..., reason = "...")]`; remove it when you fix the function. A new crate needs
   an entry in `native/layers.toml`. Do not add a module cycle. `make native-report` counts
-  indexing and arithmetic that can panic.
+  indexing, arithmetic and `as` casts that can panic or truncate.
 
 Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. After you rebase or merge main, a stale amendment (`amendment_status: stale`) needs no hand edit. Commit your work, then run `make amendment-refresh BASE=origin/main`. It rewrites only the four digests of the one amendment your branch adds or changes. It keeps `decided_by` and `rationale`. It refuses a dirty tree, a BASE that is not an ancestor of HEAD, and more than one changed amendment. The gate means "the amendment matches this diff", not "the diff is approved": read the measured changes that the command prints, and check that they match the reviewed scope of the PR. `decided_by` and `rationale` are free text, not authenticated approval. A raised budget is fine
 when its rationale names the cause; never reshape code only to stay under a ratchet.
