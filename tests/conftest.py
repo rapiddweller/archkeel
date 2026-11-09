@@ -216,14 +216,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--selection", help="run only the tests of this selection (tests/areas.py)")
 
 
-# These files are each longer than a quarter of their job; they have no module-scoped fixtures.
-_SPREAD_PER_TEST = frozenset(
-    {
-        "test_architecture_demo.py",
-        "test_typescript_control_target.py",
-        "test_boundary_type_bound_aliases.py",
-    }
-)
+_SHARED_SCOPES = frozenset({"class", "module", "package"})
+
+
+def _shares_a_fixture(item: pytest.Item) -> bool:
+    """True if the test uses a fixture that other tests of its file reuse in the same process.
+
+    A session fixture runs once in each worker in all cases, so it does not count. An item without
+    fixture data, for example a doctest, stays with its file.
+    """
+    info = getattr(item, "_fixtureinfo", None)
+    if info is None:
+        return True
+    return any(
+        definition.scope in _SHARED_SCOPES
+        for definitions in info.name2fixturedefs.values()
+        for definition in definitions
+    )
 
 
 def _select(name: str, items: list[pytest.Item]) -> list[pytest.Item]:
@@ -311,7 +320,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             items=[item for item in items if area_of(item.path.name) != area]
         )
         items[:] = kept
-    # With --dist=loadgroup, a file stays on one worker so its module fixtures run once.
+    # With --dist=loadgroup, a test without a group can run on any free worker. The tests of a file
+    # that use a module, class or package fixture stay on one worker, so that the fixture runs once.
+    # A whole file on one worker sets the least time of its job: one file took 17 minutes in Full.
     for item in items:
-        if item.path.name not in _SPREAD_PER_TEST:
+        if _shares_a_fixture(item):
             item.add_marker(pytest.mark.xdist_group(item.path.name))
