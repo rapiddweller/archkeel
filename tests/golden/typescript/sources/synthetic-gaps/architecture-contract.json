@@ -1,0 +1,18 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "COMP-APP",
+      "label": "app",
+      "role": "component",
+      "packages": ["synth.gaps.src"],
+      "public": ["synth.gaps.src"],
+      "responsibilities": ["Compose the order flow."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/shop.md"],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": []
+}
