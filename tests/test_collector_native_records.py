@@ -101,6 +101,8 @@ IMPORTERS = {
         "const o = { m() { return one(); } }; const arrow = () => { one(); };\n"
         "this.q(); obj['k'](); (one)(); one?.(); let z: Four; z = one; one = 3;\n"
         "export function ex() {} ex(); const x1 = ex, x2 = [ex];\n"
+        # A name that a function calls and the module assigns later: it is rebound in the module.
+        "function late() { early(); }early = 1;\n"
     ),
     "src/i6.ts": "import { one } from './a'; export { one }; export default one === 'e';\n",
 }
@@ -448,3 +450,42 @@ def test_the_records_pass_is_linear_in_time_and_memory(
     assert first_cpu > 0.05, f"{name}: n={n} is too small to measure"
     assert second_cpu / first_cpu < RATIO
     assert second_peak <= GROWTH * first_peak
+
+
+def _python_calls_with_scripts(request: CollectionRequest) -> list[dict[str, object]]:
+    """The call records of the unmodified Python collector with `_script_dependencies` run."""
+    settings = request.resolver
+    assert isinstance(settings, TypeScriptSettings)
+    collection = python_collector._Collection(request, settings)
+    index = 0
+    while index < len(collection.queue):
+        collection._file(collection.queue[index])
+        index += 1
+    collection._named_imports()
+    collection._script_dependencies()
+    _symbols, calls, _references, _bindings = collection._inner_facts()
+    return calls
+
+
+@pytest.mark.xfail(strict=True, reason="the script analysis is ported in PR 4.3a-4 and 4.3a-5")
+def test_a_call_of_a_script_global_resolves_in_python_and_not_yet_in_native(
+    tmp_path: Path, records_binary: Path
+) -> None:
+    """The oracle of this file runs Python without `_script_dependencies`, and so does the native
+    collector. Python runs it for every file that is neither a declaration nor CommonJS, an ES
+    module included: `Scene.create()` in `mod.ts` is `resolved` there (the target is
+    `legacy_x2e_js.create`, with a `SCRIPTPUBLICATION` fact) and `unresolved` here. This test pins
+    the difference and fails (strict xfail) on the day that the native collector resolves it."""
+    _write(
+        tmp_path,
+        {
+            "tsconfig.json": '{"compilerOptions":{"allowJs":true},"include":["src"]}',
+            "src/legacy.js": (
+                "var Scene = (function () { function create() {} return { create }; })();\n"
+            ),
+            "src/mod.ts": "export function run() { return Scene.create(); }\n",
+        },
+    )
+    request = _request(tmp_path)
+    native = native_records(records_binary, request)["calls"]
+    assert native == _python_calls_with_scripts(request)

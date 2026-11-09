@@ -14,21 +14,68 @@ use serde_json::{json, Map, Value};
 
 use crate::cited::Cited;
 use crate::kept::{Kept, Pending};
-use crate::resolution::{local_imports, Resolved, Resolver};
+use crate::resolution::{local_imports, Imports, Resolved, Resolver};
 use crate::site_paths::Text;
 use crate::sites::{Expression, Site, SiteKind, SiteUse};
 use crate::symbol_table::SymbolTable;
 
-/// The records of the sites, in the order of Python: files in the order of the walk, sites by
-/// position. The bindings are the result bindings of the `new` expressions.
+/// The records of the sites in lists, for the test-only dump. The bindings are the result bindings
+/// of the `new` expressions.
 #[derive(Default)]
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
 pub struct SiteRecords {
     pub calls: Vec<Record>,
     pub references: Vec<Record>,
     pub bindings: Vec<Record>,
 }
 
-/// `_inner_sites`: resolve each site and make its record.
+/// The kinds of site that one pass makes records of. Python makes both in one pass and writes two
+/// lists; a pass for each list writes each record when it is made. The sites of one position have
+/// the order of their kinds in both orders, so the last citation of a location is the same.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Pass {
+    Calls,
+    References,
+}
+
+/// `_inner_sites` for one list: resolve each site of the pass and write its record. A `new`
+/// expression that is assigned to a name gives a binding record, which the pass returns.
+pub fn pass(
+    table: &SymbolTable,
+    pending: &Pending,
+    imports: &Imports,
+    cited: &mut Cited,
+    which: Pass,
+    emit: &mut dyn FnMut(Record),
+) -> Vec<Record> {
+    let resolver = Resolver { table, imports };
+    let mut bindings = Vec::new();
+    for rel in &pending.order {
+        let Some(kept) = pending.kept.get(rel) else {
+            continue;
+        };
+        for site in &kept.sites.sites {
+            let reference_site = site.kind == SiteKind::Reference;
+            if reference_site != (which == Pass::References) {
+                continue;
+            }
+            let place = Place::of(table, kept, rel, site);
+            let evidence = cited.cite(rel, &site.span);
+            let resolved = resolver.resolve(kept, &kept.module, &place.scope, site);
+            if reference_site {
+                emit(reference(kept, &place, site, &resolved, evidence));
+            } else {
+                let (call, found) = call(table, cited, kept, &place, site, &resolved, evidence);
+                emit(call);
+                bindings.extend(found);
+            }
+        }
+    }
+    bindings
+}
+
+/// Both passes in lists.
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
 pub fn build(
     table: &SymbolTable,
     pending: &Pending,
@@ -36,29 +83,29 @@ pub fn build(
     cited: &mut Cited,
 ) -> SiteRecords {
     let imports = local_imports(pending, facts);
-    let resolver = Resolver {
-        table,
-        imports: &imports,
-    };
     let mut records = SiteRecords::default();
-    for rel in &pending.order {
-        let Some(kept) = pending.kept.get(rel) else {
-            continue;
-        };
-        for site in &kept.sites.sites {
-            let place = Place::of(table, kept, rel, site);
-            let evidence = cited.cite(rel, &site.span);
-            let resolved = resolver.resolve(kept, &kept.module, &place.scope, site);
-            if site.kind == SiteKind::Reference {
-                let record = reference(kept, &place, site, &resolved, evidence);
-                records.references.push(record);
-            } else {
-                let (call, bindings) = call(table, cited, kept, &place, site, &resolved, evidence);
-                records.calls.push(call);
-                records.bindings.extend(bindings);
-            }
-        }
-    }
+    let calls = &mut records.calls;
+    records.bindings = pass(
+        table,
+        pending,
+        &imports,
+        cited,
+        Pass::Calls,
+        &mut |record| {
+            calls.push(record);
+        },
+    );
+    let references = &mut records.references;
+    pass(
+        table,
+        pending,
+        &imports,
+        cited,
+        Pass::References,
+        &mut |record| {
+            references.push(record);
+        },
+    );
     records
 }
 
@@ -207,7 +254,8 @@ fn call(
             .iter()
             .map(|value| binding_record(place, value))
             .collect();
-        data.insert("result_bindings".to_owned(), json!(values));
+        let listed: Vec<Value> = values.iter().map(ResultBinding::to_json).collect();
+        data.insert("result_bindings".to_owned(), json!(listed));
     }
     let record = Record {
         id,
@@ -253,14 +301,37 @@ fn construction(table: &SymbolTable, resolved: &Resolved) -> Value {
     })
 }
 
-/// `_result_binding`: the name that receives the new object.
+/// The name that receives a new object (`_result_binding`).
+struct ResultBinding {
+    id: String,
+    name: String,
+    annotation: Option<String>,
+    initializer: String,
+    evidence: String,
+}
+
+impl ResultBinding {
+    fn to_json(&self) -> Value {
+        json!({
+            "id": self.id,
+            "name": self.name,
+            "target_kind": "name",
+            "annotation": self.annotation,
+            "initializer": self.initializer,
+            "evidence_ids": [self.evidence],
+            "definition_contexts": [],
+        })
+    }
+}
+
+/// `_result_binding`.
 fn result_binding(
     cited: &mut Cited,
     kept: &Kept,
     place: &Place,
     site: &Site,
     call_id: &str,
-) -> Vec<Value> {
+) -> Vec<ResultBinding> {
     let data = kept.text.as_bytes();
     let name = site.assigned_name.map(|text| text.decode(data));
     let initializer = site.initializer.filter(|text| !Text::is_empty(*text));
@@ -281,39 +352,30 @@ fn result_binding(
         ],
     );
     let evidence = cited.cite(place.rel, span);
-    vec![json!({
-        "id": id,
-        "name": name,
-        "target_kind": "name",
-        "annotation": site.assignment_annotation,
-        "initializer": initializer.decode(data),
-        "evidence_ids": [evidence],
-        "definition_contexts": [],
-    })]
+    vec![ResultBinding {
+        id,
+        name,
+        annotation: site.assignment_annotation.clone(),
+        initializer: initializer.decode(data),
+        evidence,
+    }]
 }
 
 /// `_binding_records` for one value.
-fn binding_record(place: &Place, value: &Value) -> Record {
-    let name = value["name"].as_str().unwrap_or("");
+fn binding_record(place: &Place, value: &ResultBinding) -> Record {
     let mut data = Map::new();
     data.insert("module".to_owned(), json!(place.module));
     data.insert("source_scope".to_owned(), json!(place.scope));
     data.insert("source_module".to_owned(), json!(place.module));
-    data.insert("binding".to_owned(), json!(name));
-    let evidence: Vec<String> = value["evidence_ids"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|item| item.as_str().map(str::to_owned))
-        .collect();
+    data.insert("binding".to_owned(), json!(value.name));
     Record {
-        id: value["id"].as_str().unwrap_or("").to_owned(),
+        id: value.id.clone(),
         evidence_class: "FACT",
         area: "source",
         kind: "bindings",
-        title: format!("{}.{name} binding", place.scope),
+        title: format!("{}.{} binding", place.scope, value.name),
         subjects: vec![place.scope.clone()],
-        evidence_ids: evidence,
+        evidence_ids: vec![value.evidence.clone()],
         fact_ids: Vec::new(),
         data,
     }

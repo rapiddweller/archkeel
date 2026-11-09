@@ -52,14 +52,21 @@ fn methods_of(table: &SymbolTable) -> Methods {
     found
 }
 
-/// The records of all definitions, in the order of the table.
-pub fn build(table: &SymbolTable, cited: &mut Cited) -> Vec<Record> {
+/// The records of all definitions, in the order of the table, one at a time: a record is written
+/// and dropped, so the records of a whole project are never alive together.
+pub fn each(table: &SymbolTable, cited: &mut Cited, emit: &mut dyn FnMut(Record)) {
     let methods = methods_of(table);
-    table
-        .entries
-        .iter()
-        .map(|entry| record(table, &methods, cited, entry))
-        .collect()
+    for entry in &table.entries {
+        emit(record(table, &methods, cited, entry));
+    }
+}
+
+/// The records of all definitions in a list, for the test-only dump.
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
+pub fn build(table: &SymbolTable, cited: &mut Cited) -> Vec<Record> {
+    let mut found = Vec::new();
+    each(table, cited, &mut |record| found.push(record));
+    found
 }
 
 /// The `kind` of a symbol record and its `symbol_category`: a class, an interface and an enum are
