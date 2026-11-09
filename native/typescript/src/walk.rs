@@ -211,6 +211,10 @@ impl<'a, 't> Walk<'a, 't> {
     }
 
     /// `_script_bindings`: the names that this node binds, in the frame that holds them.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
     fn bind(&mut self, node: Node<'t>, kind: K, frames: (u32, u32, u32)) {
         let (own, parent_frame, parent_var) = frames;
         let cx = self.cx;

@@ -356,6 +356,10 @@ fn render_format(found: Lookup<ModuleFormat>) -> String {
     }
 }
 
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "a table driver for the resolver cases: split it when the table moves (AD-327)"
+)]
 fn run(block: &str) {
     let mut config = "";
     let mut files: Vec<(&str, &str)> = TREE.to_vec();

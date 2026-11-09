@@ -4,7 +4,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-tools cargo-deny-install native-wheel
+.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-report native-tools cargo-deny-install native-wheel
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
@@ -107,6 +107,15 @@ native-check:
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
 	cd native && cargo build --locked
+	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py
+
+# AD-327: counts of the lints that only report. They never fail the build.
+native-report:
+	@for lint in indexing_slicing arithmetic_side_effects cast_possible_truncation; do \
+		printf '%s: ' $$lint; \
+		(cd native && cargo clippy --locked --message-format short -- -W clippy::$$lint 2>&1) | \
+			grep -c '^[^ ]*: warning: ' || true; \
+	done
 
 # Build the pinned tools from crates.io with their own Cargo.lock; cargo skips an installed tool.
 native-tools:

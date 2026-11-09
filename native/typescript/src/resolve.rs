@@ -183,6 +183,10 @@ impl Resolver {
     }
 
     /// The snapshot file that `specifier` names, `Missing` when it names none.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
     pub fn resolve(
         &mut self,
         snapshot: &mut Snapshot,
@@ -266,6 +270,10 @@ impl Resolver {
     ///
     /// The result, the directory that a `package.json` may have decided, and whether `paths`
     /// matched.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
     fn mapped(
         &mut self,
         snapshot: &mut Snapshot,
