@@ -60,7 +60,7 @@ def test_parser_returns_typed_closed_inputs(argv, field, wire):
         (
             ["init", "--language", "bogus"],
             "argument --language: invalid choice: 'bogus' "
-            "(choose from 'python', 'dart', 'typescript')",
+            "(choose from 'python', 'dart', 'typescript', 'rust')",
         ),
         (
             ["skill", "install", "bogus"],
