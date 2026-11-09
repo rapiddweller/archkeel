@@ -7,7 +7,10 @@
    verification takes at most 30 minutes. A PR test job takes at most about 7 minutes.
 2. A test without a module, class or package fixture runs on any free worker. The tests that
    use such a fixture stay on one worker (`xdist_group` by file in `tests/conftest.py`), so the
-   fixture runs once. This replaces the hand list of files that ran on any worker.
+   fixture runs once. This replaces the hand list of files that ran on any worker. The digest
+   tests keep one group of their own: each test does a clean `cargo build` that uses every core.
+   The consumers of the self-run come last, so that no worker waits for its lock while another
+   worker builds the self report (up to 254 s on a runner).
 3. `tests/areas.py` keeps the summed test time of an area below about 24 minutes on the slowest
    runner, so that 4 workers end in about 6 minutes. Three areas are split for this: `collectors`
    (the native TypeScript collector moves out), `CLI, contracts and dependency rules` and

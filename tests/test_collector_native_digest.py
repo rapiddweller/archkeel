@@ -23,6 +23,10 @@ from conftest import install_rust_toolchain
 ROOT = Path(__file__).parents[1]
 PACKAGE = "archkeel-typescript-collector"
 
+# Each test builds the workspace from nothing, and one build uses every core. On 4 workers at the
+# same time the builds took 45 to 75 s each and slowed the whole job, so they share one worker.
+pytestmark = pytest.mark.xdist_group("test_collector_native_digest.py")
+
 
 def _require_cargo() -> None:
     cargo = shutil.which("cargo")
