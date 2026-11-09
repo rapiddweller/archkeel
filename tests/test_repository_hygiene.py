@@ -549,3 +549,15 @@ def test_absolute_path_detection_requires_a_root_boundary() -> None:
     )
     for text, expected in cases:
         assert _contains_local_absolute_path(text) is expected
+
+
+def test_language_is_compared_by_value_in_source() -> None:
+    """A language can arrive as a plain string, so `is` on a Language member is a bug."""
+    pattern = re.compile(r"\bis (?:not )?Language\.[A-Z_]+\b")
+    found = [
+        f"{path.relative_to(ROOT)}:{number}"
+        for path in sorted((ROOT / "src").rglob("*.py"))
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+        if pattern.search(line)
+    ]
+    assert found == [], f"compare Language with == or !=, not is: {found}"
