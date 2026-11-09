@@ -19,6 +19,7 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.collection_features import required_resolution_features
+from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import (
     dependency_binding_id,
     numeric_operand_inventory_binding_id,
@@ -832,7 +833,7 @@ def _certify_numeric_operand_scopes(
         == scan.coverage["files_read"]
         == scan.coverage["files_parsed"]
         == len(selected_files)
-        and scan.coverage["status"] == "PASS"
+        and scan.coverage["status"] == "PASS"  # raw dict: `observation_complete`, pinned by test
         and not failures
     )
     for receipt in receipts:
@@ -1005,7 +1006,7 @@ def _certify_dependency_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
     """Bind complete requires receipts to validated physical inventory and runtime."""
-    if scan.coverage["status"] == "PASS":
+    if scan.coverage["status"] == "PASS":  # raw dict, not "complete": PASS+failures stays out
         return
     requires = {item["id"] for item in declarations if item["kind"] == "complete_requires"}
     receipts = [
@@ -1178,10 +1179,9 @@ def assemble_observation(
     # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
     for section in profile.absent_sections:
         model[section] = None
-    for section in profile.optional_sections:
-        if section not in scan.observed_sections:
-            model[section] = None
-    return parse_observation(json_arrays(model)), 0 if scan.coverage["status"] == "PASS" else 2
+    model.update({s: None for s in profile.optional_sections if s not in scan.observed_sections})
+    observation = parse_observation(json_arrays(model))
+    return observation, 0 if observation_complete(observation.coverage) else 2
 
 
 def analyze_source_snapshot(

@@ -168,7 +168,7 @@ def evaluate_expectation(
         analyzer_name=delta_model.analyzer.name,
     )
     _require_matching_provenance(delta_model.provenance, expectation)
-    if delta_model.coverage.status != "PASS":
+    if delta_model.coverage.status != "PASS":  # a delta has no failure list
         raise ExpectationError("delta coverage status must be PASS")
 
     profile = _require_profile_coverage(delta_model)

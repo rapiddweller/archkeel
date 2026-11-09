@@ -7,7 +7,12 @@ D3 asks whether an observation is complete. D4 asks whether the scan roots conta
 domain of a source scope.
 """
 
+import ast
+import io
 import re
+import tokenize
+from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -229,15 +234,139 @@ def test_the_copies_of_the_scan_root_coverage_are_gone(file: str, names: tuple[s
         assert re.search(rf"^def {name}\b", text, re.MULTILINE) is None, f"{file} defines {name}"
 
 
+# The guard finds a spelling of the coverage status next to PASS, outside the owner. It catches
+# `==`, `!=`, `is` and `is not` with `Verdict.PASS` or a "PASS" string, on the attribute, the
+# `["status"]` key, `.status.value`, `getattr(x, "status")` and a `coverage_status` name, in both
+# operand orders. The object name must contain `coverage` as a whole word. It does NOT catch an
+# alias or a local that holds the status, a compare split over several lines, an object without
+# `coverage` in its name, or `in {Verdict.PASS}`. Docstrings and comments are not read.
+_STATUS = (
+    r"""(?:(?<!\w)(?:\w+\.)*coverage(?:\.status(?:\.value)?|\[["']status["']\])"""
+    r"""|(?<!\w)(?:\w+\.)*coverage_status(?:\.value)?"""
+    r"""|getattr\(\s*(?:\w+\.)*coverage\s*,\s*["']status["']\s*\)(?:\.value)?)"""
+)
+_PASS = r"""(?:_?Verdict\.PASS|["']PASS["'])"""
+_OPERATOR = r"(?:==|!=|\bis not\b|\bis\b)"
+_STATUS_SPELLING = re.compile(
+    rf"{_STATUS}\s*{_OPERATOR}\s*{_PASS}|{_PASS}\s*{_OPERATOR}\s*{_STATUS}"
+)
+# Each kept spelling asks another question than "is the observation complete". The count is
+# exact: a second copy of a kept line is a new spelling.
+_NAMED_EXCEPTIONS = {
+    ("ir/model.py", "or self.coverage.status != Verdict.PASS"): "the diagnostics invariant",
+    (
+        "check/observation.py",
+        'and scan.coverage["status"] == "PASS"',
+    ): "raw scan dict before the observation exists; the next line adds the failures",
+    (
+        "check/observation.py",
+        'if scan.coverage["status"] == "PASS":',
+    ): "raw scan dict; asks for a failed scan to recover, and PASS with failures must stay out",
+    (
+        "check/expectation.py",
+        'if delta_model.coverage.status != "PASS":',
+    ): "delta status: no failure list exists in a delta",
+    (
+        "check/expectation.py",
+        'delta.baseline.coverage_status != "PASS"',
+    ): "snapshot status recorded in a delta: no failure list",
+    (
+        "check/expectation.py",
+        'or delta.head.coverage_status != "PASS"',
+    ): "snapshot status recorded in a delta: no failure list",
+}
+
+_KEPT = Counter(dict.fromkeys(_NAMED_EXCEPTIONS, 1))
+
+
+def _code_lines(text: str) -> list[str]:
+    """The lines of a module without comments and without docstrings."""
+    lines = text.splitlines()
+    for token in tokenize.generate_tokens(io.StringIO(text).readline):
+        if token.type == tokenize.COMMENT:
+            row, column = token.start
+            lines[row - 1] = lines[row - 1][:column]
+    for node in ast.walk(ast.parse(text)):
+        if (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            for row in range(node.lineno, (node.end_lineno or node.lineno) + 1):
+                lines[row - 1] = ""
+    return lines
+
+
+def _spellings(modules: Mapping[str, str]) -> Counter[tuple[str, str]]:
+    return Counter(
+        (name, line.strip())
+        for name, text in modules.items()
+        if name != "ir/coverage.py"
+        for line in _code_lines(text)
+        if _STATUS_SPELLING.search(line)
+    )
+
+
+def _source_modules() -> dict[str, str]:
+    return {
+        path.relative_to(_SRC).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(_SRC.rglob("*.py"))
+    }
+
+
 def test_no_module_spells_the_completeness_of_an_observation_again() -> None:
-    """`coverage.status == Verdict.PASS` is the spelling of the status alone. Only `coverage`
-    combines it with the failures. `model` stays: it checks the diagnostics invariant."""
-    found = [
-        f"{path.relative_to(_SRC)}:{number}"
-        for folder in ("ir", "check")
-        for path in sorted((_SRC / folder).rglob("*.py"))
-        if path.name not in {"coverage.py", "model.py"}
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-        if re.search(r"\bcoverage\.status\s*(==|!=|is|is not)\s*_?Verdict\.PASS", line)
-    ]
-    assert found == []
+    """A spelling outside the owner and outside the named table is a copy."""
+    assert _spellings(_source_modules()) - _KEPT == Counter()
+
+
+def test_every_named_exception_still_exists_exactly_once() -> None:
+    assert _KEPT - _spellings(_source_modules()) == Counter()
+
+
+def test_a_second_copy_of_a_kept_line_is_a_new_spelling() -> None:
+    name, line = "check/observation.py", 'if scan.coverage["status"] == "PASS":'
+    assert (name, line) in _NAMED_EXCEPTIONS
+    found = _spellings({name: f"{line}\n    pass\n{line}\n    pass\n"})
+    assert found[(name, line)] == 2
+    assert found - _KEPT == Counter({(name, line): 1})
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "x = coverage.status == Verdict.PASS",
+        'if scan.coverage["status"] == "PASS":',
+        "if model.coverage.status is not _Verdict.PASS:",
+        "ok = delta.head.coverage_status != 'PASS'",
+        'return "PASS" == model.coverage.status',
+        'if model.coverage.status.value == "PASS":',
+        'if getattr(model.coverage, "status") == Verdict.PASS:',
+        'if getattr(model.coverage, "status").value != "PASS":',
+    ],
+)
+def test_the_guard_catches_every_spelling(line: str) -> None:
+    assert _STATUS_SPELLING.search(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        'rules = scan.coverage["rules"] != "PASS"',
+        "coverage.status == Verdict.FAIL",
+        'if test_coverage_status != "PASS":',
+        'if my_coverage.status_text == "PASS":',
+    ],
+)
+def test_the_guard_leaves_other_questions_alone(line: str) -> None:
+    assert _STATUS_SPELLING.search(line) is None
+
+
+def test_the_guard_reads_neither_comments_nor_docstrings() -> None:
+    text = (
+        'def f():\n    """Says coverage.status == Verdict.PASS in prose."""\n'
+        '    return 1  # coverage.status == "PASS"\n'
+    )
+    assert _spellings({"x.py": text}) == Counter()
+    assert _spellings({"x.py": 'ok = coverage.status == "PASS"\n'}) == Counter(
+        {("x.py", 'ok = coverage.status == "PASS"'): 1}
+    )
