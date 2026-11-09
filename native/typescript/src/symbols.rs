@@ -15,9 +15,9 @@ use archkeel_wire::identity::{stable_id, Part};
 use archkeel_wire::reply::Record;
 use serde_json::{json, Map, Value};
 
+use crate::cited::Cited;
 use crate::definitions::DefinitionKind;
 use crate::members::{Base, Member, Parameter, Visibility};
-use crate::records::Cited;
 use crate::source::Span;
 use crate::symbol_table::{kind_value, Entry, SymbolTable};
 

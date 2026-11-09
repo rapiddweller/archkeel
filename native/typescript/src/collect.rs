@@ -18,10 +18,11 @@ use archkeel_wire::request::Request;
 use serde_json::{Map, Value};
 
 use crate::config::load_config;
+use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
 use crate::paths::join;
 use crate::pytext::is_space;
-use crate::records::{build, Kept, Pending, Records};
+use crate::records::{build, Records};
 use crate::resolve::Resolver;
 use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;

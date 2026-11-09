@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 mod ancestors;
+mod cited;
 mod class_members;
 mod collect;
 mod concerns;
@@ -23,6 +24,7 @@ mod exports;
 mod glob;
 mod import_bindings;
 mod jsdoc;
+mod kept;
 mod kinds;
 mod layer;
 mod manifest;

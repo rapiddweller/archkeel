@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use archkeel_wire::identity::{package_of, stable_id, Part};
 
 use crate::definitions::{Definition, DefinitionKind};
-use crate::records::Pending;
+use crate::kept::Pending;
 
 /// One definition with its file, module, qualified name and `TSDEF` id.
 pub struct Entry<'a> {

@@ -12,11 +12,11 @@ use archkeel_wire::reply::{Record, Target};
 use serde_json::{json, Map, Value};
 
 use super::{Collection, GapKind};
+use crate::kept::Kept;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::parse;
 use crate::paths::{dirname, join, within};
-use crate::records::Kept;
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
 use crate::source_input::{
