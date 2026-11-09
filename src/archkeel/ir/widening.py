@@ -13,50 +13,34 @@ because a silent "neutral" here is exactly the hole issue #11 is filed against. 
 both contract revisions with `check/git.py` and hands them to
 `contract_widening_changes`, which stays a pure function over two `ArchitectureContract` values,
 the way `ir.baseline` derives a
-fingerprint without reading Git itself.
+fingerprint without reading Git itself. This module owns the component and declaration
+classifiers and re-exports the rule and ratchet classifiers of `ir.widening_rules` and
+`ir.widening_ratchet`.
 """
 
 from __future__ import annotations
 
 import builtins as _builtins
-from collections.abc import Mapping
-from dataclasses import asdict, dataclass, replace
-from dataclasses import fields as dataclass_fields
-from typing import Any, ClassVar, Final, Protocol
+from dataclasses import replace
 
 from .amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
 from .amendment import Amendment as Amendment
 from .amendment import verify_amendment as verify_amendment
-from .baseline import KnownViolation, cycle_contractions, violation_name
-from .measurements import MeasurementBudget, name_drift
 from .model import (
-    AllowedDependencyRule,
     ArchitectureContract,
-    ArchitectureRule,
-    BoundaryTypesRule,
-    BoundedNumericOperandRule,
-    CallOwnerRule,
     CompatibilityLifetime,
-    CompleteAssignmentRule,
-    CompleteExternalScopeRule,
-    CompleteRequiresRule,
     ContractComponent,
     ContractDeclarations,
-    DependencyTargetKind,
-    ExternalDependencyScopeRule,
-    ForbiddenCallArgumentRule,
-    ForbiddenConstructRule,
-    ForbiddenDependencyRule,
-    InterfaceBoundaryRule,
-    NoComponentCyclesRule,
     RequiredComponent,
-    RootLayoutRule,
-    SelectorMatch,
-    SiblingIsolationRule,
-    SourceOwnershipRule,
     last_name,
     requires_covers,
 )
+from .widening_change import WideningChange, generic_field_widenings, set_widenings
+from .widening_ratchet import baseline_widening_changes as baseline_widening_changes
+from .widening_ratchet import baseline_widenings as baseline_widenings
+from .widening_ratchet import measurement_budget_changes as measurement_budget_changes
+from .widening_ratchet import measurement_budget_widenings as measurement_budget_widenings
+from .widening_rules import PERMISSION_RULE_KINDS, RESTRICTION_RULE_KINDS, rules_widenings
 
 __all__ = (
     "AMENDMENT_SCHEMA_VERSION",
@@ -71,509 +55,6 @@ __all__ = (
     "baseline_widenings",
     "measurement_budget_widenings",
 )
-
-
-class _DataclassInstance(Protocol):
-    """Structural stand-in for `_typeshed.DataclassInstance`, itself an external dependency."""
-
-    __dataclass_fields__: ClassVar[dict[str, Any]]
-
-
-@dataclass(frozen=True, slots=True)
-class WideningChange:
-    subject: str
-    field: str
-    message: str
-
-
-# Rationale and provenance are the design's own "neutral" prose; `id` and `kind` are the keys
-# these classifiers match entries by, never content to diff themselves.
-_ALWAYS_NEUTRAL: Final = frozenset({"id", "kind", "rationale", "provenance"})
-
-# AllowedDependencyRule alone grants an edge; every other kind restricts something (AD-15).
-_PERMISSION_RULE_KINDS: Final = frozenset({"allowed_dependency"})
-_RESTRICTION_RULE_KINDS: Final = frozenset(
-    {
-        "call_owner",
-        "bounded_numeric_operand",
-        "protocol_declarations",
-        "forbidden_call_argument",
-        "forbidden_effect_under_condition",
-        "forbidden_dependency",
-        "forbidden_construct",
-        "external_dependency_scope",
-        "complete_assignment",
-        "root_layout",
-        "complete_external_scope",
-        "complete_requires",
-        "layer_order",
-        "no_component_cycles",
-        "interface_boundary",
-        "sibling_isolation",
-        "symbol_placement",
-        "boundary_types",
-        "catalog_argument",
-        "catalog_use",
-        "source_ownership",
-    }
-)
-
-
-def _set_widenings(
-    subject: str,
-    field: str,
-    before: frozenset[str],
-    after: frozenset[str],
-    *,
-    grows_widens: bool,
-) -> list[WideningChange]:
-    """One field's added/removed entries, reporting only the direction that widens it."""
-    label = f"{subject}.{field}"
-    if grows_widens:
-        return [
-            WideningChange(subject, field, f"{label} gained {_builtins.str.__str__(item)!r}")
-            for item in sorted(after - before)
-        ]
-    return [
-        WideningChange(subject, field, f"{label} lost {_builtins.str.__str__(item)!r}")
-        for item in sorted(before - after)
-    ]
-
-
-def _include_type_checking_widening(
-    subject: str, before: bool, after: bool
-) -> list[WideningChange]:
-    """A rule that stops covering type-checking-only imports is weakened, not strengthened."""
-    if before and not after:
-        return [
-            WideningChange(
-                subject,
-                "include_type_checking",
-                f"{subject}.include_type_checking relaxed from true to false",
-            )
-        ]
-    return []
-
-
-def _type_checking_rule_widenings(
-    subject: str,
-    before: CompleteRequiresRule | InterfaceBoundaryRule,
-    after: CompleteRequiresRule | InterfaceBoundaryRule,
-) -> list[WideningChange]:
-    return [
-        *_include_type_checking_widening(
-            subject, before.include_type_checking, after.include_type_checking
-        ),
-        *_generic_field_widenings(
-            subject, before, after, handled=frozenset({"include_type_checking"})
-        ),
-    ]
-
-
-def _interface_boundary_widenings(
-    subject: str, before: InterfaceBoundaryRule, after: InterfaceBoundaryRule
-) -> list[WideningChange]:
-    return [
-        *[
-            WideningChange(
-                subject, "module_object_grants", f"{subject}.module_object_grants gained {grant!r}"
-            )
-            for grant in sorted(
-                set(after.module_object_grants or ()) - set(before.module_object_grants or ()),
-                key=lambda item: (item.source_module, item.target_module),
-            )
-        ],
-        *_include_type_checking_widening(
-            subject, before.include_type_checking, after.include_type_checking
-        ),
-        *_generic_field_widenings(
-            subject,
-            before,
-            after,
-            handled=frozenset({"include_type_checking", "module_object_grants"}),
-        ),
-    ]
-
-
-def _generic_field_widenings(
-    subject: str, before: _DataclassInstance, after: _DataclassInstance, *, handled: frozenset[str]
-) -> list[WideningChange]:
-    """Fail closed: any field neither neutral nor already classified is a widening if it differs.
-
-    `handled` names the fields a set-based or boolean classifier already covered for this
-    dataclass type. Everything else — an unenumerated field on a known kind, or the entire
-    shape of a kind this module has no classifier for — falls through to here, which is what
-    makes the "no diagnosis is treated as widening" test in tests/test_widening.py hold: two
-    contracts differing only in a field this function does not name still report widening.
-    """
-    findings = []
-    skip = _ALWAYS_NEUTRAL | handled
-    # dataclasses.asdict, not a per-field getattr: the same construct CONSTRUCT-NO-DYNAMIC
-    # forbids elsewhere in this codebase, avoided here for its own sake, not only self-checked.
-    before_values = asdict(before)
-    after_values = asdict(after)
-    for field in dataclass_fields(before):
-        if field.name in skip:
-            continue
-        before_value = before_values[field.name]
-        after_value = after_values[field.name]
-        if before_value != after_value:
-            before_text, after_text = (
-                repr(_builtins.str.__str__(value) if isinstance(value, str) else value)
-                for value in (before_value, after_value)
-            )
-            findings.append(
-                WideningChange(
-                    subject,
-                    field.name,
-                    f"{subject}.{field.name} changed from {before_text} to {after_text}",
-                )
-            )
-    return findings
-
-
-def _rule_presence_widening(rule: ArchitectureRule, *, added: bool) -> list[WideningChange]:
-    verb = "added" if added else "removed"
-    if rule.kind in _PERMISSION_RULE_KINDS:
-        widens = added
-    elif rule.kind in _RESTRICTION_RULE_KINDS:
-        widens = not added
-    else:
-        # Fail closed: a rule kind this module does not enumerate is never assumed to be a
-        # restriction, so its presence changing in either direction is reported.
-        widens = True
-    subject = f"rule {rule.id}"
-    return (
-        [WideningChange(subject, "presence", f"{subject} ({rule.kind}) {verb}")] if widens else []
-    )
-
-
-def _forbidden_dependency_widenings(
-    subject: str, before: ForbiddenDependencyRule, after: ForbiddenDependencyRule
-) -> list[WideningChange]:
-    return [
-        *_set_widenings(
-            subject,
-            "allowed_sources",
-            frozenset(before.allowed_sources),
-            frozenset(after.allowed_sources),
-            grows_widens=True,
-        ),
-        *_include_type_checking_widening(
-            subject, before.include_type_checking, after.include_type_checking
-        ),
-        *[
-            WideningChange(subject, name, f"{subject}.{name} narrowed from prefix to exact")
-            for name, old, new in (
-                ("source_match", before.source_match, after.source_match),
-                ("target_match", before.target_match, after.target_match),
-            )
-            if old is SelectorMatch.PREFIX and new is SelectorMatch.EXACT
-        ],
-        *(
-            [
-                WideningChange(
-                    subject, "target_kind", f"{subject} now permits an absent import namespace"
-                )
-            ]
-            if before.target_kind is DependencyTargetKind.MODULE
-            and after.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
-            else []
-        ),
-        *_generic_field_widenings(
-            subject,
-            before,
-            after,
-            handled=frozenset(
-                {
-                    "allowed_sources",
-                    "include_type_checking",
-                    "source_match",
-                    "target_match",
-                    "target_kind",
-                }
-            ),
-        ),
-    ]
-
-
-def _forbidden_construct_widenings(
-    subject: str, before: ForbiddenConstructRule, after: ForbiddenConstructRule
-) -> list[WideningChange]:
-    return [
-        # A construct dropped from the forbidden list is a widening; one added is not.
-        *_set_widenings(
-            subject,
-            "constructs",
-            frozenset(before.constructs),
-            frozenset(after.constructs),
-            grows_widens=False,
-        ),
-        *_set_widenings(
-            subject,
-            "allowed_sources",
-            frozenset(before.allowed_sources),
-            frozenset(after.allowed_sources),
-            grows_widens=True,
-        ),
-        *_set_widenings(
-            subject,
-            "exact_sources",
-            frozenset(before.exact_sources),
-            frozenset(after.exact_sources),
-            grows_widens=True,
-        ),
-        *[
-            WideningChange(
-                subject, "allowed_type_ignores", f"{subject}.allowed_type_ignores gained {item!r}"
-            )
-            for item in sorted(
-                set(after.allowed_type_ignores) - set(before.allowed_type_ignores),
-                key=lambda item: (item.qualified_name, item.line, item.statement, item.tag),
-            )
-        ],
-        *_generic_field_widenings(
-            subject,
-            before,
-            after,
-            handled=frozenset(
-                {"constructs", "allowed_sources", "exact_sources", "allowed_type_ignores"}
-            ),
-        ),
-    ]
-
-
-def _external_dependency_scope_widenings(
-    subject: str,
-    before: ExternalDependencyScopeRule | CallOwnerRule,
-    after: ExternalDependencyScopeRule | CallOwnerRule,
-) -> list[WideningChange]:
-    return [
-        *_set_widenings(
-            subject,
-            "allowed_sources",
-            frozenset(before.allowed_sources),
-            frozenset(after.allowed_sources),
-            grows_widens=True,
-        ),
-        *_set_widenings(
-            subject,
-            "exact_sources",
-            frozenset(before.exact_sources),
-            frozenset(after.exact_sources),
-            grows_widens=True,
-        ),
-        *_generic_field_widenings(
-            subject, before, after, handled=frozenset({"allowed_sources", "exact_sources"})
-        ),
-    ]
-
-
-def _sibling_isolation_widenings(
-    subject: str, before: SiblingIsolationRule, after: SiblingIsolationRule
-) -> list[WideningChange]:
-    return [
-        # Fewer isolated members means less is kept apart: a widening, not a narrowing.
-        *_set_widenings(
-            subject,
-            "members",
-            frozenset(before.members),
-            frozenset(after.members),
-            grows_widens=False,
-        ),
-        *_include_type_checking_widening(
-            subject, before.include_type_checking, after.include_type_checking
-        ),
-        *_generic_field_widenings(
-            subject, before, after, handled=frozenset({"members", "include_type_checking"})
-        ),
-    ]
-
-
-def _boundary_types_widenings(
-    subject: str, before: BoundaryTypesRule, after: BoundaryTypesRule
-) -> list[WideningChange]:
-    return [
-        WideningChange(subject, "allowed_positions", f"{subject}.allowed_positions gained {item!r}")
-        for item in sorted(
-            set(after.allowed_positions) - set(before.allowed_positions),
-            key=lambda entry: (
-                entry.qualified_name,
-                entry.position,
-                entry.field_path,
-                entry.annotation,
-                entry.container_depth or 0,
-                entry.mapping_depth or 0,
-                entry.literal_mapping_arm or "",
-                entry.native_mapping,
-                entry.alias_body is not None,
-                entry.alias_body.origin if entry.alias_body is not None else "",
-                entry.alias_body.shape if entry.alias_body is not None else "",
-                entry.key_alias_body is not None,
-                entry.key_alias_body.origin if entry.key_alias_body is not None else "",
-                entry.key_alias_body.shape if entry.key_alias_body is not None else "",
-            ),
-        )
-    ]
-
-
-def _no_component_cycles_widenings(
-    subject: str, before: NoComponentCyclesRule, after: NoComponentCyclesRule
-) -> list[WideningChange]:
-    """AD-98: judging fewer cycles widens, and so does any level change.
-
-    Neither level implies the other: `a1 -> b1` and `b2 -> a2` close a component cycle through
-    modules that form none, and one component can hold a module cycle while no component
-    cycle exists.
-    """
-    old_level, new_level = before.level or "component", after.level or "component"
-    level = (
-        [
-            WideningChange(
-                subject, "level", f"{subject}.level changed from {old_level} to {new_level}"
-            )
-        ]
-        if old_level != new_level
-        else []
-    )
-    if after.components is None:
-        scope: list[WideningChange] = []
-    elif before.components is None:
-        scope = [
-            WideningChange(
-                subject, "components", f"{subject}.components scoped to {sorted(after.components)}"
-            )
-        ]
-    else:
-        scope = _set_widenings(
-            subject,
-            "components",
-            frozenset(before.components),
-            frozenset(after.components),
-            grows_widens=False,
-        )
-    return [
-        *level,
-        *scope,
-        *_generic_field_widenings(
-            subject, before, after, handled=frozenset({"level", "components"})
-        ),
-    ]
-
-
-def _bounded_numeric_operand_widenings(
-    subject: str, before: BoundedNumericOperandRule, after: BoundedNumericOperandRule
-) -> list[WideningChange]:
-    threshold = (
-        [
-            WideningChange(
-                subject,
-                "minimum_value",
-                f"{subject}.minimum_value decreased from {before.minimum_value} "
-                f"to {after.minimum_value}",
-            )
-        ]
-        if after.minimum_value < before.minimum_value
-        else []
-    )
-    return [
-        *threshold,
-        *_generic_field_widenings(subject, before, after, handled=frozenset({"minimum_value"})),
-    ]
-
-
-def _matched_rule_widenings(
-    before: ArchitectureRule, after: ArchitectureRule
-) -> list[WideningChange]:
-    """Dispatch by matched rule kind; a kind this module has no branch for falls closed below."""
-    subject = f"rule {before.id}"
-    if before.kind != after.kind:
-        # An id kept across a kind change: neither the permission nor the restriction map
-        # still applies, so fail closed rather than guess which side is now safe.
-        return [
-            WideningChange(
-                subject, "kind", f"{subject} changed kind from {before.kind} to {after.kind}"
-            )
-        ]
-    if isinstance(before, ForbiddenDependencyRule) and isinstance(after, ForbiddenDependencyRule):
-        return _forbidden_dependency_widenings(subject, before, after)
-    if isinstance(before, AllowedDependencyRule) and isinstance(after, AllowedDependencyRule):
-        return _generic_field_widenings(subject, before, after, handled=frozenset())
-    if isinstance(before, ForbiddenConstructRule) and isinstance(after, ForbiddenConstructRule):
-        return _forbidden_construct_widenings(subject, before, after)
-    if isinstance(before, ExternalDependencyScopeRule | CallOwnerRule) and isinstance(
-        after, ExternalDependencyScopeRule | CallOwnerRule
-    ):
-        return _external_dependency_scope_widenings(subject, before, after)
-    if isinstance(before, ForbiddenCallArgumentRule) and isinstance(
-        after, ForbiddenCallArgumentRule
-    ):
-        return _generic_field_widenings(subject, before, after, handled=frozenset())
-    if isinstance(before, CompleteRequiresRule) and isinstance(after, CompleteRequiresRule):
-        return _type_checking_rule_widenings(subject, before, after)
-    if isinstance(before, RootLayoutRule) and isinstance(after, RootLayoutRule):
-        return [
-            *_set_widenings(
-                subject,
-                "allowed_children",
-                frozenset(before.allowed_children),
-                frozenset(after.allowed_children),
-                grows_widens=True,
-            ),
-            *_generic_field_widenings(
-                subject, before, after, handled=frozenset({"allowed_children"})
-            ),
-        ]
-    if isinstance(before, InterfaceBoundaryRule) and isinstance(after, InterfaceBoundaryRule):
-        return _interface_boundary_widenings(subject, before, after)
-    if isinstance(before, SiblingIsolationRule) and isinstance(after, SiblingIsolationRule):
-        return _sibling_isolation_widenings(subject, before, after)
-    if isinstance(before, BoundaryTypesRule) and isinstance(after, BoundaryTypesRule):
-        return [
-            *_boundary_types_widenings(subject, before, after),
-            *_generic_field_widenings(
-                subject, before, after, handled=frozenset({"allowed_positions"})
-            ),
-        ]
-    if isinstance(before, SourceOwnershipRule) and isinstance(after, SourceOwnershipRule):
-        return _generic_field_widenings(subject, before, after, handled=frozenset())
-    if isinstance(before, CompleteAssignmentRule) and isinstance(after, CompleteAssignmentRule):
-        return _generic_field_widenings(subject, before, after, handled=frozenset())
-    if isinstance(before, CompleteExternalScopeRule) and isinstance(
-        after, CompleteExternalScopeRule
-    ):
-        return _generic_field_widenings(subject, before, after, handled=frozenset())
-    if isinstance(before, BoundedNumericOperandRule) and isinstance(
-        after, BoundedNumericOperandRule
-    ):
-        return _bounded_numeric_operand_widenings(subject, before, after)
-    if isinstance(before, NoComponentCyclesRule) and isinstance(after, NoComponentCyclesRule):
-        return _no_component_cycles_widenings(subject, before, after)
-    # Fail closed: a rule type this dispatch does not recognise is never assumed safe.
-    return (
-        [
-            WideningChange(
-                subject, "rule", f"{subject} changed in a way this comparison does not enumerate"
-            )
-        ]
-        if before != after
-        else []
-    )
-
-
-def _rules_widenings(
-    before: tuple[ArchitectureRule, ...], after: tuple[ArchitectureRule, ...]
-) -> list[WideningChange]:
-    before_map = {rule.id: rule for rule in before}
-    after_map = {rule.id: rule for rule in after}
-    findings: list[WideningChange] = []
-    for rule_id in sorted(set(after_map) - set(before_map)):
-        findings += _rule_presence_widening(after_map[rule_id], added=True)
-    for rule_id in sorted(set(before_map) - set(after_map)):
-        findings += _rule_presence_widening(before_map[rule_id], added=False)
-    for rule_id in sorted(set(before_map) & set(after_map)):
-        findings += _matched_rule_widenings(before_map[rule_id], after_map[rule_id])
-    return findings
 
 
 def _requires_widenings(
@@ -673,7 +154,7 @@ def _component_widenings(
         ],
         *_requires_widenings(subject, _effective_requires(before), _effective_requires(after)),
         *_namespace_widenings(subject, before.namespace, after.namespace),
-        *_generic_field_widenings(
+        *generic_field_widenings(
             subject,
             before,
             after,
@@ -738,7 +219,7 @@ def contract_widening_changes(
     """
     findings = [
         *_components_widenings(before.components, after.components),
-        *_rules_widenings(before.rules, after.rules),
+        *rules_widenings(before.rules, after.rules),
     ]
     if before.schema != after.schema:
         findings.append(
@@ -750,7 +231,7 @@ def contract_widening_changes(
         )
     before_declarations = before.declarations or ContractDeclarations()
     after_declarations = after.declarations or ContractDeclarations()
-    findings += _set_widenings(
+    findings += set_widenings(
         "contract.declarations",
         "measurement_budgets",
         frozenset(item.name for item in before_declarations.measurement_budgets),
@@ -873,14 +354,14 @@ def contract_narrowing_changes(
             f"rule {rule_id}", "presence", f"rule {rule_id} ({after_rules[rule_id].kind}) added"
         )
         for rule_id in sorted(set(after_rules) - set(before_rules))
-        if after_rules[rule_id].kind in _RESTRICTION_RULE_KINDS
+        if after_rules[rule_id].kind in RESTRICTION_RULE_KINDS
     ]
     findings += [
         WideningChange(
             f"rule {rule_id}", "presence", f"rule {rule_id} ({before_rules[rule_id].kind}) removed"
         )
         for rule_id in sorted(set(before_rules) - set(after_rules))
-        if before_rules[rule_id].kind in _PERMISSION_RULE_KINDS
+        if before_rules[rule_id].kind in PERMISSION_RULE_KINDS
     ]
     return tuple(sorted(findings, key=lambda item: item.message))
 
@@ -916,139 +397,3 @@ def _ceiling_widenings(
                 )
             )
     return findings
-
-
-def measurement_budget_changes(
-    before: tuple[MeasurementBudget, ...],
-    after: tuple[MeasurementBudget, ...],
-    targets: Mapping[str, int] | None = None,
-) -> tuple[WideningChange, ...]:
-    """A raised, grown or dropped accepted value widens its measurement budget.
-
-    AD-89 compares a scalar; AD-99 a key's accepted names, where any gained name widens even
-    when another one left, because the ratchet holds names rather than their count. `targets`
-    are the old contract's `max_names` by label: a key the old baseline did not hold was held by
-    that target alone, so a first accepted set above it widens too.
-    """
-    accepted = {item.label: item for item in after}
-    findings: list[WideningChange] = []
-    for item in sorted(before, key=lambda budget: budget.label):
-        now = accepted.get(item.label)
-        if now is None:
-            findings.append(
-                WideningChange(
-                    item.label, "baseline", f"measurement budget baseline lost {item.label}"
-                )
-            )
-            continue
-        gained, _ = name_drift(item, now)
-        if gained:
-            findings.append(
-                WideningChange(
-                    item.label,
-                    "accepted_names",
-                    f"measurement budget widened: {item.label} (gained {', '.join(gained)})",
-                )
-            )
-        elif now.value > item.value:
-            findings.append(
-                WideningChange(
-                    item.label,
-                    "value",
-                    f"measurement budget widened: {item.label} "
-                    f"({now.value} now, {item.value} before)",
-                )
-            )
-    held = {item.label for item in before}
-    old_targets = targets or {}
-    findings.extend(
-        WideningChange(
-            item.label,
-            "value",
-            f"measurement budget widened: {item.label} "
-            f"({item.value} accepted, target {old_targets[item.label]} before)",
-        )
-        for item in sorted(after, key=lambda budget: budget.label)
-        if item.label not in held
-        and item.label in old_targets
-        and item.value > old_targets[item.label]
-    )
-    return tuple(findings)
-
-
-def measurement_budget_widenings(
-    before: tuple[MeasurementBudget, ...],
-    after: tuple[MeasurementBudget, ...],
-    targets: Mapping[str, int] | None = None,
-) -> tuple[str, ...]:
-    """Backward-compatible rendered measurement-budget widening messages."""
-    return tuple(item.message for item in measurement_budget_changes(before, after, targets))
-
-
-def baseline_widening_changes(
-    before: tuple[KnownViolation, ...],
-    after: tuple[KnownViolation, ...],
-    *,
-    cycle_rules: frozenset[str],
-) -> tuple[WideningChange, ...]:
-    """A known-violation baseline is part of the contract's surface (#11).
-
-    Padding it to make a new violation disappear is exactly the move a target-first workflow
-    invites, so it is compared the same way every other rule is: by fingerprint, a higher count
-    or a new fingerprint reported as widening, a lower or removed one left to pass silently.
-    Roles do not change fingerprint identity, but AD-85 uses them as directional evidence. Any
-    role-only change is therefore protected rather than classified as neutral metadata. A cycle
-    that replaces a baselined cycle it lies inside is that cycle contracting (AD-98): narrowing.
-    """
-    contracted = cycle_contractions(before, after, cycle_rules=cycle_rules)
-    before_by_fingerprint = {item.fingerprint: item for item in before}
-    after_by_fingerprint = {item.fingerprint: item for item in after}
-    findings: list[WideningChange] = []
-    for fingerprint in sorted(
-        before_by_fingerprint.keys() | after_by_fingerprint.keys(),
-        key=lambda item: (item.rules, item.subjects),
-    ):
-        before_item = before_by_fingerprint.get(fingerprint)
-        after_item = after_by_fingerprint.get(fingerprint)
-        before_count = before_item.count if before_item is not None else 0
-        after_count = after_item.count if after_item is not None else 0
-        name = violation_name(fingerprint)
-        if after_count > before_count and fingerprint not in contracted:
-            findings.append(
-                WideningChange(
-                    name,
-                    "count",
-                    f"baseline entry widened: {name} ({after_count} now, {before_count} before)",
-                )
-            )
-        if (
-            before_item is not None
-            and after_item is not None
-            and before_count == after_count
-            and before_item.roles != after_item.roles
-        ):
-            before_roles = ", ".join(
-                f"{source} -> {target}" for source, target in before_item.roles
-            )
-            after_roles = ", ".join(f"{source} -> {target}" for source, target in after_item.roles)
-            findings.append(
-                WideningChange(
-                    name,
-                    "roles",
-                    f"baseline entry roles changed: {name} "
-                    f"({before_roles or 'none'} before; {after_roles or 'none'} now)",
-                )
-            )
-    return tuple(findings)
-
-
-def baseline_widenings(
-    before: tuple[KnownViolation, ...],
-    after: tuple[KnownViolation, ...],
-    *,
-    cycle_rules: frozenset[str],
-) -> tuple[str, ...]:
-    """Backward-compatible rendered baseline widening messages."""
-    return tuple(
-        item.message for item in baseline_widening_changes(before, after, cycle_rules=cycle_rules)
-    )

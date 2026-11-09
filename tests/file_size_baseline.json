@@ -46,7 +46,6 @@
   "src/archkeel/ir/report_projection.py": 1011,
   "src/archkeel/ir/source_graph.py": 968,
   "src/archkeel/ir/view_spec.py": 1256,
-  "src/archkeel/ir/widening.py": 1054,
   "src/archkeel/render/atlas.py": 838,
   "src/archkeel/render/guide.py": 541,
   "src/archkeel/render/html.py": 2243,

@@ -61,9 +61,9 @@ and every import in these modules, also inside functions. It checks that `decisi
 selector grammar. `tests/test_codec_compatibility.py` checks the `codec` facade.
 `make self-validate` and `make against BASE=origin/main` check the contract.
 
-**Update 2026-11-09 (issue #880, step S4).** `source_graph` is split at one seam. The proof of
-complete member inventories moves to `archkeel.ir.member_inventory`. It joins `exact_modules` and
-`public` of the architecture owner and the `public` list of `ir`. The typed readers of text and
-record arrays move to `archkeel.ir.source_values`, which stays internal. Code, names and behaviour
-do not change. `source_graph` falls from 1290 to 968 lines. The amendment
-`ad-315-member-inventory-amendment.json` binds both contracts.
+**Update 2026-11-09 (issue #880, step S4).** Two modules split at responsibility seams. The proof
+of member inventories moves from `source_graph` to `member_inventory` (public); typed readers move
+to `source_values`. The rule, ratchet and shared classifiers move from `widening` to
+`widening_rules`, `widening_ratchet` and `widening_change` (internal; `widening` still exports
+every public name). Code and behaviour do not change. The amendments
+`ad-315-member-inventory-amendment.json` and `ad-315-widening-amendment.json` bind both changes.
