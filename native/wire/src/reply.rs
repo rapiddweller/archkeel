@@ -190,9 +190,31 @@ pub fn encode(version: Version, facts: &Facts) -> Result<Vec<u8>, String> {
         .map_err(|error| format!("cannot compress the reply: {error}"))
 }
 
+/// The sections whose records can be none because the source has none or because nothing was read.
+const CHECKED_SECTIONS: [&str; 4] = ["calls", "references", "constructs", "unknowns"];
+
+/// `claimed_sections.py`: each checked section without a record states the files that it examined.
+fn examined_value(facts: &Facts) -> Option<Value> {
+    let mut paths: Vec<&str> = facts
+        .files
+        .iter()
+        .map(|file| file.rel_path.as_str())
+        .collect();
+    paths.sort_unstable();
+    paths.dedup();
+    let digest = Value::from(sha256_hex(paths.join("\n").as_bytes()));
+    let states: Map<String, Value> = facts
+        .sections
+        .iter()
+        .filter(|(name, records)| records.is_empty() && CHECKED_SECTIONS.contains(name))
+        .map(|(name, _)| ((*name).to_string(), digest.clone()))
+        .collect();
+    (!states.is_empty()).then_some(Value::Object(states))
+}
+
 fn facts_value(facts: &Facts) -> Value {
     let provenance = &facts.provenance;
-    json!({
+    let mut value = json!({
         "profile": provenance.profile,
         "adapter": {
             "name": provenance.profile,
@@ -239,7 +261,11 @@ fn facts_value(facts: &Facts) -> Value {
         "state": {"classes": [], "functions": []},
         "candidate_evidence": [],
         "provider_bindings": [],
-    })
+    });
+    if let Some(states) = examined_value(facts) {
+        value["capabilities"]["examined"] = states;
+    }
+    value
 }
 
 pub fn target_value(target: &Target) -> Value {

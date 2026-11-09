@@ -15,6 +15,7 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
 
+from .claimed_sections import decode_examined, encode_examined
 from .codec_strings import (
     StringTablePolicy as StringTablePolicy,
 )
@@ -63,21 +64,15 @@ from .facts import (
     parse_runtime_requirement_state,
     source_dirty,
 )
-from .facts import (
-    RawJson as RawJson,
-)
+from .facts import RawJson as RawJson
 from .facts_validation import (
     _call_excerpt_matches,
     _validate_reference_contexts,
     _validate_source_role_identities,
     without_unnamed_families,
 )
-from .facts_validation import (
-    selector_receiver_site_matches as selector_receiver_site_matches,
-)
-from .facts_validation import (
-    validate_source_role_vocabulary as validate_source_role_vocabulary,
-)
+from .facts_validation import selector_receiver_site_matches as selector_receiver_site_matches
+from .facts_validation import validate_source_role_vocabulary as validate_source_role_vocabulary
 from .protocol import (
     FEATURE_GATED_PROTOCOLS,
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -994,6 +989,7 @@ def _construct_capability(raw: RawJson) -> ConstructCapability:
 
 
 def _capabilities(value: RawJson) -> Capabilities:
+    states = decode_examined(value.pop("examined", None) if isinstance(value, dict) else None)
     item = _object(value, {"sections", "resolution_features", "constructs"}, "capabilities")
     return Capabilities(
         tuple(
@@ -1004,6 +1000,7 @@ def _capabilities(value: RawJson) -> Capabilities:
             _construct_capability(entry)
             for entry in _array(item["constructs"], "capabilities.constructs")
         ),
+        states,
     )
 
 
@@ -1629,6 +1626,7 @@ def _facts_payload(
                 {"name": entry.name.value, "status": entry.status.value}
                 for entry in facts.capabilities.constructs
             ],
+            **encode_examined(facts.capabilities),
         },
         "inputs": [
             {"path": entry.path, "digest": entry.digest, "role": entry.role}

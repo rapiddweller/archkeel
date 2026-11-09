@@ -24,6 +24,7 @@ from archkeel.analyzer.runtime import (
     collector_provenance,
     python_requirement,
 )
+from archkeel.ir.claimed_sections import states_examined
 from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
@@ -107,9 +108,7 @@ from .source import (
     stdlib_member_static,
     unproven_member_bindings,
 )
-from .source import (
-    provider_source_eligible as _provider_source_eligible,
-)
+from .source import provider_source_eligible as _provider_source_eligible
 from .state import collect_state
 from .symbols import collect_symbols
 from .type_shapes import collect_type_shapes, symbol_type_expressions
@@ -361,6 +360,7 @@ def provider_sources(
     return tuple(sources[name] for name in sorted(sources))
 
 
+@states_examined
 def collect(request: CollectionRequest) -> SourceFacts:
     """Collect selected Python source evidence for the requested phase."""
     root = Path(request.snapshot.root).resolve()

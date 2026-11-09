@@ -682,12 +682,8 @@ def call_binding(value: JsonValue) -> CallBinding | None:
         raise ValueError("extended call binding needs a typed origin proof")
     if proof is not None:
         _validate_call_binding_proof(proof, parsed_origin, target, evidence)
-    return CallBinding(
-        parsed_origin,
-        target,
-        tuple(item for item in evidence if isinstance(item, str)),
-        proof,
-    )
+    texts = tuple(item for item in evidence if isinstance(item, str))
+    return CallBinding(parsed_origin, target, texts, proof)
 
 
 def _validate_call_binding_proof(
@@ -1091,6 +1087,7 @@ class Capabilities:
     sections: tuple[SourceSectionName, ...]
     resolution_features: tuple[str, ...] = ()
     constructs: tuple[ConstructCapability, ...] = ()
+    examined: tuple[tuple[SourceSectionName, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

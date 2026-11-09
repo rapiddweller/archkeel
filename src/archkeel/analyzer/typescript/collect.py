@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Final
 
 from archkeel.analyzer.runtime import collector_provenance
+from archkeel.ir.claimed_sections import states_examined
 from archkeel.ir.facts import (
     SOURCE_RESOLUTION_GAP_KIND,
     SOURCE_SCRIPT_GLOBAL_KIND,
@@ -150,6 +151,7 @@ def _package_of(module: str) -> str:
     return module.rpartition(".")[0]
 
 
+@states_examined
 def collect(request: CollectionRequest) -> SourceFacts:
     if not isinstance(request.resolver, TypeScriptSettings):
         raise ValueError("TypeScript collector requires the TypeScript resolver")
