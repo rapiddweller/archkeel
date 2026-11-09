@@ -1,0 +1,95 @@
+{
+  "claimed": [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs"
+  ],
+  "features": [
+    "literal-imports",
+    "relative-specifiers",
+    "node-builtins",
+    "local-runtime-closure",
+    "inner-uml-v1",
+    "script-globals-v1"
+  ],
+  "order": [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs"
+  ],
+  "rest": {
+    "counts": {
+      "candidate_evidence": 0,
+      "evidence": 1668,
+      "files": 41,
+      "imports": 248,
+      "inputs": 78,
+      "type_shapes": 0,
+      "uncertain_reexports": 0
+    },
+    "sha256": "dc6f61ac668a2d7252db1c387b6c2539e2865034f8511a8c440eb8ddf52413c1"
+  },
+  "sections": {
+    "bindings": {
+      "kinds": {
+        "bindings": 30
+      },
+      "records": 30,
+      "sha256": "4340130afa047ed3ecad6dfd82758bc7cf59447b74996f9e8f075465eb295ea8"
+    },
+    "calls": {
+      "kinds": {
+        "calls": 387
+      },
+      "records": 387,
+      "sha256": "82e9309d9bbce9e9d60afed90b97b919266c5b0ff882b71cab3e0b31e93bc617"
+    },
+    "constructs": {
+      "kinds": {},
+      "records": 0,
+      "sha256": "6b36933e25288a463aad9b19d3dc6b6e6ccf4366a52fe6a6e1837053f63a6907"
+    },
+    "imports": {
+      "kinds": {
+        "import": 243,
+        "reexport": 5
+      },
+      "records": 248,
+      "sha256": "0bfefe3d0d1eec1814dd082bb8128adab69ad621911e350627ed324f7e017006"
+    },
+    "references": {
+      "kinds": {
+        "references": 748
+      },
+      "records": 748,
+      "sha256": "4b7f6f1134e4b70c7a54bb631baa2271342185d62d7f1f25b7a971f27f6d1ffd"
+    },
+    "symbols": {
+      "kinds": {
+        "class": 41,
+        "constant": 3,
+        "function": 1,
+        "method": 76,
+        "type_alias": 4
+      },
+      "records": 125,
+      "sha256": "412581e0f9fd39ec8c3860dfdbd03df13f0370d016fef4eafa3901d6b8a21914"
+    },
+    "unknowns": {
+      "kinds": {
+        "source_resolution_gap": 1
+      },
+      "records": 1,
+      "sha256": "26ef79e6aab27ccd0a41de98ebf0ad2c039850b7d96955cc5b03f8d6e061a299"
+    }
+  },
+  "sha256": "4aed116e34422162f4ca4a69c88c2f12bc07d21a42dafaa64d1c7fd177b532bc"
+}

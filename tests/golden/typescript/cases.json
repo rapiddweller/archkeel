@@ -1,0 +1,11 @@
+[
+  {"case": "h-typescript", "root": "fixtures/H-typescript"},
+  {"case": "h-uml-typescript", "root": "fixtures/H-uml-typescript"},
+  {"case": "f-typescript-story", "root": "fixtures/F-typescript-story"},
+  {"case": "l-nest-realworld", "root": "fixtures/L-nest-realworld"},
+  {"case": "excalidraw-math", "root": "tests/golden/typescript/sources/excalidraw-math"},
+  {"case": "excalidraw-laser-pointer", "root": "tests/golden/typescript/sources/excalidraw-laser-pointer"},
+  {"case": "synthetic-tsx-paths", "root": "tests/golden/typescript/sources/synthetic-tsx-paths"},
+  {"case": "synthetic-bundler", "root": "tests/golden/typescript/sources/synthetic-bundler"},
+  {"case": "synthetic-gaps", "root": "tests/golden/typescript/sources/synthetic-gaps"}
+]

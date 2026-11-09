@@ -1,0 +1,96 @@
+{
+  "claimed": [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs"
+  ],
+  "features": [
+    "literal-imports",
+    "relative-specifiers",
+    "node-builtins",
+    "local-runtime-closure",
+    "inner-uml-v1",
+    "script-globals-v1"
+  ],
+  "order": [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs"
+  ],
+  "rest": {
+    "counts": {
+      "candidate_evidence": 0,
+      "evidence": 2477,
+      "files": 16,
+      "imports": 228,
+      "inputs": 17,
+      "type_shapes": 0,
+      "uncertain_reexports": 0
+    },
+    "sha256": "00ca428c01e1ec49c77fb4d1fcfc013a40c9d050638f0c04c19f9e40d4c8a5f7"
+  },
+  "sections": {
+    "bindings": {
+      "kinds": {
+        "bindings": 25
+      },
+      "records": 25,
+      "sha256": "a388118ca498aff07164bc6e259ea5c64368ecffde2c205a48e45ba7cc8bca74"
+    },
+    "calls": {
+      "kinds": {
+        "calls": 282
+      },
+      "records": 282,
+      "sha256": "b682cac3d8f20772d6034bc151decedc2833eb71c845c514c41af84e15b6f6a0"
+    },
+    "constructs": {
+      "kinds": {
+        "string_literal_compare": 6
+      },
+      "records": 6,
+      "sha256": "7bf2d5a9add0e55f9cdd96bf4235b4147be0bcc99d51ae99355c7c9ffc708486"
+    },
+    "imports": {
+      "kinds": {
+        "import": 97,
+        "reexport": 14,
+        "script_global": 117
+      },
+      "records": 228,
+      "sha256": "5b8acae5230e27f4b8642d02a84554ecbce8a12b42ce1655f2e3d9fdfc35caca"
+    },
+    "references": {
+      "kinds": {
+        "references": 1992
+      },
+      "records": 1992,
+      "sha256": "73d7db347d23537735d61abed979c963268fd85a292ad65af4890f1ef2a23310"
+    },
+    "symbols": {
+      "kinds": {
+        "constant": 7,
+        "function": 79,
+        "type_alias": 19
+      },
+      "records": 105,
+      "sha256": "dc6d80026aeef65273d70cc4332d63ccc48903163a69b2d5e2e120626a2f4a21"
+    },
+    "unknowns": {
+      "kinds": {
+        "source_resolution_gap": 1
+      },
+      "records": 1,
+      "sha256": "265a2bc5c381e497a01d54ce7cb61f9dbd3122702d38b3533cd29287e2521b08"
+    }
+  },
+  "sha256": "9632d762b408530f1669572948ab36b88ea8c73ec3deaa9b99235a7b9d54334e"
+}

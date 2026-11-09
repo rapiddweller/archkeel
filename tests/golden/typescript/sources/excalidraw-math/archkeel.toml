@@ -1,0 +1,6 @@
+[scan]
+language = "typescript"
+roots = ["src"]
+namespace = "excalidraw.math"
+contract = "architecture-contract.json"
+tsconfig = "tsconfig.json"
