@@ -1,8 +1,8 @@
 {
   "after_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
-  "after_digest": "344ba1e4d8e6d9ab41de1c2dd3538c406f91e459b77b1422ca5d0f8fa2240527",
+  "after_digest": "6676528923b118774eae4a2e018afa8ef0310130893e99309bbbfa1a30eee22b",
   "before_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
-  "before_digest": "5cbf75a0a5fffd41141486a81f6bc868eaffe46a71be4f096b0bb8a0e89a8ece",
+  "before_digest": "6bd6419fcf0c47083f4d6f96cd18ee150561f947d07921fef7f84aeb5b37015f",
   "decided_by": "owner (decision task of 2026-11-09)",
   "rationale": "Base 90c4b639. AD-338 and epic #880 task D3. Two new internal modules join facts-codec in contracts/ir.json: archkeel.ir.reference_context holds the memoized reference check, archkeel.ir.validated_facts holds the proof that the decoder validated one object. The public entry archkeel.ir.facts_validation:validate_source_facts of ir is replaced by archkeel.ir.validated_facts:ensure_valid_source_facts in both contract files, because evaluate_source was its only user outside ir. No budget, rule, component or requires entry changes. The baseline stays the same.",
   "schema_version": "2.0.0"
