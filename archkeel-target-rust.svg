@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2190" width="1800" height="2190" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2254" width="1800" height="2254" font-family="Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
     </marker>
   </defs>
-  <rect width="1800" height="2190" fill="#ffffff"/>
+  <rect width="1800" height="2254" fill="#ffffff"/>
 
   <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">ArchKeel target architecture: what is Rust, what stays</text>
-  <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-08, 21 PRs merged.</text>
+  <text x="40" y="80" font-size="15" fill="#475569">Source: owner decision in issue #880. PR numbers are the PRs of that plan. No CBM at runtime. State: 2026-11-09, 23 PRs merged.</text>
 
   <!-- legend -->
   <rect x="40" y="104" width="22" height="22" rx="4" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
@@ -169,7 +169,7 @@
   <rect x="1312" y="106" width="112" height="19" rx="9.5" fill="#db2777"/><text x="1368.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DECISION OPEN</text>
   <rect x="1436" y="106" width="76" height="19" rx="9.5" fill="#94a3b8"/><text x="1474.0" y="119.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
   <rect x="304" y="378" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="476" y="370" width="132" height="19" rx="9.5" fill="#16a34a"/><text x="542.0" y="383.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PILOT DONE (scratch)</text>
+  <rect x="476" y="370" width="132" height="19" rx="9.5" fill="#16a34a"/><text x="542.0" y="383.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">SCOPE MERGED (#897)</text>
   <rect x="304" y="246" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
   <rect x="486" y="243" width="122" height="19" rx="9.5" fill="#16a34a"/><text x="547.0" y="256.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">SKELETON MERGED</text>
   <rect x="304" y="312" width="312" height="60" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
@@ -177,7 +177,7 @@
   <rect x="304" y="510" width="312" height="60" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
   <rect x="452" y="502" width="156" height="19" rx="9.5" fill="#f59e0b"/><text x="530.0" y="515.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">GAPS ONLY (4.1a)</text>
   <rect x="283" y="178" width="354" height="459" rx="14" fill="none" stroke="#f59e0b" stroke-width="5" stroke-dasharray="14 7"/>
-  <rect x="342" y="170" width="291" height="19" rx="9.5" fill="#f59e0b"/><text x="487.5" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">4.1a, 4.1b-1, 4.1b-2 MERGED · 4.2 MERGED · 4.3a-1 IN REVIEW</text>
+  <rect x="342" y="170" width="291" height="19" rx="9.5" fill="#f59e0b"/><text x="487.5" y="183.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">4.1, 4.2, 4.3a-1 MERGED · 4.3a-2 NEXT</text>
   <rect x="676" y="296" width="178" height="268" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
   <rect x="690" y="288" width="150" height="19" rx="9.5" fill="#16a34a"/><text x="765.0" y="301.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">V9 MERGED (#876)</text>
   <rect x="664" y="594" width="196" height="196" rx="10" fill="#f1f5f9"/>
@@ -204,7 +204,7 @@
   <rect x="486" y="641" width="134" height="19" rx="9.5" fill="#94a3b8"/><text x="553.0" y="654.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">FROZEN · PR 8 LAST</text>
   <rect x="1440" y="604" width="330" height="186" rx="10" fill="#f0fdf4"/>
   <rect x="1436" y="600" width="338" height="194" rx="14" fill="none" stroke="#16a34a" stroke-width="5"/>
-  <rect x="1480" y="592" width="250" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="605.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">21 PRs MERGED INTO MAIN</text>
+  <rect x="1480" y="592" width="250" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="605.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">23 PRs MERGED INTO MAIN</text>
   <text x="1454" y="632" font-size="13" font-weight="700" fill="#14532d">#881 #882 size rule, pin tests</text>
   <text x="1454" y="649" font-size="13"  fill="#14532d">#883 #886 macOS · #876 V9 scope</text>
   <text x="1454" y="666" font-size="13"  fill="#14532d">#884 #894 #898 #900 IR S1 to S3, levels</text>
@@ -213,13 +213,14 @@
   <text x="1454" y="717" font-size="13"  fill="#14532d">#891 #899 host peak 1 848 to 782 MiB</text>
   <text x="1454" y="734" font-size="13"  fill="#14532d">#893 native imports (4.2, AD-320)</text>
   <text x="1454" y="751" font-size="13"  fill="#14532d">#895 lib catalog JSON · #896 flake fix</text>
-  <text x="1454" y="768" font-size="13"  fill="#14532d">#901 C locale pin (AD-325)</text>
+  <text x="1454" y="768" font-size="13"  fill="#14532d">#901 C locale · #902 host loops -22 %</text>
+  <text x="1454" y="785" font-size="13"  fill="#14532d">#897 Rust syntax facts (4.3a-1)</text>
   <rect x="1440" y="826" width="330" height="88" rx="10" fill="#fffbeb"/>
   <rect x="1436" y="822" width="338" height="96" rx="14" fill="none" stroke="#f59e0b" stroke-width="3" stroke-dasharray="10 5"/>
   <rect x="1470" y="814" width="270" height="19" rx="9.5" fill="#16a34a"/><text x="1605.0" y="827.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PR H · MERGED (#891, #899)</text>
   <text x="1454" y="844" font-size="13" font-weight="700" fill="#78350f">Host peak on Linux: 1 848 to 782 MiB (-58 %).</text>
   <text x="1454" y="864" font-size="13"  fill="#78350f">macOS: 4 243 to 1 210 MiB (-71 %).</text>
-  <text x="1454" y="884" font-size="13"  fill="#78350f">Gate and 1 GiB mark met. #902: -22 % time.</text>
+  <text x="1454" y="884" font-size="13"  fill="#78350f">Gate and 1 GiB met. #902: -22 % time.</text>
   <text x="40" y="1070" font-size="22" font-weight="700" fill="#0f172a">Benchmarks, measured (details in the issue comment of 2026-11-08)</text>
   <rect x="40" y="1086" width="418" height="112" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
   <text x="54" y="1110" font-size="14" font-weight="700" fill="#1e3a8a">CBM and ArchKeel (Linux, 2 vCPU, 2 GiB)</text>
@@ -235,7 +236,7 @@
   <text x="922" y="1110" font-size="14" font-weight="700" fill="#78350f">Host path (merged #891, #899; React UI, 907 files)</text>
   <text x="922" y="1136" font-size="13" fill="#78350f">Linux 2 vCPU/2 GiB peak: 1 848, 1 145 (#891), 782 MiB (#899)</text>
   <text x="922" y="1158" font-size="13" fill="#78350f">Host time: -15.6 % (#891), -5 % (#899)</text>
-  <text x="922" y="1180" font-size="13" fill="#78350f">macOS peak: 4 243 to 1 210 MiB. #902 (review): -22 % time</text>
+  <text x="922" y="1180" font-size="13" fill="#78350f">macOS peak: 4 243 to 1 210 MiB. #902: -22 % time</text>
   <rect x="1342" y="1086" width="418" height="112" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
   <text x="1356" y="1110" font-size="14" font-weight="700" fill="#14532d">Native imports (4.2) against Python</text>
   <text x="1356" y="1136" font-size="13" fill="#14532d">910 files, Linux: 2.16 s floor to 1.06 s (-51 %)</text>
@@ -244,12 +245,12 @@
   <text x="40" y="1230" font-size="22" font-weight="700" fill="#0f172a">Goal check: how far are we from the three goals of #880?</text>
   <text x="60" y="1270" font-size="14" font-weight="700" fill="#0f172a">Native Rust collector replaces the Python TypeScript collector</text>
   <rect x="640" y="1257" width="300" height="16" rx="8" fill="#e2e8f0"/>
-  <rect x="640" y="1257" width="60" height="16" rx="8" fill="#f59e0b"/>
-  <text x="960" y="1270" font-size="13" fill="#334155">1 of 5 phases (4.2 merged; 4.3a-1 in review; 4.3b, 4.4, 4.5 open). No scan can PASS before 4.3a-5.</text>
+  <rect x="640" y="1257" width="66" height="16" rx="8" fill="#f59e0b"/>
+  <text x="960" y="1270" font-size="13" fill="#334155">2 of 9 steps (4.2, 4.3a-1). 4.3a-2 to -5, 4.3b, 4.4, 4.5 open. No native PASS before 4.3a-5.</text>
   <text x="60" y="1304" font-size="14" font-weight="700" fill="#0f172a">Bounded host path (Linux peak at most 1.25 GiB)</text>
   <rect x="640" y="1291" width="300" height="16" rx="8" fill="#e2e8f0"/>
   <rect x="640" y="1291" width="300" height="16" rx="8" fill="#16a34a"/>
-  <text x="960" y="1304" font-size="13" fill="#334155">Done. Peak 1 848 to 782 MiB (#891, #899). #902 (in review) cuts host time by about 22 %.</text>
+  <text x="960" y="1304" font-size="13" fill="#334155">Done. Peak 1 848 to 782 MiB (#891, #899). #902 cuts host time by 22 %.</text>
   <text x="60" y="1338" font-size="14" font-weight="700" fill="#0f172a">Simple IR: four owners, one place per concept</text>
   <rect x="640" y="1325" width="300" height="16" rx="8" fill="#e2e8f0"/>
   <rect x="640" y="1325" width="150" height="16" rx="8" fill="#f59e0b"/>
@@ -257,10 +258,10 @@
   <text x="60" y="1372" font-size="14" font-weight="700" fill="#0f172a">Enabling work (rules, tests, macOS fix, CI, packaging, limits)</text>
   <rect x="640" y="1359" width="300" height="16" rx="8" fill="#e2e8f0"/>
   <rect x="640" y="1359" width="300" height="16" rx="8" fill="#16a34a"/>
-  <text x="960" y="1372" font-size="13" fill="#334155">Done. 21 PRs merged. Phases 4.1 and 4.2 are complete.</text>
+  <text x="960" y="1372" font-size="13" fill="#334155">Done. 23 PRs merged. Phases 4.1, 4.2 and 4.3a-1 are complete.</text>
   <text x="60" y="1414" font-size="14" font-weight="700" fill="#b91c1c">Honest reading: imports run natively (-50 % against the equal-work floor), but nothing can PASS yet and the default stays Python until 4.4.</text>
   <text x="40" y="1462" font-size="22" font-weight="700" fill="#0f172a">Progress and current work</text>
-  <rect x="40" y="1478" width="1730" height="628" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="40" y="1478" width="1730" height="692" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
   <text x="60" y="1508" font-size="14" font-weight="700" fill="#0f172a">M0: compiler oracle, profile by function, host against collector</text>
   <rect x="600" y="1494" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1507.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
   <text x="750" y="1508" font-size="13" fill="#334155">TS calls: CBM typed 86.4 % recall without JSX, ArchKeel 14.8 %. React UI: collector 45 % of the time.</text>
@@ -304,18 +305,24 @@
   <rect x="600" y="1910" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1923.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
   <text x="750" y="1924" font-size="13" fill="#334155">S5 waits for draft #860. S6 retires the name ir after PR 3 and PR 6 (about 480 files touched today).</text>
   <text x="60" y="1956" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-1 (#897): scope, definitions, exports in Rust</text>
-  <rect x="600" y="1942" width="128" height="19" rx="9.5" fill="#f59e0b"/><text x="664.0" y="1955.5" font-size="11" font-weight="700" fill="#1f2937" text-anchor="middle">IN PROGRESS</text>
-  <text x="750" y="1956" font-size="13" fill="#334155">Two reviews found quadratic shapes. Fix and a scaling matrix are in work. Parity: 0 differences.</text>
-  <text x="60" y="1988" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-2 to -5 · 4.3b · 4.4 · 4.5</text>
-  <rect x="600" y="1974" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="1987.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="1988" font-size="13" fill="#334155">First native PASS in 4.3a-5. R0 (Rust architecture and rules) is designed and waits for owner decisions.</text>
-  <text x="60" y="2020" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 5 · PR 6 · PR 7</text>
-  <rect x="600" y="2006" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2019.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="2020" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
-  <text x="60" y="2052" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
+  <rect x="600" y="1942" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1955.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1956" font-size="13" fill="#334155">Merged after 4 reviews. Scaling matrix: 93 shapes, N against 2N. Parity: 0 differences. AD-323.</text>
+  <text x="60" y="1988" font-size="14" font-weight="700" fill="#0f172a">PR H steps 3 and 4 (#899, #902) · C locale (#901)</text>
+  <rect x="600" y="1974" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="1987.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="1988" font-size="13" fill="#334155">Host peak 1 228 to 782 MiB, host time -22 %. Collectors run with LC_ALL=C. AD-324, AD-318, AD-325.</text>
+  <text x="60" y="2020" font-size="14" font-weight="700" fill="#0f172a">Independent review of every PR (since #895)</text>
+  <rect x="600" y="2006" width="128" height="19" rx="9.5" fill="#16a34a"/><text x="664.0" y="2019.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+  <text x="750" y="2020" font-size="13" fill="#334155">11 reviews on 8 PRs. Found: 5 quadratic shapes, 1 memory attack on macOS, 1 unpinned gap check, AD clashes.</text>
+  <text x="60" y="2052" font-size="14" font-weight="700" fill="#0f172a">PR 4.3a-2 to -5 · 4.3b · 4.4 · 4.5</text>
   <rect x="600" y="2038" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2051.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="2052" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
-  <text x="60" y="2084" font-size="14" font-weight="700" fill="#0f172a">PR 8: remove the Dart collector (optional, last)</text>
+  <text x="750" y="2052" font-size="13" fill="#334155">Next: 4.3a-2 (sites). First native PASS in 4.3a-5. R0 (Rust architecture, rules) waits for owner decisions.</text>
+  <text x="60" y="2084" font-size="14" font-weight="700" fill="#0f172a">PR 3 protocol 10 · PR 5 · PR 6 · PR 7</text>
   <rect x="600" y="2070" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2083.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
-  <text x="750" y="2084" font-size="13" fill="#334155">Dart is frozen. Needs an owner check. #877 and #878 were closed by the owner on 2026-11-08.</text>
+  <text x="750" y="2084" font-size="13" fill="#334155">PR 3 after 4.5. Gates: oracle recall 0.85, precision 0.95 for calls. Design in progress.</text>
+  <text x="60" y="2116" font-size="14" font-weight="700" fill="#0f172a">Cross-boundary facts: REST, queue, database, external systems</text>
+  <rect x="600" y="2102" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2115.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="2116" font-size="13" fill="#334155">Not built. The protocol 10 design reserves the form. CBM linked 0 of 142 UI calls to a route. Builds after #860.</text>
+  <text x="60" y="2148" font-size="14" font-weight="700" fill="#0f172a">PR 8: remove the Dart collector (optional, last)</text>
+  <rect x="600" y="2134" width="128" height="19" rx="9.5" fill="#94a3b8"/><text x="664.0" y="2147.5" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">PLANNED</text>
+  <text x="750" y="2148" font-size="13" fill="#334155">Dart is frozen. Needs an owner check. #877 and #878 were closed by the owner on 2026-11-08.</text>
 </svg>
