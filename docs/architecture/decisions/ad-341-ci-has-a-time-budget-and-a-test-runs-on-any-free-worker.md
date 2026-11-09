@@ -19,8 +19,14 @@
 4. Each aggregate job runs `tools/ci_budget.py` on the jobs of its own run. The tool writes a
    table to the job summary and a warning for each job and critical path over its limit. It never
    fails the run: a slow runner must not block a correct change. Limits: CI 7 minutes for a job
-   and 10 for the critical path; Full 15 minutes for a job (its limit is 20) and 30 for the path.
+   and 10 for the critical path; Full 15 minutes for a job and 30 for the path.
 5. Each test job prints the CPU model of its runner, so that a slow job can be put on its runner.
+6. The time budget is a target. The job time limits only stop a hung job: each test job has
+   `timeout-minutes: 40`, about twice the slowest measured job (20.6 minutes). A PR is never held
+   back because a job is slower than the budget. The lead reviews the measured job times
+   regularly (after about every ten merges, and whenever `ci_budget` warns). The lead improves the
+   slowest parts where the cost and benefit are best: parallel work, no duplicated work, and
+   smaller heavy tests that keep their proof.
 
 **Problem.** Measured with `gh api` on 2026-11-09. The last 15 passed CI runs took 8.5 to 25.7
 minutes from creation to end. The longest job of a run took 8.5 to 11.6 minutes. Jobs waited up
@@ -41,7 +47,7 @@ to 18 minutes in the queue. The last 10 Full runs took 17 to 34 minutes; `Tests:
    a Full run 27, so two runs at the same time always queue.
 
 **Rejected.**
-- A longer job limit: it hides the cause and makes a red run slower.
+- A job limit as a gate: a slow runner would then block a correct change (item 6).
 - `--dist=load` for all tests: a module fixture would run once in each worker.
 - Build the native binary once and share it as an artifact: a clean debug build took 17.6 s
   in the native job of run 42603282468. A build job before the test jobs adds a sequential step

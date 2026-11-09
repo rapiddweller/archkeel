@@ -68,7 +68,8 @@ jobs:
           - reports
           - self-check and CI
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -116,7 +117,8 @@ jobs:
   pr-report-check:
     name: Report and renderer tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
