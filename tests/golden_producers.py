@@ -91,7 +91,9 @@ def python_sources(phase: str, features: bool = True, exclude_tests: bool = Fals
 
     def run(root: Path) -> dict[str, Any]:
         request = _python_request(root, features, exclude_tests)
-        child = ProcessCollector((sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry"))
+        child = ProcessCollector(
+            (sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry")
+        )
         if phase == "survey":
             survey = replace(
                 request,

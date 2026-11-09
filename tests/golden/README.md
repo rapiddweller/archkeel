@@ -14,7 +14,7 @@ with the native binary.
 
 ## Python
 
-A Python case sets `phase`: `full` is the host sequence (survey, then collection), `survey` is
+The sources of the Python cases are in `fixtures/golden-python`. A Python case sets `phase`: `full` is the host sequence (survey, then collection), `survey` is
 the import survey alone. It can also set `features` (`false` requests no gated feature) and
 `exclude_tests`.
 

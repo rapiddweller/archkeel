@@ -43,7 +43,12 @@ UNREACHABLE = {
 }
 
 _REFLECTION = {f"{name}_call" for name in ("getattr", "hasattr", "setattr", "delattr", "vars")}
-_CONSTRUCT_KINDS = {"assert_statement", "placeholder_body", "broad_except", "string_literal_compare"}
+_CONSTRUCT_KINDS = {
+    "assert_statement",
+    "placeholder_body",
+    "broad_except",
+    "string_literal_compare",
+}
 _SIGNAL_KINDS = {
     "any_annotation",
     "dict_any_annotation",
@@ -61,7 +66,10 @@ _FILE_FAILURES = {"SyntaxError", "UnicodeDecodeError", "TooDeepError", *UNREACHA
 # fails the test: add it here and add a case that freezes its kinds.
 _SITES: dict[tuple[str, str], tuple[str, set[str]]] = {
     ("bindings.py", "f'unused_{binding}'"): ("bindings", {"unused_parameter", "unused_local"}),
-    ("calls.py", "f'{status}_call'"): ("calls", {f"{item.value}_call" for item in SourceResolution}),
+    ("calls.py", "f'{status}_call'"): (
+        "calls",
+        {f"{item.value}_call" for item in SourceResolution},
+    ),
     ("constructs.py", "'numeric_operand'"): ("constructs", {"numeric_operand"}),
     ("constructs.py", "'construct_selector'"): ("constructs", {"construct_selector"}),
     ("constructs.py", "'assert_statement'"): ("constructs", {"assert_statement"}),

@@ -45,9 +45,10 @@ tests that use it as the oracle then have nothing to compare with.
    built-in modules; the other sections are equal. `python/interpreter.json` names the parts
    and the interpreter of the recording (CPython 3.11.12, the pin of the repository). On that
    interpreter the whole reply is compared. On another one only the rest is compared, with a
-   warning. The deletion gate fails there. The cases are six fixtures, synthetic sources for
-   each other kind (file failures, test exclusion, no gated feature) and two excerpts of fastapi
-   (MIT, commit `ba47d6d7`). `E-runtime` is not recorded: its PEP 695 sample needs one minor.
+   warning. The deletion gate fails there. The cases are six fixtures, synthetic sources for each
+   other kind (file failures, test exclusion, no gated feature) and two excerpts of fastapi (MIT,
+   commit `ba47d6d7`). Both are in `fixtures/golden-python`, outside the lint paths.
+   `E-runtime` is not recorded: its PEP 695 sample needs one minor.
 
 **Rejected.**
 - **Keep the Python collector as an oracle.** It is the code that phase 4.5 deletes.
