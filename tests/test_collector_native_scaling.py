@@ -5,15 +5,25 @@
 
 Consumer: every later phase of the native collector, which reads the facts of the walk. The method
 is a scaling matrix, not a list of shapes. For each construct class of `scaling_shapes.SHAPES` the
-test builds a file with n and with 2n of the construct, times the collector process (the minimum
-of three runs) and bounds time(2n) / time(n). Linear is about 2 and quadratic is about 4, so the
-bound is 3. A shape that takes less than 0.3 s doubles n first, so that the start of the process
-does not hide the growth. The shapes that stress each loop of the walk (the run of comments before
-a member, the frames above a write, the line before a column) were quadratic once; the matrix
-fails on those versions (see AD-323).
+test builds a file with n and with 2n of the construct, times the CPU time of the collector process
+(the minimum of three runs) and bounds time(2n) / time(n). Linear is about 2 and quadratic is about
+4, so the bound is 3. A shape whose CPU time is below the measurable time of its profile doubles n
+first, so that the start of the process does not hide the growth. The shapes that stress each loop
+of the walk (the run of comments before a member, the frames above a write, the line before a
+column) were quadratic once; the matrix fails on those versions (see AD-323).
 
-`ARCHKEEL_SCALING_BINARY` names another collector, to run the matrix against an older build, and
-`ARCHKEEL_SCALING_SCALE` multiplies every n (an older build that is quadratic needs a smaller n).
+The matrix times the CPU time of the child, not its wall time, so that a loaded runner does not
+change the ratio (see `collector_timing.py`). The wall time is printed beside it for comparison.
+
+Environment variables:
+
+- `ARCHKEEL_SCALING_BINARY` names another collector, to run the matrix against an older build.
+- `ARCHKEEL_SCALING_SCALE` multiplies every n. An older build that is quadratic needs a smaller n.
+- `ARCHKEEL_SCALING_PROFILE` names the build of the binary under test: `debug` (the default) or
+  `release`. It selects the time limits of `TIMINGS`. A release binary never reaches the debug
+  limits before the file cap (`MAX_BYTES`), so the release limits are lower. Set it to `release`
+  when `ARCHKEEL_SCALING_BINARY` is a release build.
+
 A second test compares the dump with `parse.parse()` for each shape at small sizes, so that each
 shape holds the construct that it claims.
 """
@@ -25,10 +35,10 @@ import os
 import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import pytest
+from collector_timing import Taken, least_of, timed_run
 from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY, SHAPES, Shape
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
@@ -42,18 +52,38 @@ from archkeel.ir.protocol import (
     TypeScriptSettings,
 )
 
-# The least time of the first size, in seconds, below which n doubles (debug build).
-MEASURABLE = 0.25
 # A file may not be larger than this: the collector reads at most 4 MiB (AD-319).
 MAX_BYTES = 3_500_000
 # The bound of time(2n) / time(n): linear is about 2, quadratic is about 4.
 RATIO = 3.0
 # A guard for a machine that is far too slow: the biggest case may not take longer.
 CAP = 60.0
-RUNS = 3
-# A first size below this time says that the shape is too cheap: the ratio would be noise.
-MIN_TIME = 0.1
 MAX_DOUBLINGS = 6
+
+
+@dataclasses.dataclass(frozen=True)
+class Timing:
+    """The time limits of one build profile, in CPU seconds of the collector."""
+
+    # A first size below this time doubles n, while the file of 4n is still at most MAX_BYTES.
+    measurable: float
+    # A first size below this time says that the shape is too cheap: the ratio would be noise.
+    min_time: float
+
+
+# Release runs are faster: the limits of the release profile are lower, see the docstring above.
+TIMINGS = {
+    "debug": Timing(measurable=0.25, min_time=0.1),
+    "release": Timing(measurable=0.1, min_time=0.01),
+}
+
+
+def timing_for_profile() -> Timing:
+    """The limits of `ARCHKEEL_SCALING_PROFILE`: `debug` by default, or `release`."""
+    profile = os.environ.get("ARCHKEEL_SCALING_PROFILE", "debug")
+    if profile not in TIMINGS:
+        raise ValueError(f"ARCHKEEL_SCALING_PROFILE must be debug or release, not {profile!r}")
+    return TIMINGS[profile]
 
 
 @pytest.fixture(scope="session")
@@ -73,39 +103,38 @@ def _request(root: Path) -> bytes:
     )
 
 
-def _time(binary: Path, root: Path, shape: Shape, n: int) -> float:
+def _once(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
+    """One run of the collector on the file of `shape` with n constructs."""
     (root / "tsconfig.json").write_text('{"compilerOptions":{"allowJs":true},"include":["src"]}')
     (root / "src").mkdir(exist_ok=True)
     for old in (root / "src").iterdir():
         old.unlink()
     (root / "src" / f"a{shape.suffix}").write_bytes(shape.make(n))
-    payload = _request(root)
-    best = float("inf")
-    for _ in range(RUNS):
-        begin = time.perf_counter()
-        done = subprocess.run(
-            [str(binary)],
-            input=payload,
-            capture_output=True,
-            check=False,
-            preexec_fn=_limit_address_space if sys.platform == "linux" else None,
-        )
-        best = min(best, time.perf_counter() - begin)
-        assert done.returncode == 0, done.stderr[-300:]
-    return best
+    wall, cpu, done = timed_run(
+        [str(binary)],
+        _request(root),
+        preexec_fn=_limit_address_space if sys.platform == "linux" else None,
+    )
+    assert done.returncode == 0, done.stderr[-300:]
+    return Taken(cpu=cpu, wall=wall)
 
 
-def measure(binary: Path, root: Path, shape: Shape) -> tuple[int, float, float]:
-    """`(n, time(n), time(2n))` with the least n whose time is measurable."""
+def _least(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
+    """The least of the runs of the collector with n constructs."""
+    return least_of(lambda: _once(binary, root, shape, n))
+
+
+def measure(binary: Path, root: Path, shape: Shape, timing: Timing) -> tuple[int, Taken, Taken]:
+    """`(n, taken(n), taken(2n))` with the least n whose CPU time is measurable."""
     n = max(1, int(shape.base * float(os.environ.get("ARCHKEEL_SCALING_SCALE", "1"))))
-    first = _time(binary, root, shape, n)
+    first = _least(binary, root, shape, n)
     for _ in range(MAX_DOUBLINGS):
         # The file of 2n after the doubling must still be readable: 4n of the old n.
-        if first >= MEASURABLE or len(shape.make(4 * n)) > MAX_BYTES:
+        if first.cpu >= timing.measurable or len(shape.make(4 * n)) > MAX_BYTES:
             break
         n *= 2
-        first = _time(binary, root, shape, n)
-    return n, first, _time(binary, root, shape, 2 * n)
+        first = _least(binary, root, shape, n)
+    return n, first, _least(binary, root, shape, 2 * n)
 
 
 # The peak memory of the collector, in bytes, for nests that write many names. The memo of the write
@@ -160,15 +189,46 @@ def test_writes_keep_the_memory_bounded(
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
 def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
-    n, first, second = measure(collector, tmp_path, SHAPES[name])
-    ratio = second / first
-    print(f"SCALING {name} n={n} t(n)={first:.3f} t(2n)={second:.3f} ratio={ratio:.2f}")
+    timing = timing_for_profile()
+    n, first, second = measure(collector, tmp_path, SHAPES[name], timing)
+    # The wall ratio is printed for comparison only; the assertion uses the CPU time.
+    print(
+        f"SCALING {name} n={n} t(n)={first.cpu:.3f} t(2n)={second.cpu:.3f} "
+        f"ratio={second.cpu / first.cpu:.2f} wall_ratio={second.wall / first.wall:.2f}"
+    )
+    ratio = second.cpu / first.cpu
     assert len(SHAPES[name].make(2 * n)) <= MAX_BYTES, (
         f"{name}: the file is too large for n={2 * n}"
     )
-    assert first >= MIN_TIME, f"{name}: {first:.3f} s for n={n} is too short to measure"
-    assert second < CAP, f"{name}: {second:.1f} s for n={2 * n}"
-    assert ratio < RATIO, f"{name}: n={n} {first:.3f} s, 2n {second:.3f} s, ratio {ratio:.2f}"
+    assert first.cpu >= timing.min_time, (
+        f"{name}: {first.cpu:.3f} s CPU for n={n} is too short to measure"
+    )
+    assert second.cpu < CAP, f"{name}: {second.cpu:.1f} s CPU for n={2 * n}"
+    assert ratio < RATIO, (
+        f"{name}: n={n} {first.cpu:.3f} s, 2n {second.cpu:.3f} s CPU, ratio {ratio:.2f}"
+    )
+
+
+def test_the_timing_follows_the_build_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ARCHKEEL_SCALING_PROFILE", raising=False)
+    assert timing_for_profile() == Timing(measurable=0.25, min_time=0.1)
+    monkeypatch.setenv("ARCHKEEL_SCALING_PROFILE", "release")
+    assert timing_for_profile() == Timing(measurable=0.1, min_time=0.01)
+    monkeypatch.setenv("ARCHKEEL_SCALING_PROFILE", "fast")
+    with pytest.raises(ValueError, match="fast"):
+        timing_for_profile()
+
+
+def test_the_least_of_three_runs_keeps_the_least_cpu_and_the_least_wall() -> None:
+    samples = iter([Taken(cpu=0.3, wall=2.0), Taken(cpu=0.1, wall=3.0), Taken(cpu=0.2, wall=1.0)])
+    assert least_of(lambda: next(samples)) == Taken(cpu=0.1, wall=1.0)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
+def test_the_timer_counts_the_cpu_of_the_child_not_its_sleep() -> None:
+    wall, cpu, _ = timed_run([sys.executable, "-c", "import time; time.sleep(0.5)"], b"")
+    assert wall >= 0.5
+    assert cpu < 0.1
 
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
