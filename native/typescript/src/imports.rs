@@ -12,11 +12,11 @@ use archkeel_wire::reply::{Record, Target};
 use serde_json::{json, Map, Value};
 
 use super::{Collection, GapKind};
+use crate::kept::Kept;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::parse;
 use crate::paths::{dirname, join, within};
-use crate::records::Kept;
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
 use crate::source_input::{
@@ -61,6 +61,7 @@ impl Collection<'_> {
         }
         if self.keep {
             let kept = Kept::from_parsed(module, &parsed);
+            self.order.push(rel.to_owned());
             self.kept.insert(rel.to_owned(), kept);
         }
         let format = self.resolver.format_of(&mut self.snapshot, rel);

@@ -10,93 +10,21 @@
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 //! The evidence that the new records cite is kept apart, so the evidence of the reply is unchanged.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
-use archkeel_wire::identity::{evidence_id, stable_id, Part};
+use archkeel_wire::identity::{stable_id, Part};
 use archkeel_wire::reply::{Evidence, Facts, Record, Target};
 use serde_json::{json, Value};
 
+use crate::cited::Cited;
 use crate::import_bindings::ImportBinding;
-use crate::parse::Parsed;
+use crate::kept::{Kept, Pending};
 use crate::source::Span;
+use crate::symbol_table::SymbolTable;
+use crate::symbols;
 
 /// The string comparison construct of `ForbiddenConstructKind`.
 pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
-
-/// What one parsed file keeps for the cross-file passes. The walk fills it only when a caller asks
-/// for the records, so a plain collection pays nothing.
-pub struct Kept {
-    pub module: String,
-    pub has_error: bool,
-    /// The span of each written string and the qualified name of the definition that holds it.
-    pub comparisons: Vec<(Span, Option<String>)>,
-    /// The names that each import statement binds, by the line and column of the statement.
-    bindings: HashMap<(i64, i64), Vec<ImportBinding>>,
-    /// The exports of the module by name: `(declaration, export)`. Python scans the whole list for
-    /// each bound name; a map keeps a file with n exports and n imports linear.
-    exports: HashMap<String, Vec<(Span, Span)>>,
-}
-
-impl Kept {
-    /// What a parsed file keeps for the records of this phase.
-    pub fn from_parsed(module: &str, parsed: &Parsed) -> Self {
-        let syntax = &parsed.syntax;
-        let comparisons = syntax
-            .sites
-            .comparisons
-            .iter()
-            .map(|item| {
-                let scope = item.scope.map(|at| syntax.scopes.qualified(at));
-                (item.span.clone(), scope)
-            })
-            .collect();
-        Self::new(
-            module.to_owned(),
-            parsed.first_error.is_some(),
-            comparisons,
-            &syntax.import_bindings,
-            &syntax.module_exports,
-        )
-    }
-
-    pub fn new(
-        module: String,
-        has_error: bool,
-        comparisons: Vec<(Span, Option<String>)>,
-        import_bindings: &[ImportBinding],
-        module_exports: &[(String, Span, Span)],
-    ) -> Self {
-        let mut bindings: HashMap<(i64, i64), Vec<ImportBinding>> = HashMap::new();
-        for binding in import_bindings {
-            let at = (binding.span.line, binding.span.column);
-            bindings.entry(at).or_default().push(binding.clone());
-        }
-        let mut exports: HashMap<String, Vec<(Span, Span)>> = HashMap::new();
-        for (name, declaration, export) in module_exports {
-            exports
-                .entry(name.clone())
-                .or_default()
-                .push((declaration.clone(), export.clone()));
-        }
-        Self {
-            module,
-            has_error,
-            comparisons,
-            bindings,
-            exports,
-        }
-    }
-}
-
-/// The cross-file input of the passes.
-#[derive(Default)]
-pub struct Pending {
-    pub kept: BTreeMap<String, Kept>,
-    /// Where each import record was written: the file, the line and the column of its statement.
-    pub sites: HashMap<String, (String, i64, i64)>,
-    /// The settings of the project could not be read in full (`config.partial`).
-    pub partial: bool,
-}
 
 /// The records of this phase, as the Python collector builds them.
 #[derive(Default)]
@@ -110,28 +38,10 @@ pub struct Records {
     pub witnesses: Vec<Record>,
     /// The `TSCONSTRUCT` records, sorted by id.
     pub constructs: Vec<Record>,
+    /// The `TSDEF` records, in the order of the symbol table (PR 4.3a-3b).
+    pub symbols: Vec<Record>,
     /// The evidence that the records above cite and the reply does not hold yet.
     pub evidence: Vec<Evidence>,
-}
-
-/// The evidence of the new records, by id.
-#[derive(Default)]
-struct Cited(BTreeMap<String, Evidence>);
-
-impl Cited {
-    /// `collect._cite`.
-    fn cite(&mut self, rel: &str, span: &Span) -> String {
-        let id = evidence_id(rel, span.line, span.end_line, span.column);
-        self.0.entry(id.clone()).or_insert_with(|| Evidence {
-            id: id.clone(),
-            file: rel.to_owned(),
-            line: span.line,
-            end_line: span.end_line,
-            column: span.column,
-            excerpt: span.excerpt.clone(),
-        });
-        id
-    }
 }
 
 /// `classified`: the subjects without empty names, sorted; the evidence ids sorted.
@@ -142,14 +52,15 @@ fn sorted(mut values: Vec<String>) -> Vec<String> {
 
 /// Build the records of this phase from the facts of a collection and the kept syntax.
 pub fn build(facts: &Facts, pending: &Pending) -> Records {
-    let mut cited = Cited::default();
+    let mut cited = Cited::seeded(&facts.evidence);
     let mut records = Records::default();
     expand(facts, pending, &mut cited, &mut records);
     records
         .imports
         .sort_by(|left, right| left.id.cmp(&right.id));
+    records.symbols = symbols::build(&SymbolTable::build(pending), &mut cited);
     constructs(pending, &mut cited, &mut records);
-    records.evidence = cited.0.into_values().collect();
+    records.evidence = cited.cited();
     records
 }
 

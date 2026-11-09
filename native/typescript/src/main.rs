@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 mod ancestors;
+mod cited;
 mod class_members;
 mod collect;
 mod concerns;
@@ -23,6 +24,7 @@ mod exports;
 mod glob;
 mod import_bindings;
 mod jsdoc;
+mod kept;
 mod kinds;
 mod layer;
 mod manifest;
@@ -44,6 +46,8 @@ mod sites;
 mod snapshot;
 mod source;
 mod source_input;
+mod symbol_table;
+mod symbols;
 mod syntax;
 mod test_sources;
 #[cfg(test)]

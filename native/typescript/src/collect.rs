@@ -18,10 +18,11 @@ use archkeel_wire::request::Request;
 use serde_json::{Map, Value};
 
 use crate::config::load_config;
+use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
 use crate::paths::join;
 use crate::pytext::is_space;
-use crate::records::{build, Kept, Pending, Records};
+use crate::records::{build, Records};
 use crate::resolve::Resolver;
 use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;
@@ -65,6 +66,7 @@ struct Collection<'a> {
     /// Keep what the records of PR 4.3a-3a need (`records.rs`); a plain collection does not.
     keep: bool,
     kept: BTreeMap<String, Kept>,
+    order: Vec<String>,
     sites: HashMap<String, (String, i64, i64)>,
 }
 
@@ -110,6 +112,7 @@ fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pend
         read: 0,
         keep,
         kept: BTreeMap::new(),
+        order: Vec::new(),
         sites: HashMap::new(),
     };
     collection.queue = listed
@@ -165,6 +168,7 @@ fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pend
     }
     let pending = Pending {
         kept: collection.kept,
+        order: collection.order,
         sites: collection.sites,
         partial,
     };
