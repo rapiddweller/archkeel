@@ -1,31 +1,19 @@
 .DEFAULT_GOAL := check
-include $(dir $(lastword $(MAKEFILE_LIST)))tests/pr-test.mk
+MAKEFILE_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+include $(MAKEFILE_DIR)tests/pr-test.mk
+include $(MAKEFILE_DIR)tools/full.mk
 UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
 .PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-report native-tools cargo-deny-install native-wheel
 
-# SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
-check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
-
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
-
-gate: $(if $(strip $(BASE)),against,self-validate) release-check
-
-release-check: check build smoke
 
 ci: ci-check mermaid
 
 ci-check: ci-artifacts-clean ci-core-check report-timing
-
-ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check typescript-libs-check
-
-# One area of the full suite (tests/areas.py); Full verification runs every area in parallel.
-full-test: TEST_WORKERS = 4
-full-test: browser-runtime-install test
 
 ci-pr-check: ci-pr-static pr-test
 
@@ -42,9 +30,6 @@ pr-report-test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml \
 		tests/test_graph_scene_protocol.py tests/test_atlas_deviation_boundary.py tests/test_report_renderer_units.py
-
-ci-typescript: OUTPUT := test-artifacts/typescript-demo
-ci-typescript: demo-typescript
 
 ci-artifacts-clean:
 	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser test-artifacts/report-timing
@@ -80,16 +65,6 @@ self-validate:
 	@python3 -c 'import json; d=json.load(open("test-artifacts/validation/result.json")); print("Architecture rules: %s; diagnostics: %s; full result: test-artifacts/validation/result.json" % (d["declared_rules"], len(d["diagnostics"])))'
 
 TEST_WORKERS ?= 2
-
-test:
-	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
-		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
-		$(if $(AREA),--area="$(AREA)",)
-
-# Each test that needs Python 3.12 or later, and the files that cover version differences (#724).
-python-compat:
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 --selection=python-compat
 
 # Pinned Rust tools of the native checks (AD-316, AD-317).
 CARGO_DENY_VERSION := 0.20.2
@@ -132,48 +107,6 @@ cargo-deny-install:
 		mkdir -p "$${CARGO_HOME:-$$HOME/.cargo}/bin"; \
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
-# AD-317: build the platform wheel of this host with the binary and its SBOM, check the tag, then
-# install the wheel and run the binary. Full verification runs it on each target of the matrix.
-NATIVE_TAG ?=
-native-wheel:
-	cargo install --locked cargo-auditable@$(CARGO_AUDITABLE_VERSION)
-	rm -rf dist/native
-	ARCHKEEL_BUNDLE_NATIVE=1 $(UV) build --wheel --no-sources --out-dir dist/native
-	@test -z "$(NATIVE_TAG)" || ls dist/native/archkeel-*-$(NATIVE_TAG).whl
-	$(UV) tool run --from twine==7.0.0 twine check --strict dist/native/*.whl
-	ARCHKEEL_NATIVE_WHEEL="$$(ls dist/native/*.whl)" $(UV) run --locked python -m pytest -q \
-		-m native_wheel tests/test_collector_native_wheel.py
-
-collector-safety:
-	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
-		tests/test_collection_process.py tests/test_collection_runtime_gate.py \
-		tests/test_runtime.py tests/test_source_trust_boundary.py \
-		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
-		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
-		tests/test_inheritance_proof_transport.py
-typescript-compiler-check:
-	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
-
-# Python implementation architecture is covered by make test, once on Linux in CI.
-typescript-native: browser-runtime-install
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 tests/test_typescript_parse.py \
-		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
-		tests/test_typescript_namespace_identities.py \
-		tests/test_typescript_collect.py tests/test_typescript_owned_types.py tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_source_input.py \
-		tests/test_typescript_script_globals.py tests/test_typescript_standard_globals.py tests/test_typescript_umd_providers.py \
-		tests/test_browser_architecture.py::test_browser_runner_serializes_windows_config_as_a_posix_port \
-		tests/test_typescript_json_fields.py tests/test_typescript_config.py tests/test_typescript_string_constructs.py \
-		tests/test_typescript_config_reference.py \
-		tests/test_typescript_resolve.py tests/test_typescript_bundler.py tests/test_typescript_provenance.py \
-		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
-
-dart-test:
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=worksteal --max-worker-restart=0 \
-		-q --durations=10 tests/test_dart_*.py \
-		tests/test_uml_source_facts.py tests/test_language_collectors.py \
-		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
-
 LINT_PATHS := src tests tools/mermaid_blocks.py \
 	tools/report_pages.py tools/package_plugin.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
@@ -182,11 +115,6 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py \
 	native/hatch_build.py
-
-# The same commit measured 80-96s on hosted runners; allow for runner noise.
-REPORT_MAX_SECONDS ?= 190
-report-timing:
-	$(UV) run --locked python -m tools.report_timing --max-seconds "$(REPORT_MAX_SECONDS)"
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
 demos:
@@ -238,9 +166,6 @@ flutter-demo-check:
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" test
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" build web --output "$(abspath test-artifacts/flutter-demo/web)"
 
-demo-typescript:
-	@$(UV) run --locked python -m fixtures.reproduce_typescript $(if $(OUTPUT),--output "$(OUTPUT)")
-
 demo-architecture:
 	@test -n "$(VARIANT)" || { echo "VARIANT is required"; exit 2; }
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
@@ -263,11 +188,6 @@ demo-screenshots:
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
-PLAYWRIGHT_VERSION ?= 1.62.0
-
-browser-install:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m playwright install --with-deps chromium
-
 plugin:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	$(UV) run --locked python -m tools.package_plugin "$(OUTPUT)"
@@ -276,18 +196,6 @@ plugin-release:
 	@test -n "$(VERSION)" || { echo "VERSION is required"; exit 2; }
 	$(UV) run --locked python -m tools.package_plugin --release-version "$(VERSION)" --expected-version "$(VERSION)" "build/plugin-release/archkeel-plugin-$(VERSION)"
 	$(UV) run --locked python -m tools.package_plugin --check --release-version "$(VERSION)" --expected-version "$(VERSION)" "build/plugin-release/archkeel-plugin-$(VERSION).zip"
-
-report-browser-tests: browser-install
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -m browser -n 2 --dist=loadfile --max-worker-restart=0 -q
-
-# Twine validates PyPI metadata; it is a build-only tool.
-build:
-	$(UV) build --no-sources --clear
-	$(UV) tool run --from twine==7.0.0 twine check --strict dist/*
-
-smoke:
-	$(UV) run --isolated --no-project --with dist/*.whl tests/smoke_test.py
-	$(UV) run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
 
 # Development publication only; reports and Python package builds load committed assets.
 browser-runtime-install:
@@ -301,10 +209,6 @@ browser-runtime-check: browser-runtime-install
 	uv run --locked mypy --strict tools/browser_runtime.py
 	uv run --locked python -m tools.browser_runtime --check
 	uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py
-
-typescript-libs-check: browser-runtime-install
-	$(UV) run --locked mypy --strict tools/typescript_libs.py
-	$(UV) run --locked python -m tools.typescript_libs --check
 
 browser-architecture-check: browser-runtime-install
 	$(UV) run --locked python -m tools.browser_architecture

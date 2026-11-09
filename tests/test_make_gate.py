@@ -623,7 +623,6 @@ def _in_filter(pattern: str, path: str) -> bool:
 def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
     """Full runs every area (make full-test), never the pr-test list: it is not a Full input."""
     paths = _full_filter()
-    assert "Makefile" in paths
     for added in ("tests/pr-test.mk", "tests/test_added_later.py"):
         assert [path for path in paths if _in_filter(path, added)] == [], added
     makefile = (ROOT / "Makefile").read_text()
@@ -642,6 +641,89 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
     resolved = [a for a in shlex.split(dry_run.replace("\\\n", " ")) if a.startswith("tests/")]
     assert resolved == shlex.split(listed.replace("\\\n", " "))
     assert len(resolved) > 200
+
+
+FULL_MK = "tools/full.mk"
+# CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
+SHARED_WITH_CI = {"mermaid", "demos"}
+
+
+def test_a_pr_runs_full_only_when_it_changes_what_full_runs() -> None:
+    paths = _full_filter()
+    for kept in (
+        ".github/workflows/ci.yml",
+        ".github/actions/setup/action.yml",
+        ".python-version",
+        "pyproject.toml",
+        "uv.lock",
+        "tools/browser-runtime/package.json",
+        "tools/browser-runtime/package-lock.json",
+        "tests/conftest.py",
+        "tests/test_report_pages.py",
+        "tools/report_pages.py",
+        "tools/report_timing.py",
+        FULL_MK,
+    ):
+        assert [p for p in paths if _in_filter(p, kept)], kept
+    # A change to these files cannot change the job set or a recipe that Full runs.
+    for ignored in ("Makefile", "tests/areas.py", "tests/pr-test.mk", "tests/test_added.py"):
+        assert [p for p in paths if _in_filter(p, ignored)] == [], ignored
+
+
+def _called_targets(workflow: str) -> set[str]:
+    text = (ROOT / ".github/workflows" / workflow).read_text()
+    return {
+        t
+        for run in re.findall(r"\bmake ((?:[a-z][\w-]*(?: |$))+)", text, re.M)
+        for t in run.split()
+    }
+
+
+def _closure(targets: set[str]) -> set[str]:
+    database = subprocess.run(
+        ["make", "-pn"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+    ).stdout
+    needs: dict[str, set[str]] = {}
+    for name, rest in re.findall(r"^([a-z][\w-]*):(?!=)[ \t]*(.*)$", database, re.M):
+        # GNU make prints a target-specific variable (`name: VAR := value`) in the same form.
+        if not re.match(r"[\w-]+\s*[:+?]?=", rest):
+            needs.setdefault(name, set()).update(rest.split())
+    seen: set[str] = set()
+    todo = list(targets)
+    while todo:
+        name = todo.pop()
+        if name not in seen:
+            seen.add(name)
+            todo.extend(needs.get(name, ()))
+    return seen
+
+
+def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
+    """Full watches `tools/full.mk`, so a recipe that CI does not run must be defined there."""
+    fragment = set(re.findall(r"^([a-z][\w-]*):", (ROOT / FULL_MK).read_text(), re.M))
+    makefile = (ROOT / "Makefile").read_text()
+    assert "include $(MAKEFILE_DIR)tools/full.mk" in makefile
+    called = _called_targets("full-verification.yml")
+    assert called - fragment == SHARED_WITH_CI
+    assert SHARED_WITH_CI <= _called_targets("ci.yml")
+    assert [t for t in SHARED_WITH_CI if re.search(rf"^{t}:", makefile, re.M) is None] == []
+    only_full = _closure(called) - _closure(_called_targets("ci.yml"))
+    assert only_full - fragment == set()
+    assert fragment - only_full == set(), "a recipe in the fragment that Full never runs"
+
+
+def test_every_area_has_files_and_the_python_compat_selection_is_valid() -> None:
+    """An edit of tests/areas.py that changes the Full job set fails here, not in the Full run."""
+    files = [path.name for path in (ROOT / "tests").rglob("test_*.py")]
+    assert [area for area in AREAS if not any(area_of(name) == area for name in files)] == []
+    # The collection fails closed on a stale entry or on a gate outside the Full versions.
+    result, selected = _collected("--selection=python-compat", "tests")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert selected
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:

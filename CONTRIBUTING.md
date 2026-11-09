@@ -75,7 +75,7 @@ aggregate would count as passed.
 | CI: Demos | each PR | `make demos` |
 | CI: Native: Rust checks and dependency policy | each PR | `make native-check` |
 | CI: All checks passed | each PR | none: it needs every CI job |
-| Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
+| Full: Architecture, build and report checks | nightly, dispatch, release, PR that changes Full | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |
 | Full: Python 3.12.10 / 3.13.15 / 3.14.7 compatibility | same as above | `make python-compat` |
@@ -88,10 +88,16 @@ aggregate would count as passed.
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
-Full runs all tests. A PR that changes a path in the `pull_request` filter of
-`full-verification.yml` also runs Full. The `pr-test` list is not in that filter, because Full never
-runs it. Name a new test file so that a pattern in `tests/areas.py` matches it. Then `tests/areas.py`
-stays unchanged and the PR does not run Full. Pages publishes only a passed Full run of the current
+Full runs all tests. A PR runs Full only if it changes what Full runs. These paths start Full:
+`.github/workflows/**`, `.github/actions/**`, `.python-version`, `pyproject.toml`, `uv.lock`,
+`tools/browser-runtime/package*.json`, `tests/conftest.py`, `tests/test_report_pages.py`,
+`tools/report_pages.py`, `tools/report_timing.py` and `tools/full.mk`. `tools/full.mk` holds each
+Make recipe that CI does not run, such as `full-test` and `python-compat`. The `Makefile`, the
+`pr-test` list and `tests/areas.py` do not start Full. Tests in CI check that `tests/areas.py`
+still gives each area its files, matches the Full job matrix and keeps a valid `python-compat`
+selection. A change to a `Makefile` variable (`UV`, `TEST_WORKERS`) does not start Full: the
+nightly run covers it. Dispatch Full on the branch to check it before you merge. Name a new test file
+so that an area pattern matches it. Pages publishes only a passed Full run of the current
 `main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
 again.
 

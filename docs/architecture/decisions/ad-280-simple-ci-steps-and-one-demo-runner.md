@@ -57,4 +57,13 @@ remove `tests/areas.py` from the filter. A change to it can move a file, add an 
 `python-compat` selection, and each of these changes what Full runs. The rule is in the
 contributing guide: name a new test file so that an area pattern matches it.
 
+**Follow-up (2026-11-09).** A PR runs Full only if it changes what Full runs: workflows, actions,
+the runtime pins, `tests/conftest.py`, the Full report files or `tools/full.mk`. That file holds
+each Make recipe that CI does not run. The `Makefile` and `tests/areas.py` left the filter. This
+replaces the rejection above. Three tests in `tests/test_make_gate.py` guard the area files, the
+area matrix and the `python-compat` selection, so an `areas.py` edit that changes the Full job
+set fails in CI. A change to a `Makefile` variable (`UV`, `TEST_WORKERS`, tool versions) does not
+start Full on a PR. The nightly run and `workflow_dispatch` cover it. Of the 60 merged PRs #800 to #903,
+22 matched the old filter and 10 match the new one.
+
 **Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.
