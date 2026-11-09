@@ -63,8 +63,8 @@ deny = [
     { crate = "duct", reason = "process: the collector starts no child process" },
     { crate = "command-group", reason = "process: the collector starts no child process" },
     # AD-327: only a collector crate may use a parser. `wrappers` names the crates that may depend
-    # on the denied crate; `tree-sitter-typescript` itself depends on `tree-sitter`.
-    { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector", "tree-sitter-typescript"], reason = "only a collector crate parses source" },
+    # on the denied crate. The grammar crate depends on `tree-sitter-language`, not on `tree-sitter`.
+    { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
     { crate = "tree-sitter-typescript", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
 ]
 
