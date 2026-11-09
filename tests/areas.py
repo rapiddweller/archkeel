@@ -6,7 +6,9 @@
 from fnmatch import fnmatchcase
 
 # The first area with a matching pattern owns a file, so a specific name comes before its prefix.
-# Estimated from CI JUnit times: each job takes about 10 minutes.
+# A PR job must take at most about 7 minutes on the slowest runner (AD-341). The same tests took
+# up to 2 times as long on one runner as on another, so the summed test time of an area on such a
+# runner must stay below about 24 minutes for 4 workers.
 AREAS: dict[str, tuple[str, ...]] = {
     "demo catalog": ("test_architecture_demo.py", "test_demo_catalog_studio.py"),
     "TypeScript collector target": ("test_typescript_control_target.py",),
@@ -42,7 +44,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_namespace_scan_cost.py",
         "test_native_violation_filter.py",
     ),
-    "CLI, contracts and dependency rules": (
+    "CLI and Studio": (
         "test_cli*.py",
         "test_onboarding*.py",
         "test_init_first_hour.py",
@@ -52,6 +54,8 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_core_command_result.py",
         "test_demo.py",
         "test_project_demo_snapshots.py",
+    ),
+    "contracts and dependency rules": (
         "test_contract_*.py",
         "test_typed_amendment_artifact.py",
         "test_delta*.py",
@@ -98,12 +102,13 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_unknown_positions.py",
         "test_type_fanin.py",
     ),
+    "typed guards": ("test_typed_*.py",),
     "type and wire guards": (
-        "test_typed_*.py",
         "test_*_types.py",
         "test_codec*.py",
         "test_host_memory.py",
     ),
+    "native TypeScript collector": ("test_collector_native_*.py",),
     "collectors": (
         "test_typescript_*.py",
         "test_dart_*.py",
@@ -176,6 +181,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_repository_hygiene.py",
         "test_ir_owners.py",
         "test_make_gate.py",
+        "test_ci_budget.py",
         "test_native_ci.py",
         "test_browser_*.py",
         "test_mermaid.py",

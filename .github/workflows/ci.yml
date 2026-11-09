@@ -58,14 +58,18 @@ jobs:
           - TypeScript collector target
           - boundary types
           - Python analysis
-          - CLI, contracts and dependency rules
+          - CLI and Studio
+          - contracts and dependency rules
+          - typed guards
           - type and wire guards
+          - native TypeScript collector
           - collectors
           - call and catalog rules
           - reports
           - self-check and CI
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -93,6 +97,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      - name: Show the runner CPU
+        run: lscpu | grep -E '^(Model name|CPU\(s\)):'
+
       - name: Run the selected tests of this area
         env:
           AREA: ${{ matrix.area }}
@@ -110,7 +117,8 @@ jobs:
   pr-report-check:
     name: Report and renderer tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -242,7 +250,22 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
     steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # AD-341: a warning for each job over the time budget. A failed report does not fail the run.
+      - name: Report each job time against the time budget
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' | python3 tools/ci_budget.py --job-minutes 7 --path-minutes 10 --summary "$GITHUB_STEP_SUMMARY"
+
       - name: Require every check job
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}

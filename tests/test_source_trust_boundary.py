@@ -39,6 +39,10 @@ from archkeel.ir.protocol import (
 )
 from archkeel.ir.trace import trace_valid_violations
 
+# The process limit tests bound the wall time of a stop. On 4 workers at the same time, one stop
+# took 4.16 s against its bound of 4 s, so the tests of this file share one worker (AD-341).
+pytestmark = pytest.mark.xdist_group("test_source_trust_boundary.py")
+
 
 def _payload():
     return json.loads(encode_response(CollectionResponse(_facts())))

@@ -4,8 +4,8 @@
 
 //! The path from the root to the node that the walk visits.
 //!
-//! `walk.rs` pushes an entry for each node. `definitions.rs` reads the stack and the flags to place
-//! a definition.
+//! `walk.rs` pushes an entry for each node. `definitions.rs` and `sites.rs` read the stack and the
+//! flags to place a definition or a site.
 
 use tree_sitter::Node;
 
@@ -21,6 +21,29 @@ pub const IN_UNMODELED_BLOCK: u8 = 4;
 pub const IN_REBOUND_FUNCTION: u8 = 8;
 /// An ancestor is a function, a class body or a namespace.
 pub const IN_FUNCTION_LIKE: u8 = 16;
+/// The node is inside a type: a type construct above it, or the type of an `as` or `satisfies`.
+pub const IN_TYPE: u8 = 32;
+/// An ancestor is the left side of an assignment that publishes `window.x` or `globalThis.x`.
+pub const IN_PUBLICATION: u8 = 64;
+/// An ancestor is a `with` statement. The eight bits of the flag byte are now all used: a ninth
+/// flag needs a `u16`.
+pub const IN_WITH: u8 = 128;
+
+/// What an ancestor adds to the names that a site shadows: a scope that is not a definition, and
+/// the constructs that make the lexical scope of the site uncertain (`_active_scope_names`).
+pub const HARD_AMBIGUOUS: u8 = 1;
+/// A function expression or an arrow function lies between the site and its definition.
+pub const CROSSED_FUNCTION: u8 = 2;
+/// The same, and the function is not an immediately called wrapper of a script.
+pub const CROSSED_PLAIN_FUNCTION: u8 = 4;
+
+/// What the walk of the sites keeps for the children of a node.
+#[derive(Clone, Copy, Default)]
+pub struct Shadow {
+    /// The last scope of the chain that hides names (`site_names.rs`).
+    pub chain: Option<u32>,
+    pub ambiguous: u8,
+}
 
 /// One node on the path from the root to the node that the walk visits.
 pub struct Entry<'t> {
@@ -37,4 +60,10 @@ pub struct Entry<'t> {
     /// The decorators and comments among the named children seen so far that directly precede
     /// the next child.
     pub run: Vec<Node<'t>>,
+    /// The scopes between a node below and its definition, this node included.
+    pub shadow: Shadow,
+    /// The node is the callee of a call or `new`, or a member of the callee (`_inside_site_callee`).
+    pub callee: bool,
+    /// An `arguments` node whose call has a wrapper of a script as its callee.
+    pub wrapped_call: bool,
 }

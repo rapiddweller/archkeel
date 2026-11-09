@@ -41,7 +41,15 @@ from pathlib import Path
 
 import pytest
 from collector_timing import Taken, interleaved_least, least_of, timed_run
-from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY, SHAPES, Shape
+from scaling_shapes import (
+    COVERAGE,
+    FIELD_COVERAGE,
+    KIND_CLASSES,
+    NAME_ONLY,
+    SHAPES,
+    SITE_TIMED,
+    Shape,
+)
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
 from archkeel.analyzer.typescript.syntax import Definition
@@ -183,13 +191,15 @@ def _limit_address_space() -> None:
         resource.setrlimit(resource.RLIMIT_AS, (ADDRESS_SPACE, ADDRESS_SPACE))
 
 
-@pytest.mark.parametrize(("name", "count"), MEMORY_CASES)
-def test_writes_keep_the_memory_bounded(
-    tmp_path: Path, collector: Path, name: str, count: int
-) -> None:
-    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "a.ts").write_bytes(SHAPES[name].make(count))
+def _peak_memory(tmp_path: Path, collector: Path, name: str, count: int) -> int:
+    """The peak resident memory of the collector, in bytes, for the file of `name` and `count`."""
+    (tmp_path / "tsconfig.json").write_text(
+        '{"compilerOptions":{"allowJs":true},"include":["src"]}'
+    )
+    (tmp_path / "src").mkdir(exist_ok=True)
+    for old in (tmp_path / "src").iterdir():
+        old.unlink()
+    (tmp_path / "src" / f"a{SHAPES[name].suffix}").write_bytes(SHAPES[name].make(count))
     request = tmp_path / "request.bin"
     request.write_bytes(_request(tmp_path))
     done = subprocess.run(
@@ -201,23 +211,32 @@ def test_writes_keep_the_memory_bounded(
     )
     assert done.returncode == 0, done.stderr[-300:]
     # `ru_maxrss` is in kilobytes on Linux and in bytes on macOS.
-    peak = int(done.stdout) * (1 if sys.platform == "darwin" else 1024)
+    return int(done.stdout) * (1 if sys.platform == "darwin" else 1024)
+
+
+@pytest.mark.parametrize(("name", "count"), MEMORY_CASES)
+def test_writes_keep_the_memory_bounded(
+    tmp_path: Path, collector: Path, name: str, count: int
+) -> None:
+    peak = _peak_memory(tmp_path, collector, name, count)
     assert peak < MEMORY_CAP, f"{name} n={count}: {peak / 2**20:.0f} MiB"
 
 
-@pytest.mark.parametrize("name", sorted(SHAPES))
-def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
+SITE_PREFIX = "sites-"
+
+
+def assert_time_grows_linearly(tmp_path: Path, collector: Path, name: str) -> None:
+    """Time n and 2n of the shape `name` and bound the ratio of the CPU times."""
     timing = timing_for_profile()
-    n, first, second = measure(collector, tmp_path, SHAPES[name], timing)
+    shape = SHAPES[name] if name in SHAPES else SITE_TIMED[name]
+    n, first, second = measure(collector, tmp_path, shape, timing)
     # The wall ratio is printed for comparison only; the assertion uses the CPU time.
     print(
         f"SCALING {name} n={n} t(n)={first.cpu:.3f} t(2n)={second.cpu:.3f} "
         f"ratio={second.cpu / first.cpu:.2f} wall_ratio={second.wall / first.wall:.2f}"
     )
     ratio = second.cpu / first.cpu
-    assert len(SHAPES[name].make(2 * n)) <= MAX_BYTES, (
-        f"{name}: the file is too large for n={2 * n}"
-    )
+    assert len(shape.make(2 * n)) <= MAX_BYTES, f"{name}: the file is too large for n={2 * n}"
     assert first.cpu >= timing.min_time, (
         f"{name}: {first.cpu:.3f} s CPU for n={n} is too short to measure"
     )
@@ -225,6 +244,13 @@ def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name
     assert ratio < RATIO, (
         f"{name}: n={n} {first.cpu:.3f} s, 2n {second.cpu:.3f} s CPU, ratio {ratio:.2f}"
     )
+
+
+# The shapes of the sites run in `test_collector_native_scaling_sites.py`, so that the two files
+# run on two workers (a file stays on one worker) and the matrix fits the time limit of Full.
+@pytest.mark.parametrize("name", sorted(n for n in SHAPES if not n.startswith(SITE_PREFIX)))
+def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
+    assert_time_grows_linearly(tmp_path, collector, name)
 
 
 def test_the_timing_follows_the_build_profile(monkeypatch: pytest.MonkeyPatch) -> None:

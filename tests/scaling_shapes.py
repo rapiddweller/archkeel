@@ -447,7 +447,201 @@ SHAPES: dict[str, Shape] = {
         _text(lambda n: _join("const r{i} = require('./m{i}'); const d{i} = import('./d{i}');", n)),
         700,
     ),
+    # Sites (PR 4.3a-2): the scope, the shadowed names and the free names of a site were found by
+    # a climb over the ancestors for each node, and a path or a receiver text by a copy of a chain.
+    "sites-calls-at-depth": Shape(
+        _text(lambda n: "".join(f"function f{i}(){{ c{i}(g{i}); " for i in range(n)) + "}" * n),
+        8000,
+    ),
+    "sites-calls-in-arrow-nest": Shape(
+        _text(
+            lambda n: (
+                "const f = "
+                + "".join(f"(p{i}) => {{ var v{i}; c{i}(p{i}, v{i}); return " for i in range(n))
+                + "0"
+                + "; }" * n
+                + ";"
+            )
+        ),
+        5000,
+    ),
+    "sites-nested-calls": Shape(_text(lambda n: "f(" * n + "x" + ")" * n + ";"), 60000),
+    "sites-with-nest": Shape(_text(lambda n: "with (o) { " * n + "f();" + "}" * n), 30000),
+    "sites-member-chain-call": Shape(_text(lambda n: "a" + ".b" * n + "();"), 100000),
+    "sites-chained-calls": Shape(_text(lambda n: "a" + ".b()" * n + ";"), 20000),
+    "sites-calls-with-chains": Shape(_text(lambda n: _join("a{i}.b.c.d(e{i}.f.g);", n)), 5000),
+    "sites-new-expressions": Shape(
+        _text(lambda n: _join("const v{i} = new A{i}.B(c{i});", n)), 6000
+    ),
+    "sites-publication-chain": Shape(
+        _text(lambda n: "".join(f"window.p{i} = " for i in range(n)) + "1;"), 20000, ".js"
+    ),
+    "sites-computed-access": Shape(_text(lambda n: "a" + "[k]" * n + ";"), 60000),
+    "sites-computed-calls": Shape(_text(lambda n: "a" + "[0]()" * n + ";"), 20000),
+    "sites-subscript-flat": Shape(_text(lambda n: _join("a{i}[b{i}][c{i}](d{i});", n)), 6000),
+    "sites-many-free-names": Shape(_text(lambda n: "f(" + _join("x{i}", n, ", ") + ");"), 40000),
+    "sites-many-bound-names": Shape(
+        _text(
+            lambda n: _join("var v{i};", n, " ") + "\n" + _join("function g{i}() { v{i}(); }", n)
+        ),
+        4000,
+    ),
+    "sites-free-names-in-frames": Shape(
+        _text(lambda n: _join("function g{i}(a{i}) { var b{i}; a{i}(b{i}, c{i}); }", n)), 4000
+    ),
+    "sites-args-wide": Shape(_text(lambda n: "f(" + _join("g{i}(h{i})", n, ", ") + ");"), 12000),
+    "sites-escapes": Shape(
+        _text(lambda n: _join("typeof w{i}; delete o{i}.p; x{i}++; f(g{i}, h{i});", n)), 3000
+    ),
+    "sites-many-shadowed-names": Shape(
+        _text(
+            lambda n: (
+                "function f() { "
+                + _join("var v{i};", n, " ")
+                + " "
+                + _join("v{i}();", n, " ")
+                + " }"
+            )
+        ),
+        12000,
+    ),
+    # n nested arrow functions that each declare a name, with n sites at the bottom: the names that
+    # a site shadows are the union over the chain, and a set for each site was n squared entries.
+    "sites-shadow-nest-arrows": Shape(
+        _text(
+            lambda n: (
+                "const f = "
+                + "".join(f"(p{i}) => {{ var v{i}; return " for i in range(n))
+                + "["
+                + _join("c{i}(v{i})", n, ", ")
+                + "]"
+                + "; }" * n
+                + ";"
+            )
+        ),
+        2500,
+    ),
+    "sites-comparisons-or-chain": Shape(
+        _text(lambda n: "const r = " + " || ".join(f"x === 'v{i}'" for i in range(n)) + ";"), 9000
+    ),
+    "sites-comparisons-flat": Shape(_text(lambda n: _join("if (x{i} === 'a{i}') {}", n)), 8000),
+    "sites-comparison-wrappers": Shape(
+        _text(lambda n: "x === " + "(" * n + "'a'" + " as const)" * n + ";"), 9000
+    ),
+    "sites-switch-cases": Shape(
+        _text(lambda n: "switch (x) {\n" + _join("case 'c{i}': y{i}(); break;", n) + "\n}"), 9000
+    ),
+    "sites-templates-comparisons": Shape(
+        _text(lambda n: _join("x == `t{i}`; x != `u${y}{i}`; z === (`v{i}`);", n)), 6000
+    ),
+    "sites-in-decorator-run": Shape(
+        _text(lambda n: "class C {\n" + _join("@d(f{i}())", n, "\n") + "\nm() {}\n}"), 15000
+    ),
+    "sites-in-decorator-comment-mix": Shape(
+        _text(lambda n: "class C {\n" + _join("// c\n@d(f{i}())", n, "\n") + "\nm() {}\n}"), 9000
+    ),
+    "sites-after-comment-run": Shape(
+        _text(lambda n: "class C {\n" + "// c\n" * n + "m(a = f()) { g(); }\n}"), 100000
+    ),
+    "sites-script-wrappers": Shape(
+        _text(lambda n: _join("(function (window) { window.f{i}(w{i}); })(window);", n)),
+        4000,
+        ".js",
+    ),
+    "sites-script-wrapper-nest": Shape(
+        _text(lambda n: "(function (window) { " * n + "window.f();" + " })(window);" * n),
+        8000,
+        ".js",
+    ),
+    "sites-script-publications": Shape(
+        _text(lambda n: _join("window.a{i} = window.b{i} || g{i};", n)), 6000, ".js"
+    ),
+    "sites-iife-many-args": Shape(
+        _text(
+            lambda n: (
+                "(function (" + _join("w{i}", n, ", ") + ") { })(" + _join("window", n, ", ") + ");"
+            )
+        ),
+        30000,
+        ".js",
+    ),
+    "sites-shorthand-properties": Shape(
+        _text(lambda n: "var o = { " + _join("a{i}", n, ", ") + " };"), 30000, ".js"
+    ),
+    "sites-type-positions": Shape(
+        _text(lambda n: "type T = " + "A<" * n + "B" + ">" * n + ";"), 50000, ".tsx"
+    ),
+    "sites-jsx-names": Shape(_text(lambda n: _join("<a b={c{i}} d:e={f{i}} />;", n)), 5000, ".tsx"),
 }
+
+
+# The sites run in a few shapes that join several of the shapes above. A joined shape holds every
+# construct of its parts, each at a linear count, so a quadratic loop in one part shows in the
+# ratio of the whole. The parts stay in `SHAPES` for the equality tests at small sizes, which is
+# where a shape must not be too deep for the Python oracle. A part with `base` b has the count
+# n * b / 1000 in a joined shape of n, so the parts take about the same time.
+SITE_PARTS: dict[str, tuple[str, ...]] = {
+    "sites-timed-calls": (
+        "sites-calls-at-depth",
+        "sites-nested-calls",
+        "sites-with-nest",
+        "sites-calls-in-arrow-nest",
+    ),
+    "sites-timed-chains": (
+        "sites-member-chain-call",
+        "sites-chained-calls",
+        "sites-calls-with-chains",
+        "sites-new-expressions",
+    ),
+    "sites-timed-computed": (
+        "sites-computed-access",
+        "sites-computed-calls",
+        "sites-subscript-flat",
+    ),
+    "sites-timed-names": (
+        "sites-many-free-names",
+        "sites-many-bound-names",
+        "sites-free-names-in-frames",
+        "sites-args-wide",
+        "sites-escapes",
+        "sites-many-shadowed-names",
+        "sites-shadow-nest-arrows",
+    ),
+    "sites-timed-comparisons": (
+        "sites-comparisons-or-chain",
+        "sites-comparisons-flat",
+        "sites-comparison-wrappers",
+        "sites-switch-cases",
+        "sites-templates-comparisons",
+    ),
+    "sites-timed-runs": (
+        "sites-in-decorator-run",
+        "sites-in-decorator-comment-mix",
+        "sites-after-comment-run",
+    ),
+    "sites-timed-scripts": (
+        "sites-script-wrappers",
+        "sites-script-wrapper-nest",
+        "sites-iife-many-args",
+        "sites-script-publications",
+        "sites-publication-chain",
+        "sites-shorthand-properties",
+    ),
+    "sites-timed-types-jsx": ("sites-type-positions", "sites-jsx-names"),
+}
+
+
+def _joined(parts: tuple[str, ...]) -> Shape:
+    shapes = [SHAPES[name] for name in parts]
+    assert len({shape.suffix for shape in shapes}) == 1, parts
+
+    def make(n: int) -> bytes:
+        return b"\n".join(shape.make(max(1, n * shape.base // 1000)) for shape in shapes)
+
+    return Shape(make, 500, shapes[0].suffix)
+
+
+SITE_TIMED: dict[str, Shape] = {name: _joined(parts) for name, parts in SITE_PARTS.items()}
 
 
 # Construct class -> shapes that hold it.
@@ -571,6 +765,52 @@ COVERAGE: dict[str, tuple[str, ...]] = {
     "nests of jsx and the references of PR 4.2": ("nested-jsx", "require-calls"),
     "comments and the start of a file": ("class-comment-run", "hashbang", "triple-slash"),
     "type-only imports": ("imports-named",),
+    "call sites at depth": (
+        "sites-calls-at-depth",
+        "sites-calls-in-arrow-nest",
+        "sites-nested-calls",
+        "sites-with-nest",
+    ),
+    "member chains": (
+        "sites-member-chain-call",
+        "sites-chained-calls",
+        "sites-calls-with-chains",
+        "sites-new-expressions",
+        "sites-publication-chain",
+    ),
+    "computed access": ("sites-computed-access", "sites-computed-calls", "sites-subscript-flat"),
+    "free names": (
+        "sites-many-free-names",
+        "sites-many-bound-names",
+        "sites-free-names-in-frames",
+        "sites-args-wide",
+        "sites-escapes",
+    ),
+    "shadowed names": (
+        "sites-many-shadowed-names",
+        "sites-shadow-nest-arrows",
+        "sites-calls-in-arrow-nest",
+    ),
+    "string comparisons in long chains": (
+        "sites-comparisons-or-chain",
+        "sites-comparisons-flat",
+        "sites-comparison-wrappers",
+        "sites-switch-cases",
+        "sites-templates-comparisons",
+    ),
+    "sites in comment and decorator runs": (
+        "sites-in-decorator-run",
+        "sites-in-decorator-comment-mix",
+        "sites-after-comment-run",
+    ),
+    "sites of a script": (
+        "sites-script-wrappers",
+        "sites-script-wrapper-nest",
+        "sites-script-publications",
+        "sites-iife-many-args",
+        "sites-shorthand-properties",
+    ),
+    "sites in types and jsx": ("sites-type-positions", "sites-jsx-names"),
     "line shapes": (
         "one-line-functions",
         "one-line-imports",
@@ -661,6 +901,8 @@ FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
     "declaration_file": ("declare-top-level",),
     "script_mode": ("writes-at-depth", "rebound-names"),
     "script_bindings": ("variable-patterns", "var-hoisting", "nested-blocks-var"),
+    "sites": ("sites-calls-at-depth", "sites-member-chain-call", "sites-computed-access"),
+    "string_comparisons": ("sites-comparisons-or-chain", "sites-switch-cases"),
     "name": ("functions-flat",),
     "kind": ("class-methods", "enum-members", "type-union", "constants-arrays"),
     "span": ("one-line-astral", "tabs-and-marks", "crlf-lines", "long-comment-line"),
