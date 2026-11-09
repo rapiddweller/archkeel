@@ -78,6 +78,7 @@
         "archkeel.ir.guard_paths",
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
+        "archkeel.ir.reference_contexts",
         "archkeel.ir.source_proofs",
         "archkeel.ir.state_codec",
         "archkeel.ir.codec_strings"
@@ -299,6 +300,7 @@
       "decided_by": "architect",
       "exact_modules": [
         "archkeel.ir.decisions",
+        "archkeel.ir.dependency_binding_kinds",
         "archkeel.ir.digest",
         "archkeel.ir.phases",
         "archkeel.ir.trace",
@@ -331,6 +333,7 @@
       ],
       "public": [
         "archkeel.ir.decisions",
+        "archkeel.ir.dependency_binding_kinds:bound_sections",
         "archkeel.ir.digest",
         "archkeel.ir.trace",
         "archkeel.ir.collection_features:required_resolution_features",

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "after_digest": "d9024beac3d8f8060dd39b4daa51c74d7c0d2bac5f8862f5347f83c06656d885",
+  "before_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "before_digest": "5cbf75a0a5fffd41141486a81f6bc868eaffe46a71be4f096b0bb8a0e89a8ece",
+  "decided_by": "owner (decision task of 2026-11-09)",
+  "rationale": "Base d6fa2c4a. AD-338 and epic #880 W2-G. Two new owner modules join the ir component: archkeel.ir.reference_contexts (facts-codec inner component, moved out of facts_validation.py) and archkeel.ir.dependency_binding_kinds (evidence inner component, with its public bound_sections). The function archkeel.ir.dependency_binding_kinds.bound_sections joins the public list of ir because archkeel.check.observation calls it. No budget rises, and no rule, requires entry or Any permission changes.",
+  "schema_version": "2.0.0"
+}

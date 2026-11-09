@@ -33,16 +33,9 @@ value is JSON. A value that JSON cannot hold now fails in the parser, not in the
 render at the peak still builds a report payload of about 285 MiB on Linux. This decision does
 not change that.
 
-**Check.**
-- `test_explore_checks_its_observation_once_per_pass`: two parses in the passes, none in the
-  render, and no JSON decode of the assembled model.
-- `test_an_assembled_model_reads_the_same_without_a_json_round_trip`: a model with a contract
-  reads equal with and without the round trip.
-- `test_json_arrays_turns_tuples_into_lists_in_place_and_reads_like_the_json_round_trip`.
-- `test_explore_frees_the_source_facts_before_it_encodes`.
-- `test_pages_of_the_explored_observation_equal_pages_of_its_bytes`: the pages are equal.
-- `architecture.json` differs from the old output only in `analyzer.code_digest`. Both HTML pages
-  are byte-identical.
+**Check.** Five tests in `test_explore.py` and `test_codec_compatibility.py` pin the single
+parse, the model without a JSON round trip, `json_arrays`, the freed facts and the equal pages. The
+output differs only in `analyzer.code_digest`.
 
 ## Note, 2026-11-08: four host loops do their work once (#880, PR H step 4)
 
@@ -68,3 +61,8 @@ validations of the same facts, the render rebuild and the repeat of pass 2 wait 
 **Check.** Four tests (`test_graph_transitive_paths`, `test_source_import_gaps`,
 `test_report_cell_findings`, `test_collector_lazy_certify`) keep each old definition as an oracle.
 `test_dependency_scope_gap_check` pins that a broken gap gives no proof.
+
+## Note, 2026-11-09: two parse steps do less work (#880, W2-G)
+
+AD-338 holds the decision: one validation call parses each reference excerpt once, and the
+dependency proof parses only bound records. The output does not change.

@@ -24,6 +24,7 @@ from .baseline import violation_rows
 from .bindings import unread_bindings
 from .coverage import observation_complete, observation_covers_rule
 from .dependency import parse_dependency_selector
+from .dependency_binding_kinds import binds_reference
 from .duplication import repeated_logic
 from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
 from .facts import RuntimeRequirementState as _RuntimeRequirementState
@@ -1214,11 +1215,10 @@ def dependency_binding_id(
         for record in section.records
         if section.name in {"modules", "imports", "symbols"}
         or section.name == "references"
-        and (
-            record.kind == "script_namespace_effect"
-            or include_calls
-            or include_source_ownership
-            and record.kind in {"source_role", "value_reference", "attribute_reference"}
+        and binds_reference(
+            record.kind,
+            include_calls=include_calls,
+            include_source_ownership=include_source_ownership,
         )
         or include_calls
         and section.name == "calls"

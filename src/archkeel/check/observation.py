@@ -28,6 +28,7 @@ from archkeel.ir.decisions import (
     rule_result_digest,
     selector_inventory_binding_id,
 )
+from archkeel.ir.dependency_binding_kinds import bound_sections
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts import (
@@ -694,16 +695,11 @@ def _dependency_binding_id(
     include_source_ownership: bool = False,
 ) -> str:
     return dependency_binding_id(
-        (
-            Section(name, tuple(parse_record(item) for item in records))
-            for name, records in (
-                ("modules", scan.modules),
-                ("imports", scan.imports),
-                ("symbols", scan.symbols),
-                ("references", scan.references),
-                ("calls", scan.calls),
-                ("declarations", declarations),
-            )
+        bound_sections(
+            scan,
+            declarations,
+            include_calls=include_calls,
+            include_source_ownership=include_source_ownership,
         ),
         (parse_record(item) for item in scan.coverage["failures"]),
         (parse_evidence(item) for item in scan.evidence),

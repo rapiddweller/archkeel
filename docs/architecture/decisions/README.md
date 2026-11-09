@@ -332,3 +332,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-324 | [The host writes a large report in pieces and frees each copy](ad-324-the-host-writes-a-large-report-in-pieces-and-frees-each-copy.md) |
 | AD-325 | [Every collector process runs in the C locale](ad-325-every-collector-process-runs-in-the-c-locale.md) |
 | AD-327 | [Rust architecture rules are measured in the gate](ad-327-rust-architecture-rules-are-measured-in-the-gate.md) |
+| AD-338 | [A validation run parses each reference excerpt once, and the dependency proof parses bound records only](ad-338-a-validation-run-parses-each-reference-excerpt-once.md) |
