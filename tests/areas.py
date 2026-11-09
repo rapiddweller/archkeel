@@ -126,6 +126,8 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_state_facts.py",
         "test_model.py",
         "test_identity.py",
+        "test_identity_memo.py",
+        "test_compute_once_per_run.py",
         "test_references.py",
         "test_bindings.py",
     ),

@@ -4,11 +4,13 @@
 """Identify the checker independently of the observation analyzer."""
 
 import hashlib
+from functools import cache
 from pathlib import Path
 
 
+@cache
 def package_digest() -> str:
-    """Hash installed Python source bytes and package-relative paths."""
+    """Hash installed Python source bytes and package-relative paths; one value per process."""
     root = Path(__file__).resolve().parents[1]
     digest = hashlib.sha256()
     for path in sorted(root.rglob("*.py")):

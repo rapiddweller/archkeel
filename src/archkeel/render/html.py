@@ -5,14 +5,12 @@
 
 from __future__ import annotations
 
-import base64
 import html
 import json
 import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import replace
-from importlib.resources import files
 from io import BytesIO as _BytesIO
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import Final, TypeAlias
@@ -69,6 +67,8 @@ from archkeel.ir.structure import StructureMetric, oversized_insides, structure_
 from archkeel.ir.type_fanin import MINIMUM_CROSSINGS, TypeFanin, type_fanin
 
 from .atlas import atlas_payload, boundary_permissions_payload
+from .page_assets import asset as _asset
+from .page_assets import data_uri as _data_uri
 from .summary import (
     Comparison,
     VerdictRow,
@@ -100,15 +100,6 @@ _NO_TARGET_STYLE: Final = (
 # Python runs a package's `__main__` module for `python -m`: the one observed entry point.
 _ENTRY_MODULE: Final = "__main__"
 _PAYLOAD_MARK: Final = b"\x00archkeel-payload\x00"
-
-
-def _asset(name: str) -> bytes:
-    return files("archkeel.render").joinpath("assets", name).read_bytes()
-
-
-def _data_uri(name: str, mime_type: str) -> str:
-    encoded = base64.b64encode(_asset(name)).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
 
 
 def _text(value: object) -> str:

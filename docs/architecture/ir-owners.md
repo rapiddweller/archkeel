@@ -22,12 +22,12 @@ markers, so that check does not read it.
 | Name | Kind | Modules | Responsibility | Requires |
 | --- | --- | --- | --- | --- |
 | `architecture` | owner | 27 | Own the typed architecture model, contract and target graphs, structure, interfaces, lock, baseline, widening and diagnostics. | `facts`, `profiles`, `dependency-policy`, `contract-version` |
-| `evidence` | owner | 5 | Own rule decisions, the trace of evidence, digests, phase timings and collection features. | `architecture`, `facts`, `facts-codec`, `dependency-policy` |
+| `evidence` | owner | 6 | Own rule decisions, the trace of evidence, digests, phase timings and collection features. | `architecture`, `facts`, `facts-codec`, `dependency-policy` |
 | `wire` | owner | 13 | Own strict wire conversion of contracts, baselines, observations, deltas, results and graphs. | `architecture`, `facts`, `facts-codec`, `profiles`, `contract-version`, `dependency-policy` |
 | `views` | owner | 7 | Own pure projections of checked results: report graph, report projection, explore, findings, flow graph, story and view spec. | `architecture`, `evidence`, `wire`, `facts`, `dependency-policy` |
 | `contract-version` | inner component | 1 | Own contract versions and the features available in each version. | none |
 | `dependency-policy` | inner component | 1 | Match owned dependency selectors and exact import-port permissions. | `facts` |
-| `facts` | inner component | 7 | Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies. | none |
+| `facts` | inner component | 8 | Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies. | none |
 | `facts-codec` | inner component | 8 | Strictly decode, validate and encode source facts and process envelopes. Own the bounded source path grammar shared by collection and guarded-effect replay. Intern lossless JSON strings for source and observation wire encodings. | `facts`, `protocol` |
 | `profiles` | inner component | 1 | Describe language capabilities, source requirements and comparable measurements. | `facts` |
 | `protocol` | inner component | 2 | Own typed request and response envelopes for collector processes. | `facts` |
@@ -37,8 +37,8 @@ graph TD
     n_0["architecture (27 modules)"]
     n_1["contract-version (1 module)"]
     n_2["dependency-policy (1 module)"]
-    n_3["evidence (5 modules)"]
-    n_4["facts (7 modules)"]
+    n_3["evidence (6 modules)"]
+    n_4["facts (8 modules)"]
     n_5["facts-codec (8 modules)"]
     n_6["profiles (1 module)"]
     n_7["protocol (2 modules)"]

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
+  "after_digest": "b6b9617db3f17b61383c3f5b148a8f3d7ecf582d53c15763bc3f0daa2bd72481",
+  "before_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "before_digest": "6676528923b118774eae4a2e018afa8ef0310130893e99309bbbfa1a30eee22b",
+  "decided_by": "agent (per task instruction D1 of 2026-11-09)",
+  "rationale": "Base 035428b6. AD-339 and epic #880 task D1. Five modules join the contracts: archkeel.ir.identity_memo (facts, public), archkeel.ir.dependency_binding (evidence), archkeel.check.contract_tree (observation), archkeel.check.report_filter (workflows) and archkeel.render.page_assets (html). The CLI calls the new archkeel.check.report:run_report_with_observation instead of run_report, so the coupling name list of cli -> check swaps one name for another and keeps its count of 6. The baseline lowers calls_unresolved from 973 to 970. No budget rises, and no rule, component, requires entry or Any permission changes.",
+  "schema_version": "2.0.0"
+}

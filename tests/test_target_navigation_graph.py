@@ -86,6 +86,9 @@ def test_own_render_contract_enforces_output_direction(tmp_path, backward_import
         ).read_text(),
         # The full render contract also guards the real contract-guide renderer.
         "src/archkeel/render/guide.py": (root_path / "src/archkeel/render/guide.py").read_text(),
+        "src/archkeel/render/page_assets.py": (
+            root_path / "src/archkeel/render/page_assets.py"
+        ).read_text(),
         # Keep the real guarded Atlas owner and its declared provenance in this fixture.
         "src/archkeel/render/atlas_deviations.py": (
             root_path / "src/archkeel/render/atlas_deviations.py"
