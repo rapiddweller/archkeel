@@ -237,7 +237,10 @@ fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply()
     assert_eq!(
         facts["capabilities"]["constructs"][0],
         serde_json::json!({"name": "string_literal_compare", "status": "partial"})
+    );
+}
 
+#[test]
 fn an_empty_checked_section_states_the_files_that_it_examined() {
     // `examined_digest(["a.ts", "b.ts", "ü.ts"])` in claimed_sections.py
     let digest = "6b1393cf7b12da6b30c6b8af469d759a12e001799c9ddee9b66c3949bb80fa1f";
