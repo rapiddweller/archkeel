@@ -1,0 +1,29 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+# AD-327: the layers of the native workspace. `tests/test_self_native_layers.py` reads this file,
+# `cargo metadata` and the `crate::` paths of each crate. It fails when a crate depends on a crate
+# that its entry does not list, when a crate that is not a collector depends on a `tree-sitter`
+# crate, and when a module cycle appears that is not in `cycles`.
+# A new crate needs an entry here. The names are the vocabulary of an Archkeel contract
+# (component and "may use"), so a later move to an Archkeel contract is a change of data.
+
+# Crates that only a collector may use (a name prefix).
+parser_prefixes = ["tree-sitter"]
+
+[crates.archkeel-wire]
+role = "library"
+may_use = []
+
+[crates.archkeel-typescript-collector]
+role = "collector"
+may_use = ["archkeel-wire"]
+
+# Module cycles that exist today. The list may only shrink: a cycle that is not here fails, and
+# an entry that is no longer a cycle must be removed. The sets are sorted module names.
+[[cycles.archkeel-typescript-collector]]
+modules = ["config", "discover", "options"]
+
+[[cycles.archkeel-typescript-collector]]
+modules = ["definitions", "exports", "import_bindings", "members", "scan", "scope", "syntax", "walk"]

@@ -112,6 +112,10 @@ impl Cx<'_> {
     }
 
     /// `_declared_members`.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
     pub fn declared_members(&self, body: Node, owner: K) -> Vec<Member> {
         let (class, enumeration) = (owner == K::ClassDeclaration, owner == K::EnumDeclaration);
         let mut members = Vec::new();
@@ -222,6 +226,10 @@ impl Cx<'_> {
     }
 
     /// `_members_complete`.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
     pub fn members_complete(&self, body: Option<Node>, owner: K) -> bool {
         let Some(body) = body else {
             return false;

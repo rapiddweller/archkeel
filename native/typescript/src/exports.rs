@@ -100,6 +100,14 @@ pub fn module_exports(cx: &Cx, top: &[Node]) -> ModuleExports {
 
 /// `_module_export_bindings`: `(name, declaration, export)` for a name exported once, declared
 /// once and bound once.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "the function is over 15 in cognitive complexity: simplify it (AD-327)"
+)]
+#[expect(
+    clippy::excessive_nesting,
+    reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+)]
 pub fn export_bindings(
     cx: &Cx,
     (root, top): (Node, &[Node]),

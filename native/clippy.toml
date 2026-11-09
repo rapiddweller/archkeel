@@ -1,3 +1,9 @@
 # A test may unwrap: a failed test is the expected result of a broken assumption.
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+
+# AD-327: thresholds of the shape ratchets.
+too-many-lines-threshold = 100
+cognitive-complexity-threshold = 15
+excessive-nesting-threshold = 4
+too-many-arguments-threshold = 7

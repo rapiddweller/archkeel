@@ -106,6 +106,10 @@ fn field_kind<'t>(node: Node<'t>, field: &str) -> Option<(u16, Node<'t>)> {
     Some((child.kind_id(), child))
 }
 
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "the function is over 15 in cognitive complexity: simplify it (AD-327)"
+)]
 fn visit<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Scan<'t>) {
     if node.is_error() || node.is_missing() {
         found.errors.push(node);

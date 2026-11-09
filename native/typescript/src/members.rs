@@ -391,6 +391,10 @@ impl Cx<'_> {
     }
 
     /// The bases of a class, interface or enumeration: `extends` and `implements` clauses.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
     pub fn bases(&self, node: Node) -> Vec<Base> {
         let mut bases = Vec::new();
         for heritage in named_children(node) {

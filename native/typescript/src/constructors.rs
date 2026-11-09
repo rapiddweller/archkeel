@@ -125,6 +125,10 @@ fn hex_value(digits: &[char]) -> Option<u32> {
 }
 
 /// The text after a backslash: the decoded text (`None` keeps the source) and the chars it uses.
+#[expect(
+    clippy::excessive_nesting,
+    reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+)]
 fn escape_at(chars: &[char], at: usize) -> (Option<String>, usize) {
     let rest = &chars[at..];
     let ascii = |value: Option<u32>| value.filter(|v| *v < 128).and_then(char::from_u32);

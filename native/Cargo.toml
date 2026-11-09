@@ -30,6 +30,8 @@ strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
+# A wrapped integer in span math must stop the scan, not return a wrong position. Cost: AD-327.
+overflow-checks = true
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -39,3 +41,15 @@ all = { level = "warn", priority = -1 }
 # A panic aborts the process (AD-317) and ends the whole scan: a failure must be a value.
 unwrap_used = "deny"
 expect_used = "deny"
+# AD-327: a panic ends the whole scan; no panic family macro in non-test code.
+panic = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"
+# AD-327: size and shape ratchets. Thresholds are in clippy.toml. A function above a limit carries
+# `#[expect(..., reason = ...)]`, and the expectation fails the build once the function is fixed.
+too_many_lines = "warn"
+too_many_arguments = "warn"
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+# AD-327: reports only. `make native-report` counts them; they do not block.

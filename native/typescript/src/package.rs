@@ -131,7 +131,10 @@ impl Resolver {
     }
 
     /// The small exact `exports` subset that pinned project imports use.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "eight parameters with self: group them in a context struct (AD-327)"
+    )]
     fn export_target(
         &mut self,
         snapshot: &mut Snapshot,

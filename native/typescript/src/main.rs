@@ -8,6 +8,19 @@
 //! and output, and it validates the reply. A failure exits nonzero with its reason on stderr.
 
 #![forbid(unsafe_code)]
+// AD-327: the shape and panic rules cover production code. A test asserts, and it may be long.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::cognitive_complexity,
+        clippy::excessive_nesting,
+        clippy::panic,
+        clippy::too_many_lines,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::unreachable
+    )
+)]
 
 mod class_members;
 mod collect;

@@ -311,6 +311,18 @@ impl Collection<'_> {
         }
     }
 
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "the function is over 15 in cognitive complexity: simplify it (AD-327)"
+    )]
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the function is over 100 lines: split it at a seam (AD-327)"
+    )]
     fn local(
         &mut self,
         rel: &str,
