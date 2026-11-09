@@ -4,9 +4,26 @@
 
 //! Record the provenance of the binary when it is built.
 //!
-//! `ARCHKEEL_CODE_DIGEST` is SHA-256 over each source file of the native workspace, as
+//! `ARCHKEEL_CODE_DIGEST` is SHA-256 over each source input of the native workspace, as
 //! `analyzer/runtime.collector_provenance` digests the Python collector: the relative path, a NUL,
 //! the bytes, a NUL. It is the same on every platform.
+//!
+//! The inputs come from the workspace tree, not from a list: every `.rs` file and every
+//! `Cargo.toml` under `native/`, plus `Cargo.lock` and `rust-toolchain.toml`. A new crate or a
+//! new directory of a crate therefore changes the digest. Each input and each directory under
+//! `native/` is a `rerun-if-changed` path, so cargo runs this script again when an input changes
+//! or a file or directory appears. The root directory is not a rerun path: it holds `target/`,
+//! and cargo would scan that for changes.
+//!
+//! Walk rules:
+//! - A directory named `target` is skipped at any depth. It holds build output, not sources.
+//! - A hidden directory (name starts with `.`) is skipped.
+//! - A hidden file is hashed when its name matches the rules above. Extra input only causes a
+//!   rebuild, which is safe.
+//! - A symbolic link is ignored. It is neither followed nor hashed.
+//!
+//! Not part of the digest: `RUSTFLAGS`, cargo features and the profile. The digest identifies the
+//! source, not the build options.
 
 // A build script that fails stops the build, not a scan, so it may expect.
 #![allow(clippy::expect_used)]
@@ -22,34 +39,26 @@ fn main() {
         .parent()
         .expect("the crate is in native/")
         .to_path_buf();
-    let mut sources = vec![
-        native.join("Cargo.toml"),
-        native.join("Cargo.lock"),
-        native.join("rust-toolchain.toml"),
-        native.join("typescript/Cargo.toml"),
-        native.join("typescript/build.rs"),
-        native.join("wire/Cargo.toml"),
-    ];
-    for directory in ["typescript/src", "wire/src"] {
-        sources.extend(rust_files(&native.join(directory)));
-        println!(
-            "cargo:rerun-if-changed={}",
-            native.join(directory).display()
-        );
-    }
-    sources.sort();
+    let mut inputs = Vec::new();
+    let mut directories = Vec::new();
+    walk(&native, &mut inputs, &mut directories);
+    inputs.sort();
+    directories.sort();
     let mut digest = Sha256::new();
-    for path in &sources {
+    for path in &inputs {
         println!("cargo:rerun-if-changed={}", path.display());
-        let relative = path.strip_prefix(&native).expect("a source is in native/");
+        let relative = path.strip_prefix(&native).expect("an input is in native/");
         let name: Vec<String> = relative
             .components()
             .map(|part| part.as_os_str().to_string_lossy().into_owned())
             .collect();
         digest.update(name.join("/").as_bytes());
         digest.update(b"\0");
-        digest.update(fs::read(path).expect("a source file is readable"));
+        digest.update(fs::read(path).expect("an input file is readable"));
         digest.update(b"\0");
+    }
+    for directory in directories.iter().filter(|directory| **directory != native) {
+        println!("cargo:rerun-if-changed={}", directory.display());
     }
     let hex: String = digest
         .finalize()
@@ -64,13 +73,29 @@ fn main() {
     println!("cargo:rustc-env=ARCHKEEL_VERSION={version}");
 }
 
-fn rust_files(directory: &Path) -> Vec<PathBuf> {
+/// Collect the inputs and the directories below `directory`, which starts at the root `native`.
+fn walk(directory: &Path, inputs: &mut Vec<PathBuf>, directories: &mut Vec<PathBuf>) {
+    directories.push(directory.to_path_buf());
     let entries = fs::read_dir(directory).expect("a source directory is readable");
-    entries
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().is_some_and(|extension| extension == "rs"))
-        .collect()
+    for entry in entries {
+        let entry = entry.expect("a directory entry is readable");
+        let path = entry.path();
+        let file_type = entry.file_type().expect("a directory entry has a type");
+        let name = entry.file_name();
+        if file_type.is_dir() {
+            // `DirEntry::file_type` does not follow a symbolic link, so a link is not walked.
+            let hidden = name.to_string_lossy().starts_with('.');
+            if !hidden && name != "target" {
+                walk(&path, inputs, directories);
+            }
+        } else if file_type.is_file() && is_input(&name.to_string_lossy()) {
+            inputs.push(path);
+        }
+    }
+}
+
+fn is_input(name: &str) -> bool {
+    name.ends_with(".rs") || matches!(name, "Cargo.toml" | "Cargo.lock" | "rust-toolchain.toml")
 }
 
 // `rustc 1.88.0 (6b00bc388 2025-06-23)` gives `1.88.0`.
