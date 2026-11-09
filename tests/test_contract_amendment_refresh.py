@@ -21,7 +21,9 @@ from tools.against import refresh, validate_command
 RULE = "DEP-APP-NO-STORE-SQLITE"
 RECORD = "docs/architecture/decisions/shop-change-amendment.json"
 MAIN_RECORD = "docs/architecture/decisions/main-owned-amendment.json"
-MAIN_BYTES = '{"kept": "byte for byte"}\n'
+MAIN_BYTES = (
+    Path(__file__).parent.parent / "docs/architecture/decisions/ad-324-host-memory-amendment.json"
+).read_text()
 WIDENED = ["shop.app.maintenance", "shop.app.orders"]
 
 
@@ -94,6 +96,42 @@ def test_a_stale_amendment_becomes_valid_and_only_its_digests_change(tmp_path: P
         "after_baseline_digest",
     }
     assert set(after) == set(before)
+
+
+def test_the_output_lists_the_widening_the_branch_adds(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, base = _stale_branch(tmp_path)
+
+    refresh(root, base)
+
+    out = capsys.readouterr().out
+    assert "measured changes against" in out
+    assert "widened:" in out
+    assert "shop.app.orders" in out
+
+
+def test_a_base_that_is_not_an_ancestor_is_refused(tmp_path: Path) -> None:
+    root, base = _stale_branch(tmp_path)
+    stale = (root / RECORD).read_bytes()
+    _git(root, "checkout", "-q", "-b", "other", base)
+    (root / "other.txt").write_text("a main-side change")
+    other = _commit(root, "main-side commit")
+    _git(root, "checkout", "-q", "feature")
+
+    with pytest.raises(GitError, match="rebase or merge BASE first"):
+        refresh(root, other)
+
+    assert (root / RECORD).read_bytes() == stale
+
+
+def test_more_than_one_changed_amendment_is_refused(tmp_path: Path) -> None:
+    root, base = _stale_branch(tmp_path)
+    (root / "docs/architecture/decisions/second-amendment.json").write_text(MAIN_BYTES)
+    _commit(root, "second")
+
+    with pytest.raises(GitError, match="one amendment per change"):
+        refresh(root, base)
 
 
 def test_a_second_run_changes_nothing_and_main_records_stay_identical(tmp_path: Path) -> None:

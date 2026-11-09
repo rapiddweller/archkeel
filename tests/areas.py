@@ -58,7 +58,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_known_delta_action_types.py",
         "test_baseline.py",
         "test_bound_amendments.py",
-        "test_amendment_refresh.py",
         "test_widening.py",
         "test_ratchets.py",
         "test_rename*.py",

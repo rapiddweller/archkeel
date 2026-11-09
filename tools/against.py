@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from archkeel.check.git import GitError, changed_paths, git_bytes, read_blob
+from archkeel.check.git import GitError, changed_paths, git_bytes, is_ancestor, read_blob
 from archkeel.check.snapshot import SnapshotError, resolve_commit
 
 
@@ -70,14 +70,40 @@ def _text_field(record: object, key: str, path: str) -> str:
     return value
 
 
+def _print_measured_changes(root: Path, base: str) -> None:
+    """Print what the amendment will bless: the validator's own changes against BASE.
+
+    The validator checks the digests only. A refresh binds the amendment to whatever the
+    branch changes, so the reader must see that diff before the digests are written.
+    """
+    result = subprocess.run(validate_command(base, None), cwd=root, capture_output=True, text=True)
+    try:
+        payload = json.loads(result.stdout)
+    except ValueError as error:
+        raise GitError(f"the validator gave no result:\n{result.stdout}{result.stderr}") from error
+    changes = payload.get("contract_changes") or []
+    print(f"measured changes against {base[:12]} (they must match the reviewed scope):")
+    for change in changes:
+        print(f"  {change['direction']}: {change['message']}")
+    for failure in payload.get("failures") or []:
+        print(f"  not covered by a contract change: {failure}")
+    if not changes and not payload.get("failures"):
+        print("  none")
+
+
 def refresh(root: Path, base: str, head: str = "HEAD") -> list[str]:
-    """Rewrite the changed amendments in `root`; return the paths whose bytes changed."""
+    """Rewrite the changed amendment in `root`; return the paths whose bytes changed."""
     if git_bytes(root, "status", "--porcelain", "--untracked-files=all").strip():
         raise GitError("the working tree is not clean: commit or remove the changes first")
     base = resolve_commit(root, base)
     head = resolve_commit(root, head)
+    if not is_ancestor(root, base, head):
+        raise GitError("rebase or merge BASE first: BASE is not an ancestor of HEAD")
+    paths = changed_amendments(root, base, head)
+    if len(paths) > 1:
+        raise GitError("exactly one changed amendment is allowed: one amendment per change")
     changed: list[str] = []
-    for path in changed_amendments(root, base, head):
+    for path in paths:
         target = root / path
         if not target.is_file():
             continue  # The branch deletes this record: nothing to bind.
@@ -86,12 +112,15 @@ def refresh(root: Path, base: str, head: str = "HEAD") -> list[str]:
             record = json.loads(before)
         except ValueError as error:
             raise GitError(f"amendment is not valid JSON: {path}: {error}") from error
+        decided_by = _text_field(record, "decided_by", path)
+        rationale = _text_field(record, "rationale", path)
+        _print_measured_changes(root, base)
         command = validate_command(base, path) + [
             "--write-amendment",
             "--decided-by",
-            _text_field(record, "decided_by", path),
+            decided_by,
             "--rationale",
-            _text_field(record, "rationale", path),
+            rationale,
         ]
         result = subprocess.run(command, cwd=root, capture_output=True, text=True)
         if result.returncode == 2:
