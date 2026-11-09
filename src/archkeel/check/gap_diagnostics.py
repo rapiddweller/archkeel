@@ -49,7 +49,7 @@ def gap_diagnostic(failure: Record, language: Language) -> tuple[DiagnosticKind,
     title: str = failure.title
     if title.startswith(GapTitle.UNREADABLE_SOURCE):
         return DiagnosticKind.INCOMPLETE_SCAN, _UNREADABLE_REMEDY
-    found = _DART_KINDS.get(kind) if language is Language.DART else _by_title(failure, language)
+    found = _DART_KINDS.get(kind) if language == Language.DART else _by_title(failure, language)
     result = found or DiagnosticKind.INCOMPLETE_SCAN
     if result is DiagnosticKind.PARSE_ERROR:
         return result, _SYNTAX_REMEDY[language]
@@ -60,7 +60,7 @@ def _by_title(failure: Record, language: Language) -> DiagnosticKind | None:
     kind: str = failure.kind
     title: str = failure.title
     if title.startswith(GapTitle.SYNTAX_ERROR) or (
-        language is Language.PYTHON
+        language == Language.PYTHON
         and failure.area == "analysis_coverage"
         and title.endswith(GapTitle.FILE_FAILURE)
     ):
