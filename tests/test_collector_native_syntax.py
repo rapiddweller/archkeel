@@ -26,7 +26,7 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pytest
-from collector_timing import Taken, least_of, timed_run
+from collector_timing import Taken, interleaved_least, timed_run
 from conftest import build_native_copy
 from test_collector_native_imports import (
     COMMONJS,
@@ -552,14 +552,20 @@ RATIO_BOUND = 3.0
 GUARD_SECONDS = 60.0
 
 
-def _once(binary: Path, root: Path, name: str, count: int) -> Taken:
-    """One run of the collector on the file of `name` with `count` constructs."""
-    (root / "tsconfig.json").write_text('{"include":["src"]}')
-    (root / "src").mkdir(exist_ok=True)
-    (root / "src/a.ts").write_bytes(_shape(name, count))
+def _prepare(root: Path, name: str, count: int) -> Path:
+    """Write the file of `name` with `count` constructs into a root of its own, and return it."""
+    case = root / f"n{count}"
+    (case / "src").mkdir(parents=True, exist_ok=True)
+    (case / "tsconfig.json").write_text('{"include":["src"]}')
+    (case / "src/a.ts").write_bytes(_shape(name, count))
+    return case
+
+
+def _run(binary: Path, case: Path) -> Taken:
+    """One run of the collector on the prepared root `case`."""
     payload = encode_request(
         CollectionRequest(
-            SnapshotInput(str(root), "a" * 40, False),
+            SnapshotInput(str(case), "a" * 40, False),
             SourceScope(("src",), "app"),
             TypeScriptSettings("tsconfig.json", False),
             ProtocolVersion.V8,
@@ -574,8 +580,10 @@ def _once(binary: Path, root: Path, name: str, count: int) -> Taken:
 def test_pathological_shapes_grow_linearly(
     tmp_path: Path, native_binary: Path, name: str, count: int
 ) -> None:
-    small = least_of(lambda: _once(native_binary, tmp_path, name, count))
-    large = least_of(lambda: _once(native_binary, tmp_path, name, 2 * count))
+    cases = {count: _prepare(tmp_path, name, count), 2 * count: _prepare(tmp_path, name, 2 * count)}
+    small, large = interleaved_least(
+        lambda size: _run(native_binary, cases[size]), count, 2 * count
+    )
     # The wall times are printed for comparison only; the assertions use the CPU time.
     print(
         f"SYNTAX {name} n={count} cpu={small.cpu:.3f} 2n_cpu={large.cpu:.3f} "

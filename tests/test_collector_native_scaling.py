@@ -35,10 +35,12 @@ import os
 import re
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
-from collector_timing import Taken, least_of, timed_run
+from collector_timing import Taken, interleaved_least, least_of, timed_run
 from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY, SHAPES, Shape
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
@@ -72,9 +74,11 @@ class Timing:
 
 
 # Release runs are faster: the limits of the release profile are lower, see the docstring above.
+# The release floor for `measurable` is 20 ms. A 10 ms run is too close to the start-up noise of
+# the process, so a size could look measurable before its CPU time is large enough to compare.
 TIMINGS = {
     "debug": Timing(measurable=0.25, min_time=0.1),
-    "release": Timing(measurable=0.1, min_time=0.01),
+    "release": Timing(measurable=0.02, min_time=0.01),
 }
 
 
@@ -103,38 +107,52 @@ def _request(root: Path) -> bytes:
     )
 
 
-def _once(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    """One run of the collector on the file of `shape` with n constructs."""
-    (root / "tsconfig.json").write_text('{"compilerOptions":{"allowJs":true},"include":["src"]}')
-    (root / "src").mkdir(exist_ok=True)
-    for old in (root / "src").iterdir():
-        old.unlink()
-    (root / "src" / f"a{shape.suffix}").write_bytes(shape.make(n))
+CONFIG = '{"compilerOptions":{"allowJs":true},"include":["src"]}'
+
+
+def _prepare(root: Path, shape: Shape, n: int) -> Path:
+    """Write the file of `shape` with n constructs into a root of its own, and return the root."""
+    case = root / f"n{n}"
+    (case / "src").mkdir(parents=True, exist_ok=True)
+    (case / "tsconfig.json").write_text(CONFIG)
+    (case / "src" / f"a{shape.suffix}").write_bytes(shape.make(n))
+    return case
+
+
+def _run(binary: Path, case: Path) -> Taken:
+    """One run of the collector on the prepared root `case`."""
     wall, cpu, done = timed_run(
         [str(binary)],
-        _request(root),
+        _request(case),
         preexec_fn=_limit_address_space if sys.platform == "linux" else None,
     )
     assert done.returncode == 0, done.stderr[-300:]
     return Taken(cpu=cpu, wall=wall)
 
 
-def _least(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
-    """The least of the runs of the collector with n constructs."""
-    return least_of(lambda: _once(binary, root, shape, n))
+def _sample(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
+    """One run of the collector with n constructs, for the size search."""
+    return _run(binary, _prepare(root, shape, n))
 
 
 def measure(binary: Path, root: Path, shape: Shape, timing: Timing) -> tuple[int, Taken, Taken]:
-    """`(n, taken(n), taken(2n))` with the least n whose CPU time is measurable."""
+    """`(n, taken(n), taken(2n))` with the least n whose CPU time is measurable.
+
+    The search takes one run of n per step. The last search run of n seeds the n side of the final
+    pair, so the pair costs 2 * RUNS runs and the whole measure costs one run more than before.
+    """
     n = max(1, int(shape.base * float(os.environ.get("ARCHKEEL_SCALING_SCALE", "1"))))
-    first = _least(binary, root, shape, n)
+    first = _sample(binary, root, shape, n)
     for _ in range(MAX_DOUBLINGS):
         # The file of 2n after the doubling must still be readable: 4n of the old n.
         if first.cpu >= timing.measurable or len(shape.make(4 * n)) > MAX_BYTES:
             break
         n *= 2
-        first = _least(binary, root, shape, n)
-    return n, first, _least(binary, root, shape, 2 * n)
+        first = _sample(binary, root, shape, n)
+    # The final pair is interleaved, so that a slow phase of the runner hits both sizes (AD-323).
+    cases = {n: _prepare(root, shape, n), 2 * n: _prepare(root, shape, 2 * n)}
+    small, large = interleaved_least(lambda size: _run(binary, cases[size]), n, 2 * n, seed=first)
+    return n, small, large
 
 
 # The peak memory of the collector, in bytes, for nests that write many names. The memo of the write
@@ -213,7 +231,7 @@ def test_the_timing_follows_the_build_profile(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("ARCHKEEL_SCALING_PROFILE", raising=False)
     assert timing_for_profile() == Timing(measurable=0.25, min_time=0.1)
     monkeypatch.setenv("ARCHKEEL_SCALING_PROFILE", "release")
-    assert timing_for_profile() == Timing(measurable=0.1, min_time=0.01)
+    assert timing_for_profile() == Timing(measurable=0.02, min_time=0.01)
     monkeypatch.setenv("ARCHKEEL_SCALING_PROFILE", "fast")
     with pytest.raises(ValueError, match="fast"):
         timing_for_profile()
@@ -224,11 +242,86 @@ def test_the_least_of_three_runs_keeps_the_least_cpu_and_the_least_wall() -> Non
     assert least_of(lambda: next(samples)) == Taken(cpu=0.1, wall=1.0)
 
 
+def test_the_interleaved_pair_alternates_the_sizes_and_keeps_the_least() -> None:
+    order: list[int] = []
+    samples = {
+        10: iter([Taken(cpu=0.3, wall=2.0), Taken(cpu=0.1, wall=3.0), Taken(cpu=0.2, wall=1.0)]),
+        20: iter([Taken(cpu=0.6, wall=5.0), Taken(cpu=0.7, wall=4.0), Taken(cpu=0.5, wall=6.0)]),
+    }
+
+    def fake(size: int) -> Taken:
+        order.append(size)
+        return next(samples[size])
+
+    small, large = interleaved_least(fake, 10, 20)
+    assert order == [10, 20, 10, 20, 10, 20]
+    assert small == Taken(cpu=0.1, wall=1.0)
+    assert large == Taken(cpu=0.5, wall=4.0)
+
+
+def test_a_seed_joins_the_small_side_without_a_run() -> None:
+    order: list[int] = []
+
+    def fake(size: int) -> Taken:
+        order.append(size)
+        return Taken(cpu=0.4, wall=0.4)
+
+    small, _ = interleaved_least(fake, 10, 20, seed=Taken(cpu=0.05, wall=9.0))
+    assert order == [10, 20, 10, 20, 10, 20]
+    assert small == Taken(cpu=0.05, wall=0.4)
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
 def test_the_timer_counts_the_cpu_of_the_child_not_its_sleep() -> None:
     wall, cpu, _ = timed_run([sys.executable, "-c", "import time; time.sleep(0.5)"], b"")
     assert wall >= 0.5
     assert cpu < 0.1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
+def test_the_timer_counts_only_its_own_child_cpu() -> None:
+    """A second child that burns CPU and ends inside the timed window is not counted.
+
+    The burner runs in a thread and burns 0.5 s of CPU time, not a fixed amount of work, so a slow
+    runner gives it the same CPU. The test fails unless the burner ends before the timed child.
+    A timer that reads the CPU of all children would count the burner.
+    """
+    burn = (
+        "import time\n"
+        "start = time.process_time()\n"
+        "while time.process_time() - start < 0.5: pass\n"
+        "print(time.process_time() - start)\n"
+    )
+    burned: list[subprocess.CompletedProcess[bytes]] = []
+    ended: list[float] = []
+
+    def run_burner() -> None:
+        burned.append(subprocess.run([sys.executable, "-c", burn], capture_output=True, check=True))
+        ended.append(time.perf_counter())
+
+    burner = threading.Thread(target=run_burner)
+    burner.start()
+    try:
+        begin = time.perf_counter()
+        _, cpu, done = timed_run([sys.executable, "-c", "import time; time.sleep(1.5)"], b"")
+    finally:
+        burner.join()
+    end = time.perf_counter()
+    assert done.returncode == 0
+    assert len(burned) == 1, "the burner did not finish, so the test proves nothing"
+    assert float(burned[0].stdout) >= 0.5, "the burner did not burn its CPU time"
+    assert ended[0] < end, "the burner ended after the timed child, so it was not in the window"
+    assert begin < ended[0], "the burner ended before the window began"
+    assert cpu < 0.2, f"the timer counted {cpu:.2f} s of CPU that is not the sleeping child's"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the CPU time of a child needs Unix")
+def test_a_hung_child_fails_at_the_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("collector_timing.CHILD_TIMEOUT", 0.3)
+    begin = time.perf_counter()
+    with pytest.raises(pytest.fail.Exception, match="ran more than 0.3 s and was killed"):
+        timed_run([sys.executable, "-c", "import time; time.sleep(60)"], b"")
+    assert time.perf_counter() - begin < 10
 
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
