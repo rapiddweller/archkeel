@@ -33,7 +33,10 @@
       "resolution_features": [
         "static-imports"
       ],
-      "constructs": []
+      "constructs": [],
+      "examined": {
+        "unknowns": "841254fe75488c1bd4cd7f68f00b4be0e48dcfbc4a16b45847b68295e0e3b27b"
+      }
     },
     "inputs": [
       {

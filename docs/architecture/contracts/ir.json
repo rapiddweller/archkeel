@@ -80,6 +80,7 @@
         "archkeel.ir.guard_paths",
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
+        "archkeel.ir.claimed_sections",
         "archkeel.ir.reference_context",
         "archkeel.ir.validated_facts",
         "archkeel.ir.source_proofs",

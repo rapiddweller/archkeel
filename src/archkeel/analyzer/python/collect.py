@@ -24,7 +24,7 @@ from archkeel.analyzer.runtime import (
     collector_provenance,
     python_requirement,
 )
-from archkeel.ir.claimed_sections import states_examined
+from archkeel.ir import facts_codec
 from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
@@ -360,7 +360,6 @@ def provider_sources(
     return tuple(sources[name] for name in sorted(sources))
 
 
-@states_examined
 def collect(request: CollectionRequest) -> SourceFacts:
     """Collect selected Python source evidence for the requested phase."""
     root = Path(request.snapshot.root).resolve()
@@ -445,7 +444,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
                 if expanded == sources:
                     break
                 sources = expanded
-        return survey
+        return facts_codec.states_examined(survey)
     captured_sources = (
         request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
     )
@@ -542,7 +541,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
     for item in private_evidence:
         evidence[item.id] = _raw_evidence(item)
 
-    return SourceFacts(
+    facts = SourceFacts(
         SourceProfile.PYTHON,
         adapter,
         runtime,
@@ -580,6 +579,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         tuple(sorted(candidate_by_id.values(), key=lambda item: item.id)),
         provider_bindings,
     )
+    return facts_codec.states_examined(facts)
 
 
 def _file_facts(

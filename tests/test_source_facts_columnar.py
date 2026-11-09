@@ -6,6 +6,7 @@
 import json
 
 import pytest
+from examined_helper import stated
 
 
 def test_string_interner_uses_positive_json_savings_and_is_lossless() -> None:
@@ -95,6 +96,7 @@ def test_v5_generic_profiles_validate_and_expand(
     raw["facts"]["profile"] = profile
     raw["facts"]["adapter"]["name"] = adapter
     raw["facts"]["runtime"]["name"] = runtime
+    stated(raw["facts"])
     original = decode_response(json.dumps(raw).encode())
     compact = encode_response(CollectionResponse(original.facts, ProtocolVersion.V5))
     schema_path = Path(__file__).parents[1] / "schema/source-facts.schema.json"

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import pytest
+from examined_helper import stated
 
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.facts import ForbiddenConstructKind
@@ -66,6 +67,7 @@ def _facts():
     facts["capabilities"]["constructs"] = [
         {"name": kind.value, "status": "decided"} for kind in ForbiddenConstructKind
     ]
+    stated(facts)
     return decode_response(json.dumps(payload).encode()).facts
 
 
@@ -150,6 +152,7 @@ def _typescript_facts(*, inner_uml: bool):
         facts["sections"].extend(
             {"name": name, "records": []} for name in ("symbols", "calls", "references", "bindings")
         )
+    stated(payload["facts"])
     return decode_response(json.dumps(payload).encode()).facts
 
 
@@ -202,6 +205,7 @@ def _dart_inner_facts(*, sections: list[str] | None = None, features: list[str] 
         for name in registered_sections
         if name not in {section["name"] for section in facts["sections"]}
     )
+    stated(payload["facts"])
     return decode_response(json.dumps(payload).encode()).facts
 
 
@@ -302,6 +306,7 @@ def test_typescript_rejects_unregistered_section_or_feature_receipt(
     facts["sections"] = [section for section in facts["sections"] if section["name"] in sections]
     for name in set(sections) - {section["name"] for section in facts["sections"]}:
         facts["sections"].append({"name": name, "records": []})
+    stated(facts)
     decoded = decode_response(json.dumps({"protocol_version": "1.0.0", "facts": facts}).encode())
     contract = parse_contract({"schema_version": "2.1.0", "components": [], "rules": []})
     with pytest.raises(ProtocolError, match="not registered"):

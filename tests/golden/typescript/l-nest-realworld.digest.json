@@ -35,7 +35,7 @@
       "type_shapes": 0,
       "uncertain_reexports": 0
     },
-    "sha256": "dc6f61ac668a2d7252db1c387b6c2539e2865034f8511a8c440eb8ddf52413c1"
+    "sha256": "1a52cab11d6940e95777e9efa12a53189e6880944d4875445d36d4e59fc37582"
   },
   "sections": {
     "bindings": {
@@ -91,5 +91,5 @@
       "sha256": "26ef79e6aab27ccd0a41de98ebf0ad2c039850b7d96955cc5b03f8d6e061a299"
     }
   },
-  "sha256": "4aed116e34422162f4ca4a69c88c2f12bc07d21a42dafaa64d1c7fd177b532bc"
+  "sha256": "01bba311aa05bd58880a826b83dd9a6fbd82e16ab4eba03b87b7ea772c70820e"
 }

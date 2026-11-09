@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
+  "after_digest": "42bc80927e3c72f5d965bcce5fd716729650b9021526dfaa675e691e4f11570f",
+  "before_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
+  "before_digest": "b6b9617db3f17b61383c3f5b148a8f3d7ecf582d53c15763bc3f0daa2bd72481",
+  "decided_by": "Agent of task L2 (epic #880); owner approval at review",
+  "rationale": "AD-344 adds the module archkeel.ir.claimed_sections to the facts-codec component: it holds the check of the examined-files statement that validated_facts runs.",
+  "schema_version": "2.0.0"
+}

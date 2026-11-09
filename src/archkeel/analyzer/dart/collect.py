@@ -12,7 +12,7 @@ from collections import Counter
 from enum import StrEnum
 
 from archkeel.analyzer.runtime import collector_provenance
-from archkeel.ir.claimed_sections import states_examined
+from archkeel.ir import facts_codec
 from archkeel.ir.facts import (
     BuiltinTarget,
     Capabilities,
@@ -117,7 +117,6 @@ _SECTIONS: tuple[SourceSectionName, ...] = (
 )
 
 
-@states_examined
 def collect(request: CollectionRequest) -> SourceFacts:
     if not isinstance(request.resolver, DartSettings):
         raise ValueError("Dart collector requires the Dart resolver")
@@ -126,7 +125,8 @@ def collect(request: CollectionRequest) -> SourceFacts:
     for source in snapshot.sources:
         syntax[source.rel_path] = parse(source.content)
     resolver = Resolver(snapshot, syntax)
-    return _Collection(request, snapshot, syntax, resolver).facts()
+    collection = _Collection(request, snapshot, syntax, resolver)
+    return facts_codec.states_examined(collection.facts())
 
 
 class _Collection:

@@ -56,6 +56,12 @@ the base resolution families plus the requested gated ones and declares them in
 `capabilities.resolution_features`. Records of a family a pre-V7 collector cannot name are
 dropped on decode.
 
+Each response can carry the optional `capabilities.examined`. It maps a claimed section among
+`calls`, `references`, `constructs` and `unknowns` that has no record to the SHA-256 of the sorted,
+newline-joined paths of the parsed files. The host rejects a reply that claims such a section,
+has a parsed file and lacks the digest, or has a digest of other files. See
+[AD-344](decisions/ad-344-a-claimed-section-without-a-record-needs-the-statement-of-examined-files.md).
+
 V8 ("plain") keeps the V7 request and the V7 semantics, but its facts are the ordinary fact
 objects, without the key and string pools of V6/V7. The response bytes on stdout are
 zlib-compressed (level 1); plain JSON starts with `{` and zlib with `0x78`, and only V8

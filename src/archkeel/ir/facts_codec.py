@@ -16,6 +16,7 @@ from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
 
 from .claimed_sections import decode_examined, encode_examined
+from .claimed_sections import states_examined as states_examined
 from .codec_strings import (
     StringTablePolicy as StringTablePolicy,
 )
@@ -989,8 +990,9 @@ def _construct_capability(raw: RawJson) -> ConstructCapability:
 
 
 def _capabilities(value: RawJson) -> Capabilities:
-    states = decode_examined(value.pop("examined", None) if isinstance(value, dict) else None)
-    item = _object(value, {"sections", "resolution_features", "constructs"}, "capabilities")
+    states = decode_examined(value.get("examined") if isinstance(value, dict) else None)
+    fields = {"sections", "resolution_features", "constructs"} | ({"examined"} if states else set())
+    item = _object(value, fields, "capabilities")
     return Capabilities(
         tuple(
             _section_name(section) for section in _array(item["sections"], "capabilities.sections")

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from examined_helper import stated
 from test_typescript_collect import _facts
 
 from archkeel.analyzer.typescript import parse as parser
@@ -277,6 +278,7 @@ def test_legacy_native_receipt_cannot_claim_construct_authority(tmp_path):
     wire["facts"]["capabilities"]["constructs"] = [
         {"name": "string_literal_compare", "status": "decided"}
     ]
+    stated(wire["facts"])
     restored = decode_response(json.dumps(wire).encode()).facts
     with pytest.raises(ProtocolError, match="registered"):
         _assemble(tmp_path, restored)

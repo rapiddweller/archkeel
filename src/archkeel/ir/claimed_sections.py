@@ -13,11 +13,10 @@ digest rejects the reply, so an empty claimed section never reads as a PASS.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import replace
 
-from .facts import Capabilities, FactSection, FileFact, SourceFacts, SourceSectionName
-from .protocol import CollectionRequest
+from .facts import Capabilities, FactSection, FileFact, RawJson, SourceFacts, SourceSectionName
 
 CHECKED_SECTIONS = frozenset(
     {
@@ -67,35 +66,30 @@ def check_examined(facts: SourceFacts) -> None:
             )
 
 
-def decode_examined(raw: object) -> Statements:
+def decode_examined(raw: RawJson | None) -> Statements:
     """Read `capabilities.examined`; a reply without it states nothing."""
     if raw is None:
         return ()
     if not isinstance(raw, dict) or not raw:
         raise ValueError("capabilities.examined must be a nonempty object")
-    try:
-        names = [(SourceSectionName(name), digest) for name, digest in raw.items()]
-    except ValueError as error:
-        raise ValueError("capabilities.examined names an unknown section") from error
-    if any(not isinstance(digest, str) or not digest for _, digest in names):
-        raise ValueError("capabilities.examined holds a digest that is not a string")
-    return tuple(names)
+    states: list[tuple[SourceSectionName, str]] = []
+    for name, digest in raw.items():
+        if not isinstance(digest, str) or not digest:
+            raise ValueError("capabilities.examined holds a digest that is not a string")
+        try:
+            states.append((SourceSectionName(name), digest))
+        except ValueError as error:
+            raise ValueError("capabilities.examined names an unknown section") from error
+    return tuple(states)
 
 
-def encode_examined(capabilities: Capabilities) -> dict[str, dict[str, str]]:
+def encode_examined(capabilities: Capabilities) -> dict[str, RawJson]:
     """Write `capabilities.examined` only when a section has a statement."""
-    states = {name.value: digest for name, digest in capabilities.examined}
+    states: dict[str, RawJson] = {name.value: digest for name, digest in capabilities.examined}
     return {"examined": states} if states else {}
 
 
-def states_examined(
-    collect: Callable[[CollectionRequest], SourceFacts],
-) -> Callable[[CollectionRequest], SourceFacts]:
-    """Make a collector state the examined files of each empty checked section."""
-
-    def stated(request: CollectionRequest) -> SourceFacts:
-        facts = collect(request)
-        states = examined_statements(facts.files, facts.sections)
-        return replace(facts, capabilities=replace(facts.capabilities, examined=states))
-
-    return stated
+def states_examined(facts: SourceFacts) -> SourceFacts:
+    """Return the facts with the examined files stated for each empty checked section."""
+    states = examined_statements(facts.files, facts.sections)
+    return replace(facts, capabilities=replace(facts.capabilities, examined=states))

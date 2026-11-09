@@ -1199,6 +1199,22 @@
                 ],
                 "additionalProperties": false
               }
+            },
+            "examined": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {
+                "enum": [
+                  "calls",
+                  "references",
+                  "constructs",
+                  "unknowns"
+                ]
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
             }
           },
           "required": [
@@ -2836,6 +2852,22 @@
                   "status"
                 ],
                 "additionalProperties": false
+              }
+            },
+            "examined": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {
+                "enum": [
+                  "calls",
+                  "references",
+                  "constructs",
+                  "unknowns"
+                ]
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
               }
             }
           },
