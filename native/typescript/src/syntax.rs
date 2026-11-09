@@ -7,14 +7,18 @@
 //! This is the only module that touches the parser. The parser runs inside the collector
 //! process, which the host bounds, because it reads untrusted source.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use tree_sitter::{Language, Node, Parser};
 use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
+use crate::kinds::KindMap;
 use crate::pytext::{decode, first_chars, utf16_len};
 use crate::scan::Kinds;
 
 /// A 1-based line and UTF-16 column, as the TypeScript compiler reports them.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Span {
     pub line: i64,
     pub end_line: i64,
@@ -26,6 +30,8 @@ pub struct Span {
 pub struct Source<'a> {
     pub data: &'a [u8],
     starts: Vec<usize>,
+    /// The columns of the long lines, by line (see `column`).
+    long_lines: RefCell<HashMap<usize, Option<Vec<u32>>>>,
 }
 
 impl<'a> Source<'a> {
@@ -45,7 +51,11 @@ impl<'a> Source<'a> {
             };
             starts.push(index);
         }
-        Self { data, starts }
+        Self {
+            data,
+            starts,
+            long_lines: RefCell::new(HashMap::new()),
+        }
     }
 
     pub fn text(&self, node: Node) -> String {
@@ -56,31 +66,96 @@ impl<'a> Source<'a> {
         self.starts.partition_point(|start| *start <= byte)
     }
 
+    /// The UTF-16 column (1-based) of the byte `byte` on `line`, as `len(prefix.encode("utf-16-le")) // 2 + 1`
+    /// of the decoded line prefix. A long line is measured once: an ASCII line has one unit for each
+    /// byte, and another long line gets a table of the units before each byte.
+    fn column(&self, line: usize, byte: usize) -> i64 {
+        let begin = self.starts[line - 1];
+        let width = byte - begin;
+        if width <= SHORT_PREFIX {
+            return utf16_len(&decode(&self.data[begin..byte])) as i64 + 1;
+        }
+        let mut lines = self.long_lines.borrow_mut();
+        let table = lines.entry(line).or_insert_with(|| {
+            let end = self.starts.get(line).copied().unwrap_or(self.data.len());
+            units_before(&self.data[begin..end])
+        });
+        match table {
+            None => width as i64 + 1,
+            Some(units) => units.get(width).map_or(width, |units| *units as usize) as i64 + 1,
+        }
+    }
+
+    /// `_text(node)[:400]`. A text of 400 ASCII bytes needs no decoding. Another text is cut after
+    /// 1 600 bytes first, because 400 characters are at most 1 600 bytes, so a long node is never
+    /// decoded in full.
+    fn excerpt(&self, node: Node) -> String {
+        let (start, end) = (node.start_byte(), node.end_byte());
+        let short = &self.data[start..end.min(start + 400)];
+        if short.is_ascii() {
+            return decode(short).into_owned();
+        }
+        let head = decode(&self.data[start..end.min(start + EXCERPT_BYTES)]);
+        first_chars(&head, 400).to_owned()
+    }
+
     /// `_Source.span`: the position of `node`, with the excerpt and column of `start` if given.
     pub fn span(&self, node: Node, start: Option<Node>) -> Span {
         let first = start.unwrap_or(node);
         let line = self.line_of(first.start_byte());
-        let prefix = decode(&self.data[self.starts[line - 1]..first.start_byte()]);
-        let text = self.text(first);
         Span {
             line: line as i64,
             end_line: self.line_of(node.end_byte()) as i64,
-            column: utf16_len(&prefix) as i64 + 1,
-            excerpt: first_chars(&text, 400).to_owned(),
+            column: self.column(line, first.start_byte()),
+            excerpt: self.excerpt(first),
         }
     }
+}
+
+/// A line prefix up to this length is decoded for each node; a longer one uses the cache.
+const SHORT_PREFIX: usize = 256;
+/// The bytes that hold 400 characters: UTF-8 has at most four bytes in a character.
+const EXCERPT_BYTES: usize = 1600;
+
+/// For a line with a non-ASCII byte: the UTF-16 units of `decode(line[..i])` for each `i`; `None`
+/// for an ASCII line. A cut inside a character or inside bytes that are not UTF-8 decodes to one
+/// replacement character, as `str(bytes, "utf-8", "replace")` does.
+fn units_before(line: &[u8]) -> Option<Vec<u32>> {
+    if line.is_ascii() {
+        return None;
+    }
+    let mut table = Vec::with_capacity(line.len() + 1);
+    let mut units = 0u32;
+    table.push(0);
+    for chunk in line.utf8_chunks() {
+        for character in chunk.valid().chars() {
+            table.extend(std::iter::repeat_n(units + 1, character.len_utf8() - 1));
+            units += character.len_utf16() as u32;
+            table.push(units);
+        }
+        let bad = chunk.invalid().len();
+        if bad > 0 {
+            table.extend(std::iter::repeat_n(units + 1, bad - 1));
+            units += 1;
+            table.push(units);
+        }
+    }
+    Some(table)
 }
 
 /// One grammar with the node kinds that import extraction matches.
 pub struct Grammar {
     pub language: Language,
     pub kinds: Kinds,
+    /// The kind of each node id, for the syntax walk.
+    pub map: KindMap,
 }
 
 impl Grammar {
     fn new(language: Language) -> Self {
         Self {
             kinds: Kinds::new(&language),
+            map: KindMap::new(&language),
             language,
         }
     }

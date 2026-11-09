@@ -99,6 +99,7 @@ native-check:
 		{ echo "native-check needs cargo-deny $(CARGO_DENY_VERSION): run make native-tools"; exit 2; }
 	cd native && cargo fmt --all --check
 	cd native && cargo clippy --locked --all-targets -- -D warnings
+	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
 	cd native && cargo build --locked

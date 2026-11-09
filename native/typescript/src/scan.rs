@@ -6,11 +6,13 @@
 //!
 //! `parse.py` finds them with seven queries, and each query walks the whole tree. One walk with a
 //! match on the node kind finds the same nodes. `scan_tests.rs` keeps the seven queries as the
-//! reference and compares both on real files.
+//! reference and compares both on real files. The same walk feeds `Walk`, which keeps the stack of
+//! the ancestors and collects the syntax facts of the file (AD-323).
 
 use tree_sitter::{Language, Node, TreeCursor};
 
 use crate::syntax::Source;
+use crate::walk::Walk;
 
 /// The ids of the node kinds that the walk matches, resolved once for a grammar.
 #[derive(Clone, Copy)]
@@ -179,19 +181,29 @@ fn subscript<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Sca
     }
 }
 
-/// Walk the tree once, in document order, and sort each node into its list.
-pub fn scan<'t>(kinds: &Kinds, source: &Source, root: Node<'t>) -> Scan<'t> {
+/// Walk the tree once, in document order, and sort each node into its list. `walk` sees each node
+/// on the way down and on the way up, so it keeps the ancestors of the node that it visits.
+pub fn scan<'t>(
+    kinds: &Kinds,
+    source: &Source,
+    root: Node<'t>,
+    walk: &mut Walk<'_, 't>,
+) -> Scan<'t> {
     let mut found = Scan::default();
     let mut cursor: TreeCursor<'t> = root.walk();
     loop {
-        visit(kinds, source, cursor.node(), &mut found);
+        let node = cursor.node();
+        visit(kinds, source, node, &mut found);
+        walk.enter(node);
         if cursor.goto_first_child() {
             continue;
         }
+        walk.leave();
         while !cursor.goto_next_sibling() {
             if !cursor.goto_parent() {
                 return found;
             }
+            walk.leave();
         }
     }
 }

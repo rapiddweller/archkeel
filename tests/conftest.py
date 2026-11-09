@@ -152,9 +152,16 @@ def self_artifact_bytes(self_run: SelfRun) -> bytes:
     return self_run.artifact
 
 
-@pytest.fixture(scope="session")
-def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The debug build of the native TypeScript collector (AD-316), copied for its own tests."""
+def build_native_copy(
+    factory: pytest.TempPathFactory, label: str, features: tuple[str, ...] = ()
+) -> Path:
+    """Build the debug collector and copy it for this worker (AD-316).
+
+    All workers of all test sessions on this checkout share one build lock. The lock covers the
+    build and the copy: a worker never copies the file while another worker builds. The `dump`
+    feature has a target directory of its own, because it changes the binary. A copy that fails
+    after a good build is tried once more, and the second error is the one that shows.
+    """
     cargo = shutil.which("cargo")
     # A Rust toolchain is required only for changes in native/; CI always has one.
     if cargo is None and os.environ.get("CI"):
@@ -162,20 +169,39 @@ def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     if cargo is None:
         pytest.skip("cargo is not installed; install Rust to test changes in native/.")
     native = ROOT / "native"
-    built = subprocess.run(
-        [cargo, "build", "--manifest-path", str(native / "Cargo.toml"), "--locked"],
-        # The working directory selects the toolchain that native/rust-toolchain.toml pins.
-        cwd=native,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert built.returncode == 0, built.stderr
+    target = native / "target"
+    command = [cargo, "build", "--manifest-path", str(native / "Cargo.toml"), "--locked"]
+    if features:
+        target = target / "dump"
+        command += ["--features", ",".join(features), "--target-dir", str(target)]
     name = "archkeel-typescript-collector" + (".exe" if os.name == "nt" else "")
-    # Cargo of another test worker can link the target file again while this worker runs it.
-    copy = tmp_path_factory.mktemp("native") / name
-    shutil.copy2(native / "target" / "debug" / name, copy)
+    copy = factory.mktemp(label) / name
+    (native / "target").mkdir(exist_ok=True)
+    with FileLock(str(native / "target" / ".pytest-native-build.lock")):
+        for attempt in (1, 2):
+            built = subprocess.run(
+                command,
+                # The working directory selects the toolchain that native/rust-toolchain.toml pins.
+                cwd=native,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert built.returncode == 0, built.stderr
+            try:
+                shutil.copy2(target / "debug" / name, copy)
+            except FileNotFoundError:
+                if attempt == 2:
+                    raise
+            else:
+                break
     return copy
+
+
+@pytest.fixture(scope="session")
+def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The debug build of the native TypeScript collector (AD-316), copied for its own tests."""
+    return build_native_copy(tmp_path_factory, "native")
 
 
 @pytest.hookimpl(optionalhook=True)
