@@ -521,12 +521,12 @@ def test_an_inside_contract_cannot_hold_a_budget_nobody_measures(tmp_path: Path)
 
     assert diagnostics == (
         Diagnostic(
-            "parse_error",
+            "incomplete_scan",
             "shop/store/architecture-contract.json, store",
             "Scan completeness cannot be established: store inside contract cannot be evaluated: "
             "unsupported non-empty declarations: facade_budgets",
-            "Inspect the reported failure using the declared target runtime; rerun after resolving "
-            "its cause.",
+            "Read the reported gap; the scan stays incomplete until the collector can prove this "
+            "fact.",
             "",
             None,
         ),
