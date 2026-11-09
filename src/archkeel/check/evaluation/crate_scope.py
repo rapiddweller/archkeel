@@ -64,12 +64,18 @@ def _names(value: str | list[str] | tuple[str, ...]) -> tuple[str, ...]:
     return (value,) if isinstance(value, str) else tuple(value)
 
 
-def _rule_scopes(contract: ArchitectureContract, root: int) -> list[tuple[str, str]]:
+def _rule_scopes(
+    contract: ArchitectureContract, root: int, unsupported: frozenset[str] = frozenset()
+) -> list[tuple[str, str]]:
     scopes: list[tuple[str, str]] = []
     for rule in contract.rules:
-        fields = EDGE_FIELDS.get(Kind(rule.kind), ())
+        kind = Kind(rule.kind)
+        if kind not in EDGE_FIELDS and kind not in NO_INTERNAL_EDGES and kind not in unsupported:
+            # A rule kind that nobody reviewed for this profile fails closed.
+            scopes.append((rule.id, f"rule {rule.kind} (not reviewed for crate edges)"))
+            continue
         values = asdict(rule)
-        named = [name for field in fields for name in _names(values[field])]
+        named = [name for field in EDGE_FIELDS.get(kind, ()) for name in _names(values[field])]
         if any(name.count(".") > root for name in named):
             scopes.append((rule.id, f"rule {rule.kind} below a crate root"))
         elif rule.kind in {Kind.FORBIDDEN_DEPENDENCY, Kind.SIBLING_ISOLATION} and any(
@@ -95,7 +101,7 @@ def _crate_scopes(
             for name in (*component.packages, *(component.exact_modules or ()))
         )
     ]
-    scopes += _rule_scopes(contract, root)
+    scopes += _rule_scopes(contract, root, profile.unsupported_rules)
     return [
         classified(
             item_id=stable_id("UNKNOWN-CRATE-SCOPE", subject, what),

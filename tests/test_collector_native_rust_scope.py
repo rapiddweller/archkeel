@@ -145,3 +145,11 @@ def test_a_profile_must_declare_whether_it_reads_only_crate_edges() -> None:
     # No default: a new profile that forgets the field fails at its construction.
     assert field.default is dataclasses.MISSING and field.kw_only
     assert RUST.crate_edges_only
+
+
+def test_a_rule_kind_that_nobody_reviewed_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    rule = _rule(Kind.ALLOWED_DEPENDENCY, source="ns.one", target="ns.two")
+    assert _flagged(rule) == []
+    # Take the kind out of the table, as a new kind would be: it is a scope of its own.
+    monkeypatch.delitem(EDGE_FIELDS, Kind.ALLOWED_DEPENDENCY)
+    assert _flagged(rule) == [("R", "rule allowed_dependency (not reviewed for crate edges)")]
