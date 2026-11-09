@@ -91,7 +91,7 @@ SHAPES: dict[str, Shape] = {
         _text(lambda n: "function f({ " + _join("a{i}", n, ", ") + " }) {}"), 48100
     ),
     "parameters-array-pattern": Shape(
-        _text(lambda n: "function f([" + _join("a{i}", n, ", ") + "]) {}"), 41000
+        _text(lambda n: "function f([" + _join("a{i} = {i}", n, ", ") + "]) {}"), 41000
     ),
     "parameters-defaults-rest": Shape(
         _text(lambda n: "function f(" + _join("a{i} = {i}", n, ", ") + ", ...r) {}"), 21000
@@ -145,6 +145,52 @@ SHAPES: dict[str, Shape] = {
         ),
         12000,
     ),
+    # Imported names, written in nests. Only the root binds an imported name, so a write of it was
+    # the one that climbed the frames. A climb for each write, or an entry for each frame and name,
+    # was quadratic in time and in memory.
+    "writes-imports-all-at-bottom": Shape(
+        _text(
+            lambda n: (
+                _join("import i{i} from './m{i}';", n)
+                + "\n"
+                + "".join(f"function f{i}(){{ " for i in range(n))
+                + "".join(f"i{i} = {i}; " for i in range(n))
+                + "}" * n
+            )
+        ),
+        1600,
+    ),
+    "writes-import-at-own-depth": Shape(
+        _text(
+            lambda n: (
+                _join("import i{i} from './m{i}';", n)
+                + "\n"
+                + "".join(f"function f{i}(){{ i{i} = {i}; " for i in range(n))
+                + "}" * n
+            )
+        ),
+        1600,
+    ),
+    "writes-same-import-at-depth": Shape(
+        _text(
+            lambda n: (
+                "import a from './a';\n"
+                + "".join(f"function f{i}(){{ a = {i}; " for i in range(n))
+                + "}" * n
+            )
+        ),
+        3000,
+    ),
+    "writes-imports-in-siblings": Shape(
+        _text(
+            lambda n: (
+                _join("import i{i} from './m{i}';", n)
+                + "\n"
+                + _join("function g{i}() { i{i} = {i}; }", n)
+            )
+        ),
+        1500,
+    ),
     "writes-flat": Shape(
         _text(lambda n: "import a from './a';\n" + _join("x{i} = {i}; a++;", n)), 15800
     ),
@@ -167,7 +213,12 @@ SHAPES: dict[str, Shape] = {
         _text(lambda n: _join("async function* g{i}() {} function* h{i}() {}", n)), 9000
     ),
     "function-expressions": Shape(
-        _text(lambda n: _join("const f{i} = function named{i}(a) {};", n)), 11400
+        _text(
+            lambda n: _join(
+                "const f{i} = function named{i}(a) {}; const g{i} = function* () {};", n
+            )
+        ),
+        11400,
     ),
     "class-expressions": Shape(
         _text(lambda n: _join("const c{i} = class K{i} { m() {} };", n)), 10400
@@ -302,8 +353,8 @@ SHAPES: dict[str, Shape] = {
     "statements-flat": Shape(
         _text(
             lambda n: _join(
-                "function f{i}() { if (a === b) { return {i}; } else if (c !== d || e == f)"
-                " { x += {i}; (p{i}) = 1; } }",
+                "function f{i}() { if (a === b) { return {i}; }"
+                " else if (c !== d || e == f || g != h) { x += {i}; (p{i}) = 1; } }",
                 n,
             )
         ),
@@ -313,7 +364,7 @@ SHAPES: dict[str, Shape] = {
         _text(
             lambda n: _join(
                 "const e{i} = new C(a!, b?.c, d as T, e satisfies U, null, true, false, 1.5,"
-                " this, !x, -y, o[k{i}], delete o.k, typeof z);",
+                " this, !x, -y, o[k{i}], delete o.k, typeof z, h(a, b));",
                 n,
             )
         ),
@@ -410,6 +461,8 @@ COVERAGE: dict[str, tuple[str, ...]] = {
         "nested-classes",
     ),
     "class members and modifiers": (
+        "abstract-classes",
+        "declare-top-level",
         "class-fields",
         "class-private-static",
         "class-decorated-members",
@@ -465,14 +518,24 @@ COVERAGE: dict[str, tuple[str, ...]] = {
         "var-hoisting",
     ),
     "variables": ("constants-arrays", "var-hoisting", "variable-patterns"),
-    "writes at depth": ("writes-at-depth", "writes-distinct-names", "writes-flat", "rebound-names"),
+    "writes at depth": (
+        "writes-at-depth",
+        "writes-distinct-names",
+        "writes-flat",
+        "rebound-names",
+        "statements-flat",
+        "expressions-flat",
+        "writes-imports-all-at-bottom",
+        "writes-import-at-own-depth",
+        "writes-same-import-at-depth",
+        "writes-imports-in-siblings",
+    ),
     "imports": (
         "imports-default",
         "imports-named",
         "imports-one-statement",
         "imports-namespace-require",
         "import-alias-export-star",
-        "require-calls",
     ),
     "exports and re-exports": (
         "exports-declarations",
@@ -502,8 +565,10 @@ COVERAGE: dict[str, tuple[str, ...]] = {
         "template-one",
         "expressions-flat",
         "long-string-line",
+        "shorthand-and-assignment-patterns",
     ),
-    "jsx": ("jsx-attributes", "nested-jsx"),
+    "jsx": ("jsx-attributes",),
+    "nests of jsx and the references of PR 4.2": ("nested-jsx", "require-calls"),
     "comments and the start of a file": ("class-comment-run", "hashbang", "triple-slash"),
     "type-only imports": ("imports-named",),
     "line shapes": (
@@ -535,11 +600,10 @@ KIND_CLASSES: dict[str, tuple[str, ...]] = {
         "ComputedPropertyName"
     ).split(),
     "parameters": (
-        "FormalParameters RequiredParameter OptionalParameter RestParameter RestPattern "
-        "AssignmentPattern Question"
+        "FormalParameters RequiredParameter OptionalParameter RestParameter RestPattern Question"
     ).split(),
     "patterns": (
-        "ArrayPattern ObjectPattern ObjectAssignmentPattern PairPattern "
+        "ArrayPattern ObjectPattern ObjectAssignmentPattern PairPattern AssignmentPattern "
         "ShorthandPropertyIdentifierPattern"
     ).split(),
     "interfaces, enums and types": (
@@ -620,3 +684,7 @@ FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
     "is_async": ("generators-async",),
     "decorator_sources": ("class-decorated-members", "class-decorator-comment-mix"),
 }
+
+# Kinds of `_NodeKind` that the grammar never produces: `kinds_tests.rs` lists them too. No shape
+# can hold them, so they are covered by name only.
+NAME_ONLY = frozenset({"ClassExpression", "RestParameter"})

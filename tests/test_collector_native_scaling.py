@@ -29,8 +29,8 @@ import time
 from pathlib import Path
 
 import pytest
-from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, SHAPES, Shape
-from test_collector_native_syntax import FIELDS, compare, dump_binary  # noqa: F401
+from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY, SHAPES, Shape
+from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
 from archkeel.analyzer.typescript.syntax import Definition
 from archkeel.ir.facts_codec import encode_request
@@ -83,7 +83,13 @@ def _time(binary: Path, root: Path, shape: Shape, n: int) -> float:
     best = float("inf")
     for _ in range(RUNS):
         begin = time.perf_counter()
-        done = subprocess.run([str(binary)], input=payload, capture_output=True, check=False)
+        done = subprocess.run(
+            [str(binary)],
+            input=payload,
+            capture_output=True,
+            check=False,
+            preexec_fn=_limit_address_space if sys.platform == "linux" else None,
+        )
         best = min(best, time.perf_counter() - begin)
         assert done.returncode == 0, done.stderr[-300:]
     return best
@@ -100,6 +106,56 @@ def measure(binary: Path, root: Path, shape: Shape) -> tuple[int, float, float]:
         n *= 2
         first = _time(binary, root, shape, n)
     return n, first, _time(binary, root, shape, 2 * n)
+
+
+# The peak memory of the collector, in bytes, for nests that write many names. The memo of the write
+# lookup once kept n squared entries (1.5 GB for 8 000 undeclared names, 3.7 GB for 8 000 imported
+# names written at the bottom of 8 000 functions, release build), against under 300 MiB for 4.2.
+MEMORY_CAP = 300 * 1024 * 1024
+MEMORY_CASES = (
+    ("writes-distinct-names", 8_000),
+    ("writes-imports-all-at-bottom", 4_000),
+    ("writes-import-at-own-depth", 4_000),
+)
+# A process may not take more address space than this on Linux (the limit of AD-319), so a
+# regression ends in an error and not in minutes of swapping. macOS has no such limit, and the
+# sizes above are small enough to end there.
+ADDRESS_SPACE = 4 * 1024**3
+_RUSAGE = (
+    "import resource, subprocess, sys\n"
+    "subprocess.run([sys.argv[1]], stdin=open(sys.argv[2], 'rb'), stdout=subprocess.DEVNULL,"
+    " check=True)\n"
+    "print(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)\n"
+)
+
+
+def _limit_address_space() -> None:
+    if sys.platform == "linux":
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_AS, (ADDRESS_SPACE, ADDRESS_SPACE))
+
+
+@pytest.mark.parametrize(("name", "count"), MEMORY_CASES)
+def test_writes_keep_the_memory_bounded(
+    tmp_path: Path, collector: Path, name: str, count: int
+) -> None:
+    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.ts").write_bytes(SHAPES[name].make(count))
+    request = tmp_path / "request.bin"
+    request.write_bytes(_request(tmp_path))
+    done = subprocess.run(
+        [sys.executable, "-c", _RUSAGE, str(collector), str(request)],
+        capture_output=True,
+        text=True,
+        check=False,
+        preexec_fn=_limit_address_space if sys.platform == "linux" else None,
+    )
+    assert done.returncode == 0, done.stderr[-300:]
+    # `ru_maxrss` is in kilobytes on Linux and in bytes on macOS.
+    peak = int(done.stdout) * (1 if sys.platform == "darwin" else 1024)
+    assert peak < MEMORY_CAP, f"{name} n={count}: {peak / 2**20:.0f} MiB"
 
 
 @pytest.mark.parametrize("name", sorted(SHAPES))
@@ -133,37 +189,6 @@ def test_each_shape_equals_the_python_parser_at_small_sizes(
     assert result.python_failed == 0
 
 
-# The peak memory of the collector, in bytes, for n nested functions that write n different names.
-# The memo of the write lookup once kept n squared entries: 1.5 GB at n = 8 000 (release build).
-MEMORY_N = 8_000
-MEMORY_CAP = 300 * 1024 * 1024
-_RUSAGE = (
-    "import resource, subprocess, sys\n"
-    "subprocess.run([sys.argv[1]], stdin=open(sys.argv[2], 'rb'), stdout=subprocess.DEVNULL,"
-    " check=True)\n"
-    "print(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)\n"
-)
-
-
-def test_distinct_name_writes_keep_the_memory_bounded(tmp_path: Path, collector: Path) -> None:
-    shape = SHAPES["writes-distinct-names"]
-    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "a.ts").write_bytes(shape.make(MEMORY_N))
-    request = tmp_path / "request.bin"
-    request.write_bytes(_request(tmp_path))
-    done = subprocess.run(
-        [sys.executable, "-c", _RUSAGE, str(collector), str(request)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode == 0, done.stderr[-300:]
-    # `ru_maxrss` is in kilobytes on Linux and in bytes on macOS.
-    peak = int(done.stdout) * (1 if sys.platform == "darwin" else 1024)
-    assert peak < MEMORY_CAP, f"{peak / 2**20:.0f} MiB for n={MEMORY_N}"
-
-
 def _kinds() -> list[str]:
     source = (Path(__file__).parents[1] / "native/typescript/src/kinds.rs").read_text()
     body = source[source.index("pub enum K {") :].split("\n}\n", 1)[0]
@@ -192,3 +217,32 @@ def test_every_fact_and_every_definition_field_has_shapes() -> None:
     fields = {field.name for field in dataclasses.fields(Definition)}
     assert sorted((set(FIELDS) | fields) - FIELD_COVERAGE.keys()) == []
     assert sorted(FIELD_COVERAGE.keys() - (set(FIELDS) | fields)) == []
+
+
+def test_a_shape_holds_the_kinds_that_its_class_claims(
+    tmp_path: Path,
+    dump_binary: Path,  # noqa: F811
+) -> None:
+    """The dump lists the node kinds of each file. Each shape is run at n = 3."""
+    files = []
+    for name, shape in SHAPES.items():
+        path = tmp_path / f"{name}{shape.suffix}"
+        path.write_bytes(shape.make(3))
+        files.append((f"src/{path.name}", path))
+    replies = _native(dump_binary, files)
+    seen = {name: set(reply["kinds"]) for name, reply in zip(SHAPES, replies, strict=True)}
+    problems = []
+    for construct, kinds in KIND_CLASSES.items():
+        shapes = COVERAGE[construct]
+        held = set().union(*(seen[shape] for shape in shapes))
+        problems += [
+            f"{construct}: no shape holds {kind}" for kind in kinds if kind not in held | NAME_ONLY
+        ]
+        problems += [
+            f"{construct}: {shape} holds none of its kinds"
+            for shape in shapes
+            if not seen[shape] & set(kinds)
+        ]
+    assert problems == []
+    # A name-only kind is one that no shape holds.
+    assert sorted(kind for kind in NAME_ONLY if any(kind in kinds for kinds in seen.values())) == []
