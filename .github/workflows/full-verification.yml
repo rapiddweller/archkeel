@@ -1,6 +1,7 @@
 name: Full verification
 
-# A PR that changes what Full runs also runs Full.
+# A PR that changes what Full runs also runs Full (AD-280): workflows, pins, the Full recipes
+# in tools/full.mk and the Full report files. Not the Makefile and not tests/areas.py.
 on:
   workflow_call:
   workflow_dispatch:
@@ -10,12 +11,11 @@ on:
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
-      - Makefile
+      - tools/full.mk
       - .python-version
       - pyproject.toml
       - uv.lock
       - tools/browser-runtime/package*.json
-      - tests/areas.py
       - tests/conftest.py
       - tests/test_report_pages.py
       - tools/report_pages.py
