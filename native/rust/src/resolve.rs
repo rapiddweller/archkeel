@@ -26,8 +26,15 @@ pub enum Named {
     Package(String),
 }
 
-pub fn classify(root: &str, krate: &Crate, declared: &BTreeSet<String>) -> Option<Named> {
-    if RELATIVE.contains(&root) || declared.contains(root) {
+/// `absolute` is a path that starts with `::`. In Rust 2018 and later it names a crate and never a
+/// local item, so a `mod` or a type of that name does not hide it.
+pub fn classify(
+    root: &str,
+    krate: &Crate,
+    declared: &BTreeSet<String>,
+    absolute: bool,
+) -> Option<Named> {
+    if !absolute && (RELATIVE.contains(&root) || declared.contains(root)) {
         return None;
     }
     if SYSROOT.contains(&root) {

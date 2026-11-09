@@ -80,7 +80,8 @@ class Profile:
         default=(), kw_only=True
     )
     # AD-335: the collector writes the edges between crates, not those inside one crate.
-    crate_edges_only: bool = field(default=False, kw_only=True)
+    # Required, with no default: a profile that forgets it would claim the permissive value.
+    crate_edges_only: bool = field(kw_only=True)
 
     def __post_init__(self) -> None:
         sections = set(self.optional_sections)
@@ -107,10 +108,12 @@ PYTHON: Final = Profile(
     source_suffix=".py",
     complete_unread_binding_inventory=True,
     standard_library=frozenset(sys.stdlib_module_names) | frozenset(sys.builtin_module_names),
+    crate_edges_only=False,
 )
 
 DART: Final = Profile(
     analyzer=DART_ANALYZER,
+    crate_edges_only=False,
     complete_api_crossings=False,
     source_suffix=".dart",
     # `no_component_cycles` stays decided with `level: "module"` and `components` (AD-98): a
@@ -173,6 +176,7 @@ DART: Final = Profile(
 
 TYPESCRIPT: Final = Profile(
     analyzer=TYPESCRIPT_ANALYZER,
+    crate_edges_only=False,
     source_suffix=".ts",
     dependency_symbols=False,
     complete_api_crossings=False,

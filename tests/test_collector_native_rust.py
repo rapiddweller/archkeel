@@ -10,6 +10,7 @@ host starts the binary, validates the reply and evaluates the rules.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -325,3 +326,70 @@ def test_a_module_chain_deeper_than_the_limit_is_unknown(
     result = _verdict(tmp_path, rust_binary, capsys, files)
 
     assert any("Modules nest deeper than 64 levels" in claim for claim in _claims(result))
+
+
+def test_sibling_isolation_over_modules_is_unknown_though_the_components_are_crates(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    # The components are whole crates, and the members are two modules of one crate.
+    files = {"crates/app/src/lib.rs": "mod a;\nmod b;\n", "crates/app/src/a.rs": "use crate::b;\n"}
+    files["crates/app/src/b.rs"] = "pub fn f() {}\n"
+    isolation = rule("SIBLINGS", "sibling_isolation", members=["native.app.a", "native.app.b"])
+    result = _verdict(tmp_path, rust_binary, capsys, files, rules=(*CRATE_RULES, isolation))
+
+    assert statuses(result).get("SIBLINGS") != "PASS"
+    assert result["declared_rules"] == "UNKNOWN"
+    assert any("SIBLINGS: rule sibling_isolation below a crate root" in c for c in _claims(result))
+
+
+def test_a_contract_inside_a_component_goes_through_the_same_crate_scope_limit(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    app = component("app", "app", ("base",))
+    app["inside"] = "docs/app-inside.json"
+    inner = {
+        "schema_version": "2.2.0",
+        "components": [component("a", "app.a"), component("b", "app.b")],
+        "rules": [rule("INNER-REQUIRES", "complete_requires")],
+    }
+    files = {
+        "crates/app/src/lib.rs": "mod a;\nmod b;\n",
+        "crates/app/src/a.rs": "use crate::b;\n",
+        "crates/app/src/b.rs": "pub fn f() {}\n",
+        "docs/app-inside.json": json.dumps(inner),
+    }
+    parts = (component("base", "base_crate"), app)
+    result = _verdict(tmp_path, rust_binary, capsys, files, components=parts)
+
+    assert "PASS" not in [v for k, v in statuses(result).items() if k.startswith("app:")]
+    assert any("below a crate root is not supported" in claim for claim in _claims(result))
+    assert result["declared_rules"] == "UNKNOWN"
+
+
+def test_a_local_module_does_not_hide_a_path_that_starts_with_two_colons(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    source = "mod base_crate {}\nuse ::base_crate::make;\npub fn run() { make(); }\n"
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert statuses(result)["REQUIRES"] == "FAIL"
+    assert any("app imports base without requiring it" in claim for claim in _claims(result))
+
+
+def test_a_message_a_name_or_a_lint_is_no_edge_and_no_gap(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    source = (
+        "use base_crate::make;\n"
+        '#[deprecated(note = "use base_crate::make")]\npub fn old() {}\n'
+        '#[error("{}::{} failed")]\npub struct E;\n'
+        '#[should_panic(expected = "base_crate::make")]\nfn t() {}\n'
+        "#[cfg_attr(test, allow(base_crate::lint))]\npub struct S;\n"
+    )
+    result = _verdict(tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source})
+
+    assert result["observation_complete"] == "PASS"
+    assert statuses(result)["REQUIRES"] == "PASS"

@@ -14,6 +14,8 @@ use proc_macro2::{Span, TokenStream, TokenTree};
 pub struct Chain {
     pub names: Vec<String>,
     pub span: Span,
+    /// The path starts with `::`, so its first name is a crate and never a local item.
+    pub absolute: bool,
 }
 
 /// The nesting of groups that the scan follows. A deeper stream is cut off: its inner paths are
@@ -24,20 +26,37 @@ const MAX_DEPTH: usize = 64;
 /// The result is `None` when the stream nests deeper than `MAX_DEPTH`.
 pub fn chains(stream: TokenStream) -> Option<Vec<Chain>> {
     let mut found = Vec::new();
-    collect(stream, 0, &mut found).then_some(found)
+    collect(stream, 0, false, &mut found).then_some(found)
 }
 
-fn collect(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -> bool {
+/// The chains of an attribute. A lint list (`allow(...)`, `expect(...)`) holds lint names, not
+/// paths of the file, so the chains skip its group.
+pub fn attribute_chains(stream: TokenStream) -> Option<Vec<Chain>> {
+    let mut found = Vec::new();
+    collect(stream, 0, true, &mut found).then_some(found)
+}
+
+/// The lint attributes: their groups hold names of lints and reasons.
+pub const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];
+
+fn collect(stream: TokenStream, depth: usize, attribute: bool, found: &mut Vec<Chain>) -> bool {
     if depth > MAX_DEPTH {
         return false;
     }
     let mut tokens = stream.into_iter().peekable();
+    let mut colons = 0_u8;
     while let Some(token) = tokens.next() {
+        let before = colons;
+        colons = 0;
         match token {
             TokenTree::Group(group) => {
-                if !collect(group.stream(), depth + 1, found) {
+                if !collect(group.stream(), depth + 1, attribute, found) {
                     return false;
                 }
+            }
+            TokenTree::Punct(punct) if punct.as_char() == ':' => colons = before.saturating_add(1),
+            TokenTree::Ident(first) if attribute && skips_group(&first, tokens.peek()) => {
+                tokens.next();
             }
             TokenTree::Ident(first) => {
                 let mut names = vec![first.to_string()];
@@ -48,6 +67,7 @@ fn collect(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -> bool {
                     found.push(Chain {
                         names,
                         span: first.span(),
+                        absolute: before >= 2,
                     });
                 }
             }
@@ -55,6 +75,10 @@ fn collect(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -> bool {
         }
     }
     true
+}
+
+fn skips_group(name: &proc_macro2::Ident, next: Option<&TokenTree>) -> bool {
+    LINTS.contains(&name.to_string().as_str()) && matches!(next, Some(TokenTree::Group(_)))
 }
 
 /// Take `::` and the identifier after it, or take nothing.
@@ -76,33 +100,68 @@ fn separator_then_name(
     Some(name.to_string())
 }
 
-/// The paths in the string literals of a token stream, with their spans.
+/// The keys of an attribute whose string value holds a path, a type or a bound. This is the list of
+/// `serde` (`with`, `bound`, `remote`, ...). A string under another key is a message, a name or a
+/// regular expression, and the scan ignores it: `deprecated(note = "use a::b")` is no edge.
+const PATH_KEYS: [&str; 13] = [
+    "bound",
+    "with",
+    "serialize_with",
+    "deserialize_with",
+    "crate",
+    "remote",
+    "default",
+    "skip_serializing_if",
+    "from",
+    "try_from",
+    "into",
+    "serialize",
+    "deserialize",
+];
+
+/// The paths in the strings under a `PATH_KEYS` key of a token stream, with their spans.
 ///
-/// A string in an attribute can hold a whole path (`"crate::codec"`) or a bound (`"T: a::B"`), so
-/// the text is read as tokens, like the body of a macro. A text with `::` that does not read as
-/// tokens, or that nests too deep, makes the result `None`: the caller reports it, and never
-/// drops a path silently.
+/// A string can hold a whole path (`"crate::codec"`) or a bound (`"T: a::B"`), so the text is read
+/// as tokens, like the body of a macro. A text with `::` that does not read as tokens, or that
+/// nests too deep, makes the result `None`: the caller reports it, and never drops a path silently.
 pub fn string_paths(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -> Option<()> {
     if depth > MAX_DEPTH {
         return None;
     }
+    let mut key: Option<String> = None;
+    let mut armed = false;
     for token in stream {
         match token {
-            TokenTree::Group(group) => string_paths(group.stream(), depth + 1, found)?,
+            TokenTree::Group(group) => {
+                (key, armed) = (None, false);
+                string_paths(group.stream(), depth + 1, found)?;
+            }
+            TokenTree::Ident(name) => (key, armed) = (Some(name.to_string()), false),
+            TokenTree::Punct(punct) if punct.as_char() == '=' => armed = key.is_some(),
             TokenTree::Literal(literal) => {
-                let Ok(text) = syn::parse_str::<syn::LitStr>(&literal.to_string()) else {
-                    continue;
-                };
-                let value = text.value();
-                if !value.contains("::") {
-                    continue;
-                }
-                for mut chain in chains(value.parse::<TokenStream>().ok()?)? {
-                    chain.span = literal.span();
-                    found.push(chain);
+                let holds_path =
+                    armed && key.as_deref().is_some_and(|name| PATH_KEYS.contains(&name));
+                (key, armed) = (None, false);
+                if holds_path {
+                    read_string(&literal, found)?;
                 }
             }
-            _ => {}
+            _ => (key, armed) = (None, false),
+        }
+    }
+    Some(())
+}
+
+/// The paths in one string literal; `None` when the text has `::` and does not read.
+fn read_string(literal: &proc_macro2::Literal, found: &mut Vec<Chain>) -> Option<()> {
+    let Ok(text) = syn::parse_str::<syn::LitStr>(&literal.to_string()) else {
+        return Some(());
+    };
+    let value = text.value();
+    if value.contains("::") {
+        for mut chain in chains(value.parse::<TokenStream>().ok()?)? {
+            chain.span = literal.span();
+            found.push(chain);
         }
     }
     Some(())

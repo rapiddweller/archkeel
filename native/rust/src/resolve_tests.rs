@@ -34,7 +34,7 @@ fn krate() -> Crate {
 
 fn named(root: &str, declared: &[&str]) -> Option<Named> {
     let declared = declared.iter().map(|name| (*name).to_owned()).collect();
-    classify(root, &krate(), &declared)
+    classify(root, &krate(), &declared, false)
 }
 
 #[test]
@@ -68,4 +68,23 @@ fn a_local_item_a_relative_root_and_an_unknown_name_are_no_edge() {
 #[test]
 fn the_package_itself_is_no_edge() {
     assert_eq!(named("my_app", &[]), None);
+}
+
+#[test]
+fn a_path_that_starts_with_two_colons_names_a_crate_and_no_local_item_hides_it() {
+    let declared = ["serde_json".to_owned()].into_iter().collect();
+    let found = classify("serde_json", &krate(), &declared, true);
+    assert_eq!(found, Some(Named::Package("serde_json".to_owned())));
+    assert_eq!(
+        classify(
+            "std",
+            &krate(),
+            &["std".to_owned()].into_iter().collect(),
+            true
+        ),
+        Some(Named::Sysroot("std".to_owned()))
+    );
+    // `::crate` and `::missing` are no crate of this one.
+    assert_eq!(classify("crate", &krate(), &BTreeSet::new(), true), None);
+    assert_eq!(classify("missing", &krate(), &BTreeSet::new(), true), None);
 }

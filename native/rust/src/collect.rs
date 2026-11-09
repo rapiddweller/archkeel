@@ -131,7 +131,12 @@ impl Builder {
             return;
         };
         for reference in &module.scan.references {
-            if let Some(named) = classify(&reference.root, krate, &module.scan.declared) {
+            if let Some(named) = classify(
+                &reference.root,
+                krate,
+                &module.scan.declared,
+                reference.absolute,
+            ) {
                 self.import(workspace, module, reference, &named);
             }
         }

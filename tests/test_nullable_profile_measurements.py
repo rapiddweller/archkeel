@@ -430,6 +430,7 @@ def test_legacy_profile_constructor_keeps_its_atomic_group_and_codec(monkeypatch
             standard_library=frozenset({"stdlib"}),
             sdk_libraries=frozenset({"sdk"}),
             module_object_imports=True,
+            crate_edges_only=False,
         )
     else:
         # Exact old positional order, including the three fields after optional_sections.
@@ -448,6 +449,7 @@ def test_legacy_profile_constructor_keeps_its_atomic_group_and_codec(monkeypatch
             frozenset({"stdlib"}),
             frozenset({"sdk"}),
             True,
+            crate_edges_only=False,
         )
     assert profile.optional_sections == legacy
     assert profile.optional_section_groups == (legacy,)

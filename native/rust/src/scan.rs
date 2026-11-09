@@ -15,7 +15,7 @@ use syn::visit::{self, Visit};
 use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro, Meta, UseTree};
 
 use crate::attrs::{hidden_by, path_literal};
-use crate::tokens::{chains, string_paths, Chain};
+use crate::tokens::{attribute_chains, chains, string_paths, Chain, LINTS};
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
@@ -55,9 +55,6 @@ const KNOWN_MACROS: [&str; 33] = [
     "json",
 ];
 
-/// The attributes whose strings are lint names and reasons.
-const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];
-
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Site {
     pub line: i64,
@@ -72,6 +69,8 @@ pub struct Reference {
     pub root: String,
     pub path: String,
     pub site: Site,
+    /// The path starts with `::`: its first segment is a crate, and no local name hides it.
+    pub absolute: bool,
 }
 
 /// A place that the scan cannot read.
@@ -113,6 +112,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
         features,
         inline: Vec::new(),
         blocks: 0,
+        absolute_use: false,
         out: Scan::default(),
     };
     walker.visit_file(&file);
@@ -125,6 +125,8 @@ struct Walker<'a> {
     inline: Vec<String>,
     /// How many blocks enclose the item that the walk is in: an item in a block is local to it.
     blocks: usize,
+    /// The `use` item that the walk is in starts with `::`.
+    absolute_use: bool,
     out: Scan,
 }
 
@@ -156,19 +158,24 @@ impl Walker<'_> {
     }
 
     fn refer(&mut self, names: &[String], span: Span) {
+        self.refer_as(names, span, false);
+    }
+
+    fn refer_as(&mut self, names: &[String], span: Span, absolute: bool) {
         if let Some(first) = names.first() {
             let site = self.site(span);
             self.out.references.push(Reference {
                 root: first.clone(),
                 path: names.join("::"),
                 site,
+                absolute,
             });
         }
     }
 
     fn refer_chains(&mut self, found: Vec<Chain>) {
         for chain in found {
-            self.refer(&chain.names, chain.span);
+            self.refer_as(&chain.names, chain.span, chain.absolute);
         }
     }
 
@@ -188,22 +195,21 @@ impl Walker<'_> {
                     .map_or(Span::call_site(), |s| s.ident.span()),
             );
         }
-        if let Meta::List(list) = &attr.meta {
-            match chains(list.tokens.clone()) {
+        // A lint attribute holds lint names and a `reason` text, not paths of the file.
+        let lint = LINTS.iter().any(|lint| path.is_ident(lint));
+        if let (Meta::List(list), false) = (&attr.meta, lint) {
+            match attribute_chains(list.tokens.clone()) {
                 Some(found) => self.refer_chains(found),
                 None => self.concern(
                     "An attribute is nested too deep".to_owned(),
                     list.delimiter.span().join(),
                 ),
             }
-            if !LINTS.iter().any(|lint| path.is_ident(lint)) {
-                self.attribute_strings(list);
-            }
+            self.attribute_strings(list);
         }
     }
 
-    /// The paths in the strings of an attribute. A lint attribute holds lint names and a `reason`
-    /// text, not paths of the file, so the caller skips it.
+    /// The paths in the strings of an attribute, under the keys of `tokens::PATH_KEYS`.
     fn attribute_strings(&mut self, list: &syn::MetaList) {
         let mut found = Vec::new();
         if string_paths(list.tokens.clone(), 0, &mut found).is_none() {
@@ -256,11 +262,11 @@ impl Walker<'_> {
         let Some(name) = name else { return };
         let mut names = prefix.to_vec();
         names.push(name.to_string());
-        self.refer(&names, name.span());
+        self.refer_as(&names, name.span(), self.absolute_use);
     }
 
     fn leaf_at(&mut self, prefix: &[String], span: Span) {
-        self.refer(prefix, span);
+        self.refer_as(prefix, span, self.absolute_use);
     }
 
     fn macro_call(&mut self, node: &Macro) {
@@ -334,7 +340,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         if path.segments.len() > 1 {
             let names: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
             if let Some(first) = path.segments.first() {
-                self.refer(&names, first.ident.span());
+                self.refer_as(&names, first.ident.span(), path.leading_colon.is_some());
             }
         }
         visit::visit_path(self, path);
@@ -379,7 +385,9 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         for attr in &node.attrs {
             self.attribute(attr);
         }
+        self.absolute_use = node.leading_colon.is_some();
         self.use_tree(&mut Vec::new(), &node.tree);
+        self.absolute_use = false;
     }
 
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {

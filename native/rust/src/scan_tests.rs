@@ -203,3 +203,57 @@ fn only_the_type_namespace_hides_a_crate_name() {
         ["serde_json"]
     );
 }
+
+#[test]
+fn a_path_with_leading_colons_is_marked_absolute_in_a_use_a_path_and_a_macro() {
+    let found = scanned("use ::a::b;\nuse ::{c::d, e::f};\nuse g::h;\nfn f() { ::i::j(); k::l(); ::m::n!(); matches!(x, ::o::P); }");
+    let marks: Vec<_> = found
+        .references
+        .iter()
+        .map(|r| (r.path.as_str(), r.absolute))
+        .collect();
+    assert_eq!(
+        marks,
+        [
+            ("a::b", true),
+            ("c::d", true),
+            ("e::f", true),
+            ("g::h", false),
+            ("i::j", true),
+            ("k::l", false),
+            ("m::n", true),
+            ("o::P", true),
+        ]
+    );
+}
+
+#[test]
+fn only_the_keys_of_a_path_attribute_hold_paths_and_a_lint_holds_names() {
+    let nothing = Vec::<String>::new();
+    assert_eq!(
+        paths("#[serde(bound = \"T: b::X\")]\nstruct S<T>(T);"),
+        ["b::X"]
+    );
+    assert_eq!(
+        reasons("#[serde(bound = \"T: (b::X\")]\nstruct S<T>(T);"),
+        ["A string in an attribute holds a path that the scan cannot read"]
+    );
+    // The reason of a lint is text, and a lint list holds lint names.
+    assert_eq!(
+        paths("#[expect(clippy::x, reason = \"see b::Y\")]\nfn f() {}"),
+        nothing
+    );
+    assert_eq!(
+        paths("#[allow(b::x)]\n#[cfg_attr(test, allow(b::y))]\nfn f() {}"),
+        nothing
+    );
+    assert_eq!(
+        paths("#[cfg_attr(test, derive(c::D))]\nstruct S;"),
+        ["c::D"]
+    );
+    // A message, a name or a pattern is no path, and it is no gap either.
+    let texts = "#[deprecated(note = \"use b::make\")]\n#[error(\"{}::{} failed\")]\n\
+                 #[should_panic(expected = \"a::b\")]\nfn f() {}";
+    assert_eq!(paths(texts), nothing);
+    assert_eq!(reasons(texts), nothing);
+}

@@ -67,7 +67,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
-from .crate_scope import limits_of
+from .crate_scope import inside_limits, root_limits
 from .guarded_effects import guarded_effect_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
@@ -77,7 +77,6 @@ from .rules import (
     construct_capability_limits,
     exports_by_module,
     facade_signature_types,
-    profile_failures,
     rule_subject_failures,
     rule_violations,
     scope_receipts_complete,
@@ -827,7 +826,7 @@ def _evaluate_inside_contract(
         source_modules=source_modules,
         type_shapes=type_shapes,
     )
-    failures.extend(profile_failures(scoped, profile, construct_capabilities))
+    failures.extend(inside_limits(scoped, profile, construct_capabilities, modules))
     violations, allowance_facts = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -1192,7 +1191,7 @@ def evaluate_source(
         sdk_libraries=profile.sdk_libraries
         | frozenset(target.name for target in facts.imports if isinstance(target, BuiltinTarget)),
     )
-    rule_failures.extend([*limits_of(contract, profile, facts, namespace), *uncollected_failures])
+    rule_failures.extend([*root_limits(contract, profile, facts), *uncollected_failures])
     scope_observations = component_scope_observations(
         components=contract.components,
         modules=module_facts,

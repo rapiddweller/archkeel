@@ -75,7 +75,7 @@ fn a_string_with_a_path_that_does_not_read_is_never_dropped_silently() {
         "(".repeat(MAX_DEPTH + 2),
         ")".repeat(MAX_DEPTH + 2)
     );
-    assert_eq!(string_chains(&format!("x = \"{deep}\"")), None);
+    assert_eq!(string_chains(&format!("bound = \"{deep}\"")), None);
 }
 
 #[test]
