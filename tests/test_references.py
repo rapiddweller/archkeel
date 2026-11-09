@@ -63,7 +63,8 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
     assert result.symbols > 400
     # These compatibility surfaces deliberately remain visible in the report:
     # _PropertyBinding preserves mapping/keyword construction; State and Role retain
-    # explicitly exported aliases.
+    # explicitly exported aliases; run_report is the public entry that AD-303 names for MCP,
+    # and only tests and tools call it (the CLI calls run_report_with_observation).
     legacy = {
         candidate.name: (candidate.kind, candidate.visibility, candidate.module)
         for candidate in result.candidates
@@ -72,6 +73,7 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
             "archkeel.analyzer.python.source._PropertyBinding",
             "archkeel.render.summary.State",
             "archkeel.analyzer.typescript.config.Role",
+            "archkeel.check.report.run_report",
         }
     }
     assert legacy == {
@@ -90,6 +92,7 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
             "public_name",
             "archkeel.analyzer.typescript.config",
         ),
+        "archkeel.check.report.run_report": ("function", "public_name", "archkeel.check.report"),
     }
     from archkeel.analyzer.typescript.config import Role
     from archkeel.ir.facts import ResolutionRole

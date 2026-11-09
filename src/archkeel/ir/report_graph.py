@@ -30,6 +30,7 @@ from archkeel.ir.codec import decode_json, value_bytes
 from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.graph_codec import parse_comparison
+from archkeel.ir.identity_memo import IdentityMemo
 from archkeel.ir.interfaces import component_owners
 from archkeel.ir.member_inventory import validated_member_inventory_proof
 from archkeel.ir.model import (
@@ -43,8 +44,15 @@ from archkeel.ir.ownership import containing, owner_of
 from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.target_records import recorded_target_graph
 
+_REPORTS: IdentityMemo[Observation, ArchitectureReport] = IdentityMemo()
+
 
 def architecture_report(model: Observation) -> ArchitectureReport:
+    """Build the report of one observation object once; the report is immutable."""
+    return _REPORTS.get(model, "report", lambda: _build_architecture_report(model))
+
+
+def _build_architecture_report(model: Observation) -> ArchitectureReport:
     target = next(
         (
             item

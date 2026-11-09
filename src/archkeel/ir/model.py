@@ -1458,7 +1458,7 @@ class Section:
     records: tuple[Record, ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, weakref_slot=True)
 class Observation:
     schema_version: str
     analyzer: AnalyzerInfo

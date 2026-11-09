@@ -20,6 +20,7 @@ from archkeel.ir.facts import (
     member_inventories,
 )
 from archkeel.ir.facts import RuntimeRequirementState as _RuntimeRequirementState
+from archkeel.ir.identity_memo import IdentityMemo
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     EvidenceClass,
@@ -290,7 +291,18 @@ def member_inventory_proof(
     )
 
 
+_REPLAYED: IdentityMemo[Observation, Record | None] = IdentityMemo()
+
+
 def validated_member_inventory_proof(model: Observation) -> Record | None:
+    """Replay the bound local source proof once for this observation object.
+
+    A saved or changed observation is another object, so it replays again (AD-229).
+    """
+    return _REPLAYED.get(model, "proof", lambda: _replay_member_inventory_proof(model))
+
+
+def _replay_member_inventory_proof(model: Observation) -> Record | None:
     """Replay the bound local source proof; absent or changed evidence stays unknown."""
     proofs = [
         r for r in model.records("scope_observations") or () if r.kind == MEMBER_INVENTORY_PROOF

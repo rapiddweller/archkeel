@@ -32,7 +32,7 @@ from ..check.report import (
     read_saved_snapshot,
     render_result,
     run_explore,
-    run_report,
+    run_report_with_observation,
     run_saved_report,
     unknown_result,
 )
@@ -924,10 +924,7 @@ def build_parser() -> _Parser:
         ),
     )
     skill.add_argument(
-        "action",
-        choices=list(SkillAction),
-        type=skill_action,
-        help="The only supported action.",
+        "action", choices=list(SkillAction), type=skill_action, help="The only supported action."
     )
     skill.add_argument(
         "agent",
@@ -1303,7 +1300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
                 clock = PhaseClock() if args.timings is not None else None
-                result, architecture = run_report(
+                result, architecture, observation = run_report_with_observation(
                     root,
                     config=config,
                     analyzer=observer_for(
@@ -1348,6 +1345,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             architecture,
                             repository=project_name(root, config),
                             architecture_href=artifact.name,
+                            observation=observation,
                         )
                     if clock is not None:
                         clock.count(
