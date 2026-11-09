@@ -139,7 +139,7 @@ fn a_mod_declaration_is_a_child_and_an_inline_mod_is_walked() {
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>(),
-        ["a", "b", "c", "d", "e", "inline"]
+        ["a", "b", "inline"]
     );
 }
 
@@ -174,4 +174,32 @@ fn a_stream_nested_too_deep_is_a_concern_and_not_a_crash() {
     let deep = format!("fn f() {{ m!{}a::b{}; }}", "(".repeat(200), ")".repeat(200));
     let found = reasons(&deep);
     assert_eq!(found, ["The macro m! is nested too deep to read"]);
+}
+
+#[test]
+fn only_the_type_namespace_hides_a_crate_name() {
+    let declared = |text: &str| scanned(text).declared.into_iter().collect::<Vec<_>>();
+    // A function, a constant and a static are values: `b::x()` still names the crate `b`.
+    assert_eq!(
+        declared("fn b() {}\nconst c: u8 = 1;\nstatic d: u8 = 2;\nfn g() { b::x(); }"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        paths("fn log() {}\nfn g() { log::info!(\"x\"); b::x(); }"),
+        ["log::info", "b::x"]
+    );
+    // A type, a module and a rename are in the namespace of paths.
+    assert_eq!(
+        declared("struct S;\nenum E {}\nunion U { a: u8 }\ntrait T {}\ntype A = u8;\nmod m {}\nuse a::b as r;"),
+        ["A", "E", "S", "T", "U", "m", "r"]
+    );
+    // A name in a block or in an inline module is local to it.
+    assert_eq!(
+        declared("fn g() { struct Local; }\nmod inner { struct Hidden; }"),
+        ["inner"]
+    );
+    assert_eq!(
+        declared("use crate::a::serde_json;\nuse serde_json;"),
+        ["serde_json"]
+    );
 }

@@ -37,21 +37,36 @@ impl Source {
             .fold(self.root.clone(), |path, part| path.join(part))
     }
 
+    /// The real path of an entry, when it is inside the snapshot. The rule is the one of the
+    /// TypeScript snapshot: a link that stays inside is followed, and a path that leaves the
+    /// snapshot, by name or by a link in the middle of it, is never read.
+    fn inside(&self, rel: &str) -> Result<PathBuf, bool> {
+        let real = fs::canonicalize(self.absolute(rel)).map_err(|_| false)?;
+        if real.starts_with(&self.root) {
+            Ok(real)
+        } else {
+            Err(true)
+        }
+    }
+
     pub fn is_file(&self, rel: &str) -> bool {
-        fs::symlink_metadata(self.absolute(rel)).is_ok_and(|meta| meta.file_type().is_file())
+        self.inside(rel).is_ok_and(|real| real.is_file())
     }
 
     pub fn is_dir(&self, rel: &str) -> bool {
-        fs::symlink_metadata(self.absolute(rel)).is_ok_and(|meta| meta.file_type().is_dir())
+        self.inside(rel).is_ok_and(|real| real.is_dir())
     }
 
     /// Read a file as text. The reason of a failure names the file.
     pub fn read(&mut self, rel: &str, role: Role) -> Result<String, String> {
-        let path = self.absolute(rel);
-        let meta = fs::symlink_metadata(&path).map_err(|_| format!("Unreadable file: {rel}"))?;
-        if meta.file_type().is_symlink() {
-            return Err(format!("A symbolic link is not read: {rel}"));
-        }
+        let path = self.inside(rel).map_err(|outside| {
+            if outside {
+                format!("A path that leaves the snapshot is not read: {rel}")
+            } else {
+                format!("Unreadable file: {rel}")
+            }
+        })?;
+        let meta = fs::metadata(&path).map_err(|_| format!("Unreadable file: {rel}"))?;
         if meta.len() > MAX_FILE_BYTES {
             return Err(format!("File is larger than {MAX_FILE_BYTES} bytes: {rel}"));
         }

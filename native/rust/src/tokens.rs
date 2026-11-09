@@ -76,41 +76,36 @@ fn separator_then_name(
     Some(name.to_string())
 }
 
-/// The names of a string literal that is only a path, such as `"crate::codec"`.
-pub fn string_path(literal: &str) -> Option<Vec<String>> {
-    let inner = literal.strip_prefix('"')?.strip_suffix('"')?;
-    let names: Vec<String> = inner.split("::").map(str::to_owned).collect();
-    let valid = names.len() > 1 && names.iter().all(|name| is_name(name));
-    valid.then_some(names)
-}
-
-fn is_name(name: &str) -> bool {
-    let mut characters = name.chars();
-    characters
-        .next()
-        .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
-        && characters.all(|next| next == '_' || next.is_ascii_alphanumeric())
-}
-
-/// Each string literal of a token stream that is a path, with its span.
-pub fn string_paths(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) {
+/// The paths in the string literals of a token stream, with their spans.
+///
+/// A string in an attribute can hold a whole path (`"crate::codec"`) or a bound (`"T: a::B"`), so
+/// the text is read as tokens, like the body of a macro. A text with `::` that does not read as
+/// tokens, or that nests too deep, makes the result `None`: the caller reports it, and never
+/// drops a path silently.
+pub fn string_paths(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -> Option<()> {
     if depth > MAX_DEPTH {
-        return;
+        return None;
     }
     for token in stream {
         match token {
-            TokenTree::Group(group) => string_paths(group.stream(), depth + 1, found),
+            TokenTree::Group(group) => string_paths(group.stream(), depth + 1, found)?,
             TokenTree::Literal(literal) => {
-                if let Some(names) = string_path(&literal.to_string()) {
-                    found.push(Chain {
-                        names,
-                        span: literal.span(),
-                    });
+                let Ok(text) = syn::parse_str::<syn::LitStr>(&literal.to_string()) else {
+                    continue;
+                };
+                let value = text.value();
+                if !value.contains("::") {
+                    continue;
+                }
+                for mut chain in chains(value.parse::<TokenStream>().ok()?)? {
+                    chain.span = literal.span();
+                    found.push(chain);
                 }
             }
             _ => {}
         }
     }
+    Some(())
 }
 
 /// Split a stream at its top-level commas: `cfg_attr(a, b, c)` gives three parts.

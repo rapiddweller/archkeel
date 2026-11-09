@@ -104,7 +104,7 @@ impl Builder {
     }
 
     fn module(&mut self, workspace: &Workspace, module: &Module) {
-        let first = module.text.split('\n').next().unwrap_or("").trim_end();
+        let first = module.first_line.as_str();
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
         let file_evidence = evidence_id(&module.rel, line, line, column);
         self.evidence.insert(
@@ -116,7 +116,7 @@ impl Builder {
             rel_path: module.rel.clone(),
             module: module.module.clone(),
             package: package_of(&module.module).to_owned(),
-            blank: module.text.trim().is_empty(),
+            blank: module.blank,
             evidence_id: file_evidence,
         });
         self.edges(workspace, module);

@@ -13,6 +13,7 @@ mod attrs;
 mod collect;
 mod crates;
 mod manifest;
+mod nesting;
 mod paths;
 mod resolve;
 mod scan;
@@ -29,6 +30,9 @@ use std::process::ExitCode;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::reply::{encode, Provenance};
 use archkeel_wire::request::decode_rust;
+
+/// The stack of the scan thread. The system gives address space, not memory, until it is used.
+const STACK_BYTES: usize = 256 * 1024 * 1024;
 
 fn provenance() -> Provenance {
     Provenance {
@@ -47,8 +51,18 @@ fn run() -> Result<Vec<u8>, String> {
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode_rust(&payload)?;
-    let facts = collect::collect(&request, provenance());
-    encode(reply_version(request.version), &facts)
+    // The walk over a tree of `syn` uses one frame for each level. A big stack and the limit of
+    // `nesting.rs` together mean that no file ends the whole scan.
+    let worker = std::thread::Builder::new()
+        .stack_size(STACK_BYTES)
+        .spawn(move || {
+            let facts = collect::collect(&request, provenance());
+            encode(reply_version(request.version), &facts)
+        })
+        .map_err(|error| format!("cannot start the scan: {error}"))?;
+    worker
+        .join()
+        .map_err(|_| "the scan stopped without a reply".to_owned())?
 }
 
 fn main() -> ExitCode {

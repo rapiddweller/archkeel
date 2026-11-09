@@ -60,6 +60,8 @@ class Profile:
     dependency_symbols: bool = True
     complete_api_crossings: bool = True
     complete_unread_binding_inventory: bool = False
+    # AD-335: the collector writes the edges between crates, not those inside one crate.
+    crate_edges_only: bool = False
     project_import_closure: bool = False
     unsupported_declarations: frozenset[DeclarationField] = frozenset()
     unmeasured: frozenset[UnmeasurableScalar] = frozenset()
@@ -217,7 +219,10 @@ RUST: Final = Profile(
     source_suffix=".rs",
     dependency_symbols=False,
     complete_api_crossings=False,
-    unsupported_rules=TYPESCRIPT.unsupported_rules,
+    # `interface_boundary`: every target of a local crate is its root module, so a public list
+    # that names the root would pass for any use of the crate.
+    unsupported_rules=TYPESCRIPT.unsupported_rules | frozenset({"interface_boundary"}),
+    crate_edges_only=True,
     # The sysroot crates are the language's own library, not an external dependency.
     standard_library=frozenset({"std", "core", "alloc"}),
     project_import_closure=True,

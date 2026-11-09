@@ -12,6 +12,7 @@ use std::collections::{BTreeSet, VecDeque};
 use archkeel_wire::reply::Role;
 
 use crate::crates::{Crate, Problem, Root, Workspace};
+use crate::nesting::{too_deep, MAX_NESTING};
 use crate::paths::{dirname, join, normalize};
 use crate::scan::{scan, Child, Scan};
 use crate::source::Source;
@@ -21,7 +22,10 @@ pub struct Module {
     pub rel: String,
     pub module: String,
     pub crate_index: usize,
-    pub text: String,
+    /// The first line of the file, trimmed at its end: the evidence of the file. The walk does
+    /// not keep the text, which only this line and `blank` need.
+    pub first_line: String,
+    pub blank: bool,
     pub scan: Scan,
 }
 
@@ -38,7 +42,13 @@ struct Pending {
     module: String,
     /// The directory where the `mod` declarations of this file look for their files.
     owner: String,
+    /// How many modules lie between this file and the root of its target.
+    depth: usize,
 }
+
+/// The deepest module that the walk reads. A name holds the whole path, so the reply grows with
+/// the square of the depth; the deepest module of the `uv` corpus has depth 4.
+pub const MAX_MODULE_DEPTH: usize = 64;
 
 pub fn walk(source: &mut Source, workspace: &Workspace) -> Walked {
     let mut walked = Walked {
@@ -69,6 +79,7 @@ impl Walked {
                 rel: root.rel.clone(),
                 module: root.module.clone(),
                 owner: dirname(&root.rel).to_owned(),
+                depth: 0,
             };
             self.crate_tree(source, index, krate, first);
         }
@@ -87,25 +98,42 @@ impl Walked {
                     continue;
                 }
             };
-            let scanned = scan(&text, &krate.manifest.features).unwrap_or_else(|error| {
-                let reason = format!("Syntax error in {}: {error}", file.rel);
-                self.problems.push(Problem {
-                    reason,
-                    file: file.rel.clone(),
-                });
-                Scan::default()
-            });
+            let scanned = self.scanned(&file, &text, krate);
             for child in &scanned.children {
                 self.child(source, &file, child, &mut queue);
             }
+            let first = text.split('\n').next().unwrap_or("");
             self.modules.push(Module {
                 rel: file.rel,
                 module: file.module,
                 crate_index: index,
-                text,
+                first_line: first.trim_end().to_owned(),
+                blank: text.trim().is_empty(),
                 scan: scanned,
             });
         }
+    }
+
+    /// The scan of one file. A file that is too deep or has a syntax error gives no facts.
+    fn scanned(&mut self, file: &Pending, text: &str, krate: &Crate) -> Scan {
+        let failure = if too_deep(text) {
+            Some(format!(
+                "Brackets nest deeper than {MAX_NESTING} in {}",
+                file.rel
+            ))
+        } else {
+            match scan(text, &krate.manifest.features) {
+                Ok(scanned) => return scanned,
+                Err(error) => Some(format!("Syntax error in {}: {error}", file.rel)),
+            }
+        };
+        if let Some(reason) = failure {
+            self.problems.push(Problem {
+                reason,
+                file: file.rel.clone(),
+            });
+        }
+        Scan::default()
     }
 
     fn child(
@@ -135,6 +163,15 @@ impl Walked {
             });
             return;
         }
+        let depth = parent.depth + 1 + child.inline.len();
+        if depth > MAX_MODULE_DEPTH {
+            let reason = format!("Modules nest deeper than {MAX_MODULE_DEPTH} levels: {rel}");
+            self.problems.push(Problem {
+                reason,
+                file: parent.rel.clone(),
+            });
+            return;
+        }
         let mut module = parent.module.clone();
         for part in child.inline.iter().map(String::as_str).chain([name]) {
             module = format!("{module}.{}", part.trim_start_matches("r#"));
@@ -147,7 +184,12 @@ impl Walked {
         } else {
             join(dirname(&rel), stem)
         };
-        queue.push_back(Pending { rel, module, owner });
+        queue.push_back(Pending {
+            rel,
+            module,
+            owner,
+            depth,
+        });
     }
 }
 

@@ -203,3 +203,125 @@ def test_a_path_inside_an_attribute_is_an_edge(
 
     assert statuses(result)["REQUIRES"] == "FAIL"
     assert any("app imports base without requiring it" in claim for claim in _claims(result))
+
+
+def test_a_component_below_a_crate_root_is_unknown_never_pass(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    # `a` uses `b` inside one crate. The collector writes no edge inside a crate (slice 5b-2), so
+    # sibling_isolation of the two modules must not read "no edge" as "no import".
+    files = {"crates/app/src/lib.rs": "mod a;\nmod b;\n", "crates/app/src/a.rs": "use crate::b;\n"}
+    files["crates/app/src/b.rs"] = "pub fn f() {}\n"
+    parts = (
+        component("a", "app.a"),
+        component("b", "app.b"),
+    )
+    isolation = rule("SIBLINGS", "sibling_isolation", members=["native.app.a", "native.app.b"])
+    result = _verdict(tmp_path, rust_binary, capsys, files, components=parts, rules=(isolation,))
+
+    assert "PASS" not in statuses(result).values()
+    assert result["declared_rules"] == "UNKNOWN"
+    assert any("below a crate root is not supported" in claim for claim in _claims(result))
+
+
+def test_a_rule_on_modules_below_a_crate_root_is_unknown(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    result = _verdict(tmp_path, rust_binary, capsys, rules=(*CRATE_RULES, forbidden, cycles))
+
+    claims = _claims(result)
+    assert any("NO-A-TO-B: rule forbidden_dependency below a crate root" in c for c in claims)
+    assert any("MODULE-CYCLES: module cycles is not supported" in c for c in claims)
+    assert result["declared_rules"] == "UNKNOWN"
+
+
+def test_interface_boundary_is_unknown_because_every_local_target_is_a_crate_root(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    base = component("base", "base_crate")
+    base["public"] = ["native.base_crate"]
+    parts = (base, component("app", "app", ("base",)))
+    boundary = rule("INTERFACE", "interface_boundary")
+    result = _verdict(
+        tmp_path, rust_binary, capsys, components=parts, rules=(*CRATE_RULES, boundary)
+    )
+
+    assert "INTERFACE: rule kind interface_boundary is not supported" in " ".join(_claims(result))
+    assert statuses(result).get("INTERFACE") != "PASS"
+    assert result["declared_rules"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "fn base_crate() {}\npub fn run() { base_crate::make(); }\n",
+        "fn log() {}\nconst base_crate: u8 = 0;\n"
+        'pub fn run() { log::info!("x"); base_crate::make(); }\n',
+        "static base_crate: u8 = 0;\npub fn run() { base_crate::make(); }\n",
+    ],
+    ids=["fn", "fn-and-const", "static"],
+)
+def test_a_function_constant_or_static_does_not_hide_an_edge(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert statuses(result)["REQUIRES"] == "FAIL"
+    assert any("app imports base without requiring it" in claim for claim in _claims(result))
+
+
+def test_a_path_in_a_bound_string_is_an_edge_and_one_that_does_not_read_is_unknown(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    bound = '#[serde(bound = "T: base_crate::Make")]\npub struct S<T>(T);\n'
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": bound}, components=parts
+    )
+    assert statuses(result)["REQUIRES"] == "FAIL"
+
+    broken = '#[serde(bound = "T: (base_crate::Make")]\npub struct S<T>(T);\n'
+    result = _verdict(tmp_path / "b", rust_binary, capsys, {"crates/app/src/lib.rs": broken})
+    assert result["observation_complete"] == "UNKNOWN"
+    assert any("holds a path that the scan cannot read" in claim for claim in _claims(result))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "fn f() { let x = " + "(" * 2000 + "1" + ")" * 2000 + "; }\n",
+        "mod a {" * 2000 + "}" * 2000 + "\n",
+    ],
+    ids=["parentheses", "inline-modules"],
+)
+def test_a_file_nested_beyond_the_stack_is_unknown_and_never_ends_the_scan(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    # Without the nesting check and the large stack, the binary aborts (signal 6) at this depth.
+    result = _verdict(tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source})
+
+    assert result["observation_complete"] == "UNKNOWN"
+    assert any("Brackets nest deeper than 256" in claim for claim in _claims(result))
+    assert not [d for d in result["diagnostics"] if d["kind"] == "execution_error"]
+
+
+def test_a_module_chain_deeper_than_the_limit_is_unknown(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    files = {"crates/app/src/lib.rs": '#[path = "c0.rs"]\nmod c0;\n'}
+    for i in range(66):
+        files[f"crates/app/src/c{i}.rs"] = f'#[path = "c{i + 1}.rs"]\nmod c{i + 1};\n'
+    result = _verdict(tmp_path, rust_binary, capsys, files)
+
+    assert any("Modules nest deeper than 64 levels" in claim for claim in _claims(result))

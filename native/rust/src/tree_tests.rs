@@ -176,3 +176,37 @@ fn a_build_script_that_two_crates_name_is_walked_once_as_a_file_of_the_crate_tha
         ("ns.b.build_script", 1)
     );
 }
+
+#[test]
+fn a_chain_deeper_than_the_limit_is_cut_with_a_reason_and_a_file_that_nests_too_deep_gives_no_facts(
+) {
+    let mut files = vec![("src/lib.rs".to_owned(), "mod c0;".to_owned())];
+    for i in 0..MAX_MODULE_DEPTH + 2 {
+        files.push((
+            format!("src/c{i}.rs"),
+            format!("#[path = \"c{}.rs\"] mod c{};", i + 1, i + 1),
+        ));
+    }
+    files.push((
+        "src/deep.rs".to_owned(),
+        "fn f() { let x = ".to_owned()
+            + &"(".repeat(MAX_NESTING + 1)
+            + "1"
+            + &")".repeat(MAX_NESTING + 1)
+            + "; }",
+    ));
+    files.push(("src/lib.rs".to_owned(), "mod c0;\nmod deep;".to_owned()));
+    let borrowed: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(a, b)| (a.as_str(), b.as_str()))
+        .collect();
+    let found = walked("depth", &borrowed);
+    let reasons = reasons(&found);
+    assert!(reasons
+        .contains(&format!("Brackets nest deeper than {MAX_NESTING} in src/deep.rs").as_str()));
+    let cut =
+        format!("Modules nest deeper than {MAX_MODULE_DEPTH} levels: src/c{MAX_MODULE_DEPTH}.rs");
+    assert!(reasons.contains(&cut.as_str()), "{reasons:?}");
+    // The root, c0 to c63 (depth 1 to 64) and `deep` are read; c64 and below are not.
+    assert_eq!(found.modules.len(), MAX_MODULE_DEPTH + 2);
+}

@@ -41,29 +41,41 @@ fn a_stream_nested_too_deep_is_cut_and_not_followed() {
     assert!(chains(stream(&deep)).is_none());
 }
 
-#[test]
-fn a_string_is_a_path_only_when_it_is_nothing_else() {
-    assert_eq!(
-        string_path("\"crate::codec\""),
-        Some(vec!["crate".to_owned(), "codec".to_owned()])
-    );
-    for text in [
-        "\"codec\"",
-        "\"a::\"",
-        "\"a b::c\"",
-        "\"see a::b\"",
-        "\"1a::b\"",
-        "x",
-    ] {
-        assert_eq!(string_path(text), None, "{text}");
-    }
+fn string_chains(text: &str) -> Option<Vec<String>> {
     let mut found = Vec::new();
-    string_paths(
-        stream("with = \"serde_with::codec\", other = \"text\""),
-        0,
-        &mut found,
+    string_paths(stream(text), 0, &mut found)?;
+    Some(found.iter().map(|chain| chain.names.join("::")).collect())
+}
+
+#[test]
+fn a_string_with_a_path_or_a_bound_gives_its_paths() {
+    assert_eq!(
+        string_chains(
+            "with = \"crate::codec\", bound = \"T: b::X + c::Y<d::Z>\", other = \"text\""
+        ),
+        Some(vec![
+            "crate::codec".to_owned(),
+            "b::X".to_owned(),
+            "c::Y".to_owned(),
+            "d::Z".to_owned()
+        ])
     );
-    assert_eq!(found.len(), 1);
+    assert_eq!(
+        string_chains("a = \"no path here\", b = 1"),
+        Some(Vec::new())
+    );
+}
+
+#[test]
+fn a_string_with_a_path_that_does_not_read_is_never_dropped_silently() {
+    // An unbalanced bracket is not a token stream.
+    assert_eq!(string_chains("bound = \"T: (a::B\""), None);
+    let deep = format!(
+        "{}a::b{}",
+        "(".repeat(MAX_DEPTH + 2),
+        ")".repeat(MAX_DEPTH + 2)
+    );
+    assert_eq!(string_chains(&format!("x = \"{deep}\"")), None);
 }
 
 #[test]

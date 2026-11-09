@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 import sys
+import zlib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -95,6 +96,12 @@ def _chain(length: int, prefix: str = "c") -> dict[str, str]:
     return files
 
 
+def _nested(n: int) -> dict[str, str]:
+    # n expressions of 100 nested parentheses: below the limit of the walk, above `syn` defaults.
+    body = "fn f{i}() {{ let x = " + "(" * 100 + "serde_json::go()" + ")" * 100 + "; }}"
+    return {"lib.rs": _lines(n, lambda i: body.format(i=i))}
+
+
 def _deep(n: int) -> dict[str, str]:
     # n trees of depth 12. Real code nests a few levels; the name of a module holds its whole path.
     files = {"lib.rs": _lines(n, lambda i: f'#[path = "t{i}_0.rs"]\nmod t{i};')}
@@ -112,6 +119,7 @@ SHAPES = {
         Shape("macro-calls", 2000, _macros),
         Shape("many-files", 400, _files),
         Shape("deep-module-trees", 40, _deep),
+        Shape("nested-parentheses", 400, _nested),
     )
 }
 
@@ -250,12 +258,14 @@ def test_every_shape_builds_a_crate_that_the_collector_reads_without_a_gap(
         assert facts["coverage"]["full_scope"], shape.name
 
 
-def test_a_chain_of_two_thousand_modules_is_read_without_a_stack_overflow(
+def test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small(
     tmp_path: Path, collector: Path
 ) -> None:
-    # The name of the deepest module holds 2000 segments, so the reply grows with the square of the
-    # depth. That is the identity of a module (AD-335 limit); the walk itself keeps no recursion.
-    _build_files(tmp_path, _chain(2000))
+    # The name of a module holds its whole path, so the reply of a chain grows with the square
+    # of the depth. The walk stops at 64 levels (AD-335), and the rest of the chain is UNKNOWN.
+    _build_files(tmp_path, {"lib.rs": '#[path = "c0.rs"]\nmod c0;\n', **_chain(70)})
     _, cpu, done = timed_run([str(collector)], _request(tmp_path))
     assert done.returncode == 0, done.stderr[-300:]
-    assert cpu < CAP and len(done.stdout) > 0
+    facts = json.loads(zlib.decompress(done.stdout))["facts"]
+    assert len(facts["files"]) == 65 and cpu < CAP
+    assert any("Modules nest deeper than 64" in gap["title"] for gap in facts["coverage"]["gaps"])

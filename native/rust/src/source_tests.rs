@@ -4,6 +4,8 @@
 
 // Consumer: the walk of the collector. Each test builds a small tree in a temporary directory.
 
+use std::path::PathBuf;
+
 use super::*;
 use crate::test_tree::tree;
 
@@ -62,16 +64,29 @@ fn a_file_over_the_limit_and_a_missing_file_give_a_reason_that_names_them() {
 
 #[cfg(unix)]
 #[test]
-fn a_symbolic_link_is_neither_read_nor_entered() {
-    let root = tree("link", &[("real.rs", "x"), ("dir/in.rs", "x")]);
-    std::os::unix::fs::symlink(root.join("real.rs"), root.join("link.rs")).unwrap();
-    std::os::unix::fs::symlink(root.join("dir"), root.join("linkdir")).unwrap();
+fn a_link_that_stays_inside_is_followed_and_a_path_that_leaves_the_snapshot_is_not_read() {
+    let outside = tree("outside", &[("secret.rs", "SECRET first line")]);
+    let root = tree("link", &[("real.rs", "x"), ("dir/in.rs", "y")]);
+    let link = |from: &PathBuf, to: &str| std::os::unix::fs::symlink(from, root.join(to)).unwrap();
+    link(&root.join("real.rs"), "inside.rs");
+    link(&outside.join("secret.rs"), "leak.rs");
+    link(&outside, "linkdir");
     let mut source = Source::new(root.to_str().unwrap());
-    assert_eq!(
-        source.read("link.rs", Role::Selected).unwrap_err(),
-        "A symbolic link is not read: link.rs"
-    );
-    assert!(!source.is_file("link.rs") && !source.is_dir("linkdir"));
+    assert_eq!(source.read("inside.rs", Role::Selected).unwrap(), "x");
+    for rel in ["leak.rs", "linkdir/secret.rs"] {
+        let reason = source.read(rel, Role::Selected).unwrap_err();
+        assert_eq!(
+            reason,
+            format!("A path that leaves the snapshot is not read: {rel}")
+        );
+        assert!(!source.is_file(rel));
+    }
+    assert!(!source.is_dir("linkdir"));
     assert_eq!(source.walk(""), ["dir/in.rs", "real.rs"]);
+    assert!(source
+        .inputs()
+        .iter()
+        .all(|input| !input.path.contains("secret")));
     let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(outside);
 }

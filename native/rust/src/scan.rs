@@ -55,6 +55,9 @@ const KNOWN_MACROS: [&str; 33] = [
     "json",
 ];
 
+/// The attributes whose strings are lint names and reasons.
+const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Site {
     pub line: i64,
@@ -109,6 +112,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
         lines: text.split('\n').collect(),
         features,
         inline: Vec::new(),
+        blocks: 0,
         out: Scan::default(),
     };
     walker.visit_file(&file);
@@ -119,6 +123,8 @@ struct Walker<'a> {
     lines: Vec<&'a str>,
     features: &'a BTreeSet<String>,
     inline: Vec<String>,
+    /// How many blocks enclose the item that the walk is in: an item in a block is local to it.
+    blocks: usize,
     out: Scan,
 }
 
@@ -132,6 +138,15 @@ impl Walker<'_> {
             end_line: to_i64(end.line),
             column: to_i64(start.column),
             excerpt,
+        }
+    }
+
+    /// A name that the file declares at its top level, in the namespace of types and modules,
+    /// where the first segment of a `::` path is looked up. A function, a constant and a
+    /// static are in the value namespace, so `fn serde_json() {}` does not hide `serde_json::x`.
+    fn bind(&mut self, name: String) {
+        if self.inline.is_empty() && self.blocks == 0 {
+            self.out.declared.insert(name);
         }
     }
 
@@ -181,10 +196,21 @@ impl Walker<'_> {
                     list.delimiter.span().join(),
                 ),
             }
-            let mut found = Vec::new();
-            string_paths(list.tokens.clone(), 0, &mut found);
-            self.refer_chains(found);
+            if !LINTS.iter().any(|lint| path.is_ident(lint)) {
+                self.attribute_strings(list);
+            }
         }
+    }
+
+    /// The paths in the strings of an attribute. A lint attribute holds lint names and a `reason`
+    /// text, not paths of the file, so the caller skips it.
+    fn attribute_strings(&mut self, list: &syn::MetaList) {
+        let mut found = Vec::new();
+        if string_paths(list.tokens.clone(), 0, &mut found).is_none() {
+            let reason = "A string in an attribute holds a path that the scan cannot read";
+            self.concern(reason.to_owned(), list.delimiter.span().join());
+        }
+        self.refer_chains(found);
     }
 
     fn gate(&mut self, attrs: &[Attribute], what: &str, span: Span) {
@@ -200,8 +226,20 @@ impl Walker<'_> {
                 self.use_tree(prefix, &path.tree);
                 prefix.pop();
             }
-            UseTree::Name(name) => self.leaf(prefix, Some(&name.ident)),
-            UseTree::Rename(rename) => self.leaf(prefix, Some(&rename.ident)),
+            UseTree::Name(name) => {
+                // `use crate::a::serde_json;` declares a name; `use serde_json;` names the crate.
+                if prefix
+                    .first()
+                    .is_some_and(|root| matches!(root.as_str(), "crate" | "self" | "super"))
+                {
+                    self.bind(name.ident.to_string());
+                }
+                self.leaf(prefix, Some(&name.ident));
+            }
+            UseTree::Rename(rename) => {
+                self.bind(rename.rename.to_string());
+                self.leaf(prefix, Some(&rename.ident));
+            }
             UseTree::Glob(glob) => {
                 let span = glob.star_token.spans[0];
                 self.leaf_at(prefix, span);
@@ -263,14 +301,11 @@ fn to_i64(value: usize) -> i64 {
 
 fn item_name(item: &Item) -> Option<String> {
     let ident = match item {
-        Item::Fn(item) => &item.sig.ident,
         Item::Struct(item) => &item.ident,
         Item::Enum(item) => &item.ident,
         Item::Union(item) => &item.ident,
         Item::Trait(item) => &item.ident,
         Item::Type(item) => &item.ident,
-        Item::Const(item) => &item.ident,
-        Item::Static(item) => &item.ident,
         Item::Mod(item) => &item.ident,
         _ => return None,
     };
@@ -280,9 +315,15 @@ fn item_name(item: &Item) -> Option<String> {
 impl<'ast> Visit<'ast> for Walker<'_> {
     fn visit_item(&mut self, item: &'ast Item) {
         if let Some(name) = item_name(item) {
-            self.out.declared.insert(name);
+            self.bind(name);
         }
         visit::visit_item(self, item);
+    }
+
+    fn visit_block(&mut self, block: &'ast syn::Block) {
+        self.blocks += 1;
+        visit::visit_block(self, block);
+        self.blocks -= 1;
     }
 
     fn visit_attribute(&mut self, attr: &'ast Attribute) {

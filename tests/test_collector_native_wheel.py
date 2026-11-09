@@ -4,7 +4,7 @@
 """AD-317, AD-335: a platform wheel carries the native TypeScript and Rust collectors.
 
 Consumer: the release build, which sets `ARCHKEEL_BUNDLE_NATIVE`. The host uses the bundled Rust
-binary as its default collector (`analyzer/native_binary.py`); the TypeScript binary is not wired
+binary as its default collector (`cli/observe.py`); the TypeScript binary is not wired
 yet, so the test finds it with `importlib.resources` itself. The test marked
 `native_wheel` needs a Rust toolchain: `make native-wheel` runs it on each target of the wheel
 matrix in Full verification.
