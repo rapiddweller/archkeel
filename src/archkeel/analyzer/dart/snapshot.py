@@ -84,6 +84,8 @@ class Snapshot:
     inputs: tuple[ResolutionInput, ...]
     problems: tuple[SnapshotProblem, ...]
     roots: tuple[str, ...]
+    # First module segment of each source; read_snapshot builds it once for all imports.
+    module_roots: frozenset[str] = frozenset()
 
     def import_gap(self, package: str, separator: str, target_path: str) -> str | None:
         """Give the reason why a `package:` import cannot be used, or None when it can."""
@@ -93,9 +95,7 @@ class Snapshot:
             return "the package name is unreadable"
         if not self.package_name:
             return "the snapshot root has no pubspec.yaml, so the own package is unknown"
-        if package != self.package_name and any(
-            source.module.partition(".")[0] == package for source in self.sources
-        ):
+        if package != self.package_name and package in self.module_roots:
             return (
                 "the import names the analysed package, but the root pubspec.yaml declares another"
             )
@@ -426,4 +426,5 @@ def read_snapshot(request: CollectionRequest) -> Snapshot:
         tuple(inputs[key] for key in sorted(inputs)),
         tuple(problems),
         roots,
+        frozenset(source.module.partition(".")[0] for source in sources),
     )
