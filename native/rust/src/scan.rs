@@ -98,6 +98,10 @@ pub struct Scan {
     /// Every name that the file declares or imports, in any namespace and at any depth. The scan
     /// does not decide which item a path means: a root that is also in this set is UNKNOWN.
     pub names: BTreeSet<String>,
+    /// The names of `names` that can hide a crate. A name is left out only when its single
+    /// source is a `use` leaf that the crate of that name itself provides (`use anyhow::anyhow;`):
+    /// whichever item a path `anyhow::x` then picks, it lies in the crate `anyhow`.
+    pub shadows: BTreeSet<String>,
 }
 
 /// Scan one file. A syntax error is `Err` with its line.
@@ -143,7 +147,18 @@ impl Walker<'_> {
 
     /// A name that the file declares or imports, anywhere in it.
     fn bind(&mut self, name: String) {
+        self.out.shadows.insert(name.clone());
         self.out.names.insert(name);
+    }
+
+    /// A `use` leaf binds `name`. When the path of the leaf starts with a crate of that same name,
+    /// the binding is no shadow of that crate.
+    fn bind_leaf(&mut self, name: String, prefix: &[String]) {
+        if prefix.first() == Some(&name) {
+            self.out.names.insert(name);
+        } else {
+            self.bind(name);
+        }
     }
 
     fn concern(&mut self, reason: String, span: Span) {
@@ -233,11 +248,13 @@ impl Walker<'_> {
                 } else {
                     Some(name.ident.to_string())
                 };
-                bound.into_iter().for_each(|bound| self.bind(bound));
+                bound
+                    .into_iter()
+                    .for_each(|bound| self.bind_leaf(bound, prefix));
                 self.leaf(prefix, Some(&name.ident));
             }
             UseTree::Rename(rename) => {
-                self.bind(rename.rename.to_string());
+                self.bind_leaf(rename.rename.to_string(), prefix);
                 self.leaf(prefix, Some(&rename.ident));
             }
             UseTree::Glob(glob) => {

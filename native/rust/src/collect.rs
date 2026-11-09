@@ -134,7 +134,7 @@ impl Builder {
             let found = classify(
                 &reference.root,
                 krate,
-                &module.scan.names,
+                &module.scan.shadows,
                 reference.absolute,
             );
             match found {

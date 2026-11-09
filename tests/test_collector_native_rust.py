@@ -437,3 +437,41 @@ def test_a_message_a_name_or_a_lint_is_no_edge_and_no_gap(
 
     assert result["observation_complete"] == "PASS"
     assert statuses(result)["REQUIRES"] == "PASS"
+
+
+OWN_IMPORT = [
+    "use base_crate::base_crate;\npub fn run() { base_crate::make(); }\n",
+    "use base_crate::{Other, base_crate};\npub fn run() { base_crate::make(); }\n",
+    "use base_crate::Error as base_crate;\npub fn run() { base_crate::make(); }\n",
+]
+FOREIGN_IMPORT = [
+    "use other::base_crate;\npub fn run() { base_crate::make(); }\n",
+    "use other::Error as base_crate;\npub fn run() { base_crate::make(); }\n",
+    "mod base_crate {}\nuse base_crate::base_crate;\npub fn run() { base_crate::make(); }\n",
+]
+
+
+@pytest.mark.parametrize("source", OWN_IMPORT, ids=range(len(OWN_IMPORT)))
+def test_a_name_that_only_its_own_crate_provides_keeps_the_edge(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert statuses(result)["REQUIRES"] == "FAIL"
+    assert not any("A local name equals a crate name" in claim for claim in _claims(result))
+
+
+@pytest.mark.parametrize("source", FOREIGN_IMPORT, ids=range(len(FOREIGN_IMPORT)))
+def test_a_name_from_another_source_stays_unknown(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert statuses(result).get("REQUIRES") != "PASS"
+    assert any("A local name equals a crate name: base_crate" in c for c in _claims(result))

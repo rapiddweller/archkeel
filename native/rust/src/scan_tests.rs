@@ -278,3 +278,29 @@ fn a_crate_name_that_the_file_also_names_is_collected_with_its_references_for_th
         );
     }
 }
+
+#[test]
+fn a_name_that_only_its_own_crate_provides_is_no_shadow_and_any_other_source_is() {
+    let shadows = |text: &str| scanned(text).shadows.into_iter().collect::<Vec<_>>();
+    let none = Vec::<String>::new();
+    // The leaf comes from the crate of the same name: both candidates lie in that crate.
+    assert_eq!(shadows("use anyhow::anyhow;"), none);
+    assert_eq!(shadows("use indoc::{indoc, formatdoc};"), ["formatdoc"]);
+    assert_eq!(shadows("use anyhow::Error as anyhow;"), none);
+    assert_eq!(shadows("use anyhow::anyhow as anyhow;"), none);
+    assert_eq!(shadows("use ::anyhow::anyhow;"), none);
+    assert_eq!(shadows("use anyhow::{self};"), none);
+    // A leaf from another crate, a rename from another crate, an item and a module hide it.
+    assert_eq!(shadows("use other::anyhow;"), ["anyhow"]);
+    assert_eq!(shadows("use other::Error as anyhow;"), ["anyhow"]);
+    assert_eq!(shadows("use anyhow;"), ["anyhow"]);
+    assert_eq!(shadows("struct anyhow;"), ["anyhow"]);
+    // One foreign source is enough, in either order.
+    assert_eq!(shadows("mod anyhow {}\nuse anyhow::anyhow;"), ["anyhow"]);
+    assert_eq!(
+        shadows("use anyhow::anyhow;\nuse other::anyhow;"),
+        ["anyhow"]
+    );
+    // The name is still collected.
+    assert!(scanned("use anyhow::anyhow;").names.contains("anyhow"));
+}
