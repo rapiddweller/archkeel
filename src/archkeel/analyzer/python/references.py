@@ -21,8 +21,7 @@ from archkeel.ir.facts import (
     in_scope,
     stable_id,
 )
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
-from archkeel.ir.reference_context import source_reference_context
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, source_reference_context
 
 from .resolve import SymbolIndex, dotted_expression, resolve_name
 from .scopes import LexicalScopes

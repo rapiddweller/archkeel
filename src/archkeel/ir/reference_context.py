@@ -29,11 +29,10 @@ REFERENCE_CONTEXT_CACHE_MAX_CHARS = 256
 
 
 class _Uncacheable(Exception):
-    """Carry a verdict that depends on the call depth, so that the cache never keeps it."""
+    """Carry a verdict that depends on the call depth, so that the cache never keeps it.
 
-    def __init__(self, verdict: SourceReferenceContext | None) -> None:
-        super().__init__()
-        self.verdict = verdict
+    The verdict is the one argument: an exception is never stored by `lru_cache`.
+    """
 
 
 def source_reference_context(
@@ -54,7 +53,8 @@ def source_reference_context(
     try:
         return _remembered_context(excerpt, column, expression)
     except _Uncacheable as uncacheable:
-        return uncacheable.verdict
+        verdict: SourceReferenceContext | None = uncacheable.args[0]
+        return verdict
 
 
 @lru_cache(maxsize=REFERENCE_CONTEXT_CACHE_SIZE)

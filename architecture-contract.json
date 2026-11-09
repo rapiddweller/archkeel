@@ -123,7 +123,6 @@
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
         "archkeel.ir.validated_facts:ensure_valid_source_facts",
-        "archkeel.ir.reference_context:source_reference_context",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_proofs:class_instance_member_write_names",
         "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt",
@@ -464,7 +463,6 @@
             "archkeel.ir.profiles:is_test_source",
             "archkeel.ir.guard_paths:GuardedCallPath",
             "archkeel.ir.guard_paths:guarded_call_paths",
-            "archkeel.ir.reference_context:source_reference_context",
             "archkeel.ir.source_proofs:class_instance_member_write_names",
             "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt"
           ],

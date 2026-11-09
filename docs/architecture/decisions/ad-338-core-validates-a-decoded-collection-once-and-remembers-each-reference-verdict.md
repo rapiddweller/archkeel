@@ -30,8 +30,9 @@ validations and from `parse_observation`. The host called `ast.parse` 23 796 tim
 7. A verdict that came from a `RecursionError` of `ast.parse` depends on the depth of the caller.
    It is returned but never kept. The numeric parser keeps its own older cache; this decision
    does not change it.
-8. The collector calls the same pure function in `analyzer/python/references.py`, so it gets the
-   same cache. The host calls it on the decoded bytes and does not trust the collector verdict.
+8. The collector calls the same pure function in `analyzer/python/references.py` through the
+   re-export of `facts_codec`, so it gets the same cache. A direct import adds one line to a file
+   over the size limit (AD-314), so the re-export stays. The host calls it on the decoded bytes and does not trust the collector verdict.
 
 **Rejected.**
 - **A marker field on `SourceFacts`.** `dataclasses.replace` copies it, so a changed copy would
