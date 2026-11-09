@@ -267,7 +267,7 @@ def _part(facts: dict[str, Any], name: str) -> Any:
 
 
 def differences(want: Any, got: Any, path: str = "reply", limit: int = 5) -> list[str]:
-    """The first paths where two JSON values differ. For lists of unequal length: the first element."""
+    """The first paths where two JSON values differ. A list of other length shows its first element."""
     found: list[str] = []
 
     def walk(a: Any, b: Any, where: str) -> None:

@@ -8,14 +8,34 @@
     "bindings",
     "constructs"
   ],
+  "features": [
+    "literal-imports",
+    "relative-specifiers",
+    "node-builtins",
+    "local-runtime-closure",
+    "inner-uml-v1",
+    "script-globals-v1"
+  ],
+  "order": [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs"
+  ],
   "rest": {
     "counts": {
+      "candidate_evidence": 0,
       "evidence": 2477,
       "files": 16,
       "imports": 228,
-      "inputs": 17
+      "inputs": 17,
+      "type_shapes": 0,
+      "uncertain_reexports": 0
     },
-    "sha256": "9f3f6b4a09db752fbc586f7a254d3d8de25881b7df2504c2d8f7a226b42a4fde"
+    "sha256": "00ca428c01e1ec49c77fb4d1fcfc013a40c9d050638f0c04c19f9e40d4c8a5f7"
   },
   "sections": {
     "bindings": {

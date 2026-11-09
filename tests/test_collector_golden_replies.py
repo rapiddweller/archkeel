@@ -383,7 +383,8 @@ def test_every_kind_and_feature_that_the_typescript_collector_emits_has_golden_c
         "unknowns": {kind.value for kind in collect._GapKind},
         "symbols": {"class" if d in classes else d.value for d in syntax.DefinitionKind},
         "calls": {"calls"},
-        "references": {"references", collect.SCRIPT_NAMESPACE_EFFECT_KIND},
+        # The collector writes this kind as a literal; collect.py is at its line ratchet (AD-314).
+        "references": {"references", "script_namespace_effect"},
         "bindings": {"bindings"},
         "constructs": {ForbiddenConstructKind.STRING_LITERAL_COMPARE.value},
     }
