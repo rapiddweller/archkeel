@@ -17,11 +17,11 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
    `std`, `core` and `alloc` are builtin. A path inside one crate gives no record (5b-2).
 4. A first segment is a crate when it is a dependency name in `Cargo.toml` (`package =` renames,
    `workspace = true` and `[target.*]` tables too) and the file declares no type, module or `use`
-   rename of that name. A function, a constant and a static are values, so they do not hide a
+   rename of that name. A path that starts with `::` names a crate, and no local name hides it. A function, a constant and a static are values, so they do not hide a
    crate. The collector reads `Cargo.toml` itself and starts no process.
-5. A derive never makes a file UNKNOWN. A path in an attribute is an edge, also in a string
-   (`"crate_a::codec"`, `"T: crate_a::X"`). The collector reads the text as tokens. A text with `::`
-   that does not read is UNKNOWN. UNKNOWN, each with its reason: a macro call with a path in its body
+5. A derive never makes a file UNKNOWN. A path in an attribute is an edge, also in a string under
+   a key that holds paths (serde `with`, `bound`, `remote`, ...), read as tokens; a text with `::`
+   that does not read is UNKNOWN. A message or a name (`deprecated(note = ...)`) and a lint list are no path. UNKNOWN, each with its reason: a macro call with a path in its body
    (the macros of `std` and `json!` are read), `macro_rules!`, `include!`, a `cfg` or `cfg_attr` on a
    `mod` or `use`, a non-literal `path`, an attribute macro on a module, a missing or ambiguous
    module file, a syntax error, brackets nested deeper than 256, a file that two modules load, an
@@ -31,8 +31,13 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
    targets and the dev- and build-dependencies give edges like any other. Slice 5b-2 marks the scope.
 7. The profile copies the unsupported rules of TypeScript and adds `interface_boundary`: every
    target of a local crate is its root module, so a public list that names the root would pass.
-   A component, a `forbidden_dependency` or `allowed_dependency` rule, or a module-level cycle rule
-   below a crate root is UNKNOWN until 5b-2 writes the edges inside a crate.
+   `crate_scope.py` makes each scope that needs the edges inside a crate UNKNOWN until 5b-2:
+   a component, and each field that names a module in `forbidden_dependency`,
+   `allowed_dependency` and `sibling_isolation` (`members` too), when the name is below a crate
+   root or covers the modules of one crate; a module-level cycle rule. The same check runs on the
+   contract of a component (`inside`). A table over the whole catalog lists each rule kind and
+   field, so a new kind or field fails a test until a person reviews it. A profile must declare
+   `crate_edges_only`, with no default.
 8. The host uses the bundled binary as the default collector (`archkeel/_native`, found from
    `__file__` in `cli/observe.py`). Without it `Language.RUST` reports `missing_tool` with the path.
    A configured `collector_argv` wins. `native/hatch_build.py` bundles a third binary with its SBOM.
