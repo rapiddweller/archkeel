@@ -50,7 +50,7 @@ from archkeel.ir.facts_codec import (
     record_evidence,
 )
 from archkeel.ir.identity import module_identity
-from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
+from archkeel.ir.protocol import CollectionRequest, GapTitle, TypeScriptSettings
 
 from .config import (
     ModuleKind,
@@ -642,7 +642,7 @@ class _Collection:
                     kind=_GapKind.RESOLUTION,
                 )
             return target
-        reason = f"Script global {path[0]} has no unique unconditional publication"
+        reason = f"Script global {path[0]}{GapTitle.UNPUBLISHED_GLOBAL}"
         self.targets.append(UnresolvedTarget(identity, path[0], reason))
         self._gap(reason, (evidence,), module, kind=_GapKind.RESOLUTION)
         return path[0]
@@ -1881,7 +1881,7 @@ class _Collection:
         snapshot: Snapshot = self.snapshot
         content = snapshot.read(rel)
         if content is None:
-            self._gap(f"Unreadable selected source: {rel}")
+            self._gap(f"{GapTitle.UNREADABLE_SOURCE}: {rel}")
             return
         try:
             module: str = module_identity(self.namespace, rel)
@@ -1919,9 +1919,8 @@ class _Collection:
         self.modules[rel] = module
         if syntax.first_error is not None:
             line = syntax.first_error.line
-            self._gap(
-                f"Syntax error in {rel}: unparseable construct at line {line}", (evidence,), module
-            )
+            title = f"{GapTitle.SYNTAX_ERROR}{rel}: unparseable construct at line {line}"
+            self._gap(title, (evidence,), module)
         for concern in syntax.concerns:
             self._gap(concern.reason, (self._cite(rel, concern.span),), module)
         if syntax.script_mode:
@@ -2097,7 +2096,7 @@ class _Collection:
             asset = self._bundler_asset(rel, identity, specifier) if self.bundler else None
             if asset is not None:
                 return asset
-            return self._unresolved(module, identity, specifier, f"Unresolved module: {specifier}")
+            return self._unresolved(module, identity, specifier, f"{GapTitle.NO_MODULE}{specifier}")
         return self._local(rel, module, reference, identity, found)
 
     def _bundler_asset(self, rel: str, identity: str, specifier: str) -> ImportTarget | None:
@@ -2133,7 +2132,7 @@ class _Collection:
             if source.kind is SpecifierKind.IMPORTS:
                 reason = f"External package alias identity is not observed: {specifier}"
             elif source.relative:
-                reason = f"Unidentified external package: {specifier}"
+                reason = f"{GapTitle.UNIDENTIFIED_PACKAGE}{specifier}"
             else:
                 return ExternalPackageTarget(identity, source.package)
             return self._unresolved(module, identity, specifier, reason)

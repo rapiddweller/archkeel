@@ -44,7 +44,7 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_codec import (
     record_evidence as record_evidence,
 )
-from archkeel.ir.protocol import PythonProviderSource
+from archkeel.ir.protocol import GapTitle, PythonProviderSource
 from archkeel.ir.source_records import FRAMEWORK_BASES as FRAMEWORK_BASES
 from archkeel.ir.source_records import is_public_method_name as is_public_method_name
 
@@ -3066,7 +3066,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
                     evidence_class=EvidenceClass.UNKNOWN,
                     area="analysis_coverage",
                     kind=exc.__class__.__name__,
-                    title=f"{rel}:{line} could not be analyzed",
+                    title=f"{rel}:{line}{GapTitle.FILE_FAILURE}",
                     subjects=[rel],
                     data={"file": rel, "line": line, "message": str(message)},
                 )

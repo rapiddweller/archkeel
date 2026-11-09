@@ -512,7 +512,13 @@ def test_command8_retains_legacy_unknown_and_requires_a_partial_fail_row(
     assert not legacy.is_valid(payload)
     unknown = copy.deepcopy(payload)
     unknown["declared_rules"] = "UNKNOWN"
-    assert legacy.is_valid(unknown) and current_validator.is_valid(unknown)
+    assert current_validator.is_valid(unknown)
+    # A result of version 7 has only the old kinds (AD-336).
+    old_kinds = {
+        **unknown,
+        "diagnostics": [{**item, "kind": "parse_error"} for item in unknown["diagnostics"]],
+    }
+    assert legacy.is_valid(old_kinds)
     for field, value in (
         ("declared_rules", "PASS"),
         ("command", "check"),

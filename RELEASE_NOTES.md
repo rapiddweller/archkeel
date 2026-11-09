@@ -79,7 +79,10 @@ collection adds **SourceFacts/protocol 4.0.0** for captured source, provider bin
 and supported context-manager signatures. Generic collection retains its 3.0.0
 default; known 1/2/3 packets remain readable without the new payloads.
 
-New observations use ArchitectureIR **2.1.0** and command-result **11.0.0**.
+New observations use ArchitectureIR **2.1.0** and command-result **12.0.0**.
+A coverage gap names its cause in the diagnostic `kind`: `unresolved_import`, `not_examined` or
+`incomplete_scan` instead of `parse_error` (AD-336). Exit codes and verdicts do not change.
+A strict consumer must accept the new kinds; result schema 12.0 lists them.
 Python 2.1 call records require `call_binding`, including an explicit `null` when
 unproved; an omitted key is invalid. Supported historical reports remain readable;
 command schemas 6/7/8 reject 2.1 observations.
