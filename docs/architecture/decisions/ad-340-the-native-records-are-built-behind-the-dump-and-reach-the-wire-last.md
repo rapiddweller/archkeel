@@ -5,18 +5,13 @@ The records are built and compared with the unmodified Python collector first. T
 legacy reply of AD-320 (sections `imports` and `unknowns`, no construct capability) until the last
 PR, so the host cannot read a new record and no verdict can change. This record extends AD-323.
 
-1. **3a (this PR): the expanded imports and the constructs.** `records.rs` builds one `IMP_BINDING`
-   record for each bound name (`_named_imports`), the `ESM_EXPORT` witnesses (`_export_binding`)
-   and the `TSCONSTRUCT` records (`_constructs`). The `dump` feature prints them with
-   `--dump-records`. A plain collection keeps nothing for them (`keep` is false).
-2. **3b: symbols** (`TSDEF`, classifier data, bases, member inventories). **3c: calls, references and
-   bindings** with the resolver. Both fill a section with `Record`; neither changes `native/wire`.
+1. **3a: the expanded imports and the constructs.** `records.rs` builds one `IMP_BINDING` record for
+   each bound name (`_named_imports`), the `ESM_EXPORT` witnesses and the `TSCONSTRUCT` records
+   (`_constructs`). The `dump` feature prints them with `--dump-records`.
+2. **3b: symbols** (`TSDEF`). **3c: calls, references and bindings** with the resolver.
 3. **3d: the streamed reply, the flip and the verdict differential.** Only 3d moves the records into
-   `Facts.sections` and the construct capability into `Facts.constructs`, declares the inner-UML
-   capability, and runs the verdict test against the default collector.
-4. **The wire has every type now.** `Record` has `fact_ids`. `Facts.sections` holds any section by
-   name (`imports`, `symbols`, `calls`, `references`, `bindings`, `constructs`), and
-   `Facts.constructs` holds the construct capabilities. A test encodes all six sections.
+   `Facts.sections` and declares the inner-UML capability. `Facts.sections` holds any section by
+   name and `Facts.constructs` the construct capabilities.
 
 **Oracle.** `tests/test_collector_native_records.py` runs the Python methods in the order of
 `_Collection.facts()` up to `_constructs()` and compares all sections and the cited evidence on the
@@ -26,45 +21,46 @@ fixtures, the Studio UI, the resolution grid, mutated projects and `ARCHKEEL_REC
 each bound name. `Kept` indexes both, so n statements and n exports stay linear. Four shapes have a time
 ratio and a memory bound; they found a loop of PR 4.2 (`Snapshot::read`, now `readable`).
 
-**Note, 2026-11-09 (3b): symbols.** `symbols.rs` builds one `TSDEF` record for each definition
-(`_inner_symbols`, `_symbol_metadata`, `_classifier_data`, `_attribute_declaration`, `_base_record`),
-and `symbol_table.rs` is the table that 3c reads: `SymbolTable::build(&Pending)`, `entries`,
-`at(rel, line, column)` (`ids`), `with_qualified(name)` and `count(name)` (`by_qualified`),
-`classifier_count(name)`, `scope(name, line, column)` (`scope_ids`), `top_level(module)` and
-`in_module(module)`. Counts are constant time, so a name with k definitions costs k. Python scans
-all definitions for each class to find its methods; a map keyed by module, parent name and position
-does it once. The evidence of a location is decided by its last citation (`record_evidence`
-overwrites), so `Cited` starts from the evidence of the reply and the order of the new records
-follows Python: imports, symbols, then constructs. 3c cites the sites between them; the oracle
-leaves those locations to 3c.
+**Note, 2026-11-09 (3b): symbols.** `symbols.rs` builds one `TSDEF` record for each definition, and
+`symbol_table.rs` is the table that 3c reads (`at`, `with_qualified`, `count`, `classifier_count`,
+`scope`, `top_level`, `in_module`). Counts are constant time, so a name with k definitions costs k;
+a map keyed by module, parent name and position replaces the scan of all definitions for each
+class. The evidence of a location is decided by its last citation (`record_evidence` overwrites), so
+`Cited` starts from the evidence of the reply and the new records cite in the order of Python:
+imports, symbols, sites, constructs.
 
 **Note, 2026-11-09 (3c): calls, references and bindings.** `site_records.rs` builds the `TSCALL`,
-`TSREF` and `VALUEBIND` records (`_inner_sites` and the record builders), and `resolution.rs` is the
-syntactic resolver (`_site_resolution`, `_unqualified_candidates`, `_local_import_bindings`). Python
-scans the top-level definitions and the definitions of the imported module for each site, and the
-members of the class for each `this` reference; the symbol table answers each with one lookup
-(`top_named`, `named_in`, `has_member`, `class_count`). The question "does a scope of the chain
-hide this name" no longer unites the sets of the chain: `NameIndex` keeps for each scope the ranges
-that its ancestors do not cover, and one binary search in the positions of the name answers it. The
-oracle compares all sections with all evidence now, because the sites cite after the symbols as in
-Python. Not ported: the script paths
-(`script_resolution`, `script_evidence`, `_script_alias_bindings`) belong to PR 4.3a-4 and 4.3a-5.
-The oracle is the Python collector **without `_script_dependencies`**, not the whole Python
-collector: Python runs that producer on every file that is neither a declaration nor CommonJS, an
-ES module included. `Scene.create()` in `mod.ts`, with `legacy.js` publishing `Scene`, is `resolved`
-in full Python (target `legacy_x2e_js.create`, fact `SCRIPTPUBLICATION`) and `unresolved` here;
-a strict xfail test pins the case until 4.3a-4 and 4.3a-5. The records are written one at a time
-(`symbols::each`, `site_records::pass`): a pass for the calls and a pass for the references, so no
-list of all records of a project exists on the wire path. `NameIndex` keeps a list of parameter
-ranges that grows with the depth of the nest: 10 000 nested scopes with 100 000 sites take 2.2 s
-against 1.1 s without the nest (measured in review): bounded, quadratic in the depth, not fixed.
+`TSREF` and `VALUEBIND` records and `resolution.rs` is the syntactic resolver. The symbol table
+answers each lookup that Python does by a scan (`top_named`, `named_in`, `has_member`,
+`class_count`), and `NameIndex` answers "does a scope of the chain hide this name" with one binary
+search in the positions of the name. Not ported: the script paths (`script_resolution`,
+`script_evidence`, `_script_alias_bindings`, PR 4.3a-4 and 4.3a-5). The oracle is the Python
+collector **without `_script_dependencies`**, which Python runs on every file that is neither a
+declaration nor CommonJS, an ES module included: `Scene.create()` in `mod.ts`, with `legacy.js`
+publishing `Scene`, is `resolved` in full Python (fact `SCRIPTPUBLICATION`) and `unresolved` here;
+a strict xfail test pins it. `NameIndex` keeps parameter ranges that grow with the depth of the
+nest: 10 000 nested scopes with 100 000 sites take 2.2 s against 1.1 s (not fixed).
 
 **Note, 2026-11-09 (3d): the flip.** The reply declares seven sections, `inner-uml-v1` and the construct
-`string_literal_compare` as `partial`; the host reads it as the reply of the default collector, except
-the closed list: script facts (4.3a-4/5, so the 4.2 gap stays and every verdict that needs them is
-`UNKNOWN`), provenance, and the script-global case of 3c. `native/wire/src/stream.rs` writes the
-head, each section record by record (a record is dropped after it is written) and the tail into the
-zlib encoder, and fails when a declared section is not written or an undeclared one is. Data keys
-have another order than Python, so tests compare decoded values. A reply of 36 MB (x35) costs 3.3 s
-and 528 MiB in the collector but 2.9 GiB in the host, which decodes the whole reply: the host is the
-next limit. Scaling shapes with a quadratic reply by the data model (`WALK_ONLY`) time `--dump-count`.
+`string_literal_compare` as `partial`. The host reads it as the reply of the default collector, except
+the closed list: script facts (the 4.2 gap stays, so every verdict that needs them is `UNKNOWN`),
+provenance, and the script-global case of 3c. One producer, `Plan::write` in `records.rs`, gives
+each section to a sink: `native/wire/src/stream.rs` writes the head, each record (dropped after it is
+written) and the tail through the compressor to stdout, and fails when a declared section is not
+written or an undeclared one is; the lists of the tests use the same code. Data keys have another
+order than Python, so tests compare decoded values.
+
+**Precondition for 4.3a-5.** The host takes a declared section that is present and empty as
+complete: with the default collector `calls`, `references` and `constructs` emptied give
+`complete=PASS` (`imports`, `symbols`, `bindings` give UNKNOWN). The native collector is safe only
+while the 4.2 gap makes every scan incomplete. Before the gap goes, the host must refuse a claimed
+and empty section (the strict xfail `test_a_section_that_is_emptied_is_never_a_pass`).
+
+**Cost.** x35: collector 2.9 s and 431 MiB (3c: 1.0 s, 117 MiB), reply 36 MB; the host decodes the
+whole reply (2.9 GiB). The gate of at most 2 times the time of 3c is missed (2.9 times): after the
+walk, the time goes to building and writing 270 MB of JSON (malloc, copy), not to the compressor
+(stored blocks take as long; zlib-rs is 2 % faster and its licence is not allowed). The quadratic
+replies by the data model (the qualified name of each nested definition is in each record) are
+timed by their time for each byte of the reply and by an absolute peak (192 MiB) on the real
+collector, and by `--dump-count` for the walk. A shared name cut `writes-distinct-names` n=8 000
+from 1 302 to 474 MiB.

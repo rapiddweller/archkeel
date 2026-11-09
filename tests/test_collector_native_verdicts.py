@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.analyzer.process import ProcessCollector
+from archkeel.analyzer.typescript.collect import collect
 from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
@@ -154,6 +155,8 @@ def test_native_is_never_less_cautious_than_the_default_collector(
 
 
 REPLAY = str(Path(__file__).with_name("replay_collector.py"))
+# The sections that the host takes as complete when they are present and empty (measured).
+UNCHECKED_WHEN_EMPTY = ("calls", "references", "constructs")
 INNER_SECTIONS = ("symbols", "calls", "references", "bindings", "constructs", "imports")
 
 
@@ -171,6 +174,14 @@ def _passing_variant(tmp_path: Path) -> tuple[str, Path]:
     raise AssertionError("no catalog variant passes with the default collector")
 
 
+def _filled_sections(root: Path) -> list[str]:
+    """The sections that hold records in the reply of the default collector for `root`."""
+    from test_collector_native_typescript import _request
+
+    facts = collect(_request(root))
+    return [item.name.value for item in facts.sections if item.records]
+
+
 def test_a_reply_that_lacks_a_declared_section_is_never_a_pass(tmp_path: Path) -> None:
     """The host fails closed: a section that the capability declares must be in the reply.
 
@@ -178,15 +189,35 @@ def test_a_reply_that_lacks_a_declared_section_is_never_a_pass(tmp_path: Path) -
     does with a damaged reply of one is what it does with a damaged reply of the other.
     """
     name, root = _passing_variant(tmp_path)
+    filled = _filled_sections(root)
+    assert filled, name
     for section in INNER_SECTIONS:
-        for mode in ("drop", "empty"):
-            damaged = _replayed(root, "python", mode, section)
-            # An empty section is a claim that nothing exists: only a missing section is refused.
-            if mode == "drop":
-                assert damaged["complete"] != "PASS", (name, section, mode)
-                assert damaged["exit"] != 0, (name, section, mode)
+        damaged = _replayed(root, "python", "drop", section)
+        assert damaged["complete"] != "PASS", (name, section)
+        assert damaged["exit"] != 0, (name, section)
+    for section in filled:
+        emptied = _replayed(root, "python", "empty", section)
+        if section in UNCHECKED_WHEN_EMPTY:
+            # The host accepts these sections present and empty as a complete scan. This pins what
+            # it does today; the next test says what it must do (AD-340).
+            assert emptied["complete"] == "PASS" and emptied["exit"] == 0, (name, section)
+        else:
+            assert emptied["complete"] != "PASS", (name, section)
     claimed = _replayed(root, "python", "claim", "symbols")
     assert claimed["complete"] != "PASS", name
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="the host accepts a declared section that is present and empty as complete; the "
+    "native collector is safe only while the 4.2 gap makes every scan incomplete (AD-340): the "
+    "host must refuse it before PR 4.3a-5 removes the gap",
+)
+def test_a_section_that_is_emptied_is_never_a_pass(tmp_path: Path) -> None:
+    name, root = _passing_variant(tmp_path)
+    for section in _filled_sections(root):
+        emptied = _replayed(root, "python", "empty", section)
+        assert emptied["complete"] != "PASS", (name, section)
 
 
 def test_the_host_notices_a_damaged_native_reply(tmp_path: Path, native_binary: Path) -> None:
@@ -202,3 +233,8 @@ def test_the_host_notices_a_damaged_native_reply(tmp_path: Path, native_binary: 
         assert damaged["diagnostics"] != plain["diagnostics"], section
     claimed = _replayed(root, str(native_binary), "claim", "symbols")
     assert claimed["diagnostics"] != plain["diagnostics"]
+    # An emptied section is not refused by the host (see the xfail test above); no scan of the
+    # native collector is complete only because of the 4.2 gap.
+    for section in ("symbols", "calls", "references", "bindings", "constructs"):
+        emptied = _replayed(root, str(native_binary), "empty", section)
+        assert emptied["complete"] != "PASS", section

@@ -56,7 +56,9 @@ mod test_sources;
 mod test_tree;
 mod walk;
 
-use std::io::{Read, Write};
+use std::io::Read;
+#[cfg(feature = "dump")]
+use std::io::Write;
 use std::process::ExitCode;
 
 use archkeel_wire::protocol::reply_version;
@@ -74,13 +76,21 @@ fn provenance() -> Provenance {
     }
 }
 
-fn run() -> Result<Vec<u8>, String> {
+fn run() -> Result<(), String> {
     let mut payload = Vec::new();
     std::io::stdin()
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode(&payload)?;
-    collect::reply(&request, provenance(), reply_version(request.version))
+    // The compressed reply goes to stdout as it is made. A failure after the first byte leaves a
+    // partial reply and a nonzero exit, which the host refuses.
+    let stdout = std::io::stdout();
+    collect::reply(
+        &request,
+        provenance(),
+        reply_version(request.version),
+        stdout.lock(),
+    )
 }
 
 /// Test only: print the syntax facts of the files named on stdin, or with `--dump-records` the
@@ -112,7 +122,7 @@ fn dump_records(mut input: impl Read, output: &mut impl Write) -> Result<(), Str
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode(&payload)?;
-    let value = dump::records(&request, provenance());
+    let value = dump::records(&request, provenance())?;
     writeln!(output, "{value}").map_err(|error| error.to_string())
 }
 
@@ -122,13 +132,7 @@ fn main() -> ExitCode {
         return code;
     }
     match run() {
-        Ok(reply) => match std::io::stdout().write_all(&reply) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("archkeel-typescript-collector: cannot write the reply: {error}");
-                ExitCode::FAILURE
-            }
-        },
+        Ok(()) => ExitCode::SUCCESS,
         Err(reason) => {
             eprintln!("archkeel-typescript-collector: {reason}");
             ExitCode::FAILURE

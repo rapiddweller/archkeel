@@ -11,6 +11,7 @@
 //! and `unknowns`, and no `script-globals-v1` feature. It invents no evidence.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::Write;
 
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
 use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target};
@@ -22,7 +23,11 @@ use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
 use crate::paths::join;
 use crate::pytext::is_space;
-use crate::records::{apply, build, write_reply, Records};
+#[cfg(any(test, feature = "dump"))]
+use crate::records::listed;
+use crate::records::write_reply;
+#[cfg(any(test, feature = "dump"))]
+use crate::records::{records_of, Records};
 use crate::resolve::Resolver;
 use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;
@@ -31,7 +36,7 @@ use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
 /// The profile and adapter name of the Python TypeScript collector, so that this is a drop-in.
 pub const PROFILE: &str = "archkeel-typescript-imports";
 const SECTIONS: [&str; 2] = ["imports", "unknowns"];
-const FEATURES: [&str; 4] = [
+pub const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
     "node-builtins",
@@ -70,39 +75,38 @@ struct Collection<'a> {
     sites: HashMap<String, (String, i64, i64)>,
 }
 
-/// The reply of one request: the imports, the symbols, the calls, the references, the bindings and
-/// the constructs, with the capability `inner-uml-v1` (AD-340, PR 4.3a-3d).
+/// The reply of one request, written into `out`: the imports, the symbols, the calls, the
+/// references, the bindings and the constructs, with the capability `inner-uml-v1` (AD-340, PR
+/// 4.3a-3d). The compressed bytes go to `out` as they are made.
 pub fn reply(
     request: &Request,
     provenance: Provenance,
     version: archkeel_wire::protocol::Version,
-) -> Result<Vec<u8>, String> {
+    out: impl Write,
+) -> Result<(), String> {
     let (facts, pending) = gather(request, provenance, true);
-    let bytes = write_reply(version, facts, &pending);
+    let done = write_reply(version, facts, &pending, out);
     drop(pending);
-    bytes
+    done
 }
 
-/// The same facts with every section in a list, for the unit tests and the test-only dump.
-#[cfg_attr(not(test), allow(dead_code))]
+/// The same facts with every section in a list, for the unit tests: the producer of `reply`.
+#[cfg(test)]
 pub fn collect(request: &Request, provenance: Provenance) -> Facts {
-    let (mut facts, pending) = gather(request, provenance, true);
-    let records = build(&mut facts, &pending);
-    drop(pending);
-    apply(&mut facts, records);
-    facts
+    let (facts, pending) = gather(request, provenance, true);
+    listed(facts, &pending).unwrap().0
 }
 
-/// The facts of one request as the walk gathered them, and the records that `collect` would add.
-/// Only the `dump` feature calls it.
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub fn records(request: &Request, provenance: Provenance) -> (Facts, Records) {
-    let (mut facts, pending) = gather(request, provenance, true);
-    let records = build(&mut facts, &pending);
-    (facts, records)
+/// The facts as `collect` gives them and the records by the names of the tests and the dump.
+#[cfg(any(test, feature = "dump"))]
+pub fn records(request: &Request, provenance: Provenance) -> Result<(Facts, Records), String> {
+    let (facts, pending) = gather(request, provenance, true);
+    let (facts, touched) = listed(facts, &pending)?;
+    let records = records_of(&facts, touched);
+    Ok((facts, records))
 }
 
-fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pending) {
+pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pending) {
     let roots: Vec<String> = request.roots.iter().map(|root| join(".", root)).collect();
     let mut snapshot = Snapshot::new(&request.root);
     let config = load_config(&mut snapshot, &request.tsconfig, &roots);
@@ -181,6 +185,10 @@ fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pend
     let mut imports = collection.imports;
     imports.sort_by(|left, right| left.id.cmp(&right.id));
     let mut features = FEATURES.to_vec();
+    if keep {
+        // The records of the inner-UML capability come after the four features of the imports.
+        features.insert(FEATURES.len(), "inner-uml-v1");
+    }
     if collection.bundler {
         features.push("bundler-mode-v1");
     }

@@ -26,7 +26,7 @@ use crate::reply::{
     Provenance, Record, Target,
 };
 
-type Out = BufWriter<ZlibEncoder<Vec<u8>>>;
+type Out<W> = BufWriter<ZlibEncoder<W>>;
 
 /// What the reply says before the records: who made it, what it declares, and the small lists.
 pub struct Head {
@@ -53,20 +53,42 @@ pub struct Tail {
 }
 
 /// The writer of the sections of one reply.
-pub struct Sections<'a> {
-    out: &'a mut Out,
+pub struct Sections<'a, W: Write> {
+    out: &'a mut Out<W>,
     expected: Vec<&'static str>,
     written: usize,
 }
 
-impl Sections<'_> {
-    /// Write the next section. `fill` makes the records and gives each to the function it is
-    /// called with. The name must be the next one that the head declared.
-    pub fn section(
+/// The function that a section gives each record to.
+pub type Emit<'e> = &'e mut dyn FnMut(&Record);
+
+/// Where the records of a section go: the compressed reply, or the lists of a test.
+pub trait SectionSink {
+    /// Take the next section. `fill` makes the records and gives each to the function it is called
+    /// with.
+    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()>;
+
+    /// `section` with a function that is called once.
+    fn write_section(
         &mut self,
         name: &'static str,
         fill: impl FnOnce(&mut dyn FnMut(&Record)),
-    ) -> io::Result<()> {
+    ) -> io::Result<()>
+    where
+        Self: Sized,
+    {
+        let mut fill = Some(fill);
+        self.section(name, &mut |emit| {
+            if let Some(fill) = fill.take() {
+                fill(emit);
+            }
+        })
+    }
+}
+
+impl<W: Write> SectionSink for Sections<'_, W> {
+    /// The name must be the next one that the head declared.
+    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
         if self.expected.get(self.written) != Some(&name) {
             let reason = format!("the section {name} is not the next declared section");
             return Err(io::Error::new(io::ErrorKind::InvalidData, reason));
@@ -130,9 +152,10 @@ pub fn encode(version: Version, facts: Facts) -> Result<Vec<u8>, String> {
         files,
         imports,
     };
-    encode_stream(version, head, |writer| {
+    let mut bytes = Vec::new();
+    encode_stream(version, head, &mut bytes, |writer| {
         for (name, records) in sections {
-            writer.section(name, |emit| records.iter().for_each(emit))?;
+            writer.write_section(name, |emit| records.iter().for_each(emit))?;
         }
         Ok(Tail {
             selected_files,
@@ -140,28 +163,33 @@ pub fn encode(version: Version, facts: Facts) -> Result<Vec<u8>, String> {
             gaps,
             evidence,
         })
-    })
+    })?;
+    Ok(bytes)
 }
 
-/// Encode a reply for `version`. `produce` writes the sections and returns the tail.
-pub fn encode_stream(
+/// Encode a reply for `version` into `sink`. `produce` writes the sections and returns the tail.
+/// The compressed bytes go to `sink` as they are made, so the reply is never held whole.
+pub fn encode_stream<W: Write>(
     version: Version,
     head: Head,
-    produce: impl FnOnce(&mut Sections<'_>) -> io::Result<Tail>,
-) -> Result<Vec<u8>, String> {
+    sink: W,
+    produce: impl FnOnce(&mut Sections<'_, W>) -> io::Result<Tail>,
+) -> Result<(), String> {
     if version == Version::V3 {
         return Err("a native collector writes only the compressed reply".to_owned());
     }
-    let encoder = ZlibEncoder::new(Vec::new(), Compression::new(1));
+    let encoder = ZlibEncoder::new(sink, Compression::new(1));
     let mut out = BufWriter::with_capacity(1 << 16, encoder);
     write_reply(&mut out, version, head, produce)
         .map_err(|error| format!("cannot write the reply: {error}"))?;
     let encoder = out
         .into_inner()
         .map_err(|error| format!("cannot write the reply: {error}"))?;
-    encoder
+    let mut sink = encoder
         .finish()
-        .map_err(|error| format!("cannot compress the reply: {error}"))
+        .map_err(|error| format!("cannot compress the reply: {error}"))?;
+    sink.flush()
+        .map_err(|error| format!("cannot write the reply: {error}"))
 }
 
 /// The state of a JSON object that is written key by key into `out`.
@@ -170,12 +198,12 @@ struct Fields {
 }
 
 impl Fields {
-    fn open(out: &mut Out) -> io::Result<Self> {
+    fn open<W: Write>(out: &mut Out<W>) -> io::Result<Self> {
         out.write_all(b"{")?;
         Ok(Self { first: true })
     }
 
-    fn key(&mut self, out: &mut Out, name: &str) -> io::Result<()> {
+    fn key<W: Write>(&mut self, out: &mut Out<W>, name: &str) -> io::Result<()> {
         if !self.first {
             out.write_all(b",")?;
         }
@@ -184,17 +212,22 @@ impl Fields {
         out.write_all(b":")
     }
 
-    fn put(&mut self, out: &mut Out, name: &str, value: &impl Serialize) -> io::Result<()> {
+    fn put<W: Write>(
+        &mut self,
+        out: &mut Out<W>,
+        name: &str,
+        value: &impl Serialize,
+    ) -> io::Result<()> {
         self.key(out, name)?;
         Ok(serde_json::to_writer(out, value)?)
     }
 
-    fn list<T>(
+    fn list<T, W: Write>(
         &mut self,
-        out: &mut Out,
+        out: &mut Out<W>,
         name: &str,
         items: impl IntoIterator<Item = T>,
-        mut write: impl FnMut(&mut Out, T) -> io::Result<()>,
+        mut write: impl FnMut(&mut Out<W>, T) -> io::Result<()>,
     ) -> io::Result<()> {
         self.key(out, name)?;
         out.write_all(b"[")?;
@@ -207,16 +240,16 @@ impl Fields {
         out.write_all(b"]")
     }
 
-    fn close(self, out: &mut Out) -> io::Result<()> {
+    fn close<W: Write>(self, out: &mut Out<W>) -> io::Result<()> {
         out.write_all(b"}")
     }
 }
 
-fn write_reply(
-    out: &mut Out,
+fn write_reply<W: Write>(
+    out: &mut Out<W>,
     version: Version,
     head: Head,
-    produce: impl FnOnce(&mut Sections<'_>) -> io::Result<Tail>,
+    produce: impl FnOnce(&mut Sections<'_, W>) -> io::Result<Tail>,
 ) -> io::Result<()> {
     let mut reply = Fields::open(out)?;
     reply.put(out, "protocol_version", &version.as_str())?;
@@ -245,7 +278,7 @@ fn write_reply(
 }
 
 /// The fields of the facts before the sections.
-fn write_head(out: &mut Out, facts: &mut Fields, head: Head) -> io::Result<()> {
+fn write_head<W: Write>(out: &mut Out<W>, facts: &mut Fields, head: Head) -> io::Result<()> {
     let provenance = &head.provenance;
     facts.put(out, "profile", &provenance.profile)?;
     facts.key(out, "adapter")?;
@@ -295,8 +328,8 @@ fn write_head(out: &mut Out, facts: &mut Fields, head: Head) -> io::Result<()> {
 }
 
 /// The coverage, the evidence and the fields that a native collector leaves empty.
-fn write_tail(
-    out: &mut Out,
+fn write_tail<W: Write>(
+    out: &mut Out<W>,
     facts: &mut Fields,
     tail: Tail,
     files_parsed: usize,
@@ -321,7 +354,7 @@ fn write_tail(
 }
 
 /// One record, with the order of keys of `record_value` and without a copy of its data.
-fn write_record(out: &mut Out, record: &Record) -> io::Result<()> {
+fn write_record<W: Write>(out: &mut Out<W>, record: &Record) -> io::Result<()> {
     let mut item = Fields::open(out)?;
     item.put(out, "id", &record.id)?;
     item.put(out, "evidence_class", &record.evidence_class)?;

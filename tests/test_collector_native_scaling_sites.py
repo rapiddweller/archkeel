@@ -83,3 +83,34 @@ def test_sites_keep_the_memory_linear(
     assert second <= MEMORY_GROWTH * first, (
         f"{name}: n={count} {first / 2**20:.0f} MiB, 2n {second / 2**20:.0f} MiB"
     )
+
+
+# The real collector, on the shapes whose reply is quadratic by the data model: the qualified name
+# of each nested definition is in every record inside it, so the reply and the table of symbols
+# grow with n squared. `writes-distinct-names` with n = 8 000 gives a reply of 397 MB and a peak of
+# 474 MiB (it was 1 302 MiB before the table shared its names). The growth cannot tell a copy of a
+# name for each record from the data model, so the guard is an absolute cap at a size that the real
+# collector meets: the measured peaks (release build, MiB) are 134 for `writes-distinct-names`
+# n = 4 000, 63 and 64 for the two import shapes n = 2 000, and 138 for `sites-calls-at-depth`
+# n = 4 000. The cap is a third more than the largest of them. The copy that it must catch is the
+# old table: it peaked at 255 MiB for `writes-distinct-names` n = 4 000 (1 302 MiB at 8 000).
+REAL_MEMORY_CAP = 192 * 1024 * 1024
+REAL_MEMORY_CASES = (
+    ("writes-distinct-names", 4_000),
+    ("writes-imports-all-at-bottom", 2_000),
+    ("writes-import-at-own-depth", 2_000),
+    ("sites-calls-at-depth", 4_000),
+)
+
+
+@pytest.mark.parametrize(("name", "count"), REAL_MEMORY_CASES)
+def test_the_real_collector_keeps_the_memory_of_a_quadratic_reply_bounded(
+    tmp_path: Path,
+    collector: Path,  # noqa: F811
+    name: str,
+    count: int,
+) -> None:
+    assert name in WALK_ONLY
+    peak = _peak_memory(tmp_path, collector, name, count)
+    print(f"REALMEMORY {name} n={count} {peak / 2**20:.0f} MiB")
+    assert peak < REAL_MEMORY_CAP, f"{name} n={count}: {peak / 2**20:.0f} MiB"

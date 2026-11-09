@@ -61,14 +61,6 @@ pub fn each(table: &SymbolTable, cited: &mut Cited, emit: &mut dyn FnMut(Record)
     }
 }
 
-/// The records of all definitions in a list, for the test-only dump.
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub fn build(table: &SymbolTable, cited: &mut Cited) -> Vec<Record> {
-    let mut found = Vec::new();
-    each(table, cited, &mut |record| found.push(record));
-    found
-}
-
 /// The `kind` of a symbol record and its `symbol_category`: a class, an interface and an enum are
 /// all `class`.
 fn category(kind: DefinitionKind) -> &'static str {
@@ -109,7 +101,7 @@ fn record(table: &SymbolTable, methods: &Methods, cited: &mut Cited, entry: &Ent
         area: "source",
         kind: category(definition.kind),
         title: format!("{} declaration", entry.qualified),
-        subjects: vec![entry.qualified.clone()],
+        subjects: vec![entry.qualified.to_string()],
         evidence_ids: vec![evidence],
         fact_ids: Vec::new(),
         data,
@@ -144,7 +136,7 @@ fn metadata(table: &SymbolTable, cited: &mut Cited, entry: &Entry) -> Map<String
     };
     let (names, evidence) = decorators(cited, entry.rel, &definition.decorator_sources);
     let mut data = Map::new();
-    data.insert("qualified_name".to_owned(), json!(entry.qualified));
+    data.insert("qualified_name".to_owned(), json!(&*entry.qualified));
     data.insert("module".to_owned(), json!(entry.module));
     data.insert("package".to_owned(), json!(entry.package()));
     data.insert("name".to_owned(), json!(definition.name));

@@ -13,6 +13,7 @@
 //! of a file by line and column. An index is an entry number, so a lookup costs one hash.
 
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use archkeel_wire::identity::{package_of, stable_id, Part};
 
@@ -29,7 +30,7 @@ pub struct Entry<'a> {
     /// The qualified name of the parent definition inside the module, if it has one.
     pub parent: Option<&'a str>,
     /// `module.parent.name`, or `module.name` for a definition without a parent.
-    pub qualified: String,
+    pub qualified: Rc<str>,
     pub id: String,
 }
 
@@ -83,14 +84,14 @@ pub struct SymbolTable<'a> {
     /// All definitions, in the order of the Python list.
     pub entries: Vec<Entry<'a>>,
     ids: HashMap<(&'a str, i64, i64), usize>,
-    by_qualified: HashMap<String, Vec<usize>>,
+    by_qualified: HashMap<Rc<str>, Vec<usize>>,
     /// How many of the definitions of a qualified name are a class or an interface.
-    classifiers: HashMap<String, usize>,
-    classes: HashMap<String, usize>,
+    classifiers: HashMap<Rc<str>, usize>,
+    classes: HashMap<Rc<str>, usize>,
     top_named: HashMap<String, HashMap<String, Vec<usize>>>,
     named: HashMap<String, HashMap<String, Vec<usize>>>,
     members: HashMap<usize, HashSet<&'a str>>,
-    scope_ids: HashMap<String, HashMap<(i64, i64), usize>>,
+    scope_ids: HashMap<Rc<str>, HashMap<(i64, i64), usize>>,
     top_by_module: HashMap<&'a str, Vec<usize>>,
     by_module: HashMap<&'a str, Vec<usize>>,
 }
@@ -130,10 +131,13 @@ impl<'a> SymbolTable<'a> {
         definition: &'a Definition,
         parent: Option<&'a str>,
     ) {
-        let qualified = match parent {
+        // One copy of the name: the indexes and the entry share it, and a deep nest has names as
+        // long as its depth.
+        let qualified: Rc<str> = match parent {
             Some(parent) => format!("{module}.{parent}.{}", definition.name),
             None => format!("{module}.{}", definition.name),
-        };
+        }
+        .into();
         let (line, column) = (definition.span.line, definition.span.column);
         let parts = [
             Part::Text(rel),
@@ -151,11 +155,11 @@ impl<'a> SymbolTable<'a> {
             "two definitions at {rel}:{line}:{column}"
         );
         self.by_qualified
-            .entry(qualified.clone())
+            .entry(Rc::clone(&qualified))
             .or_default()
             .push(at);
         self.scope_ids
-            .entry(qualified.clone())
+            .entry(Rc::clone(&qualified))
             .or_default()
             .insert((line, column), at);
         let classifier = matches!(
@@ -163,10 +167,10 @@ impl<'a> SymbolTable<'a> {
             DefinitionKind::Class | DefinitionKind::Interface
         );
         if classifier {
-            *self.classifiers.entry(qualified.clone()).or_default() += 1;
+            *self.classifiers.entry(Rc::clone(&qualified)).or_default() += 1;
         }
         if definition.kind == DefinitionKind::Class {
-            *self.classes.entry(qualified.clone()).or_default() += 1;
+            *self.classes.entry(Rc::clone(&qualified)).or_default() += 1;
         }
         if classifier {
             let names = definition.members.iter().map(|member| member.name.as_str());

@@ -51,7 +51,7 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
             "import { one, two as t } from './a';\nfunction f(k) { return k === 'x'; }\n",
         ),
     ]);
-    let (facts, found) = records(&request(&tree), provenance());
+    let (facts, found) = records(&request(&tree), provenance()).unwrap();
     let bound: Vec<_> = found
         .imports
         .iter()
@@ -67,8 +67,9 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
     assert_eq!(bound[0].fact_ids.len(), 1);
     assert_eq!(found.targets.len(), found.imports.len());
     // The id of the first name is the id of its statement with the ordinal 0.
-    let statement = &facts.sections[0].1;
-    let parent = statement
+    let (plain, _) = crate::collect::gather(&request(&tree), provenance(), true);
+    let parent = plain.sections[0]
+        .1
         .iter()
         .find(|record| record.title.ends_with("imports ./a"))
         .unwrap();
@@ -83,12 +84,20 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
     assert!(found.constructs[0]
         .title
         .ends_with(" compares a written string literal"));
-    // The reply of the same collection does not hold any of them.
-    assert!(facts
-        .sections
-        .iter()
-        .all(|(name, _)| ["imports", "unknowns"].contains(name)));
-    assert!(facts.constructs.is_empty());
+    // The reply holds all of them, in the order of the capability.
+    let names: Vec<_> = facts.sections.iter().map(|(name, _)| *name).collect();
+    assert_eq!(
+        names,
+        [
+            "imports",
+            "unknowns",
+            "symbols",
+            "calls",
+            "references",
+            "bindings",
+            "constructs"
+        ]
+    );
 }
 
 #[test]
@@ -102,7 +111,7 @@ fn a_namespace_a_type_only_name_and_a_name_of_a_broken_file_are_not_proven() {
             "import * as ns from './a';\nimport type { one } from './a';\nimport { ok } from './broken';\n",
         ),
     ]);
-    let (_, found) = records(&request(&tree), provenance());
+    let (_, found) = records(&request(&tree), provenance()).unwrap();
     assert!(found.witnesses.is_empty());
     let known: Vec<&Value> = found
         .imports
@@ -179,9 +188,34 @@ fn the_streamed_reply_is_the_reply_of_the_facts_in_lists() {
         ),
     ]);
     let request = request(&tree);
-    let streamed = crate::collect::reply(&request, provenance(), Version::V9).unwrap();
+    let mut streamed = Vec::new();
+    crate::collect::reply(&request, provenance(), Version::V9, &mut streamed).unwrap();
     let listed =
         archkeel_wire::stream::encode(Version::V9, collect(&request, provenance())).unwrap();
     // The same JSON in the same order gives the same compressed bytes.
     assert_eq!(streamed, listed);
+}
+
+#[test]
+fn the_bindings_section_holds_the_witnesses_and_the_result_bindings() {
+    let tree = Tree::new(&[
+        ("tsconfig.json", CONFIG),
+        ("src/a.ts", "export class K {}\nexport const one = 1;\n"),
+        (
+            "src/b.ts",
+            "import { K, one } from './a';\nconst made = new K();\nexport const x = one;\n",
+        ),
+    ]);
+    let (facts, found) = records(&request(&tree), provenance()).unwrap();
+    let bindings = &facts.sections[5];
+    assert_eq!(bindings.0, "bindings");
+    // The witnesses come first, then the bindings of the `new` expressions.
+    assert_eq!(
+        bindings.1.len(),
+        found.witnesses.len() + found.bindings.len()
+    );
+    assert!(found.witnesses.len() >= 2);
+    assert_eq!(found.bindings.len(), 1);
+    assert!(found.bindings[0].id.starts_with("VALUEBIND-"));
+    assert_eq!(found.bindings[0].data["binding"], "made");
 }

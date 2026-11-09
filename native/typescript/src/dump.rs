@@ -264,11 +264,11 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
 
 /// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
 /// compares with the Python collector. The reply of the collector does not carry them yet.
-pub fn records(request: &Request, provenance: Provenance) -> Value {
-    let (facts, records) = crate::collect::records(request, provenance);
+pub fn records(request: &Request, provenance: Provenance) -> Result<Value, String> {
+    let (facts, records) = crate::collect::records(request, provenance)?;
     let touched: std::collections::HashSet<&str> =
         records.touched.iter().map(String::as_str).collect();
-    json!({
+    Ok(json!({
         "imports": records.imports.iter().map(record_value).collect::<Vec<_>>(),
         "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
         "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
@@ -278,7 +278,7 @@ pub fn records(request: &Request, provenance: Provenance) -> Value {
         "symbols": records.symbols.iter().map(record_value).collect::<Vec<_>>(),
         "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
         "evidence": facts.evidence.iter().filter(|item| touched.contains(item.id.as_str())).map(evidence_value).collect::<Vec<_>>(),
-    })
+    }))
 }
 
 /// Read `{"rel": ..., "file": ...}` lines from `input` and print one line of counts for each file:
