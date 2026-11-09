@@ -8,7 +8,7 @@ use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::members::{children, Cx};
-use crate::syntax::Span;
+use crate::source::Span;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportBinding {

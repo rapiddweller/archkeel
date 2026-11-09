@@ -11,13 +11,15 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
+use crate::ancestors::{
+    Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_UNMODELED_BLOCK,
+};
 use crate::exports::ModuleExports;
 use crate::kinds::{F, K};
 use crate::members::{
     children, has_backslash, named_children, Base, Cx, Member, Parameter, Place, Visibility,
 };
-use crate::syntax::Span;
-use crate::walk::{Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_UNMODELED_BLOCK};
+use crate::source::Span;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DefinitionKind {

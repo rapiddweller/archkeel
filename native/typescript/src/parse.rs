@@ -8,8 +8,9 @@ use crate::concerns::{self, Concern};
 use crate::members::Cx;
 use crate::references::{self, Reference};
 use crate::scan::scan;
+use crate::source::Source;
 use crate::source_input::classify_file;
-use crate::syntax::{Parsers, Source};
+use crate::syntax::Parsers;
 use crate::walk::{Syntax, Walk};
 
 pub struct Parsed {

@@ -14,7 +14,7 @@ use tree_sitter::Node;
 use crate::kinds::{F, K};
 use crate::members::{children, named_children, Cx};
 use crate::scope::{Frames, ROOT};
-use crate::syntax::Span;
+use crate::source::Span;
 
 /// Names with the span of each.
 pub type Named = Vec<(String, Span)>;

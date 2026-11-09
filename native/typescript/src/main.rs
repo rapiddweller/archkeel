@@ -9,6 +9,7 @@
 
 #![forbid(unsafe_code)]
 
+mod ancestors;
 mod class_members;
 mod collect;
 mod concerns;
@@ -23,6 +24,7 @@ mod glob;
 mod import_bindings;
 mod jsdoc;
 mod kinds;
+mod layer;
 mod manifest;
 mod members;
 mod options;
@@ -34,6 +36,7 @@ mod resolve;
 mod scan;
 mod scope;
 mod snapshot;
+mod source;
 mod source_input;
 mod syntax;
 mod test_sources;

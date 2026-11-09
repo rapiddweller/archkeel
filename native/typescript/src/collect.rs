@@ -226,7 +226,7 @@ impl Collection<'_> {
     }
 
     /// `collect._cite`: file one source location as evidence.
-    fn cite(&mut self, rel: &str, span: &crate::syntax::Span) -> String {
+    fn cite(&mut self, rel: &str, span: &crate::source::Span) -> String {
         let id = evidence_id(rel, span.line, span.end_line, span.column);
         self.evidence.insert(
             id.clone(),

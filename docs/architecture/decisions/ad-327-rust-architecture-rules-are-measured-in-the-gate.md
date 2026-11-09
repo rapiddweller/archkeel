@@ -28,9 +28,8 @@ panic could end a scan.
 3. `native/layers.toml` names each crate, its role and the crates it may use. A new crate needs an
    entry. Only a collector may use a `tree-sitter*` crate. The vocabulary (component, may use) is
    the one of an Archkeel contract, so a later move to a contract is a change of data.
-4. The module cycles of today are in `layers.toml`: `config`, `discover`, `options`, and the
-   eight modules `definitions`, `exports`, `import_bindings`, `members`, `scan`, `scope`,
-   `syntax`, `walk`. A new cycle fails. A listed cycle that is gone must leave the list; a crate without a `cycles` section has none.
+4. No module cycle remains (#907). `layers.toml` has no `cycles` section. A new cycle fails; a
+   crate without a `cycles` section has none.
    The check folds each `#[path]` child into its parent, strips comments and strings, and ignores
    `#[cfg(test)]` modules: a test-only edge is not a production cycle.
 5. `overflow-checks` costs 16,560 bytes of binary. On the x35 corpus the median was 1.220 s
@@ -46,7 +45,7 @@ panic could end a scan.
 - **An Archkeel contract with a Rust reader.** It needs a new language in the product that no
   customer asked for.
 
-**Limit.** This slice does not remove a cycle (R0-6), does not extract an `archkeel-snapshot`
+**Limit.** This slice does not extract an `archkeel-snapshot`
 crate (it waits for the Python collector), and does not check clones. The clone check (jscpd or a
 stdlib script) is deferred. Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
 name the TypeScript collector; a second collector must be added to them.

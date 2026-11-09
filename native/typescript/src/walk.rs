@@ -13,42 +13,17 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use tree_sitter::Node;
 
+use crate::ancestors::{
+    Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_REBOUND_FUNCTION, IN_UNMODELED_BLOCK,
+};
 use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{ambient, export_bindings, module_exports, Named};
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::members::{named_children, Cx};
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
+use crate::source::Span;
 use crate::source_input::{SourceKind, Suffix};
-use crate::syntax::Span;
-
-/// An ancestor is a node the parser had to repair.
-pub const ERROR_ABOVE: u8 = 1;
-/// An ancestor is an `internal_module` (`namespace` or `module`).
-pub const INSIDE_NAMESPACE: u8 = 2;
-/// An ancestor is a statement block that is not the `body` of its parent.
-pub const IN_UNMODELED_BLOCK: u8 = 4;
-/// An ancestor is a function declaration, a method or an arrow function.
-pub const IN_REBOUND_FUNCTION: u8 = 8;
-/// An ancestor is a function, a class body or a namespace.
-pub const IN_FUNCTION_LIKE: u8 = 16;
-
-/// One node on the path from the root to the node that the walk visits.
-pub struct Entry<'t> {
-    pub node: Node<'t>,
-    pub kind: K,
-    /// The flags that the children of this node see.
-    pub flags: u8,
-    /// The frame of the nearest scope, this node included.
-    pub frame: u32,
-    /// The frame of the nearest `var` scope, this node included.
-    pub var_frame: u32,
-    /// The nearest definition that holds this node, this node included.
-    pub scope: Option<u32>,
-    /// The decorators and comments among the named children seen so far that directly precede
-    /// the next child.
-    pub run: Vec<Node<'t>>,
-}
 
 /// The facts of `Syntax` that this phase produces. The reply does not read them yet; the `dump`
 /// feature does (AD-323).

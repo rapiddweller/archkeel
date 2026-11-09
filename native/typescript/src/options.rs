@@ -9,7 +9,7 @@
 
 use serde_json::{Map, Value};
 
-use crate::config::Layer;
+use crate::layer::Layer;
 use crate::paths::{is_outside, join};
 
 const CONFIG_DIRECTORY: &str = "${configDir}";
