@@ -30,6 +30,38 @@ pub struct Frames {
     list: Vec<Frame>,
 }
 
+/// A frame that binds a name, and the widest end of the ranges of the binding frames up to this
+/// one: the frames are numbered in document order, so a frame lies below a binding frame exactly
+/// when a range that starts at or before its number reaches it.
+struct Range {
+    start: u32,
+    widest: u32,
+}
+
+/// `Frames::free_index`.
+pub struct FreeIndex<'a> {
+    bound: HashMap<&'a str, Vec<Range>>,
+    blocked: Vec<bool>,
+}
+
+impl FreeIndex<'_> {
+    /// A frame is free of `name` when it and the frames above it bind no `name` and are not
+    /// ambiguous (`_script_free` over the frames of the ancestors).
+    pub fn is_free(&self, frame: u32, name: &str) -> bool {
+        if self.blocked.get(frame as usize).copied().unwrap_or(true) {
+            return false;
+        }
+        let Some(ranges) = self.bound.get(name) else {
+            return true;
+        };
+        let before = ranges.partition_point(|range| range.start <= frame);
+        before
+            .checked_sub(1)
+            .and_then(|at| ranges.get(at))
+            .is_none_or(|range| range.widest < frame)
+    }
+}
+
 /// Whether a kind opens a scope that binds names (`_SCRIPT_SCOPES`), and whether it is a `var` scope
 /// (`_SCRIPT_VAR_SCOPES`).
 pub fn scope_kind(kind: K) -> Option<bool> {
@@ -64,6 +96,11 @@ pub fn is_function(kind: K) -> bool {
             | K::ArrowFunction
             | K::MethodDefinition
     )
+}
+
+/// The number of a frame. A file of 4 MiB has fewer than 2^32 frames, so the saturation is a guard.
+fn frame_id(at: usize) -> u32 {
+    u32::try_from(at).unwrap_or(u32::MAX)
 }
 
 impl Frames {
@@ -178,6 +215,38 @@ impl Frames {
             known.insert(frame, found);
         }
         found
+    }
+
+    /// The answer to "does a frame at or above this one bind the name, or is one ambiguous", for
+    /// any frame and name, without a climb. The frames are numbered in document order, so the
+    /// frames below a frame are the numbers up to its last descendant. A name keeps the ranges of
+    /// the frames that bind it, and a frame is below a binding frame when its number is in a range.
+    pub fn free_index(&self) -> FreeIndex<'_> {
+        let count = self.list.len();
+        let mut last: Vec<u32> = (0..count).map(frame_id).collect();
+        for at in (1..count).rev() {
+            let parent = self.list.get(at).map_or(0, |frame| frame.parent) as usize;
+            let own = last.get(at).copied().unwrap_or(0);
+            if let Some(slot) = last.get_mut(parent) {
+                *slot = (*slot).max(own);
+            }
+        }
+        let mut blocked = Vec::with_capacity(count);
+        let mut bound: HashMap<&str, Vec<Range>> = HashMap::new();
+        for (at, frame) in self.list.iter().enumerate() {
+            let above = at > 0 && blocked.get(frame.parent as usize).copied().unwrap_or(false);
+            blocked.push(frame.ambiguous || above);
+            let end = last.get(at).copied().unwrap_or(0);
+            for name in frame.names.keys() {
+                let ranges = bound.entry(name.as_str()).or_default();
+                let widest = ranges.last().map_or(end, |range| range.widest.max(end));
+                ranges.push(Range {
+                    start: frame_id(at),
+                    widest,
+                });
+            }
+        }
+        FreeIndex { bound, blocked }
     }
 
     /// Bind each name that `pattern` assigns; a target that is no plain name blurs the frame.
