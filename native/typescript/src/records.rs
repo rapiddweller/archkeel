@@ -5,7 +5,7 @@
 //! The records of PR 4.3a-3a: the imports expanded to one record for each bound name
 //! (`_named_imports`, `_export_binding`) and the string comparisons (`_constructs`).
 //!
-//! The reply does not carry them yet (AD-323, amendment of PR 4.3a-3a): the capability stays
+//! The reply does not carry them yet (AD-340): the capability stays
 //! legacy until PR 4.3a-3d, so the host never reads them. The `dump` feature prints them, and
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 //! The evidence that the new records cite is kept apart, so the evidence of the reply is unchanged.
@@ -17,6 +17,7 @@ use archkeel_wire::reply::{Evidence, Facts, Record, Target};
 use serde_json::{json, Value};
 
 use crate::import_bindings::ImportBinding;
+use crate::parse::Parsed;
 use crate::source::Span;
 
 /// The string comparison construct of `ForbiddenConstructKind`.
@@ -37,6 +38,27 @@ pub struct Kept {
 }
 
 impl Kept {
+    /// What a parsed file keeps for the records of this phase.
+    pub fn from_parsed(module: &str, parsed: &Parsed) -> Self {
+        let syntax = &parsed.syntax;
+        let comparisons = syntax
+            .sites
+            .comparisons
+            .iter()
+            .map(|item| {
+                let scope = item.scope.map(|at| syntax.scopes.qualified(at));
+                (item.span.clone(), scope)
+            })
+            .collect();
+        Self::new(
+            module.to_owned(),
+            parsed.first_error.is_some(),
+            comparisons,
+            &syntax.import_bindings,
+            &syntax.module_exports,
+        )
+    }
+
     pub fn new(
         module: String,
         has_error: bool,
@@ -211,6 +233,8 @@ fn known_witness<'a>(
     let [(declaration, export)] = destination.exports.get(&binding.imported)?.as_slice() else {
         return None;
     };
+    // Faithful copies of Python conditions that other conditions already imply: some of them are
+    // equivalent mutants, so no test should try to kill them one by one.
     let proven = binding.source_unique
         && !binding.namespace
         && !binding.type_only

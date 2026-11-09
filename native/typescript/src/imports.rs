@@ -60,25 +60,8 @@ impl Collection<'_> {
             );
         }
         if self.keep {
-            let syntax = &parsed.syntax;
-            self.kept.insert(
-                rel.to_owned(),
-                Kept::new(
-                    module.to_owned(),
-                    parsed.first_error.is_some(),
-                    syntax
-                        .sites
-                        .comparisons
-                        .iter()
-                        .map(|item| {
-                            let scope = item.scope.map(|at| syntax.scopes.qualified(at));
-                            (item.span.clone(), scope)
-                        })
-                        .collect(),
-                    &syntax.import_bindings,
-                    &syntax.module_exports,
-                ),
-            );
+            let kept = Kept::from_parsed(module, &parsed);
+            self.kept.insert(rel.to_owned(), kept);
         }
         let format = self.resolver.format_of(&mut self.snapshot, rel);
         let explicit = self.resolver.options.module;

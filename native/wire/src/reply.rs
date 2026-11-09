@@ -57,8 +57,9 @@ pub struct Evidence {
     pub excerpt: String,
 }
 
-/// One source record. `subjects`, `evidence_ids` and `fact_ids` must be sorted, as `classified`
-/// sorts them. The five source sections of the inner-UML capability (`imports`, `symbols`,
+/// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
+/// `fact_ids` keep the order of the Python collector, which sets them after `classified` and does
+/// not sort them: a later port must not sort them either. The five source sections of the inner-UML capability (`imports`, `symbols`,
 /// `calls`, `references`, `bindings`) and `constructs` all carry this one shape: a section is a
 /// name and a list of records, so a later phase fills a section without a change to this crate.
 #[derive(Clone, Debug, PartialEq)]

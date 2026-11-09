@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-323 (PR 4.3a-3a): the native records of the expanded imports and the constructs equal Python.
+"""AD-340 (PR 4.3a-3a): the native records of the expanded imports and the constructs equal Python.
 
 Consumer: PR 4.3a-3d, which puts the records on the wire. The reply of the native collector does
 not carry them yet, and its capability stays legacy, so the host never reads them. The `dump`
@@ -166,7 +166,7 @@ def records_binary(
     return build_native_copy(tmp_path_factory, "native-dump", ("dump",))
 
 
-def native_records(binary: Path, request: CollectionRequest) -> dict[str, object]:
+def _dump(binary: Path, request: CollectionRequest) -> bytes:
     done = subprocess.run(
         [str(binary), "--dump-records"],
         input=encode_request(request),
@@ -175,7 +175,11 @@ def native_records(binary: Path, request: CollectionRequest) -> dict[str, object
         cwd=ROOT,
     )
     assert done.returncode == 0, done.stderr.decode(errors="replace")[:2000]
-    return json.loads(done.stdout)  # type: ignore[no-any-return]
+    return done.stdout
+
+
+def native_records(binary: Path, request: CollectionRequest) -> dict[str, object]:
+    return json.loads(_dump(binary, request))  # type: ignore[no-any-return]
 
 
 def _differences(native: dict[str, object], python: dict[str, object]) -> list[str]:
@@ -195,18 +199,13 @@ def _differences(native: dict[str, object], python: dict[str, object]) -> list[s
 
 
 def _compare(binary: Path, request: CollectionRequest) -> dict[str, int]:
-    native = native_records(binary, request)
+    first = _dump(binary, request)
     python = python_records(request)
-    assert _differences(native, python) == []
+    counts = {key: len(value) for key, value in python.items() if key != "later"}  # type: ignore[arg-type]
+    assert _differences(json.loads(first), python) == []
     # Two runs give identical bytes.
-    again = subprocess.run(
-        [str(binary), "--dump-records"], input=encode_request(request), capture_output=True
-    ).stdout
-    first = subprocess.run(
-        [str(binary), "--dump-records"], input=encode_request(request), capture_output=True
-    ).stdout
-    assert first == again
-    return {key: len(value) for key, value in python.items()}  # type: ignore[arg-type]
+    assert _dump(binary, request) == first
+    return counts
 
 
 @pytest.mark.parametrize("path", [*FIXTURES, STUDIO_UI])
@@ -312,14 +311,8 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
     return files
 
 
-def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]:
-    """The least CPU seconds of three runs, and the peak memory in MiB."""
-    from collector_timing import timed_run
-
-    shutil.rmtree(root, ignore_errors=True)
-    _write(root, _records_shape(name, n))
-    payload = encode_request(_request(root))
-    cpu = min(timed_run([str(binary), "--dump-records"], payload)[1] for _ in range(3))
+def _run(binary: Path, payload: bytes) -> tuple[float, float]:
+    """One run of the dump: its CPU seconds and its peak memory in MiB, from the same `wait4`."""
     process = subprocess.Popen(
         [str(binary), "--dump-records"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
@@ -330,7 +323,15 @@ def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]
     _, status, usage = os.wait4(process.pid, 0)
     assert status == 0
     peak = usage.ru_maxrss / (2**20 if os.uname().sysname == "Darwin" else 2**10)
-    return cpu, peak
+    return usage.ru_utime + usage.ru_stime, peak
+
+
+def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]:
+    """The least CPU seconds of three runs, and the largest peak memory in MiB."""
+    shutil.rmtree(root, ignore_errors=True)
+    _write(root, _records_shape(name, n))
+    runs = [_run(binary, encode_request(_request(root))) for _ in range(3)]
+    return min(cpu for cpu, _ in runs), max(peak for _, peak in runs)
 
 
 RECORD_SHAPES = (
