@@ -1781,7 +1781,7 @@ def _binding_sites(
                 scope_span=scope_span,
                 scope_depth=scope_depth,
             )
-            for child in _walk(node)
+            for child in node.named_children
             if child.kind == _NodeKind.INITIALIZED_VARIABLE_DEFINITION
             if (name := _named(child, _NodeKind.NAME)) is not None
         )

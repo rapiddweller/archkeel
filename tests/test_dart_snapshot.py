@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 import pytest
+from dart_native_helpers import collect_native_dart, require_native_dart
 
 from archkeel.analyzer.dart.snapshot import SnapshotError, read_snapshot
 from archkeel.ir.protocol import CollectionRequest, DartSettings, SnapshotInput, SourceScope
@@ -95,6 +96,28 @@ def test_snapshot_fails_before_reading_symlinked_pubspec(
     monkeypatch.setattr(Path, "read_bytes", guarded_read)
     with pytest.raises(SnapshotError, match="regular pubspec.yaml"):
         read_snapshot(request(tmp_path))
+
+
+def test_snapshot_reports_a_missing_pubspec_as_a_gap_and_keeps_the_sources(
+    tmp_path: Path,
+) -> None:
+    """A package below the repository root has no root pubspec; the sources stay readable."""
+    (tmp_path / "app" / "lib").mkdir(parents=True)
+    (tmp_path / "app" / "pubspec.yaml").write_text("name: app\n", encoding="utf-8")
+    (tmp_path / "app" / "lib" / "main.dart").write_text("class Main {}\n")
+    collection_request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("app/lib",), "configured_namespace"),
+        DartSettings(),
+    )
+
+    snapshot = read_snapshot(collection_request)
+
+    assert [item.rel_path for item in snapshot.sources] == ["app/lib/main.dart"]
+    assert [(item.path, item.kind) for item in snapshot.problems] == [
+        ("pubspec.yaml", "PubspecMissing")
+    ]
+    assert "pubspec.yaml" not in {item.path for item in snapshot.inputs}
 
 
 def test_snapshot_rejects_ambiguous_pubspec_identity(tmp_path: Path) -> None:
@@ -214,3 +237,47 @@ def test_replacement_with_symlink_is_rejected_before_reading(
         assert snapshot.sources == ()
         assert any(issue.path == relative for issue in snapshot.problems)
     assert replaced
+
+
+def test_unknown_package_name_leaves_package_imports_unresolved(tmp_path: Path) -> None:
+    """Without a pubspec the own package is unknown, so no `package:` import is external."""
+    lib = tmp_path / "app" / "lib"
+    lib.mkdir(parents=True)
+    (lib / "util.dart").write_text("class Util {}\n")
+    (lib / "main.dart").write_text(
+        "import 'package:app/util.dart';\nimport 'package:other/other.dart';\nclass Main {}\n"
+    )
+    collection_request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("app/lib",), "app"),
+        DartSettings(),
+    )
+
+    facts = require_native_dart(collect_native_dart(collection_request))
+
+    sections = {section.name: section.records for section in facts.sections}
+    gaps = sorted(record.kind for record in sections["unknowns"])
+    assert gaps == ["DirectiveError", "DirectiveError", "PubspecMissing"]
+    assert not sections["imports"]
+
+
+def test_import_of_the_analysed_package_is_a_gap_when_the_root_pubspec_names_another(
+    tmp_path: Path,
+) -> None:
+    """The root pubspec declares `other`, so `package:app/` is not a known external package."""
+    (tmp_path / "pubspec.yaml").write_text("name: other\n", encoding="utf-8")
+    lib = tmp_path / "app" / "lib"
+    lib.mkdir(parents=True)
+    (lib / "x.dart").write_text("class X {}\n")
+    (lib / "main.dart").write_text("import 'package:app/x.dart';\nclass Main {}\n")
+    collection_request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("app/lib",), "app"),
+        DartSettings(),
+    )
+
+    facts = require_native_dart(collect_native_dart(collection_request))
+
+    sections = {section.name: section.records for section in facts.sections}
+    assert [record.kind for record in sections["unknowns"]] == ["DirectiveError"]
+    assert not sections["imports"]

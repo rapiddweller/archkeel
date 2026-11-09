@@ -266,15 +266,10 @@ class Resolver:
         if _uri_scheme(parsed.scheme) == _UriScheme.PACKAGE:
             package, separator, raw_target = uri.removeprefix("package:").partition("/")
             target_path = unquote(raw_target)
-            if (
-                not separator
-                or not _PACKAGE_NAME.fullmatch(package)
-                or not target_path
-                or self._posix_path(target_path).is_absolute()
-            ):
-                self._problem(
-                    rel_path, ResolutionProblemKind.IMPORT_ERROR, f"unreadable URI {uri!r}"
-                )
+            reason = self.snapshot.import_gap(package, separator, target_path)
+            if reason is not None:
+                message = f"unresolved URI {uri!r}: {reason}"
+                self._problem(rel_path, ResolutionProblemKind.IMPORT_ERROR, message)
                 return None
             module_name = self._module_path(target_path)
             if module_name is None:

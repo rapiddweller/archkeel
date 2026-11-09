@@ -31,6 +31,7 @@ class SnapshotProblemKind(StrEnum):
     CONTAINMENT = "ContainmentError"
     EXCLUDED_TREE = "ExcludedTreeError"
     MODULE_COLLISION = "DartModuleCollision"
+    PUBSPEC_MISSING = "PubspecMissing"
 
 
 class _SourceSuffix(StrEnum):
@@ -83,6 +84,22 @@ class Snapshot:
     inputs: tuple[ResolutionInput, ...]
     problems: tuple[SnapshotProblem, ...]
     roots: tuple[str, ...]
+    # First module segment of each source; read_snapshot builds it once for all imports.
+    module_roots: frozenset[str] = frozenset()
+
+    def import_gap(self, package: str, separator: str, target_path: str) -> str | None:
+        """Give the reason why a `package:` import cannot be used, or None when it can."""
+        if not separator or not target_path or PurePosixPath(target_path).is_absolute():
+            return "the URI is unreadable"
+        if not _PACKAGE_NAME.fullmatch(package):
+            return "the package name is unreadable"
+        if not self.package_name:
+            return "the snapshot root has no pubspec.yaml, so the own package is unknown"
+        if package != self.package_name and package in self.module_roots:
+            return (
+                "the import names the analysed package, but the root pubspec.yaml declares another"
+            )
+        return None
 
     @property
     def source_by_path(self) -> dict[str, Source]:
@@ -337,9 +354,12 @@ def _safe_subdirectories(
 
 def _read_pubspec(
     root: Path, real_root: Path
-) -> tuple[str, str | None, RuntimeRequirementState, ResolutionInput]:
+) -> tuple[str, str | None, RuntimeRequirementState, ResolutionInput | None]:
+    """Read the root pubspec; a missing one gives an empty package name that no import matches."""
     pubspec = root / "pubspec.yaml"
-    if not os.path.lexists(pubspec) or pubspec.is_symlink():
+    if not os.path.lexists(pubspec):
+        return "", None, RuntimeRequirementState.REQUIREMENT_MISSING, None
+    if pubspec.is_symlink():
         raise SnapshotError("regular pubspec.yaml is required inside the snapshot")
     try:
         raw = _read_regular(pubspec, real_root)
@@ -386,7 +406,16 @@ def read_snapshot(request: CollectionRequest) -> Snapshot:
             sources.append(source)
             inputs[item.path] = item
     package_name, sdk_constraint, sdk_state, pubspec_input = _read_pubspec(root, real_root)
-    inputs[pubspec_input.path] = pubspec_input
+    if pubspec_input is None:
+        problems.append(
+            SnapshotProblem(
+                "pubspec.yaml",
+                SnapshotProblemKind.PUBSPEC_MISSING,
+                "no pubspec.yaml at the snapshot root; own-package imports are not resolved",
+            )
+        )
+    else:
+        inputs[pubspec_input.path] = pubspec_input
     _collision_problems(sources, problems)
     sources.sort(key=lambda item: item.rel_path)
     return Snapshot(
@@ -397,4 +426,5 @@ def read_snapshot(request: CollectionRequest) -> Snapshot:
         tuple(inputs[key] for key in sorted(inputs)),
         tuple(problems),
         roots,
+        frozenset(source.module.partition(".")[0] for source in sources),
     )

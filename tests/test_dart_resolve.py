@@ -48,9 +48,10 @@ def test_package_identity_is_distinct_from_output_namespace_and_show_hide_resolv
 
     assert snapshot.sources[0].module.startswith("configured_namespace.")
     assert resolver.resolve_uri("lib/main.dart", "package:package_name/dependency.dart") is not None
+    # The pubspec declares another package, so the namespace name must not become external.
     assert (
         resolver.resolve_uri("lib/main.dart", "package:configured_namespace/dependency.dart")
-        is not None
+        is None
     )
     calls = [site for site in resolver.resolved_sites("lib/main.dart") if site.site.kind == "call"]
     visible = next(item for item in calls if item.site.name == "Visible")
