@@ -108,11 +108,11 @@ def fixed_settings(
     language: Language,
 ) -> DartSettings | RustSettings | TypeScriptSettings | None:
     """The settings of a language that has no choice to make; `None` for Python."""
-    if language is Language.DART:
+    if language == Language.DART:
         return DartSettings()
-    if language is Language.RUST:
+    if language == Language.RUST:
         return RustSettings()
-    if language is Language.TYPESCRIPT:
+    if language == Language.TYPESCRIPT:
         return TypeScriptSettings()
     return None
 

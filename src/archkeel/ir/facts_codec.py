@@ -417,12 +417,12 @@ def decode_request(payload: bytes) -> CollectionRequest:
         language = Language(_string(resolver_raw.get("language"), "resolver.language"))
     except ValueError as error:
         raise ProtocolError("unsupported collection language") from error
-    if language is Language.PYTHON:
+    if language == Language.PYTHON:
         resolver: ResolverSettings = _python_settings(resolver_raw, version)
     elif language in (Language.DART, Language.RUST):
         _object(resolver_raw, {"language"}, "resolver")
-        resolver = DartSettings() if language is Language.DART else RustSettings()
-    elif language is Language.TYPESCRIPT:
+        resolver = DartSettings() if language == Language.DART else RustSettings()
+    elif language == Language.TYPESCRIPT:
         # The encoder writes "bundler" only when true, so false has one canonical form: absent.
         optional = set(resolver_raw) & {"bundler"}
         _object(resolver_raw, {"language", "tsconfig"} | optional, "resolver")

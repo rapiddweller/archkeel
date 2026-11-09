@@ -43,9 +43,9 @@ def is_test_source(path: str, language: Language) -> bool:
     if any(part in {"test", "tests", "__tests__"} for part in parts[:-1]):
         return True
     name = parts[-1] if parts else ""
-    if language is Language.PYTHON:
+    if language == Language.PYTHON:
         return (name.startswith("test_") and name.endswith(".py")) or name.endswith("_test.py")
-    if language is Language.TYPESCRIPT:
+    if language == Language.TYPESCRIPT:
         return re.search(r"\.(?:test|spec)\.[^.]+$", name) is not None
     return False
 

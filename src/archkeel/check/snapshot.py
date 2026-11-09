@@ -115,7 +115,7 @@ def _git_archive_bytes(
         language = Language(language)
     except ValueError as exc:
         raise SnapshotError(f"unsupported snapshot language: {language}") from exc
-    metadata_path = _METADATA_PATH if language is Language.PYTHON else _PUBSPEC_PATH
+    metadata_path = _METADATA_PATH if language == Language.PYTHON else _PUBSPEC_PATH
     try:
         completed = subprocess.run(
             ["git", "ls-tree", "-r", "-z", git_head],
@@ -129,13 +129,13 @@ def _git_archive_bytes(
                 if not entry:
                     continue
                 metadata, raw_path = entry.split(b"\t", 1)
-                if language is Language.TYPESCRIPT and not (
+                if language == Language.TYPESCRIPT and not (
                     raw_path.endswith(tuple(suffix.encode() for suffix in _TS_RESOLVER_SUFFIXES))
                     or (tsconfig is not None and raw_path == tsconfig.encode())
                 ):
                     continue
                 if (
-                    language is not Language.TYPESCRIPT
+                    language != Language.TYPESCRIPT
                     and raw_path != metadata_path.as_posix().encode()
                     and not (
                         raw_path.endswith(
@@ -156,11 +156,11 @@ def _git_archive_bytes(
                 )
                 resolver = (
                     path.suffix in _TS_RESOLVER_SUFFIXES or name == tsconfig
-                    if language is Language.TYPESCRIPT
+                    if language == Language.TYPESCRIPT
                     else path == _PUBSPEC_PATH
-                    if language is Language.DART
+                    if language == Language.DART
                     else path.match(_CARGO_MANIFEST)
-                    if language is Language.RUST
+                    if language == Language.RUST
                     else path == _METADATA_PATH
                 )
                 if not scoped and not resolver:
@@ -221,7 +221,7 @@ def _materialize_archive(
                 seen.add(path)
                 target = destination.joinpath(*path.parts)
                 if member.isdir():
-                    if language is not Language.TYPESCRIPT and not any(
+                    if language != Language.TYPESCRIPT and not any(
                         path.is_relative_to(root) or root.is_relative_to(path)
                         for root in validated_roots
                     ):
@@ -231,18 +231,18 @@ def _materialize_archive(
                 is_scoped_source = path.suffix in _LANGUAGE_SUFFIXES[language] and any(
                     path.is_relative_to(root) for root in validated_roots
                 )
-                if language is Language.PYTHON:
+                if language == Language.PYTHON:
                     allowed_metadata = path == _METADATA_PATH
-                elif language is Language.DART:
+                elif language == Language.DART:
                     allowed_metadata = path == _PUBSPEC_PATH
-                elif language is Language.RUST:
+                elif language == Language.RUST:
                     allowed_metadata = path.match(_CARGO_MANIFEST)
                 else:
                     allowed_metadata = path.name in {"package.json", "tsconfig.json"} or (
                         tsconfig is not None and path.as_posix() == tsconfig
                     )
                 resolver_input = (
-                    language is Language.TYPESCRIPT and path.suffix in _TS_RESOLVER_SUFFIXES
+                    language == Language.TYPESCRIPT and path.suffix in _TS_RESOLVER_SUFFIXES
                 )
                 if not member.isfile() or not (
                     is_scoped_source or allowed_metadata or resolver_input
