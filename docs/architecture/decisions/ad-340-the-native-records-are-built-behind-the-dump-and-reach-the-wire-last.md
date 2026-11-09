@@ -45,3 +45,16 @@ does it once. The evidence of a location is decided by its last citation (`recor
 overwrites), so `Cited` starts from the evidence of the reply and the order of the new records
 follows Python: imports, symbols, then constructs. 3c cites the sites between them; the oracle
 leaves those locations to 3c.
+
+**Note, 2026-11-09 (3c): calls, references and bindings.** `site_records.rs` builds the `TSCALL`,
+`TSREF` and `VALUEBIND` records (`_inner_sites` and the record builders), and `resolution.rs` is the
+syntactic resolver (`_site_resolution`, `_unqualified_candidates`, `_local_import_bindings`). Python
+scans the top-level definitions and the definitions of the imported module for each site, and the
+members of the class for each `this` reference; the symbol table answers each with one lookup
+(`top_named`, `named_in`, `has_member`, `class_count`). The question "does a scope of the chain
+hide this name" no longer unites the sets of the chain: `NameIndex` keeps for each scope the ranges
+that its ancestors do not cover, and one binary search in the positions of the name answers it. The
+oracle compares all sections with all evidence now, because the sites cite after the symbols as in
+Python. Not ported: the script paths (`script_resolution`, `script_evidence`, `_script_alias_bindings`)
+belong to PR 4.3a-4 and 4.3a-5; the oracle runs Python without them, so it compares what the
+native collector can produce.

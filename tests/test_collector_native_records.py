@@ -53,7 +53,8 @@ CORPORA = "ARCHKEEL_RECORDS_CORPORA"
 # re-export, a name that is exported twice, a file with a syntax error, and string comparisons.
 EXPORTERS = {
     "src/a.ts": (
-        "export const one = 1;\nexport function two() {}\nexport class Three {}\n"
+        "function hidden() {}\nexport const one = 1;\nexport function two() {}\n"
+        "export class Three {}\n"
         "export default 4;\nexport type Four = number;\nexport { one as uno };\n"
         "const dup = 1;\nexport { dup };\nexport { dup as dup2 };\n"
         "export function twice() {}\nexport const twice2 = 1;\nexport { twice2 as twice };\n"
@@ -88,6 +89,19 @@ IMPORTERS = {
         "import {\n  one,\n  two,\n} from './a'; const s = 'q'; if (s === 'q') {}\nimport 'x';\n"
     ),
     "src/i5.js": "import { one } from './a';\nwindow.foo = one;\n",
+    "src/i7.ts": (
+        "import { one, two as t2, Three, hidden } from './a';\nimport type { Four } from './a';\n"
+        "hidden();\nimport * as ns from './a';\nimport { deux } from './b';\n"
+        "function local() {}\nfunction local() {}\n"
+        "class K { f = 1; g(p) { return this.f + this.zz; } }\n"
+        "class K { h = 2; }\nlet rebound = 1; rebound = 2; function rebound2() {}\n"
+        "function use(one) { one(); t2(); new Three(); }\n"
+        "one(); t2(); new Three(); new K(); local(); ns.two(); deux(); rebound(); other.thing();\n"
+        "const a1 = new Three(1), a2: Four = new K<string>(), a3 = f(new Three());\n"
+        "const o = { m() { return one(); } }; const arrow = () => { one(); };\n"
+        "this.q(); obj['k'](); (one)(); one?.(); let z: Four; z = one; one = 3;\n"
+        "export function ex() {} ex(); const x1 = ex, x2 = [ex];\n"
+    ),
     "src/i6.ts": "import { one } from './a'; export { one }; export default one === 'e';\n",
 }
 
@@ -164,14 +178,10 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
     constructs = [_plain_record(record) for record in collection._constructs()]
     witnesses = list(collection.import_binding_facts.values())
     imports = sorted(collection.imports, key=lambda item: item["id"])
-    # The sites cite their own locations after the symbols, and the last citation of a location
-    # decides its excerpt. Those locations belong to the records of PR 4.3a-3c.
-    later = {item for record in [*calls, *references, *bindings] for item in _evidence_of(record)}
     cited = {
         evidence
-        for record in [*witnesses, *constructs, *symbols]
+        for record in [*witnesses, *constructs, *symbols, *calls, *references, *bindings]
         for evidence in _evidence_of(record)
-        if evidence not in later
     }
     return {
         "imports": imports,
@@ -179,7 +189,10 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
         "witnesses": witnesses,
         "constructs": constructs,
         "symbols": symbols,
-        "later": sorted(later),
+        "calls": calls,
+        "references": references,
+        # The witnesses come first in the bindings of Python; the native dump lists them apart.
+        "site_bindings": bindings[len(witnesses) :],
         "evidence": [collection.evidence[key] for key in sorted(cited)],
     }
 
@@ -210,11 +223,6 @@ def native_records(binary: Path, request: CollectionRequest) -> dict[str, object
 
 def _differences(native: dict[str, object], python: dict[str, object]) -> list[str]:
     found: list[str] = []
-    later = set(python.pop("later"))  # type: ignore[arg-type]
-    native = {
-        **native,
-        "evidence": [item for item in native["evidence"] if item["id"] not in later],  # type: ignore[attr-defined, union-attr]
-    }
     for key in python:
         mine, theirs = native[key], python[key]
         if mine == theirs:
@@ -232,7 +240,7 @@ def _differences(native: dict[str, object], python: dict[str, object]) -> list[s
 def _compare(binary: Path, request: CollectionRequest) -> dict[str, int]:
     first = _dump(binary, request)
     python = python_records(request)
-    counts = {key: len(value) for key, value in python.items() if key != "later"}  # type: ignore[arg-type]
+    counts = {key: len(value) for key, value in python.items()}  # type: ignore[arg-type]
     assert _differences(json.loads(first), python) == []
     # Two runs give identical bytes.
     assert _dump(binary, request) == first
@@ -267,6 +275,9 @@ def test_named_imports_constructs_and_the_resolution_grid_equal_python(
     # The comparison is not empty: bound names that are proven, and comparisons.
     assert counts["witnesses"] >= 4
     assert counts["constructs"] >= 8
+    assert counts["calls"] > 20
+    assert counts["references"] > 40
+    assert counts["site_bindings"] >= 2
     assert counts["imports"] > len(SPECIFIERS)
 
 
@@ -337,6 +348,18 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
             files["src/c.ts"] = "".join(
                 f"function f{i}(k) {{ return k == 'w{i}'; }}\n" for i in range(n)
             )
+        case "sites-resolution":
+            # Many calls, references and `new` expressions of names that the module defines, that
+            # it imports and that the enclosing class declares: each site asks the resolver.
+            files["src/b.ts"] = (
+                "".join(f"import {{ x{i} }} from './a';\nconst v{i} = x{i};\n" for i in range(n))
+                + "".join(f"export function g{i}() {{ return g{i}(); }}\n" for i in range(n))
+                + "".join(
+                    f"class C{i} {{ f = {i}; m() {{ return this.f + new C{i}().f; }} }}\n"
+                    for i in range(n)
+                )
+                + "".join(f"const o{i} = new C{i}(g{i}, x{i});\n" for i in range(n))
+            )
         case "symbols-bases":
             files["src/b.ts"] = "".join(
                 f"interface I{i} {{ a{i}: number }}\n@d({i}) class C{i} extends C{max(i - 1, 0)} "
@@ -393,6 +416,7 @@ RECORD_SHAPES = (
     ("one-statement", 1500),
     ("many-importers", 700),
     ("comparisons", 1000),
+    ("sites-resolution", 500),
     ("symbols-members", 500),
     ("symbols-bases", 700),
 )

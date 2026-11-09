@@ -45,3 +45,25 @@ fn a_name_that_two_scopes_hide_counts_once() {
     let inner = names.open(Some(outer), None, Some((1, 2)));
     assert_eq!(names.shadowed(Some(inner), data), ["a"]);
 }
+
+#[test]
+fn the_index_answers_what_the_union_of_the_chain_holds() {
+    let data = b"function f(b){var a;} function g(c){}";
+    let mut names = Names::default();
+    names.declared(11, Text { start: 11, end: 12 });
+    names.written(14, Text { start: 18, end: 19 });
+    names.declared(33, Text { start: 33, end: 34 });
+    let outer = names.open(None, Some((10, 13)), Some((13, 21)));
+    let inner = names.open(Some(outer), Some((32, 35)), Some((35, 37)));
+    let index = names.index(data);
+    for chain in [None, Some(outer), Some(inner)] {
+        let held = names.shadowed(chain, data);
+        for name in ["a", "b", "c", "d"] {
+            assert_eq!(
+                index.shadows(chain, name),
+                held.iter().any(|item| item == name),
+                "{name}"
+            );
+        }
+    }
+}

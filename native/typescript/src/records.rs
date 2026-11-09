@@ -19,6 +19,7 @@ use serde_json::{json, Value};
 use crate::cited::Cited;
 use crate::import_bindings::ImportBinding;
 use crate::kept::{Kept, Pending};
+use crate::site_records;
 use crate::source::Span;
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
@@ -40,6 +41,10 @@ pub struct Records {
     pub constructs: Vec<Record>,
     /// The `TSDEF` records, in the order of the symbol table (PR 4.3a-3b).
     pub symbols: Vec<Record>,
+    /// The `TSCALL`, `TSREF` and result binding records (PR 4.3a-3c).
+    pub calls: Vec<Record>,
+    pub references: Vec<Record>,
+    pub bindings: Vec<Record>,
     /// The evidence that the records above cite and the reply does not hold yet.
     pub evidence: Vec<Evidence>,
 }
@@ -58,7 +63,11 @@ pub fn build(facts: &Facts, pending: &Pending) -> Records {
     records
         .imports
         .sort_by(|left, right| left.id.cmp(&right.id));
-    records.symbols = symbols::build(&SymbolTable::build(pending), &mut cited);
+    let table = SymbolTable::build(pending);
+    records.symbols = symbols::build(&table, &mut cited);
+    let sites = site_records::build(&table, pending, facts, &mut cited);
+    (records.calls, records.references, records.bindings) =
+        (sites.calls, sites.references, sites.bindings);
     constructs(pending, &mut cited, &mut records);
     records.evidence = cited.cited();
     records
