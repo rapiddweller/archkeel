@@ -9,7 +9,7 @@
 //! name. The frames are in a `Vec`, and a frame knows its parent frame, so a lookup climbs the
 //! chain without a tree node.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use tree_sitter::Node;
 
@@ -117,6 +117,18 @@ impl Frames {
             .unwrap_or_default();
         names.sort();
         names
+    }
+
+    /// The names that the root frame binds and that another frame binds too. A write of any other
+    /// name of the root has the root as its nearest binding, whatever the depth, and needs no climb.
+    pub fn shadowed_root_names(&self) -> HashSet<&str> {
+        let root = &self.list[ROOT as usize];
+        self.list[1..]
+            .iter()
+            .flat_map(|frame| frame.names.keys())
+            .filter(|name| root.names.contains_key(name.as_str()))
+            .map(String::as_str)
+            .collect()
     }
 
     /// `_script_bound_scope`: the nearest frame, from `from` up, that binds `name`. The walk uses

@@ -334,6 +334,7 @@ impl<'a, 't> Walk<'a, 't> {
         }
         // Only an import reads the writes of the file.
         let mut memo = HashMap::new();
+        let shadowed = self.frames.shadowed_root_names();
         let written: HashSet<String> = if self.imports.is_empty() {
             HashSet::new()
         } else {
@@ -341,9 +342,12 @@ impl<'a, 't> Walk<'a, 't> {
                 .iter()
                 .map(|(target, frame)| (cx.text(*target), *frame))
                 .filter(|(name, frame)| {
-                    // Only the root frame decides: a name that it does not bind needs no climb.
+                    // Only the root frame decides. A name that it does not bind is not written
+                    // there. A name that no other frame binds has the root as its nearest binding
+                    // at any depth. Only a shadowed name needs the climb.
                     self.frames.count(ROOT, name) > 0
-                        && self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT)
+                        && (!shadowed.contains(name.as_str())
+                            || self.frames.bound_scope_memo(&mut memo, *frame, name) == Some(ROOT))
                 })
                 .map(|(name, _)| name)
                 .collect()
