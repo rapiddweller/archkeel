@@ -252,7 +252,7 @@ and never PASS. A macro body with a path, `macro_rules!`, `include!`, a `cfg` th
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
 attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also
-declares or imports (`::` makes it the crate). A reachable crate name that appears in a token or a string that the collector does not read, with no edge to that crate in the file, is UNKNOWN too: a local variable named `url` is enough. Test code (`cfg(test)`, `tests/`, dev-dependencies) counts as production
+declares or imports (`::` makes it the crate). A reachable crate name that appears in a macro body, an attribute stream or a string, with no edge to that crate in the file, is UNKNOWN too. A local variable or a field with that name is not. Test code (`cfg(test)`, `tests/`, dev-dependencies) counts as production
 code until module scope is added. A platform wheel carries the collector; an install without it
 reports `missing_tool`
 ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).

@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The safety net: every name that the file writes, in any token.
+//! The safety net: every name that the file writes in a place that syn does not read as code.
+//!
+//! In ordinary Rust, a bare name that is not followed by `::` is a local, a field or a value, and
+//! cannot be a crate. A path that starts with a crate is read by the scan. So the net walks only
+//! macro bodies, attribute streams and string literals.
 //!
 //! The scan reads the places where Rust takes a path: items, `use`, macro bodies of known macros
 //! and attributes. A crate name can also appear in a place that nobody listed: a macro argument
@@ -35,11 +39,11 @@ impl Level {
     }
 }
 
-/// The names that the text writes: each identifier, and the first segment of each string that is
-/// a name or starts with `name::`. `None` when the text does not lex.
-pub fn mentioned(text: &str) -> Option<BTreeSet<String>> {
-    let mut found = BTreeSet::new();
-    let mut levels = vec![Level::new(text.parse::<TokenStream>().ok()?)];
+/// Add the names that a token stream writes: each identifier, and the first segment of each
+/// string that is a name or starts with `name::`. The caller passes the places that syn does not
+/// read as code: a macro body and an attribute stream.
+pub fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
+    let mut levels = vec![Level::new(stream)];
     // The walk keeps its own stack, so the depth of the brackets costs no stack frame.
     while let Some(level) = levels.last_mut() {
         let Some(token) = level.tokens.next() else {
@@ -65,24 +69,23 @@ pub fn mentioned(text: &str) -> Option<BTreeSet<String>> {
                         .is_some_and(|name| MESSAGE_KEYS.contains(&name));
                 (level.key, level.armed) = (None, false);
                 if !message {
-                    note_string(&literal.to_string(), &mut found);
+                    note_literal(&literal.to_string(), found);
                 }
             }
             _ => (level.key, level.armed) = (None, false),
         }
     }
-    Some(found)
 }
 
-/// The first segment of a string that is a name or starts with `name::`.
-fn note_string(literal: &str, found: &mut BTreeSet<String>) {
-    if !literal.starts_with('"') && !literal.starts_with('r') {
-        return;
+/// A literal of a token stream: only a string counts.
+fn note_literal(literal: &str, found: &mut BTreeSet<String>) {
+    if let Ok(text) = syn::parse_str::<syn::LitStr>(literal) {
+        note_string(&text.value(), found);
     }
-    let Ok(text) = syn::parse_str::<syn::LitStr>(literal) else {
-        return;
-    };
-    let value = text.value();
+}
+
+/// The first segment of a string value that is a name or starts with `name::`.
+pub fn note_string(value: &str, found: &mut BTreeSet<String>) {
     let first = value.split("::").next().unwrap_or("");
     let named = value == first || value.starts_with(&format!("{first}::"));
     if named && !first.is_empty() && first.chars().all(|c| c == '_' || c.is_ascii_alphanumeric()) {

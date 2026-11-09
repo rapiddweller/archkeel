@@ -348,3 +348,21 @@ fn a_raw_identifier_a_one_segment_string_and_an_attribute_expression_are_read() 
         ["base_crate::X"]
     );
 }
+
+#[test]
+fn the_net_collects_names_only_from_macros_attribute_streams_and_strings() {
+    let mentioned = |text: &str| scanned(text).mentioned.into_iter().collect::<Vec<_>>();
+    let none = Vec::<String>::new();
+    // Ordinary code: a local, a field, a parameter and a value cannot be a crate.
+    assert_eq!(mentioned("fn f(url: u8) { let x = url + 1; x.url; }"), none);
+    assert_eq!(mentioned("struct S { url: String }"), none);
+    assert_eq!(
+        mentioned("/// url in a doc comment\nfn f() {} // url"),
+        none
+    );
+    // A macro body, an attribute stream and a string stay.
+    assert!(mentioned("fn f() { mac!(url); }").contains(&"url".to_owned()));
+    assert!(mentioned("#[other::attr(url)]\nstruct S;").contains(&"url".to_owned()));
+    assert!(mentioned("const A: &str = \"url::x\";").contains(&"url".to_owned()));
+    assert!(mentioned("#[serde(with = \"url\")]\nstruct S;").contains(&"url".to_owned()));
+}

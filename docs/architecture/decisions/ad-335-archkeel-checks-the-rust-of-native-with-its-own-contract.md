@@ -56,11 +56,11 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
 The pytest and `layers.toml` stay until 5b-3. **Rejected.** `tree-sitter-rust`, rust-analyzer,
 `cargo metadata` at run time (it is the oracle), a model of Rust name resolution (three false PASS).
 
-**Safety net.** No list of path places is complete. One pass over all tokens (macro bodies and
-attributes too, `r#` removed) collects each name, and each string that is a name or starts with
-`name::`; doc comments and message keys do not count. A reachable crate that is named there without
-an edge is UNKNOWN ("The crate name X appears in a place the collector does not read"). Accepted
-cost: a local, field or string named like a crate (`url`, `core`) is UNKNOWN: 129 cases on uv.
+**Safety net.** No list of path places is complete. In ordinary Rust, a bare name without `::` is a
+local, a field or a value, and cannot be a crate. So the net reads only macro bodies, attribute
+streams and string literals (`r#` removed). A reachable crate that is named there, as a token or
+as a string that is a name or starts with `name::`, and has no edge in the file, is UNKNOWN ("The crate name X appears in a place the collector does not read"). Doc
+comments and message keys do not count. On uv: 57 cases.
 
 **Limit.** Crate edges only. About 25 KB of memory for each import. On uv, 50 paths are UNKNOWN
 for a local name equal to a crate name. No macro expansion, no `build.rs` output. `init` and

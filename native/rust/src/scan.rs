@@ -18,6 +18,7 @@ use syn::{
 };
 
 use crate::attrs::{hidden_by, path_literal};
+use crate::net;
 use crate::tokens::{
     attribute_chains, chains, plain, read_value, string_paths, Chain, LINTS, MESSAGE_KEYS,
 };
@@ -127,10 +128,6 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
         out: Scan::default(),
     };
     walker.visit_file(&file);
-    match crate::net::mentioned(text) {
-        Some(found) => walker.out.mentioned = found,
-        None => walker.concern("The file does not lex".to_owned(), Span::call_site()),
-    }
     Ok(walker.out)
 }
 
@@ -220,6 +217,9 @@ impl Walker<'_> {
         }
         // A lint attribute holds lint names and a `reason` text, not paths of the file.
         let lint = LINTS.iter().any(|lint| path.is_ident(lint));
+        if let Meta::List(list) = &attr.meta {
+            net::walk(list.tokens.clone(), &mut self.out.mentioned);
+        }
         if let (Meta::List(list), false) = (&attr.meta, lint) {
             match attribute_chains(list.tokens.clone()) {
                 Some(found) => self.refer_chains(found),
@@ -248,6 +248,7 @@ impl Walker<'_> {
         if MESSAGE_KEYS.contains(&name.as_str()) {
             return;
         }
+        net::note_string(&text.value(), &mut self.out.mentioned);
         let mut found = Vec::new();
         if read_value(&text.value(), text.span(), &mut found).is_none() {
             let reason = "A string in an attribute holds a path that the scan cannot read";
@@ -334,6 +335,7 @@ impl Walker<'_> {
             );
             return;
         }
+        net::walk(node.tokens.clone(), &mut self.out.mentioned);
         let Some(found) = chains(node.tokens.clone()) else {
             self.concern(
                 format!("The macro {name}! is nested too deep to read"),
@@ -412,6 +414,10 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             }
         }
         visit::visit_path(self, path);
+    }
+
+    fn visit_lit_str(&mut self, text: &'ast syn::LitStr) {
+        net::note_string(&text.value(), &mut self.out.mentioned);
     }
 
     fn visit_macro(&mut self, node: &'ast Macro) {

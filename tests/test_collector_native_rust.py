@@ -491,11 +491,13 @@ NET_ONLY = [
     "macro_rules! m { ($c:ident) => { $c::make() }; }\n"
     "pub fn run() { other::call!(base_crate); }\n",
     "#[other::attr(base_crate)]\npub struct S;\n",
-    "pub fn run() { let base_crate = 1; let _ = base_crate; }\n",
-    "pub struct S { base_crate: u8 }\n",
+    "pub fn run() { mac!(base_crate); }\n",
     'pub const A: &str = "base_crate::make";\n',
 ]
 QUIET = [
+    "pub fn run() { let base_crate = 1; let _ = base_crate + 1; }\n",
+    "pub struct S { base_crate: String }\n",
+    "pub fn run(base_crate: u8) -> u8 { base_crate }\n",
     "// base_crate in a comment\n/* base_crate */\npub fn run() {}\n",
     "/// base_crate::make in a doc comment\npub fn run() {}\n",
     '#[deprecated(note = "base_crate")]\npub fn run() {}\n',
@@ -536,4 +538,17 @@ def test_a_crate_name_in_a_comment_or_a_message_gives_no_unknown(
         tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
+    assert not any("appears in a place" in claim for claim in _claims(result))
+
+
+def test_a_closure_parameter_named_like_a_crate_keeps_the_edge_of_its_path(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    source = "pub fn run() { let f = |base_crate: u8| base_crate::x(base_crate); f(1); }\n"
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
+    assert statuses(result).get("REQUIRES") != "PASS"
     assert not any("appears in a place" in claim for claim in _claims(result))
