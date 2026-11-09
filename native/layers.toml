@@ -21,11 +21,3 @@ may_use = []
 role = "collector"
 dir = "typescript"
 may_use = ["archkeel-wire"]
-
-# Module cycles that exist today. The list may only shrink: a cycle that is not here fails, and
-# an entry that is no longer a cycle must be removed. The sets are sorted module names.
-[[cycles.archkeel-typescript-collector]]
-modules = ["config", "discover", "options"]
-
-[[cycles.archkeel-typescript-collector]]
-modules = ["definitions", "exports", "import_bindings", "members", "scan", "scope", "syntax", "walk"]
