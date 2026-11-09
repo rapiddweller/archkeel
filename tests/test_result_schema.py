@@ -212,12 +212,12 @@ def legacy_validator() -> Draft202012Validator:
 
 @pytest.fixture(scope="module")
 def validator() -> Draft202012Validator:
-    return _validator("command-result-11.0.schema.json")
+    return _validator("command-result-12.0.schema.json")
 
 
 @pytest.fixture(scope="module")
 def current_validator() -> Draft202012Validator:
-    return _validator("command-result-11.0.schema.json")
+    return _validator("command-result-12.0.schema.json")
 
 
 def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(legacy_validator) -> None:
@@ -736,7 +736,13 @@ def test_result_properties_cover_the_writer(legacy_validator, current_validator)
     strict = current_validator.schema["anyOf"][2]
     assert set(strict["properties"]) == {field.name for field in fields(RunResult)}
     diagnostic = legacy_validator.schema["$defs"]["diagnostic"]["properties"]
-    assert set(diagnostic["kind"]["enum"]) == set(DiagnosticKind)
+    current = current_validator.schema["$defs"]["diagnostic"]["properties"]
+    assert set(current["kind"]["enum"]) == set(DiagnosticKind)
+    assert set(diagnostic["kind"]["enum"]) == set(DiagnosticKind) - {
+        DiagnosticKind.UNRESOLVED_IMPORT,
+        DiagnosticKind.NOT_EXAMINED,
+        DiagnosticKind.INCOMPLETE_SCAN,
+    }
     assert set(diagnostic["code"]["enum"]) == set(DiagnosticCode)
 
 

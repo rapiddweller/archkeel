@@ -65,6 +65,7 @@
       "label": "observation",
       "role": "component",
       "packages": [
+        "archkeel.check.gap_diagnostics",
         "archkeel.check.observation",
         "archkeel.check.observe",
         "archkeel.check.uml"

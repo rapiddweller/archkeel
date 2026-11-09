@@ -157,3 +157,22 @@ def collected_resolution_features(
         *BASE_RESOLUTION_FEATURES,
         *(feature for feature in GATED_RESOLUTION_FEATURES if feature in wanted),
     )
+
+
+class GapTitle:
+    """The title text of a coverage gap that the host reads to name the cause (AD-336).
+
+    A collector builds the title of a gap from these parts. The host matches the same parts, so a
+    rewording changes both sides. The native collector repeats them in `imports.rs`; a test
+    compares both texts.
+    """
+
+    NO_MODULE: Final = "Unresolved module: "
+    UNIDENTIFIED_PACKAGE: Final = "Unidentified external package: "
+    UNPUBLISHED_GLOBAL: Final = " has no unique unconditional publication"
+    SCRIPT_GLOBALS_UNEXAMINED: Final = (
+        "Script-global dependencies are not examined by the native collector"
+    )
+    SYNTAX_ERROR: Final = "Syntax error in "
+    FILE_FAILURE: Final = " could not be analyzed"
+    UNREADABLE_SOURCE: Final = "Unreadable selected source"

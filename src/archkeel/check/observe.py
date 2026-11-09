@@ -59,6 +59,7 @@ from archkeel.ir.protocol import (
 )
 
 from .declarations import ContractError, load_contract
+from .gap_diagnostics import gap_diagnostic
 from .observation import assemble_observation
 from .ports import SourceCollector
 from .runtime import runtime_diagnostic
@@ -162,16 +163,6 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
 }
 # Dart has no test-source classification, so a Dart scan keeps every file.
 _TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
-_SOURCE_REMEDY: Final[dict[Language, str]] = {
-    Language.PYTHON: "Inspect the reported failure using the declared target runtime; "
-    "rerun after resolving its cause.",
-    Language.TYPESCRIPT: (
-        "Correct the reported TypeScript configuration or import resolution and retry."
-    ),
-    Language.DART: "Correct the reported Dart source syntax, directive, URI, part declaration or "
-    "pubspec name; rerun after resolving its cause.",
-    Language.RUST: "Correct the reported Rust source syntax, module file or Cargo.toml and retry.",
-}
 
 
 def observation_diagnostics(
@@ -184,7 +175,7 @@ def observation_diagnostics(
         if rule_failure is None and runtime is not None:
             diagnostics.append(runtime)
             continue
-        kind, remedy = rule_failure or (DiagnosticKind.PARSE_ERROR, _SOURCE_REMEDY[language])
+        kind, remedy = rule_failure or gap_diagnostic(failure, language)
         diagnostics.append(
             Diagnostic(
                 kind,

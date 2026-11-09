@@ -19,6 +19,18 @@ def contract() -> dict:
     return json.loads((TYPESCRIPT_FIXTURE_DIR / "architecture-contract.json").read_text())
 
 
+# The kind that each coverage-gap example gives (AD-336).
+_GAP_KINDS = {
+    "computed-import": ("incomplete_scan",),
+    "indirect-require": ("incomplete_scan", "not_examined"),
+    "mixed-known-and-unknown": ("incomplete_scan",),
+    "types-unlisted-global": ("not_examined",),
+    "declared-global-in-a-module": ("not_examined",),
+    "module-binding-and-global-write": ("not_examined",),
+    "bundler-exported-asset-missing": ("incomplete_scan",),
+}
+
+
 def with_rule(kind: str, **fields: object) -> str:
     value = contract()
     if kind in UNSUPPORTED_RULES:
@@ -60,7 +72,7 @@ def example(
         files=files,
         expected_violations=violations,
         expected_codes=(*codes, *("rule.violated" for _ in violations)),
-        expected_kinds=("parse_error",)
+        expected_kinds=_GAP_KINDS[name]
         if gap
         else ("rule_unsupported_by_profile",)
         if refused

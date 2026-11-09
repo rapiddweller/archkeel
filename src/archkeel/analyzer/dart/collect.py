@@ -40,7 +40,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import member as enum_member
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record
-from archkeel.ir.protocol import CollectionRequest, DartSettings
+from archkeel.ir.protocol import CollectionRequest, DartSettings, GapTitle
 from archkeel.ir.source_records import RawData, classified, file_evidence, record_evidence
 
 from .parse import parse
@@ -1398,7 +1398,7 @@ class _Collection:
             evidence_class=EvidenceClass.UNKNOWN,
             area="analysis_coverage",
             kind=kind,
-            title=f"{rel}:{span.line} could not be analyzed: {message}",
+            title=f"{rel}:{span.line}{GapTitle.FILE_FAILURE}: {message}",
             subjects=[self.modules[rel]] if signature_id else [f"{rel}:{span.line}"],
             evidence_ids=cited,
             fact_ids=[signature_id] if signature_id else [],
