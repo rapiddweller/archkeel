@@ -45,7 +45,7 @@ fn flag(value: bool) -> &'static str {
     }
 }
 
-fn at(span: &crate::syntax::Span) -> String {
+fn at(span: &crate::source::Span) -> String {
     format!("{}:{}", span.line, span.column)
 }
 
@@ -132,7 +132,7 @@ fn summary(syntax: &Syntax) -> Vec<String> {
         out.push(format!("X {name} {} {}", at(declaration), at(export)));
     }
     out.push(format!("R {}", syntax.rebound_names.join(",")));
-    let named = |items: &[(String, crate::syntax::Span)]| {
+    let named = |items: &[(String, crate::source::Span)]| {
         items
             .iter()
             .map(|(name, span)| format!("{name}@{}", at(span)))

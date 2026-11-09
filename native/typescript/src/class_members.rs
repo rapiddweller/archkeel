@@ -10,7 +10,7 @@ use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::members::{children, named_children, static_member_name, Cx, Member, Place};
-use crate::syntax::Span;
+use crate::source::Span;
 
 /// The named children of a body with the runs of decorators and comments between them.
 struct Siblings<'a, 't> {

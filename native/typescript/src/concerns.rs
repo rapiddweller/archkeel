@@ -11,8 +11,8 @@ use tree_sitter::Node;
 use crate::jsdoc;
 use crate::references::{literal, Reference};
 use crate::scan::Scan;
+use crate::source::{Source, Span};
 use crate::source_input::{SourceKind, Suffix};
-use crate::syntax::{Source, Span};
 
 const LOADER: &str = "Node module loader is not observed";
 

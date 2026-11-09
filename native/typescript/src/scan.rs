@@ -11,7 +11,7 @@
 
 use tree_sitter::{Language, Node, TreeCursor};
 
-use crate::syntax::Source;
+use crate::source::Source;
 use crate::walk::Walk;
 
 /// The ids of the node kinds that the walk matches, resolved once for a grammar.

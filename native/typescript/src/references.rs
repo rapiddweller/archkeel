@@ -10,7 +10,7 @@
 use tree_sitter::Node;
 
 use crate::scan::Scan;
-use crate::syntax::{Source, Span};
+use crate::source::{Source, Span};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Form {

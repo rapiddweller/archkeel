@@ -11,7 +11,7 @@ use tree_sitter::Node;
 
 use crate::kinds::{KindMap, F, K};
 use crate::pytext::is_space;
-use crate::syntax::{Source, Span};
+use crate::source::{Source, Span};
 
 /// The grammar and the text of one file: what every reader of a node needs.
 #[derive(Clone, Copy)]

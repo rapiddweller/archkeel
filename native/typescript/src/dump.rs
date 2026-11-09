@@ -16,8 +16,9 @@ use serde_json::{json, Value};
 use crate::definitions::{Definition, DefinitionKind};
 use crate::members::{Base, Member, Parameter, Visibility};
 use crate::parse::parse;
+use crate::source::Span;
 use crate::source_input::classify_file;
-use crate::syntax::{Parsers, Span};
+use crate::syntax::Parsers;
 use crate::walk::Syntax;
 
 fn span(span: &Span) -> Value {
