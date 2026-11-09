@@ -76,9 +76,6 @@ from .facts_validation import (
     selector_receiver_site_matches as selector_receiver_site_matches,
 )
 from .facts_validation import (
-    source_reference_context as source_reference_context,
-)
-from .facts_validation import (
     validate_source_role_vocabulary as validate_source_role_vocabulary,
 )
 from .protocol import (

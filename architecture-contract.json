@@ -463,6 +463,7 @@
             "archkeel.ir.profiles:is_test_source",
             "archkeel.ir.guard_paths:GuardedCallPath",
             "archkeel.ir.guard_paths:guarded_call_paths",
+            "archkeel.ir.reference_context:source_reference_context",
             "archkeel.ir.source_proofs:class_instance_member_write_names",
             "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt"
           ],

@@ -71,7 +71,7 @@ from .facts import (
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
 from .guard_paths import GuardedCallPath, guarded_call_paths
-from .reference_context import source_reference_context as source_reference_context
+from .reference_context import source_reference_context
 from .source_proofs import class_instance_member_write_names, parse_numeric_evidence_excerpt
 from .state_facts import ArgumentPass, AttributeAccess
 from .type_shapes import TypeApplication, TypeShape

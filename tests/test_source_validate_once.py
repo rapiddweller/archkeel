@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 """AD-338: the host validates a decoded collection once and keeps no proof for other facts."""
 
+import ast
 import dataclasses
+import enum
 import re
 import types
 import typing
@@ -90,34 +92,68 @@ def test_only_the_decoder_records_a_proof() -> None:
     assert users == {"ir/facts_codec.py", "ir/validated_facts.py"}
 
 
-def _reachable_types(root: type) -> set[type]:
-    seen: set[type] = set()
-    todo = [root]
-    while todo:
-        current = todo.pop()
-        if current in seen or not dataclasses.is_dataclass(current):
-            continue
-        seen.add(current)
-        for hint in typing.get_type_hints(current).values():
-            todo.extend(_leaf_types(hint))
-    return seen
+_SCALARS = (str, int, float, bool, bytes, type(None))
+_FROZEN_CONTAINERS = (tuple, frozenset)
 
 
-def _leaf_types(hint: object) -> list[type]:
+def _assert_frozen_type(hint: object, seen: set[type]) -> None:
+    """Accept only scalars, enums, tuples, frozensets and frozen dataclasses, all the way down."""
+    if hint is Ellipsis or isinstance(hint, str):
+        return  # tuple[X, ...] marker, and a Literal value
+    if isinstance(hint, typing.ForwardRef):
+        # The one recursive alias: JsonValue = str | ... | tuple[JsonValue, ...] | RecordData.
+        assert hint.__forward_arg__ == "JsonValue", f"unknown reference {hint}"
+        return
     origin = typing.get_origin(hint)
-    if origin is None:
-        return [hint] if isinstance(hint, type) else []
-    assert origin in {tuple, frozenset, typing.Literal, typing.Union, types.UnionType}, (
-        f"mutable {hint}"
-    )
-    return [leaf for argument in typing.get_args(hint) for leaf in _leaf_types(argument)]
+    if origin is typing.Literal:
+        return
+    if origin is not None:
+        assert origin in {*_FROZEN_CONTAINERS, typing.Union, types.UnionType}, f"mutable {hint}"
+        for argument in typing.get_args(hint):
+            _assert_frozen_type(argument, seen)
+        return
+    assert isinstance(hint, type), f"unknown annotation {hint!r}"
+    if hint in _SCALARS or issubclass(hint, enum.Enum):
+        return
+    assert dataclasses.is_dataclass(hint), f"not an allowed type: {hint}"
+    assert hint.__dataclass_params__.frozen, f"not frozen: {hint}"  # type: ignore[attr-defined]
+    if hint in seen:
+        return
+    seen.add(hint)
+    for field_hint in typing.get_type_hints(hint).values():
+        _assert_frozen_type(field_hint, seen)
 
 
 def test_source_facts_are_frozen_all_the_way_down() -> None:
-    reachable = _reachable_types(SourceFacts)
-    assert len(reachable) > 20
-    for kind in reachable:
-        assert kind.__dataclass_params__.frozen, kind  # type: ignore[attr-defined]
+    seen: set[type] = set()
+    _assert_frozen_type(SourceFacts, seen)
+    assert len(seen) > 20
+
+
+@dataclasses.dataclass(frozen=True)
+class _ListProbe:
+    items: list[int]
+
+
+@dataclasses.dataclass(frozen=True)
+class _ObjectProbe:
+    item: object
+
+
+@dataclasses.dataclass(frozen=True)
+class _DictInTupleProbe:
+    items: tuple[dict[str, int], ...]
+
+
+@dataclasses.dataclass
+class _ThawedProbe:
+    item: int
+
+
+@pytest.mark.parametrize("probe", [_ListProbe, _ObjectProbe, _DictInTupleProbe, _ThawedProbe])
+def test_the_frozen_type_check_rejects_a_mutable_field(probe: type) -> None:
+    with pytest.raises(AssertionError):
+        _assert_frozen_type(probe, set())
 
 
 _ANNOTATED = "def f(x: Foo, y=Foo): pass"
@@ -135,9 +171,10 @@ def test_reference_context_depends_on_each_input() -> None:
 
 
 def test_reference_context_is_remembered_by_value_and_returns_only_an_enum_or_none() -> None:
-    function = reference_context.source_reference_context
+    function = reference_context._remembered_context
     function.cache_clear()
     column = _ANNOTATED.index("Foo")
+    # "".join(...) builds a new string object with the same value: the cache must key on value.
     first = function("".join(_ANNOTATED), column, "Foo")
     second = function("".join(_ANNOTATED), column, "Foo")
     assert first is second
@@ -145,3 +182,42 @@ def test_reference_context_is_remembered_by_value_and_returns_only_an_enum_or_no
     assert isinstance(first, SourceReferenceContext)
     assert function.cache_info().maxsize == reference_context.REFERENCE_CONTEXT_CACHE_SIZE
     assert function(_ANNOTATED, 10_000, "Foo") is None
+
+
+def test_a_long_excerpt_is_computed_and_never_pinned() -> None:
+    function = reference_context._remembered_context
+    function.cache_clear()
+    limit = reference_context.REFERENCE_CONTEXT_CACHE_MAX_CHARS
+    excerpt = f"def f(x: Foo, y={'0 + ' * limit}0): pass"
+    assert len(excerpt) > limit
+    column = excerpt.index("Foo")
+    verdict = reference_context.source_reference_context(excerpt, column, "Foo")
+    assert verdict is SourceReferenceContext.ANNOTATION
+    long_name = "N" * (limit + 1)
+    reference_context.source_reference_context(f"x: {long_name}", 3, long_name)
+    assert function.cache_info().currsize == 0
+
+
+def test_a_verdict_that_came_from_a_recursion_error_is_not_remembered() -> None:
+    function = reference_context._remembered_context
+    function.cache_clear()
+    column = _ANNOTATED.index("Foo")
+    real_parse = ast.parse
+    calls = []
+
+    def deep_once(source, *args, **kwargs):
+        calls.append(source)
+        if len(calls) == 1:
+            raise RecursionError("the caller is deep")
+        return real_parse(source, *args, **kwargs)
+
+    with patch.object(reference_context.ast, "parse", deep_once):
+        first = reference_context.source_reference_context(_ANNOTATED, column, "Foo")
+    assert first is SourceReferenceContext.ANNOTATION  # the verdict is returned, not kept
+    assert function.cache_info().currsize == 0
+    # The same call at a shallow depth gives the true verdict and is then remembered.
+    second = reference_context.source_reference_context(_ANNOTATED, column, "Foo")
+    assert second is SourceReferenceContext.ANNOTATION
+    assert function.cache_info().currsize == 1
+    assert reference_context.source_reference_context(_ANNOTATED, column, "Foo") is second
+    assert function.cache_info().hits == 1

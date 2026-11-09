@@ -23,8 +23,15 @@ validations and from `parse_observation`. The host called `ast.parse` 23 796 tim
 5. `ir/reference_context.py` holds `source_reference_context`. It is a pure function of the
    excerpt, the column and the expression. It returns an enum or `None`, never a parse tree. A
    bounded `lru_cache` of 32 768 entries keeps the verdicts. One entry costs about 350 bytes.
-6. The collector keeps its own check in `analyzer/python/references.py`. The host runs the same
-   pure check on the decoded bytes and does not trust the collector.
+6. An excerpt is a source line without a length limit. The cache keeps only an excerpt and an
+   expression of at most 256 characters. The measured distinct excerpt lengths are: fastapi 99.9th
+   percentile 91, maximum 111; pydantic 147 and 165. A longer input is computed at each call. So
+   the cache holds at most 32 768 x 2 x 256 characters: about 23 MiB.
+7. A verdict that came from a `RecursionError` of `ast.parse` depends on the depth of the caller.
+   It is returned but never kept. The numeric parser keeps its own older cache; this decision
+   does not change it.
+8. The collector calls the same pure function in `analyzer/python/references.py`, so it gets the
+   same cache. The host calls it on the decoded bytes and does not trust the collector verdict.
 
 **Rejected.**
 - **A marker field on `SourceFacts`.** `dataclasses.replace` copies it, so a changed copy would
