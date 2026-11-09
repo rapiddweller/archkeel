@@ -569,10 +569,79 @@ SHAPES: dict[str, Shape] = {
         _text(lambda n: "var o = { " + _join("a{i}", n, ", ") + " };"), 30000, ".js"
     ),
     "sites-type-positions": Shape(
-        _text(lambda n: "type T = " + "A<" * n + "B" + ">" * n + ";"), 50000
+        _text(lambda n: "type T = " + "A<" * n + "B" + ">" * n + ";"), 50000, ".tsx"
     ),
     "sites-jsx-names": Shape(_text(lambda n: _join("<a b={c{i}} d:e={f{i}} />;", n)), 5000, ".tsx"),
 }
+
+
+# The sites run in a few shapes that join several of the shapes above. A joined shape holds every
+# construct of its parts, each at a linear count, so a quadratic loop in one part shows in the
+# ratio of the whole. The parts stay in `SHAPES` for the equality tests at small sizes, which is
+# where a shape must not be too deep for the Python oracle. A part with `base` b has the count
+# n * b / 1000 in a joined shape of n, so the parts take about the same time.
+SITE_PARTS: dict[str, tuple[str, ...]] = {
+    "sites-timed-calls": (
+        "sites-calls-at-depth",
+        "sites-nested-calls",
+        "sites-with-nest",
+        "sites-calls-in-arrow-nest",
+    ),
+    "sites-timed-chains": (
+        "sites-member-chain-call",
+        "sites-chained-calls",
+        "sites-calls-with-chains",
+        "sites-new-expressions",
+    ),
+    "sites-timed-computed": (
+        "sites-computed-access",
+        "sites-computed-calls",
+        "sites-subscript-flat",
+    ),
+    "sites-timed-names": (
+        "sites-many-free-names",
+        "sites-many-bound-names",
+        "sites-free-names-in-frames",
+        "sites-args-wide",
+        "sites-escapes",
+        "sites-many-shadowed-names",
+        "sites-shadow-nest-arrows",
+    ),
+    "sites-timed-comparisons": (
+        "sites-comparisons-or-chain",
+        "sites-comparisons-flat",
+        "sites-comparison-wrappers",
+        "sites-switch-cases",
+        "sites-templates-comparisons",
+    ),
+    "sites-timed-runs": (
+        "sites-in-decorator-run",
+        "sites-in-decorator-comment-mix",
+        "sites-after-comment-run",
+    ),
+    "sites-timed-scripts": (
+        "sites-script-wrappers",
+        "sites-script-wrapper-nest",
+        "sites-iife-many-args",
+        "sites-script-publications",
+        "sites-publication-chain",
+        "sites-shorthand-properties",
+    ),
+    "sites-timed-types-jsx": ("sites-type-positions", "sites-jsx-names"),
+}
+
+
+def _joined(parts: tuple[str, ...]) -> Shape:
+    shapes = [SHAPES[name] for name in parts]
+    assert len({shape.suffix for shape in shapes}) == 1, parts
+
+    def make(n: int) -> bytes:
+        return b"\n".join(shape.make(max(1, n * shape.base // 1000)) for shape in shapes)
+
+    return Shape(make, 500, shapes[0].suffix)
+
+
+SITE_TIMED: dict[str, Shape] = {name: _joined(parts) for name, parts in SITE_PARTS.items()}
 
 
 # Construct class -> shapes that hold it.

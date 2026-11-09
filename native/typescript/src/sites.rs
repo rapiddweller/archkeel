@@ -27,66 +27,10 @@ use crate::site_paths::{is_script_root, Paths, Text};
 use crate::site_syntax::{
     class_member, declaration_name, holds_types, is_function_scope, is_member_name,
     is_reference_kind, is_wrapper, relatives, script_escape, subscript_receiver, target_name,
-    written_string, ReceiverKind,
+    written_string, ReceiverKind, Target,
 };
-use crate::source::Span;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SiteKind {
-    Call,
-    New,
-    Reference,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SiteUse {
-    Type,
-    Value,
-    Member,
-}
-
-/// The text of a site: a node, or a receiver and a name that a reference joins with a dot.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Expression {
-    Node(Text),
-    Member(Text, Text),
-}
-
-/// A call, a `new` or a reference. The texts are ranges of the file and the paths and names are
-/// shared (`site_paths.rs`, `site_names.rs`), so a site costs the same for any chain around it.
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Site {
-    pub kind: SiteKind,
-    pub expression: Expression,
-    pub span: Span,
-    /// The definition that holds the site: its name, line and column are in `Scopes`.
-    pub scope: Option<u32>,
-    pub assigned_name: Option<Text>,
-    pub name: Option<Text>,
-    pub receiver: Option<Text>,
-    pub computed: bool,
-    pub shadow: Shadow,
-    pub scope_ambiguous: bool,
-    pub assignment_span: Option<Span>,
-    pub assignment_annotation: Option<String>,
-    pub initializer: Option<Text>,
-    pub usage: SiteUse,
-    pub receiver_kind: ReceiverKind,
-    pub path: Option<u32>,
-    pub script_free: bool,
-    pub script_escape: bool,
-    /// The frame and the first name of the path, when only the frames can still veto the site.
-    free: Option<(u32, Text)>,
-    /// A shorthand property counts as a reference in a script only.
-    shorthand: bool,
-}
-
-/// A string that an equality or a `case` writes, and the definition that holds it.
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Comparison {
-    pub span: Span,
-    pub scope: Option<u32>,
-}
+use crate::site_types::Common;
+pub use crate::site_types::{Comparison, Expression, Site, SiteKind, SiteUse};
 
 /// The sites and the written string comparisons of one file.
 #[derive(Default)]
@@ -351,30 +295,25 @@ impl Sites {
             .filter(|_| !typed && visit.seen & IN_WITH == 0)
             .and_then(|path| self.paths.head(path))
             .zip(near.0.map(|parent| parent.frame));
-        self.sites.push(Site {
+        let site = Site::new(Common {
             kind: if new { SiteKind::New } else { SiteKind::Call },
             expression: Expression::Node(Text::of(target)),
             span: cx.span(node),
             scope: visit.scope,
+            shadow: near.0.map_or_else(Shadow::default, |parent| parent.shadow),
+            named,
+            path,
+            free: free.map(|(head, frame)| (frame, head)),
+        });
+        self.sites.push(Site {
             assigned_name: declared
                 .filter(|name| cx.k(*name) == K::Identifier)
                 .map(Text::of),
-            name: named.name,
-            receiver: named.receiver,
-            computed: named.computed,
-            shadow: near.0.map_or_else(Shadow::default, |parent| parent.shadow),
-            scope_ambiguous: false,
             assignment_span: declared.map(|name| cx.span(name)),
             assignment_annotation: declarator
                 .and_then(|parent| cx.type_text(cx.field(parent.node, F::Type))),
             initializer: new.then(|| Text::of(node)),
-            usage: SiteUse::Value,
-            receiver_kind: named.receiver_kind,
-            path,
-            script_free: false,
-            script_escape: false,
-            free: free.map(|(head, frame)| (frame, head)),
-            shorthand: false,
+            ..site
         });
     }
 
@@ -395,7 +334,7 @@ impl Sites {
         });
         let named = match member {
             Some(parent) => target_name(cx, parent.node),
-            None => crate::site_syntax::Target {
+            None => Target {
                 name: Some(Text::of(node)),
                 receiver: None,
                 computed: false,
@@ -419,33 +358,30 @@ impl Sites {
             (Some(receiver), Some(name)) if !name.is_empty() => Expression::Member(receiver, name),
             _ => Expression::Node(Text::of(node)),
         };
-        self.sites.push(Site {
+        let computed = named.computed || subscript_receiver(cx, node, near.0);
+        let site = Site::new(Common {
             kind: SiteKind::Reference,
             expression: joined,
             span: cx.span(node),
             scope: visit.scope,
-            assigned_name: None,
-            name: named.name,
-            receiver: named.receiver,
-            computed: named.computed || subscript_receiver(cx, node, near.0),
             shadow: near.0.map_or_else(Shadow::default, |parent| parent.shadow),
-            scope_ambiguous: false,
-            assignment_span: None,
-            assignment_annotation: None,
-            initializer: None,
-            usage: if visit.kind == K::TypeIdentifier {
-                SiteUse::Type
-            } else if receiver.is_some() {
-                SiteUse::Member
-            } else {
-                SiteUse::Value
-            },
-            receiver_kind: named.receiver_kind,
+            named,
             path,
-            script_free: false,
-            script_escape: script_escape(cx, node, near),
             free: free.map(|(head, frame)| (frame, head)),
+        });
+        let usage = if visit.kind == K::TypeIdentifier {
+            SiteUse::Type
+        } else if receiver.is_some() {
+            SiteUse::Member
+        } else {
+            SiteUse::Value
+        };
+        self.sites.push(Site {
+            computed,
+            usage,
+            script_escape: script_escape(cx, node, near),
             shorthand: visit.kind == K::ShorthandPropertyIdentifier,
+            ..site
         });
     }
 

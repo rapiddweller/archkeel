@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from scaling_shapes import SHAPES
+from scaling_shapes import SHAPES, SITE_PARTS, SITE_TIMED
 from test_collector_native_scaling import (
     MEMORY_CAP,
     SITE_PREFIX,
@@ -26,7 +26,12 @@ from test_collector_native_scaling import (
 )
 
 
-@pytest.mark.parametrize("name", sorted(n for n in SHAPES if n.startswith(SITE_PREFIX)))
+def test_every_site_shape_is_a_part_of_exactly_one_timed_shape() -> None:
+    parts = [name for names in SITE_PARTS.values() for name in names]
+    assert sorted(parts) == sorted(n for n in SHAPES if n.startswith(SITE_PREFIX))
+
+
+@pytest.mark.parametrize("name", sorted(SITE_TIMED))
 def test_time_grows_linearly_with_the_size(
     tmp_path: Path,
     collector: Path,  # noqa: F811

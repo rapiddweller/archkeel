@@ -110,10 +110,7 @@ impl<'a, 't> Walk<'a, 't> {
             None => (0, ROOT, ROOT, None),
         };
         if !info.named {
-            let (shadow, callee) = self
-                .stack
-                .last()
-                .map_or((Shadow::default(), false), |parent| (parent.shadow, false));
+            let shadow = self.stack.last().map_or_else(Shadow::default, |p| p.shadow);
             self.stack.push(Entry {
                 node,
                 kind,
@@ -123,7 +120,7 @@ impl<'a, 't> Walk<'a, 't> {
                 scope: parent_scope,
                 run: Vec::new(),
                 shadow,
-                callee,
+                callee: false,
                 wrapped_call: false,
             });
             return;

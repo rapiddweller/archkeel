@@ -41,7 +41,15 @@ from pathlib import Path
 
 import pytest
 from collector_timing import Taken, interleaved_least, least_of, timed_run
-from scaling_shapes import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY, SHAPES, Shape
+from scaling_shapes import (
+    COVERAGE,
+    FIELD_COVERAGE,
+    KIND_CLASSES,
+    NAME_ONLY,
+    SHAPES,
+    SITE_TIMED,
+    Shape,
+)
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
 from archkeel.analyzer.typescript.syntax import Definition
@@ -220,16 +228,15 @@ SITE_PREFIX = "sites-"
 def assert_time_grows_linearly(tmp_path: Path, collector: Path, name: str) -> None:
     """Time n and 2n of the shape `name` and bound the ratio of the CPU times."""
     timing = timing_for_profile()
-    n, first, second = measure(collector, tmp_path, SHAPES[name], timing)
+    shape = SHAPES[name] if name in SHAPES else SITE_TIMED[name]
+    n, first, second = measure(collector, tmp_path, shape, timing)
     # The wall ratio is printed for comparison only; the assertion uses the CPU time.
     print(
         f"SCALING {name} n={n} t(n)={first.cpu:.3f} t(2n)={second.cpu:.3f} "
         f"ratio={second.cpu / first.cpu:.2f} wall_ratio={second.wall / first.wall:.2f}"
     )
     ratio = second.cpu / first.cpu
-    assert len(SHAPES[name].make(2 * n)) <= MAX_BYTES, (
-        f"{name}: the file is too large for n={2 * n}"
-    )
+    assert len(shape.make(2 * n)) <= MAX_BYTES, f"{name}: the file is too large for n={2 * n}"
     assert first.cpu >= timing.min_time, (
         f"{name}: {first.cpu:.3f} s CPU for n={n} is too short to measure"
     )

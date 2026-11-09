@@ -25,7 +25,8 @@ pub const IN_FUNCTION_LIKE: u8 = 16;
 pub const IN_TYPE: u8 = 32;
 /// An ancestor is the left side of an assignment that publishes `window.x` or `globalThis.x`.
 pub const IN_PUBLICATION: u8 = 64;
-/// An ancestor is a `with` statement.
+/// An ancestor is a `with` statement. The eight bits of the flag byte are now all used: a ninth
+/// flag needs a `u16`.
 pub const IN_WITH: u8 = 128;
 
 /// What an ancestor adds to the names that a site shadows: a scope that is not a definition, and

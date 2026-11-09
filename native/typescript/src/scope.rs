@@ -98,6 +98,11 @@ pub fn is_function(kind: K) -> bool {
     )
 }
 
+/// The number of a frame. A file of 4 MiB has fewer than 2^32 frames, so the saturation is a guard.
+fn frame_id(at: usize) -> u32 {
+    u32::try_from(at).unwrap_or(u32::MAX)
+}
+
 impl Frames {
     pub fn new() -> Self {
         Self {
@@ -218,7 +223,7 @@ impl Frames {
     /// the frames that bind it, and a frame is below a binding frame when its number is in a range.
     pub fn free_index(&self) -> FreeIndex<'_> {
         let count = self.list.len();
-        let mut last: Vec<u32> = (0..count).map(|at| at as u32).collect();
+        let mut last: Vec<u32> = (0..count).map(frame_id).collect();
         for at in (1..count).rev() {
             let parent = self.list.get(at).map_or(0, |frame| frame.parent) as usize;
             let own = last.get(at).copied().unwrap_or(0);
@@ -236,7 +241,7 @@ impl Frames {
                 let ranges = bound.entry(name.as_str()).or_default();
                 let widest = ranges.last().map_or(end, |range| range.widest.max(end));
                 ranges.push(Range {
-                    start: at as u32,
+                    start: frame_id(at),
                     widest,
                 });
             }

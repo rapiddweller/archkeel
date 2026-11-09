@@ -38,6 +38,7 @@ mod scope;
 mod site_names;
 mod site_paths;
 mod site_syntax;
+mod site_types;
 mod sites;
 mod snapshot;
 mod source;

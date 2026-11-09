@@ -1,8 +1,8 @@
 # AD-323 The native collector reads the syntax facts of a file in one walk
 
 **Decision.** PR 4.3a-1 of issue #880 ports the per-file syntax facts of `analyzer/typescript/parse.py`
-to `archkeel-typescript-collector`. The wire reply does not change. It stays the legacy reply of
-AD-320, and the 4.2 gap "Script-global dependencies are not examined" stays.
+to `archkeel-typescript-collector`. The wire reply stays the legacy reply of AD-320, and the 4.2
+gap "Script-global dependencies are not examined" stays.
 
 1. **One walk.** `scan.rs` keeps its single walk and gives each node to `walk.rs`. `walk.rs` keeps a
    stack of the ancestors. Each entry holds the nearest scope frame, `var` frame and definition,
@@ -13,9 +13,8 @@ AD-320, and the 4.2 gap "Script-global dependencies are not examined" stays.
    outlives its file.
 3. **Scope frames.** `scope.rs` keeps the frames in a `Vec`. A frame knows its parent, counts the
    bindings of each name and can be ambiguous. A lookup climbs the chain (`_script_bound_scope`).
-4. **Kinds and fields.** `kinds.rs` maps each id of the grammar to one enum built from `_NodeKind`,
-   and each field name that the walk reads to its id. A text that `_NodeKind` does not list is
-   `K::Other`.
+4. **Kinds and fields.** `kinds.rs` maps each grammar id to one enum built from `_NodeKind` (a text
+   that it does not list is `K::Other`), and each field name that the walk reads to its id.
 5. **Cost.** No question climbs the tree. The parent kind, the grandparent kind and the run of
    siblings come from the stack (`Place`). A definition holds the index of its parent scope, and
    `Syntax::parent_name` builds the qualified name on demand. A line over 256 bytes has one column
@@ -23,35 +22,36 @@ AD-320, and the 4.2 gap "Script-global dependencies are not examined" stays.
 6. **Deep nesting.** The walk and `assignment_targets` use no recursion. Python stops with
    `RecursionError` near a depth of 1 000. Native gives the facts. This is the one closed
    exception to "never complete where Python is UNKNOWN" (decision of 2026-11-08 on #880).
-7. **The `dump` feature.** `cargo build --features dump` adds `--dump`: it reads `{"rel", "file"}`
-   lines and prints the facts of each file as JSON. It is not a default feature. `make native-check`
-   lints it, and the wheel test checks its absence.
+7. **The `dump` feature.** `--dump` (feature `dump`, not a default) reads `{"rel", "file"}` lines and
+   prints the facts of each file as JSON. `make native-check` lints it; the wheel test checks its absence.
 
 **Oracle.** `tests/test_collector_native_syntax.py` compares the dump with `parse.parse()` field by
 field: the fixtures, the Studio UI, the resolution grid, seeded and mutated sources (3 000 with
 `ARCHKEEL_SYNTAX_MUTANTS`), hostile files, column cases and a private React UI (`ARCHKEEL_PRIVATE_UI`,
-totals only). **Scaling matrix.** `tests/test_collector_native_scaling.py` times n and 2n for each
-shape; the CPU ratio must stay below 3 (linear is about 2, quadratic about 4). Some shapes have a
-memory bound. A table maps each kind and fact to its shapes, and the dump proves the kinds.
+totals only). **Scaling matrix.** `tests/test_collector_native_scaling.py` and
+`tests/test_collector_native_scaling_sites.py` time n and 2n; the CPU ratio must stay below 3
+(linear is about 2, quadratic about 4). Some shapes have a memory bound. A table maps each kind and
+fact to its shapes, and the dump proves the kinds.
 
 **Differences, a closed list.** *Statement order:* `_import_bindings` reads a set of nodes, so its
 order depends on addresses; native is in document order, and the test compares each statement in
 order. *Locale:* the scanner calls C `iswspace`; AD-325 sets `LC_ALL=C` for every collector, so the
 two agree, and the oracle keeps Python in `C`. *Depth:* point 6.
 
-**Rejected.** Queries for each fact (one tree walk each). Tree nodes in the facts. A qualified name
-stored for each definition. Byte ranges for definitions: done for sites (below), open for 4.3a-3.
+**Rejected.** A tree walk for each fact. Tree nodes in the facts. A stored qualified name. Byte
+ranges for definitions: done for sites (below), open for 4.3a-3.
 
 **Limit.** The facts are not on the wire. Records for sites are PR 4.3a-3, script facts 4.3a-4.
-- *Fixed.* A scan of the whole run of comments or decorators for each child; a write lookup that
-  climbed all frames, and a memo with an entry for each frame and name (now only for a name that the
-  root and another frame both bind); array spans in a `Vec`; the triple-slash check of PR 4.2.
+- *Fixed.* A scan of the run of comments or decorators for each child; a write lookup that
+  climbed all frames, with a memo for each frame and name (now only for a name that the root and
+  another frame both bind); array spans in a `Vec`; the triple-slash check of PR 4.2.
 - *Known limit, not fixed.* A name that the root and the outermost function both bind, written at
   depth n, costs n squared: 8 000 imports written in 8 000 nested functions take 4.0 s and 3.7 GB
   (4.2: 0.48 s, 277 MiB). A fix needs a stack of frames for each name.
 - *No guard on macOS* (AD-319 limits Linux and Windows only): memory must grow linearly.
-- *Dense files, accepted* (lead, 2026-11-09): up to 2.2 times the time and 2.9 times the memory of
-  4.2 on dense shapes, 1.10 times on real code (x35).
+- *Dense files, accepted* (lead, 2026-11-09): up to 2.2 times the time of 4.2 and 2.9 times the
+  memory; 1.10 times on real code (x35). Absolute, under the 4 MiB limit: 100 000 tiny classes
+  615 MiB against 244 MiB, one class of 838 000 methods 1.18 GB against 576 MB.
 
 **Amendment, 2026-11-09 (PR 4.3a-2): sites and string comparisons.** The walk also collects `sites`
 and `string_comparisons` (`_sites`, `_call_site`, `_target_name`, `_static_path`,
@@ -66,5 +66,5 @@ and `string_comparisons` (`_sites`, `_call_site`, `_target_name`, `_static_path`
    each site is n squared for n nested functions.
 4. `Frames::free_index` numbers the frames in document order. A name keeps the ranges of the frames
    that bind it, and one binary search answers `_script_free`: no climb, no growing memo.
-5. No new difference. A shorthand property is a reference in a script only; `finish` drops it
-   elsewhere. The matrix has 127 shapes and 12 memory bounds (peak for 2n at most 2.5 times n).
+5. No new difference. A shorthand property is a reference in a script only. 127 shapes (the sites
+   run joined in 8 timed shapes) and 12 memory bounds (peak for 2n at most 2.5 times n).
