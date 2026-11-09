@@ -214,44 +214,11 @@ def test_writes_keep_the_memory_bounded(
     assert peak < MEMORY_CAP, f"{name} n={count}: {peak / 2**20:.0f} MiB"
 
 
-# The sites keep a chain, a path or a range of bytes for each node, and never a copy of the names
-# above them. The shapes that stress each of these: a union of names for each site (n nested arrow
-# functions with n sites at the bottom), a path for each member of a chain, the receiver text of
-# each call of a chain, and the frames above each name. Their memory is bounded by a ratio: the
-# peak for 2n is at most 2.5 times the peak for n (linear growth is below 2 with the fixed cost of
-# the process; quadratic growth is 4).
-MEMORY_GROWTH = 2.5
-SITE_MEMORY_CASES = (
-    ("sites-shadow-nest-arrows", 4_000),
-    ("sites-calls-in-arrow-nest", 3_000),
-    ("sites-many-shadowed-names", 30_000),
-    ("sites-member-chain-call", 100_000),
-    ("sites-chained-calls", 40_000),
-    ("sites-computed-access", 100_000),
-    ("sites-comparison-wrappers", 30_000),
-    ("sites-publication-chain", 30_000),
-    ("sites-many-bound-names", 8_000),
-    ("sites-calls-at-depth", 8_000),
-    ("sites-after-comment-run", 200_000),
-    ("sites-script-wrapper-nest", 8_000),
-)
+SITE_PREFIX = "sites-"
 
 
-@pytest.mark.parametrize(("name", "count"), SITE_MEMORY_CASES)
-def test_sites_keep_the_memory_linear(
-    tmp_path: Path, collector: Path, name: str, count: int
-) -> None:
-    first = _peak_memory(tmp_path, collector, name, count)
-    second = _peak_memory(tmp_path, collector, name, 2 * count)
-    print(f"MEMORY {name} n={count} {first / 2**20:.0f} MiB 2n {second / 2**20:.0f} MiB")
-    assert second < MEMORY_CAP, f"{name} n={2 * count}: {second / 2**20:.0f} MiB"
-    assert second <= MEMORY_GROWTH * first, (
-        f"{name}: n={count} {first / 2**20:.0f} MiB, 2n {second / 2**20:.0f} MiB"
-    )
-
-
-@pytest.mark.parametrize("name", sorted(SHAPES))
-def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
+def assert_time_grows_linearly(tmp_path: Path, collector: Path, name: str) -> None:
+    """Time n and 2n of the shape `name` and bound the ratio of the CPU times."""
     timing = timing_for_profile()
     n, first, second = measure(collector, tmp_path, SHAPES[name], timing)
     # The wall ratio is printed for comparison only; the assertion uses the CPU time.
@@ -270,6 +237,13 @@ def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name
     assert ratio < RATIO, (
         f"{name}: n={n} {first.cpu:.3f} s, 2n {second.cpu:.3f} s CPU, ratio {ratio:.2f}"
     )
+
+
+# The shapes of the sites run in `test_collector_native_scaling_sites.py`, so that the two files
+# run on two workers (a file stays on one worker) and the matrix fits the time limit of Full.
+@pytest.mark.parametrize("name", sorted(n for n in SHAPES if not n.startswith(SITE_PREFIX)))
+def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
+    assert_time_grows_linearly(tmp_path, collector, name)
 
 
 def test_the_timing_follows_the_build_profile(monkeypatch: pytest.MonkeyPatch) -> None:
