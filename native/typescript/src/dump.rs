@@ -8,6 +8,7 @@
 //! `Syntax` that `parse.parse()` gives for the same bytes. The field names are the names of the
 //! Python dataclasses. This module is not part of the release binary.
 
+use std::collections::BTreeSet;
 use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
@@ -15,6 +16,7 @@ use serde_json::{json, Value};
 use crate::definitions::{Definition, DefinitionKind};
 use crate::members::{Base, Member, Parameter, Visibility};
 use crate::parse::parse;
+use crate::source_input::classify_file;
 use crate::syntax::{Parsers, Span};
 use crate::walk::Syntax;
 
@@ -136,6 +138,29 @@ pub fn syntax(found: &Syntax) -> Value {
     })
 }
 
+/// The node kinds of `_NodeKind` that the tree of the file holds, by their names in `kinds.rs`. The
+/// scaling tests use them to check that a shape holds the construct that it claims.
+fn kinds(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Value {
+    let suffix = classify_file(rel.strip_suffix('\n').unwrap_or(rel));
+    let typescript = suffix.is_some_and(|suffix| suffix.parser_typescript());
+    let Some((tree, grammar)) = parsers.parse(typescript, data) else {
+        return json!([]);
+    };
+    let mut seen = BTreeSet::new();
+    let mut cursor = tree.walk();
+    loop {
+        seen.insert(format!("{:?}", grammar.map.of(cursor.node())));
+        if cursor.goto_first_child() {
+            continue;
+        }
+        while !cursor.goto_next_sibling() {
+            if !cursor.goto_parent() {
+                return json!(seen);
+            }
+        }
+    }
+}
+
 /// Read `{"rel": ..., "file": ...}` lines from `input`. Print one `{"rel": ..., "syntax": ...}`
 /// line for each, or `{"rel": ..., "error": ...}` when the file cannot be read.
 pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
@@ -147,7 +172,8 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
         let rel = request["rel"].as_str().unwrap_or("");
         let reply = match std::fs::read(request["file"].as_str().unwrap_or("")) {
             Ok(data) => {
-                json!({"rel": rel, "syntax": syntax(&parse(&mut parsers, rel, &data).syntax)})
+                let facts = syntax(&parse(&mut parsers, rel, &data).syntax);
+                json!({"rel": rel, "syntax": facts, "kinds": kinds(&mut parsers, rel, &data)})
             }
             Err(error) => json!({"rel": rel, "error": error.to_string()}),
         };
