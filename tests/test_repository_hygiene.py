@@ -551,13 +551,49 @@ def test_absolute_path_detection_requires_a_root_boundary() -> None:
         assert _contains_local_absolute_path(text) is expected
 
 
+def _is_language_member(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "Language"
+    )
+
+
+def _language_identity_lines(source: str) -> list[int]:
+    """Line numbers of the Language operands in `is` and `is not` comparisons."""
+    lines: list[int] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Compare):
+            continue
+        if not any(isinstance(op, (ast.Is, ast.IsNot)) for op in node.ops):
+            continue
+        for operand in (node.left, *node.comparators):
+            if _is_language_member(operand):
+                lines.append(operand.lineno)
+    return lines
+
+
 def test_language_is_compared_by_value_in_source() -> None:
     """A language can arrive as a plain string, so `is` on a Language member is a bug."""
-    pattern = re.compile(r"\bis (?:not )?Language\.[A-Z_]+\b")
     found = [
-        f"{path.relative_to(ROOT)}:{number}"
+        f"{path.relative_to(ROOT)}:{line}"
         for path in sorted((ROOT / "src").rglob("*.py"))
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
-        if pattern.search(line)
+        for line in _language_identity_lines(path.read_text(encoding="utf-8"))
     ]
     assert found == [], f"compare Language with == or !=, not is: {found}"
+
+
+def test_language_identity_checker_finds_each_spelling_and_ignores_text() -> None:
+    hits = (
+        "if language  is  Language.PYTHON:\n    pass\n",
+        "value = (\n    language\n    is\n    Language.DART\n)\n",
+        "if language is (Language.TYPESCRIPT):\n    pass\n",
+    )
+    for source in hits:
+        assert _language_identity_lines(source), source
+    text_only = (
+        "# language is Language.PYTHON\n"
+        "text = 'language is Language.PYTHON'\n"
+        "ok = language == Language.PYTHON\n"
+    )
+    assert _language_identity_lines(text_only) == []
