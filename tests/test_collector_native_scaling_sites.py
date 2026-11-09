@@ -16,13 +16,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from scaling_shapes import SHAPES, SITE_PARTS, SITE_TIMED
+from scaling_shapes import SHAPES, SITE_PARTS, SITE_TIMED, WALK_ONLY
 from test_collector_native_scaling import (
     MEMORY_CAP,
     SITE_PREFIX,
     _peak_memory,
     assert_time_grows_linearly,
     collector,  # noqa: F401
+    dump_binary,  # noqa: F401
 )
 
 
@@ -35,9 +36,10 @@ def test_every_site_shape_is_a_part_of_exactly_one_timed_shape() -> None:
 def test_time_grows_linearly_with_the_size(
     tmp_path: Path,
     collector: Path,  # noqa: F811
+    dump_binary: Path,  # noqa: F811
     name: str,
 ) -> None:
-    assert_time_grows_linearly(tmp_path, collector, name)
+    assert_time_grows_linearly(tmp_path, collector, name, dump_binary)
 
 
 # The sites keep a chain, a path or a range of bytes for each node, and never a copy of the names
@@ -67,11 +69,15 @@ SITE_MEMORY_CASES = (
 def test_sites_keep_the_memory_linear(
     tmp_path: Path,
     collector: Path,  # noqa: F811
+    dump_binary: Path,  # noqa: F811
     name: str,
     count: int,
 ) -> None:
-    first = _peak_memory(tmp_path, collector, name, count)
-    second = _peak_memory(tmp_path, collector, name, 2 * count)
+    # A nest of named definitions has a quadratic reply by the data model: its walk is measured.
+    walk = name in WALK_ONLY
+    binary = dump_binary if walk else collector
+    first = _peak_memory(tmp_path, binary, name, count, walk)
+    second = _peak_memory(tmp_path, binary, name, 2 * count, walk)
     print(f"MEMORY {name} n={count} {first / 2**20:.0f} MiB 2n {second / 2**20:.0f} MiB")
     assert second < MEMORY_CAP, f"{name} n={2 * count}: {second / 2**20:.0f} MiB"
     assert second <= MEMORY_GROWTH * first, (

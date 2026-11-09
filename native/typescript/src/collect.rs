@@ -22,7 +22,7 @@ use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
 use crate::paths::join;
 use crate::pytext::is_space;
-use crate::records::{build, Records};
+use crate::records::{apply, build, write_reply, Records};
 use crate::resolve::Resolver;
 use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;
@@ -70,17 +70,35 @@ struct Collection<'a> {
     sites: HashMap<String, (String, i64, i64)>,
 }
 
-/// Collect the facts of one request.
-pub fn collect(request: &Request, provenance: Provenance) -> Facts {
-    gather(request, provenance, false).0
+/// The reply of one request: the imports, the symbols, the calls, the references, the bindings and
+/// the constructs, with the capability `inner-uml-v1` (AD-340, PR 4.3a-3d).
+pub fn reply(
+    request: &Request,
+    provenance: Provenance,
+    version: archkeel_wire::protocol::Version,
+) -> Result<Vec<u8>, String> {
+    let (facts, pending) = gather(request, provenance, true);
+    let bytes = write_reply(version, facts, &pending);
+    drop(pending);
+    bytes
 }
 
-/// The facts of one request and the records that the reply does not carry yet. Only the `dump`
-/// feature calls it (AD-323).
+/// The same facts with every section in a list, for the unit tests and the test-only dump.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn collect(request: &Request, provenance: Provenance) -> Facts {
+    let (mut facts, pending) = gather(request, provenance, true);
+    let records = build(&mut facts, &pending);
+    drop(pending);
+    apply(&mut facts, records);
+    facts
+}
+
+/// The facts of one request as the walk gathered them, and the records that `collect` would add.
+/// Only the `dump` feature calls it.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
 pub fn records(request: &Request, provenance: Provenance) -> (Facts, Records) {
-    let (facts, pending) = gather(request, provenance, true);
-    let records = build(&facts, &pending);
+    let (mut facts, pending) = gather(request, provenance, true);
+    let records = build(&mut facts, &pending);
     (facts, records)
 }
 

@@ -17,22 +17,14 @@ PR, so the host cannot read a new record and no verdict can change. This record 
 4. **The wire has every type now.** `Record` has `fact_ids`. `Facts.sections` holds any section by
    name (`imports`, `symbols`, `calls`, `references`, `bindings`, `constructs`), and
    `Facts.constructs` holds the construct capabilities. A test encodes all six sections.
-5. **Evidence apart.** The evidence that the new records cite is kept in the dump, so the evidence
-   of the reply does not change. 3d merges it.
 
 **Oracle.** `tests/test_collector_native_records.py` runs the Python methods in the order of
-`_Collection.facts()` up to `_constructs()` and compares imports, targets in the order of the walk,
-witnesses, constructs and the cited evidence: the fixtures, the Studio UI, the resolution grid,
-syntax pieces in a project, mutated projects, and further corpora (`ARCHKEEL_RECORDS_CORPORA`).
+`_Collection.facts()` up to `_constructs()` and compares all sections and the cited evidence on the
+fixtures, the Studio UI, the resolution grid, mutated projects and `ARCHKEEL_RECORDS_CORPORA`.
 
 **Cost.** Python scans the bindings of a file for each statement and the exports of a module for
-each bound name. `Kept` indexes both, so a file with n statements and n exports stays linear. Four
-shapes (many statements, one statement, many importing files, comparisons) have a time ratio and a
-memory bound. They found a loop of PR 4.2: `Snapshot::read` read and digested a file for each import
-of it (n imports of a file of size m cost n times m). `readable` skips a file that was read.
-
-**Limit.** The records are not in the reply. The Python rules for the evidence of `fact_ids` and the
-order of `bindings` are 3c and 3d.
+each bound name. `Kept` indexes both, so n statements and n exports stay linear. Four shapes have a time
+ratio and a memory bound; they found a loop of PR 4.2 (`Snapshot::read`, now `readable`).
 
 **Note, 2026-11-09 (3b): symbols.** `symbols.rs` builds one `TSDEF` record for each definition
 (`_inner_symbols`, `_symbol_metadata`, `_classifier_data`, `_attribute_declaration`, `_base_record`),
@@ -66,3 +58,13 @@ a strict xfail test pins the case until 4.3a-4 and 4.3a-5. The records are writt
 list of all records of a project exists on the wire path. `NameIndex` keeps a list of parameter
 ranges that grows with the depth of the nest: 10 000 nested scopes with 100 000 sites take 2.2 s
 against 1.1 s without the nest (measured in review): bounded, quadratic in the depth, not fixed.
+
+**Note, 2026-11-09 (3d): the flip.** The reply declares seven sections, `inner-uml-v1` and the construct
+`string_literal_compare` as `partial`; the host reads it as the reply of the default collector, except
+the closed list: script facts (4.3a-4/5, so the 4.2 gap stays and every verdict that needs them is
+`UNKNOWN`), provenance, and the script-global case of 3c. `native/wire/src/stream.rs` writes the
+head, each section record by record (a record is dropped after it is written) and the tail into the
+zlib encoder, and fails when a declared section is not written or an undeclared one is. Data keys
+have another order than Python, so tests compare decoded values. A reply of 36 MB (x35) costs 3.3 s
+and 528 MiB in the collector but 2.9 GiB in the host, which decodes the whole reply: the host is the
+next limit. Scaling shapes with a quadratic reply by the data model (`WALK_ONLY`) time `--dump-count`.

@@ -4,14 +4,9 @@
 
 //! The compressed reply of protocols 8.0.0 and 9.0.0: zlib level 1 over the plain JSON facts.
 
-use std::io::Write;
-
-use flate2::write::ZlibEncoder;
-use flate2::Compression;
 use serde_json::{json, Map, Value};
 
 use crate::identity::sha256_hex;
-use crate::protocol::Version;
 
 /// The role of a digested input: a selected source file or a file that only decides resolution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,24 +167,7 @@ pub fn source_digest(inputs: &[Input]) -> String {
     sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
 
-/// Encode the reply for `version`; 8.0.0 and 9.0.0 share one compressed shape.
-pub fn encode(version: Version, facts: &Facts) -> Result<Vec<u8>, String> {
-    if version == Version::V3 {
-        return Err("a native collector writes only the compressed reply".to_owned());
-    }
-    let reply = json!({
-        "protocol_version": version.as_str(),
-        "provider_sources": [],
-        "facts": facts_value(facts),
-    });
-    let plain = serde_json::to_vec(&reply).map_err(|error| error.to_string())?;
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(1));
-    encoder
-        .write_all(&plain)
-        .and_then(|()| encoder.finish())
-        .map_err(|error| format!("cannot compress the reply: {error}"))
-}
-
+#[cfg(test)]
 fn facts_value(facts: &Facts) -> Value {
     let provenance = &facts.provenance;
     json!({
@@ -270,7 +248,7 @@ pub fn target_value(target: &Target) -> Value {
     }
 }
 
-fn file_value(file: &FileFact) -> Value {
+pub(crate) fn file_value(file: &FileFact) -> Value {
     json!({
         "id": file.id,
         "rel_path": file.rel_path,

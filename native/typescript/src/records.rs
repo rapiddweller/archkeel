@@ -13,13 +13,16 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_wire::identity::{stable_id, Part};
-use archkeel_wire::reply::{Evidence, Facts, Record, Target};
+use archkeel_wire::protocol::Version;
+use archkeel_wire::reply::{Facts, Record, Target};
+use archkeel_wire::stream::{encode_stream, Head, Tail};
 use serde_json::{json, Value};
 
 use crate::cited::Cited;
 use crate::import_bindings::ImportBinding;
 use crate::kept::{Kept, Pending};
-use crate::site_records;
+use crate::resolution::local_imports;
+use crate::site_records::{self, Pass};
 use crate::source::Span;
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
@@ -45,8 +48,8 @@ pub struct Records {
     pub calls: Vec<Record>,
     pub references: Vec<Record>,
     pub bindings: Vec<Record>,
-    /// The evidence that the records above cite and the reply does not hold yet.
-    pub evidence: Vec<Evidence>,
+    /// The ids of the evidence that the records above cite.
+    pub touched: Vec<String>,
 }
 
 /// `classified`: the subjects without empty names, sorted; the evidence ids sorted.
@@ -56,21 +59,128 @@ fn sorted(mut values: Vec<String>) -> Vec<String> {
 }
 
 /// Build the records of this phase from the facts of a collection and the kept syntax.
-pub fn build(facts: &Facts, pending: &Pending) -> Records {
-    let mut cited = Cited::seeded(&facts.evidence);
+pub fn build(facts: &mut Facts, pending: &Pending) -> Records {
+    let mut cited = Cited::owning(std::mem::take(&mut facts.evidence));
     let mut records = Records::default();
-    expand(facts, pending, &mut cited, &mut records);
+    expand(&*facts, pending, &mut cited, &mut records);
     records
         .imports
         .sort_by(|left, right| left.id.cmp(&right.id));
     let table = SymbolTable::build(pending);
     records.symbols = symbols::build(&table, &mut cited);
-    let sites = site_records::build(&table, pending, facts, &mut cited);
+    let sites = site_records::build(&table, pending, &*facts, &mut cited);
     (records.calls, records.references, records.bindings) =
         (sites.calls, sites.references, sites.bindings);
     constructs(pending, &mut cited, &mut records);
-    records.evidence = cited.cited();
+    (facts.evidence, records.touched) = cited.finish();
     records
+}
+
+/// The reply of the inner-UML capability, written section by section (AD-340, PR 4.3a-3d). The
+/// records of the symbols, the calls and the references are made and written one at a time, so the
+/// records of a project are never alive together. The sections come in the order of the capability,
+/// and the evidence is cited in the order of Python: imports, symbols, calls, references, constructs.
+pub fn write_reply(
+    version: Version,
+    mut facts: Facts,
+    pending: &Pending,
+) -> Result<Vec<u8>, String> {
+    let mut cited = Cited::owning(std::mem::take(&mut facts.evidence));
+    let mut expanded = Records::default();
+    expand(&facts, pending, &mut cited, &mut expanded);
+    expanded
+        .imports
+        .sort_by(|left, right| left.id.cmp(&right.id));
+    let table = SymbolTable::build(pending);
+    let imports = local_imports(pending, &facts);
+    facts.features.insert(4, "inner-uml-v1");
+    let head = Head {
+        provenance: facts.provenance.clone(),
+        git_head: facts.git_head.clone(),
+        dirty: facts.dirty.clone(),
+        scope: std::mem::take(&mut facts.scope),
+        sections: SECTIONS.to_vec(),
+        features: std::mem::take(&mut facts.features),
+        constructs: vec![(STRING_LITERAL_COMPARE, "partial")],
+        inputs: std::mem::take(&mut facts.inputs),
+        files: std::mem::take(&mut facts.files),
+        imports: std::mem::take(&mut expanded.targets),
+    };
+    let gaps = std::mem::take(&mut facts.gaps);
+    encode_stream(version, head, |writer| {
+        writer.section("imports", |emit| expanded.imports.iter().for_each(emit))?;
+        writer.section("unknowns", |emit| gaps.iter().for_each(emit))?;
+        writer.section("symbols", |emit| {
+            symbols::each(&table, &mut cited, &mut |record| emit(&record));
+        })?;
+        let mut bindings = std::mem::take(&mut expanded.witnesses);
+        writer.section("calls", |emit| {
+            let found = site_records::pass(
+                &table,
+                pending,
+                &imports,
+                &mut cited,
+                Pass::Calls,
+                &mut |record| emit(&record),
+            );
+            bindings.extend(found);
+        })?;
+        writer.section("references", |emit| {
+            let none = site_records::pass(
+                &table,
+                pending,
+                &imports,
+                &mut cited,
+                Pass::References,
+                &mut |record| emit(&record),
+            );
+            debug_assert!(none.is_empty(), "a reference has no result binding");
+        })?;
+        writer.section("bindings", |emit| bindings.iter().for_each(emit))?;
+        constructs(pending, &mut cited, &mut expanded);
+        writer.section("constructs", |emit| {
+            expanded.constructs.iter().for_each(emit)
+        })?;
+        Ok(Tail {
+            selected_files: std::mem::take(&mut facts.selected_files),
+            files_read: facts.files_read,
+            gaps,
+            evidence: cited.finish().0,
+        })
+    })
+}
+
+/// The sections that the capability declares, in the order that the reply writes them.
+const SECTIONS: [&str; 7] = [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs",
+];
+
+/// The sections, the targets and the capabilities of the inner-UML reply: what the native collector
+/// produces now (AD-340, PR 4.3a-3d). Script facts are still missing, so the 4.2 gap stays and the
+/// feature `script-globals-v1` is not declared.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn apply(facts: &mut Facts, records: Records) {
+    let gaps = facts.gaps.clone();
+    let mut bindings = records.witnesses;
+    bindings.extend(records.bindings);
+    facts.sections = vec![
+        ("imports", records.imports),
+        ("unknowns", gaps),
+        ("symbols", records.symbols),
+        ("calls", records.calls),
+        ("references", records.references),
+        ("bindings", bindings),
+        ("constructs", records.constructs),
+    ];
+    facts.imports = records.targets;
+    facts.constructs = vec![(STRING_LITERAL_COMPARE, "partial")];
+    facts.features.insert(4, "inner-uml-v1");
 }
 
 /// `_named_imports`.

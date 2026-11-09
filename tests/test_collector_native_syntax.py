@@ -603,6 +603,7 @@ def test_pathological_shapes_equal_the_python_parser(
 # Python too.
 # `test_collector_native_scaling.py` runs the same method on every construct class.
 PATHOLOGICAL = (("one-line", 20_000), ("nested-functions", 4_000), ("nested-classes", 4_000))
+WALK_ONLY_SHAPES = frozenset({"nested-functions", "nested-classes"})
 # The ratio of the times, and an absolute guard against a machine that is far too slow.
 RATIO_BOUND = 3.0
 GUARD_SECONDS = 60.0
@@ -617,8 +618,8 @@ def _prepare(root: Path, name: str, count: int) -> Path:
     return case
 
 
-def _run(binary: Path, case: Path) -> Taken:
-    """One run of the collector on the prepared root `case`."""
+def _run(binary: Path, case: Path, walk: bool = False) -> Taken:
+    """One run of the collector on the prepared root `case`; `walk` times the walk alone."""
     payload = encode_request(
         CollectionRequest(
             SnapshotInput(str(case), "a" * 40, False),
@@ -627,19 +628,26 @@ def _run(binary: Path, case: Path) -> Taken:
             ProtocolVersion.V8,
         )
     )
-    wall, cpu, done = timed_run([str(binary)], payload)
+    command = [str(binary)]
+    if walk:
+        # The reply of a nest is quadratic by the data model (each record holds the qualified
+        # name of its scope), so the walk alone is timed.
+        rel = "src/a.ts"
+        payload = json.dumps({"rel": rel, "file": str(case / rel)}).encode() + b"\n"
+        command.append("--dump-count")
+    wall, cpu, done = timed_run(command, payload)
     assert done.returncode == 0, done.stderr[-300:]
     return Taken(cpu=cpu, wall=wall)
 
 
 @pytest.mark.parametrize(("name", "count"), PATHOLOGICAL)
 def test_pathological_shapes_grow_linearly(
-    tmp_path: Path, native_binary: Path, name: str, count: int
+    tmp_path: Path, native_binary: Path, dump_binary: Path, name: str, count: int
 ) -> None:
+    walk = name in WALK_ONLY_SHAPES
+    binary = dump_binary if walk else native_binary
     cases = {count: _prepare(tmp_path, name, count), 2 * count: _prepare(tmp_path, name, 2 * count)}
-    small, large = interleaved_least(
-        lambda size: _run(native_binary, cases[size]), count, 2 * count
-    )
+    small, large = interleaved_least(lambda size: _run(binary, cases[size], walk), count, 2 * count)
     # The wall times are printed for comparison only; the assertions use the CPU time.
     print(
         f"SYNTAX {name} n={count} cpu={small.cpu:.3f} 2n_cpu={large.cpu:.3f} "

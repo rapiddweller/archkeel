@@ -1,13 +1,15 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The Python TypeScript collector in the legacy mode of the native collector (AD-320).
+"""The Python TypeScript collector as the native one is: the 4.2 gap for script facts (AD-340).
 
-The native collector of PR 4.2 records one import for each statement under the legacy capability.
-It has no binding expansion, no script globals, no symbols, calls or references. This module runs
-the Python collector with exactly those four producers switched off, so the two collectors give the
-same sections. It is a temporary oracle. PR 4.3 deletes it, because the native collector then
-produces the facts that the patches remove.
+The native collector produces every section of the inner-UML capability: imports with their bound
+names, symbols, calls, references, bindings and constructs. It does not analyse script globals
+yet (PR 4.3a-4 and 4.3a-5). This module runs the unmodified Python collector with one producer
+replaced, `_script_dependencies`, which reports the same gap as the native collector for each file
+that can use a browser global, and the feature `script-globals-v1` removed from its capability
+(the native collector does not declare it). Everything else is the Python code. It is a temporary
+oracle: PR 4.3a-5 deletes it.
 
 Run as a script, it is a collector process for `[scan].collector_argv`.
 """
@@ -16,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack, contextmanager
+from dataclasses import replace
 from unittest import mock
 
 from archkeel.analyzer.typescript import collect as python_collector
@@ -40,15 +43,19 @@ def _globals_unexamined(self: python_collector._Collection) -> None:
             )
 
 
-# The four producers that the native collector does not have, as methods of the Python collector.
-# Each patch returns what the producer returns when it finds nothing, except the script analysis,
-# which reports that it examined nothing.
-_OFF: dict[str, Callable[..., object]] = {
-    "_named_imports": lambda self: None,
-    "_script_dependencies": _globals_unexamined,
-    "_inner_facts": lambda self: ([], [], [], []),
-    "_constructs": lambda self: (),
-}
+# The producer that the native collector does not have yet, as a method of the Python collector.
+# It reports that it examined nothing.
+_OFF: dict[str, Callable[..., object]] = {"_script_dependencies": _globals_unexamined}
+SCRIPT_GLOBALS = "script-globals-v1"
+_FACTS = python_collector._Collection.facts
+
+
+def _without_script_globals(self: python_collector._Collection) -> SourceFacts:
+    """`facts` of Python, with the feature that only the script analysis earns removed."""
+    facts = _FACTS(self)
+    kept = tuple(item for item in facts.capabilities.resolution_features if item != SCRIPT_GLOBALS)
+    capabilities = replace(facts.capabilities, resolution_features=kept)
+    return replace(facts, capabilities=capabilities)
 
 
 @contextmanager
@@ -56,6 +63,9 @@ def legacy_mode() -> Iterator[None]:
     with ExitStack() as stack:
         for name, replacement in _OFF.items():
             stack.enter_context(mock.patch.object(python_collector._Collection, name, replacement))
+        stack.enter_context(
+            mock.patch.object(python_collector._Collection, "facts", _without_script_globals)
+        )
         yield
 
 

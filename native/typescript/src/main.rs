@@ -60,7 +60,7 @@ use std::io::{Read, Write};
 use std::process::ExitCode;
 
 use archkeel_wire::protocol::reply_version;
-use archkeel_wire::reply::{encode, Provenance};
+use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::decode;
 
 fn provenance() -> Provenance {
@@ -80,8 +80,7 @@ fn run() -> Result<Vec<u8>, String> {
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode(&payload)?;
-    let facts = collect::collect(&request, provenance());
-    encode(reply_version(request.version), &facts)
+    collect::reply(&request, provenance(), reply_version(request.version))
 }
 
 /// Test only: print the syntax facts of the files named on stdin, or with `--dump-records` the
@@ -93,6 +92,7 @@ fn dump_requested() -> Option<ExitCode> {
     let mut stdout = std::io::stdout().lock();
     let result = match mode.as_str() {
         "--dump" => dump::run(stdin.lock(), &mut stdout),
+        "--dump-count" => dump::count(stdin.lock(), &mut stdout),
         "--dump-records" => dump_records(stdin.lock(), &mut stdout),
         _ => return None,
     };

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import zlib
 from dataclasses import replace
 from pathlib import Path
@@ -25,6 +26,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
 from archkeel.ir.facts import SourceFacts
+from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
@@ -104,7 +106,21 @@ def test_reply_decodes_with_consistent_coverage(binary: Path, version: ProtocolV
     coverage = facts.coverage
     assert facts.adapter.name == "archkeel-typescript-imports"
     assert facts.runtime.name == "rust"
-    assert set(facts.capabilities.sections) == {"imports", "unknowns"}
+    # The inner-UML capability (AD-340): every section is declared and every section is produced.
+    assert {item.value for item in facts.capabilities.sections} == {
+        "imports",
+        "unknowns",
+        "symbols",
+        "calls",
+        "references",
+        "bindings",
+        "constructs",
+    }
+    assert "inner-uml-v1" in facts.capabilities.resolution_features
+    assert "script-globals-v1" not in facts.capabilities.resolution_features
+    assert [(c.name.value, c.status.value) for c in facts.capabilities.constructs] == [
+        ("string_literal_compare", "partial")
+    ]
     assert len(coverage.selected_files) == coverage.files_read == coverage.files_parsed == 7
     assert len(facts.files) == 7
     # No global is examined, so the scan is not complete: one gap for each file (AD-320).
@@ -249,3 +265,29 @@ def test_v9_host_excludes_test_sources_like_python(
         expected = {NO_PRODUCTION_SOURCE}
         assert {gap.title for gap in native.coverage.gaps} == expected
         assert expected <= {gap.title for gap in python.coverage.gaps}
+
+
+def test_the_collector_refuses_a_protocol_version_it_does_not_know(binary: Path) -> None:
+    """An old host with this collector, or a new host with an old one, fails closed (AD-340).
+
+    The request names the protocol version, and the reply carries it. A collector that does not
+    know the version exits with an error and writes no reply, so the host reads no facts.
+    """
+    request = json.loads(
+        encode_request(_request(ROOT / "fixtures/H-typescript", ProtocolVersion.V8))
+    )
+    for unknown in ("99.0.0", "7.0.0", "8", ""):
+        payload = json.dumps({**request, "protocol_version": unknown}).encode()
+        done = subprocess.run([str(binary)], input=payload, capture_output=True, check=False)
+        assert done.returncode != 0, unknown
+        assert done.stdout == b"", unknown
+        assert b"protocol" in done.stderr, unknown
+
+
+def test_the_host_refuses_a_reply_of_another_protocol_version(binary: Path) -> None:
+    replay = Path(__file__).with_name("replay_collector.py")
+    argv = (sys.executable, "-I", "-B", str(replay), str(binary), "version")
+    request = _request(ROOT / "fixtures/H-typescript", ProtocolVersion.V8)
+    result = ProcessCollector(argv, protocol_version=ProtocolVersion.V8).collect(request)
+    assert isinstance(result, CollectionError)
+    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR

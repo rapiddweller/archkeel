@@ -21,10 +21,12 @@ pub struct Cited {
 }
 
 impl Cited {
-    pub fn seeded(evidence: &[Evidence]) -> Self {
+    /// Take the evidence of the collection. It is moved, not copied: on the wire path the
+    /// evidence is the largest list of the reply.
+    pub fn owning(evidence: Vec<Evidence>) -> Self {
         let all = evidence
-            .iter()
-            .map(|item| (item.id.clone(), item.clone()))
+            .into_iter()
+            .map(|item| (item.id.clone(), item))
             .collect();
         Self {
             all,
@@ -32,10 +34,12 @@ impl Cited {
         }
     }
 
-    /// The evidence that the new records cite.
-    pub fn cited(self) -> Vec<Evidence> {
-        let Self { mut all, touched } = self;
-        touched.iter().filter_map(|id| all.remove(id)).collect()
+    /// All the evidence sorted by id, and the ids that the new records cite.
+    pub fn finish(self) -> (Vec<Evidence>, Vec<String>) {
+        (
+            self.all.into_values().collect(),
+            self.touched.into_iter().collect(),
+        )
     }
 
     /// `collect._cite`.

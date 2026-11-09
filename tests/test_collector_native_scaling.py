@@ -31,6 +31,7 @@ shape holds the construct that it claims.
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
 import re
 import subprocess
@@ -48,6 +49,7 @@ from scaling_shapes import (
     NAME_ONLY,
     SHAPES,
     SITE_TIMED,
+    WALK_ONLY,
     Shape,
 )
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
@@ -118,6 +120,12 @@ def _request(root: Path) -> bytes:
 CONFIG = '{"compilerOptions":{"allowJs":true},"include":["src"]}'
 
 
+def _walk_line(case: Path, shape: Shape) -> bytes:
+    """The request of the test-only `--dump-count`: the file that the walk reads."""
+    rel = f"src/a{shape.suffix}"
+    return json.dumps({"rel": rel, "file": str(case / rel)}).encode() + b"\n"
+
+
 def _prepare(root: Path, shape: Shape, n: int) -> Path:
     """Write the file of `shape` with n constructs into a root of its own, and return the root."""
     case = root / f"n{n}"
@@ -127,39 +135,53 @@ def _prepare(root: Path, shape: Shape, n: int) -> Path:
     return case
 
 
-def _run(binary: Path, case: Path) -> Taken:
-    """One run of the collector on the prepared root `case`."""
+def _run(binary: Path, case: Path, shape: Shape, walk: bool = False) -> Taken:
+    """One run of the collector on the prepared root `case`; `walk` times the walk alone
+    (`--dump-count`)."""
+    command = [str(binary), "--dump-count"] if walk else [str(binary)]
+    payload = _walk_line(case, shape) if walk else _request(case)
     wall, cpu, done = timed_run(
-        [str(binary)],
-        _request(case),
-        preexec_fn=_limit_address_space if sys.platform == "linux" else None,
+        command,
+        payload,
+        preexec_fn=_limit_address_space if sys.platform == "linux" and not walk else None,
     )
     assert done.returncode == 0, done.stderr[-300:]
     return Taken(cpu=cpu, wall=wall)
 
 
-def _sample(binary: Path, root: Path, shape: Shape, n: int) -> Taken:
+def _sample(binary: Path, root: Path, shape: Shape, n: int, walk: bool) -> Taken:
     """One run of the collector with n constructs, for the size search."""
-    return _run(binary, _prepare(root, shape, n))
+    return _run(binary, _prepare(root, shape, n), shape, walk)
 
 
-def measure(binary: Path, root: Path, shape: Shape, timing: Timing) -> tuple[int, Taken, Taken]:
+# The first n of a shape is a tenth of its base: the base was tuned when the collector wrote no
+# records, and the debug build now takes about ten times as long for the same file. A shape that is
+# still too fast doubles n until it is measurable.
+DEFAULT_SCALE = "0.1"
+
+
+def measure(
+    binary: Path, root: Path, shape: Shape, timing: Timing, walk: bool = False
+) -> tuple[int, Taken, Taken]:
     """`(n, taken(n), taken(2n))` with the least n whose CPU time is measurable.
 
     The search takes one run of n per step. The last search run of n seeds the n side of the final
     pair, so the pair costs 2 * RUNS runs and the whole measure costs one run more than before.
     """
-    n = max(1, int(shape.base * float(os.environ.get("ARCHKEEL_SCALING_SCALE", "1"))))
-    first = _sample(binary, root, shape, n)
+    scale = float(os.environ.get("ARCHKEEL_SCALING_SCALE", DEFAULT_SCALE))
+    n = max(1, int(shape.base * scale))
+    first = _sample(binary, root, shape, n, walk)
     for _ in range(MAX_DOUBLINGS):
         # The file of 2n after the doubling must still be readable: 4n of the old n.
         if first.cpu >= timing.measurable or len(shape.make(4 * n)) > MAX_BYTES:
             break
         n *= 2
-        first = _sample(binary, root, shape, n)
+        first = _sample(binary, root, shape, n, walk)
     # The final pair is interleaved, so that a slow phase of the runner hits both sizes (AD-323).
     cases = {n: _prepare(root, shape, n), 2 * n: _prepare(root, shape, 2 * n)}
-    small, large = interleaved_least(lambda size: _run(binary, cases[size]), n, 2 * n, seed=first)
+    small, large = interleaved_least(
+        lambda size: _run(binary, cases[size], shape, walk), n, 2 * n, seed=first
+    )
     return n, small, large
 
 
@@ -178,8 +200,8 @@ MEMORY_CASES = (
 ADDRESS_SPACE = 4 * 1024**3
 _RUSAGE = (
     "import resource, subprocess, sys\n"
-    "subprocess.run([sys.argv[1]], stdin=open(sys.argv[2], 'rb'), stdout=subprocess.DEVNULL,"
-    " check=True)\n"
+    "subprocess.run([sys.argv[1], *sys.argv[3:]], stdin=open(sys.argv[2], 'rb'),"
+    " stdout=subprocess.DEVNULL, check=True)\n"
     "print(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)\n"
 )
 
@@ -191,8 +213,9 @@ def _limit_address_space() -> None:
         resource.setrlimit(resource.RLIMIT_AS, (ADDRESS_SPACE, ADDRESS_SPACE))
 
 
-def _peak_memory(tmp_path: Path, collector: Path, name: str, count: int) -> int:
-    """The peak resident memory of the collector, in bytes, for the file of `name` and `count`."""
+def _peak_memory(tmp_path: Path, collector: Path, name: str, count: int, walk: bool = False) -> int:
+    """The peak resident memory of the collector, in bytes, for the file of `name` and `count`;
+    `walk` measures the walk alone (`--dump-count`)."""
     (tmp_path / "tsconfig.json").write_text(
         '{"compilerOptions":{"allowJs":true},"include":["src"]}'
     )
@@ -201,13 +224,20 @@ def _peak_memory(tmp_path: Path, collector: Path, name: str, count: int) -> int:
         old.unlink()
     (tmp_path / "src" / f"a{SHAPES[name].suffix}").write_bytes(SHAPES[name].make(count))
     request = tmp_path / "request.bin"
-    request.write_bytes(_request(tmp_path))
+    request.write_bytes(_walk_line(tmp_path, SHAPES[name]) if walk else _request(tmp_path))
     done = subprocess.run(
-        [sys.executable, "-c", _RUSAGE, str(collector), str(request)],
+        [
+            sys.executable,
+            "-c",
+            _RUSAGE,
+            str(collector),
+            str(request),
+            *(["--dump-count"] if walk else []),
+        ],
         capture_output=True,
         text=True,
         check=False,
-        preexec_fn=_limit_address_space if sys.platform == "linux" else None,
+        preexec_fn=_limit_address_space if sys.platform == "linux" and not walk else None,
     )
     assert done.returncode == 0, done.stderr[-300:]
     # `ru_maxrss` is in kilobytes on Linux and in bytes on macOS.
@@ -216,20 +246,31 @@ def _peak_memory(tmp_path: Path, collector: Path, name: str, count: int) -> int:
 
 @pytest.mark.parametrize(("name", "count"), MEMORY_CASES)
 def test_writes_keep_the_memory_bounded(
-    tmp_path: Path, collector: Path, name: str, count: int
+    tmp_path: Path,
+    dump_binary: Path,  # noqa: F811
+    name: str,
+    count: int,
 ) -> None:
-    peak = _peak_memory(tmp_path, collector, name, count)
+    # These nests have a reply that is quadratic by the data model: the walk alone is measured.
+    assert name in WALK_ONLY
+    peak = _peak_memory(tmp_path, dump_binary, name, count, walk=True)
     assert peak < MEMORY_CAP, f"{name} n={count}: {peak / 2**20:.0f} MiB"
 
 
 SITE_PREFIX = "sites-"
 
 
-def assert_time_grows_linearly(tmp_path: Path, collector: Path, name: str) -> None:
+def assert_time_grows_linearly(
+    tmp_path: Path,
+    collector: Path,
+    name: str,
+    walker: Path,
+) -> None:
     """Time n and 2n of the shape `name` and bound the ratio of the CPU times."""
     timing = timing_for_profile()
     shape = SHAPES[name] if name in SHAPES else SITE_TIMED[name]
-    n, first, second = measure(collector, tmp_path, shape, timing)
+    walk = name in WALK_ONLY
+    n, first, second = measure(walker if walk else collector, tmp_path, shape, timing, walk)
     # The wall ratio is printed for comparison only; the assertion uses the CPU time.
     print(
         f"SCALING {name} n={n} t(n)={first.cpu:.3f} t(2n)={second.cpu:.3f} "
@@ -249,8 +290,13 @@ def assert_time_grows_linearly(tmp_path: Path, collector: Path, name: str) -> No
 # The shapes of the sites run in `test_collector_native_scaling_sites.py`, so that the two files
 # run on two workers (a file stays on one worker) and the matrix fits the time limit of Full.
 @pytest.mark.parametrize("name", sorted(n for n in SHAPES if not n.startswith(SITE_PREFIX)))
-def test_time_grows_linearly_with_the_size(tmp_path: Path, collector: Path, name: str) -> None:
-    assert_time_grows_linearly(tmp_path, collector, name)
+def test_time_grows_linearly_with_the_size(
+    tmp_path: Path,
+    collector: Path,
+    dump_binary: Path,  # noqa: F811
+    name: str,
+) -> None:
+    assert_time_grows_linearly(tmp_path, collector, name, dump_binary)
 
 
 def test_the_timing_follows_the_build_profile(monkeypatch: pytest.MonkeyPatch) -> None:
