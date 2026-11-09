@@ -360,6 +360,18 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
                 )
                 + "".join(f"const o{i} = new C{i}(g{i}, x{i});\n" for i in range(n))
             )
+        case "sites-shadow-nest":
+            # n nested arrow functions that each declare a name, and n sites at the bottom that ask
+            # whether a scope of their chain hides their name: a union of the sets is n squared.
+            files["src/b.ts"] = (
+                "const f = "
+                + "".join(f"(p{i}) => {{ var v{i}; return " for i in range(n))
+                + "["
+                + ", ".join(f"v{i}(p{i})" for i in range(n))
+                + "]"
+                + "; }" * n
+                + ";\n"
+            )
         case "symbols-bases":
             files["src/b.ts"] = "".join(
                 f"interface I{i} {{ a{i}: number }}\n@d({i}) class C{i} extends C{max(i - 1, 0)} "
@@ -417,6 +429,7 @@ RECORD_SHAPES = (
     ("many-importers", 700),
     ("comparisons", 1000),
     ("sites-resolution", 500),
+    ("sites-shadow-nest", 800),
     ("symbols-members", 500),
     ("symbols-bases", 700),
 )
