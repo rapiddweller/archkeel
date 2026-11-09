@@ -89,6 +89,14 @@ impl Scopes {
         names.reverse();
         names.join(".")
     }
+
+    /// The qualified name, the line and the column of a scope: what a site records about the
+    /// definition that holds it.
+    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
+    pub fn describe(&self, at: u32) -> Option<(String, i64, i64)> {
+        let scope = self.0.get(at as usize)?;
+        Some((self.qualified(at), scope.line, scope.column))
+    }
 }
 
 #[derive(Default)]

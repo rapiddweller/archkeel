@@ -8,7 +8,7 @@
 //! `Syntax` that `parse.parse()` gives for the same bytes. The field names are the names of the
 //! Python dataclasses. This module is not part of the release binary.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
@@ -16,6 +16,9 @@ use serde_json::{json, Value};
 use crate::definitions::{Definition, DefinitionKind};
 use crate::members::{Base, Member, Parameter, Visibility};
 use crate::parse::parse;
+use crate::site_paths::Text;
+use crate::site_syntax::ReceiverKind;
+use crate::sites::{Comparison, Expression, Site, SiteKind, SiteUse};
 use crate::source::Span;
 use crate::source_input::classify_file;
 use crate::syntax::Parsers;
@@ -114,9 +117,83 @@ fn definition(item: &Definition, parent: Option<String>) -> Value {
     })
 }
 
-/// The fields of `Syntax` that this phase produces.
-pub fn syntax(found: &Syntax) -> Value {
+fn text(item: Option<Text>, data: &[u8]) -> Value {
+    json!(item.map(|item| item.decode(data)))
+}
+
+fn site_kind(item: SiteKind) -> &'static str {
+    match item {
+        SiteKind::Call => "call",
+        SiteKind::New => "new",
+        SiteKind::Reference => "reference",
+    }
+}
+
+fn receiver_kind(item: ReceiverKind) -> &'static str {
+    match item {
+        ReceiverKind::None => "none",
+        ReceiverKind::This => "this",
+        ReceiverKind::Other => "other",
+    }
+}
+
+/// The names that the chains of the sites hide, written once for each chain.
+type Shadowed = HashMap<Option<u32>, Value>;
+
+fn site(item: &Site, found: &Syntax, data: &[u8], shadowed: &mut Shadowed) -> Value {
+    let place = item.scope.and_then(|at| found.scopes.describe(at));
+    let names = shadowed
+        .entry(item.shadow.chain)
+        .or_insert_with(|| json!(found.sites.names.shadowed(item.shadow.chain, data)))
+        .clone();
+    let expression = match item.expression {
+        Expression::Node(node) => node.decode(data),
+        Expression::Member(receiver, name) => {
+            format!("{}.{}", receiver.decode(data), name.decode(data))
+        }
+    };
     json!({
+        "kind": site_kind(item.kind),
+        "expression": expression,
+        "span": span(&item.span),
+        "scope": place.as_ref().map(|(name, _, _)| name),
+        "scope_line": place.as_ref().map(|(_, line, _)| line),
+        "assigned_name": text(item.assigned_name, data),
+        "name": text(item.name, data),
+        "receiver": text(item.receiver, data),
+        "computed": item.computed,
+        "shadowed_names": names,
+        "assignment_span": item.assignment_span.as_ref().map(span),
+        "assignment_annotation": item.assignment_annotation,
+        "initializer": text(item.initializer, data),
+        "use": match item.usage {
+            SiteUse::Type => "type",
+            SiteUse::Value => "value",
+            SiteUse::Member => "member",
+        },
+        "scope_ambiguous": item.scope_ambiguous,
+        "scope_column": place.as_ref().map(|(_, _, column)| column),
+        "receiver_kind": receiver_kind(item.receiver_kind),
+        "path": item.path.map(|path| found.sites.paths.names(path, data)).unwrap_or_default(),
+        "script_free": item.script_free,
+        "script_escape": item.script_escape,
+    })
+}
+
+fn comparison(item: &Comparison, found: &Syntax) -> Value {
+    json!({
+        "span": span(&item.span),
+        "scope": item.scope.map(|at| found.scopes.qualified(at)),
+    })
+}
+
+/// The fields of `Syntax` that this phase produces. `data` is the text of the file, which the
+/// sites cut their texts from.
+pub fn syntax(found: &Syntax, data: &[u8]) -> Value {
+    let mut shadowed = Shadowed::new();
+    json!({
+        "sites": found.sites.sites.iter().map(|item| site(item, found, data, &mut shadowed)).collect::<Vec<_>>(),
+        "string_comparisons": found.sites.comparisons.iter().map(|item| comparison(item, found)).collect::<Vec<_>>(),
         "definitions": found.definitions.iter().map(|item| definition(item, found.parent_name(item))).collect::<Vec<_>>(),
         "import_bindings": found.import_bindings.iter().map(|item| json!({
             "span": span(&item.span),
@@ -173,7 +250,7 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
         let rel = request["rel"].as_str().unwrap_or("");
         let reply = match std::fs::read(request["file"].as_str().unwrap_or("")) {
             Ok(data) => {
-                let facts = syntax(&parse(&mut parsers, rel, &data).syntax);
+                let facts = syntax(&parse(&mut parsers, rel, &data).syntax, &data);
                 json!({"rel": rel, "syntax": facts, "kinds": kinds(&mut parsers, rel, &data)})
             }
             Err(error) => json!({"rel": rel, "error": error.to_string()}),

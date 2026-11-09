@@ -7,7 +7,9 @@ Consumer: the later phases of the native collector, which build records on these
 is the unmodified Python `parse.parse()`. The `dump` feature of the native collector prints the
 facts of each file as JSON, and this test compares them field by field with the fields of
 `Syntax`: definitions, import bindings, module exports, rebound names, ambient names, the module
-flags and the names bound at the top of the file. The release binary has no `dump` feature.
+flags, the names bound at the top of the file, and the sites with the string comparisons (calls,
+`new` expressions and references, with their scope, shadowed names, receiver, path and the free
+and escape flags of a script). The release binary has no `dump` feature.
 """
 
 from __future__ import annotations
@@ -73,6 +75,8 @@ FIELDS = (
     "declaration_file",
     "script_mode",
     "script_bindings",
+    "sites",
+    "string_comparisons",
 )
 # A private corpus: the folder of a local React UI. Only totals are printed.
 PRIVATE_UI = "ARCHKEEL_PRIVATE_UI"
@@ -234,6 +238,7 @@ def test_fixture_syntax_equals_the_python_parser(dump_binary: Path, path: str) -
     # The comparison is not empty: these trees hold definitions and import bindings.
     assert result.counts["definitions"] > 0
     assert result.counts["import_bindings"] > 0
+    assert result.counts["sites"] > 0
     assert result.python_failed == 0
 
 
@@ -400,6 +405,55 @@ SYNTAX_PIECES = (
     "function f() { for (var b of x) { b = 1; } a++; d += 1; }",
     "import a from './a'; import b from './b';\n"
     "function f() { var b; { let a; a = 1; } b = 2; a = 3; }",
+    # Sites: calls, `new`, references, receivers, paths, shadowed names, string comparisons.
+    "function f(a, b = g(a)) { var loc = h.i.j(a, loc); loc = 2; return k[a].l(m?.n); }",
+    "class S { x = 1; m(p) { this.x = p; this.y(p); super.z(); return new Other(p).run(); } }",
+    "const o = { a, b: c, [d]: e, f() { return g(); }, get h() { return i; }, ...j };",
+    "const arrow = (p, q) => { const inner = (r) => p(r, q, s); return inner(t); };",
+    "const t1 = a.b.c.d, t2 = a['b'].c, t3 = a[b][c], t4 = (a.b).c, t5 = a().b.c, t6 = (a, b).c;",
+    "if (kind === 'x' || 'y' !== kind || kind == (\"z\") || (kind as string) === `w` "
+    "|| `a${b}` == k) {}",
+    "switch (kind) { case 'a': case `b`: case (c): case 'd' as const: default: }",
+    "x === 'one' && y !== ('two' as const) && z == ('three')! && w != 'four' satisfies string;",
+    "x < 'no'; x + 'no'; x >= 'no'; x in 'no'; typeof x === 'string'; void 0 === 'u';",
+    "let v: Foo.Bar<Baz> = <Qux>w; let u = w as Zed; let t = w satisfies Yes; type "
+    "Alias = Other<One.Two>;",
+    "typeof tq; let tq2: typeof imp.member; function ft<T extends Cons = Def>(x: T): Ret<T> {}",
+    "function sh(a) { var b; { let c; function d() { return a + b + c + e; } } return d; }",
+    "function outer() { var o1; return function () { var i1; return () => { var i2; "
+    "return o1 + i1 + i2; }; }; }",
+    "const meth = { m() { var q; return q + r; } }; class WithExpr { f = class { m() "
+    "{ return n; } }; }",
+    "namespace NS { var n1 = 1; export function nf() { return n1 + n2; } } module M2 { x(); }",
+    "try { a(); } catch (e) { b(e); } finally { c(); } for (const i of xs) { d(i); } "
+    "for (k in o) { e(k); }",
+    "label: while (a) { b(); } do { c(); } while (d); if (e) f(); else g();",
+    "(function (window) { var z = window.foo; z(1); window.bar = z; })(window);",
+    "(function (w, g) { w.a = 1; g.b(w); })(window, globalThis);",
+    "(() => { window.a = 1; })(); (async () => { window.b = 2; })(); !function () { "
+    "window.c = 3; }();",
+    "var w1 = (function (window) { return window.q; })(window);",
+    "window.pub = 1; globalThis.pub2 = window.src; window.nested.deep = 2; self.sf = 3;",
+    "window.f(1); window['g'](2); globalThis.h.i(3); window.a.b.c = d.e;",
+    "delete window.x; typeof window.y; window.z++; window.w += 1; [window.v] = [1];",
+    "with (obj) { f(g); h.i(j); } function wf() { with (o) { return k; } }",
+    "const { da, db: dc } = window.src, [dd] = globalThis.arr, de = window.x.y;",
+    "var sx = { a, b }; var { pa, pb } = sx; ({ pc, pd } = sx); f({ ea, eb });",
+    '<A b={c} d="e" f:g={h}>{i}<J.K l={m.n} />{...o}</A>;',
+    "@dec(arg) class Dc { @inj(tok) prop = other; @on('x') m(@p() a) { return a; } }",
+    "new a.b.C(d); new (e.f)(); new g(h)(i); new j; new k.l;",
+    "a?.b?.(c); a?.[b]; a!.b!.c(); (a as any).b(); (<any>a).c(); a.b!(); a.b?.c!();",
+    "const dflt = (x = f(y), { z = g(x) } = {}) => x + z; function dg(p = h(p)) {}",
+    "export default function (a) { return b(a); } export const ex = (c) => d(c);",
+    "enum En { A = f(), B = C.D, E = 'e' } declare function df(a: Tp): Rt;",
+    "abstract class Ab { abstract m(a: Tp): Rt; static s = ab(); constructor(private "
+    "p = cd()) { ef(p); } }",
+    "interface If { m(a: Tp): Rt; p: Ot<Pt>; readonly q?: Ur } declare module 'dm' { "
+    "function dmf(): void; }",
+    "declare global { function gf(a: Tp): void; } var gv = gg(); gg.hh = ii;",
+    "a(b(c(d(e)))); f(g)(h)(i); j.k(l).m(n).o(p); (q, r)(s); t`u${v}w`; x.y`z`;",
+    "var a1 = 1, a2 = f(a1), a3 = new G(a2), a4 = g.h(a3), [a5] = i(a4), { a6 } = j(a5);",
+    "let cl = class Named { m() { return Named; } }; let fe = function nm() { return nm; };",
     # A re-export names no local binding: x and K stay private and not exported.
     "function x() {}\nclass K {}\nexport { x } from './m';\nexport { K as KK } from './n';",
 )
@@ -452,6 +506,8 @@ def test_syntax_pieces_equal_the_python_parser(tmp_path: Path, dump_binary: Path
     assert result.counts["definitions"] > 500
     assert result.counts["rebound_names"] > 20
     assert result.counts["module_exports"] > 0
+    assert result.counts["sites"] > 1000
+    assert result.counts["string_comparisons"] > 20
 
 
 def test_mutated_sources_syntax_equals_the_python_parser(tmp_path: Path, dump_binary: Path) -> None:

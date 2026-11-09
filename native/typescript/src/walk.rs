@@ -14,7 +14,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::ancestors::{
-    Entry, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_REBOUND_FUNCTION, IN_UNMODELED_BLOCK,
+    Entry, Shadow, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_REBOUND_FUNCTION,
+    IN_UNMODELED_BLOCK,
 };
 use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{ambient, export_bindings, module_exports, Named};
@@ -22,6 +23,7 @@ use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::members::{named_children, Cx};
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
+use crate::sites::{Sites, Visit};
 use crate::source::Span;
 use crate::source_input::{SourceKind, Suffix};
 
@@ -41,6 +43,8 @@ pub struct Syntax {
     pub declaration_file: bool,
     pub script_mode: bool,
     pub script_bindings: Vec<String>,
+    /// The calls, `new` expressions, references and string comparisons (`sites.rs`).
+    pub sites: Sites,
 }
 
 impl Syntax {
@@ -64,6 +68,7 @@ impl Syntax {
             declaration_file: false,
             script_mode: false,
             script_bindings: Vec::new(),
+            sites: Sites::default(),
         }
     }
 }
@@ -77,6 +82,7 @@ pub struct Walk<'a, 't> {
     rebound: BTreeSet<String>,
     /// Identifier targets of writes, with the frame that holds the write.
     writes: Vec<(Node<'t>, u32)>,
+    sites: Sites,
 }
 
 impl<'a, 't> Walk<'a, 't> {
@@ -89,6 +95,7 @@ impl<'a, 't> Walk<'a, 't> {
             imports: Vec::new(),
             rebound: BTreeSet::new(),
             writes: Vec::new(),
+            sites: Sites::default(),
         }
     }
 
@@ -103,6 +110,10 @@ impl<'a, 't> Walk<'a, 't> {
             None => (0, ROOT, ROOT, None),
         };
         if !info.named {
+            let (shadow, callee) = self
+                .stack
+                .last()
+                .map_or((Shadow::default(), false), |parent| (parent.shadow, false));
             self.stack.push(Entry {
                 node,
                 kind,
@@ -111,6 +122,9 @@ impl<'a, 't> Walk<'a, 't> {
                 var_frame: parent_var,
                 scope: parent_scope,
                 run: Vec::new(),
+                shadow,
+                callee,
+                wrapped_call: false,
             });
             return;
         }
@@ -134,6 +148,18 @@ impl<'a, 't> Walk<'a, 't> {
             scope = Some(opened);
         }
         self.defs.variable(&cx, node, kind, &self.stack, seen);
+        let extension = self.sites.enter(
+            &cx,
+            &Visit {
+                node,
+                kind,
+                stack: &self.stack,
+                seen,
+                scope: parent_scope,
+                opened: scope != parent_scope,
+            },
+        );
+        let flags = flags | extension.flags;
         if let Some(parent) = self.stack.last_mut() {
             if matches!(kind, K::Decorator | K::Comment) {
                 parent.run.push(node);
@@ -149,6 +175,9 @@ impl<'a, 't> Walk<'a, 't> {
             var_frame,
             scope,
             run: Vec::new(),
+            shadow: extension.shadow,
+            callee: extension.callee,
+            wrapped_call: extension.wrapped_call,
         });
     }
 
@@ -350,6 +379,7 @@ impl<'a, 't> Walk<'a, 't> {
         let script_mode = suffix.is_some_and(|s| {
             s.source_kind() == Some(SourceKind::JavaScript) && s.format_hint().is_none()
         }) && !exports.module_syntax;
+        self.sites.finish(&self.frames, cx.source.data, script_mode);
         let (definitions, scopes) = self.defs.finish(&imported, &exports);
         Syntax {
             module_file: exports.module_syntax || (hinted && !declaration_file),
@@ -363,6 +393,7 @@ impl<'a, 't> Walk<'a, 't> {
             declaration_file,
             script_mode,
             script_bindings: self.frames.sorted_names(ROOT),
+            sites: self.sites,
         }
     }
 }
