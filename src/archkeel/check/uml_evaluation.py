@@ -14,6 +14,7 @@ from archkeel.ir.architecture_graph import (
     GraphComparison,
 )
 from archkeel.ir.codec import parse_record
+from archkeel.ir.member_inventory import MEMBER_INVENTORY_PROOF, validated_member_inventory_proof
 from archkeel.ir.model import (
     UML_TARGET_KIND,
     Diagnostic,
@@ -26,11 +27,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-from archkeel.ir.source_graph import (
-    MEMBER_INVENTORY_PROOF,
-    observed_graph,
-    validated_member_inventory_proof,
-)
+from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.target_records import recorded_target_graph
 from archkeel.ir.trace import validate_evidence_classes
 

@@ -31,6 +31,7 @@ from archkeel.ir.coverage import observation_complete
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.graph_codec import parse_comparison
 from archkeel.ir.interfaces import component_owners
+from archkeel.ir.member_inventory import validated_member_inventory_proof
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
@@ -39,7 +40,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.ownership import containing, owner_of
-from archkeel.ir.source_graph import observed_graph, validated_member_inventory_proof
+from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.target_records import recorded_target_graph
 
 

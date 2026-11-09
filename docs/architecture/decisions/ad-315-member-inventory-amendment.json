@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "after_digest": "511e6391bf1922ab4799a283e6670491acce24c13334bea332d8227fdffaeb19",
+  "before_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "before_digest": "8fb1026bdedf371789c87fdbcbf264ef3099de4cabce5784235b493a189ad152",
+  "decided_by": "owner (decision task of 2026-11-08)",
+  "rationale": "Base 32aadd14. AD-315 update and epic #880 step S4. The proof of complete member inventories moves from archkeel.ir.source_graph to the new archkeel.ir.member_inventory. The typed text and record readers move to the new internal archkeel.ir.source_values. Both join exact_modules of the architecture owner in contracts/ir.json. member_inventory joins public of that owner, public of the ir component and the public list of the ir component in the root contract. No budget, rule, component, requires entry or Any permission changes. The baseline stays the same.",
+  "schema_version": "2.0.0"
+}

@@ -94,6 +94,7 @@
         "archkeel.ir.renames:observed_names",
         "archkeel.ir.renames:renamed_contract",
         "archkeel.ir.renames:renames_since",
+        "archkeel.ir.member_inventory",
         "archkeel.ir.source_graph",
         "archkeel.ir.structure",
         "archkeel.ir.target_graph:component_permissions",

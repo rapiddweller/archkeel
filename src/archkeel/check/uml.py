@@ -23,6 +23,7 @@ from archkeel.ir.codec import (
     value_bytes,
 )
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
+from archkeel.ir.member_inventory import MEMBER_INVENTORY_PROOF, validated_member_inventory_proof
 from archkeel.ir.model import (
     ARCHITECTURE_TARGET_KIND,
     RULE_KINDS,
@@ -46,7 +47,6 @@ from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import EvidenceClass as _EvidenceClass
 from archkeel.ir.phases import Phase, PhaseClock, measured
-from archkeel.ir.source_graph import MEMBER_INVENTORY_PROOF, validated_member_inventory_proof
 from archkeel.ir.target_graph import component_permissions, declared_tree_graph
 
 from .declarations import project_rule_declaration

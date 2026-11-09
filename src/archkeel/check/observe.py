@@ -25,6 +25,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.import_gaps import derived_unresolved_imports
+from archkeel.ir.member_inventory import member_inventory_proof
 from archkeel.ir.model import (
     ArchitectureContract as _ArchitectureContract,
 )
@@ -55,7 +56,6 @@ from archkeel.ir.protocol import (
     SourceScope,
     TypeScriptSettings,
 )
-from archkeel.ir.source_graph import member_inventory_proof
 
 from .declarations import ContractError, load_contract
 from .observation import assemble_observation
