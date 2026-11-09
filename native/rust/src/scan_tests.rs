@@ -134,12 +134,8 @@ fn a_mod_declaration_is_a_child_and_an_inline_mod_is_walked() {
     );
     assert_eq!(found.references[0].path, "z::q");
     assert_eq!(
-        found
-            .declared
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
-        ["a", "b", "inline"]
+        found.names.iter().map(String::as_str).collect::<Vec<_>>(),
+        ["a", "b", "c", "d", "e", "inline", "q"]
     );
 }
 
@@ -177,31 +173,34 @@ fn a_stream_nested_too_deep_is_a_concern_and_not_a_crash() {
 }
 
 #[test]
-fn only_the_type_namespace_hides_a_crate_name() {
-    let declared = |text: &str| scanned(text).declared.into_iter().collect::<Vec<_>>();
-    // A function, a constant and a static are values: `b::x()` still names the crate `b`.
+fn every_name_that_the_file_declares_or_imports_is_collected_at_any_depth_in_any_namespace() {
+    let names = |text: &str| scanned(text).names.into_iter().collect::<Vec<_>>();
     assert_eq!(
-        declared("fn b() {}\nconst c: u8 = 1;\nstatic d: u8 = 2;\nfn g() { b::x(); }"),
-        Vec::<String>::new()
+        names("fn f() {}\nconst C: u8 = 1;\nstatic D: u8 = 2;\nstruct S;\nenum E {}\nunion U { a: u8 }"),
+        ["C", "D", "E", "S", "U", "f"]
     );
     assert_eq!(
-        paths("fn log() {}\nfn g() { log::info!(\"x\"); b::x(); }"),
-        ["log::info", "b::x"]
+        names("trait T {}\ntype A = u8;\nmod m {}\nmacro_rules! mac { () => {} }"),
+        ["A", "T", "m", "mac"]
     );
-    // A type, a module and a rename are in the namespace of paths.
+    // A block, an inline module and a `cfg(test)` module are the same file.
     assert_eq!(
-        declared("struct S;\nenum E {}\nunion U { a: u8 }\ntrait T {}\ntype A = u8;\nmod m {}\nuse a::b as r;"),
-        ["A", "E", "S", "T", "U", "m", "r"]
+        names(
+            "fn g() { struct Local; fn inner() {} }\nmod m { pub mod deep { pub struct Hidden; } }"
+        ),
+        ["Hidden", "Local", "deep", "g", "inner", "m"]
     );
-    // A name in a block or in an inline module is local to it.
+    // A use leaf binds its last name or its alias, in any namespace.
     assert_eq!(
-        declared("fn g() { struct Local; }\nmod inner { struct Hidden; }"),
-        ["inner"]
+        names("use a::b::c;\nuse a::d as e;\nuse a::f::{self, g};"),
+        ["c", "e", "f", "g"]
     );
     assert_eq!(
-        declared("use crate::a::serde_json;\nuse serde_json;"),
-        ["serde_json"]
+        names("use serde_json;\nextern crate x as y;\nextern { fn ffi(); static S: u8; }"),
+        ["S", "ffi", "serde_json", "y"]
     );
+    // A glob and a type parameter bind no name that the scan knows.
+    assert_eq!(names("use a::*;\nfn f<T>(x: T) {}"), ["f"]);
 }
 
 #[test]
@@ -228,7 +227,7 @@ fn a_path_with_leading_colons_is_marked_absolute_in_a_use_a_path_and_a_macro() {
 }
 
 #[test]
-fn only_the_keys_of_a_path_attribute_hold_paths_and_a_lint_holds_names() {
+fn a_message_key_and_a_lint_hold_no_path_and_any_other_key_does() {
     let nothing = Vec::<String>::new();
     assert_eq!(
         paths("#[serde(bound = \"T: b::X\")]\nstruct S<T>(T);"),
@@ -256,4 +255,26 @@ fn only_the_keys_of_a_path_attribute_hold_paths_and_a_lint_holds_names() {
                  #[should_panic(expected = \"a::b\")]\nfn f() {}";
     assert_eq!(paths(texts), nothing);
     assert_eq!(reasons(texts), nothing);
+}
+
+#[test]
+fn a_crate_name_that_the_file_also_names_is_collected_with_its_references_for_the_rule() {
+    // The four repros of the review: a module, a type, an import of a type and an import of a
+    // function, each beside a use of the crate name. The scan collects both; `resolve` decides.
+    for text in [
+        "pub mod b { }\n#[cfg(test)] mod tests { fn t() { b::make(); } }",
+        "pub struct b;\nmod m { fn t() { b::make(); } }",
+        "use self::inner::b;\nmod m { fn t() { b::make(); } }",
+        "use crate::util::b;\nfn t() { b::make(); }",
+    ] {
+        let found = scanned(text);
+        assert!(found.names.contains("b"), "{text}");
+        assert!(
+            found
+                .references
+                .iter()
+                .any(|r| r.path == "b::make" && !r.absolute),
+            "{text}"
+        );
+    }
 }

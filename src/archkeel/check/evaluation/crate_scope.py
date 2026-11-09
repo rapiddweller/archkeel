@@ -9,7 +9,9 @@ import", and PASS. Until slice 5b-2 writes the module edges, each such scope is 
 
 `EDGE_FIELDS` lists, for each rule kind that reads edges, the fields that name a module or a
 component. `NO_INTERNAL_EDGES` lists the kinds that read no edge inside a crate. A rule kind in
-neither list, and not unsupported by the profile, fails `tests/test_crate_scope_catalog.py`.
+neither list, and not unsupported by the profile, is UNKNOWN, and fails
+`tests/test_collector_native_rust_scope.py`. `COMPONENT_FIELDS` does the same for the fields of a
+component that name a module.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from archkeel.ir.facts import ConstructCapability, EvidenceClass, SourceFacts, s
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import (
     ArchitectureContract,
+    ContractComponent,
     CycleLevel,
     NoComponentCyclesRule,
 )
@@ -49,6 +52,15 @@ NO_INTERNAL_EDGES: frozenset[Kind] = frozenset(
         Kind.ROOT_LAYOUT,
     }
 )
+
+
+# The fields of a component that name a module or a package: each one is a scope.
+COMPONENT_FIELDS: tuple[str, ...] = ("packages", "exact_modules", "namespace")
+
+
+def _component_names(component: ContractComponent) -> tuple[str, ...]:
+    values = asdict(component)
+    return tuple(name for field in COMPONENT_FIELDS for name in _names(values[field] or ()))
 
 
 def _depth(names: Iterable[str]) -> int | None:
@@ -96,10 +108,7 @@ def _crate_scopes(
     scopes = [
         (component.id, f"component {component.label} below a crate root")
         for component in contract.components
-        if any(
-            name.count(".") > root
-            for name in (*component.packages, *(component.exact_modules or ()))
-        )
+        if any(name.count(".") > root for name in _component_names(component))
     ]
     scopes += _rule_scopes(contract, root, profile.unsupported_rules)
     return [

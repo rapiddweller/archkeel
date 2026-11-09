@@ -15,13 +15,17 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
 3. An import record is one distinct path of a file whose first segment names another crate. A crate
    of the scan is a local target (its root module). Another dependency is an external target.
    `std`, `core` and `alloc` are builtin. A path inside one crate gives no record (5b-2).
-4. A first segment is a crate when it is a dependency name in `Cargo.toml` (`package =` renames,
-   `workspace = true` and `[target.*]` tables too) and the file declares no type, module or `use`
-   rename of that name. A path that starts with `::` names a crate, and no local name hides it. A function, a constant and a static are values, so they do not hide a
-   crate. The collector reads `Cargo.toml` itself and starts no process.
-5. A derive never makes a file UNKNOWN. A path in an attribute is an edge, also in a string under
-   a key that holds paths (serde `with`, `bound`, `remote`, ...), read as tokens; a text with `::`
-   that does not read is UNKNOWN. A message or a name (`deprecated(note = ...)`) and a lint list are no path. UNKNOWN, each with its reason: a macro call with a path in its body
+4. One safe rule, with no model of Rust name resolution. A first segment that names a crate which the
+   scanned crate reaches (a dependency in `Cargo.toml`, with `package =` renames, `workspace = true`
+   and `[target.*]` tables, or `std`) is an edge. When the file also declares or imports that name
+   anywhere (any item, `use` leaf or module, at any depth, in any namespace), the path is UNKNOWN
+   ("A local name equals a crate name"): the scan does not decide which one Rust picks. A path
+   that starts with `::` is the crate, and `crate`, `self` and `super` are local. The collector
+   reads `Cargo.toml` itself and starts no process.
+5. A derive never makes a file UNKNOWN. A path in an attribute is an edge, also in a string: a string under any key but a
+   message key (`note`, `since`, `reason`, `message`, `expecting`, `expected`, `rename`, `alias`,
+   `doc`, ...) and with `::` is read as tokens, and UNKNOWN if it does not read. A lint list, and a
+   string with no key (`error("...")`), are no path. UNKNOWN, each with its reason: a macro call with a path in its body
    (the macros of `std` and `json!` are read), `macro_rules!`, `include!`, a `cfg` or `cfg_attr` on a
    `mod` or `use`, a non-literal `path`, an attribute macro on a module, a missing or ambiguous
    module file, a syntax error, brackets nested deeper than 256, a file that two modules load, an
@@ -62,6 +66,6 @@ The pytest and `layers.toml` stay until 5b-3, as the oracle test shows the same 
 The scan does not expand macros or read `build.rs` output. `init` and `explore` do not support
 Rust. `syn` brings `unicode-ident`: `deny.toml` has one licence exception (Unicode-3.0).
 
-**Check.** `cargo test`; `tests/test_collector_native_rust.py` (each reason, each false PASS above);
-`..._oracle.py` (`cargo metadata`, the layer test, same bytes); `..._scaling.py` (seven shapes);
-`..._language.py`; the wheel test.
+**Check.** `cargo test`; `tests/test_collector_native_rust*.py` (each reason, each false PASS, the
+catalog of rule and component fields, `cargo metadata`, same bytes, seven scaling shapes); the
+language and the wheel tests.

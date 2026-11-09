@@ -153,3 +153,63 @@ def test_a_rule_kind_that_nobody_reviewed_fails_closed(monkeypatch: pytest.Monke
     # Take the kind out of the table, as a new kind would be: it is a scope of its own.
     monkeypatch.delitem(EDGE_FIELDS, Kind.ALLOWED_DEPENDENCY)
     assert _flagged(rule) == [("R", "rule allowed_dependency (not reviewed for crate edges)")]
+
+
+# Every field of a component, as reviewed on the day of AD-335. The first three name a module or a
+# package and are scopes. A field that is not here is new: decide whether it names a module.
+COMPONENT_SCOPES = {"packages", "exact_modules", "namespace"}
+COMPONENT_REVIEWED = {
+    "id",
+    "label",
+    "role",
+    "responsibilities",
+    "forbidden_responsibilities",
+    "provenance",
+    "capability_id",
+    "decided_by",
+    "layer",
+    "lifecycle",
+    "requires",  # component labels; `through` entries are symbols, unsupported by the profile
+    "inside",  # a path of a contract file; the inside contract goes through the same check
+    "public",
+    "planned",  # interface entries; `interface_boundary` is unsupported
+}
+
+
+def test_every_field_of_a_component_is_a_scope_or_reviewed() -> None:
+    from archkeel.check.evaluation.crate_scope import COMPONENT_FIELDS
+    from archkeel.ir.model import ContractComponent
+
+    fields = {field.name for field in dataclasses.fields(ContractComponent)}
+    assert set(COMPONENT_FIELDS) == COMPONENT_SCOPES
+    assert fields == COMPONENT_SCOPES | COMPONENT_REVIEWED, "a component field is new or gone"
+    assert not COMPONENT_SCOPES & COMPONENT_REVIEWED
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("packages", ("ns.crate.m",)),
+        ("exact_modules", ("ns.crate.m",)),
+        ("namespace", "ns.crate.m"),
+    ],
+)
+def test_each_component_field_below_a_crate_root_is_a_scope_that_needs_inside_edges(
+    field: str, value: object
+) -> None:
+    from archkeel.check.evaluation.crate_scope import _crate_scopes
+    from archkeel.ir.model import ComponentRole, ContractComponent
+
+    values: dict[str, Any] = {"packages": ("ns.crate",), field: value}
+    component = ContractComponent(
+        id="C",
+        label="c",
+        role=ComponentRole.COMPONENT,
+        responsibilities=(),
+        forbidden_responsibilities=(),
+        provenance=(),
+        **values,
+    )
+    contract = SimpleNamespace(components=(component,), rules=())
+    flagged = _crate_scopes(contract, RUST, ["ns.crate", "ns.crate.m"])  # type: ignore[arg-type]
+    assert [record["subjects"] for record in flagged] == [["C"]]

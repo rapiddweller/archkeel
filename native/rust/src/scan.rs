@@ -95,8 +95,9 @@ pub struct Scan {
     pub references: Vec<Reference>,
     pub concerns: Vec<Concern>,
     pub children: Vec<Child>,
-    /// Names that this file declares itself, so that a path with such a root is not a crate.
-    pub declared: BTreeSet<String>,
+    /// Every name that the file declares or imports, in any namespace and at any depth. The scan
+    /// does not decide which item a path means: a root that is also in this set is UNKNOWN.
+    pub names: BTreeSet<String>,
 }
 
 /// Scan one file. A syntax error is `Err` with its line.
@@ -111,7 +112,6 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
         lines: text.split('\n').collect(),
         features,
         inline: Vec::new(),
-        blocks: 0,
         absolute_use: false,
         out: Scan::default(),
     };
@@ -123,8 +123,6 @@ struct Walker<'a> {
     lines: Vec<&'a str>,
     features: &'a BTreeSet<String>,
     inline: Vec<String>,
-    /// How many blocks enclose the item that the walk is in: an item in a block is local to it.
-    blocks: usize,
     /// The `use` item that the walk is in starts with `::`.
     absolute_use: bool,
     out: Scan,
@@ -143,13 +141,9 @@ impl Walker<'_> {
         }
     }
 
-    /// A name that the file declares at its top level, in the namespace of types and modules,
-    /// where the first segment of a `::` path is looked up. A function, a constant and a
-    /// static are in the value namespace, so `fn serde_json() {}` does not hide `serde_json::x`.
+    /// A name that the file declares or imports, anywhere in it.
     fn bind(&mut self, name: String) {
-        if self.inline.is_empty() && self.blocks == 0 {
-            self.out.declared.insert(name);
-        }
+        self.out.names.insert(name);
     }
 
     fn concern(&mut self, reason: String, span: Span) {
@@ -209,7 +203,7 @@ impl Walker<'_> {
         }
     }
 
-    /// The paths in the strings of an attribute, under the keys of `tokens::PATH_KEYS`.
+    /// The paths in the strings of an attribute, under any key but the message keys of `tokens`.
     fn attribute_strings(&mut self, list: &syn::MetaList) {
         let mut found = Vec::new();
         if string_paths(list.tokens.clone(), 0, &mut found).is_none() {
@@ -233,13 +227,13 @@ impl Walker<'_> {
                 prefix.pop();
             }
             UseTree::Name(name) => {
-                // `use crate::a::serde_json;` declares a name; `use serde_json;` names the crate.
-                if prefix
-                    .first()
-                    .is_some_and(|root| matches!(root.as_str(), "crate" | "self" | "super"))
-                {
-                    self.bind(name.ident.to_string());
-                }
+                // `use a::b::{self}` binds `b`.
+                let bound = if name.ident == "self" {
+                    prefix.last().cloned()
+                } else {
+                    Some(name.ident.to_string())
+                };
+                bound.into_iter().for_each(|bound| self.bind(bound));
                 self.leaf(prefix, Some(&name.ident));
             }
             UseTree::Rename(rename) => {
@@ -305,14 +299,32 @@ fn to_i64(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
+/// The name that an item declares. Every kind counts, whatever its namespace.
 fn item_name(item: &Item) -> Option<String> {
     let ident = match item {
+        Item::Fn(item) => &item.sig.ident,
         Item::Struct(item) => &item.ident,
         Item::Enum(item) => &item.ident,
         Item::Union(item) => &item.ident,
         Item::Trait(item) => &item.ident,
+        Item::TraitAlias(item) => &item.ident,
         Item::Type(item) => &item.ident,
+        Item::Const(item) => &item.ident,
+        Item::Static(item) => &item.ident,
         Item::Mod(item) => &item.ident,
+        Item::Macro(item) => item.ident.as_ref()?,
+        Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
+        _ => return None,
+    };
+    Some(ident.to_string())
+}
+
+/// The name of an item of an `extern` block.
+fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
+    let ident = match item {
+        syn::ForeignItem::Fn(item) => &item.sig.ident,
+        syn::ForeignItem::Static(item) => &item.ident,
+        syn::ForeignItem::Type(item) => &item.ident,
         _ => return None,
     };
     Some(ident.to_string())
@@ -326,10 +338,11 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         visit::visit_item(self, item);
     }
 
-    fn visit_block(&mut self, block: &'ast syn::Block) {
-        self.blocks += 1;
-        visit::visit_block(self, block);
-        self.blocks -= 1;
+    fn visit_foreign_item(&mut self, item: &'ast syn::ForeignItem) {
+        if let Some(name) = foreign_name(item) {
+            self.bind(name);
+        }
+        visit::visit_foreign_item(self, item);
     }
 
     fn visit_attribute(&mut self, attr: &'ast Attribute) {

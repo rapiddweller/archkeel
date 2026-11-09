@@ -32,59 +32,64 @@ fn krate() -> Crate {
     }
 }
 
-fn named(root: &str, declared: &[&str]) -> Option<Named> {
-    let declared = declared.iter().map(|name| (*name).to_owned()).collect();
-    classify(root, &krate(), &declared, false)
+fn found(root: &str, names: &[&str], absolute: bool) -> Option<Found> {
+    let names = names.iter().map(|name| (*name).to_owned()).collect();
+    classify(root, &krate(), &names, absolute)
+}
+
+fn edge(package: &str) -> Option<Found> {
+    Some(Found::Edge(Named::Package(package.to_owned())))
 }
 
 #[test]
-fn a_dependency_and_a_renamed_dependency_name_their_package() {
-    assert_eq!(
-        named("serde_json", &[]),
-        Some(Named::Package("serde_json".to_owned()))
-    );
-    assert_eq!(
-        named("renamed", &[]),
-        Some(Named::Package("real_name".to_owned()))
-    );
+fn a_dependency_and_a_renamed_dependency_are_edges() {
+    assert_eq!(found("serde_json", &[], false), edge("serde_json"));
+    assert_eq!(found("renamed", &[], false), edge("real_name"));
 }
 
 #[test]
-fn a_sysroot_crate_is_named_without_a_dependency() {
+fn a_sysroot_crate_is_an_edge_without_a_dependency() {
     for name in ["std", "core", "alloc"] {
-        assert_eq!(named(name, &[]), Some(Named::Sysroot(name.to_owned())));
+        let sysroot = Some(Found::Edge(Named::Sysroot(name.to_owned())));
+        assert_eq!(found(name, &[], false), sysroot);
     }
 }
 
 #[test]
-fn a_local_item_a_relative_root_and_an_unknown_name_are_no_edge() {
-    assert_eq!(named("serde_json", &["serde_json"]), None);
-    assert_eq!(named("std", &["std"]), None);
-    for root in ["crate", "self", "super", "Self", "Vec", "Option", "missing"] {
-        assert_eq!(named(root, &[]), None, "{root}");
-    }
-}
-
-#[test]
-fn the_package_itself_is_no_edge() {
-    assert_eq!(named("my_app", &[]), None);
-}
-
-#[test]
-fn a_path_that_starts_with_two_colons_names_a_crate_and_no_local_item_hides_it() {
-    let declared = ["serde_json".to_owned()].into_iter().collect();
-    let found = classify("serde_json", &krate(), &declared, true);
-    assert_eq!(found, Some(Named::Package("serde_json".to_owned())));
+fn a_crate_name_that_the_file_also_declares_is_unknown_never_an_edge_and_never_hidden() {
+    // The scan does not decide which one Rust picks: a type, a module, a function, an import.
     assert_eq!(
-        classify(
-            "std",
-            &krate(),
-            &["std".to_owned()].into_iter().collect(),
-            true
-        ),
-        Some(Named::Sysroot("std".to_owned()))
+        found("serde_json", &["serde_json"], false),
+        Some(Found::Shadowed)
     );
-    // `::crate` and `::missing` are no crate of this one.
-    assert_eq!(classify("crate", &krate(), &BTreeSet::new(), true), None);
-    assert_eq!(classify("missing", &krate(), &BTreeSet::new(), true), None);
+    assert_eq!(found("renamed", &["renamed"], false), Some(Found::Shadowed));
+    assert_eq!(found("std", &["std"], false), Some(Found::Shadowed));
+    // Another name of the file changes nothing.
+    assert_eq!(
+        found("serde_json", &["Other", "serde"], false),
+        edge("serde_json")
+    );
+}
+
+#[test]
+fn a_path_that_starts_with_two_colons_is_the_crate_whatever_the_file_declares() {
+    assert_eq!(
+        found("serde_json", &["serde_json"], true),
+        edge("serde_json")
+    );
+    let sysroot = Some(Found::Edge(Named::Sysroot("std".to_owned())));
+    assert_eq!(found("std", &["std"], true), sysroot);
+    assert_eq!(found("crate", &[], true), None);
+    assert_eq!(found("missing", &[], true), None);
+}
+
+#[test]
+fn a_local_root_a_prelude_name_an_unknown_name_and_the_package_itself_are_no_edge() {
+    for root in ["crate", "self", "super", "Self"] {
+        assert_eq!(found(root, &[root], false), None, "{root}");
+        assert_eq!(found(root, &[], false), None, "{root}");
+    }
+    for root in ["Vec", "Option", "missing", "my_app"] {
+        assert_eq!(found(root, &[], false), None, "{root}");
+    }
 }

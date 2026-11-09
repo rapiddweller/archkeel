@@ -100,26 +100,28 @@ fn separator_then_name(
     Some(name.to_string())
 }
 
-/// The keys of an attribute whose string value holds a path, a type or a bound. This is the list of
-/// `serde` (`with`, `bound`, `remote`, ...). A string under another key is a message, a name or a
-/// regular expression, and the scan ignores it: `deprecated(note = "use a::b")` is no edge.
-const PATH_KEYS: [&str; 13] = [
-    "bound",
-    "with",
-    "serialize_with",
-    "deserialize_with",
-    "crate",
-    "remote",
-    "default",
-    "skip_serializing_if",
-    "from",
-    "try_from",
-    "into",
-    "serialize",
-    "deserialize",
+/// The keys whose string value is a message or a name, never a path: `deprecated(note = ...)`,
+/// `since`, `should_panic(expected = ...)`, `rename`, `alias`, `doc`, and the text keys of help.
+/// A string under any other key is read as a path, because the crates that read attributes (serde,
+/// serde_with, schemars, validator, derivative, ...) take paths under keys that no list can name.
+const MESSAGE_KEYS: [&str; 14] = [
+    "note",
+    "since",
+    "reason",
+    "message",
+    "expecting",
+    "expected",
+    "rename",
+    "alias",
+    "doc",
+    "help",
+    "about",
+    "long_about",
+    "description",
+    "comment",
 ];
 
-/// The paths in the strings under a `PATH_KEYS` key of a token stream, with their spans.
+/// The paths in the strings of a token stream that are not under a `MESSAGE_KEYS` key.
 ///
 /// A string can hold a whole path (`"crate::codec"`) or a bound (`"T: a::B"`), so the text is read
 /// as tokens, like the body of a macro. A text with `::` that does not read as tokens, or that
@@ -139,8 +141,10 @@ pub fn string_paths(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -
             TokenTree::Ident(name) => (key, armed) = (Some(name.to_string()), false),
             TokenTree::Punct(punct) if punct.as_char() == '=' => armed = key.is_some(),
             TokenTree::Literal(literal) => {
-                let holds_path =
-                    armed && key.as_deref().is_some_and(|name| PATH_KEYS.contains(&name));
+                let holds_path = armed
+                    && key
+                        .as_deref()
+                        .is_some_and(|name| !MESSAGE_KEYS.contains(&name));
                 (key, armed) = (None, false);
                 if holds_path {
                     read_string(&literal, found)?;

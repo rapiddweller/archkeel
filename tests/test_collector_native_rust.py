@@ -260,17 +260,21 @@ def test_interface_boundary_is_unknown_because_every_local_target_is_a_crate_roo
     assert result["declared_rules"] == "UNKNOWN"
 
 
-@pytest.mark.parametrize(
-    "source",
-    [
-        "fn base_crate() {}\npub fn run() { base_crate::make(); }\n",
-        "fn log() {}\nconst base_crate: u8 = 0;\n"
-        'pub fn run() { log::info!("x"); base_crate::make(); }\n',
-        "static base_crate: u8 = 0;\npub fn run() { base_crate::make(); }\n",
-    ],
-    ids=["fn", "fn-and-const", "static"],
-)
-def test_a_function_constant_or_static_does_not_hide_an_edge(
+SHADOWED = [
+    # The four repros of the review, and a function, a constant and a static.
+    "pub mod base_crate {}\n#[cfg(test)]\nmod tests { fn t() { base_crate::make(); } }\n",
+    "pub struct base_crate;\nmod m { fn t() { base_crate::make(); } }\n",
+    "pub type base_crate = u8;\nmod m { fn t() { base_crate::make(); } }\n",
+    "use self::inner::base_crate;\nmod m { fn t() { base_crate::make(); } }\nmod inner {}\n",
+    "use crate::util::base_crate;\nfn t() { base_crate::make(); }\n",
+    "fn base_crate() {}\npub fn run() { base_crate::make(); }\n",
+    "const base_crate: u8 = 0;\npub fn run() { base_crate::make(); }\n",
+    "static base_crate: u8 = 0;\npub fn run() { base_crate::make(); }\n",
+]
+
+
+@pytest.mark.parametrize("source", SHADOWED, ids=range(len(SHADOWED)))
+def test_a_local_name_equal_to_a_crate_name_is_unknown_never_pass(
     tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
@@ -278,8 +282,48 @@ def test_a_function_constant_or_static_does_not_hide_an_edge(
         tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
+    assert statuses(result).get("REQUIRES") != "PASS"
+    assert result["declared_rules"] == "UNKNOWN"
+    assert any("A local name equals a crate name: base_crate" in c for c in _claims(result))
+
+
+def test_a_crate_name_that_the_file_does_not_declare_is_an_edge(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    source = "pub fn run() { base_crate::make(); }\n"
+    result = _verdict(
+        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+    )
+
     assert statuses(result)["REQUIRES"] == "FAIL"
     assert any("app imports base without requiring it" in claim for claim in _claims(result))
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        '#[serde(getter = "base_crate::get")]',
+        '#[serde_as(as = "base_crate::X")]',
+        '#[schemars(schema_with = "base_crate::schema")]',
+        '#[validate(custom(function = "base_crate::check"))]',
+        '#[derivative(Debug(format_with = "base_crate::fmt"))]',
+        '#[educe(Debug(method = "base_crate::fmt"))]',
+    ],
+)
+def test_a_path_under_a_key_of_another_crate_is_an_edge(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys, attribute: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    result = _verdict(
+        tmp_path,
+        rust_binary,
+        capsys,
+        {"crates/app/src/lib.rs": f"{attribute}\npub struct S;\n"},
+        components=parts,
+    )
+
+    assert statuses(result)["REQUIRES"] == "FAIL"
 
 
 def test_a_path_in_a_bound_string_is_an_edge_and_one_that_does_not_read_is_unknown(

@@ -17,7 +17,7 @@ use archkeel_wire::request::Request;
 use serde_json::{json, Map, Value};
 
 use crate::crates::{discover, Problem, Workspace};
-use crate::resolve::{classify, Named};
+use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
 use crate::source::Source;
 use crate::tree::{walk, Module, Walked};
@@ -131,13 +131,20 @@ impl Builder {
             return;
         };
         for reference in &module.scan.references {
-            if let Some(named) = classify(
+            let found = classify(
                 &reference.root,
                 krate,
-                &module.scan.declared,
+                &module.scan.names,
                 reference.absolute,
-            ) {
-                self.import(workspace, module, reference, &named);
+            );
+            match found {
+                Some(Found::Edge(named)) => self.import(workspace, module, reference, &named),
+                Some(Found::Shadowed) => {
+                    let reason = format!("A local name equals a crate name: {}", reference.root);
+                    let evidence = self.cite(&module.rel, &reference.site);
+                    self.gap(&reason, Some(&evidence), &module.module);
+                }
+                None => {}
             }
         }
     }

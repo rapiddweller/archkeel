@@ -85,3 +85,42 @@ fn splits_only_at_the_top_level() {
     assert_eq!(first_name(&parts[1]).as_deref(), Some("allow"));
     assert_eq!(first_name(&parts[0]).as_deref(), Some("feature"));
 }
+
+#[test]
+fn a_string_under_any_other_key_is_read_as_a_path() {
+    for key in [
+        "getter",
+        "as",
+        "schema_with",
+        "custom",
+        "function",
+        "format_with",
+        "method",
+        "with",
+        "bound",
+        "unknown_key_of_a_new_crate",
+    ] {
+        let text = format!("{key} = \"dep::X\"");
+        assert_eq!(
+            string_chains(&text),
+            Some(vec!["dep::X".to_owned()]),
+            "{key}"
+        );
+    }
+    for key in [
+        "note",
+        "since",
+        "reason",
+        "message",
+        "expecting",
+        "expected",
+        "rename",
+        "alias",
+        "doc",
+    ] {
+        let text = format!("{key} = \"dep::X\"");
+        assert_eq!(string_chains(&text), Some(Vec::new()), "{key}");
+    }
+    // A text that does not read under such a key is not dropped.
+    assert_eq!(string_chains("getter = \"(dep::X\""), None);
+}
