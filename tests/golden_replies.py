@@ -13,7 +13,9 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import platform
 import re
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,8 +44,9 @@ _VOLATILE_KEY = re.compile(r"run_id|elapsed|duration|timestamp|_seconds$|_ms$", 
 PHASE_VARIABLE = "ARCHKEEL_GOLDEN_PHASE"
 GATE_VARIABLE = "ARCHKEEL_GOLDEN_GATE"
 GATE_DELETE = "delete"
+PIN_FILE = "interpreter.json"
 _ROOT_MARK = "<root>"
-# The parts of `facts` outside the sections that the digest counts.
+# The lists of `facts` outside the sections that the digest always counts.
 _COUNTED = (
     "files",
     "imports",
@@ -87,6 +90,60 @@ def _scrub(value: Any, roots: set[str], where: str) -> Any:
     return value
 
 
+@dataclass(frozen=True)
+class Pin:
+    """The parts of a reply that depend on the interpreter that ran the collector (AD-343).
+
+    `tests/golden/<language>/interpreter.json` holds it. `recorded` names the interpreter of the
+    recording. `sections`, `facts` and `top` name the parts that another interpreter changes: a
+    section, a key of `facts` and a key beside `facts`.
+    """
+
+    recorded: dict[str, Any]
+    sections: tuple[str, ...]
+    facts: tuple[str, ...]
+    top: tuple[str, ...]
+    reason: str
+
+
+def interpreter() -> dict[str, Any]:
+    """The interpreter that runs the test: its kind, its version and the size of its built-ins."""
+    return {
+        "implementation": sys.implementation.name,
+        "version": platform.python_version(),
+        "builtin_modules": len(sys.builtin_module_names),
+    }
+
+
+def pin_for(language: str) -> Pin | None:
+    path = GOLDEN / language / PIN_FILE
+    if not path.exists():
+        return None
+    table = json.loads(path.read_text())
+    bound = table["bound"]
+    return Pin(
+        table["recorded_with"],
+        tuple(bound["sections"]),
+        tuple(bound["facts"]),
+        tuple(bound["top"]),
+        bound["reason"],
+    )
+
+
+def portable(value: dict[str, Any], pin: Pin) -> dict[str, Any]:
+    """The reply without the parts that depend on the interpreter."""
+    kept = json.loads(json.dumps(value))
+    facts = kept["facts"]
+    facts["sections"] = [s for s in facts["sections"] if s["name"] not in pin.sections]
+    claimed = facts["capabilities"]["sections"]
+    facts["capabilities"]["sections"] = [name for name in claimed if name not in pin.sections]
+    for key in pin.facts:
+        facts.pop(key, None)
+    for key in pin.top:
+        kept.pop(key, None)
+    return kept
+
+
 def canonical_bytes(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
@@ -102,15 +159,21 @@ def _rest(facts: dict[str, Any]) -> dict[str, Any]:
     return rest
 
 
+def _beside(reply: dict[str, Any]) -> dict[str, Any]:
+    """The keys beside `facts`. Like `provider_bindings`, an empty `provider_sources` is no key."""
+    return {key: item for key, item in reply.items() if key != "facts" and item != []}
+
+
 def _sha(value: Any) -> str:
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
 
-def digest(value: dict[str, Any]) -> dict[str, Any]:
+def digest(value: dict[str, Any], pin: Pin | None = None) -> dict[str, Any]:
     """The hash of the whole reply, of each section and of the rest, with the counts.
 
     The rest is `facts` without its sections and without `capabilities.sections`, which `claimed`
-    and `order` describe.
+    and `order` describe. It also holds each key beside `facts`. With a `pin`, the digest of the
+    portable reply is part of it.
     """
     facts = value["facts"]
     order = [section["name"] for section in facts["sections"]]
@@ -126,14 +189,24 @@ def digest(value: dict[str, Any]) -> dict[str, Any]:
     }
     rest = _rest(facts)
     rest["capabilities"] = {k: v for k, v in rest["capabilities"].items() if k != "sections"}
-    return {
+    beside = _beside(value)
+    counts = {key: len(facts[key]) for key in _COUNTED if key in facts}
+    # Any other list that holds records is a counted part too, so that a test can see it.
+    for source in (facts, beside):
+        counts.update(
+            {k: len(v) for k, v in source.items() if k != "sections" and isinstance(v, list) and v}
+        )
+    result = {
         "sha256": _sha(value),
         "claimed": list(facts["capabilities"]["sections"]),
         "order": order,
         "features": list(facts["capabilities"].get("resolution_features", [])),
         "sections": sections,
-        "rest": {"sha256": _sha(rest), "counts": {k: len(facts[k]) for k in _COUNTED}},
+        "rest": {"sha256": _sha({**rest, "_beside": beside} if beside else rest), "counts": counts},
     }
+    if pin:
+        result["portable"] = digest(portable(value, pin))
+    return result
 
 
 def _kinds(records: list[dict[str, Any]]) -> dict[str, int]:
@@ -148,6 +221,13 @@ def _kinds(records: list[dict[str, Any]]) -> dict[str, int]:
 class Golden:
     digest: dict[str, Any]
     full: dict[str, Any] | None  # the canonical reply, when it is small enough to keep
+
+    def portable(self, pin: Pin) -> Golden:
+        """The golden reply without the parts that depend on the interpreter."""
+        if self.full is None:
+            return Golden(self.digest["portable"], None)
+        part = portable(self.full, pin)
+        return Golden(digest(part), part)
 
 
 def paths(language: str, case: str) -> tuple[Path, Path]:
@@ -165,7 +245,8 @@ def store(language: str, case: str, value: dict[str, Any]) -> Path:
     if keep is full:
         keep.write_bytes(packed)
     else:
-        keep.write_text(json.dumps(digest(value), indent=2, sort_keys=True) + "\n")
+        pin = pin_for(language)
+        keep.write_text(json.dumps(digest(value, pin), indent=2, sort_keys=True) + "\n")
     return keep
 
 
@@ -175,7 +256,7 @@ def load(language: str, case: str) -> Golden:
         raise GoldenError(f"{case}: a golden reply has a full file or a digest, never both")
     if full.exists():
         value = json.loads(gzip.decompress(full.read_bytes()))
-        return Golden(digest(value), value)
+        return Golden(digest(value, pin_for(language)), value)
     if short.exists():
         return Golden(json.loads(short.read_text()), None)
     raise GoldenError(f"{case}: no golden reply under tests/golden/{language}; record it first")
@@ -213,6 +294,39 @@ class Verdict:
     skipped: tuple[str, ...]
     mismatches: tuple[str, ...]
     reason: str = ""
+    # The interpreter differs from the recording: this note names the parts that were not compared.
+    unpinned: str = ""
+
+
+def require_recorded_interpreter(pin: Pin | None, environ: Mapping[str, str]) -> None:
+    """The deletion gate needs the interpreter of the recording. A phase can run on another one."""
+    if environ.get(GATE_VARIABLE) == GATE_DELETE and pin and pin.recorded != interpreter():
+        raise GoldenError(
+            f"the deletion gate needs {_name(pin.recorded)} (the interpreter of the recording), "
+            f"not {_name(interpreter())}"
+        )
+
+
+def _name(value: Mapping[str, Any]) -> str:
+    return f"{value['implementation']} {value['version']} with {value['builtin_modules']} built-ins"
+
+
+def compare_on_interpreter(
+    golden: Golden,
+    actual: dict[str, Any],
+    allowed: Allowance | None = None,
+    pin: Pin | None = None,
+) -> Verdict:
+    """Compare the whole reply on the interpreter of the recording, else the portable part only."""
+    if pin is None or pin.recorded == interpreter():
+        return compare(golden, actual, allowed)
+    verdict = compare(golden.portable(pin), portable(actual, pin), allowed)
+    parts = [*pin.sections, *pin.facts, *pin.top]
+    note = (
+        f"recorded with {_name(pin.recorded)}, run with {_name(interpreter())}: "
+        f"not compared: {parts}. {pin.reason}"
+    )
+    return Verdict(verdict.compared, verdict.skipped, verdict.mismatches, verdict.reason, note)
 
 
 def compare(golden: Golden, actual: dict[str, Any], allowed: Allowance | None = None) -> Verdict:
@@ -267,13 +381,14 @@ def _describe(
     if full is None:
         return f"{head}; the golden reply is a digest, so there is no field diff"
     return f"{head}; first differences: " + "; ".join(
-        differences(_part(full["facts"], name), _part(actual["facts"], name), name)
+        differences(_part(full, name), _part(actual, name), name)
     )
 
 
-def _part(facts: dict[str, Any], name: str) -> Any:
+def _part(reply: dict[str, Any], name: str) -> Any:
+    facts = reply["facts"]
     if name == "rest":
-        return _rest(facts)
+        return {**_rest(facts), **_beside(reply)}
     return next((s for s in facts["sections"] if s["name"] == name), None)
 
 

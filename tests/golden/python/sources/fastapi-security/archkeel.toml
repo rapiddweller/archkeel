@@ -1,0 +1,4 @@
+[scan]
+roots = ["fastapi"]
+namespace = "fastapi"
+contract = "architecture-contract.json"

@@ -29,6 +29,13 @@ def cases(language: str) -> dict[str, Path]:
     return {item["case"]: ROOT / item["root"] for item in listing}
 
 
+def options(language: str, case: str) -> dict[str, object]:
+    """The settings of a case beyond its root. A Python case can set the three that follow."""
+    listing = json.loads((golden_replies.GOLDEN / language / "cases.json").read_text())
+    item = next(item for item in listing if item["case"] == case)
+    return {key: item[key] for key in ("phase", "features", "exclude_tests") if key in item}
+
+
 def git(root: Path, *args: str) -> str:
     return subprocess.run(
         ["git", *args], cwd=root, capture_output=True, text=True, check=True
@@ -58,18 +65,36 @@ def record(
                 f"the source is not committed: {changed[:5]}. Commit it, or set ALLOW_DIRTY=1"
             )
         commit += "+dirty"
-    run = golden_producers.producer("python")
     replies = {}
     for name in names:
+        run = golden_producers.producer("python", language=language, **options(language, name))
         with tempfile.TemporaryDirectory() as workspace:
             root = golden_producers.materialize(known[name], Path(workspace))
             replies[name] = golden_replies.canonical(run(root), root)
+    pin = golden_replies.pin_for(language)
+    if pin and pin.recorded != golden_replies.interpreter() and set(names) != set(known):
+        raise golden_replies.GoldenError(
+            f"the other golden replies were recorded with {pin.recorded['version']}: "
+            "record CASE=all, so that one interpreter made all of them"
+        )
     written = [golden_replies.store(language, name, reply) for name, reply in replies.items()]
+    if pin:
+        write_pin(language)
     today = datetime.now(UTC).date()
-    lines = [f"| {today} | {name} | {commit} | {reason.strip()} |\n" for name in replies]
+    runtime = golden_replies.interpreter()
+    why = f"{reason.strip()} ({runtime['implementation']} {runtime['version']})"
+    lines = [f"| {today} | {name} | {commit} | {why} |\n" for name in replies]
     log = golden_replies.GOLDEN / language / "RECORDINGS.md"
     log.write_text((log.read_text() if log.exists() else LOG_HEAD) + "".join(lines))
     return written
+
+
+def write_pin(language: str) -> None:
+    """Name the interpreter of this recording in `interpreter.json`. The bound parts stay."""
+    path = golden_replies.GOLDEN / language / golden_replies.PIN_FILE
+    table = json.loads(path.read_text())
+    table["recorded_with"] = golden_replies.interpreter()
+    path.write_text(json.dumps(table, indent=2) + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:

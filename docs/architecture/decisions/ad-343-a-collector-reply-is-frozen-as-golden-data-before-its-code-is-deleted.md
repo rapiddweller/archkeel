@@ -36,6 +36,18 @@ tests that use it as the oracle then have nothing to compare with.
    kind and feature that the collector can emit and fails when a golden case does not cover it.
    The collector does not fill `type_shapes`, `uncertain_reexports` and `candidate_evidence`.
    A test fails when it starts to, and checks that they stay empty.
+6. **Python (added 2026-11-09).** The Python collector of Python sources runs in two phases. The
+   host needs both, so both are frozen: `<case>` is the full sequence and `<case>-survey` is the
+   import survey, with its provider sources. The survey is the oracle of the first native slice.
+   The reply depends on the interpreter: `symbols`, `calls`, `evidence`, `inputs`,
+   `provider_bindings`, `source` and `provider_sources` hold the text, the digests or the version
+   of the standard library. They differ on 3.11, 3.12, 3.13, 3.14 and on a build with 31
+   built-in modules; the other sections are equal. `python/interpreter.json` names the parts
+   and the interpreter of the recording (CPython 3.11.12, the pin of the repository). On that
+   interpreter the whole reply is compared. On another one only the rest is compared, with a
+   warning. The deletion gate fails there. The cases are six fixtures, synthetic sources for
+   each other kind (file failures, test exclusion, no gated feature) and two excerpts of fastapi
+   (MIT, commit `ba47d6d7`). `E-runtime` is not recorded: its PEP 695 sample needs one minor.
 
 **Rejected.**
 - **Keep the Python collector as an oracle.** It is the code that phase 4.5 deletes.
@@ -55,3 +67,4 @@ the form; a changed record, an extra section, a swapped order and a duplicate se
 subset fails without an allowance, passes with one and still compares the rest, and the gate
 ignores the allowance; the recorder refuses an empty reason, a dirty source and a missing
 variable; the kinds and features are covered (the collector writes the effect kind as a literal); Git keeps the sources in LF.
+`tests/test_collector_golden_python.py` adds: each place that gives a Python record its kind is known and covered, a pinned part is skipped only on another interpreter, the gate needs the recorded interpreter.
