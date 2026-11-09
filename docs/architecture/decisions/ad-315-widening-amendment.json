@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "after_digest": "5cbf75a0a5fffd41141486a81f6bc868eaffe46a71be4f096b0bb8a0e89a8ece",
+  "before_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "before_digest": "511e6391bf1922ab4799a283e6670491acce24c13334bea332d8227fdffaeb19",
+  "decided_by": "owner (decision task of 2026-11-08)",
+  "rationale": "Base e9dbd348. AD-315 update and epic #880 step S4. The classifiers of widening move from archkeel.ir.widening to the new internal archkeel.ir.widening_change, archkeel.ir.widening_rules and archkeel.ir.widening_ratchet. All three join exact_modules of the architecture owner in contracts/ir.json. The one Any permission for _DataclassInstance.__dataclass_fields__ moves with its class to widening_change, with the same reason. No budget, rule, component, requires entry or public entry changes. The baseline stays the same.",
+  "schema_version": "2.0.0"
+}
