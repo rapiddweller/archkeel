@@ -219,3 +219,18 @@ def test_unrelated_declaration_presence_still_fails_closed() -> None:
     assert contract_widenings(absent, present) == (
         "contract.declarations changed in a way this comparison does not enumerate",
     )
+
+
+def test_only_a_raised_scalar_widens_the_measurement_budget() -> None:
+    def scalar(value: int) -> tuple[MeasurementBudget, ...]:
+        return (MeasurementBudget("cycle_edges", value),)
+
+    assert measurement_budget_widenings(scalar(2), scalar(3)) == (
+        "measurement budget widened: cycle_edges (3 now, 2 before)",
+    )
+    assert measurement_budget_widenings(scalar(2), scalar(2)) == ()
+    assert measurement_budget_widenings(scalar(2), scalar(1)) == ()
+    assert measurement_budget_widenings((), scalar(2), {"cycle_edges": 2}) == ()
+    assert measurement_budget_widenings((), scalar(3), {"cycle_edges": 2}) == (
+        "measurement budget widened: cycle_edges (3 accepted, target 2 before)",
+    )
