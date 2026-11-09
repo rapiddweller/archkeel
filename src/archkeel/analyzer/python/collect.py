@@ -20,11 +20,7 @@ from pathlib import Path, PurePosixPath
 from time import monotonic
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.runtime import (
-    collector_provenance,
-    python_requirement,
-)
-from archkeel.ir import facts_codec
+from archkeel.analyzer.runtime import collector_provenance, python_requirement
 from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
@@ -57,7 +53,14 @@ from archkeel.ir.facts import (
     UnresolvedTarget,
     stable_id,
 )
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record, raw_record
+from archkeel.ir.facts_codec import (
+    RawEvidence,
+    RawRecord,
+    parse_evidence,
+    parse_record,
+    raw_record,
+    states_examined,
+)
 from archkeel.ir.phases import Phase, measured
 from archkeel.ir.protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -74,10 +77,7 @@ from archkeel.ir.protocol import (
 )
 
 from .bindings import collect_bindings
-from .callable_signatures import (
-    contextmanager_dependency_bindings,
-    contextmanager_signatures,
-)
+from .callable_signatures import contextmanager_dependency_bindings, contextmanager_signatures
 from .calls import collect_calls_with_resolvers
 from .constructs import collect_constructs
 from .explore_scope import ExcludedTests, selected_paths, wire_protocol
@@ -444,7 +444,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
                 if expanded == sources:
                     break
                 sources = expanded
-        return facts_codec.states_examined(survey)
+        return states_examined(survey)
     captured_sources = (
         request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
     )
@@ -579,7 +579,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         tuple(sorted(candidate_by_id.values(), key=lambda item: item.id)),
         provider_bindings,
     )
-    return facts_codec.states_examined(facts)
+    return states_examined(facts)
 
 
 def _file_facts(

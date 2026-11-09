@@ -145,6 +145,7 @@ def _report(
         )
         empty = replace(
             facts,
+            capabilities=replace(facts.capabilities, examined=()),
             files=(),
             imports=(),
             inputs=(),

@@ -12,7 +12,6 @@ from collections import Counter
 from enum import StrEnum
 
 from archkeel.analyzer.runtime import collector_provenance
-from archkeel.ir import facts_codec
 from archkeel.ir.facts import (
     BuiltinTarget,
     Capabilities,
@@ -38,7 +37,13 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import MemberKind as InventoryMemberKind
 from archkeel.ir.facts import member as enum_member
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record
+from archkeel.ir.facts_codec import (
+    RawEvidence,
+    RawRecord,
+    parse_evidence,
+    parse_record,
+    states_examined,
+)
 from archkeel.ir.protocol import CollectionRequest, DartSettings, GapTitle
 from archkeel.ir.source_records import RawData, classified, file_evidence, record_evidence
 
@@ -126,7 +131,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         syntax[source.rel_path] = parse(source.content)
     resolver = Resolver(snapshot, syntax)
     collection = _Collection(request, snapshot, syntax, resolver)
-    return facts_codec.states_examined(collection.facts())
+    return states_examined(collection.facts())
 
 
 class _Collection:
@@ -579,13 +584,7 @@ class _Collection:
             )
 
     def _member(
-        self,
-        rel: str,
-        module: str,
-        parent: str,
-        parent_id: str,
-        class_name: str,
-        member: Member,
+        self, rel: str, module: str, parent: str, parent_id: str, class_name: str, member: Member
     ) -> str:
         name = member.name
         constructor = member.kind == MemberKind.CONSTRUCTOR

@@ -8,12 +8,13 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from examined_helper import stated
 from test_collection_boundary_regressions import _facts
 
 from archkeel.check.observation import assemble_observation
 from archkeel.check.ratchets import unknown_positions_by_rule
 from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.facts_codec import decode_response, encode_response
+from archkeel.ir.facts_codec import decode_response, encode_response, states_examined
 from archkeel.ir.protocol import CollectionResponse
 from archkeel.ir.trace import trace_valid_violations
 
@@ -31,6 +32,7 @@ def test_empty_construct_facts_cannot_pass_without_decided_capability(
         if section["name"] == "constructs":
             section["records"] = []
     # The unavailable collector is allowed to report no candidates, but that is not absence proof.
+    stated(payload["facts"])
     facts = decode_response(json.dumps(payload).encode()).facts
     contract = tmp_path / "contract.json"
     contract.write_text(
@@ -75,7 +77,7 @@ def test_decided_construct_capability_allows_clean_rule(tmp_path: Path) -> None:
         replace(section, records=()) if section.name == "constructs" else section
         for section in facts.sections
     )
-    facts = replace(facts, sections=sections)
+    facts = states_examined(replace(facts, sections=sections))
     contract = tmp_path / "contract.json"
     contract.write_text(
         json.dumps(

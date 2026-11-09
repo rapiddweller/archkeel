@@ -8,6 +8,7 @@ import json
 from dataclasses import replace
 
 import pytest
+from examined_helper import stated
 from test_analyzer import _component
 from test_source_evaluation import _typescript_facts
 
@@ -73,6 +74,7 @@ def _facts(profile, descriptor):
             "declaration_file": None,
         }
     ]
+    stated(facts)
     return decode_response(json.dumps(payload).encode()).facts
 
 
