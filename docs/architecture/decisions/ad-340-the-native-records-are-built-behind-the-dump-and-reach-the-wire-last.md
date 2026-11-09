@@ -33,3 +33,15 @@ of it (n imports of a file of size m cost n times m). `readable` skips a file th
 
 **Limit.** The records are not in the reply. The Python rules for the evidence of `fact_ids` and the
 order of `bindings` are 3c and 3d.
+
+**Note, 2026-11-09 (3b): symbols.** `symbols.rs` builds one `TSDEF` record for each definition
+(`_inner_symbols`, `_symbol_metadata`, `_classifier_data`, `_attribute_declaration`, `_base_record`),
+and `symbol_table.rs` is the table that 3c reads: `SymbolTable::build(&Pending)`, `entries`,
+`at(rel, line, column)` (`ids`), `with_qualified(name)` and `count(name)` (`by_qualified`),
+`classifier_count(name)`, `scope(name, line, column)` (`scope_ids`), `top_level(module)` and
+`in_module(module)`. Counts are constant time, so a name with k definitions costs k. Python scans
+all definitions for each class to find its methods; a map keyed by module, parent name and position
+does it once. The evidence of a location is decided by its last citation (`record_evidence`
+overwrites), so `Cited` starts from the evidence of the reply and the order of the new records
+follows Python: imports, symbols, then constructs. 3c cites the sites between them; the oracle
+leaves those locations to 3c.

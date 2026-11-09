@@ -10,15 +10,18 @@
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 //! The evidence that the new records cite is kept apart, so the evidence of the reply is unchanged.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use archkeel_wire::identity::{evidence_id, stable_id, Part};
 use archkeel_wire::reply::{Evidence, Facts, Record, Target};
 use serde_json::{json, Value};
 
+use crate::definitions::Definition;
 use crate::import_bindings::ImportBinding;
 use crate::parse::Parsed;
 use crate::source::Span;
+use crate::symbol_table::SymbolTable;
+use crate::symbols;
 
 /// The string comparison construct of `ForbiddenConstructKind`.
 pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
@@ -28,6 +31,8 @@ pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
 pub struct Kept {
     pub module: String,
     pub has_error: bool,
+    /// The definitions with the qualified name of their parent inside the module.
+    pub definitions: Vec<(Definition, Option<String>)>,
     /// The span of each written string and the qualified name of the definition that holds it.
     pub comparisons: Vec<(Span, Option<String>)>,
     /// The names that each import statement binds, by the line and column of the statement.
@@ -41,6 +46,11 @@ impl Kept {
     /// What a parsed file keeps for the records of this phase.
     pub fn from_parsed(module: &str, parsed: &Parsed) -> Self {
         let syntax = &parsed.syntax;
+        let definitions = syntax
+            .definitions
+            .iter()
+            .map(|item| (item.clone(), syntax.parent_name(item)))
+            .collect();
         let comparisons = syntax
             .sites
             .comparisons
@@ -53,6 +63,7 @@ impl Kept {
         Self::new(
             module.to_owned(),
             parsed.first_error.is_some(),
+            definitions,
             comparisons,
             &syntax.import_bindings,
             &syntax.module_exports,
@@ -62,6 +73,7 @@ impl Kept {
     pub fn new(
         module: String,
         has_error: bool,
+        definitions: Vec<(Definition, Option<String>)>,
         comparisons: Vec<(Span, Option<String>)>,
         import_bindings: &[ImportBinding],
         module_exports: &[(String, Span, Span)],
@@ -81,6 +93,7 @@ impl Kept {
         Self {
             module,
             has_error,
+            definitions,
             comparisons,
             bindings,
             exports,
@@ -92,6 +105,8 @@ impl Kept {
 #[derive(Default)]
 pub struct Pending {
     pub kept: BTreeMap<String, Kept>,
+    /// The files in the order that the walk parsed them (`self.syntax` of Python).
+    pub order: Vec<String>,
     /// Where each import record was written: the file, the line and the column of its statement.
     pub sites: HashMap<String, (String, i64, i64)>,
     /// The settings of the project could not be read in full (`config.partial`).
@@ -110,26 +125,52 @@ pub struct Records {
     pub witnesses: Vec<Record>,
     /// The `TSCONSTRUCT` records, sorted by id.
     pub constructs: Vec<Record>,
+    /// The `TSDEF` records, in the order of the symbol table (PR 4.3a-3b).
+    pub symbols: Vec<Record>,
     /// The evidence that the records above cite and the reply does not hold yet.
     pub evidence: Vec<Evidence>,
 }
 
-/// The evidence of the new records, by id.
+/// The evidence of the whole collection, by id, and the ids that the new records cite. The last
+/// citation of a location decides its excerpt, as in Python (`record_evidence` overwrites), so the
+/// evidence of the reply comes first and the new records cite after it, in the order of Python.
 #[derive(Default)]
-struct Cited(BTreeMap<String, Evidence>);
+pub struct Cited {
+    all: BTreeMap<String, Evidence>,
+    touched: BTreeSet<String>,
+}
 
 impl Cited {
+    fn seeded(evidence: &[Evidence]) -> Self {
+        let all = evidence
+            .iter()
+            .map(|item| (item.id.clone(), item.clone()))
+            .collect();
+        Self {
+            all,
+            touched: BTreeSet::new(),
+        }
+    }
+
+    /// The evidence that the new records cite.
+    fn cited(self) -> Vec<Evidence> {
+        let Self { mut all, touched } = self;
+        touched.iter().filter_map(|id| all.remove(id)).collect()
+    }
+
     /// `collect._cite`.
-    fn cite(&mut self, rel: &str, span: &Span) -> String {
+    pub fn cite(&mut self, rel: &str, span: &Span) -> String {
         let id = evidence_id(rel, span.line, span.end_line, span.column);
-        self.0.entry(id.clone()).or_insert_with(|| Evidence {
+        self.touched.insert(id.clone());
+        let evidence = Evidence {
             id: id.clone(),
             file: rel.to_owned(),
             line: span.line,
             end_line: span.end_line,
             column: span.column,
             excerpt: span.excerpt.clone(),
-        });
+        };
+        self.all.insert(id.clone(), evidence);
         id
     }
 }
@@ -142,14 +183,15 @@ fn sorted(mut values: Vec<String>) -> Vec<String> {
 
 /// Build the records of this phase from the facts of a collection and the kept syntax.
 pub fn build(facts: &Facts, pending: &Pending) -> Records {
-    let mut cited = Cited::default();
+    let mut cited = Cited::seeded(&facts.evidence);
     let mut records = Records::default();
     expand(facts, pending, &mut cited, &mut records);
     records
         .imports
         .sort_by(|left, right| left.id.cmp(&right.id));
+    records.symbols = symbols::build(&SymbolTable::build(pending), &mut cited);
     constructs(pending, &mut cited, &mut records);
-    records.evidence = cited.0.into_values().collect();
+    records.evidence = cited.cited();
     records
 }
 

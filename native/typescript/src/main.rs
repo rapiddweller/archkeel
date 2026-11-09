@@ -44,6 +44,8 @@ mod sites;
 mod snapshot;
 mod source;
 mod source_input;
+mod symbol_table;
+mod symbols;
 mod syntax;
 mod test_sources;
 #[cfg(test)]

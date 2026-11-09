@@ -131,6 +131,21 @@ def _target(target: object) -> dict[str, object]:
     return {"kind": kind, **dataclasses.asdict(target)}
 
 
+def _evidence_of(value: object) -> list[str]:
+    """Every evidence id that a record or its data holds."""
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in ("evidence_ids", "decorator_evidence_ids"):
+                found += item
+            else:
+                found += _evidence_of(item)
+    elif isinstance(value, list):
+        for item in value:
+            found += _evidence_of(item)
+    return found
+
+
 def python_records(request: CollectionRequest) -> dict[str, object]:
     """The records of the Python collector, built in the order of `_Collection.facts()`."""
     settings = request.resolver
@@ -141,19 +156,26 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
         collection._file(collection.queue[index])
         index += 1
     collection._named_imports()
+    symbols, calls, references, bindings = collection._inner_facts()
     constructs = [_plain_record(record) for record in collection._constructs()]
     witnesses = list(collection.import_binding_facts.values())
     imports = sorted(collection.imports, key=lambda item: item["id"])
+    # The sites cite their own locations after the symbols, and the last citation of a location
+    # decides its excerpt. Those locations belong to the records of PR 4.3a-3c.
+    later = {item for record in [*calls, *references, *bindings] for item in _evidence_of(record)}
     cited = {
         evidence
-        for record in [*witnesses, *constructs]
-        for evidence in record["evidence_ids"]  # type: ignore[attr-defined]
+        for record in [*witnesses, *constructs, *symbols]
+        for evidence in _evidence_of(record)
+        if evidence not in later
     }
     return {
         "imports": imports,
         "targets": [_target(target) for target in collection.targets],
         "witnesses": witnesses,
         "constructs": constructs,
+        "symbols": symbols,
+        "later": sorted(later),
         "evidence": [collection.evidence[key] for key in sorted(cited)],
     }
 
@@ -184,6 +206,11 @@ def native_records(binary: Path, request: CollectionRequest) -> dict[str, object
 
 def _differences(native: dict[str, object], python: dict[str, object]) -> list[str]:
     found: list[str] = []
+    later = set(python.pop("later"))  # type: ignore[arg-type]
+    native = {
+        **native,
+        "evidence": [item for item in native["evidence"] if item["id"] not in later],  # type: ignore[attr-defined, union-attr]
+    }
     for key in python:
         mine, theirs = native[key], python[key]
         if mine == theirs:
@@ -306,6 +333,31 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
             files["src/c.ts"] = "".join(
                 f"function f{i}(k) {{ return k == 'w{i}'; }}\n" for i in range(n)
             )
+        case "symbols-class":
+            body = "".join(
+                f"  f{i}: number = {i};\n  m{i}(a: number): void {{}}\n" for i in range(n)
+            )
+            files["src/b.ts"] = f"class K {{\n{body}}}\n"
+        case "symbols-bases":
+            files["src/b.ts"] = "".join(
+                f"interface I{i} {{ a{i}: number }}\n@d({i}) class C{i} extends C{max(i - 1, 0)} "
+                f"implements I{i} {{ m(): void {{}} }}\n"
+                for i in range(n)
+            )
+        case "symbols-overloads":
+            files["src/b.ts"] = (
+                "".join("function f(a: number): void;\n" for _ in range(n))
+                + "function f(a: any) {}\nclass K { "
+                + "".join("m(a: number): void; " for _ in range(n))
+                + "m(a: any) {} }\n"
+            )
+        case "symbols-enums":
+            files["src/b.ts"] = (
+                "enum Big { "
+                + ", ".join(f"A{i}" for i in range(n))
+                + " }\n"
+                + "".join(f"enum E{i} {{ X, Y = {i}, Z }}\n" for i in range(n))
+            )
         case _:
             raise AssertionError(name)
     return files
@@ -335,10 +387,14 @@ def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]
 
 
 RECORD_SHAPES = (
-    ("many-statements", 1500),
-    ("one-statement", 4000),
-    ("many-importers", 1500),
-    ("comparisons", 2500),
+    ("many-statements", 1000),
+    ("one-statement", 2500),
+    ("many-importers", 1000),
+    ("comparisons", 1500),
+    ("symbols-class", 1000),
+    ("symbols-bases", 1000),
+    ("symbols-overloads", 1200),
+    ("symbols-enums", 1500),
 )
 
 

@@ -270,6 +270,7 @@ pub fn records(request: &Request, provenance: Provenance) -> Value {
         "imports": records.imports.iter().map(record_value).collect::<Vec<_>>(),
         "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
         "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
+        "symbols": records.symbols.iter().map(record_value).collect::<Vec<_>>(),
         "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
         "evidence": records.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
     })

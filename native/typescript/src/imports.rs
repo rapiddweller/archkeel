@@ -61,6 +61,7 @@ impl Collection<'_> {
         }
         if self.keep {
             let kept = Kept::from_parsed(module, &parsed);
+            self.order.push(rel.to_owned());
             self.kept.insert(rel.to_owned(), kept);
         }
         let format = self.resolver.format_of(&mut self.snapshot, rel);
