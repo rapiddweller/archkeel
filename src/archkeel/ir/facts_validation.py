@@ -71,6 +71,7 @@ from .facts import (
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
 from .guard_paths import GuardedCallPath, guarded_call_paths
+from .reference_context import source_reference_context as source_reference_context
 from .source_proofs import class_instance_member_write_names, parse_numeric_evidence_excerpt
 from .state_facts import ArgumentPass, AttributeAccess
 from .type_shapes import TypeApplication, TypeShape
@@ -4635,68 +4636,6 @@ def _reference_annotation_excerpt(reference: Record, evidence: Evidence) -> bool
     if context is SourceReferenceContext.VALUE:
         return False
     return None
-
-
-def source_reference_context(
-    excerpt: str, column: int, expression: str
-) -> SourceReferenceContext | None:
-    """Return a source context only when the bounded syntax anchors the expression."""
-    tree = _reference_excerpt_tree(excerpt)
-    if tree is None:
-        return None
-    matches = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Name | ast.Attribute)
-        and node.col_offset == column
-        and ast.unparse(node) == expression
-    ]
-    if not matches:
-        return None
-    annotations = {
-        id(node) for annotation in _annotation_roots(tree) for node in ast.walk(annotation)
-    }
-    return (
-        SourceReferenceContext.ANNOTATION
-        if any(id(node) in annotations for node in matches)
-        else SourceReferenceContext.VALUE
-    )
-
-
-def _reference_excerpt_tree(excerpt: str) -> ast.Module | None:
-    try:
-        return ast.parse(excerpt)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        parsed = parse_numeric_evidence_excerpt(excerpt)
-        if parsed is not None:
-            return ast.Module(body=list(parsed[0]), type_ignores=[])
-    stripped: str = excerpt.rstrip()
-    if not stripped.endswith(("(", "[", "{")):
-        return None
-    closing = {"(": ")", "[": "]", "{": "}"}[stripped[-1]]
-    for count in range(1, 9):
-        candidate = f"{excerpt}None{closing * count}"
-        try:
-            return ast.parse(candidate)
-        except (IndentationError, SyntaxError, ValueError, RecursionError):
-            parsed = parse_numeric_evidence_excerpt(candidate)
-            if parsed is not None:
-                return ast.Module(body=list(parsed[0]), type_ignores=[])
-    return None
-
-
-def _annotation_roots(tree: ast.Module) -> tuple[ast.expr, ...]:
-    roots: list[ast.expr] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.arg) and node.annotation is not None:
-            roots.append(node.annotation)
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.returns:
-            roots.append(node.returns)
-        elif isinstance(node, ast.AnnAssign):
-            roots.append(node.annotation)
-        elif sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias):
-            roots.append(node.value)
-    return tuple(roots)
 
 
 def _validate_reference_contexts(

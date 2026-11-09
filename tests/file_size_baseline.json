@@ -37,7 +37,7 @@
   "src/archkeel/ir/decisions.py": 1850,
   "src/archkeel/ir/facts.py": 1357,
   "src/archkeel/ir/facts_codec.py": 1745,
-  "src/archkeel/ir/facts_validation.py": 6312,
+  "src/archkeel/ir/facts_validation.py": 6251,
   "src/archkeel/ir/findings.py": 525,
   "src/archkeel/ir/graph_codec.py": 743,
   "src/archkeel/ir/guard_paths.py": 507,

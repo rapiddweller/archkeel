@@ -1144,7 +1144,7 @@ def test_v8_encoder_does_not_validate_and_decoder_rejects_what_it_emits() -> Non
 
     valid = _response_with("8.0.0")
     with patch(
-        "archkeel.ir.facts_codec.validate_source_facts", side_effect=AssertionError("validated")
+        "archkeel.ir.validated_facts.validate_source_facts", side_effect=AssertionError("validated")
     ):
         assert zlib.decompress(encode_response(valid))
     facts = valid.facts
