@@ -442,6 +442,16 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.
 
+A coverage gap names its cause in `kind` ([AD-336](architecture/decisions/ad-336-a-coverage-gap-names-its-real-cause-and-never-changes-the-exit-code.md)).
+The kind never changes the exit code: an incomplete scan stays exit 2.
+
+| Kind | Meaning | What to do |
+|---|---|---|
+| `parse_error` | A file did not parse. | Fix the syntax of the file. |
+| `unresolved_import` | A module, package or name could not be resolved. | Install the package or correct the path. |
+| `not_examined` | The collector does not examine this fact yet. | Nothing in the project helps. |
+| `incomplete_scan` | A gap with a reason that has no own kind. | Read the gap. |
+
 For components explicitly marked `decided_by: "architect"`, validation emits
 `responsibility.missing` when the responsibilities list has no substantive entry.
 Empty lists keep their existing diagnostic. Whole-entry `TODO`, `TBD` and
@@ -458,8 +468,10 @@ Rule and `requires` rationale checks (`rationale.placeholder`, `rationale.repeat
 apply to root and mounted contracts; a mounted diagnostic carries its contract path.
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
-Pin CLI and [command schema](../schema/command-result-11.0.schema.json) together.
-Version 11 adds `findings` to an unfiltered `report` (see below) and `target: unavailable`
+Pin CLI and [command schema](../schema/command-result-12.0.schema.json) together.
+Version 12 adds the diagnostic kinds `unresolved_import`, `not_examined` and `incomplete_scan`
+([AD-336](architecture/decisions/ad-336-a-coverage-gap-names-its-real-cause-and-never-changes-the-exit-code.md)).
+It retains 11, which adds `findings` to an unfiltered `report` (see below) and `target: unavailable`
 to a report whose observation declares no rule and no UML target. It retains 10.0, which
 adds `contract_changes`. Version 9 accepts ArchitectureIR 2.1 observations with strict call-binding shapes
 and retains supported version 6/7/8 results. Incomplete reports may preserve a

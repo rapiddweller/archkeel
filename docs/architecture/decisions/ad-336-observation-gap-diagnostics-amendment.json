@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "after_digest": "6bd6419fcf0c47083f4d6f96cd18ee150561f947d07921fef7f84aeb5b37015f",
+  "before_baseline_digest": "9a3480885289c702f497a4b5700020339951bc005b5b80d609a201641d8aa97a",
+  "before_digest": "5cbf75a0a5fffd41141486a81f6bc868eaffe46a71be4f096b0bb8a0e89a8ece",
+  "decided_by": "architect",
+  "rationale": "AD-336 and epic #880. The module archkeel.check.gap_diagnostics joins the package list of the check component observation. It names the diagnostic kind of a coverage gap and is imported by archkeel.check.observe. No requires entry, budget, baseline entry, Any permission or through selector changes.",
+  "schema_version": "2.0.0"
+}

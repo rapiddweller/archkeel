@@ -23,7 +23,7 @@ def _replace(relative: str, old: str, new: str) -> str:
 
 
 _UML_RULE = stable_id("UML-TARGET", "architecture-contract.json")
-_COVERAGE_GAP_KINDS = ("parse_error",) * 30
+_COVERAGE_GAP_KINDS = ("incomplete_scan",) * 30
 
 
 def _local_data_service_with_api_call() -> str:

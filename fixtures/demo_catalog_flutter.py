@@ -126,7 +126,7 @@ VARIANTS: tuple[Variant, ...] = (
         },
         expected_violations=(),
         expected_codes=(),
-        expected_kinds=("parse_error",),
+        expected_kinds=("not_examined",),
         expected_unknowns=(("UnsupportedDeclaration", "lib/domain/orders/order.dart:12"),),
         fixture=FLUTTER_FIXTURE_DIR,
         expected_declared_rules="UNKNOWN",
