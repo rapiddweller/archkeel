@@ -56,8 +56,6 @@ from archkeel.ir.model import (
     SymbolPlacementRule,
 )
 from archkeel.ir.widening import (
-    _PERMISSION_RULE_KINDS,
-    _RESTRICTION_RULE_KINDS,
     Amendment,
     baseline_widenings,
     contract_narrowing_changes,
@@ -65,6 +63,7 @@ from archkeel.ir.widening import (
     contract_widenings,
     verify_amendment,
 )
+from archkeel.ir.widening_rules import PERMISSION_RULE_KINDS, RESTRICTION_RULE_KINDS
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_rule_field
 
 _PROVENANCE = ("docs/architecture/shop.md",)
@@ -541,8 +540,8 @@ def test_bounded_numeric_unclassified_fields_fail_closed(field: str, value: str)
 
 def test_every_typed_rule_kind_has_one_widening_classification() -> None:
     """The typed ArchitectureRule union is the source of truth for this partition."""
-    assert _PERMISSION_RULE_KINDS.isdisjoint(_RESTRICTION_RULE_KINDS)
-    assert _PERMISSION_RULE_KINDS | _RESTRICTION_RULE_KINDS == RULE_KINDS
+    assert PERMISSION_RULE_KINDS.isdisjoint(RESTRICTION_RULE_KINDS)
+    assert PERMISSION_RULE_KINDS | RESTRICTION_RULE_KINDS == RULE_KINDS
 
 
 @pytest.mark.parametrize(
