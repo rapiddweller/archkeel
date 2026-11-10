@@ -13,8 +13,9 @@
 use std::collections::HashMap;
 
 use archkeel_facts::envelope::Target;
-use archkeel_wire::reply::Facts;
+use archkeel_facts::vocab::Status;
 
+use crate::collected::Facts;
 use crate::definitions::DefinitionKind;
 use crate::kept::{Kept, Pending};
 use crate::site_syntax::ReceiverKind;
@@ -68,7 +69,7 @@ pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
 /// What the resolver found for one site.
 pub struct Resolved {
     pub candidates: Vec<String>,
-    pub status: &'static str,
+    pub status: Status,
     pub reason: Option<&'static str>,
 }
 
@@ -188,16 +189,16 @@ impl Resolver<'_> {
                     .iter()
                     .all(|target| self.table.count(target) == 1));
         let status = if unique {
-            "resolved"
+            Status::Resolved
         } else if candidates.is_empty() {
-            "unresolved"
+            Status::Unresolved
         } else {
-            "partially_resolved"
+            Status::PartiallyResolved
         };
-        if status == "partially_resolved" && reason.is_none() {
+        if status == Status::PartiallyResolved && reason.is_none() {
             reason = Some("multiple definition sites share the target name");
         }
-        if reason.is_none() && status != "resolved" {
+        if reason.is_none() && status != Status::Resolved {
             reason = Some("definition is missing or ambiguous");
         }
         Resolved {

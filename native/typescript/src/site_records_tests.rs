@@ -9,11 +9,11 @@ use archkeel_facts::envelope::Dirty;
 use archkeel_facts::envelope::{Profile, Provenance};
 use archkeel_facts::request::{Scope, Snapshot, TypeScriptRequest, TypeScriptSettings};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::Record;
 use serde_json::Value;
 
 use crate::collect::records;
-use crate::records::Records;
+use crate::collected::Records;
+use crate::records_lists::{plains, Plain};
 use archkeel_snapshot::test_tree::Tree;
 
 fn request(tree: &Tree) -> TypeScriptRequest {
@@ -51,10 +51,9 @@ fn run(files: &[(&str, &str)]) -> Records {
     records(&request(&tree), provenance()).unwrap().1
 }
 
-fn call<'a>(found: &'a Records, expression: &str) -> &'a Record {
-    found
-        .calls
-        .iter()
+fn call(found: &Records, expression: &str) -> Plain {
+    plains(&found.calls)
+        .into_iter()
         .find(|record| record.title == expression)
         .unwrap()
 }
@@ -65,7 +64,7 @@ fn a_call_of_a_local_function_resolves_and_a_second_definition_makes_it_partial(
         "src/a.ts",
         "function f() {}\nfunction g() {}\nfunction g() {}\nf(); g(); h();\n",
     )]);
-    let data = |name: &str| call(&found, name).data.clone();
+    let data = |name: &str| call(&found, name).data;
     assert_eq!(data("f")["status"], "resolved");
     assert_eq!(data("f")["candidate_count"], 1);
     assert_eq!(data("g")["status"], "partially_resolved");
@@ -84,8 +83,8 @@ fn a_shadowed_a_rebound_and_a_computed_name_keep_their_reason() {
         "src/a.ts",
         "function f() {}\nfunction w(f) { f(); }\nlet g = 1; g = 2;\nfunction g() {}\ng();\nobj[f]();\n",
     )]);
-    let reasons: Vec<(&str, &str)> = found
-        .calls
+    let calls = plains(&found.calls);
+    let reasons: Vec<(&str, &str)> = calls
         .iter()
         .map(|record| {
             (
@@ -113,8 +112,8 @@ fn a_this_member_resolves_to_the_field_of_its_class_and_an_import_to_the_exporti
              one(); const b = new Box();\n",
         ),
     ]);
-    let this_refs: Vec<(&str, &str)> = found
-        .references
+    let references = plains(&found.references);
+    let this_refs: Vec<(&str, &str)> = references
         .iter()
         .filter(|record| record.title.starts_with("this."))
         .map(|record| {
@@ -140,13 +139,10 @@ fn a_this_member_resolves_to_the_field_of_its_class_and_an_import_to_the_exporti
 fn a_new_expression_assigned_to_a_name_makes_a_construction_and_a_value_binding() {
     let found = run(&[("src/a.ts", "class C {}\nconst c: C = new C();\nnew C();\n")]);
     assert_eq!(found.bindings.len(), 1);
-    assert!(found.bindings[0].id.starts_with("VALUEBIND-"));
+    assert!(found.bindings[0].id.as_str().starts_with("VALUEBIND-"));
     assert!(found.bindings[0].title.ends_with(".c binding"));
-    let news: Vec<&Record> = found
-        .calls
-        .iter()
-        .filter(|record| record.title == "C")
-        .collect();
+    let calls = plains(&found.calls);
+    let news: Vec<&Plain> = calls.iter().filter(|record| record.title == "C").collect();
     assert_eq!(news.len(), 2);
     assert_eq!(news[0].data["construction"]["status"], "resolved");
     assert_eq!(news[0].data["result_bindings"][0]["annotation"], "C");

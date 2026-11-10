@@ -15,7 +15,7 @@ use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 
 use super::*;
 use crate::protocol::Version;
-use crate::stream::encode;
+use archkeel_facts::{GapFact, ImportFact};
 
 fn input(path: &str, digest: char, role: Role) -> Input {
     Input {
@@ -25,8 +25,8 @@ fn input(path: &str, digest: char, role: Role) -> Input {
     }
 }
 
-fn facts() -> Facts {
-    Facts {
+fn head() -> Head {
+    Head {
         provenance: Provenance::native(
             Profile::TypeScript,
             ("0.0.0", &"d".repeat(64)),
@@ -35,20 +35,42 @@ fn facts() -> Facts {
         git_head: "a".repeat(40),
         dirty: Value::Bool(false),
         scope: vec!["src/**".to_owned()],
-        sections: vec![
-            ReplySection::Typed(archkeel_facts::Section::Imports(vec![])),
-            ReplySection::Records("unknowns", vec![]),
-        ],
+        sections: vec!["imports", "unknowns"],
         features: vec!["literal-imports"],
         constructs: vec![],
         inputs: vec![input("tsconfig.json", 'b', Role::Resolution)],
         files: vec![],
         imports: vec![],
+    }
+}
+
+fn tail() -> Tail {
+    Tail {
         selected_files: vec![],
         files_read: 0,
         gaps: vec![],
         evidence: vec![],
     }
+}
+
+/// The reply of a head and a tail, with the two sections that `head` declares and no record.
+fn encode(version: Version, head: Head, tail: Tail) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    encode_stream(version, head, &mut bytes, |writer| {
+        writer.write_typed_section::<ImportFact>(|_| {})?;
+        writer.write_typed_section::<GapFact>(|_| {})?;
+        Ok(tail)
+    })?;
+    Ok(bytes)
+}
+
+/// The plain JSON of a reply.
+fn plain(version: Version, head: Head, tail: Tail) -> String {
+    let mut plain = String::new();
+    ZlibDecoder::new(encode(version, head, tail).unwrap().as_slice())
+        .read_to_string(&mut plain)
+        .unwrap();
+    plain
 }
 
 #[test]
@@ -82,7 +104,7 @@ fn source_digest_matches_the_python_listing() {
 #[test]
 fn the_reply_is_zlib_framed_json_with_the_requested_version() {
     for version in [Version::V8, Version::V9] {
-        let wire = encode(version, facts()).unwrap();
+        let wire = encode(version, head(), tail()).unwrap();
         // The host reads a first byte 0x78 as the zlib frame of protocols 8.0.0 and 9.0.0.
         assert_eq!(wire[0], 0x78);
         let mut plain = String::new();
@@ -101,7 +123,7 @@ fn the_reply_is_zlib_framed_json_with_the_requested_version() {
 
 #[test]
 fn a_gap_makes_the_collection_partial() {
-    let mut partial = facts();
+    let mut partial = tail();
     partial.gaps.push(archkeel_facts::Record::unknown(
         archkeel_facts::ids::FactId::new("UNKNOWN-1"),
         "reason",
@@ -109,7 +131,7 @@ fn a_gap_makes_the_collection_partial() {
         "",
         archkeel_facts::GapFact::collection("reason", ""),
     ));
-    let wire = encode(Version::V8, partial).unwrap();
+    let wire = encode(Version::V8, head(), partial).unwrap();
     let mut plain = Vec::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_end(&mut plain)
@@ -120,7 +142,7 @@ fn a_gap_makes_the_collection_partial() {
 
 #[test]
 fn the_plain_version_3_reply_is_not_written() {
-    assert!(encode(Version::V3, facts()).is_err());
+    assert!(encode(Version::V3, head(), tail()).is_err());
 }
 
 #[test]
@@ -147,9 +169,9 @@ fn a_target_has_the_fields_of_its_kind() {
             reason: "Unresolved module: x".to_owned(),
         },
     ];
-    let mut with_imports = facts();
+    let mut with_imports = head();
     with_imports.imports = targets.to_vec();
-    let wire = encode(Version::V8, with_imports).expect("encodes");
+    let wire = encode(Version::V8, with_imports, tail()).expect("encodes");
     let mut plain = String::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_string(&mut plain)
@@ -182,32 +204,10 @@ fn a_target_has_the_fields_of_its_kind() {
 }
 
 #[test]
-fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply() {
-    let mut inner = facts();
-    let record = |kind: &'static str| Record {
-        id: format!("{kind}-1"),
-        evidence_class: "FACT",
-        area: "source",
-        kind,
-        title: kind.to_owned(),
-        subjects: vec![],
-        evidence_ids: vec![],
-        fact_ids: vec!["ESM_EXPORT-1".to_owned()],
-        data: Map::new(),
-    };
-    inner.sections = [
-        "imports",
-        "symbols",
-        "calls",
-        "references",
-        "bindings",
-        "constructs",
-    ]
-    .into_iter()
-    .map(|name| ReplySection::Records(name, vec![record("kind")]))
-    .collect();
+fn the_construct_capability_has_a_place_in_the_reply() {
+    let mut inner = head();
     inner.constructs = vec![("string_literal_compare", "partial")];
-    let wire = encode(Version::V9, inner).unwrap();
+    let wire = encode(Version::V9, inner, tail()).unwrap();
     let mut plain = String::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_string(&mut plain)
@@ -220,44 +220,26 @@ fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply()
         .iter()
         .map(|section| section["name"].as_str().unwrap())
         .collect();
-    assert_eq!(
-        names,
-        [
-            "imports",
-            "symbols",
-            "calls",
-            "references",
-            "bindings",
-            "constructs"
-        ]
-    );
-    assert_eq!(
-        facts["sections"][1]["records"][0]["fact_ids"][0],
-        "ESM_EXPORT-1"
-    );
+    assert_eq!(names, ["imports", "unknowns"]);
     assert_eq!(
         facts["capabilities"]["constructs"][0],
         serde_json::json!({"name": "string_literal_compare", "status": "partial"})
     );
 }
 
-/// The plain JSON of the reply that `encode` writes for `facts`.
-fn plain(version: Version, facts: Facts) -> String {
-    let wire = encode(version, facts).unwrap();
-    let mut plain = String::new();
-    ZlibDecoder::new(wire.as_slice())
-        .read_to_string(&mut plain)
-        .unwrap();
-    plain
+#[test]
+fn a_section_that_the_head_does_not_declare_next_is_an_error() {
+    let mut bytes = Vec::new();
+    let result = encode_stream(Version::V9, head(), &mut bytes, |writer| {
+        writer.write_typed_section::<GapFact>(|_| {})?;
+        Ok(tail())
+    });
+    assert!(result.is_err());
 }
 
 #[test]
 fn the_streamed_reply_decodes_through_the_envelope_and_encodes_to_the_same_value() {
-    let mut full = facts();
-    full.sections = vec![
-        ReplySection::Typed(archkeel_facts::Section::Imports(vec![])),
-        ReplySection::Typed(archkeel_facts::Section::Unknowns(vec![])),
-    ];
+    let mut full = head();
     full.constructs = vec![("string_literal_compare", "partial")];
     full.files = vec![FileFact::of(
         ("src/a.ts", "ns.src.a"),
@@ -268,21 +250,22 @@ fn the_streamed_reply_decodes_through_the_envelope_and_encodes_to_the_same_value
         import_id: FactId::new("IMP-1"),
         name: "fs".to_owned(),
     }];
-    full.gaps = vec![archkeel_facts::Record::unknown(
+    let mut last = tail();
+    last.gaps = vec![archkeel_facts::Record::unknown(
         FactId::new("UNKNOWN-1"),
         "gap",
         Some("EVD-1"),
         "m",
         archkeel_facts::GapFact::resolution("gap", "m"),
     )];
-    full.evidence = vec![Evidence::at("src/a.ts", 1, 2, 3, "x")];
+    last.evidence = vec![Evidence::at("src/a.ts", 1, 2, 3, "x")];
     for version in [Version::V8, Version::V9] {
-        let text = plain(version, full.clone());
+        let text = plain(version, full.clone(), last.clone());
         let decoded: Reply = serde_json::from_str(&text).unwrap();
         assert_eq!(decoded.protocol_version.as_str(), version.as_str());
         assert_eq!(decoded.facts.files, full.files);
         assert_eq!(decoded.facts.imports, full.imports);
-        assert_eq!(decoded.facts.evidence, full.evidence);
+        assert_eq!(decoded.facts.evidence, last.evidence);
         assert_eq!(decoded.facts.coverage.files_parsed, 1);
         assert!(!decoded.facts.coverage.full_scope);
         assert_eq!(
@@ -294,68 +277,4 @@ fn the_streamed_reply_decodes_through_the_envelope_and_encodes_to_the_same_value
             serde_json::from_str::<Value>(&text).unwrap()
         );
     }
-}
-
-/// The plain JSON of a reply that has one imports section.
-fn imports_reply(section: ReplySection) -> String {
-    let mut facts = facts();
-    facts.sections = vec![section, ReplySection::Records("unknowns", vec![])];
-    let mut plain = String::new();
-    ZlibDecoder::new(encode(Version::V9, facts).unwrap().as_slice())
-        .read_to_string(&mut plain)
-        .unwrap();
-    plain
-}
-
-/// AD-345: a typed import record of archkeel-facts writes the bytes of the record that the native
-/// collector built with a map before (`imports.rs` up to this change).
-#[test]
-fn a_typed_import_section_writes_the_bytes_of_the_map_record() {
-    use archkeel_facts::data::ImportData;
-    use archkeel_facts::ids::EvidenceId;
-    use archkeel_facts::vocab::{Area, EvidenceClass};
-    use archkeel_facts::ImportFact;
-
-    let data = serde_json::json!({
-        "source_module": "shop.a_x2e_ts", "source_package": "shop",
-        "target_module": "react", "target_package": "react", "symbol": null, "binding": null,
-        "symbols_known": false, "specifier": "react", "type_only": true, "relative_level": 0,
-        "under_type_checking": true, "reexport": false, "module_level_import": true,
-    });
-    let plain = Record {
-        id: "IMP-1".to_owned(),
-        evidence_class: "FACT",
-        area: "source",
-        kind: "import_type",
-        title: "shop.a_x2e_ts imports react".to_owned(),
-        subjects: vec!["react".to_owned(), "shop.a_x2e_ts".to_owned()],
-        evidence_ids: vec!["EVD-1".to_owned()],
-        fact_ids: vec![],
-        data: data.as_object().unwrap().clone(),
-    };
-    let typed = archkeel_facts::Record {
-        id: FactId::new("IMP-1"),
-        evidence_class: EvidenceClass::Fact,
-        area: Area::Source,
-        title: "shop.a_x2e_ts imports react".to_owned(),
-        subjects: vec!["react".to_owned(), "shop.a_x2e_ts".to_owned()],
-        evidence_ids: vec![EvidenceId::new("EVD-1")],
-        fact_ids: vec![],
-        data: ImportFact::ImportType(ImportData {
-            source_module: ModuleName::new("shop.a_x2e_ts"),
-            source_package: PackageName::new("shop"),
-            target_module: ModuleName::new("react"),
-            target_package: PackageName::new("react"),
-            specifier: Some("react".to_owned()),
-            type_only: Some(true),
-            under_type_checking: true,
-            module_level_import: true,
-            ..ImportData::statement()
-        }),
-    };
-    let typed = ReplySection::Typed(archkeel_facts::Section::Imports(vec![typed]));
-    assert_eq!(
-        imports_reply(typed),
-        imports_reply(ReplySection::Records("imports", vec![plain]))
-    );
 }

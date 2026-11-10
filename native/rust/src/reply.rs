@@ -43,9 +43,9 @@ impl Collected {
         } = self;
         let mut bytes = Vec::new();
         encode_stream(version, head, &mut bytes, |writer| {
-            writer.write_typed_section("imports", |emit| imports.iter().for_each(emit))?;
-            writer.write_typed_section("symbols", |emit| symbols.iter().for_each(emit))?;
-            writer.write_typed_section("unknowns", |emit| gaps.iter().for_each(emit))?;
+            writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
+            writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
+            writer.write_typed_section::<GapFact>(|emit| gaps.iter().for_each(emit))?;
             Ok(Tail {
                 selected_files,
                 files_read,

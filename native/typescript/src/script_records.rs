@@ -7,16 +7,14 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::data::ImportData;
+use archkeel_facts::data::{BindingData, ImportData};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{evidence_id, package_of, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::{Area, EvidenceClass, ResolutionDimension};
-use archkeel_facts::GapFact;
-use archkeel_facts::{ImportFact, Record as ImportRecord};
-use archkeel_wire::reply::Record;
-use serde_json::{json, Map};
+use archkeel_facts::{BindingFact, GapFact};
+use archkeel_facts::{ImportFact, Record};
 
 use crate::sites::SiteKind;
 use crate::source::Span;
@@ -70,7 +68,7 @@ pub struct Effect {
 pub struct ScriptFacts {
     pub modules: HashMap<String, ModuleScript>,
     /// `script_publications`: the bindings that the imports cite, in the order of insertion.
-    pub publications: Vec<Record>,
+    pub publications: Vec<Record<BindingFact>>,
     published: HashMap<String, usize>,
     /// The effects, in the order of `script_pending_effects` without repeats.
     pub effects: Vec<Effect>,
@@ -91,8 +89,8 @@ impl ScriptFacts {
     }
 
     /// Add a binding record: a repeated id keeps its place and takes the new record.
-    pub fn publish(&mut self, record: Record) {
-        match self.published.get(&record.id) {
+    pub fn publish(&mut self, record: Record<BindingFact>) {
+        match self.published.get(record.id.as_str()) {
             Some(at) => {
                 if let Some(slot) = self.publications.get_mut(*at) {
                     *slot = record;
@@ -100,7 +98,7 @@ impl ScriptFacts {
             }
             None => {
                 self.published
-                    .insert(record.id.clone(), self.publications.len());
+                    .insert(record.id.as_str().to_owned(), self.publications.len());
                 self.publications.push(record);
             }
         }
@@ -108,7 +106,7 @@ impl ScriptFacts {
 }
 
 /// An UNKNOWN record of the gaps.
-pub type GapRecord = ImportRecord<GapFact>;
+pub type GapRecord = Record<GapFact>;
 
 /// The output of the analysis.
 #[derive(Default)]
@@ -116,7 +114,7 @@ pub struct Sink {
     pub facts: ScriptFacts,
     /// The UNKNOWN records of the analysis with their ids, as the collection keeps them.
     pub gaps: Vec<(String, GapRecord)>,
-    pub imports: Vec<ImportRecord<ImportFact>>,
+    pub imports: Vec<Record<ImportFact>>,
     pub targets: Vec<Target>,
 }
 
@@ -174,28 +172,18 @@ pub fn binding(
     title: String,
     module: &str,
     evidence: Vec<String>,
-    data: Map<String, serde_json::Value>,
-) -> Record {
+    data: BindingData,
+) -> Record<BindingFact> {
     Record {
-        id,
-        evidence_class: "FACT",
-        area: "source",
-        kind: "bindings",
+        id: FactId::new(id),
+        evidence_class: EvidenceClass::Fact,
+        area: Area::Source,
         title,
         subjects: vec![module.to_owned()],
-        evidence_ids: sorted(evidence),
+        evidence_ids: sorted(evidence).into_iter().map(EvidenceId::new).collect(),
         fact_ids: Vec::new(),
-        data,
+        data: BindingFact::Bindings(data),
     }
-}
-
-/// The data of a proof binding: the pairs in the order of the Python record.
-pub fn proof_data(pairs: &[(&str, &str)]) -> Map<String, serde_json::Value> {
-    let mut data = Map::new();
-    for (key, value) in pairs {
-        data.insert((*key).to_owned(), json!(value));
-    }
-    data
 }
 
 /// What `_script_import_record` needs.
@@ -230,7 +218,7 @@ pub fn global_id(module: &str, kind: SiteKind, span: &Span) -> String {
 }
 
 /// `_script_import_record`.
-pub fn import_record(item: &Use) -> ImportRecord<ImportFact> {
+pub fn import_record(item: &Use) -> Record<ImportFact> {
     let first = item.path.first().map_or("", String::as_str);
     let module = item.module;
     let mut subjects: Vec<String> = [module, item.target_module]
@@ -264,7 +252,7 @@ pub fn import_record(item: &Use) -> ImportRecord<ImportFact> {
         script_member: member,
         ..ImportData::statement()
     };
-    ImportRecord {
+    Record {
         id: FactId::new(global_id(module, item.kind, item.span)),
         evidence_class: EvidenceClass::Fact,
         area: Area::Source,

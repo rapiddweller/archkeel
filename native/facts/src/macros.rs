@@ -142,6 +142,15 @@ macro_rules! section_facts {
             fn section(records: Vec<$crate::record::Record<Self>>) -> $crate::sections::Section {
                 $crate::sections::Section::$section(records)
             }
+
+            fn records(
+                section: &$crate::sections::Section,
+            ) -> Option<&[$crate::record::Record<Self>]> {
+                match section {
+                    $crate::sections::Section::$section(records) => Some(records),
+                    _ => None,
+                }
+            }
         }
 
         impl $crate::record::FactData for $name {

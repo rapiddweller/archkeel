@@ -26,7 +26,6 @@ use crate::syntax::Parsers;
 use crate::walk::Syntax;
 use archkeel_facts::envelope::Provenance;
 use archkeel_facts::request::TypeScriptRequest;
-use archkeel_wire::reply::{record_value, target_value};
 
 fn span(span: &Span) -> Value {
     json!({
@@ -334,13 +333,13 @@ pub fn records(request: &TypeScriptRequest, provenance: Provenance) -> Result<Va
         records.touched.iter().map(String::as_str).collect();
     Ok(json!({
         "imports": records.imports,
-        "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
-        "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
-        "calls": records.calls.iter().map(record_value).collect::<Vec<_>>(),
-        "references": records.references.iter().map(record_value).collect::<Vec<_>>(),
-        "site_bindings": records.bindings.iter().map(record_value).collect::<Vec<_>>(),
-        "symbols": records.symbols.iter().map(record_value).collect::<Vec<_>>(),
-        "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
+        "targets": records.targets,
+        "witnesses": records.witnesses,
+        "calls": records.calls,
+        "references": records.references,
+        "site_bindings": records.bindings,
+        "symbols": records.symbols,
+        "constructs": records.constructs,
         "evidence": facts.evidence.iter().filter(|item| touched.contains(item.id.as_str())).map(|item| json!(item)).collect::<Vec<_>>(),
     }))
 }
