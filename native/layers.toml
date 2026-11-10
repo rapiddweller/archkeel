@@ -12,7 +12,7 @@
 # Crates that only a collector may use (a name prefix).
 parser_prefixes = ["tree-sitter"]
 
-# Directions (epic #880, target v2): collectors -> facts, snapshot -> wire, facts; build-support -> wire;
+# Directions (epic #880, target v2): collectors -> facts, snapshot -> facts; build-support -> wire;
 # store -> facts. No library uses a collector, and no library uses a parser crate. No collector
 # uses another collector or the store. `planned = true` marks a crate that has no code yet: the
 # entry fixes its place before it gets code, and the test fails when the crate appears with the
@@ -30,7 +30,7 @@ may_use = ["archkeel-facts"]
 [crates.archkeel-snapshot]
 role = "library"
 dir = "snapshot"
-may_use = ["archkeel-wire", "archkeel-facts"]
+may_use = ["archkeel-facts"]
 
 # AD-345: the one typed definition of each collector fact. It uses no parser and no other crate.
 [crates.archkeel-facts]

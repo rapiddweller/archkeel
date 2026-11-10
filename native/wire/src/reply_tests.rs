@@ -11,6 +11,7 @@ use flate2::read::ZlibDecoder;
 use serde_json::Value;
 
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
+use archkeel_facts::reply::Role;
 
 use super::*;
 use crate::protocol::Version;

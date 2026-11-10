@@ -8,7 +8,7 @@ Run `make self-validate-native` to check it.
 | Crate | Role | Uses |
 |---|---|---|
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
-| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-wire` |
+| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-facts` |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates facts once and keeps them (planned, no code yet). | `archkeel-facts` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
@@ -27,7 +27,6 @@ flowchart LR
     rust --> snapshot
     rust --> wire
     snapshot --> facts
-    snapshot --> wire
     store --> facts
     typescript --> build
     typescript --> facts

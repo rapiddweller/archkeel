@@ -6,8 +6,9 @@
 // collector; `tests/test_collector_native_records.py` compares every record on real trees.
 
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::reply::Provenance;
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::{Provenance, ReplySection};
+use archkeel_wire::reply::ReplySection;
 use archkeel_wire::request::Request;
 use serde_json::Value;
 

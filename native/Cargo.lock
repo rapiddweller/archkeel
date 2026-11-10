@@ -52,7 +52,6 @@ name = "archkeel-snapshot"
 version = "0.0.0"
 dependencies = [
  "archkeel-facts",
- "archkeel-wire",
 ]
 
 [[package]]
