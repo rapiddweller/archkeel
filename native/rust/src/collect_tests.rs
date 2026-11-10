@@ -8,13 +8,18 @@ use archkeel_wire::protocol::Version;
 use serde_json::Value;
 
 use super::*;
+use crate::reply::{Collected, PROFILE};
+use archkeel_facts::{ImportFact, Record};
 use archkeel_snapshot::test_tree::Tree;
+use archkeel_wire::reply::{Provenance, Target};
+use archkeel_wire::request::Request;
+use std::collections::BTreeSet;
 
-pub(super) const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
+pub(crate) const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
     [workspace.dependencies]\nbase = { path = \"base\", package = \"base-crate\" }\n";
-pub(super) const BASE: &str =
+pub(crate) const BASE: &str =
     "[package]\nname = \"base-crate\"\n[dependencies]\nserde_json = \"1\"\n";
-pub(super) const APP: &str =
+pub(crate) const APP: &str =
     "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace = true }\n\
     renamed = { package = \"other-crate\", version = \"1\" }\nserde_json = \"1\"\n\
     [features]\ndump = []\n";
@@ -23,7 +28,7 @@ fn facts(files: &[(&str, &str)]) -> Collected {
     run(files, false)
 }
 
-pub(super) fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
+pub(crate) fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
     let root = Tree::new(files);
     let request = Request {
         version: Version::V8,
@@ -58,7 +63,7 @@ fn workspace(app_source: &str) -> Collected {
 }
 
 /// The record of a dependency that a manifest declares: its path is `<section>: <name>`.
-pub(super) fn is_declared(record: &Record<ImportFact>) -> bool {
+pub(crate) fn is_declared(record: &Record<ImportFact>) -> bool {
     let specifier = record.data.data().specifier.clone().unwrap_or_default();
     specifier.contains("dependencies: ")
 }
