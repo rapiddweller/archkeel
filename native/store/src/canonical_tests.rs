@@ -12,6 +12,7 @@ use archkeel_facts::envelope::Reply;
 use serde_json::{json, Value};
 
 use super::{encode, escaped, profitable};
+use crate::shell::Shell;
 use crate::stored::Store;
 
 fn testdata(name: &str) -> Vec<u8> {
@@ -58,8 +59,11 @@ fn the_store_writes_the_bytes_of_the_python_writer() -> Result<(), String> {
     let Value::Object(model) = parts["model"].clone() else {
         return Err("no model".to_owned());
     };
-    let written = encode(model, &store)?;
+    let written = encode(model.clone(), &Shell::empty(), &store)?;
     assert!(written == testdata("canonical-expected.json"));
+    // The same shell records as compact rows (`shell.rs`) give the same bytes.
+    let (shell, rows) = crate::shell::tests::as_rows(model);
+    assert!(encode(rows, &shell, &store)? == written);
     Ok(())
 }
 
@@ -73,7 +77,9 @@ fn an_id_that_the_store_does_not_hold_is_an_error() -> Result<(), String> {
         model.insert(name.to_owned(), Value::Null);
     }
     model.insert("imports".to_owned(), Value::from(vec!["IMP-unknown"]));
-    let error = encode(model, &store).err().unwrap_or_default();
+    let error = encode(model, &Shell::empty(), &store)
+        .err()
+        .unwrap_or_default();
     assert!(error.contains("holds no record IMP-unknown"), "{error}");
     Ok(())
 }

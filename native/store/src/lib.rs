@@ -27,6 +27,7 @@ mod pyrepr;
 mod records;
 mod seam;
 pub mod session;
+mod shell;
 mod stored;
 mod validate;
 mod view;
@@ -91,10 +92,8 @@ fn digest(request: &[u8], store: &Store) -> Result<String, String> {
 
 /// The canonical `architecture.json` of the parts of the shell.
 fn write(request: Vec<u8>, store: &Store) -> Result<Vec<u8>, String> {
-    let model = serde_json::from_slice::<Value>(&request).map_err(|error| error.to_string())?;
+    let value = serde_json::from_slice::<Value>(&request).map_err(|error| error.to_string())?;
     drop(request);
-    match model {
-        Value::Object(model) => canonical::encode(model, store),
-        _ => Err("the observation must be an object".to_owned()),
-    }
+    let (shell, model) = shell::frame(value)?;
+    canonical::encode(model, &shell, store)
 }

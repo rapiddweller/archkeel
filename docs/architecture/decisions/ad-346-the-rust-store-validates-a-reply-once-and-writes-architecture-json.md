@@ -21,9 +21,9 @@ or Rust collector through it, with or without test exclusion. It is an opt-in, n
    (`seam.rs`); the gaps keep their wire form. Python builds its facts from it
    (`ir/readset_codec.py`).
 4. **The store writes `architecture.json` 2.9.** Python sends its parts and names each stored
-   record and evidence entry by its id (`ir/codec_store.py`). The store writes the canonical
-   columnar bytes (`canonical.rs`), byte-equal to the Python writer. The Python writer refuses an
-   observation while a store holds the collection.
+   record and evidence entry by its id (`ir/codec_store.py`); a shell record of a record section
+   is a row of indexes into one text list (`shell.rs`). The store writes the canonical columnar
+   bytes (`canonical.rs`), byte-equal to the Python writer, which refuses a stored observation.
 5. **JSON edges.** Only two places see JSON: the parts of the shell (untyped observation
    records until the observation moves to the core, WP6); the Python byte formats of stage 1
    (`canonical.rs`, `pyrepr.rs`, `inventory.rs`, `pyjson.rs`), one stored record at a time
@@ -60,9 +60,9 @@ run 147.0 to 138.8 s, host peak 3 141 to 2 751 MiB. The check still copies each 
 Python source proofs; it does not check them. `repr` follows Unicode 14.0 (Python 3.11): a code
 point that a later Python assigns can change a digest. A `\d` of Python matches every decimal
 digit; the reference test of `canonical.rs` reads only ASCII digits. A large derived shell costs
-memory: on 289 Rust crates (10 130 files) host + store peak at 11.3 GiB against 4.1 GiB, because
-`transitive_paths` goes to the store as 434 MB of JSON and becomes a `Value` tree. The WP1 read
-lists are a lower bound: a field that no corpus case reads can be missing.
+memory: on 289 Rust crates host + store peak at 10.9 GiB against 7.0 GiB. The read-set holds
+most of a Rust reply, the store holds the reply too, and the write step adds the text counts and
+the output. The WP1 read lists are a lower bound: a field that no corpus case reads can be missing.
 
 **Checked by** `native/store/src/*_tests.rs` (Python bytes and messages),
 `tests/test_collector_native_store.py` (14 golden cases with both collectors, 53 demo variants,

@@ -10,11 +10,12 @@ the shell to the store and names each stored record and evidence entry by its id
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 
 from archkeel.ir.codec_observation import canonical_report_bytes as _canonical_report_bytes
 from archkeel.ir.codec_observation import observation_payload
-from archkeel.ir.facts import Evidence, Record, RecordData
+from archkeel.ir.facts import RECORD_FIELDS, Evidence, Record, RecordData
 from archkeel.ir.model import CLASSIFIED_SECTIONS, Observation, RawJson
 from archkeel.ir.store_seam import StoreSeam, active_store
 
@@ -84,9 +85,70 @@ def store_payload(observation: Observation, store: StoreSeam) -> dict[str, RawJs
     return payload
 
 
+# An absent data field in a shell row (`native/store/src/shell.rs`).
+_ABSENT: dict[str, RawJson] = {"m": True}
+
+
+class _Texts:
+    """The text list of one `W` frame: each text once, named by its index."""
+
+    def __init__(self) -> None:
+        self.index: dict[str, int] = {}
+
+    def cell(self, value: RawJson) -> RawJson:
+        if isinstance(value, str):
+            found = self.index.get(value)
+            if found is None:
+                found = self.index[value] = len(self.index)
+            return found
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return {"b": value}
+        if isinstance(value, int | float):
+            return {"n": value}
+        if isinstance(value, Mapping):
+            return {"o": {key: self.cell(item) for key, item in value.items()}}
+        return [self.cell(item) for item in value]
+
+    def row(self, item: RawJson, keys: list[str]) -> list[RawJson]:
+        if not isinstance(item, dict) or not isinstance(data := item["data"], dict):
+            raise ValueError("a shell record is not an object with data")
+        head = [self.cell(item[key]) for key in RECORD_FIELDS[:-1]]
+        return [*head, *(self.cell(data[key]) if key in data else _ABSENT for key in keys)]
+
+
+def _shell_frame(payload: dict[str, RawJson]) -> dict[str, RawJson]:
+    """The `W` frame: each shell record of a record section as a row of text indexes.
+
+    A shell section such as `transitive_paths` repeats few texts many times; as rows that name
+    each text once, the frame and the store's copy of it stay small (`shell.rs`). The sections
+    of `payload` are replaced in place, so their record objects are freed one section at a time.
+    """
+    texts = _Texts()
+    fields: dict[str, RawJson] = {}
+    for name in CLASSIFIED_SECTIONS:
+        records = payload[name]
+        if not isinstance(records, list):
+            continue
+        keys = sorted(
+            {
+                key
+                for item in records
+                if isinstance(item, dict) and isinstance(data := item["data"], dict)
+                for key in data
+            }
+        )
+        fields[name] = list(keys)
+        payload[name] = [
+            item if isinstance(item, str) else texts.row(item, keys) for item in records
+        ]
+    return {"texts": list(texts.index), "fields": fields, "model": payload}
+
+
 def report_bytes(observation: Observation) -> bytes:
     """The canonical `architecture.json` of one fresh observation."""
     store = active_store()
     if store is None:
         return _canonical_report_bytes(observation)
-    return store.write(store_payload(observation, store))
+    return store.write(_shell_frame(store_payload(observation, store)))

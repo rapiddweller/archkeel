@@ -104,7 +104,9 @@ class StoreSession:
         return self._ask(b"D", json.dumps(value, ensure_ascii=False).encode()).decode()
 
     def write(self, model: Mapping[str, object]) -> bytes:
-        payload = json.dumps(model, ensure_ascii=False, allow_nan=False).encode()
+        payload = json.dumps(
+            model, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+        ).encode()
         return bytes(self._ask(b"W", payload))
 
     def close(self) -> None:
