@@ -76,3 +76,56 @@ fn a_node_has_the_flags_of_its_parent_and_what_the_parent_adds() {
         assert!(!flag("return_statement", super::IN_TYPE));
     });
 }
+
+/// The flags of the first node of `kind` whose text is `text`.
+fn flags_of(layout: &Layout, data: &[u8], kind: &str, text: &str) -> u8 {
+    let found = layout.nodes.iter().position(|node| {
+        node.kind() == kind && data.get(node.byte_range()) == Some(text.as_bytes())
+    });
+    assert!(found.is_some(), "{kind} {text}");
+    found
+        .and_then(|at| layout.flags.get(at).copied())
+        .unwrap_or(0)
+}
+
+#[test]
+fn a_node_below_a_repair_is_in_error_and_the_repair_itself_is_not() {
+    let text = "const x = (; function ) { }";
+    with_layouts(text, true, |layout, _| {
+        let under = layout.nodes.iter().enumerate().filter(|(at, node)| {
+            let up = layout.parents.get(*at).copied().unwrap_or(NONE);
+            let parent = layout.nodes.get(up as usize).filter(|_| up != NONE);
+            parent.is_some_and(|parent| parent.is_error()) && node.kind() != "ERROR"
+        });
+        let flags: Vec<u8> = under
+            .filter_map(|(at, _)| layout.flags.get(at).copied())
+            .collect();
+        assert!(!flags.is_empty());
+        assert!(flags.iter().all(|flags| flags & super::IN_ERROR != 0));
+        let clean = layout.nodes.iter().position(|node| node.is_error());
+        let root_flags = layout.flags.first().copied().unwrap_or(0);
+        assert!(clean.is_some() && root_flags & super::IN_ERROR == 0);
+    });
+}
+
+#[test]
+fn only_what_follows_the_value_of_a_cast_is_a_type() {
+    for operator in ["as", "satisfies"] {
+        let text = format!("const v = value {operator} Foo;");
+        with_layouts(&text, true, |layout, _| {
+            let data = text.as_bytes();
+            let value = flags_of(layout, data, "identifier", "value");
+            let named = flags_of(layout, data, "type_identifier", "Foo");
+            assert_eq!(
+                value & super::IN_TYPE,
+                0,
+                "{operator}: the value is not a type"
+            );
+            assert_ne!(
+                named & super::IN_TYPE,
+                0,
+                "{operator}: the name after it is"
+            );
+        });
+    }
+}
