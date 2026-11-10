@@ -259,4 +259,4 @@ def test_a_pinned_collector_inside_the_scanned_repository_gives_unknown(tmp_path
 def test_the_native_self_check_names_no_collector() -> None:
     """AD-344: `make self-validate-native` runs the bundled lookup, never an external argv."""
     root = Path(__file__).resolve().parents[1]
-    assert load_config(root / "native" / "archkeel.toml").collector_argv is None
+    assert load_config(root, "native/archkeel.toml").collector_argv is None
