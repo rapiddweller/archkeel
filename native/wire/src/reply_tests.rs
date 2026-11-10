@@ -312,7 +312,7 @@ fn imports_reply(section: ReplySection) -> String {
 #[test]
 fn a_typed_import_section_writes_the_bytes_of_the_map_record() {
     use archkeel_facts::data::ImportData;
-    use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+    use archkeel_facts::ids::EvidenceId;
     use archkeel_facts::vocab::{Area, EvidenceClass};
     use archkeel_facts::ImportFact;
 
