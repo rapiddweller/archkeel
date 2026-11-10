@@ -29,6 +29,7 @@ mod macros;
 pub mod data;
 pub mod envelope;
 mod gap;
+pub mod identity;
 pub mod ids;
 pub mod nested;
 pub mod nullable;

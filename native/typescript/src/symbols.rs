@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use archkeel_wire::identity::{stable_id, Part};
+use archkeel_facts::identity::{stable_id, Part};
 use archkeel_wire::reply::Record;
 use serde_json::{json, Map, Value};
 

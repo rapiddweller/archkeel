@@ -8,7 +8,7 @@
       "role": "component",
       "packages": ["native.archkeel_wire"],
       "responsibilities": [
-        "The collector wire that every native collector shares: requests, replies and source identities."
+        "The collector wire that every native collector shares: requests and replies."
       ],
       "forbidden_responsibilities": [
         "Reading source of any language, and using a collector crate."
@@ -41,6 +41,10 @@
         {
           "component": "wire",
           "rationale": "A read input is a wire input with a digest and a role."
+        },
+        {
+          "component": "facts",
+          "rationale": "The digest of an input is the SHA-256 of the facts identities."
         }
       ],
       "decided_by": "architect"

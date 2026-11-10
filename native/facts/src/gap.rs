@@ -9,6 +9,7 @@
 //! same evidence and the same module give one record.
 
 use crate::data::GapData;
+use crate::identity::{stable_id, Part};
 use crate::ids::{EvidenceId, FactId, ModuleName};
 use crate::record::Record;
 use crate::sections::GapFact;
@@ -73,6 +74,22 @@ impl Record<GapFact> {
             fact_ids: Vec::new(),
             data: gap,
         }
+    }
+
+    /// The UNKNOWN record of a gap, with its id: the `stable_id` of the reason, the evidence and
+    /// the module, so the same three give one record.
+    pub fn unknown_gap(
+        reason: &str,
+        evidence: Option<&str>,
+        module: &str,
+        gap: GapFact,
+    ) -> (String, Self) {
+        let mut parts = vec![Part::Text(reason)];
+        parts.extend(evidence.map(Part::Text));
+        parts.push(Part::Text(module));
+        let id = stable_id("UNKNOWN", &parts);
+        let record = Self::unknown(FactId::new(id.clone()), reason, evidence, module, gap);
+        (id, record)
     }
 }
 

@@ -9,10 +9,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::data::ImportData;
+use archkeel_facts::identity::stable_id;
+use archkeel_facts::identity::{package_of, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{ImportFact, Record};
-use archkeel_wire::identity::{package_of, stable_id, Part};
 use archkeel_wire::reply::Target;
 
 use super::Builder;

@@ -31,6 +31,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -50,6 +51,7 @@ dependencies = [
 name = "archkeel-snapshot"
 version = "0.0.0"
 dependencies = [
+ "archkeel-facts",
  "archkeel-wire",
 ]
 
@@ -85,7 +87,6 @@ dependencies = [
  "flate2",
  "serde",
  "serde_json",
- "sha2",
 ]
 
 [[package]]

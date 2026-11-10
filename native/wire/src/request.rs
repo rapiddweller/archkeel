@@ -6,8 +6,8 @@
 
 use serde_json::{Map, Value};
 
-use crate::identity::is_identifier;
 use crate::protocol::Version;
+use archkeel_facts::identity::is_identifier;
 
 /// One TypeScript collection request.
 #[derive(Clone, Debug, PartialEq)]

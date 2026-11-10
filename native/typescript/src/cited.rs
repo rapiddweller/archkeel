@@ -8,7 +8,7 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use archkeel_wire::identity::evidence_id;
+use archkeel_facts::identity::evidence_id;
 use archkeel_wire::reply::Evidence;
 
 use crate::source::Span;
