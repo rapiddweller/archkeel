@@ -39,3 +39,18 @@ read. The `rustdoc` oracle lists both differences.
 **Tests.** `symbols_tests.rs`, `schema_tests.rs`, `tests/test_collector_native_rust_symbols.py`
 and `tests/test_collector_native_rust_definitions_oracle.py` (the definitions of `native/` equal
 `rustdoc --output-format json`).
+
+**Conditions of 5b-4b (2026-11-10).** `interface_boundary` stays unsupported for Rust until
+slice 5b-4b ships all of these:
+1. A count of unread items for each module: macro calls at item level, and `impl` blocks whose
+   type was not found. The explorer shows it next to the symbol count.
+2. Reachable visibility, not only the `pub` keyword. A `pub` item in a private `mod`, or only
+   reachable through a `pub(crate) use`, is not public API.
+3. A rule reports UNKNOWN for a module with unread items. It never reports PASS.
+
+**Follow-ups of the oracle.** Pin the 36 methods that the collector lacks. Rustdoc cannot tell
+`pub(crate)` from private at the crate root, so the oracle reads it as private.
+
+**Schema.** The entity kind `macro` is valid only for graph, report and target schema 1.3.0. A
+document of 1.0.0 to 1.2.0 with this kind is invalid, as for `planned` (#854).
+

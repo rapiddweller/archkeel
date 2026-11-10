@@ -116,6 +116,23 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                             },
                         },
                         {
+                            # AD-351: the entity kind macro came after 1.2.0.
+                            "if": {
+                                "properties": {
+                                    "schema_version": {"enum": ["1.0.0", "1.1.0", "1.2.0"]}
+                                }
+                            },
+                            "then": {
+                                "properties": {
+                                    "entities": {
+                                        "items": {
+                                            "properties": {"kind": {"not": {"const": "macro"}}}
+                                        }
+                                    }
+                                }
+                            },
+                        },
+                        {
                             "if": {"properties": {"schema_version": {"const": "1.3.0"}}},
                             "then": {
                                 "properties": {

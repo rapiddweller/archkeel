@@ -5,7 +5,8 @@
 //! The symbol records (AD-351, slice 5b-4a): one record for each definition that the scan reads,
 //! with its visibility and its module. A member of an inherent `impl` is a method of its type, and
 //! the type must be a definition of the same module and scope. A member whose type is not found
-//! there is not invented: it is UNKNOWN, with one gap for the `impl` block.
+//! there is not invented and gets no gap (AD-351): the graph lists the symbols as PARTIAL, and
+//! slice 5b-4b adds the count of unread items.
 
 use std::collections::BTreeMap;
 
@@ -150,7 +151,8 @@ fn id(module: &str, qualified: &str, def: &Definition) -> String {
 }
 
 impl Builder {
-    /// The symbol records of one module, and a gap for each definition that the scan cannot read.
+    /// The symbol records of one module. A definition that the scan cannot read gives no record
+    /// and no gap (AD-351).
     pub(crate) fn symbols(&mut self, module: &Module) {
         let defs = &module.scan.definitions;
         let places = place(&module.module, defs);
