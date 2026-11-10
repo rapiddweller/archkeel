@@ -1,1 +1,1 @@
-{"compilerOptions": {"allowJs": true, "jsx": "react-jsx", "module": "ESNext", "moduleResolution": "node"}, "include": ["src"]}
+{"compilerOptions": {"allowJs": true, "jsx": "react-jsx", "module": "CommonJS", "moduleResolution": "node"}, "include": ["src"]}
