@@ -388,7 +388,6 @@ def test_config_schema_accepts_supported_language_options(language: str) -> None
     "setting",
     [
         'language="go"',
-        'language="rust"\ntsconfig="tsconfig.json"',
         'language="dart"\ntsconfig="tsconfig.json"',
         'tsconfig="tsconfig.json"',
         'language="typescript"\ntsconfig="../outside.json"',

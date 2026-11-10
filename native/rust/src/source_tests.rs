@@ -1,8 +1,9 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
 // Consumer: the walk of the collector. `archkeel-snapshot` owns the reads, the containment and the
 // limits, and tests them; these tests cover what is specific to Rust and the failure of a link.
-// SPDX-License-Identifier: MIT
 
 use archkeel_snapshot::test_tree::Tree;
 

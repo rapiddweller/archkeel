@@ -405,12 +405,9 @@ def _consume_profile_receipts(monkeypatch, profile):
     for section in profile.all_optional_sections | profile.absent_sections:
         payload[section] = None
     if payload["calls"] is not None:
+        kinds = "analyzed resolved partially_resolved unresolved".split()
         payload["coverage"].update(
-            calls_analyzed=0,
-            calls_resolved=0,
-            calls_partially_resolved=0,
-            calls_unresolved=0,
-            call_resolution_percent=0.0,
+            {f"calls_{kind}": 0 for kind in kinds}, call_resolution_percent=0.0
         )
     restored = parse_observation(payload)
     replay = observation_payload(restored)

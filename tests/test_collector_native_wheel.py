@@ -28,6 +28,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+from native_wheel_rust import check_rust_binary
 from packaging.tags import platform_tags, sys_tags
 
 ROOT = Path(__file__).parents[1]
@@ -403,7 +404,7 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
     assert Path(host_lookup) == Path(package) / (
         "_native/" + RUST_BINARY + (".exe" if windows else "")
     )
-    _check_rust_binary(tmp_path, python, host_lookup, version)
+    check_rust_binary(tmp_path, python, host_lookup, version)
 
     reply = subprocess.run(
         [str(installed)], input=json.dumps(_request(tmp_path)).encode(), capture_output=True
@@ -449,60 +450,3 @@ def _request(root: Path) -> dict[str, Any]:
         "scope": {"roots": ["src"], "namespace": "shop", "exclude_test_sources": False},
         "resolver": {"language": "typescript", "tsconfig": "tsconfig.json"},
     }
-
-
-# The installed host runs the bundled Rust binary through its default collector.
-HOST_RUN = """
-import json
-import sys
-
-from archkeel.cli.observe import observer_for
-from archkeel.ir.facts import Language
-from archkeel.ir.protocol import CollectionRequest, RustSettings, SnapshotInput, SourceScope
-
-request = CollectionRequest(
-    SnapshotInput(sys.argv[1], "a" * 40, False), SourceScope(("crates",), "shop"), RustSettings()
-)
-facts = observer_for(Language.RUST).collector.collect(request)
-print(json.dumps([type(facts).__name__, facts.adapter.name, facts.adapter.version,
-                  [item.module for item in facts.files]]))
-"""
-
-
-def _check_rust_binary(tmp_path: Path, python: Path, binary: str, version: str) -> None:
-    root = tmp_path / "rust-repository"
-    (root / "crates/src").mkdir(parents=True)
-    (root / "crates/Cargo.toml").write_text('[package]\nname = "demo"\nversion = "0.0.0"\n')
-    (root / "crates/src/lib.rs").write_text('use std::fs;\npub fn f() { fs::read("x"); }\n')
-    request = {
-        "protocol_version": "8.0.0",
-        "snapshot": {"root": str(root), "git_head": "a" * 40, "dirty": False},
-        "scope": {"roots": ["crates"], "namespace": "shop"},
-        "resolver": {"language": "rust"},
-    }
-    reply = subprocess.run([binary], input=json.dumps(request).encode(), capture_output=True)
-    assert reply.returncode == 0, reply.stderr
-    facts = json.loads(zlib.decompress(reply.stdout))["facts"]
-    assert facts["adapter"] == {
-        "name": "archkeel-rust-imports",
-        "version": version,
-        "code_digest": facts["adapter"]["code_digest"],
-    }
-    assert facts["coverage"]["selected_files"] == ["crates/src/lib.rs"]
-    # The Rust binary has no test-only mode (AD-323 keeps `dump` out of the TypeScript binary).
-    dumped = subprocess.run([binary, "--dump"], input=b"", capture_output=True)
-    assert dumped.returncode != 0 and dumped.stdout == b""
-    host = subprocess.run(
-        [str(python), "-c", HOST_RUN, str(root)],
-        env={**os.environ, "PYTHONPATH": sysconfig.get_paths()["purelib"]},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert host.returncode == 0, host.stderr
-    assert json.loads(host.stdout) == [
-        "SourceFacts",
-        "archkeel-rust-imports",
-        version,
-        ["shop.demo"],
-    ]

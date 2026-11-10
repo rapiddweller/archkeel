@@ -130,7 +130,7 @@
   "tests/test_native_violation_filter.py": 543,
   "tests/test_nest_realworld_project_target.py": 590,
   "tests/test_nested_interface_lifecycle.py": 553,
-  "tests/test_nullable_profile_measurements.py": 508,
+  "tests/test_nullable_profile_measurements.py": 507,
   "tests/test_numeric_generic_scopes.py": 512,
   "tests/test_numeric_operand_observation.py": 2383,
   "tests/test_numeric_operand_rule.py": 1281,

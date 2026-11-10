@@ -65,6 +65,7 @@ PR_TEST_FILES := \
 	tests/test_typed_collector_native.py \
 	tests/test_collector_native_wheel.py \
 	tests/test_collector_native_rust.py \
+	tests/test_collector_native_rust_names.py \
 	tests/test_collector_native_rust_scope.py \
 	tests/test_collector_native_rust_oracle.py \
 	tests/test_collector_native_rust_language.py \
