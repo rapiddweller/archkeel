@@ -1185,11 +1185,11 @@ def analyze_source_snapshot(
     """Collect and assemble one snapshot for demo and audit callers."""
     from archkeel.ir.protocol import (
         CollectionError,
-        CollectionRequest,
         PythonSettings,
         ResolverSettings,
         SnapshotInput,
         SourceScope,
+        collection_request,
         fixed_settings,
     )
 
@@ -1205,7 +1205,7 @@ def analyze_source_snapshot(
         _, _, mounts, _ = _inside_levels(loaded.tree)
         features = tuple(sorted(required_resolution_features(loaded.contract, mounts)))
     resolver: ResolverSettings = fixed_settings(language) or PythonSettings(features=features)
-    request = CollectionRequest(
+    request = collection_request(
         SnapshotInput(str(source_root.resolve()), git_head, dirty),
         SourceScope(roots, namespace),
         resolver,

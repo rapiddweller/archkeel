@@ -38,12 +38,11 @@ from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, Language, is_te
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
-    CollectionRequest,
-    ProtocolVersion,
     PythonSettings,
     ResolverSettings,
     SnapshotInput,
     SourceScope,
+    collection_request,
     fixed_settings,
 )
 from archkeel.ir.store_seam import close_store
@@ -343,11 +342,10 @@ def _observe(
                 f"The {language} collector has no test-source rule.",
                 "Remove scan.exclude_test_sources for this language.",
             )
-        request = CollectionRequest(
+        request = collection_request(
             SnapshotInput(str(source_root), git_head, dirty),
             SourceScope(roots, namespace, exclude_test_sources),
             resolver,
-            ProtocolVersion.V9 if exclude_test_sources else ProtocolVersion.V3,
         )
         facts = collector.collect(request)
         if isinstance(facts, CollectionError):

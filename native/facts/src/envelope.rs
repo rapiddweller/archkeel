@@ -175,7 +175,7 @@ object! {
 }
 
 /// `dirty` is a Boolean, or the text `unknown` when the host could not read the work tree.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum Dirty {
     Known(bool),

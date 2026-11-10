@@ -5,27 +5,34 @@
 // Consumer: PR 4.3a-3d, which puts the records on the wire. The expected values follow the Python
 // collector; `tests/test_collector_native_records.py` compares every record on real trees.
 
+use archkeel_facts::envelope::Dirty;
 use archkeel_facts::envelope::{Profile, Provenance};
+use archkeel_facts::request::{Scope, Snapshot, TypeScriptRequest, TypeScriptSettings};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::Record;
-use archkeel_wire::request::Request;
 use serde_json::Value;
 
 use crate::collect::records;
 use crate::records::Records;
 use archkeel_snapshot::test_tree::Tree;
 
-fn request(tree: &Tree) -> Request {
-    Request {
-        version: Version::V9,
-        root: tree.path(),
-        git_head: "a".repeat(40),
-        dirty: Value::Bool(false),
-        roots: vec!["src".to_owned()],
-        namespace: "shop".to_owned(),
-        exclude_test_sources: false,
-        tsconfig: "tsconfig.json".to_owned(),
-        bundler: false,
+fn request(tree: &Tree) -> TypeScriptRequest {
+    TypeScriptRequest {
+        protocol_version: Version::V9,
+        snapshot: Snapshot {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["src".to_owned()],
+            namespace: "shop".to_owned(),
+            exclude_test_sources: Some(false),
+        },
+        resolver: TypeScriptSettings {
+            tsconfig: "tsconfig.json".to_owned(),
+            bundler: false,
+        },
     }
 }
 
