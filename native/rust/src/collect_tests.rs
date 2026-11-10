@@ -5,15 +5,15 @@
 // Consumer: the host reads these facts. Each fixture is a small workspace on disk.
 
 use archkeel_wire::protocol::Version;
-use serde_json::Value;
 
 use super::*;
 use crate::reply::Collected;
+use archkeel_facts::envelope::Dirty;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::envelope::{Profile, Provenance};
+use archkeel_facts::request::{RustRequest, RustSettings, Scope, Snapshot};
 use archkeel_facts::{ImportFact, Record};
 use archkeel_snapshot::test_tree::Tree;
-use archkeel_wire::request::Request;
 use std::collections::BTreeSet;
 
 pub(crate) const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
@@ -31,16 +31,19 @@ fn facts(files: &[(&str, &str)]) -> Collected {
 
 pub(crate) fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
     let root = Tree::new(files);
-    let request = Request {
-        version: Version::V8,
-        root: root.path(),
-        git_head: "a".repeat(40),
-        dirty: Value::Bool(false),
-        roots: vec!["crates".to_owned()],
-        namespace: "ns".to_owned(),
-        exclude_test_sources: exclude_tests,
-        tsconfig: String::new(),
-        bundler: false,
+    let request = RustRequest {
+        protocol_version: Version::V8,
+        snapshot: Snapshot {
+            root: root.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["crates".to_owned()],
+            namespace: "ns".to_owned(),
+            exclude_test_sources: Some(exclude_tests),
+        },
+        resolver: RustSettings {},
     };
     let provenance = Provenance::native(Profile::Rust, ("1", "d"), ("1.88.0", "1.88"));
     collect(&request, provenance)

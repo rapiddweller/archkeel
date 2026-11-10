@@ -126,6 +126,23 @@ class CollectionRequest:
     protocol_version: ProtocolVersion = ProtocolVersion(PROTOCOL_VERSION)
 
 
+# The request versions that a native collector reads: the same list as `Version::ALL` in
+# `native/facts/src/protocol.rs`. `tests/test_native_versions.py` compares the two.
+NATIVE_REQUEST_PROTOCOLS: Final = (ProtocolVersion.V3, ProtocolVersion.V8, ProtocolVersion.V9)
+
+
+def collection_request(
+    snapshot: SnapshotInput, scope: SourceScope, resolver: ResolverSettings
+) -> CollectionRequest:
+    """The one builder of a scan request: 9.0.0 for a test-scoped scope, else 3.0.0."""
+    return CollectionRequest(
+        snapshot,
+        scope,
+        resolver,
+        ProtocolVersion.V9 if scope.exclude_test_sources else ProtocolVersion.V3,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class CollectionResponse:
     facts: SourceFacts
