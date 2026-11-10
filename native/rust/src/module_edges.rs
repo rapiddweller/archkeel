@@ -9,13 +9,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::data::ImportData;
-use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::identity::{package_of, stable_id, Part};
+use archkeel_facts::ids::{ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
-use archkeel_wire::identity::{package_of, stable_id, Part};
 use archkeel_wire::reply::Target;
 
-use super::Builder;
+use crate::builder::{import_record, Builder};
 use crate::crates::Root;
 use crate::modules::{Edge, Index, Outcome};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
@@ -25,7 +24,7 @@ use crate::tree::Module;
 type Defs<'a> = BTreeMap<(usize, &'a str), Vec<(&'a Module, &'a MacroDef)>>;
 
 impl Builder {
-    pub(super) fn module_edge(
+    pub(crate) fn module_edge(
         &mut self,
         index: &Index<'_>,
         module: &Module,
@@ -88,7 +87,7 @@ impl Builder {
     /// module that its body names, also through the macros that its body calls. A name that two
     /// modules define, a call that the scan cannot place, and a body that it cannot read are
     /// UNKNOWN in the module of the call.
-    pub(super) fn macro_calls(&mut self, index: &Index<'_>, modules: &[Module]) {
+    pub(crate) fn macro_calls(&mut self, index: &Index<'_>, modules: &[Module]) {
         let mut defs = Defs::new();
         for module in modules {
             for def in &module.scan.macro_defs {
@@ -265,27 +264,19 @@ fn module_record(
         module_level_import: !block,
         ..ImportData::statement()
     };
-    let mut subjects = vec![module.module.clone(), edge.module.clone()];
-    subjects.sort();
-    Record {
-        id: FactId::new(identity),
-        evidence_class: EvidenceClass::Fact,
-        area: Area::Source,
-        title: format!("{} imports {}", module.module, reference.path),
-        subjects,
-        evidence_ids: vec![EvidenceId::new(evidence)],
-        fact_ids: Vec::new(),
-        data: match (&reference.in_macro, reexport) {
-            (Some(_), _) => ImportFact::MacroBody(data),
-            (None, true) => ImportFact::Reexport(data),
-            (None, false) => ImportFact::Import(data),
-        },
-    }
+    let subjects = vec![module.module.clone(), edge.module.clone()];
+    let at = (module.module.as_str(), reference.path.as_str());
+    let fact = match (&reference.in_macro, reexport) {
+        (Some(_), _) => ImportFact::MacroBody(data),
+        (None, true) => ImportFact::Reexport(data),
+        (None, false) => ImportFact::Import(data),
+    };
+    import_record((identity, evidence), at, subjects, fact)
 }
 
 /// The target of a path into another crate of the workspace: the deepest module that the path
 /// names below the root of that crate. Without an index (a declared dependency) it is the root.
-pub(super) fn local_target(
+pub(crate) fn local_target(
     index: Option<&Index<'_>>,
     root: &Root,
     reference: &Reference,
@@ -308,5 +299,5 @@ pub(super) fn local_target(
 }
 
 #[cfg(test)]
-#[path = "collect_modules_tests.rs"]
+#[path = "module_edges_tests.rs"]
 mod tests;

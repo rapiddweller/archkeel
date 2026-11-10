@@ -4,8 +4,8 @@
 
 // Consumer: the host reads the module edges. Each fixture is a small workspace on disk.
 
-use super::super::tests::{is_declared, run, APP, BASE, WORKSPACE};
 use super::*;
+use crate::collect::tests::{is_declared, run, APP, BASE, WORKSPACE};
 
 const APP_MANIFEST: (&str, &str) = (
     "crates/app/Cargo.toml",

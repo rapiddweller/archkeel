@@ -4,7 +4,7 @@
 
 [package]
 name = "archkeel-wire"
-description = "Collector wire of Archkeel: request decoding, reply encoding and source identities"
+description = "Collector wire of Archkeel: request decoding and reply encoding"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,7 +16,6 @@ archkeel-facts.workspace = true
 flate2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
 
 [lints]
 workspace = true

@@ -103,7 +103,7 @@ fn encoded_segment(value: &str) -> String {
 }
 
 /// An ASCII identifier. The request decoder accepts only ASCII namespaces.
-pub(crate) fn is_identifier(value: &str) -> bool {
+pub fn is_identifier(value: &str) -> bool {
     let mut characters = value.chars();
     characters
         .next()
