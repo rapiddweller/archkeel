@@ -23,7 +23,7 @@ use crate::source::Span;
 
 /// `_SCRIPT_ROOTS`: the names of the global object.
 pub fn is_root(name: &str) -> bool {
-    matches!(name, "window" | "globalThis")
+    matches!(name, "window" | "globalThis" | "self")
 }
 
 /// A site as the analysis reads it: a site of the file, or a name that a destructuring brings.

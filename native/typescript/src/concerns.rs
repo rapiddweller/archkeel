@@ -136,6 +136,25 @@ fn comment_concerns(
     list
 }
 
+/// `_augmentation_concerns`: `declare module "./x"` names a file of the project, as an import
+/// does (#976). A bare name would need the resolver, so it is not read here.
+fn augmentation_concerns(source: &Source, scan: &Scan) -> Vec<Concern> {
+    let mut list = Vec::new();
+    for node in scan.augmentations.iter().copied() {
+        let text = source.text(node);
+        let value: String = text
+            .chars()
+            .skip(1)
+            .take(text.chars().count().saturating_sub(2))
+            .collect();
+        if value.starts_with(['.', '/']) {
+            let reason = format!("Unobserved module augmentation: {value}");
+            list.push(concern(source, node, &reason));
+        }
+    }
+    list
+}
+
 /// The concerns of one file, in the order that `parse.parse` collects them.
 pub fn read(
     source: &Source,
@@ -168,6 +187,9 @@ pub fn read(
     }
     if contains(source.data, b"/**") || contains(source.data, b"///") {
         list.extend(comment_concerns(source, root, scan, suffix));
+    }
+    if contains(source.data, b"module") {
+        list.extend(augmentation_concerns(source, scan));
     }
     Found {
         list,

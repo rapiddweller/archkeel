@@ -219,19 +219,28 @@ impl<'a> Project<'a> {
         project
     }
 
-    /// A name is bound elsewhere when a global script that does not declare it binds it.
+    /// A name is bound elsewhere when a global script that does not declare it binds it. One pass
+    /// over the bindings of each global script, so the cost does not grow with the product of the
+    /// declared names and the files.
     fn mark_bound_elsewhere(&mut self, files: &[(&'a str, &'a Kept)], scripts_are_global: bool) {
-        let declaring = |name: &str, kept: &Kept| {
+        for (_, kept) in files {
+            if !Self::global_script(kept, scripts_are_global) {
+                continue;
+            }
             let (globals, top) = (&kept.script.ambient_globals, &kept.script.ambient_top_level);
-            let top = Self::global_script(kept, scripts_are_global).then_some(top);
-            let mut listed = globals.iter().chain(top.into_iter().flatten());
-            listed.any(|(declared, _)| declared == name)
-        };
-        for (name, entry) in &mut self.declared {
-            entry.bound_elsewhere = files.iter().any(|(_, kept)| {
-                let global = Self::global_script(kept, scripts_are_global);
-                global && kept.script.bindings.contains(*name) && !declaring(name, kept)
-            });
+            let mut declaring: Option<HashSet<&str>> = None;
+            for name in &kept.script.bindings {
+                let Some(entry) = self.declared.get_mut(name.as_str()) else {
+                    continue;
+                };
+                // The names that the file declares are listed once, and only when a binding of the
+                // file is a declared name of the project.
+                let own = declaring.get_or_insert_with(|| {
+                    let listed = globals.iter().chain(top.iter());
+                    listed.map(|(declared, _)| declared.as_str()).collect()
+                });
+                entry.bound_elsewhere |= !own.contains(name.as_str());
+            }
         }
     }
 

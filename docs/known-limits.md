@@ -232,6 +232,15 @@ a `lib` value the pinned compiler does not name, `noLib` or `libReplacement` lea
 project `declare` of a name, in a global script or a `declare global` block, proves that name.
 Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
+A `/// <reference types="./x" />` directive with a relative or absolute path, and a
+`declare module "./x"` augmentation with a relative or absolute name, name a file of the project;
+both are UNKNOWN, as `path` and `lib` directives are (#976). A `types` name without a path stays
+silent. An augmentation with a bare name (`declare module "pkg"`) is not read: a `paths` alias
+could map it to a project file, and it remains a blind spot. `self` is a root of the global object,
+like `window` and `globalThis`.
+The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
+the file, where the Python collector reads the file and can give FAIL. The two collectors give
+the same facts only for files under the limit.
 
 ## Dart profile
 

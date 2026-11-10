@@ -61,6 +61,8 @@ class ReceiverKind(Enum):
 class ScriptRoot(Enum):
     WINDOW = "window"
     GLOBAL_THIS = "globalThis"
+    # A browser script and a worker reach the global object through `self` too (#976).
+    SELF = "self"
 
 
 @dataclass(frozen=True, slots=True)

@@ -154,6 +154,24 @@ def test_a_reference_the_parser_had_to_repair_is_dropped() -> None:
             ["Unobserved triple-slash reference: ./a.d.ts"],
         ),
         ("/// <reference lib='dom' />\nexport {};", ["Unobserved triple-slash reference: dom"]),
+        # A `types` directive that names a path reaches a file of the project (#976).
+        (
+            "/// <reference types='../b/t' />\nexport {};",
+            ["Unobserved triple-slash reference: ../b/t"],
+        ),
+        (
+            "/// <reference types='/abs/t' />\nexport {};",
+            ["Unobserved triple-slash reference: /abs/t"],
+        ),
+        # A module augmentation with a relative name reaches a file of the project (#976).
+        ('declare module "../b/t" {}\nexport {};', ["Unobserved module augmentation: ../b/t"]),
+        (
+            "declare module './t' { interface T {} }\nexport {};",
+            ["Unobserved module augmentation: ./t"],
+        ),
+        ("declare module 'express' { interface T {} }\nexport {};", []),
+        ("declare module '*.css' {}\nexport {};", []),
+        ("declare module Name {}\nexport {};", []),
         ("export {};\n/// <reference types='node' />", []),
         ("// import('x')\n/* @import {X} from 'x' */", []),
         # tsc reads JSDoc types only in JavaScript files (#744).

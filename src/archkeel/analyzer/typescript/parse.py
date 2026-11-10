@@ -367,7 +367,9 @@ _JSDOC_TOKEN: Final = re.compile(
 )
 
 
-_TRIPLE_SLASH: Final = re.compile(r"^///\s*<reference\s+(?:path|lib)\s*=\s*(['\"])(.*?)\1")
+_TRIPLE_SLASH: Final = re.compile(
+    r"^///\s*<reference\s+(?P<kind>path|lib|types)\s*=\s*(['\"])(?P<value>.*?)\2"
+)
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -390,6 +392,7 @@ _QUERIES: Final = {
         (call_expression function: (identifier) @callee (#eq? @callee "require")) @require
         """,
     "comments": "(comment) @comment",
+    "augmentations": "(module name: (string) @name)",
     "umd_writes": """
         [(with_statement) (function_declaration) (function_expression)
          (generator_function_declaration) (generator_function) (arrow_function)
@@ -509,6 +512,8 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
         concerns.extend(_comment_concerns(source, suffix))
+    if b"module" in data:
+        concerns.extend(_augmentation_concerns(source))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3714,13 +3719,27 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     for node in source.captures("comments").get("comment", []):
         body = _text(node)
         directive = _TRIPLE_SLASH.match(body) if node.start_byte < first else None
-        # A `types` entry only adds globals, which the catalog does not model (AD-274).
-        # `types` is no concern: it only adds globals, which the catalog does not model (AD-274).
-        if directive is not None:
-            reason = f"Unobserved triple-slash reference: {directive[2]}"
+        # A `types` name adds globals, which the catalog does not model (AD-274), so it is no
+        # concern. A `types` directive with a relative or absolute path names a file of the
+        # project, as `path` does (#976).
+        if directive is not None and (
+            directive["kind"] != "types" or directive["value"].startswith((".", "/"))
+        ):
+            reason = f"Unobserved triple-slash reference: {directive['value']}"
             concerns.append(Concern(reason, source.span(node)))
         if jsdoc and _jsdoc_imports(body):
             concerns.append(Concern("JSDoc import is not observed", source.span(node)))
+    return concerns
+
+
+def _augmentation_concerns(source: _Source) -> list[Concern]:
+    """`declare module "./x"` names a file of the project, as an import does (#976). A bare name
+    would need the resolver, so it is not read here."""
+    concerns: list[Concern] = []
+    for node in source.captures("augmentations").get("name", []):
+        value = _text(node)[1:-1]
+        if value.startswith((".", "/")):
+            concerns.append(Concern(f"Unobserved module augmentation: {value}", source.span(node)))
     return concerns
 
 

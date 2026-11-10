@@ -200,7 +200,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let mut found = Found::default();
         let wrapper_calls: HashSet<usize> = self.wrappers.values().map(|w| w.call.id()).collect();
-        let mut roots: HashSet<&str> = ["window", "globalThis"].into_iter().collect();
+        let mut roots: HashSet<&str> = ["window", "globalThis", "self"].into_iter().collect();
         roots.extend(
             self.wrappers
                 .values()
