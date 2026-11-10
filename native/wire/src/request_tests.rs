@@ -113,7 +113,9 @@ fn refuses_versions_the_typescript_host_never_sends() {
     for version in ["1.0.0", "7.0.0", "10.0.0", ""] {
         let error = decoded(&request(version)).unwrap_err();
         assert!(
-            error.contains("expected one of `3.0.0`, `8.0.0`, `9.0.0`"),
+            error.contains(
+                "unsupported collection protocol version, expected one of 3.0.0, 8.0.0, 9.0.0"
+            ),
             "{error}"
         );
     }

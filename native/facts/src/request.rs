@@ -19,6 +19,7 @@ use crate::protocol::Version;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Request<R = Resolver> {
+    #[serde(deserialize_with = "version")]
     pub protocol_version: Version,
     pub snapshot: Snapshot,
     pub scope: Scope,
@@ -85,6 +86,19 @@ pub struct TypeScriptSettings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RustSettings {}
+
+fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Version, D::Error> {
+    Version::deserialize(deserializer).map_err(|_| {
+        let known: Vec<&str> = Version::ALL
+            .iter()
+            .map(|version| version.as_str())
+            .collect();
+        serde::de::Error::custom(format!(
+            "unsupported collection protocol version, expected one of {}",
+            known.join(", ")
+        ))
+    })
+}
 
 fn dirty<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Dirty, D::Error> {
     Dirty::deserialize(deserializer)
