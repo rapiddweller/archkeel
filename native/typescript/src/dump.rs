@@ -25,8 +25,8 @@ use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 use archkeel_facts::envelope::Provenance;
+use archkeel_facts::request::TypeScriptRequest;
 use archkeel_wire::reply::{record_value, target_value};
-use archkeel_wire::request::Request;
 
 fn span(span: &Span) -> Value {
     json!({
@@ -328,7 +328,7 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
 
 /// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
 /// compares with the Python collector.
-pub fn records(request: &Request, provenance: Provenance) -> Result<Value, String> {
+pub fn records(request: &TypeScriptRequest, provenance: Provenance) -> Result<Value, String> {
     let (facts, records) = crate::collect::records(request, provenance)?;
     let touched: std::collections::HashSet<&str> =
         records.touched.iter().map(String::as_str).collect();

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "archkeel collection request",
+  "description": "The request of a native collector. Generated from the Rust types.",
+  "$ref": "#/$defs/Request",
+  "$defs": {
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "$ref": "#/$defs/Version"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/Snapshot"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "resolver": {
+          "$ref": "#/$defs/Resolver"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "snapshot",
+        "scope",
+        "resolver"
+      ],
+      "description": "One collection request. `R` is the settings of the language: the whole `Resolver` as the wire\nhas it, or the settings of one language after the collector has chosen it."
+    },
+    "Version": {
+      "type": "string",
+      "enum": [
+        "3.0.0",
+        "8.0.0",
+        "9.0.0"
+      ],
+      "description": "A request version that the host sends to a native collector."
+    },
+    "Snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "description": "The absolute snapshot root."
+        },
+        "git_head": {
+          "type": "string"
+        },
+        "dirty": {
+          "$ref": "#/$defs/Dirty",
+          "description": "`true`, `false` or `\"unknown\"`, echoed back in the reply."
+        }
+      },
+      "required": [
+        "root",
+        "git_head",
+        "dirty"
+      ],
+      "description": "The snapshot to read."
+    },
+    "Dirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/UnknownDirty"
+        }
+      ],
+      "description": "`dirty` is a Boolean, or the text `unknown` when the host could not read the work tree."
+    },
+    "UnknownDirty": {
+      "type": "string",
+      "enum": [
+        "unknown"
+      ]
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Nonempty relative paths that stay inside the snapshot and neither repeat nor overlap."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "A dotted namespace."
+        },
+        "exclude_test_sources": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Present exactly in a 9.0.0 request (AD-313)."
+        }
+      },
+      "required": [
+        "roots",
+        "namespace"
+      ],
+      "description": "The part of the snapshot to read."
+    },
+    "Resolver": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "typescript"
+            },
+            "tsconfig": {
+              "type": "string",
+              "description": "A relative path that stays inside the snapshot."
+            },
+            "bundler": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "The host writes `bundler` only when it is true, so false has one form: absent."
+            }
+          },
+          "required": [
+            "language",
+            "tsconfig"
+          ],
+          "description": "The settings of the TypeScript collector."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The Rust collector has no settings: its resolver is `{\"language\": \"rust\"}`.",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "rust"
+            }
+          },
+          "required": [
+            "language"
+          ]
+        }
+      ],
+      "description": "The settings of one language. The tag is the language that the collector reads."
+    }
+  }
+}

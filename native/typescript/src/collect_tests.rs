@@ -5,24 +5,30 @@
 // Consumer: Explore with a 9.0.0 request (AD-313). A scope that holds only test sources must not
 // read as a complete scan of zero files.
 
-use archkeel_facts::envelope::Profile;
+use archkeel_facts::envelope::{Dirty, Profile};
+use archkeel_facts::request::{Scope, Snapshot as SnapshotRequest, TypeScriptSettings};
 use archkeel_wire::protocol::Version;
-use serde_json::Value;
 
 use super::*;
 use archkeel_snapshot::test_tree::Tree;
 
-fn request(tree: &Tree, exclude_test_sources: bool) -> Request {
-    Request {
-        version: Version::V9,
-        root: tree.path(),
-        git_head: "a".repeat(40),
-        dirty: Value::Bool(false),
-        roots: vec!["src".to_owned()],
-        namespace: "shop".to_owned(),
-        exclude_test_sources,
-        tsconfig: "tsconfig.json".to_owned(),
-        bundler: false,
+fn request(tree: &Tree, exclude_test_sources: bool) -> TypeScriptRequest {
+    TypeScriptRequest {
+        protocol_version: Version::V9,
+        snapshot: SnapshotRequest {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["src".to_owned()],
+            namespace: "shop".to_owned(),
+            exclude_test_sources: Some(exclude_test_sources),
+        },
+        resolver: TypeScriptSettings {
+            tsconfig: "tsconfig.json".to_owned(),
+            bundler: false,
+        },
     }
 }
 

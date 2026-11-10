@@ -107,7 +107,7 @@ fn run() -> Result<(), String> {
     collect::reply(
         &request,
         provenance(),
-        reply_version(request.version),
+        reply_version(request.protocol_version),
         stdout.lock(),
     )
 }

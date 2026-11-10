@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 
 use crate::reason::ReasonCode;
 use crate::record::Record;
+use crate::request::Request;
 use crate::sections::{GapFact, Section};
 use crate::vocab::Kind;
 
@@ -34,6 +35,27 @@ pub fn schema() -> Value {
         "description": "The source records of a collector reply. Generated from the Rust types.",
         "$defs": definitions,
     })
+}
+
+/// The path of the committed request schema, relative to the crate.
+pub const REQUEST_PATH: &str = "schema/archkeel-request.schema.json";
+
+/// The schema of the collection request of the protocols 3, 8 and 9.
+pub fn request_schema() -> Value {
+    let mut generator = SchemaSettings::draft2020_12().into_generator();
+    let root = generator.subschema_for::<Request>();
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "archkeel collection request",
+        "description": "The request of a native collector. Generated from the Rust types.",
+        "$ref": root.get("$ref"),
+        "$defs": generator.take_definitions(true),
+    })
+}
+
+/// The text of the request schema.
+pub fn request_text() -> serde_json::Result<String> {
+    serde_json::to_string_pretty(&request_schema()).map(|text| text + "\n")
 }
 
 /// The text of the schema file: pretty JSON and a final newline.

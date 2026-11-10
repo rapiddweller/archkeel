@@ -11,8 +11,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::envelope::Provenance;
+use archkeel_facts::request::RustRequest;
 use archkeel_snapshot::Snapshot;
-use archkeel_wire::request::Request;
 
 use crate::builder::Builder;
 use crate::crates::discover;
@@ -23,15 +23,15 @@ use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::walk;
 
 /// Collect the facts of one request.
-pub fn collect(request: &Request, provenance: Provenance) -> Collected {
-    let mut source = Snapshot::new(&request.root);
+pub fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
+    let mut source = Snapshot::new(&request.snapshot.root);
     let mut builder = Builder {
-        exclude_tests: request.exclude_test_sources,
+        exclude_tests: request.excludes_test_sources(),
         ..Builder::default()
     };
-    let (scope, files) = list(&mut source, &request.roots, &mut builder);
-    let workspace = discover(&mut source, &files, &request.namespace);
-    let walked = walk(&mut source, &workspace, request.exclude_test_sources);
+    let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
+    let workspace = discover(&mut source, &files, &request.scope.namespace);
+    let walked = walk(&mut source, &workspace, request.excludes_test_sources());
     let modules: BTreeMap<&str, &str> = walked
         .modules
         .iter()
@@ -49,7 +49,7 @@ pub fn collect(request: &Request, provenance: Provenance) -> Collected {
     }
     builder.macro_calls(&modules_index, &walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();
-    builder.declared(&workspace, &request.namespace, &taken, &mut source);
+    builder.declared(&workspace, &request.scope.namespace, &taken, &mut source);
     let mut selected: Vec<String> = files
         .iter()
         .filter(|f| f.ends_with(".rs"))

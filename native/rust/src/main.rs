@@ -67,7 +67,7 @@ fn run() -> Result<Vec<u8>, String> {
     let worker = std::thread::Builder::new()
         .stack_size(STACK_BYTES)
         .spawn(move || {
-            collect::collect(&request, provenance()).encode(reply_version(request.version))
+            collect::collect(&request, provenance()).encode(reply_version(request.protocol_version))
         })
         .map_err(|error| format!("cannot start the scan: {error}"))?;
     worker

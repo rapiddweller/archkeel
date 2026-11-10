@@ -389,7 +389,7 @@ fn write_fields(out: &mut Piece, value: &impl Serialize) -> io::Result<()> {
 fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()> {
     let source =
         Source::of((&head.git_head, &head.dirty), &head.scope, &head.inputs).map_err(invalid)?;
-    let protocol_version = ProtocolVersion::parse(version.as_str()).ok_or_else(|| {
+    let protocol_version = version.compressed().ok_or_else(|| {
         invalid(format!(
             "no compressed reply for version {}",
             version.as_str()

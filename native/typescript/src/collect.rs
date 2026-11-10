@@ -16,9 +16,9 @@ use std::io::Write;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::envelope::{Evidence, FileFact, Provenance};
 use archkeel_facts::identity::module_identity;
+use archkeel_facts::request::TypeScriptRequest;
 use archkeel_facts::{GapFact, Record, Section};
 use archkeel_wire::reply::{Facts, ReplySection};
-use archkeel_wire::request::Request;
 
 use crate::config::load_config;
 use crate::kept::{Kept, Pending};
@@ -50,7 +50,7 @@ enum GapKind {
 }
 
 struct Collection<'a> {
-    request: &'a Request,
+    request: &'a TypeScriptRequest,
     namespace: &'a str,
     roots: Vec<String>,
     snapshot: Snapshot,
@@ -76,7 +76,7 @@ struct Collection<'a> {
 /// references, the bindings and the constructs, with the capability `inner-uml-v1` (AD-340, PR
 /// 4.3a-3d). The compressed bytes go to `out` as they are made.
 pub fn reply(
-    request: &Request,
+    request: &TypeScriptRequest,
     provenance: Provenance,
     version: archkeel_wire::protocol::Version,
     out: impl Write,
@@ -89,33 +89,41 @@ pub fn reply(
 
 /// The same facts with every section in a list, for the unit tests: the producer of `reply`.
 #[cfg(test)]
-pub fn collect(request: &Request, provenance: Provenance) -> Facts {
+pub fn collect(request: &TypeScriptRequest, provenance: Provenance) -> Facts {
     let (facts, pending) = gather(request, provenance);
     listed(facts, &pending).unwrap().0
 }
 
 /// The facts as `collect` gives them and the records by the names of the tests and the dump.
 #[cfg(any(test, feature = "dump"))]
-pub fn records(request: &Request, provenance: Provenance) -> Result<(Facts, Records), String> {
+pub fn records(
+    request: &TypeScriptRequest,
+    provenance: Provenance,
+) -> Result<(Facts, Records), String> {
     let (facts, pending) = gather(request, provenance);
     let (facts, touched) = listed(facts, &pending)?;
     let records = records_of(&facts, touched);
     Ok((facts, records))
 }
 
-pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pending) {
-    let roots: Vec<String> = request.roots.iter().map(|root| join(".", root)).collect();
-    let mut snapshot = Snapshot::new(&request.root);
-    let config = load_config(&mut snapshot, &request.tsconfig, &roots);
+pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Facts, Pending) {
+    let roots: Vec<String> = request
+        .scope
+        .roots
+        .iter()
+        .map(|root| join(".", root))
+        .collect();
+    let mut snapshot = Snapshot::new(&request.snapshot.root);
+    let config = load_config(&mut snapshot, &request.resolver.tsconfig, &roots);
     let resolver = Resolver::new(config.options, config.partial);
-    let bundler = request.bundler
+    let bundler = request.resolver.bundler
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
     let partial = config.partial;
     let listed = config.files;
     let mut collection = Collection {
         request,
-        namespace: &request.namespace,
+        namespace: &request.scope.namespace,
         roots: roots.clone(),
         snapshot,
         resolver,
@@ -139,13 +147,13 @@ pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pendi
         .cloned()
         .collect();
     collection.queued = collection.queue.iter().cloned().collect();
-    if request.exclude_test_sources && !listed.is_empty() && collection.queue.is_empty() {
+    if request.excludes_test_sources() && !listed.is_empty() && collection.queue.is_empty() {
         collection
             .snapshot
             .problems
             .insert(NO_PRODUCTION_SOURCE.to_owned());
     }
-    if request.bundler && !collection.bundler && collection.resolver.blocked.is_none() {
+    if request.resolver.bundler && !collection.bundler && collection.resolver.blocked.is_none() {
         collection.gap(
             "Bundler mode requires moduleResolution bundler",
             None,
@@ -194,8 +202,8 @@ pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pendi
     };
     let facts = Facts {
         provenance,
-        git_head: request.git_head.clone(),
-        dirty: request.dirty.clone(),
+        git_head: request.snapshot.git_head.clone(),
+        dirty: serde_json::to_value(&request.snapshot.dirty).unwrap_or_default(),
         scope,
         sections: vec![
             ReplySection::Typed(Section::Imports(imports)),
@@ -217,7 +225,7 @@ pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pendi
 impl Collection<'_> {
     /// A 9.0.0 request removes test sources, by their path or by their real path.
     fn excluded_test(&mut self, rel: &str) -> bool {
-        self.request.exclude_test_sources
+        self.request.excludes_test_sources()
             && (is_test_source(rel)
                 || self
                     .snapshot
