@@ -18,7 +18,9 @@ use crate::attrs::{
     hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
     statement_attributes, trait_item_attributes,
 };
+use crate::definitions::{Definition, Holder};
 use crate::net;
+pub use crate::site::Site;
 use crate::tokens::{plain, Chain};
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -58,14 +60,6 @@ const KNOWN_MACROS: [&str; 33] = [
     "cfg",
     "json",
 ];
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Site {
-    pub line: i64,
-    pub end_line: i64,
-    pub column: i64,
-    pub excerpt: String,
-}
 
 /// A qualified path, or a `use` leaf: its first segment and the path as written.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -159,6 +153,8 @@ pub struct Scan {
     pub macro_calls: Vec<MacroCall>,
     /// Every name that the file writes in any token, for the safety net of `collect.rs`.
     pub mentioned: BTreeSet<String>,
+    /// The items, the members of the inherent `impl` blocks and the members of the traits.
+    pub definitions: Vec<Definition>,
 }
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
@@ -180,6 +176,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Res
         blocks: 0,
         in_macro: None,
         via: Via::Path,
+        holder: Holder::default(),
         out: Scan::default(),
     };
     walker.visit_file(&file);
@@ -201,6 +198,8 @@ struct Walker<'a> {
     in_macro: Option<String>,
     /// What the next reference is: set by the `use` handling, `Path` otherwise.
     via: Via,
+    /// What the walk is inside: it decides which members are definitions.
+    holder: Holder,
     out: Scan,
 }
 
@@ -307,17 +306,28 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         if let Some(name) = item_name(item) {
             self.bind(name);
         }
+        self.define(item);
+        let outer = match item {
+            Item::Impl(item) if self.blocks == 0 => Some(self.enter_impl(item)),
+            Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
+            _ => None,
+        };
         visit::visit_item(self, item);
+        if let Some(holder) = outer {
+            self.holder = holder;
+        }
     }
 
     fn visit_impl_item(&mut self, item: &'ast syn::ImplItem) {
         if !(self.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
+            self.define_impl_item(item);
             visit::visit_impl_item(self, item);
         }
     }
 
     fn visit_trait_item(&mut self, item: &'ast syn::TraitItem) {
         if !(self.exclude_tests && is_test_attributes(trait_item_attributes(item))) {
+            self.define_trait_item(item);
             visit::visit_trait_item(self, item);
         }
     }
@@ -426,6 +436,10 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
+
+/// The read of the items that a file defines: names, forms and visibility.
+#[path = "scan_definitions.rs"]
+mod define;
 
 /// The read of a `use` item: its leaves, the names that they bind and the globs.
 #[path = "scan_use.rs"]

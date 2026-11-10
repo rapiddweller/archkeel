@@ -881,6 +881,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         EntityKind.FUNCTION,
         EntityKind.TYPE_ALIAS,
         EntityKind.CONSTANT,
+        EntityKind.MACRO,
     )
     sections: tuple[
         tuple[SourceSectionName, tuple[EntityKind, ...], tuple[RelationshipKind, ...]], ...

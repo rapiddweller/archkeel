@@ -1059,7 +1059,7 @@ def evaluate_source(
             raise ProtocolError("source sections or resolution features are not registered")
         if features == script_globals:
             profile = replace(profile, dependency_symbols=True)
-    elif declared_sections != required:
+    elif declared_sections - profile.optional_sections != required:
         raise ProtocolError("source sections do not match the registered profile")
     uncollected_failures: list[RawRecord] = []
     if is_python:

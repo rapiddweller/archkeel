@@ -5,7 +5,7 @@
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
 use archkeel_facts::reply::{Evidence, Provenance};
-use archkeel_facts::{GapFact, ImportFact, Record};
+use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
@@ -15,7 +15,7 @@ use crate::tree::Walked;
 use archkeel_snapshot::Snapshot;
 
 pub const PROFILE: &str = "archkeel-rust-imports";
-const SECTIONS: [&str; 2] = ["imports", "unknowns"];
+const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 
 /// The facts of one request, as the typed records of `archkeel-facts` (AD-345) and the small lists.
@@ -23,6 +23,7 @@ const FEATURES: [&str; 1] = ["rust-crate-edges"];
 pub struct Collected {
     pub head: Head,
     pub imports: Vec<Record<ImportFact>>,
+    pub symbols: Vec<Record<SymbolFact>>,
     pub gaps: Vec<Record<GapFact>>,
     pub selected_files: Vec<String>,
     pub files_read: usize,
@@ -35,6 +36,7 @@ impl Collected {
         let Self {
             head,
             imports,
+            symbols,
             gaps,
             selected_files,
             files_read,
@@ -43,6 +45,7 @@ impl Collected {
         let mut bytes = Vec::new();
         encode_stream(version, head, &mut bytes, |writer| {
             writer.write_typed_section("imports", |emit| imports.iter().for_each(emit))?;
+            writer.write_typed_section("symbols", |emit| symbols.iter().for_each(emit))?;
             writer.write_typed_section("unknowns", |emit| gaps.iter().for_each(emit))?;
             Ok(Tail {
                 selected_files,
@@ -69,6 +72,8 @@ impl Builder {
         files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
         let mut imports = self.imports;
         imports.sort_by(|a, b| a.id.cmp(&b.id));
+        let mut symbols = self.symbols;
+        symbols.sort_by(|a, b| a.id.cmp(&b.id));
         let head = Head {
             provenance,
             git_head: request.git_head.clone(),
@@ -84,6 +89,7 @@ impl Builder {
         Collected {
             head,
             imports,
+            symbols,
             gaps: self.gaps.into_values().collect(),
             selected_files: selected,
             files_read: walked.modules.len() + self.manifests.len(),

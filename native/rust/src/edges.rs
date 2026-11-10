@@ -29,6 +29,7 @@ impl Builder {
         let cited = Evidence::at(&module.rel, line, line, column, first);
         self.file((&module.rel, &module.module), module.blank, cited);
         self.edges(workspace, index, module);
+        self.symbols(module);
         for concern in &module.scan.concerns {
             let evidence = self.cite(&module.rel, &concern.site);
             self.gap(&concern.reason, Some(&evidence), &module.module);
