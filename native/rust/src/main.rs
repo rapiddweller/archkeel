@@ -19,6 +19,7 @@ mod paths;
 mod resolve;
 mod scan;
 mod source;
+mod test_scope;
 mod tokens;
 mod toml;
 mod tree;

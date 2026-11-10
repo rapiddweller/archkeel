@@ -93,3 +93,21 @@ fn a_path_attribute_needs_a_string_literal() {
         Err("A path attribute is not a string literal".to_owned())
     );
 }
+
+fn is_test(text: &str) -> bool {
+    is_test_attributes(&attrs(text))
+}
+
+#[test]
+fn only_a_build_that_needs_test_is_test_scope() {
+    assert!(is_test("#[cfg(test)]"));
+    assert!(is_test("#[test]"));
+    assert!(is_test("#[cfg(all(test, feature = \"dump\"))]"));
+    assert!(is_test("#[cfg(all(unix, all(test, windows)))]"));
+    assert!(!is_test("#[cfg(any(test, unix))]"));
+    assert!(!is_test("#[cfg(not(test))]"));
+    assert!(!is_test("#[cfg_attr(test, derive(Debug))]"));
+    assert!(!is_test("#[cfg(feature = \"test\")]"));
+    assert!(!is_test("#[tokio::test]"));
+    assert!(!is_test("#[allow(dead_code)]"));
+}

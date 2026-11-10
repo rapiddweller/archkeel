@@ -127,7 +127,7 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.RUST: "Rust",
 }
 # Dart has no test-source classification, so a Dart scan keeps every file.
-_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
+_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT, Language.RUST})
 
 
 def observation_diagnostics(

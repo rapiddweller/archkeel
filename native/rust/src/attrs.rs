@@ -12,7 +12,7 @@
 
 use std::collections::BTreeSet;
 
-use syn::{Attribute, Expr, ExprLit, Lit, Meta};
+use syn::{Attribute, Expr, ExprLit, Item, Lit, Meta};
 
 use crate::tokens::{first_name, split_commas};
 
@@ -138,6 +138,57 @@ fn top_level_parts(text: &str) -> Vec<&str> {
         parts.push(last);
     }
     parts
+}
+
+/// Whether rustc builds the item only in a test build: `#[test]`, `#[cfg(test)]` and
+/// `#[cfg(all(test, ..))]`. `any(test, x)`, `not(test)` and `cfg_attr(test, ..)` do not count:
+/// production code can still build them, so the scan keeps their edges.
+pub fn is_test_attributes(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| match &attr.meta {
+        Meta::Path(path) => path.is_ident("test"),
+        Meta::List(list) if attr.path().is_ident("cfg") => {
+            let compact: String = list.tokens.to_string().split_whitespace().collect();
+            needs_test(&compact, 0)
+        }
+        _ => false,
+    })
+}
+
+fn needs_test(condition: &str, depth: usize) -> bool {
+    if depth > MAX_CFG_DEPTH {
+        return false;
+    }
+    condition == "test"
+        || condition
+            .strip_prefix("all(")
+            .and_then(|rest| rest.strip_suffix(')'))
+            .is_some_and(|inside| {
+                top_level_parts(inside)
+                    .iter()
+                    .any(|part| needs_test(part, depth + 1))
+            })
+}
+
+/// The attributes of an item, whatever its kind.
+pub fn item_attributes(item: &Item) -> &[Attribute] {
+    match item {
+        Item::Const(item) => &item.attrs,
+        Item::Enum(item) => &item.attrs,
+        Item::ExternCrate(item) => &item.attrs,
+        Item::Fn(item) => &item.attrs,
+        Item::ForeignMod(item) => &item.attrs,
+        Item::Impl(item) => &item.attrs,
+        Item::Macro(item) => &item.attrs,
+        Item::Mod(item) => &item.attrs,
+        Item::Static(item) => &item.attrs,
+        Item::Struct(item) => &item.attrs,
+        Item::Trait(item) => &item.attrs,
+        Item::TraitAlias(item) => &item.attrs,
+        Item::Type(item) => &item.attrs,
+        Item::Union(item) => &item.attrs,
+        Item::Use(item) => &item.attrs,
+        _ => &[],
+    }
 }
 
 /// The literal of `#[path = "x.rs"]`; `Err` when the attribute has no string literal.

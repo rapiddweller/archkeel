@@ -14,7 +14,7 @@ use proc_macro2::Span;
 use syn::visit::{self, Visit};
 use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro, UseTree};
 
-use crate::attrs::{hidden_by, path_literal};
+use crate::attrs::{hidden_by, is_test_attributes, item_attributes, path_literal};
 use crate::net;
 use crate::tokens::{chains, plain, Chain};
 
@@ -88,6 +88,8 @@ pub struct Child {
     pub path: Option<String>,
     /// The names of the inline modules that enclose the declaration.
     pub inline: Vec<String>,
+    /// A `cfg(test)` on the declaration, or on an item that holds it, marks a test module.
+    pub test: bool,
     pub site: Site,
 }
 
@@ -107,8 +109,9 @@ pub struct Scan {
     pub mentioned: BTreeSet<String>,
 }
 
-/// Scan one file. A syntax error is `Err` with its line.
-pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
+/// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
+/// a test build compiles gives no fact, except the `mod x;` files below it, which are test scope.
+pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Result<Scan, String> {
     let file = syn::parse_file(text).map_err(|error| {
         format!(
             "unparseable construct at line {}",
@@ -118,6 +121,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
     let mut walker = Walker {
         lines: text.split('\n').collect(),
         features,
+        exclude_tests,
         inline: Vec::new(),
         absolute_use: false,
         out: Scan::default(),
@@ -129,6 +133,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>) -> Result<Scan, String> {
 struct Walker<'a> {
     lines: Vec<&'a str>,
     features: &'a BTreeSet<String>,
+    exclude_tests: bool,
     inline: Vec<String>,
     /// The `use` item that the walk is in starts with `::`.
     absolute_use: bool,
@@ -347,6 +352,18 @@ fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
 
 impl<'ast> Visit<'ast> for Walker<'_> {
     fn visit_item(&mut self, item: &'ast Item) {
+        if self.exclude_tests && is_test_attributes(item_attributes(item)) {
+            // Keep only the files of `mod x;` below: the tree must claim them as test scope.
+            let kept = std::mem::take(&mut self.out);
+            visit::visit_item(self, item);
+            let found = std::mem::replace(&mut self.out, kept).children;
+            let tests = found.into_iter().map(|child| Child {
+                test: true,
+                ..child
+            });
+            self.out.children.extend(tests);
+            return;
+        }
         if let Some(name) = item_name(item) {
             self.bind(name);
         }
@@ -419,6 +436,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
                         name,
                         path,
                         inline,
+                        test: is_test_attributes(&node.attrs),
                         site,
                     });
                 }
