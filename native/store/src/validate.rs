@@ -13,6 +13,7 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{Facts, Profile, Role};
+use archkeel_facts::identity::inside;
 
 /// The resolution features of the profiles whose records the store checks completely.
 const TYPESCRIPT_FEATURES: [&str; 8] = [
@@ -46,14 +47,6 @@ pub(crate) fn unique<'a, I: IntoIterator<Item = &'a str>>(
         return Err(format!("empty {label}"));
     }
     Ok(seen)
-}
-
-/// `_relative` of the Python decoder: a path inside the snapshot.
-pub(crate) fn inside(path: &str) -> bool {
-    !(path.starts_with('/')
-        || path.split('/').any(|part| part == "..")
-        || path.contains('\\')
-        || path.contains(':'))
 }
 
 fn relative(path: &str, label: &str) -> Result<(), String> {
@@ -284,4 +277,4 @@ fn capability_checks(facts: &Facts, names: &[&str]) -> Result<(), String> {
 
 #[cfg(test)]
 #[path = "validate_tests.rs"]
-mod tests;
+pub(crate) mod tests;

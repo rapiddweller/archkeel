@@ -193,6 +193,10 @@ impl FactData for GapFact {
         }
     }
 
+    fn fields(&self) -> crate::fields::Fields<'_> {
+        crate::fields::Project::fields(self.data())
+    }
+
     fn serialize_data<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.data().serialize(serializer)
     }
