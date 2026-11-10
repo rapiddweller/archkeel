@@ -11,10 +11,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::data::ImportData;
+use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{GapFact, ImportFact, Record};
-use archkeel_wire::identity::{package_of, stable_id, Part};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::{Evidence, FileFact, Provenance, Target};
 use archkeel_wire::request::Request;
@@ -180,12 +180,8 @@ fn list(
 
 impl Builder {
     fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
-        let mut parts = vec![Part::Text(reason)];
-        parts.extend(evidence.map(Part::Text));
-        parts.push(Part::Text(module));
-        let id = stable_id("UNKNOWN", &parts);
         let fact = GapFact::collection(reason, module);
-        let record = Record::unknown(FactId::new(id.clone()), reason, evidence, module, fact);
+        let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
     }
 

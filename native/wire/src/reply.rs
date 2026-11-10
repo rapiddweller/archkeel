@@ -6,7 +6,7 @@
 
 use serde_json::{json, Map, Value};
 
-use crate::identity::sha256_hex;
+use archkeel_facts::identity::sha256_hex;
 
 /// The role of a digested input: a selected source file or a file that only decides resolution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,7 +56,7 @@ impl Evidence {
     /// The evidence of one source location, with the text of its first line.
     pub fn at(file: &str, line: i64, end_line: i64, column: i64, excerpt: &str) -> Self {
         Self {
-            id: crate::identity::evidence_id(file, line, end_line, column),
+            id: archkeel_facts::identity::evidence_id(file, line, end_line, column),
             file: file.to_owned(),
             line,
             end_line,
