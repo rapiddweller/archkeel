@@ -142,11 +142,17 @@ def store_response(
     """Open a store session for `reply` and return its read-set facts (`ProcessCollector`)."""
     try:
         inflate = max(len(reply), limits.output_limit_bytes) * _INFLATE_FACTOR
+        close_store()  # One store process at a time: the previous one ends before this one starts.
         session = StoreSession(limits.binary, inflate, limits.memory_limit_bytes)
-        open_store(session)
-        response = session.ingest(reply)
+        opened = False
+        try:
+            response = session.ingest(reply)
+            open_store(session, response.facts)
+            opened = True
+        finally:
+            if not opened:
+                session.close()
     except (_StoreError, OSError, ValueError) as error:
-        close_store()
         raise ProtocolError(str(error)) from error
     check_reply(
         response,

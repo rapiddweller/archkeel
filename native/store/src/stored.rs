@@ -131,13 +131,17 @@ impl Store {
             .targets
             .get(id)
             .map(|index| &self.reply.facts.imports[*index]);
-        let typescript = self.reply.facts.profile == Profile::TypeScript;
+        // `evaluate_source` names external and builtin targets for TypeScript and Rust.
+        let named = matches!(
+            self.reply.facts.profile,
+            Profile::TypeScript | Profile::Rust
+        );
         match target {
             Some(Target::Unresolved { .. }) => Projection::Unresolved,
-            Some(Target::External { package, .. }) if typescript => {
+            Some(Target::External { package, .. }) if named => {
                 Projection::External(package.as_str().to_owned())
             }
-            Some(Target::Builtin { .. }) if typescript => Projection::Builtin,
+            Some(Target::Builtin { .. }) if named => Projection::Builtin,
             _ => Projection::Strip,
         }
     }

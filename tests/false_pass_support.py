@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -31,6 +32,8 @@ OUTSIDE = "../outside/ghost.ts"
 GHOST = "src/not_in_the_snapshot.ts"
 # A compressed reply starts with the zlib header byte; plain JSON never does.
 ZLIB_HEADER = b"x"
+# The environment variable that names the Rust collector binary for the `rust` probes.
+RUST_COLLECTOR = "ARCHKEEL_PROBE_RUST_COLLECTOR"
 
 
 def _section(reply: Reply, name: str) -> list[dict[str, Any]]:
@@ -110,7 +113,15 @@ def _reply(language: str) -> tuple[Reply, bool]:
     from archkeel.ir.facts_codec import decode_request, encode_response
     from archkeel.ir.protocol import CollectionResponse
 
-    request = decode_request(sys.stdin.buffer.read())
+    payload = sys.stdin.buffer.read()
+    if language == "rust":
+        # The Rust collector is a binary: the test names its path (`RUST_COLLECTOR`).
+        answer = subprocess.run(
+            [os.environ[RUST_COLLECTOR]], input=payload, capture_output=True, check=True
+        ).stdout
+        compressed = answer[:1] == ZLIB_HEADER
+        return json.loads(zlib.decompress(answer) if compressed else answer), compressed
+    request = decode_request(payload)
     if language == "typescript":
         from archkeel.analyzer.typescript.collect import collect
     else:
@@ -216,6 +227,13 @@ TYPESCRIPT = {
     # The profile of TypeScript never produces `typing_signals` (`absent_sections`).
     "unsupported-claim:typing_signals": "",
 }
+RUST = {
+    **COMMON,
+    # A trusted producer that drops every import gives PASS on both decode paths (AD-346).
+    "empty-section": "a pinned Rust reply with no imports: closed by protocol 10 for the wire",
+    # The profile of Rust never produces `typing_signals` (`absent_sections`).
+    "unsupported-claim:typing_signals": "",
+}
 PYTHON = {
     **COMMON,
     "empty-section": "",
@@ -228,12 +246,19 @@ def passing(result: dict[str, Any]) -> list[str]:
     return sorted(rule for rule, status in result["rules"].items() if status == "PASS")
 
 
-def assert_not_pass(root: Path, language: str, tamper: str, argument: str = "") -> None:
+def assert_not_pass(
+    root: Path,
+    language: str,
+    tamper: str,
+    argument: str = "",
+    base_argv: tuple[str, ...] | None = None,
+) -> None:
     """The probe fails when the host gives a PASS to the changed reply.
 
     The unchanged reply of the real collector must give a PASS first, so the probe is never empty.
+    `base_argv` names that collector when it is not the bundled one; the base then pins it.
     """
-    base = verdict(root, language, None)
+    base = verdict(root, language, base_argv, pinned=base_argv is not None)
     assert base["complete"] == "PASS" and passing(base), "the unchanged scan must pass"
     # The honest probe is the external producer. Every other probe is a pinned producer.
     result = verdict(

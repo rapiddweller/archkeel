@@ -131,6 +131,7 @@
         "archkeel.ir.store_seam:StoreEntry",
         "archkeel.ir.store_seam:open_store",
         "archkeel.ir.store_seam:close_store",
+        "archkeel.ir.store_seam:keep_store_for",
         "archkeel.ir.store_seam:store_disabled",
         "archkeel.ir.store_seam:store_enabled",
         "archkeel.ir.source_records:RawData",
@@ -777,13 +778,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 434,
+          "line": 433,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 446,
+          "line": 445,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

@@ -23,8 +23,6 @@ from typing import Any
 
 import false_pass_support as support
 import pytest
-from conftest import build_native_copy
-from filelock import FileLock
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.check.report import run_report
@@ -38,23 +36,12 @@ from tools import python_printable
 
 ROOT = Path(__file__).parents[1]
 CASES = json.loads((ROOT / "tests/golden/typescript/cases.json").read_text(encoding="utf-8"))
-NAME = "archkeel-store.exe" if sys.platform == "win32" else "archkeel-store"
 # The rule families of the full false-PASS probes (`test_collector_false_pass_full.py`).
 FAMILIES = {
     "interfaces-and-exports": "typescript-module-interface",
     "layering": "typescript-layer-order-positive",
 }
 BY_ID = {variant.id: variant for variant in VARIANTS}
-
-
-@pytest.fixture(scope="session")
-def store_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The debug store binary; the workspace build of `build_native_copy` builds it too."""
-    build_native_copy(tmp_path_factory, "store-collector")
-    copy = tmp_path_factory.mktemp("store") / NAME
-    with FileLock(str(ROOT / "native/target/.pytest-native-build.lock")):
-        shutil.copy2(ROOT / "native/target/debug" / NAME, copy)
-    return copy
 
 
 @pytest.fixture(autouse=True)
