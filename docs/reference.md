@@ -96,7 +96,11 @@ fallback resolves missing inputs.
 Collectors run through a process port. Optional `collector_argv` supplies separate
 arguments without a shell; on Windows use an executable and script, not a `.cmd`
 shim. Every language defaults to its own collector inside this package, so TypeScript
-needs no Node runtime. Runtime mismatch, malformed replies and incomplete evidence
+needs no Node runtime. A scan with `collector_argv` gives at most UNKNOWN, because an
+external collector cannot prove a rule ([AD-344](architecture/decisions/ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md)).
+The result has an `incomplete_scan` diagnostic that names the producer (`external`) and
+the remedy. Use the collector of this package. A configured collector cannot be pinned in
+`archkeel.toml` yet. Runtime mismatch, malformed replies and incomplete evidence
 cannot certify a scan. Legacy observations remain readable only under supported
 schemas; missing required sections fail closed.
 
