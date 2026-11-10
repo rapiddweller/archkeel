@@ -6,7 +6,9 @@
       "id": "TARGET-PROCESS",
       "label": "process",
       "role": "component",
-      "packages": [],
+      "packages": [
+        "archkeel.analyzer.store"
+      ],
       "responsibilities": [
         "Bound collector execution, check the file digest of a pinned collector, validate protocol responses, clean up child processes, validate native PID ranges and check liveness without signaling Windows PIDs."
       ],

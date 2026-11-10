@@ -9,8 +9,51 @@
 //! it; validation-only and codec-only reads do not count. The producers agree on each shared area
 //! and kind. A kind that no WP1 reply showed has no list: the read-set then writes the fields
 //! that are marked `[read]` in the data type. Each list is sorted for `binary_search`.
+//!
+//! AD-346: the end-to-end path of the store found reads that no WP1 demo traced. The rules read
+//! the imports section as one list (`check/evaluation/rules.py`, `symbols_known` for
+//! `interface_boundary`), so each TypeScript import kind has the union of the import fields. A
+//! TypeScript method keeps `async`, the UML modifier (`ir/source_graph.py:_symbol`).
 
 use crate::vocab::{Area, Kind};
+
+/// The read fields of each TypeScript import kind. The rules read the imports section as one list.
+const TYPESCRIPT_IMPORT: &[&str] = &[
+    "binding",
+    "module_level_import",
+    "reexport",
+    "reexport_chain",
+    "relative_level",
+    "source_module",
+    "source_package",
+    "symbol",
+    "symbols_known",
+    "target_module",
+    "target_package",
+    "under_type_checking",
+];
+
+/// The read fields of a TypeScript call. The rules and views read no candidate count and no reason
+/// (AD-346: the end-to-end corpus of the store gives equal bytes and verdicts without them).
+const TYPESCRIPT_CALLS: &[&str] = &[
+    "construction",
+    "expression",
+    "result_bindings",
+    "source_definition_id",
+    "source_module",
+    "source_scope",
+    "status",
+    "targets",
+];
+
+/// The read fields of a TypeScript reference; the UML relationships read `source_definition_id`.
+const TYPESCRIPT_REFERENCES: &[&str] = &[
+    "expression",
+    "source_definition_id",
+    "source_scope",
+    "status",
+    "targets",
+];
 
 /// The read data fields of the records of `area` and `kind`, or `None` when WP1 has no list.
 #[expect(
@@ -271,6 +314,17 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
         (Area::RepositoryTopology, Kind::UnusedParameter) => {
             &["binding", "module", "name", "owner"]
         }
+        (
+            Area::Source,
+            Kind::DynamicImport
+            | Kind::Import
+            | Kind::ImportEquals
+            | Kind::ImportType
+            | Kind::Reexport
+            | Kind::Require
+            | Kind::ScriptGlobal
+            | Kind::MacroBody,
+        ) => TYPESCRIPT_IMPORT,
         (Area::Source, Kind::Alias) => &[],
         (Area::Source, Kind::Binding) => &[
             "annotation",
@@ -298,19 +352,7 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "status",
             "targets",
         ],
-        (Area::Source, Kind::Calls) => &[
-            "candidate_count",
-            "candidates_truncated",
-            "construction",
-            "expression",
-            "reason",
-            "result_bindings",
-            "source_definition_id",
-            "source_module",
-            "source_scope",
-            "status",
-            "targets",
-        ],
+        (Area::Source, Kind::Calls) => TYPESCRIPT_CALLS,
         (Area::Source, Kind::Class) => &[
             "attribute_declarations",
             "base_declarations",
@@ -337,16 +379,6 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "symbol_category",
             "visibility_detail",
         ],
-        (Area::Source, Kind::DynamicImport | Kind::MacroBody) => &[
-            "module_level_import",
-            "reexport",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-            "under_type_checking",
-        ],
         (Area::Source, Kind::Function) => &[
             "annotation",
             "async",
@@ -362,40 +394,9 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "symbol_category",
             "visibility_detail",
         ],
-        (Area::Source, Kind::Import) => &[
-            "binding",
-            "module_level_import",
-            "reexport",
-            "reexport_chain",
-            "relative_level",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-            "under_type_checking",
-        ],
-        (Area::Source, Kind::ImportEquals) => &[
-            "module_level_import",
-            "reexport",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-        ],
-        (Area::Source, Kind::ImportType) => &[
-            "module_level_import",
-            "reexport",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-            "under_type_checking",
-        ],
         (Area::Source, Kind::Method) => &[
             "annotation",
+            "async",
             "lexical_parent_id",
             "method_kind",
             "module",
@@ -408,18 +409,6 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "symbol_category",
             "visibility_detail",
         ],
-        (Area::Source, Kind::Reexport) => &[
-            "binding",
-            "module_level_import",
-            "reexport",
-            "relative_level",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-            "under_type_checking",
-        ],
         (Area::Source, Kind::Reference) => &[
             "candidate_count",
             "candidates_truncated",
@@ -430,35 +419,7 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "status",
             "targets",
         ],
-        (Area::Source, Kind::References) => &[
-            "candidate_count",
-            "candidates_truncated",
-            "expression",
-            "reason",
-            "source_definition_id",
-            "source_scope",
-            "status",
-            "targets",
-        ],
-        (Area::Source, Kind::Require) => &[
-            "module_level_import",
-            "reexport",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-            "under_type_checking",
-        ],
-        (Area::Source, Kind::ScriptGlobal) => &[
-            "module_level_import",
-            "reexport",
-            "source_module",
-            "source_package",
-            "symbol",
-            "target_module",
-            "target_package",
-        ],
+        (Area::Source, Kind::References) => TYPESCRIPT_REFERENCES,
         (Area::Source, Kind::ScriptNamespaceEffect) => {
             &["expression", "source_scope", "status", "targets"]
         }

@@ -1,6 +1,7 @@
 {
   "archkeel-build-support": 1,
-  "archkeel-facts": 566,
+  "archkeel-facts": 686,
   "archkeel-snapshot": 24,
-  "archkeel-wire": 119
+  "archkeel-store": 2,
+  "archkeel-wire": 113
 }

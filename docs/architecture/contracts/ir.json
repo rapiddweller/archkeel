@@ -15,7 +15,8 @@
         "archkeel.ir.identity",
         "archkeel.ir.identity_memo",
         "archkeel.ir.source_records",
-        "archkeel.ir.import_gaps"
+        "archkeel.ir.import_gaps",
+        "archkeel.ir.store_seam"
       ],
       "responsibilities": [
         "Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies."
@@ -38,7 +39,9 @@
         "archkeel.ir.import_gaps",
         "archkeel.ir.identity_memo",
         "archkeel.ir.identity:module_identity",
-        "archkeel.ir.facts:ReservedString"
+        "archkeel.ir.facts:ReservedString",
+        "archkeel.ir.store_seam:StoreSeam",
+        "archkeel.ir.store_seam:active_store"
       ]
     },
     {
@@ -85,7 +88,8 @@
         "archkeel.ir.validated_facts",
         "archkeel.ir.source_proofs",
         "archkeel.ir.state_codec",
-        "archkeel.ir.codec_strings"
+        "archkeel.ir.codec_strings",
+        "archkeel.ir.readset_codec"
       ],
       "responsibilities": [
         "Strictly decode, validate and encode source facts and process envelopes.",
@@ -374,7 +378,8 @@
         "archkeel.ir.command_view",
         "archkeel.ir.graph_codec",
         "archkeel.ir.target_records",
-        "archkeel.ir.amendment_codec"
+        "archkeel.ir.amendment_codec",
+        "archkeel.ir.codec_store"
       ],
       "requires": [
         {

@@ -133,9 +133,14 @@ impl Collection<'_> {
         let identity = stable_id("IMP", &parts);
         let target = self.target(rel, module, reference, &identity, format);
         let (target_module, target_package) = match &target {
-            Target::Local { module, .. } => (module.clone(), package_of(module).to_owned()),
+            Target::Local { module, .. } => {
+                let module = module.as_str();
+                (module.to_owned(), package_of(module).to_owned())
+            }
             Target::Builtin { name, .. } => (name.clone(), name.clone()),
-            Target::External { package, .. } => (package.clone(), package.clone()),
+            Target::External { package, .. } => {
+                (package.as_str().to_owned(), package.as_str().to_owned())
+            }
             Target::Unresolved { specifier, .. } => (specifier.clone(), specifier.clone()),
         };
         let mut subjects: Vec<String> = [module, &target_module]
@@ -184,7 +189,7 @@ impl Collection<'_> {
     ) -> Target {
         self.gap(reason, None, module, GapKind::Resolution);
         Target::Unresolved {
-            import_id: identity.to_owned(),
+            import_id: FactId::new(identity),
             specifier: specifier.to_owned(),
             reason: reason.to_owned(),
         }
@@ -200,7 +205,7 @@ impl Collection<'_> {
     ) -> Target {
         let specifier = reference.specifier.as_deref().unwrap_or("");
         let source = classify_specifier(specifier);
-        let import_id = identity.to_owned();
+        let import_id = FactId::new(identity);
         if !reference.type_only && source.kind == SpecifierKind::Node && source.builtin() {
             return Target::Builtin {
                 import_id,
@@ -237,7 +242,7 @@ impl Collection<'_> {
                     // The bundler picks the file inside the package; the package is the dependency.
                     return Target::External {
                         import_id,
-                        package: source.package,
+                        package: PackageName::new(source.package),
                     };
                 }
                 self.unresolved(module, identity, specifier, &unknown.reason)
@@ -267,10 +272,10 @@ impl Collection<'_> {
     fn bundler_asset(&mut self, rel: &str, identity: &str, specifier: &str) -> Option<Target> {
         let path = classify_asset(specifier)?;
         let source = classify_specifier(specifier);
-        let import_id = identity.to_owned();
+        let import_id = FactId::new(identity);
         let asset = || Target::External {
-            import_id: identity.to_owned(),
-            package: BUNDLER_ASSET.to_owned(),
+            import_id: FactId::new(identity),
+            package: PackageName::new(BUNDLER_ASSET),
         };
         if source.relative_path() && self.resolver.file_exists(&mut self.snapshot, rel, path) {
             return Some(asset());
@@ -285,7 +290,7 @@ impl Collection<'_> {
         {
             return Some(Target::External {
                 import_id,
-                package: source.package,
+                package: PackageName::new(source.package),
             });
         }
         None
@@ -323,7 +328,7 @@ impl Collection<'_> {
             return self.unresolved(module, identity, specifier, &reason);
         }
         Target::Unresolved {
-            import_id: identity.to_owned(),
+            import_id: FactId::new(identity),
             specifier: specifier.to_owned(),
             reason: format!("Excluded test source: {path}"),
         }
@@ -368,28 +373,28 @@ impl Collection<'_> {
             } else if source.relative() {
                 format!("Unidentified external package: {specifier}")
             } else {
-                let import_id = identity.to_owned();
+                let import_id = FactId::new(identity);
                 return Target::External {
                     import_id,
-                    package: source.package,
+                    package: PackageName::new(source.package),
                 };
             };
             return self.unresolved(module, identity, specifier, &reason);
         }
         let in_source = suffix.is_some_and(|suffix| suffix.source_kind().is_some());
         if self.bundler && !(self.selected(&path) && in_source) {
-            let import_id = identity.to_owned();
+            let import_id = FactId::new(identity);
             if classify_asset(&path).is_some() {
                 return Target::External {
                     import_id,
-                    package: BUNDLER_ASSET.to_owned(),
+                    package: PackageName::new(BUNDLER_ASSET),
                 };
             }
             if found.via_paths && !source.relative() && source.npm_package() {
                 // A workspace alias outside the scan roots is a dependency on that package.
                 return Target::External {
                     import_id,
-                    package: source.package,
+                    package: PackageName::new(source.package),
                 };
             }
         }
@@ -453,11 +458,11 @@ impl Collection<'_> {
             (Some(runtime), false) => runtime.clone(),
             _ => path,
         };
-        let import_id = identity.to_owned();
+        let import_id = FactId::new(identity);
         match module_identity(self.namespace, &file) {
             Ok(target_module) => Target::Local {
                 import_id,
-                module: target_module,
+                module: ModuleName::new(target_module),
                 file,
                 runtime_file: runtime,
                 declaration_file: declaration,
