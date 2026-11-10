@@ -345,3 +345,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-349 | [The template of a macro is an edge of its calls and a kind of its own](ad-349-the-template-of-a-macro-is-an-edge-of-its-calls-and-a-kind-of-its-own.md) |
 | AD-348 | [A PR gets one class, and the lead dispatches Full](ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md) |
 | AD-350 | [The native self-check runs the bundled build of the tree](ad-350-the-native-self-check-runs-the-bundled-build-of-the-tree.md) |
+| AD-351 | [The Rust collector reports definitions and never invents one](ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md) |

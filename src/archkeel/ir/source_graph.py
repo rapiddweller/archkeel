@@ -26,9 +26,6 @@ from archkeel.ir.architecture_graph import (
     RelationshipKind,
     ResolutionKind,
     Signature,
-    Visibility,
-    VisibilityBasis,
-    VisibilityKind,
 )
 from archkeel.ir.coverage import observation_complete
 from archkeel.ir.facts import (
@@ -53,25 +50,19 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, UnmeasurableScalar, profile_for
-from archkeel.ir.source_values import optional_text, record_array, text_array, vocabulary_text
+from archkeel.ir.source_values import (
+    optional_text,
+    record_array,
+    text_array,
+    visibility_detail,
+    vocabulary_text,
+)
 
 _CLASSIFIER_RELATIONSHIPS = (
     RelationshipKind.INHERITS,
     RelationshipKind.REALIZES,
     RelationshipKind.MIXES_IN,
 )
-
-
-def _visibility(value: JsonValue, spelling: str | None = None) -> Visibility:
-    if value is None:
-        return Visibility(spelling=spelling)
-    if not isinstance(value, RecordData):
-        raise ValueError("source graph expected visibility record")
-    return Visibility(
-        VisibilityKind(vocabulary_text(value.get("kind"), default=VisibilityKind.UNKNOWN)),
-        VisibilityBasis(vocabulary_text(value.get("basis"), default=VisibilityBasis.UNKNOWN)),
-        optional_text(value.get("spelling")),
-    )
 
 
 def _signature(data: RecordData) -> Signature:
@@ -159,7 +150,9 @@ def _symbol(record: Record, language: str) -> Entity:
         kind,
         optional_text(data.get("qualified_name")) or "",
         language,
-        visibility=_visibility(data.get("visibility_detail"), optional_text(data.get("name"))),
+        visibility=visibility_detail(
+            data.get("visibility_detail"), optional_text(data.get("name"))
+        ),
         signature=(
             _signature(data)
             if kind in {EntityKind.METHOD, EntityKind.FUNCTION}
@@ -192,7 +185,7 @@ def _attribute_entities(item: Record, entity: Entity, language: str) -> list[Ent
                 f"{entity.qualified_name}.{name}",
                 language,
                 parent_id=item.id,
-                visibility=_visibility(field.get("visibility")),
+                visibility=visibility_detail(field.get("visibility")),
                 annotation=optional_text(field.get("annotation")),
                 modifiers=(ModifierKind.STATIC,) if static is True and name not in literals else (),
                 presence=PresenceKind.DEFINED,
@@ -881,6 +874,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
         EntityKind.FUNCTION,
         EntityKind.TYPE_ALIAS,
         EntityKind.CONSTANT,
+        EntityKind.MACRO,
     )
     sections: tuple[
         tuple[SourceSectionName, tuple[EntityKind, ...], tuple[RelationshipKind, ...]], ...

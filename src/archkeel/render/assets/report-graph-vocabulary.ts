@@ -38,6 +38,7 @@ namespace ArchkeelGraphProtocol {
     ATTRIBUTE = "attribute",
     TYPE_ALIAS = "type_alias",
     CONSTANT = "constant",
+    MACRO = "macro",
     BINDING = "binding",
     SYMBOL = "symbol",
   }

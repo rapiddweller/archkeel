@@ -248,8 +248,9 @@ type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
 segment names another crate, and the module edges inside a crate: a path that starts at `crate`,
 `self`, `super`, a child `mod`, a `use` binding or a glob `use` and names another module. A path
-into another crate of the workspace names its deepest module. `interface_boundary`, symbols,
-calls, types and constructs are unsupported, so they stay UNKNOWN and never PASS. A name that a
+into another crate of the workspace names its deepest module. The collector also reads the
+definitions of each module (symbols, AD-351). `interface_boundary`, calls, types and constructs
+are unsupported, so they stay UNKNOWN and never PASS. A name that a
 file declares more than once and that may name a module, a glob that the scan cannot follow, a
 `use` path that starts with a name that a glob may bring in, a `super` above the crate root, two
 `macro_rules!` of one name and a path in a `macro_rules!` body that is relative to the place of the
@@ -280,6 +281,15 @@ reports `missing_tool`
 
 ### Rust: what the collector does not prove
 
+- **Definitions** ([AD-351](architecture/decisions/ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).
+  An item that a macro call generates is not listed, and nothing is invented for it. A method of an
+  `impl` block is listed only when its type is a definition of the same module, so `impl Builder`
+  in another module than `Builder`, an `impl` of a foreign type and an `impl` of a type that a macro
+  generates give no method. A gap would make the whole scan incomplete, so the report says
+  `partial` for the symbols of each module and for the methods of each type. A field, an
+  associated type and the visibility of a `mod` are not read. A definition under a `cfg` that the
+  scan does not know is read (the union of the cases). `interface_boundary` stays unsupported until
+  the uses of an item are resolved (slice 5b-4b).
 - **`extern crate` without a manifest entry.** `extern crate base_crate;` with no entry in
   `Cargo.toml` gives no edge. It compiles only when a `build.rs` prints
   `cargo:rustc-link-search=crate=...`. Such a link is not read.

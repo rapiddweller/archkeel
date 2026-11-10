@@ -664,10 +664,13 @@
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
         "native.archkeel_rust_collector.scan.macros",
-        "native.archkeel_rust_collector.scan.use_items"
+        "native.archkeel_rust_collector.scan.use_items",
+        "native.archkeel_rust_collector.definitions",
+        "native.archkeel_rust_collector.site",
+        "native.archkeel_rust_collector.scan.define"
       ],
       "responsibilities": [
-        "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, use paths and macros."
+        "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, definitions, use paths and macros."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving a path and building facts."
@@ -784,10 +787,11 @@
       "packages": [
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.module_edges",
-        "native.archkeel_rust_collector.declared"
+        "native.archkeel_rust_collector.declared",
+        "native.archkeel_rust_collector.symbols"
       ],
       "responsibilities": [
-        "Write the import edges between crates and modules, and the declared dependencies."
+        "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot and parsing source."
@@ -1125,7 +1129,8 @@
         "native.archkeel_rust_collector.scan.attributes",
         "native.archkeel_rust_collector.scan.macros",
         "native.archkeel_rust_collector.scan.use_items",
-        "native.archkeel_rust_collector.cargo_toml"
+        "native.archkeel_rust_collector.cargo_toml",
+        "native.archkeel_rust_collector.scan.define"
       ],
       "rationale": "Only the Rust collector parses Rust source with syn.",
       "provenance": [

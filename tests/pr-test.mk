@@ -291,6 +291,7 @@ PR_TEST_FILES := \
 	tests/test_collector_producer_trust.py \
 	tests/test_collection_conformance.py \
 	tests/test_schema_drift.py \
+	tests/test_schema_drift_profiles.py \
 	tests/test_runtime_delta.py \
 	tests/test_delta_version_types.py \
 	tests/test_comparison_support_types.py \

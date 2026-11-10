@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
+  "after_digest": "3af939d9d13a2b54199d8b588bff394927c5216cc94d218c3c8dd3edc9f3e2c9",
+  "before_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
+  "before_digest": "f5d01d6da44f8e3ebf339c3f8e2b2380f992283d99070f9ddf1e9c1c777cc699",
+  "decided_by": "lead (size fix of PR 973)",
+  "rationale": "AD-351 size fix. The validators of a declared contract path move from archkeel.ir.architecture_graph to the new archkeel.ir.contract_paths, so that the file stays within the size baseline. The new module joins exact_modules of the architecture owner in contracts/ir.json. No budget, rule, component, requires entry or Any permission changes.",
+  "schema_version": "2.0.0"
+}

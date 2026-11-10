@@ -321,3 +321,20 @@ def test_native_graph_parser_has_no_string_control_exception(tmp_path, probe):
         item for item in _contract()["rules"] if item["source"] == "archkeel.ir.graph_codec"
     )
     assert any(guard["id"] in row.rule_ids for row in trace_valid_violations(value))
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "1.1.0", "1.2.0", "1.3.0"])
+def test_the_macro_entity_kind_needs_graph_schema_1_3(version):
+    """AD-351: a released graph version has no kind macro, and the 4.0.1 host rejects it."""
+    from jsonschema import Draft202012Validator
+
+    entity = {
+        "id": "m",
+        "kind": "macro",
+        "qualified_name": "sample.m",
+        "language": "rust",
+        "presence": "defined",
+    }
+    raw = {"origin": "observed", "schema_version": version, "entities": [entity]}
+    accepted = Draft202012Validator(graph_schema()).is_valid(raw)
+    assert accepted is (version == "1.3.0")

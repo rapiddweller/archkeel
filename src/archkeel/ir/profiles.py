@@ -238,8 +238,16 @@ RUST: Final = Profile(
     project_import_closure=True,
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
     unmeasured=TYPESCRIPT.unmeasured,
-    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS}),
-    optional_sections=TYPESCRIPT.optional_sections,
+    # AD-351: the collector reads the definitions (symbols). It reads no reference, binding or call.
+    absent_sections=frozenset(
+        {
+            ObservedSection.TYPING_SIGNALS,
+            ObservedSection.REFERENCES,
+            ObservedSection.BINDINGS,
+            ObservedSection.CALLS,
+        }
+    ),
+    optional_sections=frozenset({ObservedSection.SYMBOLS}),
     additional_optional_section_groups=TYPESCRIPT.additional_optional_section_groups,
 )
 
