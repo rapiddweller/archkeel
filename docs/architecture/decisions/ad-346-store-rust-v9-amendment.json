@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "cc5a3ca80b63b1cc8797ae3cf2b0330e71e784bd052d0b6f9cf3b59386d09821",
-  "after_digest": "c04f2b65e95bddb14ed7be4653483db3b5951ef585bbbae90365cb0b4e2a46f9",
-  "before_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
-  "before_digest": "75d3f9f369ef18a5d3a5d6e709c3ab2f750ec010a1b220dc767e77cacbe4e48d",
+  "after_baseline_digest": "1ac5d82d9ffe367e0921353a2e972760301366f937823adfb32e570cd52ae357",
+  "after_digest": "fc054be84caaa9c0403485e0e1bc10add196cffef450395a33f0f7188067e700",
+  "before_baseline_digest": "4278cc36d90a5b37d3813f4080d2c48e325668145ee77c34b16d504ad355de77",
+  "before_digest": "eaad466f4685947901ddcdc908e9a16b0a93da84ba529c323273ac23b5ec2845",
   "decided_by": "lead (epic #880, 4.4 entry: the store is the only path, PR 1)",
-  "rationale": "AD-346: the store also reads Rust replies and replies with test exclusion (protocol 9). ir publishes keep_store_for: an observation keeps the store only for the facts that the store decoded, so the second pass of explore keeps it and the Python path closes a stale one. calls_unresolved rises from 986 to 988: the weak reference to the facts is called (store_seam.py). The two allowed type ignores of process.is_process_alive move up one line.",
+  "rationale": "AD-346: the store also reads Rust replies and replies with test exclusion (protocol 9). ir publishes keep_store_for: an observation keeps the store only for the facts that the store decoded, so the second pass of explore keeps it and the Python path closes a stale one. calls_unresolved rises from 987 to 989: the weak reference to the facts is called (store_seam.py). The two allowed type ignores of process.is_process_alive move up one line.",
   "schema_version": "2.0.0"
 }
