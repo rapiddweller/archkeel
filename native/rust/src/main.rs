@@ -14,6 +14,7 @@ mod collect;
 mod crates;
 mod manifest;
 mod manifest_lines;
+mod modules;
 mod nesting;
 mod net;
 mod paths;

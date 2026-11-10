@@ -10,10 +10,12 @@ use serde_json::Value;
 use super::*;
 use archkeel_snapshot::test_tree::Tree;
 
-const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
+pub(super) const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
     [workspace.dependencies]\nbase = { path = \"base\", package = \"base-crate\" }\n";
-const BASE: &str = "[package]\nname = \"base-crate\"\n[dependencies]\nserde_json = \"1\"\n";
-const APP: &str = "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace = true }\n\
+pub(super) const BASE: &str =
+    "[package]\nname = \"base-crate\"\n[dependencies]\nserde_json = \"1\"\n";
+pub(super) const APP: &str =
+    "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace = true }\n\
     renamed = { package = \"other-crate\", version = \"1\" }\nserde_json = \"1\"\n\
     [features]\ndump = []\n";
 
@@ -21,7 +23,7 @@ fn facts(files: &[(&str, &str)]) -> Collected {
     run(files, false)
 }
 
-fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
+pub(super) fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
     let root = Tree::new(files);
     let request = Request {
         version: Version::V8,
@@ -56,7 +58,7 @@ fn workspace(app_source: &str) -> Collected {
 }
 
 /// The record of a dependency that a manifest declares: its path is `<section>: <name>`.
-fn is_declared(record: &Record<ImportFact>) -> bool {
+pub(super) fn is_declared(record: &Record<ImportFact>) -> bool {
     let specifier = record.data.data().specifier.clone().unwrap_or_default();
     specifier.contains("dependencies: ")
 }

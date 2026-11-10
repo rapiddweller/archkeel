@@ -209,42 +209,53 @@ def test_a_path_inside_an_attribute_is_an_edge(
     assert any("app imports base without requiring it" in claim for claim in _claims(result))
 
 
-def test_a_component_below_a_crate_root_is_unknown_never_pass(
+APP_MODULES = {
+    "crates/app/src/lib.rs": "mod a;\nmod b;\n",
+    "crates/app/src/a.rs": "use crate::b;\n",
+    "crates/app/src/b.rs": "pub fn f() {}\n",
+}
+
+
+def test_sibling_isolation_of_two_modules_fails_for_the_module_edge_between_them(
     tmp_path: Path, rust_binary: Path, capsys: Capsys
 ) -> None:
-    # `a` uses `b` inside one crate. The collector writes no edge inside a crate (slice 5b-2), so
-    # sibling_isolation of the two modules must not read "no edge" as "no import".
-    files = {"crates/app/src/lib.rs": "mod a;\nmod b;\n", "crates/app/src/a.rs": "use crate::b;\n"}
-    files["crates/app/src/b.rs"] = "pub fn f() {}\n"
-    parts = (
-        component("a", "app.a"),
-        component("b", "app.b"),
-    )
+    # `a` uses `b` inside one crate: the collector writes that edge (slice 5b-2c), so the rule is
+    # decided, and it fails.
+    parts = (component("a", "app.a"), component("b", "app.b"))
     isolation = rule("SIBLINGS", "sibling_isolation", members=["native.app.a", "native.app.b"])
-    result = _verdict(tmp_path, rust_binary, capsys, files, components=parts, rules=(isolation,))
+    result = _verdict(
+        tmp_path, rust_binary, capsys, APP_MODULES, components=parts, rules=(isolation,)
+    )
 
-    assert "PASS" not in statuses(result).values()
-    assert result["declared_rules"] == "UNKNOWN"
-    assert any("below a crate root is not supported" in claim for claim in _claims(result))
+    assert statuses(result)["SIBLINGS"] == "FAIL"
+    assert result["declared_rules"] == "FAIL"
 
 
-def test_a_rule_on_modules_below_a_crate_root_is_unknown(
+def test_a_forbidden_module_edge_fails_and_the_opposite_direction_passes(
     tmp_path: Path, rust_binary: Path, capsys: Capsys
 ) -> None:
-    forbidden = rule(
-        "NO-A-TO-B",
-        "forbidden_dependency",
-        source="native.app.a",
-        target="native.app.b",
-        include_type_checking=True,
-    )
-    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
-    result = _verdict(tmp_path, rust_binary, capsys, rules=(*CRATE_RULES, forbidden, cycles))
+    forbidden = [
+        rule("NO-A-TO-B", "forbidden_dependency", source="native.app.a", target="native.app.b"),
+        rule("NO-B-TO-A", "forbidden_dependency", source="native.app.b", target="native.app.a"),
+    ]
+    for item in forbidden:
+        item["include_type_checking"] = True
+    result = _verdict(tmp_path, rust_binary, capsys, APP_MODULES, rules=(*CRATE_RULES, *forbidden))
 
-    claims = _claims(result)
-    assert any("NO-A-TO-B: rule forbidden_dependency below a crate root" in c for c in claims)
-    assert any("MODULE-CYCLES: module cycles is not supported" in c for c in claims)
-    assert result["declared_rules"] == "UNKNOWN"
+    assert statuses(result)["NO-A-TO-B"] == "FAIL"
+    assert statuses(result)["NO-B-TO-A"] == "PASS"
+
+
+def test_a_module_cycle_fails_and_modules_without_one_pass(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    clean = _verdict(tmp_path / "clean", rust_binary, capsys, APP_MODULES, rules=(cycles,))
+    looped = {**APP_MODULES, "crates/app/src/b.rs": "use crate::a;\n"}
+    result = _verdict(tmp_path / "loop", rust_binary, capsys, looped, rules=(cycles,))
+
+    assert statuses(clean)["MODULE-CYCLES"] == "PASS"
+    assert statuses(result)["MODULE-CYCLES"] == "FAIL"
 
 
 def test_interface_boundary_is_unknown_because_every_local_target_is_a_crate_root(
@@ -375,21 +386,7 @@ def test_a_module_chain_deeper_than_the_limit_is_unknown(
     assert any("Modules nest deeper than 64 levels" in claim for claim in _claims(result))
 
 
-def test_sibling_isolation_over_modules_is_unknown_though_the_components_are_crates(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys
-) -> None:
-    # The components are whole crates, and the members are two modules of one crate.
-    files = {"crates/app/src/lib.rs": "mod a;\nmod b;\n", "crates/app/src/a.rs": "use crate::b;\n"}
-    files["crates/app/src/b.rs"] = "pub fn f() {}\n"
-    isolation = rule("SIBLINGS", "sibling_isolation", members=["native.app.a", "native.app.b"])
-    result = _verdict(tmp_path, rust_binary, capsys, files, rules=(*CRATE_RULES, isolation))
-
-    assert statuses(result).get("SIBLINGS") != "PASS"
-    assert result["declared_rules"] == "UNKNOWN"
-    assert any("SIBLINGS: rule sibling_isolation below a crate root" in c for c in _claims(result))
-
-
-def test_a_contract_inside_a_component_goes_through_the_same_crate_scope_limit(
+def test_a_contract_inside_a_component_is_decided_from_the_module_edges(
     tmp_path: Path, rust_binary: Path, capsys: Capsys
 ) -> None:
     app = component("app", "app", ("base",))
@@ -399,18 +396,13 @@ def test_a_contract_inside_a_component_goes_through_the_same_crate_scope_limit(
         "components": [component("a", "app.a"), component("b", "app.b")],
         "rules": [rule("INNER-REQUIRES", "complete_requires")],
     }
-    files = {
-        "crates/app/src/lib.rs": "mod a;\nmod b;\n",
-        "crates/app/src/a.rs": "use crate::b;\n",
-        "crates/app/src/b.rs": "pub fn f() {}\n",
-        "docs/app-inside.json": json.dumps(inner),
-    }
+    files = {**APP_MODULES, "docs/app-inside.json": json.dumps(inner)}
     parts = (component("base", "base_crate"), app)
     result = _verdict(tmp_path, rust_binary, capsys, files, components=parts)
 
-    assert "PASS" not in [v for k, v in statuses(result).items() if k.startswith("app:")]
-    assert any("below a crate root is not supported" in claim for claim in _claims(result))
-    assert result["declared_rules"] == "UNKNOWN"
+    # `a` uses `b`, and the inside contract does not say so: a decided FAIL, not UNKNOWN.
+    assert statuses(result)["app:INNER-REQUIRES"] == "FAIL"
+    assert not any("below a crate root" in claim for claim in _claims(result))
 
 
 def test_a_local_module_does_not_hide_a_path_that_starts_with_two_colons(

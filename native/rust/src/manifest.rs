@@ -81,6 +81,16 @@ pub struct Manifest {
     /// What the reader does not know in the dependency tables: each one makes the crate UNKNOWN.
     pub unknown: Vec<String>,
     pub features: BTreeSet<String>,
+    /// `package.edition`; `None` for `edition.workspace = true` until the workspace gives it.
+    pub edition: Option<String>,
+}
+
+impl Manifest {
+    /// Edition 2015, also when the manifest names no edition or one that is not known: a `use`
+    /// path or a `::` path starts at the crate root there.
+    pub fn legacy(&self) -> bool {
+        !matches!(self.edition.as_deref(), Some("2018" | "2021" | "2024"))
+    }
 }
 
 pub(crate) fn get<'a>(table: &'a Table, path: &[&str]) -> Option<&'a Value> {
@@ -102,6 +112,11 @@ pub fn workspace_dependencies(table: &Table) -> Table {
         .and_then(Value::table)
         .cloned()
         .unwrap_or_default()
+}
+
+/// `[workspace.package] edition` of a workspace manifest.
+pub fn workspace_edition(table: &Table) -> Option<String> {
+    text(table, &["workspace", "package", "edition"]).map(str::to_owned)
 }
 
 pub fn is_workspace(table: &Table) -> bool {
@@ -146,6 +161,7 @@ pub fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
         declared,
         unknown,
         features,
+        edition: text(table, &["package", "edition"]).map(str::to_owned),
     })
 }
 
