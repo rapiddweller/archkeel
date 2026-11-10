@@ -82,27 +82,22 @@ native-check:
 	@cargo deny --version 2>/dev/null | grep -qx "cargo-deny $(CARGO_DENY_VERSION)" || \
 		{ echo "native-check needs cargo-deny $(CARGO_DENY_VERSION): run make native-tools"; exit 2; }
 	cd native && cargo fmt --all --check
-	@# One version stamp for every cargo run, so that the collector of the self check reuses the
-	@# build of clippy and test in native/target and nothing compiles twice.
-	@set -e; export ARCHKEEL_VERSION="$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')"; \
-		cd native; \
-		cargo clippy --locked --all-targets -- -D warnings; \
-		cargo clippy --locked --all-targets --features dump -- -D warnings; \
-		cargo deny --locked check; \
-		cargo test --locked; \
-		cd ..; $(MAKE) self-validate-native
+	cd native && cargo clippy --locked --all-targets -- -D warnings
+	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
+	cd native && cargo deny --locked check
+	cd native && cargo test --locked
 	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py
+	$(MAKE) self-validate-native
 
 # AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.
 # The build of this tree is what a platform wheel bundles (AD-350), so the run places it where the
 # host looks for the bundled binary and removes it after, and the pure wheel never carries it.
-# Like the wheel build, it stamps the installed package version. Inside native-check the stamp is
-# already set, so the build reuses the main target directory; alone, the stamp is set here.
+# Like the wheel build, it stamps the installed package version, in a target directory of its own.
 self-validate-native:
-	cd native && ARCHKEEL_VERSION="$${ARCHKEEL_VERSION-$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')}" \
-		cargo build --locked --bin archkeel-rust-collector
+	cd native && ARCHKEEL_VERSION="$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')" \
+		cargo build --locked --bin archkeel-rust-collector --target-dir target/self
 	@mkdir -p test-artifacts/validation-native src/archkeel/_native
-	@cp native/target/debug/archkeel-rust-collector src/archkeel/_native/archkeel-rust-collector
+	@cp native/target/self/debug/archkeel-rust-collector src/archkeel/_native/archkeel-rust-collector
 	@status=0; $(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || status=$$?; \
 		rm -f src/archkeel/_native/archkeel-rust-collector; rmdir src/archkeel/_native 2>/dev/null || true; \
 		if [ $$status -ne 0 ]; then cat test-artifacts/validation-native/result.json; exit 1; fi

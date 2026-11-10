@@ -89,7 +89,7 @@ def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
 def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedProcess[str]:
     # `self-validate-native` copies the collector that `cargo build` makes, so the stub makes an
     # empty one. A real build output stays as it is, and the test removes only its own file.
-    built = ROOT / "native/target/debug/archkeel-rust-collector"
+    built = ROOT / "native/target/self/debug/archkeel-rust-collector"
     cargo = tmp_path / "cargo"
     cargo.write_text(
         f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n'
@@ -158,13 +158,9 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
     assert "-m native_wheel tests/test_collector_native_wheel.py" in dry_run
 
 
-def test_native_check_compiles_once_and_runs_each_tool_once(tmp_path: Path) -> None:
-    result = _make(tmp_path, "native-check", "cargo-deny 0.20.2")
-    assert result.returncode == 0, result.stderr
-    calls = (tmp_path / "calls").read_text().splitlines()
-    builds = [call for call in calls if call.startswith("cargo build")]
-    assert builds == ["cargo build --locked --bin archkeel-rust-collector"]
-    assert not any("--target-dir" in call for call in calls)
+def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    check = makefile.split("\nnative-check:\n")[1].split("\nself-validate-native:")[0]
+    check = makefile.split("\nnative-check:\n")[1].split("\n# AD-335")[0]
+    assert "tests/test_rust_clones.py tests/test_rust_api.py" in check
     assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
+    assert "cargo build --locked\n" not in check
