@@ -93,7 +93,7 @@
   "tests/test_cli_view.py": 596,
   "tests/test_collection_process.py": 1146,
   "tests/test_collection_protocol.py": 1171,
-  "tests/test_collector_native_syntax.py": 798,
+  "tests/test_collector_native_syntax.py": 730,
   "tests/test_compass_project_target.py": 702,
   "tests/test_construct_selectors.py": 2483,
   "tests/test_contract_model.py": 1035,

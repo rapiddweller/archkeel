@@ -11,6 +11,8 @@ use flate2::read::ZlibDecoder;
 use serde_json::Value;
 
 use super::*;
+use crate::protocol::Version;
+use crate::stream::encode;
 
 fn input(path: &str, digest: char, role: Role) -> Input {
     Input {
@@ -77,7 +79,7 @@ fn source_digest_matches_the_python_listing() {
 #[test]
 fn the_reply_is_zlib_framed_json_with_the_requested_version() {
     for version in [Version::V8, Version::V9] {
-        let wire = encode(version, &facts()).unwrap();
+        let wire = encode(version, facts()).unwrap();
         // The host reads a first byte 0x78 as the zlib frame of protocols 8.0.0 and 9.0.0.
         assert_eq!(wire[0], 0x78);
         let mut plain = String::new();
@@ -108,7 +110,7 @@ fn a_gap_makes_the_collection_partial() {
         fact_ids: vec![],
         data: Map::new(),
     });
-    let wire = encode(Version::V8, &partial).unwrap();
+    let wire = encode(Version::V8, partial).unwrap();
     let mut plain = Vec::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_end(&mut plain)
@@ -119,7 +121,7 @@ fn a_gap_makes_the_collection_partial() {
 
 #[test]
 fn the_plain_version_3_reply_is_not_written() {
-    assert!(encode(Version::V3, &facts()).is_err());
+    assert!(encode(Version::V3, facts()).is_err());
 }
 
 #[test]
@@ -148,7 +150,7 @@ fn a_target_has_the_fields_of_its_kind() {
     ];
     let mut with_imports = facts();
     with_imports.imports = targets.to_vec();
-    let wire = encode(Version::V8, &with_imports).expect("encodes");
+    let wire = encode(Version::V8, with_imports).expect("encodes");
     let mut plain = String::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_string(&mut plain)
@@ -206,7 +208,7 @@ fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply()
     .map(|name| (name, vec![record("kind")]))
     .collect();
     inner.constructs = vec![("string_literal_compare", "partial")];
-    let wire = encode(Version::V9, &inner).unwrap();
+    let wire = encode(Version::V9, inner).unwrap();
     let mut plain = String::new();
     ZlibDecoder::new(wire.as_slice())
         .read_to_string(&mut plain)
@@ -238,4 +240,50 @@ fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply()
         facts["capabilities"]["constructs"][0],
         serde_json::json!({"name": "string_literal_compare", "status": "partial"})
     );
+}
+
+#[test]
+fn the_streamed_reply_is_the_reply_that_a_tree_of_the_facts_gives() {
+    let mut full = facts();
+    let record = |kind: &'static str| Record {
+        id: format!("{kind}-1"),
+        evidence_class: "FACT",
+        area: "source",
+        kind,
+        title: "t\u{2028}\"é".to_owned(),
+        subjects: vec!["s".to_owned()],
+        evidence_ids: vec!["EVD-1".to_owned()],
+        fact_ids: vec!["F-2".to_owned(), "F-1".to_owned()],
+        data: serde_json::from_str(r#"{"b":[1,null,{"x":true}],"a":"y"}"#).unwrap(),
+    };
+    full.sections = vec![
+        ("imports", vec![record("k"), record("l")]),
+        ("unknowns", vec![]),
+    ];
+    full.constructs = vec![("string_literal_compare", "partial")];
+    full.gaps = vec![record("gap")];
+    full.evidence = vec![Evidence {
+        id: "EVD-1".to_owned(),
+        file: "a.ts".to_owned(),
+        line: 1,
+        end_line: 2,
+        column: 3,
+        excerpt: "x".to_owned(),
+    }];
+    let expected = facts_value(&full);
+    let wire = encode(Version::V9, full).unwrap();
+    let mut plain = String::new();
+    ZlibDecoder::new(wire.as_slice())
+        .read_to_string(&mut plain)
+        .unwrap();
+    let reply: Value = serde_json::from_str(&plain).unwrap();
+    assert_eq!(reply["facts"], expected);
+    // The key order of the tree is the key order of the stream.
+    let keys: Vec<&String> = reply["facts"].as_object().unwrap().keys().collect();
+    let wanted: Vec<&String> = expected.as_object().unwrap().keys().collect();
+    assert_eq!(keys, wanted);
+    // The keys are sorted, as the Python reply has them: the evidence comes before the sections.
+    let position = |name: &str| keys.iter().position(|key| key.as_str() == name);
+    assert!(position("evidence") < position("sections"));
+    assert!(keys.windows(2).all(|pair| pair[0] < pair[1]));
 }

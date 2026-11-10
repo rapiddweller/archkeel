@@ -264,9 +264,11 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
 
 /// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
 /// compares with the Python collector. The reply of the collector does not carry them yet.
-pub fn records(request: &Request, provenance: Provenance) -> Value {
-    let (_, records) = crate::collect::records(request, provenance);
-    json!({
+pub fn records(request: &Request, provenance: Provenance) -> Result<Value, String> {
+    let (facts, records) = crate::collect::records(request, provenance)?;
+    let touched: std::collections::HashSet<&str> =
+        records.touched.iter().map(String::as_str).collect();
+    Ok(json!({
         "imports": records.imports.iter().map(record_value).collect::<Vec<_>>(),
         "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
         "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
@@ -275,6 +277,34 @@ pub fn records(request: &Request, provenance: Provenance) -> Value {
         "site_bindings": records.bindings.iter().map(record_value).collect::<Vec<_>>(),
         "symbols": records.symbols.iter().map(record_value).collect::<Vec<_>>(),
         "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
-        "evidence": records.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
-    })
+        "evidence": facts.evidence.iter().filter(|item| touched.contains(item.id.as_str())).map(evidence_value).collect::<Vec<_>>(),
+    }))
+}
+
+/// Read `{"rel": ..., "file": ...}` lines from `input` and print one line of counts for each file:
+/// the definitions, the sites and the comparisons that the walk found. A file whose reply is
+/// quadratic in the depth of its nest (the qualified name of each definition is in each record)
+/// is timed with this, because it measures the walk and not the size of the reply.
+pub fn count(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
+    let mut parsers = Parsers::new();
+    for line in input.lines() {
+        let line = line.map_err(|error| error.to_string())?;
+        let request: Value = serde_json::from_str(&line)
+            .map_err(|error| format!("dump request is not JSON: {error}"))?;
+        let rel = request["rel"].as_str().unwrap_or("");
+        let reply = match std::fs::read(request["file"].as_str().unwrap_or("")) {
+            Ok(data) => {
+                let syntax = parse(&mut parsers, rel, &data).syntax;
+                json!({
+                    "rel": rel,
+                    "definitions": syntax.definitions.len(),
+                    "sites": syntax.sites.sites.len(),
+                    "comparisons": syntax.sites.comparisons.len(),
+                })
+            }
+            Err(error) => json!({"rel": rel, "error": error.to_string()}),
+        };
+        writeln!(output, "{reply}").map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }

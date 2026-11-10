@@ -4,14 +4,9 @@
 
 //! The compressed reply of protocols 8.0.0 and 9.0.0: zlib level 1 over the plain JSON facts.
 
-use std::io::Write;
-
-use flate2::write::ZlibEncoder;
-use flate2::Compression;
 use serde_json::{json, Map, Value};
 
 use crate::identity::sha256_hex;
-use crate::protocol::Version;
 
 /// The role of a digested input: a selected source file or a file that only decides resolution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,45 +167,16 @@ pub fn source_digest(inputs: &[Input]) -> String {
     sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
 
-/// Encode the reply for `version`; 8.0.0 and 9.0.0 share one compressed shape.
-pub fn encode(version: Version, facts: &Facts) -> Result<Vec<u8>, String> {
-    if version == Version::V3 {
-        return Err("a native collector writes only the compressed reply".to_owned());
-    }
-    let reply = json!({
-        "protocol_version": version.as_str(),
-        "provider_sources": [],
-        "facts": facts_value(facts),
-    });
-    let plain = serde_json::to_vec(&reply).map_err(|error| error.to_string())?;
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(1));
-    encoder
-        .write_all(&plain)
-        .and_then(|()| encoder.finish())
-        .map_err(|error| format!("cannot compress the reply: {error}"))
-}
-
+#[cfg(test)]
 fn facts_value(facts: &Facts) -> Value {
     let provenance = &facts.provenance;
     json!({
-        "profile": provenance.profile,
         "adapter": {
             "name": provenance.profile,
             "version": provenance.adapter_version,
             "code_digest": provenance.code_digest,
         },
-        "runtime": {
-            "name": provenance.runtime_name,
-            "version": provenance.runtime_version,
-            "required": provenance.runtime_required,
-            "requirement_state": "declared",
-        },
-        "source": {
-            "git_head": facts.git_head,
-            "dirty": facts.dirty,
-            "source_digest": source_digest(&facts.inputs),
-            "scope": facts.scope,
-        },
+        "candidate_evidence": [],
         "capabilities": {
             "sections": facts.sections.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
             "resolution_features": facts.features,
@@ -218,14 +184,6 @@ fn facts_value(facts: &Facts) -> Value {
                 .map(|(name, status)| json!({"name": name, "status": status}))
                 .collect::<Vec<_>>(),
         },
-        "inputs": facts.inputs.iter().map(|input| json!({
-            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
-        })).collect::<Vec<_>>(),
-        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
-        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
-        "sections": facts.sections.iter().map(|(name, records)| json!({
-            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>(),
         "coverage": {
             "selected_files": facts.selected_files,
             "files_read": facts.files_read,
@@ -234,11 +192,31 @@ fn facts_value(facts: &Facts) -> Value {
             "gaps": facts.gaps.iter().map(record_value).collect::<Vec<_>>(),
         },
         "evidence": facts.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
-        "uncertain_reexports": [],
-        "type_shapes": [],
-        "state": {"classes": [], "functions": []},
-        "candidate_evidence": [],
+        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
+        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
+        "inputs": facts.inputs.iter().map(|input| json!({
+            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
+        })).collect::<Vec<_>>(),
+        "profile": provenance.profile,
         "provider_bindings": [],
+        "runtime": {
+            "name": provenance.runtime_name,
+            "version": provenance.runtime_version,
+            "required": provenance.runtime_required,
+            "requirement_state": "declared",
+        },
+        "sections": facts.sections.iter().map(|(name, records)| json!({
+            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "source": {
+            "git_head": facts.git_head,
+            "dirty": facts.dirty,
+            "source_digest": source_digest(&facts.inputs),
+            "scope": facts.scope,
+        },
+        "state": {"classes": [], "functions": []},
+        "type_shapes": [],
+        "uncertain_reexports": [],
     })
 }
 
@@ -270,7 +248,7 @@ pub fn target_value(target: &Target) -> Value {
     }
 }
 
-fn file_value(file: &FileFact) -> Value {
+pub(crate) fn file_value(file: &FileFact) -> Value {
     json!({
         "id": file.id,
         "rel_path": file.rel_path,

@@ -11,15 +11,21 @@
 //! The evidence that the new records cite is kept apart, so the evidence of the reply is unchanged.
 
 use std::collections::{HashMap, HashSet};
+use std::io::{self, Write};
 
 use archkeel_wire::identity::{stable_id, Part};
-use archkeel_wire::reply::{Evidence, Facts, Record, Target};
+use archkeel_wire::protocol::Version;
+use archkeel_wire::reply::{Facts, Record, Target};
+#[cfg(any(test, feature = "dump"))]
+use archkeel_wire::stream::Emit;
+use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 use serde_json::{json, Value};
 
 use crate::cited::Cited;
 use crate::import_bindings::ImportBinding;
 use crate::kept::{Kept, Pending};
-use crate::site_records;
+use crate::resolution::{local_imports, Imports};
+use crate::site_records::{self, Pass};
 use crate::source::Span;
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
@@ -40,13 +46,18 @@ pub struct Records {
     /// The `TSCONSTRUCT` records, sorted by id.
     pub constructs: Vec<Record>,
     /// The `TSDEF` records, in the order of the symbol table (PR 4.3a-3b).
+    #[cfg(any(test, feature = "dump"))]
     pub symbols: Vec<Record>,
     /// The `TSCALL`, `TSREF` and result binding records (PR 4.3a-3c).
+    #[cfg(any(test, feature = "dump"))]
     pub calls: Vec<Record>,
+    #[cfg(any(test, feature = "dump"))]
     pub references: Vec<Record>,
+    #[cfg(any(test, feature = "dump"))]
     pub bindings: Vec<Record>,
-    /// The evidence that the records above cite and the reply does not hold yet.
-    pub evidence: Vec<Evidence>,
+    /// The ids of the evidence that the records above cite.
+    #[cfg(feature = "dump")]
+    pub touched: Vec<String>,
 }
 
 /// `classified`: the subjects without empty names, sorted; the evidence ids sorted.
@@ -55,22 +66,207 @@ fn sorted(mut values: Vec<String>) -> Vec<String> {
     values
 }
 
-/// Build the records of this phase from the facts of a collection and the kept syntax.
-pub fn build(facts: &Facts, pending: &Pending) -> Records {
-    let mut cited = Cited::seeded(&facts.evidence);
-    let mut records = Records::default();
-    expand(facts, pending, &mut cited, &mut records);
-    records
+/// What the producer holds before the first record is written: the targets of the imports, the
+/// table of symbols and the evidence, which the records cite while they are written.
+pub struct Plan<'p> {
+    pending: &'p Pending,
+    table: SymbolTable<'p>,
+    imports: Imports,
+    expanded: Records,
+    cited: Cited,
+    gaps: Vec<Record>,
+    selected_files: Vec<String>,
+    files_read: usize,
+}
+
+/// The one producer of the reply (AD-340, PR 4.3a-3d): the head, and the plan whose `write` gives
+/// each section to a sink. The stream of the reply and the lists of the tests and the dump both run
+/// this code, so a record that it drops or changes is dropped or changed in both. `track` keeps the
+/// ids of the cited evidence, which only the dump needs.
+pub fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, Plan<'_>) {
+    let mut cited = Cited::owning(std::mem::take(&mut facts.evidence), track);
+    let mut expanded = Records::default();
+    expand(&facts, pending, &mut cited, &mut expanded);
+    expanded
         .imports
         .sort_by(|left, right| left.id.cmp(&right.id));
-    let table = SymbolTable::build(pending);
-    records.symbols = symbols::build(&table, &mut cited);
-    let sites = site_records::build(&table, pending, facts, &mut cited);
-    (records.calls, records.references, records.bindings) =
-        (sites.calls, sites.references, sites.bindings);
-    constructs(pending, &mut cited, &mut records);
-    records.evidence = cited.cited();
-    records
+    let imports = local_imports(pending, &facts);
+    let head = Head {
+        provenance: facts.provenance.clone(),
+        git_head: facts.git_head.clone(),
+        dirty: facts.dirty.clone(),
+        scope: std::mem::take(&mut facts.scope),
+        sections: SECTIONS.to_vec(),
+        features: std::mem::take(&mut facts.features),
+        constructs: vec![(STRING_LITERAL_COMPARE, "partial")],
+        inputs: std::mem::take(&mut facts.inputs),
+        files: std::mem::take(&mut facts.files),
+        imports: std::mem::take(&mut expanded.targets),
+    };
+    let plan = Plan {
+        pending,
+        table: SymbolTable::build(pending),
+        imports,
+        expanded,
+        cited,
+        gaps: std::mem::take(&mut facts.gaps),
+        selected_files: std::mem::take(&mut facts.selected_files),
+        files_read: facts.files_read,
+    };
+    (head, plan)
+}
+
+impl Plan<'_> {
+    /// Write the sections in the order of the capability. The records of the symbols, the calls and
+    /// the references are made and given one at a time, so the records of a project are never alive
+    /// together. The evidence is cited in the order of Python: imports, symbols, calls, references,
+    /// constructs. The tail has the evidence; the second value has the ids that the records cited.
+    pub fn write(mut self, sink: &mut impl SectionSink) -> io::Result<(Tail, Vec<String>)> {
+        let Self {
+            pending,
+            table,
+            imports,
+            expanded,
+            cited,
+            gaps,
+            ..
+        } = &mut self;
+        sink.write_section("imports", |emit| expanded.imports.iter().for_each(emit))?;
+        sink.write_section("unknowns", |emit| gaps.iter().for_each(emit))?;
+        sink.write_section("symbols", |emit| {
+            symbols::each(table, cited, &mut |record| emit(&record));
+        })?;
+        let mut bindings = std::mem::take(&mut expanded.witnesses);
+        sink.write_section("calls", |emit| {
+            let pass = site_records::pass(table, pending, imports, cited, Pass::Calls, &mut |r| {
+                emit(&r);
+            });
+            bindings.extend(pass);
+        })?;
+        let mut stray = 0;
+        sink.write_section("references", |emit| {
+            let pass =
+                site_records::pass(table, pending, imports, cited, Pass::References, &mut |r| {
+                    emit(&r);
+                });
+            stray = pass.len();
+        })?;
+        if stray > 0 {
+            let reason = "a reference site made a result binding";
+            return Err(io::Error::new(io::ErrorKind::InvalidData, reason));
+        }
+        sink.write_section("bindings", |emit| bindings.iter().for_each(emit))?;
+        constructs(pending, cited, expanded);
+        sink.write_section("constructs", |emit| {
+            expanded.constructs.iter().for_each(emit)
+        })?;
+        let (evidence, touched) = self.cited.finish();
+        let tail = Tail {
+            selected_files: self.selected_files,
+            files_read: self.files_read,
+            gaps: self.gaps,
+            evidence,
+        };
+        Ok((tail, touched))
+    }
+}
+
+/// The sections that the capability declares, in the order that the reply writes them.
+const SECTIONS: [&str; 7] = [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "bindings",
+    "constructs",
+];
+
+/// The reply of the facts of a request, written into `out` (a compressed 8.0.0 or 9.0.0 reply).
+pub fn write_reply(
+    version: Version,
+    facts: Facts,
+    pending: &Pending,
+    out: impl Write,
+) -> Result<(), String> {
+    let (head, plan) = plan(facts, pending, false);
+    encode_stream(version, head, out, |writer| {
+        plan.write(writer).map(|(tail, _)| tail)
+    })
+}
+
+/// The lists of a producer run: the sink of the unit tests and the test-only dump.
+#[cfg(any(test, feature = "dump"))]
+#[derive(Default)]
+pub struct Lists {
+    pub sections: Vec<(&'static str, Vec<Record>)>,
+}
+
+#[cfg(any(test, feature = "dump"))]
+impl SectionSink for Lists {
+    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
+        let mut records = Vec::new();
+        fill(&mut |record: &Record| records.push(record.clone()));
+        self.sections.push((name, records));
+        Ok(())
+    }
+}
+
+/// The facts with every section in a list, and the ids that the records cite. This runs the
+/// producer of the reply, so what a test sees is what the reply holds.
+#[cfg(any(test, feature = "dump"))]
+pub fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), String> {
+    let (head, plan) = plan(facts, pending, true);
+    let mut lists = Lists::default();
+    let (tail, touched) = plan.write(&mut lists).map_err(|error| error.to_string())?;
+    let facts = Facts {
+        provenance: head.provenance,
+        git_head: head.git_head,
+        dirty: head.dirty,
+        scope: head.scope,
+        sections: lists.sections,
+        features: head.features,
+        constructs: head.constructs,
+        inputs: head.inputs,
+        files: head.files,
+        imports: head.imports,
+        selected_files: tail.selected_files,
+        files_read: tail.files_read,
+        gaps: tail.gaps,
+        evidence: tail.evidence,
+    };
+    Ok((facts, touched))
+}
+
+/// The records of the sections by the names that the tests and the dump use: the result bindings
+/// are the records of `bindings` that are not export witnesses.
+#[cfg(any(test, feature = "dump"))]
+pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
+    #[cfg(not(feature = "dump"))]
+    drop(touched);
+    let section = |name: &str| -> Vec<Record> {
+        facts
+            .sections
+            .iter()
+            .find(|(found, _)| *found == name)
+            .map(|(_, records)| records.clone())
+            .unwrap_or_default()
+    };
+    let (witnesses, bindings) = section("bindings")
+        .into_iter()
+        .partition(|record| record.id.starts_with("ESM_EXPORT-"));
+    Records {
+        imports: section("imports"),
+        targets: facts.imports.clone(),
+        witnesses,
+        constructs: section("constructs"),
+        symbols: section("symbols"),
+        calls: section("calls"),
+        references: section("references"),
+        bindings,
+        #[cfg(feature = "dump")]
+        touched,
+    }
 }
 
 /// `_named_imports`.

@@ -43,7 +43,7 @@ fn run(files: &[(&str, &str)]) -> Records {
     let mut all = vec![("tsconfig.json", r#"{"include":["src"]}"#)];
     all.extend_from_slice(files);
     let tree = Tree::new(&all);
-    records(&request(&tree), provenance()).1
+    records(&request(&tree), provenance()).unwrap().1
 }
 
 fn call<'a>(found: &'a Records, expression: &str) -> &'a Record {

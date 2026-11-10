@@ -9,25 +9,15 @@
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 
 use archkeel_wire::identity::{stable_id, Part};
-use archkeel_wire::reply::{Facts, Record};
+use archkeel_wire::reply::Record;
 use serde_json::{json, Map, Value};
 
 use crate::cited::Cited;
 use crate::kept::{Kept, Pending};
-use crate::resolution::{local_imports, Imports, Resolved, Resolver};
+use crate::resolution::{Imports, Resolved, Resolver};
 use crate::site_paths::Text;
 use crate::sites::{Expression, Site, SiteKind, SiteUse};
 use crate::symbol_table::SymbolTable;
-
-/// The records of the sites in lists, for the test-only dump. The bindings are the result bindings
-/// of the `new` expressions.
-#[derive(Default)]
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct SiteRecords {
-    pub calls: Vec<Record>,
-    pub references: Vec<Record>,
-    pub bindings: Vec<Record>,
-}
 
 /// The kinds of site that one pass makes records of. Python makes both in one pass and writes two
 /// lists; a pass for each list writes each record when it is made. The sites of one position have
@@ -72,41 +62,6 @@ pub fn pass(
         }
     }
     bindings
-}
-
-/// Both passes in lists.
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub fn build(
-    table: &SymbolTable,
-    pending: &Pending,
-    facts: &Facts,
-    cited: &mut Cited,
-) -> SiteRecords {
-    let imports = local_imports(pending, facts);
-    let mut records = SiteRecords::default();
-    let calls = &mut records.calls;
-    records.bindings = pass(
-        table,
-        pending,
-        &imports,
-        cited,
-        Pass::Calls,
-        &mut |record| {
-            calls.push(record);
-        },
-    );
-    let references = &mut records.references;
-    pass(
-        table,
-        pending,
-        &imports,
-        cited,
-        Pass::References,
-        &mut |record| {
-            references.push(record);
-        },
-    );
-    records
 }
 
 /// Where a site stands: the file, the qualified scope and the id of the definition that holds it.

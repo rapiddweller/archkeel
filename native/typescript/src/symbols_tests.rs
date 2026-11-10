@@ -45,7 +45,7 @@ fn symbols(source: &str) -> Vec<Record> {
         ("tsconfig.json", r#"{"include":["src"]}"#),
         ("src/a.ts", source),
     ]);
-    records(&request(&tree), provenance()).1.symbols
+    records(&request(&tree), provenance()).unwrap().1.symbols
 }
 
 fn named<'a>(list: &'a [Record], name: &str) -> &'a Record {
