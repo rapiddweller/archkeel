@@ -22,15 +22,16 @@
 use std::io::{self, Write};
 
 use archkeel_facts::{IntoSection, Section};
+use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::pieces::{Adler, Piece, ZLIB_HEADER};
 use crate::protocol::Version;
-use crate::reply::{target_value, Facts, Record, ReplySection};
-use archkeel_facts::envelope::Target;
-use archkeel_facts::reply::{
-    evidence_value, file_value, source_digest, Evidence, FileFact, Input, Provenance,
+use crate::reply::{Facts, Record, ReplySection};
+use archkeel_facts::envelope::{
+    Capabilities, Coverage, Evidence, FileFact, Input, NoEntries, ProtocolVersion, Provenance,
+    Source, State, Target,
 };
 
 /// What the reply says before the records: who made it, what it declares, and the small lists.
@@ -319,112 +320,96 @@ impl Fields {
         Ok(serde_json::to_writer(out, value)?)
     }
 
-    fn list<T, W: Write>(
-        &mut self,
-        out: &mut W,
-        name: &str,
-        items: impl IntoIterator<Item = T>,
-        mut write: impl FnMut(&mut W, T) -> io::Result<()>,
-    ) -> io::Result<()> {
-        self.key(out, name)?;
-        out.write_all(b"[")?;
-        for (index, item) in items.into_iter().enumerate() {
-            if index > 0 {
-                out.write_all(b",")?;
-            }
-            write(out, item)?;
-        }
-        out.write_all(b"]")
-    }
-
     fn close(self, out: &mut impl Write) -> io::Result<()> {
         out.write_all(b"}")
     }
 }
 
+/// The keys of `facts` after the sections, in the order of the Python reply.
+#[derive(Serialize)]
+struct After<'a> {
+    source: &'a Source,
+    state: State,
+    type_shapes: NoEntries,
+    uncertain_reexports: NoEntries,
+}
+
+/// The keys of the reply after `facts`.
+#[derive(Serialize)]
+struct Trailer {
+    protocol_version: ProtocolVersion,
+    provider_sources: NoEntries,
+}
+
+fn invalid(reason: String) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, reason)
+}
+
 /// The text up to the records: the keys of `facts` that come before `sections`, in the order of
-/// the Python reply, and the opening of the list of sections.
+/// the Python reply, and the opening of the list of sections. The envelope types write the keys.
 fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
-    let provenance = &head.provenance;
+    let capabilities =
+        Capabilities::of(&head.sections, &head.features, &head.constructs).map_err(invalid)?;
+    let coverage = Coverage::of(
+        (tail.files_read, head.files.len()),
+        tail.selected_files,
+        tail.gaps,
+    );
+    let Provenance {
+        profile,
+        adapter,
+        runtime,
+    } = &head.provenance;
     out.write_all(b"{\"facts\":")?;
-    let mut facts = Fields::open(out)?;
-    facts.key(out, "adapter")?;
-    let mut adapter = Fields::open(out)?;
-    adapter.put(out, "code_digest", &provenance.code_digest)?;
-    adapter.put(out, "name", &provenance.profile)?;
-    adapter.put(out, "version", &provenance.adapter_version)?;
-    adapter.close(out)?;
-    facts.put(out, "candidate_evidence", &Vec::<Value>::new())?;
-    facts.key(out, "capabilities")?;
-    let mut capabilities = Fields::open(out)?;
-    let constructs = head
-        .constructs
-        .iter()
-        .map(|(name, status)| json!({"name": name, "status": status}));
-    capabilities.list(out, "constructs", constructs, |out, item| {
-        Ok(serde_json::to_writer(out, &item)?)
-    })?;
-    capabilities.put(out, "resolution_features", &head.features)?;
-    capabilities.put(out, "sections", &head.sections)?;
-    capabilities.close(out)?;
-    facts.key(out, "coverage")?;
-    let mut coverage = Fields::open(out)?;
-    coverage.put(out, "files_parsed", &head.files.len())?;
-    coverage.put(out, "files_read", &tail.files_read)?;
-    coverage.put(out, "full_scope", &tail.gaps.is_empty())?;
-    coverage.list(out, "gaps", &tail.gaps, |out, gap| {
-        Ok(serde_json::to_writer(out, gap)?)
-    })?;
-    coverage.put(out, "selected_files", &tail.selected_files)?;
-    coverage.close(out)?;
-    facts.list(out, "evidence", &tail.evidence, |out, item| {
-        Ok(serde_json::to_writer(out, &evidence_value(item))?)
-    })?;
-    facts.list(out, "files", &head.files, |out, file| {
-        Ok(serde_json::to_writer(out, &file_value(file))?)
-    })?;
-    facts.list(out, "imports", &head.imports, |out, target| {
-        Ok(serde_json::to_writer(out, &target_value(target))?)
-    })?;
-    facts.list(out, "inputs", &head.inputs, |out, input| {
-        let value = json!({
-            "digest": input.digest, "path": input.path, "role": input.role.as_str(),
-        });
-        Ok(serde_json::to_writer(out, &value)?)
-    })?;
-    facts.put(out, "profile", &provenance.profile)?;
-    facts.put(out, "provider_bindings", &Vec::<Value>::new())?;
-    facts.key(out, "runtime")?;
-    let mut runtime = Fields::open(out)?;
-    runtime.put(out, "name", &provenance.runtime_name)?;
-    runtime.put(out, "required", &provenance.runtime_required)?;
-    runtime.put(out, "requirement_state", &"declared")?;
-    runtime.put(out, "version", &provenance.runtime_version)?;
-    runtime.close(out)?;
-    facts.key(out, "sections")?;
-    out.write_all(b"[")
+    // The object stays open: `end` would close it, and the sections and the rest follow.
+    let mut serializer = serde_json::Serializer::new(&mut *out);
+    let mut facts = serializer.serialize_map(None)?;
+    facts.serialize_entry("adapter", adapter)?;
+    facts.serialize_entry("candidate_evidence", &NoEntries)?;
+    facts.serialize_entry("capabilities", &capabilities)?;
+    facts.serialize_entry("coverage", &coverage)?;
+    facts.serialize_entry("evidence", &tail.evidence)?;
+    facts.serialize_entry("files", &head.files)?;
+    facts.serialize_entry("imports", &head.imports)?;
+    facts.serialize_entry("inputs", &head.inputs)?;
+    facts.serialize_entry("profile", profile)?;
+    facts.serialize_entry("provider_bindings", &NoEntries)?;
+    facts.serialize_entry("runtime", runtime)?;
+    out.write_all(b",\"sections\":[")
+}
+
+/// The fields of a small object, without its braces.
+fn write_fields(out: &mut Piece, value: &impl Serialize) -> io::Result<()> {
+    let text = serde_json::to_vec(value)?;
+    out.write_all(&text[1..text.len() - 1])
 }
 
 /// The text after the records: the end of the list of sections, the keys of `facts` that come
 /// after `sections`, and the keys of the reply that come after `facts`.
 fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()> {
-    out.write_all(b"]")?;
-    let mut facts = Fields { first: false };
-    facts.key(out, "source")?;
-    let mut source = Fields::open(out)?;
-    source.put(out, "dirty", &head.dirty)?;
-    source.put(out, "git_head", &head.git_head)?;
-    source.put(out, "scope", &head.scope)?;
-    source.put(out, "source_digest", &source_digest(&head.inputs))?;
-    source.close(out)?;
-    facts.put(out, "state", &json!({"classes": [], "functions": []}))?;
-    facts.put(out, "type_shapes", &Vec::<Value>::new())?;
-    facts.put(out, "uncertain_reexports", &Vec::<Value>::new())?;
-    facts.close(out)?;
-    let mut reply = Fields { first: false };
-    reply.put(out, "protocol_version", &version.as_str())?;
-    reply.put(out, "provider_sources", &Vec::<Value>::new())?;
-    reply.close(out)
+    let source =
+        Source::of((&head.git_head, &head.dirty), &head.scope, &head.inputs).map_err(invalid)?;
+    let protocol_version = ProtocolVersion::parse(version.as_str()).ok_or_else(|| {
+        invalid(format!(
+            "no compressed reply for version {}",
+            version.as_str()
+        ))
+    })?;
+    out.write_all(b"],")?;
+    let after = After {
+        source: &source,
+        state: State::default(),
+        type_shapes: NoEntries,
+        uncertain_reexports: NoEntries,
+    };
+    write_fields(out, &after)?;
+    out.write_all(b"},")?;
+    let trailer = Trailer {
+        protocol_version,
+        provider_sources: NoEntries,
+    };
+    write_fields(out, &trailer)?;
+    out.write_all(b"}")
 }
 
 /// One record, with the order of keys of `record_value` and without a copy of its data.

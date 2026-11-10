@@ -110,7 +110,7 @@ fn decoder_checks(facts: &Facts) -> Result<(), String> {
 fn checkable(facts: &Facts) -> Result<(), String> {
     match facts.profile {
         Profile::TypeScript => {}
-        Profile::Python | Profile::Dart => {
+        Profile::Python | Profile::Dart | Profile::Rust => {
             return Err(format!(
                 "the store does not check {} replies yet",
                 facts.profile.as_str()

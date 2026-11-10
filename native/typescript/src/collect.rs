@@ -14,8 +14,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
 use archkeel_facts::envelope::Target;
-use archkeel_facts::identity::{evidence_id, module_identity};
-use archkeel_facts::reply::{Evidence, FileFact, Provenance};
+use archkeel_facts::envelope::{Evidence, FileFact, Provenance};
+use archkeel_facts::identity::module_identity;
 use archkeel_facts::{GapFact, Record, Section};
 use archkeel_wire::reply::{Facts, ReplySection};
 use archkeel_wire::request::Request;
@@ -35,8 +35,6 @@ use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
-/// The profile and adapter name of the Python TypeScript collector, so that this is a drop-in.
-pub const PROFILE: &str = "archkeel-typescript-imports";
 pub const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
@@ -265,35 +263,17 @@ impl Collection<'_> {
             .unwrap_or("")
             .trim_end_matches(is_space);
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
-        let id = evidence_id(rel, line, line, column);
-        self.evidence.insert(
-            id.clone(),
-            Evidence {
-                id: id.clone(),
-                file: rel.to_owned(),
-                line,
-                end_line: line,
-                column,
-                excerpt: first.to_owned(),
-            },
-        );
+        let evidence = Evidence::at(rel, line, line, column, first);
+        let id = evidence.id.as_str().to_owned();
+        self.evidence.insert(id.clone(), evidence);
         id
     }
 
     /// `collect._cite`: file one source location as evidence.
     fn cite(&mut self, rel: &str, span: &crate::source::Span) -> String {
-        let id = evidence_id(rel, span.line, span.end_line, span.column);
-        self.evidence.insert(
-            id.clone(),
-            Evidence {
-                id: id.clone(),
-                file: rel.to_owned(),
-                line: span.line,
-                end_line: span.end_line,
-                column: span.column,
-                excerpt: span.excerpt.clone(),
-            },
-        );
+        let evidence = Evidence::at(rel, span.line, span.end_line, span.column, &span.excerpt);
+        let id = evidence.id.as_str().to_owned();
+        self.evidence.insert(id.clone(), evidence);
         id
     }
 

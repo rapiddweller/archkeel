@@ -12,7 +12,6 @@
 use schemars::generate::SchemaSettings;
 use serde_json::{json, Value};
 
-use crate::producer::Producer;
 use crate::reason::ReasonCode;
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
@@ -28,7 +27,6 @@ pub fn schema() -> Value {
     generator.subschema_for::<Record<GapFact>>();
     generator.subschema_for::<Kind>();
     generator.subschema_for::<ReasonCode>();
-    generator.subschema_for::<Producer>();
     let definitions = generator.take_definitions(true);
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",

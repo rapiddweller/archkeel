@@ -10,8 +10,8 @@ use std::io::Read;
 use flate2::read::ZlibDecoder;
 use serde_json::Value;
 
+use archkeel_facts::envelope::{source_digest, Profile, Reply, Role};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
-use archkeel_facts::reply::Role;
 
 use super::*;
 use crate::protocol::Version;
@@ -27,14 +27,11 @@ fn input(path: &str, digest: char, role: Role) -> Input {
 
 fn facts() -> Facts {
     Facts {
-        provenance: Provenance {
-            profile: "archkeel-typescript-imports",
-            adapter_version: "0.0.0".to_owned(),
-            code_digest: "d".repeat(64),
-            runtime_name: "rust",
-            runtime_version: "1.88.0".to_owned(),
-            runtime_required: ">=1.88".to_owned(),
-        },
+        provenance: Provenance::native(
+            Profile::TypeScript,
+            ("0.0.0", &"d".repeat(64)),
+            ("1.88.0", "1.88"),
+        ),
         git_head: "a".repeat(40),
         dirty: Value::Bool(false),
         scope: vec!["src/**".to_owned()],
@@ -244,56 +241,59 @@ fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply()
     );
 }
 
+/// The plain JSON of the reply that `encode` writes for `facts`.
+fn plain(version: Version, facts: Facts) -> String {
+    let wire = encode(version, facts).unwrap();
+    let mut plain = String::new();
+    ZlibDecoder::new(wire.as_slice())
+        .read_to_string(&mut plain)
+        .unwrap();
+    plain
+}
+
 #[test]
-fn the_streamed_reply_is_the_reply_that_a_tree_of_the_facts_gives() {
+fn the_streamed_reply_decodes_through_the_envelope_and_encodes_to_the_same_value() {
     let mut full = facts();
-    let record = |kind: &'static str| Record {
-        id: format!("{kind}-1"),
-        evidence_class: "FACT",
-        area: "source",
-        kind,
-        title: "t\u{2028}\"é".to_owned(),
-        subjects: vec!["s".to_owned()],
-        evidence_ids: vec!["EVD-1".to_owned()],
-        fact_ids: vec!["F-2".to_owned(), "F-1".to_owned()],
-        data: serde_json::from_str(r#"{"b":[1,null,{"x":true}],"a":"y"}"#).unwrap(),
-    };
     full.sections = vec![
-        ReplySection::Records("imports", vec![record("k"), record("l")]),
-        ReplySection::Records("unknowns", vec![]),
+        ReplySection::Typed(archkeel_facts::Section::Imports(vec![])),
+        ReplySection::Typed(archkeel_facts::Section::Unknowns(vec![])),
     ];
     full.constructs = vec![("string_literal_compare", "partial")];
+    full.files = vec![FileFact::of(
+        ("src/a.ts", "ns.src.a"),
+        false,
+        "EVD-1".to_owned(),
+    )];
+    full.imports = vec![Target::Builtin {
+        import_id: FactId::new("IMP-1"),
+        name: "fs".to_owned(),
+    }];
     full.gaps = vec![archkeel_facts::Record::unknown(
-        archkeel_facts::ids::FactId::new("UNKNOWN-1"),
+        FactId::new("UNKNOWN-1"),
         "gap",
         Some("EVD-1"),
         "m",
         archkeel_facts::GapFact::resolution("gap", "m"),
     )];
-    full.evidence = vec![Evidence {
-        id: "EVD-1".to_owned(),
-        file: "a.ts".to_owned(),
-        line: 1,
-        end_line: 2,
-        column: 3,
-        excerpt: "x".to_owned(),
-    }];
-    let expected = facts_value(&full);
-    let wire = encode(Version::V9, full).unwrap();
-    let mut plain = String::new();
-    ZlibDecoder::new(wire.as_slice())
-        .read_to_string(&mut plain)
-        .unwrap();
-    let reply: Value = serde_json::from_str(&plain).unwrap();
-    assert_eq!(reply["facts"], expected);
-    // The key order of the tree is the key order of the stream.
-    let keys: Vec<&String> = reply["facts"].as_object().unwrap().keys().collect();
-    let wanted: Vec<&String> = expected.as_object().unwrap().keys().collect();
-    assert_eq!(keys, wanted);
-    // The keys are sorted, as the Python reply has them: the evidence comes before the sections.
-    let position = |name: &str| keys.iter().position(|key| key.as_str() == name);
-    assert!(position("evidence") < position("sections"));
-    assert!(keys.windows(2).all(|pair| pair[0] < pair[1]));
+    full.evidence = vec![Evidence::at("src/a.ts", 1, 2, 3, "x")];
+    for version in [Version::V8, Version::V9] {
+        let text = plain(version, full.clone());
+        let decoded: Reply = serde_json::from_str(&text).unwrap();
+        assert_eq!(decoded.protocol_version.as_str(), version.as_str());
+        assert_eq!(decoded.facts.files, full.files);
+        assert_eq!(decoded.facts.imports, full.imports);
+        assert_eq!(decoded.facts.evidence, full.evidence);
+        assert_eq!(decoded.facts.coverage.files_parsed, 1);
+        assert!(!decoded.facts.coverage.full_scope);
+        assert_eq!(
+            decoded.facts.source.source_digest,
+            source_digest(&full.inputs)
+        );
+        assert_eq!(
+            serde_json::to_value(&decoded).unwrap(),
+            serde_json::from_str::<Value>(&text).unwrap()
+        );
+    }
 }
 
 /// The plain JSON of a reply that has one imports section.

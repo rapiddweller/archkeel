@@ -79,13 +79,14 @@ use std::io::Read;
 use std::io::Write;
 use std::process::ExitCode;
 
-use archkeel_facts::reply::Provenance;
+use archkeel_facts::envelope::Profile;
+use archkeel_facts::envelope::Provenance;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode;
 
 fn provenance() -> Provenance {
     Provenance::native(
-        collect::PROFILE,
+        Profile::TypeScript,
         (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
         (
             env!("ARCHKEEL_RUSTC_VERSION"),

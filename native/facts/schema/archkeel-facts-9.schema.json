@@ -4332,47 +4332,6 @@
         }
       ],
       "description": "Why a fact is UNKNOWN. One code covers one cause; the message names the file or the value."
-    },
-    "Producer": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The adapter name, for example `archkeel-typescript-imports`."
-        },
-        "version": {
-          "type": "string"
-        },
-        "code_digest": {
-          "type": "string",
-          "description": "SHA-256 of the producer code (`code_digest`)."
-        },
-        "origin": {
-          "$ref": "#/$defs/Origin"
-        }
-      },
-      "required": [
-        "name",
-        "version",
-        "code_digest",
-        "origin"
-      ]
-    },
-    "Origin": {
-      "oneOf": [
-        {
-          "type": "string",
-          "const": "bundled",
-          "description": "Shipped in the Archkeel wheel and pinned by its code digest."
-        },
-        {
-          "type": "string",
-          "const": "external",
-          "description": "Configured by the user. Its verdicts are capped at UNKNOWN."
-        }
-      ],
-      "description": "Where the producer comes from."
     }
   }
 }

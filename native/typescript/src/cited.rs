@@ -8,8 +8,7 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use archkeel_facts::identity::evidence_id;
-use archkeel_facts::reply::Evidence;
+use archkeel_facts::envelope::Evidence;
 
 use crate::source::Span;
 
@@ -38,7 +37,7 @@ impl Ord for ById {
 
 impl Borrow<str> for ById {
     fn borrow(&self) -> &str {
-        &self.0.id
+        self.0.id.as_str()
     }
 }
 
@@ -73,18 +72,11 @@ impl Cited {
 
     /// `collect._cite`.
     pub fn cite(&mut self, rel: &str, span: &Span) -> String {
-        let id = evidence_id(rel, span.line, span.end_line, span.column);
+        let evidence = Evidence::at(rel, span.line, span.end_line, span.column, &span.excerpt);
+        let id = evidence.id.as_str().to_owned();
         if let Some(touched) = &mut self.touched {
             touched.insert(id.clone());
         }
-        let evidence = Evidence {
-            id: id.clone(),
-            file: rel.to_owned(),
-            line: span.line,
-            end_line: span.end_line,
-            column: span.column,
-            excerpt: span.excerpt.clone(),
-        };
         self.all.replace(ById(evidence));
         id
     }

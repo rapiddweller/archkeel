@@ -7,7 +7,7 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_facts::reply::Evidence;
+use archkeel_facts::envelope::Evidence;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
