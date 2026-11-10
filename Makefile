@@ -93,11 +93,17 @@ native-check:
 	$(MAKE) self-validate-native
 
 # AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.
-# A source checkout has no platform wheel, so native/archkeel.toml names the debug build.
+# The build of this tree is what a platform wheel bundles (AD-344), so the run places it where the
+# host looks for the bundled binary and removes it after, and the pure wheel never carries it.
+# Like the wheel build, it stamps the installed package version, in a target directory of its own.
 self-validate-native:
-	cd native && cargo build --locked --bin archkeel-rust-collector
-	@mkdir -p test-artifacts/validation-native
-	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || { cat test-artifacts/validation-native/result.json; exit 1; }
+	cd native && ARCHKEEL_VERSION="$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')" \
+		cargo build --locked --bin archkeel-rust-collector --target-dir target/self
+	@mkdir -p test-artifacts/validation-native src/archkeel/_native
+	@cp native/target/self/debug/archkeel-rust-collector src/archkeel/_native/archkeel-rust-collector
+	@status=0; $(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || status=$$?; \
+		rm -f src/archkeel/_native/archkeel-rust-collector; rmdir src/archkeel/_native 2>/dev/null || true; \
+		if [ $$status -ne 0 ]; then cat test-artifacts/validation-native/result.json; exit 1; fi
 	@echo "Native architecture rules: PASS; full result: test-artifacts/validation-native/result.json"
 
 # AD-343: record the golden replies of the Python collector. REASON says why a reply changes.
