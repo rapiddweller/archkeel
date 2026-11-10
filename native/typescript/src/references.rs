@@ -7,6 +7,7 @@
 //! One query finds the nodes. A reference inside a region that the parser had to repair is not
 //! a fact, so it is dropped (`parse._in_error`).
 
+use archkeel_facts::vocab::Kind;
 use tree_sitter::Node;
 
 use crate::scan::Scan;
@@ -23,15 +24,20 @@ pub enum Form {
 }
 
 impl Form {
-    pub fn as_str(self) -> &'static str {
+    /// The record kind of the form (archkeel-facts, AD-345).
+    pub fn kind(self) -> Kind {
         match self {
-            Form::Import => "import",
-            Form::Reexport => "reexport",
-            Form::ImportEquals => "import_equals",
-            Form::DynamicImport => "dynamic_import",
-            Form::ImportType => "import_type",
-            Form::Require => "require",
+            Form::Import => Kind::Import,
+            Form::Reexport => Kind::Reexport,
+            Form::ImportEquals => Kind::ImportEquals,
+            Form::DynamicImport => Kind::DynamicImport,
+            Form::ImportType => Kind::ImportType,
+            Form::Require => Kind::Require,
         }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        self.kind().as_str()
     }
 }
 

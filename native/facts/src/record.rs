@@ -37,8 +37,13 @@ pub trait FactData: Sized {
     /// Write the data in the wire form.
     fn serialize_data<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error>;
 
-    /// Write the read-set fields of the data into an open map.
-    fn read_set_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error>;
+    /// Write the read fields of the data into an open map. `reads` is the list of the area and
+    /// the kind of the record (`readset_fields::fields`).
+    fn read_set_entries<M: SerializeMap>(
+        &self,
+        map: &mut M,
+        reads: crate::readset::Reads,
+    ) -> Result<(), M::Error>;
 
     /// Read the data of the record that has the protocol 9 kind `kind`.
     fn deserialize_data<'de, D: Deserializer<'de>>(
@@ -81,12 +86,16 @@ impl<D: FactData> Serialize for Data<'_, D> {
 }
 
 /// The data of a record in the read-set form.
-struct ReadSetData<'a, D>(&'a D);
+struct ReadSetData<'a, D> {
+    data: &'a D,
+    area: Area,
+}
 
 impl<D: FactData> Serialize for ReadSetData<'_, D> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let reads = crate::readset_fields::fields(self.area, self.data.kind());
         let mut map = serializer.serialize_map(None)?;
-        self.0.read_set_entries(&mut map)?;
+        self.data.read_set_entries(&mut map, reads)?;
         map.end()
     }
 }
@@ -120,7 +129,11 @@ impl<D: FactData> ReadSet for Record<D> {
         map.serialize_entry("area", &self.area)?;
         map.serialize_entry("subjects", &self.subjects)?;
         map.serialize_entry("evidence_ids", &self.evidence_ids)?;
-        map.serialize_entry("data", &ReadSetData(&self.data))
+        let data = ReadSetData {
+            data: &self.data,
+            area: self.area,
+        };
+        map.serialize_entry("data", &data)
     }
 }
 
@@ -174,10 +187,16 @@ impl<D: FactData> Fields<D> {
             (None, Some(early)) => D::deserialize_data(&kind, early).map_err(E::custom)?,
             (None, None) => return Err(de::Error::missing_field("data")),
         };
+        let area = missing(self.area, "area")?;
+        if data.kind() == Kind::ExceptionGap && area != Area::AnalysisCoverage {
+            return Err(E::custom(
+                "an analyzer failure has the area analysis_coverage",
+            ));
+        }
         Ok(Record {
             id: missing(self.id, "id")?,
             evidence_class: missing(self.evidence_class, "evidence_class")?,
-            area: missing(self.area, "area")?,
+            area,
             title: missing(self.title, "title")?,
             subjects: missing(self.subjects, "subjects")?,
             evidence_ids: missing(self.evidence_ids, "evidence_ids")?,

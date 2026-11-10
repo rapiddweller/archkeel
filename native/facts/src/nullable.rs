@@ -23,13 +23,6 @@ impl<T> Nullable<T> {
     pub fn is_absent(&self) -> bool {
         matches!(self, Nullable::Absent)
     }
-
-    pub fn value(&self) -> Option<&T> {
-        match self {
-            Nullable::Value(value) => Some(value),
-            Nullable::Absent | Nullable::Null => None,
-        }
-    }
 }
 
 impl<T: Serialize> Serialize for Nullable<T> {
@@ -63,6 +56,14 @@ impl<T: JsonSchema> JsonSchema for Nullable<T> {
     fn json_schema(generator: &mut SchemaGenerator) -> Schema {
         Option::<T>::json_schema(generator)
     }
+}
+
+/// Read a field that the wire always writes and that can be `null`. With `deserialize_with`, a
+/// missing key is a decode error: serde gives `None` for a missing `Option` key otherwise.
+pub fn required<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    Option::<T>::deserialize(deserializer)
 }
 
 /// A written constant: a Python or Dart literal of one of the JSON scalar types.

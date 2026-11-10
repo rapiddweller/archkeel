@@ -4,10 +4,14 @@
 
 //! The read-set: the second JSON form of the same types.
 //!
-//! It holds only the fields that a rule or a view reads (WP1 of issue #880, `readset_classes`).
+//! A record keeps `id`, `kind`, `area`, `subjects` and `evidence_ids`. Its data keeps only the
+//! fields that a rule or a view reads for its area and kind (WP1 of issue #880, `readset_fields`).
 //! A read field is written as the wire writes it: a `null` stays `null`, and a field that the wire
-//! skips is skipped. Most skipped fields belong to another producer of the same kind.
-//! On the x35 tree the read-set of all sections is 46.8 MB instead of 278 MB (WP2).
+//! skips is skipped. An analyzer failure adds its exception name, and a gap adds its reason code.
+//!
+//! Measured on this crate: the 21 980 x35 import records are 15.5 MB on the wire and 10.0 MB in
+//! the read-set; the 156 808 section records of the WP1 replies are 128.7 MB and 91.9 MB. The data
+//! of each record equals the WP1 read-set; the shared fields and the ids hold most of the bytes.
 
 use serde::ser::{SerializeMap, SerializeSeq, Serializer};
 use serde::Serialize;
@@ -16,6 +20,20 @@ use serde::Serialize;
 pub trait ReadSet {
     /// Write the read fields into an open map.
     fn read_set_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error>;
+}
+
+/// The read data fields of one area and kind (`readset_fields::fields`), or `None` when WP1 has
+/// no list for the kind.
+pub type Reads = Option<&'static [&'static str]>;
+
+/// Whether the read-set writes the field `name`. Without a list, each `read` field is written.
+pub fn allowed(reads: Reads, name: &str) -> bool {
+    reads.is_none_or(|fields| fields.binary_search(&name).is_ok())
+}
+
+/// The data of a record kind: it writes its read fields into an open map.
+pub trait ReadFields {
+    fn read_fields<M: SerializeMap>(&self, map: &mut M, reads: Reads) -> Result<(), M::Error>;
 }
 
 /// A field that the wire can skip. The read-set skips it when the wire does.

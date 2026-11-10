@@ -9,10 +9,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::{EvidenceId, FactId, ModuleName};
 use crate::nullable::Nullable;
+use crate::vocab::{InventoryStatus, MemberKind, RelationshipKind, Status};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributeDeclaration {
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub annotation: Option<String>,
     #[serde(default, skip_serializing_if = "Nullable::is_absent")]
     pub constant: Nullable<String>,
@@ -41,8 +44,8 @@ pub struct BaseDeclaration {
     pub id: FactId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    pub relationship_kind: String,
-    pub status: String,
+    pub relationship_kind: RelationshipKind,
+    pub status: Status,
     pub targets: Vec<String>,
 }
 
@@ -58,8 +61,12 @@ pub struct BindingScope {
 #[serde(deny_unknown_fields)]
 pub struct CallArgument {
     pub evidence_ids: Vec<EvidenceId>,
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub keyword: Option<String>,
     pub kind: String,
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub value: Option<String>,
     pub value_kind: String,
 }
@@ -79,7 +86,7 @@ pub struct CallBinding {
 pub struct Construction {
     pub candidates_truncated: bool,
     pub reason: String,
-    pub status: String,
+    pub status: Status,
     pub targets: Vec<String>,
 }
 
@@ -130,10 +137,14 @@ pub struct GuardedEffect {
     pub complete: bool,
     pub condition: Condition,
     pub condition_evidence_ids: Vec<EvidenceId>,
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub condition_value: Option<bool>,
     pub effect_binding_evidence_ids: Vec<EvidenceId>,
     pub helper_bindings: Vec<String>,
     pub path_evidence_ids: Vec<EvidenceId>,
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub unknown_reason: Option<String>,
 }
 
@@ -141,16 +152,22 @@ pub struct GuardedEffect {
 #[serde(deny_unknown_fields)]
 pub struct MemberInventory {
     pub definition_ids: Vec<FactId>,
-    pub kind: String,
+    pub kind: MemberKind,
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub reason: Option<String>,
     pub schema_version: String,
-    pub status: String,
+    pub status: InventoryStatus,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Parameter {
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub annotation: Option<String>,
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub default: Option<String>,
     pub default_known: bool,
     pub kind: String,
@@ -177,6 +194,8 @@ pub struct ReceiverBinding {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResultBinding {
+    #[serde(deserialize_with = "crate::nullable::required")]
+    #[schemars(required)]
     pub annotation: Option<String>,
     pub definition_contexts: Vec<DefinitionContext>,
     pub evidence_ids: Vec<EvidenceId>,

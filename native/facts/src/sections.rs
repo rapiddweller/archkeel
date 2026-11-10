@@ -18,9 +18,9 @@ use crate::data::{
     NumericOperandData, ReferenceData, SelectorData, SignalData, SourceRoleData, UnusedBindingData,
     ValueData,
 };
-use crate::readset::{self, ReadSet};
+use crate::readset::{self, ReadFields, ReadSet, Reads};
 use crate::record::{FactData, Record};
-use crate::vocab::Kind;
+use crate::vocab::{ExceptionName, Kind};
 
 section_facts! {
     pub enum ImportFact {
@@ -144,18 +144,9 @@ pub enum GapFact {
     PrivateAttributeAccessLimit(GapData),
     /// An analyzer failure. Protocol 9 writes the exception class name as the kind.
     ExceptionGap {
-        exception: String,
+        exception: ExceptionName,
         data: GapData,
     },
-}
-
-/// The pattern of an exception class name; protocol 9 has no other kind in this form.
-const EXCEPTION: &str = "^[A-Z][A-Za-z0-9]*$";
-
-fn exception_name(kind: &str) -> bool {
-    let mut chars = kind.chars();
-    chars.next().is_some_and(|first| first.is_ascii_uppercase())
-        && chars.all(|c| c.is_ascii_alphanumeric())
 }
 
 impl GapFact {
@@ -185,7 +176,7 @@ impl FactData for GapFact {
 
     fn wire_kind(&self) -> &str {
         match self {
-            GapFact::ExceptionGap { exception, .. } => exception,
+            GapFact::ExceptionGap { exception, .. } => exception.as_str(),
             other => other.kind().as_str(),
         }
     }
@@ -194,11 +185,16 @@ impl FactData for GapFact {
         self.data().serialize(serializer)
     }
 
-    fn read_set_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
+    /// An analyzer failure adds its exception name: the closed kind does not hold it. A reason
+    /// code is protocol 10 data that no WP1 reader can have read; it is written when it is set.
+    fn read_set_entries<M: SerializeMap>(&self, map: &mut M, reads: Reads) -> Result<(), M::Error> {
         if let GapFact::ExceptionGap { exception, .. } = self {
             map.serialize_entry("exception", exception)?;
         }
-        self.data().read_set_entries(map)
+        if let Some(code) = &self.data().code {
+            map.serialize_entry("code", code)?;
+        }
+        self.data().read_fields(map, reads)
     }
 
     fn deserialize_data<'de, D: Deserializer<'de>>(
@@ -210,16 +206,17 @@ impl FactData for GapFact {
             Some(Kind::SourceResolutionGap) => GapFact::SourceResolutionGap,
             Some(Kind::DynamicImportLimit) => GapFact::DynamicImportLimit,
             Some(Kind::PrivateAttributeAccessLimit) => GapFact::PrivateAttributeAccessLimit,
-            _ if exception_name(kind) => {
-                let data = GapData::deserialize(deserializer)?;
-                let exception = kind.to_owned();
-                return Ok(GapFact::ExceptionGap { exception, data });
-            }
-            _ => {
-                return Err(D::Error::custom(format!(
-                    "the kind {kind} is not a gap kind"
-                )))
-            }
+            _ => match ExceptionName::parse(kind) {
+                Some(exception) => {
+                    let data = GapData::deserialize(deserializer)?;
+                    return Ok(GapFact::ExceptionGap { exception, data });
+                }
+                None => {
+                    return Err(D::Error::custom(format!(
+                        "the kind {kind} is not a gap kind"
+                    )))
+                }
+            },
         };
         GapData::deserialize(deserializer).map(make)
     }
@@ -235,7 +232,11 @@ impl FactData for GapFact {
         .iter()
         .map(|kind| (json!({"const": kind.as_str()}), data.clone()))
         .collect();
-        variants.push((json!({"type": "string", "pattern": EXCEPTION}), data));
+        let names: Vec<&str> = ExceptionName::ALL
+            .iter()
+            .map(|name| name.as_str())
+            .collect();
+        variants.push((json!({"enum": names}), data));
         variants
     }
 }

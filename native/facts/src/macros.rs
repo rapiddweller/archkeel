@@ -42,19 +42,20 @@ macro_rules! closed {
     };
 }
 
-/// The data of a record kind. Each field is marked `[read]` or `[wire]`.
+/// The data of a record kind. Each field carries two marks:
 ///
-/// 1. The wire form (`serde`) writes each field in the order of the declaration.
-/// 2. The read-set (`ReadSet`) writes only the `[read]` and `[optional]` fields. An `[optional]`
-///    field is a field that the wire skips when it is absent (`readset::Present`); the read-set
-///    skips it too. Most of them belong to another producer.
+/// 1. `read` or `wire`: a rule or a view reads the field for some kind of this type (WP1), or no
+///    reader reads it. The read-set writes a `read` field only when the list of the area and the
+///    kind holds it (`readset_fields`).
+/// 2. `skip`: the wire omits the field when it is absent. The read-set omits it too.
 ///
-/// A `[read "name"]` field gives its JSON name, for a field that is a Rust keyword.
+/// The wire form (`serde`) writes each field in the order of the declaration. A `[read "name"]`
+/// field gives its JSON name, for a field that is a Rust keyword.
 macro_rules! facts_data {
     (
         $(#[$doc:meta])*
         pub struct $name:ident {
-            $([$mode:ident $($key:literal)?] $(#[$attr:meta])* $field:ident : $ty:ty,)*
+            $([$mode:ident $($skip:ident)? $($key:literal)?] $(#[$attr:meta])* $field:ident : $ty:ty,)*
         }
     ) => {
         $(#[$doc])*
@@ -64,27 +65,35 @@ macro_rules! facts_data {
             $($(#[$attr])* pub $field: $ty,)*
         }
 
-        impl $crate::readset::ReadSet for $name {
-            // A type with no read field does not use the map.
+        impl $crate::readset::ReadFields for $name {
+            // A type with no read field does not use the map or the list.
             #[allow(unused_variables)]
-            fn read_set_entries<M: serde::ser::SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
-                $(facts_data!(@entry $mode map self $field $($key)?);)*
+            fn read_fields<M: serde::ser::SerializeMap>(
+                &self,
+                map: &mut M,
+                reads: $crate::readset::Reads,
+            ) -> Result<(), M::Error> {
+                $(facts_data!(@entry $mode $($skip)? [map self reads $field] $($key)?);)*
                 Ok(())
             }
         }
     };
-    (@entry read $map:ident $self:ident $field:ident $key:literal) => {
-        $map.serialize_entry($key, &$self.$field)?
-    };
-    (@entry read $map:ident $self:ident $field:ident) => {
-        $map.serialize_entry(stringify!($field), &$self.$field)?
-    };
-    (@entry optional $map:ident $self:ident $field:ident $($key:literal)?) => {
+    (@entry read skip [$map:ident $self:ident $reads:ident $field:ident] $($key:literal)?) => {
         if $crate::readset::Present::present(&$self.$field) {
-            facts_data!(@entry read $map $self $field $($key)?)
+            facts_data!(@entry read [$map $self $reads $field] $($key)?)
         }
     };
-    (@entry wire $map:ident $self:ident $field:ident $($key:literal)?) => {};
+    (@entry read [$map:ident $self:ident $reads:ident $field:ident] $key:literal) => {
+        if $crate::readset::allowed($reads, $key) {
+            $map.serialize_entry($key, &$self.$field)?
+        }
+    };
+    (@entry read [$map:ident $self:ident $reads:ident $field:ident]) => {
+        if $crate::readset::allowed($reads, stringify!($field)) {
+            $map.serialize_entry(stringify!($field), &$self.$field)?
+        }
+    };
+    (@entry wire $($skip:ident)? [$($rest:tt)*] $($key:literal)?) => {};
 }
 
 /// The data enum of a section: one variant for each kind, and the data type of that kind.
@@ -118,9 +127,13 @@ macro_rules! section_facts {
                 }
             }
 
-            fn read_set_entries<M: serde::ser::SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
+            fn read_set_entries<M: serde::ser::SerializeMap>(
+                &self,
+                map: &mut M,
+                reads: $crate::readset::Reads,
+            ) -> Result<(), M::Error> {
                 match self {
-                    $(Self::$variant(data) => $crate::readset::ReadSet::read_set_entries(data, map),)*
+                    $(Self::$variant(data) => $crate::readset::ReadFields::read_fields(data, map, reads),)*
                 }
             }
 

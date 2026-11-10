@@ -99,6 +99,8 @@ fn a_record_outside_the_protocol_is_a_decode_error() {
         with("extra", true.into()),
         with("data", serde_json::json!({"source_module": "a"})),
         WIRE.replace("\"relative_level\":0", "\"relative_level\":0,\"line\":1"),
+        // A field that the wire always writes, also as `null`, must be present.
+        WIRE.replace("\"symbol\":null,", ""),
     ];
     for case in cases {
         assert!(

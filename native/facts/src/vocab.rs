@@ -91,6 +91,48 @@ closed! {
 }
 
 closed! {
+    /// The protocol 9 kind of an analyzer failure (`Kind::ExceptionGap`). Python writes the class
+    /// name of the exception that stopped a file: `OSError` and the subclasses that a file read can
+    /// raise, `UnicodeDecodeError`, `SyntaxError` and its subclasses, `ValueError` and
+    /// `TooDeepError` (`analyzer/python/source.py`). Dart writes the names of its problem kinds
+    /// (`analyzer/dart/collect.py`, `resolve.py`, `snapshot.py`, `syntax.py`).
+    pub enum ExceptionName {
+        SyntaxError = "SyntaxError",
+        IndentationError = "IndentationError",
+        TabError = "TabError",
+        UnicodeDecodeError = "UnicodeDecodeError",
+        ValueError = "ValueError",
+        TooDeepError = "TooDeepError",
+        OsError = "OSError",
+        FileNotFoundError = "FileNotFoundError",
+        PermissionError = "PermissionError",
+        IsADirectoryError = "IsADirectoryError",
+        NotADirectoryError = "NotADirectoryError",
+        TimeoutError = "TimeoutError",
+        InterruptedError = "InterruptedError",
+        DirectiveError = "DirectiveError",
+        UnsupportedDeclaration = "UnsupportedDeclaration",
+        UnsupportedMember = "UnsupportedMember",
+        UnsupportedParameter = "UnsupportedParameter",
+        LanguageVersionError = "LanguageVersionError",
+        SdkConstraintError = "SdkConstraintError",
+        DuplicateDeclaration = "DuplicateDeclaration",
+        PartError = "PartError",
+        PartOwnershipConflict = "PartOwnershipConflict",
+        DartSourceLink = "DartSourceLink",
+        SnapshotError = "SnapshotError",
+        DartModuleError = "DartModuleError",
+        DartModuleCollision = "DartModuleCollision",
+        SelectedRootError = "SelectedRootError",
+        ContainmentError = "ContainmentError",
+        ExcludedTreeError = "ExcludedTreeError",
+        PubspecMissing = "PubspecMissing",
+        DartSyntaxError = "syntax_error",
+        InvalidEncoding = "invalid_encoding",
+    }
+}
+
+closed! {
     /// How far a call, a reference or a selector is resolved.
     pub enum Status {
         Resolved = "resolved",
@@ -226,6 +268,59 @@ closed! {
     pub enum Proof {
         Known = "known",
         Unknown = "unknown",
+    }
+}
+
+closed! {
+    /// The written form of a construct or of a numeric operand (Python).
+    pub enum ConstructForm {
+        Binary = "binary",
+        Compare = "compare",
+        Endswith = "endswith",
+        Membership = "membership",
+        Startswith = "startswith",
+    }
+}
+
+closed! {
+    /// The typing signal of a record of `typing_signals`; the text equals the kind of the record.
+    pub enum Signal {
+        AnyAnnotation = "any_annotation",
+        DictAnyAnnotation = "dict_any_annotation",
+        CallableAnyAnnotation = "callable_any_annotation",
+        ObjectAnnotation = "object_annotation",
+        CastCall = "cast_call",
+        GetattrCall = "getattr_call",
+        HasattrCall = "hasattr_call",
+        EvalCall = "eval_call",
+        ExecCall = "exec_call",
+        DynamicImport = "dynamic_import",
+        TypeIgnore = "type_ignore",
+        MissingCrossPackageAnnotation = "missing_cross_package_annotation",
+    }
+}
+
+closed! {
+    /// How a class relates to a base declaration.
+    pub enum RelationshipKind {
+        Inherits = "inherits",
+        Realizes = "realizes",
+    }
+}
+
+closed! {
+    /// The members that a member inventory lists (`facts.MemberKind`).
+    pub enum MemberKind {
+        Attribute = "attribute",
+        Method = "method",
+    }
+}
+
+closed! {
+    /// Whether a member inventory lists every member (`facts.InventoryStatus`).
+    pub enum InventoryStatus {
+        Complete = "complete",
+        Partial = "partial",
     }
 }
 

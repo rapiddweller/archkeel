@@ -5,7 +5,8 @@
 //! The ids and names of the facts. Each one is a newtype over its text.
 //!
 //! The types have no conversion between them. A source id (`FactId`, `EvidenceId`) never becomes
-//! a Target id (`TargetId`) of a contract: the two meet only in a match by a rule (WP1, section 3).
+//! the Target id of a contract: the two meet only in a match by a rule (WP1, section 3). The Target
+//! id type comes with the model crate that reads the contract.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -47,8 +48,4 @@ text_id!(
 text_id!(
     /// The package of a module, or the package of an external dependency.
     PackageName
-);
-text_id!(
-    /// The id of a Target element of a contract (`COMP-…`, `TARGET-…` or a qualified name).
-    TargetId
 );
