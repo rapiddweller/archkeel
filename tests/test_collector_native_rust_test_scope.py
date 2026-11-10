@@ -111,6 +111,7 @@ def test_the_note_names_the_files_that_the_collector_left_out(
         "crates/target/stray.rs": "fn s() {}\n",
     }
     root = repository(tmp_path, rust_binary, files)
+    (root / "crates/app/src/dangling.rs").symlink_to(root / "crates/app/src/missing.rs")
     config = root / "archkeel.toml"
     config.write_text(
         config.read_text().replace("[scan]\n", "[scan]\nexclude_test_sources = true\n")
@@ -120,3 +121,4 @@ def test_the_note_names_the_files_that_the_collector_left_out(
     assert "crates/app/src/checks.rs" in claim
     assert "crates/app/tests/it.rs" in claim
     assert "stray.rs" not in claim
+    assert "dangling.rs" not in claim
