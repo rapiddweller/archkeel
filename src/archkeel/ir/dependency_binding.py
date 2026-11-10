@@ -9,6 +9,7 @@ from collections.abc import Iterable as _Iterable
 
 from .identity_memo import IdentityMemo
 from .model import Evidence, Observation, Record, Section, stable_id
+from .store_seam import active_store
 
 _REPLAYED: IdentityMemo[Observation, str] = IdentityMemo()
 
@@ -59,15 +60,19 @@ def dependency_binding_id(
         )
     ]
     bound.extend(failures)
-    return stable_id(
-        "DEPENDENCY-PROOF",
-        repr(
-            (
-                tuple(sorted(bound, key=lambda item: item.id)),
-                tuple(sorted(evidence, key=lambda item: item.id)),
-            )
-        ),
-    )
+    records = sorted(bound, key=lambda item: item.id)
+    entries = sorted(evidence, key=lambda item: item.id)
+    store = active_store()
+    if store is not None:
+        # AD-346: the store holds the whole records; the shell holds only their read-set.
+        return store.bind(
+            [item.id if store.holds_record(item.id) else {"repr": repr(item)} for item in records],
+            [
+                item.id if store.holds_evidence(item.id) else {"repr": repr(item)}
+                for item in entries
+            ],
+        )
+    return stable_id("DEPENDENCY-PROOF", repr((tuple(records), tuple(entries))))
 
 
 def replayed_dependency_binding_id(observation: Observation, **flags: bool) -> str:

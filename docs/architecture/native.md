@@ -5,7 +5,7 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 Run `make self-validate-native` to check it.
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `build`). Each
+The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `build`). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records are the only place that builds facts. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
@@ -19,7 +19,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
 | `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-wire` |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
-| `archkeel-store` | Validates facts once and keeps them (planned, no code yet). | `archkeel-facts` |
+| `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
@@ -42,100 +42,102 @@ flowchart LR
     n_8["rs-text"]
     n_9["rs-workspace"]
     n_10["snapshot"]
-    n_11["ts-declarations"]
-    n_12["ts-discover"]
-    n_13["ts-dump"]
-    n_14["ts-entry"]
-    n_15["ts-flow"]
-    n_16["ts-input"]
-    n_17["ts-parse"]
-    n_18["ts-records"]
-    n_19["ts-resolve"]
-    n_20["ts-scripts"]
-    n_21["ts-sites"]
-    n_22["ts-tree"]
-    n_23["ts-walk"]
-    n_24["wire"]
+    n_11["store"]
+    n_12["ts-declarations"]
+    n_13["ts-discover"]
+    n_14["ts-dump"]
+    n_15["ts-entry"]
+    n_16["ts-flow"]
+    n_17["ts-input"]
+    n_18["ts-parse"]
+    n_19["ts-records"]
+    n_20["ts-resolve"]
+    n_21["ts-scripts"]
+    n_22["ts-sites"]
+    n_23["ts-tree"]
+    n_24["ts-walk"]
+    n_25["wire"]
     n_10 --> n_1
-    n_10 --> n_24
-    n_11 --> n_16
-    n_11 --> n_22
-    n_12 --> n_10
-    n_12 --> n_16
-    n_13 --> n_11
-    n_13 --> n_15
-    n_13 --> n_16
+    n_10 --> n_25
+    n_11 --> n_1
+    n_12 --> n_17
+    n_12 --> n_23
+    n_13 --> n_10
     n_13 --> n_17
-    n_13 --> n_18
-    n_13 --> n_21
-    n_13 --> n_22
-    n_13 --> n_23
-    n_13 --> n_24
-    n_14 --> n_0
-    n_14 --> n_1
-    n_14 --> n_10
-    n_14 --> n_13
-    n_14 --> n_15
+    n_14 --> n_12
+    n_14 --> n_16
+    n_14 --> n_17
+    n_14 --> n_18
+    n_14 --> n_19
+    n_14 --> n_22
+    n_14 --> n_23
     n_14 --> n_24
+    n_14 --> n_25
+    n_15 --> n_0
     n_15 --> n_1
     n_15 --> n_10
-    n_15 --> n_12
+    n_15 --> n_14
     n_15 --> n_16
-    n_15 --> n_17
-    n_15 --> n_18
-    n_15 --> n_19
-    n_15 --> n_23
-    n_15 --> n_24
-    n_17 --> n_11
-    n_17 --> n_16
-    n_17 --> n_20
-    n_17 --> n_22
-    n_17 --> n_23
-    n_18 --> n_1
-    n_18 --> n_11
-    n_18 --> n_16
+    n_15 --> n_25
+    n_16 --> n_1
+    n_16 --> n_10
+    n_16 --> n_13
+    n_16 --> n_17
+    n_16 --> n_18
+    n_16 --> n_19
+    n_16 --> n_20
+    n_16 --> n_24
+    n_16 --> n_25
+    n_18 --> n_12
     n_18 --> n_17
     n_18 --> n_21
-    n_18 --> n_22
+    n_18 --> n_23
     n_18 --> n_24
-    n_19 --> n_10
+    n_19 --> n_1
     n_19 --> n_12
-    n_19 --> n_16
+    n_19 --> n_17
+    n_19 --> n_18
+    n_19 --> n_22
+    n_19 --> n_23
+    n_19 --> n_25
     n_2 --> n_1
-    n_2 --> n_24
+    n_2 --> n_25
     n_2 --> n_6
     n_2 --> n_8
     n_2 --> n_9
-    n_20 --> n_11
-    n_20 --> n_16
-    n_20 --> n_22
-    n_20 --> n_23
-    n_21 --> n_11
-    n_21 --> n_16
-    n_21 --> n_22
-    n_22 --> n_16
-    n_23 --> n_1
-    n_23 --> n_11
-    n_23 --> n_16
-    n_23 --> n_21
-    n_23 --> n_22
+    n_20 --> n_10
+    n_20 --> n_13
+    n_20 --> n_17
+    n_21 --> n_12
+    n_21 --> n_17
+    n_21 --> n_23
+    n_21 --> n_24
+    n_22 --> n_12
+    n_22 --> n_17
+    n_22 --> n_23
+    n_23 --> n_17
     n_24 --> n_1
+    n_24 --> n_12
+    n_24 --> n_17
+    n_24 --> n_22
+    n_24 --> n_23
+    n_25 --> n_1
     n_3 --> n_1
     n_3 --> n_10
     n_3 --> n_2
-    n_3 --> n_24
+    n_3 --> n_25
     n_3 --> n_6
     n_3 --> n_8
     n_3 --> n_9
     n_4 --> n_0
     n_4 --> n_1
     n_4 --> n_10
-    n_4 --> n_24
+    n_4 --> n_25
     n_4 --> n_5
     n_4 --> n_7
     n_5 --> n_10
     n_5 --> n_2
-    n_5 --> n_24
+    n_5 --> n_25
     n_5 --> n_6
     n_5 --> n_7
     n_5 --> n_9
@@ -145,7 +147,7 @@ flowchart LR
     n_7 --> n_1
     n_7 --> n_10
     n_7 --> n_2
-    n_7 --> n_24
+    n_7 --> n_25
     n_7 --> n_6
     n_9 --> n_10
 ```

@@ -26,6 +26,11 @@ def validate_decoded_facts(facts: SourceFacts) -> None:
     _DECODED[id(facts)] = facts
 
 
+def accept_store_facts(facts: SourceFacts) -> None:
+    """Remember facts that the Rust store validated (AD-346): its generic checks ran once."""
+    _DECODED[id(facts)] = facts
+
+
 def ensure_valid_source_facts(facts: SourceFacts) -> None:
     """Validate the facts, except an object that the decoder already validated."""
     if not is_decoded(facts):
