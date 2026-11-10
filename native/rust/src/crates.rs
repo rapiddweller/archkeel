@@ -8,13 +8,21 @@
 //! child process and no network (AD-316). `cargo metadata` is the oracle of the tests instead.
 
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use crate::manifest::{self, ident, Manifest, Target};
+use crate::manifest_lines::LineIndex;
 use crate::paths::normalize;
 use crate::source::read_text;
 use crate::toml::{self, Table};
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
+
+/// One manifest, read once: its table and its text.
+struct Parsed {
+    table: Table,
+    text: String,
+}
 
 /// A place that the scan cannot read: the file (or none) and the reason.
 #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +43,9 @@ pub struct Crate {
     /// The directory of the manifest, relative to the snapshot.
     pub dir: String,
     pub manifest: Manifest,
+    /// The text of `Cargo.toml`, read once, and the line of each dependency in it.
+    pub text: String,
+    pub lines: LineIndex,
     pub roots: Vec<Root>,
     /// The module and file that other crates reach: the library, else the main binary.
     pub primary: Option<Root>,
@@ -51,7 +62,7 @@ pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Wor
         crates: Vec::new(),
         problems: Vec::new(),
     };
-    let mut tables: BTreeMap<String, Option<Table>> = BTreeMap::new();
+    let mut tables: BTreeMap<String, Option<Rc<Parsed>>> = BTreeMap::new();
     for file in files.iter().filter(|file| is_manifest(file)) {
         let dir = dirname(file).to_owned();
         match manifest_table(source, &mut tables, &dir) {
@@ -60,10 +71,10 @@ pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Wor
                 file: file.clone(),
             }),
             Ok(None) => {}
-            Ok(Some(table)) => {
+            Ok(Some(parsed)) => {
                 let workspace = workspace_table(source, &mut tables, &dir);
-                if let Some(read) = manifest::read(&table, &workspace) {
-                    found.add(&dir, read, files, namespace);
+                if let Some(read) = manifest::read(&parsed.table, &workspace) {
+                    found.add(&dir, read, &parsed.text, files, namespace);
                 }
             }
         }
@@ -79,19 +90,20 @@ fn is_manifest(file: &str) -> bool {
     file == "Cargo.toml" || file.ends_with("/Cargo.toml")
 }
 
-/// The parsed manifest of `dir`; `Ok(None)` when the directory has none.
+/// The manifest of `dir`, read and parsed once; `Ok(None)` when the directory has none.
 fn manifest_table(
     source: &mut Snapshot,
-    tables: &mut BTreeMap<String, Option<Table>>,
+    tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
     dir: &str,
-) -> Result<Option<Table>, String> {
+) -> Result<Option<Rc<Parsed>>, String> {
     if let Some(known) = tables.get(dir) {
         return Ok(known.clone());
     }
     let rel = join(dir, "Cargo.toml");
     let table = if source.is_file(&rel) {
         let text = read_text(source, &rel)?;
-        Some(toml::parse(&text).map_err(|error| format!("Cannot read {rel}: {error}"))?)
+        let table = toml::parse(&text).map_err(|error| format!("Cannot read {rel}: {error}"))?;
+        Some(Rc::new(Parsed { table, text }))
     } else {
         None
     };
@@ -102,14 +114,14 @@ fn manifest_table(
 /// The `[workspace.dependencies]` of the nearest workspace manifest above `dir`.
 fn workspace_table(
     source: &mut Snapshot,
-    tables: &mut BTreeMap<String, Option<Table>>,
+    tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
     dir: &str,
 ) -> Table {
     let mut at = dir.to_owned();
     loop {
-        if let Ok(Some(table)) = manifest_table(source, tables, &at) {
-            if manifest::is_workspace(&table) {
-                return manifest::workspace_dependencies(&table);
+        if let Ok(Some(parsed)) = manifest_table(source, tables, &at) {
+            if manifest::is_workspace(&parsed.table) {
+                return manifest::workspace_dependencies(&parsed.table);
             }
         }
         if at.is_empty() {
@@ -120,7 +132,14 @@ fn workspace_table(
 }
 
 impl Workspace {
-    fn add(&mut self, dir: &str, manifest: Manifest, files: &[String], namespace: &str) {
+    fn add(
+        &mut self,
+        dir: &str,
+        manifest: Manifest,
+        text: &str,
+        files: &[String],
+        namespace: &str,
+    ) {
         if let Some(name) = &manifest.lib_name {
             let reason = format!(
                 "The library name {name} differs from the package name {}: a path to it is not read",
@@ -165,6 +184,8 @@ impl Workspace {
             ident: package,
             dir: dir.to_owned(),
             manifest,
+            text: text.to_owned(),
+            lines: LineIndex::new(text),
             roots,
             primary,
         });
@@ -190,7 +211,12 @@ fn within(dir: &str, rel: &str) -> bool {
 impl Crate {
     /// Whether a root file is in the directory of this crate.
     pub fn holds(&self, root: &Root) -> bool {
-        within(&self.dir, &root.rel)
+        self.contains(&root.rel)
+    }
+
+    /// Whether a file is in the directory of this crate.
+    pub fn contains(&self, rel: &str) -> bool {
+        within(&self.dir, rel)
     }
 }
 

@@ -114,18 +114,3 @@ fn a_dependency_table_or_form_that_the_reader_does_not_know_is_kept_as_unknown()
         ]
     );
 }
-
-#[test]
-fn the_line_of_a_dependency_is_its_key_its_table_header_or_the_first_line() {
-    let text = "[package]\nname = \"a\"\n[dependencies]\nfirst = \"1\"\n  second.workspace = true\n\
-                [dev_dependencies.third]\nversion = \"1\"\n[build-dependencies]\n\"quoted\" = \"1\"\n";
-    assert_eq!(line_of(text, Kind::Normal, "first").0, 4);
-    assert_eq!(line_of(text, Kind::Normal, "second").0, 5);
-    assert_eq!(line_of(text, Kind::Dev, "third").0, 6);
-    assert_eq!(line_of(text, Kind::Build, "quoted").0, 9);
-    // A key of another section, and a key that is not there, give the first line.
-    assert_eq!(
-        line_of(text, Kind::Dev, "first"),
-        (1, "[package]".to_owned())
-    );
-}

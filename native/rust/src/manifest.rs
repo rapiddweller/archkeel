@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::toml::{Table, Value};
 
 /// Which build of the crate a dependency belongs to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Kind {
     Normal,
     Dev,
@@ -35,7 +35,7 @@ impl Kind {
 
 /// The sections that declare a dependency. Cargo still reads the underscore forms of the dev and
 /// the build section (deprecated, edition 2021 and before).
-const DEPENDENCY_SECTIONS: [(&str, Kind); 5] = [
+pub(crate) const DEPENDENCY_SECTIONS: [(&str, Kind); 5] = [
     ("dependencies", Kind::Normal),
     ("dev-dependencies", Kind::Dev),
     ("dev_dependencies", Kind::Dev),
@@ -220,51 +220,6 @@ fn unknown_tables(table: &Table) -> Vec<String> {
         }
     }
     found
-}
-
-/// The line of a dependency in the text of its manifest, and the text of the line. The line of
-/// the key in its section, else the line of the header `[<section>.<key>]`, else the first line.
-pub fn line_of(text: &str, kind: Kind, key: &str) -> (i64, String) {
-    let sections: Vec<&str> = DEPENDENCY_SECTIONS
-        .iter()
-        .filter(|(_, own)| *own == kind)
-        .map(|(section, _)| *section)
-        .collect();
-    let quoted = format!("\"{key}\"");
-    let mut inside = false;
-    let mut found = None;
-    for (index, line) in text.lines().enumerate() {
-        let line = line.trim();
-        if line.starts_with('[') {
-            inside = sections.iter().any(|section| {
-                let header = line.trim_matches(|c| c == '[' || c == ']');
-                header == *section || header.ends_with(&format!(".{section}"))
-            });
-            let table = sections.iter().any(|section| {
-                line.ends_with(&format!("{section}.{key}]"))
-                    || line.ends_with(&format!("{section}.{quoted}]"))
-            });
-            if table {
-                return (to_line(index), line.to_owned());
-            }
-        } else if inside
-            && [key, quoted.as_str()]
-                .iter()
-                .any(|name| starts_with_key(line, name))
-        {
-            found.get_or_insert((to_line(index), line.to_owned()));
-        }
-    }
-    found.unwrap_or((1, text.lines().next().unwrap_or("").trim().to_owned()))
-}
-
-fn starts_with_key(line: &str, key: &str) -> bool {
-    line.strip_prefix(key)
-        .is_some_and(|rest| rest.trim_start().starts_with(['=', '.']))
-}
-
-fn to_line(index: usize) -> i64 {
-    i64::try_from(index + 1).unwrap_or(i64::MAX)
 }
 
 /// The package behind a dependency name: `package = "x"` renames it, and `workspace = true`
