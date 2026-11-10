@@ -18,6 +18,7 @@ from queue import Empty, Queue
 from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
+from archkeel.analyzer.pin import is_pin, pin_refusal
 from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES, exit_message, limit_memory
 from archkeel.analyzer.reply_checks import check_reply
 from archkeel.analyzer.runtime import package_version
@@ -94,8 +95,12 @@ class ProcessCollector:
     memory_limit_bytes: int = COLLECTOR_MEMORY_LIMIT_BYTES
     # Set for a collector of this package: its reply must carry the host version (AD-319).
     pin_adapter_version: bool = False
+    # Set for a configured collector that the user pins: its file must have this digest (AD-344).
+    pinned_digest: str | None = None
 
     def __post_init__(self) -> None:
+        if self.pinned_digest is not None and not is_pin(self.pinned_digest):
+            raise ValueError("collector digest must be sha256: and 64 lowercase hexadecimal digits")
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
             raise ValueError("collector argv must contain nonempty arguments")
         if not 0 < self.timeout_seconds <= TIMEOUT_MAX:
@@ -130,6 +135,12 @@ class ProcessCollector:
             command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "LC_ALL": "C"}  # AD-325
             platform = _process_platform(os.name)
+            if self.pinned_digest is not None and (
+                refusal := pin_refusal(
+                    subject, request.snapshot.root, environment.get("PATH", ""), self.pinned_digest
+                )
+            ):
+                return CollectionError(CollectionErrorKind.EXECUTION_ERROR, subject, refusal)
             if platform is _ProcessPlatform.WINDOWS:
                 search_path = os.pathsep.join((request.snapshot.root, environment.get("PATH", "")))
                 executable = shutil.which(self.argv[0], path=search_path)

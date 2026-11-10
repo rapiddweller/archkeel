@@ -5,6 +5,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
@@ -13,6 +14,14 @@ from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import ObservationResult as ObservationResult
 from archkeel.ir.protocol import CollectionError, CollectionRequest
+
+
+class ProducerKind(StrEnum):
+    """Who made the facts. The host knows it from how it started the collector (AD-344)."""
+
+    PYTHON = "python"  # the collector of this package
+    PINNED = "pinned"  # a configured collector whose file has the pinned digest
+    EXTERNAL = "external"  # a configured collector without a pin: it cannot prove a rule
 
 
 @dataclass(frozen=True, slots=True)

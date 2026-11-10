@@ -17,6 +17,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import pin_of
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.process import ProcessCollector
@@ -82,6 +83,7 @@ def test_host_report_reads_the_native_reply(tmp_path: Path, binary: Path) -> Non
         config.language,
         collector_argv=config.collector_argv,
         tsconfig=config.tsconfig or "tsconfig.json",
+        pinned_digest=pin_of(str(binary)),
     )
 
     result, artifact = run_report(root, config=config, analyzer=observer)

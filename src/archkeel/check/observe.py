@@ -50,7 +50,7 @@ from .contract_tree import ContractInput, contract_input
 from .declarations import ContractError, load_contract
 from .gap_diagnostics import gap_diagnostic
 from .observation import assemble_observation
-from .ports import SourceCollector
+from .ports import ProducerKind, SourceCollector
 from .runtime import runtime_diagnostic
 
 
@@ -181,6 +181,17 @@ def observation_diagnostics(
     return tuple(diagnostics)
 
 
+def _external_producer_diagnostic() -> Diagnostic:
+    """AD-344: facts of a configured collector without a pin can never give PASS."""
+    return Diagnostic(
+        DiagnosticKind.INCOMPLETE_SCAN,
+        "scan.collector_argv",
+        f"The scan used a configured collector (producer: {ProducerKind.EXTERNAL}). "
+        "An external collector cannot prove a rule.",
+        "Use the bundled collector, or pin the external collector by digest.",
+    )
+
+
 def _partial_uml_source_is_eligible(
     facts: SourceFacts, model: Observation, runtime: Diagnostic | None
 ) -> bool:
@@ -262,6 +273,7 @@ def _observe(
     bundler: bool = False,
     exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
+    producer: ProducerKind = ProducerKind.PYTHON,
 ) -> ObservationResult:
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
@@ -329,9 +341,12 @@ def _observe(
             )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)
+        external = producer is ProducerKind.EXTERNAL
+        if external:
+            diagnostics = (*diagnostics, _external_producer_diagnostic())
         eligibility = (
             UmlEligibility.VALIDATED_PARTIAL_SOURCE
-            if _partial_uml_source_is_eligible(facts, model, runtime)
+            if not external and _partial_uml_source_is_eligible(facts, model, runtime)
             else UmlEligibility.BLOCKED
         )
         return _observation_result(facts, model, diagnostics, eligibility)
@@ -358,6 +373,8 @@ class Observer:
     bundler: bool = False
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
+    # observer_for sets it from how the host starts the collector; a collector object is the host's.
+    producer: ProducerKind = ProducerKind.PYTHON
 
     def __call__(
         self,
@@ -385,4 +402,5 @@ class Observer:
             bundler=self.bundler,
             exclude_test_sources=self.exclude_test_sources,
             clock=self.clock,
+            producer=self.producer,
         )
