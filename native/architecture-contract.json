@@ -14,6 +14,12 @@
         "Reading source of any language, and using a collector crate."
       ],
       "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "A typed section of the reply is written by the types of archkeel-facts (AD-345)."
+        }
+      ],
       "decided_by": "architect"
     },
     {
@@ -42,12 +48,15 @@
       "role": "component",
       "packages": ["native.archkeel_facts"],
       "responsibilities": [
-        "The typed facts of protocol 10: closed kinds, newtype ids and reason codes, defined once."
+        "The typed facts, defined once: closed kinds, newtype ids, reason codes, the protocol 9 wire, the read-set and the generated schema (AD-345)."
       ],
       "forbidden_responsibilities": [
         "Reading a snapshot, parsing source and storing facts."
       ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -103,7 +112,7 @@
         },
         {
           "component": "facts",
-          "rationale": "The collector will write typed facts once protocol 10 exists."
+          "rationale": "The collector builds its import records with the typed facts (AD-345); the other sections follow."
         },
         {
           "component": "build",

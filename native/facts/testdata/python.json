@@ -1,0 +1,1593 @@
+{
+ "facts": {
+  "coverage": {
+   "gaps": [
+    {
+     "area": "analysis_coverage",
+     "data": {
+      "file": "sample/probe.py",
+      "line": 4,
+      "message": "invalid syntax"
+     },
+     "evidence_class": "UNKNOWN",
+     "evidence_ids": [],
+     "fact_ids": [],
+     "id": "COVERAGE-75399fc783992af1",
+     "kind": "SyntaxError",
+     "provenance": [],
+     "rule_ids": [],
+     "subjects": [
+      "sample/probe.py"
+     ],
+     "title": "sample/probe.py:4 could not be analyzed"
+    }
+   ]
+  },
+  "sections": [
+   {
+    "name": "bindings",
+    "records": [
+     {
+      "area": "repository_topology",
+      "data": {
+       "binding": "parameter",
+       "module": "shop.model.entities",
+       "name": "width",
+       "owner": "shop.model.entities._nonce_bucket"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-4b3acdf6a95ab8c9"
+      ],
+      "fact_ids": [],
+      "id": "BIND-e4984298beb20b20",
+      "kind": "unused_parameter",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.model.entities",
+       "shop.model.entities._nonce_bucket"
+      ],
+      "title": "shop.model.entities._nonce_bucket never reads width"
+     }
+    ]
+   },
+   {
+    "name": "calls",
+    "records": [
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "call_arguments": null,
+       "call_binding": null,
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "construction": null,
+       "expression": "lanes.get",
+       "reason": "annotated receiver of known type, unproven at runtime",
+       "result_bindings": [],
+       "source_definition_id": "SYM-79534fda3f3fc50d",
+       "source_module": "archkeel.ir.story",
+       "source_scope": "archkeel.ir.story._node",
+       "status": "partially_resolved",
+       "target_evidence_ids": [],
+       "targets": [
+        "builtins.dict.get"
+       ]
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-e86c5eeac6062bea"
+      ],
+      "fact_ids": [],
+      "id": "CALL-3641cab40cd4c136",
+      "kind": "partially_resolved_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.story._node",
+       "builtins.dict.get"
+      ],
+      "title": "Call lanes.get"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "call_arguments": null,
+       "call_binding": null,
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "construction": null,
+       "expression": "target.resolve",
+       "guarded_effect": [
+        {
+         "complete": false,
+         "condition": {
+          "kind": "parameter",
+          "name": "check",
+          "owner": "archkeel.cli.guide.run_guide"
+         },
+         "condition_evidence_ids": [
+          "EVD-93c7bb8240d6e03e"
+         ],
+         "condition_value": null,
+         "effect_binding_evidence_ids": [],
+         "helper_bindings": [],
+         "path_evidence_ids": [
+          "EVD-0dc3bf239e74e46d"
+         ],
+         "unknown_reason": "unsupported_control_flow"
+        }
+       ],
+       "reason": "annotated receiver of known type, unproven at runtime",
+       "result_bindings": [],
+       "source_definition_id": "SYM-5ca2fc69e48271d0",
+       "source_module": "archkeel.cli.guide",
+       "source_scope": "archkeel.cli.guide.run_guide",
+       "status": "partially_resolved",
+       "target_evidence_ids": [],
+       "targets": [
+        "pathlib.Path.resolve"
+       ]
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-a0d78f24fe9516f5"
+      ],
+      "fact_ids": [],
+      "id": "CALL-76280bec67dbdb52",
+      "kind": "partially_resolved_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli.guide.run_guide",
+       "pathlib.Path.resolve"
+      ],
+      "title": "Call target.resolve"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "call_arguments": null,
+       "call_binding": null,
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "construction": null,
+       "expression": "str",
+       "reason": "Python builtin",
+       "result_bindings": [],
+       "source_definition_id": "SYM-0170343bf117f919",
+       "source_module": "demo.core",
+       "source_scope": "demo.core.helper",
+       "status": "resolved",
+       "target_evidence_ids": [],
+       "targets": [
+        "builtins.str"
+       ]
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-d29db8a8b3a6e556"
+      ],
+      "fact_ids": [],
+      "id": "CALL-16363d27207391db",
+      "kind": "resolved_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "builtins.str",
+       "demo.core.helper"
+      ],
+      "title": "Call str"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "call_arguments": null,
+       "call_binding": null,
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "construction": null,
+       "expression": "any",
+       "guarded_effect": [
+        {
+         "complete": false,
+         "condition": {
+          "kind": "parameter",
+          "name": "allow_dot",
+          "owner": "archkeel.cli.config._path"
+         },
+         "condition_evidence_ids": [
+          "EVD-75b364e9d5ab98f6"
+         ],
+         "condition_value": null,
+         "effect_binding_evidence_ids": [],
+         "helper_bindings": [],
+         "path_evidence_ids": [
+          "EVD-83b70931ee29fd1b"
+         ],
+         "unknown_reason": "canonical_call_binding_missing"
+        }
+       ],
+       "reason": "Python builtin",
+       "result_bindings": [],
+       "source_definition_id": "SYM-95fffb109e6f8e75",
+       "source_module": "archkeel.cli.config",
+       "source_scope": "archkeel.cli.config._path",
+       "status": "resolved",
+       "target_evidence_ids": [],
+       "targets": [
+        "builtins.any"
+       ]
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-5c5c4243aa74f935"
+      ],
+      "fact_ids": [],
+      "id": "CALL-8d1d29cfa5e7de8c",
+      "kind": "resolved_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli.config._path",
+       "builtins.any"
+      ],
+      "title": "Call any"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "call_arguments": null,
+       "call_binding": null,
+       "candidate_count": 0,
+       "candidates_truncated": false,
+       "construction": null,
+       "expression": "router.get",
+       "reason": "dynamic attribute receiver",
+       "result_bindings": [],
+       "source_definition_id": "MOD-9710bf36a9efaf10",
+       "source_module": "app.api.routes.tags",
+       "source_scope": "app.api.routes.tags",
+       "status": "unresolved",
+       "target_evidence_ids": [],
+       "targets": []
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-1957be382d7791a9"
+      ],
+      "fact_ids": [],
+      "id": "CALL-68fabf9e00ce1847",
+      "kind": "unresolved_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "app.api.routes.tags"
+      ],
+      "title": "Call router.get"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "call_arguments": null,
+       "call_binding": null,
+       "candidate_count": 0,
+       "candidates_truncated": false,
+       "construction": null,
+       "expression": "parsed.is_absolute",
+       "guarded_effect": [
+        {
+         "complete": false,
+         "condition": {
+          "kind": "parameter",
+          "name": "allow_dot",
+          "owner": "archkeel.cli.config._path"
+         },
+         "condition_evidence_ids": [
+          "EVD-75b364e9d5ab98f6"
+         ],
+         "condition_value": null,
+         "effect_binding_evidence_ids": [],
+         "helper_bindings": [],
+         "path_evidence_ids": [
+          "EVD-83b70931ee29fd1b"
+         ],
+         "unknown_reason": "unsupported_condition"
+        }
+       ],
+       "reason": "dynamic attribute receiver",
+       "result_bindings": [],
+       "source_definition_id": "SYM-95fffb109e6f8e75",
+       "source_module": "archkeel.cli.config",
+       "source_scope": "archkeel.cli.config._path",
+       "status": "unresolved",
+       "target_evidence_ids": [],
+       "targets": []
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-161a15e9f8a7b73e"
+      ],
+      "fact_ids": [],
+      "id": "CALL-fba1a795b33df078",
+      "kind": "unresolved_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli.config._path"
+      ],
+      "title": "Call parsed.is_absolute"
+     }
+    ]
+   },
+   {
+    "name": "constructs",
+    "records": [
+     {
+      "area": "constructs",
+      "data": {
+       "construct": "broad_except",
+       "handled": [
+        "Exception"
+       ],
+       "owner": "archkeel.cli.main"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-ef9df2ac220b862e"
+      ],
+      "fact_ids": [],
+      "id": "CONSTRUCT-b2f4b89e15d0392b",
+      "kind": "broad_except",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli.main"
+      ],
+      "title": "archkeel.cli.main uses broad_except"
+     },
+     {
+      "area": "constructs",
+      "data": {
+       "construct": "selector",
+       "literal": null,
+       "member": "dev",
+       "operation": "read",
+       "owner": "app.core.config",
+       "receiver_binding": null,
+       "receiver_parameter": null,
+       "receiver_type": null,
+       "selector_role": "read",
+       "status": "unknown"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-70b09634ca5ba0b6"
+      ],
+      "fact_ids": [],
+      "id": "CONSTRUCT-SELECTOR-25d590e41dbd1450",
+      "kind": "construct_selector",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "app.core.config"
+      ],
+      "title": "app.core.config has a read selector observation"
+     },
+     {
+      "area": "constructs",
+      "data": {
+       "construct": "selector",
+       "literal": null,
+       "member": "to_dict",
+       "operation": "call",
+       "owner": "shop.store.codec.encode",
+       "receiver_binding": {
+        "evidence_ids": [
+         "EVD-09134357b4a872f1",
+         "EVD-ac6210f7ea66f63c",
+         "EVD-fafb4224c260f34e"
+        ],
+        "origin": "declared_receiver",
+        "target": "shop.model.entities.Order"
+       },
+       "receiver_parameter": "order",
+       "receiver_parameter_owner": "shop.store.codec.encode",
+       "receiver_parameter_scopes": [
+        {
+         "scope_evidence_id": "EVD-fafb4224c260f34e",
+         "scope_owner": "shop.store.codec.encode",
+         "scope_symbol_id": "SYM-c6dc50ed43219b97"
+        }
+       ],
+       "receiver_type": "shop.model.entities.Order",
+       "selector_role": "call",
+       "status": "decided"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-09134357b4a872f1",
+       "EVD-89d99e7a0b3b9fd3",
+       "EVD-ac6210f7ea66f63c",
+       "EVD-fafb4224c260f34e"
+      ],
+      "fact_ids": [],
+      "id": "CONSTRUCT-SELECTOR-3cce58aa714967bf",
+      "kind": "construct_selector",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.store.codec.encode"
+      ],
+      "title": "shop.store.codec.encode has a call selector observation"
+     },
+     {
+      "area": "constructs",
+      "data": {
+       "binding_scopes": [],
+       "column": 11,
+       "derivation": [],
+       "end_column": 24,
+       "end_line": 101,
+       "form": "binary",
+       "line": 101,
+       "module": "shop.model.entities",
+       "operation": "modulo",
+       "owner": "shop.model.entities._nonce_bucket",
+       "proof": "known",
+       "subject": "job_nonce",
+       "value": 8
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-ee69fe8d780aa1cf"
+      ],
+      "fact_ids": [],
+      "id": "CONSTRUCT-886bbeee0ee1ff04",
+      "kind": "numeric_operand",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.model.entities._nonce_bucket"
+      ],
+      "title": "shop.model.entities._nonce_bucket uses modulo operand"
+     },
+     {
+      "area": "constructs",
+      "data": {
+       "construct": "string_literal_compare",
+       "form": "compare",
+       "owner": "archkeel.ir.renames._layout"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-77cc650842a504d0"
+      ],
+      "fact_ids": [],
+      "id": "CONSTRUCT-9d1dd4cc00f0ac11",
+      "kind": "string_literal_compare",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.renames._layout"
+      ],
+      "title": "archkeel.ir.renames._layout uses string_literal_compare"
+     }
+    ]
+   },
+   {
+    "name": "imports",
+    "records": [
+     {
+      "area": "dependencies",
+      "data": {
+       "binding": null,
+       "module_level_import": false,
+       "ordinary_module": false,
+       "reexport": false,
+       "reexport_candidate": false,
+       "relative_level": 0,
+       "source_module": "orders.storage.backends",
+       "source_package": "orders.storage",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "orders.storage.backends.file",
+       "target_package": "orders.storage",
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c38b546ab9636e5f"
+      ],
+      "fact_ids": [
+       "CALL-136e8781679b67a0"
+      ],
+      "id": "IMP-4a762cfd132c2e93",
+      "kind": "import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "orders.storage.backends",
+       "orders.storage.backends.file"
+      ],
+      "title": "Import orders.storage.backends.file"
+     },
+     {
+      "area": "dependencies",
+      "data": {
+       "binding": "helper",
+       "declared_in_all": false,
+       "module_level_import": true,
+       "ordinary_module": true,
+       "origin_binding_unique": true,
+       "origin_definition": "demo.core.helper",
+       "origin_member_binding_static": false,
+       "reexport": false,
+       "reexport_candidate": false,
+       "reexport_chain": [
+        "demo.core.helper"
+       ],
+       "relative_level": 0,
+       "source_binding_unique": true,
+       "source_member_binding_static": false,
+       "source_module": "demo.app",
+       "source_package": "demo.app",
+       "symbol": "helper",
+       "symbol_visibility": "public_name",
+       "symbols_known": true,
+       "target_module": "demo.core",
+       "target_package": "demo.core",
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-dcd810f40bf0de82"
+      ],
+      "fact_ids": [],
+      "id": "IMP-1eb22bb9478479b1",
+      "kind": "import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.app",
+       "demo.core"
+      ],
+      "title": "Import demo.core.helper"
+     }
+    ]
+   },
+   {
+    "name": "references",
+    "records": [
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "expression": "Phase.RENDER",
+       "reference_context": "value",
+       "source_definition_id": "SYM-9cf03ca86e0e3912",
+       "source_module": "archkeel.cli",
+       "source_scope": "archkeel.cli.main",
+       "status": "resolved",
+       "targets": [
+        "archkeel.ir.phases.Phase"
+       ],
+       "use": "attribute"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-9eaa3014aaaaea6b"
+      ],
+      "fact_ids": [],
+      "id": "REF-ecbb01fe615d6a70",
+      "kind": "attribute_reference",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli.main",
+       "archkeel.ir.phases.Phase"
+      ],
+      "title": "Reference Phase.RENDER"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "declaration_definition_id": "SYM-f09bc778fd94ef8f",
+       "declaration_scope": "archkeel.ir.codec_contract._cycle_level",
+       "expression": "CycleLevel.MODULE",
+       "reference_context": "annotation",
+       "source_definition_id": "MOD-36b0c234d0ee2a18",
+       "source_module": "archkeel.ir.codec_contract",
+       "source_scope": "archkeel.ir.codec_contract",
+       "status": "resolved",
+       "targets": [
+        "archkeel.ir.model.CycleLevel"
+       ],
+       "use": "attribute"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-3620d4a694b45e43"
+      ],
+      "fact_ids": [],
+      "id": "REF-0146a3d94e03a345",
+      "kind": "attribute_reference",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.codec_contract",
+       "archkeel.ir.model.CycleLevel"
+      ],
+      "title": "Reference CycleLevel.MODULE"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "canonical_name": "app.main.app",
+       "column": 0,
+       "declaration_id": "DECL-c7388b5372858be6",
+       "declaration_owner_id": "MOD-ec36f8669ac98816",
+       "declaration_owner_scope": "app.main",
+       "end_column": 3,
+       "end_line": 45,
+       "expression": "app.main.app",
+       "line": 45,
+       "role": "definition",
+       "source_module": "app.main",
+       "source_scope": "app.main",
+       "status": "partially_resolved",
+       "targets": [],
+       "use": "source_role"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-5d2005513cabd632"
+      ],
+      "fact_ids": [],
+      "id": "SOURCE-ROLE-ab7b3801d0c14e35",
+      "kind": "source_role",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "app.main",
+       "app.main.app"
+      ],
+      "title": "definition of app.main.app"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "canonical_name": "orders.api.quote.coupon",
+       "column": 69,
+       "constant": null,
+       "declaration_id": "SYM-4eccc60f348097a2",
+       "declaration_owner_id": "MOD-37a371bc9e376881",
+       "declaration_owner_scope": "orders.api",
+       "end_column": 73,
+       "end_line": 17,
+       "expression": "orders.api.quote.coupon",
+       "expression_kind": "literal",
+       "line": 17,
+       "parameter": "orders.api.quote.coupon",
+       "role": "parameter_default",
+       "source_module": "orders.api",
+       "source_scope": "orders.api",
+       "status": "resolved",
+       "targets": [],
+       "use": "source_role"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c140a3593fd69ed9"
+      ],
+      "fact_ids": [],
+      "id": "SOURCE-ROLE-0e711fc176705281",
+      "kind": "source_role",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "orders.api",
+       "orders.api.quote.coupon"
+      ],
+      "title": "parameter_default of orders.api.quote.coupon"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "expression": "Port",
+       "reference_context": "value",
+       "source_definition_id": "MOD-0077782972bbc031",
+       "source_module": "demo.core",
+       "source_scope": "demo.core",
+       "status": "resolved",
+       "targets": [
+        "demo.core.Port"
+       ],
+       "use": "value"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-f012fe32fe2b0cda"
+      ],
+      "fact_ids": [],
+      "id": "REF-8b409b53a8a914e7",
+      "kind": "value_reference",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.core",
+       "demo.core.Port"
+      ],
+      "title": "Reference Port"
+     },
+     {
+      "area": "call_hierarchy",
+      "data": {
+       "declaration_evidence_ids": [
+        "EVD-ef45746ccb7caf66"
+       ],
+       "declaration_id": "DECL-9493892fa5e8ce7f",
+       "declaration_owner_id": "SYM-8132a25d33a9f172",
+       "declaration_owner_scope": "demo.core.build",
+       "declaration_role": "definition",
+       "declaration_status": "partially_resolved",
+       "expression": "item",
+       "local_source_binding": true,
+       "reference_context": "value",
+       "source_definition_id": "SYM-8132a25d33a9f172",
+       "source_module": "demo.core",
+       "source_scope": "demo.core.build",
+       "status": "partially_resolved",
+       "targets": [
+        "demo.core.build.item"
+       ],
+       "use": "value"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-055b6993206ddaec"
+      ],
+      "fact_ids": [],
+      "id": "REF-98f0ae548d1918ea",
+      "kind": "value_reference",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.core.build",
+       "demo.core.build.item"
+      ],
+      "title": "Reference item"
+     }
+    ]
+   },
+   {
+    "name": "symbols",
+    "records": [
+     {
+      "area": "repository_topology",
+      "data": {
+       "attribute_declarations": [],
+       "base_declarations": [],
+       "base_roots": [],
+       "bases": [],
+       "class_body_control_flow": false,
+       "class_header_static": true,
+       "class_kind": "class",
+       "class_members": [],
+       "declared_in_all": false,
+       "decorators": [],
+       "default_instance_result": true,
+       "definition_contexts": [],
+       "fields": [],
+       "frozen_object": false,
+       "instance_member_scope_evidence_id": "EVD-afab4b5a79a1d899",
+       "instance_member_writes": [],
+       "lexical_parent_id": null,
+       "member_inventories": [
+        {
+         "definition_ids": [],
+         "kind": "attribute",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        },
+        {
+         "definition_ids": [],
+         "kind": "method",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        }
+       ],
+       "module": "demo.core",
+       "name": "Unit",
+       "namespace_bound": true,
+       "package": "demo.core",
+       "parent": null,
+       "qualified_name": "demo.core.Unit",
+       "source_binding_unique": true,
+       "source_member_binding_static": false,
+       "source_member_owner_static": false,
+       "symbol_category": "class",
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "Unit"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-72dc59925c20012a",
+       "EVD-afab4b5a79a1d899"
+      ],
+      "fact_ids": [],
+      "id": "SYM-27f111f39e1efe4c",
+      "kind": "class",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.core",
+       "demo.core.Unit"
+      ],
+      "title": "Unit"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "attribute_declarations": [
+        {
+         "annotation": "str",
+         "definition_id": "ATTR-09399a8e42c4db8c",
+         "evidence_ids": [
+          "EVD-242875e5443f0ba0"
+         ],
+         "name": "original",
+         "visibility": {
+          "basis": "convention",
+          "kind": "public",
+          "spelling": "original"
+         }
+        },
+        {
+         "annotation": "SpecifierKind",
+         "definition_id": "ATTR-62435179b427e9cc",
+         "evidence_ids": [
+          "EVD-305a3c571f06c206"
+         ],
+         "name": "kind",
+         "visibility": {
+          "basis": "convention",
+          "kind": "public",
+          "spelling": "kind"
+         }
+        },
+        {
+         "annotation": "str",
+         "definition_id": "ATTR-4d77f8ef636105d1",
+         "evidence_ids": [
+          "EVD-c0530dc85ba2f79e"
+         ],
+         "name": "name",
+         "visibility": {
+          "basis": "convention",
+          "kind": "public",
+          "spelling": "name"
+         }
+        },
+        {
+         "annotation": "str",
+         "definition_id": "ATTR-b216cd019518e907",
+         "evidence_ids": [
+          "EVD-e255d094b261c24b"
+         ],
+         "name": "package",
+         "visibility": {
+          "basis": "convention",
+          "kind": "public",
+          "spelling": "package"
+         }
+        },
+        {
+         "annotation": "str",
+         "definition_id": "ATTR-ed8d8e584c0befb9",
+         "evidence_ids": [
+          "EVD-95b849b334a696e1"
+         ],
+         "name": "typed_name",
+         "visibility": {
+          "basis": "convention",
+          "kind": "public",
+          "spelling": "typed_name"
+         }
+        },
+        {
+         "annotation": "bool",
+         "definition_id": "ATTR-e83368cfc7a337e2",
+         "evidence_ids": [
+          "EVD-fb8cfe8779511ff6"
+         ],
+         "name": "directory_only",
+         "visibility": {
+          "basis": "convention",
+          "kind": "public",
+          "spelling": "directory_only"
+         }
+        }
+       ],
+       "base_declarations": [],
+       "base_roots": [],
+       "bases": [],
+       "class_body_control_flow": false,
+       "class_header_static": false,
+       "class_kind": "dataclass",
+       "class_members": [
+        "builtin",
+        "npm_package",
+        "relative",
+        "relative_path"
+       ],
+       "declared_in_all": false,
+       "decorators": [
+        "dataclass"
+       ],
+       "default_instance_result": false,
+       "definition_contexts": [],
+       "fields": [
+        {
+         "annotation": "str",
+         "name": "original"
+        },
+        {
+         "annotation": "SpecifierKind",
+         "name": "kind"
+        },
+        {
+         "annotation": "str",
+         "name": "name"
+        },
+        {
+         "annotation": "str",
+         "name": "package"
+        },
+        {
+         "annotation": "str",
+         "name": "typed_name"
+        },
+        {
+         "annotation": "bool",
+         "name": "directory_only"
+        }
+       ],
+       "frozen_object": true,
+       "guard_boolean_members": [
+        {
+         "evidence_ids": [
+          "EVD-fb8cfe8779511ff6"
+         ],
+         "name": "directory_only"
+        }
+       ],
+       "instance_member_scope_evidence_id": "EVD-c4dbfdee68c8e4b2",
+       "instance_member_writes": [
+        "*"
+       ],
+       "lexical_parent_id": null,
+       "member_inventories": [
+        {
+         "definition_ids": [
+          "ATTR-09399a8e42c4db8c",
+          "ATTR-62435179b427e9cc",
+          "ATTR-4d77f8ef636105d1",
+          "ATTR-b216cd019518e907",
+          "ATTR-ed8d8e584c0befb9",
+          "ATTR-e83368cfc7a337e2"
+         ],
+         "kind": "attribute",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        },
+        {
+         "definition_ids": [
+          "SYM-922ee29aefcee180",
+          "SYM-c33445120fae0388",
+          "SYM-f7c377c91695b807",
+          "SYM-837c1368e5011c39"
+         ],
+         "kind": "method",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        }
+       ],
+       "module": "archkeel.analyzer.typescript.source_input",
+       "name": "SpecifierInfo",
+       "namespace_bound": true,
+       "package": "archkeel.analyzer",
+       "parent": null,
+       "property_members": [
+        "builtin",
+        "npm_package",
+        "relative",
+        "relative_path"
+       ],
+       "qualified_name": "archkeel.analyzer.typescript.source_input.SpecifierInfo",
+       "source_binding_unique": true,
+       "source_class_header_static": true,
+       "source_member_binding_static": false,
+       "source_member_owner_static": false,
+       "symbol_category": "class",
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "SpecifierInfo"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c4dbfdee68c8e4b2",
+       "EVD-df5e31e3e5a387d2"
+      ],
+      "fact_ids": [],
+      "id": "SYM-1785859dc09c9f58",
+      "kind": "class",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.analyzer.typescript.source_input",
+       "archkeel.analyzer.typescript.source_input.SpecifierInfo"
+      ],
+      "title": "SpecifierInfo"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "module": "archkeel.ir.identity_memo",
+       "name": "T",
+       "parent": null,
+       "qualified_name": "archkeel.ir.identity_memo.T",
+       "record_kind": "dynamic_binding",
+       "source_binding_unique": true,
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "T"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-34279bd00df59e49"
+      ],
+      "fact_ids": [],
+      "id": "SYM-49f1fec39b29042d",
+      "kind": "dynamic_binding",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.identity_memo",
+       "archkeel.ir.identity_memo.T"
+      ],
+      "title": "T"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "annotation": "Final",
+       "module": "archkeel.ir.profiles",
+       "name": "DART",
+       "parent": null,
+       "qualified_name": "archkeel.ir.profiles.DART",
+       "record_kind": "dynamic_binding",
+       "source_binding_unique": true,
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "DART"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-e6edcd2aa6bfa1c0"
+      ],
+      "fact_ids": [],
+      "id": "SYM-bdd58b37e52d6f8c",
+      "kind": "dynamic_binding",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.profiles",
+       "archkeel.ir.profiles.DART"
+      ],
+      "title": "DART"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "async": false,
+       "declared_in_all": false,
+       "decorators": [],
+       "definition_contexts": [],
+       "lexical_parent_id": "SYM-b02aa4b104f3438b",
+       "module": "archkeel.cli",
+       "name": "clear",
+       "namespace_bound": false,
+       "overload_signature": false,
+       "package": "archkeel.cli",
+       "parameters": [],
+       "parameters_contained": true,
+       "parent": "archkeel.cli._story_checker",
+       "qualified_name": "archkeel.cli._story_checker.clear",
+       "receiver_parameter": null,
+       "returns": "None",
+       "shape": "cc806c3f05f528cc",
+       "shape_nodes": 18,
+       "source_binding_static": false,
+       "source_binding_unique": true,
+       "symbol_category": "function",
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "clear"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-17dcd7a50f9da766"
+      ],
+      "fact_ids": [],
+      "id": "SYM-8977ceda369bf0f8",
+      "kind": "function",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli",
+       "archkeel.cli._story_checker.clear"
+      ],
+      "title": "clear"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "async": false,
+       "declared_in_all": false,
+       "decorators": [
+        "overload"
+       ],
+       "definition_contexts": [],
+       "lexical_parent_id": null,
+       "module": "archkeel.analyzer.dart.parse",
+       "name": "_variables",
+       "namespace_bound": true,
+       "overload_signature": true,
+       "overloaded": true,
+       "package": "archkeel.analyzer",
+       "parameters": [
+        {
+         "annotation": "_Node",
+         "default": null,
+         "default_known": true,
+         "kind": "positional",
+         "name": "node"
+        },
+        {
+         "annotation": "_Source",
+         "default": null,
+         "default_known": true,
+         "kind": "positional",
+         "name": "source"
+        },
+        {
+         "annotation": "Literal[MemberKind.FIELD]",
+         "default": null,
+         "default_known": true,
+         "kind": "positional",
+         "name": "kind"
+        }
+       ],
+       "parameters_contained": true,
+       "parent": null,
+       "qualified_name": "archkeel.analyzer.dart.parse._variables",
+       "receiver_parameter": "node",
+       "returns": "list[Member]",
+       "shape": "e3b0c44298fc1c14",
+       "shape_nodes": 0,
+       "signature_decorators_proven": true,
+       "source_binding_static": false,
+       "source_binding_unique": true,
+       "source_member_binding_static": false,
+       "symbol_category": "function",
+       "visibility": "private",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "private",
+        "spelling": "_variables"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-e93a1ae5aa30ed8e"
+      ],
+      "fact_ids": [],
+      "id": "SYM-172380bd31723cb7",
+      "kind": "function",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.analyzer.dart.parse",
+       "archkeel.analyzer.dart.parse._variables"
+      ],
+      "title": "_variables"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "async": false,
+       "declared_in_all": false,
+       "decorators": [
+        "staticmethod"
+       ],
+       "definition_contexts": [],
+       "lexical_parent_id": "SYM-3b3555d9773fd742",
+       "method_kind": "static",
+       "module": "demo.core",
+       "name": "reset",
+       "namespace_bound": true,
+       "overload_signature": false,
+       "package": "demo.core",
+       "parameters": [],
+       "parameters_contained": true,
+       "parent": "demo.core.Client",
+       "qualified_name": "demo.core.Client.reset",
+       "receiver_parameter": null,
+       "returns": "None",
+       "shape": "ebdf8cc00bc4d9ce",
+       "shape_nodes": 1,
+       "signature_decorators_proven": true,
+       "source_final_method_binding": false,
+       "symbol_category": "method",
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "reset"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-cb8989653f4daacd"
+      ],
+      "fact_ids": [],
+      "id": "SYM-1dc57d6089a24c56",
+      "kind": "method",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.core",
+       "demo.core.Client.reset"
+      ],
+      "title": "reset"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "async": false,
+       "declared_in_all": false,
+       "decorators": [],
+       "definition_contexts": [],
+       "lexical_parent_id": "SYM-64a523bc704b0717",
+       "method_kind": "instance",
+       "module": "archkeel.ir.phases",
+       "name": "__init__",
+       "namespace_bound": true,
+       "overload_signature": false,
+       "package": "archkeel.ir",
+       "parameters": [
+        {
+         "annotation": null,
+         "default": null,
+         "default_known": true,
+         "kind": "positional",
+         "name": "self"
+        }
+       ],
+       "parameters_contained": false,
+       "parent": "archkeel.ir.phases.PhaseClock",
+       "qualified_name": "archkeel.ir.phases.PhaseClock.__init__",
+       "receiver_parameter": "self",
+       "returns": "None",
+       "shape": "6d12a5ce82e7d755",
+       "shape_nodes": 32,
+       "signature_decorators_proven": true,
+       "source_final_method_binding": true,
+       "stored_field_writes": [],
+       "symbol_category": "method",
+       "visibility": "private",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "__init__"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-0a7fbbc43f22fa4b"
+      ],
+      "fact_ids": [],
+      "id": "SYM-12e663da425d03ec",
+      "kind": "method",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.phases",
+       "archkeel.ir.phases.PhaseClock.__init__"
+      ],
+      "title": "__init__"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "module": "archkeel.render.html",
+       "name": "_PAYLOAD_MARK",
+       "parent": null,
+       "qualified_name": "archkeel.render.html._PAYLOAD_MARK",
+       "record_kind": "static_constant",
+       "source_binding_unique": true,
+       "visibility": "private",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "private",
+        "spelling": "_PAYLOAD_MARK"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-91d69cbfd8d16925"
+      ],
+      "fact_ids": [],
+      "id": "SYM-16fa16cce4f6eb9f",
+      "kind": "static_constant",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.render.html",
+       "archkeel.render.html._PAYLOAD_MARK"
+      ],
+      "title": "_PAYLOAD_MARK"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "constant": 1,
+       "module": "demo.core",
+       "name": "VERSION",
+       "parent": null,
+       "qualified_name": "demo.core.VERSION",
+       "record_kind": "static_constant",
+       "source_binding_unique": true,
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "VERSION"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-d325063529460a97"
+      ],
+      "fact_ids": [],
+      "id": "SYM-2fd83fb763ba297b",
+      "kind": "static_constant",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.core",
+       "demo.core.VERSION"
+      ],
+      "title": "VERSION"
+     },
+     {
+      "area": "repository_topology",
+      "data": {
+       "alias": "str",
+       "module": "demo.core",
+       "name": "Text",
+       "parent": null,
+       "qualified_name": "demo.core.Text",
+       "record_kind": "type_alias",
+       "source_binding_unique": true,
+       "source_member_binding_static": false,
+       "visibility": "public_name",
+       "visibility_detail": {
+        "basis": "convention",
+        "kind": "public",
+        "spelling": "Text"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-0f4520302a94de78"
+      ],
+      "fact_ids": [],
+      "id": "SYM-f35c2e92882824d9",
+      "kind": "type_alias",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.core",
+       "demo.core.Text"
+      ],
+      "title": "Text"
+     }
+    ]
+   },
+   {
+    "name": "typing_signals",
+    "records": [
+     {
+      "area": "type_architecture",
+      "data": {
+       "annotation": "dict[str, Any]",
+       "owner": "archkeel.ir.codec_wire._raw_object:value",
+       "signal": "any_annotation"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-0ec252e7a5cb112e"
+      ],
+      "fact_ids": [],
+      "id": "TYPE-dc78be7dfd33c27b",
+      "kind": "any_annotation",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.codec_wire._raw_object:value"
+      ],
+      "title": "archkeel.ir.codec_wire._raw_object:value: dict[str, Any]"
+     },
+     {
+      "area": "type_architecture",
+      "data": {
+       "expression": "cast",
+       "owner": "app.core.logging.InterceptHandler.emit",
+       "signal": "cast_call"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-2fce17e88988fda9"
+      ],
+      "fact_ids": [
+       "CALL-10ec9fdb71bcda84"
+      ],
+      "id": "TYPE-a1534d6fb5558114",
+      "kind": "cast_call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "app.core.logging.InterceptHandler.emit"
+      ],
+      "title": "app.core.logging.InterceptHandler.emit uses cast"
+     },
+     {
+      "area": "type_architecture",
+      "data": {
+       "annotation": "dict[str, Any]",
+       "owner": "archkeel.ir.codec_wire._raw_object:value",
+       "signal": "dict_any_annotation"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-0ec252e7a5cb112e"
+      ],
+      "fact_ids": [],
+      "id": "TYPE-be3bfa252aa7bc0e",
+      "kind": "dict_any_annotation",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.ir.codec_wire._raw_object:value"
+      ],
+      "title": "archkeel.ir.codec_wire._raw_object:value: dict[str, Any]"
+     },
+     {
+      "area": "type_architecture",
+      "data": {
+       "expression": "importlib.import_module",
+       "owner": "orders.storage.backends.<lambda:17:14>",
+       "signal": "dynamic_import"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-7cdf1f9f337ce1f6"
+      ],
+      "fact_ids": [
+       "CALL-c17025668a5a3885"
+      ],
+      "id": "TYPE-040029bac9c932ef",
+      "kind": "dynamic_import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "orders.storage.backends.<lambda:17:14>"
+      ],
+      "title": "orders.storage.backends.<lambda:17:14> uses importlib.import_module"
+     },
+     {
+      "area": "type_architecture",
+      "data": {
+       "annotation": "object",
+       "owner": "archkeel.cli.config._path:value",
+       "signal": "object_annotation"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-1a94b9068c2a9a9b"
+      ],
+      "fact_ids": [],
+      "id": "TYPE-d7e31f5a38960699",
+      "kind": "object_annotation",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "archkeel.cli.config._path:value"
+      ],
+      "title": "archkeel.cli.config._path:value: object"
+     },
+     {
+      "area": "type_architecture",
+      "data": {
+       "line": 20,
+       "owner": "app.core.events",
+       "qualified_name": "app.core.events",
+       "signal": "type_ignore",
+       "statement": "",
+       "tag": ""
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-08cbfadc9cf932d9"
+      ],
+      "fact_ids": [],
+      "id": "TYPE-0b481a9a6e82ef6b",
+      "kind": "type_ignore",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "app.core.events"
+      ],
+      "title": "app/core/events.py:20 uses type: ignore"
+     }
+    ]
+   },
+   {
+    "name": "unknowns",
+    "records": [
+     {
+      "area": "analysis_coverage",
+      "data": {
+       "file": "sample/probe.py",
+       "line": 4,
+       "message": "invalid syntax"
+      },
+      "evidence_class": "UNKNOWN",
+      "evidence_ids": [],
+      "fact_ids": [],
+      "id": "COVERAGE-75399fc783992af1",
+      "kind": "SyntaxError",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "sample/probe.py"
+      ],
+      "title": "sample/probe.py:4 could not be analyzed"
+     }
+    ]
+   }
+  ]
+ }
+}

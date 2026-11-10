@@ -1,0 +1,967 @@
+{
+ "facts": {
+  "coverage": {
+   "gaps": [
+    {
+     "area": "source",
+     "data": {
+      "module": "synth.gaps.src.broken_x2e_ts",
+      "reason": "Syntax error in src/broken.ts: unparseable construct at line 1"
+     },
+     "evidence_class": "UNKNOWN",
+     "evidence_ids": [
+      "EVD-0e0e7f3e7d179ec6"
+     ],
+     "fact_ids": [],
+     "id": "UNKNOWN-ac264299d9a4189f",
+     "kind": "collection_gap",
+     "provenance": [],
+     "rule_ids": [],
+     "subjects": [
+      "synth.gaps.src.broken_x2e_ts"
+     ],
+     "title": "Syntax error in src/broken.ts: unparseable construct at line 1"
+    },
+    {
+     "area": "source",
+     "data": {
+      "module": "synth.bundler.src.index_x2e_ts",
+      "reason": "Unresolved module: @/nowhere",
+      "resolution_dimension": "imports"
+     },
+     "evidence_class": "UNKNOWN",
+     "evidence_ids": [],
+     "fact_ids": [],
+     "id": "UNKNOWN-1174bfc885c963e9",
+     "kind": "source_resolution_gap",
+     "provenance": [],
+     "rule_ids": [],
+     "subjects": [
+      "synth.bundler.src.index_x2e_ts"
+     ],
+     "title": "Unresolved module: @/nowhere"
+    }
+   ]
+  },
+  "sections": [
+   {
+    "name": "bindings",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "module": "demo.src.core_x2e_ts",
+       "name": "helper",
+       "source_module": "demo.src.core_x2e_ts",
+       "source_scope": "demo.src.core_x2e_ts"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-2e021ade019ae0d1",
+       "EVD-f994943e271e2985"
+      ],
+      "fact_ids": [],
+      "id": "ESM_EXPORT-3fc1a3c343bdaeaf",
+      "kind": "bindings",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.core_x2e_ts"
+      ],
+      "title": "Exported source binding"
+     }
+    ]
+   },
+   {
+    "name": "calls",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "expression": "total",
+       "source_module": "synth.bundler.src.index_x2e_ts",
+       "source_scope": "synth.bundler.src.index_x2e_ts",
+       "status": "resolved",
+       "targets": [
+        "synth.bundler.src.cart_x2e_ts.total"
+       ]
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-64f4f5b7398624fd"
+      ],
+      "fact_ids": [],
+      "id": "TSCALL-0d749e52a42310ee",
+      "kind": "calls",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.bundler.src.cart_x2e_ts.total",
+       "synth.bundler.src.index_x2e_ts"
+      ],
+      "title": "total"
+     },
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 0,
+       "candidates_truncated": false,
+       "construction": {
+        "candidates_truncated": false,
+        "reason": "definition is missing or ambiguous",
+        "status": "unresolved",
+        "targets": []
+       },
+       "expression": "DocumentBuilder",
+       "reason": "definition is missing or ambiguous",
+       "result_bindings": [],
+       "source_definition_id": "TSDEF-8c20a93c15c35a95",
+       "source_module": "nestjs.realworld.src.main_x2e_ts",
+       "source_scope": "nestjs.realworld.src.main_x2e_ts.bootstrap",
+       "status": "unresolved",
+       "targets": []
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-9338638effd4582e"
+      ],
+      "fact_ids": [],
+      "id": "TSCALL-70fc314f8d272dcc",
+      "kind": "calls",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "nestjs.realworld.src.main_x2e_ts.bootstrap"
+      ],
+      "title": "DocumentBuilder"
+     }
+    ]
+   },
+   {
+    "name": "constructs",
+    "records": [
+     {
+      "area": "constructs",
+      "data": {
+       "construct": "string_literal_compare",
+       "owner": "excalidraw.math.src.utils_x2e_ts"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-be3db72e2c8f2f95"
+      ],
+      "fact_ids": [],
+      "id": "TSCONSTRUCT-f8d1ad891dda2ac2",
+      "kind": "string_literal_compare",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "excalidraw.math.src.utils_x2e_ts"
+      ],
+      "title": "excalidraw.math.src.utils_x2e_ts compares a written string literal"
+     }
+    ]
+   },
+   {
+    "name": "imports",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "binding": null,
+       "module_level_import": false,
+       "reexport": false,
+       "relative_level": 0,
+       "source_module": "synth.tsx.src.main_x2e_ts",
+       "source_package": "synth.tsx.src",
+       "specifier": "./util/format",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "synth.tsx.src.util.format_x2e_ts",
+       "target_package": "synth.tsx.src.util",
+       "type_only": false,
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-48fd6eafcb08bcbd"
+      ],
+      "fact_ids": [],
+      "id": "IMP-1c5d3e886bba0057",
+      "kind": "dynamic_import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.tsx.src.main_x2e_ts",
+       "synth.tsx.src.util.format_x2e_ts"
+      ],
+      "title": "synth.tsx.src.main_x2e_ts imports ./util/format"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": null,
+       "module_level_import": true,
+       "reexport": false,
+       "relative_level": 0,
+       "source_module": "nestjs.realworld.src.main_x2e_ts",
+       "source_package": "nestjs.realworld.src",
+       "specifier": "reflect-metadata",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "reflect-metadata",
+       "target_package": "reflect-metadata",
+       "type_only": false,
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-49f8990bdf825ed8"
+      ],
+      "fact_ids": [],
+      "id": "IMP-9bec83fd58041be9",
+      "kind": "import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "nestjs.realworld.src.main_x2e_ts",
+       "reflect-metadata"
+      ],
+      "title": "nestjs.realworld.src.main_x2e_ts imports reflect-metadata"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": "React",
+       "module_level_import": true,
+       "reexport": false,
+       "reexport_chain": [],
+       "relative_level": 0,
+       "source_module": "synth.tsx.src.app.greeting_x2e_tsx",
+       "source_package": "synth.tsx.src.app",
+       "specifier": "react",
+       "symbol": "default",
+       "symbols_known": false,
+       "target_module": "react",
+       "target_package": "react",
+       "type_only": false,
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-7c189390b2e321cd"
+      ],
+      "fact_ids": [],
+      "id": "IMP_BINDING-8524c6aa6f7df89d",
+      "kind": "import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "react",
+       "synth.tsx.src.app.greeting_x2e_tsx"
+      ],
+      "title": "synth.tsx.src.app.greeting_x2e_tsx imports react"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": null,
+       "module_level_import": true,
+       "reexport": false,
+       "relative_level": 0,
+       "source_module": "synth.tsx.src.main_x2e_ts",
+       "source_package": "synth.tsx.src",
+       "specifier": "fs",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "fs",
+       "target_package": "fs",
+       "type_only": false,
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c8e94ea956344eef"
+      ],
+      "fact_ids": [],
+      "id": "IMP-dbe55ca58fc3838f",
+      "kind": "import_equals",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "fs",
+       "synth.tsx.src.main_x2e_ts"
+      ],
+      "title": "synth.tsx.src.main_x2e_ts imports fs"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": null,
+       "module_level_import": false,
+       "reexport": false,
+       "relative_level": 0,
+       "source_module": "synth.tsx.src.main_x2e_ts",
+       "source_package": "synth.tsx.src",
+       "specifier": "./util/format",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "synth.tsx.src.util.format_x2e_ts",
+       "target_package": "synth.tsx.src.util",
+       "type_only": true,
+       "under_type_checking": true
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-52dc85cc79b19f11"
+      ],
+      "fact_ids": [],
+      "id": "IMP-7d75277227bdf72a",
+      "kind": "import_type",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.tsx.src.main_x2e_ts",
+       "synth.tsx.src.util.format_x2e_ts"
+      ],
+      "title": "synth.tsx.src.main_x2e_ts imports ./util/format"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": null,
+       "module_level_import": true,
+       "reexport": true,
+       "relative_level": 0,
+       "source_module": "shop.src.domain.index_x2e_ts",
+       "source_package": "shop.src.domain",
+       "specifier": "./order",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "shop.src.domain.order_x2e_ts",
+       "target_package": "shop.src.domain",
+       "type_only": true,
+       "under_type_checking": true
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-941da7b6a00cf3e1"
+      ],
+      "fact_ids": [],
+      "id": "IMP-9615d946ad1d6002",
+      "kind": "reexport",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.src.domain.index_x2e_ts",
+       "shop.src.domain.order_x2e_ts"
+      ],
+      "title": "shop.src.domain.index_x2e_ts imports ./order"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": null,
+       "module_level_import": false,
+       "reexport": false,
+       "relative_level": 0,
+       "source_module": "synth.tsx.src.legacy_x2e_cts",
+       "source_package": "synth.tsx.src",
+       "specifier": "./util/format",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "synth.tsx.src.util.format_x2e_ts",
+       "target_package": "synth.tsx.src.util",
+       "type_only": false,
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-ceb236ade072efba"
+      ],
+      "fact_ids": [],
+      "id": "IMP-955a816378c46e60",
+      "kind": "require",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.tsx.src.legacy_x2e_cts",
+       "synth.tsx.src.util.format_x2e_ts"
+      ],
+      "title": "synth.tsx.src.legacy_x2e_cts imports ./util/format"
+     },
+     {
+      "area": "source",
+      "data": {
+       "binding": "fs",
+       "module_level_import": false,
+       "reexport": false,
+       "relative_level": 0,
+       "script_global": "fs",
+       "script_member": null,
+       "source_module": "synth.tsx.src.main_x2e_ts",
+       "source_package": "synth.tsx.src",
+       "specifier": "fs",
+       "symbol": null,
+       "symbols_known": false,
+       "target_module": "fs",
+       "target_package": "",
+       "type_only": false,
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-ac979c780e440d01"
+      ],
+      "fact_ids": [],
+      "id": "TSGLOBAL-29aa3379fe6f863c",
+      "kind": "script_global",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "fs",
+       "synth.tsx.src.main_x2e_ts"
+      ],
+      "title": "synth.tsx.src.main_x2e_ts uses script global fs"
+     }
+    ]
+   },
+   {
+    "name": "references",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "expression": "OrderRepository",
+       "source_module": "shop.src.data.local_x2e_ts",
+       "source_scope": "shop.src.data.local_x2e_ts",
+       "status": "resolved",
+       "targets": [
+        "shop.src.domain.repository_x2e_ts.OrderRepository"
+       ],
+       "use": "type"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c96594559eadff96"
+      ],
+      "fact_ids": [],
+      "id": "TSREF-2d83b74784753dc0",
+      "kind": "references",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.src.data.local_x2e_ts",
+       "shop.src.domain.repository_x2e_ts.OrderRepository"
+      ],
+      "title": "OrderRepository"
+     },
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 0,
+       "candidates_truncated": false,
+       "expression": "value",
+       "reason": "lexical binding may shadow the name",
+       "source_definition_id": "TSDEF-380deda68b3cc338",
+       "source_module": "demo.src.app_x2e_ts",
+       "source_scope": "demo.src.app_x2e_ts.work",
+       "status": "unresolved",
+       "targets": [],
+       "use": "value"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-b1c7525530a79b9f"
+      ],
+      "fact_ids": [],
+      "id": "TSREF-641e1720e59486dc",
+      "kind": "references",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.app_x2e_ts.work"
+      ],
+      "title": "value"
+     },
+     {
+      "area": "source",
+      "data": {
+       "expression": "global",
+       "source_module": "synth.gaps.src.layout_x2e_js",
+       "source_scope": "synth.gaps.src.layout_x2e_js",
+       "status": "unresolved",
+       "targets": [],
+       "use": "value"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c70b3b35e3d60164"
+      ],
+      "fact_ids": [],
+      "id": "TS_RUNTIME_EFFECT-f29b557545b1540b",
+      "kind": "script_namespace_effect",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.gaps.src.layout_x2e_js"
+      ],
+      "title": "Opaque script runtime effect"
+     }
+    ]
+   },
+   {
+    "name": "symbols",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "attribute_declarations": [],
+       "base_declarations": [],
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": null,
+       "member_inventories": [
+        {
+         "definition_ids": [],
+         "kind": "attribute",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        },
+        {
+         "definition_ids": [],
+         "kind": "method",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        }
+       ],
+       "module": "demo.src.core_x2e_ts",
+       "name": "Base",
+       "overload_signature": false,
+       "package": "demo.src",
+       "parent": null,
+       "qualified_name": "demo.src.core_x2e_ts.Base",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "class",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "Base"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-8d6642ca8957d74d"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-2747ab702aec8c0d",
+      "kind": "class",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.core_x2e_ts.Base"
+      ],
+      "title": "demo.src.core_x2e_ts.Base declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "attribute_declarations": [
+        {
+         "annotation": null,
+         "decorator_evidence_ids": [],
+         "decorators": [],
+         "definition_id": "TSATTR-f166698cb1388272",
+         "evidence_ids": [
+          "EVD-047e74cd182a350b"
+         ],
+         "name": "READY",
+         "static": true,
+         "visibility": {
+          "basis": "language",
+          "kind": "public",
+          "spelling": "READY"
+         }
+        },
+        {
+         "annotation": null,
+         "decorator_evidence_ids": [],
+         "decorators": [],
+         "definition_id": "TSATTR-3e2ca7a1a4663cf2",
+         "evidence_ids": [
+          "EVD-9b5d1349bdd9ed44"
+         ],
+         "name": "STOPPED",
+         "static": true,
+         "visibility": {
+          "basis": "language",
+          "kind": "public",
+          "spelling": "STOPPED"
+         }
+        }
+       ],
+       "base_declarations": [],
+       "class_header_static": true,
+       "class_kind": "enum",
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "enum_members": [
+        "READY",
+        "STOPPED"
+       ],
+       "lexical_parent_id": null,
+       "member_inventories": [
+        {
+         "definition_ids": [
+          "TSATTR-f166698cb1388272",
+          "TSATTR-3e2ca7a1a4663cf2"
+         ],
+         "kind": "attribute",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        },
+        {
+         "definition_ids": [],
+         "kind": "method",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        }
+       ],
+       "module": "demo.src.core_x2e_ts",
+       "name": "State",
+       "overload_signature": false,
+       "package": "demo.src",
+       "parent": null,
+       "qualified_name": "demo.src.core_x2e_ts.State",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "class",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "State"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-ca883428c21a822c"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-10617efaee9b35fc",
+      "kind": "class",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.core_x2e_ts.State"
+      ],
+      "title": "demo.src.core_x2e_ts.State declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": null,
+       "module": "demo.src.core_x2e_ts",
+       "name": "VERSION",
+       "overload_signature": false,
+       "package": "demo.src",
+       "parameters": [],
+       "parent": null,
+       "qualified_name": "demo.src.core_x2e_ts.VERSION",
+       "returns": null,
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "constant",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "VERSION"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-5799f99e292a973b"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-a336b8ce5668710e",
+      "kind": "constant",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.core_x2e_ts.VERSION"
+      ],
+      "title": "demo.src.core_x2e_ts.VERSION declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": null,
+       "module": "demo.src.index_x2e_ts",
+       "name": "main",
+       "overload_signature": false,
+       "package": "demo.src",
+       "parameters": [],
+       "parent": null,
+       "qualified_name": "demo.src.index_x2e_ts.main",
+       "returns": null,
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "function",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "main"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-38f26333de9fbb45"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-833b3cdf46aaecd6",
+      "kind": "function",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.index_x2e_ts.main"
+      ],
+      "title": "demo.src.index_x2e_ts.main declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "async": true,
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": null,
+       "module": "nestjs.realworld.src.main_x2e_ts",
+       "name": "bootstrap",
+       "overload_signature": false,
+       "package": "nestjs.realworld.src",
+       "parameters": [],
+       "parent": null,
+       "qualified_name": "nestjs.realworld.src.main_x2e_ts.bootstrap",
+       "returns": null,
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "function",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "private",
+        "spelling": "bootstrap"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-26b83eee77584c99"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-8c20a93c15c35a95",
+      "kind": "function",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "nestjs.realworld.src.main_x2e_ts.bootstrap"
+      ],
+      "title": "nestjs.realworld.src.main_x2e_ts.bootstrap declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": "TSDEF-05207330171bd6e0",
+       "method_kind": "static",
+       "module": "demo.src.core_x2e_ts",
+       "name": "reset",
+       "overload_signature": false,
+       "package": "demo.src",
+       "parameters": [],
+       "parent": "demo.src.core_x2e_ts.Client",
+       "qualified_name": "demo.src.core_x2e_ts.Client.reset",
+       "returns": "void",
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "method",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "reset"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-faabfb0d68df1f28"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-6b0447746a1f8f1f",
+      "kind": "method",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.core_x2e_ts.Client.reset"
+      ],
+      "title": "demo.src.core_x2e_ts.Client.reset declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "async": true,
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": "TSDEF-2da0f47580090a8d",
+       "method_kind": "instance",
+       "module": "nestjs.realworld.src.app_x2e_module_x2e_ts",
+       "name": "onModuleInit",
+       "overload_signature": false,
+       "package": "nestjs.realworld.src",
+       "parameters": [],
+       "parent": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule",
+       "qualified_name": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule.onModuleInit",
+       "returns": "Promise<void>",
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "method",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "onModuleInit"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-1cf3a2681db6b678"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-1275f7853da37ecc",
+      "kind": "method",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule.onModuleInit"
+      ],
+      "title": "nestjs.realworld.src.app_x2e_module_x2e_ts.AppModule.onModuleInit declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": "string",
+       "class_header_static": true,
+       "decorator_evidence_ids": [],
+       "decorators": [],
+       "lexical_parent_id": null,
+       "module": "demo.src.core_x2e_ts",
+       "name": "Text",
+       "overload_signature": true,
+       "package": "demo.src",
+       "parameters": [],
+       "parent": null,
+       "qualified_name": "demo.src.core_x2e_ts.Text",
+       "returns": null,
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_member_binding_static": true,
+       "symbol_category": "type_alias",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "Text"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-3f5ff4a2190612c0"
+      ],
+      "fact_ids": [],
+      "id": "TSDEF-2e86be600ec50d8e",
+      "kind": "type_alias",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "demo.src.core_x2e_ts.Text"
+      ],
+      "title": "demo.src.core_x2e_ts.Text declaration"
+     }
+    ]
+   },
+   {
+    "name": "unknowns",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "module": "synth.gaps.src.broken_x2e_ts",
+       "reason": "Syntax error in src/broken.ts: unparseable construct at line 1"
+      },
+      "evidence_class": "UNKNOWN",
+      "evidence_ids": [
+       "EVD-0e0e7f3e7d179ec6"
+      ],
+      "fact_ids": [],
+      "id": "UNKNOWN-ac264299d9a4189f",
+      "kind": "collection_gap",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.gaps.src.broken_x2e_ts"
+      ],
+      "title": "Syntax error in src/broken.ts: unparseable construct at line 1"
+     },
+     {
+      "area": "source",
+      "data": {
+       "module": "synth.bundler.src.index_x2e_ts",
+       "reason": "Unresolved module: @/nowhere",
+       "resolution_dimension": "imports"
+      },
+      "evidence_class": "UNKNOWN",
+      "evidence_ids": [],
+      "fact_ids": [],
+      "id": "UNKNOWN-1174bfc885c963e9",
+      "kind": "source_resolution_gap",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "synth.bundler.src.index_x2e_ts"
+      ],
+      "title": "Unresolved module: @/nowhere"
+     }
+    ]
+   }
+  ]
+ }
+}

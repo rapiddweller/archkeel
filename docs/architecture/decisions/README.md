@@ -338,3 +338,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-340 | [The native records are built behind the dump and reach the wire last](ad-340-the-native-records-are-built-behind-the-dump-and-reach-the-wire-last.md) |
 | AD-343 | [A collector reply is frozen as golden data before its code is deleted](ad-343-a-collector-reply-is-frozen-as-golden-data-before-its-code-is-deleted.md) |
 | AD-341 | [CI has a time budget, and a test runs on any free worker](ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md) |
+| AD-345 | [Collector facts have one typed definition in archkeel-facts](ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md) |

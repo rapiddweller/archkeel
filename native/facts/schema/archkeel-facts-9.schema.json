@@ -1,0 +1,4329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "archkeel-facts protocol 9",
+  "description": "The source records of a collector reply. Generated from the Rust types.",
+  "$defs": {
+    "Section": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "imports"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_ImportFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "symbols"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_SymbolFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "calls"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_CallFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "references"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_ReferenceFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "bindings"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_BindingFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "constructs"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_ConstructFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "typing_signals"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_SignalFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "const": "unknowns"
+            },
+            "records": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Record_GapFact"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "records"
+          ]
+        }
+      ],
+      "description": "One section of a reply: its name and its records."
+    },
+    "Record_ImportFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "import"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "reexport"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "import_type"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "import_equals"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "require"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dynamic_import"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "script_global"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "ImportData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "source_package": {
+          "$ref": "#/$defs/PackageName"
+        },
+        "target_module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "target_package": {
+          "$ref": "#/$defs/PackageName"
+        },
+        "symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "binding": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "symbols_known": {
+          "type": "boolean"
+        },
+        "specifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type_only": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "relative_level": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "under_type_checking": {
+          "type": "boolean"
+        },
+        "reexport": {
+          "type": "boolean"
+        },
+        "module_level_import": {
+          "type": "boolean"
+        },
+        "reexport_chain": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared_in_all": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ordinary_module": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "origin_binding_unique": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "origin_definition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin_member_binding_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reexport_candidate": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "script_global": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "script_member": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_binding_unique": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_member_binding_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "symbol_visibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Visibility"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source_module",
+        "source_package",
+        "target_module",
+        "target_package",
+        "symbols_known",
+        "relative_level",
+        "under_type_checking",
+        "reexport",
+        "module_level_import"
+      ],
+      "description": "An import: one record for each statement or bound name (TypeScript, Rust), or for each\nimported name (Python, Dart). `script_global` and `script_member` belong to `script_global`."
+    },
+    "ModuleName": {
+      "type": "string",
+      "description": "A module identity: a dotted name (Python, Dart) or `identity::module_identity` (TypeScript)."
+    },
+    "PackageName": {
+      "type": "string",
+      "description": "The package of a module, or the package of an external dependency."
+    },
+    "Visibility": {
+      "type": "string",
+      "enum": [
+        "private",
+        "public_name"
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
+    },
+    "EvidenceClass": {
+      "type": "string",
+      "enum": [
+        "FACT",
+        "UNKNOWN"
+      ],
+      "description": "The evidence class of a source record. A source record is a fact or an UNKNOWN gap."
+    },
+    "Area": {
+      "type": "string",
+      "enum": [
+        "source",
+        "dependencies",
+        "repository_topology",
+        "call_hierarchy",
+        "constructs",
+        "type_architecture",
+        "analysis_coverage"
+      ],
+      "description": "The area of a record. One concept can have two areas: an import is `source` in TypeScript\nand Rust, and `dependencies` in Python and Dart."
+    },
+    "EvidenceId": {
+      "type": "string",
+      "description": "The id of one cited source location (`EVD-…`, `identity::evidence_id`)."
+    },
+    "Record_SymbolFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "class"
+            },
+            "data": {
+              "$ref": "#/$defs/ClassData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "function"
+            },
+            "data": {
+              "$ref": "#/$defs/CallableData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "method"
+            },
+            "data": {
+              "$ref": "#/$defs/CallableData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "constant"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "type_alias"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "binding"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "alias"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dynamic_binding"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "static_constant"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "ClassData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "attribute_declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AttributeDeclaration"
+          }
+        },
+        "base_declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BaseDeclaration"
+          }
+        },
+        "base_roots": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "bases": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "class_body_control_flow": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "class_header_static": {
+          "type": "boolean"
+        },
+        "class_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "class_members": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared_in_all": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "decorator_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "decorators": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default_instance_result": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "definition_contexts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/DefinitionContext"
+          }
+        },
+        "enum_members": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "fields": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Field"
+          }
+        },
+        "frozen_object": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "generic_bases": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/GenericBase"
+          }
+        },
+        "generic_parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "guard_boolean_members": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/GuardBooleanMember"
+          }
+        },
+        "instance_member_scope_evidence_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instance_member_writes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "lexical_parent_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "member_inventories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MemberInventory"
+          }
+        },
+        "mixin_capable": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "modifiers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace_bound": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "overload_signature": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "package": {
+          "$ref": "#/$defs/PackageName"
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "property_members": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualified_name": {
+          "type": "string"
+        },
+        "signature_complete": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_binding_unique": {
+          "type": "boolean"
+        },
+        "source_class_header_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_member_binding_static": {
+          "type": "boolean"
+        },
+        "source_member_owner_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "symbol_category": {
+          "$ref": "#/$defs/SymbolCategory"
+        },
+        "typed_dict_header_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Visibility"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility_detail": {
+          "$ref": "#/$defs/VisibilityDetail"
+        }
+      },
+      "required": [
+        "attribute_declarations",
+        "base_declarations",
+        "class_header_static",
+        "decorators",
+        "member_inventories",
+        "module",
+        "name",
+        "package",
+        "qualified_name",
+        "source_binding_unique",
+        "source_member_binding_static",
+        "symbol_category",
+        "visibility_detail"
+      ],
+      "description": "A class, an interface, an enum or a mixin declaration."
+    },
+    "AttributeDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "constant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decorator_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "decorators": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "definition_id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "literal_value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "visibility": {
+          "$ref": "#/$defs/VisibilityDetail"
+        }
+      },
+      "required": [
+        "definition_id",
+        "evidence_ids",
+        "name",
+        "visibility"
+      ]
+    },
+    "VisibilityDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "spelling": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "basis",
+        "kind",
+        "spelling"
+      ]
+    },
+    "BaseDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidate_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "candidates_truncated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "expression": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relationship_kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "candidate_count",
+        "evidence_ids",
+        "expression",
+        "id",
+        "relationship_kind",
+        "status",
+        "targets"
+      ]
+    },
+    "ClassKind": {
+      "type": "string",
+      "enum": [
+        "class",
+        "dataclass",
+        "enum",
+        "protocol",
+        "pydantic_model"
+      ]
+    },
+    "DefinitionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "evidence_ids",
+        "kind"
+      ]
+    },
+    "Field": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "annotation",
+        "name"
+      ]
+    },
+    "GenericBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "arguments_are_names": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "base": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "arguments",
+        "arguments_are_names",
+        "base"
+      ]
+    },
+    "GuardBooleanMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_ids",
+        "name"
+      ]
+    },
+    "MemberInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "definition_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "kind": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "definition_ids",
+        "kind",
+        "schema_version",
+        "status"
+      ]
+    },
+    "SymbolCategory": {
+      "type": "string",
+      "enum": [
+        "class",
+        "constant",
+        "dynamic_binding",
+        "function",
+        "method",
+        "type_alias"
+      ]
+    },
+    "CallableData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "accessor_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "async": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "class_header_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "contextmanager_signature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextmanagerSignature"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declared_in_all": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "decorator_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "decorators": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "definition_contexts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/DefinitionContext"
+          }
+        },
+        "lexical_parent_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethodKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modifiers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace_bound": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "overload_signature": {
+          "type": "boolean"
+        },
+        "overloaded": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "package": {
+          "$ref": "#/$defs/PackageName"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "parameters_contained": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "property_binding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PropertyBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "qualified_name": {
+          "type": "string"
+        },
+        "receiver_parameter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "returns": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "shape": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "shape_nodes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "signature_complete": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "signature_decorators_proven": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_binding_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_binding_unique": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_final_method_binding": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_member_binding_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "stored_field_writes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/StoredFieldWrite"
+          }
+        },
+        "symbol_category": {
+          "$ref": "#/$defs/SymbolCategory"
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Visibility"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility_detail": {
+          "$ref": "#/$defs/VisibilityDetail"
+        }
+      },
+      "required": [
+        "decorators",
+        "module",
+        "name",
+        "overload_signature",
+        "package",
+        "parameters",
+        "qualified_name",
+        "symbol_category",
+        "visibility_detail"
+      ],
+      "description": "A function or a method and its signature."
+    },
+    "ContextmanagerSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "abc": {
+          "$ref": "#/$defs/ContextmanagerAbc"
+        },
+        "effective_return": {
+          "$ref": "#/$defs/EffectiveReturn"
+        },
+        "factory": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "partial": {
+          "$ref": "#/$defs/ContextmanagerPartial"
+        },
+        "support_evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "abc",
+        "effective_return",
+        "factory",
+        "kind",
+        "partial",
+        "support_evidence_ids"
+      ]
+    },
+    "ContextmanagerAbc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "origin": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "members",
+        "module",
+        "origin"
+      ]
+    },
+    "EffectiveReturn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "payload": {
+          "type": "string"
+        },
+        "wrapper": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "payload",
+        "wrapper"
+      ]
+    },
+    "ContextmanagerPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cache_tag": {
+          "type": "string"
+        },
+        "implementation": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cache_tag",
+        "implementation",
+        "kind",
+        "origin",
+        "version"
+      ]
+    },
+    "MethodKind": {
+      "type": "string",
+      "enum": [
+        "instance",
+        "static",
+        "class",
+        "constructor",
+        "factory"
+      ]
+    },
+    "Parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default_known": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "default_known",
+        "kind",
+        "name"
+      ]
+    },
+    "PropertyBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "line": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_line": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "line",
+        "operation",
+        "source",
+        "source_line"
+      ]
+    },
+    "StoredFieldWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotation_evidence_id": {
+          "$ref": "#/$defs/EvidenceId"
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/EvidenceId"
+        },
+        "field": {
+          "type": "string"
+        },
+        "parameter": {
+          "type": "string"
+        },
+        "receiver": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "annotation_evidence_id",
+        "evidence_id",
+        "field",
+        "parameter",
+        "receiver"
+      ]
+    },
+    "ValueData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "class_header_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "constant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Literal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decorator_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "decorators": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "definition_contexts": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/DefinitionContext"
+          }
+        },
+        "initializer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lexical_parent_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modifiers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "overload_signature": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "package": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackageName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parameters": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "qualified_name": {
+          "type": "string"
+        },
+        "record_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "returns": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signature_complete": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "source_binding_unique": {
+          "type": "boolean"
+        },
+        "source_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_member_binding_static": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "symbol_category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SymbolCategory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Visibility"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visibility_detail": {
+          "$ref": "#/$defs/VisibilityDetail"
+        }
+      },
+      "required": [
+        "module",
+        "name",
+        "qualified_name",
+        "source_binding_unique",
+        "visibility_detail"
+      ],
+      "description": "A constant, a type alias or another named binding of a value."
+    },
+    "Literal": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "A written constant: a Python or Dart literal of one of the JSON scalar types."
+    },
+    "Record_CallFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "calls"
+            },
+            "data": {
+              "$ref": "#/$defs/CallData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "call"
+            },
+            "data": {
+              "$ref": "#/$defs/CallData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "resolved_call"
+            },
+            "data": {
+              "$ref": "#/$defs/CallData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "partially_resolved_call"
+            },
+            "data": {
+              "$ref": "#/$defs/CallData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "unresolved_call"
+            },
+            "data": {
+              "$ref": "#/$defs/CallData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "CallData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "call_arguments": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/CallArgument"
+          }
+        },
+        "call_binding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CallBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate_count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "candidates_truncated": {
+          "type": "boolean"
+        },
+        "construction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Construction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "guarded_effect": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/GuardedEffect"
+          }
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result_bindings": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/ResultBinding"
+          }
+        },
+        "source_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "source_scope": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "target_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "candidate_count",
+        "candidates_truncated",
+        "expression",
+        "source_module",
+        "source_scope",
+        "status",
+        "targets"
+      ],
+      "description": "A call site and the targets that it resolves to."
+    },
+    "CallArgument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "keyword": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value_kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_ids",
+        "kind",
+        "value_kind"
+      ]
+    },
+    "CallBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "origin": {
+          "type": "string"
+        },
+        "proof": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CallBindingProof"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_ids",
+        "origin",
+        "target"
+      ]
+    },
+    "CallBindingProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "constructor_evidence_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "descriptor_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "descriptor_member": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "descriptor_owner_module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "descriptor_owner_qualname": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "type": "string"
+        },
+        "provider_evidence_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtime_implementation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtime_name": {
+          "type": "string"
+        },
+        "runtime_version": {
+          "type": "string"
+        },
+        "stdlib_source_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "witness_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "runtime_name",
+        "runtime_version",
+        "target"
+      ]
+    },
+    "Construction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidates_truncated": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "candidates_truncated",
+        "reason",
+        "status",
+        "targets"
+      ]
+    },
+    "GuardedEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "type": "boolean"
+        },
+        "condition": {
+          "$ref": "#/$defs/Condition"
+        },
+        "condition_evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "condition_value": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "effect_binding_evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "helper_bindings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "path_evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "unknown_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "complete",
+        "condition",
+        "condition_evidence_ids",
+        "effect_binding_evidence_ids",
+        "helper_bindings",
+        "path_evidence_ids"
+      ]
+    },
+    "Condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "owner"
+      ]
+    },
+    "ResultBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "definition_contexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionContext"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "initializer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "target_kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "definition_contexts",
+        "evidence_ids",
+        "id",
+        "initializer",
+        "name",
+        "target_kind"
+      ]
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "resolved",
+        "partially_resolved",
+        "unresolved",
+        "unknown",
+        "decided"
+      ],
+      "description": "How far a call, a reference or a selector is resolved."
+    },
+    "Record_ReferenceFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "references"
+            },
+            "data": {
+              "$ref": "#/$defs/ReferenceData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "reference"
+            },
+            "data": {
+              "$ref": "#/$defs/ReferenceData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "script_namespace_effect"
+            },
+            "data": {
+              "$ref": "#/$defs/ReferenceData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "value_reference"
+            },
+            "data": {
+              "$ref": "#/$defs/ReferenceData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "attribute_reference"
+            },
+            "data": {
+              "$ref": "#/$defs/ReferenceData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "source_role"
+            },
+            "data": {
+              "$ref": "#/$defs/SourceRoleData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "ReferenceData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidate_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "candidates_truncated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "declaration_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declaration_evidence_ids": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "declaration_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declaration_owner_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declaration_owner_scope": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "declaration_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "declaration_scope": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "declaration_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "local_source_binding": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reference_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_bindings": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/ResultBinding"
+          }
+        },
+        "source_definition_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "source_scope": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "use": {
+          "$ref": "#/$defs/Use"
+        }
+      },
+      "required": [
+        "expression",
+        "source_module",
+        "source_scope",
+        "status",
+        "targets",
+        "use"
+      ],
+      "description": "A reference to a name and the targets that it resolves to."
+    },
+    "ReferenceContext": {
+      "type": "string",
+      "enum": [
+        "annotation",
+        "value",
+        "unknown"
+      ]
+    },
+    "Use": {
+      "type": "string",
+      "enum": [
+        "value",
+        "attribute",
+        "member",
+        "read",
+        "write",
+        "type",
+        "source_role"
+      ],
+      "description": "How a reference uses its target."
+    },
+    "SourceRoleData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canonical_name": {
+          "type": "string"
+        },
+        "column": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "constant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Literal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declaration_id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "declaration_owner_id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "declaration_owner_scope": {
+          "type": "string"
+        },
+        "end_column": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "end_line": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "expression": {
+          "type": "string"
+        },
+        "expression_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "parameter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/Role"
+        },
+        "source_module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "source_scope": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "transfer_kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransferKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "use": {
+          "$ref": "#/$defs/Use"
+        }
+      },
+      "required": [
+        "canonical_name",
+        "column",
+        "declaration_id",
+        "declaration_owner_id",
+        "declaration_owner_scope",
+        "end_column",
+        "end_line",
+        "expression",
+        "line",
+        "role",
+        "source_module",
+        "source_scope",
+        "status",
+        "targets",
+        "use"
+      ],
+      "description": "The role of a source binding at one location (Python)."
+    },
+    "ExpressionKind": {
+      "type": "string",
+      "enum": [
+        "literal",
+        "reference",
+        "unsupported"
+      ]
+    },
+    "Role": {
+      "type": "string",
+      "enum": [
+        "definition",
+        "delete",
+        "fallback",
+        "parameter_default",
+        "value_transfer",
+        "write"
+      ]
+    },
+    "TransferKind": {
+      "type": "string",
+      "enum": [
+        "dictionary_value",
+        "unsupported_dictionary_value"
+      ]
+    },
+    "Record_BindingFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "bindings"
+            },
+            "data": {
+              "$ref": "#/$defs/BindingData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "unused_parameter"
+            },
+            "data": {
+              "$ref": "#/$defs/UnusedBindingData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "unused_local"
+            },
+            "data": {
+              "$ref": "#/$defs/UnusedBindingData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "BindingData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "source_scope": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "source_module",
+        "source_scope"
+      ],
+      "description": "A binding that a module exports (TypeScript)."
+    },
+    "UnusedBindingData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "type": "string"
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding",
+        "module",
+        "name",
+        "owner"
+      ],
+      "description": "A parameter or a local name that is never read (Python)."
+    },
+    "Record_ConstructFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "string_literal_compare"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "broad_except"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "getattr_call"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "hasattr_call"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "setattr_call"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "delattr_call"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "vars_call"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "construct_selector"
+            },
+            "data": {
+              "$ref": "#/$defs/SelectorData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "numeric_operand"
+            },
+            "data": {
+              "$ref": "#/$defs/NumericOperandData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "ConstructData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construct": {
+          "type": "string"
+        },
+        "form": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "handled": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "construct",
+        "owner"
+      ],
+      "description": "A written construct that a rule can forbid."
+    },
+    "SelectorData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construct": {
+          "type": "string"
+        },
+        "literal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "member": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "receiver_binding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReceiverBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receiver_parameter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiver_parameter_owner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receiver_parameter_scopes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/BindingScope"
+          }
+        },
+        "receiver_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selector_role": {
+          "$ref": "#/$defs/SelectorRole"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        }
+      },
+      "required": [
+        "construct",
+        "operation",
+        "owner",
+        "selector_role",
+        "status"
+      ],
+      "description": "A selector on a receiver (Python)."
+    },
+    "Operation": {
+      "type": "string",
+      "enum": [
+        "call",
+        "compare",
+        "construct",
+        "modulo",
+        "probe",
+        "read",
+        "write"
+      ]
+    },
+    "ReceiverBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "origin": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_ids",
+        "origin",
+        "target"
+      ]
+    },
+    "BindingScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope_evidence_id": {
+          "$ref": "#/$defs/EvidenceId"
+        },
+        "scope_owner": {
+          "type": "string"
+        },
+        "scope_symbol_id": {
+          "$ref": "#/$defs/FactId"
+        }
+      },
+      "required": [
+        "scope_evidence_id",
+        "scope_owner",
+        "scope_symbol_id"
+      ]
+    },
+    "SelectorRole": {
+      "type": "string",
+      "enum": [
+        "call",
+        "constructor",
+        "endswith",
+        "equality",
+        "membership",
+        "read",
+        "startswith",
+        "type_probe",
+        "write"
+      ]
+    },
+    "NumericOperandData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "binding_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BindingScope"
+          }
+        },
+        "column": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "derivation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "end_column": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "end_line": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "form": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "module": {
+          "$ref": "#/$defs/ModuleName"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "proof": {
+          "$ref": "#/$defs/Proof"
+        },
+        "subject": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      },
+      "required": [
+        "binding_scopes",
+        "column",
+        "derivation",
+        "end_column",
+        "end_line",
+        "form",
+        "line",
+        "module",
+        "operation",
+        "owner",
+        "proof"
+      ],
+      "description": "A numeric operand and its proof (Python)."
+    },
+    "Proof": {
+      "type": "string",
+      "enum": [
+        "known",
+        "unknown"
+      ],
+      "description": "Whether a numeric operand is proven."
+    },
+    "Record_SignalFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "any_annotation"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dict_any_annotation"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "callable_any_annotation"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "object_annotation"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "cast_call"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "getattr_call"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "hasattr_call"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "eval_call"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "exec_call"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dynamic_import"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "type_ignore"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "missing_cross_package_annotation"
+            },
+            "data": {
+              "$ref": "#/$defs/SignalData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "SignalData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expression": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "positions": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "qualified_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signal": {
+          "type": "string"
+        },
+        "statement": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tag": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "owner",
+        "signal"
+      ],
+      "description": "A typing signal (Python)."
+    },
+    "Record_GapFact": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactId"
+        },
+        "evidence_class": {
+          "$ref": "#/$defs/EvidenceClass"
+        },
+        "area": {
+          "$ref": "#/$defs/Area"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceId"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "collection_gap"
+            },
+            "data": {
+              "$ref": "#/$defs/GapData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "source_resolution_gap"
+            },
+            "data": {
+              "$ref": "#/$defs/GapData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dynamic_import_limit"
+            },
+            "data": {
+              "$ref": "#/$defs/GapData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "private_attribute_access_limit"
+            },
+            "data": {
+              "$ref": "#/$defs/GapData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Za-z0-9]*$"
+            },
+            "data": {
+              "$ref": "#/$defs/GapData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        }
+      ]
+    },
+    "GapData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "module": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModuleName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolution_dimension": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResolutionDimension"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "annotation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attribute": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "function": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parameter": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_module": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModuleName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "under_type_checking": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "description": "An UNKNOWN gap of the coverage or of the `unknowns` section."
+    },
+    "ResolutionDimension": {
+      "type": "string",
+      "enum": [
+        "imports",
+        "runtime_effects",
+        "signature"
+      ],
+      "description": "What a source resolution gap leaves unknown."
+    },
+    "Kind": {
+      "type": "string",
+      "enum": [
+        "import",
+        "reexport",
+        "import_type",
+        "import_equals",
+        "require",
+        "dynamic_import",
+        "script_global",
+        "class",
+        "function",
+        "method",
+        "constant",
+        "type_alias",
+        "binding",
+        "alias",
+        "dynamic_binding",
+        "static_constant",
+        "calls",
+        "call",
+        "resolved_call",
+        "partially_resolved_call",
+        "unresolved_call",
+        "references",
+        "reference",
+        "script_namespace_effect",
+        "value_reference",
+        "attribute_reference",
+        "source_role",
+        "bindings",
+        "unused_parameter",
+        "unused_local",
+        "string_literal_compare",
+        "broad_except",
+        "getattr_call",
+        "hasattr_call",
+        "setattr_call",
+        "delattr_call",
+        "vars_call",
+        "construct_selector",
+        "numeric_operand",
+        "any_annotation",
+        "dict_any_annotation",
+        "callable_any_annotation",
+        "object_annotation",
+        "cast_call",
+        "eval_call",
+        "exec_call",
+        "type_ignore",
+        "missing_cross_package_annotation",
+        "collection_gap",
+        "source_resolution_gap",
+        "dynamic_import_limit",
+        "private_attribute_access_limit",
+        "exception_gap"
+      ],
+      "description": "The kind of a record. The section of the record decides its data type (`sections`).\n`ExceptionGap` replaces the open kind of protocol 9: there, the kind of an analyzer failure\nis the name of the exception class (`SyntaxError`). The name is a field of the record."
+    },
+    "ReasonCode": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "syntax_error",
+          "description": "The parser cannot read a construct of the file."
+        },
+        {
+          "type": "string",
+          "const": "analyzer_exception",
+          "description": "The analyzer stopped on the file with an exception (`ExceptionGap`)."
+        },
+        {
+          "type": "string",
+          "const": "unreadable_source",
+          "description": "The file cannot be read, or it is over the size limit."
+        },
+        {
+          "type": "string",
+          "const": "no_module_identity",
+          "description": "The path of the file gives no module identity."
+        },
+        {
+          "type": "string",
+          "const": "unresolved_module",
+          "description": "The specifier resolves to no file and no package."
+        },
+        {
+          "type": "string",
+          "const": "computed_specifier",
+          "description": "The specifier is computed, so it cannot be resolved."
+        },
+        {
+          "type": "string",
+          "const": "unobserved_setting",
+          "description": "A setting that decides resolution is not observed."
+        },
+        {
+          "type": "string",
+          "const": "unobserved_package_metadata",
+          "description": "Package metadata that decides resolution is not observed."
+        },
+        {
+          "type": "string",
+          "const": "unproven_runtime_target",
+          "description": "The file that the runtime loads is not proven."
+        },
+        {
+          "type": "string",
+          "const": "unproven_require",
+          "description": "A `require` call is shadowed or not proven."
+        },
+        {
+          "type": "string",
+          "const": "outside_scope",
+          "description": "The target is outside the selected source scope, or it is an excluded test source."
+        },
+        {
+          "type": "string",
+          "const": "not_examined",
+          "description": "The collector does not examine this kind of dependency, for example script globals."
+        }
+      ],
+      "description": "Why a fact is UNKNOWN. One code covers one cause; the message names the file or the value."
+    },
+    "Producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The adapter name, for example `archkeel-typescript-imports`."
+        },
+        "version": {
+          "type": "string"
+        },
+        "code_digest": {
+          "type": "string",
+          "description": "SHA-256 of the producer code (`code_digest`)."
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "code_digest",
+        "origin"
+      ]
+    },
+    "Origin": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "bundled",
+          "description": "Shipped in the Archkeel wheel and pinned by its code digest."
+        },
+        {
+          "type": "string",
+          "const": "external",
+          "description": "Configured by the user. Its verdicts are capped at UNKNOWN."
+        }
+      ],
+      "description": "Where the producer comes from."
+    }
+  }
+}
