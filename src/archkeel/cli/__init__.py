@@ -1315,7 +1315,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 result = replace(result, scan_roots=config.roots)
                 result = replace(
-                    result, notes=(*result.notes, *config.scope_notes(observer.excluded_tests))
+                    result, notes=(*result.notes, *config.scope_notes(observer.excluded_for()))
                 )
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
@@ -1401,7 +1401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = replace(result, scan_roots=config.roots)
                 notes = (
                     *result.notes,
-                    *config.scope_notes(observer.excluded_tests, None, against_config, against),
+                    *config.scope_notes(observer.excluded_for(), against_config, against),
                 )
                 result = replace(result, notes=notes)
             else:
@@ -1428,7 +1428,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     result,
                     notes=(
                         *result.notes,
-                        *config.scope_notes(observer.excluded_tests, args.head),
+                        *config.scope_notes(observer.excluded_for(args.head)),
                     ),
                 )
                 if args.output:

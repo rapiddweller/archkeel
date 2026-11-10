@@ -41,20 +41,16 @@ class ScanConfig:
 
     def scope_notes(
         self,
-        observed: Mapping[str, tuple[str, ...]],
-        head: str | None = None,
+        files: tuple[str, ...],
         before: ScanConfig | None = None,
         revision: str | None = None,
     ) -> tuple[Diagnostic, ...]:
         """AD-313: name each excluded test file, so a PASS never hides what it did not read.
 
-        `observed` maps a git head to the test files of its one listing (Observer.excluded_tests).
-        Without `head` the first scan counts; `head` may be a short sha. `before` is the config
-        of the compared revision: a changed test scope is a note too.
+        `files` are the test files of the one listing that the collector read
+        (Observer.excluded_for). `before` is the config of the compared revision: a changed test
+        scope is a note too.
         """
-        files = next(
-            (found for sha, found in observed.items() if head is None or sha.startswith(head)), ()
-        )
         changed = (
             self._scope_change(before, revision)
             if before is not None and revision is not None

@@ -260,7 +260,7 @@ def _observe(
     language: Language = Language.PYTHON,
     bundler: bool = False,
     exclude_test_sources: bool = False,
-    excluded_tests: dict[str, tuple[str, ...]] | None = None,
+    excluded_tests: list[tuple[str, tuple[str, ...]]] | None = None,
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
     source_root = source_root.resolve()
@@ -296,7 +296,8 @@ def _observe(
                     )
         if exclude_test_sources and excluded_tests is not None:
             # The files of this one listing are the files the collector reads (AD-313).
-            excluded_tests.setdefault(git_head, tuple(sorted(found)))
+            if all(sha != git_head for sha, _ in excluded_tests):
+                excluded_tests.append((git_head, tuple(sorted(found))))
         resolver: ResolverSettings = (
             PythonSettings(
                 features=tuple(
@@ -378,7 +379,14 @@ class Observer:
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
     # AD-313: the test files of each observed revision, by git head; the first scan of a head wins.
-    excluded_tests: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    excluded_tests: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+
+    def excluded_for(self, head: str | None = None) -> tuple[str, ...]:
+        """The test files of the scan of `head` (a short sha is fine), or of the first scan."""
+        return next(
+            (found for sha, found in self.excluded_tests if head is None or sha.startswith(head)),
+            (),
+        )
 
     def __call__(
         self,

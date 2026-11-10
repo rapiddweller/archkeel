@@ -179,7 +179,7 @@ def test_the_human_output_prints_the_note(tmp_path: Path) -> None:
     config = load_config(probed, "archkeel-on.toml")
     observer = observer_for(config.language, exclude_test_sources=True)
     result, _ = run_validate(probed, config, observer)
-    result = replace(result, notes=config.scope_notes(observer.excluded_tests))
+    result = replace(result, notes=config.scope_notes(observer.excluded_for()))
     assert "shop/model/test_mode.py" in report_summary(result).sentence
 
 
