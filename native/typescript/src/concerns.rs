@@ -136,6 +136,32 @@ fn comment_concerns(
     list
 }
 
+/// `augmentations.augmentation_concerns`: `declare module "./x"` names a file of the project, as an
+/// import does (#976). A bare name reaches one only through `paths` or `baseUrl`, and only in a
+/// module file; a wildcard name is a pattern. The resolver is not asked: when the project has
+/// `paths` or `baseUrl`, such a bare name is a concern.
+fn augmentation_concerns(
+    source: &Source,
+    scan: &Scan,
+    (module_file, aliased): (bool, bool),
+) -> Vec<Concern> {
+    let mut list = Vec::new();
+    for node in scan.augmentations.iter().copied() {
+        let text = source.text(node);
+        let value: String = text
+            .chars()
+            .skip(1)
+            .take(text.chars().count().saturating_sub(2))
+            .collect();
+        let bare = module_file && aliased && !value.is_empty() && !value.contains('*');
+        if value.starts_with(['.', '/']) || bare {
+            let reason = format!("Unobserved module augmentation: {value}");
+            list.push(concern(source, node, &reason));
+        }
+    }
+    list
+}
+
 /// The concerns of one file, in the order that `parse.parse` collects them.
 pub fn read(
     source: &Source,
@@ -143,6 +169,7 @@ pub fn read(
     scan: &Scan,
     references: &[Reference],
     suffix: Option<Suffix>,
+    augmenting: (bool, bool),
 ) -> Found {
     let mut list = Vec::new();
     // `module[name]` can reach `require` without spelling it.
@@ -168,6 +195,9 @@ pub fn read(
     }
     if contains(source.data, b"/**") || contains(source.data, b"///") {
         list.extend(comment_concerns(source, root, scan, suffix));
+    }
+    if contains(source.data, b"module") {
+        list.extend(augmentation_concerns(source, scan, augmenting));
     }
     Found {
         list,

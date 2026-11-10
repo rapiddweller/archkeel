@@ -232,6 +232,21 @@ a `lib` value the pinned compiler does not name, `noLib` or `libReplacement` lea
 project `declare` of a name, in a global script or a `declare global` block, proves that name.
 Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
+A `/// <reference types="./x" />` directive with a relative or absolute path names a file of the
+project; it is UNKNOWN, as `path` and `lib` directives are (#976). A `types` name without a path
+stays silent. A `declare module "x"` augmentation names a module as an import does: a relative or
+absolute name is UNKNOWN. A bare name is UNKNOWN when the project sets `paths` or `baseUrl` and
+the file is a module file (it has `import` or `export`), because those options can map the name
+to a project file; the resolver is not asked, so a name that maps to no project file is UNKNOWN
+too. Without `paths` and `baseUrl` a bare name stays silent. In a script file `declare module`
+declares an ambient module, so it is no concern. A wildcard name (`declare module "x*"`) is a
+pattern for tsc (TS2664 in a module file), not a module, so it stays silent.
+`self` and `frames` are roots of the global object, like `window` and `globalThis`. `top` and
+`parent` name another window, which a frame can hold, and they stay unproved. A chain such as
+`window.window.x` is read as the name `window`, not as `x`, and stays unproved.
+The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
+the file, where the Python collector reads the file and can give FAIL. The two collectors give
+the same facts only for files under the limit.
 
 ## Dart profile
 

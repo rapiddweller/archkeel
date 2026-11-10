@@ -24,7 +24,7 @@ use crate::source::Span;
 
 /// `_SCRIPT_ROOTS`: the names of the browser global object.
 pub fn is_root(name: &str) -> bool {
-    matches!(name, "window" | "globalThis")
+    matches!(name, "window" | "globalThis" | "self" | "frames")
 }
 
 /// `_SCRIPT_FUNCTIONS`.

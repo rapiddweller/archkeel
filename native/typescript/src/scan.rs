@@ -29,6 +29,7 @@ pub struct Kinds {
     property_identifier: u16,
     string_fragment: u16,
     string: u16,
+    module: u16,
     comment: u16,
     member_expression: u16,
     subscript_expression: u16,
@@ -50,6 +51,7 @@ impl Kinds {
             property_identifier: named("property_identifier"),
             string_fragment: named("string_fragment"),
             string: named("string"),
+            module: named("module"),
             comment: named("comment"),
             member_expression: named("member_expression"),
             subscript_expression: named("subscript_expression"),
@@ -69,6 +71,8 @@ pub struct Scan<'t> {
     /// `require(...)`.
     pub requires: Vec<Node<'t>>,
     pub comments: Vec<Node<'t>>,
+    /// The string names of `declare module "x"`.
+    pub augmentations: Vec<Node<'t>>,
     /// Nodes that the parser had to repair or invent.
     pub errors: Vec<Node<'t>>,
     /// Every name `require`.
@@ -151,6 +155,12 @@ fn visit<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Scan<'t
         }
     } else if kind == kinds.comment {
         found.comments.push(node);
+    } else if kind == kinds.module {
+        if let Some((id, name)) = field_kind(node, "name") {
+            if id == kinds.string {
+                found.augmentations.push(name);
+            }
+        }
     } else if kind == kinds.member_expression {
         if let Some((id, property)) = field_kind(node, "property") {
             if id == kinds.property_identifier && is_text(source, property, b"require") {

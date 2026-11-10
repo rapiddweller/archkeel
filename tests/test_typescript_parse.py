@@ -5,6 +5,7 @@
 
 import pytest
 
+from archkeel.analyzer.typescript.config import Options
 from archkeel.analyzer.typescript.parse import Syntax, parse
 
 
@@ -154,6 +155,24 @@ def test_a_reference_the_parser_had_to_repair_is_dropped() -> None:
             ["Unobserved triple-slash reference: ./a.d.ts"],
         ),
         ("/// <reference lib='dom' />\nexport {};", ["Unobserved triple-slash reference: dom"]),
+        # A `types` directive that names a path reaches a file of the project (#976).
+        (
+            "/// <reference types='../b/t' />\nexport {};",
+            ["Unobserved triple-slash reference: ../b/t"],
+        ),
+        (
+            "/// <reference types='/abs/t' />\nexport {};",
+            ["Unobserved triple-slash reference: /abs/t"],
+        ),
+        # A module augmentation with a relative name reaches a file of the project (#976).
+        ('declare module "../b/t" {}\nexport {};', ["Unobserved module augmentation: ../b/t"]),
+        (
+            "declare module './t' { interface T {} }\nexport {};",
+            ["Unobserved module augmentation: ./t"],
+        ),
+        ("declare module 'express' { interface T {} }\nexport {};", []),
+        ("declare module '*.css' {}\nexport {};", []),
+        ("declare module Name {}\nexport {};", []),
         ("export {};\n/// <reference types='node' />", []),
         ("// import('x')\n/* @import {X} from 'x' */", []),
         # tsc reads JSDoc types only in JavaScript files (#744).
@@ -187,3 +206,21 @@ def test_every_module_specifier_of_the_loader_is_one_concern_per_file() -> None:
     syntax = parse("main.ts", b"import('node:module'); require('module'); export * from 'module';")
     assert [item.specifier for item in syntax.references] == ["node:module", "module", "module"]
     assert _reasons(syntax) == ["Node module loader is not observed"]
+
+
+@pytest.mark.parametrize(
+    ("name", "file", "aliased", "reasons"),
+    [
+        ("a.ts", 'export {};\ndeclare module "@b/t" {}', True, ["@b/t"]),
+        ("a.ts", 'export {};\ndeclare module "@b/t" {}', False, []),
+        ("a.ts", 'declare module "@b/t" {}', True, []),
+        ("a.d.ts", 'import type {T} from "./t";\ndeclare module "pkg" {}', True, ["pkg"]),
+        ("a.ts", 'export {};\ndeclare module "*.css" {}', True, []),
+        ("a.ts", 'export {};\ndeclare module "./t" {}', False, ["./t"]),
+    ],
+)
+def test_a_bare_augmentation_is_a_concern_only_in_a_module_file_of_an_aliased_project(
+    name: str, file: str, aliased: bool, reasons: list[str]
+) -> None:
+    found = _reasons(parse(name, file.encode(), Options(base_url=".") if aliased else None))
+    assert found == sorted(f"Unobserved module augmentation: {item}" for item in reasons)
