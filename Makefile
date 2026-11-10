@@ -93,7 +93,7 @@ native-check:
 	$(MAKE) self-validate-native
 
 # AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.
-# The build of this tree is what a platform wheel bundles (AD-344), so the run places it where the
+# The build of this tree is what a platform wheel bundles (AD-350), so the run places it where the
 # host looks for the bundled binary and removes it after, and the pure wheel never carries it.
 # Like the wheel build, it stamps the installed package version, in a target directory of its own.
 self-validate-native:
