@@ -13,9 +13,11 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
-use archkeel_facts::identity::{evidence_id, module_identity, package_of, stable_id, Part};
+use archkeel_facts::envelope::Target;
+use archkeel_facts::identity::{evidence_id, module_identity};
+use archkeel_facts::reply::{Evidence, FileFact, Provenance};
 use archkeel_facts::{GapFact, Record, Section};
-use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, ReplySection, Target};
+use archkeel_wire::reply::{Facts, ReplySection};
 use archkeel_wire::request::Request;
 
 use crate::config::load_config;
@@ -247,14 +249,11 @@ impl Collection<'_> {
         self.snapshot.select(rel);
         let text = String::from_utf8_lossy(&content);
         let evidence = self.file_evidence(rel, &text);
-        self.files.push(FileFact {
-            id: stable_id("FILE", &[Part::Text(&module)]),
-            rel_path: rel.to_owned(),
-            package: package_of(&module).to_owned(),
-            blank: text.trim_matches(|c| COMPILER_SPACE.contains(c)).is_empty(),
-            evidence_id: evidence.clone(),
-            module: module.clone(),
-        });
+        self.files.push(FileFact::of(
+            (rel, &module),
+            text.trim_matches(|c| COMPILER_SPACE.contains(c)).is_empty(),
+            evidence.clone(),
+        ));
         self.references(rel, &module, &evidence, &text);
     }
 

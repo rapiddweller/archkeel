@@ -40,10 +40,6 @@
         {
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345)."
-        },
-        {
-          "component": "wire",
-          "rationale": "Decode the request and encode the reply with the shared wire."
         }
       ],
       "decided_by": "architect"
@@ -567,6 +563,10 @@
       ],
       "requires": [
         {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
           "component": "wire",
           "rationale": "Decode the request and encode the reply with the shared wire."
         },
@@ -763,10 +763,6 @@
           "rationale": "Write and read the typed facts that the reply holds (AD-345)."
         },
         {
-          "component": "wire",
-          "rationale": "Decode the request and encode the reply with the shared wire."
-        },
-        {
           "component": "rs-text",
           "rationale": "Read the lexical shape of a source file."
         },
@@ -807,10 +803,6 @@
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
-        },
-        {
-          "component": "wire",
-          "rationale": "Decode the request and encode the reply with the shared wire."
         },
         {
           "component": "rs-text",
@@ -888,6 +880,10 @@
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
       ],
       "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."

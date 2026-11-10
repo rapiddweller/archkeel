@@ -7,8 +7,9 @@
 // compares every record on real trees.
 
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::reply::Provenance;
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::{Provenance, Record};
+use archkeel_wire::reply::Record;
 use archkeel_wire::request::Request;
 use serde_json::Value;
 

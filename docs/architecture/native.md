@@ -17,7 +17,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | Crate | Role | Uses |
 |---|---|---|
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
-| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-wire` |
+| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-facts` |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
@@ -58,12 +58,12 @@ flowchart LR
     n_24["ts-walk"]
     n_25["wire"]
     n_10 --> n_1
-    n_10 --> n_25
     n_11 --> n_1
     n_12 --> n_17
     n_12 --> n_23
     n_13 --> n_10
     n_13 --> n_17
+    n_14 --> n_1
     n_14 --> n_12
     n_14 --> n_16
     n_14 --> n_17
@@ -101,7 +101,6 @@ flowchart LR
     n_19 --> n_23
     n_19 --> n_25
     n_2 --> n_1
-    n_2 --> n_25
     n_2 --> n_6
     n_2 --> n_8
     n_2 --> n_9
@@ -125,7 +124,6 @@ flowchart LR
     n_3 --> n_1
     n_3 --> n_10
     n_3 --> n_2
-    n_3 --> n_25
     n_3 --> n_6
     n_3 --> n_8
     n_3 --> n_9
@@ -135,6 +133,7 @@ flowchart LR
     n_4 --> n_25
     n_4 --> n_5
     n_4 --> n_7
+    n_5 --> n_1
     n_5 --> n_10
     n_5 --> n_2
     n_5 --> n_25

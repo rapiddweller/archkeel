@@ -7,11 +7,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_facts::identity::{package_of, stable_id, Part};
+use archkeel_facts::envelope::Target;
 use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::reply::{Evidence, FileFact};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{GapFact, ImportFact, Record};
-use archkeel_wire::reply::{Evidence, FileFact, Target};
 
 use crate::crates::Problem;
 use crate::modules::Edge;
@@ -93,14 +93,8 @@ impl Builder {
     pub(crate) fn file(&mut self, (rel, module): (&str, &str), blank: bool, cited: Evidence) {
         let evidence_id = cited.id.clone();
         self.evidence.insert(evidence_id.clone(), cited);
-        self.files.push(FileFact {
-            id: stable_id("FILE", &[Part::Text(module)]),
-            rel_path: rel.to_owned(),
-            module: module.to_owned(),
-            package: package_of(module).to_owned(),
-            blank,
-            evidence_id,
-        });
+        self.files
+            .push(FileFact::of((rel, module), blank, evidence_id));
     }
 }
 
