@@ -10,7 +10,8 @@
 use serde_json::{Map, Value};
 
 use crate::layer::Layer;
-use archkeel_snapshot::paths::{is_outside, join};
+use crate::options_target::{detection_kind, target_kind};
+pub use crate::options_target::{Detection, Target};
 
 const CONFIG_DIRECTORY: &str = "${configDir}";
 
@@ -42,13 +43,6 @@ pub enum Resolution {
     Bundler,
 }
 
-/// `moduleDetection` and `target` matter here only to be valid values, and for the module default.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Target {
-    EsOld,
-    Newer,
-}
-
 /// What the resolver reads; explicit values only, as the compiler keeps them.
 #[derive(Clone, Debug, Default)]
 pub struct Options {
@@ -63,6 +57,12 @@ pub struct Options {
     pub paths_base: String,
     pub unmodeled: Vec<String>,
     pub json_modules: Option<bool>,
+    /// The `lib` values, each once; `None` when the option is not set.
+    pub libs: Option<Vec<String>>,
+    pub no_lib: bool,
+    /// A `lib` value that the pinned compiler does not know, or `libReplacement`.
+    pub lib_unmodeled: bool,
+    pub module_detection: Option<Detection>,
 }
 
 const NODE16_MODULES: [ModuleKind; 3] =
@@ -73,9 +73,27 @@ impl Options {
     pub fn emit_module(&self) -> ModuleKind {
         match (self.module, self.target) {
             (Some(module), _) => module,
-            (None, None | Some(Target::EsOld)) => ModuleKind::CommonJs,
-            (None, Some(Target::Newer)) => ModuleKind::Es2015,
+            (None, None | Some(Target::Es3 | Target::Es5)) => ModuleKind::CommonJs,
+            (None, Some(_)) => ModuleKind::Es2015,
         }
+    }
+
+    /// The compiler's target when none is set: by the module, and ES5 without one.
+    pub fn module_default_target(&self) -> Target {
+        match self.module {
+            Some(ModuleKind::Node16 | ModuleKind::Node18) => Target::Es2022,
+            Some(ModuleKind::Node20) => Target::Es2023,
+            Some(ModuleKind::NodeNext) => Target::EsNext,
+            _ => Target::Es5,
+        }
+    }
+
+    /// Whether a source file without `import` or `export` still is a global script. Under `force`
+    /// and under the Node module modes the compiler treats every source file as a module.
+    pub fn scripts_are_global(&self) -> bool {
+        self.module_detection != Some(Detection::Force)
+            && !NODE16_MODULES.contains(&self.emit_module())
+            && self.emit_module() != ModuleKind::NodeNext
     }
 
     /// The effective resolution mode.
@@ -136,15 +154,6 @@ fn resolution_kind(name: &str) -> Option<Resolution> {
         "bundler" => Resolution::Bundler,
         _ => return None,
     })
-}
-
-fn target_kind(name: &str) -> Option<Target> {
-    match name {
-        "es3" | "es5" => Some(Target::EsOld),
-        "es6" | "es2015" | "es2016" | "es2017" | "es2018" | "es2019" | "es2020" | "es2021"
-        | "es2022" | "es2023" | "es2024" | "esnext" => Some(Target::Newer),
-        _ => None,
-    }
 }
 
 // Settings that affect module resolution without a native interpretation.
@@ -292,6 +301,15 @@ pub fn paths(raw: &Map<String, Value>, problems: &mut Vec<String>) -> Vec<(Strin
     patterns
 }
 
+/// `raw.get(name) not in (None, False)`: a zero counts as false, an empty list as set.
+fn replaced(raw: &Map<String, Value>, name: &str) -> bool {
+    match raw.get(name) {
+        None | Some(Value::Null | Value::Bool(false)) => false,
+        Some(Value::Number(number)) => number.as_f64() != Some(0.0),
+        Some(_) => true,
+    }
+}
+
 // `raw.get(name) not in (None, False, [])`: Python also counts a zero as false.
 fn declared(raw: &Map<String, Value>, name: &str) -> bool {
     match raw.get(name) {
@@ -330,6 +348,12 @@ pub fn build(layer: &Layer, problems: &mut Vec<String>) -> Options {
             .unwrap_or_else(|| layer.paths_directory.clone()),
         unmodeled,
         json_modules: raw.get("resolveJsonModule").and_then(Value::as_bool),
+        libs: None,
+        no_lib: raw.get("noLib") == Some(&Value::Bool(true)),
+        // `types` and `typeRoots` only add globals to the catalog (AD-274); a replacement lib can
+        // change what a lib name means.
+        lib_unmodeled: replaced(raw, "libReplacement"),
+        module_detection: detection_kind(&normalized(raw, "moduleDetection")),
     };
     let lib = raw.get("lib").is_some_and(|value| !value.is_null());
     if raw.get("noLib") == Some(&Value::Bool(true)) && lib {
@@ -383,71 +407,6 @@ fn pair_problem(options: &Options, problems: &mut Vec<String>) {
             "Compiler option 5110: 'moduleResolution' must follow 'module' {name}."
         ));
     }
-}
-
-/// `config._script_environment`: the closed `archkeel` object of a TSConfig, checked for problems.
-///
-/// The collector reads imports only, so the host and the providers are validated and dropped.
-pub fn script_environment(raw: Option<&Map<String, Value>>, problems: &mut Vec<String>) {
-    let Some(environment) = raw
-        .and_then(|raw| raw.get("archkeel"))
-        .filter(|value| !value.is_null())
-    else {
-        return;
-    };
-    let closed = environment.as_object().filter(|map| {
-        map.keys()
-            .all(|key| key == "scriptHost" || key == "scriptProviders")
-    });
-    let Some(environment) = closed else {
-        problems.push("Archkeel script environment is not a closed object".to_owned());
-        return;
-    };
-    match environment.get("scriptHost") {
-        None | Some(Value::Null) => {}
-        Some(Value::String(host)) if host == "classic-browser" => {}
-        Some(_) => problems.push("Archkeel script host is not supported".to_owned()),
-    }
-    let entries = match environment.get("scriptProviders") {
-        None => &Vec::new(),
-        Some(Value::Array(entries)) => entries,
-        Some(_) => {
-            problems.push("Archkeel script providers must be a list".to_owned());
-            return;
-        }
-    };
-    let mut providers: Vec<(&str, &str)> = Vec::new();
-    for entry in entries {
-        let Some(provider) = script_provider(entry) else {
-            problems.push("Archkeel script provider needs two snapshot-relative paths".to_owned());
-            continue;
-        };
-        if providers.contains(&provider) {
-            problems.push("Archkeel script provider is declared more than once".to_owned());
-        }
-        providers.push(provider);
-    }
-}
-
-fn script_provider(entry: &Value) -> Option<(&str, &str)> {
-    let map = entry.as_object()?;
-    if map.len() != 2 {
-        return None;
-    }
-    let (source, provenance) = (map.get("source")?, map.get("provenance")?);
-    Some((snapshot_path(source)?, snapshot_path(provenance)?))
-}
-
-// A non-empty path that stays inside the snapshot and is already in its normal form.
-fn snapshot_path(value: &Value) -> Option<&str> {
-    value.as_str().filter(|path| {
-        !path.is_empty()
-            && *path != "."
-            && !path.starts_with('/')
-            && !path.contains('\\')
-            && join(".", path) == *path
-            && !is_outside(path)
-    })
 }
 
 #[cfg(test)]

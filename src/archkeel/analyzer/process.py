@@ -101,6 +101,8 @@ class ProcessCollector:
     store: str | None = None
     # Set for a configured collector that the user pins: its file must have this digest (AD-344).
     pinned_digest: str | None = None
+    # Set for the native collector of this package: its file may lie in the scanned root.
+    bundled: bool = False
 
     def __post_init__(self) -> None:
         if self.pinned_digest is not None and not is_pin(self.pinned_digest):
@@ -216,7 +218,11 @@ class ProcessCollector:
             return self.argv
         try:
             path = pinned_path(
-                self.argv[0], request.snapshot.root, environment.get("PATH", ""), self.pinned_digest
+                self.argv[0],
+                request.snapshot.root,
+                environment.get("PATH", ""),
+                self.pinned_digest,
+                inside_root=self.bundled,
             )
         except PinError as error:
             return CollectionError(CollectionErrorKind.EXECUTION_ERROR, self.argv[0], str(error))

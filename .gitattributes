@@ -13,6 +13,7 @@ tools/browser-runtime/protocol-exports.* text eol=lf
 
 # The native collector embeds this file, so its bytes are the same on every platform.
 src/archkeel/analyzer/typescript/standard_libs.json text eol=lf
+native/typescript/standard_libs.json text eol=lf
 
 # The native digest hashes these bytes: they are LF on every platform (ARCHKEEL_CODE_DIGEST).
 native/**/*.rs text eol=lf

@@ -119,7 +119,8 @@
         "native.archkeel_typescript_collector.source",
         "native.archkeel_typescript_collector.source_input",
         "native.archkeel_typescript_collector.kinds",
-        "native.archkeel_typescript_collector.pytext"
+        "native.archkeel_typescript_collector.pytext",
+        "native.archkeel_typescript_collector.plant"
       ],
       "responsibilities": [
         "The typed input of the walk: source text with spans, the nominal source input, the closed node kinds and the text helpers."
@@ -331,7 +332,8 @@
         "native.archkeel_typescript_collector.syntax",
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
-        "native.archkeel_typescript_collector.umd_publication"
+        "native.archkeel_typescript_collector.umd_publication",
+        "native.archkeel_typescript_collector.places"
       ],
       "responsibilities": [
         "Parse one file into its syntax facts: join the traversal, the scripts, the concerns and the JSDoc."
@@ -372,12 +374,15 @@
       "role": "component",
       "packages": [
         "native.archkeel_typescript_collector.config",
-        "native.archkeel_typescript_collector.options",
-        "native.archkeel_typescript_collector.layer",
         "native.archkeel_typescript_collector.discover",
         "native.archkeel_typescript_collector.glob",
         "native.archkeel_typescript_collector.installed",
+        "native.archkeel_typescript_collector.layer",
         "native.archkeel_typescript_collector.manifest",
+        "native.archkeel_typescript_collector.options",
+        "native.archkeel_typescript_collector.options_target",
+        "native.archkeel_typescript_collector.script_environment",
+        "native.archkeel_typescript_collector.std_globals",
         "native.archkeel_typescript_collector.test_sources"
       ],
       "responsibilities": [
@@ -439,13 +444,17 @@
       "label": "ts-records",
       "role": "component",
       "packages": [
-        "native.archkeel_typescript_collector.records",
-        "native.archkeel_typescript_collector.site_records",
-        "native.archkeel_typescript_collector.symbols",
         "native.archkeel_typescript_collector.cited",
-        "native.archkeel_typescript_collector.symbol_table",
+        "native.archkeel_typescript_collector.kept",
+        "native.archkeel_typescript_collector.kept_script",
+        "native.archkeel_typescript_collector.records",
+        "native.archkeel_typescript_collector.records_lists",
         "native.archkeel_typescript_collector.resolution",
-        "native.archkeel_typescript_collector.kept"
+        "native.archkeel_typescript_collector.script_effects",
+        "native.archkeel_typescript_collector.script_records",
+        "native.archkeel_typescript_collector.site_records",
+        "native.archkeel_typescript_collector.symbol_table",
+        "native.archkeel_typescript_collector.symbols"
       ],
       "responsibilities": [
         "Build the records of the TypeScript collector: symbols, import and site records, the symbol table and the citations."
@@ -484,7 +493,68 @@
         {
           "component": "ts-parse",
           "rationale": "Parse a file into its syntax facts."
+        },
+        {
+          "component": "ts-walk",
+          "rationale": "Read the script facts and the form of a reference that the walk holds."
         }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-SCRIPT-DEPS",
+      "label": "ts-script-deps",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.script_depend",
+        "native.archkeel_typescript_collector.script_deps",
+        "native.archkeel_typescript_collector.script_global",
+        "native.archkeel_typescript_collector.script_project",
+        "native.archkeel_typescript_collector.script_proof",
+        "native.archkeel_typescript_collector.script_vendor"
+      ],
+      "responsibilities": [
+        "Find what each global script of the project depends on: the script that publishes a global, a standard library, a declaration or a vendored library, with the records that prove it."
+      ],
+      "forbidden_responsibilities": [
+        "Walking a file, resolving an import and writing the reply."
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the vendored library and its provenance through the one owner of paths and limits."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-sites",
+          "rationale": "Read the use sites of a file."
+        },
+        {
+          "component": "ts-walk",
+          "rationale": "Read the script facts that the walk holds."
+        },
+        {
+          "component": "ts-parse",
+          "rationale": "Read a vendored library as a closed UMD envelope."
+        },
+        {
+          "component": "ts-discover",
+          "rationale": "Read the options, the script environment and the standard globals."
+        },
+        {
+          "component": "ts-records",
+          "rationale": "Read what each file kept and write the records that the later passes read."
+        }
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md"
       ],
       "decided_by": "architect"
     },
@@ -494,7 +564,8 @@
       "role": "component",
       "packages": [
         "native.archkeel_typescript_collector.collect",
-        "native.archkeel_typescript_collector.collect.imports"
+        "native.archkeel_typescript_collector.collect.imports",
+        "native.archkeel_typescript_collector.collect.script_run"
       ],
       "responsibilities": [
         "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."
@@ -541,6 +612,10 @@
         {
           "component": "ts-records",
           "rationale": "Build the typed records."
+        },
+        {
+          "component": "ts-script-deps",
+          "rationale": "Run the analysis of the script dependencies over the files that were read."
         }
       ],
       "decided_by": "architect"
@@ -1051,7 +1126,8 @@
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
         "native.archkeel_typescript_collector.umd_publication",
-        "native.archkeel_typescript_collector.cargo_toml"
+        "native.archkeel_typescript_collector.cargo_toml",
+        "native.archkeel_typescript_collector.places"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [

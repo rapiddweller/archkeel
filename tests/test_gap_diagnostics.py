@@ -194,8 +194,7 @@ _RUST_TITLES = (
     GapTitle.NO_MODULE,
     GapTitle.UNIDENTIFIED_PACKAGE,
     GapTitle.SYNTAX_ERROR,
-    GapTitle.SCRIPT_GLOBALS_UNEXAMINED,
-)
+)  # The script gap is no longer written (AD-352); the host keeps the mapping for older replies.
 
 
 @pytest.mark.parametrize("title", _RUST_TITLES)

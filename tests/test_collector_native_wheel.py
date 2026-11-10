@@ -12,6 +12,7 @@ matrix in Full verification.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -144,14 +145,20 @@ def test_a_prebuilt_binary_goes_into_the_package_data(tmp_path: Path) -> None:
     binary = _executable(tmp_path / "collector")
     data = _data()
     hook.bundle(tmp_path, VERSION, str(binary), data, platform="manylinux_2_17_x86_64")
+    digests = tmp_path / "native/.digests"
+    record = digests / f"{hook.BINARY}.sha256"
     assert data == {
         "pure_python": False,
         "infer_tag": False,
         "tag": "py3-none-manylinux_2_17_x86_64",
-        "force_include": {str(binary): MEMBER},
+        "force_include": {str(binary): MEMBER, str(record): f"{MEMBER}.sha256"},
     }
+    # The host starts the binary only when its file has the digest that the wheel records (AD-352).
+    assert record.read_text() == hashlib.sha256(b"binary").hexdigest()
     hook.bundle(tmp_path, VERSION, str(binary), data, platform="win_amd64")
     assert data["force_include"][str(binary)] == f"{MEMBER}.exe"
+    exe_record = digests / f"{hook.BINARY}.exe.sha256"
+    assert data["force_include"][str(exe_record)] == f"{MEMBER}.exe.sha256"
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Windows has no executable bit")
@@ -357,6 +364,8 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
             assert stat.S_IMODE(archive.getinfo(member).external_attr >> 16) == 0o755
         # cargo auditable puts the dependency list into a section of the binary.
         assert b".dep-v0" in archive.read(member)
+        recorded = archive.read(member + ".sha256").decode()
+        assert recorded == hashlib.sha256(archive.read(member)).hexdigest()
         sbom_member = f"{dist_info}/sboms/{hook.BINARY}.cdx.json"
         sbom = json.loads(archive.read(sbom_member))
         assert f"{sbom_member}," in archive.read(f"{dist_info}/RECORD").decode()

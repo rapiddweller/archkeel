@@ -29,6 +29,8 @@ pub struct Config {
     /// The snapshot-relative files that the config selects inside the requested roots, sorted.
     pub files: Vec<String>,
     pub partial: bool,
+    /// The script host and the vendored libraries that the project declares.
+    pub script: crate::script_environment::ScriptEnvironment,
 }
 
 impl Layer {
@@ -82,8 +84,9 @@ pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) ->
         problems.push("Project references require separately observed projects".to_owned());
     }
     let options_before = problems.len();
-    let options = options::build(&layer, &mut problems);
-    options::script_environment(raw.as_ref(), &mut problems);
+    let mut options = options::build(&layer, &mut problems);
+    crate::std_globals::apply(&mut options, &layer.compiler);
+    let script = crate::script_environment::read(raw.as_ref(), &mut problems);
     let options_partial = problems.len() > options_before;
     let listed = discover(snapshot, &layer, own, &mut problems);
     if listed.is_empty() && !references {
@@ -119,6 +122,7 @@ pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) ->
         options,
         files: chosen.into_iter().collect(),
         partial: layer.partial || options_partial,
+        script,
     }
 }
 

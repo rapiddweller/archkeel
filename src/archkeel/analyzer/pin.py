@@ -25,13 +25,17 @@ def is_pin(value: str) -> bool:
     )
 
 
-def pinned_path(program: str, root: str, search_path: str, expected: str) -> str:
+def pinned_path(
+    program: str, root: str, search_path: str, expected: str, *, inside_root: bool = False
+) -> str:
     """The absolute path of the program, after its file has the pinned digest.
 
     A name with a directory part is relative to the scanned root, as the process starts there.
     A bare name is found on the search path only, never in the root. The caller starts the
     returned path, not the name, so the file that is hashed is the file that runs. A file inside
     the scanned root is refused: the repository under test must not supply its own collector.
+    The binary of this package (`inside_root`) may lie there: a virtual environment in the
+    repository holds the install that runs the host, not a file that the repository chose.
     The file is read once, just before the start. A change between this read and the start is
     outside this check.
     """
@@ -43,7 +47,7 @@ def pinned_path(program: str, root: str, search_path: str, expected: str) -> str
         raise PinError(f"Collector could not execute: {program}")
     # The path to start keeps its links: a virtual environment finds its packages by its own path.
     started = os.path.abspath(located)
-    if Path(started).resolve().is_relative_to(Path(root).resolve()):
+    if not inside_root and Path(started).resolve().is_relative_to(Path(root).resolve()):
         raise PinError(
             f"The pinned collector {program} is inside the scanned repository. "
             "Install the collector outside the repository."
