@@ -13,8 +13,9 @@ from archkeel.ir.architecture_graph import EntityKind
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import CATALOG, replay
 
-# The shared vocabulary includes mixins, but these source-backed demos are Python-only.
-_PYTHON_DEMO_ENTITY_KINDS = frozenset(EntityKind) - {EntityKind.MIXIN}
+# The shared vocabulary includes mixins and Rust macros, but these source-backed demos are
+# Python-only.
+_PYTHON_DEMO_ENTITY_KINDS = frozenset(EntityKind) - {EntityKind.MIXIN, EntityKind.MACRO}
 
 
 def _demo_report(output):

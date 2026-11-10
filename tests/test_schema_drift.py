@@ -157,6 +157,18 @@ def test_frozen_decoded_27_profiles_close_with_v5_source_facts_resource() -> Non
             registry.resolver(base_uri=schema["$id"]).lookup(reference)
 
 
+# A profile that publishes no calls (Rust, AD-351) has no call counts either.
+_NO_CALLS = dict.fromkeys(
+    (
+        "calls_analyzed",
+        "calls_resolved",
+        "calls_partially_resolved",
+        "calls_unresolved",
+        "call_resolution_percent",
+    )
+)
+
+
 @pytest.fixture(scope="module")
 def typescript_export_binding(tmp_path_factory):
     from test_typescript_collect import _facts
@@ -194,6 +206,8 @@ def test_direct_export_binding_schema_is_typescript_21_only(
     observation["analyzer"]["name"] = profile.analyzer
     for section in profile.absent_sections:
         observation[section] = None
+    if "calls" in profile.absent_sections:
+        observation["coverage"] = {**observation["coverage"], **_NO_CALLS}
     assert validator.is_valid(observation)
     observation["bindings"] = [typescript_export_binding]
     accepted = version in {"2.1.0", "2.3.0"} and profile.analyzer == "archkeel-typescript-imports"
