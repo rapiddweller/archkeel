@@ -29,6 +29,8 @@ make ci-pr-check BASE=origin/main        # policy, lint, types and a fixed set o
 make ci-pr-report-check                  # report data and JavaScript logic
 ```
 
+Run `make merge-check PR=<number>` before each merge. It checks the base, the conflicts and the changed files of the pull request.
+
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
