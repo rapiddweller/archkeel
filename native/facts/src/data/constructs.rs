@@ -12,8 +12,8 @@ facts_data! {
     /// A written construct that a rule can forbid.
     pub struct ConstructData {
         [read] construct: String,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] form: Option<ConstructForm>,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] handled: Option<Vec<String>>,
+        [read skip] form: Option<ConstructForm>,
+        [read skip] handled: Option<Vec<String>>,
         [read] owner: String,
     }
 }
@@ -22,15 +22,15 @@ facts_data! {
     /// A selector on a receiver (Python).
     pub struct SelectorData {
         [wire] construct: String,
-        [wire] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] literal: Option<String>,
-        [wire] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] member: Option<String>,
+        [wire required] literal: Option<String>,
+        [wire required] member: Option<String>,
         [wire] operation: Operation,
         [wire] owner: String,
-        [wire] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] receiver_binding: Option<ReceiverBinding>,
-        [wire] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] receiver_parameter: Option<String>,
-        [wire skip] #[serde(default, skip_serializing_if = "Option::is_none")] receiver_parameter_owner: Option<String>,
-        [wire skip] #[serde(default, skip_serializing_if = "Option::is_none")] receiver_parameter_scopes: Option<Vec<BindingScope>>,
-        [wire] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] receiver_type: Option<String>,
+        [wire required] receiver_binding: Option<ReceiverBinding>,
+        [wire required] receiver_parameter: Option<String>,
+        [wire skip] receiver_parameter_owner: Option<String>,
+        [wire skip] receiver_parameter_scopes: Option<Vec<BindingScope>>,
+        [wire required] receiver_type: Option<String>,
         [wire] selector_role: SelectorRole,
         [wire] status: Status,
     }
@@ -50,22 +50,22 @@ facts_data! {
         [read] operation: Operation,
         [read] owner: String,
         [read] proof: Proof,
-        [read] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] subject: Option<String>,
-        [read] #[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)] value: Option<i64>,
+        [read required] subject: Option<String>,
+        [read required] value: Option<i64>,
     }
 }
 
 facts_data! {
     /// A typing signal (Python).
     pub struct SignalData {
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] annotation: Option<String>,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] expression: Option<String>,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] line: Option<i64>,
+        [read skip] annotation: Option<String>,
+        [read skip] expression: Option<String>,
+        [read skip] line: Option<i64>,
         [read] owner: String,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] positions: Option<Vec<String>>,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] qualified_name: Option<String>,
+        [read skip] positions: Option<Vec<String>>,
+        [read skip] qualified_name: Option<String>,
         [read] signal: Signal,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] statement: Option<String>,
-        [read skip] #[serde(default, skip_serializing_if = "Option::is_none")] tag: Option<String>,
+        [read skip] statement: Option<String>,
+        [read skip] tag: Option<String>,
     }
 }

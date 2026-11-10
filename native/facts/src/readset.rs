@@ -41,6 +41,11 @@ pub trait Present {
     fn present(&self) -> bool;
 }
 
+/// Whether the wire omits a skippable field: the `serde` test of each `skip` field.
+pub(crate) fn omitted<T: Present>(value: &T) -> bool {
+    !value.present()
+}
+
 impl<T> Present for Option<T> {
     fn present(&self) -> bool {
         self.is_some()
