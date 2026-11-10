@@ -125,6 +125,7 @@ PR_TEST_FILES := \
 	tests/test_collector_native_syntax_scaling.py \
 	tests/test_collector_native_verdicts.py \
 	tests/test_collector_golden_replies.py \
+	tests/test_collector_golden_python.py \
 	tests/test_source_trust_boundary.py \
 	tests/test_source_validate_once.py \
 	tests/test_shared_runtime_bootstrap.py \

@@ -30,7 +30,7 @@ CASES = [(lang, case) for lang in LANGUAGES for case in golden_record.cases(lang
 
 
 class GoldenSubsetWarning(UserWarning):
-    """The producer claims fewer sections than the golden reply, so the test compared a part."""
+    """The test compared a part of the reply: an allowance, or another interpreter than the pin."""
 
 
 def _reply(sections: dict[str, list[dict[str, Any]]], claimed: list[str] | None = None) -> dict:
@@ -59,15 +59,21 @@ def test_the_producer_equals_the_golden_reply(
 ) -> None:
     name = os.environ.get(golden_producers.PRODUCER_VARIABLE, "python")
     binary = request.getfixturevalue("native_binary") if name == "native" else None
-    run = golden_producers.producer(name, binary)
+    options = golden_record.options(language, case)
+    run = golden_producers.producer(name, binary, language=language, **options)
+    pin = golden_replies.pin_for(language)
+    golden_replies.require_recorded_interpreter(pin, os.environ)
     root = golden_producers.materialize(golden_record.cases(language)[case], tmp_path)
-    verdict = golden_replies.compare(
+    verdict = golden_replies.compare_on_interpreter(
         golden_replies.load(language, case),
         golden_replies.canonical(run(root), root),
         golden_replies.allowance_for(language, os.environ),
+        pin,
     )
     assert not verdict.mismatches, "\n".join(verdict.mismatches)
     assert verdict.compared, "the producer shares no section with the golden reply"
+    if verdict.unpinned:
+        warnings.warn(f"{case}: {verdict.unpinned}", GoldenSubsetWarning, stacklevel=1)
     if verdict.skipped:
         warnings.warn(
             f"{case}: NOT compared: sections {list(verdict.skipped)}. Allowance: {verdict.reason}",

@@ -36,6 +36,17 @@ tests that use it as the oracle then have nothing to compare with.
    kind and feature that the collector can emit and fails when a golden case does not cover it.
    The collector does not fill `type_shapes`, `uncertain_reexports` and `candidate_evidence`.
    A test fails when it starts to, and checks that they stay empty.
+6. **Python (added 2026-11-09, changed 2026-11-10).** A case is `<case>` (the host sequence),
+   `<case>-providers` (the survey with provider sources) and `<case>-imports` (the survey of phase
+   `imports`, stored in full: the oracle of the first native slice). The reply depends on the
+   interpreter: `symbols`, `calls`, `evidence`, `inputs`, `provider_bindings`, `source` and
+   `provider_sources` hold the standard library text, digests or version. They differ on 3.11 to
+   3.14; the other sections are equal. They do not depend on the count of built-in modules: the
+   goldens, recorded on macOS (101), are equal on Linux (102). `python/interpreter.json` names
+   the parts and the interpreter of the recording (CPython 3.11.12). On that kind and version
+   the whole reply is compared. CI, a phase and the deletion gate fail on another one. A local
+   run compares the rest and warns. The cases: six fixtures, synthetic sources and two excerpts
+   of fastapi (MIT, commit `ba47d6d7`) in `fixtures/golden-python`. `E-runtime` needs 3.12.
 
 **Rejected.**
 - **Keep the Python collector as an oracle.** It is the code that phase 4.5 deletes.
@@ -55,3 +66,4 @@ the form; a changed record, an extra section, a swapped order and a duplicate se
 subset fails without an allowance, passes with one and still compares the rest, and the gate
 ignores the allowance; the recorder refuses an empty reason, a dirty source and a missing
 variable; the kinds and features are covered (the collector writes the effect kind as a literal); Git keeps the sources in LF.
+`test_collector_golden_python.py`: each Python kind site is known and covered; the pin skips a part only on another interpreter.

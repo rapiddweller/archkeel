@@ -28,4 +28,5 @@ fixtures/python-newer-syntax-demo/sample/legacy.py -text
 
 # The golden replies hold digests of these source bytes: they are LF on every platform (AD-343).
 tests/golden/**/sources/** text eol=lf
+fixtures/golden-python/** text eol=lf
 tests/golden/**/*.gz binary

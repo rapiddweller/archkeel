@@ -356,10 +356,9 @@ def test_tracked_source_files_have_license_header() -> None:
     snapshot = ROOT / "fixtures/K-python-realworld/SNAPSHOT.json"
     exemptions = {}
     if snapshot.is_file():
-        entries = json.loads(snapshot.read_bytes())["files"]
         exemptions = {
             ROOT / "fixtures/K-python-realworld" / item["path"]: item["sha256"]
-            for item in entries
+            for item in json.loads(snapshot.read_bytes())["files"]
             if item["path"].startswith("app/") and item["path"].endswith(".py")
         }
     headers = {".py": HEADER, ".rs": RUST_HEADER}
@@ -367,6 +366,7 @@ def test_tracked_source_files_have_license_header() -> None:
         str(path.relative_to(ROOT))
         for path in TRACKED
         if path.suffix in headers
+        and "golden-python/fastapi-" not in path.as_posix()
         and not path.read_bytes().startswith(headers[path.suffix])
         and exemptions.get(path) != hashlib.sha256(path.read_bytes()).hexdigest()
     ]
