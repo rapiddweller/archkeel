@@ -267,5 +267,6 @@ def test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small(
     _, cpu, done = timed_run([str(collector)], _request(tmp_path))
     assert done.returncode == 0, done.stderr[-300:]
     facts = json.loads(zlib.decompress(done.stdout))["facts"]
-    assert len(facts["files"]) == 65 and cpu < CAP
+    # The 64 levels, the library file, and the manifest of the crate.
+    assert len(facts["files"]) == 66 and cpu < CAP
     assert any("Modules nest deeper than 64" in gap["title"] for gap in facts["coverage"]["gaps"])
