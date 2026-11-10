@@ -46,6 +46,7 @@ closed! {
         Python = "archkeel-python-analyzer",
         Dart = "archkeel-dart-analyzer",
         TypeScript = "archkeel-typescript-imports",
+        Rust = "archkeel-rust-imports",
     }
 }
 
@@ -149,20 +150,24 @@ object! {
     }
 }
 
+// The keys of the objects below are in sorted order, as the Python reply has them (`sort_keys`).
+// The serde form writes them in the order of the declaration, so the compressed reply of a native
+// collector writes these types as they are. The order of `Facts` does not matter: the stream
+// writes its keys one by one.
 object! {
     pub struct Adapter {
+        pub code_digest: String,
         pub name: String,
         pub version: String,
-        pub code_digest: String,
     }
 }
 
 object! {
     pub struct Runtime {
         pub name: String,
-        pub version: String,
         pub required: Option<String>,
         pub requirement_state: RequirementState,
+        pub version: String,
     }
 }
 
@@ -182,18 +187,18 @@ closed! {
 
 object! {
     pub struct Source {
-        pub git_head: String,
         pub dirty: Dirty,
-        pub source_digest: String,
+        pub git_head: String,
         pub scope: Vec<String>,
+        pub source_digest: String,
     }
 }
 
 object! {
     pub struct Capabilities {
-        pub sections: Vec<SectionName>,
-        pub resolution_features: Vec<String>,
         pub constructs: Vec<ConstructCapability>,
+        pub resolution_features: Vec<String>,
+        pub sections: Vec<SectionName>,
     }
 }
 
@@ -206,8 +211,8 @@ object! {
 
 object! {
     pub struct Input {
-        pub path: String,
         pub digest: String,
+        pub path: String,
         pub role: Role,
     }
 }
@@ -279,11 +284,11 @@ impl Target {
 
 object! {
     pub struct Coverage {
-        pub selected_files: Vec<String>,
-        pub files_read: u64,
         pub files_parsed: u64,
+        pub files_read: u64,
         pub full_scope: bool,
         pub gaps: Vec<Record<GapFact>>,
+        pub selected_files: Vec<String>,
     }
 }
 
@@ -305,6 +310,10 @@ pub struct State {
     pub classes: NoEntries,
     pub functions: NoEntries,
 }
+
+#[path = "envelope_build.rs"]
+mod build;
+pub use build::{source_digest, Provenance};
 
 #[cfg(test)]
 #[path = "envelope_tests.rs"]

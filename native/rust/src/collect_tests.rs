@@ -8,9 +8,9 @@ use archkeel_wire::protocol::Version;
 use serde_json::Value;
 
 use super::*;
-use crate::reply::{Collected, PROFILE};
+use crate::reply::Collected;
 use archkeel_facts::envelope::Target;
-use archkeel_facts::reply::Provenance;
+use archkeel_facts::envelope::{Profile, Provenance};
 use archkeel_facts::{ImportFact, Record};
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::request::Request;
@@ -42,14 +42,7 @@ pub(crate) fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
         tsconfig: String::new(),
         bundler: false,
     };
-    let provenance = Provenance {
-        profile: PROFILE,
-        adapter_version: "1".to_owned(),
-        code_digest: "d".to_owned(),
-        runtime_name: "rust",
-        runtime_version: "1.88.0".to_owned(),
-        runtime_required: ">=1.88".to_owned(),
-    };
+    let provenance = Provenance::native(Profile::Rust, ("1", "d"), ("1.88.0", "1.88"));
     collect(&request, provenance)
 }
 
@@ -161,7 +154,7 @@ fn a_module_is_named_below_the_namespace_and_the_crate() {
         .head
         .files
         .iter()
-        .filter(|f| !f.module.ends_with(".cargo_toml"))
+        .filter(|f| !f.module.as_str().ends_with(".cargo_toml"))
         .map(|f| (f.module.as_str(), f.package.as_str()))
         .collect();
     assert_eq!(modules, [("ns.app", "ns"), ("ns.base_crate", "ns")]);
@@ -237,7 +230,10 @@ fn a_declared_dependency_is_an_edge_of_its_crate_with_the_line_of_the_manifest()
         .map(|record| {
             let data = record.data.data();
             let evidence = &record.evidence_ids[0];
-            let cited = facts.evidence.iter().find(|e| e.id == evidence.as_str());
+            let cited = facts
+                .evidence
+                .iter()
+                .find(|e| e.id.as_str() == evidence.as_str());
             let cited = cited.expect("the evidence is cited");
             let at = format!("{}:{}", cited.file, cited.line);
             let specifier = data.specifier.clone().unwrap_or_default();

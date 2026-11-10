@@ -24,7 +24,7 @@ use crate::source_input::classify_file;
 use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
-use archkeel_facts::reply::{evidence_value, Provenance};
+use archkeel_facts::envelope::Provenance;
 use archkeel_wire::reply::{record_value, target_value};
 use archkeel_wire::request::Request;
 
@@ -341,7 +341,7 @@ pub fn records(request: &Request, provenance: Provenance) -> Result<Value, Strin
         "site_bindings": records.bindings.iter().map(record_value).collect::<Vec<_>>(),
         "symbols": records.symbols.iter().map(record_value).collect::<Vec<_>>(),
         "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
-        "evidence": facts.evidence.iter().filter(|item| touched.contains(item.id.as_str())).map(evidence_value).collect::<Vec<_>>(),
+        "evidence": facts.evidence.iter().filter(|item| touched.contains(item.id.as_str())).map(|item| json!(item)).collect::<Vec<_>>(),
     }))
 }
 

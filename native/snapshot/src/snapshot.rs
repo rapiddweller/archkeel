@@ -12,8 +12,8 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use archkeel_facts::envelope::{Input, Role};
 use archkeel_facts::identity::sha256_hex;
-use archkeel_facts::reply::{Input, Role};
 
 use crate::paths::{is_outside, join, normpath};
 
@@ -214,8 +214,8 @@ impl Snapshot {
         self.inputs
             .iter()
             .map(|(path, (digest, role))| Input {
-                path: path.clone(),
                 digest: digest.clone(),
+                path: path.clone(),
                 role: *role,
             })
             .collect()

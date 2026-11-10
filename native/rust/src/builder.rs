@@ -8,8 +8,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::envelope::Target;
+use archkeel_facts::envelope::{Evidence, FileFact};
 use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::reply::{Evidence, FileFact};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{GapFact, ImportFact, Record};
 
@@ -81,7 +81,7 @@ impl Builder {
 
     pub(crate) fn cite(&mut self, rel: &str, site: &Site) -> String {
         let evidence = Evidence::at(rel, site.line, site.end_line, site.column, &site.excerpt);
-        let id = evidence.id.clone();
+        let id = evidence.id.as_str().to_owned();
         self.evidence.insert(id.clone(), evidence);
         id
     }
@@ -93,7 +93,7 @@ impl Builder {
 
     /// The file fact of a module, with the evidence of its first line.
     pub(crate) fn file(&mut self, (rel, module): (&str, &str), blank: bool, cited: Evidence) {
-        let evidence_id = cited.id.clone();
+        let evidence_id = cited.id.as_str().to_owned();
         self.evidence.insert(evidence_id.clone(), cited);
         self.files
             .push(FileFact::of((rel, module), blank, evidence_id));
