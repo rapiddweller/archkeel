@@ -184,6 +184,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_ci_budget.py",
         "test_merge_check.py",
         "test_native_ci.py",
+        "test_rust_*.py",
         "test_browser_*.py",
         "test_mermaid.py",
         "test_publish_release.py",

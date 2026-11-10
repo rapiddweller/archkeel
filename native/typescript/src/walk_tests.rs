@@ -6,26 +6,14 @@
 // collector for each source. `summary` writes the same lines from the native facts, so a difference
 // shows as one line of text.
 
-use crate::definitions::DefinitionKind;
 use crate::members::Visibility;
 use crate::parse::parse;
+use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 
 fn word<T: std::fmt::Display>(value: Option<T>) -> String {
     value.map_or_else(|| "None".to_owned(), |item| item.to_string())
-}
-
-fn kind(item: DefinitionKind) -> &'static str {
-    match item {
-        DefinitionKind::Class => "class",
-        DefinitionKind::Interface => "interface",
-        DefinitionKind::Enum => "enum",
-        DefinitionKind::Method => "method",
-        DefinitionKind::Function => "function",
-        DefinitionKind::TypeAlias => "type_alias",
-        DefinitionKind::Constant => "constant",
-    }
 }
 
 fn visibility(item: Option<Visibility>) -> &'static str {
@@ -95,7 +83,7 @@ fn summary(syntax: &Syntax) -> Vec<String> {
         out.push(format!(
             "D {} {} {} {} ex={} vis={} top={} st={} ab={} as={} dec={} mc={} ov={} sc={} ann={} ret={} pl={}:{} P[{}] B[{}] M[{}]",
             d.name,
-            kind(d.kind),
+            kind_value(d.kind),
             word(syntax.parent_name(d)),
             at(&d.span),
             flag(d.exported),

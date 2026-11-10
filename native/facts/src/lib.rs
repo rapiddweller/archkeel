@@ -20,6 +20,9 @@
 //! string. A field that the wire always writes, also as `null`, must be present. The ids have no
 //! conversion between them (`ids`).
 
+// AD-327: a public item that no other crate can reach is a lie in a library.
+#![deny(unreachable_pub)]
+
 #[macro_use]
 mod macros;
 
