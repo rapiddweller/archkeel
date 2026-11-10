@@ -12,8 +12,9 @@ use tree_sitter::Node;
 
 use crate::ancestors::Entry;
 use crate::kinds::{F, K};
-use crate::members::{named_children, Cx};
 use crate::site_paths::{is_script_root, Text};
+use crate::tree::cx::Cx;
+use crate::tree::nodes::named_children;
 
 /// `_TYPE_PARENTS`.
 pub fn holds_types(kind: K) -> bool {

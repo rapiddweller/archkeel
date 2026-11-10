@@ -19,7 +19,6 @@ use crate::ancestors::{
     IN_PUBLICATION, IN_TYPE, IN_WITH,
 };
 use crate::kinds::{F, K};
-use crate::members::Cx;
 use crate::pytext::decode;
 use crate::scope::Frames;
 use crate::site_names::Names;
@@ -31,6 +30,7 @@ use crate::site_syntax::{
 };
 use crate::site_types::Common;
 pub use crate::site_types::{Comparison, Expression, Site, SiteKind, SiteUse};
+use crate::tree::cx::Cx;
 
 /// The sites and the written string comparisons of one file.
 #[derive(Default)]

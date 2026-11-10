@@ -156,7 +156,7 @@ impl<'a, 't> Tree<'a, 't> {
                 .flatten()
         });
         let callback = arguments.and_then(|arguments| {
-            crate::members::named_children(arguments)
+            crate::tree::nodes::named_children(arguments)
                 .into_iter()
                 .find(|argument| self.k(*argument) != K::Comment)
         });
@@ -256,7 +256,7 @@ impl<'a, 't> Tree<'a, 't> {
         let Some(arguments) = self.field(node, F::Arguments) else {
             return found;
         };
-        for argument in crate::members::named_children(arguments) {
+        for argument in crate::tree::nodes::named_children(arguments) {
             let path = self.static_path(argument);
             let Some(first) = path.first() else {
                 continue;

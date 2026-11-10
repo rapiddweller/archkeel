@@ -138,14 +138,16 @@
       "label": "ts-tree",
       "role": "component",
       "packages": [
-        "native.archkeel_typescript_collector.members",
+        "native.archkeel_typescript_collector.tree",
+        "native.archkeel_typescript_collector.tree.cx",
+        "native.archkeel_typescript_collector.tree.nodes",
         "native.archkeel_typescript_collector.ancestors"
       ],
       "responsibilities": [
-        "Generic access to a syntax tree: children, named children, the member context and the ancestors of a node."
+        "Generic access to a syntax tree: children and named children of a node, the context of one file (grammar and text) and the ancestors of a node."
       ],
       "forbidden_responsibilities": [
-        "Language rules of a construct, the snapshot and facts."
+        "Language rules of a construct, member extraction, the snapshot and facts."
       ],
       "provenance": [
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
@@ -169,7 +171,8 @@
         "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
         "native.archkeel_typescript_collector.constructors",
-        "native.archkeel_typescript_collector.layout"
+        "native.archkeel_typescript_collector.layout",
+        "native.archkeel_typescript_collector.members"
       ],
       "responsibilities": [
         "Find the declarations of one file: definitions, exports, scopes, import bindings, class members, constructors and the file layout."
@@ -482,10 +485,6 @@
           "rationale": "Use the typed source, spans and node kinds."
         },
         {
-          "component": "ts-tree",
-          "rationale": "Read the tree through the generic tree helpers."
-        },
-        {
           "component": "ts-declarations",
           "rationale": "Read the declarations of a file."
         },
@@ -651,10 +650,6 @@
         {
           "component": "ts-input",
           "rationale": "Use the typed source, spans and node kinds."
-        },
-        {
-          "component": "ts-tree",
-          "rationale": "Read the tree through the generic tree helpers."
         },
         {
           "component": "ts-declarations",
@@ -1090,6 +1085,8 @@
         "native.archkeel_typescript_collector.kinds",
         "native.archkeel_typescript_collector.pytext",
         "native.archkeel_typescript_collector.members",
+        "native.archkeel_typescript_collector.tree.cx",
+        "native.archkeel_typescript_collector.tree.nodes",
         "native.archkeel_typescript_collector.ancestors",
         "native.archkeel_typescript_collector.definitions",
         "native.archkeel_typescript_collector.exports",

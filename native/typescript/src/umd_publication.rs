@@ -13,13 +13,14 @@ use tree_sitter::Node;
 use crate::definitions::Scopes;
 use crate::kinds::{F, K};
 use crate::layout::Layout;
-use crate::members::{named_children, Cx};
 use crate::references::literal;
 use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
 use crate::source::{Source, Span};
 use crate::source_input::{classify_file, SourceKind};
 use crate::syntax::Parsers;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::named_children;
 use crate::umd::Templates;
 
 /// What a closed UMD envelope declares: the name that it publishes, where, and the names that its
@@ -69,7 +70,7 @@ pub fn publication(parsers: &mut Parsers, rel: &str, content: &[u8]) -> Option<P
     let parameters = cx.field(factory, F::Parameters)?;
     if cx.k(factory) != K::FunctionExpression
         || parameters.named_child_count() != 0
-        || crate::members::children(factory)
+        || crate::tree::nodes::children(factory)
             .into_iter()
             .any(|child| cx.k(child) == K::Async)
     {

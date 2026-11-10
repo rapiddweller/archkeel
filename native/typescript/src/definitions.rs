@@ -16,10 +16,11 @@ use crate::ancestors::{
 };
 use crate::exports::ModuleExports;
 use crate::kinds::{F, K};
-use crate::members::{
-    children, has_backslash, named_children, Base, Cx, Member, Parameter, Place, Visibility,
-};
+use crate::members::{Base, Member, Parameter, Place, Visibility};
+use crate::pytext::has_backslash;
 use crate::source::Span;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::{children, named_children};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DefinitionKind {
@@ -353,7 +354,7 @@ fn module_array_constant(cx: &Cx, node: Node, value: Node, stack: &[Entry], seen
     }
     let mut value = value;
     if cx.k(value) == K::AsExpression {
-        let parts: Vec<Node> = crate::members::children(value)
+        let parts: Vec<Node> = crate::tree::nodes::children(value)
             .into_iter()
             .filter(|item| cx.k(*item) != K::Comment)
             .collect();

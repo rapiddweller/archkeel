@@ -14,8 +14,8 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::K;
-use crate::members::Cx;
 use crate::pytext::decode;
+use crate::tree::cx::Cx;
 
 /// A range of bytes of the file: the text of a node, decoded only when it is read.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

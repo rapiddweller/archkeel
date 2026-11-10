@@ -10,10 +10,10 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::named_children;
 use crate::script_scope::is_root;
 use crate::script_syntax::Producer;
 use crate::script_types::ScriptNamespace;
+use crate::tree::nodes::named_children;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_namespace_initializer`: the assignment of `(function (name) {...})(name || ...)`.

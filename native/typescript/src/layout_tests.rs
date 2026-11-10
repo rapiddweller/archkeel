@@ -6,10 +6,10 @@
 // the layout of a plain pass over the tree, for clean and for damaged sources.
 
 use super::{Layout, NONE};
-use crate::members::Cx;
 use crate::scan::scan;
 use crate::source::Source;
 use crate::syntax::Parsers;
+use crate::tree::cx::Cx;
 use crate::walk::Walk;
 
 const SOURCES: [(&str, bool); 5] = [

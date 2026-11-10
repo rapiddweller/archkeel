@@ -11,7 +11,10 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::{children, has_backslash, named_children, static_member_name, Cx, Place};
+use crate::members::{static_member_name, Place};
+use crate::pytext::has_backslash;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::{children, named_children};
 
 impl Cx<'_> {
     /// `_valid_unicode_member_name`: a code point that an escape names must exist.
