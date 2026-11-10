@@ -41,6 +41,7 @@ closed! {
         Require = "require",
         DynamicImport = "dynamic_import",
         ScriptGlobal = "script_global",
+        MacroBody = "macro_body",
         Class = "class",
         Function = "function",
         Method = "method",

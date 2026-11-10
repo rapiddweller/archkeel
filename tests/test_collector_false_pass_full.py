@@ -181,6 +181,101 @@ def test_a_rust_source_that_hides_a_module_edge_gives_no_pass(
     assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
 
 
+# #954: a macro defined in `macros` names `b` in its body, and the module `a` calls it. The path
+# is a use of `b` by `a`, so a rule that forbids the edge is FAIL. A call that the scan cannot
+# place (inside another macro, or by a module path) must give UNKNOWN, never PASS.
+EXPANDS = "macro_rules! m { () => { $crate::b::make() }; }\n"
+EXPANSION_LIB = "mod macros;\nmod a;\nmod b;\nmod c;\n"
+UNPLACED = {
+    "a call inside another macro": "pub fn run() { other::wrap! { m!(); } }\n",
+    "a call by a module path": "pub fn run() { macros::m!(); }\n",
+}
+# The body names `b` by a path from the crate name: it needs `extern crate self as app`.
+ABSOLUTE_BODY = "extern crate self as app;\nmacro_rules! m { () => { ::app::b::make() }; }\n"
+
+
+def _expansion(
+    tmp_path: Path, binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str], *rules
+) -> dict[str, object]:
+    sources = {"crates/app/src/lib.rs": EXPANSION_LIB, "crates/app/src/macros.rs": EXPANDS}
+    sources.update({f"crates/app/src/{name}": text for name, text in files.items()})
+    sources.setdefault("crates/app/src/b.rs", "pub fn make() {}\n")
+    sources.setdefault("crates/app/src/c.rs", "")
+    return validate(repository(tmp_path, binary, sources, rules=(*CRATE_RULES, *rules)), capsys)
+
+
+def test_a_module_that_calls_a_macro_uses_the_module_that_its_body_names(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    result = _expansion(
+        tmp_path, rust_binary, capsys, {"a.rs": "pub fn run() { m!(); }\n"}, forbidden
+    )
+
+    assert statuses(result)["NO-A-TO-B"] == "FAIL"
+
+
+def test_a_cycle_through_the_expansion_of_a_macro_is_found(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    files = {"a.rs": "pub fn run() { m!(); }\n", "b.rs": "use crate::a;\npub fn make() {}\n"}
+    result = _expansion(tmp_path, rust_binary, capsys, files, cycles)
+
+    assert statuses(result)["MODULE-CYCLES"] == "FAIL"
+
+
+def test_the_template_of_a_macro_is_no_edge_of_its_module_in_a_cycle_rule(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`macros` holds a template: only a call puts the path in a module that compiles it."""
+    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    files = {"a.rs": "", "b.rs": "pub fn make() {}\nfn t() { m!(); }\n"}
+    result = _expansion(tmp_path, rust_binary, capsys, files, cycles)
+
+    assert statuses(result)["MODULE-CYCLES"] == "PASS"
+
+
+def test_a_macro_body_path_from_the_crate_name_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    files = {"macros.rs": ABSOLUTE_BODY, "a.rs": "pub fn run() { m!(); }\n"}
+    result = _expansion(tmp_path, rust_binary, capsys, files, forbidden)
+
+    assert statuses(result).get("NO-A-TO-B") != "PASS"
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
+@pytest.mark.parametrize("source", UNPLACED.values(), ids=UNPLACED.keys())
+def test_a_macro_call_that_the_scan_cannot_place_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    result = _expansion(tmp_path, rust_binary, capsys, {"a.rs": source}, forbidden)
+
+    assert statuses(result).get("NO-A-TO-B") != "PASS"
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
 # The review of head 1114d663: three ways to use the crate `base_crate` that a path in source does
 # not show. Each compiles, and the app crate declares the dependency on `base` but its contract
 # does not require it. A crate can use another crate only if its Cargo.toml declares it, so the

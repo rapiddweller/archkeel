@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
-use super::{MacroDef, Walker, KNOWN_MACROS};
+use super::{MacroCall, MacroDef, Walker, KNOWN_MACROS};
 use crate::net;
 use crate::tokens::{chains, macro_names, names_relative, plain, string_paths};
 
@@ -36,6 +36,8 @@ impl Walker<'_> {
             );
             self.concern(reason, span);
         }
+        // An exported macro is UNKNOWN above; the reasons below belong to each call in this crate.
+        let first_unknown = self.out.concerns.len();
         net::walk(node.mac.tokens.clone(), &mut self.out.mentioned);
         if names_relative(node.mac.tokens.clone()) {
             let reason = format!(
@@ -46,10 +48,6 @@ impl Walker<'_> {
         self.in_macro = Some(name.clone());
         let mut calls = BTreeSet::new();
         macro_names(node.mac.tokens.clone(), 0, &mut calls);
-        self.out.macro_defs.push(MacroDef {
-            name: name.clone(),
-            calls,
-        });
         let mut found = Vec::new();
         let strings = string_paths(node.mac.tokens.clone(), 0, &mut found);
         match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
@@ -63,6 +61,14 @@ impl Walker<'_> {
             ),
         }
         self.in_macro = None;
+        let unknowns = (self.out.concerns.iter().skip(first_unknown))
+            .map(|concern| concern.reason.clone())
+            .collect();
+        self.out.macro_defs.push(MacroDef {
+            name,
+            calls,
+            unknowns,
+        });
         for attr in &node.attrs {
             self.attribute(attr);
         }
@@ -81,10 +87,22 @@ impl Walker<'_> {
             || node.path.segments.first().is_some_and(|first| {
                 ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
             });
-        if local {
-            let site = self.site(span);
-            self.out.macro_calls.push((name.clone(), site));
-        }
+        let site = self.site(span);
+        let call = MacroCall {
+            name: name.clone(),
+            site,
+            placed: local,
+        };
+        // The tokens of a macro are not code that the scan reads: a call in them is not placed.
+        let mut inner = BTreeSet::new();
+        macro_names(node.tokens.clone(), 0, &mut inner);
+        let hidden = inner.into_iter().map(|name| MacroCall {
+            name,
+            placed: false,
+            ..call.clone()
+        });
+        self.out.macro_calls.extend(hidden);
+        self.out.macro_calls.push(call);
         if name == "include" {
             self.concern(
                 "The macro include! adds code that the scan does not read".to_owned(),

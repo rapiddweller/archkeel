@@ -44,6 +44,8 @@ fn the_schema_defines_each_section_and_the_closed_vocabularies() {
         .collect();
     assert_eq!(kinds.len(), crate::vocab::Kind::ALL.len());
     assert!(kinds.contains(&"exception_gap"));
+    // The edge of a macro template is its own kind, so no cycle or layer rule reads it (AD-349).
+    assert!(kinds.contains(&"macro_body"));
     assert!(!kinds.contains(&"SyntaxError"));
 }
 

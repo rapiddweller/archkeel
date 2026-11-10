@@ -84,11 +84,23 @@ pub struct Reference {
     pub in_macro: Option<String>,
 }
 
-/// A `macro_rules!` definition: the macros that its body calls.
+/// A `macro_rules!` definition: the macros that its body calls, and the reasons why the scan
+/// cannot read all of its body. Each call of the macro takes these reasons as UNKNOWN.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MacroDef {
     pub name: String,
     pub calls: BTreeSet<String>,
+    pub unknowns: Vec<String>,
+}
+
+/// A call of a macro. A call is placed when the scan reads it in code, and the macro is named by
+/// a plain or a `crate::`, `self::` or `super::` path. A call in the tokens of another macro, or
+/// by the path of a module, is not placed: the scan does not know which macro it names.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MacroCall {
+    pub name: String,
+    pub site: Site,
+    pub placed: bool,
 }
 
 /// How a reference comes into the file.
@@ -143,8 +155,8 @@ pub struct Scan {
     /// The inline modules of the file, each as the names from the file down.
     pub inlines: Vec<Vec<String>>,
     pub macro_defs: Vec<MacroDef>,
-    /// The macros that the file calls by a plain or a `crate::`, `self::` or `super::` path.
-    pub macro_calls: Vec<(String, Site)>,
+    /// The calls of macros in the file, placed or not.
+    pub macro_calls: Vec<MacroCall>,
     /// Every name that the file writes in any token, for the safety net of `collect.rs`.
     pub mentioned: BTreeSet<String>,
 }

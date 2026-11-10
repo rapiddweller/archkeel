@@ -42,33 +42,34 @@ section_facts! {
         Require(ImportData),
         DynamicImport(ImportData),
         ScriptGlobal(ImportData),
+        MacroBody(ImportData),
     }
+}
+
+/// The data of an import record: each import kind has the same data type.
+macro_rules! import_data {
+    ($fact:expr) => {
+        match $fact {
+            ImportFact::Import(data)
+            | ImportFact::Reexport(data)
+            | ImportFact::ImportType(data)
+            | ImportFact::ImportEquals(data)
+            | ImportFact::Require(data)
+            | ImportFact::DynamicImport(data)
+            | ImportFact::ScriptGlobal(data)
+            | ImportFact::MacroBody(data) => data,
+        }
+    };
 }
 
 impl ImportFact {
     /// The data of the import; every import kind has the same data type.
     pub fn data(&self) -> &ImportData {
-        match self {
-            ImportFact::Import(data)
-            | ImportFact::Reexport(data)
-            | ImportFact::ImportType(data)
-            | ImportFact::ImportEquals(data)
-            | ImportFact::Require(data)
-            | ImportFact::DynamicImport(data)
-            | ImportFact::ScriptGlobal(data) => data,
-        }
+        import_data!(self)
     }
 
     pub fn data_mut(&mut self) -> &mut ImportData {
-        match self {
-            ImportFact::Import(data)
-            | ImportFact::Reexport(data)
-            | ImportFact::ImportType(data)
-            | ImportFact::ImportEquals(data)
-            | ImportFact::Require(data)
-            | ImportFact::DynamicImport(data)
-            | ImportFact::ScriptGlobal(data) => data,
-        }
+        import_data!(self)
     }
 }
 

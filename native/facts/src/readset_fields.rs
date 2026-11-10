@@ -322,7 +322,8 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             | Kind::ImportType
             | Kind::Reexport
             | Kind::Require
-            | Kind::ScriptGlobal,
+            | Kind::ScriptGlobal
+            | Kind::MacroBody,
         ) => TYPESCRIPT_IMPORT,
         (Area::Source, Kind::Alias) => &[],
         (Area::Source, Kind::Binding) => &[
