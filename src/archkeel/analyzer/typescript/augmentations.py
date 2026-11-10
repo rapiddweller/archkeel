@@ -13,11 +13,21 @@ name is a concern, as an unproved reference is. This module takes names and span
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Final
+from typing import Final, Protocol
 
 from .syntax import Concern, Span
 
 _PATH_START: Final = frozenset("./")
+
+
+class _Aliases(Protocol):
+    base_url: str | None
+    paths: tuple[tuple[str, tuple[str, ...]], ...]
+
+
+def has_aliases(options: _Aliases) -> bool:
+    """The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project."""
+    return options.base_url is not None or bool(options.paths)
 
 
 def augmentation_concerns(

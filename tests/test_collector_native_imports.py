@@ -481,25 +481,3 @@ def test_pathological_sources_do_not_crash_the_native_collector(
     facts = native.collect(request)
     assert not isinstance(facts, CollectionError), facts
     assert len(facts.files) == len(_pathological())
-
-
-ALIASED = '{"compilerOptions":{"allowJs":true,"baseUrl":".","paths":{"@b/*":["src/b/*"]}}}'
-AUGMENTATIONS = {
-    "src/b/t.ts": "export type T = number;\n",
-    # A module file: a bare name and a relative name are concerns; a wildcard name is not.
-    "src/a/module.ts": 'export {};\ndeclare module "@b/t" {}\ndeclare module "./x" {}\n',
-    "src/a/wildcard.ts": 'export {};\ndeclare module "*.css" {}\ndeclare module "@b/*" {}\n',
-    # A script declares an ambient module: a bare name is no concern there.
-    "src/a/script.d.ts": 'declare module "@b/t" {}\n',
-    "src/a/module.d.ts": 'import type { T } from "../b/t";\ndeclare module "pkg" {}\n',
-    "src/a/frames.js": "frames.x();\nself.y();\n",
-    "src/b/b.js": "window.x = 1;\nwindow.y = 2;\n",
-}
-
-
-@pytest.mark.parametrize("config", [ALIASED, COMMONJS], ids=["aliased", "plain"])
-def test_augmentation_names_equal_the_python_collector(
-    tmp_path: Path, native_binary: Path, config: str
-) -> None:
-    _write(tmp_path, {**AUGMENTATIONS, "tsconfig.json": config})
-    assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []

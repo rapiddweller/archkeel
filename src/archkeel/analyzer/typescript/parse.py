@@ -24,6 +24,7 @@ from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
 from .augmentations import augmentation_concerns
+from .augmentations import has_aliases as has_aliases
 from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
@@ -442,12 +443,11 @@ def parse(rel_path: str, data: bytes, aliased: bool = False) -> Syntax:
     suffix = classify_file(rel_path.removesuffix("\n"))
     kind = _Grammar.TYPESCRIPT if suffix is not None and suffix.parser_typescript else _Grammar.TSX
     root = _parse_root(kind, data)
-    module_syntax = _module_exports(root)[0]
     script_mode = (
         suffix is not None
         and suffix.source_kind is SourceKind.JAVASCRIPT
         and suffix.format_hint is None
-        and not module_syntax
+        and not _module_exports(root)[0]
     )
     source = _Source(kind, root, data, script_mode, _line_starts(data))
     found = source.captures("references")
@@ -476,7 +476,7 @@ def parse(rel_path: str, data: bytes, aliased: bool = False) -> Syntax:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
         concerns.extend(_comment_concerns(source, suffix))
-    concerns.extend(_augmentation_concerns(source, module_syntax, aliased))
+    concerns.extend(_augmentation_concerns(source, aliased))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3691,10 +3691,10 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     return concerns
 
 
-def _augmentation_concerns(source: _Source, module_file: bool, aliased: bool) -> list[Concern]:
+def _augmentation_concerns(source: _Source, aliased: bool) -> list[Concern]:
     nodes = source.captures("augmentations").get("name", [])
     names = [(_text(node)[1:-1], source.span(node)) for node in nodes]
-    return augmentation_concerns(names, module_file, aliased)
+    return augmentation_concerns(names, _module_exports(source.root)[0], aliased)
 
 
 class _UMDSlot(Enum):
