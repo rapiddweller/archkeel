@@ -45,8 +45,7 @@ panic could end a scan.
 - **An Archkeel contract with a Rust reader.** It needs a new language in the product that no
   customer asked for.
 
-**Limit.** This slice does not check clones. The clone check (jscpd or a
-stdlib script) is deferred. Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
+**Limit.** Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
 name the TypeScript collector; a second collector must be added to them.
 
 **Checked by** `make native-check`, which also runs `tests/test_self_native_layers.py`
@@ -62,3 +61,9 @@ until they have code). A collector may use wire, snapshot, facts and build-suppo
 facts; no library uses a collector or a parser crate. `native/architecture-contract.json` states
 the same directions as a contract, and a test fails when the two files differ. The reply of the
 TypeScript collector is byte-equal on x35 except the code digest, and the binary grew by 0.4 %.
+
+**Note, 2026-11-10 (no copies, a counted API).** `tools/rust_clones.py` hashes windows of 70 tokens
+(type 2: names and literals hidden; rows of one shape are skipped as tables). A new production clone, or a
+grown one, fails `make native-check`; `native/clone_baseline.json` lists the 9 that remain, each with
+a reason. A clone in a test file is a warning. `tools/rust_api.py` ratchets the `pub` items of each
+library (wire 40, snapshot 22) in `native/api_baseline.json` and needs `unreachable_pub` in each.

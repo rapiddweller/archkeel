@@ -1,0 +1,65 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-327: a Rust library crate keeps a counted API and denies `unreachable_pub`."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+spec = importlib.util.spec_from_file_location("rust_api", ROOT / "tools/rust_api.py")
+assert spec and spec.loader
+api = importlib.util.module_from_spec(spec)
+sys.modules["rust_api"] = api
+spec.loader.exec_module(api)
+
+LAYERS = """
+[crates.lib-one]
+role = "library"
+dir = "one"
+[crates.lib-later]
+role = "library"
+dir = "later"
+planned = true
+"""
+
+
+def scratch(tmp_path: Path, lib: str) -> Path:
+    native = tmp_path / "native"
+    (native / "one/src").mkdir(parents=True)
+    (native / "layers.toml").write_text(LAYERS, encoding="utf-8")
+    (native / "one/src/lib.rs").write_text(lib, encoding="utf-8")
+    (native / "one/src/lib_tests.rs").write_text("pub fn only_a_test() {}\n", encoding="utf-8")
+    return native
+
+
+def test_counts_public_items_and_skips_comments_tests_and_crate_items(tmp_path: Path) -> None:
+    text = (
+        "#![deny(unreachable_pub)]\npub fn a() {}\n// pub fn b() {}\npub(crate) fn c() {}\n"
+        'pub struct D;\nfn e() { let _ = "\\npub fn f"; }\n'
+    )
+    assert api.count_public(scratch(tmp_path, text) / "one/src") == 2
+
+
+def test_a_missing_deny_fails(tmp_path: Path) -> None:
+    native = scratch(tmp_path, "pub fn a() {}\n")
+    assert any("unreachable_pub" in line for line in api.problems(native, {"lib-one": 1}))
+
+
+def test_a_grown_and_a_shrunk_count_fail_and_the_right_count_passes(tmp_path: Path) -> None:
+    native = scratch(tmp_path, "#![deny(unreachable_pub)]\npub fn a() {}\npub fn b() {}\n")
+    assert api.problems(native, {"lib-one": 2}) == []
+    assert "grew from 1" in api.problems(native, {"lib-one": 1})[0]
+    assert "shrank from 3" in api.problems(native, {"lib-one": 3})[0]
+    assert "no entry" in api.problems(native, {})[0]
+    assert "no library" in api.problems(native, {"lib-one": 2, "ghost": 1})[0]
+
+
+def test_the_real_libraries_match_their_baseline() -> None:
+    native = ROOT / "native"
+    baseline = json.loads((native / "api_baseline.json").read_text(encoding="utf-8"))
+    assert api.problems(native, baseline) == []

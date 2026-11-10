@@ -1,0 +1,74 @@
+{
+  "typescript/src/dump.rs|typescript/src/dump.rs|0dac14091e": {
+    "files": [
+      "typescript/src/dump.rs",
+      "typescript/src/dump.rs"
+    ],
+    "reason": "The two dev-only dump loops (`run`, `count`) share the request loop. Dev tool behind the `dump` feature, not shipped; merge when it next changes.",
+    "tokens": 149
+  },
+  "typescript/src/dump.rs|typescript/src/dump.rs|decffd146b": {
+    "files": [
+      "typescript/src/dump.rs",
+      "typescript/src/dump.rs"
+    ],
+    "reason": "Rows of one JSON object, one `map(record_value)` for each list. The rows differ in the field name.",
+    "tokens": 96
+  },
+  "typescript/src/dump.rs|typescript/src/parse.rs|d30ab497d1": {
+    "files": [
+      "typescript/src/dump.rs",
+      "typescript/src/parse.rs"
+    ],
+    "reason": "The dump tool classifies a file as `parse` does. One helper would do; dev-only dump code.",
+    "tokens": 82
+  },
+  "typescript/src/dump.rs|wire/src/reply.rs|5e440a1252": {
+    "files": [
+      "typescript/src/dump.rs",
+      "wire/src/reply.rs"
+    ],
+    "reason": "Same rows as above, in another place of the dump.",
+    "tokens": 73
+  },
+  "typescript/src/dump.rs|wire/src/reply.rs|decffd146b": {
+    "files": [
+      "typescript/src/dump.rs",
+      "wire/src/reply.rs"
+    ],
+    "reason": "Rows of `map(record_value)` in the dump and in the reply. The dump is a dev tool that mirrors the reply shape.",
+    "tokens": 93
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|1c22ec29dc": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 139
+  },
+  "typescript/src/manifest.rs|typescript/src/options.rs|d36b86b836": {
+    "files": [
+      "typescript/src/manifest.rs",
+      "typescript/src/options.rs"
+    ],
+    "reason": "Two truthiness checks of a JSON value that mirror two Python helpers (`_has_exports`, `_option_value`). The arms differ in one case.",
+    "tokens": 84
+  },
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|7dfd1aa65b": {
+    "files": [
+      "typescript/src/symbol_table.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
+    "tokens": 100
+  },
+  "wire/src/stream.rs|wire/src/stream.rs|cc32d65cbe": {
+    "files": [
+      "wire/src/stream.rs",
+      "wire/src/stream.rs"
+    ],
+    "reason": "Two objects written field by field with `Fields`. The writer is the clear owner; the field lists differ.",
+    "tokens": 74
+  }
+}

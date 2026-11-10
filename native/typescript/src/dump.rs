@@ -13,7 +13,7 @@ use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
 
-use crate::definitions::{Definition, DefinitionKind};
+use crate::definitions::Definition;
 use crate::members::{Base, Member, Parameter, Visibility};
 use crate::parse::parse;
 use crate::site_paths::Text;
@@ -21,6 +21,7 @@ use crate::site_syntax::ReceiverKind;
 use crate::sites::{Comparison, Expression, Site, SiteKind, SiteUse};
 use crate::source::Span;
 use crate::source_input::classify_file;
+use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 use archkeel_wire::reply::{evidence_value, record_value, target_value, Provenance};
@@ -80,22 +81,10 @@ fn visibility(item: Option<Visibility>) -> Value {
     }))
 }
 
-fn kind(item: DefinitionKind) -> &'static str {
-    match item {
-        DefinitionKind::Class => "class",
-        DefinitionKind::Interface => "interface",
-        DefinitionKind::Enum => "enum",
-        DefinitionKind::Method => "method",
-        DefinitionKind::Function => "function",
-        DefinitionKind::TypeAlias => "type_alias",
-        DefinitionKind::Constant => "constant",
-    }
-}
-
 fn definition(item: &Definition, parent: Option<String>) -> Value {
     json!({
         "name": item.name,
-        "kind": kind(item.kind),
+        "kind": kind_value(item.kind),
         "span": span(&item.span),
         "parent": parent,
         "visibility": visibility(item.visibility),
