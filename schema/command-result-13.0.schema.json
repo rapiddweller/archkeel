@@ -1,0 +1,5748 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:command-result:13.0.0",
+  "title": "Archkeel command JSON results",
+  "$comment": "AD-344: version 13 differs from 12.0 only in the observation: it also accepts ArchitectureIR 2.10.0, which records the producer kind of the scan. Every result of 12.0 and earlier stays valid. AD-138.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/v10"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/command"
+        },
+        "exit_code": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/exit_code"
+        },
+        "observation_complete": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/observation_complete"
+        },
+        "declared_rules": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/declared_rules"
+        },
+        "expectation_fulfilled": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/expectation_fulfilled"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "coverage": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/coverage"
+        },
+        "observation": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/observation"
+        },
+        "python_version": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/python_version"
+        },
+        "measurements": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/measurements"
+        },
+        "artifact": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/artifact"
+        },
+        "git_predicate": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/git_predicate"
+        },
+        "host_order": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/host_order"
+        },
+        "host_source": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/host_source"
+        },
+        "failures": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/failures"
+        },
+        "widenings": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/widenings"
+        },
+        "amendment_status": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/amendment_status"
+        },
+        "baseline_new": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/baseline_new"
+        },
+        "baseline_resolved": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/baseline_resolved"
+        },
+        "delta": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/delta"
+        },
+        "provenance": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/provenance"
+        },
+        "open_decisions": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/open_decisions"
+        },
+        "open_decision_count": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/open_decision_count"
+        },
+        "open_decisions_complete": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/open_decisions_complete"
+        },
+        "agent_decisions": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/agent_decisions"
+        },
+        "claims": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/claims"
+        },
+        "violations_by_rule": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/violations_by_rule"
+        },
+        "violations_by_component_pair": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/violations_by_component_pair"
+        },
+        "draft_sizes": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/draft_sizes"
+        },
+        "report_filter": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/report_filter"
+        },
+        "filtered_violations": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/filtered_violations"
+        },
+        "unresolved_call_changes": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/unresolved_call_changes"
+        },
+        "unresolved_call_note": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/unresolved_call_note"
+        },
+        "filtered_calls": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/filtered_calls"
+        },
+        "architecture_projection": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/architecture_projection"
+        },
+        "rule_assessments": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/rule_assessments"
+        },
+        "baseline_path": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/baseline_path"
+        },
+        "baseline_comparisons": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/baseline_comparisons"
+        },
+        "interface_budgets": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/interface_budgets"
+        },
+        "scan_roots": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/scan_roots"
+        },
+        "renames": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/renames"
+        },
+        "contract_changes": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/properties/contract_changes"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "first_look": {
+          "$ref": "#/$defs/first_look"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "root_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/allOf/0"
+        }
+      ],
+      "not": {
+        "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/1/not"
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "command",
+        "exit_code",
+        "observation_complete",
+        "declared_rules",
+        "expectation_fulfilled",
+        "diagnostics",
+        "coverage",
+        "architecture_projection",
+        "rule_assessments"
+      ],
+      "properties": {
+        "command": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/command"
+        },
+        "exit_code": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/exit_code"
+        },
+        "observation_complete": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/observation_complete"
+        },
+        "declared_rules": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/declared_rules"
+        },
+        "expectation_fulfilled": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/expectation_fulfilled"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "coverage": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/coverage"
+        },
+        "observation": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/observation"
+        },
+        "python_version": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/python_version"
+        },
+        "measurements": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/measurements"
+        },
+        "artifact": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/artifact"
+        },
+        "git_predicate": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/git_predicate"
+        },
+        "host_order": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/host_order"
+        },
+        "host_source": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/host_source"
+        },
+        "failures": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/failures"
+        },
+        "widenings": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/widenings"
+        },
+        "amendment_status": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/amendment_status"
+        },
+        "baseline_new": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/baseline_new"
+        },
+        "baseline_resolved": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/baseline_resolved"
+        },
+        "delta": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/delta"
+        },
+        "provenance": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/provenance"
+        },
+        "open_decisions": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/open_decisions"
+        },
+        "open_decision_count": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/open_decision_count"
+        },
+        "open_decisions_complete": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/open_decisions_complete"
+        },
+        "agent_decisions": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/agent_decisions"
+        },
+        "claims": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/claims"
+        },
+        "violations_by_rule": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/violations_by_rule"
+        },
+        "violations_by_component_pair": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/violations_by_component_pair"
+        },
+        "draft_sizes": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/draft_sizes"
+        },
+        "report_filter": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/report_filter"
+        },
+        "filtered_violations": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/filtered_violations"
+        },
+        "unresolved_call_changes": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/unresolved_call_changes"
+        },
+        "unresolved_call_note": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/unresolved_call_note"
+        },
+        "filtered_calls": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/filtered_calls"
+        },
+        "architecture_projection": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/architecture_projection"
+        },
+        "rule_assessments": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/rule_assessments"
+        },
+        "baseline_path": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/baseline_path"
+        },
+        "baseline_comparisons": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/baseline_comparisons"
+        },
+        "interface_budgets": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/interface_budgets"
+        },
+        "scan_roots": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/scan_roots"
+        },
+        "renames": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/renames"
+        },
+        "contract_changes": {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/properties/contract_changes"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "first_look": {
+          "$ref": "#/$defs/first_look"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "root_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/anyOf/0"
+        },
+        {
+          "$ref": "urn:archkeel:command-result:10.0.0#/anyOf/2/anyOf/1"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "required": [
+        "command",
+        "exit_code",
+        "observation_complete",
+        "declared_rules",
+        "expectation_fulfilled",
+        "diagnostics",
+        "coverage",
+        "architecture_projection",
+        "rule_assessments"
+      ],
+      "properties": {
+        "command": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/command"
+        },
+        "exit_code": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/exit_code"
+        },
+        "observation_complete": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/observation_complete"
+        },
+        "declared_rules": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/declared_rules"
+        },
+        "expectation_fulfilled": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/expectation_fulfilled"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "coverage": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/coverage"
+        },
+        "observation": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/observation"
+        },
+        "python_version": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/python_version"
+        },
+        "measurements": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/measurements"
+        },
+        "artifact": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/artifact"
+        },
+        "git_predicate": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/git_predicate"
+        },
+        "host_order": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/host_order"
+        },
+        "host_source": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/host_source"
+        },
+        "failures": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/failures"
+        },
+        "widenings": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/widenings"
+        },
+        "amendment_status": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/amendment_status"
+        },
+        "baseline_new": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_new"
+        },
+        "baseline_resolved": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_resolved"
+        },
+        "delta": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/delta"
+        },
+        "provenance": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/provenance"
+        },
+        "open_decisions": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/open_decisions"
+        },
+        "open_decision_count": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/open_decision_count"
+        },
+        "open_decisions_complete": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/open_decisions_complete"
+        },
+        "agent_decisions": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/agent_decisions"
+        },
+        "claims": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/claims"
+        },
+        "violations_by_rule": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/violations_by_rule"
+        },
+        "violations_by_component_pair": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/violations_by_component_pair"
+        },
+        "draft_sizes": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/draft_sizes"
+        },
+        "report_filter": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/report_filter"
+        },
+        "filtered_violations": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/filtered_violations"
+        },
+        "unresolved_call_changes": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/unresolved_call_changes"
+        },
+        "unresolved_call_note": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/unresolved_call_note"
+        },
+        "filtered_calls": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/filtered_calls"
+        },
+        "architecture_projection": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/architecture_projection"
+        },
+        "rule_assessments": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/rule_assessments"
+        },
+        "baseline_path": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_path"
+        },
+        "baseline_comparisons": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_comparisons"
+        },
+        "interface_budgets": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/interface_budgets"
+        },
+        "scan_roots": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/scan_roots"
+        },
+        "renames": {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/renames"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/anyOf/0"
+        },
+        {
+          "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/anyOf/1"
+        }
+      ]
+    }
+  ],
+  "dependentSchemas": {
+    "contract_changes": {
+      "$ref": "urn:archkeel:command-result:10.0.0#/dependentSchemas/contract_changes"
+    },
+    "findings": {
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "report"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        }
+      }
+    },
+    "first_look": {
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "init"
+        },
+        "first_look": {
+          "$ref": "#/$defs/first_look"
+        }
+      }
+    },
+    "target": {
+      "required": [
+        "command",
+        "declared_rules"
+      ],
+      "properties": {
+        "command": {
+          "const": "report"
+        },
+        "declared_rules": {
+          "const": "UNKNOWN"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "kind",
+        "subject",
+        "unknown_claim",
+        "remedy"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "missing_tool",
+            "timeout",
+            "parse_error",
+            "unresolved_import",
+            "not_examined",
+            "incomplete_scan",
+            "scope_empty",
+            "rule_without_subjects",
+            "rule_unsupported_by_profile",
+            "runtime_mismatch",
+            "incomparable_runtime",
+            "contract_invalid",
+            "existing_files",
+            "filter_unknown"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "unknown_claim": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "remedy": {
+          "type": "string",
+          "pattern": "^(?=.*\\S)[^\\r\\n]+$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/.*)?$"
+        },
+        "code": {
+          "enum": [
+            "decision.open",
+            "decision.conflict",
+            "closed_world.observed_forbidden",
+            "closed_world.duplicate",
+            "interface.undeclared",
+            "interface.unused",
+            "interface.usage_unknown",
+            "interface.missing",
+            "interface.planned_built",
+            "rationale.placeholder",
+            "rationale.repeated",
+            "graph.count",
+            "graph.drift",
+            "rule.violated",
+            "responsibility.missing",
+            "reference.namespace",
+            "reference.public_owner",
+            "reference.public_underscore",
+            "reference.provenance",
+            "reference.package_unscanned",
+            "api_surface.missing",
+            "contract.schema_version",
+            "contract.invalid",
+            "baseline.invalid",
+            "against.invalid",
+            "amendment.invalid",
+            "observation.incomplete",
+            "inside.public_mismatch",
+            "inside.forbidden_import",
+            "compatibility.invalid",
+            "budget.exceeded",
+            "budget.unknown"
+          ]
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "line"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "contract_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "contract_invalid"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "code"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "code"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "architecture_command_1": {
+      "$id": "urn:archkeel:command-result:13.0.0:architecture-command:1.0.0",
+      "title": "Focused architecture command",
+      "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Permission rules carry original authenticated Core declarations and assessments. Allowed is a declared conditional permission, not permission for each import. Policy context retains ancestor levels/rules and peer ownership/public/planned selectors. Coverage and Core verdicts remain global under component filters.",
+      "$ref": "#/$defs/ArchitectureCommandEnvelope",
+      "$defs": {
+        "ArchitectureCommandEnvelope": {
+          "type": "object",
+          "properties": {
+            "exit_code": {
+              "enum": [
+                0,
+                1,
+                2
+              ]
+            },
+            "observation_complete": {
+              "enum": [
+                "PASS",
+                "UNKNOWN"
+              ]
+            },
+            "declared_rules": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "coverage": {
+              "anyOf": [
+                {
+                  "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:13.0.0#/$defs/diagnostic"
+              }
+            },
+            "report_filter": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ReportFilter"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "architecture_projection": {
+              "$ref": "#/$defs/ArchitectureCommandView"
+            },
+            "filtered_violations": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:archkeel:command-result:6.0.0#/$defs/filteredViolation"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "command": {
+              "enum": [
+                "report"
+              ]
+            },
+            "expectation_fulfilled": {
+              "enum": [
+                "n/a"
+              ]
+            },
+            "schema_version": {
+              "enum": [
+                "1.0.0"
+              ]
+            },
+            "baseline_path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "baseline_comparisons": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/BaselineViolationComparison"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "baseline_new": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "baseline_resolved": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "filtered_violation_count": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "violation_details_included": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "exit_code",
+            "observation_complete",
+            "declared_rules",
+            "coverage",
+            "diagnostics",
+            "report_filter",
+            "architecture_projection",
+            "schema_version",
+            "filtered_violation_count",
+            "violation_details_included"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "report_filter": {
+                    "properties": {
+                      "full_architecture": {
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "full_architecture"
+                    ]
+                  }
+                },
+                "required": [
+                  "report_filter"
+                ]
+              },
+              "then": {
+                "required": [
+                  "filtered_violations"
+                ],
+                "properties": {
+                  "architecture_projection": {
+                    "required": [
+                      "permission_rules",
+                      "policy_context"
+                    ],
+                    "properties": {
+                      "components": {
+                        "items": {
+                          "required": [
+                            "id",
+                            "scope",
+                            "path",
+                            "provenance",
+                            "packages",
+                            "responsibilities",
+                            "not_responsible_for",
+                            "status",
+                            "reason",
+                            "decided_by"
+                          ],
+                          "properties": {
+                            "permissions": {
+                              "items": {
+                                "required": [
+                                  "status",
+                                  "reason",
+                                  "target_ids"
+                                ]
+                              }
+                            }
+                          },
+                          "not": {
+                            "required": [
+                              "finding_count"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "filtered_violations": {
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "filtered_violations"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "filtered_violation_count": {
+                          "type": "integer"
+                        },
+                        "violation_details_included": {
+                          "const": true
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "filtered_violation_count": {
+                          "type": "null"
+                        },
+                        "violation_details_included": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "filtered_violations"
+                  ]
+                },
+                "properties": {
+                  "violation_details_included": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "ReportFilter": {
+          "type": "object",
+          "properties": {
+            "only_violations": {
+              "type": "boolean"
+            },
+            "rule": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "component": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "only_calls": {
+              "type": "boolean"
+            },
+            "only_architecture": {
+              "type": "boolean"
+            },
+            "full_architecture": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "ArchitectureCommandView": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/SourceInfo"
+            },
+            "contract_digest": {
+              "type": "string"
+            },
+            "analyzer_digest": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ArchitectureComponentView"
+              }
+            },
+            "policy_context": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionContextView"
+              }
+            },
+            "levels": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LevelProjection"
+              }
+            },
+            "permission_rules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionRuleProjection"
+              }
+            },
+            "required_relationships": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiredRelationshipProjection"
+              }
+            },
+            "required_summaries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiredRelationshipSummary"
+              }
+            },
+            "ownership_gaps": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/OwnershipGap"
+              }
+            },
+            "unknowns": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              }
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "violation_remedy": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source",
+            "contract_digest",
+            "analyzer_digest",
+            "components",
+            "levels",
+            "required_relationships",
+            "required_summaries",
+            "ownership_gaps",
+            "unknowns",
+            "status",
+            "reason",
+            "reasons",
+            "violation_remedy"
+          ],
+          "additionalProperties": false
+        },
+        "SourceInfo": {
+          "type": "object",
+          "properties": {
+            "git_head": {
+              "type": "string"
+            },
+            "dirty": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "enum": [
+                    "unknown"
+                  ]
+                }
+              ]
+            },
+            "source_digest": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "git_head",
+            "dirty",
+            "source_digest",
+            "scope"
+          ],
+          "additionalProperties": false
+        },
+        "ArchitectureComponentView": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "responsibilities": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "not_responsible_for": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reason": {
+              "type": "integer"
+            },
+            "decided_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "architect",
+                    "agent"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "role": {
+              "enum": [
+                "component",
+                "interface",
+                "contract",
+                "projection",
+                "foundation"
+              ]
+            },
+            "namespace": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "selector_prefix": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "layer": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exact_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "public": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "planned": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modules": {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiresProjection"
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionGroup"
+              }
+            },
+            "used_by": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "finding_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "finding_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id",
+            "scope",
+            "responsibilities",
+            "status",
+            "reason",
+            "decided_by"
+          ],
+          "additionalProperties": false
+        },
+        "RequiresProjection": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "target_id": {
+              "type": "string"
+            },
+            "through": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "decided_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "architect",
+                    "agent"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "observed_imports": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "target_id",
+            "through",
+            "rationale",
+            "decided_by",
+            "observed_imports"
+          ],
+          "additionalProperties": false
+        },
+        "PermissionGroup": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "allowed",
+                "forbidden",
+                "undecided"
+              ]
+            },
+            "reason": {
+              "type": "integer"
+            },
+            "target_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "status",
+            "target_ids"
+          ],
+          "additionalProperties": false
+        },
+        "PermissionContextView": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exact_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiresProjection"
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionGroup"
+              }
+            },
+            "public": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "planned": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "scope",
+            "parent_id",
+            "packages",
+            "exact_modules",
+            "requires",
+            "permissions",
+            "public",
+            "planned"
+          ],
+          "additionalProperties": false
+        },
+        "LevelProjection": {
+          "type": "object",
+          "properties": {
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "component_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "declared": {
+              "type": "integer"
+            },
+            "used": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unused": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "undeclared": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "undecided": {
+              "type": "integer"
+            },
+            "unowned_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "parent_id",
+            "component_ids",
+            "declared",
+            "used",
+            "unused",
+            "undeclared",
+            "undecided",
+            "unowned_modules"
+          ],
+          "additionalProperties": false
+        },
+        "PermissionRuleProjection": {
+          "type": "object",
+          "properties": {
+            "declaration": {
+              "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+            },
+            "assessment": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RuleAssessment"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "declaration",
+            "assessment"
+          ],
+          "additionalProperties": false
+        },
+        "RuleAssessment": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN",
+                "DECLARATION"
+              ]
+            },
+            "evaluation_proven": {
+              "type": "boolean"
+            },
+            "count": {
+              "type": "integer"
+            },
+            "undecided": {
+              "type": "integer"
+            },
+            "decided_by": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "status",
+            "evaluation_proven",
+            "count",
+            "undecided",
+            "decided_by",
+            "rationale",
+            "provenance",
+            "reason",
+            "scope",
+            "components"
+          ],
+          "additionalProperties": false
+        },
+        "RequiredRelationshipProjection": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            "source_id": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "target_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "target": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "component_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "internal_scope": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "source_id",
+            "source",
+            "target_id",
+            "target",
+            "status",
+            "reasons"
+          ],
+          "additionalProperties": false
+        },
+        "RequiredRelationshipSummary": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "scope",
+            "kind",
+            "status",
+            "reasons",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        "OwnershipGap": {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "candidate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "module",
+            "path",
+            "candidate_ids",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "BaselineViolationComparison": {
+          "type": "object",
+          "properties": {
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "known_count": {
+              "type": "integer"
+            },
+            "shared_count": {
+              "type": "integer"
+            },
+            "current_count": {
+              "type": "integer"
+            },
+            "new_count": {
+              "type": "integer"
+            },
+            "resolved_count": {
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "known",
+                "new",
+                "reduced",
+                "resolved",
+                "contracted",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "rules",
+            "subjects",
+            "known_count",
+            "shared_count",
+            "current_count",
+            "new_count",
+            "resolved_count",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "architecture_command_2": {
+      "$id": "urn:archkeel:command-result:13.0.0:architecture-command:2.0.0",
+      "title": "Focused architecture command",
+      "$comment": "Default fields may be omitted. Selector names starting with dot or colon (or empty) are relative to selector_prefix, falling back to namespace. Public/planned group selectors by module, with symbol names or empty for the whole module. Module paths are relative to component.path; empty means that exact file. Required summaries group only internal class/method/type relationships by authenticated scope, kind, Core status and exact reasons; cross-component and interface relationships remain individual. Permission rule_ids exclude requires IDs already carried by the same component: allowed pairs restore those IDs by matching requires.target_id. Requires observed_imports count component-pair sites, not narrower through compliance. Numeric reasons index reasons. UNKNOWN rows [scopes, count] account for every uncertainty exactly once; empty scopes are global or unattributed. Permission rules carry original authenticated Core declarations and assessments. Allowed is a declared conditional permission, not permission for each import. Policy context retains ancestor levels/rules and peer ownership/public/planned selectors. Coverage and Core verdicts remain global under component filters.",
+      "$ref": "#/$defs/ArchitectureCommandEnvelope",
+      "$defs": {
+        "ArchitectureCommandEnvelope": {
+          "type": "object",
+          "properties": {
+            "exit_code": {
+              "enum": [
+                0,
+                1,
+                2
+              ]
+            },
+            "observation_complete": {
+              "enum": [
+                "PASS",
+                "UNKNOWN"
+              ]
+            },
+            "declared_rules": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "coverage": {
+              "anyOf": [
+                {
+                  "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:13.0.0#/$defs/diagnostic"
+              }
+            },
+            "report_filter": {
+              "allOf": [
+                {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/ReportFilter"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "full_architecture": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "full_architecture"
+                  ]
+                }
+              ]
+            },
+            "architecture_projection": {
+              "$ref": "#/$defs/ArchitectureCommandView"
+            },
+            "filtered_violations": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:archkeel:command-result:6.0.0#/$defs/filteredViolation"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "command": {
+              "enum": [
+                "report"
+              ]
+            },
+            "expectation_fulfilled": {
+              "enum": [
+                "n/a"
+              ]
+            },
+            "schema_version": {
+              "const": "2.0.0"
+            },
+            "baseline_path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "baseline_comparisons": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/BaselineViolationComparison"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "baseline_new": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "baseline_resolved": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "recorded_unknowns": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+                      },
+                      {
+                        "properties": {
+                          "evidence_class": {
+                            "const": "UNKNOWN"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "filtered_violation_count": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "violation_details_included": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "exit_code",
+            "observation_complete",
+            "declared_rules",
+            "coverage",
+            "diagnostics",
+            "report_filter",
+            "architecture_projection",
+            "schema_version",
+            "filtered_violation_count",
+            "violation_details_included",
+            "recorded_unknowns"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "report_filter": {
+                    "properties": {
+                      "full_architecture": {
+                        "const": true
+                      }
+                    },
+                    "required": [
+                      "full_architecture"
+                    ]
+                  }
+                },
+                "required": [
+                  "report_filter"
+                ]
+              },
+              "then": {
+                "required": [
+                  "filtered_violations"
+                ],
+                "properties": {
+                  "architecture_projection": {
+                    "required": [
+                      "permission_rules",
+                      "policy_context"
+                    ],
+                    "properties": {
+                      "components": {
+                        "items": {
+                          "required": [
+                            "id",
+                            "scope",
+                            "path",
+                            "provenance",
+                            "packages",
+                            "responsibilities",
+                            "not_responsible_for",
+                            "status",
+                            "reason",
+                            "decided_by"
+                          ],
+                          "properties": {
+                            "permissions": {
+                              "items": {
+                                "required": [
+                                  "status",
+                                  "reason",
+                                  "target_ids"
+                                ]
+                              }
+                            }
+                          },
+                          "not": {
+                            "required": [
+                              "finding_count"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "filtered_violations": {
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "filtered_violations"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "filtered_violation_count": {
+                          "type": "integer"
+                        },
+                        "violation_details_included": {
+                          "const": true
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "filtered_violation_count": {
+                          "type": "null"
+                        },
+                        "violation_details_included": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "else": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "filtered_violations"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "recorded_unknowns"
+                      ]
+                    }
+                  ]
+                },
+                "properties": {
+                  "violation_details_included": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "ReportFilter": {
+          "type": "object",
+          "properties": {
+            "only_violations": {
+              "type": "boolean"
+            },
+            "rule": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "component": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "only_calls": {
+              "type": "boolean"
+            },
+            "only_architecture": {
+              "type": "boolean"
+            },
+            "full_architecture": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "ArchitectureCommandView": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/SourceInfo"
+            },
+            "contract_digest": {
+              "type": "string"
+            },
+            "analyzer_digest": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ArchitectureComponentView"
+              }
+            },
+            "policy_context": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionContextView"
+              }
+            },
+            "levels": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LevelProjection"
+              }
+            },
+            "permission_rules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionRuleProjection"
+              }
+            },
+            "required_relationships": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiredRelationshipProjection"
+              }
+            },
+            "required_summaries": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiredRelationshipSummary"
+              }
+            },
+            "ownership_gaps": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/OwnershipGap"
+              }
+            },
+            "unknowns": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              }
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "violation_remedy": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source",
+            "contract_digest",
+            "analyzer_digest",
+            "components",
+            "levels",
+            "required_relationships",
+            "required_summaries",
+            "ownership_gaps",
+            "unknowns",
+            "status",
+            "reason",
+            "reasons",
+            "violation_remedy"
+          ],
+          "additionalProperties": false
+        },
+        "SourceInfo": {
+          "type": "object",
+          "properties": {
+            "git_head": {
+              "type": "string"
+            },
+            "dirty": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "enum": [
+                    "unknown"
+                  ]
+                }
+              ]
+            },
+            "source_digest": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "git_head",
+            "dirty",
+            "source_digest",
+            "scope"
+          ],
+          "additionalProperties": false
+        },
+        "ArchitectureComponentView": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "responsibilities": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "not_responsible_for": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reason": {
+              "type": "integer"
+            },
+            "decided_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "architect",
+                    "agent"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "role": {
+              "enum": [
+                "component",
+                "interface",
+                "contract",
+                "projection",
+                "foundation"
+              ]
+            },
+            "namespace": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "selector_prefix": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "layer": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exact_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "public": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "planned": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modules": {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiresProjection"
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionGroup"
+              }
+            },
+            "used_by": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "finding_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "finding_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id",
+            "scope",
+            "responsibilities",
+            "status",
+            "reason",
+            "decided_by"
+          ],
+          "additionalProperties": false
+        },
+        "RequiresProjection": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "target_id": {
+              "type": "string"
+            },
+            "through": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "decided_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "architect",
+                    "agent"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "observed_imports": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "target_id",
+            "through",
+            "rationale",
+            "decided_by",
+            "observed_imports"
+          ],
+          "additionalProperties": false
+        },
+        "PermissionGroup": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "allowed",
+                "forbidden",
+                "undecided"
+              ]
+            },
+            "reason": {
+              "type": "integer"
+            },
+            "target_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "status",
+            "target_ids"
+          ],
+          "additionalProperties": false
+        },
+        "PermissionContextView": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exact_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RequiresProjection"
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PermissionGroup"
+              }
+            },
+            "public": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "planned": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "scope",
+            "parent_id",
+            "packages",
+            "exact_modules",
+            "requires",
+            "permissions",
+            "public",
+            "planned"
+          ],
+          "additionalProperties": false
+        },
+        "LevelProjection": {
+          "type": "object",
+          "properties": {
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "component_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "declared": {
+              "type": "integer"
+            },
+            "used": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unused": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "undeclared": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "undecided": {
+              "type": "integer"
+            },
+            "unowned_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "parent_id",
+            "component_ids",
+            "declared",
+            "used",
+            "unused",
+            "undeclared",
+            "undecided",
+            "unowned_modules"
+          ],
+          "additionalProperties": false
+        },
+        "PermissionRuleProjection": {
+          "type": "object",
+          "properties": {
+            "declaration": {
+              "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+            },
+            "assessment": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RuleAssessment"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "declaration",
+            "assessment"
+          ],
+          "additionalProperties": false
+        },
+        "RuleAssessment": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN",
+                "DECLARATION"
+              ]
+            },
+            "evaluation_proven": {
+              "type": "boolean"
+            },
+            "count": {
+              "type": "integer"
+            },
+            "undecided": {
+              "type": "integer"
+            },
+            "decided_by": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "status",
+            "evaluation_proven",
+            "count",
+            "undecided",
+            "decided_by",
+            "rationale",
+            "provenance",
+            "reason",
+            "scope",
+            "components"
+          ],
+          "additionalProperties": false
+        },
+        "RequiredRelationshipProjection": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            "source_id": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "target_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "target": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "component_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "internal_scope": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "source_id",
+            "source",
+            "target_id",
+            "target",
+            "status",
+            "reasons"
+          ],
+          "additionalProperties": false
+        },
+        "RequiredRelationshipSummary": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNKNOWN"
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "scope",
+            "kind",
+            "status",
+            "reasons",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        "OwnershipGap": {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "candidate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "module",
+            "path",
+            "candidate_ids",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "BaselineViolationComparison": {
+          "type": "object",
+          "properties": {
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "known_count": {
+              "type": "integer"
+            },
+            "shared_count": {
+              "type": "integer"
+            },
+            "current_count": {
+              "type": "integer"
+            },
+            "new_count": {
+              "type": "integer"
+            },
+            "resolved_count": {
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "known",
+                "new",
+                "reduced",
+                "resolved",
+                "contracted",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "rules",
+            "subjects",
+            "known_count",
+            "shared_count",
+            "current_count",
+            "new_count",
+            "resolved_count",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "v6": {
+      "type": "object",
+      "required": [
+        "command",
+        "exit_code",
+        "observation_complete",
+        "declared_rules",
+        "expectation_fulfilled",
+        "diagnostics",
+        "coverage",
+        "architecture_projection"
+      ],
+      "properties": {
+        "command": {
+          "enum": [
+            "init",
+            "check",
+            "validate",
+            "report"
+          ]
+        },
+        "exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "observation_complete": {
+          "enum": [
+            "PASS",
+            "UNKNOWN"
+          ]
+        },
+        "declared_rules": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ]
+        },
+        "expectation_fulfilled": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "n/a"
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/coverage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "python_version": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/python_version"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "measurements": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/$defs/measurements"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "git_predicate": {
+          "anyOf": [
+            {
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "host_order": {
+          "anyOf": [
+            {
+              "enum": [
+                "PASS",
+                "FAIL"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "host_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "supplied_records",
+                "gitlab_mr_versions",
+                "github_initial_pr_head"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "widenings": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/wideningFinding"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "amendment_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "valid",
+                "stale"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_new": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_resolved": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delta": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/$defs/delta"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/$defs/provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "open_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:archkeel:command-result:6.0.0#/$defs/openDecision"
+          }
+        },
+        "open_decision_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "open_decisions_complete": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent_decisions": {
+          "anyOf": [
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claims": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/$defs/claims"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "violations_by_rule": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "violations_by_component_pair": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                ],
+                "items": false,
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "draft_sizes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/draftedComponentSize"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "report_filter": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/$defs/reportFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filtered_violations": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/filteredViolation"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unresolved_call_changes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/callChange"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unresolved_call_note": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filtered_calls": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/call"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "architecture_projection": {
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:architecture-projection:1.0.0"
+            },
+            {
+              "$ref": "urn:archkeel:command-result:13.0.0:architecture-command:1.0.0#/$defs/ArchitectureCommandView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rule_assessments": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/assessment"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseline_comparisons": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/baselineComparison"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interface_budgets": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:6.0.0#/$defs/interfaceBudget"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scan_roots": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "renames": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "if": {
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "$ref": "urn:archkeel:command-result:13.0.0:architecture-command:1.0.0"
+      },
+      "else": {
+        "required": [
+          "command",
+          "exit_code",
+          "observation_complete",
+          "declared_rules",
+          "expectation_fulfilled",
+          "diagnostics",
+          "coverage",
+          "observation",
+          "python_version",
+          "measurements",
+          "artifact",
+          "git_predicate",
+          "host_order",
+          "host_source",
+          "failures",
+          "baseline_new",
+          "baseline_resolved",
+          "delta",
+          "provenance",
+          "open_decisions",
+          "agent_decisions",
+          "claims",
+          "violations_by_rule",
+          "violations_by_component_pair",
+          "draft_sizes",
+          "report_filter",
+          "filtered_violations",
+          "unresolved_call_changes",
+          "unresolved_call_note",
+          "filtered_calls",
+          "architecture_projection",
+          "rule_assessments",
+          "baseline_path",
+          "baseline_comparisons",
+          "interface_budgets",
+          "scan_roots",
+          "renames"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "command": {
+                  "const": "init"
+                }
+              }
+            },
+            "then": {
+              "if": {
+                "properties": {
+                  "exit_code": {
+                    "const": 0
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "open_decision_count",
+                  "open_decisions_complete",
+                  "draft_sizes"
+                ],
+                "properties": {
+                  "open_decision_count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "open_decisions_complete": {
+                    "type": "boolean"
+                  },
+                  "draft_sizes": {
+                    "type": "array"
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "draft_sizes": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "host_source": {
+                  "const": "github_initial_pr_head"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "provenance": {
+                  "type": "object",
+                  "required": [
+                    "initial_pr"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "provenance": {
+                  "not": {
+                    "type": "object",
+                    "required": [
+                      "initial_pr"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "exit_code": {
+                  "const": 2
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "diagnostics": {
+                  "minItems": 1
+                }
+              },
+              "if": {
+                "properties": {
+                  "command": {
+                    "const": "validate"
+                  },
+                  "observation_complete": {
+                    "const": "PASS"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "expectation_fulfilled": {
+                    "const": "n/a"
+                  },
+                  "coverage": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "measurements": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "claims": {
+                    "not": {
+                      "type": "null"
+                    }
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "observation_complete": {
+                    "const": "UNKNOWN"
+                  },
+                  "declared_rules": {
+                    "const": "UNKNOWN"
+                  },
+                  "expectation_fulfilled": {
+                    "const": "UNKNOWN"
+                  },
+                  "measurements": {
+                    "type": "null"
+                  },
+                  "claims": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "diagnostics": {
+                  "maxItems": 0
+                },
+                "observation_complete": {
+                  "const": "PASS"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "command": {
+                  "const": "check"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "report_filter": {
+                  "type": "null"
+                },
+                "filtered_violations": {
+                  "type": "null"
+                },
+                "filtered_calls": {
+                  "type": "null"
+                },
+                "architecture_projection": {
+                  "type": "null"
+                },
+                "rule_assessments": {
+                  "type": "null"
+                },
+                "baseline_path": {
+                  "type": "null"
+                },
+                "baseline_comparisons": {
+                  "type": "null"
+                },
+                "baseline_new": {
+                  "type": "null"
+                },
+                "baseline_resolved": {
+                  "type": "null"
+                },
+                "interface_budgets": {
+                  "type": "null"
+                },
+                "renames": {
+                  "type": "null"
+                },
+                "agent_decisions": {
+                  "type": "null"
+                },
+                "claims": {
+                  "type": "null"
+                },
+                "violations_by_rule": {
+                  "type": "null"
+                },
+                "violations_by_component_pair": {
+                  "type": "null"
+                },
+                "artifact": {
+                  "type": "null"
+                },
+                "open_decisions": {
+                  "maxItems": 0
+                },
+                "expectation_fulfilled": {
+                  "enum": [
+                    "PASS",
+                    "FAIL",
+                    "UNKNOWN"
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "exit_code": {
+                        "enum": [
+                          0,
+                          1
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "git_predicate": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "host_order": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "host_source": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "delta": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "provenance": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "coverage": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "measurements": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "observation": {
+                        "type": "null"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "git_predicate": {
+                        "type": "null"
+                      },
+                      "host_order": {
+                        "type": "null"
+                      },
+                      "host_source": {
+                        "type": "null"
+                      },
+                      "delta": {
+                        "type": "null"
+                      },
+                      "provenance": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "exit_code": {
+                        "const": 0
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "expectation_fulfilled": {
+                        "const": "PASS"
+                      },
+                      "declared_rules": {
+                        "enum": [
+                          "PASS",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "git_predicate": {
+                        "const": "PASS"
+                      },
+                      "host_order": {
+                        "const": "PASS"
+                      },
+                      "failures": {
+                        "maxItems": 0
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "command": {
+                  "const": "validate"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "git_predicate": {
+                  "type": "null"
+                },
+                "host_order": {
+                  "type": "null"
+                },
+                "host_source": {
+                  "type": "null"
+                },
+                "delta": {
+                  "type": "null"
+                },
+                "provenance": {
+                  "type": "null"
+                },
+                "report_filter": {
+                  "type": "null"
+                },
+                "filtered_violations": {
+                  "type": "null"
+                },
+                "filtered_calls": {
+                  "type": "null"
+                },
+                "architecture_projection": {
+                  "type": "null"
+                },
+                "baseline_path": {
+                  "type": "null"
+                },
+                "baseline_comparisons": {
+                  "type": "null"
+                },
+                "observation": {
+                  "type": "null"
+                },
+                "expectation_fulfilled": {
+                  "enum": [
+                    "n/a",
+                    "UNKNOWN"
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "observation_complete": {
+                        "const": "PASS"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "coverage": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "measurements": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "agent_decisions": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "claims": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "violations_by_rule": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "violations_by_component_pair": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "expectation_fulfilled": {
+                        "const": "n/a"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "rule_assessments": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "command": {
+                  "const": "report"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "git_predicate": {
+                  "type": "null"
+                },
+                "host_order": {
+                  "type": "null"
+                },
+                "host_source": {
+                  "type": "null"
+                },
+                "delta": {
+                  "type": "null"
+                },
+                "provenance": {
+                  "type": "null"
+                },
+                "baseline_new": {
+                  "type": "null"
+                },
+                "baseline_resolved": {
+                  "type": "null"
+                },
+                "interface_budgets": {
+                  "type": "null"
+                },
+                "renames": {
+                  "type": "null"
+                },
+                "observation": {
+                  "type": "null"
+                },
+                "unresolved_call_changes": {
+                  "type": "null"
+                },
+                "unresolved_call_note": {
+                  "type": "null"
+                },
+                "exit_code": {
+                  "enum": [
+                    0,
+                    2
+                  ]
+                },
+                "expectation_fulfilled": {
+                  "enum": [
+                    "n/a",
+                    "UNKNOWN"
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "exit_code": {
+                        "const": 0
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "coverage": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "measurements": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "agent_decisions": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "claims": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "violations_by_rule": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "violations_by_component_pair": {
+                        "not": {
+                          "type": "null"
+                        }
+                      },
+                      "expectation_fulfilled": {
+                        "const": "n/a"
+                      },
+                      "rule_assessments": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "report_filter": {
+                        "type": "object",
+                        "properties": {
+                          "only_violations": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "rule_assessments": {
+                        "items": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "FAIL",
+                                "UNKNOWN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "report_filter": {
+                        "type": "null"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "filtered_violations": {
+                        "type": "null"
+                      },
+                      "filtered_calls": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "exit_code": {
+                        "const": 0
+                      },
+                      "report_filter": {
+                        "type": "object",
+                        "properties": {
+                          "only_calls": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "filtered_violations": {
+                        "type": "null"
+                      },
+                      "filtered_calls": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "exit_code": {
+                        "const": 0
+                      },
+                      "report_filter": {
+                        "type": "object",
+                        "properties": {
+                          "only_architecture": {
+                            "const": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "architecture_projection": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "exit_code": {
+                        "const": 0
+                      },
+                      "report_filter": {
+                        "type": "object",
+                        "properties": {
+                          "only_calls": {
+                            "const": false
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "filtered_calls": {
+                        "type": "null"
+                      },
+                      "filtered_violations": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "v7": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/v6"
+        },
+        {
+          "$ref": "urn:archkeel:command-result:13.0.0:architecture-command:2.0.0"
+        }
+      ]
+    },
+    "v8": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/v7"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "exit_code",
+            "observation_complete",
+            "declared_rules",
+            "expectation_fulfilled",
+            "diagnostics",
+            "coverage",
+            "architecture_projection",
+            "rule_assessments"
+          ],
+          "properties": {
+            "command": {
+              "const": "report"
+            },
+            "exit_code": {
+              "const": 2
+            },
+            "observation_complete": {
+              "const": "UNKNOWN"
+            },
+            "declared_rules": {
+              "const": "FAIL"
+            },
+            "expectation_fulfilled": {
+              "const": "UNKNOWN"
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/diagnostic"
+              }
+            },
+            "coverage": {
+              "allOf": [
+                {
+                  "$ref": "urn:archkeel:command-result:6.0.0#/properties/coverage"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "FAIL"
+                    }
+                  }
+                }
+              ]
+            },
+            "observation": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/observation"
+            },
+            "python_version": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/python_version"
+            },
+            "measurements": {
+              "type": "null"
+            },
+            "artifact": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/artifact"
+            },
+            "git_predicate": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/git_predicate"
+            },
+            "host_order": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_order"
+            },
+            "host_source": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_source"
+            },
+            "failures": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/failures"
+            },
+            "widenings": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/widenings"
+            },
+            "amendment_status": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/amendment_status"
+            },
+            "baseline_new": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_new"
+            },
+            "baseline_resolved": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_resolved"
+            },
+            "delta": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/delta"
+            },
+            "provenance": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/provenance"
+            },
+            "open_decisions": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions"
+            },
+            "open_decision_count": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decision_count"
+            },
+            "open_decisions_complete": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions_complete"
+            },
+            "agent_decisions": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/agent_decisions"
+            },
+            "claims": {
+              "type": "null"
+            },
+            "violations_by_rule": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_rule"
+            },
+            "violations_by_component_pair": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_component_pair"
+            },
+            "draft_sizes": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/draft_sizes"
+            },
+            "report_filter": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/report_filter"
+            },
+            "filtered_violations": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_violations"
+            },
+            "unresolved_call_changes": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_changes"
+            },
+            "unresolved_call_note": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_note"
+            },
+            "filtered_calls": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_calls"
+            },
+            "architecture_projection": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/architecture_projection"
+            },
+            "rule_assessments": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/rule_assessments"
+            },
+            "baseline_path": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_path"
+            },
+            "baseline_comparisons": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_comparisons"
+            },
+            "interface_budgets": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/interface_budgets"
+            },
+            "scan_roots": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/scan_roots"
+            },
+            "renames": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/renames"
+            }
+          },
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "properties": {
+                "rule_assessments": {
+                  "type": "array",
+                  "contains": {
+                    "properties": {
+                      "status": {
+                        "const": "FAIL"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "properties": {
+                "report_filter": {
+                  "type": "object",
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "rule": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "rule"
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "component": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "component"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "report_filter"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "v9": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/v8"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/command"
+            },
+            "exit_code": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/exit_code"
+            },
+            "observation_complete": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/observation_complete"
+            },
+            "declared_rules": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/declared_rules"
+            },
+            "expectation_fulfilled": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/expectation_fulfilled"
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/diagnostic"
+              }
+            },
+            "coverage": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/coverage"
+            },
+            "observation": {
+              "anyOf": [
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.10.0"
+                }
+              ]
+            },
+            "python_version": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/python_version"
+            },
+            "measurements": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/measurements"
+            },
+            "artifact": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/artifact"
+            },
+            "git_predicate": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/git_predicate"
+            },
+            "host_order": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_order"
+            },
+            "host_source": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_source"
+            },
+            "failures": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/failures"
+            },
+            "widenings": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/widenings"
+            },
+            "amendment_status": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/amendment_status"
+            },
+            "baseline_new": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_new"
+            },
+            "baseline_resolved": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_resolved"
+            },
+            "delta": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/delta"
+            },
+            "provenance": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/provenance"
+            },
+            "open_decisions": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions"
+            },
+            "open_decision_count": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decision_count"
+            },
+            "open_decisions_complete": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions_complete"
+            },
+            "agent_decisions": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/agent_decisions"
+            },
+            "claims": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/claims"
+            },
+            "violations_by_rule": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_rule"
+            },
+            "violations_by_component_pair": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_component_pair"
+            },
+            "draft_sizes": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/draft_sizes"
+            },
+            "report_filter": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/report_filter"
+            },
+            "filtered_violations": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_violations"
+            },
+            "unresolved_call_changes": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_changes"
+            },
+            "unresolved_call_note": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_note"
+            },
+            "filtered_calls": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_calls"
+            },
+            "architecture_projection": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/architecture_projection"
+            },
+            "rule_assessments": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/rule_assessments"
+            },
+            "baseline_path": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_path"
+            },
+            "baseline_comparisons": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_comparisons"
+            },
+            "interface_budgets": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/interface_budgets"
+            },
+            "scan_roots": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/scan_roots"
+            },
+            "renames": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/renames"
+            }
+          },
+          "allOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/else"
+            }
+          ],
+          "not": {
+            "required": [
+              "schema_version"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "exit_code",
+            "observation_complete",
+            "declared_rules",
+            "expectation_fulfilled",
+            "diagnostics",
+            "coverage",
+            "architecture_projection",
+            "rule_assessments"
+          ],
+          "properties": {
+            "command": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/command"
+            },
+            "exit_code": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/exit_code"
+            },
+            "observation_complete": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/observation_complete"
+            },
+            "declared_rules": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/declared_rules"
+            },
+            "expectation_fulfilled": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/expectation_fulfilled"
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/diagnostic"
+              }
+            },
+            "coverage": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/coverage"
+            },
+            "observation": {
+              "anyOf": [
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"
+                },
+                {
+                  "$ref": "urn:archkeel:architecture-ir:decoded:2.10.0"
+                }
+              ]
+            },
+            "python_version": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/python_version"
+            },
+            "measurements": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/measurements"
+            },
+            "artifact": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/artifact"
+            },
+            "git_predicate": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/git_predicate"
+            },
+            "host_order": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/host_order"
+            },
+            "host_source": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/host_source"
+            },
+            "failures": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/failures"
+            },
+            "widenings": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/widenings"
+            },
+            "amendment_status": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/amendment_status"
+            },
+            "baseline_new": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_new"
+            },
+            "baseline_resolved": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_resolved"
+            },
+            "delta": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/delta"
+            },
+            "provenance": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/provenance"
+            },
+            "open_decisions": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/open_decisions"
+            },
+            "open_decision_count": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/open_decision_count"
+            },
+            "open_decisions_complete": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/open_decisions_complete"
+            },
+            "agent_decisions": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/agent_decisions"
+            },
+            "claims": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/claims"
+            },
+            "violations_by_rule": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/violations_by_rule"
+            },
+            "violations_by_component_pair": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/violations_by_component_pair"
+            },
+            "draft_sizes": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/draft_sizes"
+            },
+            "report_filter": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/report_filter"
+            },
+            "filtered_violations": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/filtered_violations"
+            },
+            "unresolved_call_changes": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/unresolved_call_changes"
+            },
+            "unresolved_call_note": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/unresolved_call_note"
+            },
+            "filtered_calls": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/filtered_calls"
+            },
+            "architecture_projection": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/architecture_projection"
+            },
+            "rule_assessments": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/rule_assessments"
+            },
+            "baseline_path": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_path"
+            },
+            "baseline_comparisons": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/baseline_comparisons"
+            },
+            "interface_budgets": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/interface_budgets"
+            },
+            "scan_roots": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/scan_roots"
+            },
+            "renames": {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/renames"
+            }
+          },
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/anyOf/0"
+            },
+            {
+              "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/anyOf/1"
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/command"
+            },
+            "exit_code": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/exit_code"
+            },
+            "observation_complete": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/observation_complete"
+            },
+            "declared_rules": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/declared_rules"
+            },
+            "expectation_fulfilled": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/expectation_fulfilled"
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/diagnostic"
+              }
+            },
+            "coverage": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/coverage"
+            },
+            "observation": {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
+            },
+            "python_version": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/python_version"
+            },
+            "measurements": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/measurements"
+            },
+            "artifact": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/artifact"
+            },
+            "git_predicate": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/git_predicate"
+            },
+            "host_order": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_order"
+            },
+            "host_source": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_source"
+            },
+            "failures": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/failures"
+            },
+            "widenings": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/widenings"
+            },
+            "amendment_status": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/amendment_status"
+            },
+            "baseline_new": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_new"
+            },
+            "baseline_resolved": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_resolved"
+            },
+            "delta": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/delta"
+            },
+            "provenance": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/provenance"
+            },
+            "open_decisions": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions"
+            },
+            "open_decision_count": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decision_count"
+            },
+            "open_decisions_complete": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions_complete"
+            },
+            "agent_decisions": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/agent_decisions"
+            },
+            "claims": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/claims"
+            },
+            "violations_by_rule": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_rule"
+            },
+            "violations_by_component_pair": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_component_pair"
+            },
+            "draft_sizes": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/draft_sizes"
+            },
+            "report_filter": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/report_filter"
+            },
+            "filtered_violations": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_violations"
+            },
+            "unresolved_call_changes": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_changes"
+            },
+            "unresolved_call_note": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_note"
+            },
+            "filtered_calls": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_calls"
+            },
+            "architecture_projection": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/architecture_projection"
+            },
+            "rule_assessments": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/rule_assessments"
+            },
+            "baseline_path": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_path"
+            },
+            "baseline_comparisons": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_comparisons"
+            },
+            "interface_budgets": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/interface_budgets"
+            },
+            "scan_roots": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/scan_roots"
+            },
+            "renames": {
+              "$ref": "urn:archkeel:command-result:6.0.0#/properties/renames"
+            }
+          },
+          "allOf": [
+            {
+              "$ref": "urn:archkeel:command-result:6.0.0#/else"
+            }
+          ],
+          "not": {
+            "required": [
+              "schema_version"
+            ]
+          }
+        }
+      ]
+    },
+    "v10": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/v9"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/command"
+            },
+            "exit_code": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/exit_code"
+            },
+            "observation_complete": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/observation_complete"
+            },
+            "declared_rules": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/declared_rules"
+            },
+            "expectation_fulfilled": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/expectation_fulfilled"
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/diagnostic"
+              }
+            },
+            "coverage": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/coverage"
+            },
+            "observation": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/observation"
+            },
+            "python_version": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/python_version"
+            },
+            "measurements": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/measurements"
+            },
+            "artifact": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/artifact"
+            },
+            "git_predicate": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/git_predicate"
+            },
+            "host_order": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/host_order"
+            },
+            "host_source": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/host_source"
+            },
+            "failures": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/failures"
+            },
+            "widenings": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/widenings"
+            },
+            "amendment_status": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/amendment_status"
+            },
+            "baseline_new": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/baseline_new"
+            },
+            "baseline_resolved": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/baseline_resolved"
+            },
+            "delta": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/delta"
+            },
+            "provenance": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/provenance"
+            },
+            "open_decisions": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/open_decisions"
+            },
+            "open_decision_count": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/open_decision_count"
+            },
+            "open_decisions_complete": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/open_decisions_complete"
+            },
+            "agent_decisions": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/agent_decisions"
+            },
+            "claims": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/claims"
+            },
+            "violations_by_rule": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/violations_by_rule"
+            },
+            "violations_by_component_pair": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/violations_by_component_pair"
+            },
+            "draft_sizes": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/draft_sizes"
+            },
+            "report_filter": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/report_filter"
+            },
+            "filtered_violations": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/filtered_violations"
+            },
+            "unresolved_call_changes": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/unresolved_call_changes"
+            },
+            "unresolved_call_note": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/unresolved_call_note"
+            },
+            "filtered_calls": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/filtered_calls"
+            },
+            "architecture_projection": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/architecture_projection"
+            },
+            "rule_assessments": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/rule_assessments"
+            },
+            "baseline_path": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/baseline_path"
+            },
+            "baseline_comparisons": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/baseline_comparisons"
+            },
+            "interface_budgets": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/interface_budgets"
+            },
+            "scan_roots": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/scan_roots"
+            },
+            "renames": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/renames"
+            },
+            "contract_changes": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:10.0.0#/$defs/contractChange"
+              }
+            }
+          },
+          "allOf": [
+            {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/allOf/0"
+            }
+          ],
+          "not": {
+            "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/not"
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "exit_code",
+            "observation_complete",
+            "declared_rules",
+            "expectation_fulfilled",
+            "diagnostics",
+            "coverage",
+            "architecture_projection",
+            "rule_assessments"
+          ],
+          "properties": {
+            "command": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/command"
+            },
+            "exit_code": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/exit_code"
+            },
+            "observation_complete": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/observation_complete"
+            },
+            "declared_rules": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/declared_rules"
+            },
+            "expectation_fulfilled": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/expectation_fulfilled"
+            },
+            "diagnostics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/diagnostic"
+              }
+            },
+            "coverage": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/coverage"
+            },
+            "observation": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/observation"
+            },
+            "python_version": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/python_version"
+            },
+            "measurements": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/measurements"
+            },
+            "artifact": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/artifact"
+            },
+            "git_predicate": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/git_predicate"
+            },
+            "host_order": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/host_order"
+            },
+            "host_source": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/host_source"
+            },
+            "failures": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/failures"
+            },
+            "widenings": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/widenings"
+            },
+            "amendment_status": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/amendment_status"
+            },
+            "baseline_new": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/baseline_new"
+            },
+            "baseline_resolved": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/baseline_resolved"
+            },
+            "delta": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/delta"
+            },
+            "provenance": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/provenance"
+            },
+            "open_decisions": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/open_decisions"
+            },
+            "open_decision_count": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/open_decision_count"
+            },
+            "open_decisions_complete": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/open_decisions_complete"
+            },
+            "agent_decisions": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/agent_decisions"
+            },
+            "claims": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/claims"
+            },
+            "violations_by_rule": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/violations_by_rule"
+            },
+            "violations_by_component_pair": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/violations_by_component_pair"
+            },
+            "draft_sizes": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/draft_sizes"
+            },
+            "report_filter": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/report_filter"
+            },
+            "filtered_violations": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/filtered_violations"
+            },
+            "unresolved_call_changes": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/unresolved_call_changes"
+            },
+            "unresolved_call_note": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/unresolved_call_note"
+            },
+            "filtered_calls": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/filtered_calls"
+            },
+            "architecture_projection": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/architecture_projection"
+            },
+            "rule_assessments": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/rule_assessments"
+            },
+            "baseline_path": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/baseline_path"
+            },
+            "baseline_comparisons": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/baseline_comparisons"
+            },
+            "interface_budgets": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/interface_budgets"
+            },
+            "scan_roots": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/scan_roots"
+            },
+            "renames": {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/renames"
+            },
+            "contract_changes": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:10.0.0#/$defs/contractChange"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/anyOf/0"
+            },
+            {
+              "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/anyOf/1"
+            }
+          ]
+        }
+      ],
+      "dependentSchemas": {
+        "contract_changes": {
+          "required": [
+            "command",
+            "widenings"
+          ],
+          "properties": {
+            "command": {
+              "const": "validate"
+            },
+            "widenings": {
+              "type": "array"
+            },
+            "contract_changes": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:archkeel:command-result:10.0.0#/$defs/contractChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "kind",
+        "rules",
+        "subjects",
+        "size",
+        "title",
+        "sentence",
+        "locations",
+        "component_ids"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "violation",
+            "module_cycle",
+            "package_cycle",
+            "fan_in_hub",
+            "fan_out_hub"
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sentence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "line"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "component_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "change": {
+          "enum": [
+            "known",
+            "new",
+            "reduced",
+            "resolved"
+          ]
+        },
+        "before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "path": {
+          "type": "object",
+          "required": [
+            "steps",
+            "omitted_edges"
+          ],
+          "properties": {
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "target",
+                  "location",
+                  "type_checking_only"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "line"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "line": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type_checking_only": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "omitted_edges": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "first_look": {
+      "type": "object",
+      "required": [
+        "files_parsed",
+        "files_discovered",
+        "call_resolution_percent",
+        "module_cycles",
+        "largest_module_cycle",
+        "most_imported_module",
+        "most_importers",
+        "largest_component",
+        "largest_component_modules",
+        "unknown_positions",
+        "largest_component_ties"
+      ],
+      "properties": {
+        "files_parsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "call_resolution_percent": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "module_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "largest_module_cycle": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "most_imported_module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "most_importers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "largest_component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "largest_component_ties": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "largest_component_modules": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_positions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "enum": [
+        "unavailable"
+      ]
+    }
+  }
+}

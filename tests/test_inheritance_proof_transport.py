@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from jsonschema import Draft202012Validator
 from test_source_trust_boundary import _payload
 
@@ -75,7 +76,6 @@ def test_missing_symbol_proof_is_unknown(tmp_path, missing, imported_base):
     from test_boundary_types_non_init_facades import _write_app
 
     from archkeel.analyzer.python.collect import collect
-    from archkeel.check.observation import assemble_observation
     from archkeel.check.ratchets import unknown_positions
     from archkeel.ir.facts_codec import encode_response
     from archkeel.ir.protocol import (
@@ -104,7 +104,7 @@ def test_missing_symbol_proof_is_unknown(tmp_path, missing, imported_base):
             PythonSettings(),
         )
     )
-    complete = assemble_observation(
+    complete = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
@@ -128,7 +128,7 @@ def test_missing_symbol_proof_is_unknown(tmp_path, missing, imported_base):
             for record in section["records"]:
                 record["data"].pop("source_final_method_binding", None)
     facts = decode_response(json.dumps(payload).encode()).facts
-    observation = assemble_observation(
+    observation = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",

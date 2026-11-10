@@ -8,10 +8,10 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 
 from archkeel.analyzer.python.collect import collect
 from archkeel.check.evaluation.evaluate import evaluate_source
-from archkeel.check.observation import assemble_observation
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
 from archkeel.ir.protocol import (
@@ -119,7 +119,7 @@ def test_metadata_only_version_does_not_change_analyzer_code_identity(tmp_path: 
     contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}')
 
     def observe(value):
-        return assemble_observation(
+        return assembled(
             value,
             contract_root=tmp_path,
             contract_path=contract,

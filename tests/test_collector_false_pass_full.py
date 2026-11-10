@@ -49,7 +49,8 @@ def test_an_unsupported_rule_kind_gives_no_pass_with_an_honest_reply(
     tmp_path: Path, kind: str
 ) -> None:
     root = typescript_repository(tmp_path, BY_ID[f"typescript-unsupported-{kind}"])
-    result = support.verdict(root, "typescript", support.argv_for("typescript", "honest"))
+    argv = support.argv_for("typescript", "honest")
+    result = support.verdict(root, "typescript", argv, pinned=True)
     assert result["exit"] == 2, (kind, result["diagnostics"])
     assert "rule_unsupported_by_profile" in result["diagnostics"], kind
     assert all(result["kinds"][rule] != kind for rule in support.passing(result)), kind

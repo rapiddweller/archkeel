@@ -1438,7 +1438,7 @@ def test_valid_parameter_and_member_declarations_are_proven_on_saved_replay(
     assert row.status.value == "PASS"
     assert row.evaluation_proven is True
     report = observation_payload(result.observation)
-    legacy = dict(report)
+    legacy = {k: v for k, v in report.items() if k != "producer_kind"}
     legacy["schema_version"] = "2.1.0"
     with pytest.raises(ValueError, match="observation schema 2.3.0"):
         parse_observation(legacy)

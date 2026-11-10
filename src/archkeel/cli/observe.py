@@ -14,7 +14,7 @@ from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
-from archkeel.check.ports import Language, ObservationResult, ScanConfig
+from archkeel.check.ports import Language, ObservationResult, ProducerKind, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import ProtocolVersion
@@ -46,8 +46,16 @@ def observer_for(
     bundler: bool = False,
     exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
+    pinned_digest: str | None = None,
 ) -> Observer:
     bundled = collector_argv is None
+    producer = (
+        ProducerKind.PYTHON
+        if bundled
+        else ProducerKind.EXTERNAL
+        if pinned_digest is None
+        else ProducerKind.PINNED
+    )
     native_python = bundled and language == Language.PYTHON
     native_typescript = bundled and language == Language.TYPESCRIPT
     native_rust = bundled and language == Language.RUST
@@ -63,6 +71,7 @@ def observer_for(
         protocol_version=ProtocolVersion.V8 if native_typescript or native_rust else None,
         # A collector of this package must report the host version; a configured one need not.
         pin_adapter_version=bundled,
+        pinned_digest=pinned_digest if not bundled else None,
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)
@@ -76,6 +85,7 @@ def observer_for(
         bundler,
         clock,
         exclude_test_sources,
+        producer=producer,
     )
 
 

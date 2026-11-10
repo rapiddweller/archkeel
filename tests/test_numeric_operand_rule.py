@@ -944,7 +944,7 @@ def test_legacy_observation_version_rejects_numeric_vocabulary_without_operation
             replace(section, records=()) if section.name == "declarations" else section
             for section in sections
         )
-    downgraded = replace(model, schema_version="2.1.0", sections=sections)
+    downgraded = replace(model, schema_version="2.1.0", sections=sections, producer_kind=None)
     with pytest.raises(ValueError, match="numeric_operand.*2.2.0"):
         observation_payload(downgraded)
     raw = observation_payload(model)
@@ -1119,12 +1119,12 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
     assert not Draft202012Validator(
         {"$ref": "urn:archkeel:architecture-ir:python-decoded:2.1.0"}, registry=registry
     ).is_valid(payload)
-    old_version = dict(payload)
+    old_version = {k: v for k, v in payload.items() if k != "producer_kind"}
     old_version["schema_version"] = "2.1.0"
     with pytest.raises(ValueError, match="numeric_operand constructs require.*2.2.0"):
         parse_observation(old_version)
     with pytest.raises(ValueError, match="numeric_operand constructs require.*2.2.0"):
-        observation_payload(replace(observation, schema_version="2.1.0"))
+        observation_payload(replace(observation, schema_version="2.1.0", producer_kind=None))
     (tmp_path / "accepted-report.json").write_bytes(canonical_report_bytes(observation))
     for mutation in (
         "operand",

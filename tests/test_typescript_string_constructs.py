@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 
 import pytest
+from collector_pin import assembled
 from test_typescript_collect import _facts
 
 from archkeel.analyzer.typescript import parse as parser
-from archkeel.check.observation import assemble_observation
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
 from archkeel.ir.facts import (
     ConstructSupport,
@@ -53,7 +53,7 @@ def _assemble(tmp_path, facts):
     path.write_text(json.dumps(CONTRACT))
     (tmp_path / "architecture.md").write_text("Protocol values have explicit typed owners.\n")
     fixed_intent = path.read_bytes()
-    observed, _ = assemble_observation(
+    observed, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=path,

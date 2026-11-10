@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from collector_pin import pin_of
 
 from archkeel import cli
 from archkeel.cli import main
@@ -52,7 +53,7 @@ def test_check_reobserves_revisions_with_configured_collector(
         tmp_path / "protocol",
         demo_catalog_check._COMMENT_ONLY_FILES,
         "empty_declaration",
-        analyzer=observer_for("python", collector_argv=argv),
+        analyzer=observer_for("python", collector_argv=argv, pinned_digest=pin_of(argv[0])),
     )
     assert prepared.exit_code == 0
     source = prepared.provenance
@@ -64,7 +65,8 @@ def test_check_reobserves_revisions_with_configured_collector(
 
     def record(*args, **kwargs):
         requested.append(kwargs.get("timeout_seconds"))
-        return build_observer(*args, **kwargs)
+        # A customer config has no pin (AD-344); the test pins the collector it configured.
+        return build_observer(*args, **kwargs, pinned_digest=pin_of(argv[0]))
 
     monkeypatch.setattr(cli, "observer_for", record)
     code = main(

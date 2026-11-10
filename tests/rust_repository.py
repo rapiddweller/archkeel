@@ -12,11 +12,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import pytest
+from collector_pin import pin_of
 from graph_report_support import commit_tree
 
+from archkeel import cli
 from archkeel.cli import main
+from archkeel.cli.config import load_config
 
 WORKSPACE = """[workspace]
 members = ["base", "app"]
@@ -129,7 +133,13 @@ def repository(
 def validate(root: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
     """Run `archkeel validate --json` on the fixture and return the result document."""
     capsys.readouterr()
-    main(["validate", "--root", str(root), "--json"])
+    program = load_config(root).collector_argv[0]  # type: ignore[index]
+    build = cli.observer_for
+    # A customer config has no pin (AD-344): the test pins the binary that it configured.
+    with mock.patch.object(
+        cli, "observer_for", lambda *a, **k: build(*a, **k, pinned_digest=pin_of(program))
+    ):
+        main(["validate", "--root", str(root), "--json"])
     return json.loads(capsys.readouterr().out)  # type: ignore[no-any-return]
 
 

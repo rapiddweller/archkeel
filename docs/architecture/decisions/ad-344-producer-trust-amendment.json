@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "82620384479c61a730a2770290fa10abb8d50e57942badf68c85c4ddb3bd5a91",
+  "after_digest": "a0b5271cea36aadbed96221c3bc44728a3a0e8fc94c407ebf277e675b34a45ca",
+  "before_baseline_digest": "7aaf94c39ac55c6181592d5f348388e8d60c5dc03715fc42d16a394dcd85ceab",
+  "before_digest": "0dbab2c59216ed037e392b89a3cc32143749cabfe517cdb4841f62f7f7db88ef",
+  "decided_by": "architect",
+  "rationale": "AD-344 and epic #880. The module archkeel.analyzer.pin joins the analyzer component and resolves and checks the file of a pinned collector. ProducerKind is an enum of archkeel.ir.facts that archkeel.check.ports re-exports and the check component publishes, so the CLI names who started the collector. The coupling budget of cli to check gains that one name. Two line-bound type-ignore exemptions of process.py follow their moved lines. No requires entry, Any permission or through selector changes.",
+  "schema_version": "2.0.0"
+}
