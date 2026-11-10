@@ -23,6 +23,7 @@
         "archkeel.check.onboarding:run_init",
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
+        "archkeel.check.ports:ProducerKind",
         "archkeel.check.ports:ScanConfig",
         "archkeel.check.report:read_saved_snapshot",
         "archkeel.check.report:render_result",
