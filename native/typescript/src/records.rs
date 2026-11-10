@@ -12,9 +12,8 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
-use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::FactId;
+use archkeel_facts::{envelope::Target, ids::FactId};
 use archkeel_facts::{ImportFact, Section};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::{Facts, Record, ReplySection};
