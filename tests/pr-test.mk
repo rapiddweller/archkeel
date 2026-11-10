@@ -314,4 +314,5 @@ PR_TEST_FILES := \
 	tests/test_rule_driven_collection.py \
 	tests/test_findings.py \
 	tests/test_contract_provenance.py \
-	tests/test_merge_check.py
+	tests/test_merge_check.py \
+	tests/test_collector_false_pass_gate.py

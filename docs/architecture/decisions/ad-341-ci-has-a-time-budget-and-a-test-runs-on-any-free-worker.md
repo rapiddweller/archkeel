@@ -61,3 +61,8 @@ One ratio reached 3.04 against its bound of 3 on this branch (Full run 426269335
 42568311162, 42573462394 and 42584400956 failed on such a ratio before the change.
 
 **Checks.** `tests/test_ci_budget.py` and `tests/test_make_gate.py`.
+
+**Note, 2026-11-10 (merge rules, epic #880).** Three rules apply before a merge. Run
+`make merge-check PR=<n>`. Run Full once for a PR that changes a user-visible output, even when the
+path filter does not start Full. A PR that can enable a PASS gets an independent review by a second
+model and runs the false-PASS probes (`tests/test_collector_false_pass_gate.py`, `..._full.py`).
