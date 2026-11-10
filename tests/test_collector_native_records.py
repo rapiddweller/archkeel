@@ -176,11 +176,29 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
         collection._file(collection.queue[index])
         index += 1
     collection._named_imports()
+    # The citations of the script analysis count as the citations of this phase.
+    script_cited: set[str] = set()
+    original = collection._cite
+
+    def recording(rel: str, span: object) -> str:
+        identity: str = original(rel, span)  # type: ignore[arg-type]
+        script_cited.add(identity)
+        return identity
+
+    collection._cite = recording  # type: ignore[method-assign]
+    collection._script_dependencies()
+    collection._cite = original  # type: ignore[method-assign]
     symbols, calls, references, bindings = collection._inner_facts()
+    collection._cite = recording  # type: ignore[method-assign]
+    for rel, span in dict.fromkeys(collection.script_pending_effects):
+        collection._script_runtime_effect(rel, span)
+    collection._cite = original  # type: ignore[method-assign]
+    references += collection.script_effects
     constructs = [_plain_record(record) for record in collection._constructs()]
     witnesses = list(collection.import_binding_facts.values())
+    publications = list(collection.script_publications.values())
     imports = sorted(collection.imports, key=lambda item: item["id"])
-    cited = {
+    cited = script_cited | {
         evidence
         for record in [*witnesses, *constructs, *symbols, *calls, *references, *bindings]
         for evidence in _evidence_of(record)
@@ -194,7 +212,7 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
         "calls": calls,
         "references": references,
         # The witnesses come first in the bindings of Python; the native dump lists them apart.
-        "site_bindings": bindings[len(witnesses) :],
+        "site_bindings": publications + bindings[len(publications) + len(witnesses) :],
         "evidence": [collection.evidence[key] for key in sorted(cited)],
     }
 
@@ -452,30 +470,11 @@ def test_the_records_pass_is_linear_in_time_and_memory(
     assert second_peak <= GROWTH * first_peak
 
 
-def _python_calls_with_scripts(request: CollectionRequest) -> list[dict[str, object]]:
-    """The call records of the unmodified Python collector with `_script_dependencies` run."""
-    settings = request.resolver
-    assert isinstance(settings, TypeScriptSettings)
-    collection = python_collector._Collection(request, settings)
-    index = 0
-    while index < len(collection.queue):
-        collection._file(collection.queue[index])
-        index += 1
-    collection._named_imports()
-    collection._script_dependencies()
-    _symbols, calls, _references, _bindings = collection._inner_facts()
-    return calls
-
-
-@pytest.mark.xfail(strict=True, reason="the script analysis is ported in PR 4.3a-4 and 4.3a-5")
-def test_a_call_of_a_script_global_resolves_in_python_and_not_yet_in_native(
+def test_a_call_of_a_script_global_resolves_as_in_python(
     tmp_path: Path, records_binary: Path
 ) -> None:
-    """The oracle of this file runs Python without `_script_dependencies`, and so does the native
-    collector. Python runs it for every file that is neither a declaration nor CommonJS, an ES
-    module included: `Scene.create()` in `mod.ts` is `resolved` there (the target is
-    `legacy_x2e_js.create`, with a `SCRIPTPUBLICATION` fact) and `unresolved` here. This test pins
-    the difference and fails (strict xfail) on the day that the native collector resolves it."""
+    """`Scene.create()` in `mod.ts` resolves to `legacy_x2e_js.create` in Python, with a
+    `SCRIPTPUBLICATION` fact. The native collector gives the same record (PR 4.3a-5)."""
     _write(
         tmp_path,
         {
@@ -488,4 +487,5 @@ def test_a_call_of_a_script_global_resolves_in_python_and_not_yet_in_native(
     )
     request = _request(tmp_path)
     native = native_records(records_binary, request)["calls"]
-    assert native == _python_calls_with_scripts(request)
+    assert native == python_records(request)["calls"]
+    assert any(call["data"]["status"] == "resolved" for call in native)

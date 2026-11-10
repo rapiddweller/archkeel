@@ -24,11 +24,13 @@ use crate::config::load_config;
 use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
 use crate::pytext::is_space;
-#[cfg(any(test, feature = "dump"))]
-use crate::records::listed;
 use crate::records::write_reply;
 #[cfg(any(test, feature = "dump"))]
-use crate::records::{records_of, Records};
+use crate::records::Records;
+#[cfg(any(test, feature = "dump"))]
+use crate::records_lists::listed;
+#[cfg(any(test, feature = "dump"))]
+use crate::records_lists::records_of;
 use crate::resolve::Resolver;
 use crate::syntax::Parsers;
 use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
@@ -70,6 +72,10 @@ struct Collection<'a> {
     kept: BTreeMap<String, Kept>,
     order: Vec<String>,
     sites: HashMap<String, (String, i64, i64)>,
+    /// The script host and the vendored libraries of the project.
+    script: crate::script_environment::ScriptEnvironment,
+    /// `script_pending_effects` of the files: writes that no publication bounds.
+    pending_effects: Vec<(String, crate::source::Span)>,
 }
 
 /// The reply of one request, written into `out`: the imports, the symbols, the calls, the
@@ -120,6 +126,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
     let partial = config.partial;
+    let script = config.script;
     let listed = config.files;
     let mut collection = Collection {
         request,
@@ -140,6 +147,8 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         kept: BTreeMap::new(),
         order: Vec::new(),
         sites: HashMap::new(),
+        script,
+        pending_effects: Vec::new(),
     };
     collection.queue = listed
         .iter()
@@ -167,6 +176,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         collection.file(&rel);
         index += 1;
     }
+    let (script, dependency_scope) = collection.script_dependencies(partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
     for problem in problems {
         collection.gap(&problem, None, "", GapKind::Collection);
@@ -199,6 +209,8 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         order: collection.order,
         sites: collection.sites,
         partial,
+        script,
+        dependency_scope,
     };
     let facts = Facts {
         provenance,
@@ -298,6 +310,9 @@ impl Collection<'_> {
 
 #[path = "imports.rs"]
 mod imports;
+
+#[path = "script_run.rs"]
+mod script_run;
 
 #[cfg(test)]
 #[path = "collect_tests.rs"]

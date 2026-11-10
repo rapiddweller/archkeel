@@ -107,7 +107,11 @@ needs no Node runtime. A scan with `collector_argv` gives at most UNKNOWN, becau
 external collector cannot prove a rule ([AD-344](architecture/decisions/ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md)).
 The result has an `incomplete_scan` diagnostic that names the producer (`external`) and
 the remedy. Use the collector of this package. A configured collector cannot be pinned in
-`archkeel.toml` yet. Runtime mismatch, malformed replies and incomplete evidence
+`archkeel.toml` yet. A platform wheel carries a native TypeScript collector and the digest of its
+file. The host starts it only with that digest and records the producer `bundled`; an install
+without the pair runs the Python collector, which gives the same facts
+([AD-352](architecture/decisions/ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md)).
+Runtime mismatch, malformed replies and incomplete evidence
 cannot certify a scan. Legacy observations remain readable only under supported
 schemas; missing required sections fail closed.
 

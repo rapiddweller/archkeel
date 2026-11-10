@@ -169,6 +169,14 @@ def _beside(reply: dict[str, Any]) -> dict[str, Any]:
     return {key: item for key, item in reply.items() if key != "facts" and item != []}
 
 
+def _normal(value: dict[str, Any]) -> dict[str, Any]:
+    """The reply as a 3.0.0 reply would be: an empty `provider_bindings` and an empty
+    `provider_sources` are no key, so the hash of the whole reply does not depend on the
+    protocol."""
+    kept = {key: item for key, item in value.items() if key != "facts" and item != []}
+    return {**kept, "facts": {**_rest(value["facts"]), "sections": value["facts"]["sections"]}}
+
+
 def _sha(value: Any) -> str:
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
@@ -209,6 +217,8 @@ def digest(value: dict[str, Any], pin: Pin | None = None) -> dict[str, Any]:
         "sections": sections,
         "rest": {"sha256": _sha({**rest, "_beside": beside} if beside else rest), "counts": counts},
     }
+    # What the hash would be at 3.0.0, which a golden reply of that protocol was recorded with.
+    result["sha256_at_3"] = _sha(_normal(value))
     if pin:
         result["portable"] = digest(portable(value, pin))
     return result
@@ -377,7 +387,8 @@ def compare(golden: Golden, actual: dict[str, Any], allowed: Allowance | None = 
             )
     if got["rest"] != want["rest"]:
         problems.append(_describe("rest", want["rest"], got["rest"], golden.full, actual))
-    if not missing and not problems and got["sha256"] != want["sha256"]:
+    whole = {got["sha256"], got["sha256_at_3"]}
+    if not missing and not problems and want["sha256"] not in whole:
         problems.append(
             "the whole reply differs in a field that no part covers (capabilities.sections)"
         )

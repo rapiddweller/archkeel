@@ -11,6 +11,7 @@
 
 use tree_sitter::{Language, Node, TreeCursor};
 
+use crate::plant;
 use crate::source::Source;
 use crate::walk::Walk;
 
@@ -124,18 +125,26 @@ fn visit<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Scan<'t
     {
         name(kinds, source, node, kind, found);
     } else if kind == kinds.import_statement {
-        found.imports.push(node);
+        if !plant::lose("import") {
+            found.imports.push(node);
+        }
     } else if kind == kinds.export_statement {
-        if node
+        let sourced = node
             .child_by_field_name("source")
-            .is_some_and(|source| source.is_named())
-        {
+            .is_some_and(|source| source.is_named());
+        if sourced && !plant::lose("export") {
             found.exports.push(node);
         }
     } else if kind == kinds.call_expression {
         match field_kind(node, "function") {
-            Some((id, _)) if id == kinds.import => found.dynamic.push(node),
-            Some((id, callee)) if id == kinds.identifier && is_text(source, callee, b"require") => {
+            Some((id, _)) if id == kinds.import && !plant::lose("dynamic") => {
+                found.dynamic.push(node);
+            }
+            Some((id, callee))
+                if id == kinds.identifier
+                    && is_text(source, callee, b"require")
+                    && !plant::lose("require") =>
+            {
                 found.requires.push(node);
             }
             _ => {}

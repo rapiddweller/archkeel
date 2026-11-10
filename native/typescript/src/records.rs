@@ -18,14 +18,13 @@ use archkeel_facts::{ImportFact, Section};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::{Facts, Record, ReplySection};
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
-#[cfg(any(test, feature = "dump"))]
-use archkeel_wire::stream::{Emit, TypedEmit};
 use serde_json::json;
 
 use crate::cited::Cited;
 use crate::import_bindings::ImportBinding;
 use crate::kept::{Kept, Pending};
 use crate::resolution::{local_imports, Imports};
+use crate::script_effects::effect_record;
 use crate::site_records::{self, Pass};
 use crate::source::Span;
 use crate::symbol_table::SymbolTable;
@@ -91,6 +90,20 @@ pub fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, Plan<'_>
     let mut cited = Cited::owning(std::mem::take(&mut facts.evidence), track);
     let mut expanded = Records::default();
     expand(&facts, pending, &mut cited, &mut expanded);
+    // The script analysis comes after the named imports and before the symbols, as in Python.
+    for (rel, span) in &pending.script.cites {
+        cited.cite(rel, span);
+    }
+    if !expanded.witnesses.is_empty() || pending.dependency_scope {
+        let at = facts
+            .features
+            .iter()
+            .position(|name| *name == "inner-uml-v1");
+        facts.features.insert(
+            at.map_or(facts.features.len(), |at| at.saturating_add(1)),
+            "script-globals-v1",
+        );
+    }
     expanded
         .imports
         .sort_by(|left, right| left.id.cmp(&right.id));
@@ -140,25 +153,29 @@ impl Plan<'_> {
         sink.write_section("symbols", |emit| {
             symbols::each(table, cited, &mut |record| emit(&record));
         })?;
-        let mut bindings = std::mem::take(&mut expanded.witnesses);
+        let mut head = pending.script.publications.clone();
+        head.extend(std::mem::take(&mut expanded.witnesses));
+        let mut placed = Vec::new();
         sink.write_section("calls", |emit| {
             let pass = site_records::pass(table, pending, imports, cited, Pass::Calls, &mut |r| {
                 emit(&r);
             });
-            bindings.extend(pass);
+            placed.extend(pass);
         })?;
-        let mut stray = 0;
         sink.write_section("references", |emit| {
             let pass =
                 site_records::pass(table, pending, imports, cited, Pass::References, &mut |r| {
                     emit(&r);
                 });
-            stray = pass.len();
+            placed.extend(pass);
+            for effect in &pending.script.effects {
+                emit(&effect_record(cited, effect));
+            }
         })?;
-        if stray > 0 {
-            let reason = "a reference site made a result binding";
-            return Err(io::Error::new(io::ErrorKind::InvalidData, reason));
-        }
+        // Python makes the bindings of the calls and the references in one pass over the sites.
+        placed.sort_by_key(|(at, _)| *at);
+        head.extend(placed.into_iter().map(|(_, record)| record));
+        let bindings = head;
         sink.write_section("bindings", |emit| bindings.iter().for_each(emit))?;
         constructs(pending, cited, expanded);
         sink.write_section("constructs", |emit| {
@@ -197,93 +214,6 @@ pub fn write_reply(
     encode_stream(version, head, out, |writer| {
         plan.write(writer).map(|(tail, _)| tail)
     })
-}
-
-/// The lists of a producer run: the sink of the unit tests and the test-only dump.
-#[cfg(any(test, feature = "dump"))]
-#[derive(Default)]
-pub struct Lists {
-    pub sections: Vec<ReplySection>,
-}
-
-#[cfg(any(test, feature = "dump"))]
-impl SectionSink for Lists {
-    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
-        let mut records = Vec::new();
-        fill(&mut |record: &Record| records.push(record.clone()));
-        self.sections.push(ReplySection::Records(name, records));
-        Ok(())
-    }
-
-    fn typed_section<D: archkeel_facts::IntoSection>(
-        &mut self,
-        _name: &'static str,
-        fill: &mut dyn FnMut(TypedEmit<'_, D>),
-    ) -> io::Result<()> {
-        let mut records = Vec::new();
-        fill(&mut |record: &archkeel_facts::Record<D>| records.push(record.clone()));
-        self.sections.push(ReplySection::Typed(D::section(records)));
-        Ok(())
-    }
-}
-
-/// The facts with every section in a list, and the ids that the records cite. This runs the
-/// producer of the reply, so what a test sees is what the reply holds.
-#[cfg(any(test, feature = "dump"))]
-pub fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), String> {
-    let (head, plan) = plan(facts, pending, true);
-    let mut lists = Lists::default();
-    let (tail, touched) = plan.write(&mut lists).map_err(|error| error.to_string())?;
-    let facts = Facts {
-        provenance: head.provenance,
-        git_head: head.git_head,
-        dirty: head.dirty,
-        scope: head.scope,
-        sections: lists.sections,
-        features: head.features,
-        constructs: head.constructs,
-        inputs: head.inputs,
-        files: head.files,
-        imports: head.imports,
-        selected_files: tail.selected_files,
-        files_read: tail.files_read,
-        gaps: tail.gaps,
-        evidence: tail.evidence,
-    };
-    Ok((facts, touched))
-}
-
-/// The records of the sections by the names that the tests and the dump use: the result bindings
-/// are the records of `bindings` that are not export witnesses.
-#[cfg(any(test, feature = "dump"))]
-pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
-    #[cfg(not(feature = "dump"))]
-    drop(touched);
-    let section = |name: &str| -> Vec<Record> {
-        facts
-            .sections
-            .iter()
-            .find_map(|section| match section {
-                ReplySection::Records(found, records) if *found == name => Some(records.clone()),
-                _ => None,
-            })
-            .unwrap_or_default()
-    };
-    let (witnesses, bindings) = section("bindings")
-        .into_iter()
-        .partition(|record| record.id.starts_with("ESM_EXPORT-"));
-    Records {
-        imports: import_section(facts).to_vec(),
-        targets: facts.imports.clone(),
-        witnesses,
-        constructs: section("constructs"),
-        symbols: section("symbols"),
-        calls: section("calls"),
-        references: section("references"),
-        bindings,
-        #[cfg(feature = "dump")]
-        touched,
-    }
 }
 
 /// The typed import records of the facts.

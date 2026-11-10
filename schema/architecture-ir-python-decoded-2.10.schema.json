@@ -969,6 +969,7 @@
     "producer_kind": {
       "enum": [
         "python",
+        "bundled",
         "pinned",
         "external"
       ]

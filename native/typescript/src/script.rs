@@ -16,17 +16,19 @@ use crate::members::Cx;
 use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
 use crate::script_types::Script;
+use crate::source::Span;
 use crate::umd::Templates;
 use crate::walk::Syntax;
 
-/// The script facts of a file whose other facts are in `syntax`.
+/// The script facts of a file whose other facts are in `syntax`, and the places where a scope that
+/// binds names cannot be known (a concern of a global script).
 pub fn read<'t>(
     cx: Cx,
     root: Node<'t>,
     layout: Layout<'t>,
     syntax: &Syntax,
     templates: &Templates,
-) -> Script {
+) -> (Script, Vec<Span>) {
     let mut tree = Tree::from_layout(cx, root, layout);
     let nodes = Rc::clone(&tree.nodes);
     tree.bind(&nodes, &syntax.import_bindings);
@@ -52,14 +54,19 @@ pub fn read<'t>(
         top_level_write_paths: declared.top_level_paths,
         ..Script::default()
     };
+    let mut ambiguous = Vec::new();
     if syntax.script_mode {
+        let listed = nodes
+            .iter()
+            .filter(|node| tree.ambiguous.contains(&node.id()));
+        ambiguous = listed.map(|node| tree.span(*node)).collect();
         script.globals = globals;
         script.aliases = producer.aliases();
         script.factories = producer.factories();
         script.destructures = producer.destructures();
         script.namespaces = producer.namespaces();
     }
-    script
+    (script, ambiguous)
 }
 
 #[cfg(test)]

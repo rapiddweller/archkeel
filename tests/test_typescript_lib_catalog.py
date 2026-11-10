@@ -150,6 +150,12 @@ def _catalog_text() -> str:
     return files("archkeel.analyzer.typescript").joinpath("standard_libs.json").read_text("utf-8")
 
 
+def test_the_native_collector_embeds_a_copy_of_the_catalog_that_equals_it():
+    # The copy lies in `native/`, so the digest of the workspace covers it (AD-352).
+    native = ROOT / "native/typescript/standard_libs.json"
+    assert native.read_bytes() == _catalog_text().encode("utf-8")
+
+
 def test_catalog_file_is_compact_sorted_and_ends_in_one_newline():
     text = _catalog_text()
     data = json.loads(text)
@@ -246,13 +252,18 @@ def test_check_compares_bytes_and_write_emits_lf(tmp_path, monkeypatch):
     generator = _generator()
     target = tmp_path / "standard_libs.json"
     monkeypatch.setattr(generator, "ROOT", tmp_path)
+    copy = tmp_path / "native.json"
     monkeypatch.setattr(generator, "OUTPUT", target)
+    monkeypatch.setattr(generator, "NATIVE", copy)
     expected = generator.build_catalog().encode("utf-8")
     assert generator.main(["--write"]) == 0
-    assert target.read_bytes() == expected
+    assert target.read_bytes() == copy.read_bytes() == expected
     assert generator.main(["--check"]) == 0
     # The same text with Windows line endings is a different file: Rust embeds the bytes.
     target.write_bytes(expected.replace(b"\n", b"\r\n"))
+    assert generator.main(["--check"]) == 1
+    target.write_bytes(expected)
+    copy.write_bytes(b"{}\n")
     assert generator.main(["--check"]) == 1
 
 
@@ -265,10 +276,11 @@ def test_gitattributes_pins_the_data_file_to_lf():
             "eol",
             "--",
             "src/archkeel/analyzer/typescript/standard_libs.json",
+            "native/typescript/standard_libs.json",
         ],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=True,
     )
-    assert "text: set" in result.stdout and "eol: lf" in result.stdout
+    assert result.stdout.count("text: set") == result.stdout.count("eol: lf") == 2

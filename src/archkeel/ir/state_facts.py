@@ -111,5 +111,6 @@ class ProducerKind(StrEnum):
     """Who made the facts. The host knows it from how it started the collector (AD-344)."""
 
     PYTHON = "python"  # the collector of this package
+    BUNDLED = "bundled"  # the native collector of this package, started with its digest
     PINNED = "pinned"  # a configured collector whose file has the pinned digest
     EXTERNAL = "external"  # a configured collector without a pin: it cannot prove a rule

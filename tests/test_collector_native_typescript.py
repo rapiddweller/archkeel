@@ -119,20 +119,19 @@ def test_reply_decodes_with_consistent_coverage(binary: Path, version: ProtocolV
         "constructs",
     }
     assert "inner-uml-v1" in facts.capabilities.resolution_features
-    assert "script-globals-v1" not in facts.capabilities.resolution_features
+    # The native collector declares what the Python collector declares (PR 4.3a-5).
+    python = collect(_request(ROOT / "fixtures/H-typescript", version))
+    assert facts.capabilities == python.capabilities
     assert [(c.name.value, c.status.value) for c in facts.capabilities.constructs] == [
         ("string_literal_compare", "partial")
     ]
     assert len(coverage.selected_files) == coverage.files_read == coverage.files_parsed == 7
     assert len(facts.files) == 7
-    # No global is examined, so the scan is not complete: one gap for each file (AD-320).
-    assert not coverage.full_scope
-    assert {gap.title for gap in coverage.gaps} == {
-        "Script-global dependencies are not examined by the native collector"
-    }
-    assert len(coverage.gaps) == len(facts.files)
+    # The gaps are the gaps of the Python collector: the script globals are examined (AD-340).
+    assert coverage.full_scope == python.coverage.full_scope
+    assert coverage.gaps == python.coverage.gaps
     sections = {section.name.value: section.records for section in facts.sections}
-    assert len(sections["imports"]) == len(facts.imports) == 8
+    assert len(sections["imports"]) == len(facts.imports) == len(python.imports)
     assert sections["unknowns"] == coverage.gaps
 
 

@@ -3,12 +3,11 @@
 # SPDX-License-Identifier: MIT
 """AD-340: the native reply equals the reply of the Python TypeScript collector, decoded.
 
-Consumer: the host process port. The oracle is the unmodified Python collector with the script
-analysis replaced by the gap that the native collector gives (`native_oracle`). Then the decoded
+Consumer: the host process port. The oracle is the Python collector, unmodified: the decoded
 files, inputs, evidence, targets, capabilities, every section (imports, unknowns, symbols, calls,
 references, bindings, constructs), gaps and coverage must be equal, with no filter; only the
-provenance of the adapter and the runtime differs. The oracle is temporary: PR 4.3a-5 deletes it.
-The comparison is on decoded content: the key order of a record differs.
+provenance of the adapter and the runtime differs. The comparison is on decoded content: the key
+order of a record differs.
 """
 
 from __future__ import annotations
@@ -21,9 +20,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from native_oracle import legacy_facts
 
 from archkeel.analyzer.process import ProcessCollector
+from archkeel.analyzer.typescript.collect import collect as python_collect
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
@@ -101,9 +100,7 @@ def _request(
 def _differences(binary: Path, request: CollectionRequest) -> list[str]:
     native = ProcessCollector((str(binary),), protocol_version=ProtocolVersion.V8).collect(request)
     assert not isinstance(native, CollectionError), native
-    oracle, scripts = legacy_facts(request)
-    # A global script gets gaps that only the script analysis can give: the tree must hold none.
-    assert scripts == (), f"the tree holds global scripts: {scripts}"
+    oracle = python_collect(request)
     mine, theirs = _view(native), _view(oracle)
     found: list[str] = []
     for key, value in mine.items():

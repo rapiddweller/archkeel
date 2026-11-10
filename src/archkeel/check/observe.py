@@ -178,7 +178,11 @@ def observation_diagnostics(
                 "Inspect the analyzer coverage and repair its inputs.",
             )
         )
-    if model.producer_kind not in (ProducerKind.PYTHON, ProducerKind.PINNED):
+    if model.producer_kind not in (
+        ProducerKind.PYTHON,
+        ProducerKind.BUNDLED,
+        ProducerKind.PINNED,
+    ):
         diagnostics.append(_untrusted_producer_diagnostic(model.producer_kind))
     return tuple(diagnostics)
 

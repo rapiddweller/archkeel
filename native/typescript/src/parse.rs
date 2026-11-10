@@ -16,6 +16,8 @@ use crate::walk::{Syntax, Walk};
 
 pub struct Parsed {
     pub references: Vec<Reference>,
+    /// The number of import-bearing nodes of the tree, to check that each has an outcome.
+    pub places: usize,
     pub concerns: Vec<Concern>,
     /// A `require` name that is not a plain call may be a local binding, not the loader.
     pub shadows_require: bool,
@@ -36,6 +38,7 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     let Some((tree, grammar)) = parsers.parse(typescript, data) else {
         return Parsed {
             references: Vec::new(),
+            places: 0,
             concerns: Vec::new(),
             shadows_require: false,
             first_error: Some(1),
@@ -52,9 +55,18 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     let found_nodes = scan(&grammar.kinds, &source, root, &mut walk);
     let layout = walk.take_layout();
     let mut syntax = walk.finish(root, suffix);
-    syntax.script = script::read(cx, root, layout, &syntax, &grammar.templates);
-    let references = references::trusted(&source, root, &found_nodes);
-    let found = concerns::read(&source, root, &found_nodes, &references, suffix);
+    let (found_script, ambiguous) = script::read(cx, root, layout, &syntax, &grammar.templates);
+    syntax.script = found_script;
+    let extracted = references::trusted(&source, root, &found_nodes);
+    let references = extracted.trusted;
+    let mut found = concerns::read(&source, root, &found_nodes, &references, suffix);
+    // `parse.parse`: after the comment concerns, one for each scope that binds names unknowably.
+    found
+        .list
+        .extend(ambiguous.into_iter().map(|span| concerns::Concern {
+            reason: "Script binding scope is not statically known".to_owned(),
+            span,
+        }));
     let first_error = found_nodes
         .errors
         .iter()
@@ -62,6 +74,7 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
         .map(|node| source.span(*node, None).line);
     Parsed {
         references,
+        places: grammar.places.count(&source, root),
         concerns: found.list,
         shadows_require: found.shadows_require,
         first_error,

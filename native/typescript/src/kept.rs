@@ -8,7 +8,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::definitions::{Definition, Scopes};
 use crate::import_bindings::ImportBinding;
+use crate::kept_script::ScriptFile;
 use crate::parse::Parsed;
+use crate::script_records::ScriptFacts;
 use crate::site_names::NameIndex;
 use crate::sites::Sites;
 use crate::source::Span;
@@ -36,11 +38,13 @@ pub struct Kept {
     pub text: String,
     /// The question "does a scope hide this name" for the sites of the file.
     pub shadow: NameIndex,
+    /// The script facts and the flags that the script analysis reads.
+    pub script: ScriptFile,
 }
 
 impl Kept {
     /// What a parsed file keeps for the records of this phase.
-    pub fn from_parsed(module: &str, parsed: &mut Parsed, text: &str) -> Self {
+    pub fn from_parsed(module: &str, parsed: &mut Parsed, text: &str, script: ScriptFile) -> Self {
         let syntax = &mut parsed.syntax;
         let definitions = syntax
             .definitions
@@ -69,6 +73,7 @@ impl Kept {
         kept.scopes = std::mem::take(&mut syntax.scopes);
         kept.shadow = kept.sites.names.index(text.as_bytes());
         kept.text = text.to_owned();
+        kept.script = script;
         kept
     }
 
@@ -104,6 +109,7 @@ impl Kept {
             rebound: HashSet::new(),
             text: String::new(),
             shadow: NameIndex::default(),
+            script: ScriptFile::default(),
         }
     }
 }
@@ -118,4 +124,8 @@ pub struct Pending {
     pub sites: HashMap<String, (String, i64, i64)>,
     /// The settings of the project could not be read in full (`config.partial`).
     pub partial: bool,
+    /// What the script analysis found (`script_deps.rs`).
+    pub script: ScriptFacts,
+    /// Some file can use a browser global, so the reply declares `script-globals-v1`.
+    pub dependency_scope: bool,
 }

@@ -182,7 +182,8 @@ fn a_collection_declares_the_inner_uml_capability_and_fills_each_section_that_it
         .all(|r| r.id.as_str().starts_with("IMP_BINDING-")));
     assert_eq!(facts.imports.len(), count("imports"));
     assert_eq!(facts.features[4], "inner-uml-v1");
-    assert!(!facts.features.contains(&"script-globals-v1"));
+    // A proven binding has a witness, and a witness is what earns the feature.
+    assert_eq!(facts.features[5], "script-globals-v1");
     assert_eq!(facts.constructs, [("string_literal_compare", "partial")]);
 }
 

@@ -68,7 +68,7 @@ fn a_production_file_beside_the_tests_removes_the_gap() {
     ]);
     let facts = collect(&request(&tree, true), provenance());
     assert_eq!(facts.selected_files, ["src/a.ts"]);
-    assert_eq!(titles(&facts), [imports::GLOBALS_UNEXAMINED]);
+    assert!(titles(&facts).is_empty());
 }
 
 // Consumer: a source file over the size limit. Its gap is UNKNOWN for that file only. The other
@@ -89,9 +89,6 @@ fn a_source_over_the_size_limit_is_a_gap_and_the_others_are_collected() {
     assert_eq!(facts.files_read, 1);
     assert_eq!(
         titles(&facts),
-        [
-            "Source file over the size limit of 4194304 bytes: src/huge.ts",
-            imports::GLOBALS_UNEXAMINED
-        ]
+        ["Source file over the size limit of 4194304 bytes: src/huge.ts"]
     );
 }
