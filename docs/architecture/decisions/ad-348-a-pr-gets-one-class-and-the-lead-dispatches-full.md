@@ -4,20 +4,24 @@
 (merge rules) and replaces the rule "run Full once for each PR that changes an output".
 
 **Decision.**
-1. Each PR has a class. A: no change to an output, golden bytes, a published schema, packaging or
+1. Each PR gets exactly one independent review. A PASS-relevant PR also gets the false-PASS probes.
+   The author fixes the findings, the lead checks the fixes, and the PR merges. There is no second
+   review round; a problem found later becomes a follow-up issue. The goal is a good solution, not
+   a perfect one (owner, 2026-11-10).
+2. Each PR has a class. A: no change to an output, golden bytes, a published schema, packaging or
    a workflow. B: such a change, or a protocol version. C: Windows-sensitive paths, wheel or
    packaging, `Cargo.lock`, toolchain, `Makefile` or `.github/`.
-2. Before the push, the local gate is green on the final head, rebased on `main`
+3. Before the push, the local gate is green on the final head, rebased on `main`
    (see `CONTRIBUTING.md`). A PR in a fix loop is a draft.
-3. A needs the review, the local gate and green PR CI. When CI is not finished 15 minutes after
+4. A needs the review, the local gate and green PR CI. When CI is not finished 15 minutes after
    the push, the lead may merge and read the result afterwards. B also needs one Full run on the
    final reviewed SHA. C needs green CI and the Full run of B.
-4. One branch Full runs at a time. The lead dispatches it; an agent does not.
-5. Full runs on `main` every night and after every 3 merges (the lead dispatches this one).
-6. A red `main` stops the line. Only the fix merges. The lead reverts the suspect merge when
+5. One branch Full runs at a time. The lead dispatches it; an agent does not.
+6. Full runs on `main` every night and after every 3 merges (the lead dispatches this one).
+7. A red `main` stops the line. Only the fix merges. The lead reverts the suspect merge when
    no fix is green locally within 60 minutes.
-7. A draft PR runs no job in `ci.yml` and `full-verification.yml`. `ready_for_review` starts CI.
-8. `tools/ci_daily.py` prints the daily line: CI wall, CI queue wait (median, p90 and maximum of
+8. A draft PR runs no job in `ci.yml` and `full-verification.yml`. `ready_for_review` starts CI.
+9. `tools/ci_daily.py` prints the daily line: CI wall, CI queue wait (median, p90 and maximum of
    the slowest-starting job), Full wall on `main`, Full runs, re-runs and red-main hours. It leaves
    re-runs and all-skipped draft runs out of wall and queue. Targets: CI at most 10 minutes, queue at most 3, Full at most 30.
 
