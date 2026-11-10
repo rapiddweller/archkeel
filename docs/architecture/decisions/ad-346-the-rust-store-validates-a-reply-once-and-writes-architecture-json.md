@@ -12,7 +12,8 @@ collector through it. The setting is an opt-in, not the default.
    the types of `archkeel-facts`, the envelope included (`facts/src/envelope.rs`), and keeps the
    typed `Reply`. It runs the generic checks of `validate_source_facts` with the same messages
    (`validate.rs`, `records.rs`, `bindings.rs`). They read a typed `View` of one record at a time
-   (`view.rs`). The Python check does not validate the facts again. Until the PR after #941
+   (`view.rs`). It borrows the `Fields` that each data type of `archkeel-facts` gives
+   (`facts/src/fields.rs`). The Python check does not validate the facts again. Until the PR after #941
    deletes the Python copies (WP4), the generic checks and the import projection of
    `evaluate.py:evaluate_source` (`stored.rs`) exist twice.
 3. **Read-set.** The store answers with the read-set of `archkeel-facts` for each measured section
@@ -22,12 +23,10 @@ collector through it. The setting is an opt-in, not the default.
    record and evidence entry by its id (`ir/codec_store.py`). The store writes the canonical
    columnar bytes (`canonical.rs`), byte-equal to the Python writer. The Python writer refuses an
    observation while a store holds the collection.
-5. **JSON edges.** Only three places see JSON: the parts of the shell (untyped observation
+5. **JSON edges.** Only two places see JSON: the parts of the shell (untyped observation
    records until the observation moves to the core, WP6); the Python byte formats of stage 1
    (`canonical.rs`, `pyrepr.rs`, `inventory.rs`, `pyjson.rs`), one stored record at a time
-   (`stored.rs:saved`); and `View::of`, which writes each record to JSON bytes and reads them back
-   into `View` (follow-up: a typed field-access trait on the facts types). No record is held as
-   JSON. `check` and `validate --against` run without the store (`store_disabled`). The read-set frame is written twice, once
+   (`stored.rs:saved`). No record is held as JSON, and the checks read no JSON. `check` and `validate --against` run without the store (`store_disabled`). The read-set frame is written twice, once
    to count its length, and is never buffered.
 6. **Receipt digests.** The dependency proof hashes the Python `repr` of whole records, and the
    member inventory proof hashes their `asdict` JSON. The store writes both forms (`pyrepr.rs`,

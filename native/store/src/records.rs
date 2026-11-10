@@ -62,8 +62,8 @@ fn envelope_class(section: &Section, class: EvidenceClass) -> Result<(), String>
     }
 }
 
-fn base_declarations(view: &View, section: &Section) -> Result<(), String> {
-    let Some(bases) = &view.data.base_declarations else {
+fn base_declarations(view: &View<'_>, section: &Section) -> Result<(), String> {
+    let Some(bases) = view.data.base_declarations else {
         return Ok(());
     };
     if !matches!(section, Section::Symbols(_)) || view.kind != "class" {
@@ -90,8 +90,8 @@ fn base_declarations(view: &View, section: &Section) -> Result<(), String> {
 }
 
 impl Pass<'_> {
-    fn construct(&self, view: &View) -> Result<(), String> {
-        let Some(name) = &view.data.construct else {
+    fn construct(&self, view: &View<'_>) -> Result<(), String> {
+        let Some(name) = view.data.construct else {
             return Ok(());
         };
         let declared = self
@@ -99,7 +99,7 @@ impl Pass<'_> {
             .capabilities
             .constructs
             .iter()
-            .any(|entry| &entry.name == name && entry.status != ConstructSupport::Unsupported);
+            .any(|entry| entry.name == name && entry.status != ConstructSupport::Unsupported);
         if declared {
             Ok(())
         } else {
@@ -107,30 +107,31 @@ impl Pass<'_> {
         }
     }
 
-    fn index(&mut self, view: &View, section: &Section) -> Result<(), String> {
+    fn index(&mut self, view: &View<'_>, section: &Section) -> Result<(), String> {
         let place = (self.section, self.position);
-        if self.places.insert(view.id.clone(), place).is_some() {
+        if self.places.insert(view.id.to_owned(), place).is_some() {
             return Err("duplicate source record id".to_owned());
         }
         if view.id.is_empty() {
             return Err("empty source record id".to_owned());
         }
-        if self.envelope.file_ids.contains(view.id.as_str()) {
+        if self.envelope.file_ids.contains(view.id) {
             return Err("file and record ids collide".to_owned());
         }
-        self.fact_refs.extend(view.fact_ids.iter().cloned());
+        self.fact_refs
+            .extend(view.fact_ids.iter().map(|id| id.as_str().to_owned()));
         self.effects |= view.kind == "script_namespace_effect";
         if view.kind == "method" {
-            if let Some(parent) = &view.data.lexical_parent_id {
-                let methods = self.methods.entry(parent.clone()).or_default();
-                methods.insert(view.id.clone());
+            if let Some(parent) = view.data.lexical_parent_id {
+                let methods = self.methods.entry(parent.to_owned()).or_default();
+                methods.insert(view.id.to_owned());
             }
         }
-        if let Some(inventories) = &view.data.member_inventories {
+        if let Some(inventories) = view.data.member_inventories {
             if !matches!(section, Section::Symbols(_)) || view.kind != "class" {
                 return Err("member inventory needs its class owner".to_owned());
             }
-            let attributes = view.data.attribute_declarations.as_ref().map(|items| {
+            let attributes = view.data.attribute_declarations.map(|items| {
                 items
                     .iter()
                     .map(|item| item.definition_id.as_str().to_owned())
@@ -148,7 +149,7 @@ impl Pass<'_> {
                     .iter()
                     .map(|id| id.as_str().to_owned());
                 self.inventories.push(Inventory {
-                    owner: view.id.clone(),
+                    owner: view.id.to_owned(),
                     kind: inventory.kind,
                     declared: ids.collect(),
                     attributes: attributes.clone(),
@@ -167,10 +168,10 @@ impl Pass<'_> {
         }
         if matches!(section, Section::Imports(_)) {
             let fields = (
-                view.data.target_module.clone(),
-                view.data.target_package.clone(),
+                view.data.target_module.map(str::to_owned),
+                view.data.target_package.map(str::to_owned),
             );
-            self.imports.insert(view.id.clone(), fields);
+            self.imports.insert(view.id.to_owned(), fields);
         }
         Ok(())
     }
@@ -178,7 +179,7 @@ impl Pass<'_> {
 
 impl Visitor for Pass<'_> {
     fn record<D: FactData>(&mut self, section: &Section, record: &Record<D>) -> Result<(), String> {
-        let view = View::of(record)?;
+        let view = View::new(record);
         if !view
             .evidence_ids
             .iter()
@@ -187,13 +188,13 @@ impl Visitor for Pass<'_> {
             return Err("dangling source evidence reference".to_owned());
         }
         envelope_class(section, view.evidence_class)?;
-        if UNCHECKED_KINDS.contains(&view.kind.as_str()) {
+        if UNCHECKED_KINDS.contains(&view.kind) {
             return Err(format!(
                 "the store does not check {} records yet",
                 view.kind
             ));
         }
-        if let Some(field) = view.data.unchecked() {
+        if let Some(field) = view.unchecked() {
             return Err(format!("the store does not check the field {field} yet"));
         }
         self.construct(&view)?;
@@ -237,7 +238,7 @@ impl Pass<'_> {
 
     fn gaps(&self, sections: &[Section]) -> Result<(), String> {
         for gap in &self.facts.coverage.gaps {
-            let view = View::of(gap)?;
+            let view = View::new(gap);
             envelope_class(&Section::Unknowns(Vec::new()), view.evidence_class)?;
             let place = self.places.get(gap.id.as_str());
             let same = place.is_some_and(|(section, index)| match &sections[*section] {

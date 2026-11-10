@@ -61,6 +61,16 @@ pub fn sha256_hex(data: &[u8]) -> String {
         .collect()
 }
 
+/// `_relative` of the Python decoder: whether a path stays inside the snapshot. It is not
+/// absolute, has no `..` part, no backslash and no colon. It does not test for an empty path, a
+/// `.` part or a NUL: the callers differ there (`module_identity`, the snapshot paths).
+pub fn inside(path: &str) -> bool {
+    !(path.starts_with('/')
+        || path.split('/').any(|part| part == "..")
+        || path.contains('\\')
+        || path.contains(':'))
+}
+
 /// `archkeel.ir.identity.module_identity`: a collision-free module ID for a TypeScript path.
 pub fn module_identity(namespace: &str, path: &str) -> Result<String, String> {
     let unsafe_path = path.is_empty()
