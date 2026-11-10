@@ -42,28 +42,26 @@ macro_rules! closed {
     };
 }
 
-/// The data of a record kind. Each field carries two marks:
+/// The data of a record kind. Each field carries a mark list `[mode mark "key"]`:
 ///
 /// 1. `read` or `wire`: a rule or a view reads the field for some kind of this type (WP1), or no
 ///    reader reads it. The read-set writes a `read` field only when the list of the area and the
 ///    kind holds it (`readset_fields`).
-/// 2. `skip`: the wire omits the field when it is absent. The read-set omits it too.
+/// 2. `skip` (an `Option` or a `Nullable`): the wire omits the field when it is absent. The
+///    read-set omits it too. `required`: the wire holds the field as a key that may be null.
+///    `never`: the wire does not hold the field.
+/// 3. `"key"`: the JSON name of the field, for a name that is a Rust keyword.
 ///
-/// The wire form (`serde`) writes each field in the order of the declaration. A `[read "name"]`
-/// field gives its JSON name, for a field that is a Rust keyword.
+/// The macro writes the `serde` attributes of each field from its marks. The wire form (`serde`)
+/// writes each field in the order of the declaration.
 macro_rules! facts_data {
     (
         $(#[$doc:meta])*
         pub struct $name:ident {
-            $([$mode:ident $($skip:ident)? $($key:literal)?] $(#[$attr:meta])* $field:ident : $ty:ty,)*
+            $([$mode:ident $($mark:ident)? $($key:literal)?] $field:ident : $ty:ty,)*
         }
     ) => {
-        $(#[$doc])*
-        #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-        #[serde(deny_unknown_fields)]
-        pub struct $name {
-            $($(#[$attr])* pub $field: $ty,)*
-        }
+        facts_data!(@fields pub [$(#[$doc])* $name] [] $([$($mark)? $($key)?] $field : $ty,)*);
 
         impl $crate::readset::ReadFields for $name {
             // A type with no read field does not use the map or the list.
@@ -73,15 +71,47 @@ macro_rules! facts_data {
                 map: &mut M,
                 reads: $crate::readset::Reads,
             ) -> Result<(), M::Error> {
-                $(facts_data!(@entry $mode $($skip)? [map self reads $field] $($key)?);)*
+                $(facts_data!(@entry $mode $($mark)? [map self reads $field] $($key)?);)*
                 Ok(())
             }
         }
+    };
+    // The fields, one by one, each with its `serde` attributes. The last step writes the type.
+    (@fields $v:tt [$(#[$doc:meta])* $name:ident] [$($done:tt)*]) => {
+        $(#[$doc])*
+        #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        #[serde(deny_unknown_fields)]
+        pub struct $name { $($done)* }
+    };
+    (@fields $v:tt $head:tt $done:tt [skip $($key:literal)?] $($rest:tt)*) => {
+        facts_data!(@push $v $head $done
+            [#[serde($(rename = $key,)? default, skip_serializing_if = "crate::readset::omitted")]]
+            $($rest)*);
+    };
+    (@fields $v:tt $head:tt $done:tt [required] $($rest:tt)*) => {
+        facts_data!(@push $v $head $done
+            [#[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)]]
+            $($rest)*);
+    };
+    (@fields $v:tt $head:tt $done:tt [never] $($rest:tt)*) => {
+        facts_data!(@push $v $head $done [#[serde(skip)]] $($rest)*);
+    };
+    (@fields $v:tt $head:tt $done:tt [$key:literal] $($rest:tt)*) => {
+        facts_data!(@push $v $head $done [#[serde(rename = $key)]] $($rest)*);
+    };
+    (@fields $v:tt $head:tt $done:tt [] $($rest:tt)*) => {
+        facts_data!(@push $v $head $done [] $($rest)*);
+    };
+    (@push $v:tt $head:tt [$($done:tt)*] [$($attr:tt)*] $field:ident : $ty:ty, $($rest:tt)*) => {
+        facts_data!(@fields $v $head [$($done)* $($attr)* $v $field: $ty,] $($rest)*);
     };
     (@entry read skip [$map:ident $self:ident $reads:ident $field:ident] $($key:literal)?) => {
         if $crate::readset::Present::present(&$self.$field) {
             facts_data!(@entry read [$map $self $reads $field] $($key)?)
         }
+    };
+    (@entry read required [$($rest:tt)*]) => {
+        facts_data!(@entry read [$($rest)*])
     };
     (@entry read [$map:ident $self:ident $reads:ident $field:ident] $key:literal) => {
         if $crate::readset::allowed($reads, $key) {
@@ -93,7 +123,7 @@ macro_rules! facts_data {
             $map.serialize_entry(stringify!($field), &$self.$field)?
         }
     };
-    (@entry wire $($skip:ident)? [$($rest:tt)*] $($key:literal)?) => {};
+    (@entry wire $($mark:ident)? [$($rest:tt)*] $($key:literal)?) => {};
 }
 
 /// The data enum of a section: one variant for each kind, and the data type of that kind.
