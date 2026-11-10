@@ -25,9 +25,11 @@ from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     EvidenceClass,
     Observation,
+    ProducerKind,
     RawJson,
     Record,
     RecordData,
+    RuntimeInfo,
     Verdict,
     stable_id,
 )
@@ -87,19 +89,26 @@ def _inventory_binding(model: Observation) -> str:
     return _inventory_digest(value) if store is None else store.digest(value)
 
 
+def _python_runtime(runtime: RuntimeInfo, version: str) -> bool:
+    """The collector ran under a Python of at least 3.11 that its reply declares."""
+    return (
+        runtime.name == "python"
+        and runtime.required == ">=3.11"
+        and runtime.requirement_state == _RuntimeRequirementState.DECLARED
+        and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is not None
+        and tuple(int(v) for v in version.split(".")) >= (3, 11, 0)
+    )
+
+
 def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...]) -> set[str]:
     if model.analyzer.name not in {"archkeel-dart-analyzer", "archkeel-typescript-imports"}:
         return set()
     runtime = model.runtime
     version: str = runtime.version if runtime is not None else ""
-    if (
-        runtime is None
-        or runtime.name != "python"
-        or runtime.required != ">=3.11"
-        or runtime.requirement_state != _RuntimeRequirementState.DECLARED
-        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None
-        or tuple(int(v) for v in version.split(".")) < (3, 11, 0)
-    ):
+    # The host started the binary of this package with the digest that its wheel recorded: its
+    # facts equal those of the Python collector, which runs under Python (AD-352).
+    bundled = model.producer_kind is ProducerKind.BUNDLED
+    if runtime is None or (not bundled and not _python_runtime(runtime, version)):
         return set()
     if model.producer is None or model.producer.name != model.analyzer.name:
         return set()

@@ -11,6 +11,7 @@ use tree_sitter::{Language, Parser};
 use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
 use crate::kinds::KindMap;
+use crate::places::PlaceQuery;
 use crate::scan::Kinds;
 use crate::umd::Templates;
 
@@ -22,6 +23,8 @@ pub struct Grammar {
     pub map: KindMap,
     /// The templates that a script matches exactly (`umd.rs`).
     pub templates: Templates,
+    /// Counts the import-bearing nodes with the query of `parse.py`, apart from the walk.
+    pub places: PlaceQuery,
 }
 
 impl Grammar {
@@ -30,6 +33,7 @@ impl Grammar {
             kinds: Kinds::new(&language),
             map: KindMap::new(&language),
             templates: Templates::new(&language),
+            places: PlaceQuery::new(&language),
             language,
         }
     }

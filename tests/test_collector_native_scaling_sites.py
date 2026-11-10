@@ -56,9 +56,13 @@ SITE_MEMORY_CASES = (
     ("sites-many-shadowed-names", 30_000),
     ("sites-member-chain-call", 100_000),
     ("sites-chained-calls", 40_000),
-    ("sites-computed-access", 100_000),
+    # Each site is a script global with an import record, a target and a gap since PR 4.3a-5, so n
+    # was 100 000 and the peak for 2n was 1 099 MiB (243 MiB before).
+    ("sites-computed-access", 20_000),
     ("sites-comparison-wrappers", 30_000),
-    ("sites-publication-chain", 30_000),
+    # Each site of the chain is a script global with an import record, a target and a gap since
+    # PR 4.3a-5, so n was 30 000 and the peak for 2n passed the cap.
+    ("sites-publication-chain", 24_000),
     ("sites-many-bound-names", 8_000),
     ("sites-calls-at-depth", 8_000),
     ("sites-after-comment-run", 200_000),

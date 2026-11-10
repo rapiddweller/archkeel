@@ -11,6 +11,7 @@ does nothing, so an sdist, an editable install and the default wheel never run c
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -97,6 +98,18 @@ def bundle(
     build_data["tag"] = tag
     for name, binary in binaries.items():
         build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}{suffix}"
+        # The host starts the binary only when its file has this digest (AD-344, AD-352).
+        digest = _write_digest(root, binary, f"{name}{suffix}")
+        build_data["force_include"][str(digest)] = f"{PACKAGE_DATA}/{name}{suffix}.sha256"
+
+
+def _write_digest(root: Path, binary: Path, filename: str) -> Path:
+    """Write the SHA-256 of a binary, in hexadecimal, to a file that the wheel carries."""
+    directory = root / "native" / ".digests"
+    directory.mkdir(parents=True, exist_ok=True)
+    record = directory / f"{filename}.sha256"
+    record.write_text(hashlib.sha256(binary.read_bytes()).hexdigest(), encoding="ascii")
+    return record
 
 
 def _prebuilt(request: str) -> Path:

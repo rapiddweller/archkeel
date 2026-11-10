@@ -58,6 +58,8 @@ def test_the_producer_equals_the_golden_reply(
     language: str, case: str, tmp_path: Path, request: pytest.FixtureRequest
 ) -> None:
     name = os.environ.get(golden_producers.PRODUCER_VARIABLE, "python")
+    if name == "native" and language != "typescript":
+        pytest.skip("the native producer reads TypeScript only")
     binary = request.getfixturevalue("native_binary") if name == "native" else None
     options = golden_record.options(language, case)
     run = golden_producers.producer(name, binary, language=language, **options)

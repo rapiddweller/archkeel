@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
+  "after_digest": "2bf2e97814c2217743b29b29cf6c9fdf3870b129ccaef0bc11ba193e8f685d61",
+  "before_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
+  "before_digest": "f5d01d6da44f8e3ebf339c3f8e2b2380f992283d99070f9ddf1e9c1c777cc699",
+  "decided_by": "architect",
+  "rationale": "AD-352 and epic #880. The native TypeScript collector gives the output of the Python default, so the host launches it as the bundled producer. Two line-bound type-ignore exemptions of process.py follow their moved lines: ProcessCollector gains the field bundled, which lets the binary of this package lie in the scanned root. No requires entry, Any permission, interface or coupling budget changes: the launcher is part of archkeel.cli.observe.",
+  "schema_version": "2.0.0"
+}

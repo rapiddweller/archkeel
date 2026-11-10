@@ -9,7 +9,7 @@ use crate::site_paths::Text;
 use crate::site_syntax::{ReceiverKind, Target};
 use crate::source::Span;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SiteKind {
     Call,
     New,

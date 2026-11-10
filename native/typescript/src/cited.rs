@@ -70,6 +70,13 @@ impl Cited {
         )
     }
 
+    /// The excerpt that the evidence of an id has now (`self.evidence[id]["excerpt"]`).
+    pub fn excerpt(&self, id: &str) -> String {
+        self.all
+            .get(id)
+            .map_or_else(String::new, |item| item.0.excerpt.clone())
+    }
+
     /// `collect._cite`.
     pub fn cite(&mut self, rel: &str, span: &Span) -> String {
         let evidence = Evidence::at(rel, span.line, span.end_line, span.column, &span.excerpt);

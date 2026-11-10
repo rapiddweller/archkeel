@@ -1,15 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340: the verdicts of the host with the native collector, against two Python collectors.
+"""AD-340: the verdicts of the host with the native collector equal those with the Python one.
 
-Consumer: the host (`run_report`). The native collector has the inner-UML capability: imports with
-their bound names, symbols, calls, references, bindings and constructs. It does not analyse script
-globals yet, so it has the 4.2 gap in each file that can use a browser global, and it does not
-declare `script-globals-v1`. Against the Python collector with the same gap (`native_oracle`) every
-verdict, cycle, dependency edge, count and gap must be equal. Against the Python default collector
-the native verdict is the same or more cautious, and a more cautious verdict is explained by a gap:
-never complete where the default collector says UNKNOWN, never PASS where it says FAIL or UNKNOWN.
+Consumer: the host (`run_report`). The native collector gives every section of the Python default
+collector, script globals included (PR 4.3a-5). So every verdict, cycle, dependency edge, count and
+gap must be equal on the four fixtures and on the demo variants. A damaged native reply must fail
+the same way as a damaged Python reply.
 """
 
 from __future__ import annotations
@@ -19,31 +16,40 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
+from unittest import mock
 
 import pytest
 from collector_pin import pin_of
 
-from archkeel.analyzer.process import ProcessCollector
+from archkeel.analyzer import process as process_owner
+from archkeel.analyzer.runtime import package_version
 from archkeel.analyzer.typescript.collect import collect
 from archkeel.check.report import run_report
+from archkeel.cli import observe as bundled
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
-from archkeel.ir.protocol import CollectionError
 from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 
 ROOT = Path(__file__).parents[1]
-ORACLE = str(Path(__file__).with_name("native_oracle.py"))
 FIXTURES = (
     "fixtures/H-typescript",
     "fixtures/H-uml-typescript",
     "fixtures/F-typescript-story",
     "fixtures/L-nest-realworld",
 )
-# Artifact sections that name the producer.
-PRODUCER = ("analyzer", "runtime", "producer")
-# The reason that explains a more cautious native scan: the script analysis is not ported yet.
-GLOBALS_GAP = "Script-global dependencies are not examined by the native collector"
+# Artifact sections that name the producer, and how the host started it (AD-344). The string table
+# and the observations of the scope hold digests of the producer (the member inventory proof binds
+# them), so they are compared by the kinds of their records, not by their bytes.
+PRODUCER = (
+    "analyzer",
+    "runtime",
+    "producer",
+    "producer_kind",
+    "string_table",
+    "scope_observations",
+)
 
 
 def _commit(root: Path) -> None:
@@ -55,7 +61,33 @@ def _commit(root: Path) -> None:
         subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
 
 
-def _verdict(root: Path, argv: tuple[str, ...] | None) -> dict[str, object]:
+@pytest.fixture(scope="session")
+def bundled_directory(native_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """An install of the native collector as a platform wheel has it (AD-317, AD-352): the binary
+    and the file with its digest. The host launches this binary as the bundled producer."""
+    directory = tmp_path_factory.mktemp("native") / "_native"
+    directory.mkdir()
+    binary = shutil.copy2(
+        native_binary, bundled.executable(bundled.TYPESCRIPT_COLLECTOR, directory)
+    )
+    digest = pin_of(binary).removeprefix("sha256:")
+    Path(f"{binary}{bundled.DIGEST_SUFFIX}").write_text(digest, encoding="ascii")
+    return directory
+
+
+def _scope_kinds(sections: dict[str, Any]) -> list[str]:
+    """The kinds of the records of `scope_observations`, read through the string table."""
+    table = sections.get("string_table", [])
+    kinds = [row[3] for row in sections.get("scope_observations") or ()]
+    return [
+        table[int(kind[1:])] if kind.startswith("$") and kind[1:].isdigit() else kind
+        for kind in kinds
+    ]
+
+
+def _verdict(
+    root: Path, argv: tuple[str, ...] | None, native_directory: Path | None = None
+) -> dict[str, object]:
     config = load_config(root)
     observer = observer_for(
         config.language,
@@ -63,8 +95,13 @@ def _verdict(root: Path, argv: tuple[str, ...] | None) -> dict[str, object]:
         tsconfig=config.tsconfig or "tsconfig.json",
         # AD-344: a configured collector is capped at UNKNOWN unless it is pinned.
         pinned_digest=None if argv is None else pin_of(argv[0]),
+        # AD-352: the launcher of the native collector of an install.
+        native_directory=native_directory,
     )
-    result, artifact = run_report(root, config=config, analyzer=observer)
+    # The debug binary has no build version; a wheel sets it to the version of the host (AD-317).
+    version = "0+unknown" if native_directory is not None else package_version()
+    with mock.patch.object(process_owner, "package_version", lambda: version):
+        result, artifact = run_report(root, config=config, analyzer=observer)
     sections: dict[str, object] = json.loads(artifact) if artifact else {}
     kept = {key: value for key, value in sections.items() if key not in PRODUCER}
     return {
@@ -74,6 +111,7 @@ def _verdict(root: Path, argv: tuple[str, ...] | None) -> dict[str, object]:
         "diagnostics": sorted(str(item.kind.value) for item in result.diagnostics),
         "rules": {item.id: str(item.status.value) for item in result.rule_assessments or ()},
         "artifact": kept,
+        "scope_kinds": _scope_kinds(sections),
     }
 
 
@@ -89,74 +127,21 @@ def _fixture(tmp_path: Path, name: str) -> Path:
     return root
 
 
-def test_verdicts_equal_the_python_collector_with_the_same_gap_on_the_fixtures(
-    tmp_path: Path, native_binary: Path
+def test_verdicts_equal_the_python_collector_on_the_fixtures(
+    tmp_path: Path, bundled_directory: Path
 ) -> None:
     for index, name in enumerate(FIXTURES):
         root = _fixture(tmp_path / str(index), name)
-        oracle = _verdict(root, (sys.executable, "-I", "-B", ORACLE))
-        native = _verdict(root, (str(native_binary),))
-        assert native == oracle, name
+        assert _verdict(root, None, bundled_directory) == _verdict(root, None), name
 
 
 @pytest.mark.parametrize("index", range(len(VARIANTS)))
-def test_verdicts_equal_the_python_collector_with_the_same_gap_on_the_demo_variants(
-    tmp_path: Path, native_binary: Path, index: int
+def test_verdicts_equal_the_python_collector_on_the_demo_variants(
+    tmp_path: Path, bundled_directory: Path, index: int
 ) -> None:
     variant = VARIANTS[index]
     root = repository(tmp_path, variant)
-    oracle = _verdict(root, (sys.executable, "-I", "-B", ORACLE))
-    native = _verdict(root, (str(native_binary),))
-    assert native == oracle, variant.id
-
-
-def _gap_titles(root: Path, binary: Path) -> set[str]:
-    """The titles of the coverage gaps in the reply of the native collector."""
-    from test_collector_native_typescript import _request
-
-    result = ProcessCollector((str(binary),)).collect(_request(root))
-    assert not isinstance(result, CollectionError), result
-    return {gap.title for gap in result.coverage.gaps}
-
-
-def _cases(tmp_path: Path) -> list[tuple[str, Path]]:
-    found = [(name, _fixture(tmp_path / f"f{index}", name)) for index, name in enumerate(FIXTURES)]
-    found += [
-        (variant.id, repository(tmp_path / f"v{index}", variant))
-        for index, variant in enumerate(VARIANTS)
-    ]
-    return found
-
-
-def test_native_is_never_less_cautious_than_the_default_collector(
-    tmp_path: Path, native_binary: Path
-) -> None:
-    """Every rule has the verdict of the default collector or UNKNOWN, and UNKNOWN is explained.
-
-    The only gap that explains a more cautious verdict is the one of the script analysis, which is
-    ported in PR 4.3a-4 and 4.3a-5. A rule that the default collector fails stays FAIL or becomes
-    UNKNOWN; a rule that it passes stays PASS or becomes UNKNOWN; a rule that it cannot judge is
-    never judged here.
-    """
-    rows: list[str] = []
-    for name, root in _cases(tmp_path):
-        default = _verdict(root, None)
-        native = _verdict(root, (str(native_binary),))
-        assert default["rules"].keys() == native["rules"].keys(), name  # type: ignore[attr-defined]
-        for rule, status in native["rules"].items():  # type: ignore[attr-defined]
-            before = default["rules"][rule]  # type: ignore[index]
-            assert status in (before, "UNKNOWN"), (name, rule, before, status)
-            if status != before:
-                rows.append(f"{name} | {rule} | {before} | {status}")
-        if default["complete"] == "UNKNOWN":
-            assert native["complete"] == "UNKNOWN", name
-        assert native["declared"] in (default["declared"], "UNKNOWN"), name
-        assert native["exit"] in (default["exit"], 2), name
-        if _short(default) != _short(native) or native["rules"] != default["rules"]:
-            assert GLOBALS_GAP in _gap_titles(root, native_binary), name
-    # A scan of declaration files alone has no script global, so some verdicts are equal.
-    print("VERDICT DIFFERENCES (case | rule | default | native)")
-    print("\n".join(sorted(rows)))
+    assert _verdict(root, None, bundled_directory) == _verdict(root, None), variant.id
 
 
 REPLAY = str(Path(__file__).with_name("replay_collector.py"))
@@ -214,9 +199,9 @@ def test_a_reply_that_lacks_a_declared_section_is_never_a_pass(tmp_path: Path) -
 
 @pytest.mark.xfail(
     strict=True,
-    reason="the host accepts a declared section that is present and empty as complete; the "
-    "native collector is safe only while the 4.2 gap makes every scan incomplete (AD-340): the "
-    "host must refuse it before PR 4.3a-5 removes the gap",
+    reason="the host accepts a declared section that is present and empty as complete. The "
+    "native collector cannot lose an import node silently since PR 4.3a-5 (the `unextracted` "
+    "gap, AD-352); an emptied section of a reply stays open until protocol 10",
 )
 def test_a_section_that_is_emptied_is_never_a_pass(tmp_path: Path) -> None:
     name, root = _passing_variant(tmp_path)
@@ -225,21 +210,24 @@ def test_a_section_that_is_emptied_is_never_a_pass(tmp_path: Path) -> None:
         assert emptied["complete"] != "PASS", (name, section)
 
 
-def test_the_host_notices_a_damaged_native_reply(tmp_path: Path, native_binary: Path) -> None:
-    """No catalog scan completes with the native collector yet (the 4.2 gap is in every `.ts`
-    file), so the verdict of a damaged reply cannot fall from PASS. The host must still say that
-    the reply is damaged: the diagnostics differ from the diagnostics of the plain reply."""
+def test_the_host_notices_a_damaged_native_reply(
+    tmp_path: Path, native_binary: Path, bundled_directory: Path
+) -> None:
+    """The host must say that a reply is damaged: the diagnostics differ from the plain reply. A
+    damaged reply of the native collector is judged as the same damage of the Python collector."""
     name, root = _passing_variant(tmp_path)
     plain = _replayed(root, str(native_binary), "plain")
-    assert plain == _verdict(root, (str(native_binary),)), name
+    assert plain["diagnostics"] == _verdict(root, None, bundled_directory)["diagnostics"], name
+    assert _short(plain) == _short(_replayed(root, "python", "plain")), name
     for section in ("symbols", "calls", "references", "bindings", "constructs"):
         damaged = _replayed(root, str(native_binary), "drop", section)
         assert damaged["complete"] != "PASS" and damaged["exit"] != 0, section
         assert damaged["diagnostics"] != plain["diagnostics"], section
     claimed = _replayed(root, str(native_binary), "claim", "symbols")
     assert claimed["diagnostics"] != plain["diagnostics"]
-    # An emptied section is not refused by the host (see the xfail test above); no scan of the
-    # native collector is complete only because of the 4.2 gap.
+    # The host takes an emptied section as it takes it from the Python collector (the xfail test
+    # above pins that); the extraction invariant (`test_collector_native_unextracted.py`) is what
+    # keeps a lost node from being silent in the native collector.
     for section in ("symbols", "calls", "references", "bindings", "constructs"):
         emptied = _replayed(root, str(native_binary), "empty", section)
-        assert emptied["complete"] != "PASS", section
+        assert _short(emptied) == _short(_replayed(root, "python", "empty", section)), section

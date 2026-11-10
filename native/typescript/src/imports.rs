@@ -17,21 +17,17 @@ use archkeel_facts::{ImportFact, Record};
 use super::{Collection, GapKind};
 use crate::installed::installed;
 use crate::kept::Kept;
+use crate::kept_script::ScriptFile;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
-use crate::parse::parse;
+use crate::parse::{parse, Parsed};
+use crate::plant;
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
 use crate::source_input::{
     classify_asset, classify_file, classify_specifier, ModuleFormat, SourceKind, SpecifierKind,
 };
 use archkeel_snapshot::paths::{dirname, join, within};
-
-/// The reason of the gap in each file that can use a browser global. The Python collector reports
-/// each unexamined global itself (`script_global` imports). This collector examines none, so the
-/// scan cannot read as complete for imports: missing evidence is UNKNOWN (issue #880).
-pub const GLOBALS_UNEXAMINED: &str =
-    "Script-global dependencies are not examined by the native collector";
 
 // The reserved identity of an asset edge; a colon cannot occur in an npm package name.
 const BUNDLER_ASSET: &str = "bundler:asset";
@@ -75,9 +71,6 @@ impl Collection<'_> {
                 GapKind::Collection,
             );
         }
-        let kept = Kept::from_parsed(module, &mut parsed, text);
-        self.order.push(rel.to_owned());
-        self.kept.insert(rel.to_owned(), kept);
         let format = self.resolver.format_of(&mut self.snapshot, rel);
         let explicit = self.resolver.options.module;
         // `collect._global_dependency_scope`: a file that is neither a declaration nor CommonJS.
@@ -86,20 +79,22 @@ impl Collection<'_> {
             suffix.source_kind() != Some(SourceKind::Declaration)
                 && suffix.format_hint() != Some(ModuleFormat::Cjs)
         }) && matches!(format, Lookup::Missing | Lookup::Hit(ModuleFormat::Esm));
-        if global_scope {
-            self.gap(
-                GLOBALS_UNEXAMINED,
-                Some(file_evidence),
-                module,
-                GapKind::Resolution,
-            );
-        }
+        let format_known = !matches!(format, Lookup::Missing);
+        let script = ScriptFile::take(&mut parsed, format_known, global_scope);
+        self.script_file_effects(rel, module, &script);
+        let kept = Kept::from_parsed(module, &mut parsed, text, script);
+        self.order.push(rel.to_owned());
+        self.kept.insert(rel.to_owned(), kept);
         let cjs = classify_file(rel).and_then(|suffix| suffix.format_hint())
             == Some(ModuleFormat::Cjs)
             || explicit == Some(ModuleKind::CommonJs)
             || (format == Lookup::Hit(ModuleFormat::Cjs)
                 && matches!(explicit, Some(ModuleKind::NodeNext | ModuleKind::Node16)));
-        for reference in &parsed.references {
+        let mut handled = 0usize;
+        for (index, reference) in parsed.references.iter().enumerate() {
+            if plant::skip(rel, index) {
+                continue;
+            }
             let evidence = self.cite(rel, &reference.span);
             if reference.form == Form::Require && (!cjs || parsed.shadows_require) {
                 let reason = "Unproven or shadowed require call";
@@ -110,9 +105,27 @@ impl Collection<'_> {
             } else {
                 self.import(rel, module, reference, &evidence, &format);
             }
+            handled += 1;
+        }
+        self.check_extracted(&parsed, handled, (rel, module, file_evidence));
+    }
+
+    /// The invariant of the extraction: each import-bearing node of the tree has a record or a gap.
+    /// A node in a repaired part of the file has the gap of the syntax error. Any other node that
+    /// has neither is a gap of its own, so a node that the extraction lost can never read as a
+    /// complete scan.
+    fn check_extracted(&mut self, parsed: &Parsed, handled: usize, file: (&str, &str, &str)) {
+        let (rel, module, evidence) = file;
+        let lost = parsed.places.saturating_sub(handled);
+        if lost > 0 && parsed.first_error.is_none() {
+            let reason = format!(
+                "unextracted: {lost} import-bearing node(s) of {rel} have no record and no gap"
+            );
+            self.gap(&reason, Some(evidence), module, GapKind::Collection);
         }
     }
 
+    /// Record one import.
     fn import(
         &mut self,
         rel: &str,

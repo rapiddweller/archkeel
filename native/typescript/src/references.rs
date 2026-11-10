@@ -13,7 +13,7 @@ use tree_sitter::Node;
 use crate::scan::Scan;
 use crate::source::{Source, Span};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Form {
     Import,
     Reexport,
@@ -233,8 +233,13 @@ fn require(node: Node, source: &Source) -> Reference {
     }
 }
 
+/// The references of a file that the collector trusts, in the order of their position.
+pub struct Extracted {
+    pub trusted: Vec<Reference>,
+}
+
 /// The trusted references of a file, in the order of their position.
-pub fn trusted(source: &Source, root: Node, scan: &Scan) -> Vec<Reference> {
+pub fn trusted(source: &Source, root: Node, scan: &Scan) -> Extracted {
     let mut candidates: Vec<(Node, Reference)> = Vec::new();
     candidates.extend(scan.imports.iter().map(|n| (*n, import(*n, source))));
     candidates.extend(scan.exports.iter().map(|n| (*n, export(*n, source))));
@@ -250,5 +255,5 @@ pub fn trusted(source: &Source, root: Node, scan: &Scan) -> Vec<Reference> {
         let key = |item: &Reference| (item.span.line, item.span.column, item.form.as_str());
         key(left).cmp(&key(right))
     });
-    kept
+    Extracted { trusted: kept }
 }

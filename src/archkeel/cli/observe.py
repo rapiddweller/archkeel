@@ -7,7 +7,7 @@ import os
 import sys
 import sysconfig
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, Literal
 
@@ -22,9 +22,18 @@ from archkeel.ir.protocol import ProtocolVersion
 
 _CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 RUST_COLLECTOR = "archkeel-rust-collector"
-# `native/hatch_build.py` puts the binaries of a platform wheel here (AD-317, AD-335).
-_NATIVE_DIRECTORY = Path(__file__).resolve().parents[1] / "_native"
-_EXECUTABLE_SUFFIX = sysconfig.get_config_var("EXE") or ""
+
+
+# `native/hatch_build.py` puts the binaries of a platform wheel here (AD-317, AD-335), and the file
+# with the SHA-256 of each binary beside it (AD-352).
+_NATIVE_DIRECTORY: Final = Path(__file__).resolve().parents[1] / "_native"
+_EXECUTABLE_SUFFIX: Final = sysconfig.get_config_var("EXE") or ""
+DIGEST_SUFFIX: Final = ".sha256"
+TYPESCRIPT_COLLECTOR: Final = "archkeel-typescript-collector"
+
+
+def executable(name: str, directory: Path | None = None) -> Path:
+    return (directory or _NATIVE_DIRECTORY) / (name + _EXECUTABLE_SUFFIX)
 
 
 def bundled_collector(name: str) -> str:
@@ -33,7 +42,36 @@ def bundled_collector(name: str) -> str:
     A platform wheel carries the binary. An sdist, an editable install and the pure wheel do not,
     so the path may not exist. Running it then gives `missing_tool` with this path in the message.
     """
-    return str(_NATIVE_DIRECTORY / (name + _EXECUTABLE_SUFFIX))
+    return str(executable(name))
+
+
+@dataclass(frozen=True, slots=True)
+class Bundled:
+    """A native collector of this install: its path and the digest that its wheel recorded."""
+
+    path: str
+    digest: str
+
+
+def _is_digest(text: str) -> bool:
+    """The text is 64 lowercase hexadecimal digits."""
+    return len(text) == 64 and set(text) <= set("0123456789abcdef")
+
+
+def locate(name: str, directory: Path | None = None) -> Bundled | None:
+    """The binary and its recorded digest, or `None` when the install has no such pair.
+
+    A digest file of another shape is no digest: the binary is then not trusted and the host falls
+    back to the Python collector, as for an install without the binary (AD-352).
+    """
+    binary = str(executable(name, directory))
+    try:
+        text = Path(binary + DIGEST_SUFFIX).read_text(encoding="ascii")
+    except (OSError, UnicodeError):
+        return None
+    if not os.path.isfile(binary) or not _is_digest(text):
+        return None
+    return Bundled(binary, f"sha256:{text}")
 
 
 # AD-346: the path of an `archkeel-store` binary. When it is set, the reply of a TypeScript
@@ -53,22 +91,32 @@ def observer_for(
     exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
     pinned_digest: str | None = None,
+    native_directory: Path | None = None,
 ) -> Observer:
     bundled = collector_argv is None
+    native_python = bundled and language == Language.PYTHON
+    native_typescript = bundled and language == Language.TYPESCRIPT
+    # AD-352: the launcher. A platform wheel carries the native TypeScript collector and the
+    # digest of its file; the host starts the binary only with that digest. An install without
+    # the pair keeps the Python collector. `native_directory` is for the tests of the launcher.
+    launched = locate(TYPESCRIPT_COLLECTOR, native_directory) if native_typescript else None
     producer = (
-        ProducerKind.PYTHON
+        ProducerKind.BUNDLED
+        if launched is not None
+        else ProducerKind.PYTHON
         if bundled
         else ProducerKind.EXTERNAL
         if pinned_digest is None
         else ProducerKind.PINNED
     )
-    native_python = bundled and language == Language.PYTHON
-    native_typescript = bundled and language == Language.TYPESCRIPT
     native_rust = bundled and language == Language.RUST
     if native_rust:
         # AD-335: the native binary is the only producer for Rust. Without it the run is a
         # `missing_tool` error that names the path, and no Python collector stands in.
         collector_argv = (bundled_collector(RUST_COLLECTOR),)
+    if launched is not None:
+        collector_argv = (launched.path,)
+        pinned_digest = launched.digest
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
     store = os.environ.get(NATIVE_STORE) if language == Language.TYPESCRIPT else None
@@ -80,7 +128,8 @@ def observer_for(
         # A collector of this package must report the host version; a configured one need not.
         pin_adapter_version=bundled,
         store=store or None,
-        pinned_digest=pinned_digest if not bundled else None,
+        pinned_digest=pinned_digest if launched is not None or not bundled else None,
+        bundled=launched is not None,
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)

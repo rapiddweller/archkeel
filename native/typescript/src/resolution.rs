@@ -136,8 +136,15 @@ impl Resolver<'_> {
         (vec![format!("{class_scope}.{name}")], None, declared == 1)
     }
 
-    /// `_site_resolution`, for a site that no script analysis has resolved.
-    pub fn resolve(&self, kept: &Kept, module: &str, scope: &str, site: &Site) -> Resolved {
+    /// `_site_resolution`. `script` is what the script analysis resolved the site to, if it did.
+    pub fn resolve(
+        &self,
+        kept: &Kept,
+        module: &str,
+        scope: &str,
+        site: &Site,
+        script: Option<&[String]>,
+    ) -> Resolved {
         let name = site.name.map(|text| text.decode(kept.text.as_bytes()));
         let shadowed = name
             .as_deref()
@@ -149,7 +156,9 @@ impl Resolver<'_> {
         let mut reason = None;
         let mut unique_this = false;
         let named = name.as_deref().filter(|name| !name.is_empty());
-        if let (Some(name), false, false, false, false) = (
+        if let Some(targets) = script {
+            candidates.extend(targets.iter().cloned());
+        } else if let (Some(name), false, false, false, false) = (
             named,
             site.computed,
             site.scope_ambiguous,
