@@ -55,3 +55,11 @@ bigger plan: it costs money and does not remove the extra runs.
 Red-main hours are not in the daily line.
 
 **Checks.** `tests/test_ci_daily.py`, `tests/test_ci_budget.py`, `tests/test_make_gate.py`.
+
+**Update 2026-11-10 (owner, same day).** The owner simplified the merge policy twice. Decision 2,
+4, 5, 6 and 7 above no longer apply. Decision 8 and the draft rule of 3 no longer apply:
+no PR runs CI. Decision 1, the local gate of 3, and 9 still hold. The classes A, B and C are gone, and so is the one-branch Full token.
+Pipelines run only on `main` (push) and nightly (Full). A PR merges on its one review and a green
+local gate. A failure on `main` becomes a backlog issue with a priority, except when `main` no
+longer builds locally; then it is fixed at once. Why: the owner found the branch updates and the
+pipeline waits too slow. `CONTRIBUTING.md` holds the current rules.

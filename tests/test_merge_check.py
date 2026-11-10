@@ -223,3 +223,21 @@ def test_main_exits_one_when_the_pull_request_conflicts(
     monkeypatch.setattr(merge_check, "pr_checks", lambda number: "[]")
     assert merge_check.main(["7"], repo=repo) == 1
     assert "conflict" in capsys.readouterr().out
+
+
+def test_a_pull_request_without_pr_ci_gets_a_note_not_an_error() -> None:
+    # AD-348: CI runs on main only, so a PR without an aggregate check is expected.
+    assert merge_check.ci_note("[]") is not None
+    assert "no PR CI by policy" in str(merge_check.ci_note("[]"))
+    done = '[{"name": "All checks passed", "conclusion": "SUCCESS"}]'
+    assert merge_check.ci_note(done) is None
+    assert merge_check.aggregate_errors("[]") == []
+
+
+def test_main_keeps_exit_zero_when_the_pull_request_has_no_pr_ci(
+    repo: Path, pr_on_main: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr(merge_check, "pr_view", lambda number: (pr_on_main, ["new.txt"], {}))
+    monkeypatch.setattr(merge_check, "pr_checks", lambda number: "[]")
+    assert merge_check.main(["7"], repo=repo) == 0
+    assert "no PR CI by policy" in capsys.readouterr().out

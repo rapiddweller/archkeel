@@ -8,8 +8,8 @@ It fails when the head conflicts with main, or when the head changes another set
 GitHub lists for the pull request. A branch that is behind main is only a warning: the process
 does not require an up-to-date branch. A file that main changed in its last merges is a warning
 only when the pull request removes lines from it: that is what a revert looks like. An append is
-a normal change. It also fails when the aggregate check is skipped: a draft run skips every job,
-and GitHub counts a skipped required check as passed (AD-348).
+a normal change. It fails when an aggregate check is skipped, because GitHub counts a skipped
+required check as passed. CI runs on main only (AD-348): a pull request without PR CI gets a note.
 """
 
 from __future__ import annotations
@@ -226,7 +226,7 @@ AGGREGATES = ("All checks passed", "All Full checks passed")
 
 
 def aggregate_errors(rollup: str) -> list[str]:
-    """An error for each aggregate check that GitHub shows as skipped (a draft run, AD-348).
+    """An error for each aggregate check that GitHub shows as skipped (AD-348).
 
     GitHub counts a skipped required check as passed, so a PR could merge with no CI result.
     """
@@ -239,6 +239,17 @@ def aggregate_errors(rollup: str) -> list[str]:
         ]
     except (json.JSONDecodeError, KeyError, TypeError) as error:
         raise MergeCheckError("gh pr view gave an unexpected check rollup") from error
+
+
+def ci_note(rollup: str) -> str | None:
+    """A note when the pull request has no aggregate check: CI runs on main only (AD-348)."""
+    try:
+        names = {str(check["name"]) for check in json.loads(rollup or "[]")}
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise MergeCheckError("gh pr view gave an unexpected check rollup") from error
+    if names & set(AGGREGATES):
+        return None
+    return "no PR CI by policy: CI runs on main only, so the local gate is the only PR check"
 
 
 def fetch_pr(repo: Path, number: int) -> str:
@@ -261,7 +272,10 @@ def main(argv: list[str] | None = None, *, repo: Path | None = None) -> int:
                 f"the head of PR {args.number} moved while the check ran: run the check again"
             )
         report = check(root, BASE, head, pr_files, renamed_from)
-        report.errors.extend(aggregate_errors(pr_checks(args.number)))
+        rollup = pr_checks(args.number)
+        report.errors.extend(aggregate_errors(rollup))
+        if note := ci_note(rollup):
+            report.warnings.append(note)
     except MergeCheckError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

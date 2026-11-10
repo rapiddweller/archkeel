@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """The daily CI line of the merge policy (epic #880) is computed from recorded `gh` JSON."""
 
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -41,7 +40,7 @@ def _job(start: str, conclusion: str = "success") -> dict[str, str]:
 
 
 # Run 1: job A starts at +0:10 and job B at +23:00, so the queue is 23.0 (not the first start).
-# Run 2: a skipped job with the zero date is ignored. Run 3: a draft run, all jobs skipped.
+# Run 2: a skipped job with the zero date is ignored. Run 3: an all-skipped run, no CI work.
 # Run 4: a re-run (attempt 2) is excluded from wall and queue and counted as a re-run.
 JOBS = {
     1: [_job("10:00:10"), _job("10:23:00")],
@@ -79,25 +78,12 @@ def test_an_open_red_run_counts_to_now_and_a_day_without_runs_gives_n_a() -> Non
     )
 
 
-def test_a_draft_pr_runs_no_job_and_a_ready_pr_starts_ci() -> None:
-    """Exactly the draft guard on a job; `always() &&` only on the aggregate (AD-348)."""
-    guard = "github.event.pull_request.draft != true"
-    for path in (Path(__file__).parents[1] / ".github/workflows").glob("*.yml"):
-        text = path.read_text()
-        parts = re.split(r"^  ([\w-]+):\n", text.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
-        guarded = path.name in ("ci.yml", "full-verification.yml")
-        assert ("types: [opened, synchronize, reopened, ready_for_review]" in text) == guarded
-        for job, body in zip(parts[1::2], parts[2::2], strict=True):
-            found = re.findall(r"^    if: (.+)$", body, flags=re.MULTILINE)
-            aggregate = job in ("check", "verified")
-            expected = [f"always() && {guard}"] if aggregate else [guard]
-            assert found == (expected if guarded else []), f"{path.name} job {job}: {found}"
-
-
-def test_a_draft_run_and_a_ready_run_use_two_concurrency_groups() -> None:
-    """A skipped draft run must never cancel the real run of the same PR (AD-348)."""
-    split = "-${{ github.event.pull_request.draft == true && 'draft' || 'ready' }}"
+def test_ci_runs_on_main_only_and_a_newer_push_cancels_the_older_run() -> None:
+    """Pipelines run on main only (AD-348): no pull_request trigger and no draft guard."""
+    workflows = Path(__file__).parents[1] / ".github/workflows"
+    group = "  group: ${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n"
     for name in ("ci.yml", "full-verification.yml"):
-        text = (Path(__file__).parents[1] / ".github/workflows" / name).read_text()
-        group = re.search(r"^  group: (.+)$", text, flags=re.MULTILINE)
-        assert group is not None and group[1].endswith(split), name
+        text = (workflows / name).read_text()
+        assert "pull_request" not in text.split("\njobs:\n", 1)[0], name
+        assert "draft" not in text, name
+        assert group in text, name
