@@ -14,11 +14,11 @@ use serde_json::Value;
 
 use crate::manifest::{self, Json, Lookup, Unknown};
 use crate::options::{Options, Resolution};
-use crate::paths::{basename, dirname, join};
-use crate::snapshot::Snapshot;
 use crate::source_input::{
     classify_file, classify_specifier, ModuleFormat, SourceKind, SpecifierKind, Suffix,
 };
+use archkeel_snapshot::paths::{basename, dirname, join};
+use archkeel_snapshot::Snapshot;
 
 /// A file that a specifier names.
 #[derive(Clone, Debug, PartialEq, Eq)]

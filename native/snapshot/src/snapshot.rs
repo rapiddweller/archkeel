@@ -17,8 +17,8 @@ use archkeel_wire::reply::{Input, Role};
 
 use crate::paths::{is_outside, join, normpath};
 
-pub const OUTSIDE: &str = "Resolver input outside snapshot";
-pub const SYMLINK: &str = "Resolver symlink outside snapshot";
+const OUTSIDE: &str = "Resolver input outside snapshot";
+const SYMLINK: &str = "Resolver symlink outside snapshot";
 /// The largest file that the collector reads (AD-319). The largest TypeScript source of the React
 /// UI corpus has 92 KB, so a larger file is generated or hostile, and its gap names it.
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
@@ -207,12 +207,6 @@ impl Snapshot {
             }
         }
         (files, directories)
-    }
-
-    /// Whether a path, or its real path, is inside an installed package.
-    pub fn installed(&mut self, rel: &str) -> bool {
-        let path = self.real(rel).unwrap_or_else(|| rel.to_owned());
-        path.split('/').any(|part| part == "node_modules")
     }
 
     /// The digested inputs, sorted by path.

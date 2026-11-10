@@ -12,16 +12,17 @@ use archkeel_wire::reply::{Record, Target};
 use serde_json::{json, Map, Value};
 
 use super::{Collection, GapKind};
+use crate::installed::installed;
 use crate::kept::Kept;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::parse;
-use crate::paths::{dirname, join, within};
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
 use crate::source_input::{
     classify_asset, classify_file, classify_specifier, ModuleFormat, SourceKind, SpecifierKind,
 };
+use archkeel_snapshot::paths::{dirname, join, within};
 
 /// The reason of the gap in each file that can use a browser global. The Python collector reports
 /// each unexamined global itself (`script_global` imports). This collector examines none, so the
@@ -38,7 +39,7 @@ type Site = (String, String);
 impl Collection<'_> {
     /// `collect._selected`: a source file in scope that is not installed and not a test source.
     fn selected(&mut self, rel: &str) -> bool {
-        !self.snapshot.installed(rel)
+        !installed(&mut self.snapshot, rel)
             && self.roots.iter().any(|root| within(root, rel))
             && !self.excluded_test(rel)
     }
@@ -347,7 +348,7 @@ impl Collection<'_> {
         let path = found.path.clone();
         let suffix = classify_file(&path);
         let site: Site = (self.cite(rel, &reference.span), module.to_owned());
-        if self.excluded_test(&path) && !self.snapshot.installed(&path) {
+        if self.excluded_test(&path) && !installed(&mut self.snapshot, &path) {
             return self.excluded_test_target(module, reference, identity, &path, &site);
         }
         if !self.snapshot.readable(&path) {

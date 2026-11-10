@@ -9,7 +9,7 @@ use archkeel_wire::protocol::Version;
 use serde_json::Value;
 
 use super::*;
-use crate::test_tree::Tree;
+use archkeel_snapshot::test_tree::Tree;
 
 fn request(tree: &Tree, exclude_test_sources: bool) -> Request {
     Request {
@@ -71,7 +71,7 @@ fn a_production_file_beside_the_tests_removes_the_gap() {
 // files are still collected.
 #[test]
 fn a_source_over_the_size_limit_is_a_gap_and_the_others_are_collected() {
-    let huge = "x".repeat(crate::snapshot::MAX_FILE_BYTES as usize + 1);
+    let huge = "x".repeat(archkeel_snapshot::MAX_FILE_BYTES as usize + 1);
     let tree = Tree::new(&[
         ("tsconfig.json", "{}"),
         ("src/a.ts", ""),

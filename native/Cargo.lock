@@ -18,9 +18,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-snapshot"
+version = "0.0.0"
+dependencies = [
+ "archkeel-wire",
+]
+
+[[package]]
 name = "archkeel-typescript-collector"
 version = "0.0.0"
 dependencies = [
+ "archkeel-snapshot",
  "archkeel-wire",
  "serde_json",
  "sha2",

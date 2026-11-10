@@ -5,7 +5,7 @@
 # The workspace lives in native/: a root Cargo.toml would be a stray file in the repository root.
 [workspace]
 resolver = "2"
-members = ["wire", "typescript"]
+members = ["wire", "snapshot", "typescript"]
 
 [workspace.package]
 version = "0.0.0"
@@ -15,6 +15,7 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+archkeel-snapshot = { path = "snapshot" }
 archkeel-wire = { path = "wire" }
 flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
 # `preserve_order`: the order of `paths` keys and of `exports` conditions decides the result.
