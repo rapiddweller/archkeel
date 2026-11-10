@@ -320,6 +320,7 @@ impl Builder {
                     excerpt,
                 },
                 absolute: true,
+                ..Reference::default()
             };
             let from = Origin {
                 module,

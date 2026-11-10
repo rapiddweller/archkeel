@@ -38,7 +38,7 @@ fn a_use_tree_gives_one_reference_for_each_leaf() {
             "a::b::c",
             "a::b::d::e",
             "a::b::g",
-            "a::b::self",
+            "a::b",
             "h",
             "i::j"
         ]

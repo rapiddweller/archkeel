@@ -8,18 +8,18 @@
 //! The scan does not know which names are crates. It records the first segment of each qualified
 //! path, and `resolve.rs` decides which of them name a crate.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use proc_macro2::Span;
 use syn::visit::{self, Visit};
-use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro, UseTree};
+use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro};
 
 use crate::attrs::{
     hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
     statement_attributes, trait_item_attributes,
 };
 use crate::net;
-use crate::tokens::{chains, plain, Chain};
+use crate::tokens::{chains, names_relative, plain, Chain};
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
@@ -68,13 +68,36 @@ pub struct Site {
 }
 
 /// A qualified path, or a `use` leaf: its first segment and the path as written.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Reference {
     pub root: String,
     pub path: String,
     pub site: Site,
     /// The path starts with `::`: its first segment is a crate, and no local name hides it.
     pub absolute: bool,
+    /// The segments of the path. A `use a::b::{self}` leaf is `a::b`.
+    pub names: Vec<String>,
+    /// The inline modules of the file that enclose the path: its lexical module.
+    pub scope: Vec<String>,
+    pub via: Via,
+    /// The path is in the body of a `macro_rules!` definition.
+    pub in_macro: bool,
+}
+
+/// How a reference comes into the file.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum Via {
+    /// A path in code, in an attribute or in the body of a macro call.
+    #[default]
+    Path,
+    /// A leaf of a `use` item: the local name that it binds.
+    Use {
+        binding: Option<String>,
+        reexport: bool,
+        block: bool,
+    },
+    /// `use path::*`.
+    Glob { reexport: bool, block: bool },
 }
 
 /// A place that the scan cannot read.
@@ -108,6 +131,10 @@ pub struct Scan {
     /// source is a `use` leaf that the crate of that name itself provides (`use anyhow::anyhow;`):
     /// whichever item a path `anyhow::x` then picks, it lies in the crate `anyhow`.
     pub shadows: BTreeSet<String>,
+    /// How many times the file declares or imports each name, in any namespace and at any depth.
+    pub counts: BTreeMap<String, usize>,
+    /// The inline modules of the file, each as the names from the file down.
+    pub inlines: Vec<Vec<String>>,
     /// Every name that the file writes in any token, for the safety net of `collect.rs`.
     pub mentioned: BTreeSet<String>,
 }
@@ -127,6 +154,10 @@ pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Res
         exclude_tests,
         inline: Vec::new(),
         absolute_use: false,
+        public_use: false,
+        blocks: 0,
+        in_macro: false,
+        via: Via::Path,
         out: Scan::default(),
     };
     walker.visit_file(&file);
@@ -140,6 +171,14 @@ struct Walker<'a> {
     inline: Vec<String>,
     /// The `use` item that the walk is in starts with `::`.
     absolute_use: bool,
+    /// The `use` item that the walk is in is `pub`: it re-exports.
+    public_use: bool,
+    /// The depth of the blocks (function bodies) that enclose the walk.
+    blocks: usize,
+    /// The walk is in the body of a `macro_rules!` definition.
+    in_macro: bool,
+    /// What the next reference is: set by the `use` handling, `Path` otherwise.
+    via: Via,
     out: Scan,
 }
 
@@ -153,22 +192,6 @@ impl Walker<'_> {
             end_line: to_i64(end.line),
             column: to_i64(start.column),
             excerpt,
-        }
-    }
-
-    /// A name that the file declares or imports, anywhere in it.
-    fn bind(&mut self, name: String) {
-        self.out.shadows.insert(name.clone());
-        self.out.names.insert(name);
-    }
-
-    /// A `use` leaf binds `name`. When the path of the leaf starts with a crate of that same name,
-    /// the binding is no shadow of that crate.
-    fn bind_leaf(&mut self, name: String, prefix: &[String]) {
-        if prefix.first() == Some(&name) {
-            self.out.names.insert(name);
-        } else {
-            self.bind(name);
         }
     }
 
@@ -189,6 +212,10 @@ impl Walker<'_> {
                 path: names.join("::"),
                 site,
                 absolute,
+                names: names.to_vec(),
+                scope: self.inline.clone(),
+                via: self.via.clone(),
+                in_macro: self.in_macro,
             });
         }
     }
@@ -203,52 +230,6 @@ impl Walker<'_> {
         if let Some(reason) = hidden_by(attrs, what, self.features) {
             self.concern(reason, span);
         }
-    }
-
-    fn use_tree(&mut self, prefix: &mut Vec<String>, tree: &UseTree) {
-        match tree {
-            UseTree::Path(path) => {
-                prefix.push(plain(&path.ident));
-                self.use_tree(prefix, &path.tree);
-                prefix.pop();
-            }
-            UseTree::Name(name) => {
-                // `use a::b::{self}` binds `b`.
-                let bound = if name.ident == "self" {
-                    prefix.last().cloned()
-                } else {
-                    Some(plain(&name.ident))
-                };
-                bound
-                    .into_iter()
-                    .for_each(|bound| self.bind_leaf(bound, prefix));
-                self.leaf(prefix, Some(&name.ident));
-            }
-            UseTree::Rename(rename) => {
-                self.bind_leaf(plain(&rename.rename), prefix);
-                self.leaf(prefix, Some(&rename.ident));
-            }
-            UseTree::Glob(glob) => {
-                let span = glob.star_token.spans[0];
-                self.leaf_at(prefix, span);
-            }
-            UseTree::Group(group) => {
-                for item in &group.items {
-                    self.use_tree(prefix, item);
-                }
-            }
-        }
-    }
-
-    fn leaf(&mut self, prefix: &[String], name: Option<&syn::Ident>) {
-        let Some(name) = name else { return };
-        let mut names = prefix.to_vec();
-        names.push(plain(name));
-        self.refer_as(&names, name.span(), self.absolute_use);
-    }
-
-    fn leaf_at(&mut self, prefix: &[String], span: Span) {
-        self.refer_as(prefix, span, self.absolute_use);
     }
 
     /// A `macro_rules!` definition. Its expansion stays in this crate, so its body is read as code
@@ -273,6 +254,13 @@ impl Walker<'_> {
             self.concern(reason, span);
         }
         net::walk(node.mac.tokens.clone(), &mut self.out.mentioned);
+        if names_relative(node.mac.tokens.clone()) {
+            let reason = format!(
+                "The macro_rules! definition {name} names crate, super or self: the scan does not know where it expands"
+            );
+            self.concern(reason, span);
+        }
+        self.in_macro = true;
         match chains(node.mac.tokens.clone()) {
             Some(found) => self.refer_chains(found),
             None => self.concern(
@@ -280,6 +268,7 @@ impl Walker<'_> {
                 span,
             ),
         }
+        self.in_macro = false;
         for attr in &node.attrs {
             self.attribute(attr);
         }
@@ -430,8 +419,17 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     }
 
     fn visit_item_extern_crate(&mut self, node: &'ast ItemExternCrate) {
-        self.refer(&[plain(&node.ident)], node.ident.span());
+        self.extern_crate(node);
     }
+
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        self.blocks += 1;
+        visit::visit_block(self, node);
+        self.blocks -= 1;
+    }
+
+    /// `pub(in crate::a)` restricts visibility: it is no use of the module `a`.
+    fn visit_visibility(&mut self, _: &'ast syn::Visibility) {}
 
     fn visit_item_use(&mut self, node: &'ast ItemUse) {
         let span = node.use_token.span;
@@ -439,9 +437,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         for attr in &node.attrs {
             self.attribute(attr);
         }
-        self.absolute_use = node.leading_colon.is_some();
-        self.use_tree(&mut Vec::new(), &node.tree);
-        self.absolute_use = false;
+        self.use_item(node);
     }
 
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {
@@ -469,6 +465,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             return;
         }
         self.inline.push(name);
+        self.out.inlines.push(self.inline.clone());
         visit::visit_item_mod(self, node);
         self.inline.pop();
     }
@@ -477,6 +474,10 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 /// The read of an attribute: its path, its tokens, its strings and the value of `key = value`.
 #[path = "scan_attributes.rs"]
 mod attributes;
+
+/// The read of a `use` item: its leaves, the names that they bind and the globs.
+#[path = "scan_use.rs"]
+mod use_items;
 
 #[cfg(test)]
 #[path = "scan_tests.rs"]

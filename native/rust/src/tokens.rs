@@ -36,6 +36,34 @@ pub fn chains(stream: TokenStream) -> Option<Vec<Chain>> {
     collect(stream, 0, false, &mut found).then_some(found)
 }
 
+/// Whether the stream writes `crate`, `super` or `self::` at any depth. A deeper stream counts
+/// as yes, so the caller never reads it as free of module paths.
+pub fn names_relative(stream: TokenStream) -> bool {
+    relative_in(stream, 0)
+}
+
+fn relative_in(stream: TokenStream, depth: usize) -> bool {
+    if depth > MAX_DEPTH {
+        return true;
+    }
+    let mut tokens = stream.into_iter().peekable();
+    while let Some(token) = tokens.next() {
+        let found = match token {
+            TokenTree::Group(group) => relative_in(group.stream(), depth + 1),
+            TokenTree::Ident(ident) => {
+                let text = ident.to_string();
+                let colons = matches!(tokens.peek(), Some(TokenTree::Punct(p)) if p.as_char() == ':');
+                text == "crate" || text == "super" || (text == "self" && colons)
+            }
+            _ => false,
+        };
+        if found {
+            return true;
+        }
+    }
+    false
+}
+
 /// The chains of an attribute. A lint list (`allow(...)`, `expect(...)`) holds lint names, not
 /// paths of the file, so the chains skip its group.
 pub fn attribute_chains(stream: TokenStream) -> Option<Vec<Chain>> {
