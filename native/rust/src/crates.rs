@@ -195,6 +195,7 @@ impl Workspace {
             });
         }
         let package = ident(&manifest.package);
+        self.missing_roots(&manifest, dir, files);
         let mut targets = declared(&manifest, dir, files);
         // A target inside the crate directory is the owner of its file; a shared one comes last.
         targets.sort_by_key(|(_, rel)| (!within(dir, rel), rel.clone()));
@@ -230,6 +231,28 @@ impl Workspace {
             roots,
             primary,
         });
+    }
+
+    /// A path that the manifest names and the listing does not hold: the file is missing, or the
+    /// walk skipped its directory (build output). Either way its facts are missing: a gap.
+    fn missing_roots(&mut self, manifest: &Manifest, dir: &str, files: &[String]) {
+        let build = manifest.build.iter().flatten();
+        let named = manifest
+            .lib_path
+            .iter()
+            .chain(manifest.bins.iter().map(|bin| &bin.path))
+            .chain(build);
+        for path in named {
+            let Some(rel) = normalize(&join(dir, path)).filter(|rel| !files.contains(rel)) else {
+                continue;
+            };
+            let reason =
+                format!("The manifest names a source file that the scan did not list: {rel}");
+            self.problems.push(Problem {
+                reason,
+                file: join(dir, "Cargo.toml"),
+            });
+        }
     }
 
     fn duplicates(&mut self) {
