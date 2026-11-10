@@ -183,23 +183,74 @@ def test_a_saved_external_scan_cannot_be_laundered_into_pass(
     assert (code, external_rules) == (2, "UNKNOWN")
 
 
-def test_an_older_saved_scan_without_the_field_keeps_its_verdict(
+def _saved_scan(root: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> dict:
+    capsys.readouterr()
+    saved = tmp_path / "now.json"
+    main(["report", "--root", str(root), "--output", str(saved), "--json"])
+    capsys.readouterr()
+    return json.loads(saved.read_bytes())
+
+
+def _read_saved(raw: dict, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> dict:
+    path = tmp_path / "changed.json"
+    path.write_text(json.dumps(raw))
+    capsys.readouterr()
+    code = main(["report", "--input", str(path), "--json"])
+    result = json.loads(capsys.readouterr().out)
+    assert code == 2, result
+    return result
+
+
+def test_a_saved_scan_of_an_older_version_has_no_recorded_producer(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-344: a file without producer_kind gives at most UNKNOWN and says why."""
+    root = _repository(tmp_path, packages=("sample",))
+    assert main(["init", "--root", str(root), "--json"]) == 0
+    raw = _saved_scan(root, tmp_path, capsys)
+    del raw["producer_kind"]
+    raw["schema_version"] = "2.9.0"
+    result = _read_saved(raw, tmp_path, capsys)
+    assert result["declared_rules"] == "UNKNOWN"
+    claims = [item["unknown_claim"] for item in result["diagnostics"]]
+    remedies = [item["remedy"] for item in result["diagnostics"]]
+    assert any("producer not recorded" in claim for claim in claims), claims
+    assert any("run the scan again with this version" in text.lower() for text in remedies)
+
+
+def test_a_saved_scan_of_the_current_version_must_record_its_producer(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _repository(tmp_path, packages=("sample",))
     assert main(["init", "--root", str(root), "--json"]) == 0
-    saved = tmp_path / "now.json"
-    capsys.readouterr()
-    main(["report", "--root", str(root), "--output", str(saved), "--json"])
-    capsys.readouterr()
-    raw = json.loads(saved.read_bytes())
+    raw = _saved_scan(root, tmp_path, capsys)
     del raw["producer_kind"]
+    result = _read_saved(raw, tmp_path, capsys)
+    assert result["declared_rules"] == "UNKNOWN"
+    assert any("producer_kind" in item["unknown_claim"] for item in result["diagnostics"])
+
+
+def test_an_older_saved_scan_cannot_carry_the_field(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(tmp_path, packages=("sample",))
+    assert main(["init", "--root", str(root), "--json"]) == 0
+    raw = _saved_scan(root, tmp_path, capsys)
     raw["schema_version"] = "2.9.0"
-    old = tmp_path / "old.json"
-    old.write_text(json.dumps(raw))
-    now = _saved_report(root, saved, capsys)
-    assert _saved_report(root, old, capsys) == now
-    raw["producer_kind"] = "external"
-    marked = tmp_path / "marked.json"
-    marked.write_text(json.dumps(raw))
-    assert _saved_report(root, marked, capsys) == (2, "UNKNOWN")
+    result = _read_saved(raw, tmp_path, capsys)
+    assert result["declared_rules"] == "UNKNOWN"
+    assert any("producer_kind" in item["unknown_claim"] for item in result["diagnostics"])
+
+
+def test_a_pinned_collector_inside_the_scanned_repository_gives_unknown(tmp_path: Path) -> None:
+    root = _repository(tmp_path, packages=("sample",))
+    assert main(["init", "--root", str(root), "--json"]) == 0
+    local = root / "collector.py"
+    local.write_text(Path(sys.executable).name)
+    config = load_config(root)
+    observer = observer_for(
+        config.language, collector_argv=(str(local),), pinned_digest=pin_of(str(local))
+    )
+    result, _ = run_report(root, config=config, analyzer=observer)
+    assert result.exit_code == 2
+    assert any("inside the scanned repository" in item.unknown_claim for item in result.diagnostics)

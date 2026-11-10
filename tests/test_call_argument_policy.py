@@ -593,12 +593,11 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     raw = observation_payload(result.observation)
     assert raw["schema_version"] == "2.10.0"
     assert parse_observation(raw).schema_version == "2.10.0"
+    raw.pop("producer_kind")
 
     old = json.loads(json.dumps(raw))
     old["schema_version"] = "2.4.0"
-    old["declarations"] = [
-        item for item in old["declarations"] if item["kind"] != "source_ownership"
-    ]
+    old["declarations"] = [i for i in old["declarations"] if i["kind"] != "source_ownership"]
     old_references = old["references"]
     old["references"] = []
     for item in old_references:

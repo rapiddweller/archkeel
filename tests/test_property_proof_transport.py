@@ -7,12 +7,12 @@ import json
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from jsonschema import Draft202012Validator
 from test_inherited_properties import _property, _validate
 from test_local_inherited_methods import _report
 
 from archkeel.analyzer.python.collect import collect
-from archkeel.check.observation import assemble_observation
 from archkeel.check.ratchets import unknown_positions
 from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
 from archkeel.ir.protocol import (
@@ -100,7 +100,7 @@ def test_removing_all_property_proof_retains_unknown(payload, tmp_path):
         record["data"].pop("property_binding", None)
         record["data"].pop("property_members", None)
     facts = decode_response(json.dumps(payload).encode()).facts
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
@@ -118,7 +118,7 @@ def test_removing_creation_signature_proof_cannot_certify_a_property(payload, tm
     )
     getter["data"].pop("signature_decorators_proven")
     facts = decode_response(json.dumps(payload).encode()).facts
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
@@ -298,7 +298,7 @@ def test_final_plain_method_requires_its_own_source_proof(tmp_path):
     earlier["data"]["source_final_method_binding"] = False
     for record in _records(payload):
         record["data"].pop("source_final_method_binding", None)
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         decode_response(json.dumps(payload).encode()).facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
@@ -314,7 +314,7 @@ def test_property_facts_round_trip_and_remain_immutable(payload, tmp_path):
     _records(payload).reverse()
     facts = decode_response(json.dumps(payload).encode()).facts
     before = encode_response(CollectionResponse(facts))
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
@@ -380,7 +380,7 @@ def test_missing_direct_property_proof_never_checks_stale_accessors(tmp_path, re
         record["data"].pop("property_binding", None)
         record["data"].pop("property_members", None)
     stripped = decode_response(json.dumps(payload).encode()).facts
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         stripped,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
@@ -418,7 +418,7 @@ def test_direct_signature_controls_do_not_require_property_chain_proof(tmp_path,
     for record in _records(payload):
         record["data"].pop("property_binding", None)
         record["data"].pop("property_members", None)
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         decode_response(json.dumps(payload).encode()).facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",

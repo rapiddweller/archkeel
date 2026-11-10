@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from collector_pin import assembled
 from test_architecture_demo import _prepare_repo
 
 from archkeel.check.observation import _declared_module_name
@@ -112,7 +113,6 @@ def _report(
         from dataclasses import replace
 
         from archkeel.analyzer.python.collect import collect
-        from archkeel.check.observation import assemble_observation
         from archkeel.ir.facts import CollectionCoverage, EvidenceClass
         from archkeel.ir.facts_codec import classified, parse_record
         from archkeel.ir.protocol import (
@@ -159,7 +159,7 @@ def _report(
             state=StateFacts((), ()),
             candidate_evidence=(),
         )
-        observation, _ = assemble_observation(
+        observation, _ = assembled(
             empty,
             contract_root=root,
             contract_path=root / "architecture-contract.json",

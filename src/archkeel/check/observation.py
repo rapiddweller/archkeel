@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import asdict
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
@@ -55,6 +56,7 @@ from archkeel.ir.model import (
     GraphTopologyLevel,
     LayerOrderRule,
     Observation,
+    ProducerKind,
     Section,
     stable_id,
 )
@@ -1064,6 +1066,7 @@ def assemble_observation(
     namespace: str = "src",
     language: Language = Language.PYTHON,
     loaded: ContractInput | None = None,
+    producer: ProducerKind,
 ) -> tuple[Observation, int]:
     """Analyze explicit source bytes; keep the model open for the canonical codec boundary.
 
@@ -1091,9 +1094,8 @@ def assemble_observation(
     _record_inside_failures(scan, inside_failures)
     if git_head == "unknown" or dirty == "unknown":
         _add_git_failure(scan, git_head, dirty)
-    scope = roots, namespace
     declarations = _declaration_records(
-        contract, scan, inside_records, contract_reference, scope, language
+        contract, scan, inside_records, contract_reference, (roots, namespace), language
     )
     _certify_dependency_scopes(scan, facts, full_contract_digest, declarations)
     _certify_call_owner_scopes(scan, facts, full_contract_digest, declarations)
@@ -1103,6 +1105,7 @@ def assemble_observation(
     _certify_selector_scopes(scan, facts, full_contract_digest, declarations)
     model: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
+        "producer_kind": producer.value,
         "analyzer": {
             "name": profile.analyzer,
             "version": OBSERVATION_VERSION,
@@ -1158,11 +1161,7 @@ def assemble_observation(
     if language == Language.PYTHON and facts.runtime.name == "python":
         model["python_version"] = facts.runtime.version
     if language != Language.PYTHON or facts.adapter.name != profile.analyzer:
-        model["producer"] = {
-            "name": facts.adapter.name,
-            "version": facts.adapter.version,
-            "code_digest": facts.adapter.code_digest,
-        }
+        model["producer"] = asdict(facts.adapter)
     # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
     for section in profile.absent_sections:
         model[section] = None
@@ -1222,4 +1221,5 @@ def analyze_source_snapshot(
         namespace=namespace,
         language=language,
         loaded=loaded,
+        producer=ProducerKind.PYTHON,
     )

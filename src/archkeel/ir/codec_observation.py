@@ -88,25 +88,13 @@ class _ObservationVersion(StrEnum):
     V2_10 = SCHEMA_VERSION
 
 
-_VERSION_NUMBERS = {
-    _ObservationVersion.V1_2: (1, 2),
-    _ObservationVersion.V1_3: (1, 3),
-    _ObservationVersion.V2: (2, 0),
-    _ObservationVersion.V2_1: (2, 1),
-    _ObservationVersion.V2_2: (2, 2),
-    _ObservationVersion.V2_3: (2, 3),
-    _ObservationVersion.V2_4: (2, 4),
-    _ObservationVersion.V2_5: (2, 5),
-    _ObservationVersion.V2_6: (2, 6),
-    _ObservationVersion.V2_7: (2, 7),
-    _ObservationVersion.V2_8: (2, 8),
-    _ObservationVersion.V2_9: (2, 9),
-    _ObservationVersion.V2_10: (2, 10),
-}
+def _version_numbers(version: _ObservationVersion) -> tuple[int, int]:
+    major, minor, _ = version.split(".")
+    return int(major), int(minor)
 
 
 def _version_at_least(version: _ObservationVersion, minimum: tuple[int, int]) -> bool:
-    return _VERSION_NUMBERS[version] >= minimum
+    return _version_numbers(version) >= minimum
 
 
 class _ObservationSection(StrEnum):
@@ -125,7 +113,7 @@ class _ObservationRecordKind(StrEnum):
 
 
 def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
-    return _VERSION_NUMBERS[version] < _VERSION_NUMBERS[floor]
+    return _version_numbers(version) < _version_numbers(floor)
 
 
 class _VersionedConstruct(StrEnum):
@@ -533,13 +521,18 @@ def parse_observation(raw: object) -> Observation:
         producer=_parse_analyzer(item["producer"], "producer")
         if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
-        producer_kind=_producer_kind(item),
+        producer_kind=_producer_kind(item, schema_version),
     )
 
 
-def _producer_kind(item: dict[str, RawJson]) -> ProducerKind | None:
-    value = item.get("producer_kind")
-    return None if value is None else ProducerKind(_string(value, "producer_kind"))
+def _producer_kind(item: dict[str, RawJson], version: _ObservationVersion) -> ProducerKind | None:
+    """From schema 2.10.0 the host records who made the facts; an older file cannot say."""
+    recorded = item.get("producer_kind", _MISSING_VALUE) is not _MISSING_VALUE
+    if recorded == _before_version(version, _ObservationVersion.V2_10):
+        raise ValueError(
+            f"producer_kind {'requires' if recorded else 'is required from'} schema 2.10.0"
+        )
+    return ProducerKind(_string(item["producer_kind"], "producer_kind")) if recorded else None
 
 
 def _validate_observation_record_versions(
@@ -836,6 +829,10 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         _observation_version(observation.schema_version), observation.sections, profile
     )
     _validate_profile_sections(result, profile)
+    if (observation.producer_kind is None) != _before_version(
+        _observation_version(observation.schema_version), _ObservationVersion.V2_10
+    ):
+        raise ValueError("producer_kind belongs to observation schema 2.10.0 and later")
     return result
 
 

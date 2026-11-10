@@ -178,17 +178,25 @@ def observation_diagnostics(
                 "Inspect the analyzer coverage and repair its inputs.",
             )
         )
-    if model.producer_kind is ProducerKind.EXTERNAL:
-        diagnostics.append(_external_producer_diagnostic())
+    if model.producer_kind not in (ProducerKind.PYTHON, ProducerKind.PINNED):
+        diagnostics.append(_untrusted_producer_diagnostic(model.producer_kind))
     return tuple(diagnostics)
 
 
-def _external_producer_diagnostic() -> Diagnostic:
-    """AD-344: facts of a configured collector without a pin can never give PASS."""
+def _untrusted_producer_diagnostic(kind: ProducerKind | None) -> Diagnostic:
+    """AD-344: an external collector, or a scan with no recorded producer, gives no PASS."""
+    if kind is None:
+        return Diagnostic(
+            DiagnosticKind.INCOMPLETE_SCAN,
+            "producer_kind",
+            "The saved scan does not record its producer (producer not recorded). "
+            "A rule cannot be proven without it.",
+            "Run the scan again with this version of ArchKeel and save the result.",
+        )
     return Diagnostic(
         DiagnosticKind.INCOMPLETE_SCAN,
         "scan.collector_argv",
-        f"The scan used a configured collector (producer: {ProducerKind.EXTERNAL}). "
+        f"The scan used a configured collector (producer: {kind}). "
         "An external collector cannot prove a rule.",
         "Use the bundled collector, or pin the external collector by digest.",
     )
@@ -340,8 +348,8 @@ def _observe(
                 namespace=namespace,
                 language=language,
                 loaded=loaded,
+                producer=producer,
             )
-            model = replace(model, producer_kind=producer)
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)
         eligibility = (

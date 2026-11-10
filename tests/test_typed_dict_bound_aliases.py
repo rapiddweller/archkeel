@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from test_analyzer import _observe
 from test_boundary_type_bound_aliases import _cli, _facts, _fixture, _targets, _unknowns
 from test_boundary_types_contained_mapping import _commit_report_fixture
@@ -206,7 +207,6 @@ def test_unproven_typed_dict_member_surface_stays_unknown(tmp_path: Path, declar
     ["typed_dict_header_static", "source_member_binding_static", "provider", "declarations"],
 )
 def test_old_typed_dict_source_facts_keep_inherited_method_unknown(tmp_path: Path, proof, flag):
-    from archkeel.check.observation import assemble_observation
     from archkeel.ir.facts_codec import decode_response, encode_response
     from archkeel.ir.protocol import CollectionResponse
 
@@ -240,7 +240,7 @@ def test_old_typed_dict_source_facts_keep_inherited_method_unknown(tmp_path: Pat
     elif flag is not None:
         record["data"][key] = flag
     facts = decode_response(json.dumps(raw).encode()).facts
-    observation = assemble_observation(
+    observation = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",

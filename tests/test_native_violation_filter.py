@@ -8,11 +8,11 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from test_result_schema import current_validator as current_validator
 from test_result_schema import validator as validator
 from test_source_evaluation import _facts
 
-from archkeel.check.observation import assemble_observation
 from archkeel.check.observe import observation_diagnostics
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
@@ -124,7 +124,7 @@ def recorded_native(tmp_path, monkeypatch):
                     for section in facts.sections
                 ),
             )
-        model, _ = assemble_observation(
+        model, _ = assembled(
             source, contract_root=root, contract_path=root / "contract.json", namespace="project"
         )
         observed = evaluate_uml(

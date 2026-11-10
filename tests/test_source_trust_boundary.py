@@ -13,13 +13,13 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from dart_native_helpers import collect_native_dart, require_native_dart
 from test_collection_protocol import _request
 from test_source_evaluation import _facts
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.check.evaluation.evaluate import evaluate_source
-from archkeel.check.observation import assemble_observation
 from archkeel.check.ratchets import RatchetError, measure_python_ratchets
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
@@ -113,7 +113,7 @@ def _contract():
 
 def _observation(tmp_path: Path, facts):
     (tmp_path / "architecture-contract.json").write_text(json.dumps(_contract()))
-    return assemble_observation(
+    return assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "architecture-contract.json",
