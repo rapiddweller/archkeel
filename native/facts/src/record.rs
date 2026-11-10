@@ -34,6 +34,9 @@ pub trait FactData: Sized + Clone {
     /// The kind as protocol 9 writes it. Only an analyzer failure differs from `kind`.
     fn wire_kind(&self) -> &str;
 
+    /// The fields that the generic checks read by name (`fields::Fields`).
+    fn fields(&self) -> crate::fields::Fields<'_>;
+
     /// Write the data in the wire form.
     fn serialize_data<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error>;
 

@@ -48,6 +48,13 @@ COUNTS = [
     ("pub struct S { pub a: u8, b: u8, pub c: u8 }", (1, 2)),
     ("pub struct T(pub u8, u8);", (1, 1)),
     ("pub struct U;", (1, 0)),
+    ("pub struct G<T: Fn(u8)>(pub T);", (1, 1)),
+    ("pub struct G<T: Fn(u8) -> u8>(pub T);", (1, 1)),
+    ("pub struct G<T> where T: Fn(u8) { pub a: u8 }", (1, 1)),
+    ("pub struct G<T> where T: Fn(u8) -> u8 { pub a: u8 }", (1, 1)),
+    ("pub struct T(pub u8) where u8: Copy;", (1, 1)),
+    ("pub struct S { pub a: u8 } impl S { pub fn f() {} pub const C: u8 = 1; fn g() {} }", (3, 1)),
+    ("macro_rules! m { () => { pub struct X { pub a: u8 } } }", (1, 1)),
     ("pub union V { pub a: u8, b: u8 }", (1, 1)),
     ("struct S { pub a: u8 }", (0, 0)),
     ("pub(crate) struct S { pub a: u8 }", (0, 0)),
@@ -74,6 +81,18 @@ def test_a_test_file_and_a_cfg_test_module_do_not_count(tmp_path: Path) -> None:
     native = scratch(tmp_path, "#[cfg(test)]\nmod checks;\npub fn a() {}\n")
     (native / "one/src/checks.rs").write_text("pub fn b() {}\n", encoding="utf-8")
     assert api.count_public(native / "one/src") == (1, 0)
+
+
+def test_a_cfg_test_item_that_is_not_a_module_does_not_count(tmp_path: Path) -> None:
+    text = (
+        "#[cfg(test)]\npub fn only_in_tests() {}\n"
+        "#[cfg(test)]\npub struct S { pub a: u8 }\n"
+        "#[cfg(test)]\nuse a::{b, c};\n"
+        "#[cfg(test)]\nconst X: u8 = { 1 };\n"
+        "#[cfg(test)]\nimpl S { pub fn f() {} }\n"
+        "pub fn kept() {}\n"
+    )
+    assert measure(tmp_path, "masked", text) == (1, 0)
 
 
 def test_a_planted_pub_fn_raises_items_only(tmp_path: Path) -> None:

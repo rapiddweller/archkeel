@@ -96,3 +96,13 @@ fn package_is_the_module_without_its_last_name() {
     assert_eq!(package_of("shop.src.main_x2e_ts"), "shop.src");
     assert_eq!(package_of("shop"), "");
 }
+
+#[test]
+fn a_path_is_inside_when_it_is_relative_and_has_no_parent_part() {
+    for path in ["a/b.ts", "a/..b/c", "a/./b", ""] {
+        assert!(inside(path), "{path}");
+    }
+    for path in ["/a", "a/../b", "..", "a\\b", "c:/a", "a:b"] {
+        assert!(!inside(path), "{path}");
+    }
+}

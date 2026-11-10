@@ -172,6 +172,29 @@ def test_the_store_refuses_a_feature_whose_proof_it_does_not_check(
     assert any("does not check the resolution feature" in claim for claim in claims), claims
 
 
+def test_the_store_refuses_property_members_whose_proof_it_does_not_check(
+    tmp_path: Path, store_binary: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Python check refuses `property_members` that disagree with the method proofs."""
+    root = _repository(ROOT / "fixtures/H-typescript", tmp_path)
+    script = tmp_path / "property.py"
+    script.write_text(
+        "import sys\n"
+        f"sys.path.insert(0, {str(ROOT / 'tests')!r})\n"
+        "import false_pass_support as support\n"
+        "reply, compressed = support._reply('typescript')\n"
+        "symbols = next(s for s in reply['facts']['sections'] if s['name'] == 'symbols')\n"
+        "target = next(r for r in symbols['records'] if r['kind'] == 'class')\n"
+        "target['data']['property_members'] = ['x']\n"
+        "support.send(reply, compressed)\n",
+        encoding="utf-8",
+    )
+    _, verdict = _run(root, (sys.executable, "-I", "-B", str(script)), store_binary, monkeypatch)
+    assert verdict["complete"] != "PASS" and verdict["exit"] != 0
+    claims = [item[2] for item in verdict["diagnostics"]]
+    assert any("property_members" in claim for claim in claims), claims
+
+
 @pytest.fixture(scope="module", params=sorted(FAMILIES))
 def family_root(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Path:
     variant = BY_ID[FAMILIES[request.param]]

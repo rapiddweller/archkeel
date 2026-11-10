@@ -8,7 +8,8 @@ A library crate of `native/` has `src/lib.rs`. Each one must deny
 
 - `items`: a `pub` item (`fn`, `struct`, `enum`, `trait`, `const`, `static`, `type`, `mod`,
   `union`, `extern crate`, `extern fn`) and each name of a `pub use` list (`pub use a::{b, c}`
-  is two).
+  is two). A `pub fn` or `pub const` inside an `impl` block is an item too, whatever the type
+  of the `impl` is.
 - `members`: a `pub` field of a `pub struct` or `pub union`, and a variant of a `pub enum`.
 
 `native/api_baseline.json` holds both counts for each library. A count that grows or shrinks
@@ -16,9 +17,11 @@ fails until the number changes in the same pull request, so each change of an AP
 the review.
 
 What the counts do not hold: `pub(crate)` and other restricted items, fields of a type that is
-not `pub`, what a macro adds when it expands (a `pub` item that stands in the text of a macro call
-is counted, but a visibility token that the call passes on is not), items of a trait, and the
-files of the tests (`rust_source.test_files`).
+not `pub`, items of a trait, and the files of the tests (`rust_source.test_files`).
+
+Macros: the text of a `macro_rules!` body is read as written. A `pub` item in a template counts
+once, and its expansions do not count. A `pub` item in the text of a macro call counts, and a
+visibility token that the call passes on does not.
 """
 
 from __future__ import annotations
@@ -30,7 +33,14 @@ import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from rust_source import Token, inline_test_mask, read_sources, test_files, tokenize
+from rust_source import (
+    Token,
+    group_end,
+    inline_test_mask,
+    read_sources,
+    test_files,
+    tokenize,
+)
 
 ITEMS = frozenset("fn struct enum trait static type mod union use crate".split())
 MODIFIERS = frozenset({"unsafe", "async", "extern"})
@@ -46,16 +56,6 @@ def libraries(native: Path) -> dict[str, Path]:
             package = tomllib.loads(manifest.read_text(encoding="utf-8"))["package"]
             found[package["name"]] = source
     return found
-
-
-def _skip_group(tokens: Sequence[Token], at: int, opening: str, closing: str) -> int:
-    """Return the index after the group that opens at `at`."""
-    depth = 0
-    for position in range(at, len(tokens)):
-        depth += (tokens[position].text == opening) - (tokens[position].text == closing)
-        if depth == 0:
-            return position + 1
-    return len(tokens)
 
 
 def _use_members(tokens: Sequence[Token], at: int) -> int:
@@ -80,13 +80,12 @@ def _variants(tokens: Sequence[Token], at: int) -> int:
     while position < len(tokens) and tokens[position].text != "}":
         text = tokens[position].text
         if text == "#" and tokens[position + 1].text == "[":
-            position = _skip_group(tokens, position + 1, "[", "]")
+            position = group_end(tokens, position + 1)
         elif expect and tokens[position].kind == "name":
             count, expect = count + 1, False
             position += 1
         elif text in {"(", "{", "["}:
-            closing = {"(": ")", "{": "}", "[": "]"}[text]
-            position = _skip_group(tokens, position, text, closing)
+            position = group_end(tokens, position)
         else:
             expect = expect or text == ","
             position += 1
@@ -96,21 +95,32 @@ def _variants(tokens: Sequence[Token], at: int) -> int:
 def _pub_type_bodies(tokens: Sequence[Token]) -> list[tuple[int, int]]:
     """Return the token ranges of the bodies of the `pub struct` and `pub union` items.
 
-    The body is the first `{` or `(` after the name. A unit struct has no body. A `Fn(...)`
-    bound in the generics of a struct is not handled: it would end the body too early.
+    The body is the first `(` or `{` after the name that is outside the generic list `<...>`
+    and, for a tuple struct, before any `where` clause. A `(` or `{` inside the generics or the
+    `where` clause, as in `Fn(u8)`, is skipped by its bracket depth. A unit struct has no body.
     """
     bodies: list[tuple[int, int]] = []
     for at in range(1, len(tokens)):
         if tokens[at].text not in {"struct", "union"} or tokens[at - 1].text != "pub":
             continue
-        for position in range(at + 1, len(tokens)):
+        angle, where, position = 0, False, at + 1
+        while position < len(tokens):
             text = tokens[position].text
-            if text in {"{", "("}:
-                closing = "}" if text == "{" else ")"
-                bodies.append((position, _skip_group(tokens, position, text, closing)))
+            if text == "<":
+                angle += 1
+            elif text == ">" and tokens[position - 1].text != "-":  # `->` is not a closing `>`
+                angle = max(angle - 1, 0)
+            elif text == "where" and angle == 0:
+                where = True
+            elif text == ";" and angle == 0:
                 break
-            if text == ";":
+            elif text == "{" and angle == 0 or text == "(" and angle == 0 and not where:
+                bodies.append((position, group_end(tokens, position)))
                 break
+            elif text in {"(", "[", "{"}:
+                position = group_end(tokens, position)
+                continue
+            position += 1
     return bodies
 
 
