@@ -156,3 +156,11 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
     assert "cargo install --locked cargo-auditable@0.7.7" in dry_run
     assert "ARCHKEEL_BUNDLE_NATIVE=1 uv build --wheel --no-sources --out-dir dist/native" in dry_run
     assert "-m native_wheel tests/test_collector_native_wheel.py" in dry_run
+
+
+def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    check = makefile.split("\nnative-check:\n")[1].split("\n# AD-335")[0]
+    assert "tests/test_rust_clones.py tests/test_rust_api.py" in check
+    assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
+    assert "cargo build --locked\n" not in check
