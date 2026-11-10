@@ -1,0 +1,7 @@
+[scan]
+language = "typescript"
+roots = ["src"]
+namespace = "synth.maps"
+contract = "architecture-contract.json"
+tsconfig = "tsconfig.json"
+bundler = true

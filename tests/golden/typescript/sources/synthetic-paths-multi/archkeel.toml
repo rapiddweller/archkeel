@@ -1,0 +1,6 @@
+[scan]
+language = "typescript"
+roots = ["src"]
+namespace = "synth.paths"
+contract = "architecture-contract.json"
+tsconfig = "tsconfig.json"
