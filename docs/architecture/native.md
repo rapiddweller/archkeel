@@ -8,7 +8,7 @@ Run `make self-validate-native` to check it.
 The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `build`). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
-the records are the only place that builds facts. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
+the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
 arrows in the contract, and rule `NATIVE-NO-MODULE-CYCLES` forbids a module cycle. No module is out of scope: the macro cycle of `archkeel-facts` ([#954](https://github.com/rapiddweller/archkeel/issues/954)) is gone since #961.
 The old layer file and its test are removed (AD-327): a declared
 Cargo dependency that no module uses is a crate edge, and the contract rejects it.
