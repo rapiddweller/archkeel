@@ -13,9 +13,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
-use archkeel_facts::ids::FactId;
+use archkeel_facts::identity::{evidence_id, module_identity, package_of, stable_id, Part};
 use archkeel_facts::{GapFact, Record, Section};
-use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
 use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, ReplySection, Target};
 use archkeel_wire::request::Request;
 
@@ -301,15 +300,11 @@ impl Collection<'_> {
 
     /// `collect._gap`: one UNKNOWN record; the same reason, evidence and module give one record.
     fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str, kind: GapKind) {
-        let mut parts = vec![Part::Text(reason)];
-        parts.extend(evidence.map(Part::Text));
-        parts.push(Part::Text(module));
-        let id = stable_id("UNKNOWN", &parts);
         let fact = match kind {
             GapKind::Collection => GapFact::collection(reason, module),
             GapKind::Resolution => GapFact::resolution(reason, module),
         };
-        let record = Record::unknown(FactId::new(id.clone()), reason, evidence, module, fact);
+        let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
     }
 }

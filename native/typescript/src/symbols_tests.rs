@@ -6,7 +6,7 @@
 // table. The expected values follow the Python collector; `tests/test_collector_native_records.py`
 // compares every record on real trees.
 
-use archkeel_wire::identity::{stable_id, Part};
+use archkeel_facts::identity::{stable_id, Part};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::{Provenance, Record};
 use archkeel_wire::request::Request;
