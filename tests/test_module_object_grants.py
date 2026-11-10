@@ -398,7 +398,7 @@ def test_36_preserves_prior_feature_grammars(version):
 
 
 def test_profile_capability_preserves_existing_positional_constructor_arguments():
-    profile = Profile("custom-analyzer", ".py", frozenset(), True, False)
+    profile = Profile("custom-analyzer", ".py", frozenset(), True, False, crate_edges_only=False)
     assert profile.dependency_symbols is True
     assert profile.complete_api_crossings is False
     assert profile.module_object_imports is False

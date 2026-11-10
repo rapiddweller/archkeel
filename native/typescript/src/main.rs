@@ -83,14 +83,14 @@ use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::decode;
 
 fn provenance() -> Provenance {
-    Provenance {
-        profile: collect::PROFILE,
-        adapter_version: env!("ARCHKEEL_VERSION").to_owned(),
-        code_digest: env!("ARCHKEEL_CODE_DIGEST").to_owned(),
-        runtime_name: "rust",
-        runtime_version: env!("ARCHKEEL_RUSTC_VERSION").to_owned(),
-        runtime_required: format!(">={}", env!("CARGO_PKG_RUST_VERSION")),
-    }
+    Provenance::native(
+        collect::PROFILE,
+        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
+        (
+            env!("ARCHKEEL_RUSTC_VERSION"),
+            env!("CARGO_PKG_RUST_VERSION"),
+        ),
+    )
 }
 
 fn run() -> Result<(), String> {

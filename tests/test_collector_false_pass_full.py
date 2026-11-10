@@ -9,7 +9,7 @@ that carry the other PASS-bearing rule families: interfaces and exports (`interf
 and layering (`layer_order`). It also sends the reply of an honest collector for each rule that
 the profile marks unsupported: the host must not turn that reply into a PASS.
 
-The scan of the Rust collector is not on `main`: see `test_a_rust_reply_gives_no_pass`.
+The Rust probes run the real collector on the sources that hid an edge in the reviews of #916.
 """
 
 from __future__ import annotations
@@ -18,9 +18,10 @@ from pathlib import Path
 
 import false_pass_support as support
 import pytest
+from rust_repository import component, repository, statuses, validate
 
 from fixtures.demo_catalog_typescript import UNSUPPORTED_RULES, VARIANTS
-from fixtures.reproduce_typescript import repository
+from fixtures.reproduce_typescript import repository as typescript_repository
 
 FAMILIES = {
     "interfaces-and-exports": "typescript-module-interface",
@@ -31,7 +32,9 @@ BY_ID = {variant.id: variant for variant in VARIANTS}
 
 @pytest.fixture(scope="module", params=sorted(FAMILIES))
 def family_root(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return repository(tmp_path_factory.mktemp(request.param), BY_ID[FAMILIES[request.param]])
+    return typescript_repository(
+        tmp_path_factory.mktemp(request.param), BY_ID[FAMILIES[request.param]]
+    )
 
 
 @pytest.mark.parametrize(("tamper", "argument"), support.probe_params(support.TYPESCRIPT))
@@ -45,18 +48,151 @@ def test_a_changed_reply_gives_no_pass_for_each_rule_family(
 def test_an_unsupported_rule_kind_gives_no_pass_with_an_honest_reply(
     tmp_path: Path, kind: str
 ) -> None:
-    root = repository(tmp_path, BY_ID[f"typescript-unsupported-{kind}"])
+    root = typescript_repository(tmp_path, BY_ID[f"typescript-unsupported-{kind}"])
     result = support.verdict(root, "typescript", support.argv_for("typescript", "honest"))
     assert result["exit"] == 2, (kind, result["diagnostics"])
     assert "rule_unsupported_by_profile" in result["diagnostics"], kind
     assert all(result["kinds"][rule] != kind for rule in support.passing(result)), kind
 
 
-# The false-PASS cases of the reviews of #916 (the Rust collector). Each case is a Rust source
-# that the collector must not read as a dependency that is allowed, or as no dependency:
-# 1. A local name equal to a crate name: `let serde = 1; serde::x()` is not a use of the crate.
-# 2. The body of a macro: `macro_rules!` and `println!("{}", other::f())` hide or show a path.
-# 3. An attribute string: `#[doc = "use forbidden::x;"]` is text, not an import.
-@pytest.mark.skip(reason="the Rust collector is not on main: add these probes when #916 merges")
-def test_a_rust_reply_gives_no_pass() -> None:
-    raise AssertionError("#916")
+# The false-PASS cases of the reviews of #916 (the Rust collector). The app crate does not require
+# the crate `base_crate`, so a path that names it must be a FAIL (an edge) or UNKNOWN, never a PASS.
+# The sources are the ones that hid an edge in a review: each family has its own list.
+SHADOWED = {
+    "module": "pub mod base_crate {}\n#[cfg(test)]\nmod tests { fn t() { base_crate::make(); } }\n",
+    "type": "pub struct base_crate;\nmod m { fn t() { base_crate::make(); } }\n",
+    "import of a function": "use crate::util::base_crate;\nfn t() { base_crate::make(); }\n",
+    "function": "fn base_crate() {}\npub fn run() { base_crate::make(); }\n",
+}
+MACRO_BODY = {
+    "macro argument": "pub fn run() { other::call!(base_crate); }\n",
+    "path in a macro": 'pub fn run() { println!("{}", base_crate::make()); }\n',
+    "macro_rules": (
+        "macro_rules! m { ($c:ident) => { $c::make() }; }\npub fn run() { m!(base_crate); }\n"
+    ),
+    "raw identifier": "pub fn run() { r#base_crate::make(); }\n",
+}
+ATTRIBUTE = {
+    "string with a path": '#[serde(getter = "base_crate::get")]\npub struct S;\n',
+    "string with a name": '#[serde(with = "base_crate")]\npub struct S;\n',
+    "attribute argument": "#[other::attr(base_crate)]\npub struct S;\n",
+    "doc expression": "#![doc = base_crate::readme!()]\n",
+}
+RUST_PROBES = {**SHADOWED, **MACRO_BODY, **ATTRIBUTE}
+
+
+@pytest.mark.parametrize("source", RUST_PROBES.values(), ids=RUST_PROBES.keys())
+def test_a_rust_source_that_hides_a_crate_edge_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    parts = (component("base", "base_crate"), component("app", "app"))
+    files = {"crates/app/src/lib.rs": source}
+    result = validate(repository(tmp_path, rust_binary, files, components=parts), capsys)
+
+    assert statuses(result).get("REQUIRES") != "PASS"
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
+# The review of head 1114d663: three ways to use the crate `base_crate` that a path in source does
+# not show. Each compiles, and the app crate declares the dependency on `base` but its contract
+# does not require it. A crate can use another crate only if its Cargo.toml declares it, so the
+# declared dependency is an edge, and the verdict is FAIL.
+MANIFEST = '[package]\nname = "{name}"\nversion = "0.0.0"\nedition = "2021"\n{rest}'
+BASE_DEP = 'base-crate = { path = "../base" }\n'
+PROC_MACRO = (
+    "use proc_macro::TokenStream;\n"
+    "#[proc_macro_derive(D)]\n"
+    "pub fn d(_: TokenStream) -> TokenStream {\n"
+    '    "fn g() { ::base_crate::make() }".parse().unwrap()\n'
+    "}\n"
+)
+EXPORTED_MACRO = "#[macro_export]\nmacro_rules! call_b { () => { ::base_crate::make() } }\n"
+
+
+def _crate(name: str, rest: str = "") -> dict[str, str]:
+    return {f"crates/{name}/Cargo.toml": MANIFEST.format(name=name, rest=rest)}
+
+
+def _app(manifest: str, **sources: str) -> dict[str, str]:
+    """The app crate: its manifest, and its sources by name (`src__lib` is `src/lib.rs`)."""
+    files = {"crates/app/Cargo.toml": MANIFEST.format(name="app", rest=manifest)}
+    files.update({f"crates/app/{key.replace('__', '/')}.rs": text for key, text in sources.items()})
+    return files
+
+
+PROC_FILES = {
+    "crates/Cargo.toml": '[workspace]\nmembers = ["base", "app", "d"]\n',
+    **_crate("d", "[lib]\nproc-macro = true\n"),
+    "crates/d/src/lib.rs": PROC_MACRO,
+    **_app(
+        f'[dependencies]\n{BASE_DEP}d = {{ path = "../d" }}\n',
+        src__lib="#[derive(d::D)]\npub struct S;\n",
+    ),
+}
+VENDOR_DEPS = f'[dependencies]\n{BASE_DEP}c = {{ path = "../../../vendor/c" }}\n'
+VENDOR_FILES = {
+    "vendor/c/Cargo.toml": MANIFEST.format(name="c", rest=""),
+    "vendor/c/src/lib.rs": EXPORTED_MACRO,
+}
+NO_BASE = ("[dev_dependencies]\n", "[build_dependencies]\n")
+HIDDEN_DEPENDENCY = {
+    "a proc-macro crate builds the path from a string": (PROC_FILES, ("base", "d", "app"), ("d",)),
+    "an exported macro of a crate outside the scan": (
+        {**VENDOR_FILES, **_app(VENDOR_DEPS, src__lib="pub fn f() { c::call_b!(); }\n")},
+        ("base", "app"),
+        (),
+    ),
+    "a derive helper of a crate outside the scan": (
+        {
+            **VENDOR_FILES,
+            **_app(VENDOR_DEPS, src__lib="#[derive(c::D)]\n#[base_crate]\npub struct S;\n"),
+        },
+        ("base", "app"),
+        (),
+    ),
+    "dev_dependencies with an underscore": (
+        _app(
+            f"[dev_dependencies]\n{BASE_DEP}",
+            src__lib="",
+            tests__t="fn t() { base_crate::make(); }\n",
+        ),
+        ("base", "app"),
+        (),
+    ),
+    "build_dependencies with an underscore": (
+        _app(
+            f"[build_dependencies]\n{BASE_DEP}",
+            src__lib="",
+            build="fn main() { base_crate::make(); }\n",
+        ),
+        ("base", "app"),
+        (),
+    ),
+    "a declared dependency that no source uses": (
+        _app(f"[dependencies]\n{BASE_DEP}", src__lib="pub fn f() {}\n"),
+        ("base", "app"),
+        (),
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("files", "labels", "app_requires"),
+    HIDDEN_DEPENDENCY.values(),
+    ids=HIDDEN_DEPENDENCY.keys(),
+)
+def test_a_dependency_that_source_hides_is_a_declared_edge_and_fails(
+    tmp_path: Path,
+    rust_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    files: dict[str, str],
+    labels: tuple[str, ...],
+    app_requires: tuple[str, ...],
+) -> None:
+    crates = {"base": "base_crate", "d": "d", "app": "app"}
+    parts = tuple(
+        component(label, crates[label], app_requires if label == "app" else ()) for label in labels
+    )
+    result = validate(repository(tmp_path, rust_binary, files, components=parts), capsys)
+
+    assert statuses(result)["REQUIRES"] == "FAIL"

@@ -67,6 +67,7 @@ from archkeel.ir.validated_facts import ensure_valid_source_facts
 
 from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
+from .crate_scope import inside_limits, root_limits
 from .guarded_effects import guarded_effect_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
@@ -76,7 +77,6 @@ from .rules import (
     construct_capability_limits,
     exports_by_module,
     facade_signature_types,
-    profile_failures,
     rule_subject_failures,
     rule_violations,
     scope_receipts_complete,
@@ -366,12 +366,12 @@ def _inside_rule_results(
     for mount in inside_contracts:
         available = available_by_owner.get(mount.owner_id, frozenset())
         owner_levels = _inside_owner_levels(mount, mounts_by_parent, contract_by_owner)
-        parent, scoped, source_modules, scope_failures = _inside_mount_scope(
+        parent, scoped, source_modules, limits_of = _inside_mount_scope(
             mount, owner_levels, modules, available
         )
         available_by_owner[mount.parent_id] = source_modules
         contract_by_owner[mount.parent_id] = scoped
-        failures.extend(scope_failures)
+        failures.extend(limits_of)
         unknowns.extend(
             dynamic_dependency_limits(scoped, source_unknowns, source_modules=source_modules)
         )
@@ -826,7 +826,7 @@ def _evaluate_inside_contract(
         source_modules=source_modules,
         type_shapes=type_shapes,
     )
-    failures.extend(profile_failures(scoped, profile, construct_capabilities))
+    failures.extend(inside_limits(scoped, profile, construct_capabilities, modules))
     violations, allowance_facts = rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -1098,7 +1098,7 @@ def evaluate_source(
         item["data"]["resolution"] = "unresolved"
         if item["id"] in derived_unknown_imports:
             failures.append(unknown_import_failure(item, unresolved_targets[item["id"]].reason))
-    if facts.profile == SourceProfile.TYPESCRIPT:
+    if facts.profile in {SourceProfile.TYPESCRIPT, SourceProfile.RUST}:
         targets = {target.import_id: target for target in facts.imports}
         for item in imports:
             target = targets[item["id"]]
@@ -1191,9 +1191,7 @@ def evaluate_source(
         sdk_libraries=profile.sdk_libraries
         | frozenset(target.name for target in facts.imports if isinstance(target, BuiltinTarget)),
     )
-    rule_failures.extend(
-        [*profile_failures(contract, profile, facts.capabilities.constructs), *uncollected_failures]
-    )
+    rule_failures.extend([*root_limits(contract, profile, facts), *uncollected_failures])
     scope_observations = component_scope_observations(
         components=contract.components,
         modules=module_facts,

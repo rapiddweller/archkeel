@@ -31,7 +31,7 @@ def _cli_repository(tmp_path):
         path.relative_to(source_root.parent).as_posix(): path.read_text()
         for path in (source_root / "cli").glob("*.py")
     }
-    facts = (source_root / "ir/facts.py").read_text()
+    facts = (source_root / "ir/languages.py").read_text()
     language = next(
         node
         for node in ast.parse(facts).body

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
+  "after_digest": "dcc763cacb424b5ee7ee0f44018edf04d353fbe9f75f36726116fa8757e3ce03",
+  "before_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
+  "before_digest": "b6b9617db3f17b61383c3f5b148a8f3d7ecf582d53c15763bc3f0daa2bd72481",
+  "decided_by": "architect",
+  "rationale": "AD-335 and epic #880, PR 5b-1, against origin/main 54f94f5f. Rust becomes a language of the product. The Language and SourceProfile enums move from ir.facts to the new module ir.languages, which joins the facts component through packages, so the enum placement rule lists the new source. The inventory entries of both enums, the Language reference of the snapshot declarations and one module entry follow the move. No public name, budget, baseline entry or Any permission changes: ir.facts re-exports both enums, so every import of them stays valid.",
+  "schema_version": "2.0.0"
+}

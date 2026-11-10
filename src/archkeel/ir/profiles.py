@@ -34,6 +34,7 @@ DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupli
 PYTHON_ANALYZER: Final = SourceProfile.PYTHON.value
 DART_ANALYZER: Final = SourceProfile.DART.value
 TYPESCRIPT_ANALYZER: Final = SourceProfile.TYPESCRIPT.value
+RUST_ANALYZER: Final = SourceProfile.RUST.value
 
 
 def is_test_source(path: str, language: Language) -> bool:
@@ -78,6 +79,9 @@ class Profile:
     additional_optional_section_groups: tuple[frozenset[ObservedSection], ...] = field(
         default=(), kw_only=True
     )
+    # AD-335: the collector writes the edges between crates, not those inside one crate.
+    # Required, with no default: a profile that forgets it would claim the permissive value.
+    crate_edges_only: bool = field(kw_only=True)
 
     def __post_init__(self) -> None:
         sections = set(self.optional_sections)
@@ -104,10 +108,12 @@ PYTHON: Final = Profile(
     source_suffix=".py",
     complete_unread_binding_inventory=True,
     standard_library=frozenset(sys.stdlib_module_names) | frozenset(sys.builtin_module_names),
+    crate_edges_only=False,
 )
 
 DART: Final = Profile(
     analyzer=DART_ANALYZER,
+    crate_edges_only=False,
     complete_api_crossings=False,
     source_suffix=".dart",
     # `no_component_cycles` stays decided with `level: "module"` and `components` (AD-98): a
@@ -170,6 +176,7 @@ DART: Final = Profile(
 
 TYPESCRIPT: Final = Profile(
     analyzer=TYPESCRIPT_ANALYZER,
+    crate_edges_only=False,
     source_suffix=".ts",
     dependency_symbols=False,
     complete_api_crossings=False,
@@ -209,15 +216,38 @@ TYPESCRIPT: Final = Profile(
     additional_optional_section_groups=(frozenset({ObservedSection.CONSTRUCTS}),),
 )
 
+# AD-335: the collector reads crate edges and the module tree. Every rule that needs a symbol, a
+# call, a type or a construct is unsupported, so it reports UNKNOWN and never PASS.
+RUST: Final = Profile(
+    analyzer=RUST_ANALYZER,
+    source_suffix=".rs",
+    dependency_symbols=False,
+    complete_api_crossings=False,
+    # `interface_boundary`: every target of a local crate is its root module, so a public list
+    # that names the root would pass for any use of the crate.
+    unsupported_rules=TYPESCRIPT.unsupported_rules | frozenset({"interface_boundary"}),
+    crate_edges_only=True,
+    # The sysroot crates are the language's own library, not an external dependency.
+    standard_library=frozenset({"std", "core", "alloc"}),
+    project_import_closure=True,
+    unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
+    unmeasured=TYPESCRIPT.unmeasured,
+    absent_sections=frozenset({ObservedSection.TYPING_SIGNALS}),
+    optional_sections=TYPESCRIPT.optional_sections,
+    additional_optional_section_groups=TYPESCRIPT.additional_optional_section_groups,
+)
+
 PROFILES: Final[dict[Language, Profile]] = {
     Language.PYTHON: PYTHON,
     Language.DART: DART,
     Language.TYPESCRIPT: TYPESCRIPT,
+    Language.RUST: RUST,
 }
 _ANALYZER_PROFILES: Final = {
     SourceProfile.PYTHON: PYTHON,
     SourceProfile.DART: DART,
     SourceProfile.TYPESCRIPT: TYPESCRIPT,
+    SourceProfile.RUST: RUST,
 }
 
 

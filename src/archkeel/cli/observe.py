@@ -4,6 +4,7 @@
 """Compose configured language processes with the Core observer."""
 
 import sys
+import sysconfig
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal
@@ -16,6 +17,20 @@ from archkeel.check.ports import Language, ObservationResult
 from archkeel.ir.codec import RawJson, observation_payload
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import ProtocolVersion
+
+RUST_COLLECTOR = "archkeel-rust-collector"
+# `native/hatch_build.py` puts the binaries of a platform wheel here (AD-317, AD-335).
+_NATIVE_DIRECTORY = Path(__file__).resolve().parents[1] / "_native"
+_EXECUTABLE_SUFFIX = sysconfig.get_config_var("EXE") or ""
+
+
+def bundled_collector(name: str) -> str:
+    """The path of the native collector `name` in this install.
+
+    A platform wheel carries the binary. An sdist, an editable install and the pure wheel do not,
+    so the path may not exist. Running it then gives `missing_tool` with this path in the message.
+    """
+    return str(_NATIVE_DIRECTORY / (name + _EXECUTABLE_SUFFIX))
 
 
 def observer_for(
@@ -32,12 +47,17 @@ def observer_for(
     bundled = collector_argv is None
     native_python = bundled and language == Language.PYTHON
     native_typescript = bundled and language == Language.TYPESCRIPT
+    native_rust = bundled and language == Language.RUST
+    if native_rust:
+        # AD-335: the native binary is the only producer for Rust. Without it the run is a
+        # `missing_tool` error that names the path, and no Python collector stands in.
+        collector_argv = (bundled_collector(RUST_COLLECTOR),)
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
     collector = ProcessCollector(
         collector_argv,
         clock=clock,
-        protocol_version=ProtocolVersion.V8 if native_typescript else None,
+        protocol_version=ProtocolVersion.V8 if native_typescript or native_rust else None,
         # A collector of this package must report the host version; a configured one need not.
         pin_adapter_version=bundled,
     )

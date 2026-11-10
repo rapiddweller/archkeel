@@ -38,13 +38,12 @@ from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
-    DartSettings,
     ProtocolVersion,
     PythonSettings,
     ResolverSettings,
     SnapshotInput,
     SourceScope,
-    TypeScriptSettings,
+    fixed_settings,
 )
 
 from .contract_tree import ContractInput, contract_input
@@ -125,6 +124,7 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
+    Language.RUST: "Rust",
 }
 # Dart has no test-source classification, so a Dart scan keeps every file.
 _TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
@@ -290,16 +290,10 @@ def _observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
-        resolver: ResolverSettings = (
-            PythonSettings(
-                features=tuple(
-                    sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
-                )
+        resolver: ResolverSettings = fixed_settings(language, tsconfig, bundler) or PythonSettings(
+            features=tuple(
+                sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
             )
-            if language == Language.PYTHON
-            else DartSettings()
-            if language == Language.DART
-            else TypeScriptSettings(tsconfig, bundler)
         )
         exclude_test_sources = exclude_test_sources and language in _TEST_SCOPE_LANGUAGES
         request = CollectionRequest(

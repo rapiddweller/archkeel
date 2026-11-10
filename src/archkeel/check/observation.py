@@ -1187,12 +1187,11 @@ def analyze_source_snapshot(
     from archkeel.ir.protocol import (
         CollectionError,
         CollectionRequest,
-        DartSettings,
         PythonSettings,
         ResolverSettings,
         SnapshotInput,
         SourceScope,
-        TypeScriptSettings,
+        fixed_settings,
     )
 
     if dirty != "unknown" and not isinstance(dirty, bool):
@@ -1206,13 +1205,7 @@ def analyze_source_snapshot(
         loaded = load_contract_input(declarations_root, contract_file)
         _, _, mounts, _ = _inside_levels(loaded.tree)
         features = tuple(sorted(required_resolution_features(loaded.contract, mounts)))
-    resolver: ResolverSettings = (
-        TypeScriptSettings()
-        if language == Language.TYPESCRIPT
-        else DartSettings()
-        if language == Language.DART
-        else PythonSettings(features=features)
-    )
+    resolver: ResolverSettings = fixed_settings(language) or PythonSettings(features=features)
     request = CollectionRequest(
         SnapshotInput(str(source_root.resolve()), git_head, dirty),
         SourceScope(roots, namespace),

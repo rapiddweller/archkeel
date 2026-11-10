@@ -1030,7 +1030,8 @@
           "enum": [
             "archkeel-python-analyzer",
             "archkeel-dart-analyzer",
-            "archkeel-typescript-imports"
+            "archkeel-typescript-imports",
+            "archkeel-rust-imports"
           ]
         },
         "adapter": {
@@ -2668,7 +2669,8 @@
           "enum": [
             "archkeel-python-analyzer",
             "archkeel-dart-analyzer",
-            "archkeel-typescript-imports"
+            "archkeel-typescript-imports",
+            "archkeel-rust-imports"
           ]
         },
         "adapter": {

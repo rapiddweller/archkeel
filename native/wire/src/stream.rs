@@ -52,7 +52,7 @@ pub struct Tail {
     pub selected_files: Vec<String>,
     pub files_read: usize,
     /// Coverage gaps. The collection is complete only when there is none.
-    pub gaps: Vec<Record>,
+    pub gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
     pub evidence: Vec<Evidence>,
 }
 
@@ -371,7 +371,9 @@ fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
     coverage.put(out, "files_parsed", &head.files.len())?;
     coverage.put(out, "files_read", &tail.files_read)?;
     coverage.put(out, "full_scope", &tail.gaps.is_empty())?;
-    coverage.list(out, "gaps", &tail.gaps, write_record)?;
+    coverage.list(out, "gaps", &tail.gaps, |out, gap| {
+        Ok(serde_json::to_writer(out, gap)?)
+    })?;
     coverage.put(out, "selected_files", &tail.selected_files)?;
     coverage.close(out)?;
     facts.list(out, "evidence", &tail.evidence, |out, item| {

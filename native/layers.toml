@@ -48,9 +48,13 @@ planned = true
 role = "library"
 dir = "build-support"
 may_use = []
-planned = true
 
 [crates.archkeel-typescript-collector]
 role = "collector"
 dir = "typescript"
+may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-facts", "archkeel-build-support"]
+
+[crates.archkeel-rust-collector]
+role = "collector"
+dir = "rust"
 may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-facts", "archkeel-build-support"]

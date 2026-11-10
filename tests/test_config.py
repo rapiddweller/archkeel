@@ -241,7 +241,7 @@ def test_scan_language_is_narrowed_to_a_supported_profile(language: str) -> None
     assert parse_config(payload).language == language
 
 
-@pytest.mark.parametrize("language", ['"rust"', "1", "true", '["python"]'])
+@pytest.mark.parametrize("language", ['"go"', "1", "true", '["python"]'])
 def test_scan_rejects_a_language_outside_its_profile_alias(language: str) -> None:
     payload = (
         '[scan]\nroots = ["src"]\nnamespace = "sample"\n'

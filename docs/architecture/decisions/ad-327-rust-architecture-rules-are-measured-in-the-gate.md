@@ -46,7 +46,8 @@ panic could end a scan.
   customer asked for.
 
 **Limit.** Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
-name the TypeScript collector; a second collector must be added to them.
+name the TypeScript collector; a second collector must be added to them. AD-335 moves the
+crate-direction and module-cycle rows to the contract of `native/` when slice 5b-3 lands.
 
 **Checked by** `make native-check`, which also runs `tests/test_self_native_layers.py`
 (it fails, not skips, when `CI` is set and `cargo` is missing): a bad crate edge, a parser crate in a library,

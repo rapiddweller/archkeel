@@ -48,7 +48,8 @@
           "enum": [
             "archkeel-python-analyzer",
             "archkeel-dart-analyzer",
-            "archkeel-typescript-imports"
+            "archkeel-typescript-imports",
+            "archkeel-rust-imports"
           ]
         },
         "version": {
@@ -431,7 +432,10 @@
           "analyzer": {
             "properties": {
               "name": {
-                "const": "archkeel-typescript-imports"
+                "enum": [
+                  "archkeel-typescript-imports",
+                  "archkeel-rust-imports"
+                ]
               }
             }
           }

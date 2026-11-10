@@ -28,6 +28,7 @@ _SYNTAX_REMEDY: Final[dict[Language, str]] = {
     "rerun after resolving its cause.",
     Language.TYPESCRIPT: "Correct the syntax of the reported TypeScript file and retry.",
     Language.DART: "Correct the syntax or the encoding of the reported Dart file and retry.",
+    Language.RUST: "Correct the syntax of the reported Rust file and retry.",
 }
 _REMEDY: Final[dict[DiagnosticKind, str]] = {
     DiagnosticKind.UNRESOLVED_IMPORT: "Install the missing package, or correct the relative path, "

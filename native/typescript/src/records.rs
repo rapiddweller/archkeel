@@ -78,7 +78,7 @@ pub struct Plan<'p> {
     imports: Imports,
     expanded: Records,
     cited: Cited,
-    gaps: Vec<Record>,
+    gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
     selected_files: Vec<String>,
     files_read: usize,
 }
@@ -136,7 +136,7 @@ impl Plan<'_> {
             ..
         } = &mut self;
         sink.write_typed_section("imports", |emit| expanded.imports.iter().for_each(emit))?;
-        sink.write_section("unknowns", |emit| gaps.iter().for_each(emit))?;
+        sink.write_typed_section("unknowns", |emit| gaps.iter().for_each(emit))?;
         sink.write_section("symbols", |emit| {
             symbols::each(table, cited, &mut |record| emit(&record));
         })?;

@@ -137,3 +137,25 @@ fn accepts_windows_roots_and_the_unknown_dirty_state() {
     value["snapshot"]["root"] = json!(concat!("C", ":\\work/repository"));
     assert!(decoded(&value).is_err());
 }
+
+#[test]
+fn a_rust_request_has_a_resolver_with_one_field() {
+    let mut value = request("8.0.0");
+    value["resolver"] = json!({"language": "rust"});
+    let rust = decode_rust(&serde_json::to_vec(&value).unwrap()).unwrap();
+    assert_eq!((rust.tsconfig.as_str(), rust.bundler), ("", false));
+    value["resolver"] = json!({"language": "rust", "tsconfig": "tsconfig.json"});
+    let refused = decode_rust(&serde_json::to_vec(&value).unwrap());
+    assert_eq!(refused.unwrap_err(), "resolver fields mismatch");
+    value["resolver"] = json!({"language": "typescript", "tsconfig": "tsconfig.json"});
+    let refused = decode_rust(&serde_json::to_vec(&value).unwrap());
+    assert_eq!(
+        refused.unwrap_err(),
+        "Rust collector requires the Rust resolver"
+    );
+    value["resolver"] = json!({"language": "rust"});
+    assert_eq!(
+        decoded(&value).unwrap_err(),
+        "TypeScript collector requires the TypeScript resolver"
+    );
+}

@@ -67,6 +67,13 @@ PR_TEST_FILES := \
 	tests/test_typed_collector_protocol.py \
 	tests/test_typed_collector_native.py \
 	tests/test_collector_native_wheel.py \
+	tests/test_collector_native_rust.py \
+	tests/test_collector_native_rust_names.py \
+	tests/test_collector_native_rust_scope.py \
+	tests/test_collector_native_rust_oracle.py \
+	tests/test_collector_native_rust_language.py \
+	'tests/test_collector_native_rust_scaling.py::test_every_shape_builds_a_crate_that_the_collector_reads_without_a_gap' \
+	'tests/test_collector_native_rust_scaling.py::test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small' \
 	tests/test_collector_native_digest.py \
 	tests/test_collector_native_imports.py \
 	'tests/test_collector_native_scaling.py::test_time_grows_linearly_with_the_size[class-comment-run]' \

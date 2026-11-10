@@ -18,12 +18,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-build-support"
+version = "0.0.0"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
 name = "archkeel-facts"
 version = "0.0.0"
 dependencies = [
  "schemars",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "archkeel-rust-collector"
+version = "0.0.0"
+dependencies = [
+ "archkeel-build-support",
+ "archkeel-facts",
+ "archkeel-snapshot",
+ "archkeel-wire",
+ "proc-macro2",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]
@@ -37,11 +57,11 @@ dependencies = [
 name = "archkeel-typescript-collector"
 version = "0.0.0"
 dependencies = [
+ "archkeel-build-support",
  "archkeel-facts",
  "archkeel-snapshot",
  "archkeel-wire",
  "serde_json",
- "sha2",
  "tree-sitter",
  "tree-sitter-typescript",
 ]

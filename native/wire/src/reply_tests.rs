@@ -102,17 +102,13 @@ fn the_reply_is_zlib_framed_json_with_the_requested_version() {
 #[test]
 fn a_gap_makes_the_collection_partial() {
     let mut partial = facts();
-    partial.gaps.push(Record {
-        id: "UNKNOWN-1".to_owned(),
-        evidence_class: "UNKNOWN",
-        area: "source",
-        kind: "collection_gap",
-        title: "reason".to_owned(),
-        subjects: vec![],
-        evidence_ids: vec![],
-        fact_ids: vec![],
-        data: Map::new(),
-    });
+    partial.gaps.push(archkeel_facts::Record::unknown(
+        archkeel_facts::ids::FactId::new("UNKNOWN-1"),
+        "reason",
+        None,
+        "",
+        archkeel_facts::GapFact::collection("reason", ""),
+    ));
     let wire = encode(Version::V8, partial).unwrap();
     let mut plain = Vec::new();
     ZlibDecoder::new(wire.as_slice())
@@ -264,7 +260,13 @@ fn the_streamed_reply_is_the_reply_that_a_tree_of_the_facts_gives() {
         ReplySection::Records("unknowns", vec![]),
     ];
     full.constructs = vec![("string_literal_compare", "partial")];
-    full.gaps = vec![record("gap")];
+    full.gaps = vec![archkeel_facts::Record::unknown(
+        archkeel_facts::ids::FactId::new("UNKNOWN-1"),
+        "gap",
+        Some("EVD-1"),
+        "m",
+        archkeel_facts::GapFact::resolution("gap", "m"),
+    )];
     full.evidence = vec![Evidence {
         id: "EVD-1".to_owned(),
         file: "a.ts".to_owned(),
