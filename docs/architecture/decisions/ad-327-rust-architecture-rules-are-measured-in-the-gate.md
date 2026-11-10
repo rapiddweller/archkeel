@@ -57,5 +57,6 @@ TypeScript collector is byte-equal on x35 except the code digest, and the binary
 **Note, 2026-11-10 (copies and API).** The clone tool compares windows of 70 tokens. It hides names
 and literal values, so a renamed copy still matches. A block of equal rows is skipped when one row
 repeats within 24 tokens. A new or grown production clone fails the gate. A clone in a test file only
-warns. The API tool counts `pub` items, `pub` fields, `pub use` names and enum variants. It does not
-count what a macro adds. A count that differs from its baseline fails until the PR sets the number.
+warns. The API tool counts two numbers for each crate. `items` counts `pub` items and `pub use`
+names. `members` counts `pub` fields of `pub` types and enum variants. It does not count what a
+macro adds. A number that differs from its baseline fails until the PR sets it.
