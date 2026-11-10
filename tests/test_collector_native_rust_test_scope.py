@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from rust_repository import repository, validate
 
 from archkeel.ir.profiles import TEST_SCOPE_LANGUAGES, Language, is_test_source
 
@@ -97,3 +98,27 @@ def test_the_host_path_check_knows_the_test_directories_of_cargo(path: str, expe
     assert is_test_source(path, Language.RUST) is expected
     # Benches and examples are test scope of Rust only.
     assert is_test_source("a/benches/b.py", Language.PYTHON) is False
+
+
+def test_the_note_names_the_files_that_the_collector_left_out(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The host counts the listed files that the collector did not select, not file names."""
+    files = {
+        "crates/app/src/lib.rs": "#[cfg(test)] mod checks;\npub fn run() {}\n",
+        "crates/app/src/checks.rs": "fn c() {}\n",
+        "crates/app/tests/it.rs": "fn i() {}\n",
+        "crates/target/stray.rs": "fn s() {}\n",
+    }
+    root = repository(tmp_path, rust_binary, files)
+    (root / "crates/app/src/dangling.rs").symlink_to(root / "crates/app/src/missing.rs")
+    config = root / "archkeel.toml"
+    config.write_text(
+        config.read_text().replace("[scan]\n", "[scan]\nexclude_test_sources = true\n")
+    )
+    claim = validate(root, capsys)["notes"][0]["unknown_claim"]
+    assert claim.startswith("2 test source file(s)")
+    assert "crates/app/src/checks.rs" in claim
+    assert "crates/app/tests/it.rs" in claim
+    assert "stray.rs" not in claim
+    assert "dangling.rs" not in claim
