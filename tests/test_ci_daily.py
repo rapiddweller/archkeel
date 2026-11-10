@@ -92,3 +92,12 @@ def test_a_draft_pr_runs_no_job_and_a_ready_pr_starts_ci() -> None:
             aggregate = job in ("check", "verified")
             expected = [f"always() && {guard}"] if aggregate else [guard]
             assert found == (expected if guarded else []), f"{path.name} job {job}: {found}"
+
+
+def test_a_draft_run_and_a_ready_run_use_two_concurrency_groups() -> None:
+    """A skipped draft run must never cancel the real run of the same PR (AD-348)."""
+    split = "-${{ github.event.pull_request.draft == true && 'draft' || 'ready' }}"
+    for name in ("ci.yml", "full-verification.yml"):
+        text = (Path(__file__).parents[1] / ".github/workflows" / name).read_text()
+        group = re.search(r"^  group: (.+)$", text, flags=re.MULTILINE)
+        assert group is not None and group[1].endswith(split), name

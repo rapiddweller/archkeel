@@ -39,6 +39,11 @@ CI. The test `!= true` (not `== false`) keeps the jobs on for `schedule`, `workf
 `workflow_call`, where the draft flag is empty. Full already has a nightly `schedule`. The
 concurrency group with `cancel-in-progress` stays.
 
+**Separate groups.** A push to a draft and the ready click run in one PR at nearly the same time.
+One concurrency group let the skipped draft run cancel the real run (seen on #945). The group
+name ends in `draft` or `ready`, so a draft run never cancels a ready run; a new push to a ready PR
+still cancels the older ready run.
+
 **Ready-click window.** After the click and before the new run ends, GitHub can show the skipped
 aggregate of the draft run, and a skipped required check counts as passed. `make merge-check`
 fails when `All checks passed` is skipped. The lead merges only after the aggregate is green.

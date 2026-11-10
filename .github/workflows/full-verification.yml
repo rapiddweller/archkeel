@@ -25,8 +25,9 @@ on:
 permissions:
   contents: read
 
+# A draft run only skips jobs: its own group keeps it from cancelling a ready run (AD-348).
 concurrency:
-  group: full-${{ github.event.pull_request.number || github.run_id }}
+  group: full-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.pull_request.draft == true && 'draft' || 'ready' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
