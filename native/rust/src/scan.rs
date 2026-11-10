@@ -16,7 +16,7 @@ use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro};
 
 use crate::attrs::{
     hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
-    statement_attributes, trait_item_attributes,
+    statement_attributes, trait_item_attributes, CFG_GATE_MODULE,
 };
 use crate::definitions::{Definition, Holder};
 use crate::net;
@@ -130,6 +130,8 @@ pub struct Child {
     /// A `cfg(test)` on the declaration, or on an item that holds it, marks a test module.
     pub test: bool,
     pub site: Site,
+    /// The place of the gap that a `cfg` on the declaration gave, if it gave one.
+    pub cfg_gate: Option<Site>,
 }
 
 #[derive(Debug, Default)]
@@ -247,10 +249,12 @@ impl Walker<'_> {
         }
     }
 
-    fn gate(&mut self, attrs: &[Attribute], what: &str, span: Span) {
-        if let Some(reason) = hidden_by(attrs, what, self.features) {
-            self.concern(reason, span);
-        }
+    /// Record what the attributes hide. The result is the place of a gap that a `cfg` gave.
+    fn gate(&mut self, attrs: &[Attribute], what: &str, span: Span) -> Option<Site> {
+        let reason = hidden_by(attrs, what, self.features)?;
+        let cfg = reason.starts_with(CFG_GATE_MODULE).then(|| self.site(span));
+        self.concern(reason, span);
+        cfg
     }
 }
 
@@ -400,7 +404,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {
         let span = node.mod_token.span;
-        self.gate(&node.attrs, "module", span);
+        let cfg_gate = self.gate(&node.attrs, "module", span);
         let name = plain(&node.ident);
         if node.content.is_none() {
             match path_literal(&node.attrs) {
@@ -413,6 +417,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
                         inline,
                         test: is_test_attributes(&node.attrs),
                         site,
+                        cfg_gate,
                     });
                 }
                 Err(reason) => self.concern(reason, span),

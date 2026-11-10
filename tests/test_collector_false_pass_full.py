@@ -432,3 +432,49 @@ def test_a_path_attribute_into_a_file_of_another_crate_gives_no_pass(
 
     assert statuses(result).get("REQUIRES") != "PASS"
     assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
+# #984: a run must not refuse a module directory named `target` or two `cfg` alternatives of one
+# `mod`. The forbidden edge inside the file of each is still FAIL.
+ALTERNATIVES = (
+    '#[cfg(unix)]\n#[path = "a1.rs"]\nmod a;\n'
+    '#[cfg(not(unix))]\n#[path = "a2.rs"]\nmod a;\n'
+    "mod b;\n"
+)
+REFUSAL_PROBES = {
+    "a module directory named target": (
+        {"lib.rs": "mod target;\nmod b;\n", "target/mod.rs": "use crate::b::make;\n"},
+        "native.app.target",
+    ),
+    "the first cfg alternative": (
+        {"lib.rs": ALTERNATIVES, "a1.rs": "use crate::b::make;\n", "a2.rs": ""},
+        "native.app.a",
+    ),
+    "the second cfg alternative": (
+        {"lib.rs": ALTERNATIVES, "a1.rs": "", "a2.rs": "use crate::b::make;\n"},
+        "native.app.a_alt2",
+    ),
+}
+
+
+@pytest.mark.parametrize(("files", "source"), REFUSAL_PROBES.values(), ids=REFUSAL_PROBES.keys())
+def test_a_forbidden_edge_in_a_file_that_the_run_once_refused_is_a_fail(
+    tmp_path: Path,
+    rust_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    files: dict[str, str],
+    source: str,
+) -> None:
+    sources = {f"crates/app/src/{name}": text for name, text in files.items()}
+    sources["crates/app/src/b.rs"] = "pub fn make() {}\n"
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source=source,
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    rules = (*CRATE_RULES, forbidden)
+    result = validate(repository(tmp_path, rust_binary, sources, rules=rules), capsys)
+
+    assert statuses(result).get("NO-A-TO-B") == "FAIL", result

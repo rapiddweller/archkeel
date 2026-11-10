@@ -256,3 +256,38 @@ fn a_test_module_is_claimed_and_not_a_module_when_the_request_excludes_tests() {
     assert!(found.claimed.contains("src/tests/more.rs"));
     assert!(found.is_excluded("src/tests.rs") && !found.is_excluded("src/foo_tests.rs"));
 }
+
+#[test]
+fn cfg_alternatives_of_one_module_name_keep_both_files_under_distinct_modules() {
+    let found = walked(&[
+        (
+            "src/lib.rs",
+            "#[cfg(unix)]\n#[path = \"a.rs\"]\nmod inner;\n#[cfg(not(unix))]\n#[path = \"b.rs\"]\nmod inner;",
+        ),
+        ("src/a.rs", "mod leaf;"),
+        ("src/b.rs", ""),
+        ("src/leaf.rs", ""),
+    ]);
+    assert_eq!(reasons(&found), Vec::<&str>::new());
+    assert_eq!(
+        modules(&found),
+        [
+            ("ns.app", "src/lib.rs"),
+            ("ns.app.inner", "src/a.rs"),
+            ("ns.app.inner.leaf", "src/leaf.rs"),
+            ("ns.app.inner_alt2", "src/b.rs"),
+        ]
+    );
+}
+
+#[test]
+fn a_file_that_two_differently_named_modules_load_stays_a_problem() {
+    let found = walked(&[
+        (
+            "src/lib.rs",
+            "#[path = \"a.rs\"]\nmod one;\n#[path = \"a.rs\"]\nmod two;",
+        ),
+        ("src/a.rs", ""),
+    ]);
+    assert!(reasons(&found)[0].contains("is the file of two modules"));
+}

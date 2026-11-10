@@ -15,8 +15,13 @@ use crate::paths::normalize;
 use crate::scan::{scan, Child, Scan};
 use crate::source::read_text;
 use crate::test_scope::in_test_directory;
+use alternatives::release;
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
+
+/// The `cfg` alternatives of one module name.
+#[path = "alternatives.rs"]
+mod alternatives;
 
 /// One file of a module tree, read and scanned.
 pub struct Module {
@@ -38,6 +43,8 @@ pub struct Walked {
     /// The test scope of a request that excludes tests: the files that the walk read for their
     /// `mod x;` declarations and then left out. They are claimed, but they are no modules.
     pub tests: BTreeSet<String>,
+    /// The module ids that the walk gave out.
+    names: BTreeSet<String>,
     exclude_tests: bool,
 }
 
@@ -70,6 +77,7 @@ pub fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -
         problems: Vec::new(),
         claimed: BTreeSet::new(),
         tests: BTreeSet::new(),
+        names: BTreeSet::new(),
         exclude_tests,
     };
     // A crate walks the files of its own directory first. A file that another crate names, such
@@ -95,6 +103,7 @@ impl Walked {
             self.both(&reason, &root.rel, &join(&krate.dir, "Cargo.toml"));
             return;
         }
+        self.names.insert(root.module.clone());
         if self.exclude_tests && !root.test && in_test_directory(&root.rel) {
             self.hidden(&root.rel, &root.rel);
         }
@@ -106,6 +115,19 @@ impl Walked {
             test: self.exclude_tests && (root.test || in_test_directory(&root.rel)),
         };
         self.crate_tree(source, index, krate, first);
+    }
+
+    /// A module id that no other file has. Rust refuses two modules of one name in one parent,
+    /// unless `cfg` leaves one of them out: so a second file for the same id is a cfg alternative
+    /// and keeps its own file and edges under a suffixed id. A path to the id names the first.
+    fn distinct(&mut self, module: String) -> String {
+        let mut chosen = module.clone();
+        let mut number = 2;
+        while !self.names.insert(chosen.clone()) {
+            chosen = format!("{module}_alt{number}");
+            number += 1;
+        }
+        chosen
     }
 
     /// A gap on the file that two owners load and on the file of the second owner, so that the
@@ -197,7 +219,10 @@ impl Walked {
         } else {
             let production = self.exclude_tests && !file.test;
             match scan(text, &krate.manifest.features, production) {
-                Ok(scanned) => return scanned,
+                Ok(mut scanned) => {
+                    release(&mut scanned);
+                    return scanned;
+                }
                 Err(error) => Some(format!("Syntax error in {}: {error}", file.rel)),
             }
         };
@@ -255,6 +280,7 @@ impl Walked {
         for part in child.inline.iter().map(String::as_str).chain([name]) {
             module = format!("{module}.{}", part.trim_start_matches("r#"));
         }
+        let module = self.distinct(module);
         // A file that a `path` attribute loads owns its directory, as a `mod.rs` does.
         let mod_rs = path_loaded || rel.ends_with("/mod.rs") || rel == "mod.rs";
         let stem = rel.rsplit('/').next().unwrap_or("").trim_end_matches(".rs");
