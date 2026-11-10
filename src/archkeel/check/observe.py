@@ -45,7 +45,7 @@ from archkeel.ir.protocol import (
     collection_request,
     fixed_settings,
 )
-from archkeel.ir.store_seam import close_store
+from archkeel.ir.store_seam import close_store, keep_store_for
 
 from .contract_tree import ContractInput, contract_input
 from .declarations import ContractError, load_contract
@@ -56,6 +56,7 @@ from .runtime import runtime_diagnostic
 
 
 def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> ObservationResult:
+    close_store()  # AD-346: a failed observation keeps no store of an earlier collection.
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
 
 
@@ -290,8 +291,6 @@ def _observe(
     clock: PhaseClock | None = None,
     producer: ProducerKind,
 ) -> ObservationResult:
-    # AD-346: an observation owns at most one store session; the previous one ends here.
-    close_store()
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
     suffix = PROFILES[language].source_suffix
@@ -299,6 +298,7 @@ def _observe(
         contract_file = contract_root / contract
         loaded = _contract_tree(contract_file, contract_root)
         if isinstance(loaded, ObservationResult):
+            close_store()
             return loaded
         found: set[str] = set()
         listed: set[str] = set()
@@ -348,6 +348,11 @@ def _observe(
             resolver,
         )
         facts = collector.collect(request)
+        # AD-346: the observation uses the store only if the store holds these facts.
+        if isinstance(facts, CollectionError):
+            close_store()
+        else:
+            keep_store_for(facts)
         if isinstance(facts, CollectionError):
             kind: DiagnosticKind = (
                 DiagnosticKind.TIMEOUT

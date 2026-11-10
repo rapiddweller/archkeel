@@ -230,8 +230,7 @@ class ProcessCollector:
 
     def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
         adapter_version = package_version() if self.pin_adapter_version else None
-        # Explore observes twice and reuses the facts of its first pass; a store keeps one reply.
-        if self.store is not None and store_enabled() and not request.scope.exclude_test_sources:
+        if self.store is not None and store_enabled():
             with measured(self.clock, Phase.DECODE):
                 return store_response(
                     stdout,

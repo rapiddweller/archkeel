@@ -27,6 +27,9 @@ const TYPESCRIPT_FEATURES: [&str; 8] = [
     "bundler-mode-v1",
 ];
 
+/// The feature of the Rust collector. No Python check reads it, so it asks for no proof.
+const RUST_FEATURES: [&str; 1] = ["rust-crate-edges"];
+
 /// `_unique` of the Python checks: no duplicate and no empty value.
 pub(crate) fn unique<'a, I: IntoIterator<Item = &'a str>>(
     values: I,
@@ -101,17 +104,18 @@ fn decoder_checks(facts: &Facts) -> Result<(), String> {
 
 /// The store checks only the replies whose every claim it can check (AD-346).
 fn checkable(facts: &Facts) -> Result<(), String> {
-    match facts.profile {
-        Profile::TypeScript => {}
-        Profile::Python | Profile::Dart | Profile::Rust => {
+    let known: &[&str] = match facts.profile {
+        Profile::TypeScript => &TYPESCRIPT_FEATURES,
+        Profile::Rust => &RUST_FEATURES,
+        Profile::Python | Profile::Dart => {
             return Err(format!(
                 "the store does not check {} replies yet",
                 facts.profile.as_str()
             ))
         }
-    }
+    };
     for feature in &facts.capabilities.resolution_features {
-        if !TYPESCRIPT_FEATURES.contains(&feature.as_str()) {
+        if !known.contains(&feature.as_str()) {
             return Err(format!(
                 "the store does not check the resolution feature {feature} yet"
             ));

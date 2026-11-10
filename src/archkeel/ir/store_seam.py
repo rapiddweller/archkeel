@@ -16,6 +16,9 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Protocol
+from weakref import ReferenceType, ref
+
+from archkeel.ir.facts import SourceFacts
 
 # A bound or saved entry: the id of an entry that the store holds, or the entry of the shell.
 StoreEntry = str | Mapping[str, object]
@@ -43,7 +46,11 @@ class StoreSeam(Protocol):
     def close(self) -> None: ...
 
 
-_ACTIVE: ContextVar[StoreSeam | None] = ContextVar("archkeel_store", default=None)
+# The store and the facts that it decoded. The reference is weak, so the store does not keep the
+# read-set alive; facts that are gone match no observation.
+_ACTIVE: ContextVar[tuple[StoreSeam, ReferenceType[SourceFacts]] | None] = ContextVar(
+    "archkeel_store", default=None
+)
 _ENABLED: ContextVar[bool] = ContextVar("archkeel_store_enabled", default=True)
 
 
@@ -64,17 +71,30 @@ def store_disabled() -> Iterator[None]:
 
 
 def active_store() -> StoreSeam | None:
-    return _ACTIVE.get()
+    active = _ACTIVE.get()
+    return None if active is None else active[0]
 
 
-def open_store(seam: StoreSeam) -> None:
-    """Make `seam` the store of the current collection; a previous store closes first."""
+def open_store(seam: StoreSeam, facts: SourceFacts) -> None:
+    """Make `seam` the store of the collection `facts`; a previous store closes first."""
     close_store()
-    _ACTIVE.set(seam)
+    _ACTIVE.set((seam, ref(facts)))
+
+
+def keep_store_for(facts: SourceFacts) -> None:
+    """Close the store unless it holds `facts`.
+
+    An observation calls this with the facts that it assembles. Explore observes twice with the
+    facts of one collection, so its second pass keeps the store; facts that the Python path
+    decoded close a store left by an earlier collection.
+    """
+    active = _ACTIVE.get()
+    if active is not None and active[1]() is not facts:
+        close_store()
 
 
 def close_store() -> None:
-    seam = _ACTIVE.get()
-    if seam is not None:
+    active = _ACTIVE.get()
+    if active is not None:
         _ACTIVE.set(None)
-        seam.close()
+        active[0].close()

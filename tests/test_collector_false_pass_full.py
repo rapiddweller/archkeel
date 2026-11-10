@@ -9,7 +9,8 @@ that carry the other PASS-bearing rule families: interfaces and exports (`interf
 and layering (`layer_order`). It also sends the reply of an honest collector for each rule that
 the profile marks unsupported: the host must not turn that reply into a PASS.
 
-The Rust probes run the real collector on the sources that hid an edge in the reviews of #916.
+The Rust probes run the real collector on the sources that hid an edge in the reviews of #916,
+on the Python decode and on the Rust store (AD-346).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import false_pass_support as support
 import pytest
 from rust_repository import APP, CRATE_RULES, component, repository, rule, statuses, validate
 
+from archkeel.cli.observe import NATIVE_STORE
 from fixtures.demo_catalog_typescript import UNSUPPORTED_RULES, VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
@@ -82,7 +84,19 @@ ATTRIBUTE = {
 RUST_PROBES = {**SHADOWED, **MACRO_BODY, **ATTRIBUTE}
 
 
+@pytest.fixture(params=["python path", "store path"])
+def decode_path(
+    request: pytest.FixtureRequest, store_binary: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each Rust probe runs on the Python decode and on the Rust store (AD-346)."""
+    if request.param == "store path":
+        monkeypatch.setenv(NATIVE_STORE, str(store_binary))
+    else:
+        monkeypatch.delenv(NATIVE_STORE, raising=False)
+
+
 @pytest.mark.parametrize("source", RUST_PROBES.values(), ids=RUST_PROBES.keys())
+@pytest.mark.usefixtures("decode_path")
 def test_a_rust_source_that_hides_a_crate_edge_gives_no_pass(
     tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], source: str
 ) -> None:
@@ -150,6 +164,7 @@ RE_EXPORTED = {
 
 
 @pytest.mark.parametrize(("name", "probe"), MODULE_PROBES.items(), ids=MODULE_PROBES.keys())
+@pytest.mark.usefixtures("decode_path")
 def test_a_rust_source_that_hides_a_module_edge_gives_no_pass(
     tmp_path: Path,
     rust_binary: Path,

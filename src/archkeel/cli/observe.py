@@ -74,9 +74,11 @@ def locate(name: str, directory: Path | None = None) -> Bundled | None:
     return Bundled(binary, f"sha256:{text}")
 
 
-# AD-346: the path of an `archkeel-store` binary. When it is set, the reply of a TypeScript
-# collector goes through the Rust store. It is an opt-in for the proof of stage 1, not a default.
+# AD-346: the path of an `archkeel-store` binary. When it is set, the reply of a TypeScript or
+# Rust collector goes through the Rust store. An opt-in for the proof of stage 1, not a default.
 NATIVE_STORE = "ARCHKEEL_NATIVE_STORE"
+# The languages whose replies the store checks completely (AD-346).
+STORE_LANGUAGES = frozenset({Language.TYPESCRIPT, Language.RUST})
 
 
 def observer_for(
@@ -119,7 +121,7 @@ def observer_for(
         pinned_digest = launched.digest
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
-    store = os.environ.get(NATIVE_STORE) if language == Language.TYPESCRIPT else None
+    store = os.environ.get(NATIVE_STORE) if language in STORE_LANGUAGES else None
     collector = ProcessCollector(
         collector_argv,
         clock=clock,

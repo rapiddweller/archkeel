@@ -104,7 +104,7 @@ fn the_frozen_reply_passes_and_gives_the_read_set() -> Result<(), String> {
 #[test]
 fn a_changed_reply_fails_with_the_message_of_the_python_check() {
     type Change = fn(&mut Value);
-    let cases: [(&str, Change); 10] = [
+    let cases: [(&str, Change); 11] = [
         ("duplicate source record id", |v| {
             let first = records(v, "imports")[0].clone();
             if let Some(list) = records(v, "imports").as_array_mut() {
@@ -145,9 +145,16 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
         ("does not check archkeel-python-analyzer replies", |v| {
             v["facts"]["profile"] = json!("archkeel-python-analyzer");
         }),
-        ("does not check archkeel-rust-imports replies", |v| {
-            v["facts"]["profile"] = json!("archkeel-rust-imports");
+        ("does not check archkeel-dart-analyzer replies", |v| {
+            v["facts"]["profile"] = json!("archkeel-dart-analyzer");
         }),
+        // A Rust reply may claim only the feature of the Rust collector.
+        (
+            "does not check the resolution feature literal-imports",
+            |v| {
+                v["facts"]["profile"] = json!("archkeel-rust-imports");
+            },
+        ),
         ("dangling source evidence reference", |v| {
             records(v, "symbols")[0]["evidence_ids"] = json!(["EVD-missing"]);
         }),

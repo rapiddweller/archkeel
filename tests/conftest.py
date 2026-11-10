@@ -228,6 +228,12 @@ def rust_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return build_native_copy(tmp_path_factory, "native-rust", binary="archkeel-rust-collector")
 
 
+@pytest.fixture(scope="session")
+def store_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The debug build of the Rust store (AD-346), copied for its own tests."""
+    return build_native_copy(tmp_path_factory, "store", binary="archkeel-store")
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_testnodedown(error: object | None) -> None:
     # xdist can return success after a worker crashes during collection.
