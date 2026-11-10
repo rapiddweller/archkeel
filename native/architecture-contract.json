@@ -1046,7 +1046,8 @@
         "native.archkeel_typescript_collector.syntax",
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
-        "native.archkeel_typescript_collector.umd_publication"
+        "native.archkeel_typescript_collector.umd_publication",
+        "native.archkeel_typescript_collector.cargo_toml"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [
@@ -1102,7 +1103,8 @@
         "native.archkeel_typescript_collector.syntax",
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
-        "native.archkeel_typescript_collector.umd_publication"
+        "native.archkeel_typescript_collector.umd_publication",
+        "native.archkeel_typescript_collector.cargo_toml"
       ],
       "rationale": "Only the TypeScript collector loads the TypeScript grammar.",
       "provenance": [
@@ -1122,7 +1124,8 @@
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
         "native.archkeel_rust_collector.scan.macros",
-        "native.archkeel_rust_collector.scan.use_items"
+        "native.archkeel_rust_collector.scan.use_items",
+        "native.archkeel_rust_collector.cargo_toml"
       ],
       "rationale": "Only the Rust collector parses Rust source with syn.",
       "provenance": [
