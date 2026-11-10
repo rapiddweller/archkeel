@@ -365,20 +365,6 @@ class Observer:
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
 
-    def scope_notes(self) -> tuple[Diagnostic, ...]:
-        """AD-313: name the test scope in the result, so a PASS is not read as covering tests."""
-        if not self.exclude_test_sources:
-            return ()
-        return (
-            Diagnostic(
-                DiagnosticKind.NOT_EXAMINED,
-                "scan.exclude_test_sources",
-                "Test sources are excluded from this scan. File counts and verdicts cover "
-                "production code only.",
-                "Set scan.exclude_test_sources to false in archkeel.toml to scan test sources too.",
-            ),
-        )
-
     def __call__(
         self,
         source_root: Path,

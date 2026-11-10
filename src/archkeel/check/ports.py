@@ -11,6 +11,7 @@ from typing import Protocol
 from archkeel.ir.facts import Language as Language
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
+from archkeel.ir.model import Diagnostic, DiagnosticKind
 from archkeel.ir.model import ObservationResult as ObservationResult
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 
@@ -28,6 +29,20 @@ class ScanConfig:
     collector_timeout_seconds: int | None = None
     bundler: bool = False
     exclude_test_sources: bool = False
+
+    def scope_notes(self) -> tuple[Diagnostic, ...]:
+        """AD-313: name the test scope in the result, so a PASS is not read as covering tests."""
+        if not self.exclude_test_sources:
+            return ()
+        return (
+            Diagnostic(
+                DiagnosticKind.NOT_EXAMINED,
+                "scan.exclude_test_sources",
+                "Test sources are excluded from this scan. File counts and verdicts cover "
+                "production code only.",
+                "Set scan.exclude_test_sources to false in archkeel.toml to scan test sources too.",
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)

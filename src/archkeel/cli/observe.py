@@ -12,7 +12,7 @@ from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
-from archkeel.check.ports import Language, ObservationResult, ScanConfig
+from archkeel.check.ports import Language, ObservationResult
 from archkeel.ir.codec import RawJson, observation_payload
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import ProtocolVersion
@@ -54,23 +54,6 @@ def observer_for(
         bundler,
         clock,
         exclude_test_sources,
-    )
-
-
-def configured_observer(
-    config: ScanConfig, remedy: str, clock: PhaseClock | None = None
-) -> Observer:
-    """The observer of a configured scan: `report` and `validate` share one scope (AD-313)."""
-    return observer_for(
-        config.language,
-        collector_argv=config.collector_argv,
-        tsconfig=config.tsconfig or "tsconfig.json",
-        output_limit_bytes=config.collector_output_limit_bytes,
-        output_limit_remedy=remedy,
-        timeout_seconds=config.collector_timeout_seconds,
-        bundler=config.bundler,
-        exclude_test_sources=config.exclude_test_sources,
-        clock=clock,
     )
 
 
