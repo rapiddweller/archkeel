@@ -102,7 +102,7 @@ self-validate-native:
 	@mkdir -p test-artifacts/validation-native src/archkeel/_native
 	@cp native/target/self/debug/archkeel-rust-collector src/archkeel/_native/archkeel-rust-collector
 	@status=0; $(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || status=$$?; \
-		rm -rf src/archkeel/_native; \
+		rm -f src/archkeel/_native/archkeel-rust-collector; rmdir src/archkeel/_native 2>/dev/null || true; \
 		if [ $$status -ne 0 ]; then cat test-artifacts/validation-native/result.json; exit 1; fi
 	@echo "Native architecture rules: PASS; full result: test-artifacts/validation-native/result.json"
 
