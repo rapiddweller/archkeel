@@ -23,7 +23,7 @@ from archkeel.ir.architecture_graph import (
     Relationship,
 )
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.facts import Evidence
+from archkeel.ir.facts import Evidence, ProducerKind
 from archkeel.ir.report_graph import architecture_report
 
 PROOF = Evidence("proof", "sample.ts", 1, 1, 0, "export type Shared = number;")
@@ -295,7 +295,7 @@ def test_type_value_matching_is_recorded_identically_in_live_and_saved_reports(
     fresh, encoded = run_report(
         root,
         config=config,
-        analyzer=Observer(_TypeScriptCollector()),
+        analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
         only_architecture=True,
         full_architecture=True,
     )

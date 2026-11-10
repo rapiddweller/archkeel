@@ -19,6 +19,7 @@ from archkeel.ir.facts_codec import decode_response
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionRequest,
+    ProducerKind,
     PythonSettings,
     SnapshotInput,
     SourceScope,
@@ -62,7 +63,7 @@ def _canonical(tmp_path: Path, facts: SourceFacts, language: str) -> dict[str, o
         (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (root / "contract.json").write_text('{"schema_version":"2.1.0","components":[],"rules":[]}\n')
 
-    observer = Observer(_FixedCollector(facts))
+    observer = Observer(_FixedCollector(facts), producer=ProducerKind.PYTHON)
     result = observer(
         root,
         roots=("src",),

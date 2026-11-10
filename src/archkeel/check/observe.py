@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Build observations by injecting a source collector into Core evaluation."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Final
 
@@ -178,6 +178,8 @@ def observation_diagnostics(
                 "Inspect the analyzer coverage and repair its inputs.",
             )
         )
+    if model.producer_kind is ProducerKind.EXTERNAL:
+        diagnostics.append(_external_producer_diagnostic())
     return tuple(diagnostics)
 
 
@@ -273,7 +275,7 @@ def _observe(
     bundler: bool = False,
     exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
-    producer: ProducerKind = ProducerKind.PYTHON,
+    producer: ProducerKind,
 ) -> ObservationResult:
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
@@ -338,15 +340,14 @@ def _observe(
                 namespace=namespace,
                 language=language,
                 loaded=loaded,
+                producer=producer,
             )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)
-        external = producer is ProducerKind.EXTERNAL
-        if external:
-            diagnostics = (*diagnostics, _external_producer_diagnostic())
         eligibility = (
             UmlEligibility.VALIDATED_PARTIAL_SOURCE
-            if not external and _partial_uml_source_is_eligible(facts, model, runtime)
+            if producer is not ProducerKind.EXTERNAL
+            and _partial_uml_source_is_eligible(facts, model, runtime)
             else UmlEligibility.BLOCKED
         )
         return _observation_result(facts, model, diagnostics, eligibility)
@@ -373,8 +374,8 @@ class Observer:
     bundler: bool = False
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
-    # observer_for sets it from how the host starts the collector; a collector object is the host's.
-    producer: ProducerKind = ProducerKind.PYTHON
+    # Required: the host says who made the facts. Only observer_for derives it from the launch.
+    producer: ProducerKind = field(kw_only=True)
 
     def __call__(
         self,

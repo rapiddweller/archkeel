@@ -66,6 +66,7 @@ from .facts import (
 from .facts import (
     JsonValue as JsonValue,
 )
+from .facts import ProducerKind as ProducerKind
 from .facts import (
     Record as Record,
 )
@@ -109,7 +110,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.9.0"
+SCHEMA_VERSION = "2.10.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -1470,6 +1471,8 @@ class Observation:
     python_version: str | None = None
     runtime: RuntimeInfo | None = None
     producer: AnalyzerInfo | None = None
+    # Recorded by the host from how it started the collector (AD-344); schema 2.10.0 and later.
+    producer_kind: ProducerKind | None = None
 
     def records(self, section: str) -> tuple[Record, ...] | None:
         return next((item.records for item in self.sections if item.name == section), None)

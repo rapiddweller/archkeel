@@ -18,7 +18,7 @@ from archkeel.check.observe import Observer
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
-from archkeel.ir.facts import RecordData, ResolutionInput, SourceFacts
+from archkeel.ir.facts import ProducerKind, RecordData, ResolutionInput, SourceFacts
 from archkeel.ir.member_inventory import MEMBER_INVENTORY_PROOF, member_inventory_proof
 from archkeel.ir.model import TARGET_GRAPH_RECORD_KINDS, Observation
 from archkeel.ir.protocol import CollectionError, CollectionRequest
@@ -182,7 +182,9 @@ def _project(root: Path, language: str) -> ScanConfig:
 
 def _live(root: Path, language: str):
     config = _project(root, language)
-    result, encoded = run_report(root, config=config, analyzer=Observer(_Collector(language)))
+    result, encoded = run_report(
+        root, config=config, analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON)
+    )
     assert encoded is not None
     return result, encoded, parse_observation(decode_canonical_model(json.loads(encoded)))
 
@@ -487,7 +489,11 @@ def test_partial_closed_inventory_cannot_replay_unbound_cached_pass(certified, a
 def test_stripped_legacy_all_pass_inventory_is_withheld_on_saved_replay(tmp_path, language):
     config = _project(tmp_path, language)
     _target_without_gap_detail(tmp_path)
-    _, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector(language)))
+    _, encoded = run_report(
+        tmp_path,
+        config=config,
+        analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON),
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert architecture_report(model).comparison.status == "PASS"
     changed = _unbound_inventory_snapshot(model, "proof_and_binding")
@@ -507,7 +513,11 @@ def test_legacy_partial_open_scope_keeps_known_comparison(tmp_path, language):
     contract = json.loads(path.read_text())
     contract["declarations"]["uml"]["scopes"][0]["mode"] = "open"
     path.write_text(json.dumps(contract))
-    _, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector(language)))
+    _, encoded = run_report(
+        tmp_path,
+        config=config,
+        analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON),
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.status in {"FAIL", "UNKNOWN"}
@@ -532,7 +542,9 @@ def test_partial_owner_with_closed_attributes_and_open_methods_keeps_known_compa
     if local_gap:
         source.write_text(source.read_text() + "const id = './gap'; import(id);\n")
     result, encoded = run_report(
-        tmp_path, config=config, analyzer=Observer(_Collector("typescript"))
+        tmp_path,
+        config=config,
+        analyzer=Observer(_Collector("typescript"), producer=ProducerKind.PYTHON),
     )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert _inventory_is_complete(model) is not local_gap
@@ -597,7 +609,11 @@ def test_local_resolver_gap_keeps_direct_inventory_unknown(tmp_path, language):
             else "const id = './gap'; import(id);\n"
         )
     )
-    _, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector(language)))
+    _, encoded = run_report(
+        tmp_path,
+        config=config,
+        analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON),
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert not _inventory_is_complete(model)
     assert not any(
@@ -617,7 +633,9 @@ def test_dart_owned_part_closure_is_required_for_inventory(tmp_path, part_state)
         content += "class Broken { ???\n"
     if part_state != "missing":
         (tmp_path / "lib/data.part.dart").write_text(content)
-    _, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector("dart")))
+    _, encoded = run_report(
+        tmp_path, config=config, analyzer=Observer(_Collector("dart"), producer=ProducerKind.PYTHON)
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert _inventory_is_complete(model) is (part_state == "complete")
 
@@ -648,7 +666,9 @@ def test_late_diagnostic_revokes_inventory_before_serialization(tmp_path, monkey
         )
 
     monkeypatch.setattr(report_module, "observe_repository", late_failure)
-    fresh, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector("dart")))
+    fresh, encoded = run_report(
+        tmp_path, config=config, analyzer=Observer(_Collector("dart"), producer=ProducerKind.PYTHON)
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert not _inventory_is_complete(model)
     assert architecture_report(model).comparison is None
@@ -663,7 +683,11 @@ def test_repeat_native_collection_has_identical_inventory_proof(tmp_path, langua
     config = _project(tmp_path, language)
     models = []
     for _ in range(2):
-        _, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector(language)))
+        _, encoded = run_report(
+            tmp_path,
+            config=config,
+            analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON),
+        )
         models.append(parse_observation(decode_canonical_model(json.loads(encoded))))
     proofs = [
         next(r for r in m.records("scope_observations") or () if r.kind == MEMBER_INVENTORY_PROOF)
@@ -689,7 +713,11 @@ def test_certified_inventory_retains_missing_and_extra_member_fail(tmp_path, lan
             "String extra = 'extra'; void run()" if language == "dart" else "extra: string; run()",
         )
     path.write_text(source)
-    result, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector(language)))
+    result, encoded = run_report(
+        tmp_path,
+        config=config,
+        analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON),
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert _inventory_is_complete(model)
     comparison = architecture_report(model).comparison
@@ -719,7 +747,11 @@ def _target_without_gap_detail(root: Path, *, signature_only: bool = False) -> N
 def test_only_certified_closed_inventory_target_retains_partial_pass_comparison(tmp_path, language):
     config = _project(tmp_path, language)
     _target_without_gap_detail(tmp_path)
-    result, encoded = run_report(tmp_path, config=config, analyzer=Observer(_Collector(language)))
+    result, encoded = run_report(
+        tmp_path,
+        config=config,
+        analyzer=Observer(_Collector(language), producer=ProducerKind.PYTHON),
+    )
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.status == "PASS"
@@ -734,7 +766,7 @@ def test_only_certified_closed_inventory_target_retains_partial_pass_comparison(
 def test_unrelated_inventory_does_not_retain_signature_only_partial_pass(tmp_path):
     config = _project(tmp_path, "typescript")
     _target_without_gap_detail(tmp_path, signature_only=True)
-    observer = Observer(_Collector("typescript"))
+    observer = Observer(_Collector("typescript"), producer=ProducerKind.PYTHON)
     candidate = observer(
         tmp_path,
         roots=config.roots,

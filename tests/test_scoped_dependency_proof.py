@@ -19,6 +19,7 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation, result_payload
 from archkeel.ir.decisions import rule_assessments, rule_uncertainty_evidence
+from archkeel.ir.facts import ProducerKind
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import Evidence, EvidenceClass, Record, RecordData, Section, stable_id
 from archkeel.ir.module_explore import module_exploration
@@ -211,7 +212,9 @@ def _project(root: Path, *, dynamic_a: bool = False, forbidden: bool = False):
 
 def _report(root: Path, **options):
     config = _project(root, **options)
-    result, encoded = run_report(root, config=config, analyzer=Observer(_TypeScriptCollector()))
+    result, encoded = run_report(
+        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
+    )
     assert encoded is not None
     return result, encoded, parse_observation(decode_canonical_model(json.loads(encoded)))
 
@@ -386,7 +389,7 @@ def test_unaffected_nested_requires_passes_with_partial_global_coverage(tmp_path
         config=ScanConfig(
             ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
         ),
-        analyzer=Observer(_TypeScriptCollector()),
+        analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
     )
     assert repeated == encoded
 
@@ -397,7 +400,7 @@ def test_target_authentication_failure_revokes_scoped_proof(tmp_path: Path):
     root = tmp_path / "project"
     config = _project(root)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    result = Observer(_TypeScriptCollector())(
+    result = Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)(
         root,
         roots=config.roots,
         namespace=config.namespace,
@@ -443,7 +446,9 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
                 language="typescript",
                 tsconfig="tsconfig.build.json",
             ),
-            analyzer=Observer(_TypeScriptCollector(), tsconfig="tsconfig.build.json"),
+            analyzer=Observer(
+                _TypeScriptCollector(), tsconfig="tsconfig.build.json", producer=ProducerKind.PYTHON
+            ),
         )
     assert encoded is not None and result.exit_code == 2
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
@@ -473,7 +478,7 @@ def test_static_violation_wins_over_unrelated_source_gap(tmp_path: Path, current
         config=ScanConfig(
             ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
         ),
-        analyzer=Observer(_TypeScriptCollector()),
+        analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
     )
     path.write_bytes(encoded)
     for facet in (
@@ -485,7 +490,7 @@ def test_static_violation_wins_over_unrelated_source_gap(tmp_path: Path, current
             config=ScanConfig(
                 ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
             ),
-            analyzer=Observer(_TypeScriptCollector()),
+            analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
             **facet,
         )
         saved = run_saved_report(path, **facet)
@@ -572,7 +577,9 @@ def test_collector_cannot_relabel_unknown_import_impact(tmp_path: Path, signatur
         )
 
     result, _ = run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(transform=transform))
+        root,
+        config=config,
+        analyzer=Observer(_TypeScriptCollector(transform=transform), producer=ProducerKind.PYTHON),
     )
     assert all(row.status != "PASS" for row in result.rule_assessments or ())
 
@@ -636,7 +643,7 @@ def test_gap_origin_cannot_contradict_other_attribution(tmp_path: Path, change: 
     result, _ = run_report(
         root,
         config=_project(root),
-        analyzer=Observer(_TypeScriptCollector(transform=transform)),
+        analyzer=Observer(_TypeScriptCollector(transform=transform), producer=ProducerKind.PYTHON),
     )
     assert all(row.status != "PASS" for row in result.rule_assessments or ())
 
@@ -669,7 +676,7 @@ def test_invalid_matching_runtime_proof_and_late_diagnostic_are_blocked(tmp_path
     )
 
     def late(*args, **kwargs):
-        result = Observer(_TypeScriptCollector())(*args, **kwargs)
+        result = Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)(*args, **kwargs)
         return replace(result, diagnostics=(*result.diagnostics, _runtime_blocker()))
 
     result, encoded = run_report(
@@ -723,7 +730,10 @@ def test_known_violation_lenses_survive_when_every_scope_is_uncertain(
         {"component": "b"},
     ):
         fresh, _ = run_report(
-            tmp_path / "project", config=config, analyzer=Observer(_TypeScriptCollector()), **facet
+            tmp_path / "project",
+            config=config,
+            analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
+            **facet,
         )
         saved = run_saved_report(path, **facet)
         assert fresh.declared_rules == saved.declared_rules == "FAIL"
@@ -744,7 +754,9 @@ def test_unresolved_dart_super_signature_does_not_block_dependencies(tmp_path: P
     contract = json.loads(path.read_bytes())
     contract["rules"] = [RULE]
     path.write_text(json.dumps(contract))
-    result, encoded = run_report(root, config=config, analyzer=Observer(_DartCollector()))
+    result, encoded = run_report(
+        root, config=config, analyzer=Observer(_DartCollector(), producer=ProducerKind.PYTHON)
+    )
     assert encoded is not None
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert _rows(model)["requires"].status == "PASS"
@@ -856,7 +868,7 @@ def test_open_record_strings_are_canonical_primitives_before_json(wire, dependen
 def _dependency_model_from_core(root):
     config = _project(root)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    result = Observer(_TypeScriptCollector())(
+    result = Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)(
         root,
         roots=config.roots,
         namespace=config.namespace,

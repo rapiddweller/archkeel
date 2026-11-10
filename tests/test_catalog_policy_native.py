@@ -222,7 +222,9 @@ def test_python_catalog_literal_values_are_versioned_in_observation_schemas(tmp_
     )
     assert owner["data"]["attribute_declarations"][0]["literal_value"] == "page_size"
     validator = _validator("command-result-9.0.schema.json")
-    current = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0"})
+    current = validator.evolve(
+        schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.10.0"}
+    )
     assert current.is_valid(raw)
 
     historical = copy.deepcopy(raw)

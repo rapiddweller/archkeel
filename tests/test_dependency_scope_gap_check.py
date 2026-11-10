@@ -17,6 +17,7 @@ import archkeel.check.observation as observation
 from archkeel.check.observe import Observer
 from archkeel.check.report import run_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.facts import ProducerKind
 
 
 def _receipts(
@@ -51,7 +52,11 @@ def _receipts(
 
     monkeypatch.setattr(observation, "_certify_dependency_scopes", spy)
     try:
-        _, encoded = run_report(root, config=config, analyzer=Observer(_TypeScriptCollector()))
+        _, encoded = run_report(
+            root,
+            config=config,
+            analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
+        )
         if rows is not None and encoded is not None:
             rows.update(_rows(parse_observation(decode_canonical_model(json.loads(encoded)))))
     except (ValueError, KeyError):

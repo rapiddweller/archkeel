@@ -22,7 +22,13 @@ from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Relationsh
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.facts import SOURCE_SCRIPT_GLOBAL_KIND, Language
 from archkeel.ir.facts_validation import validate_source_facts
-from archkeel.ir.protocol import CollectionRequest, SnapshotInput, SourceScope, TypeScriptSettings
+from archkeel.ir.protocol import (
+    CollectionRequest,
+    ProducerKind,
+    SnapshotInput,
+    SourceScope,
+    TypeScriptSettings,
+)
 from archkeel.ir.source_graph import observed_graph
 
 SCENE = "var Scene = (function () { function create() {} return { create }; })();\n"
@@ -1041,7 +1047,9 @@ def test_native_complete_requires_rejects_drift_and_missing_actual_globals(
 
     def run():
         result, artifact = run_report(
-            root, config=config, analyzer=Observer(_TypeScriptCollector())
+            root,
+            config=config,
+            analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
         )
         assert artifact is not None, result.diagnostics
         return result, parse_observation(decode_canonical_model(json.loads(artifact)))
@@ -1247,7 +1255,9 @@ def test_named_esm_boundary_permissions_require_source_export_evidence(
         files["src/scene.js"] = provider
     root = _prepare_repo(tmp_path, files)
     config = ScanConfig(("src",), "browser", "contract.json", "unused", language="typescript")
-    result, artifact = run_report(root, config=config, analyzer=Observer(_TypeScriptCollector()))
+    result, artifact = run_report(
+        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
+    )
     assert artifact is not None, result.diagnostics
     [assessment] = result.rule_assessments
     assert assessment.status == expected

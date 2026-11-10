@@ -19,7 +19,7 @@ from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
 from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES, exit_message, limit_memory
-from archkeel.analyzer.pin import is_pin, pin_refusal
+from archkeel.analyzer.pin import PinError, is_pin, pinned_path
 from archkeel.analyzer.reply_checks import check_reply
 from archkeel.analyzer.runtime import package_version
 from archkeel.ir.facts import SourceFacts
@@ -132,14 +132,14 @@ class ProcessCollector:
                 else request
             )
             payload = encode_request(wire_request)
-            command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "LC_ALL": "C"}  # AD-325
             platform = _process_platform(os.name)
-            if error := self._pin_error(request, environment):
-                return error
+            command = self._launch_argv(request, environment)
+            if isinstance(command, CollectionError):
+                return command
             if platform is _ProcessPlatform.WINDOWS:
                 search_path = os.pathsep.join((request.snapshot.root, environment.get("PATH", "")))
-                executable = shutil.which(self.argv[0], path=search_path)
+                executable = shutil.which(command[0], path=search_path)
                 if executable is None:
                     return CollectionError(
                         CollectionErrorKind.MISSING_TOOL,
@@ -155,7 +155,7 @@ class ProcessCollector:
                     )
                 helper = Path(__file__).with_name("windows_job.py")
                 limit = f"--memory-limit-bytes={self.memory_limit_bytes}"
-                command = (sys.executable, "-I", "-B", str(helper), limit, "--", *self.argv)
+                command = (sys.executable, "-I", "-B", str(helper), limit, "--", *command)
             with (
                 measured(self.clock, Phase.COLLECT),
                 subprocess.Popen(
@@ -204,17 +204,19 @@ class ProcessCollector:
         except (ProtocolError, _OutputLimitError) as error:
             return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, subject, str(error))
 
-    def _pin_error(
+    def _launch_argv(
         self, request: CollectionRequest, environment: dict[str, str]
-    ) -> CollectionError | None:
+    ) -> tuple[str, ...] | CollectionError:
+        """The argv to start: for a pinned collector, its checked absolute path and the rest."""
         if self.pinned_digest is None:
-            return None
-        refusal = pin_refusal(
-            self.argv[0], request.snapshot.root, environment.get("PATH", ""), self.pinned_digest
-        )
-        if refusal is None:
-            return None
-        return CollectionError(CollectionErrorKind.EXECUTION_ERROR, self.argv[0], refusal)
+            return self.argv
+        try:
+            path = pinned_path(
+                self.argv[0], request.snapshot.root, environment.get("PATH", ""), self.pinned_digest
+            )
+        except PinError as error:
+            return CollectionError(CollectionErrorKind.EXECUTION_ERROR, self.argv[0], str(error))
+        return (path, *self.argv[1:])
 
     def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
         with measured(self.clock, Phase.DECODE):

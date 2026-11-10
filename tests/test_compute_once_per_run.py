@@ -25,6 +25,7 @@ from archkeel.check.report import run_report_with_observation
 from archkeel.cli import main
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.dependency_binding import replayed_dependency_binding_id
+from archkeel.ir.facts import ProducerKind
 from archkeel.ir.member_inventory import validated_member_inventory_proof
 
 
@@ -69,7 +70,8 @@ def report_counts(project: Path) -> dict[str, int]:
     calls = {key: _count(patch, *target) for key, target in watched.items()}
     try:
         patch.setattr(
-            "archkeel.cli.observer_for", lambda *a, **k: Observer(_Collector("typescript"))
+            "archkeel.cli.observer_for",
+            lambda *a, **k: Observer(_Collector("typescript"), producer=ProducerKind.PYTHON),
         )
         main(["report", "--root", str(root), "--output", str(root / "out" / "architecture.json")])
     finally:
@@ -134,7 +136,9 @@ def test_a_replayed_dependency_binding_is_kept_for_its_object_and_flag_set(
         ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
     )
     _, _, observation = run_report_with_observation(
-        project, config=config, analyzer=Observer(_Collector("typescript"))
+        project,
+        config=config,
+        analyzer=Observer(_Collector("typescript"), producer=ProducerKind.PYTHON),
     )
     assert observation is not None
     computed = _count(monkeypatch, "archkeel.ir.dependency_binding", "dependency_binding_id")
@@ -155,7 +159,9 @@ def test_a_decoded_observation_replays_the_member_inventory_proof_again(
         ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
     )
     _, _, live = run_report_with_observation(
-        project, config=config, analyzer=Observer(_Collector("typescript"))
+        project,
+        config=config,
+        analyzer=Observer(_Collector("typescript"), producer=ProducerKind.PYTHON),
     )
     assert live is not None
     proof = validated_member_inventory_proof(live)

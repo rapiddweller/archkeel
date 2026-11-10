@@ -21,6 +21,7 @@ from archkeel.ir.protocol import (
     CollectionRequest,
     CollectionResponse,
     DartSettings,
+    ProducerKind,
     PythonSettings,
     SnapshotInput,
     SourceScope,
@@ -91,7 +92,7 @@ def _run_report(
     collector = ProcessCollector((sys.executable, "-B", "-c", f"print({encoded!r})"))
     contract = root / "contract.json"
     contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}\n')
-    observer = Observer(collector)
+    observer = Observer(collector, producer=ProducerKind.PYTHON)
     result = observer(
         root,
         roots=("src",),

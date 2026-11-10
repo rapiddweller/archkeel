@@ -52,6 +52,7 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
+    ProducerKind,
     ProtocolVersion,
     PythonSettings,
     SnapshotInput,
@@ -206,7 +207,7 @@ class _Recording:
 
 def _observe(root: Path, *, drop_features: bool = False):
     recording = _Recording(observer_for(Language.PYTHON).collector, drop_features)
-    result = Observer(recording)(
+    result = Observer(recording, producer=ProducerKind.PYTHON)(
         root,
         roots=("sample",),
         namespace="sample",
@@ -347,7 +348,7 @@ def test_a_rule_whose_family_was_not_collected_is_a_coverage_failure_never_a_pas
     result, encoded = run_report(
         tmp_path,
         config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
-        analyzer=Observer(recording),
+        analyzer=Observer(recording, producer=ProducerKind.PYTHON),
     )
 
     [facts] = recording.facts
@@ -436,7 +437,7 @@ def test_unrelated_rules_keep_their_results_beside_an_uncollected_rule(tmp_path)
             kept = replace(request.resolver, features=kept_features)
             return recording.collect(replace(request, resolver=kept))
 
-    result = Observer(_OnlyGuarded())(
+    result = Observer(_OnlyGuarded(), producer=ProducerKind.PYTHON)(
         tmp_path,
         roots=("sample",),
         namespace="sample",
