@@ -6,13 +6,14 @@
 //! (`collect._script_external_dependency`, `_script_standard_global`, `_script_declared_global`,
 //! `_script_vendor_package`, `_script_namespace_dependency`, `_script_global_stable`).
 
+use archkeel_facts::data::BindingData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 
 use crate::script_deps::{Probe, Run};
 use crate::script_project::{Publisher, HOST_NAMES};
-use crate::script_records::{binding, global_id, import_record, proof_data, Use};
+use crate::script_records::{binding, global_id, import_record, Use};
 use crate::script_types::ScriptAlias;
 use crate::source::Span;
 
@@ -149,13 +150,11 @@ impl<'a, 'p> Run<'a, 'p> {
         ];
         let identity = stable_id("SCRIPTDECLARATION", &parts);
         let evidence = vec![self.sink.cite(rel, span)];
-        let data = proof_data(&[
-            ("source_module", &module),
-            ("source_scope", &module),
-            ("module", &module),
-            ("binding", name),
-            ("script_global", name),
-        ]);
+        let data = BindingData {
+            binding: Some(name.to_owned()),
+            script_global: Some(name.to_owned()),
+            ..BindingData::in_module(&module)
+        };
         let title = format!("{module} declares script global {name}");
         self.sink
             .facts
@@ -204,13 +203,11 @@ impl<'a, 'p> Run<'a, 'p> {
             self.sink.cite(source_rel, &namespace.span),
             self.sink.cite(source_rel, &namespace.initialization),
         ];
-        let data = proof_data(&[
-            ("module", &target),
-            ("source_module", &target),
-            ("source_scope", &target),
-            ("binding", &namespace.name),
-            ("script_namespace", &namespace.name),
-        ]);
+        let data = BindingData {
+            binding: Some(namespace.name.clone()),
+            script_namespace: Some(namespace.name.clone()),
+            ..BindingData::in_module(&target)
+        };
         let record = binding(
             proof.clone(),
             "Script namespace source binding".to_owned(),

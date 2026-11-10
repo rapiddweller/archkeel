@@ -10,8 +10,9 @@ use archkeel_snapshot::test_tree::Tree;
 use super::*;
 
 #[test]
-fn walks_sorted_files_and_skips_target_and_hidden_directories() {
+fn walks_sorted_files_and_skips_the_build_output_and_hidden_directories() {
     let root = Tree::new(&[
+        ("Cargo.toml", ""),
         ("b.rs", ""),
         ("a/x.rs", ""),
         ("target/t.rs", ""),
@@ -19,8 +20,40 @@ fn walks_sorted_files_and_skips_target_and_hidden_directories() {
         ("a/y.txt", ""),
     ]);
     let mut snapshot = Snapshot::new(&root.path());
-    assert_eq!(walk(&mut snapshot, ""), ["a/x.rs", "a/y.txt", "b.rs"]);
+    assert_eq!(
+        walk(&mut snapshot, ""),
+        ["Cargo.toml", "a/x.rs", "a/y.txt", "b.rs"]
+    );
     assert_eq!(walk(&mut snapshot, "a"), ["a/x.rs", "a/y.txt"]);
+}
+
+#[test]
+fn a_module_directory_named_target_is_read_like_any_other() {
+    let root = Tree::new(&[
+        ("src/lib.rs", ""),
+        ("src/target/mod.rs", ""),
+        ("src/target/arm.rs", ""),
+    ]);
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(
+        walk(&mut snapshot, ""),
+        ["src/lib.rs", "src/target/arm.rs", "src/target/mod.rs"]
+    );
+}
+
+#[test]
+fn a_directory_that_holds_a_cargo_marker_is_build_output_wherever_it_is() {
+    let root = Tree::new(&[
+        ("src/lib.rs", ""),
+        ("out/CACHEDIR.TAG", ""),
+        ("out/debug/x.rs", ""),
+        ("build/.rustc_info.json", ""),
+        ("build/y.rs", ""),
+        ("src/target/CACHEDIR.TAG", ""),
+        ("src/target/z.rs", ""),
+    ]);
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(walk(&mut snapshot, ""), ["src/lib.rs"]);
 }
 
 #[test]

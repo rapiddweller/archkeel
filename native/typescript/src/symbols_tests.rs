@@ -11,10 +11,10 @@ use archkeel_facts::envelope::{Profile, Provenance};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::request::{Scope, Snapshot, TypeScriptRequest, TypeScriptSettings};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::Record;
 use serde_json::Value;
 
 use crate::collect::records;
+use crate::records_lists::{plains, Plain};
 use archkeel_snapshot::test_tree::Tree;
 
 fn request(tree: &Tree) -> TypeScriptRequest {
@@ -45,15 +45,15 @@ fn provenance() -> Provenance {
     )
 }
 
-fn symbols(source: &str) -> Vec<Record> {
+fn symbols(source: &str) -> Vec<Plain> {
     let tree = Tree::new(&[
         ("tsconfig.json", r#"{"include":["src"]}"#),
         ("src/a.ts", source),
     ]);
-    records(&request(&tree), provenance()).unwrap().1.symbols
+    plains(&records(&request(&tree), provenance()).unwrap().1.symbols)
 }
 
-fn named<'a>(list: &'a [Record], name: &str) -> &'a Record {
+fn named<'a>(list: &'a [Plain], name: &str) -> &'a Plain {
     list.iter()
         .find(|record| record.data["name"] == name)
         .unwrap()

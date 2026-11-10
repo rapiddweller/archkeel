@@ -5,11 +5,12 @@
 //! The proof that a factory function gives a member (`collect._script_factory_proof`,
 //! `_script_factory_member`, `_script_factory_source`).
 
+use archkeel_facts::data::BindingData;
 use archkeel_facts::identity::{stable_id, Part};
 
 use crate::script_deps::{is_root, Probe, Run};
 use crate::script_project::stable_publication;
-use crate::script_records::{binding, proof_data};
+use crate::script_records::binding;
 use crate::script_types::ScriptAlias;
 use crate::sites::SiteKind;
 use crate::source::Span;
@@ -152,11 +153,7 @@ impl<'a, 'p> Run<'a, 'p> {
         ];
         let identity = stable_id("SCRIPT_FACTORY_SOURCE", &parts);
         let evidence = vec![self.sink.cite(rel, span)];
-        let data = proof_data(&[
-            ("module", &module),
-            ("source_module", &module),
-            ("source_scope", &module),
-        ]);
+        let data = BindingData::in_module(&module);
         let title = "Factory source declaration".to_owned();
         self.sink
             .facts

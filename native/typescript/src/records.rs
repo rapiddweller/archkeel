@@ -9,65 +9,31 @@
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 //! The evidence that the new records cite is kept apart, so the evidence of the reply is unchanged.
 
-use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
+use archkeel_facts::data::ConstructData;
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::{envelope::Target, ids::FactId};
-use archkeel_facts::{ImportFact, Section};
+use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::{
+    BindingFact, CallFact, ConstructFact, ImportFact, IntoSection, Record, ReferenceFact,
+    SymbolFact,
+};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::{Facts, Record, ReplySection};
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
-use serde_json::json;
 
+use crate::bound_names::expand;
 use crate::cited::Cited;
-use crate::import_bindings::ImportBinding;
-use crate::kept::{Kept, Pending};
+use crate::collected::{sorted, Facts, Records};
+use crate::kept::Pending;
 use crate::resolution::{local_imports, Imports};
 use crate::script_effects::effect_record;
 use crate::site_records::{self, Pass};
-use crate::source::Span;
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
 
 /// The string comparison construct of `ForbiddenConstructKind`.
 pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
-
-/// An import record of archkeel-facts (AD-345).
-pub type ImportRecord = archkeel_facts::Record<ImportFact>;
-
-/// The records of this phase, as the Python collector builds them.
-#[derive(Default)]
-pub struct Records {
-    /// All import records, sorted by id: a statement with bound names is replaced by one record for
-    /// each name.
-    pub imports: Vec<ImportRecord>,
-    /// The targets in the order of the walk, with the expanded statements in place.
-    pub targets: Vec<Target>,
-    /// The `ESM_EXPORT` records that the expanded imports cite, in the order of their first use.
-    pub witnesses: Vec<Record>,
-    /// The `TSCONSTRUCT` records, sorted by id.
-    pub constructs: Vec<Record>,
-    /// The `TSDEF` records, in the order of the symbol table (PR 4.3a-3b).
-    #[cfg(any(test, feature = "dump"))]
-    pub symbols: Vec<Record>,
-    /// The `TSCALL`, `TSREF` and result binding records (PR 4.3a-3c).
-    #[cfg(any(test, feature = "dump"))]
-    pub calls: Vec<Record>,
-    #[cfg(any(test, feature = "dump"))]
-    pub references: Vec<Record>,
-    #[cfg(any(test, feature = "dump"))]
-    pub bindings: Vec<Record>,
-    /// The ids of the evidence that the records above cite.
-    #[cfg(feature = "dump")]
-    pub touched: Vec<String>,
-}
-
-/// `classified`: the subjects without empty names, sorted; the evidence ids sorted.
-fn sorted(mut values: Vec<String>) -> Vec<String> {
-    values.sort();
-    values
-}
 
 /// What the producer holds before the first record is written: the targets of the imports, the
 /// table of symbols and the evidence, which the records cite while they are written.
@@ -77,7 +43,7 @@ pub struct Plan<'p> {
     imports: Imports,
     expanded: Records,
     cited: Cited,
-    gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
+    gaps: Vec<Record<archkeel_facts::GapFact>>,
     selected_files: Vec<String>,
     files_read: usize,
 }
@@ -113,7 +79,7 @@ pub fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, Plan<'_>
         git_head: facts.git_head.clone(),
         dirty: facts.dirty.clone(),
         scope: std::mem::take(&mut facts.scope),
-        sections: SECTIONS.to_vec(),
+        sections: sections(),
         features: std::mem::take(&mut facts.features),
         constructs: vec![(STRING_LITERAL_COMPARE, "partial")],
         inputs: std::mem::take(&mut facts.inputs),
@@ -148,26 +114,31 @@ impl Plan<'_> {
             gaps,
             ..
         } = &mut self;
-        sink.write_typed_section("imports", |emit| expanded.imports.iter().for_each(emit))?;
-        sink.write_typed_section("unknowns", |emit| gaps.iter().for_each(emit))?;
-        sink.write_section("symbols", |emit| {
+        sink.write_typed_section::<ImportFact>(|emit| expanded.imports.iter().for_each(emit))?;
+        sink.write_typed_section::<archkeel_facts::GapFact>(|emit| gaps.iter().for_each(emit))?;
+        sink.write_typed_section::<SymbolFact>(|emit| {
             symbols::each(table, cited, &mut |record| emit(&record));
         })?;
         let mut head = pending.script.publications.clone();
         head.extend(std::mem::take(&mut expanded.witnesses));
         let mut placed = Vec::new();
-        sink.write_section("calls", |emit| {
-            let pass = site_records::pass(table, pending, imports, cited, Pass::Calls, &mut |r| {
-                emit(&r);
-            });
-            placed.extend(pass);
+        sink.write_typed_section::<CallFact>(|emit| {
+            placed.extend(site_records::pass(
+                table,
+                pending,
+                imports,
+                cited,
+                Pass::Calls(emit),
+            ));
         })?;
-        sink.write_section("references", |emit| {
-            let pass =
-                site_records::pass(table, pending, imports, cited, Pass::References, &mut |r| {
-                    emit(&r);
-                });
-            placed.extend(pass);
+        sink.write_typed_section::<ReferenceFact>(|emit| {
+            placed.extend(site_records::pass(
+                table,
+                pending,
+                imports,
+                cited,
+                Pass::References(&mut *emit),
+            ));
             for effect in &pending.script.effects {
                 emit(&effect_record(cited, effect));
             }
@@ -176,9 +147,9 @@ impl Plan<'_> {
         placed.sort_by_key(|(at, _)| *at);
         head.extend(placed.into_iter().map(|(_, record)| record));
         let bindings = head;
-        sink.write_section("bindings", |emit| bindings.iter().for_each(emit))?;
+        sink.write_typed_section::<BindingFact>(|emit| bindings.iter().for_each(emit))?;
         constructs(pending, cited, expanded);
-        sink.write_section("constructs", |emit| {
+        sink.write_typed_section::<ConstructFact>(|emit| {
             expanded.constructs.iter().for_each(emit)
         })?;
         let (evidence, touched) = self.cited.finish();
@@ -193,15 +164,17 @@ impl Plan<'_> {
 }
 
 /// The sections that the capability declares, in the order that the reply writes them.
-const SECTIONS: [&str; 7] = [
-    "imports",
-    "unknowns",
-    "symbols",
-    "calls",
-    "references",
-    "bindings",
-    "constructs",
-];
+fn sections() -> Vec<&'static str> {
+    vec![
+        ImportFact::section_name(),
+        archkeel_facts::GapFact::section_name(),
+        SymbolFact::section_name(),
+        CallFact::section_name(),
+        ReferenceFact::section_name(),
+        BindingFact::section_name(),
+        ConstructFact::section_name(),
+    ]
+}
 
 /// The reply of the facts of a request, written into `out` (a compressed 8.0.0 or 9.0.0 reply).
 pub fn write_reply(
@@ -214,176 +187,6 @@ pub fn write_reply(
     encode_stream(version, head, out, |writer| {
         plan.write(writer).map(|(tail, _)| tail)
     })
-}
-
-/// The typed import records of the facts.
-pub fn import_section(facts: &Facts) -> &[ImportRecord] {
-    facts
-        .sections
-        .iter()
-        .find_map(|section| match section {
-            ReplySection::Typed(Section::Imports(records)) => Some(records.as_slice()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-/// `_named_imports`.
-fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, records: &mut Records) {
-    let by_id: HashMap<&str, &ImportRecord> = import_section(facts)
-        .iter()
-        .map(|record| (record.id.as_str(), record))
-        .collect();
-    let mut seen = HashSet::new();
-    for target in &facts.imports {
-        let Some(item) = by_id.get(target.import_id().as_str()) else {
-            continue;
-        };
-        let bindings = pending
-            .sites
-            .get(item.id.as_str())
-            .and_then(|(rel, line, column)| {
-                let kept = pending.kept.get(rel)?;
-                let own: &[ImportBinding] = kept.bindings.get(&(*line, *column))?;
-                Some((kept, own))
-            });
-        let Some((kept, own)) = bindings else {
-            records.imports.push((*item).clone());
-            records.targets.push(target.clone());
-            continue;
-        };
-        for (ordinal, binding) in (0_i64..).zip(own.iter()) {
-            let bound_id = stable_id(
-                "IMP_BINDING",
-                &[Part::Text(item.id.as_str()), Part::Number(ordinal)],
-            );
-            let fact_ids = match known_witness(pending, kept, binding, target) {
-                Some(witness) => vec![add_witness(cited, records, &mut seen, &witness)],
-                None => Vec::new(),
-            };
-            records
-                .imports
-                .push(bound_record(item, &bound_id, binding, target, fact_ids));
-            records.targets.push(target.with_import_id(&bound_id));
-        }
-    }
-}
-
-/// Record the witness of a proven name once and give its id.
-fn add_witness(
-    cited: &mut Cited,
-    records: &mut Records,
-    seen: &mut HashSet<String>,
-    witness: &Witness,
-) -> String {
-    let (module, file, name, spans) = witness;
-    let id = stable_id("ESM_EXPORT", &[Part::Text(module), Part::Text(name)]);
-    if seen.insert(id.clone()) {
-        let record = export_record(cited, &id, module, file, name, spans);
-        records.witnesses.push(record);
-    }
-    id
-}
-
-/// The witness of a name that is proven: `(module, file, name, (declaration, export))`.
-type Witness<'a> = (String, String, String, (&'a Span, &'a Span));
-
-/// `known` of `_named_imports`: the name resolves to one export of a file that has no error.
-fn known_witness<'a>(
-    pending: &'a Pending,
-    kept: &Kept,
-    binding: &ImportBinding,
-    target: &Target,
-) -> Option<Witness<'a>> {
-    let Target::Local {
-        module,
-        file,
-        runtime_file: Some(_),
-        ..
-    } = target
-    else {
-        return None;
-    };
-    let destination = pending.kept.get(file)?;
-    let [(declaration, export)] = destination.exports.get(&binding.imported)?.as_slice() else {
-        return None;
-    };
-    // Faithful copies of Python conditions that other conditions already imply: some of them are
-    // equivalent mutants, so no test should try to kill them one by one.
-    let proven = binding.source_unique
-        && !binding.namespace
-        && !binding.type_only
-        && !kept.has_error
-        && !pending.partial
-        && !destination.has_error;
-    proven.then(|| {
-        (
-            module.as_str().to_owned(),
-            file.clone(),
-            binding.imported.clone(),
-            (declaration, export),
-        )
-    })
-}
-
-/// One expanded import record: the statement record with the bound name written into its data.
-fn bound_record(
-    item: &ImportRecord,
-    id: &str,
-    binding: &ImportBinding,
-    target: &Target,
-    fact_ids: Vec<String>,
-) -> ImportRecord {
-    let known = !fact_ids.is_empty();
-    let chain = match target {
-        Target::Local { module, .. } if known => {
-            vec![format!("{}.{}", module.as_str(), binding.imported)]
-        }
-        _ => Vec::new(),
-    };
-    let mut record = item.clone();
-    let data = record.data.data_mut();
-    data.symbol = (!binding.namespace).then(|| binding.imported.clone());
-    data.binding = Some(binding.local.clone());
-    data.symbols_known = known;
-    data.reexport_chain = Some(chain);
-    data.type_only = Some(binding.type_only);
-    data.under_type_checking = binding.type_only;
-    record.id = FactId::new(id);
-    record.fact_ids = fact_ids.into_iter().map(FactId::new).collect();
-    record
-}
-
-/// `_export_binding`: the witness that a module exports a name once.
-fn export_record(
-    cited: &mut Cited,
-    id: &str,
-    module: &str,
-    file: &str,
-    name: &str,
-    spans: &(&Span, &Span),
-) -> Record {
-    let mut evidence_ids = vec![cited.cite(file, spans.0)];
-    let export = cited.cite(file, spans.1);
-    if !evidence_ids.contains(&export) {
-        evidence_ids.push(export);
-    }
-    let mut data = serde_json::Map::new();
-    data.insert("module".to_owned(), json!(module));
-    data.insert("source_module".to_owned(), json!(module));
-    data.insert("source_scope".to_owned(), json!(module));
-    data.insert("name".to_owned(), json!(name));
-    Record {
-        id: id.to_owned(),
-        evidence_class: "FACT",
-        area: "source",
-        kind: "bindings",
-        title: "Exported source binding".to_owned(),
-        subjects: sorted(vec![module.to_owned()]),
-        evidence_ids: sorted(evidence_ids),
-        fact_ids: Vec::new(),
-        data,
-    }
 }
 
 /// `_constructs`: one record for each written string comparison.
@@ -405,19 +208,21 @@ fn constructs(pending: &Pending, cited: &mut Cited, records: &mut Records) {
                 ],
             );
             let evidence = cited.cite(rel, span);
-            let mut data = serde_json::Map::new();
-            data.insert("owner".to_owned(), json!(owner));
-            data.insert("construct".to_owned(), json!(STRING_LITERAL_COMPARE));
+            let data = ConstructData {
+                construct: STRING_LITERAL_COMPARE.to_owned(),
+                form: None,
+                handled: None,
+                owner: owner.clone(),
+            };
             out.push(Record {
-                id,
-                evidence_class: "FACT",
-                area: "constructs",
-                kind: STRING_LITERAL_COMPARE,
+                id: FactId::new(id),
+                evidence_class: EvidenceClass::Fact,
+                area: Area::Constructs,
                 title: format!("{owner} compares a written string literal"),
                 subjects: sorted(vec![owner]),
-                evidence_ids: vec![evidence],
+                evidence_ids: vec![EvidenceId::new(evidence)],
                 fact_ids: Vec::new(),
-                data,
+                data: ConstructFact::StringLiteralCompare(data),
             });
         }
     }

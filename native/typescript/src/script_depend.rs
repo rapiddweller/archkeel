@@ -6,13 +6,14 @@
 //! (`collect._script_dependency`, `_script_source_target`, `_script_alias_evidence`,
 //! `_script_publication_evidence`).
 
+use archkeel_facts::data::BindingData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName};
 
 use crate::script_deps::{Probe, Run};
 use crate::script_project::{source_origin, stable_publication, Publisher};
-use crate::script_records::{binding, global_id, import_record, proof_data, Use};
+use crate::script_records::{binding, global_id, import_record, Use};
 use crate::script_types::{ScriptAlias, ScriptGlobal};
 
 /// ` has no unique unconditional publication` (`GapTitle.UNPUBLISHED_GLOBAL`).
@@ -245,13 +246,11 @@ impl<'a, 'p> Run<'a, 'p> {
                 evidence.push(member);
             }
         }
-        let data = proof_data(&[
-            ("source_module", &module),
-            ("source_scope", &module),
-            ("module", &module),
-            ("binding", &publication.name),
-            ("script_global", &publication.name),
-        ]);
+        let data = BindingData {
+            binding: Some(publication.name.clone()),
+            script_global: Some(publication.name.clone()),
+            ..BindingData::in_module(&module)
+        };
         let title = format!("{module} publishes script global {}", publication.name);
         let record = binding(identity.clone(), title, &module, evidence, data);
         self.sink.facts.publish(record);

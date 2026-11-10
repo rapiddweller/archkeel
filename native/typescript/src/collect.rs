@@ -18,15 +18,15 @@ use archkeel_facts::envelope::{Evidence, FileFact, Provenance};
 use archkeel_facts::identity::module_identity;
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_facts::{GapFact, Record, Section};
-use archkeel_wire::reply::{Facts, ReplySection};
 
+use crate::collected::Facts;
+#[cfg(any(test, feature = "dump"))]
+use crate::collected::Records;
 use crate::config::load_config;
 use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
 use crate::pytext::is_space;
 use crate::records::write_reply;
-#[cfg(any(test, feature = "dump"))]
-use crate::records::Records;
 #[cfg(any(test, feature = "dump"))]
 use crate::records_lists::listed;
 #[cfg(any(test, feature = "dump"))]
@@ -66,7 +66,7 @@ struct Collection<'a> {
     gaps: BTreeMap<String, Record<GapFact>>,
     evidence: BTreeMap<String, Evidence>,
     files: Vec<FileFact>,
-    imports: Vec<crate::records::ImportRecord>,
+    imports: Vec<crate::collected::ImportRecord>,
     targets: Vec<Target>,
     read: usize,
     kept: BTreeMap<String, Kept>,
@@ -217,10 +217,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         git_head: request.snapshot.git_head.clone(),
         dirty: serde_json::to_value(&request.snapshot.dirty).unwrap_or_default(),
         scope,
-        sections: vec![
-            ReplySection::Typed(Section::Imports(imports)),
-            ReplySection::Typed(Section::Unknowns(gaps.clone())),
-        ],
+        sections: vec![Section::Imports(imports), Section::Unknowns(gaps.clone())],
         features,
         constructs: Vec::new(),
         inputs: collection.snapshot.inputs(),
