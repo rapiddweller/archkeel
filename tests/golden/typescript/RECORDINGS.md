@@ -15,3 +15,8 @@
 | 2026-11-09 | synthetic-tsx-paths | 990febe2 | Re-record: digests hold section order and features, three synthetic cases added (review of #923) |
 | 2026-11-09 | synthetic-bundler | 990febe2 | Re-record: digests hold section order and features, three synthetic cases added (review of #923) |
 | 2026-11-09 | synthetic-gaps | 990febe2 | Re-record: digests hold section order and features, three synthetic cases added (review of #923) |
+| 2026-11-10 | synthetic-esm-forms | a26f9be5 | First recording of an import-form case (G3 of #880) |
+| 2026-11-10 | synthetic-nodenext | a26f9be5 | First recording of an import-form case (G3 of #880) |
+| 2026-11-10 | synthetic-allowjs | a26f9be5 | First recording of an import-form case (G3 of #880) |
+| 2026-11-10 | synthetic-paths-multi | a26f9be5 | First recording of an import-form case (G3 of #880) |
+| 2026-11-10 | synthetic-package-maps | a26f9be5 | First recording of an import-form case (G3 of #880) |

@@ -403,3 +403,28 @@ def test_the_fields_that_the_typescript_collector_never_fills_stay_empty() -> No
     assert users == [], f"{users} now fill a field with no golden coverage: add a case"
     counts = _covered()[2]
     assert [name for name in names if counts[name]] == []
+
+
+IMPORT_FORM_GAPS = (
+    "Unobserved triple-slash reference",
+    "Computed dynamic_import cannot be resolved",
+    "Computed require cannot be resolved",
+    "Package imports are not observed",
+    "Package exports patterns are not observed",
+    "Package self-reference is not observed",
+    "Local alias runtime conditions are not proven",
+    "CommonJS runtime file is unavailable",
+)
+
+
+def test_each_import_bearing_form_of_the_typescript_grammar_has_a_golden_case() -> None:
+    titles: set[str] = set()
+    for case in golden_record.cases("typescript"):
+        full = golden_replies.load("typescript", case).full
+        sections = {
+            s["name"]: s["records"]
+            for s in (full or {"facts": {"sections": []}})["facts"]["sections"]
+        }
+        titles.update(str(record.get("title", "")) for record in sections.get("unknowns", []))
+    missing = [gap for gap in IMPORT_FORM_GAPS if not any(gap in title for title in titles)]
+    assert missing == [], f"no golden case holds a gap for: {missing}"

@@ -1,0 +1,8 @@
+export * from "./lib";
+export * as ns from "./types";
+export { a as alias, b } from "./lib";
+export { default } from "./lib";
+export { default as named } from "./lib";
+export type { Shape } from "./types";
+export { type Id, flag } from "./types";
+export * from "./missing";
