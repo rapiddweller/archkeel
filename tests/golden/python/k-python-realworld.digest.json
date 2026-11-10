@@ -1,0 +1,194 @@
+{
+  "claimed": [
+    "symbols",
+    "imports",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "unknowns"
+  ],
+  "features": [
+    "canonical_call_bindings",
+    "extended_call_bindings",
+    "call_arguments",
+    "guarded_effect_paths",
+    "source_roles",
+    "construct_selectors",
+    "numeric_operands"
+  ],
+  "order": [
+    "symbols",
+    "imports",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "unknowns"
+  ],
+  "portable": {
+    "claimed": [
+      "imports",
+      "references",
+      "bindings",
+      "typing_signals",
+      "constructs",
+      "unknowns"
+    ],
+    "features": [
+      "canonical_call_bindings",
+      "extended_call_bindings",
+      "call_arguments",
+      "guarded_effect_paths",
+      "source_roles",
+      "construct_selectors",
+      "numeric_operands"
+    ],
+    "order": [
+      "imports",
+      "references",
+      "bindings",
+      "typing_signals",
+      "constructs",
+      "unknowns"
+    ],
+    "rest": {
+      "counts": {
+        "candidate_evidence": 803,
+        "files": 72,
+        "imports": 388,
+        "type_shapes": 258,
+        "uncertain_reexports": 0
+      },
+      "sha256": "d9d4151e2e80b77356f2c2ed618a79dac19afef1ee575d92f47a0f6e57c9211f"
+    },
+    "sections": {
+      "bindings": {
+        "kinds": {},
+        "records": 0,
+        "sha256": "441c982fea7c3793a19ce4d2f45a573a0b3aa1166c815c07d6dedf40370c42a4"
+      },
+      "constructs": {
+        "kinds": {
+          "construct_selector": 600
+        },
+        "records": 600,
+        "sha256": "61016a4d080f84b296e85ed6c6d5f8a82deb5406152fd7a3462d87084cdf5de1"
+      },
+      "imports": {
+        "kinds": {
+          "import": 388
+        },
+        "records": 388,
+        "sha256": "59fc5d0bd4a8b2e65b50fc2bb1f7a37d268b2f86014d02618905c60e49b4c353"
+      },
+      "references": {
+        "kinds": {
+          "attribute_reference": 86,
+          "source_role": 307,
+          "value_reference": 566
+        },
+        "records": 959,
+        "sha256": "a8823a351a1e095125a77ab382d037845c54d7550a5e63a135dae332e6d17bba"
+      },
+      "typing_signals": {
+        "kinds": {
+          "any_annotation": 1,
+          "cast_call": 1,
+          "dict_any_annotation": 1,
+          "type_ignore": 7
+        },
+        "records": 10,
+        "sha256": "fe3e3cd4c7783785436702da6117604f262dea7aef3bae3d760a9cd851e3ab1e"
+      },
+      "unknowns": {
+        "kinds": {},
+        "records": 0,
+        "sha256": "95a5a48b5b7eccf872bc2747f4010882e0fed2dff51ebc2e2d5676a1d8c08a1f"
+      }
+    },
+    "sha256": "af8e2daa2d89144f283dd6ef6146259fadf501338f6b7f9a8737e6beac484d37"
+  },
+  "rest": {
+    "counts": {
+      "candidate_evidence": 803,
+      "evidence": 2390,
+      "files": 72,
+      "imports": 388,
+      "inputs": 81,
+      "provider_bindings": 12,
+      "type_shapes": 258,
+      "uncertain_reexports": 0
+    },
+    "sha256": "3c615b5761d9a602793965e2db2277ecef3cf4439386c8d5006e7c8ae7005244"
+  },
+  "sections": {
+    "bindings": {
+      "kinds": {},
+      "records": 0,
+      "sha256": "441c982fea7c3793a19ce4d2f45a573a0b3aa1166c815c07d6dedf40370c42a4"
+    },
+    "calls": {
+      "kinds": {
+        "partially_resolved_call": 42,
+        "resolved_call": 427,
+        "unresolved_call": 94
+      },
+      "records": 563,
+      "sha256": "87237739854dc4ba9c6b18d8a83e70a091ef57c5289534fce5fda25aba3dc769"
+    },
+    "constructs": {
+      "kinds": {
+        "construct_selector": 600
+      },
+      "records": 600,
+      "sha256": "61016a4d080f84b296e85ed6c6d5f8a82deb5406152fd7a3462d87084cdf5de1"
+    },
+    "imports": {
+      "kinds": {
+        "import": 388
+      },
+      "records": 388,
+      "sha256": "59fc5d0bd4a8b2e65b50fc2bb1f7a37d268b2f86014d02618905c60e49b4c353"
+    },
+    "references": {
+      "kinds": {
+        "attribute_reference": 86,
+        "source_role": 307,
+        "value_reference": 566
+      },
+      "records": 959,
+      "sha256": "a8823a351a1e095125a77ab382d037845c54d7550a5e63a135dae332e6d17bba"
+    },
+    "symbols": {
+      "kinds": {
+        "class": 55,
+        "dynamic_binding": 3,
+        "function": 71,
+        "method": 42,
+        "static_constant": 30,
+        "type_alias": 1
+      },
+      "records": 202,
+      "sha256": "18c556970aeda5fb30d2224ab11638b34374c229d43484bc322619884a911a14"
+    },
+    "typing_signals": {
+      "kinds": {
+        "any_annotation": 1,
+        "cast_call": 1,
+        "dict_any_annotation": 1,
+        "type_ignore": 7
+      },
+      "records": 10,
+      "sha256": "fe3e3cd4c7783785436702da6117604f262dea7aef3bae3d760a9cd851e3ab1e"
+    },
+    "unknowns": {
+      "kinds": {},
+      "records": 0,
+      "sha256": "95a5a48b5b7eccf872bc2747f4010882e0fed2dff51ebc2e2d5676a1d8c08a1f"
+    }
+  },
+  "sha256": "ec1ac271f50844e263d9d04d5b0a61d75f2d56e557ee781e39e08e983eab2113"
+}

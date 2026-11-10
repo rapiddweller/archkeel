@@ -1,0 +1,26 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "COMP-APP",
+      "label": "fastapi",
+      "role": "component",
+      "packages": [
+        "fastapi"
+      ],
+      "public": [
+        "fastapi"
+      ],
+      "responsibilities": [
+        "Hold the synthetic sources."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": []
+}
