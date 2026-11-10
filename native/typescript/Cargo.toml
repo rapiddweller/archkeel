@@ -13,6 +13,7 @@ publish.workspace = true
 build = "build.rs"
 
 [dependencies]
+archkeel-snapshot.workspace = true
 archkeel-wire.workspace = true
 serde_json.workspace = true
 tree-sitter.workspace = true
@@ -22,6 +23,9 @@ tree-sitter-typescript.workspace = true
 # Test only: `--dump` prints the per-file syntax facts as JSON for `tests/test_collector_native_syntax.py`.
 # The release binary is built without it (AD-323).
 dump = []
+
+[dev-dependencies]
+archkeel-snapshot = { workspace = true, features = ["test-tree"] }
 
 [build-dependencies]
 archkeel-build-support.workspace = true

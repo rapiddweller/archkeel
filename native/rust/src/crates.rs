@@ -9,12 +9,12 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_wire::reply::Role;
-
 use crate::manifest::{self, ident, Manifest, Target};
-use crate::paths::{dirname, join, normalize};
-use crate::source::Source;
+use crate::paths::normalize;
+use crate::source::read_text;
 use crate::toml::{self, Table};
+use archkeel_snapshot::paths::{dirname, join};
+use archkeel_snapshot::Snapshot;
 
 /// A place that the scan cannot read: the file (or none) and the reason.
 #[derive(Clone, Debug, PartialEq)]
@@ -46,7 +46,7 @@ pub struct Workspace {
 }
 
 /// Find the crates among `files`, all the files below the scan roots.
-pub fn discover(source: &mut Source, files: &[String], namespace: &str) -> Workspace {
+pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Workspace {
     let mut found = Workspace {
         crates: Vec::new(),
         problems: Vec::new(),
@@ -81,7 +81,7 @@ fn is_manifest(file: &str) -> bool {
 
 /// The parsed manifest of `dir`; `Ok(None)` when the directory has none.
 fn manifest_table(
-    source: &mut Source,
+    source: &mut Snapshot,
     tables: &mut BTreeMap<String, Option<Table>>,
     dir: &str,
 ) -> Result<Option<Table>, String> {
@@ -90,7 +90,7 @@ fn manifest_table(
     }
     let rel = join(dir, "Cargo.toml");
     let table = if source.is_file(&rel) {
-        let text = source.read(&rel, Role::Resolution)?;
+        let text = read_text(source, &rel)?;
         Some(toml::parse(&text).map_err(|error| format!("Cannot read {rel}: {error}"))?)
     } else {
         None
@@ -101,7 +101,7 @@ fn manifest_table(
 
 /// The `[workspace.dependencies]` of the nearest workspace manifest above `dir`.
 fn workspace_table(
-    source: &mut Source,
+    source: &mut Snapshot,
     tables: &mut BTreeMap<String, Option<Table>>,
     dir: &str,
 ) -> Table {

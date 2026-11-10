@@ -17,8 +17,8 @@ use archkeel_wire::reply::{Input, Role};
 
 use crate::paths::{is_outside, join, normpath};
 
-pub const OUTSIDE: &str = "Resolver input outside snapshot";
-pub const SYMLINK: &str = "Resolver symlink outside snapshot";
+const OUTSIDE: &str = "Resolver input outside snapshot";
+const SYMLINK: &str = "Resolver symlink outside snapshot";
 /// The largest file that the collector reads (AD-319). The largest TypeScript source of the React
 /// UI corpus has 92 KB, so a larger file is generated or hostile, and its gap names it.
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
@@ -138,6 +138,16 @@ impl Snapshot {
         }
     }
 
+    /// Whether `rel` can be read, for a caller that needs no content. A file that was read before
+    /// is not read and digested again, and a file that was refused for its size is not read again:
+    /// n imports of one file of size m would cost n times m.
+    pub fn readable(&mut self, rel: &str) -> bool {
+        if self.oversized.contains(rel) {
+            return false;
+        }
+        self.inputs.contains_key(rel) || self.read(rel).is_some()
+    }
+
     /// The gap text of a file that `read` refused for its size.
     pub fn size_gap(&self, rel: &str) -> Option<String> {
         self.oversized
@@ -197,12 +207,6 @@ impl Snapshot {
             }
         }
         (files, directories)
-    }
-
-    /// Whether a path, or its real path, is inside an installed package.
-    pub fn installed(&mut self, rel: &str) -> bool {
-        let path = self.real(rel).unwrap_or_else(|| rel.to_owned());
-        path.split('/').any(|part| part == "node_modules")
     }
 
     /// The digested inputs, sorted by path.

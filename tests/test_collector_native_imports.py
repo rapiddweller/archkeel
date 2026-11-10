@@ -1,12 +1,14 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-320: the native collector extracts the same imports as the Python TypeScript collector.
+"""AD-340: the native reply equals the reply of the Python TypeScript collector, decoded.
 
-Consumer: the host process port. The oracle is the Python collector in the legacy mode of the
-native collector (`native_oracle`): the four producers that the native collector does not have are
-off. Then the decoded files, inputs, evidence, import records, targets, gaps and coverage must be
-equal, with no filter. The oracle is temporary: PR 4.3 deletes it.
+Consumer: the host process port. The oracle is the unmodified Python collector with the script
+analysis replaced by the gap that the native collector gives (`native_oracle`). Then the decoded
+files, inputs, evidence, targets, capabilities, every section (imports, unknowns, symbols, calls,
+references, bindings, constructs), gaps and coverage must be equal, with no filter; only the
+provenance of the adapter and the runtime differs. The oracle is temporary: PR 4.3a-5 deletes it.
+The comparison is on decoded content: the key order of a record differs.
 """
 
 from __future__ import annotations
@@ -67,8 +69,8 @@ def _view(facts: SourceFacts) -> dict[str, object]:
         "source_digest": facts.source.source_digest,
         "scope": _plain(facts.source.scope),
         "targets": _plain(facts.imports),
-        "imports": _plain(sections["imports"]),
-        "unknowns": _plain(sections["unknowns"]),
+        "sections": {name: _plain(records) for name, records in sections.items()},
+        "capabilities": _plain(facts.capabilities),
         "gaps": _plain(coverage.gaps),
         "evidence": _plain(facts.evidence),
         "selected": list(coverage.selected_files),

@@ -45,8 +45,7 @@ panic could end a scan.
 - **An Archkeel contract with a Rust reader.** It needs a new language in the product that no
   customer asked for.
 
-**Limit.** This slice does not extract an `archkeel-snapshot`
-crate (it waits for the Python collector), and does not check clones. The clone check (jscpd or a
+**Limit.** This slice does not check clones. The clone check (jscpd or a
 stdlib script) is deferred. Indexing, arithmetic and casts are reports, not rules. The `wrappers` entries
 name the TypeScript collector; a second collector must be added to them.
 
@@ -56,3 +55,12 @@ name the TypeScript collector; a second collector must be added to them.
 (it fails, not skips, when `CI` is set and `cargo` is missing): a bad crate edge, a parser crate in a library,
 a crate without an entry, a new or grown cycle and a stale entry all fail on a fixture; the real
 workspace passes. `make native-check` checks the clippy and `cargo deny` rules.
+
+**Note, 2026-11-10 (epic #880, target v2).** `archkeel-snapshot` exists: it owns the POSIX path
+text, the contained read, the symlink rule, the 4 MiB limit and the input digests. The TypeScript
+rule `installed` (`node_modules`) stays in the TypeScript collector. `layers.toml` also declares
+the planned crates `archkeel-facts`, `archkeel-store` and `archkeel-build-support` (`planned = true`
+until they have code). A collector may use wire, snapshot, facts and build-support; the store may use
+facts; no library uses a collector or a parser crate. `native/architecture-contract.json` states
+the same directions as a contract, and a test fails when the two files differ. The reply of the
+TypeScript collector is byte-equal on x35 except the code digest, and the binary grew by 0.4 %.

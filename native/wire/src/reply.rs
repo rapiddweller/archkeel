@@ -4,14 +4,9 @@
 
 //! The compressed reply of protocols 8.0.0 and 9.0.0: zlib level 1 over the plain JSON facts.
 
-use std::io::Write;
-
-use flate2::write::ZlibEncoder;
-use flate2::Compression;
 use serde_json::{json, Map, Value};
 
 use crate::identity::sha256_hex;
-use crate::protocol::Version;
 
 /// The role of a digested input: a selected source file or a file that only decides resolution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +53,10 @@ pub struct Evidence {
 }
 
 /// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
+/// `fact_ids` keep the order of the Python collector, which sets them after `classified` and does
+/// not sort them: a later port must not sort them either. The five source sections of the inner-UML capability (`imports`, `symbols`,
+/// `calls`, `references`, `bindings`) and `constructs` all carry this one shape: a section is a
+/// name and a list of records, so a later phase fills a section without a change to this crate.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Record {
     pub id: String,
@@ -67,6 +66,7 @@ pub struct Record {
     pub title: String,
     pub subjects: Vec<String>,
     pub evidence_ids: Vec<String>,
+    pub fact_ids: Vec<String>,
     pub data: Map<String, Value>,
 }
 
@@ -95,6 +95,30 @@ pub enum Target {
     },
 }
 
+impl Target {
+    /// The id of the import record that this target belongs to.
+    pub fn import_id(&self) -> &str {
+        match self {
+            Target::Local { import_id, .. }
+            | Target::External { import_id, .. }
+            | Target::Builtin { import_id, .. }
+            | Target::Unresolved { import_id, .. } => import_id,
+        }
+    }
+
+    /// The same target for another import record.
+    pub fn with_import_id(&self, id: &str) -> Self {
+        let mut copy = self.clone();
+        match &mut copy {
+            Target::Local { import_id, .. }
+            | Target::External { import_id, .. }
+            | Target::Builtin { import_id, .. }
+            | Target::Unresolved { import_id, .. } => *import_id = id.to_owned(),
+        }
+        copy
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Provenance {
     pub profile: &'static str,
@@ -114,6 +138,8 @@ pub struct Facts {
     pub scope: Vec<String>,
     pub sections: Vec<(&'static str, Vec<Record>)>,
     pub features: Vec<&'static str>,
+    /// The construct capabilities: `(name, status)`, for example `("string_literal_compare", "partial")`.
+    pub constructs: Vec<(&'static str, &'static str)>,
     pub inputs: Vec<Input>,
     pub files: Vec<FileFact>,
     /// The resolved target of each import record, in the order of the walk.
@@ -141,58 +167,23 @@ pub fn source_digest(inputs: &[Input]) -> String {
     sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
 
-/// Encode the reply for `version`; 8.0.0 and 9.0.0 share one compressed shape.
-pub fn encode(version: Version, facts: &Facts) -> Result<Vec<u8>, String> {
-    if version == Version::V3 {
-        return Err("a native collector writes only the compressed reply".to_owned());
-    }
-    let reply = json!({
-        "protocol_version": version.as_str(),
-        "provider_sources": [],
-        "facts": facts_value(facts),
-    });
-    let plain = serde_json::to_vec(&reply).map_err(|error| error.to_string())?;
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(1));
-    encoder
-        .write_all(&plain)
-        .and_then(|()| encoder.finish())
-        .map_err(|error| format!("cannot compress the reply: {error}"))
-}
-
+#[cfg(test)]
 fn facts_value(facts: &Facts) -> Value {
     let provenance = &facts.provenance;
     json!({
-        "profile": provenance.profile,
         "adapter": {
             "name": provenance.profile,
             "version": provenance.adapter_version,
             "code_digest": provenance.code_digest,
         },
-        "runtime": {
-            "name": provenance.runtime_name,
-            "version": provenance.runtime_version,
-            "required": provenance.runtime_required,
-            "requirement_state": "declared",
-        },
-        "source": {
-            "git_head": facts.git_head,
-            "dirty": facts.dirty,
-            "source_digest": source_digest(&facts.inputs),
-            "scope": facts.scope,
-        },
+        "candidate_evidence": [],
         "capabilities": {
             "sections": facts.sections.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
             "resolution_features": facts.features,
-            "constructs": [],
+            "constructs": facts.constructs.iter()
+                .map(|(name, status)| json!({"name": name, "status": status}))
+                .collect::<Vec<_>>(),
         },
-        "inputs": facts.inputs.iter().map(|input| json!({
-            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
-        })).collect::<Vec<_>>(),
-        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
-        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
-        "sections": facts.sections.iter().map(|(name, records)| json!({
-            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>(),
         "coverage": {
             "selected_files": facts.selected_files,
             "files_read": facts.files_read,
@@ -201,15 +192,35 @@ fn facts_value(facts: &Facts) -> Value {
             "gaps": facts.gaps.iter().map(record_value).collect::<Vec<_>>(),
         },
         "evidence": facts.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
-        "uncertain_reexports": [],
-        "type_shapes": [],
-        "state": {"classes": [], "functions": []},
-        "candidate_evidence": [],
+        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
+        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
+        "inputs": facts.inputs.iter().map(|input| json!({
+            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
+        })).collect::<Vec<_>>(),
+        "profile": provenance.profile,
         "provider_bindings": [],
+        "runtime": {
+            "name": provenance.runtime_name,
+            "version": provenance.runtime_version,
+            "required": provenance.runtime_required,
+            "requirement_state": "declared",
+        },
+        "sections": facts.sections.iter().map(|(name, records)| json!({
+            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "source": {
+            "git_head": facts.git_head,
+            "dirty": facts.dirty,
+            "source_digest": source_digest(&facts.inputs),
+            "scope": facts.scope,
+        },
+        "state": {"classes": [], "functions": []},
+        "type_shapes": [],
+        "uncertain_reexports": [],
     })
 }
 
-fn target_value(target: &Target) -> Value {
+pub fn target_value(target: &Target) -> Value {
     match target {
         Target::Local {
             import_id,
@@ -237,7 +248,7 @@ fn target_value(target: &Target) -> Value {
     }
 }
 
-fn file_value(file: &FileFact) -> Value {
+pub(crate) fn file_value(file: &FileFact) -> Value {
     json!({
         "id": file.id,
         "rel_path": file.rel_path,
@@ -252,7 +263,7 @@ fn file_value(file: &FileFact) -> Value {
     })
 }
 
-fn record_value(record: &Record) -> Value {
+pub fn record_value(record: &Record) -> Value {
     json!({
         "id": record.id,
         "evidence_class": record.evidence_class,
@@ -262,13 +273,13 @@ fn record_value(record: &Record) -> Value {
         "subjects": record.subjects,
         "evidence_ids": record.evidence_ids,
         "rule_ids": [],
-        "fact_ids": [],
+        "fact_ids": record.fact_ids,
         "provenance": [],
         "data": record.data,
     })
 }
 
-fn evidence_value(evidence: &Evidence) -> Value {
+pub fn evidence_value(evidence: &Evidence) -> Value {
     json!({
         "id": evidence.id,
         "file": evidence.file,

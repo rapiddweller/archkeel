@@ -9,13 +9,13 @@
 
 use std::collections::{BTreeSet, VecDeque};
 
-use archkeel_wire::reply::Role;
-
 use crate::crates::{Crate, Problem, Root, Workspace};
 use crate::nesting::{too_deep, MAX_NESTING};
-use crate::paths::{dirname, join, normalize};
+use crate::paths::normalize;
 use crate::scan::{scan, Child, Scan};
-use crate::source::Source;
+use crate::source::read_text;
+use archkeel_snapshot::paths::{dirname, join};
+use archkeel_snapshot::Snapshot;
 
 /// One file of a module tree, read and scanned.
 pub struct Module {
@@ -50,7 +50,7 @@ struct Pending {
 /// the square of the depth; the deepest module of the `uv` corpus has depth 4.
 pub const MAX_MODULE_DEPTH: usize = 64;
 
-pub fn walk(source: &mut Source, workspace: &Workspace) -> Walked {
+pub fn walk(source: &mut Snapshot, workspace: &Workspace) -> Walked {
     let mut walked = Walked {
         modules: Vec::new(),
         problems: Vec::new(),
@@ -73,7 +73,7 @@ pub fn walk(source: &mut Source, workspace: &Workspace) -> Walked {
 }
 
 impl Walked {
-    fn start(&mut self, source: &mut Source, index: usize, krate: &Crate, root: &Root) {
+    fn start(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, root: &Root) {
         if self.claimed.insert(root.rel.clone()) {
             let first = Pending {
                 rel: root.rel.clone(),
@@ -85,11 +85,14 @@ impl Walked {
         }
     }
 
-    fn crate_tree(&mut self, source: &mut Source, index: usize, krate: &Crate, first: Pending) {
+    fn crate_tree(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, first: Pending) {
         let mut queue = VecDeque::from([first]);
         while let Some(file) = queue.pop_front() {
-            let text = match source.read(&file.rel, Role::Selected) {
-                Ok(text) => text,
+            let text = match read_text(source, &file.rel) {
+                Ok(text) => {
+                    source.select(&file.rel);
+                    text
+                }
                 Err(reason) => {
                     self.problems.push(Problem {
                         reason,
@@ -138,7 +141,7 @@ impl Walked {
 
     fn child(
         &mut self,
-        source: &Source,
+        source: &mut Snapshot,
         parent: &Pending,
         child: &Child,
         queue: &mut VecDeque<Pending>,
@@ -195,7 +198,7 @@ impl Walked {
 
 /// The file of `mod name;` and whether a `path` attribute chose it.
 fn locate(
-    source: &Source,
+    source: &mut Snapshot,
     parent: &Pending,
     child: &Child,
     name: &str,

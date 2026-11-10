@@ -1,0 +1,1 @@
+{"name": "exact", "exports": {".": {"types": "./types.d.ts", "import": "./esm.js", "default": "./cjs.js"}, "./sub": "./sub.js"}}

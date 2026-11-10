@@ -1,92 +1,83 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// Consumer: the walk of the collector. `archkeel-snapshot` owns the reads, the containment and the
+// limits, and tests them; these tests cover what is specific to Rust and the failure of a link.
 // SPDX-License-Identifier: MIT
 
-// Consumer: the walk of the collector. Each test builds a small tree in a temporary directory.
-
-use std::path::PathBuf;
+use archkeel_snapshot::test_tree::Tree;
 
 use super::*;
-use crate::test_tree::tree;
 
 #[test]
 fn walks_sorted_files_and_skips_target_and_hidden_directories() {
-    let root = tree(
-        "walk",
-        &[
-            ("b.rs", ""),
-            ("a/x.rs", ""),
-            ("target/t.rs", ""),
-            (".hidden/h.rs", ""),
-            ("a/y.txt", ""),
-        ],
-    );
-    let source = Source::new(root.to_str().unwrap());
-    assert_eq!(source.walk(""), ["a/x.rs", "a/y.txt", "b.rs"]);
-    assert_eq!(source.walk("a"), ["a/x.rs", "a/y.txt"]);
-    let _ = fs::remove_dir_all(root);
+    let root = Tree::new(&[
+        ("b.rs", ""),
+        ("a/x.rs", ""),
+        ("target/t.rs", ""),
+        (".hidden/h.rs", ""),
+        ("a/y.txt", ""),
+    ]);
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(walk(&mut snapshot, ""), ["a/x.rs", "a/y.txt", "b.rs"]);
+    assert_eq!(walk(&mut snapshot, "a"), ["a/x.rs", "a/y.txt"]);
 }
 
 #[test]
-fn a_read_is_digested_and_a_selected_read_wins_over_a_resolution_read() {
-    let root = tree("read", &[("a.rs", "fn a() {}")]);
-    let mut source = Source::new(root.to_str().unwrap());
-    source.read("a.rs", Role::Resolution).unwrap();
-    source.read("a.rs", Role::Selected).unwrap();
-    let inputs = source.inputs();
-    assert_eq!(inputs.len(), 1);
-    assert_eq!(inputs[0].role, Role::Selected);
-    assert_eq!(inputs[0].digest, sha256_hex(b"fn a() {}"));
-    let _ = fs::remove_dir_all(root);
+fn a_read_gives_the_text_and_a_failed_read_names_its_file() {
+    let root = Tree::new(&[("a.rs", "fn a() {}")]);
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(read_text(&mut snapshot, "a.rs").unwrap(), "fn a() {}");
+    let reason = read_text(&mut snapshot, "none.rs").unwrap_err();
+    assert!(reason.ends_with(": none.rs"), "{reason}");
 }
 
 #[test]
-fn a_file_over_the_limit_and_a_missing_file_give_a_reason_that_names_them() {
-    let root = tree("limit", &[]);
-    let big = root.join("big.rs");
-    fs::create_dir_all(&root).unwrap();
-    File::create(&big)
-        .unwrap()
-        .set_len(MAX_FILE_BYTES + 1)
+fn a_file_over_the_limit_gives_the_reason_of_the_snapshot_crate() {
+    let root = Tree::new(&[("big.rs", "")]);
+    let big = std::fs::File::options()
+        .write(true)
+        .open(root.root.join("big.rs"))
         .unwrap();
-    let mut source = Source::new(root.to_str().unwrap());
-    assert_eq!(
-        source.read("big.rs", Role::Selected).unwrap_err(),
-        format!("File is larger than {MAX_FILE_BYTES} bytes: big.rs")
-    );
-    assert_eq!(
-        source.read("none.rs", Role::Selected).unwrap_err(),
-        "Unreadable file: none.rs"
-    );
-    assert!(source.inputs().is_empty());
-    let _ = fs::remove_dir_all(root);
+    big.set_len(archkeel_snapshot::MAX_FILE_BYTES + 1).unwrap();
+    let mut snapshot = Snapshot::new(&root.path());
+    let reason = read_text(&mut snapshot, "big.rs").unwrap_err();
+    assert_eq!(reason, snapshot.size_gap("big.rs").unwrap());
+    assert!(snapshot.inputs().is_empty());
 }
 
 #[cfg(unix)]
 #[test]
 fn a_link_that_stays_inside_is_followed_and_a_path_that_leaves_the_snapshot_is_not_read() {
-    let outside = tree("outside", &[("secret.rs", "SECRET first line")]);
-    let root = tree("link", &[("real.rs", "x"), ("dir/in.rs", "y")]);
-    let link = |from: &PathBuf, to: &str| std::os::unix::fs::symlink(from, root.join(to)).unwrap();
-    link(&root.join("real.rs"), "inside.rs");
-    link(&outside.join("secret.rs"), "leak.rs");
-    link(&outside, "linkdir");
-    let mut source = Source::new(root.to_str().unwrap());
-    assert_eq!(source.read("inside.rs", Role::Selected).unwrap(), "x");
+    let outside = Tree::new(&[("secret.rs", "SECRET first line")]);
+    let root = Tree::new(&[("real.rs", "x"), ("dir/in.rs", "y")]);
+    let link = |from: std::path::PathBuf, to: &str| {
+        std::os::unix::fs::symlink(from, root.root.join(to)).unwrap();
+    };
+    link(root.root.join("real.rs"), "inside.rs");
+    link(outside.root.join("secret.rs"), "leak.rs");
+    link(outside.root.clone(), "linkdir");
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(read_text(&mut snapshot, "inside.rs").unwrap(), "x");
     for rel in ["leak.rs", "linkdir/secret.rs"] {
-        let reason = source.read(rel, Role::Selected).unwrap_err();
-        assert_eq!(
-            reason,
-            format!("A path that leaves the snapshot is not read: {rel}")
-        );
-        assert!(!source.is_file(rel));
+        assert!(read_text(&mut snapshot, rel).is_err(), "{rel}");
+        assert!(!snapshot.is_file(rel));
     }
-    assert!(!source.is_dir("linkdir"));
-    assert_eq!(source.walk(""), ["dir/in.rs", "real.rs"]);
-    assert!(source
+    assert!(!snapshot.is_dir("linkdir"));
+    let listed = walk(&mut snapshot, "");
+    assert_eq!(listed, ["dir/in.rs", "inside.rs", "real.rs"]);
+    assert!(snapshot
         .inputs()
         .iter()
         .all(|input| !input.path.contains("secret")));
-    let _ = fs::remove_dir_all(root);
-    let _ = fs::remove_dir_all(outside);
+    // The escape is a problem, and the collector turns each problem into a gap.
+    assert!(!snapshot.problems.is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_loop_inside_the_snapshot_is_walked_once() {
+    let root = Tree::new(&[("a/x.rs", "")]);
+    std::os::unix::fs::symlink(&root.root, root.root.join("a/up")).unwrap();
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(walk(&mut snapshot, ""), ["a/x.rs"]);
 }

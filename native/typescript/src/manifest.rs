@@ -8,8 +8,8 @@
 
 use serde_json::{Map, Value};
 
-use crate::paths::join;
-use crate::snapshot::Snapshot;
+use archkeel_snapshot::paths::join;
+use archkeel_snapshot::Snapshot;
 
 /// A value that the resolver does not observe, with its reason.
 #[derive(Clone, Debug, PartialEq, Eq)]

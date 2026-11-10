@@ -45,6 +45,7 @@ pub fn gap_record(reason: &str, evidence: Option<&str>, module: &str, kind: GapK
             .map(str::to_owned)
             .collect(),
         evidence_ids: evidence.into_iter().map(str::to_owned).collect(),
+        fact_ids: Vec::new(),
         data,
     }
 }

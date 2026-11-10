@@ -29,6 +29,14 @@ make ci-pr-check BASE=origin/main        # policy, lint, types and a fixed set o
 make ci-pr-report-check                  # report data and JavaScript logic
 ```
 
+Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, and warns when the branch is behind `main`.
+
+Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)):
+
+1. Run `make merge-check PR=<number>` before every merge. A branch that is behind `main` is a warning: the PR needs no up-to-date branch. A merge conflict, or a file set that differs from the PR on GitHub, is an error. A file that `main` changed in its last merges is a warning only when the PR removes lines from it, because that is what a revert looks like.
+2. Run Full once before you merge a PR that changes a user-visible output: a diagnostic kind, a schema, a verdict text or the report bytes. Do this even when the path filter does not start Full. Dispatch it on the branch.
+3. A PR that can enable a PASS needs an independent review by a second model. It must also pass the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full). A probe expects UNKNOWN or FAIL, never PASS.
+
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and

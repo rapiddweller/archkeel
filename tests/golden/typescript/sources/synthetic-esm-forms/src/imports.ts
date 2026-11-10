@@ -1,0 +1,15 @@
+import main from "./lib";
+import { a, b as renamed } from "./lib";
+import * as everything from "./lib";
+import "./side";
+import type { Shape } from "./types";
+import type Fallback from "./lib";
+import { type Id, flag } from "./types";
+import main2, { a as a2 } from "./lib";
+import { shimmed } from "./shim";
+import fs = require("./lib");
+import type eq = require("./types");
+import { readFileSync } from "node:fs";
+export type Loaded = import("./types").Shape;
+export const used = [main, a, renamed, everything, flag, main2, a2, shimmed, fs, readFileSync];
+export type Kept = [Shape, Fallback, Id, eq.Id];

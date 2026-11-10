@@ -1,0 +1,22 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-snapshot"
+description = "How a native collector reads a snapshot: contained reads, POSIX paths, symlink rules and limits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+archkeel-wire.workspace = true
+
+[features]
+# Test only: a temporary source tree for the unit tests of the crates that read a snapshot.
+test-tree = []
+
+[lints]
+workspace = true

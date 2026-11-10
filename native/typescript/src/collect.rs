@@ -10,7 +10,8 @@
 //! later phases. Without them this collector declares the legacy capability: sections `imports`
 //! and `unknowns`, and no `script-globals-v1` feature. It invents no evidence.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::Write;
 
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
 use archkeel_wire::records::{gap_record, GapKind};
@@ -18,18 +19,24 @@ use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target
 use archkeel_wire::request::Request;
 
 use crate::config::load_config;
+use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
-use crate::paths::join;
 use crate::pytext::is_space;
+#[cfg(any(test, feature = "dump"))]
+use crate::records::listed;
+use crate::records::write_reply;
+#[cfg(any(test, feature = "dump"))]
+use crate::records::{records_of, Records};
 use crate::resolve::Resolver;
-use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;
 use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
+use archkeel_snapshot::paths::join;
+use archkeel_snapshot::Snapshot;
 
 /// The profile and adapter name of the Python TypeScript collector, so that this is a drop-in.
 pub const PROFILE: &str = "archkeel-typescript-imports";
 const SECTIONS: [&str; 2] = ["imports", "unknowns"];
-const FEATURES: [&str; 4] = [
+pub const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
     "node-builtins",
@@ -56,10 +63,45 @@ struct Collection<'a> {
     imports: Vec<Record>,
     targets: Vec<Target>,
     read: usize,
+    /// Keep what the records of PR 4.3a-3a need (`records.rs`); a plain collection does not.
+    keep: bool,
+    kept: BTreeMap<String, Kept>,
+    order: Vec<String>,
+    sites: HashMap<String, (String, i64, i64)>,
 }
 
-/// Collect the facts of one request.
+/// The reply of one request, written into `out`: the imports, the symbols, the calls, the
+/// references, the bindings and the constructs, with the capability `inner-uml-v1` (AD-340, PR
+/// 4.3a-3d). The compressed bytes go to `out` as they are made.
+pub fn reply(
+    request: &Request,
+    provenance: Provenance,
+    version: archkeel_wire::protocol::Version,
+    out: impl Write,
+) -> Result<(), String> {
+    let (facts, pending) = gather(request, provenance, true);
+    let done = write_reply(version, facts, &pending, out);
+    drop(pending);
+    done
+}
+
+/// The same facts with every section in a list, for the unit tests: the producer of `reply`.
+#[cfg(test)]
 pub fn collect(request: &Request, provenance: Provenance) -> Facts {
+    let (facts, pending) = gather(request, provenance, true);
+    listed(facts, &pending).unwrap().0
+}
+
+/// The facts as `collect` gives them and the records by the names of the tests and the dump.
+#[cfg(any(test, feature = "dump"))]
+pub fn records(request: &Request, provenance: Provenance) -> Result<(Facts, Records), String> {
+    let (facts, pending) = gather(request, provenance, true);
+    let (facts, touched) = listed(facts, &pending)?;
+    let records = records_of(&facts, touched);
+    Ok((facts, records))
+}
+
+pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pending) {
     let roots: Vec<String> = request.roots.iter().map(|root| join(".", root)).collect();
     let mut snapshot = Snapshot::new(&request.root);
     let config = load_config(&mut snapshot, &request.tsconfig, &roots);
@@ -67,6 +109,7 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
     let bundler = request.bundler
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
+    let partial = config.partial;
     let listed = config.files;
     let mut collection = Collection {
         request,
@@ -84,6 +127,10 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
         imports: Vec::new(),
         targets: Vec::new(),
         read: 0,
+        keep,
+        kept: BTreeMap::new(),
+        order: Vec::new(),
+        sites: HashMap::new(),
     };
     collection.queue = listed
         .iter()
@@ -133,16 +180,27 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
     let mut imports = collection.imports;
     imports.sort_by(|left, right| left.id.cmp(&right.id));
     let mut features = FEATURES.to_vec();
+    if keep {
+        // The records of the inner-UML capability come after the four features of the imports.
+        features.insert(FEATURES.len(), "inner-uml-v1");
+    }
     if collection.bundler {
         features.push("bundler-mode-v1");
     }
-    Facts {
+    let pending = Pending {
+        kept: collection.kept,
+        order: collection.order,
+        sites: collection.sites,
+        partial,
+    };
+    let facts = Facts {
         provenance,
         git_head: request.git_head.clone(),
         dirty: request.dirty.clone(),
         scope,
         sections: vec![(SECTIONS[0], imports), (SECTIONS[1], gaps.clone())],
         features,
+        constructs: Vec::new(),
         inputs: collection.snapshot.inputs(),
         files,
         imports: collection.targets,
@@ -150,7 +208,8 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
         files_read: collection.read,
         gaps,
         evidence: collection.evidence.into_values().collect(),
-    }
+    };
+    (facts, pending)
 }
 
 impl Collection<'_> {

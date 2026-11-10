@@ -78,3 +78,16 @@ fn a_file_over_the_size_limit_is_not_read() {
         .collect();
     assert_eq!(inputs, ["src/at.ts"]);
 }
+
+#[test]
+fn a_file_over_the_size_limit_is_refused_once_and_then_at_once() {
+    let over_limit = "a".repeat(MAX_FILE_BYTES as usize + 1);
+    let tree = Tree::new(&[("src/over.ts", &over_limit), ("src/ok.ts", "x")]);
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert!(!snapshot.readable("src/over.ts"));
+    // The file is now known as too large: a second question reads nothing.
+    std::fs::remove_file(tree.root.join("src/over.ts")).unwrap();
+    assert!(!snapshot.readable("src/over.ts"));
+    assert!(snapshot.size_gap("src/over.ts").is_some());
+    assert!(snapshot.readable("src/ok.ts") && snapshot.readable("src/ok.ts"));
+}

@@ -12,15 +12,17 @@ use archkeel_wire::reply::{Record, Target};
 use serde_json::{json, Map, Value};
 
 use super::{Collection, GapKind};
+use crate::installed::installed;
+use crate::kept::Kept;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::parse;
-use crate::paths::{dirname, join, within};
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
 use crate::source_input::{
     classify_asset, classify_file, classify_specifier, ModuleFormat, SourceKind, SpecifierKind,
 };
+use archkeel_snapshot::paths::{dirname, join, within};
 
 /// The reason of the gap in each file that can use a browser global. The Python collector reports
 /// each unexamined global itself (`script_global` imports). This collector examines none, so the
@@ -37,14 +39,14 @@ type Site = (String, String);
 impl Collection<'_> {
     /// `collect._selected`: a source file in scope that is not installed and not a test source.
     fn selected(&mut self, rel: &str) -> bool {
-        !self.snapshot.installed(rel)
+        !installed(&mut self.snapshot, rel)
             && self.roots.iter().any(|root| within(root, rel))
             && !self.excluded_test(rel)
     }
 
     /// Parse a file, report what it cannot prove, and record each of its references.
     pub(super) fn references(&mut self, rel: &str, module: &str, file_evidence: &str, text: &str) {
-        let parsed = parse(&mut self.parsers, rel, text.as_bytes());
+        let mut parsed = parse(&mut self.parsers, rel, text.as_bytes());
         if let Some(line) = parsed.first_error {
             let reason = format!("Syntax error in {rel}: unparseable construct at line {line}");
             self.gap(&reason, Some(file_evidence), module, GapKind::Collection);
@@ -57,6 +59,11 @@ impl Collection<'_> {
                 module,
                 GapKind::Collection,
             );
+        }
+        if self.keep {
+            let kept = Kept::from_parsed(module, &mut parsed, text);
+            self.order.push(rel.to_owned());
+            self.kept.insert(rel.to_owned(), kept);
         }
         let format = self.resolver.format_of(&mut self.snapshot, rel);
         let explicit = self.resolver.options.module;
@@ -144,6 +151,10 @@ impl Collection<'_> {
             "module_level_import".to_owned(),
             json!(reference.module_level),
         );
+        if self.keep {
+            let site = (rel.to_owned(), reference.span.line, reference.span.column);
+            self.sites.insert(identity.clone(), site);
+        }
         self.targets.push(target);
         self.imports.push(Record {
             id: identity,
@@ -153,6 +164,7 @@ impl Collection<'_> {
             title: format!("{module} imports {specifier}"),
             subjects,
             evidence_ids: vec![evidence.to_owned()],
+            fact_ids: Vec::new(),
             data,
         });
     }
@@ -275,7 +287,7 @@ impl Collection<'_> {
 
     /// `collect._observe`: read a local dependency; it joins the walk when it is a source file.
     fn observe(&mut self, rel: &str, importer: &Site) -> bool {
-        let present = self.snapshot.read(rel).is_some();
+        let present = self.snapshot.readable(rel);
         let source = classify_file(rel).and_then(|suffix| suffix.source_kind());
         if present && source.is_some() && self.selected(rel) {
             if self.queued.insert(rel.to_owned()) {
@@ -336,10 +348,10 @@ impl Collection<'_> {
         let path = found.path.clone();
         let suffix = classify_file(&path);
         let site: Site = (self.cite(rel, &reference.span), module.to_owned());
-        if self.excluded_test(&path) && !self.snapshot.installed(&path) {
+        if self.excluded_test(&path) && !installed(&mut self.snapshot, &path) {
             return self.excluded_test_target(module, reference, identity, &path, &site);
         }
-        if self.snapshot.read(&path).is_none() {
+        if !self.snapshot.readable(&path) {
             let reason = format!("Unavailable local target: {specifier}");
             return self.unresolved(module, identity, specifier, &reason);
         }

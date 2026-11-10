@@ -19,8 +19,6 @@ mod paths;
 mod resolve;
 mod scan;
 mod source;
-#[cfg(test)]
-mod test_tree;
 mod tokens;
 mod toml;
 mod tree;
@@ -29,8 +27,9 @@ use std::io::{Read, Write};
 use std::process::ExitCode;
 
 use archkeel_wire::protocol::reply_version;
-use archkeel_wire::reply::{encode, Provenance};
+use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::decode_rust;
+use archkeel_wire::stream::encode;
 
 /// The stack of the scan thread. The system gives address space, not memory, until it is used.
 const STACK_BYTES: usize = 256 * 1024 * 1024;
@@ -58,7 +57,7 @@ fn run() -> Result<Vec<u8>, String> {
         .stack_size(STACK_BYTES)
         .spawn(move || {
             let facts = collect::collect(&request, provenance());
-            encode(reply_version(request.version), &facts)
+            encode(reply_version(request.version), facts)
         })
         .map_err(|error| format!("cannot start the scan: {error}"))?;
     worker

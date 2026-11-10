@@ -8,9 +8,9 @@ use std::collections::BTreeSet;
 
 use crate::glob::{Pattern, Usage};
 use crate::layer::Layer;
-use crate::paths::{basename, dirname, is_outside, join, within};
-use crate::snapshot::Snapshot;
 use crate::source_input::{classify_file, shadowed, SourceKind, Suffix};
+use archkeel_snapshot::paths::{basename, dirname, is_outside, join, within};
+use archkeel_snapshot::Snapshot;
 
 /// The listed files first, then the found files in sorted order, as the compiler lists them.
 pub fn discover(

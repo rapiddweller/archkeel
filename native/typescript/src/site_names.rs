@@ -11,7 +11,7 @@
 //! its ranges, and a site keeps one link in a chain of scopes. A reader unites the ranges of the
 //! chain when it needs the names of one site.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::site_paths::Text;
 
@@ -86,6 +86,98 @@ impl Names {
             next = scope.parent;
         }
         names.into_iter().collect()
+    }
+}
+
+/// The names of a file by name, for the question "does a scope of this chain hide this name"
+/// (`name in site.shadowed_names`) without a union of the sets. A chain item hides a name when the
+/// name is declared in its `parameters` or written in its `body`. The ranges of the items of a chain
+/// nest, so each item keeps the list of the ranges that its ancestors do not already cover, and a
+/// question reads that short list and does one binary search in the positions of the name.
+#[derive(Default)]
+pub struct NameIndex {
+    declared: HashMap<String, Vec<usize>>,
+    written: HashMap<String, Vec<usize>>,
+    /// For each scope, the head of its list of body ranges and of parameter ranges.
+    body: Vec<Option<u32>>,
+    parameters: Vec<Option<u32>>,
+    /// `(from, to, next)`: a range and the rest of the list.
+    ranges: Vec<(usize, usize, Option<u32>)>,
+}
+
+impl Names {
+    /// Index the names of the file. `data` is the text that the positions point into.
+    pub fn index(&self, data: &[u8]) -> NameIndex {
+        let mut index = NameIndex::default();
+        for (list, target) in [
+            (&self.declared, &mut index.declared),
+            (&self.written, &mut index.written),
+        ] {
+            for (start, name) in list {
+                target.entry(name.decode(data)).or_default().push(*start);
+            }
+        }
+        for scope in &self.scopes {
+            let above = scope.parent.map(|at| at as usize);
+            let body = index.extend(
+                above.and_then(|at| index.body.get(at).copied().flatten()),
+                scope.body,
+            );
+            let parameters = index.extend(
+                above.and_then(|at| index.parameters.get(at).copied().flatten()),
+                scope.parameters,
+            );
+            index.body.push(body);
+            index.parameters.push(parameters);
+        }
+        index
+    }
+}
+
+impl NameIndex {
+    /// The list of `above` with `range` in front, unless an earlier range covers it.
+    fn extend(&mut self, above: Option<u32>, range: Option<(usize, usize)>) -> Option<u32> {
+        let Some((from, to)) = range else {
+            return above;
+        };
+        let mut next = above;
+        while let Some(at) = next {
+            let (lo, hi, rest) = self.ranges.get(at as usize).copied()?;
+            if lo <= from && to <= hi {
+                return above;
+            }
+            next = rest;
+        }
+        self.ranges.push((from, to, above));
+        u32::try_from(self.ranges.len() - 1).ok()
+    }
+
+    fn within(&self, list: Option<u32>, starts: &[usize]) -> bool {
+        let mut next = list;
+        while let Some((lo, hi, rest)) = next.and_then(|at| self.ranges.get(at as usize).copied()) {
+            let first = starts.partition_point(|start| *start < lo);
+            if starts.get(first).is_some_and(|start| *start < hi) {
+                return true;
+            }
+            next = rest;
+        }
+        false
+    }
+
+    /// `name in site.shadowed_names` for the site whose chain ends at `chain`.
+    pub fn shadows(&self, chain: Option<u32>, name: &str) -> bool {
+        let Some(at) = chain.map(|at| at as usize) else {
+            return false;
+        };
+        let body = self.body.get(at).copied().flatten();
+        let parameters = self.parameters.get(at).copied().flatten();
+        self.written
+            .get(name)
+            .is_some_and(|starts| self.within(body, starts))
+            || self
+                .declared
+                .get(name)
+                .is_some_and(|starts| self.within(parameters, starts))
     }
 }
 

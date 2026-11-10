@@ -1,0 +1,1 @@
+{"compilerOptions": {"allowJs": true, "jsx": "react-jsx", "module": "CommonJS", "moduleResolution": "node"}, "include": ["src"]}

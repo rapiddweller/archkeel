@@ -19,8 +19,9 @@ use serde_json::{json, Map, Value};
 use crate::crates::{discover, Crate, Problem, Workspace};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
-use crate::source::Source;
+use crate::source::walk as list_files;
 use crate::tree::{walk, Module, Walked};
+use archkeel_snapshot::Snapshot;
 
 pub const PROFILE: &str = "archkeel-rust-imports";
 const SECTIONS: [&str; 2] = ["imports", "unknowns"];
@@ -38,9 +39,9 @@ struct Builder {
 
 /// Collect the facts of one request.
 pub fn collect(request: &Request, provenance: Provenance) -> Facts {
-    let mut source = Source::new(&request.root);
+    let mut source = Snapshot::new(&request.root);
     let mut builder = Builder::default();
-    let (scope, files) = list(&source, &request.roots, &mut builder);
+    let (scope, files) = list(&mut source, &request.roots, &mut builder);
     let workspace = discover(&mut source, &files, &request.namespace);
     let walked = walk(&mut source, &workspace);
     let modules: BTreeMap<&str, &str> = walked
@@ -48,6 +49,9 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
         .iter()
         .map(|module| (module.rel.as_str(), module.module.as_str()))
         .collect();
+    for problem in source.problems.clone() {
+        builder.gap(&problem, None, "");
+    }
     for problem in workspace.problems.iter().chain(&walked.problems) {
         builder.problem(problem, &modules);
     }
@@ -67,14 +71,18 @@ pub fn collect(request: &Request, provenance: Provenance) -> Facts {
 }
 
 /// The scope labels and all the files below the roots.
-fn list(source: &Source, roots: &[String], builder: &mut Builder) -> (Vec<String>, Vec<String>) {
+fn list(
+    source: &mut Snapshot,
+    roots: &[String],
+    builder: &mut Builder,
+) -> (Vec<String>, Vec<String>) {
     let mut scope = Vec::new();
     let mut files = Vec::new();
     for root in roots {
         let root = root.trim_end_matches('/');
         if source.is_dir(root) {
             scope.push(format!("{root}/**"));
-            files.extend(source.walk(root));
+            files.extend(list_files(source, root));
         } else {
             scope.push(root.to_owned());
             builder.gap(&format!("Scan root is not a directory: {root}"), None, "");
@@ -252,7 +260,7 @@ impl Builder {
         scope: Vec<String>,
         selected: Vec<String>,
         walked: &Walked,
-        source: Source,
+        source: Snapshot,
     ) -> Facts {
         let mut files = self.files;
         files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
@@ -266,6 +274,7 @@ impl Builder {
             scope,
             sections: vec![(SECTIONS[0], imports), (SECTIONS[1], gaps.clone())],
             features: FEATURES.to_vec(),
+            constructs: Vec::new(),
             inputs: source.inputs(),
             files,
             imports: self.targets,
@@ -313,6 +322,7 @@ fn record(
         title: format!("{} imports {}", module.module, reference.path),
         subjects,
         evidence_ids: vec![evidence],
+        fact_ids: Vec::new(),
         data,
     }
 }

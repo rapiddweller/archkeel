@@ -7,5 +7,10 @@
   {"case": "excalidraw-laser-pointer", "root": "tests/golden/typescript/sources/excalidraw-laser-pointer"},
   {"case": "synthetic-tsx-paths", "root": "tests/golden/typescript/sources/synthetic-tsx-paths"},
   {"case": "synthetic-bundler", "root": "tests/golden/typescript/sources/synthetic-bundler"},
-  {"case": "synthetic-gaps", "root": "tests/golden/typescript/sources/synthetic-gaps"}
+  {"case": "synthetic-gaps", "root": "tests/golden/typescript/sources/synthetic-gaps"},
+  {"case": "synthetic-esm-forms", "root": "tests/golden/typescript/sources/synthetic-esm-forms"},
+  {"case": "synthetic-nodenext", "root": "tests/golden/typescript/sources/synthetic-nodenext"},
+  {"case": "synthetic-allowjs", "root": "tests/golden/typescript/sources/synthetic-allowjs"},
+  {"case": "synthetic-paths-multi", "root": "tests/golden/typescript/sources/synthetic-paths-multi"},
+  {"case": "synthetic-package-maps", "root": "tests/golden/typescript/sources/synthetic-package-maps"}
 ]

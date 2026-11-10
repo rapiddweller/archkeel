@@ -8,7 +8,7 @@
 
 use super::*;
 use crate::config::load_config;
-use crate::test_tree::Tree;
+use archkeel_snapshot::test_tree::Tree;
 
 // Each block: name, config, blocked reason, resolutions, formats, reads, problems.
 const TREE: &[(&str, &str)] = &[

@@ -1,0 +1,1 @@
+{"name": "synth-maps", "exports": {".": "./src/index.ts"}, "imports": {"#internal": "./src/internal.ts"}}

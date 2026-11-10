@@ -4,13 +4,11 @@
 
 // Consumer: the host reads these facts. Each fixture is a small workspace on disk.
 
-use std::fs;
-
 use archkeel_wire::protocol::Version;
 use serde_json::Value;
 
 use super::*;
-use crate::test_tree::tree;
+use archkeel_snapshot::test_tree::Tree;
 
 const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
     [workspace.dependencies]\nbase = { path = \"base\", package = \"base-crate\" }\n";
@@ -19,11 +17,11 @@ const APP: &str = "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace
     renamed = { package = \"other-crate\", version = \"1\" }\nserde_json = \"1\"\n\
     [features]\ndump = []\n";
 
-fn facts(name: &str, files: &[(&str, &str)]) -> Facts {
-    let root = tree(name, files);
+fn facts(files: &[(&str, &str)]) -> Facts {
+    let root = Tree::new(files);
     let request = Request {
         version: Version::V8,
-        root: root.to_string_lossy().into_owned(),
+        root: root.path(),
         git_head: "a".repeat(40),
         dirty: Value::Bool(false),
         roots: vec!["crates".to_owned()],
@@ -40,22 +38,17 @@ fn facts(name: &str, files: &[(&str, &str)]) -> Facts {
         runtime_version: "1.88.0".to_owned(),
         runtime_required: ">=1.88".to_owned(),
     };
-    let result = collect(&request, provenance);
-    let _ = fs::remove_dir_all(root);
-    result
+    collect(&request, provenance)
 }
 
 fn workspace(app_source: &str) -> Facts {
-    facts(
-        "collect",
-        &[
-            ("crates/Cargo.toml", WORKSPACE),
-            ("crates/base/Cargo.toml", BASE),
-            ("crates/base/src/lib.rs", "pub fn f() {}"),
-            ("crates/app/Cargo.toml", APP),
-            ("crates/app/src/lib.rs", app_source),
-        ],
-    )
+    facts(&[
+        ("crates/Cargo.toml", WORKSPACE),
+        ("crates/base/Cargo.toml", BASE),
+        ("crates/base/src/lib.rs", "pub fn f() {}"),
+        ("crates/app/Cargo.toml", APP),
+        ("crates/app/src/lib.rs", app_source),
+    ])
 }
 
 fn edges(facts: &Facts) -> Vec<(String, String)> {
@@ -163,14 +156,11 @@ fn each_place_that_cannot_be_read_is_a_gap_with_its_line() {
 
 #[test]
 fn a_file_in_no_module_tree_and_a_scan_root_that_is_no_directory_are_gaps() {
-    let facts = facts(
-        "orphan",
-        &[
-            ("crates/Cargo.toml", "[package]\nname = \"a\"\n"),
-            ("crates/src/lib.rs", ""),
-            ("crates/src/orphan.rs", ""),
-        ],
-    );
+    let facts = facts(&[
+        ("crates/Cargo.toml", "[package]\nname = \"a\"\n"),
+        ("crates/src/lib.rs", ""),
+        ("crates/src/orphan.rs", ""),
+    ]);
     assert_eq!(
         reasons(&facts),
         ["Source file is in no module tree: crates/src/orphan.rs"]

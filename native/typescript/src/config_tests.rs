@@ -7,7 +7,7 @@
 // ("src",))` on the same tree.
 
 use super::*;
-use crate::test_tree::Tree;
+use archkeel_snapshot::test_tree::Tree;
 
 struct Loaded {
     files: Vec<String>,

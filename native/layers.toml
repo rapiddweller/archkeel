@@ -12,10 +12,37 @@
 # Crates that only a collector may use (a name prefix).
 parser_prefixes = ["tree-sitter"]
 
+# Directions (epic #880, target v2): collectors -> facts, snapshot, build-support -> wire;
+# store -> facts. No library uses a collector, and no library uses a parser crate. No collector
+# uses another collector or the store. `planned = true` marks a crate that has no code yet: the
+# entry fixes its place before it gets code, and the test fails when the crate appears with the
+# mark still set. `archkeel-build-support` is the crate of #916 (the one build script helper).
+#
+# `native/architecture-contract.json` holds the same crates and directions in the vocabulary of an
+# Archkeel contract (component, requires). Keep both files equal until the Rust collector of #916
+# checks the contract and this file is removed.
+
 [crates.archkeel-wire]
 role = "library"
 dir = "wire"
 may_use = []
+
+[crates.archkeel-snapshot]
+role = "library"
+dir = "snapshot"
+may_use = ["archkeel-wire"]
+
+[crates.archkeel-facts]
+role = "library"
+dir = "facts"
+may_use = []
+planned = true
+
+[crates.archkeel-store]
+role = "library"
+dir = "store"
+may_use = ["archkeel-facts"]
+planned = true
 
 [crates.archkeel-build-support]
 role = "library"
@@ -25,9 +52,9 @@ may_use = []
 [crates.archkeel-typescript-collector]
 role = "collector"
 dir = "typescript"
-may_use = ["archkeel-wire", "archkeel-build-support"]
+may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-facts", "archkeel-build-support"]
 
 [crates.archkeel-rust-collector]
 role = "collector"
 dir = "rust"
-may_use = ["archkeel-wire", "archkeel-build-support"]
+may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-build-support"]

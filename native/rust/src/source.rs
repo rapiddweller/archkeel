@@ -2,130 +2,55 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Every read of the snapshot goes through here. A read is digested and the file is never
-//! executed. A symbolic link is never followed: a link can point outside the snapshot.
+//! What is specific to Rust in the read of a snapshot. `archkeel-snapshot` owns the reads, the
+//! containment, the symlink rule and the size limit; this file only names a failed read and
+//! lists the source files below a directory.
 
-use std::collections::BTreeMap;
-use std::fs::{self, File};
-use std::io::Read;
-use std::path::PathBuf;
+use std::collections::BTreeSet;
 
-use archkeel_wire::identity::sha256_hex;
-use archkeel_wire::reply::{Input, Role};
+use archkeel_snapshot::Snapshot;
 
-/// The largest file that the collector reads (AD-319). A larger Rust file is generated or hostile.
-pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 /// The deepest directory that the walk enters.
 const MAX_DEPTH: usize = 128;
 
-pub struct Source {
-    root: PathBuf,
-    inputs: BTreeMap<String, (String, Role)>,
+/// Read a file as text. The reason of a failure names the file. A path that leaves the snapshot
+/// is never read: `archkeel-snapshot` refuses it and records a problem, which is a gap.
+pub fn read_text(snapshot: &mut Snapshot, rel: &str) -> Result<String, String> {
+    match snapshot.read(rel) {
+        Some(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+        None => Err(snapshot.size_gap(rel).unwrap_or_else(|| {
+            format!("Unreadable file, or a path that leaves the snapshot: {rel}")
+        })),
+    }
 }
 
-impl Source {
-    pub fn new(root: &str) -> Self {
-        Self {
-            root: fs::canonicalize(root).unwrap_or_else(|_| PathBuf::from(root)),
-            inputs: BTreeMap::new(),
+/// The files below `rel`, relative to the snapshot, sorted. A directory named `target` and a
+/// hidden directory are not entered. A directory is entered once, so a link cannot make a loop.
+pub fn walk(snapshot: &mut Snapshot, rel: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut seen = BTreeSet::new();
+    walk_into(snapshot, rel, 0, &mut seen, &mut found);
+    found.sort();
+    found
+}
+
+fn walk_into(
+    snapshot: &mut Snapshot,
+    rel: &str,
+    depth: usize,
+    seen: &mut BTreeSet<String>,
+    found: &mut Vec<String>,
+) {
+    if depth > MAX_DEPTH || !seen.insert(snapshot.real(rel).unwrap_or_else(|| rel.to_owned())) {
+        return;
+    }
+    let (files, directories) = snapshot.entries(rel);
+    let child = |name: &str| archkeel_snapshot::paths::join(rel, name);
+    found.extend(files.iter().map(|name| child(name)));
+    for name in directories {
+        if name != "target" && !name.starts_with('.') {
+            walk_into(snapshot, &child(&name), depth + 1, seen, found);
         }
-    }
-
-    fn absolute(&self, rel: &str) -> PathBuf {
-        rel.split('/')
-            .filter(|part| !part.is_empty())
-            .fold(self.root.clone(), |path, part| path.join(part))
-    }
-
-    /// The real path of an entry, when it is inside the snapshot. The rule is the one of the
-    /// TypeScript snapshot: a link that stays inside is followed, and a path that leaves the
-    /// snapshot, by name or by a link in the middle of it, is never read.
-    fn inside(&self, rel: &str) -> Result<PathBuf, bool> {
-        let real = fs::canonicalize(self.absolute(rel)).map_err(|_| false)?;
-        if real.starts_with(&self.root) {
-            Ok(real)
-        } else {
-            Err(true)
-        }
-    }
-
-    pub fn is_file(&self, rel: &str) -> bool {
-        self.inside(rel).is_ok_and(|real| real.is_file())
-    }
-
-    pub fn is_dir(&self, rel: &str) -> bool {
-        self.inside(rel).is_ok_and(|real| real.is_dir())
-    }
-
-    /// Read a file as text. The reason of a failure names the file.
-    pub fn read(&mut self, rel: &str, role: Role) -> Result<String, String> {
-        let path = self.inside(rel).map_err(|outside| {
-            if outside {
-                format!("A path that leaves the snapshot is not read: {rel}")
-            } else {
-                format!("Unreadable file: {rel}")
-            }
-        })?;
-        let meta = fs::metadata(&path).map_err(|_| format!("Unreadable file: {rel}"))?;
-        if meta.len() > MAX_FILE_BYTES {
-            return Err(format!("File is larger than {MAX_FILE_BYTES} bytes: {rel}"));
-        }
-        let mut bytes = Vec::new();
-        File::open(&path)
-            .and_then(|file| file.take(MAX_FILE_BYTES).read_to_end(&mut bytes))
-            .map_err(|_| format!("Unreadable file: {rel}"))?;
-        let entry = self.inputs.entry(rel.to_owned());
-        let digest = sha256_hex(&bytes);
-        let known = entry.or_insert_with(|| (digest, role));
-        if role == Role::Selected {
-            known.1 = Role::Selected;
-        }
-        Ok(String::from_utf8_lossy(&bytes).into_owned())
-    }
-
-    /// The files below `rel`, relative to the snapshot, sorted. A directory named `target`, a
-    /// hidden directory and a symbolic link are not entered.
-    pub fn walk(&self, rel: &str) -> Vec<String> {
-        let mut found = Vec::new();
-        self.walk_into(rel, 0, &mut found);
-        found.sort();
-        found
-    }
-
-    fn walk_into(&self, rel: &str, depth: usize, found: &mut Vec<String>) {
-        if depth > MAX_DEPTH {
-            return;
-        }
-        let Ok(entries) = fs::read_dir(self.absolute(rel)) else {
-            return;
-        };
-        for entry in entries.flatten() {
-            let Ok(kind) = entry.file_type() else {
-                continue;
-            };
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let child = if rel.is_empty() || rel == "." {
-                name.clone()
-            } else {
-                format!("{rel}/{name}")
-            };
-            if kind.is_dir() && name != "target" && !name.starts_with('.') {
-                self.walk_into(&child, depth + 1, found);
-            } else if kind.is_file() {
-                found.push(child);
-            }
-        }
-    }
-
-    pub fn inputs(&self) -> Vec<Input> {
-        self.inputs
-            .iter()
-            .map(|(path, (digest, role))| Input {
-                path: path.clone(),
-                digest: digest.clone(),
-                role: *role,
-            })
-            .collect()
     }
 }
 
