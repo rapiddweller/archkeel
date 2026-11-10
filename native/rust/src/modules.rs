@@ -80,9 +80,10 @@ pub fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
         };
         built.lexical.insert(module.module.clone(), &module.module);
         for inline in &module.scan.inlines {
-            built
-                .lexical
-                .insert(format!("{}.{}", module.module, inline.join(".")), &module.module);
+            built.lexical.insert(
+                format!("{}.{}", module.module, inline.join(".")),
+                &module.module,
+            );
         }
         let mut frame = Frame {
             module,
@@ -106,14 +107,40 @@ pub fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
     built
 }
 
+/// Climb one module for each `super` that starts `names` at `at`: the module, the number of
+/// steps and the index after the last `super`.
+fn climb(
+    frame: &Frame<'_>,
+    from: &str,
+    names: &[String],
+    mut at: usize,
+) -> Result<(String, i64, usize), Outcome> {
+    let (mut cur, mut ups) = (from.to_owned(), 0);
+    while names.get(at).map(String::as_str) == Some("super") {
+        if cur == frame.root {
+            let reason = "super names a module above the crate root";
+            return Err(Outcome::Unknown(reason.to_owned()));
+        }
+        cur = cur
+            .rsplit_once('.')
+            .map_or(cur.clone(), |(parent, _)| parent.to_owned());
+        ups += 1;
+        at += 1;
+    }
+    Ok((cur, ups, at))
+}
+
 fn inside(module: &str, root: &str) -> bool {
-    module == root || module.strip_prefix(root).is_some_and(|rest| rest.starts_with('.'))
+    module == root
+        || module
+            .strip_prefix(root)
+            .is_some_and(|rest| rest.starts_with('.'))
 }
 
 fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
-    scope
-        .iter()
-        .fold(frame.module.module.clone(), |id, part| format!("{id}.{part}"))
+    scope.iter().fold(frame.module.module.clone(), |id, part| {
+        format!("{id}.{part}")
+    })
 }
 
 impl<'a> Index<'a> {
@@ -123,19 +150,22 @@ impl<'a> Index<'a> {
 
     /// The file of a module of the walk.
     pub fn rel(&self, module: &str) -> Option<&str> {
-        self.frames.get(module).map(|frame| frame.module.rel.as_str())
+        self.frames
+            .get(module)
+            .map(|frame| frame.module.rel.as_str())
     }
 
     /// What the path of `reference`, written in `frame`, names.
     pub fn resolve(&self, frame: &Frame<'_>, reference: &Reference) -> Outcome {
         let lexical = lexical(frame, &reference.scope);
         let globs = matches!(reference.via, crate::scan::Via::Path);
-        let found = self.path(frame, &reference.names, reference.absolute, (&lexical, globs), 0);
-        if reference.in_macro && found != Outcome::None {
-            let reason = "A macro_rules! body holds a module path: the scan does not know where it expands";
-            return Outcome::Unknown(reason.to_owned());
-        }
-        found
+        self.path(
+            frame,
+            &reference.names,
+            reference.absolute,
+            (&lexical, globs),
+            0,
+        )
     }
 
     /// `place` is the lexical module and whether a glob may bind the first name. A `use` path
@@ -158,23 +188,33 @@ impl<'a> Index<'a> {
         if absolute {
             return Outcome::None;
         }
-        let (mut cur, mut level, mut at) = (lexical.to_owned(), 1, 0);
-        match first {
-            "crate" => (cur, level, at) = (frame.root.to_owned(), 0, 1),
+        let (mut cur, mut level) = (lexical.to_owned(), 1);
+        let at = match first {
+            "crate" => {
+                (cur, level) = (frame.root.to_owned(), 0);
+                1
+            }
             "self" | "super" => {
-                at = usize::from(first == "self");
-                while names.get(at).map(String::as_str) == Some("super") {
-                    if cur == frame.root {
-                        return Outcome::Unknown("super names a module above the crate root".to_owned());
+                let start = usize::from(first == "self");
+                match climb(frame, &cur, names, start) {
+                    Ok((above, ups, at)) => {
+                        (cur, level) = (above, level + ups);
+                        at
                     }
-                    cur = cur.rsplit_once('.').map_or(cur.clone(), |(parent, _)| parent.to_owned());
-                    level += 1;
-                    at += 1;
+                    Err(unknown) => return unknown,
                 }
             }
             _ => return self.bare(frame, names, place, hops, globs),
-        }
+        };
         self.follow(&cur, level, &names[at..])
+    }
+
+    /// The file module of the deepest module that `rest` names below `start`.
+    pub fn deepest(&self, start: &str, rest: &[String]) -> String {
+        match self.follow(start, 0, rest) {
+            Outcome::Edge(edge) => edge.module,
+            _ => start.to_owned(),
+        }
     }
 
     /// From the module `start`, down each segment that names a child module.
@@ -216,7 +256,7 @@ impl<'a> Index<'a> {
         let bound = frame.bindings.get(first.as_str());
         let local = self.lexical.contains_key(&child) || bound.is_some();
         if count == 0 && !local {
-            if let Some(found) = self.unbound(frame, names, hops, globs) {
+            if let Some(found) = self.unbound(frame, names, (place.0, hops), globs) {
                 return found;
             }
             return Outcome::None;
@@ -225,7 +265,8 @@ impl<'a> Index<'a> {
             return Outcome::None;
         }
         if count != 1 {
-            let reason = format!("A name that the file declares more than once may name a module: {first}");
+            let reason =
+                format!("A name that the file declares more than once may name a module: {first}");
             return Outcome::Unknown(reason);
         }
         match bound {
@@ -246,7 +287,7 @@ impl<'a> Index<'a> {
         &self,
         frame: &Frame<'_>,
         names: &[String],
-        hops: usize,
+        (lexical_at, hops): (&str, usize),
         globs: bool,
     ) -> Option<Outcome> {
         let first = &names[0];
@@ -256,36 +297,52 @@ impl<'a> Index<'a> {
             return Some(self.follow(&lib.module, 0, &names[1..]));
         }
         let none = std::collections::BTreeSet::new();
-        if classify(first, frame.krate, &none, false).is_some() || frame.globs.is_empty() {
+        // A glob of an inline module reaches only the names in that module and below.
+        let reaching: Vec<&&Reference> = frame
+            .globs
+            .iter()
+            .filter(|glob| inside(lexical_at, &lexical(frame, &glob.scope)))
+            .collect();
+        if classify(first, frame.krate, &none, false).is_some() || reaching.is_empty() {
             return None;
         }
         if !globs {
-            let reason = format!("A use path starts with a name that a glob import may bring in: {first}");
+            let reason =
+                format!("A use path starts with a name that a glob import may bring in: {first}");
             return Some(Outcome::Unknown(reason));
         }
-        for glob in &frame.globs {
-            let at = lexical(frame, &glob.scope);
-            match self.path(frame, &glob.names, glob.absolute, (&at, false), hops + 1) {
+        for glob in reaching {
+            match self.through_glob(frame, glob, names, hops) {
                 Outcome::None => {}
-                Outcome::Unknown(reason) => {
-                    return Some(Outcome::Unknown(format!(
-                        "A glob import may bring in {first}: {reason}"
-                    )));
-                }
-                Outcome::Edge(edge) if edge.symbol.is_none() => {
-                    let Some(target) = self.frames.get(edge.module.as_str()) else {
-                        continue;
-                    };
-                    let place = (edge.lexical.as_str(), true);
-                    match self.bare(target, names, place, hops + 1, true) {
-                        Outcome::None => {}
-                        found => return Some(found),
-                    }
-                }
-                Outcome::Edge(_) => {}
+                found => return Some(found),
             }
         }
         None
+    }
+}
+
+impl Index<'_> {
+    /// What `names` names when the glob `use` brings in its first name, or `None`.
+    fn through_glob(
+        &self,
+        frame: &Frame<'_>,
+        glob: &Reference,
+        names: &[String],
+        hops: usize,
+    ) -> Outcome {
+        let at = lexical(frame, &glob.scope);
+        match self.path(frame, &glob.names, glob.absolute, (&at, false), hops + 1) {
+            Outcome::Unknown(reason) => {
+                Outcome::Unknown(format!("A glob import may bring in {}: {reason}", names[0]))
+            }
+            Outcome::Edge(edge) if edge.symbol.is_none() => {
+                let Some(target) = self.frames.get(edge.module.as_str()) else {
+                    return Outcome::None;
+                };
+                self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true)
+            }
+            _ => Outcome::None,
+        }
     }
 }
 

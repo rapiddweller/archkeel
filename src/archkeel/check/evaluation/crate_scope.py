@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: MIT
 """Say UNKNOWN for a Rust scope that needs the edges inside a crate (AD-335).
 
-The Rust collector writes the edges between crates, not the edges between the modules of one
-crate. A component or a rule that names a module below a crate root would read "no edge" as "no
-import", and PASS. Until slice 5b-2 writes the module edges, each such scope is UNKNOWN.
+A profile with `crate_edges_only` has the edges between crates, not the edges between the modules
+of one crate. A component or a rule that names a module below a crate root would read "no edge" as
+"no import", and PASS, so each such scope is UNKNOWN. The Rust collector writes the module edges
+since slice 5b-2c (AD-335), so the Rust profile no longer sets the flag. A rule kind that nobody
+reviewed is caught by `tests/test_collector_native_rust_scope.py`, which fails until a person
+decides how the profile reads it.
 
 `EDGE_FIELDS` lists, for each rule kind that reads edges, the fields that name a module or a
 component. `NO_INTERNAL_EDGES` lists the kinds that read no edge inside a crate. A rule kind in

@@ -13,6 +13,7 @@ mod attrs;
 mod collect;
 mod crates;
 mod manifest;
+mod modules;
 mod nesting;
 mod net;
 mod paths;

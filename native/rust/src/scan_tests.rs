@@ -34,14 +34,7 @@ fn reasons(text: &str) -> Vec<String> {
 fn a_use_tree_gives_one_reference_for_each_leaf() {
     assert_eq!(
         paths("use a::b::{c, d::e as f, g::*, self};\nuse h;\nuse ::i::j;"),
-        [
-            "a::b::c",
-            "a::b::d::e",
-            "a::b::g",
-            "a::b",
-            "h",
-            "i::j"
-        ]
+        ["a::b::c", "a::b::d::e", "a::b::g", "a::b", "h", "i::j"]
     );
 }
 

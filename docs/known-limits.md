@@ -246,9 +246,18 @@ type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 ## Rust profile
 
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
-segment names another crate. A component or a rule on modules below a crate root, an
-`interface_boundary`, symbols, calls, types and constructs are unsupported, so they stay UNKNOWN
-and never PASS. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
+segment names another crate, and the module edges inside a crate: a path that starts at `crate`,
+`self`, `super`, a child `mod`, a `use` binding or a glob `use` and names another module. A path
+into another crate of the workspace names its deepest module. `interface_boundary`, symbols,
+calls, types and constructs are unsupported, so they stay UNKNOWN and never PASS. A name that a
+file declares more than once and that may name a module, a glob that the scan cannot follow, a
+`use` path that starts with a name that a glob may bring in, a `super` above the crate root, two
+`macro_rules!` of one name and a path in a `macro_rules!` body that is relative to the place of the
+call are UNKNOWN. A `crate::` path in a macro body is an edge of each call. Not seen: a method that
+an `impl` block of another module defines (no path names that module), an item that a macro
+generates, a re-export chain (the edge goes to the module that the path names, and the
+re-exporting module has its own `reexport` record), and a path into another crate that goes
+through a `pub use` of its root. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
 attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also

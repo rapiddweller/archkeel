@@ -18,7 +18,7 @@ from pathlib import Path
 
 import false_pass_support as support
 import pytest
-from rust_repository import component, repository, statuses, validate
+from rust_repository import CRATE_RULES, component, repository, rule, statuses, validate
 
 from fixtures.demo_catalog_typescript import UNSUPPORTED_RULES, VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
@@ -90,6 +90,71 @@ def test_a_rust_source_that_hides_a_crate_edge_gives_no_pass(
     result = validate(repository(tmp_path, rust_binary, files, components=parts), capsys)
 
     assert statuses(result).get("REQUIRES") != "PASS"
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
+# 5b-2c: the module `a` of the app crate must not use the module `b`. Each source below uses `b`
+# (a path, a name that hides it, a glob, a macro or a re-export), so the verdict is FAIL, or UNKNOWN
+# when the scan cannot say. It is never PASS.
+MODULE_LIB = "mod a;\nmod b;\nmod c;\n"
+MODULE_FILES = {"crates/app/src/b.rs": "pub fn make() {}\n", "crates/app/src/c.rs": ""}
+MODULE_PROBES = {
+    "a path in a body": {"a.rs": "pub fn run() { crate::b::make(); }\n"},
+    "a use group": {"a.rs": "use crate::{b::make};\npub fn run() { make(); }\n"},
+    "a local name": {"a.rs": "use crate::b as local;\npub fn run() { local::make(); }\n"},
+    "a glob import": {"a.rs": "use crate::b::*;\npub fn run() { make(); }\n"},
+    "a glob of the parent": {"a.rs": "use super::*;\npub fn run() { b::make(); }\n"},
+    "a self import": {"a.rs": "use crate::b::{self};\npub fn run() { b::make(); }\n"},
+    "super in an inline module": {
+        "a.rs": "mod inner { pub fn run() { super::super::b::make(); } }\n"
+    },
+    "extern crate self": {"a.rs": "extern crate self as me;\npub fn run() { me::b::make(); }\n"},
+    "a macro body": {
+        "a.rs": "macro_rules! m { () => { crate::b::make() }; }\npub fn run() { m!(); }\n"
+    },
+    "a macro body of the parent": {
+        "lib.rs": "macro_rules! m { () => { crate::b::make() }; }\n" + MODULE_LIB,
+        "a.rs": "pub fn run() { m!(); }\n",
+    },
+    "a relative path in a macro": {
+        "a.rs": "macro_rules! m { () => { super::b::make() }; }\npub fn run() { m!(); }\n"
+    },
+    "a path module": {
+        "lib.rs": '#[path = "x.rs"]\nmod a;\nmod b;\nmod c;\n',
+        "x.rs": "use crate::b::make;\n",
+    },
+    "a name declared twice": {"a.rs": "mod b {}\nuse crate::b;\npub fn run() { b::make(); }\n"},
+    "a re-export chain": {
+        "a.rs": "pub use crate::c::make;\n",
+        "c.rs": "pub use crate::b::make;\n",
+    },
+}
+
+
+@pytest.mark.parametrize(("name", "probe"), MODULE_PROBES.items(), ids=MODULE_PROBES.keys())
+def test_a_rust_source_that_hides_a_module_edge_gives_no_pass(
+    tmp_path: Path,
+    rust_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    name: str,
+    probe: dict[str, str],
+) -> None:
+    files = {"crates/app/src/lib.rs": MODULE_LIB, **MODULE_FILES}
+    files.update({f"crates/app/src/{file}": text for file, text in probe.items()})
+    # The module `a` uses `c`, which re-exports `b`: the forbidden edge is the one to `c`.
+    target = "native.app.c" if name == "a re-export chain" else "native.app.b"
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target=target,
+        include_type_checking=True,
+    )
+    rules = (*CRATE_RULES, forbidden)
+    result = validate(repository(tmp_path, rust_binary, files, rules=rules), capsys)
+
+    # An UNKNOWN rule has no status: it is never PASS.
+    assert statuses(result).get("NO-A-TO-B") != "PASS"
     assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
 
 

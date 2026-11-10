@@ -19,7 +19,7 @@ use crate::attrs::{
     statement_attributes, trait_item_attributes,
 };
 use crate::net;
-use crate::tokens::{chains, names_relative, plain, Chain};
+use crate::tokens::{chains, macro_names, names_relative, plain, string_paths, Chain};
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
@@ -80,8 +80,15 @@ pub struct Reference {
     /// The inline modules of the file that enclose the path: its lexical module.
     pub scope: Vec<String>,
     pub via: Via,
-    /// The path is in the body of a `macro_rules!` definition.
-    pub in_macro: bool,
+    /// The name of the `macro_rules!` definition whose body holds the path.
+    pub in_macro: Option<String>,
+}
+
+/// A `macro_rules!` definition: the macros that its body calls.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MacroDef {
+    pub name: String,
+    pub calls: BTreeSet<String>,
 }
 
 /// How a reference comes into the file.
@@ -135,6 +142,9 @@ pub struct Scan {
     pub counts: BTreeMap<String, usize>,
     /// The inline modules of the file, each as the names from the file down.
     pub inlines: Vec<Vec<String>>,
+    pub macro_defs: Vec<MacroDef>,
+    /// The macros that the file calls by a plain or a `crate::`, `self::` or `super::` path.
+    pub macro_calls: Vec<(String, Site)>,
     /// Every name that the file writes in any token, for the safety net of `collect.rs`.
     pub mentioned: BTreeSet<String>,
 }
@@ -156,7 +166,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Res
         absolute_use: false,
         public_use: false,
         blocks: 0,
-        in_macro: false,
+        in_macro: None,
         via: Via::Path,
         out: Scan::default(),
     };
@@ -175,8 +185,8 @@ struct Walker<'a> {
     public_use: bool,
     /// The depth of the blocks (function bodies) that enclose the walk.
     blocks: usize,
-    /// The walk is in the body of a `macro_rules!` definition.
-    in_macro: bool,
+    /// The name of the `macro_rules!` definition that the walk is in.
+    in_macro: Option<String>,
     /// What the next reference is: set by the `use` handling, `Path` otherwise.
     via: Via,
     out: Scan,
@@ -215,7 +225,7 @@ impl Walker<'_> {
                 names: names.to_vec(),
                 scope: self.inline.clone(),
                 via: self.via.clone(),
-                in_macro: self.in_macro,
+                in_macro: self.in_macro.clone(),
             });
         }
     }
@@ -260,15 +270,26 @@ impl Walker<'_> {
             );
             self.concern(reason, span);
         }
-        self.in_macro = true;
-        match chains(node.mac.tokens.clone()) {
-            Some(found) => self.refer_chains(found),
+        self.in_macro = Some(name.clone());
+        let mut calls = BTreeSet::new();
+        macro_names(node.mac.tokens.clone(), 0, &mut calls);
+        self.out.macro_defs.push(MacroDef {
+            name: name.clone(),
+            calls,
+        });
+        let mut found = Vec::new();
+        let strings = string_paths(node.mac.tokens.clone(), 0, &mut found);
+        match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
+            Some(more) => {
+                found.extend(more);
+                self.refer_chains(found);
+            }
             None => self.concern(
                 format!("The macro_rules! definition {name} is nested too deep to read"),
                 span,
             ),
         }
-        self.in_macro = false;
+        self.in_macro = None;
         for attr in &node.attrs {
             self.attribute(attr);
         }
@@ -283,6 +304,14 @@ impl Walker<'_> {
             .segments
             .first()
             .map_or(Span::call_site(), |s| s.ident.span());
+        let local = node.path.segments.len() == 1
+            || node.path.segments.first().is_some_and(|first| {
+                ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
+            });
+        if local {
+            let site = self.site(span);
+            self.out.macro_calls.push((name.clone(), site));
+        }
         if name == "include" {
             self.concern(
                 "The macro include! adds code that the scan does not read".to_owned(),

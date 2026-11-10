@@ -50,7 +50,8 @@ def _edges(facts: dict[str, Any]) -> set[tuple[str, str]]:
             source = data["source_module"].split(".")[1]
             parts = data["target_module"].split(".")
             target = parts[1] if parts[0] == "native" else parts[0]
-            if target not in SYSROOT:
+            # The edges inside one crate are module edges (slice 5b-2c): they are no crate edge.
+            if target not in SYSROOT and target != source:
                 found.add((source, target))
     return found
 

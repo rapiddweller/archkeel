@@ -144,7 +144,8 @@ def test_a_profile_must_declare_whether_it_reads_only_crate_edges() -> None:
     field = next(f for f in dataclasses.fields(Profile) if f.name == "crate_edges_only")
     # No default: a new profile that forgets the field fails at its construction.
     assert field.default is dataclasses.MISSING and field.kw_only
-    assert RUST.crate_edges_only
+    # Since 5b-2c the Rust collector writes the edges inside a crate.
+    assert not RUST.crate_edges_only
 
 
 def test_a_rule_kind_that_nobody_reviewed_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -211,5 +212,8 @@ def test_each_component_field_below_a_crate_root_is_a_scope_that_needs_inside_ed
         **values,
     )
     contract = SimpleNamespace(components=(component,), rules=())
-    flagged = _crate_scopes(contract, RUST, ["ns.crate", "ns.crate.m"])  # type: ignore[arg-type]
+    edges_only = dataclasses.replace(RUST, crate_edges_only=True)
+    flagged = _crate_scopes(contract, edges_only, ["ns.crate", "ns.crate.m"])  # type: ignore[arg-type]
     assert [record["subjects"] for record in flagged] == [["C"]]
+    # The Rust profile has the module edges: no component is a scope.
+    assert _crate_scopes(contract, RUST, ["ns.crate", "ns.crate.m"]) == []  # type: ignore[arg-type]

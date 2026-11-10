@@ -65,3 +65,26 @@ output; `init` and `explore` do not support Rust. **Check.** `cargo test`; the R
 - (a) A `macro_rules!` that stays in the crate is read as code of its file. (b) The name of an
   attribute in a macro body is a derive helper. (c) `macro_use` on a module and
   `cfg(any(test, feature = ...))` of known conditions are read. (d) A planned crate is no component.
+
+**Amendment, 2026-11-10 (slice 5b-2c: module edges).**
+- The collector writes the edges between the modules of one crate with the record kinds `import`
+  and `reexport` (`pub use`) of `archkeel-facts`: no new kind. A path that starts at `crate`,
+  `self` (level 1) or `super` (level n + 1), a child `mod`, a `use` binding or a glob `use` is
+  resolved against the module index of the walk. The rule of 5b-1 holds: a name that the file
+  declares more than once and that may name a module is UNKNOWN. An inline `mod` folds into its
+  file. A binary names the library of its package by the package name. A path into another crate of
+  the workspace names its deepest module.
+- A glob is followed into the module that it names, with the names that module binds. A glob that
+  the scan cannot follow, a `use` path that starts with a name that a glob may bring in, a `super`
+  above the root, two `macro_rules!` of one name and a relative path in a `macro_rules!` body are
+  UNKNOWN. A `crate::` path in a macro body is an edge of the file that holds it and of each call.
+  A call of a macro of the crate is an edge to the module that defines it.
+- `crate_edges_only` is false for the Rust profile, so a rule or a component below a crate root is
+  decided from the edges. A rule kind that nobody reviewed stays UNKNOWN. `interface_boundary`
+  stays unsupported until symbols (5b-4).
+- Oracle: delete `mod m;` from a copy of `native/` and run `cargo check --all-features`: the files of
+  the crate with a name resolution error are the files with an edge into `m` or below it
+  (`tests/test_collector_native_rust_module_oracle.py`, seven modules; a run over all 108 modules
+  of `native/` has no missed edge, except where `rustc` blames a macro definition for the error of
+  a call). Not seen: a method that an `impl` of another module defines, and an item that a macro
+  generates.
