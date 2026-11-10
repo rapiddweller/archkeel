@@ -8,46 +8,13 @@
 use serde_json::Value;
 
 use super::{
-    Adapter, Capabilities, ConstructCapability, ConstructSupport, Coverage, Dirty, Evidence,
-    FileFact, Input, Profile, RequirementState, Runtime, SectionName, Source,
+    source_digest, Capabilities, ConstructCapability, ConstructSupport, Coverage, Dirty, Evidence,
+    FileFact, Input, SectionName, Source,
 };
-use crate::identity::{evidence_id, package_of, sha256_hex, stable_id, Part};
+use crate::identity::{evidence_id, package_of, stable_id, Part};
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::record::Record;
 use crate::sections::GapFact;
-
-/// The producer of a collector reply: its profile, its adapter and its runtime.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Provenance {
-    pub profile: Profile,
-    pub adapter: Adapter,
-    pub runtime: Runtime,
-}
-
-impl Provenance {
-    /// The provenance of a native collector that is written in Rust. The build script gives the
-    /// version, the digest and the compiler; `rust_version` is the minimum of the crate.
-    pub fn native(
-        profile: Profile,
-        (adapter_version, code_digest): (&str, &str),
-        (runtime_version, rust_version): (&str, &str),
-    ) -> Self {
-        Self {
-            profile,
-            adapter: Adapter {
-                code_digest: code_digest.to_owned(),
-                name: profile.as_str().to_owned(),
-                version: adapter_version.to_owned(),
-            },
-            runtime: Runtime {
-                name: "rust".to_owned(),
-                required: Some(format!(">={rust_version}")),
-                requirement_state: RequirementState::Declared,
-                version: runtime_version.to_owned(),
-            },
-        }
-    }
-}
 
 impl FileFact {
     /// The file fact of a module: the id and the package come from the module identity.
@@ -157,20 +124,4 @@ impl Coverage {
             selected_files,
         }
     }
-}
-
-/// `collect.py`: SHA-256 of the compact JSON input listing, in the given order.
-pub fn source_digest(inputs: &[Input]) -> String {
-    let rows: Vec<String> = inputs
-        .iter()
-        .map(|input| {
-            format!(
-                "{{\"path\":{},\"digest\":{},\"role\":{}}}",
-                Value::from(input.path.as_str()),
-                Value::from(input.digest.as_str()),
-                Value::from(input.role.as_str()),
-            )
-        })
-        .collect();
-    sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
