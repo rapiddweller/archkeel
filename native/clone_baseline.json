@@ -1,0 +1,986 @@
+{
+  "facts/src/data/constructs.rs|facts/src/data/imports.rs|c2ee0e69f2": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/imports.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 80
+  },
+  "facts/src/data/constructs.rs|facts/src/data/sites.rs|75d5c3c7dd": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 79
+  },
+  "facts/src/data/constructs.rs|facts/src/data/sites.rs|b594fa2c6b": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 93
+  },
+  "facts/src/data/constructs.rs|facts/src/data/sites.rs|ea3baf6964": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 75
+  },
+  "facts/src/data/constructs.rs|facts/src/data/sites.rs|f98ff765a8": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 85
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|50e1102912": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|5f789f9d9a": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|6dd674b81d": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 93
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|992b23ce9c": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 81
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|a4fb70d2db": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 78
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|fd87fd3680": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/imports.rs|facts/src/data/imports.rs|38cd7d5c4a": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/imports.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 71
+  },
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|34dcb6cfe3": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|38e08f9ce9": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|6eae672cea": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 90
+  },
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|e20e3610c8": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 75
+  },
+  "facts/src/data/imports.rs|facts/src/data/symbols.rs|8c82a4b529": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 75
+  },
+  "facts/src/data/imports.rs|facts/src/data/symbols.rs|ef107e82f0": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 81
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|066fd989fb": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 95
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|7be7a8a831": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 120
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|def14e5afc": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 90
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|13e9ca6042": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|1fb62dc486": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 90
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|33277e9151": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 77
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|394bdcb0db": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|39b1fcde84": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 75
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|3d90c1e0fc": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 79
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|48dd3c248d": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|61042326bd": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 81
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|6eae672cea": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 87
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|7b91789c56": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|7be7a8a831": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|8288b294a3": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|8b680b4c65": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 83
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|94eb4650a5": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|a74767d180": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 79
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|a9159b57c5": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 87
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|bfc59dcbb7": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 75
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|e5bd404511": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|ea3baf6964": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|04c6526e5f": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|06330438d9": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|06330438d9#2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|16d5e1e7ae": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|16d5e1e7ae#2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|1dac171017": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 94
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|277ba58327": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|277ba58327#2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 97
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|277ba58327#3": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|33277e9151": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|39b1fcde84": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 75
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|39fafe0103": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|3f7d3c589f": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|3f7d3c589f#2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|47a538afca": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|47a538afca#2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|799090bf59": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 79
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|7b91789c56": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 74
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|7be7a8a831": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 80
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|7be7a8a831#2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|7d062ff218": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 70
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|8288b294a3": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 72
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|8805e310f3": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|8c57445bac": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 78
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|8f2bd32906": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|992b23ce9c": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 81
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|9b04e32723": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 70
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|a4fb70d2db": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 70
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|aaece677a7": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 86
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|bdb74c0a37": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 80
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|cc7fdd92df": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|dfaee12d5f": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 73
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|e5bd404511": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 76
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|e74c17f6f2": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 93
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|ea3baf6964": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Repeated serde field attribute lines in the facts_data! tables. The macro folds them in the next PR.",
+    "tokens": 70
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|6715bd1b22": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 73
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|69b2c4d2d7": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 104
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|7cf795bbf4": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 70
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|9d4172abd6": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 74
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|9d4172abd6#2": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 74
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|cd475bd9ba": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|068ad3ccc8": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 75
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|1a4bd12a84": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 86
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|3691a9ab57": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 86
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|49779ce93b": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 79
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|4f5a46b57c": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 92
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|53bb937dfe": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 85
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|5b6e3f3430": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 89
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|5b6e3f3430#2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|937c85ddaf": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 70
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|9f30d7fece": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|a4cb2e3159": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 89
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ad443f5fe5": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 79
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ae334daa3f": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 88
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ae334daa3f#2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 80
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b186fafbb9": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 96
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b5c44909e6": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 94
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b5c44909e6#2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 79
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|e954c7fd30": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 73
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|f5b142ce61": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 73
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|f8bc21a7d2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 78
+  },
+  "facts/src/readset_fields.rs|typescript/src/source_input.rs|365f46d9c6": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "typescript/src/source_input.rs"
+    ],
+    "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|typescript/src/source_input.rs|432e8990a3": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "typescript/src/source_input.rs"
+    ],
+    "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
+    "tokens": 70
+  },
+  "facts/src/sections.rs|facts/src/sections.rs|92fc0ebcba": {
+    "files": [
+      "facts/src/sections.rs",
+      "facts/src/sections.rs"
+    ],
+    "reason": "Two section_facts! calls list the variants of a section enum in one shape. They are data.",
+    "tokens": 92
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|35c237e4c6": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 73
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|5329daf3bc": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 107
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|68074d063e": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 98
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|91f62064ba": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 77
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|a521145e05": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 74
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|d702bb6ff4": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 86
+  },
+  "typescript/src/dump.rs|typescript/src/dump.rs|777179bfb8": {
+    "files": [
+      "typescript/src/dump.rs",
+      "typescript/src/dump.rs"
+    ],
+    "reason": "The two dev-only dump loops (`run`, `count`) share the request loop. Dev tool behind the `dump` feature, not shipped; merge when it next changes.",
+    "tokens": 149
+  },
+  "typescript/src/dump.rs|typescript/src/parse.rs|9e628f2150": {
+    "files": [
+      "typescript/src/dump.rs",
+      "typescript/src/parse.rs"
+    ],
+    "reason": "The dump tool classifies a file as `parse` does. One helper would do; dev-only dump code.",
+    "tokens": 82
+  },
+  "typescript/src/dump.rs|wire/src/reply.rs|555e0e37f8": {
+    "files": [
+      "typescript/src/dump.rs",
+      "wire/src/reply.rs"
+    ],
+    "reason": "Same rows as above, in another place of the dump.",
+    "tokens": 98
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|1a2f180862": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 79
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|b8b671847c": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 139
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|b8b671847c#2": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 79
+  },
+  "typescript/src/manifest.rs|typescript/src/options.rs|a62be8fc91": {
+    "files": [
+      "typescript/src/manifest.rs",
+      "typescript/src/options.rs"
+    ],
+    "reason": "Two truthiness checks of a JSON value that mirror two Python helpers (`_has_exports`, `_option_value`). The arms differ in one case.",
+    "tokens": 84
+  },
+  "typescript/src/sites.rs|typescript/src/sites.rs|4d91b36b51": {
+    "files": [
+      "typescript/src/sites.rs",
+      "typescript/src/sites.rs"
+    ],
+    "reason": "Two match arms read an identifier field and record a write. They differ in the kind and the field.",
+    "tokens": 70
+  },
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|0583c4170f": {
+    "files": [
+      "typescript/src/symbol_table.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
+    "tokens": 84
+  },
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|c71ccf70a3": {
+    "files": [
+      "typescript/src/symbol_table.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
+    "tokens": 85
+  },
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|c71ccf70a3#2": {
+    "files": [
+      "typescript/src/symbol_table.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
+    "tokens": 83
+  },
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|cd4eccf015": {
+    "files": [
+      "typescript/src/symbol_table.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
+    "tokens": 72
+  },
+  "wire/src/stream.rs|wire/src/stream.rs|23bb5d695a": {
+    "files": [
+      "wire/src/stream.rs",
+      "wire/src/stream.rs"
+    ],
+    "reason": "Two objects written field by field with `Fields`. The writer is the clear owner; the field lists differ.",
+    "tokens": 74
+  }
+}
