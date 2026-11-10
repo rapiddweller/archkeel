@@ -72,6 +72,7 @@ deny = [
     # AD-327: only a collector crate may use a parser. `wrappers` names the crates that may depend
     # on the denied crate. The grammar crate depends on `tree-sitter-language`, not on `tree-sitter`.
     { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
+    { crate = "tree-sitter-language", wrappers = ["tree-sitter", "tree-sitter-typescript"], reason = "every grammar crate depends on it: a new grammar crate fails here until it is listed and has an external_dependency_scope rule" },
     { crate = "tree-sitter-typescript", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
 ]
 
