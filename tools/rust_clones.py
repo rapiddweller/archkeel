@@ -8,7 +8,8 @@ The tool tokenizes each `.rs` file, drops comments and white space, and hashes e
 a renamed copy is still a clone. `--exact` keeps them. Each copy of a window links to the copy
 before it, and windows that follow each other join into one block. A block whose every window is a
 table (it repeats within 24 tokens) is skipped; a table inside a function is a clone with the code
-around it. A block is a test block only when both files are test files (`rust_source.test_files`).
+around it. A block is a test block only when both sides are test code: a test file
+(`rust_source.test_files`) or an inline `#[cfg(test)] mod name { ... }`.
 
 Production code is a gate: `native/clone_baseline.json` lists each block that exists with the
 reason it stays. A new block fails, and so does a block that grew. A block that shrank or went
@@ -27,7 +28,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from rust_source import read_sources, test_files, tokenize
+from rust_source import inline_test_mask, read_sources, test_files, tokenize
 
 WINDOW = 70
 # A window that repeats with a period up to this many tokens is a table of similar rows.
@@ -53,11 +54,12 @@ class Block:
     is_test: bool
 
 
-def _texts(text: str, exact: bool) -> tuple[list[str], list[int]]:
+def _texts(text: str, exact: bool) -> tuple[list[str], list[int], list[bool]]:
     """Return the token texts and lines; type 2 hides names and literal values."""
     tokens = tokenize(text)
+    inside = inline_test_mask(tokens)
     if exact:
-        return [token.text for token in tokens], [token.line for token in tokens]
+        return [token.text for token in tokens], [token.line for token in tokens], inside
     texts = [
         LITERAL
         if token.kind == "literal"
@@ -66,7 +68,7 @@ def _texts(text: str, exact: bool) -> tuple[list[str], list[int]]:
         else token.text
         for token in tokens
     ]
-    return texts, [token.line for token in tokens]
+    return texts, [token.line for token in tokens], inside
 
 
 def _is_table(texts: Sequence[str]) -> bool:
@@ -132,8 +134,19 @@ def _keyed(blocks: list[Block]) -> list[Block]:
     return result
 
 
+def _in_tests(
+    parsed: Mapping[str, tuple[list[str], list[int], list[bool]]],
+    marked: frozenset[str],
+    name: str,
+    begin: int,
+    length: int,
+) -> bool:
+    """Whether a range of tokens is in a test file or only in inline test modules."""
+    return name in marked or all(parsed[name][2][begin : begin + length])
+
+
 def _block(
-    parsed: Mapping[str, tuple[list[str], list[int]]],
+    parsed: Mapping[str, tuple[list[str], list[int], list[bool]]],
     first: str,
     second: str,
     delta: int,
@@ -154,7 +167,8 @@ def _block(
         tokens=length,
         first_lines=(first_lines[begin], first_lines[begin + length - 1]),
         second_lines=(second_lines[begin + delta], second_lines[begin + delta + length - 1]),
-        is_test=first in marked and second in marked,
+        is_test=_in_tests(parsed, marked, first, begin, length)
+        and _in_tests(parsed, marked, second, begin + delta, length),
     )
 
 

@@ -25,7 +25,7 @@ import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from rust_source import Token, read_sources, test_files, tokenize
+from rust_source import Token, inline_test_mask, read_sources, test_files, tokenize
 
 ITEMS = frozenset("fn struct enum trait static type mod union use crate".split())
 MODIFIERS = frozenset({"unsafe", "async", "extern"})
@@ -114,11 +114,23 @@ def count_tokens(tokens: Sequence[Token]) -> int:
     return total
 
 
+def production_tokens(text: str) -> list[Token]:
+    """Return the tokens of a file without its inline `#[cfg(test)]` modules."""
+    tokens = tokenize(text)
+    return [
+        token for token, inside in zip(tokens, inline_test_mask(tokens), strict=True) if not inside
+    ]
+
+
 def count_public(source: Path) -> int:
     """Count the public API of the production files of one crate."""
     sources = read_sources(source)
     marked = test_files(sources)
-    return sum(count_tokens(tokenize(text)) for name, text in sources.items() if name not in marked)
+    return sum(
+        count_tokens(production_tokens(text))
+        for name, text in sources.items()
+        if name not in marked
+    )
 
 
 def problems(native: Path, baseline: Mapping[str, int]) -> list[str]:

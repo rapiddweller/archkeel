@@ -10,7 +10,7 @@ string, a byte string and a character as one literal token, and a lifetime as on
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,6 +75,67 @@ def tokenize(text: str) -> list[Token]:
         line += text.count("\n", position, end)
         position = end
     return tokens
+
+
+def _group_end(tokens: Sequence[Token], at: int) -> int:
+    """Return the index after the bracket group that opens at `at`."""
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    stack: list[str] = []
+    for position in range(at, len(tokens)):
+        text = tokens[position].text
+        if tokens[position].kind == "punct" and text in pairs:
+            stack.append(pairs[text])
+        elif tokens[position].kind == "punct" and stack and text == stack[-1]:
+            stack.pop()
+            if not stack:
+                return position + 1
+    return len(tokens)
+
+
+def _is_cfg_test(tokens: Sequence[Token], start: int, end: int) -> bool:
+    """Whether the attribute tokens[start:end] is `#[cfg(test)]` or `#[cfg(any(test, ...))]`."""
+    words = [token.text for token in tokens[start:end]]
+    return words[:5] == ["#", "[", "cfg", "(", "test"] or words[:7] == [
+        "#",
+        "[",
+        "cfg",
+        "(",
+        "any",
+        "(",
+        "test",
+    ]
+
+
+def inline_test_mask(tokens: Sequence[Token]) -> list[bool]:
+    """Mark the tokens of each `#[cfg(test)] mod name { ... }`, from the attribute to the brace.
+
+    The braces are balanced on tokens, so a brace in a string or a comment does not count.
+    """
+    mask = [False] * len(tokens)
+    at = 0
+    while at < len(tokens):
+        if tokens[at].text != "#" or at + 1 >= len(tokens) or tokens[at + 1].text != "[":
+            at += 1
+            continue
+        end = _group_end(tokens, at + 1)
+        if not _is_cfg_test(tokens, at, end):
+            at += 1
+            continue
+        position = end
+        while position < len(tokens) and tokens[position].text == "#":
+            position = _group_end(tokens, position + 1)  # more attributes
+        if position < len(tokens) and tokens[position].text == "pub":
+            position += 1
+            if position < len(tokens) and tokens[position].text == "(":
+                position = _group_end(tokens, position)
+        names = [token.text for token in tokens[position : position + 3]]
+        if len(names) == 3 and names[0] == "mod" and names[2] == "{":
+            stop = _group_end(tokens, position + 2)
+            mask[at:stop] = [True] * (stop - at)
+            at = stop
+        else:
+            at = end
+    return mask
 
 
 def test_files(sources: Mapping[str, str]) -> frozenset[str]:

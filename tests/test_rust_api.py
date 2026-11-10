@@ -94,3 +94,15 @@ def test_the_real_libraries_match_their_baseline() -> None:
     native = ROOT / "native"
     baseline = json.loads((native / "api_baseline.json").read_text(encoding="utf-8"))
     assert api.problems(native, baseline) == []
+
+
+def test_an_inline_test_module_adds_nothing_and_production_code_after_it_counts(
+    tmp_path: Path,
+) -> None:
+    text = (
+        "pub fn before() {}\n"
+        '#[cfg(test)]\nmod tests {\n    pub fn a() { let _ = "}"; } // }\n'
+        "    pub struct S { pub f: u8 }\n    mod inner { pub fn b() {} }\n}\n"
+        "pub fn after() {}\n"
+    )
+    assert api.count_public(scratch(tmp_path, text) / "one/src") == 2

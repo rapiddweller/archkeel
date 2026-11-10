@@ -159,6 +159,18 @@ def test_a_grown_clone_fails_and_a_shrunk_clone_asks_for_a_lower_count(tmp_path:
     )
 
 
+def test_a_clone_inside_an_inline_test_module_is_a_test_block() -> None:
+    inline = f"#[cfg(test)]\nmod tests {{\n{ORIGINAL}\n}}\n"
+    found = clones.find_blocks({"a.rs": inline, "b.rs": inline}, window=WINDOW)
+    assert found and all(block.is_test for block in found)
+
+
+def test_a_production_clone_after_an_inline_test_module_is_production() -> None:
+    inline = f'#[cfg(test)]\nmod tests {{ fn t() {{ let _ = "}}"; }} }}\n{ORIGINAL}'
+    found = clones.find_blocks({"a.rs": inline, "b.rs": inline}, window=WINDOW)
+    assert found and not any(block.is_test for block in found)
+
+
 def three_copies() -> dict[str, str]:
     return {"one.rs": ORIGINAL, "three.rs": ORIGINAL + UNRELATED + ORIGINAL}
 
