@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-report native-tools cargo-deny-install native-wheel golden-record
+.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-report native-tools cargo-deny-install native-wheel golden-record
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
@@ -25,6 +25,11 @@ pr-test: browser-runtime-install
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
 		$(PR_TEST_FILES)
+
+# Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
+merge-check:
+	@test -n "$(PR)" || { echo "PR is required"; exit 2; }
+	$(UV) run --locked python -m tools.merge_check "$(PR)"
 
 pr-report-test:
 	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
@@ -118,7 +123,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py \
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/merge_check.py \
 	native/hatch_build.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
@@ -145,7 +150,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/merge_check.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:
