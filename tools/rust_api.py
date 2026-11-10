@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Count the public items of each Rust library crate and ratchet the count (AD-327).
 
-A library crate of `native/` has `src/lib.rs` and no `src/main.rs`. Each one must deny
+A library crate of `native/` has `src/lib.rs`. Each one must deny
 `unreachable_pub`, so a `pub` item is a part of the crate API. `native/api_baseline.json` holds
 the count for each library. A count that grows or shrinks fails until the number changes in the
 same pull request, so each growth of an API shows in the review.
@@ -32,11 +32,11 @@ MODIFIERS = frozenset({"unsafe", "async", "extern"})
 
 
 def libraries(native: Path) -> dict[str, Path]:
-    """Return the source directory of each library crate: `src/lib.rs` and no `src/main.rs`."""
+    """Return the source directory of each library crate: it has `src/lib.rs`."""
     found: dict[str, Path] = {}
     for manifest in sorted(native.glob("*/Cargo.toml")):
         source = manifest.parent / "src"
-        if (source / "lib.rs").is_file() and not (source / "main.rs").exists():
+        if (source / "lib.rs").is_file():
             package = tomllib.loads(manifest.read_text(encoding="utf-8"))["package"]
             found[package["name"]] = source
     return found
