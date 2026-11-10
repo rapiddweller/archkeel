@@ -14,7 +14,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use archkeel_wire::identity::{package_of, stable_id, Part};
+use archkeel_facts::identity::{package_of, stable_id, Part};
 
 use crate::definitions::{Definition, DefinitionKind};
 use crate::kept::Pending;

@@ -12,7 +12,7 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use archkeel_wire::identity::sha256_hex;
+use archkeel_facts::identity::sha256_hex;
 use archkeel_wire::reply::{Input, Role};
 
 use crate::paths::{is_outside, join, normpath};

@@ -10,7 +10,6 @@
 // AD-327: a public item that no other crate can reach is a lie in a library.
 #![deny(unreachable_pub)]
 
-pub mod identity;
 mod pieces;
 pub mod protocol;
 pub mod reply;

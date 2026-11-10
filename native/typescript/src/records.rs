@@ -12,9 +12,9 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
+use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::FactId;
 use archkeel_facts::{ImportFact, Section};
-use archkeel_wire::identity::{stable_id, Part};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::{Facts, Record, ReplySection, Target};
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
