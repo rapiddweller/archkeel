@@ -2,16 +2,19 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
 
+# A draft run only skips jobs: its own group keeps it from cancelling a ready run (AD-348).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}-${{ github.event.pull_request.draft == true && 'draft' || 'ready' }}
   cancel-in-progress: true
 
 jobs:
   lint:
+    if: github.event.pull_request.draft != true
     name: Lint, types and architecture
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -48,6 +51,7 @@ jobs:
         run: make ci-pr-static BASE="$BASE"
 
   tests:
+    if: github.event.pull_request.draft != true
     name: "Tests: ${{ matrix.area }}"
     strategy:
       fail-fast: false
@@ -115,6 +119,7 @@ jobs:
           retention-days: 7
 
   pr-report-check:
+    if: github.event.pull_request.draft != true
     name: Report and renderer tests
     runs-on: ubuntu-24.04
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
@@ -156,6 +161,7 @@ jobs:
           retention-days: 7
 
   mermaid:
+    if: github.event.pull_request.draft != true
     name: Docs diagrams
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -184,6 +190,7 @@ jobs:
         run: make mermaid
 
   demos:
+    if: github.event.pull_request.draft != true
     name: Demos
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -216,6 +223,7 @@ jobs:
           retention-days: 1
 
   native:
+    if: github.event.pull_request.draft != true
     name: "Native: Rust checks and dependency policy"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -247,7 +255,7 @@ jobs:
     name: All checks passed
     needs: [lint, tests, pr-report-check, mermaid, demos, native]
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
-    if: always()
+    if: always() && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

@@ -119,6 +119,7 @@
         "archkeel.ir.profiles:DeclarationField",
         "archkeel.ir.profiles:profile_for",
         "archkeel.ir.profiles:is_test_source",
+        "archkeel.ir.profiles:TEST_SCOPE_LANGUAGES",
         "archkeel.ir.import_gaps:derived_unresolved_imports",
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",

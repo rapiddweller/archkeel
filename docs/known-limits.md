@@ -261,6 +261,29 @@ code until module scope is added. A platform wheel carries the collector; an ins
 reports `missing_tool`
 ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 
+### Rust: what the collector does not prove
+
+- **`extern crate` without a manifest entry.** `extern crate base_crate;` with no entry in
+  `Cargo.toml` gives no edge. It compiles only when a `build.rs` prints
+  `cargo:rustc-link-search=crate=...`. Such a link is not read.
+- **An attribute name in a macro body** is read as a derive helper, not as a crate name
+  ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md),
+  amendment (b)). A crate that a macro reaches through such a name is seen only when the manifest
+  declares it.
+- **`macro_use` and `cfg(any(test, feature = ...))`** are read (amendment (c)). A `macro_use` on a
+  module takes the macros of that module as code of the crate. A `cfg(any(...))` with only known
+  conditions is read as active or inactive; a feature set that the manifest does not list is not
+  checked.
+- **The reader handles only part of TOML.** It reads tables, arrays of tables, dotted keys, inline
+  tables, arrays and strings. A basic string decodes the escapes of TOML (`\uXXXX`, `\UXXXXXXXX`)
+  and a multi-line string decodes as TOML does. A number, a date or a boolean is not read, because
+  no key that the collector needs holds one. The reader refuses an escape that TOML does not
+  define, a surrogate in an escape, a key that is set twice, text after a value and nesting deeper
+  than 64. A refused manifest makes its crate UNKNOWN; the reader never guesses.
+- **A file that two owners load.** A file that two modules or two crates load, and a `#[path]` that
+  leaves the directory of its crate, make the owners UNKNOWN. The collector does not choose an
+  owner for such a file.
+
 ## Scope and nested contracts
 
 A run covers only configured roots and namespace. Adjacent tests need another

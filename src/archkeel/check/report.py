@@ -93,7 +93,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured, observation_counters
-from archkeel.ir.profiles import PROFILES
+from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
@@ -771,7 +771,7 @@ def run_explore(
     observation behind the bytes, so the renderer does not decode them again.
     """
     once = _CollectOnce(observer.collector)
-    scan = replace(observer, collector=once, exclude_test_sources=True)
+    scan = replace(observer, collector=once, exclude_test_sources=language in TEST_SCOPE_LANGUAGES)
     try:
         roots, namespace = scan_scope(
             root, source=source, namespace=namespace, language=language, tsconfig=tsconfig

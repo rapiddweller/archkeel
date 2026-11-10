@@ -29,6 +29,8 @@ fn krate() -> Crate {
         ident: "my_app".to_owned(),
         dir: String::new(),
         manifest,
+        text: String::new(),
+        lines: crate::manifest_lines::LineIndex::new(""),
         roots: Vec::new(),
         primary: None,
     }

@@ -341,3 +341,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-341 | [CI has a time budget, and a test runs on any free worker](ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md) |
 | AD-345 | [Collector facts have one typed definition in archkeel-facts](ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md) |
 | AD-346 | [The Rust store validates a reply once and writes architecture.json](ad-346-the-rust-store-validates-a-reply-once-and-writes-architecture-json.md) |
+| AD-348 | [A PR gets one class, and the lead dispatches Full](ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md) |

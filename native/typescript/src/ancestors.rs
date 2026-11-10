@@ -51,6 +51,8 @@ pub struct Entry<'t> {
     pub kind: K,
     /// The flags that the children of this node see.
     pub flags: u8,
+    /// The position of this node in the layout, or `NONE` when it is not recorded.
+    pub at: u32,
     /// The frame of the nearest scope, this node included.
     pub frame: u32,
     /// The frame of the nearest `var` scope, this node included.

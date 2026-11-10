@@ -21,10 +21,8 @@ use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::crates::{discover, Crate, Problem, Workspace};
-use crate::manifest::line_of;
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
-use crate::source::read_text;
 use crate::source::walk as list_files;
 use crate::tree::{walk, Module, Walked};
 use archkeel_snapshot::paths::join;
@@ -262,9 +260,7 @@ impl Builder {
     ) {
         for krate in &workspace.crates {
             let rel = join(&krate.dir, "Cargo.toml");
-            let Ok(text) = read_text(source, &rel) else {
-                continue;
-            };
+            let text = krate.text.as_str();
             source.select(&rel);
             let mut module = format!("{namespace}.{}.cargo_toml", krate.ident);
             while taken.contains(module.as_str()) {
@@ -283,12 +279,12 @@ impl Builder {
                 evidence_id: file_evidence,
             });
             self.manifests.push(rel.clone());
-            self.declared_edges(workspace, krate, &module, &text);
+            self.declared_edges(workspace, krate, &module);
         }
     }
 
     /// The edge of each dependency that the manifest of `krate` declares.
-    fn declared_edges(&mut self, workspace: &Workspace, krate: &Crate, module: &str, text: &str) {
+    fn declared_edges(&mut self, workspace: &Workspace, krate: &Crate, module: &str) {
         let rel = join(&krate.dir, "Cargo.toml");
         let others = krate
             .manifest
@@ -296,7 +292,7 @@ impl Builder {
             .iter()
             .filter(|dependency| dependency.package != krate.ident);
         for dependency in others {
-            let (line, excerpt) = line_of(text, dependency.kind, &dependency.key);
+            let (line, excerpt) = krate.lines.find(dependency.kind, &dependency.key);
             let reference = Reference {
                 root: dependency.package.clone(),
                 path: format!("{}: {}", dependency.kind.section(), dependency.key),

@@ -12,13 +12,13 @@
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::hash::{BuildHasherDefault, Hasher};
+use std::hash::BuildHasherDefault;
 use std::rc::Rc;
 
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::{children, named_children, Cx};
+use crate::members::{children, Cx};
 use crate::scope::assignment_targets;
 use crate::source::Span;
 
@@ -37,14 +37,6 @@ pub fn is_function(kind: K) -> bool {
             | K::GeneratorFunction
             | K::ArrowFunction
             | K::MethodDefinition
-    )
-}
-
-/// The functions that a return statement belongs to: the four kinds that a wrapper can be.
-pub fn is_function_like(kind: K) -> bool {
-    matches!(
-        kind,
-        K::FunctionDeclaration | K::FunctionExpression | K::ArrowFunction | K::MethodDefinition
     )
 }
 
@@ -79,51 +71,11 @@ pub fn is_callable_value(kind: K) -> bool {
     is_function(kind) || matches!(kind, K::Class | K::ClassDeclaration)
 }
 
+pub(crate) use crate::layout::{
+    is_function_like, IdHasher, IdMap, Layout, IN_AMBIGUOUS, IN_ERROR, IN_FUNCTION, IN_TYPE, NONE,
+};
+
 pub type Names = HashMap<String, u32>;
-
-/// A hasher for the ids of nodes, which are addresses: the bits above the alignment are mixed into
-/// the low bits that a table indexes by. The default hasher is slower and has no use for the
-/// protection that it gives against chosen keys: the ids are not chosen by the input.
-#[derive(Default)]
-pub struct IdHasher(u64);
-
-impl Hasher for IdHasher {
-    fn finish(&self) -> u64 {
-        self.0 ^ self.0.wrapping_shr(29)
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes {
-            self.0 = (self.0 ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3);
-        }
-    }
-
-    fn write_usize(&mut self, value: usize) {
-        self.0 = u64::try_from(value)
-            .unwrap_or(u64::MAX)
-            .wrapping_mul(0x9e37_79b9_7f4a_7c15);
-    }
-}
-
-/// A map by the id of a node.
-pub type IdMap<V> = HashMap<usize, V, BuildHasherDefault<IdHasher>>;
-
-/// The position of the parent of the root.
-pub(crate) const NONE: u32 = u32::MAX;
-
-/// A node is left: its subtree ends at the next position.
-fn close(open: &mut Vec<usize>, ends: &mut [u32], end: usize) {
-    if let Some(slot) = open.pop().and_then(|at| ends.get_mut(at)) {
-        *slot = u32::try_from(end).unwrap_or(NONE);
-    }
-}
-
-/// The flags of a node (`Tree::flag`): inside a repair, inside a type, inside a function.
-pub(crate) const IN_ERROR: u8 = 1;
-pub(crate) const IN_TYPE: u8 = 2;
-pub(crate) const IN_FUNCTION: u8 = 4;
-/// The node is, or lies inside, a scope that is not statically known (set by `index_scopes`).
-pub(crate) const IN_AMBIGUOUS: u8 = 8;
 
 /// A scope that binds a name, with the range of its subtree and the nearest scope that binds the
 /// same name and holds it (`up`, or `NONE`).
@@ -174,50 +126,21 @@ pub(crate) struct Memo<'t> {
 }
 
 impl<'a, 't> Tree<'a, 't> {
-    pub fn new(cx: Cx<'a>, root: Node<'t>) -> Self {
-        let mut nodes = Vec::new();
-        let mut ends: Vec<u32> = Vec::new();
-        // An explicit stack: a tree nested 30 000 levels deep must not overflow the call stack.
-        let mut pending = vec![(root, false, NONE)];
-        let mut open: Vec<usize> = Vec::new();
-        let mut parents: Vec<u32> = Vec::new();
-        while let Some((node, leaving, parent)) = pending.pop() {
-            if leaving {
-                close(&mut open, &mut ends, nodes.len());
-                continue;
-            }
-            open.push(nodes.len());
-            nodes.push(node);
-            parents.push(parent);
-            ends.push(0);
-            let here = u32::try_from(nodes.len().saturating_sub(1)).unwrap_or(NONE);
-            pending.push((node, true, NONE));
-            pending.extend(
-                named_children(node)
-                    .into_iter()
-                    .rev()
-                    .map(|n| (n, false, here)),
-            );
-        }
-        let position = nodes
-            .iter()
-            .enumerate()
-            .map(|(at, node)| (node.id(), at))
-            .collect();
+    /// The tree of a file from the layout that the walk recorded.
+    pub fn from_layout(cx: Cx<'a>, root: Node<'t>, layout: Layout<'t>) -> Self {
         Self {
             cx,
             root,
-            nodes: Rc::new(nodes),
-            position,
-            subtree_end: ends,
-            parents,
+            nodes: Rc::new(layout.nodes),
+            position: layout.position,
+            subtree_end: layout.ends,
+            parents: layout.parents,
             bindings: IdMap::default(),
             ambiguous: HashSet::default(),
-            flags: Vec::new(),
+            flags: layout.flags,
             memo: RefCell::new(Memo::default()),
             names_index: HashMap::new(),
         }
-        .with_flags()
     }
 
     pub fn k(&self, node: Node) -> K {

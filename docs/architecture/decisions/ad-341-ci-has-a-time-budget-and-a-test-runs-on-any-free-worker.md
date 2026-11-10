@@ -66,3 +66,5 @@ One ratio reached 3.04 against its bound of 3 on this branch (Full run 426269335
 `make merge-check PR=<n>`. Run Full once for a PR that changes a user-visible output, even when the
 path filter does not start Full. A PR that can enable a PASS gets an independent review by a second
 model and runs the false-PASS probes (`tests/test_collector_false_pass_gate.py`, `..._full.py`).
+
+**Note, 2026-11-10 (owner decision).** The Full rule of the merge rules is replaced by merge classes: see [AD-348](ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
