@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Build observations by injecting a source collector into Core evaluation."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Final
 
@@ -33,7 +33,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.phases import Phase, PhaseClock, measured
-from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, Language
+from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, Language, is_test_source
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
@@ -121,6 +121,7 @@ _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
         "Collect the facts under this contract, or use a collector that declares the family.",
     ),
 }
+_INSTALLED: Final = frozenset({"__pycache__", "node_modules"})
 _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
@@ -259,6 +260,7 @@ def _observe(
     language: Language = Language.PYTHON,
     bundler: bool = False,
     exclude_test_sources: bool = False,
+    excluded_tests: dict[str, tuple[str, ...]] | None = None,
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
     source_root = source_root.resolve()
@@ -269,6 +271,7 @@ def _observe(
         loaded = _contract_tree(contract_file, contract_root)
         if isinstance(loaded, ObservationResult):
             return loaded
+        found: set[str] = set()
         for root in roots:
             directory = source_root / root
             file_root = language == Language.TYPESCRIPT and directory.is_file()
@@ -281,6 +284,9 @@ def _observe(
                 )
             paths = (directory,) if file_root else directory.rglob(f"*{suffix}")
             for path in paths:
+                relative = path.relative_to(source_root).as_posix()
+                if is_test_source(relative, language) and not _INSTALLED.intersection(path.parts):
+                    found.add(relative)
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
                         DiagnosticKind.PARSE_ERROR,
@@ -288,6 +294,9 @@ def _observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
+        if exclude_test_sources and excluded_tests is not None:
+            # The files of this one listing are the files the collector reads (AD-313).
+            excluded_tests.setdefault(git_head, tuple(sorted(found)))
         resolver: ResolverSettings = (
             PythonSettings(
                 features=tuple(
@@ -368,6 +377,8 @@ class Observer:
     bundler: bool = False
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
+    # AD-313: the test files of each observed revision, by git head; the first scan of a head wins.
+    excluded_tests: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def __call__(
         self,
@@ -394,5 +405,6 @@ class Observer:
             language=language,
             bundler=self.bundler,
             exclude_test_sources=self.exclude_test_sources,
+            excluded_tests=self.excluded_tests,
             clock=self.clock,
         )

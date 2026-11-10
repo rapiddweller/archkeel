@@ -15,10 +15,9 @@ from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import Diagnostic, DiagnosticKind
 from archkeel.ir.model import ObservationResult as ObservationResult
-from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, is_test_source
+from archkeel.ir.profiles import TEST_SCOPE_LANGUAGES
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 
-_INSTALLED: Final = frozenset({"__pycache__", "node_modules"})
 _LISTED_TEST_FILES: Final = 20
 
 
@@ -40,39 +39,32 @@ class ScanConfig:
         if self.exclude_test_sources and self.language not in TEST_SCOPE_LANGUAGES:
             raise ValueError(f"scan.exclude_test_sources is not supported for {self.language}")
 
-    def excluded_test_files(self, root: Path) -> tuple[str, ...]:
-        """AD-313: the sorted paths under the scan roots that the test naming rule excludes."""
-        suffix = PROFILES[self.language].source_suffix
-        found: set[str] = set()
-        for source in self.roots:
-            directory = root / source
-            paths = (directory,) if directory.is_file() else directory.rglob(f"*{suffix}")
-            for path in paths:
-                relative = path.relative_to(root).as_posix()
-                if not _INSTALLED.intersection(path.parts) and is_test_source(
-                    relative, self.language
-                ):
-                    found.add(relative)
-        return tuple(sorted(found))
-
     def scope_notes(
-        self, root: Path, before: ScanConfig | None = None, revision: str | None = None
+        self,
+        observed: Mapping[str, tuple[str, ...]],
+        head: str | None = None,
+        before: ScanConfig | None = None,
+        revision: str | None = None,
     ) -> tuple[Diagnostic, ...]:
         """AD-313: name each excluded test file, so a PASS never hides what it did not read.
 
-        `before` is the config of the compared revision: a changed test scope is a note too.
+        `observed` maps a git head to the test files of its one listing (Observer.excluded_tests).
+        Without `head` the first scan counts; `head` may be a short sha. `before` is the config
+        of the compared revision: a changed test scope is a note too.
         """
+        files = next(
+            (found for sha, found in observed.items() if head is None or sha.startswith(head)), ()
+        )
         changed = (
             self._scope_change(before, revision)
             if before is not None and revision is not None
             else ()
         )
-        return (*self._excluded_note(root), *changed)
+        return (*self._excluded_note(files), *changed)
 
-    def _excluded_note(self, root: Path) -> tuple[Diagnostic, ...]:
+    def _excluded_note(self, files: tuple[str, ...]) -> tuple[Diagnostic, ...]:
         if not self.exclude_test_sources:
             return ()
-        files = self.excluded_test_files(root)
         shown = ", ".join(files[:_LISTED_TEST_FILES])
         more = len(files) - _LISTED_TEST_FILES
         listing = f" ({shown}{f' and {more} more' if more > 0 else ''})" if files else ""

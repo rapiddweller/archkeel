@@ -177,10 +177,9 @@ def test_the_note_lists_at_most_twenty_sorted_paths_and_counts_the_rest(
 def test_the_human_output_prints_the_note(tmp_path: Path) -> None:
     probed = _repo(tmp_path, "probed", "python", probe=True)
     config = load_config(probed, "archkeel-on.toml")
-    result, _ = run_validate(
-        probed, config, observer_for(config.language, exclude_test_sources=True)
-    )
-    result = replace(result, notes=config.scope_notes(probed))
+    observer = observer_for(config.language, exclude_test_sources=True)
+    result, _ = run_validate(probed, config, observer)
+    result = replace(result, notes=config.scope_notes(observer.excluded_tests))
     assert "shop/model/test_mode.py" in report_summary(result).sentence
 
 

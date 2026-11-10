@@ -36,8 +36,9 @@ opts in. The key has one meaning for every language. These facts hold:
   collector joins the set when it honours the scope.
 - A file that the naming rule calls a test, such as `test_mode.py`, is excluded even when it is
   production code. This is the scope the project chose. It is never silent: the note names the
-  count and the first 20 paths, sorted, and the human output prints the note. The host lists the
-  files under the scan roots with the same rule as the collectors.
+  count and the first 20 paths, sorted, and the human output prints the note.
+- The host takes the list from the one listing of the files it hands to the collector. This is the
+  worktree or the git tree of a revision. It keeps the list by git head and makes no second walk.
 - `validate --against` adds a note when the key differs from the compared revision. A change of
   `scan.roots` has no such note today.
 - `files_discovered` and `files_parsed` count the test-free scope. The result carries a

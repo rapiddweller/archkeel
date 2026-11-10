@@ -4,18 +4,21 @@
 """Compose configured language processes with the Core observer."""
 
 import sys
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
-from archkeel.check.ports import Language, ObservationResult
+from archkeel.check.ports import Language, ObservationResult, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import ProtocolVersion
+
+_CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 
 
 def observer_for(
@@ -54,6 +57,26 @@ def observer_for(
         bundler,
         clock,
         exclude_test_sources,
+    )
+
+
+def configured_observer(
+    config: ScanConfig, factory: Callable[..., Observer], clock: PhaseClock | None = None
+) -> Observer:
+    """AD-313: `report`, `validate` and `check` observe one configured scope.
+
+    The caller hands in `observer_for`, so a test replaces it in one place.
+    """
+    return factory(
+        config.language,
+        collector_argv=config.collector_argv,
+        tsconfig=config.tsconfig or "tsconfig.json",
+        output_limit_bytes=config.collector_output_limit_bytes,
+        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
+        timeout_seconds=config.collector_timeout_seconds,
+        bundler=config.bundler,
+        exclude_test_sources=config.exclude_test_sources,
+        clock=clock,
     )
 
 

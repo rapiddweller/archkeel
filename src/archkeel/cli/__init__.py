@@ -26,9 +26,8 @@ from urllib.parse import urlsplit
 from rich_argparse import RawDescriptionRichHelpFormatter
 
 from ..check.git import read_blob
-from ..check.observe import Observer
 from ..check.onboarding import run_init
-from ..check.ports import Language, ScanConfig
+from ..check.ports import Language
 from ..check.report import (
     read_saved_snapshot,
     render_result,
@@ -94,7 +93,7 @@ from .launcher import (
     studio_lock,
     write_state,
 )
-from .observe import observer_for
+from .observe import configured_observer, observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -122,24 +121,6 @@ def _positive_bytes(value: str) -> int:
             f"must be a positive integer no greater than {MAX_RESPONSE_LIMIT_BYTES} bytes"
         )
     return limit
-
-
-_CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
-
-
-def _configured_observer(config: ScanConfig, clock: PhaseClock | None = None) -> Observer:
-    """AD-313: `report`, `validate` and `check` observe one configured scope."""
-    return observer_for(
-        config.language,
-        collector_argv=config.collector_argv,
-        tsconfig=config.tsconfig or "tsconfig.json",
-        output_limit_bytes=config.collector_output_limit_bytes,
-        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
-        timeout_seconds=config.collector_timeout_seconds,
-        bundler=config.bundler,
-        exclude_test_sources=config.exclude_test_sources,
-        clock=clock,
-    )
 
 
 _PER_RUN_LIMIT_REMEDY: Final = (
@@ -1318,10 +1299,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
                 clock = PhaseClock() if args.timings is not None else None
+                observer = configured_observer(config, observer_for, clock)
                 result, architecture, observation = run_report_with_observation(
                     root,
                     config=config,
-                    analyzer=_configured_observer(config, clock),
+                    analyzer=observer,
                     only_violations=args.only is ReportMode.VIOLATIONS,
                     only_calls=args.only is ReportMode.CALLS,
                     only_architecture=args.only is ReportMode.ARCHITECTURE,
@@ -1332,7 +1314,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     clock=clock,
                 )
                 result = replace(result, scan_roots=config.roots)
-                result = replace(result, notes=(*result.notes, *config.scope_notes(root)))
+                result = replace(
+                    result, notes=(*result.notes, *config.scope_notes(observer.excluded_tests))
+                )
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.
@@ -1395,10 +1379,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         except ValueError:
                             # Missing or invalid historical config cannot authorize a rename.
                             against_config = None
+                observer = configured_observer(config, observer_for)
                 result, requested_files = run_validate(
                     root,
                     config,
-                    _configured_observer(config),
+                    observer,
                     write_graph=args.write_graph,
                     compact_open_decisions=args.compact_open_decisions,
                     # AD-103: run_validate reads both relative to --root, like the contract.
@@ -1414,11 +1399,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 files = requested_files.entries
                 result = replace(result, scan_roots=config.roots)
-                notes = (*result.notes, *config.scope_notes(root, against_config, against))
+                notes = (
+                    *result.notes,
+                    *config.scope_notes(observer.excluded_tests, None, against_config, against),
+                )
                 result = replace(result, notes=notes)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
+                observer = configured_observer(config, observer_for)
                 result = run_check(
                     root,
                     config=config,
@@ -1432,10 +1421,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     host_records_path=args.host_records,
                     environ=os.environ,
                     host=load_gitlab_records,
-                    analyzer=_configured_observer(config),
+                    analyzer=observer,
                 )
                 result = replace(result, scan_roots=config.roots)
-                result = replace(result, notes=(*result.notes, *config.scope_notes(root)))
+                result = replace(
+                    result,
+                    notes=(
+                        *result.notes,
+                        *config.scope_notes(observer.excluded_tests, args.head),
+                    ),
+                )
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))
