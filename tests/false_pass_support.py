@@ -135,33 +135,18 @@ def argv_for(language: str, tamper: str, argument: str = "") -> tuple[str, ...]:
     )
 
 
-def commit(root: Path) -> None:
-    for command in (
-        ["init", "-q", "-b", "main"],
-        ["add", "-A"],
-        ["add", "--force", "node_modules"] if (root / "node_modules").is_dir() else ["add", "-A"],
-        [
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "commit.gpgsign=false",
-            "commit",
-            "-q",
-            "-m",
-            "c",
-        ],
-    ):
-        subprocess.run(["git", *command], cwd=root, check=True, capture_output=True)
-
-
 def copy_repository(source: Path, workspace: Path) -> Path:
     root = workspace / "repo"
     shutil.copytree(source, root, ignore=shutil.ignore_patterns(".git", "__pycache__"))
     if (root / "resolver-inputs").is_dir():
         shutil.copytree(root / "resolver-inputs", root / "node_modules")
-    commit(root)
+    from graph_report_support import commit_tree  # not in the collector process (python -I)
+
+    commit_tree(root)
+    if (root / "node_modules").is_dir():
+        # A global ignore rule can hide `node_modules`; the resolver reads it from the snapshot.
+        for args in (["add", "--force", "node_modules"], ["commit", "-q", "--amend", "--no-edit"]):
+            subprocess.run(["git", "-c", "commit.gpgsign=false", *args], cwd=root, check=True)
     return root
 
 
@@ -185,7 +170,10 @@ def verdict(root: Path, language: str, argv: tuple[str, ...] | None) -> dict[str
     }
 
 
-CLOSED_BY_INVARIANT = "closed by the in-collector invariant of 4.3a-5 and by protocol 10"
+CLOSED_BY_INVARIANT = (
+    "closed by the in-collector invariant of 4.3a-5 for the native collector "
+    "and by protocol 10 for the wire"
+)
 UNTRUSTED_PRODUCER = (
     "closed by the producer trust of owner decision 1 (PR feat/producer-trust-880): "
     "flip when it merges"
@@ -206,6 +194,7 @@ TYPESCRIPT = {
     **COMMON,
     "empty-section": CLOSED_BY_INVARIANT,
     "empty-section:symbols": "",
+    "empty-section:bindings": "",
     # The profile of TypeScript never produces `typing_signals` (`absent_sections`).
     "unsupported-claim:typing_signals": "",
 }
@@ -234,6 +223,23 @@ def assert_not_pass(root: Path, language: str, tamper: str, argument: str = "") 
     assert not passing(result), (tamper, passing(result))
 
 
+# No TypeScript rule reads `calls`, `references` or `constructs` today (profiles.py: they are
+# optional sections, and the rules on them are unsupported). Emptying one must not change the
+# verdict. The day a rule reads one, the probe fails and the rule needs a real probe.
+UNREAD_SECTIONS = ("calls", "references", "constructs")
+
+
+def assert_unchanged(root: Path, language: str, section: str) -> None:
+    base = verdict(root, language, None)
+    result = verdict(root, language, argv_for(language, "empty-section", section))
+    assert passing(base), "the unchanged scan must pass"
+    assert (result["rules"], result["complete"], result["exit"]) == (
+        base["rules"],
+        base["complete"],
+        base["exit"],
+    ), section
+
+
 def probe_params(probes: dict[str, str]) -> list[Any]:
     """Pytest parameters: a probe that names a reason is a strict xfail until the host closes it."""
     import pytest
@@ -241,7 +247,9 @@ def probe_params(probes: dict[str, str]) -> list[Any]:
     params = []
     for name, reason in probes.items():
         tamper, _, argument = name.partition(":")
-        marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+        marks = (
+            [pytest.mark.xfail(strict=True, raises=AssertionError, reason=reason)] if reason else []
+        )
         params.append(pytest.param(tamper, argument, id=name, marks=marks))
     return params
 

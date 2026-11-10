@@ -16,8 +16,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import areas
 import false_pass_support as support
 import pytest
+
+from archkeel.ir import facts_validation
 
 ROOT = Path(__file__).parents[1]
 
@@ -48,3 +51,22 @@ def test_a_changed_python_reply_gives_no_pass(
     python_root: Path, tamper: str, argument: str
 ) -> None:
     support.assert_not_pass(python_root, "python", tamper, argument)
+
+
+@pytest.mark.parametrize("section", support.UNREAD_SECTIONS)
+def test_emptying_a_section_that_no_typescript_rule_reads_changes_no_verdict(
+    typescript_root: Path, section: str
+) -> None:
+    support.assert_unchanged(typescript_root, "typescript", section)
+
+
+def test_a_duplicate_record_id_fails_in_the_unique_check_too() -> None:
+    # The probe `duplicate-id` is caught by an earlier check. This test pins `_unique` itself.
+    with pytest.raises(ValueError, match="duplicate source record id"):
+        facts_validation._unique(["a", "b", "a"], "source record id")
+
+
+def test_the_full_probe_file_belongs_to_a_full_area() -> None:
+    # Full runs each area (`make full-test AREA=...`); a file outside every area would not run.
+    assert areas.area_of("test_collector_false_pass_full.py") == "collectors"
+    assert areas.area_of("test_collector_false_pass_gate.py") == "collectors"
