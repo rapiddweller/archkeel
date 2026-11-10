@@ -347,3 +347,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-350 | [The native self-check runs the bundled build of the tree](ad-350-the-native-self-check-runs-the-bundled-build-of-the-tree.md) |
 | AD-351 | [The Rust collector reports definitions and never invents one](ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md) |
 | AD-352 | [The native TypeScript collector equals the Python one and is the bundled producer](ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md) |
+| AD-353 | [A reference that names a project file is never silent in TypeScript](ad-353-a-reference-that-names-a-project-file-is-never-silent-in-typescript.md) |

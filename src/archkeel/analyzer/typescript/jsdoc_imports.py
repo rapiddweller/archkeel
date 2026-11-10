@@ -10,24 +10,21 @@ says whether an `@import` tag, or `import(` in the type of a tag, is in it. It r
 from __future__ import annotations
 
 import re
-from enum import Enum
 from typing import Final
 
-
-class _JSDocType(Enum):
-    """How a JSDoc tag can name a module; tsc 5.9.3 reads these only in JavaScript (#744)."""
-
-    BRACED = "braced"
-    BARE = "bare"  # The type can omit its braces.
-    TEMPLATE = "template"  # A `[name=default]` also holds a type.
-    IMPORT = "import"
+# How a JSDoc tag can name a module: `BRACED` in braces, `BARE` with braces that can be omitted,
+# `TEMPLATE` where a `[name=default]` also holds a type, and `IMPORT` for the `@import` tag.
+_BRACED: Final = "braced"
+_BARE: Final = "bare"
+_TEMPLATE: Final = "template"
+_IMPORT: Final = "import"
 
 
 _JSDOC_TAGS: Final = {
-    "import": _JSDocType.IMPORT,
-    "template": _JSDocType.TEMPLATE,
+    "import": _IMPORT,
+    "template": _TEMPLATE,
     **dict.fromkeys(
-        ("type", "this", "enum", "extends", "augments", "implements", "satisfies"), _JSDocType.BARE
+        ("type", "this", "enum", "extends", "augments", "implements", "satisfies"), _BARE
     ),
     **dict.fromkeys(
         (
@@ -42,7 +39,7 @@ _JSDOC_TAGS: Final = {
             "throws",
             "exception",
         ),
-        _JSDocType.BRACED,
+        _BRACED,
     ),
 }
 # Only a `/**` comment is a JSDoc block. tsc starts a tag at `@` after whitespace or a margin
@@ -56,7 +53,7 @@ _JSDOC_TOKEN: Final = re.compile(
 
 def jsdoc_imports(body: str) -> bool:
     """An `@import` tag, or `import(` in the type of a tag; prose is no type (#744)."""
-    kind: _JSDocType | None = None
+    kind: str | None = None
     depth = 0
     # `armed`: the end of a type is not known, so any later import counts.
     armed = False
@@ -74,19 +71,17 @@ def jsdoc_imports(body: str) -> bool:
             # A tag inside an open type: a broken type, or an `@` inside a string.
             armed = armed or depth > 0
             kind = _JSDOC_TAGS.get(token["tag"])
-            if kind is _JSDocType.IMPORT:
+            if kind == _IMPORT:
                 return True
             depth = 1 if kind is not None and token["braced"] is not None else 0
             # Without braces the end of the type is not known.
-            armed = armed or (kind is _JSDocType.BARE and not depth)
+            armed = armed or (kind == _BARE and not depth)
         elif kind is None:
             continue
-        elif token["open"] is not None or (
-            token["bracket"] is not None and kind is _JSDocType.TEMPLATE
-        ):
+        elif token["open"] is not None or (token["bracket"] is not None and kind == _TEMPLATE):
             depth += 1
         elif (
-            token["close"] is not None or (token["end"] is not None and kind is _JSDocType.TEMPLATE)
+            token["close"] is not None or (token["end"] is not None and kind == _TEMPLATE)
         ) and depth:
             depth -= 1
             # An odd quote count can put this brace or bracket inside a string.

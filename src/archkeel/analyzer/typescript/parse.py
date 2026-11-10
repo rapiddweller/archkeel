@@ -332,7 +332,7 @@ _LOADER: Final = "Node module loader is not observed"
 _TRIPLE_SLASH: Final = re.compile(
     r"^///\s*<reference\s+(?:path|lib|types(?=\s*=\s*['\"][./]))\s*=\s*(['\"])(.*?)\1"
 )
-_RELATIVE_NAME: Final = re.compile(r"[./]")
+_RELATIVE_FIRST: Final = frozenset("./")
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -475,7 +475,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
         concerns.extend(_comment_concerns(source, suffix))
-    concerns.extend(_augmentation_concerns(source, data))
+    concerns.extend(_augmentation_concerns(source))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3690,14 +3690,14 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     return concerns
 
 
-def _augmentation_concerns(source: _Source, data: bytes) -> list[Concern]:
+def _augmentation_concerns(source: _Source) -> list[Concern]:
     """`declare module "./x"` names a file of the project, as an import does (#976). A bare name
     would need the resolver, so it is not read here."""
-    names = source.captures("augmentations").get("name", []) if re.search(rb"module", data) else []
+    names = source.captures("augmentations").get("name", [])
     return [
         Concern(f"Unobserved module augmentation: {_text(node)[1:-1]}", source.span(node))
         for node in names
-        if _RELATIVE_NAME.match(_text(node), 1)
+        if _text(node)[1:2] in _RELATIVE_FIRST
     ]
 
 

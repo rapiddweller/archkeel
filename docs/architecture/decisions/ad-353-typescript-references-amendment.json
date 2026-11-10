@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "",
+  "after_digest": "",
+  "before_baseline_digest": "",
+  "before_digest": "",
+  "decided_by": "architect",
+  "rationale": "AD-353 and issue #976. The module archkeel.analyzer.typescript.jsdoc_imports joins the source component: the JSDoc import reader moves there from parse.py, so that parse.py shrinks while two concerns are added. No requires entry, Any permission, interface or coupling budget changes. The calls_unresolved budget rises from 986 to 987.",
+  "schema_version": "2.0.0"
+}
