@@ -9,7 +9,17 @@ collector keeps its verdict instead of the cap of an external collector.
 
 import hashlib
 from pathlib import Path
+from typing import Any
+
+from archkeel.check.observe import Observer
+from archkeel.check.ports import SourceCollector
+from archkeel.ir.state_facts import ProducerKind
 
 
 def pin_of(program: str) -> str:
     return "sha256:" + hashlib.sha256(Path(program).read_bytes()).hexdigest()
+
+
+def trusted(collector: SourceCollector, **options: Any) -> Observer:
+    """An observer for a collector object of the host, as the tests of Core build it (AD-344)."""
+    return Observer(collector, producer=ProducerKind.PYTHON, **options)

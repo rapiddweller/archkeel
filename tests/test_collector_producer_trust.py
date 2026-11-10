@@ -199,7 +199,7 @@ def test_an_older_saved_scan_without_the_field_keeps_its_verdict(
     old.write_text(json.dumps(raw))
     now = _saved_report(root, saved, capsys)
     assert _saved_report(root, old, capsys) == now
-    raw["producer_kind"] = "python"
-    forged = tmp_path / "forged.json"
-    forged.write_text(json.dumps(raw))
-    assert _saved_report(root, forged, capsys)[0] == 2
+    raw["producer_kind"] = "external"
+    marked = tmp_path / "marked.json"
+    marked.write_text(json.dumps(raw))
+    assert _saved_report(root, marked, capsys) == (2, "UNKNOWN")
