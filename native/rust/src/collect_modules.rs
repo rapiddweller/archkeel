@@ -270,3 +270,7 @@ pub(super) fn local_target(
     };
     (target, module)
 }
+
+#[cfg(test)]
+#[path = "collect_modules_tests.rs"]
+mod tests;
