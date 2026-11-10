@@ -305,6 +305,12 @@ impl Collection<'_> {
     }
 }
 
+#[path = "import_record.rs"]
+mod import_record;
+
+#[path = "import_target.rs"]
+mod import_target;
+
 #[path = "imports.rs"]
 mod imports;
 
