@@ -13,7 +13,6 @@ publish.workspace = true
 
 [dependencies]
 archkeel-facts.workspace = true
-archkeel-wire.workspace = true
 
 [features]
 # Test only: a temporary source tree for the unit tests of the crates that read a snapshot.

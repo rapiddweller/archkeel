@@ -4,9 +4,9 @@
 
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
+use archkeel_facts::reply::{Evidence, Provenance};
 use archkeel_facts::{GapFact, ImportFact, Record};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::{Evidence, Provenance};
 use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 

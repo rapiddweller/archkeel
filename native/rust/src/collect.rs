@@ -10,8 +10,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use archkeel_facts::reply::Provenance;
 use archkeel_snapshot::Snapshot;
-use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::Request;
 
 use crate::builder::Builder;

@@ -38,6 +38,7 @@ pub mod readset;
 mod readset_fields;
 pub mod reason;
 pub mod record;
+pub mod reply;
 pub mod schema;
 pub mod sections;
 pub mod vocab;

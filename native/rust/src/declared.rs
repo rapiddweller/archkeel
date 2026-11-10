@@ -7,9 +7,9 @@
 
 use std::collections::BTreeSet;
 
+use archkeel_facts::reply::Evidence;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
-use archkeel_wire::reply::Evidence;
 
 use crate::builder::{Builder, Form, Origin};
 use crate::crates::{Crate, Workspace};

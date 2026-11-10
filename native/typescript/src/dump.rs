@@ -24,7 +24,8 @@ use crate::source_input::classify_file;
 use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
-use archkeel_wire::reply::{evidence_value, record_value, target_value, Provenance};
+use archkeel_facts::reply::{evidence_value, Provenance};
+use archkeel_wire::reply::{record_value, target_value};
 use archkeel_wire::request::Request;
 
 fn span(span: &Span) -> Value {
