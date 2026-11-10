@@ -8,11 +8,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from collector_pin import trusted
 from test_source_namespace_acceptance import _GIT_HEAD, _response
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.check.observe import Observer
-from archkeel.ir.facts import ProducerKind
 
 
 @pytest.mark.parametrize("language", ["python", "dart", "typescript"])
@@ -41,10 +40,7 @@ def test_required_runtime_is_checked_for_every_collector(
     contract = root / "contract.json"
     contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}')
     output = json.dumps(response)
-    result = Observer(
-        ProcessCollector((sys.executable, "-B", "-c", f"print({output!r})")),
-        producer=ProducerKind.PYTHON,
-    )(
+    result = trusted(ProcessCollector((sys.executable, "-B", "-c", f"print({output!r})")))(
         root,
         roots=("src",),
         namespace="project",

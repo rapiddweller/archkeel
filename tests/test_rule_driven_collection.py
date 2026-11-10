@@ -11,13 +11,13 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pytest
+from collector_pin import trusted
 from jsonschema import Draft202012Validator
 from test_catalog_policy_native import _argument, _raw, _use
 from test_exact_module_ownership import _component, _rule
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import collect
-from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli.observe import analyze_snapshot, observer_for
@@ -52,7 +52,6 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
-    ProducerKind,
     ProtocolVersion,
     PythonSettings,
     SnapshotInput,
@@ -207,7 +206,7 @@ class _Recording:
 
 def _observe(root: Path, *, drop_features: bool = False):
     recording = _Recording(observer_for(Language.PYTHON).collector, drop_features)
-    result = Observer(recording, producer=ProducerKind.PYTHON)(
+    result = trusted(recording)(
         root,
         roots=("sample",),
         namespace="sample",
@@ -348,7 +347,7 @@ def test_a_rule_whose_family_was_not_collected_is_a_coverage_failure_never_a_pas
     result, encoded = run_report(
         tmp_path,
         config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
-        analyzer=Observer(recording, producer=ProducerKind.PYTHON),
+        analyzer=trusted(recording),
     )
 
     [facts] = recording.facts
@@ -437,7 +436,7 @@ def test_unrelated_rules_keep_their_results_beside_an_uncollected_rule(tmp_path)
             kept = replace(request.resolver, features=kept_features)
             return recording.collect(replace(request, resolver=kept))
 
-    result = Observer(_OnlyGuarded(), producer=ProducerKind.PYTHON)(
+    result = trusted(_OnlyGuarded())(
         tmp_path,
         roots=("sample",),
         namespace="sample",

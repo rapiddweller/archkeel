@@ -7,15 +7,14 @@ import json
 from pathlib import Path
 
 import pytest
+from collector_pin import trusted
 from test_typescript_inner import _collected
 from test_typescript_partial_uml import _project, _TypeScriptCollector
 
 from archkeel.analyzer.typescript.parse import parse
 from archkeel.analyzer.typescript.syntax import DefinitionKind, Visibility
-from archkeel.check.observe import Observer
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.facts import ProducerKind
 from archkeel.ir.report_graph import architecture_report
 
 
@@ -248,9 +247,7 @@ def _target(root: Path, expected: str, spelling="constructor", methods=False):
 @pytest.mark.parametrize("expected,status", [("repo", "PASS"), ("missing", "FAIL"), ("", "FAIL")])
 def test_readonly_only_property_matches_native_and_saved_reports(tmp_path, expected, status):
     root, config = _target(tmp_path / "project", expected)
-    result, encoded = run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
     assert encoded is not None
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     comparison = architecture_report(model).comparison
@@ -272,9 +269,7 @@ def test_readonly_only_property_matches_native_and_saved_reports(tmp_path, expec
 @pytest.mark.parametrize("spelling", ["'constructor'", '"constructor"'])
 def test_quoted_constructor_matches_closed_field_and_method_target(tmp_path, spelling):
     root, config = _target(tmp_path / "project", "repo", spelling, methods=True)
-    result, encoded = run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
     assert result.declared_rules == "PASS"
     path = root / "saved.json"
     path.write_bytes(encoded)
@@ -391,9 +386,7 @@ def test_parameter_decorator_matches_independent_closed_target_and_saved_report(
         f"@ClassTag() export class Store {{ {spelling}("
         "@Inject('repo') readonly repo: string, ordinary: number) {} }\n"
     )
-    result, encoded = run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
     assert result.declared_rules == status
     path = root / "saved.json"
     path.write_bytes(encoded)
@@ -406,9 +399,7 @@ def test_decorated_extra_method_is_known_failure_beside_parameter_property(tmp_p
         "export class Store { constructor(readonly repo: string, ordinary: number) {} "
         "@Get() extra(): void {} }\n"
     )
-    result, encoded = run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
     assert result.declared_rules == "FAIL"
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert any(
@@ -447,9 +438,7 @@ def test_undecorated_method_unicode_guard_preserves_private_attribute_target(
     assert owner.members_complete is (status == "PASS")
     root, config = _target(tmp_path / "project", "repo")
     (root / "src/main.ts").write_text(source)
-    result, encoded = run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
     assert result.declared_rules == status
     path = root / "saved.json"
     path.write_bytes(encoded)

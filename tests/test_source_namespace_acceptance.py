@@ -10,18 +10,17 @@ import sys
 from pathlib import Path
 
 import pytest
+from collector_pin import trusted
 from dart_native_helpers import collect_native_dart, require_native_dart
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import collect as collect_python
-from archkeel.check.observe import Observer
 from archkeel.ir.codec import decode_canonical_model
 from archkeel.ir.facts_codec import encode_response
 from archkeel.ir.protocol import (
     CollectionRequest,
     CollectionResponse,
     DartSettings,
-    ProducerKind,
     PythonSettings,
     SnapshotInput,
     SourceScope,
@@ -92,7 +91,7 @@ def _run_report(
     collector = ProcessCollector((sys.executable, "-B", "-c", f"print({encoded!r})"))
     contract = root / "contract.json"
     contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}\n')
-    observer = Observer(collector, producer=ProducerKind.PYTHON)
+    observer = trusted(collector)
     result = observer(
         root,
         roots=("src",),

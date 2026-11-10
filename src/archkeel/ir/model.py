@@ -43,62 +43,34 @@ from .diagnostics import DiagnosticCode as DiagnosticCode
 from .diagnostics import DiagnosticError as DiagnosticError
 from .diagnostics import DiagnosticKind as DiagnosticKind
 from .diagnostics import ReportLocation as ReportLocation
-from .facts import (
-    EVIDENCE_FIELDS as EVIDENCE_FIELDS,
-)
-from .facts import (
-    RECORD_FIELDS as RECORD_FIELDS,
-)
-from .facts import (
-    AnalyzerInfo as AnalyzerInfo,
-)
+from .facts import EVIDENCE_FIELDS as EVIDENCE_FIELDS
+from .facts import RECORD_FIELDS as RECORD_FIELDS
+from .facts import AnalyzerInfo as AnalyzerInfo
 from .facts import ConditionSelector as ConditionSelector
 from .facts import ConditionSelectorKind as ConditionSelectorKind
-from .facts import (
-    Evidence as Evidence,
-)
-from .facts import (
-    EvidenceClass as EvidenceClass,
-)
-from .facts import (
-    ForbiddenConstructKind as ForbiddenConstructKind,
-)
-from .facts import (
-    JsonValue as JsonValue,
-)
-from .facts import ProducerKind as ProducerKind
-from .facts import (
-    Record as Record,
-)
-from .facts import (
-    RecordData as RecordData,
-)
-from .facts import (
-    RuntimeInfo as RuntimeInfo,
-)
-from .facts import (
-    SourceInfo as SourceInfo,
-)
+from .facts import Evidence as Evidence
+from .facts import EvidenceClass as EvidenceClass
+from .facts import ForbiddenConstructKind as ForbiddenConstructKind
+from .facts import JsonValue as JsonValue
+from .facts import Record as Record
+from .facts import RecordData as RecordData
+from .facts import RuntimeInfo as RuntimeInfo
+from .facts import SourceInfo as SourceInfo
 from .facts import (
     SourceNameVisibility,
     SourceResolution,
     parse_source_resolution,
 )
-from .facts import (
-    SymbolClassKind as SymbolClassKind,
-)
-from .facts import (
-    in_scope as in_scope,
-)
-from .facts import (
-    stable_id as stable_id,
-)
+from .facts import SymbolClassKind as SymbolClassKind
+from .facts import in_scope as in_scope
+from .facts import stable_id as stable_id
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
 from .ownership import sole
 from .source_records import source_name_visibility as _source_name_visibility
+from .state_facts import ProducerKind as ProducerKind
 
 if TYPE_CHECKING:
     from .architecture_projection import ArchitectureProjection

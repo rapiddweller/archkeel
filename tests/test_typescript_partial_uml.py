@@ -11,14 +11,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from collector_pin import trusted
+
 from archkeel.analyzer.typescript.collect import collect
-from archkeel.check.observe import Observer
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.check.uml import assemble_uml
 from archkeel.check.uml_evaluation import evaluate_uml
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.facts import ProducerKind, SourceFacts
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.model import Diagnostic, UmlEligibility
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
@@ -139,16 +140,14 @@ def _project(
 
 
 def _live(root: Path, config: ScanConfig):
-    return run_report(
-        root, config=config, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    return run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
 
 
 def _partial_candidate(root: Path, config: ScanConfig):
     commit = subprocess.run(
         ("git", "rev-parse", "HEAD"), cwd=root, check=True, capture_output=True, text=True
     ).stdout.strip()
-    return Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)(
+    return trusted(_TypeScriptCollector())(
         root,
         roots=config.roots,
         namespace=config.namespace,
@@ -288,11 +287,7 @@ def test_runtime_and_rule_failures_mixed_with_resolution_gap_block_partial_uml(
         return replace(facts, runtime=replace(facts.runtime, version="0.0.1"))
 
     result, encoded = run_report(
-        root,
-        config=config,
-        analyzer=Observer(
-            _TypeScriptCollector(transform=runtime_failure), producer=ProducerKind.PYTHON
-        ),
+        root, config=config, analyzer=trusted(_TypeScriptCollector(transform=runtime_failure))
     )
     assert result.exit_code == 2 and result.diagnostics and encoded is not None
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
@@ -307,9 +302,8 @@ def test_collection_failure_and_malformed_source_facts_never_emit_partial_uml(
     result, encoded = run_report(
         root,
         config=config,
-        analyzer=Observer(
-            _TypeScriptCollector(error=CollectionError("execution_error", "collector", "failed")),
-            producer=ProducerKind.PYTHON,
+        analyzer=trusted(
+            _TypeScriptCollector(error=CollectionError("execution_error", "collector", "failed"))
         ),
     )
     assert result.exit_code == 2 and encoded is None
@@ -320,11 +314,7 @@ def test_collection_failure_and_malformed_source_facts_never_emit_partial_uml(
         return replace(facts, coverage=replace(facts.coverage, files_read=100))
 
     result, encoded = run_report(
-        root,
-        config=config,
-        analyzer=Observer(
-            _TypeScriptCollector(transform=malformed_counts), producer=ProducerKind.PYTHON
-        ),
+        root, config=config, analyzer=trusted(_TypeScriptCollector(transform=malformed_counts))
     )
     assert result.exit_code == 2 and result.diagnostics and encoded is None
 
@@ -337,9 +327,7 @@ def test_collection_failure_and_malformed_source_facts_never_emit_partial_uml(
     result, encoded = run_report(
         root,
         config=config,
-        analyzer=Observer(
-            _TypeScriptCollector(transform=unbound_evidence), producer=ProducerKind.PYTHON
-        ),
+        analyzer=trusted(_TypeScriptCollector(transform=unbound_evidence)),
     )
     assert result.exit_code == 2 and result.diagnostics and encoded is None
 
@@ -360,14 +348,12 @@ def test_missing_selected_input_and_git_failure_block_partial_uml(tmp_path: Path
     result, encoded = run_report(
         root,
         config=config,
-        analyzer=Observer(
-            _TypeScriptCollector(transform=missing_selected_input), producer=ProducerKind.PYTHON
-        ),
+        analyzer=trusted(_TypeScriptCollector(transform=missing_selected_input)),
     )
     assert result.exit_code == 2 and result.diagnostics and encoded is None
 
     root, config = _project(tmp_path / "git")
-    result = Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)(
+    result = trusted(_TypeScriptCollector())(
         root,
         roots=config.roots,
         namespace=config.namespace,
@@ -387,7 +373,7 @@ def test_target_digest_change_revokes_partial_eligibility(tmp_path: Path) -> Non
     commit = subprocess.run(
         ("git", "rev-parse", "HEAD"), cwd=root, check=True, capture_output=True, text=True
     ).stdout.strip()
-    result = Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)(
+    result = trusted(_TypeScriptCollector())(
         root,
         roots=config.roots,
         namespace=config.namespace,

@@ -8,11 +8,11 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import trusted
 from test_source_graph import _graph_from_source_facts
 from test_typescript_inner import _collected
 from test_typescript_partial_uml import _project, _TypeScriptCollector
 
-from archkeel.check.observe import Observer
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import (
@@ -23,7 +23,7 @@ from archkeel.ir.architecture_graph import (
     Relationship,
 )
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.facts import Evidence, ProducerKind
+from archkeel.ir.facts import Evidence
 from archkeel.ir.report_graph import architecture_report
 
 PROOF = Evidence("proof", "sample.ts", 1, 1, 0, "export type Shared = number;")
@@ -295,7 +295,7 @@ def test_type_value_matching_is_recorded_identically_in_live_and_saved_reports(
     fresh, encoded = run_report(
         root,
         config=config,
-        analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
+        analyzer=trusted(_TypeScriptCollector()),
         only_architecture=True,
         full_architecture=True,
     )

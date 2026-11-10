@@ -18,8 +18,8 @@ from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
-from archkeel.ir.facts import ProducerKind
 from archkeel.ir.model import RunResult
+from archkeel.ir.state_facts import ProducerKind
 
 ROOT = Path(__file__).parents[1]
 ARGV = (sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry")

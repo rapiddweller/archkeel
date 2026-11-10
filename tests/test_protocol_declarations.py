@@ -1402,12 +1402,9 @@ def test_legacy_reports_reject_all_protocol_vocabulary(
             continue
         with pytest.raises(ValueError, match="observation schema 2.3.0"):
             if boundary == "write":
-                observation_payload(
-                    replace(observation, schema_version=version, producer_kind=None)
-                )
+                observation_payload(replace(observation, schema_version=version))
             else:
                 payload = observation_payload(observation)
-                payload.pop("producer_kind", None)
                 payload["schema_version"] = version
                 parse_observation(payload)
 
@@ -1443,7 +1440,6 @@ def test_valid_parameter_and_member_declarations_are_proven_on_saved_replay(
     report = observation_payload(result.observation)
     legacy = dict(report)
     legacy["schema_version"] = "2.1.0"
-    legacy.pop("producer_kind", None)
     with pytest.raises(ValueError, match="observation schema 2.3.0"):
         parse_observation(legacy)
     saved = tmp_path / "saved-report.json"
@@ -1883,7 +1879,6 @@ def test_stale_protocol_scope_proofs_cannot_prove_pass(tmp_path: Path, tamper: s
     if tamper == "schema":
         payload = observation_payload(result.observation)
         payload["schema_version"] = "2.0.0"
-        payload.pop("producer_kind", None)
         saved.write_text(json.dumps(encode_canonical_model(payload)))
     else:
         saved.write_bytes(canonical_report_bytes(observation))

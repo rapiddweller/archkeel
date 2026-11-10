@@ -29,8 +29,8 @@ from archkeel.ir.decisions import (
     selector_inventory_binding_id,
 )
 from archkeel.ir.digest import package_digest
+from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts import (
-    ProducerKind,
     RuntimeRequirementState,
     SourceFacts,
     SourceResolution,
@@ -39,7 +39,6 @@ from archkeel.ir.facts import (
     member,
     parse_source_resolution,
 )
-from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts_codec import (
     RawRecord,
     classified,
@@ -1065,7 +1064,6 @@ def assemble_observation(
     namespace: str = "src",
     language: Language = Language.PYTHON,
     loaded: ContractInput | None = None,
-    producer: ProducerKind | None = None,
 ) -> tuple[Observation, int]:
     """Analyze explicit source bytes; keep the model open for the canonical codec boundary.
 
@@ -1165,8 +1163,6 @@ def assemble_observation(
             "version": facts.adapter.version,
             "code_digest": facts.adapter.code_digest,
         }
-    if producer is not None:
-        model["producer_kind"] = producer.value
     # AD-97: a signal the profile never produces is null, so a claim on it reads UNKNOWN.
     for section in profile.absent_sections:
         model[section] = None

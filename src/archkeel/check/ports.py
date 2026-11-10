@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Protocol
 
 from archkeel.ir.facts import Language as Language
-from archkeel.ir.facts import ProducerKind as ProducerKind
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import ObservationResult as ObservationResult
 from archkeel.ir.protocol import CollectionError, CollectionRequest
+from archkeel.ir.state_facts import ProducerKind as ProducerKind
 
 
 @dataclass(frozen=True, slots=True)

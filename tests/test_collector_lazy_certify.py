@@ -13,14 +13,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from collector_pin import trusted
 from test_scoped_dependency_proof import RULE, _component, _project
 from test_typescript_partial_uml import _TypeScriptCollector
 
 import archkeel.check.observation as observation
-from archkeel.check.observe import Observer
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
-from archkeel.ir.facts import ProducerKind
 from archkeel.ir.source_records import LazyParsed
 
 CONFIG = ScanConfig(("src",), "demo", "architecture-contract.json", "unused", language="typescript")
@@ -82,9 +81,7 @@ def _generated(root: Path, seed: int, size: int | None = None) -> None:
 
 
 def _encoded(root: Path) -> bytes:
-    _, encoded = run_report(
-        root, config=CONFIG, analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON)
-    )
+    _, encoded = run_report(root, config=CONFIG, analyzer=trusted(_TypeScriptCollector()))
     assert encoded is not None
     return encoded
 
@@ -180,11 +177,7 @@ def _failure(root: Path, field: str, *, lazy: bool) -> tuple[int, str, str]:
             return scan
 
         patch.setattr(observation, "evaluate_source", corrupt)
-        result, encoded = run_report(
-            root,
-            config=CONFIG,
-            analyzer=Observer(_TypeScriptCollector(), producer=ProducerKind.PYTHON),
-        )
+        result, encoded = run_report(root, config=CONFIG, analyzer=trusted(_TypeScriptCollector()))
     assert encoded is None
     (diagnostic,) = result.diagnostics
     return result.exit_code, str(diagnostic.kind), diagnostic.unknown_claim

@@ -10,16 +10,15 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
+from collector_pin import trusted
 
 from archkeel.analyzer.python.collect import collect as collect_python
-from archkeel.check.observe import Observer
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import decode_response
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionRequest,
-    ProducerKind,
     PythonSettings,
     SnapshotInput,
     SourceScope,
@@ -63,7 +62,7 @@ def _canonical(tmp_path: Path, facts: SourceFacts, language: str) -> dict[str, o
         (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (root / "contract.json").write_text('{"schema_version":"2.1.0","components":[],"rules":[]}\n')
 
-    observer = Observer(_FixedCollector(facts), producer=ProducerKind.PYTHON)
+    observer = trusted(_FixedCollector(facts))
     result = observer(
         root,
         roots=("src",),

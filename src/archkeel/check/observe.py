@@ -340,8 +340,8 @@ def _observe(
                 namespace=namespace,
                 language=language,
                 loaded=loaded,
-                producer=producer,
             )
+            model = replace(model, producer_kind=producer)
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)
         eligibility = (

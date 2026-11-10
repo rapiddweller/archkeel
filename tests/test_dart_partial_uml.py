@@ -9,13 +9,13 @@ import json
 import subprocess
 from pathlib import Path
 
+from collector_pin import trusted
 from dart_native_helpers import collect_native_dart
 
-from archkeel.check.observe import Observer
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.facts import ProducerKind, SourceFacts
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 
@@ -141,9 +141,7 @@ def _project(root: Path, source: str, *, nested_outside: bool = False) -> tuple[
 
 
 def _report(root: Path, config: ScanConfig):
-    return run_report(
-        root, config=config, analyzer=Observer(_DartCollector(), producer=ProducerKind.PYTHON)
-    )
+    return run_report(root, config=config, analyzer=trusted(_DartCollector()))
 
 
 def test_missing_superclass_report_keeps_coverage_fail_and_partial_unknown_receipt(

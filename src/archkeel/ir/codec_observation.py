@@ -29,7 +29,6 @@ from archkeel.ir.codec_wire import (
 from archkeel.ir.facts import (
     CallBindingOrigin,
     JsonValue,
-    ProducerKind,
     RuntimeRequirementState,
     SourceProfile,
     SourceReferenceContext,
@@ -61,6 +60,7 @@ from archkeel.ir.profiles import (
     UnmeasurableScalar,
     profile_for,
 )
+from archkeel.ir.state_facts import ProducerKind
 
 from .facts_codec import StringTablePolicy as StringTablePolicy
 from .facts_codec import intern_strings as intern_strings
@@ -124,25 +124,8 @@ class _ObservationRecordKind(StrEnum):
     VALUE_REFERENCE = "value_reference"
 
 
-_OBSERVATION_VERSION_ORDER = {
-    _ObservationVersion.V1_2: 0,
-    _ObservationVersion.V1_3: 1,
-    _ObservationVersion.V2: 2,
-    _ObservationVersion.V2_1: 3,
-    _ObservationVersion.V2_2: 4,
-    _ObservationVersion.V2_3: 5,
-    _ObservationVersion.V2_4: 6,
-    _ObservationVersion.V2_5: 7,
-    _ObservationVersion.V2_6: 8,
-    _ObservationVersion.V2_7: 9,
-    _ObservationVersion.V2_8: 10,
-    _ObservationVersion.V2_9: 11,
-    _ObservationVersion.V2_10: 12,
-}
-
-
 def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
-    return _OBSERVATION_VERSION_ORDER[version] < _OBSERVATION_VERSION_ORDER[floor]
+    return _VERSION_NUMBERS[version] < _VERSION_NUMBERS[floor]
 
 
 class _VersionedConstruct(StrEnum):
@@ -550,19 +533,13 @@ def parse_observation(raw: object) -> Observation:
         producer=_parse_analyzer(item["producer"], "producer")
         if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
-        producer_kind=_producer_kind(item, schema_version),
+        producer_kind=_producer_kind(item),
     )
 
 
-def _producer_kind(item: dict[str, RawJson], version: _ObservationVersion) -> ProducerKind | None:
-    if item.get("producer_kind", _MISSING_VALUE) is _MISSING_VALUE:
-        return None
-    if _before_version(version, _ObservationVersion.V2_10):
-        raise ValueError("producer_kind requires observation schema 2.10.0")
-    try:
-        return ProducerKind(_string(item["producer_kind"], "producer_kind"))
-    except ValueError as error:
-        raise ValueError("producer_kind must name a known producer kind") from error
+def _producer_kind(item: dict[str, RawJson]) -> ProducerKind | None:
+    value = item.get("producer_kind")
+    return None if value is None else ProducerKind(_string(value, "producer_kind"))
 
 
 def _validate_observation_record_versions(
@@ -842,10 +819,6 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         del result["producer"]
     if observation.producer_kind is None:
         del result["producer_kind"]
-    elif _before_version(
-        _observation_version(observation.schema_version), _ObservationVersion.V2_10
-    ):
-        raise ValueError("producer_kind requires observation schema 2.10.0")
     del result["sections"]
     result["coverage"] = _coverage_payload(observation.coverage)
     profile = profile_for(observation.analyzer.name)
