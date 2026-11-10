@@ -10,14 +10,19 @@
 #![forbid(unsafe_code)]
 
 mod attrs;
+mod builder;
 mod collect;
 mod crates;
+mod declared;
+mod edges;
 mod manifest;
 mod manifest_lines;
+mod module_edges;
 mod modules;
 mod nesting;
 mod net;
 mod paths;
+mod reply;
 mod resolve;
 mod scan;
 mod source;
@@ -38,7 +43,7 @@ const STACK_BYTES: usize = 256 * 1024 * 1024;
 
 fn provenance() -> Provenance {
     Provenance::native(
-        collect::PROFILE,
+        reply::PROFILE,
         (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
         (
             env!("ARCHKEEL_RUSTC_VERSION"),
