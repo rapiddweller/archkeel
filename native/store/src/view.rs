@@ -47,6 +47,7 @@ impl<'a> View<'a> {
             (data.contextmanager_signature, "contextmanager_signature"),
             (data.guard_boolean_members, "guard_boolean_members"),
             (data.local_source_binding, "local_source_binding"),
+            (data.property_members, "property_members"),
             (data.declaration_scope.is_some(), "declaration_scope"),
             (data.declaration_definition_id, "declaration_definition_id"),
             (
@@ -59,3 +60,7 @@ impl<'a> View<'a> {
         .find_map(|(present, name)| present.then_some(name))
     }
 }
+
+#[cfg(test)]
+#[path = "view_tests.rs"]
+mod tests;

@@ -17,8 +17,13 @@ use crate::ingest;
 const LIMIT: u64 = 1 << 30;
 
 fn reply() -> Value {
+    golden("h-typescript")
+}
+
+/// The frozen reply of a TypeScript golden case, with the provenance of a run.
+pub(crate) fn golden(case: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/golden/typescript/h-typescript.json.gz");
+        .join(format!("../../tests/golden/typescript/{case}.json.gz"));
     let mut text = String::new();
     let file = std::fs::File::open(path).ok();
     if let Some(file) = file {

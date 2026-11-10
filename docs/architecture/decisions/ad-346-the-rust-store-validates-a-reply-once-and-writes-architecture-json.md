@@ -13,7 +13,8 @@ collector through it. The setting is an opt-in, not the default.
    typed `Reply`. It runs the generic checks of `validate_source_facts` with the same messages
    (`validate.rs`, `records.rs`, `bindings.rs`). They read a typed `View` of one record at a time
    (`view.rs`). It borrows the `Fields` that each data type of `archkeel-facts` gives
-   (`facts/src/fields.rs`). The Python check does not validate the facts again. Until the PR after #941
+   (`facts/src/fields.rs`). The fields that only say "this is set" (`call_binding`, `property_members`, ...) describe what
+   the store does not check yet. The store refuses a record that sets one. They shrink as the store ports those checks. The Python check does not validate the facts again. Until the PR after #941
    deletes the Python copies (WP4), the generic checks and the import projection of
    `evaluate.py:evaluate_source` (`stored.rs`) exist twice.
 3. **Read-set.** The store answers with the read-set of `archkeel-facts` for each measured section

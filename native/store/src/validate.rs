@@ -277,4 +277,4 @@ fn capability_checks(facts: &Facts, names: &[&str]) -> Result<(), String> {
 
 #[cfg(test)]
 #[path = "validate_tests.rs"]
-mod tests;
+pub(crate) mod tests;

@@ -53,6 +53,7 @@ pub struct Fields<'a> {
     pub guarded_effect: bool,
     pub contextmanager_signature: bool,
     pub guard_boolean_members: bool,
+    pub property_members: bool,
     pub local_source_binding: bool,
     pub declaration_definition_id: bool,
     pub instance_member_scope_evidence_id: bool,
@@ -60,7 +61,7 @@ pub struct Fields<'a> {
 }
 
 /// The data of one kind: it gives the `Fields` that the kind has.
-pub trait Project {
+pub(crate) trait Project {
     fn fields(&self) -> Fields<'_>;
 }
 
@@ -182,7 +183,7 @@ project! {
     ClassData {
         attribute_declarations, base_declarations, guard_boolean_members,
         instance_member_scope_evidence_id, lexical_parent_id, member_inventories, module,
-        qualified_name, source_file
+        property_members, qualified_name, source_file
     }
     CallableData {
         contextmanager_signature, lexical_parent_id, module, qualified_name, source_file
