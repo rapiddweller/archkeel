@@ -62,7 +62,7 @@ from .config import (
     within,
 )
 from .explore_scope import emptied_by_exclusion, is_test_path
-from .parse import has_aliases, parse, umd_publication
+from .parse import parse, umd_publication
 from .resolve import Found, Resolver, Unknown
 from .script_publication import site_aliases, source_origin, stable_publication
 from .source_input import (
@@ -1906,7 +1906,7 @@ class _Collection:
                 evidence,
             )
         )
-        syntax = parse(rel, text.encode("utf-8"), has_aliases(self.resolver.options))
+        syntax = parse(rel, text.encode("utf-8"), self.resolver.options)
         if syntax.script_mode and (
             self.resolver.format_of(rel) is not None
             or any(

@@ -20,12 +20,17 @@ from .syntax import Concern, Span
 _PATH_START: Final = frozenset("./")
 
 
-class _Aliases(Protocol):
-    base_url: str | None
-    paths: tuple[tuple[str, tuple[str, ...]], ...]
+class Aliases(Protocol):
+    """The compiler options that map a bare name to a file: `baseUrl` and `paths`."""
+
+    @property
+    def base_url(self) -> str | None: ...
+
+    @property
+    def paths(self) -> tuple[tuple[str, tuple[str, ...]], ...]: ...
 
 
-def has_aliases(options: _Aliases) -> bool:
+def has_aliases(options: Aliases) -> bool:
     """The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project."""
     return options.base_url is not None or bool(options.paths)
 

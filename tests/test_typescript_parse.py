@@ -5,6 +5,7 @@
 
 import pytest
 
+from archkeel.analyzer.typescript.config import Options
 from archkeel.analyzer.typescript.parse import Syntax, parse
 
 
@@ -221,5 +222,5 @@ def test_every_module_specifier_of_the_loader_is_one_concern_per_file() -> None:
 def test_a_bare_augmentation_is_a_concern_only_in_a_module_file_of_an_aliased_project(
     name: str, file: str, aliased: bool, reasons: list[str]
 ) -> None:
-    found = _reasons(parse(name, file.encode(), aliased))
+    found = _reasons(parse(name, file.encode(), Options(base_url=".") if aliased else None))
     assert found == sorted(f"Unobserved module augmentation: {item}" for item in reasons)

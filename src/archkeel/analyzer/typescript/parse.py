@@ -23,8 +23,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
-from .augmentations import augmentation_concerns
-from .augmentations import has_aliases as has_aliases
+from .augmentations import Aliases, augmentation_concerns, has_aliases
 from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
@@ -437,7 +436,7 @@ def _line_starts(data: bytes) -> list[int]:
     return [0, *(found.end() for found in _LINE_BREAK.finditer(data))]
 
 
-def parse(rel_path: str, data: bytes, aliased: bool = False) -> Syntax:
+def parse(rel_path: str, data: bytes, options: Aliases | None = None) -> Syntax:
     # JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
     # Preserve the old filename regex boundary: $ also accepted one final newline.
     suffix = classify_file(rel_path.removesuffix("\n"))
@@ -476,7 +475,7 @@ def parse(rel_path: str, data: bytes, aliased: bool = False) -> Syntax:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
         concerns.extend(_comment_concerns(source, suffix))
-    concerns.extend(_augmentation_concerns(source, aliased))
+    concerns.extend(_augmentation_concerns(source, options))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3691,9 +3690,10 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     return concerns
 
 
-def _augmentation_concerns(source: _Source, aliased: bool) -> list[Concern]:
+def _augmentation_concerns(source: _Source, options: Aliases | None) -> list[Concern]:
     nodes = source.captures("augmentations").get("name", [])
     names = [(_text(node)[1:-1], source.span(node)) for node in nodes]
+    aliased = options is not None and has_aliases(options)
     return augmentation_concerns(names, _module_exports(source.root)[0], aliased)
 
 
