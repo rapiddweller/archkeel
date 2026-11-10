@@ -31,20 +31,15 @@ make ci-pr-report-check                  # report data and JavaScript logic
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, and warns when the branch is behind `main`.
 
-Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)):
+Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
-1. Each PR gets exactly one independent review. A PR that can enable a PASS also gets the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. Then the PR merges: there is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not a perfect one.
-2. Run `make merge-check PR=<number>` before every merge. A branch that is behind `main` is a warning: the PR needs no up-to-date branch. A merge conflict, or a file set that differs from the PR on GitHub, is an error. A file that `main` changed in its last merges is a warning only when the PR removes lines from it, because that is what a revert looks like.
-3. Give each PR one class ([AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md)).
-   - A: no change to an output, golden bytes, a published schema, packaging or a workflow.
-   - B: such a change, or a protocol version. B needs green CI and one Full run on the final reviewed SHA only. Never run Full per push or before the review passes.
-   - C: Windows-sensitive paths, wheel or packaging, `Cargo.lock`, toolchain, `Makefile` or `.github/`. C needs green CI and the Full run of B.
-4. Run the local gate on the final head, rebased on `main`: `make ci-pr-static BASE=origin/main`, the tests of the touched areas, `make native-check` when `native/` changes, `make merge-check`, and the merge-tree check of the lead. Name the commands and the SHA in the PR. Push only when the gate is green. Keep the PR a draft while you fix it: a draft runs no CI.
-5. Class A merges on the review, the local gate and green CI. When CI is not finished 15 minutes after the push, the lead may merge and read the result afterwards.
-6. Do not dispatch Full yourself. The lead dispatches it, for one branch at a time. Full runs on `main` every night and after every 3 merges.
-7. A red `main` stops the line. Merge only the fix. The lead reverts the suspect merge when no fix is green locally within 60 minutes.
-8. Run `python3 tools/ci_daily.py` for the daily line: CI wall, CI queue wait, Full wall on `main`, Full runs, re-runs and red-main hours. The targets: CI at most 10 minutes, queue wait at most 3 minutes, Full at most 30 minutes, red `main` 0 hours.
-9. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
+1. One review per PR. A PR that can enable a PASS also gets the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
+2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate. A PR in a fix loop is a draft; a draft runs no CI.
+3. Merge when the review and the local gate hold, and CI is green or 15 minutes have passed since the push, whichever comes first. No Full run per PR.
+4. Do not update the branch unless the merge-tree shows a real conflict.
+5. Full runs on `main` nightly, and by dispatch when useful. A failure on `main` becomes a backlog issue with a priority, and is fixed later, not at once. Exception: when `main` no longer builds locally, no agent can work, so fix it at once.
+6. Run `python3 tools/ci_daily.py` for the daily line. Targets: CI at most 10 min, queue wait at most 3 min.
+7. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.

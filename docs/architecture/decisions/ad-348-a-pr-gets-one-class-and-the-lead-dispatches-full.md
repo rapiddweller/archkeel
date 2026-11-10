@@ -55,3 +55,12 @@ bigger plan: it costs money and does not remove the extra runs.
 Red-main hours are not in the daily line.
 
 **Checks.** `tests/test_ci_daily.py`, `tests/test_ci_budget.py`, `tests/test_make_gate.py`.
+
+**Update 2026-11-10 (owner, same day).** The owner simplified the merge policy. This note replaces
+Decision 2, 4, 5, 6 and 7 above. Decision 1, 3, 8 and 9 still hold. The classes A, B and C are gone:
+no PR gets a class, and no PR runs Full. The rule "one branch Full at a time" is gone: the lead
+dispatches Full on `main` only. A red `main` no longer stops the line: it becomes a backlog issue
+with a priority, except when `main` no longer builds locally; then it is fixed at once. A PR
+merges when CI is green or 15 minutes have passed since the push, whichever comes first. The
+branch is updated only for a real merge conflict. Why: the owner found the branch updates and the
+pipeline waits too slow. `CONTRIBUTING.md` holds the current rules.
