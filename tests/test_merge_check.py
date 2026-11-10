@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The merge check fails on a stale base, a conflict or a file set that differs from GitHub."""
+"""The merge check fails on a conflict or a file set that differs from GitHub. Behind main warns."""
 
 import os
 import subprocess
@@ -51,15 +51,26 @@ def test_clean_pull_request_has_no_finding(repo: Path) -> None:
     assert report.warnings == []
 
 
-def test_conflict_names_the_file_and_a_moved_main_is_an_error(repo: Path) -> None:
+def test_conflict_names_the_file_and_a_moved_main_is_a_warning(repo: Path) -> None:
     git(repo, "checkout", "-q", "-b", "feature")
     commit(repo, {"a.txt": "feature\n"}, "Change a in the feature")
     git(repo, "checkout", "-q", "main")
     commit(repo, {"a.txt": "main\n"}, "Change a on main")
     report = check(repo, "main", "feature", ["a.txt"])
     assert [e for e in report.errors if "conflict" in e and "a.txt" in e]
-    assert [e for e in report.errors if "not an ancestor" in e]
+    assert [w for w in report.warnings if "not an ancestor" in w]
     assert report.failed
+
+
+def test_a_branch_behind_main_without_a_conflict_is_a_warning_only(repo: Path) -> None:
+    git(repo, "checkout", "-q", "-b", "feature")
+    commit(repo, {"new.txt": "2\n"}, "Add the new file")
+    git(repo, "checkout", "-q", "main")
+    commit(repo, {"b.txt": "main\n"}, "Change b on main")
+    report = check(repo, "main", "feature", ["new.txt"])
+    assert report.errors == []
+    assert [w for w in report.warnings if "not an ancestor" in w]
+    assert not report.failed
 
 
 def test_file_changed_only_on_the_branch_is_an_error_when_github_omits_it(repo: Path) -> None:
@@ -81,7 +92,18 @@ def test_file_listed_by_github_but_absent_from_the_branch_is_an_error(repo: Path
     assert "b.txt" in report.errors[0]
 
 
-def test_file_changed_on_recent_main_is_a_warning_not_an_error(repo: Path) -> None:
+def test_an_append_to_a_file_changed_on_recent_main_gives_no_warning(repo: Path) -> None:
+    commit(repo, {"a.txt": "1\nmain\n"}, "Append to a on main")
+    git(repo, "checkout", "-q", "-b", "feature")
+    commit(repo, {"a.txt": "1\nmain\nfeature\n"}, "Append to a again")
+    report = check(repo, "main", "feature", ["a.txt"])
+    assert report.errors == []
+    assert report.warnings == []
+
+
+def test_removed_lines_in_a_file_changed_on_recent_main_are_a_warning_not_an_error(
+    repo: Path,
+) -> None:
     commit(repo, {"a.txt": "main\n"}, "Change a on main")
     git(repo, "checkout", "-q", "-b", "feature")
     commit(repo, {"a.txt": "feature\n"}, "Change a again")

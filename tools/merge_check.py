@@ -4,10 +4,11 @@
 """Check a pull request before its merge: its base, its conflicts and its changed files.
 
 Run `make merge-check PR=<number>` before each merge. The check needs `gh` and network access.
-It fails when main is not an ancestor of the pull request head, when the head conflicts with
-main, or when the head changes another set of files than GitHub lists for the pull request.
-A file that main changed in its last merges is only a warning: it can be a revert, or a
-normal change to the same file.
+It fails when the head conflicts with main, or when the head changes another set of files than
+GitHub lists for the pull request. A branch that is behind main is only a warning: the process
+does not require an up-to-date branch. A file that main changed in its last merges is a warning
+only when the pull request removes lines from it: that is what a revert looks like. An append is
+a normal change.
 """
 
 from __future__ import annotations
@@ -77,6 +78,17 @@ def changed_files(repo: Path, base: str, head: str) -> set[str]:
     )
 
 
+def files_with_removed_lines(repo: Path, base: str, head: str) -> set[str]:
+    """The files from which the branch removes lines. A binary file counts as a removal."""
+    output = _git(repo, "diff", "--numstat", "-z", "--no-renames", f"{base}...{head}").stdout
+    names = set()
+    for entry in output.split("\0"):
+        parts = entry.split("\t", 2)
+        if len(parts) == 3 and parts[1] != "0":
+            names.add(parts[2])
+    return names
+
+
 def recently_changed(repo: Path, base: str) -> set[str]:
     """The files that the last merges on `base` changed."""
     output = _git(
@@ -97,9 +109,7 @@ def check(repo: Path, base: str, head: str, pr_files: list[str]) -> Report:
     """Compare `head` with `base` and with the files that GitHub lists for the pull request."""
     report = Report()
     if not is_ancestor(repo, base, head):
-        report.errors.append(
-            f"{base} is not an ancestor of the head: update the branch from {base}"
-        )
+        report.warnings.append(f"{base} is not an ancestor of the head: the branch is behind")
     for name in conflicting_files(repo, base, head):
         report.errors.append(f"conflict with {base}: {name}")
     local = changed_files(repo, base, head)
@@ -108,9 +118,11 @@ def check(repo: Path, base: str, head: str, pr_files: list[str]) -> Report:
         report.errors.append(f"changed in the branch but not listed by GitHub: {name}")
     for name in sorted(listed - local):
         report.errors.append(f"listed by GitHub but not changed in the branch: {name}")
-    for name in sorted(local & recently_changed(repo, base)):
+    removed = files_with_removed_lines(repo, base, head)
+    for name in sorted(local & recently_changed(repo, base) & removed):
         report.warnings.append(
-            f"{name} also changed on {base} in its last {RECENT_MERGES} merges: check for a revert"
+            f"{name} also changed on {base} in its last {RECENT_MERGES} merges and the branch "
+            "removes lines from it: check for a revert"
         )
     return report
 
