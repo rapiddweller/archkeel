@@ -46,7 +46,7 @@ struct Bound<'m, 'a, 'g> {
 impl Visitor for Bound<'_, '_, '_> {
     fn record<D: FactData>(&mut self, _: &Section, record: &Record<D>) -> Result<(), String> {
         let effect = View::new(record);
-        let effect = Some(&effect).filter(|_| self.script);
+        let effect = self.script.then_some(&effect);
         self.module = self.modules.gap_module(self.gap, effect);
         Ok(())
     }
