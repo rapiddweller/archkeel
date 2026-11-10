@@ -1,8 +1,8 @@
 {
-  "after_baseline_digest": "",
-  "after_digest": "",
-  "before_baseline_digest": "",
-  "before_digest": "",
+  "after_baseline_digest": "4278cc36d90a5b37d3813f4080d2c48e325668145ee77c34b16d504ad355de77",
+  "after_digest": "0346ba26a90b651c31ca9ec57ec59a696a896ab5fc847bf7d1457522107d2155",
+  "before_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
+  "before_digest": "75d3f9f369ef18a5d3a5d6e709c3ab2f750ec010a1b220dc767e77cacbe4e48d",
   "decided_by": "architect",
   "rationale": "AD-353 and issue #976. The module archkeel.analyzer.typescript.jsdoc_imports joins the source component: the JSDoc import reader moves there from parse.py, so that parse.py shrinks while two concerns are added. No requires entry, Any permission, interface or coupling budget changes. The calls_unresolved budget rises from 986 to 987.",
   "schema_version": "2.0.0"
