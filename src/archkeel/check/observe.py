@@ -33,7 +33,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.phases import Phase, PhaseClock, measured
-from archkeel.ir.profiles import PROFILES, Language
+from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, Language, is_test_source
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
@@ -120,14 +120,13 @@ _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
         "Collect the facts under this contract, or use a collector that declares the family.",
     ),
 }
+_INSTALLED: Final = frozenset({"__pycache__", "node_modules"})
 _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
     Language.RUST: "Rust",
 }
-# Dart has no test-source classification, so a Dart scan keeps every file.
-_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
 
 
 def observation_diagnostics(
@@ -282,6 +281,7 @@ def _observe(
     language: Language = Language.PYTHON,
     bundler: bool = False,
     exclude_test_sources: bool = False,
+    excluded_tests: list[tuple[str, tuple[str, ...]]] | None = None,
     clock: PhaseClock | None = None,
     producer: ProducerKind,
 ) -> ObservationResult:
@@ -293,6 +293,7 @@ def _observe(
         loaded = _contract_tree(contract_file, contract_root)
         if isinstance(loaded, ObservationResult):
             return loaded
+        found: set[str] = set()
         for root in roots:
             directory = source_root / root
             file_root = language == Language.TYPESCRIPT and directory.is_file()
@@ -305,6 +306,9 @@ def _observe(
                 )
             paths = (directory,) if file_root else directory.rglob(f"*{suffix}")
             for path in paths:
+                relative = path.relative_to(source_root).as_posix()
+                if is_test_source(relative, language) and not _INSTALLED.intersection(path.parts):
+                    found.add(relative)
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
                         DiagnosticKind.PARSE_ERROR,
@@ -312,12 +316,22 @@ def _observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
+        if exclude_test_sources and excluded_tests is not None:
+            # The files of this one listing are the files the collector reads (AD-313).
+            if all(sha != git_head for sha, _ in excluded_tests):
+                excluded_tests.append((git_head, tuple(sorted(found))))
         resolver: ResolverSettings = fixed_settings(language, tsconfig, bundler) or PythonSettings(
             features=tuple(
                 sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
             )
         )
-        exclude_test_sources = exclude_test_sources and language in _TEST_SCOPE_LANGUAGES
+        if exclude_test_sources and language not in TEST_SCOPE_LANGUAGES:
+            return _failure(
+                DiagnosticKind.SCOPE_EMPTY,
+                "scan.exclude_test_sources",
+                f"The {language} collector has no test-source rule.",
+                "Remove scan.exclude_test_sources for this language.",
+            )
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
             SourceScope(roots, namespace, exclude_test_sources),
@@ -385,6 +399,16 @@ class Observer:
     # Required: the host says who made the facts. Only observer_for derives it from the launch.
     producer: ProducerKind = field(kw_only=True)
 
+    # AD-313: the test files of each observed revision, by git head; the first scan of a head wins.
+    excluded_tests: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+
+    def excluded_for(self, head: str | None = None) -> tuple[str, ...]:
+        """The test files of the scan of `head` (a short sha is fine), or of the first scan."""
+        return next(
+            (found for sha, found in self.excluded_tests if head is None or sha.startswith(head)),
+            (),
+        )
+
     def __call__(
         self,
         source_root: Path,
@@ -410,6 +434,7 @@ class Observer:
             language=language,
             bundler=self.bundler,
             exclude_test_sources=self.exclude_test_sources,
+            excluded_tests=self.excluded_tests,
             clock=self.clock,
             producer=self.producer,
         )

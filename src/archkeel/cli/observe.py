@@ -5,19 +5,21 @@
 
 import sys
 import sysconfig
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
-from archkeel.check.ports import Language, ObservationResult, ProducerKind
+from archkeel.check.ports import Language, ObservationResult, ProducerKind, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import ProtocolVersion
 
+_CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 RUST_COLLECTOR = "archkeel-rust-collector"
 # `native/hatch_build.py` puts the binaries of a platform wheel here (AD-317, AD-335).
 _NATIVE_DIRECTORY = Path(__file__).resolve().parents[1] / "_native"
@@ -42,6 +44,7 @@ def observer_for(
     output_limit_remedy: str | None = None,
     timeout_seconds: int | None = None,
     bundler: bool = False,
+    exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
     pinned_digest: str | None = None,
 ) -> Observer:
@@ -81,7 +84,28 @@ def observer_for(
         tsconfig,
         bundler,
         clock,
+        exclude_test_sources,
         producer=producer,
+    )
+
+
+def configured_observer(
+    config: ScanConfig, factory: Callable[..., Observer], clock: PhaseClock | None = None
+) -> Observer:
+    """AD-313: `report`, `validate` and `check` observe one configured scope.
+
+    The caller hands in `observer_for`, so a test replaces it in one place.
+    """
+    return factory(
+        config.language,
+        collector_argv=config.collector_argv,
+        tsconfig=config.tsconfig or "tsconfig.json",
+        output_limit_bytes=config.collector_output_limit_bytes,
+        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
+        timeout_seconds=config.collector_timeout_seconds,
+        bundler=config.bundler,
+        exclude_test_sources=config.exclude_test_sources,
+        clock=clock,
     )
 
 

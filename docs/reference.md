@@ -56,6 +56,13 @@ not globs. Optional `language` selects Python (default), Dart or TypeScript.
 TypeScript also uses `tsconfig`; roots may be files or directories. Python/Dart
 roots are directories. Inputs must exist inside `--root`.
 
+`exclude_test_sources = true` (Python and TypeScript, default false) leaves recognized
+test sources out of the scan of `report` and `validate`, so they use the same test-free
+scope as `explore`. File counts and verdicts then cover production code only, and the result
+has a note that says so. A Dart config rejects `true`. An import from production code into
+a test source stays UNKNOWN. See
+[AD-313](architecture/decisions/ad-313-explore-excludes-test-sources.md).
+
 `bundler = true` (TypeScript only, default false) treats imports that a bundler
 resolves as known: tsconfig `paths` aliases (not `baseUrl`-only matches), package
 `exports` and `typesVersions` (an external edge to the package), and asset and JSON

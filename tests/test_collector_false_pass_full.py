@@ -197,3 +197,56 @@ def test_a_dependency_that_source_hides_is_a_declared_edge_and_fails(
     result = validate(repository(tmp_path, rust_binary, files, components=parts), capsys)
 
     assert statuses(result)["REQUIRES"] == "FAIL"
+
+
+# Review of #916 (issue #946): each manifest compiles with `cargo build`, and the app crate uses
+# `base` without a `requires` entry. A string form that the reader decoded wrongly or dropped hid
+# the dependency. The reader now decodes it as Cargo does, so the verdict is FAIL.
+ESCAPED = "base\\u002dcrate"
+BASE_PATH = 'path = "../base"'
+USES_BASE = {"src__lib": "use base_crate::make;\npub fn r() { make(); }\n"}
+USES_FOO = {"src__lib": "pub fn r() { foo::make(); }\n"}
+STRING_FORMS = {
+    "a unicode escape in the key": _app(
+        f'[dependencies]\n"{ESCAPED}" = {{ {BASE_PATH} }}\n', **USES_BASE
+    ),
+    "a unicode escape in package": _app(
+        f'[dependencies]\nfoo = {{ package = "{ESCAPED}", {BASE_PATH} }}\n', **USES_FOO
+    ),
+    "a unicode escape in a workspace rename": {
+        "crates/Cargo.toml": (
+            '[workspace]\nmembers = ["base", "app"]\n'
+            f'[workspace.dependencies]\nfoo = {{ package = "{ESCAPED}", path = "base" }}\n'
+        ),
+        **_app("[dependencies]\nfoo.workspace = true\n", **USES_FOO),
+    },
+    "a multi-line basic string in package": _app(
+        f'[dependencies]\nfoo = {{ package = """base-crate""", {BASE_PATH} }}\n', **USES_FOO
+    ),
+    "a multi-line literal string in package": _app(
+        f"[dependencies.foo]\npackage = '''base-crate'''\n{BASE_PATH}\n", **USES_FOO
+    ),
+}
+NO_REQUIRES = (component("base", "base_crate"), component("app", "app"))
+
+
+@pytest.mark.parametrize("files", STRING_FORMS.values(), ids=STRING_FORMS.keys())
+def test_a_string_form_of_a_dependency_is_decoded_as_cargo_does_and_fails(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
+) -> None:
+    result = validate(repository(tmp_path, rust_binary, files, components=NO_REQUIRES), capsys)
+
+    assert statuses(result)["REQUIRES"] == "FAIL"
+
+
+PATH_OUT = '#[path = "../../base/src/lib.rs"]\nmod b;\npub fn r() { b::make(); }\n'
+
+
+def test_a_path_attribute_into_a_file_of_another_crate_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _app("", src__lib=PATH_OUT)
+    result = validate(repository(tmp_path, rust_binary, files, components=NO_REQUIRES), capsys)
+
+    assert statuses(result).get("REQUIRES") != "PASS"
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}

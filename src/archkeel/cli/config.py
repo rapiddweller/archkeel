@@ -59,6 +59,7 @@ _OPTIONAL_SCAN = {
     "collector_output_limit_bytes",
     "collector_timeout_seconds",
     "bundler",
+    "exclude_test_sources",
 }
 
 
@@ -122,6 +123,14 @@ def _bundler(raw: object, language: Language) -> bool:
         raise ConfigError("scan.bundler is only valid when scan.language is typescript")
     if raw is not None and type(raw) is not bool:
         raise ConfigError("scan.bundler must be a boolean")
+    return raw is True
+
+
+def _exclude_test_sources(scan: Mapping[str, object]) -> bool:
+    # AD-313: an opt-in scope. ScanConfig rejects a language with no test-source rule.
+    raw = scan.get("exclude_test_sources")
+    if raw is not None and type(raw) is not bool:
+        raise ConfigError("scan.exclude_test_sources must be a boolean")
     return raw is True
 
 
@@ -221,23 +230,27 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         raise ConfigError(
             "[scan] requires roots, namespace, and contract; language, tsconfig, "
             "collector_argv, collector_output_limit_bytes, collector_timeout_seconds, "
-            "and bundler are optional"
+            "bundler and exclude_test_sources are optional"
         )
     language, tsconfig, bundler = _language_settings(scan)
     collector_argv, output_limit, timeout_seconds = _collector_settings(scan)
     roots, namespace, contract = _source_scope(scan)
-    return ScanConfig(
-        roots=roots,
-        namespace=namespace,
-        contract=PurePosixPath(contract).as_posix(),
-        digest=hashlib.sha256(payload).hexdigest(),
-        language=language,
-        tsconfig=tsconfig,
-        collector_argv=collector_argv,
-        collector_output_limit_bytes=output_limit,
-        collector_timeout_seconds=timeout_seconds,
-        bundler=bundler,
-    )
+    try:
+        return ScanConfig(
+            roots=roots,
+            namespace=namespace,
+            contract=PurePosixPath(contract).as_posix(),
+            digest=hashlib.sha256(payload).hexdigest(),
+            language=language,
+            tsconfig=tsconfig,
+            collector_argv=collector_argv,
+            collector_output_limit_bytes=output_limit,
+            collector_timeout_seconds=timeout_seconds,
+            bundler=bundler,
+            exclude_test_sources=_exclude_test_sources(scan),
+        )
+    except ValueError as error:
+        raise ConfigError(str(error)) from error
 
 
 def _contained(root: Path, relative: str, *, field: str) -> Path:
