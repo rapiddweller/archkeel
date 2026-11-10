@@ -35,7 +35,10 @@ fn facts() -> Facts {
         git_head: "a".repeat(40),
         dirty: Value::Bool(false),
         scope: vec!["src/**".to_owned()],
-        sections: vec![("imports", vec![]), ("unknowns", vec![])],
+        sections: vec![
+            ReplySection::Typed(archkeel_facts::Section::Imports(vec![])),
+            ReplySection::Records("unknowns", vec![]),
+        ],
         features: vec!["literal-imports"],
         constructs: vec![],
         inputs: vec![input("tsconfig.json", 'b', Role::Resolution)],
@@ -205,7 +208,7 @@ fn every_source_section_and_the_construct_capability_have_a_place_in_the_reply()
         "constructs",
     ]
     .into_iter()
-    .map(|name| (name, vec![record("kind")]))
+    .map(|name| ReplySection::Records(name, vec![record("kind")]))
     .collect();
     inner.constructs = vec![("string_literal_compare", "partial")];
     let wire = encode(Version::V9, inner).unwrap();
@@ -257,8 +260,8 @@ fn the_streamed_reply_is_the_reply_that_a_tree_of_the_facts_gives() {
         data: serde_json::from_str(r#"{"b":[1,null,{"x":true}],"a":"y"}"#).unwrap(),
     };
     full.sections = vec![
-        ("imports", vec![record("k"), record("l")]),
-        ("unknowns", vec![]),
+        ReplySection::Records("imports", vec![record("k"), record("l")]),
+        ReplySection::Records("unknowns", vec![]),
     ];
     full.constructs = vec![("string_literal_compare", "partial")];
     full.gaps = vec![record("gap")];
@@ -286,4 +289,68 @@ fn the_streamed_reply_is_the_reply_that_a_tree_of_the_facts_gives() {
     let position = |name: &str| keys.iter().position(|key| key.as_str() == name);
     assert!(position("evidence") < position("sections"));
     assert!(keys.windows(2).all(|pair| pair[0] < pair[1]));
+}
+
+/// The plain JSON of a reply that has one imports section.
+fn imports_reply(section: ReplySection) -> String {
+    let mut facts = facts();
+    facts.sections = vec![section, ReplySection::Records("unknowns", vec![])];
+    let mut plain = String::new();
+    ZlibDecoder::new(encode(Version::V9, facts).unwrap().as_slice())
+        .read_to_string(&mut plain)
+        .unwrap();
+    plain
+}
+
+/// AD-345: a typed import record of archkeel-facts writes the bytes of the record that the native
+/// collector built with a map before (`imports.rs` up to this change).
+#[test]
+fn a_typed_import_section_writes_the_bytes_of_the_map_record() {
+    use archkeel_facts::data::ImportData;
+    use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+    use archkeel_facts::vocab::{Area, EvidenceClass};
+    use archkeel_facts::ImportFact;
+
+    let data = serde_json::json!({
+        "source_module": "shop.a_x2e_ts", "source_package": "shop",
+        "target_module": "react", "target_package": "react", "symbol": null, "binding": null,
+        "symbols_known": false, "specifier": "react", "type_only": true, "relative_level": 0,
+        "under_type_checking": true, "reexport": false, "module_level_import": true,
+    });
+    let plain = Record {
+        id: "IMP-1".to_owned(),
+        evidence_class: "FACT",
+        area: "source",
+        kind: "import_type",
+        title: "shop.a_x2e_ts imports react".to_owned(),
+        subjects: vec!["react".to_owned(), "shop.a_x2e_ts".to_owned()],
+        evidence_ids: vec!["EVD-1".to_owned()],
+        fact_ids: vec![],
+        data: data.as_object().unwrap().clone(),
+    };
+    let typed = archkeel_facts::Record {
+        id: FactId::new("IMP-1"),
+        evidence_class: EvidenceClass::Fact,
+        area: Area::Source,
+        title: "shop.a_x2e_ts imports react".to_owned(),
+        subjects: vec!["react".to_owned(), "shop.a_x2e_ts".to_owned()],
+        evidence_ids: vec![EvidenceId::new("EVD-1")],
+        fact_ids: vec![],
+        data: ImportFact::ImportType(ImportData {
+            source_module: ModuleName::new("shop.a_x2e_ts"),
+            source_package: PackageName::new("shop"),
+            target_module: ModuleName::new("react"),
+            target_package: PackageName::new("react"),
+            specifier: Some("react".to_owned()),
+            type_only: Some(true),
+            under_type_checking: true,
+            module_level_import: true,
+            ..ImportData::statement()
+        }),
+    };
+    let typed = ReplySection::Typed(archkeel_facts::Section::Imports(vec![typed]));
+    assert_eq!(
+        imports_reply(typed),
+        imports_reply(ReplySection::Records("imports", vec![plain]))
+    );
 }

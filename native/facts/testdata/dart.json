@@ -1,0 +1,588 @@
+{
+ "facts": {
+  "coverage": {
+   "gaps": []
+  },
+  "sections": [
+   {
+    "name": "calls",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 0,
+       "candidates_truncated": false,
+       "expression": "StreamController.broadcast()",
+       "reason": "target is external, dynamic, or unresolved",
+       "source_file": "lib/data/services/memory_store.dart",
+       "source_module": "shop.data.services.memory_store",
+       "source_scope": "shop.data.services.memory_store",
+       "status": "unresolved",
+       "targets": []
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-27d3b2fd57157e7a"
+      ],
+      "fact_ids": [],
+      "id": "DARTCALL-a6ab5314f918e039",
+      "kind": "call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.data.services.memory_store"
+      ],
+      "title": "StreamController.broadcast()"
+     },
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "construction": {
+        "candidates_truncated": false,
+        "reason": "Analyzer resolved a local generative constructor",
+        "status": "resolved",
+        "targets": [
+         "shop.data.services.memory_store.MemoryStore"
+        ]
+       },
+       "expression": "MemoryStore()",
+       "reason": "Analyzer resolved the source element",
+       "result_bindings": [
+        {
+         "annotation": null,
+         "definition_contexts": [],
+         "evidence_ids": [
+          "EVD-6740d401515f3c20"
+         ],
+         "id": "DARTBIND-33c1efe25b974aa6",
+         "initializer": "MemoryStore()",
+         "name": "store",
+         "target_kind": "name"
+        }
+       ],
+       "source_definition_id": "DARTDEF-c88420e2a4d056ed",
+       "source_file": "lib/main.dart",
+       "source_module": "shop.main",
+       "source_scope": "shop.main.main",
+       "status": "resolved",
+       "targets": [
+        "shop.data.services.memory_store.MemoryStore"
+       ]
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-cc9dd8ccd00613a2"
+      ],
+      "fact_ids": [],
+      "id": "DARTCALL-62cc70e56d765fd0",
+      "kind": "call",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.main.main"
+      ],
+      "title": "MemoryStore()"
+     }
+    ]
+   },
+   {
+    "name": "imports",
+    "records": [
+     {
+      "area": "dependencies",
+      "data": {
+       "binding": null,
+       "module_level_import": true,
+       "ordinary_module": true,
+       "origin_definition": null,
+       "reexport": false,
+       "reexport_chain": [],
+       "relative_level": 0,
+       "source_module": "shop.data.client_io",
+       "source_package": "shop.data",
+       "symbol": null,
+       "symbol_visibility": null,
+       "symbols_known": false,
+       "target_module": "dart.io",
+       "target_package": "dart",
+       "under_type_checking": false
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-9d8584ea3d0232a0"
+      ],
+      "fact_ids": [],
+      "id": "DARTIMP-8bd7df93e395a32d",
+      "kind": "import",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "dart.io",
+       "shop.data.client_io"
+      ],
+      "title": "shop.data.client_io imports dart:io"
+     }
+    ]
+   },
+   {
+    "name": "references",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "expression": "APP_VERSION",
+       "reason": "Analyzer resolved the source element",
+       "source_file": "lib/main.dart",
+       "source_module": "shop.main",
+       "source_scope": "shop.main",
+       "status": "resolved",
+       "targets": [
+        "shop.main.APP_VERSION"
+       ],
+       "use": "read"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-fd3d4ba7172c6e39"
+      ],
+      "fact_ids": [],
+      "id": "DARTREF-31ac8398c46fbb32",
+      "kind": "reference",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.main"
+      ],
+      "title": "APP_VERSION"
+     },
+     {
+      "area": "source",
+      "data": {
+       "candidate_count": 1,
+       "candidates_truncated": false,
+       "expression": "order.id",
+       "reason": "Analyzer resolved the source element",
+       "result_bindings": [
+        {
+         "annotation": null,
+         "definition_contexts": [],
+         "evidence_ids": [
+          "EVD-534600cedb82edb4"
+         ],
+         "id": "DARTBIND-fa7b5538e99ebaa7",
+         "initializer": "order.id",
+         "name": "receiptId",
+         "target_kind": "name"
+        }
+       ],
+       "source_definition_id": "DARTBIND-fa7b5538e99ebaa7",
+       "source_file": "lib/ordering/application/checkout_service.dart",
+       "source_module": "commerce.ordering.application.checkout_service",
+       "source_scope": "commerce.ordering.application.checkout_service.CheckoutService.checkout.receiptId",
+       "status": "resolved",
+       "targets": [
+        "commerce.ordering.domain.orders.order.Order.id"
+       ],
+       "use": "read"
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-3cb19ecf23bc564d"
+      ],
+      "fact_ids": [],
+      "id": "DARTREF-3d29279791c3244c",
+      "kind": "reference",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "commerce.ordering.application.checkout_service.CheckoutService.checkout.receiptId"
+      ],
+      "title": "order.id"
+     }
+    ]
+   },
+   {
+    "name": "symbols",
+    "records": [
+     {
+      "area": "source",
+      "data": {
+       "annotation": "String",
+       "class_header_static": true,
+       "constant": null,
+       "decorators": [],
+       "lexical_parent_id": null,
+       "modifiers": [],
+       "module": "commerce.ordering.domain.orders.order",
+       "name": "OrderId",
+       "overload_signature": false,
+       "package": "commerce.ordering.domain.orders",
+       "parent": null,
+       "qualified_name": "commerce.ordering.domain.orders.order.OrderId",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_file": "lib/ordering/domain/orders/order.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "type_alias",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "OrderId"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-c1b621a430e524b2"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-57678c18d6ee1b9c",
+      "kind": "alias",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "commerce.ordering.domain.orders.order.OrderId"
+      ],
+      "title": "commerce.ordering.domain.orders.order.OrderId declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "decorators": [],
+       "definition_contexts": [],
+       "initializer": null,
+       "lexical_parent_id": "DARTDEF-c88420e2a4d056ed",
+       "module": "shop.main",
+       "name": "app",
+       "overload_signature": false,
+       "package": "shop",
+       "parent": "shop.main.main",
+       "qualified_name": "shop.main.main.app",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_file": "lib/main.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "dynamic_binding",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "app"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-79cb8eb3e8604930"
+      ],
+      "fact_ids": [],
+      "id": "DARTBIND-da629f7df8c95cb6",
+      "kind": "binding",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.main.main.app"
+      ],
+      "title": "shop.main.main.app declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "attribute_declarations": [],
+       "base_declarations": [],
+       "class_header_static": true,
+       "class_kind": "protocol",
+       "decorators": [],
+       "enum_members": [],
+       "lexical_parent_id": null,
+       "member_inventories": [
+        {
+         "definition_ids": [],
+         "kind": "attribute",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        },
+        {
+         "definition_ids": [
+          "DARTDEF-7b9209edd70e37c1",
+          "DARTDEF-1c1c62e70661b9de"
+         ],
+         "kind": "method",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        }
+       ],
+       "modifiers": [
+        "abstract",
+        "interface"
+       ],
+       "module": "shop.domain.repository",
+       "name": "OrderRepository",
+       "overload_signature": false,
+       "package": "shop.domain",
+       "parent": null,
+       "qualified_name": "shop.domain.repository.OrderRepository",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_file": "lib/domain/repository.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "class",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "OrderRepository"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-ac9fd24558ebcdeb"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-55abb83045422487",
+      "kind": "class",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.domain.repository.OrderRepository"
+      ],
+      "title": "shop.domain.repository.OrderRepository declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "attribute_declarations": [],
+       "base_declarations": [],
+       "class_header_static": true,
+       "class_kind": "class",
+       "decorators": [],
+       "enum_members": [],
+       "lexical_parent_id": null,
+       "member_inventories": [
+        {
+         "definition_ids": [],
+         "kind": "attribute",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        },
+        {
+         "definition_ids": [
+          "DARTDEF-33c6eca5cfd4587b"
+         ],
+         "kind": "method",
+         "reason": null,
+         "schema_version": "1.0.0",
+         "status": "complete"
+        }
+       ],
+       "mixin_capable": false,
+       "modifiers": [],
+       "module": "commerce.ordering.domain.pricing.discount_policy",
+       "name": "DiscountBase",
+       "overload_signature": false,
+       "package": "commerce.ordering.domain.pricing",
+       "parent": null,
+       "qualified_name": "commerce.ordering.domain.pricing.discount_policy.DiscountBase",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_file": "lib/ordering/domain/pricing/discount_policy.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "class",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "DiscountBase"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-6d14548bae8698ee"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-7693375be4d30f7c",
+      "kind": "class",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "commerce.ordering.domain.pricing.discount_policy.DiscountBase"
+      ],
+      "title": "commerce.ordering.domain.pricing.discount_policy.DiscountBase declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "constant": "'0.1.0'",
+       "decorators": [],
+       "lexical_parent_id": null,
+       "modifiers": [],
+       "module": "shop.main",
+       "name": "APP_VERSION",
+       "overload_signature": false,
+       "package": "shop",
+       "parent": null,
+       "qualified_name": "shop.main.APP_VERSION",
+       "signature_complete": true,
+       "source_binding_unique": true,
+       "source_file": "lib/main.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "constant",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "APP_VERSION"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-fd3d4ba7172c6e39"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-86ee802778ef5204",
+      "kind": "constant",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.main.APP_VERSION"
+      ],
+      "title": "shop.main.APP_VERSION declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "decorators": [],
+       "lexical_parent_id": null,
+       "method_kind": "static",
+       "modifiers": [],
+       "module": "shop.main",
+       "name": "main",
+       "overload_signature": false,
+       "package": "shop",
+       "parameters": [],
+       "parent": null,
+       "qualified_name": "shop.main.main",
+       "returns": "void",
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_file": "lib/main.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "function",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "main"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-949033871a366edd"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-c88420e2a4d056ed",
+      "kind": "function",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.main.main"
+      ],
+      "title": "shop.main.main declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "annotation": null,
+       "class_header_static": true,
+       "decorators": [],
+       "lexical_parent_id": "DARTDEF-b1955cd0c22db782",
+       "method_kind": "constructor",
+       "module": "shop.domain.cart.cart",
+       "name": "Cart",
+       "overload_signature": false,
+       "package": "shop.domain.cart",
+       "parameters": [],
+       "parent": "shop.domain.cart.cart.Cart",
+       "qualified_name": "shop.domain.cart.cart.Cart.Cart",
+       "returns": "Cart",
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_file": "lib/domain/cart/cart.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "method",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "Cart"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-8bc839005a1c187c"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-10dc081548b31ccf",
+      "kind": "method",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.domain.cart.cart.Cart.Cart"
+      ],
+      "title": "shop.domain.cart.cart.Cart.Cart declaration"
+     },
+     {
+      "area": "source",
+      "data": {
+       "accessor_kind": "getter",
+       "annotation": null,
+       "class_header_static": true,
+       "decorators": [],
+       "lexical_parent_id": "DARTDEF-b1955cd0c22db782",
+       "method_kind": "instance",
+       "module": "shop.domain.cart.cart",
+       "name": "lines",
+       "overload_signature": false,
+       "package": "shop.domain.cart",
+       "parameters": [],
+       "parent": "shop.domain.cart.cart.Cart",
+       "qualified_name": "shop.domain.cart.cart.Cart.lines::getter",
+       "returns": "List<CartLine>",
+       "signature_complete": true,
+       "signature_decorators_proven": true,
+       "source_binding_unique": true,
+       "source_file": "lib/domain/cart/cart.dart",
+       "source_member_binding_static": true,
+       "symbol_category": "method",
+       "visibility_detail": {
+        "basis": "language",
+        "kind": "public",
+        "spelling": "lines"
+       }
+      },
+      "evidence_class": "FACT",
+      "evidence_ids": [
+       "EVD-65a151403d6b0698"
+      ],
+      "fact_ids": [],
+      "id": "DARTDEF-444dc405015c91d3",
+      "kind": "method",
+      "provenance": [],
+      "rule_ids": [],
+      "subjects": [
+       "shop.domain.cart.cart.Cart.lines::getter"
+      ],
+      "title": "shop.domain.cart.cart.Cart.lines::getter declaration"
+     }
+    ]
+   }
+  ]
+ }
+}
