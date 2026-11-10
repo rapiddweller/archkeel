@@ -29,7 +29,8 @@ pub struct Parsed {
     pub syntax: Syntax,
 }
 
-/// Parse one file. `data` is the text as the Python collector re-encodes it.
+/// Parse one file of a project without `paths` and `baseUrl`; the dump and the tests read it.
+#[cfg(any(test, feature = "dump"))]
 pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     parse_for(parsers, rel, data, false)
 }
