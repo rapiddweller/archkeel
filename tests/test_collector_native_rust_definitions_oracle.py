@@ -154,7 +154,9 @@ class _Docs:
     @staticmethod
     def _impl_type(impl: dict[str, Any]) -> str | None:
         target = impl["for"]
-        return target["resolved_path"]["path"].split("::")[-1] if "resolved_path" in target else None
+        return (
+            target["resolved_path"]["path"].split("::")[-1] if "resolved_path" in target else None
+        )
 
     def _members(
         self, items: list[int], holder: str | None, trait: dict[str, Any] | None = None
