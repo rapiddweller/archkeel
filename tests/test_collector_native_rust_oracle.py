@@ -4,8 +4,7 @@
 """AD-335: the crate edges of the Rust collector equal the oracles, on the real `native/`.
 
 Consumer: the entry criteria of slice 5b-1. There is no second implementation of the collector,
-so the oracles are other tools: `cargo metadata` for the declared dependencies, and the edge list of
-`tests/test_self_native_layers.py` (AD-327) for the crates of the workspace. A used edge must be a
+so the oracle is another tool: `cargo metadata` for the declared dependencies. A used edge must be a
 declared dependency, and each declared dependency must be a used edge.
 """
 
@@ -19,7 +18,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from test_self_native_layers import _layers, _metadata
 
 ROOT = Path(__file__).parents[1]
 SYSROOT = {"std", "core", "alloc"}
@@ -56,19 +54,16 @@ def _edges(facts: dict[str, Any]) -> set[tuple[str, str]]:
     return found
 
 
-def _built_crates() -> dict[str, Any]:
-    """The crates of the layer file that have code: a planned crate has none to scan."""
-    return {name: entry for name, entry in _layers()["crates"].items() if not entry.get("planned")}
-
-
-def _layer_edges() -> set[tuple[str, str]]:
-    built = _built_crates()
-    return {
-        (name.replace("-", "_"), use.replace("-", "_"))
-        for name, entry in built.items()
-        for use in entry["may_use"]
-        if use in built
-    }
+def _metadata() -> dict[str, list[str]]:
+    out = subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--locked", "--no-deps"],
+        cwd=ROOT / "native",
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    packages = json.loads(out)["packages"]
+    return {p["name"]: sorted({d["name"] for d in p["dependencies"]}) for p in packages}
 
 
 def _declared() -> set[tuple[str, str]]:
@@ -99,23 +94,6 @@ def test_the_edges_equal_the_declared_dependencies_of_cargo_metadata(
 
     assert used - declared == set(), "a path names a crate that Cargo.toml does not declare"
     assert declared - used == set(), "Cargo.toml declares a crate that no path uses"
-
-
-def test_the_crate_edges_equal_the_edge_list_of_the_layer_test(facts: dict[str, Any]) -> None:
-    workspace = {name.replace("-", "_") for name in _built_crates()}
-
-    assert {edge for edge in _edges(facts) if edge[1] in workspace} == _layer_edges()
-
-
-def test_the_contract_requires_equal_the_layer_file() -> None:
-    contract = json.loads((ROOT / "native/architecture-contract.json").read_text())
-    labels = {item["label"]: item["packages"][0].split(".")[1] for item in contract["components"]}
-    required = {
-        (labels[item["label"]], labels[need["component"]])
-        for item in contract["components"]
-        for need in item.get("requires", ())
-    }
-    assert required == _layer_edges()
 
 
 def test_two_runs_give_the_same_bytes_also_from_another_directory(

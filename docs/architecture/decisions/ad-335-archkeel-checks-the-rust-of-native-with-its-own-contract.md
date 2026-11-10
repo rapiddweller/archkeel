@@ -59,7 +59,7 @@ output; `init` and `explore` do not support Rust. **Check.** `cargo test`; the R
   `[target.*]`, renames, `workspace = true`, optional. A crate cannot use a crate that it does not
   declare, so this over-approximates what source hides in a macro or a generated token. The edge
   starts in a module `<crate>.cargo_toml` and cites the line of the manifest. A forbidden declared
-  dependency is FAIL also when no source uses it, as `layers.toml` reads it, so the step
+  dependency is FAIL also when no source uses it, so the step
   `#![deny(unused_crate_dependencies)]` before 5b-3 is no longer needed. A dependency table or form
   that the reader does not know is UNKNOWN. The section is in the specifier until 5b-2.
 - (a) A `macro_rules!` that stays in the crate is read as code of its file. (b) The name of an
@@ -67,4 +67,4 @@ output; `init` and `explore` do not support Rust. **Check.** `cargo test`; the R
   `cfg(any(test, feature = ...))` of known conditions are read. (d) A planned crate is no component.
 
 **Amendment, 2026-11-10 (5b-2c).** Module edges, no `crate_edges_only`, a re-exporting module is the
-dependency: [Rust module edges](../rust-module-edges.md).
+dependency: [Rust module edges](../rust-module-edges.md). 5b-3: components by responsibility.

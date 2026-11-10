@@ -3,10 +3,58 @@
   "schema_version": "2.1.0",
   "components": [
     {
+      "id": "COMP-NATIVE-FACTS",
+      "label": "facts",
+      "role": "component",
+      "packages": [
+        "native.archkeel_facts"
+      ],
+      "responsibilities": [
+        "The typed facts, defined once: closed kinds, newtype ids, reason codes, the protocol 9 wire, the read-set and the generated schema (AD-345)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a snapshot, parsing source and storing facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-SNAPSHOT",
+      "label": "snapshot",
+      "role": "component",
+      "packages": [
+        "native.archkeel_snapshot"
+      ],
+      "responsibilities": [
+        "The one owner of how a collector reads a snapshot: POSIX paths, contained reads, the symlink rule, the size limit and the digest of each input."
+      ],
+      "forbidden_responsibilities": [
+        "Language rules, such as which directory holds installed packages, and parsing source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-WIRE",
       "label": "wire",
       "role": "component",
-      "packages": ["native.archkeel_wire"],
+      "packages": [
+        "native.archkeel_wire"
+      ],
       "responsibilities": [
         "The collector wire that every native collector shares: requests and replies."
       ],
@@ -20,49 +68,8 @@
       "requires": [
         {
           "component": "facts",
-          "rationale": "A typed section of the reply is written by the types of archkeel-facts (AD-345)."
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
         }
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "COMP-NATIVE-SNAPSHOT",
-      "label": "snapshot",
-      "role": "component",
-      "packages": ["native.archkeel_snapshot"],
-      "responsibilities": [
-        "The one owner of how a collector reads a snapshot: POSIX paths, contained reads, the symlink rule, the size limit and the digest of each input."
-      ],
-      "forbidden_responsibilities": [
-        "Language rules, such as which directory holds installed packages, and parsing source."
-      ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
-      "requires": [
-        {
-          "component": "wire",
-          "rationale": "A read input is a wire input with a digest and a role."
-        },
-        {
-          "component": "facts",
-          "rationale": "The digest of an input is the SHA-256 of the facts identities."
-        }
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "COMP-NATIVE-FACTS",
-      "label": "facts",
-      "role": "component",
-      "packages": ["native.archkeel_facts"],
-      "responsibilities": [
-        "The typed facts, defined once: closed kinds, newtype ids, reason codes, the protocol 9 wire, the read-set and the generated schema (AD-345)."
-      ],
-      "forbidden_responsibilities": [
-        "Reading a snapshot, parsing source and storing facts."
-      ],
-      "provenance": [
-        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
-        "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
       ],
       "decided_by": "architect"
     },
@@ -70,68 +77,863 @@
       "id": "COMP-NATIVE-BUILD",
       "label": "build",
       "role": "component",
-      "packages": ["native.archkeel_build_support"],
+      "packages": [
+        "native.archkeel_build_support"
+      ],
       "responsibilities": [
         "Record the digest of the sources of native/ when a collector builds."
       ],
       "forbidden_responsibilities": [
         "Reading source at run time, and using a collector crate."
       ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "decided_by": "architect"
     },
     {
-      "id": "COMP-NATIVE-TYPESCRIPT",
-      "label": "typescript",
+      "id": "COMP-NATIVE-TS-INPUT",
+      "label": "ts-input",
       "role": "component",
-      "packages": ["native.archkeel_typescript_collector"],
-      "responsibilities": ["Read TypeScript source and write the collection reply."],
-      "forbidden_responsibilities": ["Reading Rust source."],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "packages": [
+        "native.archkeel_typescript_collector.source",
+        "native.archkeel_typescript_collector.source_input",
+        "native.archkeel_typescript_collector.kinds",
+        "native.archkeel_typescript_collector.pytext"
+      ],
+      "responsibilities": [
+        "The typed input of the walk: source text with spans, the nominal source input, the closed node kinds and the text helpers."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, walking a tree and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-TREE",
+      "label": "ts-tree",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.members",
+        "native.archkeel_typescript_collector.ancestors"
+      ],
+      "responsibilities": [
+        "Generic access to a syntax tree: children, named children, the member context and the ancestors of a node."
+      ],
+      "forbidden_responsibilities": [
+        "Language rules of a construct, the snapshot and facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "requires": [
         {
-          "component": "wire",
-          "rationale": "The collector decodes the request and encodes the reply with the shared wire."
-        },
-        {
-          "component": "snapshot",
-          "rationale": "Every read of the snapshot goes through the one owner of paths, symlink rules and limits."
-        },
-        {
-          "component": "facts",
-          "rationale": "The collector builds its import records with the typed facts (AD-345); the other sections follow."
-        },
-        {
-          "component": "build",
-          "rationale": "The build script of the crate calls the shared helper that digests the sources, so one script owns the digest."
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
         }
       ],
       "decided_by": "architect"
     },
     {
-      "id": "COMP-NATIVE-RUST",
-      "label": "rust",
+      "id": "COMP-NATIVE-TS-DECLARATIONS",
+      "label": "ts-declarations",
       "role": "component",
-      "packages": ["native.archkeel_rust_collector"],
-      "responsibilities": ["Read Rust source and write the collection reply."],
-      "forbidden_responsibilities": ["Reading TypeScript source."],
-      "provenance": ["docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"],
+      "packages": [
+        "native.archkeel_typescript_collector.definitions",
+        "native.archkeel_typescript_collector.exports",
+        "native.archkeel_typescript_collector.scope",
+        "native.archkeel_typescript_collector.import_bindings",
+        "native.archkeel_typescript_collector.class_members",
+        "native.archkeel_typescript_collector.constructors",
+        "native.archkeel_typescript_collector.layout"
+      ],
+      "responsibilities": [
+        "Find the declarations of one file: definitions, exports, scopes, import bindings, class members, constructors and the file layout."
+      ],
+      "forbidden_responsibilities": [
+        "Walking a whole file, resolving a path and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "requires": [
         {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-SITES",
+      "label": "ts-sites",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_names",
+        "native.archkeel_typescript_collector.site_paths",
+        "native.archkeel_typescript_collector.site_syntax",
+        "native.archkeel_typescript_collector.site_types"
+      ],
+      "responsibilities": [
+        "Read the use sites of a file: the names, the paths and the syntax of each site."
+      ],
+      "forbidden_responsibilities": [
+        "Resolving a site to a target and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        },
+        {
+          "component": "ts-declarations",
+          "rationale": "Read the declarations of a file."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-WALK",
+      "label": "ts-walk",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.walk",
+        "native.archkeel_typescript_collector.scan",
+        "native.archkeel_typescript_collector.references",
+        "native.archkeel_typescript_collector.script_types"
+      ],
+      "responsibilities": [
+        "The one traversal of a file: visit the nodes, scan the literals and references, and hold the script types of the result."
+      ],
+      "forbidden_responsibilities": [
+        "Resolving a path, building facts and reading the snapshot."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        },
+        {
+          "component": "ts-declarations",
+          "rationale": "Read the declarations of a file."
+        },
+        {
+          "component": "ts-sites",
+          "rationale": "Read the use sites of a file."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-SCRIPTS",
+      "label": "ts-scripts",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.script",
+        "native.archkeel_typescript_collector.script_alias",
+        "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_declarations",
+        "native.archkeel_typescript_collector.script_declare",
+        "native.archkeel_typescript_collector.script_factory",
+        "native.archkeel_typescript_collector.script_flags",
+        "native.archkeel_typescript_collector.script_index",
+        "native.archkeel_typescript_collector.script_names",
+        "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_publish",
+        "native.archkeel_typescript_collector.script_refs",
+        "native.archkeel_typescript_collector.script_scope",
+        "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_wrapper",
+        "native.archkeel_typescript_collector.script_writes",
+        "native.archkeel_typescript_collector.umd"
+      ],
+      "responsibilities": [
+        "Read a classic script: the scope, the globals it declares or publishes, aliases, factories and the UMD wrapper."
+      ],
+      "forbidden_responsibilities": [
+        "Resolving an import and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        },
+        {
+          "component": "ts-declarations",
+          "rationale": "Read the declarations of a file."
+        },
+        {
+          "component": "ts-walk",
+          "rationale": "Run the one traversal of a file."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-PARSE",
+      "label": "ts-parse",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.parse",
+        "native.archkeel_typescript_collector.syntax",
+        "native.archkeel_typescript_collector.concerns",
+        "native.archkeel_typescript_collector.jsdoc",
+        "native.archkeel_typescript_collector.umd_publication"
+      ],
+      "responsibilities": [
+        "Parse one file into its syntax facts: join the traversal, the scripts, the concerns and the JSDoc."
+      ],
+      "forbidden_responsibilities": [
+        "Resolving an import and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        },
+        {
+          "component": "ts-declarations",
+          "rationale": "Read the declarations of a file."
+        },
+        {
+          "component": "ts-walk",
+          "rationale": "Run the one traversal of a file."
+        },
+        {
+          "component": "ts-scripts",
+          "rationale": "Read the globals of a classic script."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-DISCOVER",
+      "label": "ts-discover",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.config",
+        "native.archkeel_typescript_collector.options",
+        "native.archkeel_typescript_collector.layer",
+        "native.archkeel_typescript_collector.discover",
+        "native.archkeel_typescript_collector.glob",
+        "native.archkeel_typescript_collector.installed",
+        "native.archkeel_typescript_collector.manifest",
+        "native.archkeel_typescript_collector.test_sources"
+      ],
+      "responsibilities": [
+        "Select the input files: read the configuration, the options, the package manifests, the installed packages, the layers and the globs."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source and resolving an import."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-RESOLVE",
+      "label": "ts-resolve",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.resolve",
+        "native.archkeel_typescript_collector.resolve.package"
+      ],
+      "responsibilities": [
+        "Resolve an import specifier to a file or a package from the manifest and the options."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-discover",
+          "rationale": "Select the files of the scan and read their configuration."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-RECORDS",
+      "label": "ts-records",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.records",
+        "native.archkeel_typescript_collector.site_records",
+        "native.archkeel_typescript_collector.symbols",
+        "native.archkeel_typescript_collector.cited",
+        "native.archkeel_typescript_collector.symbol_table",
+        "native.archkeel_typescript_collector.resolution",
+        "native.archkeel_typescript_collector.kept"
+      ],
+      "responsibilities": [
+        "The only place that builds facts of the TypeScript collector: symbols, import and site records, the symbol table and the citations."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, resolving a path and walking a file."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
           "component": "wire",
-          "rationale": "The collector decodes the request and encodes the reply with the shared wire."
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        },
+        {
+          "component": "ts-declarations",
+          "rationale": "Read the declarations of a file."
+        },
+        {
+          "component": "ts-sites",
+          "rationale": "Read the use sites of a file."
+        },
+        {
+          "component": "ts-parse",
+          "rationale": "Parse a file into its syntax facts."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-FLOW",
+      "label": "ts-flow",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.collect",
+        "native.archkeel_typescript_collector.collect.imports"
+      ],
+      "responsibilities": [
+        "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."
+      ],
+      "forbidden_responsibilities": [
+        "Holding a rule of a language construct."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
         },
         {
           "component": "snapshot",
-          "rationale": "Every read of the snapshot goes through the one owner of paths, symlink rules and limits."
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
         },
         {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-walk",
+          "rationale": "Run the one traversal of a file."
+        },
+        {
+          "component": "ts-parse",
+          "rationale": "Parse a file into its syntax facts."
+        },
+        {
+          "component": "ts-discover",
+          "rationale": "Select the files of the scan and read their configuration."
+        },
+        {
+          "component": "ts-resolve",
+          "rationale": "Resolve an import specifier to its target."
+        },
+        {
+          "component": "ts-records",
+          "rationale": "Build the typed records."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-DUMP",
+      "label": "ts-dump",
+      "role": "component",
+      "packages": [
+        "native.archkeel_typescript_collector.dump"
+      ],
+      "responsibilities": [
+        "The development dump of the syntax facts of one file (feature dump)."
+      ],
+      "forbidden_responsibilities": [
+        "Production collection."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "ts-input",
+          "rationale": "Use the typed source, spans and node kinds."
+        },
+        {
+          "component": "ts-tree",
+          "rationale": "Read the tree through the generic tree helpers."
+        },
+        {
+          "component": "ts-declarations",
+          "rationale": "Read the declarations of a file."
+        },
+        {
+          "component": "ts-sites",
+          "rationale": "Read the use sites of a file."
+        },
+        {
+          "component": "ts-walk",
+          "rationale": "Run the one traversal of a file."
+        },
+        {
+          "component": "ts-parse",
+          "rationale": "Parse a file into its syntax facts."
+        },
+        {
+          "component": "ts-records",
+          "rationale": "Build the typed records."
+        },
+        {
+          "component": "ts-flow",
+          "rationale": "Run one collection."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-TS-ENTRY",
+      "label": "ts-entry",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_typescript_collector",
+        "native.archkeel_typescript_collector.build_script",
+        "native.archkeel_typescript_collector.cargo_toml"
+      ],
+      "responsibilities": [
+        "The binary of the TypeScript collector: read the request, run the collection and write the reply; the build script and the manifest of the crate."
+      ],
+      "forbidden_responsibilities": [
+        "Reading TypeScript source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
           "component": "facts",
-          "rationale": "The collector builds its import and gap records with the typed facts (AD-345)."
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
         },
         {
           "component": "build",
-          "rationale": "The build script of the crate calls the shared helper that digests the sources, so one script owns the digest."
+          "rationale": "Call the shared helper that digests the sources, so one script owns the digest."
+        },
+        {
+          "component": "ts-flow",
+          "rationale": "Run one collection."
+        },
+        {
+          "component": "ts-dump",
+          "rationale": "Dump the facts of one file for development."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-TEXT",
+      "label": "rs-text",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.tokens",
+        "native.archkeel_rust_collector.attrs",
+        "native.archkeel_rust_collector.net",
+        "native.archkeel_rust_collector.nesting",
+        "native.archkeel_rust_collector.scan",
+        "native.archkeel_rust_collector.scan.attributes",
+        "native.archkeel_rust_collector.scan.macros",
+        "native.archkeel_rust_collector.scan.use_items"
+      ],
+      "responsibilities": [
+        "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, use paths and macros."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, resolving a path and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-WORKSPACE",
+      "label": "rs-workspace",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.source",
+        "native.archkeel_rust_collector.paths",
+        "native.archkeel_rust_collector.test_scope",
+        "native.archkeel_rust_collector.toml",
+        "native.archkeel_rust_collector.manifest",
+        "native.archkeel_rust_collector.manifest_lines",
+        "native.archkeel_rust_collector.crates"
+      ],
+      "responsibilities": [
+        "Read the Cargo workspace: TOML, manifests, crates, paths, sources and the test scope."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing Rust items and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-MODULES",
+      "label": "rs-modules",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.tree",
+        "native.archkeel_rust_collector.modules",
+        "native.archkeel_rust_collector.resolve"
+      ],
+      "responsibilities": [
+        "Build the module tree of a crate and resolve a path to a module."
+      ],
+      "forbidden_responsibilities": [
+        "Building facts and reading the snapshot."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "rs-text",
+          "rationale": "Read the lexical shape of a source file."
+        },
+        {
+          "component": "rs-workspace",
+          "rationale": "Read the crates and the manifests of the workspace."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-BUILDER",
+      "label": "rs-builder",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.builder"
+      ],
+      "responsibilities": [
+        "Collect the records of a reply in one builder."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot and parsing source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "rs-text",
+          "rationale": "Read the lexical shape of a source file."
+        },
+        {
+          "component": "rs-workspace",
+          "rationale": "Read the crates and the manifests of the workspace."
+        },
+        {
+          "component": "rs-modules",
+          "rationale": "Resolve a path against the module tree."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-EDGES",
+      "label": "rs-edges",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.edges",
+        "native.archkeel_rust_collector.module_edges",
+        "native.archkeel_rust_collector.declared"
+      ],
+      "responsibilities": [
+        "Write the import edges between crates and modules, and the declared dependencies."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot and parsing source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "rs-text",
+          "rationale": "Read the lexical shape of a source file."
+        },
+        {
+          "component": "rs-workspace",
+          "rationale": "Read the crates and the manifests of the workspace."
+        },
+        {
+          "component": "rs-modules",
+          "rationale": "Resolve a path against the module tree."
+        },
+        {
+          "component": "rs-builder",
+          "rationale": "Add a record to the builder."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-REPLY",
+      "label": "rs-reply",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.reply"
+      ],
+      "responsibilities": [
+        "Encode the builder as a collection reply."
+      ],
+      "forbidden_responsibilities": [
+        "Reading source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "rs-modules",
+          "rationale": "Resolve a path against the module tree."
+        },
+        {
+          "component": "rs-builder",
+          "rationale": "Add a record to the builder."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-FLOW",
+      "label": "rs-flow",
+      "role": "component",
+      "packages": [
+        "native.archkeel_rust_collector.collect"
+      ],
+      "responsibilities": [
+        "Orchestrate one collection of the Rust collector."
+      ],
+      "forbidden_responsibilities": [
+        "Holding a rule of Rust syntax."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "rs-workspace",
+          "rationale": "Read the crates and the manifests of the workspace."
+        },
+        {
+          "component": "rs-modules",
+          "rationale": "Resolve a path against the module tree."
+        },
+        {
+          "component": "rs-builder",
+          "rationale": "Add a record to the builder."
+        },
+        {
+          "component": "rs-reply",
+          "rationale": "Encode the reply."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RS-ENTRY",
+      "label": "rs-entry",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_rust_collector",
+        "native.archkeel_rust_collector.build_script",
+        "native.archkeel_rust_collector.cargo_toml"
+      ],
+      "responsibilities": [
+        "The binary of the Rust collector: read the request, run the collection and write the reply; the build script and the manifest of the crate."
+      ],
+      "forbidden_responsibilities": [
+        "Reading TypeScript source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request and encode the reply with the shared wire."
+        },
+        {
+          "component": "build",
+          "rationale": "Call the shared helper that digests the sources, so one script owns the digest."
+        },
+        {
+          "component": "rs-reply",
+          "rationale": "Encode the reply."
+        },
+        {
+          "component": "rs-flow",
+          "rationale": "Run one collection."
         }
       ],
       "decided_by": "architect"
@@ -142,49 +944,103 @@
       "id": "NATIVE-ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "native",
-      "rationale": "A file that no crate owns escapes every rule below.",
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "rationale": "A module that no component owns escapes every rule below.",
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "NATIVE-REQUIRES-COMPLETE",
       "kind": "complete_requires",
-      "rationale": "A crate uses another crate only where requires says so; absence forbids. This is the crate direction of AD-327.",
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "rationale": "A component uses another component only where requires says so; absence forbids. This is the crate direction of AD-327 and the module direction of each collector.",
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "decided_by": "architect"
     },
     {
-      "id": "NATIVE-NO-CRATE-CYCLES",
+      "id": "NATIVE-NO-COMPONENT-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "Crates stay layered: the wire is the base and no collector crate is below another.",
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "rationale": "Components stay layered: facts, wire and snapshot are the base, and the flow of a collector is above its parts.",
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODULE-CYCLES",
+      "kind": "no_component_cycles",
+      "level": "module",
+      "components": [
+        "snapshot",
+        "wire",
+        "build",
+        "ts-input",
+        "ts-tree",
+        "ts-declarations",
+        "ts-sites",
+        "ts-walk",
+        "ts-scripts",
+        "ts-parse",
+        "ts-discover",
+        "ts-resolve",
+        "ts-records",
+        "ts-flow",
+        "ts-dump",
+        "ts-entry",
+        "rs-text",
+        "rs-workspace",
+        "rs-modules",
+        "rs-builder",
+        "rs-edges",
+        "rs-reply",
+        "rs-flow",
+        "rs-entry"
+      ],
+      "rationale": "Modules use each other in one direction, so a module is read, tested and moved after the modules it uses; the component rule cannot see a cycle inside one component. The facts component is out of scope since 2026-11-10: its 12-module macro cycle is a collector artifact of #954 item 1, and the pull request fix/rust-macro-edges-954 removes it, then removes this scope.",
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "NATIVE-EXTERNAL-TREE-SITTER",
       "kind": "external_dependency_scope",
       "dependency": "tree_sitter",
-      "allowed_sources": ["native.archkeel_typescript_collector"],
+      "allowed_sources": [
+        "native.archkeel_typescript_collector"
+      ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT",
       "kind": "external_dependency_scope",
       "dependency": "tree_sitter_typescript",
-      "allowed_sources": ["native.archkeel_typescript_collector"],
+      "allowed_sources": [
+        "native.archkeel_typescript_collector"
+      ],
       "rationale": "Only the TypeScript collector loads the TypeScript grammar.",
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "NATIVE-EXTERNAL-SYN",
       "kind": "external_dependency_scope",
       "dependency": "syn",
-      "allowed_sources": ["native.archkeel_rust_collector"],
+      "allowed_sources": [
+        "native.archkeel_rust_collector"
+      ],
       "rationale": "Only the Rust collector parses Rust source with syn.",
-      "provenance": ["docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"
+      ],
       "decided_by": "architect"
     }
   ]

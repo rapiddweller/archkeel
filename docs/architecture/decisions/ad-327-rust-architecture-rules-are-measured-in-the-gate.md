@@ -17,21 +17,17 @@ panic could end a scan.
 | Panic family | clippy `panic`, `unreachable`, `todo`, `unimplemented` | none in production | blocking |
 | Overflow | `overflow-checks = true` in the release profile | - | blocking |
 | Dead `pub` | `unreachable_pub` in each library | none | blocking |
-| Crate direction | `native/layers.toml` and `tests/test_self_native_layers.py` | declared | blocking |
+| Crate direction | contract of `native/` (AD-335) | used and declared | blocking |
 | Parser crates | `cargo deny` `wrappers` for `tree-sitter*` | collector only | blocking |
-| Module cycles | the same test, `crate::` paths | list in `layers.toml` | ratchet |
+| Module cycles | contract of `native/` (AD-335), module level | none | blocking |
 | Indexing, arithmetic, `as` casts | `make native-report` | counts | report |
 
 1. A ratchet uses `#[expect(clippy::x, reason = "...")]` on each function over a limit. With
    `-D warnings`, an `expect` that no longer fires is an error. So the list can only shrink.
 2. The rules cover production code. One test driver has an `#[expect]` for its complexity.
-3. `native/layers.toml` names each crate, its role and the crates it may use. A new crate needs an
-   entry. Only a collector may use a `tree-sitter*` crate. The vocabulary (component, may use) is
-   the one of an Archkeel contract, so a later move to a contract is a change of data.
-4. No module cycle remains (#907). `layers.toml` has no `cycles` section. A new cycle fails; a
-   crate without a `cycles` section has none.
-   The check folds each `#[path]` child into its parent, strips comments and strings, and ignores
-   `#[cfg(test)]` modules: a test-only edge is not a production cycle.
+3. The contract of `native/` names each component and the components it may use. Only a collector
+   may use a `tree-sitter*` crate.
+4. No module cycle remains (#907). The contract rule `NATIVE-NO-MODULE-CYCLES` fails a new cycle.
 5. `overflow-checks` costs 16,560 bytes of binary. On the x35 corpus the median was 1.220 s
    without it and 1.264 s with it (12 interleaved runs, inside the IQR). An overflow of
    `+`, `-` or `*` now stops the scan with `execution_error`. An `as` cast still truncates; the
@@ -49,10 +45,8 @@ panic could end a scan.
 name the TypeScript collector; a second collector must be added to them. AD-335 moves the
 crate-direction and module-cycle rows to the contract of `native/` when slice 5b-3 lands.
 
-**Checked by** `make native-check`, which also runs `tests/test_self_native_layers.py`
-(it fails, not skips, when `CI` is set and `cargo` is missing): a bad crate edge, a parser crate in a library,
-a crate without an entry, a new or grown cycle and a stale entry all fail on a fixture; the real
-workspace passes. `make native-check` checks the clippy and `cargo deny` rules.
+**Checked by** `make native-check`, which runs `make self-validate-native` (AD-335) and
+checks the clippy and `cargo deny` rules.
 
 **Note, 2026-11-10 (epic #880, target v2).** `archkeel-snapshot` exists: it owns the POSIX path
 text, the contained read, the symlink rule, the 4 MiB limit and the input digests. The TypeScript
