@@ -219,19 +219,35 @@ impl<'a> Project<'a> {
         project
     }
 
-    /// A name is bound elsewhere when a global script that does not declare it binds it.
+    /// A name is bound elsewhere when a global script that does not declare it binds it. One pass
+    /// over the bindings of each global script, so the cost does not grow with the product of the
+    /// declared names and the files.
     fn mark_bound_elsewhere(&mut self, files: &[(&'a str, &'a Kept)], scripts_are_global: bool) {
-        let declaring = |name: &str, kept: &Kept| {
-            let (globals, top) = (&kept.script.ambient_globals, &kept.script.ambient_top_level);
-            let top = Self::global_script(kept, scripts_are_global).then_some(top);
-            let mut listed = globals.iter().chain(top.into_iter().flatten());
-            listed.any(|(declared, _)| declared == name)
-        };
-        for (name, entry) in &mut self.declared {
-            entry.bound_elsewhere = files.iter().any(|(_, kept)| {
-                let global = Self::global_script(kept, scripts_are_global);
-                global && kept.script.bindings.contains(*name) && !declaring(name, kept)
+        for (_, kept) in files {
+            if Self::global_script(kept, scripts_are_global) {
+                self.mark_bindings_of(kept);
+            }
+        }
+    }
+
+    /// The bindings of one global script that name a declared name which the script does not declare.
+    fn mark_bindings_of(&mut self, kept: &'a Kept) {
+        let (globals, top) = (&kept.script.ambient_globals, &kept.script.ambient_top_level);
+        // The names that the file declares, listed once and only when a binding needs them.
+        let own = OnceCell::new();
+        let declares = |name: &str| {
+            let listed = own.get_or_init(|| {
+                let names = globals.iter().chain(top.iter());
+                names
+                    .map(|(declared, _)| declared.as_str())
+                    .collect::<HashSet<_>>()
             });
+            listed.contains(name)
+        };
+        for name in &kept.script.bindings {
+            if let Some(entry) = self.declared.get_mut(name.as_str()) {
+                entry.bound_elsewhere |= !declares(name);
+            }
         }
     }
 

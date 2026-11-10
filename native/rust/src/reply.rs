@@ -5,9 +5,9 @@
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
 use archkeel_facts::envelope::{Evidence, Provenance};
+use archkeel_facts::request::RustRequest;
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::builder::Builder;
@@ -43,9 +43,9 @@ impl Collected {
         } = self;
         let mut bytes = Vec::new();
         encode_stream(version, head, &mut bytes, |writer| {
-            writer.write_typed_section("imports", |emit| imports.iter().for_each(emit))?;
-            writer.write_typed_section("symbols", |emit| symbols.iter().for_each(emit))?;
-            writer.write_typed_section("unknowns", |emit| gaps.iter().for_each(emit))?;
+            writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
+            writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
+            writer.write_typed_section::<GapFact>(|emit| gaps.iter().for_each(emit))?;
             Ok(Tail {
                 selected_files,
                 files_read,
@@ -60,7 +60,7 @@ impl Collected {
 impl Builder {
     pub(crate) fn finish(
         self,
-        request: &Request,
+        request: &RustRequest,
         provenance: Provenance,
         scope: Vec<String>,
         selected: Vec<String>,
@@ -75,8 +75,8 @@ impl Builder {
         symbols.sort_by(|a, b| a.id.cmp(&b.id));
         let head = Head {
             provenance,
-            git_head: request.git_head.clone(),
-            dirty: request.dirty.clone(),
+            git_head: request.snapshot.git_head.clone(),
+            dirty: serde_json::to_value(&request.snapshot.dirty).unwrap_or_default(),
             scope,
             sections: SECTIONS.to_vec(),
             features: FEATURES.to_vec(),

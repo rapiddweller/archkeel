@@ -25,11 +25,26 @@ use crate::vocab::{ExceptionName, Kind};
 /// The data of a section: it gives the section that holds its records.
 pub trait IntoSection: FactData {
     fn section(records: Vec<Record<Self>>) -> Section;
+
+    /// The name of the section on the wire.
+    fn section_name() -> &'static str {
+        Self::section(Vec::new()).name()
+    }
+
+    /// The records of `section`, when it is the section of this data.
+    fn records(section: &Section) -> Option<&[Record<Self>]>;
 }
 
 impl IntoSection for GapFact {
     fn section(records: Vec<Record<Self>>) -> Section {
         Section::Unknowns(records)
+    }
+
+    fn records(section: &Section) -> Option<&[Record<Self>]> {
+        match section {
+            Section::Unknowns(records) => Some(records),
+            _ => None,
+        }
     }
 }
 

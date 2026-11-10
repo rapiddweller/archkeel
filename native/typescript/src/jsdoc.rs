@@ -152,7 +152,8 @@ pub fn imports(body: &str) -> bool {
     false
 }
 
-/// `_TRIPLE_SLASH`: a leading `/// <reference path="..." />` or `lib=`; the quoted text.
+/// `_TRIPLE_SLASH`: a leading `/// <reference path="..." />`, `lib=` or `types=`; the quoted text.
+/// A `types` name is no concern; a `types` path that starts with `.` or `/` is one (#976).
 pub fn triple_slash(body: &str) -> Option<String> {
     let rest = body.strip_prefix("///")?.trim_start_matches(is_space);
     let rest = rest.strip_prefix("<reference")?;
@@ -160,14 +161,22 @@ pub fn triple_slash(body: &str) -> Option<String> {
     if spaced.len() == rest.len() {
         return None;
     }
-    let rest = spaced
-        .strip_prefix("path")
-        .or_else(|| spaced.strip_prefix("lib"))?;
+    let (rest, types) = match spaced.strip_prefix("types") {
+        Some(rest) => (rest, true),
+        None => (
+            spaced
+                .strip_prefix("path")
+                .or_else(|| spaced.strip_prefix("lib"))?,
+            false,
+        ),
+    };
     let rest = rest.trim_start_matches(is_space).strip_prefix('=')?;
     let rest = rest.trim_start_matches(is_space);
     let quote = rest.chars().next().filter(|c| matches!(c, '\'' | '"'))?;
     let rest = &rest[1..];
     // The group `(.*?)` stops at the first quote; a dot does not match a line feed.
     let end = rest.find(quote)?;
-    (!rest[..end].contains('\n')).then(|| rest[..end].to_owned())
+    let value = rest.get(..end)?;
+    let named = types && !value.starts_with(['.', '/']);
+    (!value.contains('\n') && !named).then(|| value.to_owned())
 }

@@ -78,6 +78,7 @@ PR_TEST_FILES := \
 	'tests/test_collector_native_rust_scaling.py::test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small' \
 	tests/test_collector_native_digest.py \
 	tests/test_collector_native_imports.py \
+	tests/test_collector_native_augmentations.py \
 	'tests/test_collector_native_scaling.py::test_time_grows_linearly_with_the_size[class-comment-run]' \
 	'tests/test_collector_native_scaling.py::test_each_shape_equals_the_python_parser_at_small_sizes[class-comment-run]' \
 	'tests/test_collector_native_scaling.py::test_time_grows_linearly_with_the_size[class-decorator-run]' \
@@ -344,4 +345,5 @@ PR_TEST_FILES := \
 	tests/test_findings.py \
 	tests/test_contract_provenance.py \
 	tests/test_merge_check.py \
-	tests/test_collector_false_pass_gate.py
+	tests/test_collector_false_pass_gate.py \
+	tests/test_collector_false_pass_rust_layout.py

@@ -1906,7 +1906,7 @@ class _Collection:
                 evidence,
             )
         )
-        syntax = parse(rel, text.encode("utf-8"))
+        syntax = parse(rel, text.encode("utf-8"), self.resolver.options)
         if syntax.script_mode and (
             self.resolver.format_of(rel) is not None
             or any(

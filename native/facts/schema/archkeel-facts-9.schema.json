@@ -3147,6 +3147,12 @@
             "null"
           ]
         },
+        "script_namespace": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "source_module": {
           "$ref": "#/$defs/ModuleName"
         },

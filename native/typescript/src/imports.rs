@@ -20,7 +20,7 @@ use crate::kept::Kept;
 use crate::kept_script::ScriptFile;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
-use crate::parse::{parse, Parsed};
+use crate::parse::{parse_for, Parsed};
 use crate::plant;
 use crate::references::{Form, Reference};
 use crate::resolve::Found;
@@ -57,7 +57,8 @@ impl Collection<'_> {
 
     /// Parse a file, report what it cannot prove, and record each of its references.
     pub(super) fn references(&mut self, rel: &str, module: &str, file_evidence: &str, text: &str) {
-        let mut parsed = parse(&mut self.parsers, rel, text.as_bytes());
+        let aliased = self.resolver.options.aliased();
+        let mut parsed = parse_for(&mut self.parsers, rel, text.as_bytes(), aliased);
         if let Some(line) = parsed.first_error {
             let reason = format!("Syntax error in {rel}: unparseable construct at line {line}");
             self.gap(&reason, Some(file_evidence), module, GapKind::Collection);

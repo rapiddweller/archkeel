@@ -21,20 +21,20 @@
 
 use std::io::{self, Write};
 
-use archkeel_facts::{IntoSection, Section};
+use archkeel_facts::IntoSection;
 use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::pieces::{Adler, Piece, ZLIB_HEADER};
 use crate::protocol::Version;
-use crate::reply::{Facts, Record, ReplySection};
 use archkeel_facts::envelope::{
     Capabilities, Coverage, Evidence, FileFact, Input, NoEntries, ProtocolVersion, Provenance,
     Source, State, Target,
 };
 
 /// What the reply says before the records: who made it, what it declares, and the small lists.
+#[derive(Clone)]
 pub struct Head {
     pub provenance: Provenance,
     pub git_head: String,
@@ -50,6 +50,7 @@ pub struct Head {
 }
 
 /// What the reply says after the records.
+#[derive(Clone)]
 pub struct Tail {
     pub selected_files: Vec<String>,
     pub files_read: usize,
@@ -65,56 +66,28 @@ pub struct Sections<'a> {
     written: usize,
 }
 
-/// The function that a section gives each record to.
-pub type Emit<'e> = &'e mut dyn FnMut(&Record);
-
-/// The function that a typed section gives each record of archkeel-facts to (AD-345).
+/// The function that a section gives each record of archkeel-facts to (AD-345).
 pub type TypedEmit<'e, D> = &'e mut dyn FnMut(&archkeel_facts::Record<D>);
-
-/// The function that fills a section: it gives each record to the function it is called with.
-type Fill<'f, T> = &'f mut dyn FnMut(&mut dyn FnMut(&T));
 
 /// Where the records of a section go: the compressed reply, or the lists of a test.
 pub trait SectionSink {
-    /// Take the next section, with records of archkeel-facts. The types write the wire.
+    /// Take the next section, with records of archkeel-facts. The data type decides the name of the
+    /// section (`IntoSection::SECTION`), and the types write the wire.
     fn typed_section<D: IntoSection>(
         &mut self,
-        name: &'static str,
         fill: &mut dyn FnMut(TypedEmit<'_, D>),
     ) -> io::Result<()>;
 
     /// `typed_section` with a function that is called once.
     fn write_typed_section<D: IntoSection>(
         &mut self,
-        name: &'static str,
         fill: impl FnOnce(TypedEmit<'_, D>),
     ) -> io::Result<()>
     where
         Self: Sized,
     {
         let mut fill = Some(fill);
-        self.typed_section(name, &mut |emit| {
-            if let Some(fill) = fill.take() {
-                fill(emit);
-            }
-        })
-    }
-
-    /// Take the next section. `fill` makes the records and gives each to the function it is called
-    /// with.
-    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()>;
-
-    /// `section` with a function that is called once.
-    fn write_section(
-        &mut self,
-        name: &'static str,
-        fill: impl FnOnce(&mut dyn FnMut(&Record)),
-    ) -> io::Result<()>
-    where
-        Self: Sized,
-    {
-        let mut fill = Some(fill);
-        self.section(name, &mut |emit| {
+        self.typed_section(&mut |emit| {
             if let Some(fill) = fill.take() {
                 fill(emit);
             }
@@ -123,30 +96,12 @@ pub trait SectionSink {
 }
 
 impl SectionSink for Sections<'_> {
-    /// The name must be the next one that the head declared.
-    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
-        self.records(name, fill, write_record)
-    }
-
+    /// The section must be the next one that the head declared.
     fn typed_section<D: IntoSection>(
         &mut self,
-        name: &'static str,
         fill: &mut dyn FnMut(TypedEmit<'_, D>),
     ) -> io::Result<()> {
-        self.records(name, fill, |out, record| {
-            Ok(serde_json::to_writer(out, record)?)
-        })
-    }
-}
-
-impl Sections<'_> {
-    /// Write the next declared section: its name and each record that `fill` gives.
-    fn records<T>(
-        &mut self,
-        name: &'static str,
-        fill: Fill<'_, T>,
-        write: fn(&mut Piece, &T) -> io::Result<()>,
-    ) -> io::Result<()> {
+        let name = D::section_name();
         if self.expected.get(self.written) != Some(&name) {
             let reason = format!("the section {name} is not the next declared section");
             return Err(io::Error::new(io::ErrorKind::InvalidData, reason));
@@ -162,13 +117,15 @@ impl Sections<'_> {
         let mut first = true;
         let mut failure = None;
         let out = &mut *self.out;
-        fill(&mut |record: &T| {
+        fill(&mut |record: &archkeel_facts::Record<D>| {
             if failure.is_some() {
                 return;
             }
             let comma = if first { Ok(()) } else { out.write_all(b",") };
             first = false;
-            failure = comma.and_then(|()| write(out, record)).err();
+            failure = comma
+                .and_then(|()| Ok(serde_json::to_writer(&mut *out, record)?))
+                .err();
         });
         if let Some(error) = failure {
             return Err(error);
@@ -176,80 +133,6 @@ impl Sections<'_> {
         self.out.write_all(b"]")?;
         section.close(&mut *self.out)
     }
-}
-
-/// Give the records of a typed section to the sink.
-fn write_typed(sink: &mut impl SectionSink, section: Section) -> io::Result<()> {
-    fn put<S: SectionSink, D: IntoSection>(
-        sink: &mut S,
-        name: &'static str,
-        records: Vec<archkeel_facts::Record<D>>,
-    ) -> io::Result<()> {
-        sink.write_typed_section(name, |emit| records.iter().for_each(emit))
-    }
-    let name = section.name();
-    match section {
-        Section::Imports(records) => put(sink, name, records),
-        Section::Symbols(records) => put(sink, name, records),
-        Section::Calls(records) => put(sink, name, records),
-        Section::References(records) => put(sink, name, records),
-        Section::Bindings(records) => put(sink, name, records),
-        Section::Constructs(records) => put(sink, name, records),
-        Section::TypingSignals(records) => put(sink, name, records),
-        Section::Unknowns(records) => put(sink, name, records),
-    }
-}
-
-/// Encode the reply for `version`; 8.0.0 and 9.0.0 share one compressed shape. The facts are
-/// written section by section through `stream::encode_stream`, which holds the whole reply only as
-/// compressed bytes.
-pub fn encode(version: Version, facts: Facts) -> Result<Vec<u8>, String> {
-    let Facts {
-        provenance,
-        git_head,
-        dirty,
-        scope,
-        sections,
-        features,
-        constructs,
-        inputs,
-        files,
-        imports,
-        selected_files,
-        files_read,
-        gaps,
-        evidence,
-    } = facts;
-    let head = Head {
-        provenance,
-        git_head,
-        dirty,
-        scope,
-        sections: sections.iter().map(ReplySection::name).collect(),
-        features,
-        constructs,
-        inputs,
-        files,
-        imports,
-    };
-    let mut bytes = Vec::new();
-    encode_stream(version, head, &mut bytes, |writer| {
-        for section in sections {
-            match section {
-                ReplySection::Typed(section) => write_typed(writer, section)?,
-                ReplySection::Records(name, records) => {
-                    writer.write_section(name, |emit| records.iter().for_each(emit))?;
-                }
-            }
-        }
-        Ok(Tail {
-            selected_files,
-            files_read,
-            gaps,
-            evidence,
-        })
-    })?;
-    Ok(bytes)
 }
 
 /// Encode a reply for `version` into `sink`. `produce` writes the sections and returns the tail.
@@ -389,7 +272,7 @@ fn write_fields(out: &mut Piece, value: &impl Serialize) -> io::Result<()> {
 fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()> {
     let source =
         Source::of((&head.git_head, &head.dirty), &head.scope, &head.inputs).map_err(invalid)?;
-    let protocol_version = ProtocolVersion::parse(version.as_str()).ok_or_else(|| {
+    let protocol_version = version.compressed().ok_or_else(|| {
         invalid(format!(
             "no compressed reply for version {}",
             version.as_str()
@@ -412,19 +295,6 @@ fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()>
     out.write_all(b"}")
 }
 
-/// One record, with the order of keys of `record_value` and without a copy of its data.
-fn write_record(out: &mut impl Write, record: &Record) -> io::Result<()> {
-    let mut item = Fields::open(out)?;
-    item.put(out, "id", &record.id)?;
-    item.put(out, "evidence_class", &record.evidence_class)?;
-    item.put(out, "area", &record.area)?;
-    item.put(out, "kind", &record.kind)?;
-    item.put(out, "title", &record.title)?;
-    item.put(out, "subjects", &record.subjects)?;
-    item.put(out, "evidence_ids", &record.evidence_ids)?;
-    item.put(out, "rule_ids", &Vec::<String>::new())?;
-    item.put(out, "fact_ids", &record.fact_ids)?;
-    item.put(out, "provenance", &Vec::<String>::new())?;
-    item.put(out, "data", &record.data)?;
-    item.close(out)
-}
+#[cfg(test)]
+#[path = "stream_tests.rs"]
+mod tests;

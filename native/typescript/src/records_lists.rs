@@ -6,34 +6,27 @@
 
 use std::io;
 
-use archkeel_wire::reply::{Facts, Record, ReplySection};
-use archkeel_wire::stream::{Emit, SectionSink, TypedEmit};
+use archkeel_facts::{BindingFact, IntoSection, Record, Section};
+use archkeel_wire::stream::{SectionSink, TypedEmit};
 
+use crate::collected::{Facts, Records};
 use crate::kept::Pending;
-use crate::records::{import_section, plan, Records};
+use crate::records::plan;
 
 /// The lists of a producer run: the sink of the unit tests and the test-only dump.
 #[derive(Default)]
 pub struct Lists {
-    pub sections: Vec<ReplySection>,
+    pub sections: Vec<Section>,
 }
 
 impl SectionSink for Lists {
-    fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
-        let mut records = Vec::new();
-        fill(&mut |record: &Record| records.push(record.clone()));
-        self.sections.push(ReplySection::Records(name, records));
-        Ok(())
-    }
-
-    fn typed_section<D: archkeel_facts::IntoSection>(
+    fn typed_section<D: IntoSection>(
         &mut self,
-        _name: &'static str,
         fill: &mut dyn FnMut(TypedEmit<'_, D>),
     ) -> io::Result<()> {
         let mut records = Vec::new();
-        fill(&mut |record: &archkeel_facts::Record<D>| records.push(record.clone()));
-        self.sections.push(ReplySection::Typed(D::section(records)));
+        fill(&mut |record: &Record<D>| records.push(record.clone()));
+        self.sections.push(D::section(records));
         Ok(())
     }
 }
@@ -63,34 +56,62 @@ pub fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), S
     Ok((facts, touched))
 }
 
+/// The records of the section of `D`.
+pub fn section_of<D: IntoSection>(sections: &[Section]) -> Vec<Record<D>> {
+    sections
+        .iter()
+        .find_map(D::records)
+        .map(<[Record<D>]>::to_vec)
+        .unwrap_or_default()
+}
+
+/// An export witness: the record of `bindings` that proves a module exports a name.
+fn is_witness(record: &Record<BindingFact>) -> bool {
+    matches!(&record.data, BindingFact::Bindings(data) if data.exports_name())
+}
+
 /// The records of the sections by the names that the tests and the dump use: the result bindings
 /// are the records of `bindings` that are not export witnesses.
 pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
     #[cfg(not(feature = "dump"))]
     drop(touched);
-    let section = |name: &str| -> Vec<Record> {
-        facts
-            .sections
-            .iter()
-            .find_map(|section| match section {
-                ReplySection::Records(found, records) if *found == name => Some(records.clone()),
-                _ => None,
-            })
-            .unwrap_or_default()
-    };
-    let (witnesses, bindings) = section("bindings")
+    let (witnesses, bindings) = section_of(&facts.sections)
         .into_iter()
-        .partition(|record| record.id.starts_with("ESM_EXPORT-"));
+        .partition(is_witness);
     Records {
-        imports: import_section(facts).to_vec(),
+        imports: section_of(&facts.sections),
         targets: facts.imports.clone(),
         witnesses,
-        constructs: section("constructs"),
-        symbols: section("symbols"),
-        calls: section("calls"),
-        references: section("references"),
+        constructs: section_of(&facts.sections),
+        symbols: section_of(&facts.sections),
+        calls: section_of(&facts.sections),
+        references: section_of(&facts.sections),
         bindings,
         #[cfg(feature = "dump")]
         touched,
     }
+}
+
+/// A record as plain JSON: the tests read the fields by the names of the wire.
+#[cfg(test)]
+#[derive(Clone)]
+pub struct Plain {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub data: serde_json::Value,
+}
+
+#[cfg(test)]
+pub fn plains<D: archkeel_facts::FactData>(records: &[Record<D>]) -> Vec<Plain> {
+    let plain = |record: &Record<D>| {
+        let value = serde_json::to_value(record).unwrap();
+        Plain {
+            id: record.id.as_str().to_owned(),
+            kind: record.data.wire_kind().to_owned(),
+            title: record.title.clone(),
+            data: value["data"].clone(),
+        }
+    };
+    records.iter().map(plain).collect()
 }

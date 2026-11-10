@@ -8,9 +8,14 @@
 //! The reply carries them under the capability `inner-uml-v1` (AD-340). The `dump` feature prints them, and
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 
+use archkeel_facts::data::{BindingData, CallData, ReferenceData};
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_wire::reply::Record;
-use serde_json::{json, Map, Value};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
+use archkeel_facts::nested::{Construction, ResultBinding};
+use archkeel_facts::nullable::Nullable;
+use archkeel_facts::vocab::{Area, EvidenceClass, Status, Use};
+use archkeel_facts::{BindingFact, CallFact, Record, ReferenceFact};
+use archkeel_wire::stream::TypedEmit;
 
 use crate::cited::Cited;
 use crate::kept::{Kept, Pending};
@@ -20,18 +25,17 @@ use crate::site_paths::Text;
 use crate::sites::{Expression, Site, SiteKind, SiteUse};
 use crate::symbol_table::SymbolTable;
 
-/// The kinds of site that one pass makes records of. Python makes both in one pass and writes two
-/// lists; a pass for each list writes each record when it is made. The sites of one position have
-/// the order of their kinds in both orders, so the last citation of a location is the same.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Pass {
-    Calls,
-    References,
+/// The records that one pass writes, and where they go. Python makes both in one pass and writes
+/// two lists; a pass for each list writes each record when it is made. The sites of one position
+/// have the order of their kinds in both orders, so the last citation of a location is the same.
+pub enum Pass<'e> {
+    Calls(TypedEmit<'e, CallFact>),
+    References(TypedEmit<'e, ReferenceFact>),
 }
 
 /// A binding record and the place of its site (the file and the site in the file), so that the
 /// bindings of the two passes come in the order of the sites, as Python makes them in one pass.
-pub type Placed = ((usize, usize), Record);
+pub type Placed = ((usize, usize), Record<BindingFact>);
 
 /// `_inner_sites` for one list: resolve each site of the pass and write its record. A `new`
 /// expression that is assigned to a name gives a binding record, and so does the alias that a
@@ -41,8 +45,7 @@ pub fn pass(
     pending: &Pending,
     imports: &Imports,
     cited: &mut Cited,
-    which: Pass,
-    emit: &mut dyn FnMut(Record),
+    mut out: Pass<'_>,
 ) -> Vec<Placed> {
     let resolver = Resolver { table, imports };
     let mut bindings = Vec::new();
@@ -53,7 +56,7 @@ pub fn pass(
         let scripted = pending.script.modules.get(&kept.module);
         for (site_at, site) in kept.sites.sites.iter().enumerate() {
             let reference_site = site.kind == SiteKind::Reference;
-            if reference_site != (which == Pass::References) {
+            if reference_site != matches!(out, Pass::References(_)) {
                 continue;
             }
             let place = Place::of(table, kept, rel, site);
@@ -68,36 +71,55 @@ pub fn pass(
                 site,
                 targets.map(Vec::as_slice),
             );
-            let mut made = if reference_site {
-                let record = reference(kept, &place, site, &resolved, evidence);
-                (record, Vec::new())
-            } else {
-                call(table, cited, kept, &place, site, &resolved, evidence)
-            };
             let proven =
                 proofs.map(|(found, key)| (found.evidence.get(key), found.fact_ids.get(key)));
-            if let Some((evidence_ids, fact_ids)) = proven {
-                prove(&mut made.0, evidence_ids, fact_ids);
-            }
-            let alias = alias_bindings(kept, &place, site, &made.0, proven.and_then(|p| p.1));
-            emit(made.0);
-            bindings.extend(
-                made.1
-                    .into_iter()
-                    .chain(alias)
-                    .map(|record| ((file_at, site_at), record)),
-            );
+            let found = match &mut out {
+                Pass::References(emit) => {
+                    let mut record = reference(kept, &place, site, &resolved, evidence);
+                    let alias = prove(kept, &place, site, &mut record, proven);
+                    emit(&record);
+                    alias
+                }
+                Pass::Calls(emit) => {
+                    let (mut record, values) =
+                        call(table, cited, kept, &place, site, &resolved, evidence);
+                    let alias = prove(kept, &place, site, &mut record, proven);
+                    emit(&record);
+                    values.into_iter().chain(alias).collect()
+                }
+            };
+            bindings.extend(found.into_iter().map(|record| ((file_at, site_at), record)));
         }
     }
     bindings
 }
 
-/// `reference["evidence_ids"] = script_evidence.get(...)` and `["fact_ids"] = script_fact_ids...`.
-fn prove(record: &mut Record, evidence: Option<&Vec<String>>, facts: Option<&Vec<String>>) {
+/// What the script analysis proves about a site: its evidence and its facts.
+type Proven<'p> = (Option<&'p Vec<String>>, Option<&'p Vec<String>>);
+
+/// `reference["evidence_ids"] = script_evidence.get(...)` and `["fact_ids"] = script_fact_ids...`,
+/// and then the alias bindings that the proven site gives.
+fn prove<D>(
+    kept: &Kept,
+    place: &Place,
+    site: &Site,
+    record: &mut Record<D>,
+    proven: Option<Proven<'_>>,
+) -> Vec<Record<BindingFact>> {
+    let Some((evidence, facts)) = proven else {
+        return Vec::new();
+    };
     if let Some(ids) = evidence {
-        record.evidence_ids.clone_from(ids);
+        record.evidence_ids = ids.iter().map(EvidenceId::new).collect();
     }
-    record.fact_ids = facts.cloned().unwrap_or_default();
+    let ids = facts.cloned().unwrap_or_default();
+    record.fact_ids = ids.iter().map(FactId::new).collect();
+    let evidence_ids: Vec<String> = record
+        .evidence_ids
+        .iter()
+        .map(|id| id.as_str().to_owned())
+        .collect();
+    alias_bindings(kept, place, site, &evidence_ids, facts)
 }
 
 /// The key of a site in the maps of the script analysis.
@@ -113,9 +135,9 @@ fn alias_bindings(
     kept: &Kept,
     place: &Place,
     site: &Site,
-    made: &Record,
+    made: &[String],
     facts: Option<&Vec<String>>,
-) -> Vec<Record> {
+) -> Vec<Record<BindingFact>> {
     let Some((first, rest)) = facts.and_then(|facts| facts.split_first()) else {
         return Vec::new();
     };
@@ -123,7 +145,7 @@ fn alias_bindings(
     aliases
         .filter(|alias| alias.reference_span == site.span)
         .map(|alias| {
-            let proof = (made.evidence_ids.clone(), rest.to_vec());
+            let proof = (made.to_vec(), rest.to_vec());
             binding_record(place, first, &alias.name, proof)
         })
         .collect()
@@ -167,36 +189,19 @@ fn expression(kept: &Kept, site: &Site) -> String {
     }
 }
 
-/// The fields that a reference and a call share.
-fn common(
-    kept: &Kept,
-    place: &Place,
-    site: &Site,
-    resolved: &Resolved,
-) -> (String, Map<String, Value>) {
-    let expression = expression(kept, site);
-    let mut data = Map::new();
-    data.insert("source_scope".to_owned(), json!(place.scope));
-    data.insert("source_module".to_owned(), json!(place.module));
-    data.insert("expression".to_owned(), json!(expression));
-    data.insert("status".to_owned(), json!(resolved.status));
-    data.insert("targets".to_owned(), json!(resolved.candidates));
-    data.insert(
-        "candidate_count".to_owned(),
-        json!(resolved.candidates.len()),
-    );
-    data.insert("candidates_truncated".to_owned(), json!(false));
-    (expression, data)
+/// The reason and the id of the definition (`if reason:`).
+fn reason(resolved: &Resolved) -> Option<String> {
+    resolved
+        .reason
+        .filter(|reason| !reason.is_empty())
+        .map(str::to_owned)
 }
 
-/// The reason and the id of the definition, written after the fields above (`if reason:`).
-fn finish(data: &mut Map<String, Value>, place: &Place, resolved: &Resolved) {
-    if let Some(reason) = resolved.reason.filter(|reason| !reason.is_empty()) {
-        data.insert("reason".to_owned(), json!(reason));
-    }
-    if let Some(id) = &place.source_id {
-        data.insert("source_definition_id".to_owned(), json!(id));
-    }
+fn source_definition(place: &Place) -> Nullable<FactId> {
+    place
+        .source_id
+        .as_ref()
+        .map_or(Nullable::Absent, |id| Nullable::Value(FactId::new(id)))
 }
 
 fn subjects(place: &Place, resolved: &Resolved) -> Vec<String> {
@@ -207,6 +212,21 @@ fn subjects(place: &Place, resolved: &Resolved) -> Vec<String> {
     found
 }
 
+/// The record of a site: the same fields for a call and a reference.
+fn site_record<D>(id: String, title: String, parts: (Vec<String>, String), data: D) -> Record<D> {
+    let (subjects, evidence) = parts;
+    Record {
+        id: FactId::new(id),
+        evidence_class: EvidenceClass::Fact,
+        area: Area::Source,
+        title,
+        subjects,
+        evidence_ids: vec![EvidenceId::new(evidence)],
+        fact_ids: Vec::new(),
+        data,
+    }
+}
+
 /// `_reference_record`.
 fn reference(
     kept: &Kept,
@@ -214,15 +234,21 @@ fn reference(
     site: &Site,
     resolved: &Resolved,
     evidence: String,
-) -> Record {
-    let (expression, mut data) = common(kept, place, site, resolved);
+) -> Record<ReferenceFact> {
+    let expression = expression(kept, site);
     let usage = match site.usage {
-        SiteUse::Type => "type",
-        SiteUse::Value => "value",
-        SiteUse::Member => "member",
+        SiteUse::Type => Use::Type,
+        SiteUse::Value => Use::Value,
+        SiteUse::Member => Use::Member,
     };
-    data.insert("use".to_owned(), json!(usage));
-    finish(&mut data, place, resolved);
+    let mut data = ReferenceData::new(
+        expression.clone(),
+        (ModuleName::new(place.module), place.scope.clone()),
+        (resolved.status, usage),
+        resolved.candidates.clone(),
+    );
+    data.reason = reason(resolved);
+    data.source_definition_id = source_definition(place);
     let id = stable_id(
         "TSREF",
         &[
@@ -232,17 +258,8 @@ fn reference(
             Part::Text(&expression),
         ],
     );
-    Record {
-        id,
-        evidence_class: "FACT",
-        area: "source",
-        kind: "references",
-        title: expression,
-        subjects: subjects(place, resolved),
-        evidence_ids: vec![evidence],
-        fact_ids: Vec::new(),
-        data,
-    }
+    let parts = (subjects(place, resolved), evidence);
+    site_record(id, expression, parts, ReferenceFact::References(data))
 }
 
 /// `_call_record`: the record, and the binding records of a `new` expression.
@@ -254,8 +271,8 @@ fn call(
     site: &Site,
     resolved: &Resolved,
     evidence: String,
-) -> (Record, Vec<Record>) {
-    let (expression, mut data) = common(kept, place, site, resolved);
+) -> (Record<CallFact>, Vec<Record<BindingFact>>) {
+    let expression = expression(kept, site);
     let id = stable_id(
         "TSCALL",
         &[
@@ -265,50 +282,49 @@ fn call(
             Part::Text(&expression),
         ],
     );
-    finish(&mut data, place, resolved);
+    let mut data = CallData::new(
+        expression.clone(),
+        (ModuleName::new(place.module), place.scope.clone()),
+        resolved.status,
+        resolved.candidates.clone(),
+    );
+    data.reason = reason(resolved);
+    data.source_definition_id = source_definition(place);
     let mut bindings = Vec::new();
     if site.kind == SiteKind::New {
-        data.insert("construction".to_owned(), construction(table, resolved));
+        data.construction = Nullable::Value(construction(table, resolved));
         let values = result_binding(cited, kept, place, site, &id);
         bindings = values
             .iter()
             .map(|value| {
-                let proof = (vec![value.evidence.clone()], Vec::new());
-                binding_record(place, &value.id, &value.name, proof)
+                let evidence = value.evidence_ids.iter().map(|id| id.as_str().to_owned());
+                let proof = (evidence.collect(), Vec::new());
+                binding_record(place, value.id.as_str(), &value.name, proof)
             })
             .collect();
-        let listed: Vec<Value> = values.iter().map(ResultBinding::to_json).collect();
-        data.insert("result_bindings".to_owned(), json!(listed));
+        data.result_bindings = Some(values);
     }
-    let record = Record {
-        id,
-        evidence_class: "FACT",
-        area: "source",
-        kind: "calls",
-        title: expression,
-        subjects: subjects(place, resolved),
-        evidence_ids: vec![evidence],
-        fact_ids: Vec::new(),
-        data,
-    };
+    let parts = (subjects(place, resolved), evidence);
+    let record = site_record(id, expression, parts, CallFact::Calls(data));
     (record, bindings)
 }
 
 /// The `construction` of a `new` expression: the targets that are classes.
-fn construction(table: &SymbolTable, resolved: &Resolved) -> Value {
-    let targets: Vec<&String> = resolved
+fn construction(table: &SymbolTable, resolved: &Resolved) -> Construction {
+    let targets: Vec<String> = resolved
         .candidates
         .iter()
         .filter(|target| table.class_count(target) > 0)
+        .cloned()
         .collect();
-    let status = if targets.len() == 1 && resolved.status == "resolved" {
-        "resolved"
+    let status = if targets.len() == 1 && resolved.status == Status::Resolved {
+        Status::Resolved
     } else if targets.is_empty() {
-        "unresolved"
+        Status::Unresolved
     } else {
-        "partially_resolved"
+        Status::PartiallyResolved
     };
-    let reason = if status == "resolved" {
+    let reason = if status == Status::Resolved {
         "Unique local classifier construction"
     } else {
         resolved
@@ -316,34 +332,11 @@ fn construction(table: &SymbolTable, resolved: &Resolved) -> Value {
             .filter(|reason| !reason.is_empty())
             .unwrap_or("Construction target is not proven")
     };
-    json!({
-        "status": status,
-        "targets": targets,
-        "candidates_truncated": false,
-        "reason": reason,
-    })
-}
-
-/// The name that receives a new object (`_result_binding`).
-struct ResultBinding {
-    id: String,
-    name: String,
-    annotation: Option<String>,
-    initializer: String,
-    evidence: String,
-}
-
-impl ResultBinding {
-    fn to_json(&self) -> Value {
-        json!({
-            "id": self.id,
-            "name": self.name,
-            "target_kind": "name",
-            "annotation": self.annotation,
-            "initializer": self.initializer,
-            "evidence_ids": [self.evidence],
-            "definition_contexts": [],
-        })
+    Construction {
+        candidates_truncated: false,
+        reason: reason.to_owned(),
+        status,
+        targets,
     }
 }
 
@@ -376,11 +369,13 @@ fn result_binding(
     );
     let evidence = cited.cite(place.rel, span);
     vec![ResultBinding {
-        id,
-        name,
         annotation: site.assignment_annotation.clone(),
+        definition_contexts: Vec::new(),
+        evidence_ids: vec![EvidenceId::new(evidence)],
+        id: FactId::new(id),
         initializer: initializer.decode(data),
-        evidence,
+        name,
+        target_kind: "name".to_owned(),
     }]
 }
 
@@ -390,24 +385,23 @@ fn binding_record(
     id: &str,
     name: &str,
     proof: (Vec<String>, Vec<String>),
-) -> Record {
-    let mut data = Map::new();
-    data.insert("module".to_owned(), json!(place.module));
-    data.insert("source_scope".to_owned(), json!(place.scope));
-    data.insert("source_module".to_owned(), json!(place.module));
-    data.insert("binding".to_owned(), json!(name));
+) -> Record<BindingFact> {
+    let data = BindingData {
+        binding: Some(name.to_owned()),
+        source_scope: place.scope.clone(),
+        ..BindingData::in_module(place.module)
+    };
     let (mut evidence_ids, fact_ids) = proof;
     evidence_ids.sort();
     Record {
-        id: id.to_owned(),
-        evidence_class: "FACT",
-        area: "source",
-        kind: "bindings",
+        id: FactId::new(id),
+        evidence_class: EvidenceClass::Fact,
+        area: Area::Source,
         title: format!("{}.{name} binding", place.scope),
         subjects: vec![place.scope.clone()],
-        evidence_ids,
-        fact_ids,
-        data,
+        evidence_ids: evidence_ids.into_iter().map(EvidenceId::new).collect(),
+        fact_ids: fact_ids.into_iter().map(FactId::new).collect(),
+        data: BindingFact::Bindings(data),
     }
 }
 

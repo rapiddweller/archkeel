@@ -23,6 +23,8 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
+from .augmentations import Aliases, augmentation_concerns, has_aliases
+from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
     Base as Base,
@@ -327,47 +329,10 @@ def _special_name(value: str | None) -> _SpecialName | None:
 _LOADER: Final = "Node module loader is not observed"
 
 
-class _JSDocType(Enum):
-    """How a JSDoc tag can name a module; tsc 5.9.3 reads these only in JavaScript (#744)."""
-
-    BRACED = "braced"
-    BARE = "bare"  # The type can omit its braces.
-    TEMPLATE = "template"  # A `[name=default]` also holds a type.
-    IMPORT = "import"
-
-
-_JSDOC_TAGS: Final = {
-    "import": _JSDocType.IMPORT,
-    "template": _JSDocType.TEMPLATE,
-    **dict.fromkeys(
-        ("type", "this", "enum", "extends", "augments", "implements", "satisfies"), _JSDocType.BARE
-    ),
-    **dict.fromkeys(
-        (
-            "return",
-            "returns",
-            "param",
-            "arg",
-            "argument",
-            "prop",
-            "property",
-            "typedef",
-            "throws",
-            "exception",
-        ),
-        _JSDocType.BRACED,
-    ),
-}
-# Only a `/**` comment is a JSDoc block. tsc starts a tag at `@` after whitespace or a margin
-# `*`, so `a@type` is no tag.
-_JSDOC_TOKEN: Final = re.compile(
-    r"(?P<block>\A/\*\*)|(?<![^\s*])@(?P<tag>\w+)(?P<braced>[\s*]*\{)?"
-    r"|(?P<open>\{)|(?P<close>\})|(?P<bracket>\[)|(?P<end>\])|(?P<quote>['\"`])"
-    r"|(?P<call>\bimport[\s*]*\()"
+# A `types` directive counts when it names a path, as `path` does (#976); a name only adds globals.
+_TRIPLE_SLASH: Final = re.compile(
+    r"^///\s*<reference\s+(?:path|lib|types(?=\s*=\s*['\"][./]))\s*=\s*(['\"])(.*?)\1"
 )
-
-
-_TRIPLE_SLASH: Final = re.compile(r"^///\s*<reference\s+(?:path|lib)\s*=\s*(['\"])(.*?)\1")
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -390,6 +355,7 @@ _QUERIES: Final = {
         (call_expression function: (identifier) @callee (#eq? @callee "require")) @require
         """,
     "comments": "(comment) @comment",
+    "augmentations": "(module name: (string) @name)",
     "umd_writes": """
         [(with_statement) (function_declaration) (function_expression)
          (generator_function_declaration) (generator_function) (arrow_function)
@@ -470,7 +436,7 @@ def _line_starts(data: bytes) -> list[int]:
     return [0, *(found.end() for found in _LINE_BREAK.finditer(data))]
 
 
-def parse(rel_path: str, data: bytes) -> Syntax:
+def parse(rel_path: str, data: bytes, options: Aliases | None = None) -> Syntax:
     # JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
     # Preserve the old filename regex boundary: $ also accepted one final newline.
     suffix = classify_file(rel_path.removesuffix("\n"))
@@ -509,6 +475,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
         concerns.extend(_comment_concerns(source, suffix))
+    concerns.extend(_augmentation_concerns(source, options))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3714,56 +3681,20 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     for node in source.captures("comments").get("comment", []):
         body = _text(node)
         directive = _TRIPLE_SLASH.match(body) if node.start_byte < first else None
-        # A `types` entry only adds globals, which the catalog does not model (AD-274).
-        # `types` is no concern: it only adds globals, which the catalog does not model (AD-274).
+        # A `types` name adds globals, which the catalog does not model (AD-274): no concern.
         if directive is not None:
             reason = f"Unobserved triple-slash reference: {directive[2]}"
             concerns.append(Concern(reason, source.span(node)))
-        if jsdoc and _jsdoc_imports(body):
+        if jsdoc and jsdoc_imports(body):
             concerns.append(Concern("JSDoc import is not observed", source.span(node)))
     return concerns
 
 
-def _jsdoc_imports(body: str) -> bool:
-    """An `@import` tag, or `import(` in the type of a tag; prose is no type (#744)."""
-    kind: _JSDocType | None = None
-    depth = 0
-    # `armed`: the end of a type is not known, so any later import counts.
-    armed = False
-    # The quotes seen an odd number of times in the open types.
-    odd: set[str] = set()
-    tokens = _JSDOC_TOKEN.finditer(body)
-    first = next(tokens, None)
-    if first is None or first["block"] is None:
-        return False
-    for token in tokens:
-        if token["call"] is not None:
-            if armed or depth:
-                return True
-        elif token["tag"] is not None:
-            # A tag inside an open type: a broken type, or an `@` inside a string.
-            armed = armed or depth > 0
-            kind = _JSDOC_TAGS.get(token["tag"])
-            if kind is _JSDocType.IMPORT:
-                return True
-            depth = 1 if kind is not None and token["braced"] is not None else 0
-            # Without braces the end of the type is not known.
-            armed = armed or (kind is _JSDocType.BARE and not depth)
-        elif kind is None:
-            continue
-        elif token["open"] is not None or (
-            token["bracket"] is not None and kind is _JSDocType.TEMPLATE
-        ):
-            depth += 1
-        elif (
-            token["close"] is not None or (token["end"] is not None and kind is _JSDocType.TEMPLATE)
-        ) and depth:
-            depth -= 1
-            # An odd quote count can put this brace or bracket inside a string.
-            armed = armed or bool(odd)
-        elif token["quote"] is not None and depth:
-            odd ^= {token["quote"]}
-    return False
+def _augmentation_concerns(source: _Source, options: Aliases | None) -> list[Concern]:
+    nodes = source.captures("augmentations").get("name", [])
+    names = [(_text(node)[1:-1], source.span(node)) for node in nodes]
+    aliased = options is not None and has_aliases(options)
+    return augmentation_concerns(names, _module_exports(source.root)[0], aliased)
 
 
 class _UMDSlot(Enum):

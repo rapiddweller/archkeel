@@ -444,7 +444,10 @@
       "label": "ts-records",
       "role": "component",
       "packages": [
+        "native.archkeel_typescript_collector.bound_names",
         "native.archkeel_typescript_collector.cited",
+        "native.archkeel_typescript_collector.class_data",
+        "native.archkeel_typescript_collector.collected",
         "native.archkeel_typescript_collector.kept",
         "native.archkeel_typescript_collector.kept_script",
         "native.archkeel_typescript_collector.records",

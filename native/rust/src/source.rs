@@ -24,8 +24,12 @@ pub fn read_text(snapshot: &mut Snapshot, rel: &str) -> Result<String, String> {
     }
 }
 
-/// The files below `rel`, relative to the snapshot, sorted. A directory named `target` and a
-/// hidden directory are not entered. A directory is entered once, so a link cannot make a loop.
+/// What Cargo writes into its own build output, which no source directory holds.
+const BUILD_MARKERS: [&str; 2] = ["CACHEDIR.TAG", ".rustc_info.json"];
+
+/// The files below `rel`, relative to the snapshot, sorted. A hidden directory and the build
+/// output are not entered: a directory with a Cargo marker file, and the `target` directory
+/// beside a `Cargo.toml`. A module directory named `target` is read like any other. A directory is entered once, so a link cannot make a loop.
 pub fn walk(snapshot: &mut Snapshot, rel: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut seen = BTreeSet::new();
@@ -45,10 +49,17 @@ fn walk_into(
         return;
     }
     let (files, directories) = snapshot.entries(rel);
+    if files
+        .iter()
+        .any(|name| BUILD_MARKERS.contains(&name.as_str()))
+    {
+        return;
+    }
+    let manifest_here = files.iter().any(|name| name == "Cargo.toml");
     let child = |name: &str| archkeel_snapshot::paths::join(rel, name);
     found.extend(files.iter().map(|name| child(name)));
     for name in directories {
-        if name != "target" && !name.starts_with('.') {
+        if !(manifest_here && name == "target") && !name.starts_with('.') {
             walk_into(snapshot, &child(&name), depth + 1, seen, found);
         }
     }

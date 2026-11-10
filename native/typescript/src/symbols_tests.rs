@@ -6,27 +6,34 @@
 // table. The expected values follow the Python collector; `tests/test_collector_native_records.py`
 // compares every record on real trees.
 
+use archkeel_facts::envelope::Dirty;
 use archkeel_facts::envelope::{Profile, Provenance};
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::request::{Scope, Snapshot, TypeScriptRequest, TypeScriptSettings};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::Record;
-use archkeel_wire::request::Request;
 use serde_json::Value;
 
 use crate::collect::records;
+use crate::records_lists::{plains, Plain};
 use archkeel_snapshot::test_tree::Tree;
 
-fn request(tree: &Tree) -> Request {
-    Request {
-        version: Version::V9,
-        root: tree.path(),
-        git_head: "a".repeat(40),
-        dirty: Value::Bool(false),
-        roots: vec!["src".to_owned()],
-        namespace: "shop".to_owned(),
-        exclude_test_sources: false,
-        tsconfig: "tsconfig.json".to_owned(),
-        bundler: false,
+fn request(tree: &Tree) -> TypeScriptRequest {
+    TypeScriptRequest {
+        protocol_version: Version::V9,
+        snapshot: Snapshot {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["src".to_owned()],
+            namespace: "shop".to_owned(),
+            exclude_test_sources: Some(false),
+        },
+        resolver: TypeScriptSettings {
+            tsconfig: "tsconfig.json".to_owned(),
+            bundler: false,
+        },
     }
 }
 
@@ -38,15 +45,15 @@ fn provenance() -> Provenance {
     )
 }
 
-fn symbols(source: &str) -> Vec<Record> {
+fn symbols(source: &str) -> Vec<Plain> {
     let tree = Tree::new(&[
         ("tsconfig.json", r#"{"include":["src"]}"#),
         ("src/a.ts", source),
     ]);
-    records(&request(&tree), provenance()).unwrap().1.symbols
+    plains(&records(&request(&tree), provenance()).unwrap().1.symbols)
 }
 
-fn named<'a>(list: &'a [Record], name: &str) -> &'a Record {
+fn named<'a>(list: &'a [Plain], name: &str) -> &'a Plain {
     list.iter()
         .find(|record| record.data["name"] == name)
         .unwrap()

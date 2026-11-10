@@ -96,6 +96,11 @@ impl Options {
             && self.emit_module() != ModuleKind::NodeNext
     }
 
+    /// The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project.
+    pub fn aliased(&self) -> bool {
+        self.base_url.is_some() || !self.paths.is_empty()
+    }
+
     /// The effective resolution mode.
     pub fn resolution(&self) -> Resolution {
         if let Some(resolution) = self.module_resolution {

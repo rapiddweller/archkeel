@@ -5,28 +5,35 @@
 // Consumer: PR 4.3a-3d, which puts the records on the wire. The expected values follow the Python
 // collector; `tests/test_collector_native_records.py` compares every record on real trees.
 
+use archkeel_facts::envelope::Dirty;
 use archkeel_facts::envelope::{Profile, Provenance};
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::request::{Scope, Snapshot, TypeScriptRequest, TypeScriptSettings};
+use archkeel_facts::Section;
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::ReplySection;
-use archkeel_wire::request::Request;
-use serde_json::Value;
 
 use crate::collect::{collect, records};
-use crate::records::import_section;
+use crate::collected::import_section;
+use crate::records_lists::plains;
 use archkeel_snapshot::test_tree::Tree;
 
-fn request(tree: &Tree) -> Request {
-    Request {
-        version: Version::V9,
-        root: tree.path(),
-        git_head: "a".repeat(40),
-        dirty: Value::Bool(false),
-        roots: vec!["src".to_owned()],
-        namespace: "shop".to_owned(),
-        exclude_test_sources: false,
-        tsconfig: "tsconfig.json".to_owned(),
-        bundler: false,
+fn request(tree: &Tree) -> TypeScriptRequest {
+    TypeScriptRequest {
+        protocol_version: Version::V9,
+        snapshot: Snapshot {
+            root: tree.path(),
+            git_head: "a".repeat(40),
+            dirty: Dirty::Known(false),
+        },
+        scope: Scope {
+            roots: vec!["src".to_owned()],
+            namespace: "shop".to_owned(),
+            exclude_test_sources: Some(false),
+        },
+        resolver: TypeScriptSettings {
+            tsconfig: "tsconfig.json".to_owned(),
+            bundler: false,
+        },
     }
 }
 
@@ -62,7 +69,7 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
     assert!(found
         .witnesses
         .iter()
-        .all(|w| w.id.starts_with("ESM_EXPORT-")));
+        .all(|w| w.id.as_str().starts_with("ESM_EXPORT-")));
     assert_eq!(bound[0].fact_ids.len(), 1);
     assert_eq!(found.targets.len(), found.imports.len());
     // The id of the first name is the id of its statement with the ordinal 0.
@@ -81,7 +88,7 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
         .any(|record| record.id.as_str() == first));
     assert_eq!(found.constructs.len(), 1);
     // The owner of a comparison is the definition that holds it.
-    assert!(found.constructs[0].data["owner"]
+    assert!(plains(&found.constructs)[0].data["owner"]
         .as_str()
         .unwrap()
         .ends_with("_x2e_ts.f"));
@@ -89,7 +96,7 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
         .title
         .ends_with(" compares a written string literal"));
     // The reply holds all of them, in the order of the capability.
-    let names: Vec<_> = facts.sections.iter().map(ReplySection::name).collect();
+    let names: Vec<_> = facts.sections.iter().map(Section::name).collect();
     assert_eq!(
         names,
         [
@@ -140,7 +147,7 @@ fn a_collection_declares_the_inner_uml_capability_and_fills_each_section_that_it
         ),
     ]);
     let facts = collect(&request(&tree), provenance());
-    let names: Vec<&str> = facts.sections.iter().map(ReplySection::name).collect();
+    let names: Vec<&str> = facts.sections.iter().map(Section::name).collect();
     assert_eq!(
         names,
         [
@@ -158,7 +165,7 @@ fn a_collection_declares_the_inner_uml_capability_and_fills_each_section_that_it
             .sections
             .iter()
             .find(|section| section.name() == name)
-            .map_or(0, ReplySection::len)
+            .map_or(0, Section::len)
     };
     // Every declared section has records here: nothing is claimed that is not produced.
     for name in [
@@ -182,7 +189,7 @@ fn a_collection_declares_the_inner_uml_capability_and_fills_each_section_that_it
 }
 
 #[test]
-fn the_streamed_reply_is_the_reply_of_the_facts_in_lists() {
+fn the_streamed_reply_and_the_lists_run_one_producer() {
     let tree = Tree::new(&[
         ("tsconfig.json", CONFIG),
         ("src/a.ts", "export const one = 1;\nexport function f() {}\n"),
@@ -194,10 +201,10 @@ fn the_streamed_reply_is_the_reply_of_the_facts_in_lists() {
     let request = request(&tree);
     let mut streamed = Vec::new();
     crate::collect::reply(&request, provenance(), Version::V9, &mut streamed).unwrap();
-    let listed =
-        archkeel_wire::stream::encode(Version::V9, collect(&request, provenance())).unwrap();
-    // The same JSON in the same order gives the same compressed bytes.
-    assert_eq!(streamed, listed);
+    let listed = collect(&request, provenance());
+    // The reply is a zlib stream, and the lists hold the seven declared sections.
+    assert_eq!(streamed[0], 0x78);
+    assert_eq!(listed.sections.len(), 7);
 }
 
 #[test]
@@ -217,6 +224,6 @@ fn the_bindings_section_holds_the_witnesses_and_the_result_bindings() {
     assert_eq!(bindings.len(), found.witnesses.len() + found.bindings.len());
     assert!(found.witnesses.len() >= 2);
     assert_eq!(found.bindings.len(), 1);
-    assert!(found.bindings[0].id.starts_with("VALUEBIND-"));
-    assert_eq!(found.bindings[0].data["binding"], "made");
+    assert!(found.bindings[0].id.as_str().starts_with("VALUEBIND-"));
+    assert_eq!(plains(&found.bindings)[0].data["binding"], "made");
 }

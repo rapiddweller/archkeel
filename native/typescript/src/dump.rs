@@ -25,8 +25,7 @@ use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 use archkeel_facts::envelope::Provenance;
-use archkeel_wire::reply::{record_value, target_value};
-use archkeel_wire::request::Request;
+use archkeel_facts::request::TypeScriptRequest;
 
 fn span(span: &Span) -> Value {
     json!({
@@ -328,19 +327,19 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
 
 /// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
 /// compares with the Python collector.
-pub fn records(request: &Request, provenance: Provenance) -> Result<Value, String> {
+pub fn records(request: &TypeScriptRequest, provenance: Provenance) -> Result<Value, String> {
     let (facts, records) = crate::collect::records(request, provenance)?;
     let touched: std::collections::HashSet<&str> =
         records.touched.iter().map(String::as_str).collect();
     Ok(json!({
         "imports": records.imports,
-        "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
-        "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
-        "calls": records.calls.iter().map(record_value).collect::<Vec<_>>(),
-        "references": records.references.iter().map(record_value).collect::<Vec<_>>(),
-        "site_bindings": records.bindings.iter().map(record_value).collect::<Vec<_>>(),
-        "symbols": records.symbols.iter().map(record_value).collect::<Vec<_>>(),
-        "constructs": records.constructs.iter().map(record_value).collect::<Vec<_>>(),
+        "targets": records.targets,
+        "witnesses": records.witnesses,
+        "calls": records.calls,
+        "references": records.references,
+        "site_bindings": records.bindings,
+        "symbols": records.symbols,
+        "constructs": records.constructs,
         "evidence": facts.evidence.iter().filter(|item| touched.contains(item.id.as_str())).map(|item| json!(item)).collect::<Vec<_>>(),
     }))
 }

@@ -168,3 +168,23 @@ def test_the_time_grows_linearly_with_the_size_of_the_project(
     assert ratio < SCRIPT_RATIO, (
         f"{name}: n={n} {small.cpu:.3f} s, 2n {large.cpu:.3f} s, ratio {ratio:.2f}"
     )
+
+
+# Declared names times files cost 0.08/0.18/0.49/1.56/6.48 s for 1k/2k/4k/8k/16k declarations while
+# `mark_bound_elsewhere` searched every file for each name (ratio 2.1 to 4.1, #976); one pass over
+# the bindings costs 0.10/0.18/0.35/0.75/1.45 s. The ratio is held at a size where the term shows.
+DECLARED_COUNT = 8_000
+
+
+def test_the_declared_names_of_a_large_project_cost_linear_time(
+    tmp_path: Path,
+    collector: Path,  # noqa: F811
+) -> None:
+    sizes = (DECLARED_COUNT, 2 * DECLARED_COUNT)
+    roots = [_write(tmp_path / f"n{n}", _declared(n)) for n in sizes]
+    cpu = [_run(collector, root).cpu for root in roots]
+    ratio = cpu[1] / cpu[0]
+    print(f"DECLARED n={sizes[0]} t(n)={cpu[0]:.2f} t(2n)={cpu[1]:.2f} ratio={ratio:.2f}")
+    assert ratio < SCRIPT_RATIO, (
+        f"n={sizes[0]} {cpu[0]:.2f} s, 2n {cpu[1]:.2f} s, ratio {ratio:.2f}"
+    )
