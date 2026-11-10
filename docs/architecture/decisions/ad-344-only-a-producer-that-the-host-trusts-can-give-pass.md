@@ -57,5 +57,6 @@ passes none, so a customer config stays `external`. Not a test, but a user can a
 
 **Check.** `tests/test_collector_producer_trust.py` runs the CLI with `collector_argv` (UNKNOWN,
 exit 2, the text), a pinned run (PASS), a changed file (refused) and a malformed pin.
-`tests/test_collector_native_verdicts.py` and `tests/test_configured_collector_check.py` pin
-the collectors that they start, so their verdicts keep their meaning.
+`tests/test_collector_native_verdicts.py`, `tests/test_configured_collector_check.py` and the
+false-PASS probes pin the collectors that they start, so their verdicts keep their meaning. The
+honest probe stays external and must give no PASS.

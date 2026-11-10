@@ -4,8 +4,8 @@
 """#880: a crafted collector reply must never give a PASS. The fast subset that each PR runs.
 
 Consumer: the host (`run_report`). One TypeScript scan and one Python scan are the base. Each probe
-changes the reply of the real collector in one way (`false_pass_support.py`) and sends it as an
-external producer. The expected verdict is UNKNOWN or FAIL, never PASS.
+changes the reply of the real collector in one way (`false_pass_support.py`) and sends it as a
+pinned producer, so the host checks the reply (AD-344). The honest probe is an external producer. The expected verdict is UNKNOWN or FAIL, never PASS.
 `test_collector_false_pass_full.py` runs the same probes on more rule families.
 
 A probe with a reason is a strict xfail: the host still gives PASS today. It fails when the host
