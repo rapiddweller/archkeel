@@ -654,7 +654,7 @@
           ],
           "id": "SNAPSHOT-LANGUAGE-FACTS",
           "kind": "enum",
-          "qualified_name": "archkeel.ir.facts.Language",
+          "qualified_name": "archkeel.ir.languages.Language",
           "presence": "referenced"
         },
         {

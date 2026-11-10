@@ -25,10 +25,13 @@ _PUBSPEC_PATH = PurePosixPath("pubspec.yaml")
 _TS_RESOLVER_SUFFIXES = frozenset(
     {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json"}
 )
-_LANGUAGE_SUFFIXES = {
+_CARGO_MANIFEST = "Cargo.toml"
+_LANGUAGE_SUFFIXES: dict[Language, frozenset[str]] = {
     Language.PYTHON: frozenset({".py"}),
     Language.DART: frozenset({".dart"}),
     Language.TYPESCRIPT: frozenset({".ts", ".tsx", ".mts", ".cts"}),
+    # A Rust scan also needs each `Cargo.toml`: the crates, their dependencies and their features.
+    Language.RUST: frozenset({".rs", _CARGO_MANIFEST}),
 }
 
 
@@ -156,6 +159,8 @@ def _git_archive_bytes(
                     if language == Language.TYPESCRIPT
                     else path == _PUBSPEC_PATH
                     if language == Language.DART
+                    else path.match(_CARGO_MANIFEST)
+                    if language == Language.RUST
                     else path == _METADATA_PATH
                 )
                 if not scoped and not resolver:
@@ -164,18 +169,22 @@ def _git_archive_bytes(
                 mode, kind, oid = metadata.split()
                 if regular_git_blob_kind(mode, kind) is None:
                     raise SnapshotError(f"expected a regular Git blob: {name!r}")
-                payload = subprocess.run(
-                    ["git", "cat-file", "blob", oid.decode("ascii")],
-                    cwd=root,
-                    check=True,
-                    capture_output=True,
-                ).stdout
+                payload = _read_blob(root, oid)
                 member = tarfile.TarInfo(name)
                 member.size = len(payload)
                 stream.addfile(member, io.BytesIO(payload))
         return buffer.getvalue()
     except (OSError, UnicodeDecodeError, subprocess.CalledProcessError, ValueError) as exc:
         raise SnapshotError(f"cannot read snapshot blobs from Git commit {git_head}") from exc
+
+
+def _read_blob(root: Path, oid: bytes) -> bytes:
+    return subprocess.run(
+        ["git", "cat-file", "blob", oid.decode("ascii")],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    ).stdout
 
 
 def _safe_member_path(name: str) -> PurePosixPath:
@@ -226,6 +235,8 @@ def _materialize_archive(
                     allowed_metadata = path == _METADATA_PATH
                 elif language == Language.DART:
                     allowed_metadata = path == _PUBSPEC_PATH
+                elif language == Language.RUST:
+                    allowed_metadata = path.match(_CARGO_MANIFEST)
                 else:
                     allowed_metadata = path.name in {"package.json", "tsconfig.json"} or (
                         tsconfig is not None and path.as_posix() == tsconfig

@@ -38,13 +38,12 @@ from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
-    DartSettings,
     ProtocolVersion,
     PythonSettings,
     ResolverSettings,
     SnapshotInput,
     SourceScope,
-    TypeScriptSettings,
+    fixed_settings,
 )
 
 from .contract_tree import ContractInput, contract_input
@@ -126,6 +125,7 @@ _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
+    Language.RUST: "Rust",
 }
 
 
@@ -298,16 +298,10 @@ def _observe(
             # The files of this one listing are the files the collector reads (AD-313).
             if all(sha != git_head for sha, _ in excluded_tests):
                 excluded_tests.append((git_head, tuple(sorted(found))))
-        resolver: ResolverSettings = (
-            PythonSettings(
-                features=tuple(
-                    sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
-                )
+        resolver: ResolverSettings = fixed_settings(language, tsconfig, bundler) or PythonSettings(
+            features=tuple(
+                sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
             )
-            if language == Language.PYTHON
-            else DartSettings()
-            if language == Language.DART
-            else TypeScriptSettings(tsconfig, bundler)
         )
         if exclude_test_sources and language not in TEST_SCOPE_LANGUAGES:
             return _failure(

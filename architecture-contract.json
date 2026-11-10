@@ -1029,6 +1029,7 @@
       "exact_sources": [
         "archkeel.ir.model",
         "archkeel.ir.facts",
+        "archkeel.ir.languages",
         "archkeel.ir.type_shapes",
         "archkeel.ir.architecture_graph",
         "archkeel.ir.dependency",

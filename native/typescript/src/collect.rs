@@ -13,11 +13,11 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
-use archkeel_facts::Section;
+use archkeel_facts::ids::FactId;
+use archkeel_facts::{GapFact, Record, Section};
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
-use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, ReplySection, Target};
+use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, ReplySection, Target};
 use archkeel_wire::request::Request;
-use serde_json::{Map, Value};
 
 use crate::config::load_config;
 use crate::kept::{Kept, Pending};
@@ -62,7 +62,7 @@ struct Collection<'a> {
     /// Every file to read, in discovery order; a file added while walking is walked too.
     queue: Vec<String>,
     queued: HashSet<String>,
-    gaps: BTreeMap<String, Record>,
+    gaps: BTreeMap<String, Record<GapFact>>,
     evidence: BTreeMap<String, Evidence>,
     files: Vec<FileFact>,
     imports: Vec<crate::records::ImportRecord>,
@@ -178,7 +178,7 @@ pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pendi
     files.sort_by(|left, right| left.rel_path.cmp(&right.rel_path));
     let mut selected_files = collection.queue;
     selected_files.sort();
-    let gaps: Vec<Record> = collection.gaps.into_values().collect();
+    let gaps: Vec<Record<GapFact>> = collection.gaps.into_values().collect();
     let mut imports = collection.imports;
     imports.sort_by(|left, right| left.id.cmp(&right.id));
     let mut features = FEATURES.to_vec();
@@ -200,7 +200,7 @@ pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pendi
         scope,
         sections: vec![
             ReplySection::Typed(Section::Imports(imports)),
-            ReplySection::Records("unknowns", gaps.clone()),
+            ReplySection::Typed(Section::Unknowns(gaps.clone())),
         ],
         features,
         constructs: Vec::new(),
@@ -305,31 +305,12 @@ impl Collection<'_> {
         parts.extend(evidence.map(Part::Text));
         parts.push(Part::Text(module));
         let id = stable_id("UNKNOWN", &parts);
-        let mut data = Map::new();
-        data.insert("reason".to_owned(), Value::from(reason));
-        data.insert("module".to_owned(), Value::from(module));
-        let kind = match kind {
-            GapKind::Collection => "collection_gap",
-            GapKind::Resolution => {
-                data.insert("resolution_dimension".to_owned(), Value::from("imports"));
-                "source_resolution_gap"
-            }
+        let fact = match kind {
+            GapKind::Collection => GapFact::collection(reason, module),
+            GapKind::Resolution => GapFact::resolution(reason, module),
         };
-        self.gaps.entry(id.clone()).or_insert(Record {
-            id,
-            evidence_class: "UNKNOWN",
-            area: "source",
-            kind,
-            title: reason.to_owned(),
-            subjects: [module]
-                .into_iter()
-                .filter(|m| !m.is_empty())
-                .map(str::to_owned)
-                .collect(),
-            evidence_ids: evidence.into_iter().map(str::to_owned).collect(),
-            fact_ids: Vec::new(),
-            data,
-        });
+        let record = Record::unknown(FactId::new(id.clone()), reason, evidence, module, fact);
+        self.gaps.entry(id).or_insert(record);
     }
 }
 

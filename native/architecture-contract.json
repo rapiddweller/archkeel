@@ -13,7 +13,10 @@
       "forbidden_responsibilities": [
         "Reading source of any language, and using a collector crate."
       ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/native.md"
+      ],
       "requires": [
         {
           "component": "facts",
@@ -60,26 +63,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "COMP-NATIVE-STORE",
-      "label": "store",
-      "role": "component",
-      "packages": ["native.archkeel_store"],
-      "responsibilities": [
-        "Validate facts once and keep them for the rules and the views."
-      ],
-      "forbidden_responsibilities": [
-        "Reading source and using a collector crate."
-      ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
-      "requires": [
-        {
-          "component": "facts",
-          "rationale": "The store validates and holds the typed facts."
-        }
-      ],
-      "decided_by": "architect"
-    },
-    {
       "id": "COMP-NATIVE-BUILD",
       "label": "build",
       "role": "component",
@@ -113,6 +96,34 @@
         {
           "component": "facts",
           "rationale": "The collector builds its import records with the typed facts (AD-345); the other sections follow."
+        },
+        {
+          "component": "build",
+          "rationale": "The build script of the crate calls the shared helper that digests the sources, so one script owns the digest."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-RUST",
+      "label": "rust",
+      "role": "component",
+      "packages": ["native.archkeel_rust_collector"],
+      "responsibilities": ["Read Rust source and write the collection reply."],
+      "forbidden_responsibilities": ["Reading TypeScript source."],
+      "provenance": ["docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"],
+      "requires": [
+        {
+          "component": "wire",
+          "rationale": "The collector decodes the request and encodes the reply with the shared wire."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Every read of the snapshot goes through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "facts",
+          "rationale": "The collector builds its import and gap records with the typed facts (AD-345)."
         },
         {
           "component": "build",
@@ -161,6 +172,15 @@
       "allowed_sources": ["native.archkeel_typescript_collector"],
       "rationale": "Only the TypeScript collector loads the TypeScript grammar.",
       "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SYN",
+      "kind": "external_dependency_scope",
+      "dependency": "syn",
+      "allowed_sources": ["native.archkeel_rust_collector"],
+      "rationale": "Only the Rust collector parses Rust source with syn.",
+      "provenance": ["docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"],
       "decided_by": "architect"
     }
   ]

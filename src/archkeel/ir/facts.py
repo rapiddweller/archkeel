@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from enum import Enum, StrEnum
 from typing import Final, Literal, TypeAlias, TypeVar
 
+from .languages import Language as Language
+from .languages import SourceProfile as SourceProfile
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
@@ -23,12 +25,6 @@ _NATIVE_VERSION: Final = (
     r"3\.(" + "|".join(str(minor) for _, minor in CPYTHON_NATIVE_RUNTIMES) + r")\.[0-9]+"
 )
 MAX_NUMERIC_EVIDENCE_CHARS = 16_384
-
-
-class Language(StrEnum):
-    PYTHON = "python"
-    DART = "dart"
-    TYPESCRIPT = "typescript"
 
 
 class DefinitionContextKind(StrEnum):
@@ -1066,12 +1062,6 @@ class SourceSectionName(StrEnum):
     TYPING_SIGNALS = "typing_signals"
     CONSTRUCTS = "constructs"
     UNKNOWNS = "unknowns"
-
-
-class SourceProfile(StrEnum):
-    PYTHON = "archkeel-python-analyzer"
-    DART = "archkeel-dart-analyzer"
-    TYPESCRIPT = "archkeel-typescript-imports"
 
 
 class ConstructSupport(StrEnum):

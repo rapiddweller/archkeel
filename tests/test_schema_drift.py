@@ -387,7 +387,7 @@ def test_config_schema_accepts_supported_language_options(language: str) -> None
 @pytest.mark.parametrize(
     "setting",
     [
-        'language="rust"',
+        'language="go"',
         'language="dart"\ntsconfig="tsconfig.json"',
         'tsconfig="tsconfig.json"',
         'language="typescript"\ntsconfig="../outside.json"',

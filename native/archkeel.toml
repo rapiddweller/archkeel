@@ -1,0 +1,9 @@
+# AD-335: Archkeel checks its own native workspace with its own contract. `make self-validate-native`
+# runs `archkeel validate --config native/archkeel.toml` from the repository root.
+[scan]
+language = "rust"
+roots = ["native"]
+namespace = "native"
+contract = "native/architecture-contract.json"
+# A source checkout has no platform wheel, so the build of `make native-check` is the collector.
+collector_argv = ["native/target/debug/archkeel-rust-collector"]

@@ -52,6 +52,20 @@ pub struct Evidence {
     pub excerpt: String,
 }
 
+impl Evidence {
+    /// The evidence of one source location, with the text of its first line.
+    pub fn at(file: &str, line: i64, end_line: i64, column: i64, excerpt: &str) -> Self {
+        Self {
+            id: crate::identity::evidence_id(file, line, end_line, column),
+            file: file.to_owned(),
+            line,
+            end_line,
+            column,
+            excerpt: excerpt.to_owned(),
+        }
+    }
+}
+
 /// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
 /// `fact_ids` keep the order of the Python collector, which sets them after `classified` and does
 /// not sort them: a later port must not sort them either. The five source sections of the inner-UML capability (`imports`, `symbols`,
@@ -129,6 +143,25 @@ pub struct Provenance {
     pub runtime_required: String,
 }
 
+impl Provenance {
+    /// The provenance of a native collector that is written in Rust. The build script gives the
+    /// version, the digest and the compiler; `rust_version` is the minimum of the crate.
+    pub fn native(
+        profile: &'static str,
+        (adapter_version, code_digest): (&str, &str),
+        (runtime_version, rust_version): (&str, &str),
+    ) -> Self {
+        Self {
+            profile,
+            adapter_version: adapter_version.to_owned(),
+            code_digest: code_digest.to_owned(),
+            runtime_name: "rust",
+            runtime_version: runtime_version.to_owned(),
+            runtime_required: format!(">={rust_version}"),
+        }
+    }
+}
+
 /// One section of the reply. A typed section holds the records of archkeel-facts (AD-345), and its
 /// wire is written by those types. The imports section is typed; the other sections follow.
 #[derive(Clone, Debug, PartialEq)]
@@ -176,7 +209,7 @@ pub struct Facts {
     pub selected_files: Vec<String>,
     pub files_read: usize,
     /// Coverage gaps. The collection is complete only when there is none.
-    pub gaps: Vec<Record>,
+    pub gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
     pub evidence: Vec<Evidence>,
 }
 
@@ -218,7 +251,7 @@ fn facts_value(facts: &Facts) -> Value {
             "files_read": facts.files_read,
             "files_parsed": facts.files.len(),
             "full_scope": facts.gaps.is_empty(),
-            "gaps": facts.gaps.iter().map(record_value).collect::<Vec<_>>(),
+            "gaps": facts.gaps,
         },
         "evidence": facts.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
         "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),

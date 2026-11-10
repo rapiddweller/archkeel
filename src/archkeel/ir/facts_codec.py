@@ -88,6 +88,8 @@ from .protocol import (
     PythonCollectionPhase,
     PythonProviderSource,
     PythonSettings,
+    ResolverSettings,
+    RustSettings,
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
@@ -416,12 +418,10 @@ def decode_request(payload: bytes) -> CollectionRequest:
     except ValueError as error:
         raise ProtocolError("unsupported collection language") from error
     if language == Language.PYTHON:
-        resolver: PythonSettings | DartSettings | TypeScriptSettings = _python_settings(
-            resolver_raw, version
-        )
-    elif language == Language.DART:
+        resolver: ResolverSettings = _python_settings(resolver_raw, version)
+    elif language in (Language.DART, Language.RUST):
         _object(resolver_raw, {"language"}, "resolver")
-        resolver = DartSettings()
+        resolver = DartSettings() if language == Language.DART else RustSettings()
     elif language == Language.TYPESCRIPT:
         # The encoder writes "bundler" only when true, so false has one canonical form: absent.
         optional = set(resolver_raw) & {"bundler"}

@@ -36,7 +36,8 @@
           "enum": [
             "python",
             "dart",
-            "typescript"
+            "typescript",
+            "rust"
           ],
           "default": "python",
           "description": "Source language. Absent means python (AD-97)."

@@ -253,7 +253,7 @@ def check(scan: ScanResult, record: Record, observation: Observation, profile: P
     _source_record(record, SourceSectionName.SYMBOLS)
     _base_declarations(record, SourceSectionName.SYMBOLS)
     _section_coverage(observation, "scope", SourceSectionName.CALLS, (), (), True)
-    profile = Profile("future-analyzer", ".future",
+    profile = Profile("future-analyzer", ".future", crate_edges_only=False,
         unmeasured=frozenset({UnmeasurableScalar.CALLS_UNRESOLVED}))
 """,
         "raw-field": '    scan.observed_sections = frozenset({"calls"})\n',

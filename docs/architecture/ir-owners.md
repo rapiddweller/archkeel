@@ -27,7 +27,7 @@ markers, so that check does not read it.
 | `views` | owner | 7 | Own pure projections of checked results: report graph, report projection, explore, findings, flow graph, story and view spec. | `architecture`, `evidence`, `wire`, `facts`, `dependency-policy` |
 | `contract-version` | inner component | 1 | Own contract versions and the features available in each version. | none |
 | `dependency-policy` | inner component | 1 | Match owned dependency selectors and exact import-port permissions. | `facts` |
-| `facts` | inner component | 8 | Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies. | none |
+| `facts` | inner component | 9 | Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies. | none |
 | `facts-codec` | inner component | 8 | Strictly decode, validate and encode source facts and process envelopes. Own the bounded source path grammar shared by collection and guarded-effect replay. Intern lossless JSON strings for source and observation wire encodings. | `facts`, `protocol` |
 | `profiles` | inner component | 1 | Describe language capabilities, source requirements and comparable measurements. | `facts` |
 | `protocol` | inner component | 2 | Own typed request and response envelopes for collector processes. | `facts` |
@@ -38,7 +38,7 @@ graph TD
     n_1["contract-version (1 module)"]
     n_2["dependency-policy (1 module)"]
     n_3["evidence (6 modules)"]
-    n_4["facts (8 modules)"]
+    n_4["facts (9 modules)"]
     n_5["facts-codec (8 modules)"]
     n_6["profiles (1 module)"]
     n_7["protocol (2 modules)"]
