@@ -89,7 +89,8 @@ class _ObservationVersion(StrEnum):
 
 
 def _version_numbers(version: _ObservationVersion) -> tuple[int, int]:
-    major, minor, _ = version.split(".")
+    text: str = version.value
+    major, minor, _ = text.split(".")
     return int(major), int(minor)
 
 

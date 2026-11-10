@@ -39,7 +39,7 @@
   "src/archkeel/cli/__init__.py": 1526,
   "src/archkeel/ir/architecture_graph.py": 1217,
   "src/archkeel/ir/codec_contract.py": 1838,
-  "src/archkeel/ir/codec_observation.py": 1025,
+  "src/archkeel/ir/codec_observation.py": 1026,
   "src/archkeel/ir/decisions.py": 1787,
   "src/archkeel/ir/facts.py": 1347,
   "src/archkeel/ir/facts_codec.py": 1743,
