@@ -6,9 +6,9 @@
 //!
 //! The files, inputs, coverage, file evidence, import records and import targets follow the
 //! Python collector. The records are one for each statement. The expansion of a statement into one
-//! record for each named binding (`_named_imports`), the script globals and the symbols belong to
-//! later phases. Without them this collector declares the legacy capability: sections `imports`
-//! and `unknowns`, and no `script-globals-v1` feature. It invents no evidence.
+//! record for each named binding (`_named_imports`), the symbols, the calls, the references, the
+//! bindings and the constructs follow in the same reply, with the capability `inner-uml-v1`
+//! (AD-340). The script globals belong to a later phase. It invents no evidence.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
@@ -68,8 +68,6 @@ struct Collection<'a> {
     imports: Vec<crate::records::ImportRecord>,
     targets: Vec<Target>,
     read: usize,
-    /// Keep what the records of PR 4.3a-3a need (`records.rs`); a plain collection does not.
-    keep: bool,
     kept: BTreeMap<String, Kept>,
     order: Vec<String>,
     sites: HashMap<String, (String, i64, i64)>,
@@ -84,7 +82,7 @@ pub fn reply(
     version: archkeel_wire::protocol::Version,
     out: impl Write,
 ) -> Result<(), String> {
-    let (facts, pending) = gather(request, provenance, true);
+    let (facts, pending) = gather(request, provenance);
     let done = write_reply(version, facts, &pending, out);
     drop(pending);
     done
@@ -93,20 +91,20 @@ pub fn reply(
 /// The same facts with every section in a list, for the unit tests: the producer of `reply`.
 #[cfg(test)]
 pub fn collect(request: &Request, provenance: Provenance) -> Facts {
-    let (facts, pending) = gather(request, provenance, true);
+    let (facts, pending) = gather(request, provenance);
     listed(facts, &pending).unwrap().0
 }
 
 /// The facts as `collect` gives them and the records by the names of the tests and the dump.
 #[cfg(any(test, feature = "dump"))]
 pub fn records(request: &Request, provenance: Provenance) -> Result<(Facts, Records), String> {
-    let (facts, pending) = gather(request, provenance, true);
+    let (facts, pending) = gather(request, provenance);
     let (facts, touched) = listed(facts, &pending)?;
     let records = records_of(&facts, touched);
     Ok((facts, records))
 }
 
-pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (Facts, Pending) {
+pub(crate) fn gather(request: &Request, provenance: Provenance) -> (Facts, Pending) {
     let roots: Vec<String> = request.roots.iter().map(|root| join(".", root)).collect();
     let mut snapshot = Snapshot::new(&request.root);
     let config = load_config(&mut snapshot, &request.tsconfig, &roots);
@@ -132,7 +130,6 @@ pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (
         imports: Vec::new(),
         targets: Vec::new(),
         read: 0,
-        keep,
         kept: BTreeMap::new(),
         order: Vec::new(),
         sites: HashMap::new(),
@@ -185,10 +182,8 @@ pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (
     let mut imports = collection.imports;
     imports.sort_by(|left, right| left.id.cmp(&right.id));
     let mut features = FEATURES.to_vec();
-    if keep {
-        // The records of the inner-UML capability come after the four features of the imports.
-        features.insert(FEATURES.len(), "inner-uml-v1");
-    }
+    // The records of the inner-UML capability come after the four features of the imports.
+    features.insert(FEATURES.len(), "inner-uml-v1");
     if collection.bundler {
         features.push("bundler-mode-v1");
     }
