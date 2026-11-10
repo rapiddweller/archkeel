@@ -105,15 +105,16 @@ ResolverSettings: TypeAlias = PythonSettings | DartSettings | RustSettings | Typ
 
 
 def fixed_settings(
-    language: Language,
+    language: Language, tsconfig: str | None = None, bundler: bool = False
 ) -> DartSettings | RustSettings | TypeScriptSettings | None:
-    """The settings of a language that has no choice to make; `None` for Python."""
+    """The settings of a language that is not Python; `None` for Python. Only TypeScript takes its
+    two options."""
     if language == Language.DART:
         return DartSettings()
     if language == Language.RUST:
         return RustSettings()
     if language == Language.TYPESCRIPT:
-        return TypeScriptSettings()
+        return TypeScriptSettings() if tsconfig is None else TypeScriptSettings(tsconfig, bundler)
     return None
 
 

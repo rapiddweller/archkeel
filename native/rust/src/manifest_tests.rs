@@ -74,3 +74,58 @@ fn build_false_turns_the_script_off() {
     let found = manifest("[package]\nname = \"a\"\nbuild = false\n", "");
     assert_eq!(found.build, None);
 }
+
+#[test]
+fn every_dependency_form_is_declared_with_its_kind_and_the_underscore_forms_are_read() {
+    let found = manifest(
+        "[package]\nname = \"a\"\n[dependencies]\nn = \"1\"\n[dev_dependencies]\nd = \"1\"\n\
+         [build_dependencies]\nb = \"1\"\n[target.'cfg(unix)'.dev-dependencies]\nt = \"1\"\n\
+         [dependencies.long]\nversion = \"1\"\n",
+        "",
+    );
+    let declared: Vec<(&str, Kind)> = found
+        .declared
+        .iter()
+        .map(|dep| (dep.key.as_str(), dep.kind))
+        .collect();
+    assert!(declared.contains(&("n", Kind::Normal)));
+    assert!(declared.contains(&("d", Kind::Dev)));
+    assert!(declared.contains(&("b", Kind::Build)));
+    assert!(declared.contains(&("t", Kind::Dev)));
+    assert!(declared.contains(&("long", Kind::Normal)));
+    assert!(found.unknown.is_empty(), "{:?}", found.unknown);
+    // Source can name a crate of an underscore section.
+    assert_eq!(found.dependencies.get("d").map(String::as_str), Some("d"));
+}
+
+#[test]
+fn a_dependency_table_or_form_that_the_reader_does_not_know_is_kept_as_unknown() {
+    let found = manifest(
+        "[package]\nname = \"a\"\n[dependancies]\nx = \"1\"\n[target.'cfg(unix)'.build_deps]\ny = \"1\"\n\
+         [dependencies]\nz = 1\n",
+        "",
+    );
+    assert_eq!(
+        found.unknown,
+        [
+            "A dependency table that the reader does not know: [dependancies]",
+            "A dependency table that the reader does not know: [target.cfg(unix).build_deps]",
+            "A dependency has a form that the reader does not know: z",
+        ]
+    );
+}
+
+#[test]
+fn the_line_of_a_dependency_is_its_key_its_table_header_or_the_first_line() {
+    let text = "[package]\nname = \"a\"\n[dependencies]\nfirst = \"1\"\n  second.workspace = true\n\
+                [dev_dependencies.third]\nversion = \"1\"\n[build-dependencies]\n\"quoted\" = \"1\"\n";
+    assert_eq!(line_of(text, Kind::Normal, "first").0, 4);
+    assert_eq!(line_of(text, Kind::Normal, "second").0, 5);
+    assert_eq!(line_of(text, Kind::Dev, "third").0, 6);
+    assert_eq!(line_of(text, Kind::Build, "quoted").0, 9);
+    // A key of another section, and a key that is not there, give the first line.
+    assert_eq!(
+        line_of(text, Kind::Dev, "first"),
+        (1, "[package]".to_owned())
+    );
+}

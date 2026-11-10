@@ -21,15 +21,37 @@ use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::crates::{discover, Crate, Problem, Workspace};
+use crate::manifest::line_of;
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
+use crate::source::read_text;
 use crate::source::walk as list_files;
 use crate::tree::{walk, Module, Walked};
+use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
 pub const PROFILE: &str = "archkeel-rust-imports";
 const SECTIONS: [&str; 2] = ["imports", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
+
+/// Where an edge starts: the module, the file that cites it and the kind of the evidence. A
+/// declared dependency starts in the main module of its crate and cites its manifest.
+#[derive(Clone, Copy)]
+struct Origin<'a> {
+    module: &'a str,
+    rel: &'a str,
+    form: &'a str,
+}
+
+impl<'a> Origin<'a> {
+    fn of(module: &'a Module) -> Self {
+        Self {
+            module: &module.module,
+            rel: &module.rel,
+            form: "import",
+        }
+    }
+}
 
 /// The facts of one request, as the typed records of `archkeel-facts` (AD-345) and the small lists.
 /// `encode` writes the gaps once: they are the section `unknowns` and the gaps of the coverage.
@@ -76,6 +98,8 @@ struct Builder {
     imports: Vec<Record<ImportFact>>,
     targets: Vec<Target>,
     seen: BTreeSet<(String, String, String)>,
+    /// The manifests of the crates: each is a module that holds the declared dependencies.
+    manifests: Vec<String>,
 }
 
 /// Collect the facts of one request.
@@ -99,7 +123,9 @@ pub fn collect(request: &Request, provenance: Provenance) -> Collected {
     for module in &walked.modules {
         builder.module(&workspace, module);
     }
-    let selected: Vec<String> = files
+    let taken: BTreeSet<&str> = modules.values().copied().collect();
+    builder.declared(&workspace, &request.namespace, &taken, &mut source);
+    let mut selected: Vec<String> = files
         .iter()
         .filter(|f| f.ends_with(".rs"))
         .cloned()
@@ -108,6 +134,8 @@ pub fn collect(request: &Request, provenance: Provenance) -> Collected {
         let reason = format!("Source file is in no module tree: {rel}");
         builder.gap(&reason, None, "");
     }
+    selected.extend(builder.manifests.iter().cloned());
+    selected.sort();
     builder.finish(request, provenance, scope, selected, &walked, source)
 }
 
@@ -194,7 +222,9 @@ impl Builder {
                 covered.insert(reference.root.clone());
             }
             match found {
-                Some(Found::Edge(named)) => self.import(workspace, module, reference, &named),
+                Some(Found::Edge(named)) => {
+                    self.import(workspace, Origin::of(module), reference, &named);
+                }
                 Some(Found::Shadowed) => {
                     let reason = format!("A local name equals a crate name: {}", reference.root);
                     let evidence = self.cite(&module.rel, &reference.site);
@@ -219,10 +249,79 @@ impl Builder {
         }
     }
 
+    /// A dependency that a manifest declares is an edge of its crate, in the section that it is
+    /// declared in. Source can hide a use (a macro, a generated token), but it cannot use a crate
+    /// that the manifest does not declare. The edge starts in the main module of the crate; the
+    /// kind of the section is in the text of the specifier, until module scope exists (5b-2).
+    fn declared(
+        &mut self,
+        workspace: &Workspace,
+        namespace: &str,
+        taken: &BTreeSet<&str>,
+        source: &mut Snapshot,
+    ) {
+        for krate in &workspace.crates {
+            let rel = join(&krate.dir, "Cargo.toml");
+            let Ok(text) = read_text(source, &rel) else {
+                continue;
+            };
+            source.select(&rel);
+            let mut module = format!("{namespace}.{}.cargo_toml", krate.ident);
+            while taken.contains(module.as_str()) {
+                module.push('_');
+            }
+            let first = text.lines().next().unwrap_or("").trim_end();
+            let cited = Evidence::at(&rel, 1, 1, 0, first);
+            let file_evidence = cited.id.clone();
+            self.evidence.insert(file_evidence.clone(), cited);
+            self.files.push(FileFact {
+                id: stable_id("FILE", &[Part::Text(&module)]),
+                rel_path: rel.clone(),
+                module: module.clone(),
+                package: package_of(&module).to_owned(),
+                blank: text.trim().is_empty(),
+                evidence_id: file_evidence,
+            });
+            self.manifests.push(rel.clone());
+            self.declared_edges(workspace, krate, &module, &text);
+        }
+    }
+
+    /// The edge of each dependency that the manifest of `krate` declares.
+    fn declared_edges(&mut self, workspace: &Workspace, krate: &Crate, module: &str, text: &str) {
+        let rel = join(&krate.dir, "Cargo.toml");
+        let others = krate
+            .manifest
+            .declared
+            .iter()
+            .filter(|dependency| dependency.package != krate.ident);
+        for dependency in others {
+            let (line, excerpt) = line_of(text, dependency.kind, &dependency.key);
+            let reference = Reference {
+                root: dependency.package.clone(),
+                path: format!("{}: {}", dependency.kind.section(), dependency.key),
+                site: Site {
+                    line,
+                    end_line: line,
+                    column: 0,
+                    excerpt,
+                },
+                absolute: true,
+            };
+            let from = Origin {
+                module,
+                rel: &rel,
+                form: "declared",
+            };
+            let named = Named::Package(dependency.package.clone());
+            self.import(workspace, from, &reference, &named);
+        }
+    }
+
     fn import(
         &mut self,
         workspace: &Workspace,
-        module: &Module,
+        from: Origin<'_>,
         reference: &Reference,
         named: &Named,
     ) {
@@ -233,7 +332,7 @@ impl Builder {
         // One record for each distinct path of a file; the first use is its evidence.
         if !self
             .seen
-            .insert((module.module.clone(), key, reference.path.clone()))
+            .insert((from.module.to_owned(), key, reference.path.clone()))
         {
             return;
         }
@@ -241,13 +340,13 @@ impl Builder {
         let identity = stable_id(
             "IMP",
             &[
-                Part::Text(&module.module),
+                Part::Text(from.module),
                 Part::Number(site.line),
                 Part::Number(site.column),
-                Part::Text("import"),
+                Part::Text(from.form),
             ],
         );
-        let evidence = self.cite(&module.rel, site);
+        let evidence = self.cite(from.rel, site);
         let import_id = identity.clone();
         let (target, target_module) = match named {
             Named::Sysroot(name) => (
@@ -288,7 +387,7 @@ impl Builder {
         };
         self.targets.push(target);
         self.imports.push(record(
-            module,
+            from.module,
             reference,
             &identity,
             evidence,
@@ -327,7 +426,7 @@ impl Builder {
             imports,
             gaps: self.gaps.into_values().collect(),
             selected_files: selected,
-            files_read: walked.modules.len(),
+            files_read: walked.modules.len() + self.manifests.len(),
             evidence: self.evidence.into_values().collect(),
         }
     }
@@ -335,19 +434,19 @@ impl Builder {
 
 /// The import record of one path that names another crate.
 fn record(
-    module: &Module,
+    module: &str,
     reference: &Reference,
     identity: &str,
     evidence: String,
     target_module: &str,
     target_package: &str,
 ) -> Record<ImportFact> {
-    let mut subjects = vec![module.module.clone(), target_module.to_owned()];
+    let mut subjects = vec![module.to_owned(), target_module.to_owned()];
     subjects.sort();
     subjects.dedup();
     let data = ImportData {
-        source_module: ModuleName::new(&module.module),
-        source_package: PackageName::new(package_of(&module.module)),
+        source_module: ModuleName::new(module),
+        source_package: PackageName::new(package_of(module)),
         target_module: ModuleName::new(target_module),
         target_package: PackageName::new(target_package),
         specifier: Some(reference.path.clone()),
@@ -358,7 +457,7 @@ fn record(
         id: FactId::new(identity),
         evidence_class: EvidenceClass::Fact,
         area: Area::Source,
-        title: format!("{} imports {}", module.module, reference.path),
+        title: format!("{module} imports {}", reference.path),
         subjects,
         evidence_ids: vec![EvidenceId::new(evidence)],
         fact_ids: Vec::new(),

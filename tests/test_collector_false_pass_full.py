@@ -91,3 +91,108 @@ def test_a_rust_source_that_hides_a_crate_edge_gives_no_pass(
 
     assert statuses(result).get("REQUIRES") != "PASS"
     assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
+# The review of head 1114d663: three ways to use the crate `base_crate` that a path in source does
+# not show. Each compiles, and the app crate declares the dependency on `base` but its contract
+# does not require it. A crate can use another crate only if its Cargo.toml declares it, so the
+# declared dependency is an edge, and the verdict is FAIL.
+MANIFEST = '[package]\nname = "{name}"\nversion = "0.0.0"\nedition = "2021"\n{rest}'
+BASE_DEP = 'base-crate = { path = "../base" }\n'
+PROC_MACRO = (
+    "use proc_macro::TokenStream;\n"
+    "#[proc_macro_derive(D)]\n"
+    "pub fn d(_: TokenStream) -> TokenStream {\n"
+    '    "fn g() { ::base_crate::make() }".parse().unwrap()\n'
+    "}\n"
+)
+EXPORTED_MACRO = "#[macro_export]\nmacro_rules! call_b { () => { ::base_crate::make() } }\n"
+
+
+def _crate(name: str, rest: str = "") -> dict[str, str]:
+    return {f"crates/{name}/Cargo.toml": MANIFEST.format(name=name, rest=rest)}
+
+
+def _app(manifest: str, **sources: str) -> dict[str, str]:
+    """The app crate: its manifest, and its sources by name (`src__lib` is `src/lib.rs`)."""
+    files = {"crates/app/Cargo.toml": MANIFEST.format(name="app", rest=manifest)}
+    files.update({f"crates/app/{key.replace('__', '/')}.rs": text for key, text in sources.items()})
+    return files
+
+
+PROC_FILES = {
+    "crates/Cargo.toml": '[workspace]\nmembers = ["base", "app", "d"]\n',
+    **_crate("d", "[lib]\nproc-macro = true\n"),
+    "crates/d/src/lib.rs": PROC_MACRO,
+    **_app(
+        f'[dependencies]\n{BASE_DEP}d = {{ path = "../d" }}\n',
+        src__lib="#[derive(d::D)]\npub struct S;\n",
+    ),
+}
+VENDOR_DEPS = f'[dependencies]\n{BASE_DEP}c = {{ path = "../../../vendor/c" }}\n'
+VENDOR_FILES = {
+    "vendor/c/Cargo.toml": MANIFEST.format(name="c", rest=""),
+    "vendor/c/src/lib.rs": EXPORTED_MACRO,
+}
+NO_BASE = ("[dev_dependencies]\n", "[build_dependencies]\n")
+HIDDEN_DEPENDENCY = {
+    "a proc-macro crate builds the path from a string": (PROC_FILES, ("base", "d", "app"), ("d",)),
+    "an exported macro of a crate outside the scan": (
+        {**VENDOR_FILES, **_app(VENDOR_DEPS, src__lib="pub fn f() { c::call_b!(); }\n")},
+        ("base", "app"),
+        (),
+    ),
+    "a derive helper of a crate outside the scan": (
+        {
+            **VENDOR_FILES,
+            **_app(VENDOR_DEPS, src__lib="#[derive(c::D)]\n#[base_crate]\npub struct S;\n"),
+        },
+        ("base", "app"),
+        (),
+    ),
+    "dev_dependencies with an underscore": (
+        _app(
+            f"[dev_dependencies]\n{BASE_DEP}",
+            src__lib="",
+            tests__t="fn t() { base_crate::make(); }\n",
+        ),
+        ("base", "app"),
+        (),
+    ),
+    "build_dependencies with an underscore": (
+        _app(
+            f"[build_dependencies]\n{BASE_DEP}",
+            src__lib="",
+            build="fn main() { base_crate::make(); }\n",
+        ),
+        ("base", "app"),
+        (),
+    ),
+    "a declared dependency that no source uses": (
+        _app(f"[dependencies]\n{BASE_DEP}", src__lib="pub fn f() {}\n"),
+        ("base", "app"),
+        (),
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("files", "labels", "app_requires"),
+    HIDDEN_DEPENDENCY.values(),
+    ids=HIDDEN_DEPENDENCY.keys(),
+)
+def test_a_dependency_that_source_hides_is_a_declared_edge_and_fails(
+    tmp_path: Path,
+    rust_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    files: dict[str, str],
+    labels: tuple[str, ...],
+    app_requires: tuple[str, ...],
+) -> None:
+    crates = {"base": "base_crate", "d": "d", "app": "app"}
+    parts = tuple(
+        component(label, crates[label], app_requires if label == "app" else ()) for label in labels
+    )
+    result = validate(repository(tmp_path, rust_binary, files, components=parts), capsys)
+
+    assert statuses(result)["REQUIRES"] == "FAIL"

@@ -21,6 +21,8 @@ fn krate() -> Crate {
             ("renamed".to_owned(), "real_name".to_owned()),
             ("my_app".to_owned(), "my_app".to_owned()),
         ]),
+        declared: Vec::new(),
+        unknown: Vec::new(),
         features: BTreeSet::new(),
     };
     Crate {

@@ -131,6 +131,12 @@ impl Workspace {
                 file: join(dir, "Cargo.toml"),
             });
         }
+        for reason in &manifest.unknown {
+            self.problems.push(Problem {
+                reason: format!("{reason} in {}", manifest.package),
+                file: join(dir, "Cargo.toml"),
+            });
+        }
         let package = ident(&manifest.package);
         let mut targets = declared(&manifest, dir, files);
         // A target inside the crate directory is the owner of its file; a shared one comes last.
