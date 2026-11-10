@@ -47,7 +47,8 @@ jobs:
 
       - name: Check architecture, format, lint, Python types and browser code
         env:
-          BASE: ${{ github.event.before }}
+          # A dispatch has no previous push; one squash merge is one commit on main.
+          BASE: ${{ github.event_name == 'push' && github.event.before || 'HEAD~1' }}
         run: make ci-pr-static BASE="$BASE"
 
   tests:
