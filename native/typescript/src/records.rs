@@ -5,8 +5,7 @@
 //! The records of PR 4.3a-3a: the imports expanded to one record for each bound name
 //! (`_named_imports`, `_export_binding`) and the string comparisons (`_constructs`).
 //!
-//! The reply does not carry them yet (AD-340): the capability stays
-//! legacy until PR 4.3a-3d, so the host never reads them. The `dump` feature prints them, and
+//! The reply carries them under the capability `inner-uml-v1` (AD-340). The `dump` feature prints them, and
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 //! The evidence that the new records cite is kept apart, so the evidence of the reply is unchanged.
 

@@ -415,30 +415,6 @@
     "reason": "Two match arms read an identifier field and record a write. They differ in the kind and the field.",
     "tokens": 70
   },
-  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|0583c4170f": {
-    "files": [
-      "typescript/src/symbol_table.rs",
-      "typescript/src/symbol_table.rs"
-    ],
-    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
-    "tokens": 84
-  },
-  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|c71ccf70a3": {
-    "files": [
-      "typescript/src/symbol_table.rs",
-      "typescript/src/symbol_table.rs"
-    ],
-    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
-    "tokens": 85
-  },
-  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|c71ccf70a3#2": {
-    "files": [
-      "typescript/src/symbol_table.rs",
-      "typescript/src/symbol_table.rs"
-    ],
-    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
-    "tokens": 83
-  },
   "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|cd4eccf015": {
     "files": [
       "typescript/src/symbol_table.rs",
