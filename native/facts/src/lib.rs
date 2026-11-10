@@ -27,6 +27,7 @@
 mod macros;
 
 pub mod data;
+pub mod envelope;
 mod gap;
 pub mod ids;
 pub mod nested;

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Compose configured language processes with the Core observer."""
 
+import os
 import sys
 import sysconfig
 from dataclasses import replace
@@ -33,6 +34,11 @@ def bundled_collector(name: str) -> str:
     return str(_NATIVE_DIRECTORY / (name + _EXECUTABLE_SUFFIX))
 
 
+# AD-346: the path of an `archkeel-store` binary. When it is set, the reply of a TypeScript
+# collector goes through the Rust store. It is an opt-in for the proof of stage 1, not a default.
+NATIVE_STORE = "ARCHKEEL_NATIVE_STORE"
+
+
 def observer_for(
     language: Language,
     *,
@@ -54,12 +60,15 @@ def observer_for(
         collector_argv = (bundled_collector(RUST_COLLECTOR),)
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
+    store = os.environ.get(NATIVE_STORE) if language == Language.TYPESCRIPT else None
     collector = ProcessCollector(
         collector_argv,
         clock=clock,
-        protocol_version=ProtocolVersion.V8 if native_typescript or native_rust else None,
+        # The store reads the compressed reply of protocol 8 from any collector (AD-346).
+        protocol_version=ProtocolVersion.V8 if native_typescript or native_rust or store else None,
         # A collector of this package must report the host version; a configured one need not.
         pin_adapter_version=bundled,
+        store=store or None,
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)

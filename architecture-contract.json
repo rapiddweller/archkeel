@@ -126,6 +126,12 @@
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_proofs:class_instance_member_write_names",
         "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt",
+        "archkeel.ir.readset_codec:decode_read_set",
+        "archkeel.ir.store_seam:StoreEntry",
+        "archkeel.ir.store_seam:open_store",
+        "archkeel.ir.store_seam:close_store",
+        "archkeel.ir.store_seam:store_disabled",
+        "archkeel.ir.store_seam:store_enabled",
         "archkeel.ir.source_records:RawData",
         "archkeel.ir.source_records:RawRecord",
         "archkeel.ir.source_records:RawEvidence",
@@ -464,9 +470,14 @@
             "archkeel.ir.guard_paths:GuardedCallPath",
             "archkeel.ir.guard_paths:guarded_call_paths",
             "archkeel.ir.source_proofs:class_instance_member_write_names",
-            "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt"
+            "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt",
+            "archkeel.ir.readset_codec:decode_read_set",
+            "archkeel.ir.store_seam:StoreEntry",
+            "archkeel.ir.store_seam:close_store",
+            "archkeel.ir.store_seam:open_store",
+            "archkeel.ir.store_seam:store_enabled"
           ],
-          "rationale": "Adapters publish immutable facts over the shared protocol, use the IR source-profile helper to classify test paths, and use the syntax-only source proof helpers to emit bounded receiver mutation evidence and to check that a numeric evidence excerpt replays. Core owns validation, ownership and policy; analyzers do not import it."
+          "rationale": "Adapters publish immutable facts over the shared protocol, use the IR source-profile helper to classify test paths, and use the syntax-only source proof helpers to emit bounded receiver mutation evidence and to check that a numeric evidence excerpt replays. The opt-in store collector reads the read-set document of the Rust store and opens its session (AD-346). Core owns validation, ownership and policy; analyzers do not import it."
         }
       ],
       "inside": "docs/architecture/contracts/analyzer.json",
@@ -764,13 +775,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 392,
+          "line": 407,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 404,
+          "line": 419,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

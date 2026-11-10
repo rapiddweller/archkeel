@@ -45,6 +45,7 @@ from archkeel.ir.protocol import (
     SourceScope,
     fixed_settings,
 )
+from archkeel.ir.store_seam import close_store
 
 from .contract_tree import ContractInput, contract_input
 from .declarations import ContractError, load_contract
@@ -263,6 +264,8 @@ def _observe(
     exclude_test_sources: bool = False,
     clock: PhaseClock | None = None,
 ) -> ObservationResult:
+    # AD-346: an observation owns at most one store session; the previous one ends here.
+    close_store()
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
     suffix = PROFILES[language].source_suffix

@@ -22,14 +22,15 @@ Clippy, `cargo deny` and the file size rule stay outside the contract
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    wire --> facts
-    snapshot --> wire
-    typescript --> wire
-    typescript --> snapshot
-    typescript --> facts
-    typescript --> build
-    rust --> wire
-    rust --> snapshot
-    rust --> facts
     rust --> build
+    rust --> facts
+    rust --> snapshot
+    rust --> wire
+    snapshot --> wire
+    store --> facts
+    typescript --> build
+    typescript --> facts
+    typescript --> snapshot
+    typescript --> wire
+    wire --> facts
 ```

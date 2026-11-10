@@ -25,12 +25,12 @@ from archkeel.ir.baseline import (
     observed_violations,
 )
 from archkeel.ir.codec import (
-    canonical_report_bytes,
     contract_bytes,
     decode_canonical_model,
     decode_json,
     parse_observation,
     parse_validation_baseline,
+    report_bytes,
     result_bytes,
 )
 from archkeel.ir.coverage import observation_complete
@@ -733,7 +733,7 @@ def _observed_report(
     architecture: bytes | None = None
     if result.observation is not None:
         with measured(clock, Phase.ENCODE):
-            architecture = canonical_report_bytes(result.observation)
+            architecture = report_bytes(result.observation)
         if clock is not None:
             _count_work(clock, result.observation, len(architecture))
     with measured(clock, Phase.RESULT):

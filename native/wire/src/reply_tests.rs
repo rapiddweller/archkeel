@@ -10,6 +10,8 @@ use std::io::Read;
 use flate2::read::ZlibDecoder;
 use serde_json::Value;
 
+use archkeel_facts::ids::{FactId, ModuleName, PackageName};
+
 use super::*;
 use crate::protocol::Version;
 use crate::stream::encode;
@@ -127,22 +129,22 @@ fn the_plain_version_3_reply_is_not_written() {
 fn a_target_has_the_fields_of_its_kind() {
     let targets = [
         Target::Local {
-            import_id: "IMP-1".to_owned(),
-            module: "app.b".to_owned(),
+            import_id: FactId::new("IMP-1"),
+            module: ModuleName::new("app.b"),
             file: "b.ts".to_owned(),
             runtime_file: Some("b.ts".to_owned()),
             declaration_file: None,
         },
         Target::External {
-            import_id: "IMP-2".to_owned(),
-            package: "react".to_owned(),
+            import_id: FactId::new("IMP-2"),
+            package: PackageName::new("react"),
         },
         Target::Builtin {
-            import_id: "IMP-3".to_owned(),
+            import_id: FactId::new("IMP-3"),
             name: "fs".to_owned(),
         },
         Target::Unresolved {
-            import_id: "IMP-4".to_owned(),
+            import_id: FactId::new("IMP-4"),
             specifier: "x".to_owned(),
             reason: "Unresolved module: x".to_owned(),
         },

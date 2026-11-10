@@ -1,0 +1,28 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-store"
+description = "The store of Archkeel: validate a collector reply once, give the read-set and write architecture.json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# AD-346: one crate holds the library and its process entry. The host runs the binary as a
+# subprocess (AD-317). It is not in the wheel until the store becomes the default.
+[[bin]]
+name = "archkeel-store"
+path = "src/main.rs"
+
+[dependencies]
+archkeel-facts.workspace = true
+flate2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

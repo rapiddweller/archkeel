@@ -306,7 +306,7 @@ fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, records: &mut Rec
         .collect();
     let mut seen = HashSet::new();
     for target in &facts.imports {
-        let Some(item) = by_id.get(target.import_id()) else {
+        let Some(item) = by_id.get(target.import_id().as_str()) else {
             continue;
         };
         let bindings = pending
@@ -388,7 +388,7 @@ fn known_witness<'a>(
         && !destination.has_error;
     proven.then(|| {
         (
-            module.clone(),
+            module.as_str().to_owned(),
             file.clone(),
             binding.imported.clone(),
             (declaration, export),
@@ -406,7 +406,9 @@ fn bound_record(
 ) -> ImportRecord {
     let known = !fact_ids.is_empty();
     let chain = match target {
-        Target::Local { module, .. } if known => vec![format!("{module}.{}", binding.imported)],
+        Target::Local { module, .. } if known => {
+            vec![format!("{}.{}", module.as_str(), binding.imported)]
+        }
         _ => Vec::new(),
     };
     let mut record = item.clone();

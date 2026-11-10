@@ -84,54 +84,8 @@ pub struct Record {
     pub data: Map<String, Value>,
 }
 
-/// What an import resolves to (`facts.ImportTarget`).
-#[derive(Clone, Debug, PartialEq)]
-pub enum Target {
-    Local {
-        import_id: String,
-        module: String,
-        file: String,
-        runtime_file: Option<String>,
-        declaration_file: Option<String>,
-    },
-    External {
-        import_id: String,
-        package: String,
-    },
-    Builtin {
-        import_id: String,
-        name: String,
-    },
-    Unresolved {
-        import_id: String,
-        specifier: String,
-        reason: String,
-    },
-}
-
-impl Target {
-    /// The id of the import record that this target belongs to.
-    pub fn import_id(&self) -> &str {
-        match self {
-            Target::Local { import_id, .. }
-            | Target::External { import_id, .. }
-            | Target::Builtin { import_id, .. }
-            | Target::Unresolved { import_id, .. } => import_id,
-        }
-    }
-
-    /// The same target for another import record.
-    pub fn with_import_id(&self, id: &str) -> Self {
-        let mut copy = self.clone();
-        match &mut copy {
-            Target::Local { import_id, .. }
-            | Target::External { import_id, .. }
-            | Target::Builtin { import_id, .. }
-            | Target::Unresolved { import_id, .. } => *import_id = id.to_owned(),
-        }
-        copy
-    }
-}
+/// What an import resolves to: the one typed definition of `archkeel-facts` (AD-346).
+pub use archkeel_facts::envelope::Target;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Provenance {
@@ -286,31 +240,8 @@ fn facts_value(facts: &Facts) -> Value {
 }
 
 pub fn target_value(target: &Target) -> Value {
-    match target {
-        Target::Local {
-            import_id,
-            module,
-            file,
-            runtime_file,
-            declaration_file,
-        } => json!({
-            "kind": "local", "import_id": import_id, "module": module, "file": file,
-            "runtime_file": runtime_file, "declaration_file": declaration_file,
-        }),
-        Target::External { import_id, package } => {
-            json!({"kind": "external", "import_id": import_id, "package": package})
-        }
-        Target::Builtin { import_id, name } => {
-            json!({"kind": "builtin", "import_id": import_id, "name": name})
-        }
-        Target::Unresolved {
-            import_id,
-            specifier,
-            reason,
-        } => json!({
-            "kind": "unresolved", "import_id": import_id, "specifier": specifier, "reason": reason,
-        }),
-    }
+    // A derived enum of texts always serializes; `Null` is not reachable.
+    serde_json::to_value(target).unwrap_or(Value::Null)
 }
 
 pub(crate) fn file_value(file: &FileFact) -> Value {

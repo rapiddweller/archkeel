@@ -21,6 +21,7 @@ from typing import BinaryIO
 from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES, exit_message, limit_memory
 from archkeel.analyzer.reply_checks import check_reply
 from archkeel.analyzer.runtime import package_version
+from archkeel.analyzer.store import StoreLimits, store_response
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import (
     DEFAULT_RESPONSE_LIMIT_BYTES,
@@ -37,6 +38,7 @@ from archkeel.ir.protocol import (
     CollectionResponse,
     ProtocolVersion,
 )
+from archkeel.ir.store_seam import store_enabled
 
 
 class _OutputLimitError(ValueError):
@@ -94,6 +96,8 @@ class ProcessCollector:
     memory_limit_bytes: int = COLLECTOR_MEMORY_LIMIT_BYTES
     # Set for a collector of this package: its reply must carry the host version (AD-319).
     pin_adapter_version: bool = False
+    # AD-346 (opt-in): the path of an `archkeel-store` binary that decodes and keeps the reply.
+    store: str | None = None
 
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
@@ -198,13 +202,24 @@ class ProcessCollector:
             return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, subject, str(error))
 
     def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
+        adapter_version = package_version() if self.pin_adapter_version else None
+        # Explore observes twice and reuses the facts of its first pass; a store keeps one reply.
+        if self.store is not None and store_enabled() and not request.scope.exclude_test_sources:
+            with measured(self.clock, Phase.DECODE):
+                return store_response(
+                    stdout,
+                    request,
+                    StoreLimits(self.store, self.output_limit_bytes, self.memory_limit_bytes),
+                    protocol_version=self.protocol_version,
+                    adapter_version=adapter_version,
+                )
         with measured(self.clock, Phase.DECODE):
             response = decode_response(stdout, output_limit=self.output_limit_bytes)
             check_reply(
                 response,
                 request,
                 protocol_version=self.protocol_version,
-                adapter_version=package_version() if self.pin_adapter_version else None,
+                adapter_version=adapter_version,
             )
         return response
 

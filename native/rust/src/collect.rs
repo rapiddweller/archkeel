@@ -347,7 +347,7 @@ impl Builder {
             ],
         );
         let evidence = self.cite(from.rel, site);
-        let import_id = identity.clone();
+        let import_id = FactId::new(identity.as_str());
         let (target, target_module) = match named {
             Named::Sysroot(name) => (
                 Target::Builtin {
@@ -365,7 +365,7 @@ impl Builder {
                 Some(root) => (
                     Target::Local {
                         import_id,
-                        module: root.module.clone(),
+                        module: ModuleName::new(root.module.as_str()),
                         file: root.rel.clone(),
                         runtime_file: Some(root.rel.clone()),
                         declaration_file: None,
@@ -375,14 +375,14 @@ impl Builder {
                 None => (
                     Target::External {
                         import_id,
-                        package: package.clone(),
+                        package: PackageName::new(package.as_str()),
                     },
                     target_module,
                 ),
             },
         };
         let target_package = match &target {
-            Target::Local { module, .. } => package_of(module).to_owned(),
+            Target::Local { module, .. } => package_of(module.as_str()).to_owned(),
             _ => target_module.clone(),
         };
         self.targets.push(target);

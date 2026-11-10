@@ -136,6 +136,12 @@ PR_TEST_FILES := \
 	tests/test_collector_native_script_umd.py \
 	tests/test_collector_native_syntax_scaling.py \
 	tests/test_collector_native_verdicts.py \
+	'tests/test_collector_native_store.py::test_the_store_path_writes_the_bytes_and_verdicts_of_the_python_path' \
+	'tests/test_collector_native_store.py::test_the_python_writer_refuses_an_observation_that_the_store_holds' \
+	'tests/test_collector_native_store.py::test_a_changed_typescript_reply_gives_no_pass_on_the_store_path' \
+	'tests/test_collector_native_store.py::test_the_store_refuses_a_feature_whose_proof_it_does_not_check' \
+	'tests/test_collector_native_store.py::test_the_printable_table_of_the_store_is_the_table_of_this_python' \
+	'tests/test_collector_native_store.py::test_check_with_the_store_set_gives_the_verdict_of_check_without_it' \
 	tests/test_collector_golden_replies.py \
 	tests/test_collector_golden_python.py \
 	tests/test_source_trust_boundary.py \

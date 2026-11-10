@@ -44,8 +44,9 @@ OWNERS = {
         "observation_payload",
         "encode_canonical_model",
         "decode_canonical_model",
-        "canonical_report_bytes",
     ),
+    # AD-346: the writer that refuses an observation held by the Rust store, and its route.
+    "store": ("canonical_report_bytes", "report_bytes"),
     "delta": ("parse_delta", "delta_payload"),
     "result": (
         "result_payload",
