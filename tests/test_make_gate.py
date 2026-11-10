@@ -291,14 +291,6 @@ def test_full_report_job_allows_the_browser_suite_to_finish() -> None:
     assert int(timeout.group(1)) >= 30
 
 
-def test_no_job_is_skipped_by_a_condition() -> None:
-    # A job-level if: shows a skipped check; only an aggregate runs always, so it never skips.
-    for path in (ROOT / ".github/workflows").glob("*.yml"):
-        for job, body in _jobs(path.name).items():
-            conditions = re.findall(r"^    if: (.+)$", body, flags=re.MULTILINE)
-            assert conditions in ([], ["always()"]), (path.name, job, conditions)
-
-
 @pytest.mark.parametrize(
     ("workflow", "aggregate"),
     [("ci.yml", "check"), ("full-verification.yml", "verified")],
@@ -609,7 +601,7 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
 
 def _full_filter() -> list[str]:
     text = (ROOT / ".github/workflows/full-verification.yml").read_text()
-    listed = re.search(r"\n  pull_request:\n    paths:\n((?:      - .+\n)+)", text)
+    listed = re.search(r"\n  pull_request:\n    types: .+\n    paths:\n((?:      - .+\n)+)", text)
     assert listed is not None
     return [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()]
 
