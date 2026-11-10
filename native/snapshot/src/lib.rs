@@ -22,4 +22,4 @@ mod snapshot;
 )]
 pub mod test_tree;
 
-pub use snapshot::{Snapshot, MAX_FILE_BYTES, OUTSIDE, SYMLINK};
+pub use snapshot::{Snapshot, MAX_FILE_BYTES};

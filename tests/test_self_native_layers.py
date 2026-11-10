@@ -360,14 +360,50 @@ def test_each_declared_crate_adds_no_module_cycle() -> None:
         assert cycle_problems(graph, declared_cycles(layers, crate)) == [], crate
 
 
-def contract_problems(layers: Mapping[str, Any], contract: Mapping[str, Any]) -> list[str]:
-    """Compare the crate directions of `layers.toml` with the `requires` of the contract."""
+# The rules of the contract, pinned: a change of a rule is a change of this test as well.
+EXPECTED_RULES = [
+    ("NATIVE-ASSIGNMENT-COMPLETE", "complete_assignment", None, None),
+    ("NATIVE-REQUIRES-COMPLETE", "complete_requires", None, None),
+    ("NATIVE-NO-CRATE-CYCLES", "no_component_cycles", None, None),
+    (
+        "NATIVE-EXTERNAL-TREE-SITTER",
+        "external_dependency_scope",
+        "tree_sitter",
+        ["native.archkeel_typescript_collector"],
+    ),
+    (
+        "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT",
+        "external_dependency_scope",
+        "tree_sitter_typescript",
+        ["native.archkeel_typescript_collector"],
+    ),
+]
+
+
+def contract_problems(
+    layers: Mapping[str, Any],
+    contract: Mapping[str, Any],
+    expected_rules: list[tuple[Any, ...]] | None = None,
+) -> list[str]:
+    """Compare `layers.toml` with the contract: components, `requires` and the pinned rules."""
     by_label = {c["label"]: c for c in contract["components"]}
     package_of = {name: "native." + name.replace("-", "_") for name in layers["crates"]}
     label_of = {
         package: label for label, component in by_label.items() for package in component["packages"]
     }
     problems: list[str] = []
+    known = set(package_of.values())
+    for label, component in sorted(by_label.items()):
+        for package in component["packages"]:
+            if package not in known:
+                problems.append(f"component {label} names {package}, which has no crate entry")
+    if expected_rules is not None:
+        rules = [
+            (r["id"], r["kind"], r.get("dependency"), r.get("allowed_sources"))
+            for r in contract.get("rules", [])
+        ]
+        if rules != expected_rules:
+            problems.append(f"the rules of the contract changed: {rules}")
     for name, entry in sorted(layers["crates"].items()):
         label = label_of.get(package_of[name])
         if label is None:
@@ -384,7 +420,7 @@ def contract_problems(layers: Mapping[str, Any], contract: Mapping[str, Any]) ->
 
 def test_the_contract_and_the_layer_file_state_the_same_directions() -> None:
     contract = json.loads((NATIVE / "architecture-contract.json").read_text())
-    assert contract_problems(_layers(), contract) == []
+    assert contract_problems(_layers(), contract, EXPECTED_RULES) == []
 
 
 def test_a_direction_that_only_one_file_states_is_a_problem() -> None:
@@ -399,4 +435,24 @@ def test_a_direction_that_only_one_file_states_is_a_problem() -> None:
     ]
     assert contract_problems(LAYERS, {"components": contract["components"][:1]}) == [
         "ts has no component in the contract"
+    ]
+
+
+def test_a_component_without_a_crate_and_a_changed_rule_are_problems() -> None:
+    contract = {
+        "components": [
+            {"label": "wire", "packages": ["native.wire"]},
+            {"label": "ts", "packages": ["native.ts"], "requires": [{"component": "wire"}]},
+            {"label": "ghost", "packages": ["native.ghost"]},
+        ],
+        "rules": [{"id": "R", "kind": "complete_requires"}],
+    }
+    rules = [("R", "complete_requires", None, None)]
+    assert contract_problems(LAYERS, contract, rules) == [
+        "component ghost names native.ghost, which has no crate entry"
+    ]
+    contract["rules"] = []
+    assert contract_problems(LAYERS, contract, rules) == [
+        "component ghost names native.ghost, which has no crate entry",
+        "the rules of the contract changed: []",
     ]
