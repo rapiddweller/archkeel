@@ -351,14 +351,6 @@
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 86
   },
-  "typescript/src/dump.rs|typescript/src/dump.rs|777179bfb8": {
-    "files": [
-      "typescript/src/dump.rs",
-      "typescript/src/dump.rs"
-    ],
-    "reason": "The two dev-only dump loops (`run`, `count`) share the request loop. Dev tool behind the `dump` feature, not shipped; merge when it next changes.",
-    "tokens": 149
-  },
   "typescript/src/dump.rs|typescript/src/parse.rs|9e628f2150": {
     "files": [
       "typescript/src/dump.rs",

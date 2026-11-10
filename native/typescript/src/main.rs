@@ -39,6 +39,23 @@ mod resolution;
 mod resolve;
 mod scan;
 mod scope;
+mod script;
+mod script_alias;
+mod script_bind;
+mod script_declarations;
+mod script_declare;
+mod script_factory;
+mod script_flags;
+mod script_index;
+mod script_names;
+mod script_namespace;
+mod script_publish;
+mod script_refs;
+mod script_scope;
+mod script_syntax;
+mod script_types;
+mod script_wrapper;
+mod script_writes;
 mod site_names;
 mod site_paths;
 mod site_records;
@@ -51,6 +68,9 @@ mod symbol_table;
 mod symbols;
 mod syntax;
 mod test_sources;
+mod umd;
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
+mod umd_publication;
 mod walk;
 
 use std::io::Read;
@@ -100,6 +120,7 @@ fn dump_requested() -> Option<ExitCode> {
     let result = match mode.as_str() {
         "--dump" => dump::run(stdin.lock(), &mut stdout),
         "--dump-count" => dump::count(stdin.lock(), &mut stdout),
+        "--dump-umd" => dump::umd(stdin.lock(), &mut stdout),
         "--dump-records" => dump_records(stdin.lock(), &mut stdout),
         _ => return None,
     };
