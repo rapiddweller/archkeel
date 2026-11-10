@@ -88,7 +88,7 @@ def test_an_unchanged_tree_keeps_its_digest(workspace: Path) -> None:
 
 
 def _edit_dependency_source(workspace: Path) -> None:
-    identity = workspace / "wire/src/identity.rs"
+    identity = workspace / "facts/src/identity.rs"
     identity.write_text(identity.read_text() + "\n// digest test: an edit\n")
 
 

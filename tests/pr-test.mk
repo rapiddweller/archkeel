@@ -5,6 +5,7 @@ PR_TEST_FILES := \
 	tests/test_make_gate.py \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \
+	tests/test_native_contract_rules.py \
 	tests/test_rust_clones.py \
 	tests/test_rust_api.py \
 	tests/test_rust_source.py \

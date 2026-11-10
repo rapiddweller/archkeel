@@ -87,17 +87,29 @@ def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
 
 
 def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedProcess[str]:
+    # `self-validate-native` copies the collector that `cargo build` makes, so the stub makes an
+    # empty one. A real build output stays as it is, and the test removes only its own file.
+    built = ROOT / "native/target/self/debug/archkeel-rust-collector"
     cargo = tmp_path / "cargo"
-    cargo.write_text(f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n')
-    cargo.chmod(0o755)
-    return subprocess.run(
-        ["make", target, "UV=true"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": "", "PATH": f"{tmp_path}:{os.environ['PATH']}"},
-        capture_output=True,
-        text=True,
-        timeout=15,
+    cargo.write_text(
+        f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n'
+        f'case "$*" in *"build "*) [ -e "{built}" ] || '
+        f'{{ mkdir -p "{built.parent}" && : > "{built}"; }};; esac\n'
     )
+    cargo.chmod(0o755)
+    existed = built.exists()
+    try:
+        return subprocess.run(
+            ["make", target, "UV=true"],
+            cwd=ROOT,
+            env={**os.environ, "MAKEFLAGS": "", "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    finally:
+        if not existed:
+            built.unlink(missing_ok=True)
 
 
 def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
