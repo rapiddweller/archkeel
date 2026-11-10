@@ -36,14 +36,15 @@ Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-an
 1. Run `make merge-check PR=<number>` before every merge. A branch that is behind `main` is a warning: the PR needs no up-to-date branch. A merge conflict, or a file set that differs from the PR on GitHub, is an error. A file that `main` changed in its last merges is a warning only when the PR removes lines from it, because that is what a revert looks like.
 2. Give each PR one class ([AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md)).
    - A: no change to an output, golden bytes, a published schema, packaging or a workflow.
-   - B: such a change, or a protocol version. B needs one Full run on the final reviewed SHA.
+   - B: such a change, or a protocol version. B needs green CI and one Full run on the final reviewed SHA only. Never run Full per push or before the review passes.
    - C: Windows-sensitive paths, wheel or packaging, `Cargo.lock`, toolchain, `Makefile` or `.github/`. C needs green CI and the Full run of B.
-3. Run the local gate on the final head, rebased on `main`: `make ci-pr-static BASE=origin/main`, the tests of the touched areas, `make native-check` when `native/` changes, and `make merge-check`. Name the commands and the SHA in the PR. Push only when the gate is green. Keep the PR a draft while you fix it: a draft runs no CI.
+3. Run the local gate on the final head, rebased on `main`: `make ci-pr-static BASE=origin/main`, the tests of the touched areas, `make native-check` when `native/` changes, `make merge-check`, and the merge-tree check of the lead. Name the commands and the SHA in the PR. Push only when the gate is green. Keep the PR a draft while you fix it: a draft runs no CI.
 4. Class A merges on the review, the local gate and green CI. When CI is not finished 15 minutes after the push, the lead may merge and read the result afterwards.
 5. Do not dispatch Full yourself. The lead dispatches it, for one branch at a time. Full runs on `main` every night and after every 3 merges.
 6. A red `main` stops the line. Merge only the fix. The lead reverts the suspect merge when no fix is green locally within 60 minutes.
-7. Run `python3 tools/ci_daily.py` for the daily line (CI wall, CI queue, Full wall, Full runs, re-runs).
-8. A PR that can enable a PASS needs an independent review by a second model. It must also pass the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full). A probe expects UNKNOWN or FAIL, never PASS.
+7. Run `python3 tools/ci_daily.py` for the daily line: CI wall, CI queue wait, Full wall on `main`, Full runs, re-runs and red-main hours. The targets: CI at most 10 minutes, queue wait at most 3 minutes, Full at most 30 minutes, red `main` 0 hours.
+8. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
+9. A PR that can enable a PASS needs an independent review by a second model. It must also pass the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full). A probe expects UNKNOWN or FAIL, never PASS.
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.

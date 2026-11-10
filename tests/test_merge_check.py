@@ -172,7 +172,26 @@ def pr_on_main(repo: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     head = commit(repo, {"new.txt": "2\n"}, "Add the new file")
     git(repo, "checkout", "-q", "main")
     monkeypatch.setattr(merge_check, "fetch_pr", lambda repo_, number: head)
+    monkeypatch.setattr(merge_check, "pr_checks", lambda number: "[]")
     return head
+
+
+def test_a_skipped_aggregate_check_is_an_error() -> None:
+    rollup = '[{"name": "Docs diagrams", "conclusion": "SUCCESS"}]'
+    assert merge_check.aggregate_errors(rollup) == []
+    skipped = '[{"name": "All checks passed", "conclusion": "SKIPPED"}]'
+    [error] = merge_check.aggregate_errors(skipped)
+    assert "All checks passed" in error and "skipped" in error
+
+
+def test_main_exits_one_when_the_aggregate_check_is_skipped(
+    repo: Path, pr_on_main: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr(merge_check, "pr_view", lambda number: (pr_on_main, ["new.txt"], {}))
+    skipped = '[{"name": "All checks passed", "conclusion": "SKIPPED"}]'
+    monkeypatch.setattr(merge_check, "pr_checks", lambda number: skipped)
+    assert merge_check.main(["7"], repo=repo) == 1
+    assert "skipped" in capsys.readouterr().out
 
 
 def test_main_exits_zero_for_a_clean_pull_request(
@@ -201,5 +220,6 @@ def test_main_exits_one_when_the_pull_request_conflicts(
     git(repo, "update-ref", "refs/remotes/origin/main", "main")
     monkeypatch.setattr(merge_check, "fetch_pr", lambda repo_, number: head)
     monkeypatch.setattr(merge_check, "pr_view", lambda number: (head, ["a.txt"], {}))
+    monkeypatch.setattr(merge_check, "pr_checks", lambda number: "[]")
     assert merge_check.main(["7"], repo=repo) == 1
     assert "conflict" in capsys.readouterr().out

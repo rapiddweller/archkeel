@@ -17,8 +17,9 @@
 6. A red `main` stops the line. Only the fix merges. The lead reverts the suspect merge when
    no fix is green locally within 60 minutes.
 7. A draft PR runs no job in `ci.yml` and `full-verification.yml`. `ready_for_review` starts CI.
-8. `tools/ci_daily.py` prints the daily line: CI wall, CI queue wait, Full wall on `main`, Full
-   runs and re-runs. Targets: CI at most 10 minutes, queue at most 3, Full at most 30.
+8. `tools/ci_daily.py` prints the daily line: CI wall, CI queue wait (median, p90 and maximum of
+   the slowest-starting job), Full wall on `main`, Full runs, re-runs and red-main hours. It leaves
+   re-runs and all-skipped draft runs out of wall and queue. Targets: CI at most 10 minutes, queue at most 3, Full at most 30.
 
 **Problem.** Measured on 2026-11-10. Full on `main` took 40.5 minutes of wall time; the longest
 job took 18.5 minutes. PR CI took 25 to 30 minutes against 7.3 to 8.2 minutes without a queue.
@@ -33,6 +34,10 @@ as passed, so it never stays pending; GitHub does not merge a draft. Marking the
 CI. The test `!= true` (not `== false`) keeps the jobs on for `schedule`, `workflow_dispatch` and
 `workflow_call`, where the draft flag is empty. Full already has a nightly `schedule`. The
 concurrency group with `cancel-in-progress` stays.
+
+**Ready-click window.** After the click and before the new run ends, GitHub can show the skipped
+aggregate of the draft run, and a skipped required check counts as passed. `make merge-check`
+fails when `All checks passed` is skipped. The lead merges only after the aggregate is green.
 
 **Rejected.** An automatic trigger after every 3 merges: the lead counts and dispatches. A
 bigger plan: it costs money and does not remove the extra runs.

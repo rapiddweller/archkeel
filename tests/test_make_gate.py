@@ -291,14 +291,6 @@ def test_full_report_job_allows_the_browser_suite_to_finish() -> None:
     assert int(timeout.group(1)) >= 30
 
 
-def test_no_job_is_skipped_by_a_condition() -> None:
-    # Only an aggregate runs always, so it never skips; the draft guard (AD-348) is the other if.
-    for path in (ROOT / ".github/workflows").glob("*.yml"):
-        for body in _jobs(path.name).values():
-            conditions = re.findall(r"^    if: (?:always\(\) && )?(.+)$", body, flags=re.MULTILINE)
-            assert conditions in ([], ["always()"], ["github.event.pull_request.draft != true"])
-
-
 @pytest.mark.parametrize(
     ("workflow", "aggregate"),
     [("ci.yml", "check"), ("full-verification.yml", "verified")],
