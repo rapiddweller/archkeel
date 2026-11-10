@@ -143,6 +143,25 @@ pub struct Provenance {
     pub runtime_required: String,
 }
 
+impl Provenance {
+    /// The provenance of a native collector that is written in Rust. The build script gives the
+    /// version, the digest and the compiler; `rust_version` is the minimum of the crate.
+    pub fn native(
+        profile: &'static str,
+        (adapter_version, code_digest): (&str, &str),
+        (runtime_version, rust_version): (&str, &str),
+    ) -> Self {
+        Self {
+            profile,
+            adapter_version: adapter_version.to_owned(),
+            code_digest: code_digest.to_owned(),
+            runtime_name: "rust",
+            runtime_version: runtime_version.to_owned(),
+            runtime_required: format!(">={rust_version}"),
+        }
+    }
+}
+
 /// One section of the reply. A typed section holds the records of archkeel-facts (AD-345), and its
 /// wire is written by those types. The imports section is typed; the other sections follow.
 #[derive(Clone, Debug, PartialEq)]

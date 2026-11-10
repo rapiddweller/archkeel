@@ -43,7 +43,7 @@ pub struct Manifest {
     pub features: BTreeSet<String>,
 }
 
-fn get<'a>(table: &'a Table, path: &[&str]) -> Option<&'a Value> {
+pub(crate) fn get<'a>(table: &'a Table, path: &[&str]) -> Option<&'a Value> {
     let (last, parents) = path.split_last()?;
     let mut table = table;
     for key in parents {

@@ -230,42 +230,44 @@ impl Reader<'_> {
     }
 
     fn inline_table(&mut self, depth: usize) -> Result<Value, String> {
-        self.at += 1;
         let mut table = Table::new();
-        loop {
-            self.skip_blank();
-            if self.peek() == Some(b'}') {
-                self.at += 1;
-                return Ok(Value::Table(table));
-            }
-            let keys = self.key_path()?;
-            self.expect(b'=')?;
-            let value = self.value(depth + 1)?;
-            insert(&mut table, &keys, value)?;
-            self.skip_blank();
-            if self.peek() == Some(b',') {
-                self.at += 1;
-            } else if self.peek() != Some(b'}') {
-                return self.fail("expected `,` or `}`");
-            }
-        }
+        self.sequence(b'}', |this| {
+            let keys = this.key_path()?;
+            this.expect(b'=')?;
+            let value = this.value(depth + 1)?;
+            insert(&mut table, &keys, value)
+        })?;
+        Ok(Value::Table(table))
     }
 
     fn array(&mut self, depth: usize) -> Result<Value, String> {
-        self.at += 1;
         let mut items = Vec::new();
+        self.sequence(b']', |this| {
+            items.push(this.value(depth + 1)?);
+            Ok(())
+        })?;
+        Ok(Value::Array(items))
+    }
+
+    /// The elements between an opening bracket (the next byte) and `close`, separated by commas.
+    fn sequence(
+        &mut self,
+        close: u8,
+        mut element: impl FnMut(&mut Self) -> Result<(), String>,
+    ) -> Result<(), String> {
+        self.at += 1;
         loop {
             self.skip_blank();
-            if self.peek() == Some(b']') {
+            if self.peek() == Some(close) {
                 self.at += 1;
-                return Ok(Value::Array(items));
+                return Ok(());
             }
-            items.push(self.value(depth + 1)?);
+            element(self)?;
             self.skip_blank();
             if self.peek() == Some(b',') {
                 self.at += 1;
-            } else if self.peek() != Some(b']') {
-                return self.fail("expected `,` or `]`");
+            } else if self.peek() != Some(close) {
+                return self.fail(&format!("expected `,` or `{}`", char::from(close)));
             }
         }
     }

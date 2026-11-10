@@ -5,15 +5,7 @@
 // Consumer: the manifest reader. The text is a real `Cargo.toml` shape.
 
 use super::*;
-
-fn at<'a>(table: &'a Table, path: &[&str]) -> Option<&'a Value> {
-    let (last, parents) = path.split_last()?;
-    let mut table = table;
-    for key in parents {
-        table = table.get(*key)?.table()?;
-    }
-    table.get(*last)
-}
+use crate::manifest::get as at;
 
 #[test]
 fn reads_tables_dotted_keys_and_inline_tables() {

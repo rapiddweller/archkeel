@@ -30,6 +30,8 @@
 // A build script that fails stops the build, not a scan, so it may expect.
 #![allow(clippy::expect_used)]
 #![forbid(unsafe_code)]
+// The one public item is `emit`; a crate-private item stays private (AD-327).
+#![deny(unreachable_pub)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
