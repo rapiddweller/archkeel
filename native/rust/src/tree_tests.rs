@@ -100,6 +100,7 @@ fn a_missing_an_ambiguous_and_a_shared_module_file_are_problems() {
             "Module file not found: mod missing in src/lib.rs",
             "Module file is ambiguous: mod both in src/lib.rs",
             "The file src/x.rs is the file of two modules",
+            "The file src/x.rs is the file of two modules",
             "Module file not found: ../../escape.rs (mod out in src/lib.rs)",
         ]
     );
@@ -134,7 +135,7 @@ fn a_raw_identifier_module_has_the_file_name_without_the_prefix() {
 }
 
 #[test]
-fn a_build_script_that_two_crates_name_is_walked_once_as_a_file_of_the_crate_that_holds_it() {
+fn a_build_script_that_two_crates_name_is_walked_once_and_is_a_problem_of_both() {
     let root = Tree::new(&[
         (
             "a/Cargo.toml",
@@ -159,6 +160,43 @@ fn a_build_script_that_two_crates_name_is_walked_once_as_a_file_of_the_crate_tha
         (builds[0].module.as_str(), builds[0].crate_index),
         ("ns.b.build_script", 1)
     );
+    // The file and the manifest of the second crate carry the reason: both crates are UNKNOWN.
+    let both: Vec<_> = found
+        .problems
+        .iter()
+        .map(|p| (p.file.as_str(), p.reason.as_str()))
+        .collect();
+    let reason = "The file b/build.rs is the file of two crates";
+    assert_eq!(both, [("b/build.rs", reason), ("a/Cargo.toml", reason)]);
+}
+
+#[test]
+fn a_path_attribute_that_leaves_the_crate_is_a_problem_of_both_files() {
+    let root = Tree::new(&[
+        ("app/Cargo.toml", "[package]\nname = \"app\"\n"),
+        (
+            "app/src/lib.rs",
+            "#[path = \"../../base/src/lib.rs\"] mod b;",
+        ),
+        ("base/Cargo.toml", "[package]\nname = \"base\"\n"),
+        ("base/src/lib.rs", ""),
+    ]);
+    let mut source = Snapshot::new(&root.path());
+    let listed = list_files(&mut source, "");
+    let workspace = discover(&mut source, &listed, "ns");
+    let found = walk(&mut source, &workspace, false);
+    let reason = "A path attribute leaves the crate directory: base/src/lib.rs";
+    let both: Vec<_> = found
+        .problems
+        .iter()
+        .map(|p| (p.file.as_str(), p.reason.as_str()))
+        .collect();
+    assert_eq!(
+        both,
+        [("base/src/lib.rs", reason), ("app/src/lib.rs", reason)]
+    );
+    let names: Vec<_> = found.modules.iter().map(|m| m.module.as_str()).collect();
+    assert_eq!(names, ["ns.app", "ns.base"]);
 }
 
 #[test]

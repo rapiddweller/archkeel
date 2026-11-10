@@ -7,53 +7,9 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::{is_function_like, Tree, IN_ERROR, IN_FUNCTION, IN_TYPE, NONE};
-
-/// `_TYPE_PARENTS`: a node below one of these kinds is part of a type.
-fn is_type_parent(kind: K) -> bool {
-    matches!(
-        kind,
-        K::TypeAnnotation
-            | K::TypeArguments
-            | K::TypeQuery
-            | K::TypeAliasDeclaration
-            | K::TypeParameter
-            | K::ExtendsTypeClause
-            | K::ImplementsClause
-    )
-}
+use crate::script_scope::{Tree, NONE};
 
 impl<'a, 't> Tree<'a, 't> {
-    /// The flags of the nodes that hold for a node when they hold for its parent: each is read
-    /// from the parent, so the file costs one pass and not the depth for each question. A parent
-    /// comes before its children in the document order, so its flags are known.
-    pub(crate) fn with_flags(mut self) -> Self {
-        let mut flags: Vec<u8> = Vec::with_capacity(self.nodes.len());
-        for (node, above) in self.nodes.iter().zip(self.parents.iter()) {
-            let parent = self.nodes.get(*above as usize);
-            let Some(parent) = parent.filter(|_| *above != NONE) else {
-                flags.push(0);
-                continue;
-            };
-            let up = flags.get(*above as usize).copied().unwrap_or(0);
-            let kind = self.k(*parent);
-            let mut own = up;
-            if parent.is_error() {
-                own |= IN_ERROR;
-            }
-            let cast = matches!(kind, K::AsExpression | K::SatisfiesExpression);
-            if is_type_parent(kind) || (cast && node.start_byte() > parent.start_byte()) {
-                own |= IN_TYPE;
-            }
-            if is_function_like(self.k(*parent)) {
-                own |= IN_FUNCTION;
-            }
-            flags.push(own);
-        }
-        self.flags = flags;
-        self
-    }
-
     /// For each position, the position of the nearest node above it that `pick` accepts, or `NONE`. A parent comes before its
     /// children in the document order, so the answer of a node is read from its parent.
     pub fn nearest_above(&self, pick: impl Fn(Node<'t>) -> bool) -> Vec<u32> {

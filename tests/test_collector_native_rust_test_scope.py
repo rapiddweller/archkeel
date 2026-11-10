@@ -20,8 +20,7 @@ from typing import Any
 
 import pytest
 
-from archkeel.check.observe import _TEST_SCOPE_LANGUAGES
-from archkeel.ir.profiles import Language, is_test_source
+from archkeel.ir.profiles import TEST_SCOPE_LANGUAGES, Language, is_test_source
 
 SOURCES = {
     "crates/Cargo.toml": '[package]\nname = "app"\nbuild = "build.rs"\n'
@@ -81,7 +80,7 @@ def test_a_request_without_the_flag_keeps_the_test_files(tmp_path: Path, rust_bi
 
 
 def test_the_host_sends_the_flag_for_rust() -> None:
-    assert Language.RUST in _TEST_SCOPE_LANGUAGES
+    assert Language.RUST in TEST_SCOPE_LANGUAGES
 
 
 @pytest.mark.parametrize(

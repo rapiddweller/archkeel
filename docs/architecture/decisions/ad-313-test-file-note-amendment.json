@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7aaf94c39ac55c6181592d5f348388e8d60c5dc03715fc42d16a394dcd85ceab",
+  "after_digest": "0dbab2c59216ed037e392b89a3cc32143749cabfe517cdb4841f62f7f7db88ef",
+  "before_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
+  "before_digest": "dcc763cacb424b5ee7ee0f44018edf04d353fbe9f75f36726116fa8757e3ce03",
+  "decided_by": "agent (per task instruction)",
+  "rationale": "Base origin/main. AD-313 update of 2026-11-10 lists the excluded test files in the result note, so the new key never hides a file silently. Measured with validate --against origin/main: calls_unresolved rises from 970 to 977 (net +7). The new calls are path methods in check.observe._observe (relative_to, as_posix, intersection on a receiver typed by the standard library), the sorted and startswith calls of the Observer, and two str lower calls in the scope-change note in check.ports.ScanConfig; the PurePosixPath as_posix call in cli.config only moves lines. No other budget changes. Widening: component ir gains public profiles:TEST_SCOPE_LANGUAGES, the one owner of the languages that honour the test scope; check.ports, check.observe and check.report read it. The digests bind the contract tree and the baseline of origin/main to the head of this branch.",
+  "schema_version": "2.0.0"
+}

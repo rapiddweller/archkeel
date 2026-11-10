@@ -90,18 +90,32 @@ pub fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -
 
 impl Walked {
     fn start(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, root: &Root) {
-        if self.claimed.insert(root.rel.clone()) {
-            if self.exclude_tests && !root.test && in_test_directory(&root.rel) {
-                self.hidden(&root.rel, &root.rel);
-            }
-            let first = Pending {
-                rel: root.rel.clone(),
-                module: root.module.clone(),
-                owner: dirname(&root.rel).to_owned(),
-                depth: 0,
-                test: self.exclude_tests && (root.test || in_test_directory(&root.rel)),
-            };
-            self.crate_tree(source, index, krate, first);
+        if !self.claimed.insert(root.rel.clone()) {
+            let reason = format!("The file {} is the file of two crates", root.rel);
+            self.both(&reason, &root.rel, &join(&krate.dir, "Cargo.toml"));
+            return;
+        }
+        if self.exclude_tests && !root.test && in_test_directory(&root.rel) {
+            self.hidden(&root.rel, &root.rel);
+        }
+        let first = Pending {
+            rel: root.rel.clone(),
+            module: root.module.clone(),
+            owner: dirname(&root.rel).to_owned(),
+            depth: 0,
+            test: self.exclude_tests && (root.test || in_test_directory(&root.rel)),
+        };
+        self.crate_tree(source, index, krate, first);
+    }
+
+    /// A gap on the file that two owners load and on the file of the second owner, so that the
+    /// first owner is UNKNOWN as well as the second.
+    fn both(&mut self, reason: &str, shared: &str, second: &str) {
+        for file in [shared, second] {
+            self.problems.push(Problem {
+                reason: reason.to_owned(),
+                file: file.to_owned(),
+            });
         }
     }
 
@@ -113,7 +127,7 @@ impl Walked {
             };
             let scanned = self.scanned(&file, &text, krate);
             for child in &scanned.children {
-                self.child(source, &file, child, &mut queue);
+                self.child(source, krate, &file, child, &mut queue);
             }
             if file.test {
                 self.tests.insert(file.rel);
@@ -199,6 +213,7 @@ impl Walked {
     fn child(
         &mut self,
         source: &mut Snapshot,
+        krate: &Crate,
         parent: &Pending,
         child: &Child,
         queue: &mut VecDeque<Pending>,
@@ -216,13 +231,15 @@ impl Walked {
                 return;
             }
         };
+        if path_loaded && !krate.contains(&rel) {
+            let reason = format!("A path attribute leaves the crate directory: {rel}");
+            self.both(&reason, &rel, &parent.rel);
+            return;
+        }
         let test = self.test_scope(parent, child, &rel);
         if !self.claimed.insert(rel.clone()) {
             let reason = format!("The file {rel} is the file of two modules");
-            self.problems.push(Problem {
-                reason,
-                file: parent.rel.clone(),
-            });
+            self.both(&reason, &rel, &parent.rel);
             return;
         }
         let depth = parent.depth + 1 + child.inline.len();

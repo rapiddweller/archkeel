@@ -12,6 +12,7 @@ use tree_sitter::Node;
 
 use crate::definitions::Scopes;
 use crate::kinds::{F, K};
+use crate::layout::Layout;
 use crate::members::{named_children, Cx};
 use crate::references::literal;
 use crate::script_scope::Tree;
@@ -137,7 +138,7 @@ fn factory_writes(
     factory: Node,
     templates: &Templates,
 ) -> Option<BTreeSet<String>> {
-    let mut tree = Tree::new(cx, root);
+    let mut tree = Tree::from_layout(cx, root, Layout::of(&cx, root));
     let inside: Vec<Node> = tree.subtree(factory).to_vec();
     if inside
         .iter()
