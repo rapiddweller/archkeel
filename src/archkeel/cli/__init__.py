@@ -93,7 +93,7 @@ from .launcher import (
     studio_lock,
     write_state,
 )
-from .observe import observer_for
+from .observe import configured_observer, observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -123,7 +123,6 @@ def _positive_bytes(value: str) -> int:
     return limit
 
 
-_CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 _PER_RUN_LIMIT_REMEDY: Final = (
     "Retry with a larger finite --collector-output-limit-bytes value; "
     "larger values need more memory."
@@ -1300,19 +1299,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
                 clock = PhaseClock() if args.timings is not None else None
+                observer = configured_observer(config, observer_for, clock)
                 result, architecture, observation = run_report_with_observation(
                     root,
                     config=config,
-                    analyzer=observer_for(
-                        config.language,
-                        collector_argv=config.collector_argv,
-                        tsconfig=config.tsconfig or "tsconfig.json",
-                        output_limit_bytes=config.collector_output_limit_bytes,
-                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
-                        timeout_seconds=config.collector_timeout_seconds,
-                        bundler=config.bundler,
-                        clock=clock,
-                    ),
+                    analyzer=observer,
                     only_violations=args.only is ReportMode.VIOLATIONS,
                     only_calls=args.only is ReportMode.CALLS,
                     only_architecture=args.only is ReportMode.ARCHITECTURE,
@@ -1323,6 +1314,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     clock=clock,
                 )
                 result = replace(result, scan_roots=config.roots)
+                result = replace(
+                    result, notes=(*result.notes, *config.scope_notes(observer.excluded_for()))
+                )
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.
@@ -1385,18 +1379,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         except ValueError:
                             # Missing or invalid historical config cannot authorize a rename.
                             against_config = None
+                observer = configured_observer(config, observer_for)
                 result, requested_files = run_validate(
                     root,
                     config,
-                    observer_for(
-                        config.language,
-                        collector_argv=config.collector_argv,
-                        tsconfig=config.tsconfig or "tsconfig.json",
-                        output_limit_bytes=config.collector_output_limit_bytes,
-                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
-                        timeout_seconds=config.collector_timeout_seconds,
-                        bundler=config.bundler,
-                    ),
+                    observer,
                     write_graph=args.write_graph,
                     compact_open_decisions=args.compact_open_decisions,
                     # AD-103: run_validate reads both relative to --root, like the contract.
@@ -1412,9 +1399,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 files = requested_files.entries
                 result = replace(result, scan_roots=config.roots)
+                notes = (
+                    *result.notes,
+                    *config.scope_notes(observer.excluded_for(), against_config, against),
+                )
+                result = replace(result, notes=notes)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
+                observer = configured_observer(config, observer_for)
                 result = run_check(
                     root,
                     config=config,
@@ -1428,17 +1421,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     host_records_path=args.host_records,
                     environ=os.environ,
                     host=load_gitlab_records,
-                    analyzer=observer_for(
-                        config.language,
-                        collector_argv=config.collector_argv,
-                        tsconfig=config.tsconfig or "tsconfig.json",
-                        output_limit_bytes=config.collector_output_limit_bytes,
-                        output_limit_remedy=_CONFIGURED_LIMIT_REMEDY,
-                        timeout_seconds=config.collector_timeout_seconds,
-                        bundler=config.bundler,
-                    ),
+                    analyzer=observer,
                 )
                 result = replace(result, scan_roots=config.roots)
+                result = replace(
+                    result,
+                    notes=(
+                        *result.notes,
+                        *config.scope_notes(observer.excluded_for(args.head)),
+                    ),
+                )
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))

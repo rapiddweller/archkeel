@@ -136,7 +136,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py \
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py \
 	native/hatch_build.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
@@ -163,7 +163,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:

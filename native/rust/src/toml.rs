@@ -165,6 +165,8 @@ impl Reader<'_> {
         }
     }
 
+    /// A string on one line. A basic string decodes the escapes of TOML exactly; an escape that
+    /// TOML does not define is an error, so the crate is UNKNOWN and never misread.
     fn quoted(&mut self, quote: u8) -> Result<String, String> {
         self.at += 1;
         let mut out = Vec::new();
@@ -175,19 +177,52 @@ impl Reader<'_> {
                     self.at += 1;
                     return Ok(String::from_utf8_lossy(&out).into_owned());
                 }
-                Some(b'\\') if quote == b'"' => {
+                Some(b'\\') if quote == b'"' => self.escape(&mut out)?,
+                Some(byte) => {
+                    out.push(byte);
                     self.at += 1;
-                    out.push(match self.peek() {
-                        Some(b'n') => b'\n',
-                        Some(b't') => b'\t',
-                        Some(other) => other,
-                        None => return self.fail("a string does not end"),
-                    });
                 }
-                Some(byte) => out.push(byte),
             }
-            self.at += 1;
         }
+    }
+
+    /// Decode one escape (the next byte is the backslash) and push its bytes.
+    fn escape(&mut self, out: &mut Vec<u8>) -> Result<(), String> {
+        self.at += 1;
+        let digits = match self.peek() {
+            Some(b'u') => 4,
+            Some(b'U') => 8,
+            Some(byte) => {
+                let decoded = match byte {
+                    b'b' => 8,
+                    b't' => b'\t',
+                    b'n' => b'\n',
+                    b'f' => 12,
+                    b'r' => b'\r',
+                    b'"' | b'\\' => byte,
+                    _ => return self.fail("an escape that TOML does not define"),
+                };
+                out.push(decoded);
+                self.at += 1;
+                return Ok(());
+            }
+            None => return self.fail("a string does not end"),
+        };
+        let hex = self
+            .bytes
+            .get(self.at + 1..self.at + 1 + digits)
+            .unwrap_or(&[]);
+        let code = std::str::from_utf8(hex)
+            .ok()
+            .filter(|text| text.len() == digits && text.bytes().all(|b| b.is_ascii_hexdigit()))
+            .and_then(|text| u32::from_str_radix(text, 16).ok())
+            .and_then(char::from_u32);
+        let Some(code) = code else {
+            return self.fail("a unicode escape that is not a scalar value");
+        };
+        out.extend_from_slice(code.encode_utf8(&mut [0; 4]).as_bytes());
+        self.at += 1 + digits;
+        Ok(())
     }
 
     fn value(&mut self, depth: usize) -> Result<Value, String> {
@@ -217,16 +252,65 @@ impl Reader<'_> {
         }
     }
 
+    /// A string over several lines: the first line break is dropped, a basic string decodes its
+    /// escapes, and a backslash before a line break joins the lines.
     fn multiline(&mut self, fence: &[u8; 3]) -> Result<Value, String> {
+        let quote = fence[0];
         self.at += 3;
-        while !self.bytes[self.at.min(self.bytes.len())..].starts_with(fence) {
-            if self.at >= self.bytes.len() {
-                return self.fail("a multi-line string does not end");
-            }
+        if self.peek() == Some(b'\r') && self.bytes.get(self.at + 1) == Some(&b'\n') {
             self.at += 1;
         }
-        self.at += 3;
-        Ok(Value::Other)
+        if self.peek() == Some(b'\n') {
+            self.at += 1;
+        }
+        let mut out = Vec::new();
+        loop {
+            match self.peek() {
+                None => return self.fail("a multi-line string does not end"),
+                Some(byte) if byte == quote && self.bytes[self.at..].starts_with(fence) => {
+                    self.close_multiline(quote, &mut out)?;
+                    return Ok(Value::Text(String::from_utf8_lossy(&out).into_owned()));
+                }
+                // The guard skips a continuation; any other backslash is an escape.
+                Some(b'\\') if quote == b'"' && self.line_continuation() => {}
+                Some(b'\\') if quote == b'"' => self.escape(&mut out)?,
+                Some(byte) => {
+                    out.push(byte);
+                    self.at += 1;
+                }
+            }
+        }
+    }
+
+    /// The closing fence; one or two more quotes before it belong to the text.
+    fn close_multiline(&mut self, quote: u8, out: &mut Vec<u8>) -> Result<(), String> {
+        let run = self.bytes[self.at..]
+            .iter()
+            .take_while(|b| **b == quote)
+            .count();
+        if run > 5 {
+            return self.fail("too many quotes in a multi-line string");
+        }
+        out.extend(std::iter::repeat_n(quote, run - 3));
+        self.at += run;
+        Ok(())
+    }
+
+    /// A backslash, then spaces and a line break: skip it and all the white space that follows.
+    fn line_continuation(&mut self) -> bool {
+        let blank = |at: usize, more: &[u8]| self.bytes.get(at).is_some_and(|b| more.contains(b));
+        let mut ahead = self.at + 1;
+        while blank(ahead, b" \t") {
+            ahead += 1;
+        }
+        if !blank(ahead, b"\r\n") {
+            return false;
+        }
+        while blank(ahead, b" \t\r\n") {
+            ahead += 1;
+        }
+        self.at = ahead;
+        true
     }
 
     fn inline_table(&mut self, depth: usize) -> Result<Value, String> {

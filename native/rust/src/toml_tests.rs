@@ -44,11 +44,10 @@ fn an_array_of_tables_adds_one_table_for_each_header() {
 }
 
 #[test]
-fn a_number_a_boolean_and_a_multiline_string_are_other() {
-    let table = parse("a = 1\nb = true\nc = \"\"\"x\ny\"\"\"\nd = [1, 2]\n").unwrap();
+fn a_number_and_a_boolean_are_other() {
+    let table = parse("a = 1\nb = true\nd = [1, 2]\n").unwrap();
     assert_eq!(table["a"], Value::Other);
     assert_eq!(table["b"], Value::Other);
-    assert_eq!(table["c"], Value::Other);
     assert_eq!(table["d"], Value::Array(vec![Value::Other, Value::Other]));
 }
 
@@ -71,4 +70,53 @@ fn a_deep_array_stops_the_reader_instead_of_the_process() {
         parse(&text).unwrap_err(),
         "values are nested too deep at line 1"
     );
+}
+
+fn name_of(text: &str) -> Result<String, String> {
+    let table = parse(text)?;
+    Ok(at(&table, &["k"])
+        .and_then(Value::text)
+        .unwrap_or("")
+        .to_owned())
+}
+
+#[test]
+fn a_basic_string_decodes_each_escape_of_toml() {
+    let read = |text: &str| name_of(&format!("k = \"{text}\"\n"));
+    assert_eq!(read(r"base-crate").unwrap(), "base-crate");
+    assert_eq!(read(r"\U0001F600é").unwrap(), "\u{1F600}\u{e9}");
+    assert_eq!(read(r"a\n\r\b\f").unwrap(), "a\n\r\u{8}\u{c}");
+    assert_eq!(read(r#"a\tb\\\""#).unwrap(), "a\tb\\\"");
+}
+
+#[test]
+fn an_escape_that_toml_does_not_define_is_an_error() {
+    for text in [r"\q", r"\u12", r"\u12G4", r"\ud800", r"\U00110000", r"\e"] {
+        assert!(name_of(&format!("k = \"{text}\"\n")).is_err(), "{text}");
+    }
+}
+
+#[test]
+fn a_key_decodes_its_escapes() {
+    let table = parse("[dependencies]\n\"base\\u002dcrate\" = \"1\"\n").unwrap();
+    assert!(at(&table, &["dependencies", "base-crate"]).is_some());
+}
+
+#[test]
+fn a_multi_line_string_keeps_its_text() {
+    let basic = name_of("k = \"\"\"base-crate\"\"\"\n").unwrap();
+    assert_eq!(basic, "base-crate");
+    assert_eq!(name_of("k = '''base-crate'''\n").unwrap(), "base-crate");
+    assert_eq!(name_of("k = \"\"\"\nab\ncd\"\"\"\n").unwrap(), "ab\ncd");
+    assert_eq!(name_of("k = \"\"\"\r\nab\"\"\"\n").unwrap(), "ab");
+    assert_eq!(name_of("k = '''\n\\u0041'''\n").unwrap(), "\\u0041");
+    assert_eq!(name_of("k = \"\"\"\\u0041\\\n    b\"\"\"\n").unwrap(), "Ab");
+    assert_eq!(name_of("k = \"\"\"a\"\"\"\"\n").unwrap(), "a\"");
+    assert_eq!(name_of("k = '''a'''''\n").unwrap(), "a''");
+}
+
+#[test]
+fn a_multi_line_string_that_does_not_end_is_an_error() {
+    assert!(name_of("k = \"\"\"abc\n").is_err());
+    assert!(name_of("k = \"\"\"a\"\"\"\"\"\"\n").is_err());
 }

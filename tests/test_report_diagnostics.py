@@ -60,6 +60,8 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
     def analyzer(*args: object, **kwargs: object) -> ObservationResult:
         return ObservationResult(model, model.coverage, ())
 
+    analyzer.excluded_for = lambda head=None: ()  # type: ignore[attr-defined]  # Observer API
+
     with (
         patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
         patch("archkeel.check.uml.git_bytes", return_value=b""),
