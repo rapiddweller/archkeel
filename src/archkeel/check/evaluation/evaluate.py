@@ -69,7 +69,7 @@ from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
 from .crate_scope import inside_limits, root_limits
 from .guarded_effects import guarded_effect_results
-from .imports import strip_internal_reexport_facts
+from .imports import count_macro_bodies, split_imports, strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
 from .rule_support import dynamic_dependency_limits
 from .rules import (
@@ -1091,8 +1091,7 @@ def evaluate_source(
     unresolved_targets = {
         target.import_id: target for target in facts.imports if isinstance(target, UnresolvedTarget)
     }
-    unresolved_imports = [item for item in imports if item["id"] in unresolved_targets]
-    imports = [item for item in imports if item["id"] not in unresolved_targets]
+    imports, unresolved_imports, macro_bodies = split_imports(imports, unresolved_targets)
     derived_unknown_imports = derived_unresolved_imports(facts)
     for item in unresolved_imports:
         item["data"]["resolution"] = "unresolved"
@@ -1155,6 +1154,7 @@ def evaluate_source(
     module_facts = module_records(
         parsed, module_names, module_edge_pairs, inventory_symbols, module_evidence
     )
+    count_macro_bodies(module_facts, macro_bodies, module_edge_pairs)
     symbols_measured = SourceSectionName.SYMBOLS in sections
     if not symbols_measured:
         for module in module_facts:
@@ -1484,7 +1484,7 @@ def evaluate_source(
             ],
             key=lambda item: item["id"],
         ),
-        imports=sorted([*imports, *unresolved_imports], key=lambda item: item["id"]),
+        imports=sorted([*imports, *macro_bodies, *unresolved_imports], key=lambda item: item["id"]),
         dependency_edges=dependency_edges,
         transitive_paths=sorted(transitive_records, key=lambda item: item["id"]),
         path_observations=path_observations,

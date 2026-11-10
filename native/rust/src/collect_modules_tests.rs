@@ -49,6 +49,7 @@ fn module_edges(files: &[(&str, &str)]) -> Vec<Row> {
             let data = record.data.data();
             let kind = match &record.data {
                 ImportFact::Reexport(_) => "reexport",
+                ImportFact::MacroBody(_) => "macro_body",
                 _ => "import",
             };
             (
@@ -142,10 +143,103 @@ fn a_macro_call_is_an_edge_to_the_module_of_the_macro_and_to_the_modules_of_its_
     assert_eq!(
         pairs,
         [
-            ("ns.app.macros", "ns.app.util"),
             ("ns.app.user", "ns.app.macros"),
             ("ns.app.user", "ns.app.util"),
+            ("ns.app.macros", "ns.app.util"),
         ]
+    );
+    // The edge of the definition is a template: only the call has the path as an import.
+    let kinds: Vec<&str> = found.iter().map(|r| r.0).collect();
+    assert_eq!(kinds, ["import", "import", "macro_body"]);
+}
+
+#[test]
+fn a_macro_called_inside_a_macro_body_gives_the_edges_of_both_bodies_to_the_caller() {
+    let files = [
+        (
+            "crates/app/src/lib.rs",
+            "mod macros;\nmod user;\nmod one;\nmod two;\n",
+        ),
+        (
+            "crates/app/src/macros.rs",
+            "macro_rules! outer { () => { $crate::one::f(); inner!() }; }\n\
+             macro_rules! inner { () => { $crate::two::g() }; }",
+        ),
+        ("crates/app/src/one.rs", "pub fn f() {}"),
+        ("crates/app/src/two.rs", "pub fn g() {}"),
+        ("crates/app/src/user.rs", "fn t() { outer!(); }"),
+    ];
+    let found = module_edges(&files);
+    let from_user: Vec<&str> = found
+        .iter()
+        .filter(|r| r.1 == "ns.app.user" && r.0 == "import")
+        .map(|r| r.2.as_str())
+        .collect();
+    assert_eq!(
+        from_user,
+        ["ns.app.macros", "ns.app.macros", "ns.app.one", "ns.app.two"],
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_path_in_a_serde_string_of_a_macro_body_is_an_edge_of_each_caller() {
+    let files = [
+        (
+            "crates/app/src/lib.rs",
+            "mod macros;\nmod user;\nmod util;\n",
+        ),
+        (
+            "crates/app/src/macros.rs",
+            "macro_rules! row { () => { #[serde(default = \"crate::util::make\")] struct S; }; }",
+        ),
+        ("crates/app/src/util.rs", "pub fn make() {}"),
+        ("crates/app/src/user.rs", "row!();"),
+    ];
+    let found = module_edges(&files);
+    let kinds: Vec<(&str, &str)> = found.iter().map(|r| (r.0, r.1.as_str())).collect();
+    assert!(kinds.contains(&("import", "ns.app.user")), "{found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|r| r.0 == "import" && r.2 == "ns.app.util"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_call_that_the_scan_cannot_place_and_a_body_that_it_cannot_read_are_unknown_in_the_caller() {
+    let files = [
+        ("crates/app/src/lib.rs", "mod macros;\nmod a;\nmod b;\n"),
+        (
+            "crates/app/src/macros.rs",
+            "macro_rules! m { () => { $crate::b::f() }; }\n\
+             macro_rules! var { ($x:ident) => { $crate::$x::f() }; }",
+        ),
+        ("crates/app/src/b.rs", "pub fn f() {}"),
+        (
+            "crates/app/src/a.rs",
+            "fn t() { other::wrap! { m!(); } var!(b); }",
+        ),
+    ];
+    let mut all = vec![APP_MANIFEST];
+    all.extend_from_slice(&files);
+    let facts = run(&all, false);
+    let at_a: Vec<&str> = facts
+        .gaps
+        .iter()
+        .filter(|g| g.subjects.iter().any(|s| s == "ns.app.a"))
+        .map(|g| g.title.as_str())
+        .collect();
+    assert!(
+        at_a.iter()
+            .any(|r| r.contains("m! is called where the scan cannot place it")),
+        "{at_a:?}"
+    );
+    assert!(
+        at_a.iter()
+            .any(|r| r.contains("var! expands where the scan cannot read")),
+        "{at_a:?}"
     );
 }
 

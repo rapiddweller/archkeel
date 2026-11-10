@@ -337,7 +337,7 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "symbol_category",
             "visibility_detail",
         ],
-        (Area::Source, Kind::DynamicImport) => &[
+        (Area::Source, Kind::DynamicImport | Kind::MacroBody) => &[
             "module_level_import",
             "reexport",
             "source_module",

@@ -12,8 +12,9 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
 - A glob is followed into the module that it names, with the names that module binds. A glob that
   the scan cannot follow, a `use` path that starts with a name that a glob may bring in, a `super`
   above the root, two `macro_rules!` of one name and a relative path in a `macro_rules!` body are
-  UNKNOWN. A `crate::` path in a macro body is an edge of the file that holds it and of each call.
-  A call of a macro of the crate is an edge to the module that defines it.
+  UNKNOWN. A `crate::` path in a macro body is an `import` edge of each call and a `macro_body` edge of the file
+  that holds it (AD-349); no cycle or layer rule reads `macro_body`. A call of a macro of the crate is
+  an edge to the module that defines it. A call that the scan cannot place is UNKNOWN.
 - `crate_edges_only` is false for the Rust profile, so a rule or a component below a crate root is
   decided from the edges. A rule kind that nobody reviewed stays UNKNOWN. `interface_boundary`
   stays unsupported until symbols (5b-4).

@@ -127,14 +127,6 @@
     "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
     "tokens": 75
   },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|1a4bd12a84": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 86
-  },
   "facts/src/readset_fields.rs|facts/src/readset_fields.rs|3691a9ab57": {
     "files": [
       "facts/src/readset_fields.rs",
@@ -191,14 +183,6 @@
     "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
     "tokens": 70
   },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|9f30d7fece": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 71
-  },
   "facts/src/readset_fields.rs|facts/src/readset_fields.rs|a4cb2e3159": {
     "files": [
       "facts/src/readset_fields.rs",
@@ -216,14 +200,6 @@
     "tokens": 79
   },
   "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ae334daa3f": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 88
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ae334daa3f#2": {
     "files": [
       "facts/src/readset_fields.rs",
       "facts/src/readset_fields.rs"
