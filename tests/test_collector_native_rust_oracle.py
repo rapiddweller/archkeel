@@ -55,6 +55,21 @@ def _edges(facts: dict[str, Any]) -> set[tuple[str, str]]:
     return found
 
 
+def _built_crates() -> dict[str, Any]:
+    """The crates of the layer file that have code: a planned crate has none to scan."""
+    return {name: entry for name, entry in _layers()["crates"].items() if not entry.get("planned")}
+
+
+def _layer_edges() -> set[tuple[str, str]]:
+    built = _built_crates()
+    return {
+        (name.replace("-", "_"), use.replace("-", "_"))
+        for name, entry in built.items()
+        for use in entry["may_use"]
+        if use in built
+    }
+
+
 def _declared() -> set[tuple[str, str]]:
     return {
         (name.replace("-", "_"), dep.replace("-", "_"))
@@ -86,14 +101,9 @@ def test_the_edges_equal_the_declared_dependencies_of_cargo_metadata(
 
 
 def test_the_crate_edges_equal_the_edge_list_of_the_layer_test(facts: dict[str, Any]) -> None:
-    workspace = {name.replace("-", "_") for name in _layers()["crates"]}
-    layer_edges = {
-        (name.replace("-", "_"), use.replace("-", "_"))
-        for name, entry in _layers()["crates"].items()
-        for use in entry["may_use"]
-    }
+    workspace = {name.replace("-", "_") for name in _built_crates()}
 
-    assert {edge for edge in _edges(facts) if edge[1] in workspace} == layer_edges
+    assert {edge for edge in _edges(facts) if edge[1] in workspace} == _layer_edges()
 
 
 def test_the_contract_requires_equal_the_layer_file() -> None:
@@ -104,13 +114,7 @@ def test_the_contract_requires_equal_the_layer_file() -> None:
         for item in contract["components"]
         for need in item.get("requires", ())
     }
-    layers = {
-        (name.replace("-", "_"), use.replace("-", "_"))
-        for name, entry in _layers()["crates"].items()
-        for use in entry["may_use"]
-    }
-
-    assert required == layers
+    assert required == _layer_edges()
 
 
 def test_two_runs_give_the_same_bytes_also_from_another_directory(
