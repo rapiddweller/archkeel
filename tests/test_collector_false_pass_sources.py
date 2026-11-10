@@ -6,9 +6,10 @@
 Consumer: the host (`run_report`), with the Python collector and with the bundled native one. The
 contract lets `a` use nothing, so any edge from `a` to `b` fails it. Each probe is a source that
 reaches `b` from `a` by a construct that both producers read as no dependency: a `/// <reference
-types>` line, a `declare module` augmentation, and a use of `self.x` for a global that a script of
-`b` publishes through `window.x`. The honest case (no such line) must still give PASS, so that the
-probes test the contract and not a broken fixture. Each probe must give an edge (FAIL) or a gap
+types>` line, a `declare module` augmentation (by a relative name, or by a bare name that `paths`
+or `baseUrl` maps to a project file), and a use of `self.x` or `frames.x` for a global that a
+script of `b` publishes through `window.x`. The honest cases (no such line, and a bare name that no
+alias maps) must still give PASS, so that the probes test the contract and not a broken fixture. Each probe must give an edge (FAIL) or a gap
 (UNKNOWN) in both producers, never PASS.
 """
 
@@ -65,15 +66,40 @@ BASE = {
     "README.md": "# probe\n",
     "src/b/t.ts": "export type T = number;\n",
 }
+ALIASES = '{"compilerOptions":{"allowJs":true,"baseUrl":".","paths":{"@b/*":["src/b/*"]}}}'
+BASE_URL = '{"compilerOptions":{"allowJs":true,"baseUrl":"."},"include":["src"]}'
+AUGMENT = 'export {};\ndeclare module "NAME" { interface Q {} }\n'
 CASES = {
     "honest": {"src/a/a.ts": "export const a = 1;\n"},
+    # A bare name that no alias can map to a project file stays silent.
+    "bare-augmentation-without-aliases": {
+        "src/a/a.ts": AUGMENT.replace("NAME", "express"),
+    },
     "reference-types": {"src/a/a.ts": '/// <reference types="../b/t" />\nexport const a = 1;\n'},
     "module-augmentation": {"src/a/a.ts": 'declare module "../b/t" {}\nexport const a = 1;\n'},
     "self-as-script-root": {
         "src/a/a.js": "self.x();\n",
         "src/b/b.js": "window.x = 1;\n",
     },
+    "frames-as-script-root": {
+        "src/a/a.js": "frames.x();\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
+    # tsc resolves the name of an augmentation through `paths` and `baseUrl` (#976).
+    "augmentation-through-paths": {
+        "tsconfig.json": ALIASES,
+        "src/a/a.ts": AUGMENT.replace("NAME", "@b/t"),
+    },
+    "augmentation-through-base-url": {
+        "tsconfig.json": BASE_URL,
+        "src/a/a.ts": AUGMENT.replace("NAME", "src/b/t"),
+    },
+    "augmentation-in-a-declaration-file": {
+        "tsconfig.json": ALIASES,
+        "src/a/a.d.ts": AUGMENT.replace("NAME", "@b/t"),
+    },
 }
+HONEST = ("honest", "bare-augmentation-without-aliases")
 
 
 def _project(tmp_path: Path, name: str) -> Path:
@@ -93,14 +119,16 @@ def _exits(tmp_path: Path, name: str, directory: Path) -> tuple[int, int]:
     return int(python["exit"]), int(native["exit"])  # type: ignore[call-overload]
 
 
-def test_the_honest_project_gives_pass_in_both_producers(
+@pytest.mark.parametrize("name", HONEST)
+def test_an_honest_project_gives_pass_in_both_producers(
     tmp_path: Path,
     bundled_directory: Path,  # noqa: F811
+    name: str,
 ) -> None:
-    assert _exits(tmp_path, "honest", bundled_directory) == (0, 0)
+    assert _exits(tmp_path, name, bundled_directory) == (0, 0)
 
 
-@pytest.mark.parametrize("name", [name for name in CASES if name != "honest"])
+@pytest.mark.parametrize("name", [name for name in CASES if name not in HONEST])
 def test_a_construct_that_reaches_a_forbidden_module_gives_no_pass(
     tmp_path: Path,
     bundled_directory: Path,  # noqa: F811
