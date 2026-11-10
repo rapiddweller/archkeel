@@ -107,7 +107,12 @@ class Pin:
 
 
 def interpreter() -> dict[str, Any]:
-    """The interpreter that runs the test: its kind, its version and the size of its built-ins."""
+    """The interpreter that runs the test: its kind and version, and the size of its built-ins.
+
+    Only the kind and the version decide whether the whole reply is compared. The count of
+    built-in modules differs between builds of one version (101 on macOS, 102 on Linux), and the
+    pinned parts are equal on both (AD-343). The count is for the message.
+    """
     return {
         "implementation": sys.implementation.name,
         "version": platform.python_version(),
@@ -298,13 +303,24 @@ class Verdict:
     unpinned: str = ""
 
 
+def same_interpreter(recorded: Mapping[str, Any]) -> bool:
+    now = interpreter()
+    return all(recorded[key] == now[key] for key in ("implementation", "version"))
+
+
 def require_recorded_interpreter(pin: Pin | None, environ: Mapping[str, str]) -> None:
-    """The deletion gate needs the interpreter of the recording. A phase can run on another one."""
-    if environ.get(GATE_VARIABLE) == GATE_DELETE and pin and pin.recorded != interpreter():
-        raise GoldenError(
-            f"the deletion gate needs {_name(pin.recorded)} (the interpreter of the recording), "
-            f"not {_name(interpreter())}"
-        )
+    """The gates need the interpreter of the recording: CI, a phase and the deletion gate.
+
+    A run without them (a developer on another interpreter) compares the portable part and warns.
+    """
+    gate = environ.get(GATE_VARIABLE) == GATE_DELETE
+    if (gate or environ.get(PHASE_VARIABLE) or environ.get("CI")) and pin:
+        if not same_interpreter(pin.recorded):
+            raise GoldenError(
+                f"the gates (CI, {PHASE_VARIABLE}, {GATE_VARIABLE}) need "
+                f"{_name(pin.recorded)} (the interpreter of the recording), "
+                f"not {_name(interpreter())}"
+            )
 
 
 def _name(value: Mapping[str, Any]) -> str:
@@ -318,7 +334,7 @@ def compare_on_interpreter(
     pin: Pin | None = None,
 ) -> Verdict:
     """Compare the whole reply on the interpreter of the recording, else the portable part only."""
-    if pin is None or pin.recorded == interpreter():
+    if pin is None or same_interpreter(pin.recorded):
         return compare(golden, actual, allowed)
     verdict = compare(golden.portable(pin), portable(actual, pin), allowed)
     parts = [*pin.sections, *pin.facts, *pin.top]

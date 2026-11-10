@@ -72,7 +72,7 @@ def record(
             root = golden_producers.materialize(known[name], Path(workspace))
             replies[name] = golden_replies.canonical(run(root), root)
     pin = golden_replies.pin_for(language)
-    if pin and pin.recorded != golden_replies.interpreter() and set(names) != set(known):
+    if pin and not golden_replies.same_interpreter(pin.recorded) and set(names) != set(known):
         raise golden_replies.GoldenError(
             f"the other golden replies were recorded with {pin.recorded['version']}: "
             "record CASE=all, so that one interpreter made all of them"

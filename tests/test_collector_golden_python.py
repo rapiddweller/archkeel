@@ -127,6 +127,42 @@ def _kind_sites() -> set[tuple[str, str]]:
     return sites
 
 
+def _flowing_kinds(name: str) -> set[str]:
+    """The kinds that reach a `kind` variable of one module, from the code that fills it.
+
+    A function with a parameter `kind` gets its values from the literals at its call sites. A list
+    `kinds` gets them from `append`, and the dict `dynamic_targets` holds them as values.
+    `_REFLECTION_CALLS[...]` stands for the values of that table. Any other source of a value is
+    not known: the test cannot see it, so the table `_SITES` must not claim it.
+    """
+    tree = ast.parse((ANALYZER / name).read_text())
+    found: set[str] = set()
+    takers = {
+        node.name: [a.arg for a in node.args.args].index("kind")
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and "kind" in [a.arg for a in node.args.args]
+    }
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            callee = ast.unparse(node.func).rsplit(".", 1)[-1]
+            values = [kw.value for kw in node.keywords if kw.arg == "kind"]
+            if callee in takers and (index := takers[callee]) <= len(node.args) - 1 + (
+                0 if "." not in ast.unparse(node.func) else 1
+            ):
+                shift = 1 if "." in ast.unparse(node.func) else 0
+                values.append(node.args[index - shift])
+            if callee == "append" and ast.unparse(node.func) == "kinds.append":
+                values.extend(node.args)
+            for value in values:
+                if isinstance(value, ast.Constant):
+                    found.add(value.value)
+                elif ast.unparse(value) == "_REFLECTION_CALLS[name]":
+                    found |= set(constructs._REFLECTION_CALLS.values())
+        elif isinstance(node, ast.Assign) and ast.unparse(node.targets[0]) == "dynamic_targets":
+            found.update(v.value for v in node.value.values if isinstance(v, ast.Constant))  # type: ignore[attr-defined]
+    return found
+
+
 def _features(case: str) -> set[str]:
     return set(golden_replies.load("python", case).digest["features"])
 
@@ -151,11 +187,25 @@ def test_every_place_that_gives_a_record_its_kind_is_known() -> None:
     assert _REFLECTION == set(constructs._REFLECTION_CALLS.values())
 
 
+@pytest.mark.parametrize("name", ["constructs.py", "symbols.py", "typing_signals.py"])
+def test_the_kinds_that_flow_through_a_variable_are_the_kinds_of_the_table(name: str) -> None:
+    """A `kind=kind` site takes its values from elsewhere: the table must hold exactly those."""
+    declared = _SITES[(name, "kind")][1]
+    flowing = _flowing_kinds(name)
+    claimed = {kind for (file, _), (_, kinds) in _SITES.items() if file == name for kind in kinds}
+    assert declared <= flowing, f"the table claims kinds that nothing passes: {declared - flowing}"
+    assert flowing <= claimed, f"kinds that the table does not claim: {sorted(flowing - claimed)}"
+
+
 def test_every_kind_and_feature_that_the_python_collector_emits_has_golden_coverage() -> None:
     emitted: dict[str, set[str]] = {}
     for section, kinds in _SITES.values():
         emitted.setdefault(section, set()).update(kinds)
     kinds, features, _ = _covered()
+    # A golden case can hold only a kind that the table claims: a new kind needs a table entry.
+    assert {name: sorted(have - emitted[name]) for name, have in kinds.items()} == {
+        name: [] for name in kinds
+    }
     missing = {name: sorted(want - kinds.get(name, set())) for name, want in emitted.items()}
     assert {name: gap for name, gap in missing.items() if gap} == {"unknowns": sorted(UNREACHABLE)}
     assert {*BASE_RESOLUTION_FEATURES, *GATED_RESOLUTION_FEATURES} <= features
@@ -183,17 +233,31 @@ def test_every_python_fixture_is_a_case_or_has_a_reason() -> None:
     assert scanned - recorded == set(NOT_RECORDED)
 
 
-@pytest.mark.parametrize("case", [name for name in CASES if name.endswith("-survey")])
-def test_a_survey_case_freezes_the_import_survey_and_its_provider_sources(case: str) -> None:
+SURVEYS = ("-imports", "-providers")
+
+
+@pytest.mark.parametrize("case", [name for name in CASES if name.endswith(SURVEYS)])
+def test_a_survey_case_freezes_the_import_survey(case: str) -> None:
     digest = golden_replies.load("python", case).digest
     assert digest["order"] == [section.value for section in PYTHON_IMPORT_SURVEY_SECTIONS]
+    provider_sources = digest["rest"]["counts"].get("provider_sources", 0)
+    assert (provider_sources == 0) == case.endswith("-imports") or case.startswith("synthetic-")
+
+
+@pytest.mark.parametrize("case", [name for name in CASES if name.endswith("-imports")])
+def test_an_imports_case_has_no_standard_library_text_and_is_stored_in_full(case: str) -> None:
+    """The survey of phase `imports` is the oracle of slice 1: it holds only the project."""
+    assert (golden_replies.GOLDEN / f"python/{case}.json.gz").exists()
+    reply = golden_replies.load("python", case).full
+    assert reply is not None and "provider_sources" not in reply
+    assert not [i for i in reply["facts"]["inputs"] if i["path"].startswith(".archkeel-providers")]
 
 
 def test_each_survey_case_has_a_full_case_on_the_same_sources() -> None:
     roots = {name: golden_record.cases("python")[name] for name in CASES}
     for name in CASES:
-        if name.endswith("-survey"):
-            assert roots[name.removesuffix("-survey")] == roots[name]
+        if name.endswith(SURVEYS):
+            assert roots[name.rsplit("-", 1)[0]] == roots[name]
 
 
 def test_every_excerpt_of_the_corpus_has_its_licence_and_its_commit() -> None:
@@ -270,21 +334,27 @@ def test_the_recorded_interpreter_compares_the_whole_reply(
     for changed in (_reply(calls="x"), _reply(evidence="x")):
         verdict = golden_replies.compare_on_interpreter(golden, changed, None, PIN)
         assert verdict.mismatches and not verdict.unpinned
-    _on(monkeypatch, "3.11.12", builtins=31)
-    assert golden_replies.compare_on_interpreter(golden, _reply(calls="x"), None, PIN).unpinned
+    # The count of built-in modules is not part of the match: macOS has 101, Linux has 102.
+    _on(monkeypatch, "3.11.12", builtins=102)
+    verdict = golden_replies.compare_on_interpreter(golden, _reply(calls="x"), None, PIN)
+    assert verdict.mismatches and not verdict.unpinned
 
 
-def test_the_deletion_gate_needs_the_interpreter_of_the_recording(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    "environ",
+    [{"ARCHKEEL_GOLDEN_GATE": "delete"}, {"ARCHKEEL_GOLDEN_PHASE": "5.4"}, {"CI": "true"}],
+    ids=["deletion-gate", "phase", "ci"],
+)
+def test_each_gate_needs_the_interpreter_of_the_recording(
+    environ: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    gate = {"ARCHKEEL_GOLDEN_GATE": "delete"}
-    _on(monkeypatch, "3.11.12")
-    golden_replies.require_recorded_interpreter(PIN, gate)
+    _on(monkeypatch, "3.11.12", builtins=102)
+    golden_replies.require_recorded_interpreter(PIN, environ)
     _on(monkeypatch, "3.12.10", builtins=31)
     golden_replies.require_recorded_interpreter(PIN, {})
-    golden_replies.require_recorded_interpreter(None, gate)
+    golden_replies.require_recorded_interpreter(None, environ)
     with pytest.raises(golden_replies.GoldenError, match="3.11.12 with 101.*not cpython 3.12.10"):
-        golden_replies.require_recorded_interpreter(PIN, gate)
+        golden_replies.require_recorded_interpreter(PIN, environ)
 
 
 def test_the_pin_names_the_interpreter_of_each_recording() -> None:
@@ -301,7 +371,7 @@ def test_the_pin_names_the_interpreter_of_each_recording() -> None:
 def test_the_portable_part_of_a_golden_reply_does_not_hold_what_the_pin_names() -> None:
     pin = golden_replies.pin_for("python")
     assert pin is not None
-    for case in ("python-stdlib-demo", "python-stdlib-demo-survey"):
+    for case in ("python-stdlib-demo", "python-stdlib-demo-providers"):
         golden = golden_replies.load("python", case)
         part = golden.portable(pin)
         assert not set(pin.sections) & set(part.digest["order"])

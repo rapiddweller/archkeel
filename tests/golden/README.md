@@ -14,8 +14,8 @@ with the native binary.
 
 ## Python
 
-The sources of the Python cases are in `fixtures/golden-python`. A Python case sets `phase`: `full` is the host sequence (survey, then collection), `survey` is
-the import survey alone. It can also set `features` (`false` requests no gated feature) and
+The sources of the Python cases are in `fixtures/golden-python`. A Python case sets `phase`: `full` is the host sequence (providers, then collection), `providers` is the
+survey with the provider sources and `imports` is the survey of phase `imports`. It can also set `features` (`false` requests no gated feature) and
 `exclude_tests`.
 
 The reply depends on the interpreter: the text of the standard library, the version and the

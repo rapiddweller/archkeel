@@ -4,9 +4,10 @@
 """The producers of a golden reply (AD-343): the Python collectors and the native binary.
 
 `producer("python")` runs the Python TypeScript collector, not the legacy oracle mode.
-`producer("python", language="python", phase=...)` runs the Python collector of Python sources
-as the host does: `survey` is the import survey (phase `providers`), `full` is the survey and then
-the full collection with the provider sources. `producer("native", binary)` runs the native binary
+`producer("python", language="python", phase=...)` runs the Python collector of Python
+sources as the host does. `imports` is the import survey of phase `imports`. `providers` is the
+survey of phase `providers`, with the provider sources. `full` is the host sequence: `providers`,
+then the full collection. `producer("native", binary)` runs the native binary
 through its process port. A test or the recorder switches the producer with one value; the
 compare does not change.
 """
@@ -86,6 +87,11 @@ def _python_request(root: Path, features: bool, exclude_tests: bool) -> Collecti
     )
 
 
+# The two surveys that the host can ask for: the imports alone, and the imports with the provider
+# sources (the host sends this one before the full collection).
+_SURVEYS = {"imports": PythonCollectionPhase.IMPORTS, "providers": PythonCollectionPhase.PROVIDERS}
+
+
 def python_sources(phase: str, features: bool = True, exclude_tests: bool = False) -> Producer:
     """The Python collector of Python sources: the import survey or the whole host sequence."""
 
@@ -94,10 +100,10 @@ def python_sources(phase: str, features: bool = True, exclude_tests: bool = Fals
         child = ProcessCollector(
             (sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry")
         )
-        if phase == "survey":
+        if phase in _SURVEYS:
             survey = replace(
                 request,
-                resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
+                resolver=replace(request.resolver, phase=_SURVEYS[phase]),
                 protocol_version=wire_protocol(request, ProtocolVersion.V4),
             )
             result = child.collect_response(survey)

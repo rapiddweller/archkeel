@@ -363,14 +363,13 @@ def test_tracked_source_files_have_license_header() -> None:
             if item["path"].startswith("app/") and item["path"].endswith(".py")
         }
     headers = {".py": HEADER, ".rs": RUST_HEADER}
-    # The golden sources are data for the collector: a copy of the sources of another project
-    # keeps its bytes (AD-343).
-    golden = ROOT / "fixtures/golden-python"
+    # An excerpt of another project keeps its bytes and its licence (AD-343).
+    excerpts = tuple((ROOT / "fixtures/golden-python").glob("fastapi-*"))
     missing = [
         str(path.relative_to(ROOT))
         for path in TRACKED
         if path.suffix in headers
-        and not path.is_relative_to(golden)
+        and not any(path.is_relative_to(excerpt) for excerpt in excerpts)
         and not path.read_bytes().startswith(headers[path.suffix])
         and exemptions.get(path) != hashlib.sha256(path.read_bytes()).hexdigest()
     ]
