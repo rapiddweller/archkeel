@@ -124,7 +124,7 @@
   "tests/test_layers.py": 524,
   "tests/test_lexical_resolution.py": 519,
   "tests/test_local_inherited_methods.py": 2974,
-  "tests/test_make_gate.py": 758,
+  "tests/test_make_gate.py": 733,
   "tests/test_member_inventory.py": 567,
   "tests/test_module_explore.py": 1131,
   "tests/test_native_violation_filter.py": 543,

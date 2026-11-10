@@ -599,24 +599,21 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
     assert {area_of(name) for name in re.findall(r"tests/(test_\w+\.py)", pr_test)} == set(AREAS)
 
 
-def _full_filter() -> list[str]:
-    text = (ROOT / ".github/workflows/full-verification.yml").read_text()
-    listed = re.search(r"\n  pull_request:\n    types: .+\n    paths:\n((?:      - .+\n)+)", text)
-    assert listed is not None
-    return [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()]
+def _triggers(workflow: str) -> set[str]:
+    text = (ROOT / ".github/workflows" / workflow).read_text()
+    block = text.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
+    return set(re.findall(r"^  (\w+):", block, flags=re.MULTILINE))
 
 
-def _in_filter(pattern: str, path: str) -> bool:
-    # GitHub path filter: `*` stops at a slash and `**` does not.
-    regex = re.escape(pattern).replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
-    return re.fullmatch(regex, path) is not None
+def test_ci_runs_on_main_and_dispatch_and_full_runs_nightly_dispatch_or_called() -> None:
+    # AD-348: no pull_request trigger; a PR merges on its review and the local gate.
+    assert _triggers("ci.yml") == {"push", "workflow_dispatch"}
+    assert _triggers("full-verification.yml") == {"workflow_call", "workflow_dispatch", "schedule"}
+    assert "branches: [main]" in (ROOT / ".github/workflows/ci.yml").read_text()
 
 
 def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
     """Full runs every area (make full-test), never the pr-test list: it is not a Full input."""
-    paths = _full_filter()
-    for added in ("tests/pr-test.mk", "tests/test_added_later.py"):
-        assert [path for path in paths if _in_filter(path, added)] == [], added
     makefile = (ROOT / "Makefile").read_text()
     recipe = re.search(r"^pr-test:.*?\n\n", makefile, re.DOTALL | re.MULTILINE)
     assert recipe is not None
@@ -638,28 +635,6 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
 SHARED_WITH_CI = {"mermaid", "demos"}
-
-
-def test_a_pr_runs_full_only_when_it_changes_what_full_runs() -> None:
-    paths = _full_filter()
-    for kept in (
-        ".github/workflows/ci.yml",
-        ".github/actions/setup/action.yml",
-        ".python-version",
-        "pyproject.toml",
-        "uv.lock",
-        "tools/browser-runtime/package.json",
-        "tools/browser-runtime/package-lock.json",
-        "tests/conftest.py",
-        "tests/test_report_pages.py",
-        "tools/report_pages.py",
-        "tools/report_timing.py",
-        FULL_MK,
-    ):
-        assert [p for p in paths if _in_filter(p, kept)], kept
-    # A change to these files cannot change the job set or a recipe that Full runs.
-    for ignored in ("Makefile", "tests/areas.py", "tests/pr-test.mk", "tests/test_added.py"):
-        assert [p for p in paths if _in_filter(p, ignored)] == [], ignored
 
 
 def _called_targets(workflow: str) -> set[str]:
