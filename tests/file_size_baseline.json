@@ -37,7 +37,7 @@
   "src/archkeel/check/validation/__init__.py": 1330,
   "src/archkeel/check/validation/public_api.py": 787,
   "src/archkeel/cli/__init__.py": 1518,
-  "src/archkeel/ir/architecture_graph.py": 1217,
+  "src/archkeel/ir/architecture_graph.py": 1198,
   "src/archkeel/ir/codec_contract.py": 1838,
   "src/archkeel/ir/codec_observation.py": 1026,
   "src/archkeel/ir/decisions.py": 1787,
@@ -50,7 +50,7 @@
   "src/archkeel/ir/model.py": 2017,
   "src/archkeel/ir/module_explore.py": 866,
   "src/archkeel/ir/report_projection.py": 1011,
-  "src/archkeel/ir/source_graph.py": 968,
+  "src/archkeel/ir/source_graph.py": 962,
   "src/archkeel/ir/view_spec.py": 1256,
   "src/archkeel/render/assets/archkeel-report.css": 2727,
   "src/archkeel/render/assets/flow.js": 3602,
@@ -148,7 +148,7 @@
   "tests/test_repository_hygiene.py": 662,
   "tests/test_result_schema.py": 957,
   "tests/test_rule_driven_collection.py": 680,
-  "tests/test_schema_drift.py": 844,
+  "tests/test_schema_drift.py": 819,
   "tests/test_scoped_dependency_proof.py": 889,
   "tests/test_skill.py": 848,
   "tests/test_source_graph.py": 963,
@@ -177,5 +177,5 @@
   "tests/test_unresolved_call_sites.py": 710,
   "tests/test_validation.py": 1800,
   "tests/test_widening.py": 1388,
-  "tools/architecture_graph_schema.py": 1037
+  "tools/architecture_graph_schema.py": 945
 }

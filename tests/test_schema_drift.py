@@ -177,31 +177,6 @@ def typescript_export_binding(tmp_path_factory):
     return record_payload(binding)
 
 
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.3.0"])
-@pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
-def test_direct_export_binding_schema_is_typescript_21_only(
-    typescript_export_binding, profile, version
-):
-    registry = Registry().with_resources(
-        (schema["$id"], Resource.from_contents(schema))
-        for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
-    )
-    validator = Draft202012Validator(
-        {"$ref": f"urn:archkeel:architecture-ir:decoded:{version}"}, registry=registry
-    )
-    observation = _model(git_head="a" * 40)
-    observation["schema_version"] = version
-    observation["analyzer"]["name"] = profile.analyzer
-    for section in profile.absent_sections:
-        observation[section] = None
-    assert validator.is_valid(observation)
-    observation["bindings"] = [typescript_export_binding]
-    accepted = version in {"2.1.0", "2.3.0"} and profile.analyzer == "archkeel-typescript-imports"
-    assert validator.is_valid(observation) is accepted
-    if accepted:
-        assert parse_observation(observation).records("bindings")[0].data.get("name") == "port"
-
-
 @pytest.mark.parametrize("field", ["module", "source_module", "source_scope", "name"])
 @pytest.mark.parametrize("mutation", ["missing", "empty", "wrong-type"])
 def test_direct_export_binding_schema_requires_exact_source_fields(

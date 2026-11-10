@@ -714,6 +714,20 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "macro"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -1327,6 +1341,7 @@
         "constant",
         "dynamic_binding",
         "function",
+        "macro",
         "method",
         "type_alias"
       ]
@@ -4228,6 +4243,7 @@
         "alias",
         "dynamic_binding",
         "static_constant",
+        "macro",
         "calls",
         "call",
         "resolved_call",

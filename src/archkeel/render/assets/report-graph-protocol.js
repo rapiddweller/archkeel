@@ -41,6 +41,7 @@ var ArchkeelGraphProtocol;
         EntityKind["ATTRIBUTE"] = "attribute";
         EntityKind["TYPE_ALIAS"] = "type_alias";
         EntityKind["CONSTANT"] = "constant";
+        EntityKind["MACRO"] = "macro";
         EntityKind["BINDING"] = "binding";
         EntityKind["SYMBOL"] = "symbol";
     })(EntityKind = ArchkeelGraphProtocol.EntityKind || (ArchkeelGraphProtocol.EntityKind = {}));

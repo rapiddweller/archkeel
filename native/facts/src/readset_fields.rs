@@ -369,7 +369,7 @@ pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> 
             "visibility_detail",
         ],
         (Area::Source, Kind::CollectionGap) => &["module", "reason"],
-        (Area::Source, Kind::Constant) => &[
+        (Area::Source, Kind::Constant | Kind::StaticConstant | Kind::Macro) => &[
             "annotation",
             "lexical_parent_id",
             "module",

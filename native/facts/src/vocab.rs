@@ -51,6 +51,7 @@ closed! {
         Alias = "alias",
         DynamicBinding = "dynamic_binding",
         StaticConstant = "static_constant",
+        Macro = "macro",
         Calls = "calls",
         Call = "call",
         ResolvedCall = "resolved_call",
@@ -183,6 +184,7 @@ closed! {
         Constant = "constant",
         DynamicBinding = "dynamic_binding",
         Function = "function",
+        Macro = "macro",
         Method = "method",
         TypeAlias = "type_alias",
     }

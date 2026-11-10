@@ -16,4 +16,4 @@ mod symbols;
 pub use constructs::{ConstructData, NumericOperandData, SelectorData, SignalData};
 pub use imports::{GapData, ImportData};
 pub use sites::{BindingData, CallData, ReferenceData, SourceRoleData, UnusedBindingData};
-pub use symbols::{CallableData, ClassData, ValueData};
+pub use symbols::{CallableData, ClassData, Declared, ValueData};
