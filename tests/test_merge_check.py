@@ -139,6 +139,22 @@ def test_a_rename_without_the_previous_name_from_github_is_an_error(repo: Path) 
     assert "a.txt" in report.errors[0]
 
 
+def test_git_rename_listed_by_github_as_delete_and_add_is_not_an_error(repo: Path) -> None:
+    # Git detects the rename. GitHub lists the two paths without previous_filename.
+    rename_on_feature(repo)
+    report = check(repo, "main", "feature", ["a.txt", "renamed.txt"])
+    assert report.errors == []
+
+
+def test_git_delete_and_add_listed_by_github_as_rename_is_not_an_error(repo: Path) -> None:
+    # The content changes too much for git to detect a rename. GitHub reports a rename.
+    git(repo, "checkout", "-q", "-b", "feature")
+    (repo / "a.txt").unlink()
+    commit(repo, {"renamed.txt": "another text\n"}, "Replace a by renamed")
+    report = check(repo, "main", "feature", ["renamed.txt"], {"renamed.txt": "a.txt"})
+    assert report.errors == []
+
+
 def test_github_file_list_parser_reads_the_previous_name_of_a_rename() -> None:
     output = (
         '{"path": "renamed.txt", "status": "renamed", "previous": "a.txt"}\n'

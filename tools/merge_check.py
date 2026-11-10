@@ -80,6 +80,11 @@ class Changes:
     # New path -> old path, for each renamed file. GitHub lists the same pairs as previous_filename.
     renamed_from: dict[str, str] = field(default_factory=dict)
 
+    @property
+    def touched(self) -> set[str]:
+        """Every path that the branch touches: the new and the old path of each rename."""
+        return self.paths | set(self.renamed_from.values())
+
 
 def branch_changes(repo: Path, base: str, head: str) -> Changes:
     """Read `git diff --name-status`. A rename gives the new path and the old path."""
@@ -144,19 +149,14 @@ def check(
         report.warnings.append(f"{base} is not an ancestor of the head: the branch is behind")
     for name in conflicting_files(repo, base, head):
         report.errors.append(f"conflict with {base}: {name}")
+    # Both sides give the touched paths. A rename touches its old and its new path, so git and
+    # GitHub agree whether they report a rename or a delete and an add.
     local = branch_changes(repo, base, head)
-    listed = set(pr_files)
-    for name in sorted(local.paths - listed):
+    listed = set(pr_files) | set((renamed_from or {}).values())
+    for name in sorted(local.touched - listed):
         report.errors.append(f"changed in the branch but not listed by GitHub: {name}")
-    for name in sorted(listed - local.paths):
+    for name in sorted(listed - local.touched):
         report.errors.append(f"listed by GitHub but not changed in the branch: {name}")
-    github_renames = dict(renamed_from or {})
-    for name in sorted(set(local.renamed_from) | set(github_renames)):
-        if local.renamed_from.get(name) != github_renames.get(name):
-            report.errors.append(
-                f"rename to {name} differs: the branch has {local.renamed_from.get(name)!r}, "
-                f"GitHub has {github_renames.get(name)!r}"
-            )
     # Only the new path counts: removing the old path of a rename is a move, not a revert.
     removed = files_with_removed_lines(repo, base, head)
     for name in sorted(local.paths & recently_changed(repo, base) & removed):
