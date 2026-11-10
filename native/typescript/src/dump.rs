@@ -252,7 +252,7 @@ pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
 }
 
 /// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
-/// compares with the Python collector. The reply of the collector does not carry them yet.
+/// compares with the Python collector.
 pub fn records(request: &Request, provenance: Provenance) -> Result<Value, String> {
     let (facts, records) = crate::collect::records(request, provenance)?;
     let touched: std::collections::HashSet<&str> =

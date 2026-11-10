@@ -68,7 +68,7 @@ fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
     assert_eq!(bound[0].fact_ids.len(), 1);
     assert_eq!(found.targets.len(), found.imports.len());
     // The id of the first name is the id of its statement with the ordinal 0.
-    let (plain, _) = crate::collect::gather(&request(&tree), provenance(), true);
+    let (plain, _) = crate::collect::gather(&request(&tree), provenance());
     let parent = import_section(&plain)
         .iter()
         .find(|record| record.title.ends_with("imports ./a"))
