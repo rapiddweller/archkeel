@@ -84,7 +84,7 @@ fn the_binding_id_is_the_stable_id_of_the_python_tuple() -> Result<(), String> {
     };
     let one = record(&map)?;
     assert_eq!(
-        binding_id(&[one.clone()], &[evidence(&entry())]),
+        binding_id(std::slice::from_ref(&one), &[evidence(&entry())]),
         "DEPENDENCY-PROOF-19c48e2969f1aa51"
     );
     assert_eq!(

@@ -317,7 +317,7 @@ jobs:
           docker run --rm -e TAG -v "$PWD:/io" -w /io "$IMAGE" bash -euo pipefail -c '
             git config --global --add safe.directory /io
             curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
-              | sh -s -- -y --profile minimal --default-toolchain 1.88.0
+              | sh -s -- -y --profile minimal --default-toolchain 1.97.0
             . "$HOME/.cargo/env"
             python=/opt/python/cp311-cp311/bin/python
             "$python" -m pip install --disable-pip-version-check --quiet uv==0.12.13
