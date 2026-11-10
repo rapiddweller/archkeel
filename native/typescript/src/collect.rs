@@ -21,7 +21,6 @@ use serde_json::{Map, Value};
 use crate::config::load_config;
 use crate::kept::{Kept, Pending};
 use crate::options::Resolution;
-use crate::paths::join;
 use crate::pytext::is_space;
 #[cfg(any(test, feature = "dump"))]
 use crate::records::listed;
@@ -29,9 +28,10 @@ use crate::records::write_reply;
 #[cfg(any(test, feature = "dump"))]
 use crate::records::{records_of, Records};
 use crate::resolve::Resolver;
-use crate::snapshot::Snapshot;
 use crate::syntax::Parsers;
 use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
+use archkeel_snapshot::paths::join;
+use archkeel_snapshot::Snapshot;
 
 /// The profile and adapter name of the Python TypeScript collector, so that this is a drop-in.
 pub const PROFILE: &str = "archkeel-typescript-imports";

@@ -7,8 +7,8 @@
 
 use super::*;
 use crate::config::load_config;
-use crate::snapshot::Snapshot;
-use crate::test_tree::Tree;
+use archkeel_snapshot::test_tree::Tree;
+use archkeel_snapshot::Snapshot;
 
 struct Case {
     name: &'static str,

@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::collect::{records, PROFILE};
 use crate::records::Records;
-use crate::test_tree::Tree;
+use archkeel_snapshot::test_tree::Tree;
 
 fn request(tree: &Tree) -> Request {
     Request {

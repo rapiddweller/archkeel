@@ -39,6 +39,16 @@ def crate_problems(layers: Mapping[str, Any], dependencies: Mapping[str, list[st
     crates: Mapping[str, Mapping[str, Any]] = layers["crates"]
     parsers: list[str] = layers["parser_prefixes"]
     problems: list[str] = []
+    for name, entry in sorted(crates.items()):
+        if name not in dependencies and not entry.get("planned"):
+            problems.append(f"{name} is declared but has no crate; mark it planned")
+        if name in dependencies and entry.get("planned"):
+            problems.append(f"{name} exists now; remove planned from its entry")
+        for allowed in entry["may_use"]:
+            if allowed not in crates:
+                problems.append(f"{name} may use {allowed}, which has no entry")
+            elif entry["role"] == "library" and crates[allowed]["role"] == "collector":
+                problems.append(f"{name} is a library and must not be allowed to use {allowed}")
     for name, used in sorted(dependencies.items()):
         if name not in crates:
             problems.append(f"{name} has no entry in native/layers.toml")
@@ -192,6 +202,41 @@ def test_a_library_that_uses_a_parser_crate_is_a_problem() -> None:
     assert problems == ["wire is not a collector and must not use tree-sitter-python"]
 
 
+def test_a_planned_crate_needs_no_crate_and_a_present_crate_is_not_planned() -> None:
+    layers = {
+        **LAYERS,
+        "crates": {
+            **LAYERS["crates"],
+            "facts": {"role": "library", "may_use": [], "planned": True},
+        },
+    }
+    deps = {"wire": [], "ts": ["wire"]}
+    assert crate_problems(layers, deps) == []
+    assert crate_problems(layers, {**deps, "facts": []}) == [
+        "facts exists now; remove planned from its entry"
+    ]
+
+
+def test_a_declared_crate_that_is_missing_and_not_planned_is_a_problem() -> None:
+    assert crate_problems(LAYERS, {"wire": []}) == [
+        "ts is declared but has no crate; mark it planned"
+    ]
+
+
+def test_an_entry_must_not_allow_what_has_no_entry_or_lets_a_library_use_a_collector() -> None:
+    layers = {
+        **LAYERS,
+        "crates": {
+            "wire": {"role": "library", "may_use": ["ts", "ghost"]},
+            "ts": {"role": "collector", "may_use": ["wire"]},
+        },
+    }
+    assert crate_problems(layers, {"wire": [], "ts": ["wire"]}) == [
+        "wire is a library and must not be allowed to use ts",
+        "wire may use ghost, which has no entry",
+    ]
+
+
 def test_a_crate_without_an_entry_is_a_problem() -> None:
     problems = crate_problems(LAYERS, {"wire": [], "ts": ["wire"], "new": ["wire"]})
     assert problems == ["new has no entry in native/layers.toml"]
@@ -313,3 +358,45 @@ def test_each_declared_crate_adds_no_module_cycle() -> None:
     for crate, entry in layers["crates"].items():
         graph = module_graph(_sources(NATIVE / entry["dir"]))
         assert cycle_problems(graph, declared_cycles(layers, crate)) == [], crate
+
+
+def contract_problems(layers: Mapping[str, Any], contract: Mapping[str, Any]) -> list[str]:
+    """Compare the crate directions of `layers.toml` with the `requires` of the contract."""
+    by_label = {c["label"]: c for c in contract["components"]}
+    package_of = {name: "native." + name.replace("-", "_") for name in layers["crates"]}
+    label_of = {
+        package: label for label, component in by_label.items() for package in component["packages"]
+    }
+    problems: list[str] = []
+    for name, entry in sorted(layers["crates"].items()):
+        label = label_of.get(package_of[name])
+        if label is None:
+            problems.append(f"{name} has no component in the contract")
+            continue
+        wanted = sorted(label_of.get(package_of[used], "?") for used in entry["may_use"])
+        declared = sorted(r["component"] for r in by_label[label].get("requires", []))
+        if wanted != declared:
+            problems.append(
+                f"{name}: layers.toml allows {wanted}, the contract requires {declared}"
+            )
+    return problems
+
+
+def test_the_contract_and_the_layer_file_state_the_same_directions() -> None:
+    contract = json.loads((NATIVE / "architecture-contract.json").read_text())
+    assert contract_problems(_layers(), contract) == []
+
+
+def test_a_direction_that_only_one_file_states_is_a_problem() -> None:
+    contract = {
+        "components": [
+            {"label": "wire", "packages": ["native.wire"]},
+            {"label": "ts", "packages": ["native.ts"], "requires": []},
+        ]
+    }
+    assert contract_problems(LAYERS, contract) == [
+        "ts: layers.toml allows ['wire'], the contract requires []"
+    ]
+    assert contract_problems(LAYERS, {"components": contract["components"][:1]}) == [
+        "ts has no component in the contract"
+    ]

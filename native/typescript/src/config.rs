@@ -14,11 +14,12 @@ use std::collections::BTreeSet;
 use serde_json::{Map, Value};
 
 use crate::discover::discover;
+use crate::installed::installed;
 use crate::layer::Layer;
 use crate::options::{self, Options};
-use crate::paths::{dirname, is_outside, join, within};
-use crate::snapshot::Snapshot;
 use crate::source_input::{classify_file, Suffix};
+use archkeel_snapshot::paths::{dirname, is_outside, join, within};
+use archkeel_snapshot::Snapshot;
 
 const CONFIG_DIRECTORY: &str = "${configDir}";
 
@@ -91,7 +92,7 @@ pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) ->
     for root in roots {
         if snapshot.real(root).is_none() {
             problems.push("Missing or unsafe source root".to_owned());
-        } else if snapshot.installed(root) {
+        } else if installed(snapshot, root) {
             problems.push("Installed dependency cannot be a selected source root".to_owned());
         }
     }
@@ -104,7 +105,7 @@ pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) ->
     let mut chosen = BTreeSet::new();
     for rel in candidates {
         if !is_outside(&rel)
-            && !snapshot.installed(&rel)
+            && !installed(snapshot, &rel)
             && roots.iter().any(|root| within(root, &rel))
         {
             chosen.insert(rel);

@@ -209,12 +209,6 @@ impl Snapshot {
         (files, directories)
     }
 
-    /// Whether a path, or its real path, is inside an installed package.
-    pub fn installed(&mut self, rel: &str) -> bool {
-        let path = self.real(rel).unwrap_or_else(|| rel.to_owned());
-        path.split('/').any(|part| part == "node_modules")
-    }
-
     /// The digested inputs, sorted by path.
     pub fn inputs(&self) -> Vec<Input> {
         self.inputs

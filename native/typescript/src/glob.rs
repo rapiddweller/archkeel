@@ -9,7 +9,7 @@
 //! `node_modules`, `bower_components` or `jspm_packages`, and a file `*` never consumes the dot
 //! of a final `.min.js`.
 
-use crate::paths::normpath;
+use archkeel_snapshot::paths::normpath;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Usage {
