@@ -68,9 +68,3 @@ recorded"), a 2.10.0 file without it and a 2.9.0 file with it (parse error, UNKN
 file inside the scanned repository gives UNKNOWN through `run_report`. `pinned_path` has unit
 tests for `PATH` and relative entries. Tests that start their own collector pin it. The honest
 false-PASS probe stays external.
-
-**Note, 2026-11-10: the self-check of `native/`.** `native/archkeel.toml` named the debug build
-in `collector_argv`, so the check of the Rust workspace was external and capped at UNKNOWN. It no
-longer names a collector. `make self-validate-native` copies the build of the same source tree to
-`src/archkeel/_native/`, where a platform wheel carries it, runs the check and removes the copy.
-The host is unchanged, and a customer `collector_argv` is still external.
