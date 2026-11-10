@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tools import merge_check
-from tools.merge_check import check
+from tools.merge_check import check, parse_pr_files
 
 ENV = {
     **os.environ,
@@ -112,6 +112,59 @@ def test_removed_lines_in_a_file_changed_on_recent_main_are_a_warning_not_an_err
     assert [w for w in report.warnings if "a.txt" in w]
 
 
+def rename_on_feature(repo: Path, extra: dict[str, str] | None = None) -> str:
+    git(repo, "checkout", "-q", "-b", "feature")
+    git(repo, "mv", "a.txt", "renamed.txt")
+    return commit(repo, extra or {}, "Rename a to renamed")
+
+
+def test_a_rename_is_not_an_error_when_github_gives_the_previous_name(repo: Path) -> None:
+    rename_on_feature(repo)
+    report = check(repo, "main", "feature", ["renamed.txt"], {"renamed.txt": "a.txt"})
+    assert report.errors == []
+    assert report.warnings == []
+
+
+def test_an_unrelated_file_beside_a_rename_is_still_an_error(repo: Path) -> None:
+    rename_on_feature(repo, {"extra.txt": "3\n"})
+    report = check(repo, "main", "feature", ["renamed.txt"], {"renamed.txt": "a.txt"})
+    assert len(report.errors) == 1
+    assert "extra.txt" in report.errors[0]
+
+
+def test_a_rename_without_the_previous_name_from_github_is_an_error(repo: Path) -> None:
+    rename_on_feature(repo)
+    report = check(repo, "main", "feature", ["renamed.txt"])
+    assert len(report.errors) == 1
+    assert "a.txt" in report.errors[0]
+
+
+def test_git_rename_listed_by_github_as_delete_and_add_is_not_an_error(repo: Path) -> None:
+    # Git detects the rename. GitHub lists the two paths without previous_filename.
+    rename_on_feature(repo)
+    report = check(repo, "main", "feature", ["a.txt", "renamed.txt"])
+    assert report.errors == []
+
+
+def test_git_delete_and_add_listed_by_github_as_rename_is_not_an_error(repo: Path) -> None:
+    # The content changes too much for git to detect a rename. GitHub reports a rename.
+    git(repo, "checkout", "-q", "-b", "feature")
+    (repo / "a.txt").unlink()
+    commit(repo, {"renamed.txt": "another text\n"}, "Replace a by renamed")
+    report = check(repo, "main", "feature", ["renamed.txt"], {"renamed.txt": "a.txt"})
+    assert report.errors == []
+
+
+def test_github_file_list_parser_reads_the_previous_name_of_a_rename() -> None:
+    output = (
+        '{"path": "renamed.txt", "status": "renamed", "previous": "a.txt"}\n'
+        '{"path": "b.txt", "status": "modified", "previous": null}\n'
+    )
+    paths, renamed_from = parse_pr_files(output)
+    assert paths == ["renamed.txt", "b.txt"]
+    assert renamed_from == {"renamed.txt": "a.txt"}
+
+
 @pytest.fixture
 def pr_on_main(repo: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     git(repo, "update-ref", "refs/remotes/origin/main", "main")
@@ -125,7 +178,7 @@ def pr_on_main(repo: Path, monkeypatch: pytest.MonkeyPatch) -> str:
 def test_main_exits_zero_for_a_clean_pull_request(
     repo: Path, pr_on_main: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    monkeypatch.setattr(merge_check, "pr_view", lambda number: (pr_on_main, ["new.txt"]))
+    monkeypatch.setattr(merge_check, "pr_view", lambda number: (pr_on_main, ["new.txt"], {}))
     assert merge_check.main(["7"], repo=repo) == 0
     assert "0 error(s)" in capsys.readouterr().out
 
@@ -133,7 +186,7 @@ def test_main_exits_zero_for_a_clean_pull_request(
 def test_main_exits_one_when_the_fetched_head_is_not_the_github_head(
     repo: Path, pr_on_main: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    monkeypatch.setattr(merge_check, "pr_view", lambda number: ("0" * 40, ["new.txt"]))
+    monkeypatch.setattr(merge_check, "pr_view", lambda number: ("0" * 40, ["new.txt"], {}))
     assert merge_check.main(["7"], repo=repo) == 1
     assert "moved" in capsys.readouterr().err
 
@@ -147,6 +200,6 @@ def test_main_exits_one_when_the_pull_request_conflicts(
     commit(repo, {"a.txt": "main\n"}, "Change a on main")
     git(repo, "update-ref", "refs/remotes/origin/main", "main")
     monkeypatch.setattr(merge_check, "fetch_pr", lambda repo_, number: head)
-    monkeypatch.setattr(merge_check, "pr_view", lambda number: (head, ["a.txt"]))
+    monkeypatch.setattr(merge_check, "pr_view", lambda number: (head, ["a.txt"], {}))
     assert merge_check.main(["7"], repo=repo) == 1
     assert "conflict" in capsys.readouterr().out
