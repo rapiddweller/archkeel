@@ -35,12 +35,15 @@ JSON file there needs no new inventory entry or workflow change. The test that r
 `tools/`, golden data or vendored files.
 
 **Update 2026-11-10.** The rule now also covers hand-written `.js`, `.ts`, `.tsx` and `.css`
-files under `src/`, each `tests/*.py` module and each `fixtures/*.py` helper. The same five rules
-apply. At this date 125 files enter the list: 114 test modules, 6 fixture helpers, 3 `.js` files,
-1 `.css` file and 1 `.tsx` file. They are 67,182 lines over the limit in total. No file is split by
-this change. One file is exempt: the vendored ELK bundle. `SIZE_LIMIT_EXEMPT` in the test names
-each exempt file with its reason. Inputs are not code: `tests/golden/` and the fixture sample
-projects stay outside the rule.
+files under `src/`, each `tests/*.py` module, each `fixtures/*.py` helper, and each `.py`, `.cjs`,
+`.mjs` and `.js` file under `tools/`, `tests/` and `fixtures/` (`tests/` and `fixtures/` at the top
+level only). The same five rules apply. At this date 126 files enter the list: 114 test modules,
+6 fixture helpers, 3 `.js` files, 1 `.css` file, 1 `.tsx` file and 1 tool. They are 67,763 lines
+over the limit in total. No file is split by this change. Four files are exempt: the vendored ELK
+bundle and the three bundles that `tools/browser_runtime.py` generates (`explorer.runtime.js`,
+`flow.runtime.js`, `studio.js`). `SIZE_LIMIT_EXEMPT` in the test names each one with its reason,
+and a test checks that the tool really writes each generated file. Inputs are not code:
+`tests/golden/` and the fixture sample projects stay outside the rule.
 
 **Checks.** `tests/test_repository_hygiene.py` has three tests. One test checks the five rules on
 temporary files. One checks which paths the rule covers. One checks the real repository against

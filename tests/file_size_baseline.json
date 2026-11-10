@@ -145,7 +145,7 @@
   "tests/test_renames.py": 781,
   "tests/test_report_agent_json.py": 616,
   "tests/test_report_rule_evidence_oracle.py": 1147,
-  "tests/test_repository_hygiene.py": 629,
+  "tests/test_repository_hygiene.py": 662,
   "tests/test_result_schema.py": 957,
   "tests/test_rule_driven_collection.py": 680,
   "tests/test_schema_drift.py": 844,
@@ -176,5 +176,6 @@
   "tests/test_uml_comparison.py": 677,
   "tests/test_unresolved_call_sites.py": 710,
   "tests/test_validation.py": 1800,
-  "tests/test_widening.py": 1388
+  "tests/test_widening.py": 1388,
+  "tools/architecture_graph_schema.py": 1037
 }
