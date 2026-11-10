@@ -297,6 +297,7 @@ def _observe(
         if isinstance(loaded, ObservationResult):
             return loaded
         found: set[str] = set()
+        listed: set[str] = set()
         for root in roots:
             directory = source_root / root
             file_root = language == Language.TYPESCRIPT and directory.is_file()
@@ -312,6 +313,8 @@ def _observe(
                 relative = path.relative_to(source_root).as_posix()
                 if is_test_source(relative, language) and not _INSTALLED.intersection(path.parts):
                     found.add(relative)
+                if _collector_lists(path.relative_to(source_root).parts):
+                    listed.add(relative)
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
                         DiagnosticKind.PARSE_ERROR,
@@ -319,10 +322,6 @@ def _observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
-        if exclude_test_sources and excluded_tests is not None:
-            # The files of this one listing are the files the collector reads (AD-313).
-            if all(sha != git_head for sha, _ in excluded_tests):
-                excluded_tests.append((git_head, tuple(sorted(found))))
         resolver: ResolverSettings = fixed_settings(language, tsconfig, bundler) or PythonSettings(
             features=tuple(
                 sorted(required_resolution_features(loaded.tree.root, loaded.tree.mounts))
@@ -356,6 +355,15 @@ def _observe(
                 facts.message,
                 "Repair the configured collector or its source inputs and retry.",
             )
+        if exclude_test_sources and excluded_tests is not None:
+            # The files of this one listing are the files the collector reads (AD-313).
+            if all(sha != git_head for sha, _ in excluded_tests):
+                left_out = (
+                    sorted(listed - set(facts.coverage.selected_files))
+                    if language == Language.RUST
+                    else sorted(found)
+                )
+                excluded_tests.append((git_head, tuple(left_out)))
         with measured(clock, Phase.ASSEMBLE):
             model, _ = assemble_observation(
                 facts,
@@ -390,6 +398,11 @@ def _observe(
             str(error),
             "Repair the collector output to match the source facts protocol.",
         )
+
+
+def _collector_lists(parts: tuple[str, ...]) -> bool:
+    """The Rust collector enters no `target` and no hidden directory, so it never lists them."""
+    return not any(part == "target" or part.startswith(".") for part in parts[:-1])
 
 
 @dataclass(frozen=True, slots=True)
