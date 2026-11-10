@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Build observations by injecting a source collector into Core evaluation."""
 
+import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Final
@@ -297,6 +298,7 @@ def _observe(
         if isinstance(loaded, ObservationResult):
             return loaded
         found: set[str] = set()
+        listed: set[str] = set()
         for root in roots:
             directory = source_root / root
             file_root = language == Language.TYPESCRIPT and directory.is_file()
@@ -312,6 +314,8 @@ def _observe(
                 relative = path.relative_to(source_root).as_posix()
                 if is_test_source(relative, language) and not _INSTALLED.intersection(path.parts):
                     found.add(relative)
+                if _collector_lists(relative) and path.is_file():
+                    listed.add(relative)
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
                         DiagnosticKind.PARSE_ERROR,
@@ -319,7 +323,7 @@ def _observe(
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
                     )
-        if exclude_test_sources and excluded_tests is not None:
+        if exclude_test_sources and excluded_tests is not None and language != Language.RUST:
             # The files of this one listing are the files the collector reads (AD-313).
             if all(sha != git_head for sha, _ in excluded_tests):
                 excluded_tests.append((git_head, tuple(sorted(found))))
@@ -356,6 +360,12 @@ def _observe(
                 facts.message,
                 "Repair the configured collector or its source inputs and retry.",
             )
+        if exclude_test_sources and excluded_tests is not None and language == Language.RUST:
+            # The Rust collector owns its test rule: the test files are the regular files with a
+            # UTF-8 name that it listed and did not select (the others it drops as gaps).
+            if all(sha != git_head for sha, _ in excluded_tests):
+                left_out = sorted(listed - set(facts.coverage.selected_files))
+                excluded_tests.append((git_head, tuple(left_out)))
         with measured(clock, Phase.ASSEMBLE):
             model, _ = assemble_observation(
                 facts,
@@ -390,6 +400,17 @@ def _observe(
             str(error),
             "Repair the collector output to match the source facts protocol.",
         )
+
+
+def _collector_lists(relative: str) -> bool:
+    """The Rust collector lists no `target` or hidden directory and no name that is not UTF-8."""
+    if re.search(r"(?:^|/)(?:target|\.[^/]*)/", relative):
+        return False
+    try:
+        relative.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 @dataclass(frozen=True, slots=True)
