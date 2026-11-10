@@ -8,7 +8,7 @@
       "role": "component",
       "packages": [],
       "responsibilities": [
-        "Bound collector execution, validate protocol responses, clean up child processes, validate native PID ranges and check liveness without signaling Windows PIDs."
+        "Bound collector execution, check the file digest of a pinned collector, validate protocol responses, clean up child processes, validate native PID ranges and check liveness without signaling Windows PIDs."
       ],
       "forbidden_responsibilities": [
         "Parsing sources, importing language collectors, or deciding architecture policy.",
@@ -22,6 +22,7 @@
       "exact_modules": [
         "archkeel.analyzer",
         "archkeel.analyzer.process",
+        "archkeel.analyzer.pin",
         "archkeel.analyzer.memory_limit",
         "archkeel.analyzer.reply_checks",
         "archkeel.analyzer.selected_scope",

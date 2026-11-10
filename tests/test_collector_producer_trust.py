@@ -12,12 +12,12 @@ from collector_pin import pin_of
 from test_onboarding import _repository
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.check.ports import ProducerKind
 from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
 from archkeel.ir.model import RunResult
+from archkeel.ir.protocol import ProducerKind
 
 ARGV = (sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry")
 CAP = "An external collector cannot prove a rule."
