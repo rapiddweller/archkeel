@@ -21,6 +21,7 @@ use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{ambient, export_bindings, module_exports, Named};
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
+use crate::layout::Layout;
 use crate::members::{named_children, Cx};
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
 use crate::script_types::Script;
@@ -90,12 +91,16 @@ pub struct Walk<'a, 't> {
     /// Identifier targets of writes, with the frame that holds the write.
     writes: Vec<(Node<'t>, u32)>,
     sites: Sites,
+    /// The named nodes in document order, for the script facts (`script_scope.rs`).
+    layout: Layout<'t>,
 }
 
 impl<'a, 't> Walk<'a, 't> {
     pub fn new(cx: Cx<'a>) -> Self {
+        let layout = Layout::default();
         Self {
             cx,
+            layout,
             stack: Vec::new(),
             frames: Frames::new(),
             defs: Defs::default(),
@@ -116,12 +121,15 @@ impl<'a, 't> Walk<'a, 't> {
             Some(parent) => (parent.flags, parent.frame, parent.var_frame, parent.scope),
             None => (0, ROOT, ROOT, None),
         };
+        let parent_at = self.stack.last().map(|parent| parent.at);
+        let at = self.layout.enter(&cx, node, info.named, parent_at);
         if !info.named {
             let shadow = self.stack.last().map_or_else(Shadow::default, |p| p.shadow);
             self.stack.push(Entry {
                 node,
                 kind,
                 flags: seen,
+                at,
                 frame: parent_frame,
                 var_frame: parent_var,
                 scope: parent_scope,
@@ -175,6 +183,7 @@ impl<'a, 't> Walk<'a, 't> {
             node,
             kind,
             flags,
+            at,
             frame,
             var_frame,
             scope,
@@ -185,8 +194,15 @@ impl<'a, 't> Walk<'a, 't> {
         });
     }
 
+    /// The layout of the named nodes that the walk has seen; `finish` does not keep it.
+    pub fn take_layout(&mut self) -> Layout<'t> {
+        std::mem::take(&mut self.layout)
+    }
+
     pub fn leave(&mut self) {
-        self.stack.pop();
+        if let Some(entry) = self.stack.pop() {
+            self.layout.leave(entry.at);
+        }
     }
 
     /// The flags that a node adds for its children.

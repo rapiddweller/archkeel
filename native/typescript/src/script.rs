@@ -11,6 +11,7 @@ use std::rc::Rc;
 
 use tree_sitter::Node;
 
+use crate::layout::Layout;
 use crate::members::Cx;
 use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
@@ -19,8 +20,14 @@ use crate::umd::Templates;
 use crate::walk::Syntax;
 
 /// The script facts of a file whose other facts are in `syntax`.
-pub fn read(cx: Cx, root: Node, syntax: &Syntax, templates: &Templates) -> Script {
-    let mut tree = Tree::new(cx, root);
+pub fn read<'t>(
+    cx: Cx,
+    root: Node<'t>,
+    layout: Layout<'t>,
+    syntax: &Syntax,
+    templates: &Templates,
+) -> Script {
+    let mut tree = Tree::from_layout(cx, root, layout);
     let nodes = Rc::clone(&tree.nodes);
     tree.bind(&nodes, &syntax.import_bindings);
     let module_syntax = syntax.module_syntax;

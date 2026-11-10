@@ -28,6 +28,7 @@ mod jsdoc;
 mod kept;
 mod kinds;
 mod layer;
+mod layout;
 mod manifest;
 mod members;
 mod options;
