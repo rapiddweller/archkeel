@@ -387,10 +387,10 @@ def report_summary(result: RunResult) -> Summary:
             "The requested deterministic checks completed, but declared rules could not be "
             "evaluated completely."
         )
-    if result.target is TargetStatus.UNAVAILABLE:
-        sentence = _NO_TARGET_SENTENCE + "".join(
-            f"\n\nCoverage note: {item.unknown_claim}" for item in result.notes
-        )
+    notes = "".join(f"\n\nCoverage note: {item.unknown_claim}" for item in result.notes)
+    sentence = (
+        _NO_TARGET_SENTENCE if result.target is TargetStatus.UNAVAILABLE else sentence
+    ) + notes
     for status in ("FAIL", "UNKNOWN"):
         rules = [item.id for item in result.rule_assessments or () if item.status == status]
         if rules:

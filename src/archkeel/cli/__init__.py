@@ -1331,7 +1331,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     baseline=args.baseline,
                     clock=clock,
                 )
-                result = replace(result, scan_roots=config.roots, notes=config.scope_notes())
+                result = replace(result, scan_roots=config.roots)
+                result = replace(result, notes=(*result.notes, *config.scope_notes(root)))
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.
@@ -1412,7 +1413,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     rationale=args.rationale,
                 )
                 files = requested_files.entries
-                result = replace(result, scan_roots=config.roots, notes=config.scope_notes())
+                result = replace(result, scan_roots=config.roots)
+                notes = (*result.notes, *config.scope_notes(root, against_config, against))
+                result = replace(result, notes=notes)
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
@@ -1431,7 +1434,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     host=load_gitlab_records,
                     analyzer=_configured_observer(config),
                 )
-                result = replace(result, scan_roots=config.roots, notes=config.scope_notes())
+                result = replace(result, scan_roots=config.roots)
+                result = replace(result, notes=(*result.notes, *config.scope_notes(root)))
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))

@@ -33,7 +33,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.phases import Phase, PhaseClock, measured
-from archkeel.ir.profiles import PROFILES, Language
+from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, Language
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
@@ -121,8 +121,6 @@ _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
         "Collect the facts under this contract, or use a collector that declares the family.",
     ),
 }
-# Dart has no test-source classification, so a Dart scan keeps every file.
-_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
 _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
@@ -301,7 +299,13 @@ def _observe(
             if language == Language.DART
             else TypeScriptSettings(tsconfig, bundler)
         )
-        exclude_test_sources = exclude_test_sources and language in _TEST_SCOPE_LANGUAGES
+        if exclude_test_sources and language not in TEST_SCOPE_LANGUAGES:
+            return _failure(
+                DiagnosticKind.SCOPE_EMPTY,
+                "scan.exclude_test_sources",
+                f"The {language} collector has no test-source rule.",
+                "Remove scan.exclude_test_sources for this language.",
+            )
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
             SourceScope(roots, namespace, exclude_test_sources),

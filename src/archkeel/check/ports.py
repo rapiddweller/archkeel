@@ -3,17 +3,23 @@
 # SPDX-License-Identifier: MIT
 """Callable ports consumed by the check workflows."""
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Final, Protocol
 
 from archkeel.ir.facts import Language as Language
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import Diagnostic, DiagnosticKind
 from archkeel.ir.model import ObservationResult as ObservationResult
+from archkeel.ir.profiles import PROFILES, TEST_SCOPE_LANGUAGES, is_test_source
 from archkeel.ir.protocol import CollectionError, CollectionRequest
+
+_INSTALLED: Final = frozenset({"__pycache__", "node_modules"})
+_LISTED_TEST_FILES: Final = 20
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,17 +36,68 @@ class ScanConfig:
     bundler: bool = False
     exclude_test_sources: bool = False
 
-    def scope_notes(self) -> tuple[Diagnostic, ...]:
-        """AD-313: name the test scope in the result, so a PASS is not read as covering tests."""
+    def __post_init__(self) -> None:
+        if self.exclude_test_sources and self.language not in TEST_SCOPE_LANGUAGES:
+            raise ValueError(f"scan.exclude_test_sources is not supported for {self.language}")
+
+    def excluded_test_files(self, root: Path) -> tuple[str, ...]:
+        """AD-313: the sorted paths under the scan roots that the test naming rule excludes."""
+        suffix = PROFILES[self.language].source_suffix
+        found: set[str] = set()
+        for source in self.roots:
+            directory = root / source
+            paths = (directory,) if directory.is_file() else directory.rglob(f"*{suffix}")
+            for path in paths:
+                relative = path.relative_to(root).as_posix()
+                if not _INSTALLED.intersection(path.parts) and is_test_source(
+                    relative, self.language
+                ):
+                    found.add(relative)
+        return tuple(sorted(found))
+
+    def scope_notes(
+        self, root: Path, before: ScanConfig | None = None, revision: str | None = None
+    ) -> tuple[Diagnostic, ...]:
+        """AD-313: name each excluded test file, so a PASS never hides what it did not read.
+
+        `before` is the config of the compared revision: a changed test scope is a note too.
+        """
+        changed = (
+            self._scope_change(before, revision)
+            if before is not None and revision is not None
+            else ()
+        )
+        return (*self._excluded_note(root), *changed)
+
+    def _excluded_note(self, root: Path) -> tuple[Diagnostic, ...]:
         if not self.exclude_test_sources:
+            return ()
+        files = self.excluded_test_files(root)
+        shown = ", ".join(files[:_LISTED_TEST_FILES])
+        more = len(files) - _LISTED_TEST_FILES
+        listing = f" ({shown}{f' and {more} more' if more > 0 else ''})" if files else ""
+        return (
+            Diagnostic(
+                DiagnosticKind.NOT_EXAMINED,
+                "scan.exclude_test_sources",
+                f"{len(files)} test source file(s) are excluded from this scan{listing}. "
+                "File counts and verdicts cover the other files only.",
+                "Set scan.exclude_test_sources to false in archkeel.toml to scan test sources too.",
+            ),
+        )
+
+    def _scope_change(self, before: ScanConfig, revision: str) -> tuple[Diagnostic, ...]:
+        """AD-313: a changed test scope makes two scans cover different files."""
+        if before.exclude_test_sources == self.exclude_test_sources:
             return ()
         return (
             Diagnostic(
                 DiagnosticKind.NOT_EXAMINED,
                 "scan.exclude_test_sources",
-                "Test sources are excluded from this scan. File counts and verdicts cover "
-                "production code only.",
-                "Set scan.exclude_test_sources to false in archkeel.toml to scan test sources too.",
+                f"scan.exclude_test_sources is {str(self.exclude_test_sources).lower()} here and "
+                f"{str(before.exclude_test_sources).lower()} at {revision[:12]}. The two scans "
+                "cover different files.",
+                "Review the files that the scope change adds or removes before you accept it.",
             ),
         )
 

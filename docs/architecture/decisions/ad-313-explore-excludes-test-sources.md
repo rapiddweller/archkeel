@@ -30,10 +30,16 @@ opts in. The key has one meaning for every language. These facts hold:
 
 - Explore keeps its behaviour. It sets the scope itself, for Python and TypeScript only, and it
   ignores the key.
-- The host sends the scope to the collector of each language in `TEST_SCOPE_LANGUAGES`
-  (`ir/profiles.py`). Today these are Python and TypeScript. A language with no test rule must not
-  ignore the key silently, so a Dart config with `true` is an error. A Rust collector joins the set
-  when it honours the scope.
+- `TEST_SCOPE_LANGUAGES` (`ir/profiles.py`) is the one owner of the languages that honour the
+  scope. Today these are Python and TypeScript. `ScanConfig` rejects the key for any other
+  language, and the observer fails for it, so no language ignores the key silently. A Rust
+  collector joins the set when it honours the scope.
+- A file that the naming rule calls a test, such as `test_mode.py`, is excluded even when it is
+  production code. This is the scope the project chose. It is never silent: the note names the
+  count and the first 20 paths, sorted, and the human output prints the note. The host lists the
+  files under the scan roots with the same rule as the collectors.
+- `validate --against` adds a note when the key differs from the compared revision. A change of
+  `scan.roots` has no such note today.
 - `files_discovered` and `files_parsed` count the test-free scope. The result carries a
   `not_examined` note, so a PASS is not read as covering test sources.
 - With the key absent or false, the request, the result and the bytes do not change.

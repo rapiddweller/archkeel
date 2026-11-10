@@ -36,6 +36,10 @@ DART_ANALYZER: Final = SourceProfile.DART.value
 TYPESCRIPT_ANALYZER: Final = SourceProfile.TYPESCRIPT.value
 
 
+# The languages whose collector honours `exclude_test_sources` (AD-313). Dart has no test rule.
+TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
+
+
 def is_test_source(path: str, language: Language) -> bool:
     """Recognize test files by directory or the language's supported file convention."""
     parts = PurePosixPath(path).parts
