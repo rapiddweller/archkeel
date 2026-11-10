@@ -1,9 +1,9 @@
 {
   "after_baseline_digest": "bdda87586b0642ab045491adf01a423b3cee829c8abbbc138c4681ed107c1c78",
-  "after_digest": "43dc2dd6459c7aee093d538135668f9e89080f3c4c19ccf06c2bdf134fe798da",
-  "before_baseline_digest": "7ed68f3273d883c241d29e87670c42e85c57cceec20c70280ae4dd60430093f8",
-  "before_digest": "dcc763cacb424b5ee7ee0f44018edf04d353fbe9f75f36726116fa8757e3ce03",
+  "after_digest": "24d0270e061d347e0f9bd05980d3279ab1a57304b4d37a7128fb98079d1d16fc",
+  "before_baseline_digest": "7aaf94c39ac55c6181592d5f348388e8d60c5dc03715fc42d16a394dcd85ceab",
+  "before_digest": "0dbab2c59216ed037e392b89a3cc32143749cabfe517cdb4841f62f7f7db88ef",
   "decided_by": "agent (per task R3 of the lead, epic #880 WP4, 2026-11-10)",
-  "rationale": "AD-346, opt-in store path. Four modules join the contracts: archkeel.ir.store_seam (facts, public StoreSeam and active_store, because the dependency and member inventory digests ask the store), archkeel.ir.readset_codec (facts-codec), archkeel.ir.codec_store (wire) and archkeel.analyzer.store (process). The analyzer may use decode_read_set, StoreEntry, open_store, close_store and store_enabled; ir publishes them and store_disabled, which check uses to observe without the store. calls_unresolved rises from 970 to 979: the store process frames and the two context variables of the session (the active store and store_disabled) are dynamic receivers (store.py, store_seam.py). The two allowed type ignores of process.is_process_alive move 15 lines with the new store field. No rule, component or Any permission changes.",
+  "rationale": "AD-346, opt-in store path. Four modules join the contracts: archkeel.ir.store_seam (facts, public StoreSeam and active_store, because the dependency and member inventory digests ask the store), archkeel.ir.readset_codec (facts-codec), archkeel.ir.codec_store (wire) and archkeel.analyzer.store (process). The analyzer may use decode_read_set, StoreEntry, open_store, close_store and store_enabled; ir publishes them and store_disabled, which check uses to observe without the store. calls_unresolved rises from 977 to 986: the store process frames and the two context variables of the session (the active store and store_disabled) are dynamic receivers (store.py, store_seam.py). The two allowed type ignores of process.is_process_alive move 15 lines with the new store field. No rule, component or Any permission changes.",
   "schema_version": "2.0.0"
 }
