@@ -6,6 +6,7 @@ PR_TEST_FILES := \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \
 	tests/test_native_contract_rules.py \
+	tests/test_pr_test_node_ids.py \
 	tests/test_rust_clones.py \
 	tests/test_rust_api.py \
 	tests/test_rust_source.py \
@@ -119,7 +120,7 @@ PR_TEST_FILES := \
 	'tests/test_collector_native_scaling_sites.py::test_sites_keep_the_memory_linear[sites-shadow-nest-arrows-4000]' \
 	'tests/test_collector_native_scaling_sites.py::test_sites_keep_the_memory_linear[sites-member-chain-call-100000]' \
 	'tests/test_collector_native_scaling_sites.py::test_sites_keep_the_memory_linear[sites-many-bound-names-8000]' \
-	'tests/test_collector_native_scaling_sites.py::test_sites_keep_the_memory_linear[sites-publication-chain-30000]' \
+	'tests/test_collector_native_scaling_sites.py::test_sites_keep_the_memory_linear[sites-publication-chain-24000]' \
 	'tests/test_collector_native_scaling.py::test_a_shape_holds_the_kinds_that_its_class_claims' \
 	'tests/test_collector_native_scaling.py::test_every_shape_the_table_names_exists' \
 	'tests/test_collector_native_scaling.py::test_every_kind_of_the_port_is_in_one_construct_class_with_shapes' \
