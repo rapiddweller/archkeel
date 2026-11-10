@@ -56,10 +56,40 @@ pub fn ident(name: &str) -> String {
     name.replace('-', "_")
 }
 
+/// What Cargo builds from a target.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TargetKind {
+    Lib,
+    Bin,
+    Test,
+    Example,
+    Bench,
+    Build,
+}
+
+impl TargetKind {
+    /// The word in a module name, as Cargo writes it.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Lib => "lib",
+            Self::Bin => "bin",
+            Self::Test => "test",
+            Self::Example => "example",
+            Self::Bench => "bench",
+            Self::Build => "build",
+        }
+    }
+
+    /// Cargo builds `tests/`, `benches/` and `examples/` targets for tests only.
+    pub fn is_test(self) -> bool {
+        matches!(self, Self::Test | Self::Bench | Self::Example)
+    }
+}
+
 /// The target of one module tree, as the manifest declares it or Cargo finds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Target {
-    pub kind: &'static str,
+    pub kind: TargetKind,
     pub name: String,
     /// Relative to the directory of the manifest.
     pub path: String,
@@ -188,7 +218,7 @@ fn bins(table: &Table, package: &str) -> Vec<Target> {
                 None => format!("src/bin/{name}.rs"),
             };
             Some(Target {
-                kind: "bin",
+                kind: TargetKind::Bin,
                 name,
                 path,
             })

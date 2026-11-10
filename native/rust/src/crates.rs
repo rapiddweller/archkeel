@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use crate::manifest::{self, ident, Manifest, Target};
+use crate::manifest::{self, ident, Manifest, Target, TargetKind};
 use crate::manifest_lines::LineIndex;
 use crate::paths::normalize;
 use crate::source::read_text;
@@ -57,6 +57,8 @@ pub struct Crate {
 pub struct Workspace {
     pub crates: Vec<Crate>,
     pub problems: Vec<Problem>,
+    /// The primary root of each crate by name; the first crate of a name wins.
+    primaries: BTreeMap<String, Option<Root>>,
 }
 
 /// Find the crates among `files`, all the files below the scan roots.
@@ -64,6 +66,7 @@ pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Wor
     let mut found = Workspace {
         crates: Vec::new(),
         problems: Vec::new(),
+        primaries: BTreeMap::new(),
     };
     let mut tables: BTreeMap<String, Option<Rc<Parsed>>> = BTreeMap::new();
     for file in files.iter().filter(|file| is_manifest(file)) {
@@ -83,6 +86,12 @@ pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Wor
         .crates
         .sort_by(|a, b| a.manifest.package.cmp(&b.manifest.package));
     found.duplicates();
+    for krate in &found.crates {
+        found
+            .primaries
+            .entry(krate.ident.clone())
+            .or_insert_with(|| krate.primary.clone());
+    }
     found
 }
 
@@ -132,6 +141,12 @@ fn workspace_manifest(
 }
 
 impl Workspace {
+    /// The module and file that other crates reach in the crate `package`, when it is in the
+    /// workspace and has a library or a main binary.
+    pub fn primary_of(&self, package: &str) -> Option<&Root> {
+        self.primaries.get(package)?.as_ref()
+    }
+
     /// Add the package of one manifest, with the edition and the dependencies of its workspace.
     fn member(
         &mut self,
@@ -185,10 +200,12 @@ impl Workspace {
         targets.sort_by_key(|(_, rel)| (!within(dir, rel), rel.clone()));
         let mut roots = Vec::new();
         let mut primary = None;
-        let has_lib = targets.iter().any(|(target, _)| target.kind == "lib");
+        let has_lib = targets
+            .iter()
+            .any(|(target, _)| target.kind == TargetKind::Lib);
         for (target, rel) in targets {
-            let main = target.kind == "lib"
-                || (!has_lib && target.kind == "bin" && target.name == manifest.package);
+            let main = target.kind == TargetKind::Lib
+                || (!has_lib && target.kind == TargetKind::Bin && target.name == manifest.package);
             let name = if main {
                 package.clone()
             } else {
@@ -197,7 +214,7 @@ impl Workspace {
             let root = Root {
                 module: format!("{namespace}.{name}"),
                 rel,
-                test: matches!(target.kind, "test" | "bench" | "example"),
+                test: target.kind.is_test(),
             };
             if main {
                 primary = Some(root.clone());
@@ -252,8 +269,8 @@ fn secondary(package: &str, target: &Target) -> String {
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
         .collect();
     match target.kind {
-        "build" => format!("{package}.build_script"),
-        kind => format!("{package}.{kind}_{name}"),
+        TargetKind::Build => format!("{package}.build_script"),
+        kind => format!("{package}.{}_{name}", kind.word()),
     }
 }
 
@@ -267,21 +284,21 @@ fn declared(manifest: &Manifest, dir: &str, files: &[String]) -> Vec<(Target, St
         .clone()
         .unwrap_or_else(|| "src/lib.rs".to_owned());
     targets.push(Target {
-        kind: "lib",
+        kind: TargetKind::Lib,
         name: manifest.package.clone(),
         path: lib,
     });
     targets.extend(manifest.bins.iter().cloned());
     targets.push(Target {
-        kind: "bin",
+        kind: TargetKind::Bin,
         name: manifest.package.clone(),
         path: "src/main.rs".to_owned(),
     });
     for (kind, folder) in [
-        ("bin", "src/bin"),
-        ("test", "tests"),
-        ("example", "examples"),
-        ("bench", "benches"),
+        (TargetKind::Bin, "src/bin"),
+        (TargetKind::Test, "tests"),
+        (TargetKind::Example, "examples"),
+        (TargetKind::Bench, "benches"),
     ] {
         let prefix = join(dir, folder) + "/";
         for file in files {
@@ -302,12 +319,12 @@ fn declared(manifest: &Manifest, dir: &str, files: &[String]) -> Vec<(Target, St
     }
     match &manifest.build {
         Some(Some(path)) => targets.push(Target {
-            kind: "build",
+            kind: TargetKind::Build,
             name: "build".to_owned(),
             path: path.clone(),
         }),
         Some(None) => targets.push(Target {
-            kind: "build",
+            kind: TargetKind::Build,
             name: "build".to_owned(),
             path: "build.rs".to_owned(),
         }),
