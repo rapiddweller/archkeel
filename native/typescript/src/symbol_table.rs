@@ -209,13 +209,13 @@ impl<'a> SymbolTable<'a> {
         self.classes.get(qualified).copied().unwrap_or(0)
     }
 
-    /// The top-level definitions of a module with this name, in order (`top_by_module` filtered).
+    /// The top-level definitions of a module with this name, in order (index `top_named`).
     pub fn top_named(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = lookup(&self.top_named, module, name);
         found.iter().map(|&at| &self.entries[at])
     }
 
-    /// The definitions of a module with this name, in order (`definitions_by_module` filtered).
+    /// The definitions of a module with this name, in order (index `named`).
     pub fn named_in(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = lookup(&self.named, module, name);
         found.iter().map(|&at| &self.entries[at])
