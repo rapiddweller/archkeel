@@ -253,7 +253,7 @@ calls, types and constructs are unsupported, so they stay UNKNOWN and never PASS
 file declares more than once and that may name a module, a glob that the scan cannot follow, a
 `use` path that starts with a name that a glob may bring in, a `super` above the crate root, two
 `macro_rules!` of one name and a path in a `macro_rules!` body that is relative to the place of the
-call are UNKNOWN. A `crate::` path in a macro body is an edge of each call. Edition 2015 (or none named
+call are UNKNOWN, and so is a macro call that the scan cannot place (in the tokens of another macro, or by the path of a module). A `crate::` path in a macro body is an edge of each call (AD-349). Edition 2015 (or none named
 in the manifest): a `use` path and a `::` path start at the crate root. Not seen, and the verdict can
 be PASS: a method that an `impl` block of another module defines (`impl crate::c::S { fn m() }` in
 `b`, and `crate::c::S::m()` in `a`: no path names `b`), a trait method that a glob `use` brings in

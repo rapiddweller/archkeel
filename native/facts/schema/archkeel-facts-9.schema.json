@@ -320,6 +320,20 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "macro_body"
+            },
+            "data": {
+              "$ref": "#/$defs/ImportData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -4204,6 +4218,7 @@
         "require",
         "dynamic_import",
         "script_global",
+        "macro_body",
         "class",
         "function",
         "method",

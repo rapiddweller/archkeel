@@ -68,6 +68,8 @@ pub(crate) struct Builder {
     pub(crate) exclude_tests: bool,
     /// The modules that the body of each `macro_rules!` of a crate names from the crate root.
     pub(crate) macro_uses: BTreeMap<(usize, String), Vec<(Edge, Reference)>>,
+    /// The reasons why the scan cannot read the body of each `macro_rules!` of a crate.
+    pub(crate) macro_unknowns: BTreeMap<(usize, String), Vec<String>>,
 }
 
 impl Builder {
