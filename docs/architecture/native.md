@@ -24,6 +24,7 @@ Clippy, `cargo deny` and the file size rule stay outside the contract
 flowchart LR
     wire --> facts
     snapshot --> wire
+    snapshot --> facts
     typescript --> wire
     typescript --> snapshot
     typescript --> facts
