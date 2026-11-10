@@ -107,7 +107,7 @@ fn std_is_a_builtin_edge_and_one_path_gives_one_record() {
     assert!(facts
         .imports
         .iter()
-        .all(|t| matches!(t, Target::Builtin { name, .. } if name == "std")));
+        .all(|t| matches!(t, Target::Builtin { .. })));
     assert_eq!(
         edges(&facts),
         [

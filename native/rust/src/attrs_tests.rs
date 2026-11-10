@@ -20,6 +20,16 @@ fn hidden(text: &str, what: &str) -> Option<String> {
 fn cfg_test_and_a_declared_feature_are_read() {
     assert_eq!(hidden("#[cfg(test)]", "module"), None);
     assert_eq!(hidden("#[cfg(feature = \"dump\")]", "use"), None);
+    // `any` and `all` of conditions that the scan knows.
+    assert_eq!(hidden("#[cfg(any(test, feature = \"dump\"))]", "use"), None);
+    assert_eq!(
+        hidden("#[cfg(all(test, feature = \"dump\"))]", "module"),
+        None
+    );
+    assert!(hidden("#[cfg(any(test, unix))]", "use").is_some());
+    assert!(hidden("#[cfg(any(test, feature = \"other\"))]", "use").is_some());
+    assert!(hidden("#[cfg(any())]", "use").is_some());
+    assert!(hidden("#[cfg(any(not(test)))]", "use").is_some());
 }
 
 #[test]

@@ -397,6 +397,8 @@ def contract_problems(
     label_of = {
         package: label for label, component in by_label.items() for package in component["packages"]
     }
+    # A planned crate has no code: the contract names it when it gets code, not before.
+    planned = {package_of[name] for name, entry in layers["crates"].items() if entry.get("planned")}
     problems: list[str] = []
     known = set(package_of.values())
     for label, component in sorted(by_label.items()):
@@ -411,11 +413,17 @@ def contract_problems(
         if rules != expected_rules:
             problems.append(f"the rules of the contract changed: {rules}")
     for name, entry in sorted(layers["crates"].items()):
+        if entry.get("planned"):
+            continue
         label = label_of.get(package_of[name])
         if label is None:
             problems.append(f"{name} has no component in the contract")
             continue
-        wanted = sorted(label_of.get(package_of[used], "?") for used in entry["may_use"])
+        wanted = sorted(
+            label_of.get(package_of[used], "?")
+            for used in entry["may_use"]
+            if package_of[used] not in planned
+        )
         declared = sorted(r["component"] for r in by_label[label].get("requires", []))
         if wanted != declared:
             problems.append(

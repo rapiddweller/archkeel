@@ -6,8 +6,9 @@
 //!
 //! A `cfg` can remove a module, a `cfg_attr` can add a `path`, and an attribute macro can rewrite
 //! the module. The scan cannot prove an edge across such an item, so it says UNKNOWN.
-//! A `cfg(test)` and a `cfg(feature = "x")` of a declared feature are the exceptions: the scan
-//! reads the item as if the condition were true, so its edges are the union over all features.
+//! A `cfg(test)` and a `cfg(feature = "x")` of a declared feature are the exceptions, also inside
+//! `any` and `all`: the scan reads the item as if the condition were true, so its edges
+//! are the union over all features.
 
 use std::collections::BTreeSet;
 
@@ -81,14 +82,61 @@ fn lint_like(name: &str) -> bool {
     )
 }
 
-/// `test`, or `feature = "x"` of a feature that the manifest declares.
+/// `test`, `feature = "x"` of a declared feature, and `any` and `all` of such conditions. `not` stays UNKNOWN.
+/// The scan reads the item as if the condition were true, so a combinator adds no risk when each
+/// leaf is one that the scan knows.
 fn cfg_is_read(condition: &str, features: &BTreeSet<String>) -> bool {
     let compact: String = condition.split_whitespace().collect();
-    compact == "test"
-        || compact
-            .strip_prefix("feature=\"")
-            .and_then(|rest| rest.strip_suffix('"'))
-            .is_some_and(|feature| features.contains(feature))
+    known(&compact, features, 0)
+}
+
+/// The deepest `any(all(...))` that is read; a deeper condition is UNKNOWN.
+const MAX_CFG_DEPTH: usize = 16;
+
+fn known(condition: &str, features: &BTreeSet<String>, depth: usize) -> bool {
+    if depth > MAX_CFG_DEPTH {
+        return false;
+    }
+    if condition == "test" {
+        return true;
+    }
+    if let Some(feature) = condition
+        .strip_prefix("feature=\"")
+        .and_then(|rest| rest.strip_suffix('"'))
+    {
+        return features.contains(feature);
+    }
+    ["any(", "all("].iter().any(|open| {
+        condition
+            .strip_prefix(open)
+            .and_then(|rest| rest.strip_suffix(')'))
+            .is_some_and(|inside| {
+                let parts = top_level_parts(inside);
+                !parts.is_empty() && parts.iter().all(|part| known(part, features, depth + 1))
+            })
+    })
+}
+
+/// Split at the commas that are not inside a bracket or a string.
+fn top_level_parts(text: &str) -> Vec<&str> {
+    let (mut parts, mut start, mut depth, mut quoted) = (Vec::new(), 0, 0_usize, false);
+    for (at, character) in text.char_indices() {
+        match character {
+            '"' => quoted = !quoted,
+            '(' if !quoted => depth += 1,
+            ')' if !quoted => depth = depth.saturating_sub(1),
+            ',' if !quoted && depth == 0 => {
+                parts.push(&text[start..at]);
+                start = at + 1;
+            }
+            _ => {}
+        }
+    }
+    let last = &text[start..];
+    if !last.is_empty() {
+        parts.push(last);
+    }
+    parts
 }
 
 /// The literal of `#[path = "x.rs"]`; `Err` when the attribute has no string literal.

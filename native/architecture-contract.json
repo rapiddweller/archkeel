@@ -13,7 +13,10 @@
       "forbidden_responsibilities": [
         "Reading source of any language, and using a collector crate."
       ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/native.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -32,40 +35,6 @@
         {
           "component": "wire",
           "rationale": "A read input is a wire input with a digest and a role."
-        }
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "COMP-NATIVE-FACTS",
-      "label": "facts",
-      "role": "component",
-      "packages": ["native.archkeel_facts"],
-      "responsibilities": [
-        "The typed facts of protocol 10: closed kinds, newtype ids and reason codes, defined once."
-      ],
-      "forbidden_responsibilities": [
-        "Reading a snapshot, parsing source and storing facts."
-      ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
-      "decided_by": "architect"
-    },
-    {
-      "id": "COMP-NATIVE-STORE",
-      "label": "store",
-      "role": "component",
-      "packages": ["native.archkeel_store"],
-      "responsibilities": [
-        "Validate facts once and keep them for the rules and the views."
-      ],
-      "forbidden_responsibilities": [
-        "Reading source and using a collector crate."
-      ],
-      "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
-      "requires": [
-        {
-          "component": "facts",
-          "rationale": "The store validates and holds the typed facts."
         }
       ],
       "decided_by": "architect"
@@ -100,10 +69,6 @@
         {
           "component": "snapshot",
           "rationale": "Every read of the snapshot goes through the one owner of paths, symlink rules and limits."
-        },
-        {
-          "component": "facts",
-          "rationale": "The collector will write typed facts once protocol 10 exists."
         },
         {
           "component": "build",

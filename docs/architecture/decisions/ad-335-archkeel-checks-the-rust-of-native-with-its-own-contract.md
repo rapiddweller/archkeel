@@ -45,8 +45,8 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
    A configured `collector_argv` wins. `native/hatch_build.py` bundles a third binary with its SBOM.
    `archkeel-build-support` holds the `build.rs` digest. Customers get it when platform wheels are published (`PUBLISH_NATIVE_WHEELS`, AD-317).
 9. The scan runs in a thread with a stack of 256 MiB, and a file with brackets nested deeper than
-   256 is UNKNOWN, so no file ends the whole scan. A path that leaves the snapshot, by name or by a
-   link in the middle of it, is never read (the rule of the TypeScript snapshot).
+   256 is UNKNOWN, so no file ends the whole scan. Every read goes through `archkeel-snapshot`, the
+   one owner of paths, symlink rules and limits: a path that leaves the snapshot is never read.
 10. The contract of `native/` has the components wire, build, typescript and rust, the rules
     `complete_assignment`, `complete_requires`, `no_component_cycles`, and the use of `tree_sitter*`
     and `syn`. `make self-validate-native` runs it, and `make native-check` runs that target.
