@@ -34,8 +34,8 @@ mod tree;
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
+use archkeel_facts::reply::Provenance;
 use archkeel_wire::protocol::reply_version;
-use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::decode_rust;
 
 /// The stack of the scan thread. The system gives address space, not memory, until it is used.

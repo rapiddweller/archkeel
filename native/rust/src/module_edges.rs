@@ -11,8 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_facts::data::ImportData;
 use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{ModuleName, PackageName};
+use archkeel_facts::reply::Target;
 use archkeel_facts::{ImportFact, Record};
-use archkeel_wire::reply::Target;
 
 use crate::builder::{import_record, Builder};
 use crate::crates::Root;

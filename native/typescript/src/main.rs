@@ -79,8 +79,8 @@ use std::io::Read;
 use std::io::Write;
 use std::process::ExitCode;
 
+use archkeel_facts::reply::Provenance;
 use archkeel_wire::protocol::reply_version;
-use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::decode;
 
 fn provenance() -> Provenance {

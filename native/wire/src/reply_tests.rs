@@ -10,6 +10,8 @@ use std::io::Read;
 use flate2::read::ZlibDecoder;
 use serde_json::Value;
 
+use archkeel_facts::reply::Role;
+
 use super::*;
 use crate::protocol::Version;
 use crate::stream::encode;

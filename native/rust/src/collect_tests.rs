@@ -9,9 +9,9 @@ use serde_json::Value;
 
 use super::*;
 use crate::reply::{Collected, PROFILE};
+use archkeel_facts::reply::{Provenance, Target};
 use archkeel_facts::{ImportFact, Record};
 use archkeel_snapshot::test_tree::Tree;
-use archkeel_wire::reply::{Provenance, Target};
 use archkeel_wire::request::Request;
 use std::collections::BTreeSet;
 

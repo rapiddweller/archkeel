@@ -6,65 +6,9 @@
 
 use serde_json::{json, Map, Value};
 
-use archkeel_facts::identity::sha256_hex;
-
-/// The role of a digested input: a selected source file or a file that only decides resolution.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Role {
-    Selected,
-    Resolution,
-}
-
-impl Role {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Role::Selected => "selected",
-            Role::Resolution => "resolution",
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Input {
-    pub path: String,
-    pub digest: String,
-    pub role: Role,
-}
-
-/// One observed module. The Python-shaped fields that TypeScript never sets are written empty.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FileFact {
-    pub id: String,
-    pub rel_path: String,
-    pub module: String,
-    pub package: String,
-    pub blank: bool,
-    pub evidence_id: String,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Evidence {
-    pub id: String,
-    pub file: String,
-    pub line: i64,
-    pub end_line: i64,
-    pub column: i64,
-    pub excerpt: String,
-}
-
-impl Evidence {
-    /// The evidence of one source location, with the text of its first line.
-    pub fn at(file: &str, line: i64, end_line: i64, column: i64, excerpt: &str) -> Self {
-        Self {
-            id: archkeel_facts::identity::evidence_id(file, line, end_line, column),
-            file: file.to_owned(),
-            line,
-            end_line,
-            column,
-            excerpt: excerpt.to_owned(),
-        }
-    }
-}
+#[cfg(test)]
+use archkeel_facts::reply::{evidence_value, file_value, source_digest, target_value};
+use archkeel_facts::reply::{Evidence, FileFact, Input, Provenance, Target};
 
 /// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
 /// `fact_ids` keep the order of the Python collector, which sets them after `classified` and does
@@ -82,84 +26,6 @@ pub struct Record {
     pub evidence_ids: Vec<String>,
     pub fact_ids: Vec<String>,
     pub data: Map<String, Value>,
-}
-
-/// What an import resolves to (`facts.ImportTarget`).
-#[derive(Clone, Debug, PartialEq)]
-pub enum Target {
-    Local {
-        import_id: String,
-        module: String,
-        file: String,
-        runtime_file: Option<String>,
-        declaration_file: Option<String>,
-    },
-    External {
-        import_id: String,
-        package: String,
-    },
-    Builtin {
-        import_id: String,
-        name: String,
-    },
-    Unresolved {
-        import_id: String,
-        specifier: String,
-        reason: String,
-    },
-}
-
-impl Target {
-    /// The id of the import record that this target belongs to.
-    pub fn import_id(&self) -> &str {
-        match self {
-            Target::Local { import_id, .. }
-            | Target::External { import_id, .. }
-            | Target::Builtin { import_id, .. }
-            | Target::Unresolved { import_id, .. } => import_id,
-        }
-    }
-
-    /// The same target for another import record.
-    pub fn with_import_id(&self, id: &str) -> Self {
-        let mut copy = self.clone();
-        match &mut copy {
-            Target::Local { import_id, .. }
-            | Target::External { import_id, .. }
-            | Target::Builtin { import_id, .. }
-            | Target::Unresolved { import_id, .. } => *import_id = id.to_owned(),
-        }
-        copy
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Provenance {
-    pub profile: &'static str,
-    pub adapter_version: String,
-    pub code_digest: String,
-    pub runtime_name: &'static str,
-    pub runtime_version: String,
-    pub runtime_required: String,
-}
-
-impl Provenance {
-    /// The provenance of a native collector that is written in Rust. The build script gives the
-    /// version, the digest and the compiler; `rust_version` is the minimum of the crate.
-    pub fn native(
-        profile: &'static str,
-        (adapter_version, code_digest): (&str, &str),
-        (runtime_version, rust_version): (&str, &str),
-    ) -> Self {
-        Self {
-            profile,
-            adapter_version: adapter_version.to_owned(),
-            code_digest: code_digest.to_owned(),
-            runtime_name: "rust",
-            runtime_version: runtime_version.to_owned(),
-            runtime_required: format!(">={rust_version}"),
-        }
-    }
 }
 
 /// One section of the reply. A typed section holds the records of archkeel-facts (AD-345), and its
@@ -211,22 +77,6 @@ pub struct Facts {
     /// Coverage gaps. The collection is complete only when there is none.
     pub gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
     pub evidence: Vec<Evidence>,
-}
-
-/// `collect.py`: SHA-256 of the compact JSON input listing, in the given order.
-pub fn source_digest(inputs: &[Input]) -> String {
-    let rows: Vec<String> = inputs
-        .iter()
-        .map(|input| {
-            format!(
-                "{{\"path\":{},\"digest\":{},\"role\":{}}}",
-                Value::from(input.path.as_str()),
-                Value::from(input.digest.as_str()),
-                Value::from(input.role.as_str()),
-            )
-        })
-        .collect();
-    sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
 
 #[cfg(test)]
@@ -285,49 +135,6 @@ fn facts_value(facts: &Facts) -> Value {
     })
 }
 
-pub fn target_value(target: &Target) -> Value {
-    match target {
-        Target::Local {
-            import_id,
-            module,
-            file,
-            runtime_file,
-            declaration_file,
-        } => json!({
-            "kind": "local", "import_id": import_id, "module": module, "file": file,
-            "runtime_file": runtime_file, "declaration_file": declaration_file,
-        }),
-        Target::External { import_id, package } => {
-            json!({"kind": "external", "import_id": import_id, "package": package})
-        }
-        Target::Builtin { import_id, name } => {
-            json!({"kind": "builtin", "import_id": import_id, "name": name})
-        }
-        Target::Unresolved {
-            import_id,
-            specifier,
-            reason,
-        } => json!({
-            "kind": "unresolved", "import_id": import_id, "specifier": specifier, "reason": reason,
-        }),
-    }
-}
-
-pub(crate) fn file_value(file: &FileFact) -> Value {
-    json!({
-        "id": file.id,
-        "rel_path": file.rel_path,
-        "module": file.module,
-        "package": file.package,
-        "all_exports": [],
-        "all_literal": false,
-        "compatibility_logic_free": false,
-        "stable_bindings": [],
-        "blank": file.blank,
-        "evidence_id": file.evidence_id,
-    })
-}
-
 pub fn record_value(record: &Record) -> Value {
     json!({
         "id": record.id,
@@ -341,17 +148,6 @@ pub fn record_value(record: &Record) -> Value {
         "fact_ids": record.fact_ids,
         "provenance": [],
         "data": record.data,
-    })
-}
-
-pub fn evidence_value(evidence: &Evidence) -> Value {
-    json!({
-        "id": evidence.id,
-        "file": evidence.file,
-        "line": evidence.line,
-        "end_line": evidence.end_line,
-        "column": evidence.column,
-        "excerpt": evidence.excerpt,
     })
 }
 

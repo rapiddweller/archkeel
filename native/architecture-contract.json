@@ -39,12 +39,8 @@
       "provenance": ["docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"],
       "requires": [
         {
-          "component": "wire",
-          "rationale": "A read input is a wire input with a digest and a role."
-        },
-        {
           "component": "facts",
-          "rationale": "The digest of an input is the SHA-256 of the facts identities."
+          "rationale": "A read input is a facts input with a digest and a role, and its digest is the SHA-256 of the facts identities."
         }
       ],
       "decided_by": "architect"

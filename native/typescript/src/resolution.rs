@@ -12,7 +12,8 @@
 
 use std::collections::HashMap;
 
-use archkeel_wire::reply::{Facts, Target};
+use archkeel_facts::reply::Target;
+use archkeel_wire::reply::Facts;
 
 use crate::definitions::DefinitionKind;
 use crate::kept::{Kept, Pending};

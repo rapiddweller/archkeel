@@ -27,9 +27,10 @@ use serde_json::{json, Value};
 
 use crate::pieces::{Adler, Piece, ZLIB_HEADER};
 use crate::protocol::Version;
-use crate::reply::{
-    evidence_value, file_value, source_digest, target_value, Evidence, Facts, FileFact, Input,
-    Provenance, Record, ReplySection, Target,
+use crate::reply::{Facts, Record, ReplySection};
+use archkeel_facts::reply::{
+    evidence_value, file_value, source_digest, target_value, Evidence, FileFact, Input, Provenance,
+    Target,
 };
 
 /// What the reply says before the records: who made it, what it declares, and the small lists.

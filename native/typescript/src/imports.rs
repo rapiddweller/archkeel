@@ -10,9 +10,9 @@
 use archkeel_facts::data::ImportData;
 use archkeel_facts::identity::{module_identity, package_of, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use archkeel_facts::reply::Target;
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{ImportFact, Record};
-use archkeel_wire::reply::Target;
 
 use super::{Collection, GapKind};
 use crate::installed::installed;
