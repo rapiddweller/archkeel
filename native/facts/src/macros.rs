@@ -100,12 +100,18 @@ macro_rules! facts_data {
 macro_rules! section_facts {
     (
         $(#[$doc:meta])*
-        pub enum $name:ident { $($variant:ident($data:ty),)* }
+        pub enum $name:ident in $section:ident { $($variant:ident($data:ty),)* }
     ) => {
         $(#[$doc])*
         #[derive(Clone, Debug, PartialEq)]
         pub enum $name {
             $($variant($data),)*
+        }
+
+        impl $crate::sections::IntoSection for $name {
+            fn section(records: Vec<$crate::record::Record<Self>>) -> $crate::sections::Section {
+                $crate::sections::Section::$section(records)
+            }
         }
 
         impl $crate::record::FactData for $name {

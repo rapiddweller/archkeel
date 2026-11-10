@@ -24,7 +24,7 @@ use crate::readset::ReadSet;
 use crate::vocab::{Area, EvidenceClass, Kind};
 
 /// The kind and the data of the records of one section.
-pub trait FactData: Sized {
+pub trait FactData: Sized + Clone {
     /// The name of the type in the schema.
     const NAME: &'static str;
 

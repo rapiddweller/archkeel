@@ -38,6 +38,6 @@ pub mod vocab;
 
 pub use record::{FactData, Record};
 pub use sections::{
-    BindingFact, CallFact, ConstructFact, GapFact, ImportFact, ReferenceFact, Section, SignalFact,
-    SymbolFact,
+    BindingFact, CallFact, ConstructFact, GapFact, ImportFact, IntoSection, ReferenceFact, Section,
+    SignalFact, SymbolFact,
 };

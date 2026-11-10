@@ -7,9 +7,12 @@
 //! A reference that cannot be proven is an UNKNOWN gap, never a PASS: a computed specifier, a
 //! setting that is not observed, a target that no rule covers.
 
+use archkeel_facts::data::ImportData;
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::{ImportFact, Record};
 use archkeel_wire::identity::{module_identity, package_of, stable_id, Part};
-use archkeel_wire::reply::{Record, Target};
-use serde_json::{json, Map, Value};
+use archkeel_wire::reply::Target;
 
 use super::{Collection, GapKind};
 use crate::installed::installed;
@@ -35,6 +38,18 @@ const BUNDLER_ASSET: &str = "bundler:asset";
 
 /// Where an import was written: its evidence id and its module.
 type Site = (String, String);
+
+/// The import fact of the form of a reference.
+pub(crate) fn fact(form: Form, data: ImportData) -> ImportFact {
+    match form {
+        Form::Import => ImportFact::Import(data),
+        Form::Reexport => ImportFact::Reexport(data),
+        Form::ImportEquals => ImportFact::ImportEquals(data),
+        Form::DynamicImport => ImportFact::DynamicImport(data),
+        Form::ImportType => ImportFact::ImportType(data),
+        Form::Require => ImportFact::Require(data),
+    }
+}
 
 impl Collection<'_> {
     /// `collect._selected`: a source file in scope that is not installed and not a test source.
@@ -131,41 +146,36 @@ impl Collection<'_> {
             .map(str::to_owned)
             .collect();
         subjects.sort();
-        let mut data = Map::new();
-        data.insert("source_module".to_owned(), json!(module));
-        data.insert("source_package".to_owned(), json!(package_of(module)));
-        data.insert("target_module".to_owned(), json!(target_module));
-        data.insert("target_package".to_owned(), json!(target_package));
-        data.insert("symbol".to_owned(), Value::Null);
-        data.insert("binding".to_owned(), Value::Null);
-        data.insert("symbols_known".to_owned(), json!(false));
-        data.insert("specifier".to_owned(), json!(specifier));
-        data.insert("type_only".to_owned(), json!(reference.type_only));
-        data.insert("relative_level".to_owned(), json!(0));
-        data.insert("under_type_checking".to_owned(), json!(reference.type_only));
-        data.insert(
-            "reexport".to_owned(),
-            json!(reference.form == Form::Reexport),
-        );
-        data.insert(
-            "module_level_import".to_owned(),
-            json!(reference.module_level),
-        );
+        let data = ImportData {
+            source_module: ModuleName::new(module),
+            source_package: PackageName::new(package_of(module)),
+            target_module: ModuleName::new(target_module),
+            target_package: PackageName::new(target_package),
+            symbol: None,
+            binding: None,
+            symbols_known: false,
+            specifier: Some(specifier.to_owned()),
+            type_only: Some(reference.type_only),
+            relative_level: 0,
+            under_type_checking: reference.type_only,
+            reexport: reference.form == Form::Reexport,
+            module_level_import: reference.module_level,
+            ..ImportData::statement()
+        };
         if self.keep {
             let site = (rel.to_owned(), reference.span.line, reference.span.column);
             self.sites.insert(identity.clone(), site);
         }
         self.targets.push(target);
         self.imports.push(Record {
-            id: identity,
-            evidence_class: "FACT",
-            area: "source",
-            kind: reference.form.as_str(),
+            id: FactId::new(identity),
+            evidence_class: EvidenceClass::Fact,
+            area: Area::Source,
             title: format!("{module} imports {specifier}"),
             subjects,
-            evidence_ids: vec![evidence.to_owned()],
+            evidence_ids: vec![EvidenceId::new(evidence)],
             fact_ids: Vec::new(),
-            data,
+            data: fact(reference.form, data),
         });
     }
 

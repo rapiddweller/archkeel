@@ -129,6 +129,35 @@ pub struct Provenance {
     pub runtime_required: String,
 }
 
+/// One section of the reply. A typed section holds the records of archkeel-facts (AD-345), and its
+/// wire is written by those types. The imports section is typed; the other sections follow.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ReplySection {
+    Typed(archkeel_facts::Section),
+    Records(&'static str, Vec<Record>),
+}
+
+impl ReplySection {
+    pub fn name(&self) -> &'static str {
+        match self {
+            ReplySection::Typed(section) => section.name(),
+            ReplySection::Records(name, _) => name,
+        }
+    }
+
+    /// The count of records.
+    pub fn len(&self) -> usize {
+        match self {
+            ReplySection::Typed(section) => section.len(),
+            ReplySection::Records(_, records) => records.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// The facts of one collection, in the order the reply writes them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Facts {
@@ -136,7 +165,7 @@ pub struct Facts {
     pub git_head: String,
     pub dirty: Value,
     pub scope: Vec<String>,
-    pub sections: Vec<(&'static str, Vec<Record>)>,
+    pub sections: Vec<ReplySection>,
     pub features: Vec<&'static str>,
     /// The construct capabilities: `(name, status)`, for example `("string_literal_compare", "partial")`.
     pub constructs: Vec<(&'static str, &'static str)>,
@@ -178,7 +207,7 @@ fn facts_value(facts: &Facts) -> Value {
         },
         "candidate_evidence": [],
         "capabilities": {
-            "sections": facts.sections.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            "sections": facts.sections.iter().map(ReplySection::name).collect::<Vec<_>>(),
             "resolution_features": facts.features,
             "constructs": facts.constructs.iter()
                 .map(|(name, status)| json!({"name": name, "status": status}))
@@ -205,9 +234,12 @@ fn facts_value(facts: &Facts) -> Value {
             "required": provenance.runtime_required,
             "requirement_state": "declared",
         },
-        "sections": facts.sections.iter().map(|(name, records)| json!({
-            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>(),
+        "sections": facts.sections.iter().map(|section| match section {
+            ReplySection::Typed(section) => json!(section),
+            ReplySection::Records(name, records) => json!({
+                "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
+            }),
+        }).collect::<Vec<_>>(),
         "source": {
             "git_head": facts.git_head,
             "dirty": facts.dirty,

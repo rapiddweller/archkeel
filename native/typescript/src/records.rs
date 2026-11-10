@@ -13,13 +13,15 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
+use archkeel_facts::ids::FactId;
+use archkeel_facts::{ImportFact, Section};
 use archkeel_wire::identity::{stable_id, Part};
 use archkeel_wire::protocol::Version;
-use archkeel_wire::reply::{Facts, Record, Target};
-#[cfg(any(test, feature = "dump"))]
-use archkeel_wire::stream::Emit;
+use archkeel_wire::reply::{Facts, Record, ReplySection, Target};
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
-use serde_json::{json, Value};
+#[cfg(any(test, feature = "dump"))]
+use archkeel_wire::stream::{Emit, TypedEmit};
+use serde_json::json;
 
 use crate::cited::Cited;
 use crate::import_bindings::ImportBinding;
@@ -33,12 +35,15 @@ use crate::symbols;
 /// The string comparison construct of `ForbiddenConstructKind`.
 pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
 
+/// An import record of archkeel-facts (AD-345).
+pub type ImportRecord = archkeel_facts::Record<ImportFact>;
+
 /// The records of this phase, as the Python collector builds them.
 #[derive(Default)]
 pub struct Records {
     /// All import records, sorted by id: a statement with bound names is replaced by one record for
     /// each name.
-    pub imports: Vec<Record>,
+    pub imports: Vec<ImportRecord>,
     /// The targets in the order of the walk, with the expanded statements in place.
     pub targets: Vec<Target>,
     /// The `ESM_EXPORT` records that the expanded imports cite, in the order of their first use.
@@ -131,7 +136,7 @@ impl Plan<'_> {
             gaps,
             ..
         } = &mut self;
-        sink.write_section("imports", |emit| expanded.imports.iter().for_each(emit))?;
+        sink.write_typed_section("imports", |emit| expanded.imports.iter().for_each(emit))?;
         sink.write_section("unknowns", |emit| gaps.iter().for_each(emit))?;
         sink.write_section("symbols", |emit| {
             symbols::each(table, cited, &mut |record| emit(&record));
@@ -199,7 +204,7 @@ pub fn write_reply(
 #[cfg(any(test, feature = "dump"))]
 #[derive(Default)]
 pub struct Lists {
-    pub sections: Vec<(&'static str, Vec<Record>)>,
+    pub sections: Vec<ReplySection>,
 }
 
 #[cfg(any(test, feature = "dump"))]
@@ -207,7 +212,18 @@ impl SectionSink for Lists {
     fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
         let mut records = Vec::new();
         fill(&mut |record: &Record| records.push(record.clone()));
-        self.sections.push((name, records));
+        self.sections.push(ReplySection::Records(name, records));
+        Ok(())
+    }
+
+    fn typed_section<D: archkeel_facts::IntoSection>(
+        &mut self,
+        _name: &'static str,
+        fill: &mut dyn FnMut(TypedEmit<'_, D>),
+    ) -> io::Result<()> {
+        let mut records = Vec::new();
+        fill(&mut |record: &archkeel_facts::Record<D>| records.push(record.clone()));
+        self.sections.push(ReplySection::Typed(D::section(records)));
         Ok(())
     }
 }
@@ -248,15 +264,17 @@ pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
         facts
             .sections
             .iter()
-            .find(|(found, _)| *found == name)
-            .map(|(_, records)| records.clone())
+            .find_map(|section| match section {
+                ReplySection::Records(found, records) if *found == name => Some(records.clone()),
+                _ => None,
+            })
             .unwrap_or_default()
     };
     let (witnesses, bindings) = section("bindings")
         .into_iter()
         .partition(|record| record.id.starts_with("ESM_EXPORT-"));
     Records {
-        imports: section("imports"),
+        imports: import_section(facts).to_vec(),
         targets: facts.imports.clone(),
         witnesses,
         constructs: section("constructs"),
@@ -269,13 +287,22 @@ pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
     }
 }
 
-/// `_named_imports`.
-fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, records: &mut Records) {
-    let by_id: HashMap<&str, &Record> = facts
+/// The typed import records of the facts.
+pub fn import_section(facts: &Facts) -> &[ImportRecord] {
+    facts
         .sections
         .iter()
-        .filter(|(name, _)| *name == "imports")
-        .flat_map(|(_, list)| list.iter())
+        .find_map(|section| match section {
+            ReplySection::Typed(Section::Imports(records)) => Some(records.as_slice()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// `_named_imports`.
+fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, records: &mut Records) {
+    let by_id: HashMap<&str, &ImportRecord> = import_section(facts)
+        .iter()
         .map(|record| (record.id.as_str(), record))
         .collect();
     let mut seen = HashSet::new();
@@ -283,11 +310,14 @@ fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, records: &mut Rec
         let Some(item) = by_id.get(target.import_id()) else {
             continue;
         };
-        let bindings = pending.sites.get(&item.id).and_then(|(rel, line, column)| {
-            let kept = pending.kept.get(rel)?;
-            let own: &[ImportBinding] = kept.bindings.get(&(*line, *column))?;
-            Some((kept, own))
-        });
+        let bindings = pending
+            .sites
+            .get(item.id.as_str())
+            .and_then(|(rel, line, column)| {
+                let kept = pending.kept.get(rel)?;
+                let own: &[ImportBinding] = kept.bindings.get(&(*line, *column))?;
+                Some((kept, own))
+            });
         let Some((kept, own)) = bindings else {
             records.imports.push((*item).clone());
             records.targets.push(target.clone());
@@ -296,7 +326,7 @@ fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, records: &mut Rec
         for (ordinal, binding) in (0_i64..).zip(own.iter()) {
             let bound_id = stable_id(
                 "IMP_BINDING",
-                &[Part::Text(&item.id), Part::Number(ordinal)],
+                &[Part::Text(item.id.as_str()), Part::Number(ordinal)],
             );
             let fact_ids = match known_witness(pending, kept, binding, target) {
                 Some(witness) => vec![add_witness(cited, records, &mut seen, &witness)],
@@ -369,35 +399,28 @@ fn known_witness<'a>(
 
 /// One expanded import record: the statement record with the bound name written into its data.
 fn bound_record(
-    item: &Record,
+    item: &ImportRecord,
     id: &str,
     binding: &ImportBinding,
     target: &Target,
     fact_ids: Vec<String>,
-) -> Record {
+) -> ImportRecord {
     let known = !fact_ids.is_empty();
-    let mut data = item.data.clone();
-    let symbol = if binding.namespace {
-        Value::Null
-    } else {
-        json!(binding.imported)
-    };
     let chain = match target {
         Target::Local { module, .. } if known => vec![format!("{module}.{}", binding.imported)],
         _ => Vec::new(),
     };
-    data.insert("symbol".to_owned(), symbol);
-    data.insert("binding".to_owned(), json!(binding.local));
-    data.insert("symbols_known".to_owned(), json!(known));
-    data.insert("reexport_chain".to_owned(), json!(chain));
-    data.insert("type_only".to_owned(), json!(binding.type_only));
-    data.insert("under_type_checking".to_owned(), json!(binding.type_only));
-    Record {
-        id: id.to_owned(),
-        fact_ids,
-        data,
-        ..item.clone()
-    }
+    let mut record = item.clone();
+    let data = record.data.data_mut();
+    data.symbol = (!binding.namespace).then(|| binding.imported.clone());
+    data.binding = Some(binding.local.clone());
+    data.symbols_known = known;
+    data.reexport_chain = Some(chain);
+    data.type_only = Some(binding.type_only);
+    data.under_type_checking = binding.type_only;
+    record.id = FactId::new(id);
+    record.fact_ids = fact_ids.into_iter().map(FactId::new).collect();
+    record
 }
 
 /// `_export_binding`: the witness that a module exports a name once.

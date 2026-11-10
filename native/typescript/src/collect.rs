@@ -13,8 +13,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
+use archkeel_facts::Section;
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
-use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target};
+use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, ReplySection, Target};
 use archkeel_wire::request::Request;
 use serde_json::{Map, Value};
 
@@ -35,7 +36,6 @@ use archkeel_snapshot::Snapshot;
 
 /// The profile and adapter name of the Python TypeScript collector, so that this is a drop-in.
 pub const PROFILE: &str = "archkeel-typescript-imports";
-const SECTIONS: [&str; 2] = ["imports", "unknowns"];
 pub const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
@@ -65,7 +65,7 @@ struct Collection<'a> {
     gaps: BTreeMap<String, Record>,
     evidence: BTreeMap<String, Evidence>,
     files: Vec<FileFact>,
-    imports: Vec<Record>,
+    imports: Vec<crate::records::ImportRecord>,
     targets: Vec<Target>,
     read: usize,
     /// Keep what the records of PR 4.3a-3a need (`records.rs`); a plain collection does not.
@@ -203,7 +203,10 @@ pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (
         git_head: request.git_head.clone(),
         dirty: request.dirty.clone(),
         scope,
-        sections: vec![(SECTIONS[0], imports), (SECTIONS[1], gaps.clone())],
+        sections: vec![
+            ReplySection::Typed(Section::Imports(imports)),
+            ReplySection::Records("unknowns", gaps.clone()),
+        ],
         features,
         constructs: Vec::new(),
         inputs: collection.snapshot.inputs(),

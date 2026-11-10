@@ -22,8 +22,19 @@ use crate::readset::{self, ReadFields, ReadSet, Reads};
 use crate::record::{FactData, Record};
 use crate::vocab::{ExceptionName, Kind};
 
+/// The data of a section: it gives the section that holds its records.
+pub trait IntoSection: FactData {
+    fn section(records: Vec<Record<Self>>) -> Section;
+}
+
+impl IntoSection for GapFact {
+    fn section(records: Vec<Record<Self>>) -> Section {
+        Section::Unknowns(records)
+    }
+}
+
 section_facts! {
-    pub enum ImportFact {
+    pub enum ImportFact in Imports {
         Import(ImportData),
         Reexport(ImportData),
         ImportType(ImportData),
@@ -62,7 +73,7 @@ impl ImportFact {
 }
 
 section_facts! {
-    pub enum SymbolFact {
+    pub enum SymbolFact in Symbols {
         Class(ClassData),
         Function(CallableData),
         Method(CallableData),
@@ -76,7 +87,7 @@ section_facts! {
 }
 
 section_facts! {
-    pub enum CallFact {
+    pub enum CallFact in Calls {
         Calls(CallData),
         Call(CallData),
         ResolvedCall(CallData),
@@ -86,7 +97,7 @@ section_facts! {
 }
 
 section_facts! {
-    pub enum ReferenceFact {
+    pub enum ReferenceFact in References {
         References(ReferenceData),
         Reference(ReferenceData),
         ScriptNamespaceEffect(ReferenceData),
@@ -97,7 +108,7 @@ section_facts! {
 }
 
 section_facts! {
-    pub enum BindingFact {
+    pub enum BindingFact in Bindings {
         Bindings(BindingData),
         UnusedParameter(UnusedBindingData),
         UnusedLocal(UnusedBindingData),
@@ -105,7 +116,7 @@ section_facts! {
 }
 
 section_facts! {
-    pub enum ConstructFact {
+    pub enum ConstructFact in Constructs {
         StringLiteralCompare(ConstructData),
         BroadExcept(ConstructData),
         GetattrCall(ConstructData),
@@ -119,7 +130,7 @@ section_facts! {
 }
 
 section_facts! {
-    pub enum SignalFact {
+    pub enum SignalFact in TypingSignals {
         AnyAnnotation(SignalData),
         DictAnyAnnotation(SignalData),
         CallableAnyAnnotation(SignalData),
@@ -268,6 +279,26 @@ impl Section {
             Section::TypingSignals(_) => "typing_signals",
             Section::Unknowns(_) => "unknowns",
         }
+    }
+}
+
+impl Section {
+    /// The count of records.
+    pub fn len(&self) -> usize {
+        match self {
+            Section::Imports(records) => records.len(),
+            Section::Symbols(records) => records.len(),
+            Section::Calls(records) => records.len(),
+            Section::References(records) => records.len(),
+            Section::Bindings(records) => records.len(),
+            Section::Constructs(records) => records.len(),
+            Section::TypingSignals(records) => records.len(),
+            Section::Unknowns(records) => records.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
