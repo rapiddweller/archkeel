@@ -121,13 +121,13 @@ _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
         "Collect the facts under this contract, or use a collector that declares the family.",
     ),
 }
+# Dart has no test-source classification, so a Dart scan keeps every file.
+_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
 _SOURCE_NAME: Final[dict[Language, str]] = {
     Language.PYTHON: "Python",
     Language.DART: "Dart",
     Language.TYPESCRIPT: "TypeScript",
 }
-# Dart has no test-source classification, so a Dart scan keeps every file.
-_TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
 
 
 def observation_diagnostics(
@@ -364,6 +364,20 @@ class Observer:
     bundler: bool = False
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
+
+    def scope_notes(self) -> tuple[Diagnostic, ...]:
+        """AD-313: name the test scope in the result, so a PASS is not read as covering tests."""
+        if not self.exclude_test_sources:
+            return ()
+        return (
+            Diagnostic(
+                DiagnosticKind.NOT_EXAMINED,
+                "scan.exclude_test_sources",
+                "Test sources are excluded from this scan. File counts and verdicts cover "
+                "production code only.",
+                "Set scan.exclude_test_sources to false in archkeel.toml to scan test sources too.",
+            ),
+        )
 
     def __call__(
         self,

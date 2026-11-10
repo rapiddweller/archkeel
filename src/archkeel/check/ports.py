@@ -27,6 +27,7 @@ class ScanConfig:
     collector_output_limit_bytes: int | None = None
     collector_timeout_seconds: int | None = None
     bundler: bool = False
+    exclude_test_sources: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -60,6 +60,11 @@
           "default": false,
           "description": "TypeScript only. Treat bundler-resolved imports (tsconfig paths, package export conditions, CSS/asset/JSON imports) as known. Requires compilerOptions.moduleResolution bundler. Asserts that the bundler's aliases match tsconfig paths; not verified."
         },
+        "exclude_test_sources": {
+          "type": "boolean",
+          "default": false,
+          "description": "Leave recognized test sources out of the scan, so report and validate use the same test-free scope as explore (AD-313). Python and TypeScript only; Dart rejects true. Counts and verdicts then cover production code only, and the result carries a note."
+        },
         "collector_output_limit_bytes": {
           "type": "integer",
           "minimum": 1,

@@ -23,3 +23,23 @@ has no external collector override.
 `explore-excludes-test-sources`, with `shop/tests/test_latest.py` inside the selected root.
 Protocol tests preserve V8 and round-trip the V9 scope. The issue remains open for exclusion
 reporting and Studio coverage.
+
+**Update 2026-11-10 (owner decision).** A new key `[scan] exclude_test_sources` (default false)
+puts `report`, `validate` and `check` on the same test-free scope that `explore` uses. A project
+opts in. The key has one meaning for every language. These facts hold:
+
+- Explore keeps its behaviour. It sets the scope itself, for Python and TypeScript only, and it
+  ignores the key.
+- The host sends the scope to the collector of each language in `TEST_SCOPE_LANGUAGES`
+  (`ir/profiles.py`). Today these are Python and TypeScript. A language with no test rule must not
+  ignore the key silently, so a Dart config with `true` is an error. A Rust collector joins the set
+  when it honours the scope.
+- `files_discovered` and `files_parsed` count the test-free scope. The result carries a
+  `not_examined` note, so a PASS is not read as covering test sources.
+- With the key absent or false, the request, the result and the bytes do not change.
+
+**Reason for the update.** One repository must not get two scopes for one question. The report of
+a project that owns its test code should describe production code only, as Explore does.
+
+**Check for the update.** `tests/test_source_test_scope.py` runs `report` and `validate` with the
+key on and off on a Python and a TypeScript fixture with a test file in the scan root.
