@@ -28,17 +28,16 @@ mod macros;
 
 pub mod data;
 pub mod envelope;
+pub mod fields;
 mod gap;
 pub mod identity;
 pub mod ids;
 pub mod nested;
 pub mod nullable;
-pub mod producer;
 pub mod readset;
 mod readset_fields;
 pub mod reason;
 pub mod record;
-pub mod reply;
 pub mod schema;
 pub mod sections;
 pub mod vocab;

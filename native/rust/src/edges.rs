@@ -8,10 +8,9 @@
 use std::collections::BTreeSet;
 
 use archkeel_facts::data::ImportData;
-use archkeel_facts::envelope::Target;
+use archkeel_facts::envelope::{Evidence, Target};
 use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
-use archkeel_facts::reply::Evidence;
 use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder, Origin};

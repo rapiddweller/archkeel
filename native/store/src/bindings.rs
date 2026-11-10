@@ -9,6 +9,8 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{Evidence, Facts, FileFact, Profile, Target};
+use archkeel_facts::fields::Named;
+use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::vocab::Status;
 use archkeel_facts::{FactData, Record, Section};
 
@@ -33,12 +35,19 @@ pub(crate) struct Modules<'a> {
     part_evidence: bool,
 }
 
-/// The view of one record, found by its place.
-struct One(Option<View>);
+/// The module of a runtime-effect gap, bound to the effect record that the visit finds.
+struct Bound<'m, 'a, 'g> {
+    modules: &'m Modules<'a>,
+    gap: &'m View<'g>,
+    script: bool,
+    module: Option<String>,
+}
 
-impl Visitor for One {
+impl Visitor for Bound<'_, '_, '_> {
     fn record<D: FactData>(&mut self, _: &Section, record: &Record<D>) -> Result<(), String> {
-        self.0 = Some(View::of(record)?);
+        let effect = View::new(record);
+        let effect = Some(&effect).filter(|_| self.script);
+        self.module = self.modules.gap_module(self.gap, effect);
         Ok(())
     }
 }
@@ -71,22 +80,22 @@ impl<'a> Modules<'a> {
         self.evidence.get(id).map(|entry| entry.file.as_str())
     }
 
-    fn source_module(&self, view: &View) -> Option<String> {
+    fn source_module<'v>(&self, view: &View<'v>) -> Option<&'v str>
+    where
+        'a: 'v,
+    {
         let named = if view.kind == "module" {
-            Some(view.data.qualified_name.clone())
+            Some(view.data.qualified_name)
         } else {
-            view.data
-                .source_module
-                .clone()
-                .or_else(|| view.data.module.clone())
+            view.data.source_module.or(view.data.module)
         };
         match named {
             Some(Some(module)) => Some(module),
             // Python reads a null module like an absent one and falls back to the owner.
             _ => {
-                view.data.owner.as_ref()?;
-                let file = self.file(view.evidence_ids.first()?)?;
-                self.by_path.get(file).map(|module| (*module).to_owned())
+                view.data.owner?;
+                let file = self.file(view.evidence_ids.first()?.as_str())?;
+                self.by_path.get(file).copied()
             }
         }
     }
@@ -94,7 +103,7 @@ impl<'a> Modules<'a> {
     /// One record of a measured section: its module, its package, its identities and evidence.
     pub(crate) fn bind(
         &self,
-        view: &View,
+        view: &View<'_>,
         import: bool,
         selected: &HashSet<&str>,
     ) -> Result<(), String> {
@@ -109,9 +118,9 @@ impl<'a> Modules<'a> {
             .ok_or("source record needs an observed module or owner")?;
         let file = self
             .files
-            .get(module.as_str())
+            .get(module)
             .ok_or("source record names an unobserved module")?;
-        if import && view.data.source_package.as_deref() != Some(file.package.as_str()) {
+        if import && view.data.source_package != Some(file.package.as_str()) {
             return Err("import source package disagrees with its module".to_owned());
         }
         let data = &view.data;
@@ -121,19 +130,17 @@ impl<'a> Modules<'a> {
             ("qualified_name", &data.qualified_name),
             ("declaration_scope", &data.declaration_scope),
         ] {
-            let head = identity
-                .as_deref()
-                .map(|text| text.split(':').next().unwrap_or_default());
-            if head.is_some_and(|head| !in_scope(head, &module)) {
+            let head = identity.map(|text| text.split(':').next().unwrap_or_default());
+            if head.is_some_and(|head| !in_scope(head, module)) {
                 return Err(format!("source record {field} disagrees with its module"));
             }
         }
-        let foreign = |id: &String| {
-            let path = self.file(id);
+        let foreign = |id: &EvidenceId| {
+            let path = self.file(id.as_str());
             path != Some(file.rel_path.as_str())
                 && !(self.part_evidence
                     && path.is_some()
-                    && data.source_file.as_deref() == path
+                    && data.source_file == path
                     && path.is_some_and(|p| selected.contains(p) && !self.by_path.contains_key(p)))
         };
         if view.evidence_ids.is_empty() || view.evidence_ids.iter().any(foreign) {
@@ -144,41 +151,36 @@ impl<'a> Modules<'a> {
 
     /// `_resolution_gap_module`: the module of a witnessed resolution gap, or `None`. A
     /// runtime-effect gap needs its effect record (`effect`).
-    fn gap_module(&self, gap: &View, effect: Option<&View>) -> Option<String> {
-        let module = match &gap.data.source_module {
-            Some(value) => value.clone()?,
-            None => gap.data.module.clone()??,
+    fn gap_module(&self, gap: &View<'_>, effect: Option<&View<'_>>) -> Option<String> {
+        let module = match gap.data.source_module {
+            Some(value) => value?,
+            None => gap.data.module??,
         };
-        let path = self.files.get(module.as_str())?.rel_path.as_str();
-        let dimension = gap.data.resolution_dimension.as_deref();
-        let agrees = |value: &Option<Option<String>>| {
-            value
-                .as_ref()
-                .is_none_or(|value| value.as_deref() == Some(module.as_str()))
-        };
+        let path = self.files.get(module)?.rel_path.as_str();
+        let dimension = gap.data.resolution_dimension;
+        let agrees = |value: Named<'_>| value.is_none_or(|value| value == Some(module));
         let witnessed = gap.kind == "source_resolution_gap"
             && matches!(dimension, Some("imports" | "runtime_effects"))
-            && agrees(&gap.data.source_module)
-            && agrees(&gap.data.module)
-            && gap.subjects == [module.as_str()]
+            && agrees(gap.data.source_module)
+            && agrees(gap.data.module)
+            && gap.subjects == [module]
             && !gap.evidence_ids.is_empty()
             && gap
                 .evidence_ids
                 .iter()
-                .all(|id| self.file(id) == Some(path))
-            && gap.data.file.as_deref().is_none_or(|file| file == path);
+                .all(|id| self.file(id.as_str()) == Some(path))
+            && gap.data.file.is_none_or(|file| file == path);
         if !witnessed {
             return None;
         }
-        if dimension == Some("runtime_effects") && !self.script_effect(gap, effect?, &module, path)
-        {
+        if dimension == Some("runtime_effects") && !self.script_effect(gap, effect?, module, path) {
             return None;
         }
-        Some(module)
+        Some(module.to_owned())
     }
 
     /// `_script_effect_binding`: the gap and its `script_namespace_effect` name one location.
-    fn script_effect(&self, gap: &View, effect: &View, module: &str, path: &str) -> bool {
+    fn script_effect(&self, gap: &View<'_>, effect: &View<'_>, module: &str, path: &str) -> bool {
         let typescript = [".js", ".ts", ".tsx"]
             .iter()
             .any(|suffix| path.ends_with(suffix));
@@ -194,38 +196,43 @@ impl<'a> Modules<'a> {
             && gap.fact_ids.len() == 1
             && gap.evidence_ids.len() == 1
             && effect.id == stable_id("TS_RUNTIME_EFFECT", &at)
-            && gap.id == stable_id("UNKNOWN_RUNTIME_EFFECT", &effect.id)
+            && gap.id == stable_id("UNKNOWN_RUNTIME_EFFECT", effect.id)
             && effect.kind == "script_namespace_effect"
             && effect.evidence_class == archkeel_facts::vocab::EvidenceClass::Fact
             && effect.subjects == [module]
-            && effect.data.source_module == Some(Some(module.to_owned()))
-            && effect.data.source_scope.as_deref() == Some(module)
+            && effect.data.source_module == Some(Some(module))
+            && effect.data.source_scope == Some(module)
             && effect.evidence_ids == gap.evidence_ids
-            && effect.data.expression.as_deref() == Some(location.excerpt.as_str())
+            && effect.data.expression == Some(location.excerpt.as_str())
             && effect.data.status == Some(Status::Unresolved)
-            && effect.data.targets.as_ref().is_some_and(Vec::is_empty)
+            && effect.data.targets.is_some_and(<[String]>::is_empty)
     }
 
     /// A runtime-effect gap of the coverage is bound to its module and its effect record.
     pub(crate) fn effect_gap(
         &self,
-        gap: &View,
+        gap: &View<'_>,
         sections: &[Section],
         places: &HashMap<String, (usize, usize)>,
         script: bool,
     ) -> Result<(), String> {
-        if gap.data.resolution_dimension.as_deref() != Some("runtime_effects") {
+        if gap.data.resolution_dimension != Some("runtime_effects") {
             return Ok(());
         }
         if gap.kind != "source_resolution_gap" {
             return self.bind(gap, false, &HashSet::new());
         }
-        let mut effect = One(None);
-        if let Some((section, index)) = gap.fact_ids.first().and_then(|id| places.get(id)) {
-            visit(&sections[*section], *index, *index + 1, &mut effect)?;
+        let mut bound = Bound {
+            modules: self,
+            gap,
+            script,
+            module: None,
+        };
+        if let Some((section, index)) = gap.fact_ids.first().and_then(|id| places.get(id.as_str()))
+        {
+            visit(&sections[*section], *index, *index + 1, &mut bound)?;
         }
-        let effect = effect.0.filter(|_| script);
-        match self.gap_module(gap, effect.as_ref()) {
+        match bound.module {
             Some(_) => Ok(()),
             None => Err("source resolution gap has no bound resolution dimension".to_owned()),
         }

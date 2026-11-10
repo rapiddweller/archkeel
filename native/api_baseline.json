@@ -1,7 +1,22 @@
 {
-  "archkeel-build-support": 1,
-  "archkeel-facts": 738,
-  "archkeel-snapshot": 24,
-  "archkeel-store": 2,
-  "archkeel-wire": 79
+  "archkeel-build-support": {
+    "items": 1,
+    "members": 0
+  },
+  "archkeel-facts": {
+    "items": 201,
+    "members": 537
+  },
+  "archkeel-snapshot": {
+    "items": 22,
+    "members": 1
+  },
+  "archkeel-store": {
+    "items": 2,
+    "members": 0
+  },
+  "archkeel-wire": {
+    "items": 28,
+    "members": 51
+  }
 }

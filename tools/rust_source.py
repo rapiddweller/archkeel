@@ -77,8 +77,8 @@ def tokenize(text: str) -> list[Token]:
     return tokens
 
 
-def _group_end(tokens: Sequence[Token], at: int) -> int:
-    """Return the index after the bracket group that opens at `at`."""
+def group_end(tokens: Sequence[Token], at: int) -> int:
+    """Return the index after the bracket group that opens at `at`; `(`, `[` and `{` all count."""
     pairs = {"(": ")", "[": "]", "{": "}"}
     stack: list[str] = []
     for position in range(at, len(tokens)):
@@ -89,6 +89,29 @@ def _group_end(tokens: Sequence[Token], at: int) -> int:
             stack.pop()
             if not stack:
                 return position + 1
+    return len(tokens)
+
+
+def item_end(tokens: Sequence[Token], start: int) -> int:
+    """Return the index after the item that starts at `start`: its `;`, or its last `}`.
+
+    A `}` that a `;` follows, as in `const X: u8 = { 1 };`, includes that `;`. A brace that
+    an expression continues after, as in `{ 1 } + 2;`, ends the item too early.
+    """
+    position = start
+    while position < len(tokens):
+        token = tokens[position]
+        if token.kind == "punct" and token.text == ";":
+            return position + 1
+        if token.kind == "punct" and token.text in {"(", "[", "{"}:
+            opened = token.text
+            position = group_end(tokens, position)
+            if opened == "{":
+                if position < len(tokens) and tokens[position].text == ";":
+                    position += 1
+                return position
+        else:
+            position += 1
     return len(tokens)
 
 
@@ -107,9 +130,11 @@ def _is_cfg_test(tokens: Sequence[Token], start: int, end: int) -> bool:
 
 
 def inline_test_mask(tokens: Sequence[Token]) -> list[bool]:
-    """Mark the tokens of each `#[cfg(test)] mod name { ... }`, from the attribute to the brace.
+    """Mark the tokens of each `#[cfg(test)]` item, from its attribute to the item's end.
 
-    The braces are balanced on tokens, so a brace in a string or a comment does not count.
+    The item is a `mod name { ... }`, or any other item up to its `;` or its last `}` (see
+    `item_end`). The braces are balanced on tokens, so a brace in a string or a comment does not
+    count.
     """
     mask = [False] * len(tokens)
     at = 0
@@ -117,24 +142,24 @@ def inline_test_mask(tokens: Sequence[Token]) -> list[bool]:
         if tokens[at].text != "#" or at + 1 >= len(tokens) or tokens[at + 1].text != "[":
             at += 1
             continue
-        end = _group_end(tokens, at + 1)
+        end = group_end(tokens, at + 1)
         if not _is_cfg_test(tokens, at, end):
             at += 1
             continue
         position = end
         while position < len(tokens) and tokens[position].text == "#":
-            position = _group_end(tokens, position + 1)  # more attributes
+            position = group_end(tokens, position + 1)  # more attributes
         if position < len(tokens) and tokens[position].text == "pub":
             position += 1
             if position < len(tokens) and tokens[position].text == "(":
-                position = _group_end(tokens, position)
+                position = group_end(tokens, position)
         names = [token.text for token in tokens[position : position + 3]]
         if len(names) == 3 and names[0] == "mod" and names[2] == "{":
-            stop = _group_end(tokens, position + 2)
-            mask[at:stop] = [True] * (stop - at)
-            at = stop
+            stop = group_end(tokens, position + 2)
         else:
-            at = end
+            stop = item_end(tokens, position)
+        mask[at:stop] = [True] * (stop - at)
+        at = stop
     return mask
 
 

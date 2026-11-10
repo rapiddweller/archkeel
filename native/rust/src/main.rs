@@ -37,7 +37,8 @@ mod tree;
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
-use archkeel_facts::reply::Provenance;
+use archkeel_facts::envelope::Profile;
+use archkeel_facts::envelope::Provenance;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode_rust;
 
@@ -46,7 +47,7 @@ const STACK_BYTES: usize = 256 * 1024 * 1024;
 
 fn provenance() -> Provenance {
     Provenance::native(
-        reply::PROFILE,
+        Profile::Rust,
         (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
         (
             env!("ARCHKEEL_RUSTC_VERSION"),

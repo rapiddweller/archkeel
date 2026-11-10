@@ -5,13 +5,13 @@
 // Consumer: PR 4.3a-3d, which puts the records on the wire. The expected values follow the Python
 // collector; `tests/test_collector_native_records.py` compares every record on real trees.
 
-use archkeel_facts::reply::Provenance;
+use archkeel_facts::envelope::{Profile, Provenance};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::reply::Record;
 use archkeel_wire::request::Request;
 use serde_json::Value;
 
-use crate::collect::{records, PROFILE};
+use crate::collect::records;
 use crate::records::Records;
 use archkeel_snapshot::test_tree::Tree;
 
@@ -30,14 +30,11 @@ fn request(tree: &Tree) -> Request {
 }
 
 fn provenance() -> Provenance {
-    Provenance {
-        profile: PROFILE,
-        adapter_version: "0+unknown".to_owned(),
-        code_digest: "0".repeat(64),
-        runtime_name: "rust",
-        runtime_version: "1.88.0".to_owned(),
-        runtime_required: ">=1.88".to_owned(),
-    }
+    Provenance::native(
+        Profile::TypeScript,
+        ("0+unknown", &"0".repeat(64)),
+        ("1.88.0", "1.88"),
+    )
 }
 
 fn run(files: &[(&str, &str)]) -> Records {

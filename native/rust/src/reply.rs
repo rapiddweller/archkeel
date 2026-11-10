@@ -4,7 +4,7 @@
 
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
-use archkeel_facts::reply::{Evidence, Provenance};
+use archkeel_facts::envelope::{Evidence, Provenance};
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::request::Request;
@@ -14,7 +14,6 @@ use crate::builder::Builder;
 use crate::tree::Walked;
 use archkeel_snapshot::Snapshot;
 
-pub const PROFILE: &str = "archkeel-rust-imports";
 const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 

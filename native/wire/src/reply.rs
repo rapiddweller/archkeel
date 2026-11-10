@@ -7,9 +7,7 @@
 use serde_json::{json, Map, Value};
 
 use archkeel_facts::envelope::Target;
-#[cfg(test)]
-use archkeel_facts::reply::{evidence_value, file_value, source_digest};
-use archkeel_facts::reply::{Evidence, FileFact, Input, Provenance};
+use archkeel_facts::envelope::{Evidence, FileFact, Input, Provenance};
 
 /// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
 /// `fact_ids` keep the order of the Python collector, which sets them after `classified` and does
@@ -78,62 +76,6 @@ pub struct Facts {
     /// Coverage gaps. The collection is complete only when there is none.
     pub gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
     pub evidence: Vec<Evidence>,
-}
-
-#[cfg(test)]
-fn facts_value(facts: &Facts) -> Value {
-    let provenance = &facts.provenance;
-    json!({
-        "adapter": {
-            "name": provenance.profile,
-            "version": provenance.adapter_version,
-            "code_digest": provenance.code_digest,
-        },
-        "candidate_evidence": [],
-        "capabilities": {
-            "sections": facts.sections.iter().map(ReplySection::name).collect::<Vec<_>>(),
-            "resolution_features": facts.features,
-            "constructs": facts.constructs.iter()
-                .map(|(name, status)| json!({"name": name, "status": status}))
-                .collect::<Vec<_>>(),
-        },
-        "coverage": {
-            "selected_files": facts.selected_files,
-            "files_read": facts.files_read,
-            "files_parsed": facts.files.len(),
-            "full_scope": facts.gaps.is_empty(),
-            "gaps": facts.gaps,
-        },
-        "evidence": facts.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
-        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
-        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
-        "inputs": facts.inputs.iter().map(|input| json!({
-            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
-        })).collect::<Vec<_>>(),
-        "profile": provenance.profile,
-        "provider_bindings": [],
-        "runtime": {
-            "name": provenance.runtime_name,
-            "version": provenance.runtime_version,
-            "required": provenance.runtime_required,
-            "requirement_state": "declared",
-        },
-        "sections": facts.sections.iter().map(|section| match section {
-            ReplySection::Typed(section) => json!(section),
-            ReplySection::Records(name, records) => json!({
-                "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
-            }),
-        }).collect::<Vec<_>>(),
-        "source": {
-            "git_head": facts.git_head,
-            "dirty": facts.dirty,
-            "source_digest": source_digest(&facts.inputs),
-            "scope": facts.scope,
-        },
-        "state": {"classes": [], "functions": []},
-        "type_shapes": [],
-        "uncertain_reexports": [],
-    })
 }
 
 pub fn target_value(target: &Target) -> Value {

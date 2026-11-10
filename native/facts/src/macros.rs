@@ -157,6 +157,12 @@ macro_rules! section_facts {
                 self.kind().as_str()
             }
 
+            fn fields(&self) -> $crate::fields::Fields<'_> {
+                match self {
+                    $(Self::$variant(data) => $crate::fields::Project::fields(data),)*
+                }
+            }
+
             fn serialize_data<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 match self {
                     $(Self::$variant(data) => serde::Serialize::serialize(data, serializer),)*

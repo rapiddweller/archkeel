@@ -17,8 +17,13 @@ use crate::ingest;
 const LIMIT: u64 = 1 << 30;
 
 fn reply() -> Value {
+    golden("h-typescript")
+}
+
+/// The frozen reply of a TypeScript golden case, with the provenance of a run.
+pub(crate) fn golden(case: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/golden/typescript/h-typescript.json.gz");
+        .join(format!("../../tests/golden/typescript/{case}.json.gz"));
     let mut text = String::new();
     let file = std::fs::File::open(path).ok();
     if let Some(file) = file {
@@ -99,7 +104,7 @@ fn the_frozen_reply_passes_and_gives_the_read_set() -> Result<(), String> {
 #[test]
 fn a_changed_reply_fails_with_the_message_of_the_python_check() {
     type Change = fn(&mut Value);
-    let cases: [(&str, Change); 9] = [
+    let cases: [(&str, Change); 10] = [
         ("duplicate source record id", |v| {
             let first = records(v, "imports")[0].clone();
             if let Some(list) = records(v, "imports").as_array_mut() {
@@ -139,6 +144,9 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
         ),
         ("does not check archkeel-python-analyzer replies", |v| {
             v["facts"]["profile"] = json!("archkeel-python-analyzer");
+        }),
+        ("does not check archkeel-rust-imports replies", |v| {
+            v["facts"]["profile"] = json!("archkeel-rust-imports");
         }),
         ("dangling source evidence reference", |v| {
             records(v, "symbols")[0]["evidence_ids"] = json!(["EVD-missing"]);

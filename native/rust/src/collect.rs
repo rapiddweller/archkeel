@@ -10,7 +10,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_facts::reply::Provenance;
+use archkeel_facts::envelope::Provenance;
 use archkeel_snapshot::Snapshot;
 use archkeel_wire::request::Request;
 

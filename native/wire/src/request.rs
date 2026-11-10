@@ -7,7 +7,7 @@
 use serde_json::{Map, Value};
 
 use crate::protocol::Version;
-use archkeel_facts::identity::is_identifier;
+use archkeel_facts::identity::{inside, is_identifier};
 
 /// One TypeScript collection request.
 #[derive(Clone, Debug, PartialEq)]
@@ -196,11 +196,7 @@ fn string(value: &Value, label: &str) -> Result<String, String> {
 
 fn relative(value: &Value, label: &str) -> Result<String, String> {
     let path = string(value, label)?;
-    if path.starts_with('/')
-        || path.split('/').any(|part| part == "..")
-        || path.contains('\\')
-        || path.contains(':')
-    {
+    if !inside(&path) {
         return Err(format!("{label} must stay inside the snapshot"));
     }
     Ok(path)
