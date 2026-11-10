@@ -33,7 +33,7 @@ A typo in a kind or a field reached the host as data.
 7. **First adopter.** The native TypeScript collector builds the `imports` section with these
    types (`wire::reply::ReplySection::Typed`). The other sections move one by one.
 8. **Layers.** `archkeel-facts` is a library that uses no other crate and no parser. The wire and
-   the collectors may use it (`native/layers.toml`). The serde derives need `unicode-ident`
+   the collectors may use it (the contract of `native/`). The serde derives need `unicode-ident`
    (Unicode-3.0) in the compiler; `deny.toml` allows it for that crate only.
 
 **Rejected.**

@@ -20,21 +20,11 @@ api = importlib.util.module_from_spec(spec)
 sys.modules["rust_api"] = api
 spec.loader.exec_module(api)
 
-LAYERS = """
-[crates.lib-one]
-role = "library"
-dir = "one"
-[crates.lib-later]
-role = "library"
-dir = "later"
-planned = true
-"""
-
 
 def scratch(tmp_path: Path, lib: str) -> Path:
     native = tmp_path / "native"
     (native / "one/src").mkdir(parents=True)
-    (native / "layers.toml").write_text(LAYERS, encoding="utf-8")
+    (native / "one/Cargo.toml").write_text('[package]\nname = "lib-one"\n', encoding="utf-8")
     (native / "one/src/lib.rs").write_text(lib, encoding="utf-8")
     (native / "one/src/lib_tests.rs").write_text("pub fn only_a_test() {}\n", encoding="utf-8")
     return native

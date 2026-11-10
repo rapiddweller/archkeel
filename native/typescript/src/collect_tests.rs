@@ -5,6 +5,7 @@
 // Consumer: Explore with a 9.0.0 request (AD-313). A scope that holds only test sources must not
 // read as a complete scan of zero files.
 
+use archkeel_facts::envelope::Profile;
 use archkeel_wire::protocol::Version;
 use serde_json::Value;
 
@@ -26,14 +27,11 @@ fn request(tree: &Tree, exclude_test_sources: bool) -> Request {
 }
 
 fn provenance() -> Provenance {
-    Provenance {
-        profile: PROFILE,
-        adapter_version: "0+unknown".to_owned(),
-        code_digest: "0".repeat(64),
-        runtime_name: "rust",
-        runtime_version: "1.88.0".to_owned(),
-        runtime_required: ">=1.88".to_owned(),
-    }
+    Provenance::native(
+        Profile::TypeScript,
+        ("0+unknown", &"0".repeat(64)),
+        ("1.88.0", "1.88"),
+    )
 }
 
 fn titles(facts: &Facts) -> Vec<&str> {

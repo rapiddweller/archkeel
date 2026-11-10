@@ -32,7 +32,6 @@ fn the_schema_defines_each_section_and_the_closed_vocabularies() {
         "ImportData",
         "Kind",
         "ReasonCode",
-        "Producer",
     ] {
         assert!(definitions.contains_key(name), "no definition {name}");
     }
