@@ -190,6 +190,8 @@ UNPLACED = {
     "a call inside another macro": "pub fn run() { other::wrap! { m!(); } }\n",
     "a call by a module path": "pub fn run() { macros::m!(); }\n",
 }
+# The body names `b` by a path from the crate name: it needs `extern crate self as app`.
+ABSOLUTE_BODY = "extern crate self as app;\nmacro_rules! m { () => { ::app::b::make() }; }\n"
 
 
 def _expansion(
@@ -238,6 +240,23 @@ def test_the_template_of_a_macro_is_no_edge_of_its_module_in_a_cycle_rule(
     result = _expansion(tmp_path, rust_binary, capsys, files, cycles)
 
     assert statuses(result)["MODULE-CYCLES"] == "PASS"
+
+
+def test_a_macro_body_path_from_the_crate_name_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    files = {"macros.rs": ABSOLUTE_BODY, "a.rs": "pub fn run() { m!(); }\n"}
+    result = _expansion(tmp_path, rust_binary, capsys, files, forbidden)
+
+    assert statuses(result).get("NO-A-TO-B") != "PASS"
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
 
 
 @pytest.mark.parametrize("source", UNPLACED.values(), ids=UNPLACED.keys())

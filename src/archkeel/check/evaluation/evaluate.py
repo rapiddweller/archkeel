@@ -1484,7 +1484,7 @@ def evaluate_source(
             ],
             key=lambda item: item["id"],
         ),
-        imports=sorted([*imports, *macro_bodies, *unresolved_imports], key=lambda item: item["id"]),
+        imports=sorted([*imports, *unresolved_imports], key=lambda item: item["id"]),
         dependency_edges=dependency_edges,
         transitive_paths=sorted(transitive_records, key=lambda item: item["id"]),
         path_observations=path_observations,

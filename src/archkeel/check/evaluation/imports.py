@@ -16,7 +16,8 @@ def split_imports(
     """Split the imports into the resolved ones, the unresolved ones and the macro templates.
 
     AD-349: the template of a `macro_rules!` is no edge of a cycle or a layer rule. This is the one
-    place that reads the kind. The templates stay in the observation and count as coupling.
+    place that reads the kind. The templates leave the imports of the observation; only the
+    fan counts of the modules use them.
     """
     resolved: list[RawRecord] = []
     unknown: list[RawRecord] = []

@@ -34,12 +34,13 @@ impl Builder {
             return;
         };
         match index.resolve(frame, reference) {
-            Outcome::None => {}
-            Outcome::Unknown(reason) => {
-                let evidence = self.cite(&module.rel, &reference.site);
-                self.gap(&reason, Some(&evidence), &module.module);
-                self.unread_macro(module, reference, reason);
+            // A body path from the crate name (`::app::b`) needs `extern crate self as app`.
+            Outcome::None if reference.absolute && reference.in_macro.is_some() => {
+                let reason = "A macro_rules! body holds a path from the name of its own crate";
+                self.unreadable(module, reference, reason.to_owned());
             }
+            Outcome::None => {}
+            Outcome::Unknown(reason) => self.unreadable(module, reference, reason),
             Outcome::Edge(edge) => match &reference.in_macro {
                 None => self.module_import(index, module, reference, &edge),
                 Some(name) => self.macro_use(index, module, reference, edge, name),
@@ -68,11 +69,16 @@ impl Builder {
                 .push((edge, reference.clone()));
             return;
         }
-        let evidence = self.cite(&module.rel, &reference.site);
         let reason =
             "A macro_rules! body holds a module path that is relative to the place of the call";
-        self.gap(reason, Some(&evidence), &module.module);
-        self.unread_macro(module, reference, reason.to_owned());
+        self.unreadable(module, reference, reason.to_owned());
+    }
+
+    /// A path that the scan cannot read is UNKNOWN here. In a macro body, each call is UNKNOWN too.
+    fn unreadable(&mut self, module: &Module, reference: &Reference, reason: String) {
+        let evidence = self.cite(&module.rel, &reference.site);
+        self.gap(&reason, Some(&evidence), &module.module);
+        self.unread_macro(module, reference, reason);
     }
 
     /// The body of a macro holds a path that the scan cannot read: each call of it is UNKNOWN.
