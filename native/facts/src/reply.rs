@@ -81,55 +81,8 @@ impl Evidence {
     }
 }
 
-/// What an import resolves to (`facts.ImportTarget`).
-#[derive(Clone, Debug, PartialEq)]
-pub enum Target {
-    Local {
-        import_id: String,
-        module: String,
-        file: String,
-        runtime_file: Option<String>,
-        declaration_file: Option<String>,
-    },
-    External {
-        import_id: String,
-        package: String,
-    },
-    Builtin {
-        import_id: String,
-        name: String,
-    },
-    Unresolved {
-        import_id: String,
-        specifier: String,
-        reason: String,
-    },
-}
-
-impl Target {
-    /// The id of the import record that this target belongs to.
-    pub fn import_id(&self) -> &str {
-        match self {
-            Target::Local { import_id, .. }
-            | Target::External { import_id, .. }
-            | Target::Builtin { import_id, .. }
-            | Target::Unresolved { import_id, .. } => import_id,
-        }
-    }
-
-    /// The same target for another import record.
-    pub fn with_import_id(&self, id: &str) -> Self {
-        let mut copy = self.clone();
-        match &mut copy {
-            Target::Local { import_id, .. }
-            | Target::External { import_id, .. }
-            | Target::Builtin { import_id, .. }
-            | Target::Unresolved { import_id, .. } => *import_id = id.to_owned(),
-        }
-        copy
-    }
-}
-
+/// The provenance of a collector reply. It stays separate from `producer::Producer` until the
+/// protocol 10 decision.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Provenance {
     pub profile: &'static str,
@@ -173,34 +126,6 @@ pub fn source_digest(inputs: &[Input]) -> String {
         })
         .collect();
     sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
-}
-
-pub fn target_value(target: &Target) -> Value {
-    match target {
-        Target::Local {
-            import_id,
-            module,
-            file,
-            runtime_file,
-            declaration_file,
-        } => json!({
-            "kind": "local", "import_id": import_id, "module": module, "file": file,
-            "runtime_file": runtime_file, "declaration_file": declaration_file,
-        }),
-        Target::External { import_id, package } => {
-            json!({"kind": "external", "import_id": import_id, "package": package})
-        }
-        Target::Builtin { import_id, name } => {
-            json!({"kind": "builtin", "import_id": import_id, "name": name})
-        }
-        Target::Unresolved {
-            import_id,
-            specifier,
-            reason,
-        } => json!({
-            "kind": "unresolved", "import_id": import_id, "specifier": specifier, "reason": reason,
-        }),
-    }
 }
 
 pub fn file_value(file: &FileFact) -> Value {

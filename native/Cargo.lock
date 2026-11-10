@@ -55,6 +55,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-store"
+version = "0.0.0"
+dependencies = [
+ "archkeel-facts",
+ "flate2",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "archkeel-typescript-collector"
 version = "0.0.0"
 dependencies = [

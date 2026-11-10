@@ -1357,13 +1357,13 @@ def test_explore_frees_the_source_facts_before_it_encodes(
         return sum(isinstance(item, SourceFacts) for item in gc.get_objects())
 
     before, seen = alive(), []
-    real = report_module.canonical_report_bytes
+    real = report_module.report_bytes
 
     def encode(observation):
         seen.append(alive())
         return real(observation)
 
-    monkeypatch.setattr(report_module, "canonical_report_bytes", encode)
+    monkeypatch.setattr(report_module, "report_bytes", encode)
 
     run_explore(root, observer=observer_for(Language.PYTHON))
 

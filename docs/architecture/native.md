@@ -27,6 +27,7 @@ flowchart LR
     rust --> snapshot
     rust --> wire
     snapshot --> facts
+    store --> facts
     typescript --> build
     typescript --> facts
     typescript --> snapshot

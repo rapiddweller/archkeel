@@ -41,6 +41,7 @@ from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
+from archkeel.ir.store_seam import store_disabled
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta
@@ -200,18 +201,22 @@ def observe_revision(
     """Observe one commit's scoped Python files under the declarations `declared_at` holds.
 
     `check` observes the accepted commit and the candidate under the lock commit's
-    declarations; `validate --against` observes a revision under its own (AD-100).
+    declarations; `validate --against` observes a revision under its own (AD-100). Both run
+    without the Rust store, which holds one collection only (AD-346).
     """
     with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
         declarations = Path(temporary)
         materialize_declarations(root, declared_at, config, declarations)
-        with materialize_git_snapshot(
-            root,
-            revision,
-            roots=config.roots,
-            language=config.language,
-            tsconfig=config.tsconfig,
-        ) as snapshot:
+        with (
+            materialize_git_snapshot(
+                root,
+                revision,
+                roots=config.roots,
+                language=config.language,
+                tsconfig=config.tsconfig,
+            ) as snapshot,
+            store_disabled(),
+        ):
             result = analyzer(
                 snapshot.root,
                 roots=config.roots,

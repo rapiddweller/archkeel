@@ -9,9 +9,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::data::ImportData;
+use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{package_of, stable_id, Part};
-use archkeel_facts::ids::{ModuleName, PackageName};
-use archkeel_facts::reply::Target;
+use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder};
@@ -188,8 +188,8 @@ impl Builder {
         );
         let evidence = self.cite(&module.rel, site);
         self.targets.push(Target::Local {
-            import_id: identity.clone(),
-            module: edge.module.clone(),
+            import_id: FactId::new(identity.as_str()),
+            module: ModuleName::new(edge.module.as_str()),
             file: target_rel.to_owned(),
             runtime_file: Some(target_rel.to_owned()),
             declaration_file: None,
@@ -244,7 +244,7 @@ pub(crate) fn local_target(
     index: Option<&Index<'_>>,
     root: &Root,
     reference: &Reference,
-    import_id: String,
+    import_id: FactId,
 ) -> (Target, String) {
     let rest = reference.names.get(1..).unwrap_or(&[]);
     let deepest = index.and_then(|index| {
@@ -254,7 +254,7 @@ pub(crate) fn local_target(
     let (module, file) = deepest.unwrap_or_else(|| (root.module.clone(), root.rel.clone()));
     let target = Target::Local {
         import_id,
-        module: module.clone(),
+        module: ModuleName::new(module.as_str()),
         file: file.clone(),
         runtime_file: Some(file),
         declaration_file: None,

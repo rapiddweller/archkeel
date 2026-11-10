@@ -13,8 +13,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
+use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{evidence_id, module_identity};
-use archkeel_facts::reply::{Evidence, FileFact, Provenance, Target};
+use archkeel_facts::reply::{Evidence, FileFact, Provenance};
 use archkeel_facts::{GapFact, Record, Section};
 use archkeel_wire::reply::{Facts, ReplySection};
 use archkeel_wire::request::Request;

@@ -12,7 +12,7 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::reply::Target;
+use archkeel_facts::envelope::Target;
 use archkeel_wire::reply::Facts;
 
 use crate::definitions::DefinitionKind;
@@ -37,7 +37,7 @@ pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
     let targets: HashMap<&str, &Target> = facts
         .imports
         .iter()
-        .map(|target| (target.import_id(), target))
+        .map(|target| (target.import_id().as_str(), target))
         .collect();
     let mut found = Imports::new();
     for rel in &pending.order {
@@ -53,7 +53,7 @@ pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
             for binding in bindings {
                 let key = (kept.module.clone(), binding.local.clone());
                 let value = (
-                    module.clone(),
+                    module.as_str().to_owned(),
                     binding.imported.clone(),
                     binding.namespace,
                     binding.type_only,

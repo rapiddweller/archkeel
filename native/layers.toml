@@ -38,11 +38,12 @@ role = "library"
 dir = "facts"
 may_use = []
 
+# AD-346: validate a collector reply once, give the read-set and write architecture.json. It reads
+# collector facts only, never a parser.
 [crates.archkeel-store]
 role = "library"
 dir = "store"
 may_use = ["archkeel-facts"]
-planned = true
 
 [crates.archkeel-build-support]
 role = "library"

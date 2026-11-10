@@ -7,8 +7,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use archkeel_facts::envelope::Target;
 use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::reply::{Evidence, FileFact, Target};
+use archkeel_facts::reply::{Evidence, FileFact};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{GapFact, ImportFact, Record};
 

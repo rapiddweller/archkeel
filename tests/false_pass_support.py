@@ -17,6 +17,7 @@ import json
 import shutil
 import subprocess
 import sys
+import zlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,8 @@ SCRIPT = Path(__file__).resolve()
 # A file path that no snapshot holds.
 OUTSIDE = "../outside/ghost.ts"
 GHOST = "src/not_in_the_snapshot.ts"
+# A compressed reply starts with the zlib header byte; plain JSON never does.
+ZLIB_HEADER = b"x"
 
 
 def _section(reply: Reply, name: str) -> list[dict[str, Any]]:
@@ -102,7 +105,8 @@ TAMPERS: dict[str, Tamper] = {
 }
 
 
-def _reply(language: str) -> Reply:
+def _reply(language: str) -> tuple[Reply, bool]:
+    """The reply of the real collector, and whether its protocol compresses it (8.0.0, 9.0.0)."""
     from archkeel.ir.facts_codec import decode_request, encode_response
     from archkeel.ir.protocol import CollectionResponse
 
@@ -111,16 +115,22 @@ def _reply(language: str) -> Reply:
         from archkeel.analyzer.typescript.collect import collect
     else:
         from archkeel.analyzer.python.collect import collect
-    return json.loads(
-        encode_response(CollectionResponse(collect(request), request.protocol_version))
-    )
+    payload = encode_response(CollectionResponse(collect(request), request.protocol_version))
+    compressed = payload[:1] == ZLIB_HEADER
+    return json.loads(zlib.decompress(payload) if compressed else payload), compressed
+
+
+def send(reply: Reply, compressed: bool) -> None:
+    """Write the changed reply in the framing of the requested protocol."""
+    text = json.dumps(reply).encode()
+    sys.stdout.buffer.write(zlib.compress(text, 1) if compressed else text)
 
 
 def main(argv: list[str]) -> None:
     language, tamper, *rest = argv
-    reply = _reply(language)
+    reply, compressed = _reply(language)
     TAMPERS[tamper](reply, rest[0] if rest else "")
-    sys.stdout.write(json.dumps(reply))
+    send(reply, compressed)
 
 
 def argv_for(language: str, tamper: str, argument: str = "") -> tuple[str, ...]:

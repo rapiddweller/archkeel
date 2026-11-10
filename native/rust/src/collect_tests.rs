@@ -9,7 +9,8 @@ use serde_json::Value;
 
 use super::*;
 use crate::reply::{Collected, PROFILE};
-use archkeel_facts::reply::{Provenance, Target};
+use archkeel_facts::envelope::Target;
+use archkeel_facts::reply::Provenance;
 use archkeel_facts::{ImportFact, Record};
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::request::Request;
@@ -78,7 +79,7 @@ fn source_targets(facts: &Collected) -> Vec<&Target> {
         .collect();
     let targets = facts.head.imports.iter();
     targets
-        .filter(|target| !declared.contains(target.import_id()))
+        .filter(|target| !declared.contains(target.import_id().as_str()))
         .collect()
 }
 
@@ -116,7 +117,7 @@ fn a_path_to_another_crate_of_the_workspace_is_a_local_edge_to_its_root_module()
         assert!(matches!(
             target,
             Target::Local { module, file, .. }
-                if module == "ns.base_crate" && file == "crates/base/src/lib.rs"
+                if module.as_str() == "ns.base_crate" && file == "crates/base/src/lib.rs"
         ));
     }
 }
@@ -127,7 +128,7 @@ fn a_renamed_dependency_is_an_edge_to_the_package_and_a_local_item_is_not_an_edg
     let targets: Vec<_> = source_targets(&facts)
         .into_iter()
         .map(|target| match target {
-            Target::External { package, .. } => format!("external {package}"),
+            Target::External { package, .. } => format!("external {}", package.as_str()),
             other => format!("{other:?}"),
         })
         .collect();

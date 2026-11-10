@@ -8,9 +8,10 @@
 use std::collections::BTreeSet;
 
 use archkeel_facts::data::ImportData;
+use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{package_of, stable_id, Part};
-use archkeel_facts::ids::{ModuleName, PackageName};
-use archkeel_facts::reply::{Evidence, Target};
+use archkeel_facts::ids::{FactId, ModuleName, PackageName};
+use archkeel_facts::reply::Evidence;
 use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder, Origin};
@@ -113,7 +114,7 @@ impl Builder {
             ],
         );
         let evidence = self.cite(from.rel, site);
-        let import_id = identity.clone();
+        let import_id = FactId::new(identity.as_str());
         let (target, target_module) = match named {
             Named::Sysroot(name) => (
                 Target::Builtin {
@@ -127,14 +128,14 @@ impl Builder {
                 None => (
                     Target::External {
                         import_id,
-                        package: package.clone(),
+                        package: PackageName::new(package.as_str()),
                     },
                     target_module,
                 ),
             },
         };
         let target_package = match &target {
-            Target::Local { module, .. } => package_of(module).to_owned(),
+            Target::Local { module, .. } => package_of(module.as_str()).to_owned(),
             _ => target_module.clone(),
         };
         self.targets.push(target);

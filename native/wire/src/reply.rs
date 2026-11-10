@@ -6,9 +6,10 @@
 
 use serde_json::{json, Map, Value};
 
+use archkeel_facts::envelope::Target;
 #[cfg(test)]
-use archkeel_facts::reply::{evidence_value, file_value, source_digest, target_value};
-use archkeel_facts::reply::{Evidence, FileFact, Input, Provenance, Target};
+use archkeel_facts::reply::{evidence_value, file_value, source_digest};
+use archkeel_facts::reply::{Evidence, FileFact, Input, Provenance};
 
 /// One source record. `subjects` and `evidence_ids` must be sorted, as `classified` sorts them.
 /// `fact_ids` keep the order of the Python collector, which sets them after `classified` and does
@@ -133,6 +134,11 @@ fn facts_value(facts: &Facts) -> Value {
         "type_shapes": [],
         "uncertain_reexports": [],
     })
+}
+
+pub fn target_value(target: &Target) -> Value {
+    // A derived enum of texts always serializes; `Null` is not reachable.
+    serde_json::to_value(target).unwrap_or(Value::Null)
 }
 
 pub fn record_value(record: &Record) -> Value {

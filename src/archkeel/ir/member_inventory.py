@@ -9,7 +9,7 @@ import hashlib
 import json
 import re
 from collections import Counter
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
 from archkeel.ir.facts import (
@@ -32,6 +32,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.source_values import record_array, vocabulary_text
+from archkeel.ir.store_seam import active_store
 
 MEMBER_INVENTORY_PROOF = "member_inventory_proof"
 _INVENTORY_SOURCE_SECTIONS = (
@@ -53,26 +54,37 @@ def _inventory_digest(value: RawJson) -> str:
 
 
 def _inventory_binding(model: Observation) -> str:
-    return _inventory_digest(
-        {
-            "analyzer": asdict(model.analyzer),
-            "producer": asdict(model.producer) if model.producer else None,
-            "source": asdict(model.source),
-            "contract": asdict(model.contract),
-            "runtime": asdict(model.runtime) if model.runtime else None,
-            "coverage": asdict(model.coverage),
-            "evidence": [asdict(e) for e in model.evidence],
-            "declarations": [
-                asdict(r)
-                for r in model.records("declarations") or ()
-                if r.kind not in TARGET_GRAPH_RECORD_KINDS
-            ],
-            "sections": {
-                name: [asdict(r) for r in model.records(name) or ()]
-                for name in _INVENTORY_SOURCE_SECTIONS
-            },
-        }
-    )
+    # AD-346: a store holds the whole source records; the shell names each one by its id.
+    store = active_store()
+
+    def record(item: Record) -> RawJson:
+        return item.id if store is not None and store.holds_record(item.id) else asdict(item)
+
+    value: dict[str, RawJson] = {
+        "analyzer": asdict(model.analyzer),
+        "producer": asdict(model.producer) if model.producer else None,
+        "source": asdict(model.source),
+        "contract": asdict(model.contract),
+        "runtime": asdict(model.runtime) if model.runtime else None,
+        "coverage": {
+            **asdict(replace(model.coverage, failures=())),
+            "failures": [record(item) for item in model.coverage.failures],
+        },
+        "evidence": [
+            e.id if store is not None and store.holds_evidence(e.id) else asdict(e)
+            for e in model.evidence
+        ],
+        "declarations": [
+            asdict(r)
+            for r in model.records("declarations") or ()
+            if r.kind not in TARGET_GRAPH_RECORD_KINDS
+        ],
+        "sections": {
+            name: [record(r) for r in model.records(name) or ()]
+            for name in _INVENTORY_SOURCE_SECTIONS
+        },
+    }
+    return _inventory_digest(value) if store is None else store.digest(value)
 
 
 def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...]) -> set[str]:
