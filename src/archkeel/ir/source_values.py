@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from archkeel.ir.architecture_graph import Visibility, VisibilityBasis, VisibilityKind
 from archkeel.ir.model import JsonValue, RecordData
 
 
@@ -33,3 +34,15 @@ def record_array(value: JsonValue) -> tuple[RecordData, ...]:
     if not isinstance(value, tuple) or any(not isinstance(item, RecordData) for item in value):
         raise ValueError("source graph expected record array")
     return tuple(item for item in value if isinstance(item, RecordData))
+
+
+def visibility_detail(value: JsonValue, spelling: str | None = None) -> Visibility:
+    if value is None:
+        return Visibility(spelling=spelling)
+    if not isinstance(value, RecordData):
+        raise ValueError("source graph expected visibility record")
+    return Visibility(
+        VisibilityKind(vocabulary_text(value.get("kind"), default=VisibilityKind.UNKNOWN)),
+        VisibilityBasis(vocabulary_text(value.get("basis"), default=VisibilityBasis.UNKNOWN)),
+        optional_text(value.get("spelling")),
+    )

@@ -67,4 +67,4 @@ output; `init` and `explore` do not support Rust. **Check.** `cargo test`; the R
   `cfg(any(test, feature = ...))` of known conditions are read. (d) A planned crate is no component.
 
 **Amendment, 2026-11-10 (5b-2c).** Module edges, no `crate_edges_only`, a re-exporting module is the
-dependency: [Rust module edges](../rust-module-edges.md). 5b-3: components by responsibility.
+dependency: [Rust module edges](../rust-module-edges.md). 5b-3: components by responsibility. 5b-4a: definitions and visibility ([AD-351](ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).

@@ -17,7 +17,8 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
   an edge to the module that defines it. A call that the scan cannot place is UNKNOWN.
 - `crate_edges_only` is false for the Rust profile, so a rule or a component below a crate root is
   decided from the edges. A rule kind that nobody reviewed stays UNKNOWN. `interface_boundary`
-  stays unsupported until symbols (5b-4).
+  stays unsupported until the uses of an item are resolved (5b-4b). The definitions are read since
+  5b-4a ([AD-351](decisions/ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).
 - A re-exporting module is the dependency: `a` uses `b` through `pub use crate::b::make;` in `c`
   as `a -> c`, and `c -> b` is a `reexport` record. A rule on `a -> b` does not see it. The same for
   a glob re-export.

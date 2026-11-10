@@ -761,6 +761,36 @@
                   "bindings",
                   "calls"
                 ]
+              },
+              {
+                "properties": {
+                  "analyzer": {
+                    "properties": {
+                      "name": {
+                        "const": "archkeel-rust-imports"
+                      }
+                    }
+                  },
+                  "symbols": {
+                    "type": "array"
+                  },
+                  "references": {
+                    "type": "null"
+                  },
+                  "bindings": {
+                    "type": "null"
+                  },
+                  "calls": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "analyzer",
+                  "symbols",
+                  "references",
+                  "bindings",
+                  "calls"
+                ]
               }
             ]
           },

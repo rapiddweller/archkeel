@@ -154,6 +154,7 @@
                 "attribute",
                 "type_alias",
                 "constant",
+                "macro",
                 "binding",
                 "symbol"
               ]
@@ -582,6 +583,7 @@
                   "attribute",
                   "type_alias",
                   "constant",
+                  "macro",
                   "binding",
                   "symbol"
                 ]

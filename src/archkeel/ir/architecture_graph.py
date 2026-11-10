@@ -10,9 +10,10 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import PurePosixPath
 from typing import Literal
 
+from archkeel.ir.contract_paths import contract_relative_path as contract_relative_path
+from archkeel.ir.contract_paths import validate_module_target_path as validate_module_target_path
 from archkeel.ir.facts import DefinitionBranchKind as DefinitionBranchKind
 from archkeel.ir.facts import DefinitionContextKind as DefinitionContextKind
 from archkeel.ir.facts import Evidence, Language
@@ -33,6 +34,7 @@ class EntityKind(StrEnum):
     ATTRIBUTE = "attribute"
     TYPE_ALIAS = "type_alias"
     CONSTANT = "constant"
+    MACRO = "macro"
     BINDING = "binding"
     SYMBOL = "symbol"
 
@@ -336,27 +338,6 @@ class RootLayoutRule(ArchitectureRuleGrammar):
     rationale: str
     provenance: tuple[str, ...]
     decided_by: DecisionMaker
-
-
-def contract_relative_path(value: str) -> PurePosixPath | None:
-    """Check a declared repository path without filesystem access."""
-    relative = PurePosixPath(value)
-    if relative.is_absolute() or re.search(r"(?:^|/)\.\.(?:/|$)|\\", value):
-        return None
-    return relative
-
-
-def validate_module_target_path(path: str) -> None:
-    relative = contract_relative_path(path)
-    if (
-        not path
-        or relative is None
-        or str(relative) != path
-        or re.match(r"^[A-Za-z]:", path) is not None
-        or re.search(r"\x00", path) is not None
-        or re.fullmatch(r"\.(?:py|dart|tsx?|mts|cts|jsx?|mjs|cjs)", relative.suffix) is None
-    ):
-        raise ValueError("path must be a repository-relative source path")
 
 
 def validate_module_target(target: ContractModuleTarget) -> None:

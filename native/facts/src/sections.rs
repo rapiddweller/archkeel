@@ -84,6 +84,7 @@ section_facts! {
         Alias(ValueData),
         DynamicBinding(ValueData),
         StaticConstant(ValueData),
+        Macro(ValueData),
     }
 }
 

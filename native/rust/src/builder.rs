@@ -11,7 +11,7 @@ use archkeel_facts::envelope::Target;
 use archkeel_facts::envelope::{Evidence, FileFact};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::vocab::{Area, EvidenceClass};
-use archkeel_facts::{GapFact, ImportFact, Record};
+use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 
 use crate::crates::Problem;
 use crate::modules::Edge;
@@ -60,6 +60,7 @@ pub(crate) struct Builder {
     pub(crate) evidence: BTreeMap<String, Evidence>,
     pub(crate) files: Vec<FileFact>,
     pub(crate) imports: Vec<Record<ImportFact>>,
+    pub(crate) symbols: Vec<Record<SymbolFact>>,
     pub(crate) targets: Vec<Target>,
     pub(crate) seen: BTreeSet<(String, String, String)>,
     /// The manifests of the crates: each is a module that holds the declared dependencies.

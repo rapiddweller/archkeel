@@ -160,6 +160,7 @@
                 "attribute",
                 "type_alias",
                 "constant",
+                "macro",
                 "binding",
                 "symbol"
               ]

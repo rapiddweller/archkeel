@@ -178,7 +178,7 @@ fn each_place_that_cannot_be_read_is_a_gap_with_its_line() {
         .map(|e| e.line)
         .collect();
     assert_eq!(lines, [2]);
-    assert_eq!(facts.head.sections, ["imports", "unknowns"]);
+    assert_eq!(facts.head.sections, ["imports", "symbols", "unknowns"]);
 }
 
 #[test]
