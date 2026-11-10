@@ -67,7 +67,7 @@ Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `macos-15`,
 `macos-15-intel`). The Linux wheel jobs use manylinux and musllinux images pinned by digest. A move
-to a new image is a deliberate change: run Full on the branch before you merge it.
+to a new image is a deliberate change. The PR needs green CI; Full on `main` checks the image after the merge (nightly, or by dispatch when useful).
 
 Keep four workflow files: CI, Full verification, Pages and release. Use existing Make targets
 or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
@@ -100,7 +100,7 @@ aggregate would count as passed.
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
-Full runs all tests. A PR runs Full only if it changes what Full runs. These paths start Full:
+Full runs all tests, on `main` nightly or by dispatch. No Full run per PR. The Full workflow's `pull_request` filter also starts a run when one of these paths changes; that does not change the merge rules above, and a PR that changes `.github/` still needs green CI:
 `.github/workflows/**`, `.github/actions/**`, `.python-version`, `pyproject.toml`, `uv.lock`,
 `tools/browser-runtime/package*.json`, `tests/conftest.py`, `tests/test_report_pages.py`,
 `tools/report_pages.py`, `tools/report_timing.py` and `tools/full.mk`. `tools/full.mk` holds each
@@ -108,7 +108,7 @@ Make recipe that CI does not run, such as `full-test` and `python-compat`. The `
 `pr-test` list and `tests/areas.py` do not start Full. Tests in CI check that `tests/areas.py`
 still gives each area its files, matches the Full job matrix and keeps a valid `python-compat`
 selection. A change to a `Makefile` variable (`UV`, `TEST_WORKERS`) does not start Full: the
-nightly run covers it. Dispatch Full on the branch to check it before you merge. Name a new test file
+nightly run covers it. Full on `main` checks it after the merge. Name a new test file
 so that an area pattern matches it. Pages publishes only a passed Full run of the current
 `main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
 again.
