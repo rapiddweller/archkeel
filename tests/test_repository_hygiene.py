@@ -196,11 +196,22 @@ def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
             yield from _functions(child, prefix)
 
 
+SIZE_LIMITED_SOURCE_SUFFIXES = (".py", ".js", ".ts", ".tsx", ".css")
+SIZE_LIMIT_EXEMPT = {
+    "src/archkeel/render/assets/elkjs-0.12.0.bundled.js": "Vendored ELK bundle, kept as is.",
+}
+
+
 def _is_size_limited(relative: str) -> bool:
-    top, _, _ = relative.partition("/")
-    return (top == "src" and relative.endswith(".py")) or (
-        top in {"native", "crates"} and relative.endswith(".rs")
-    )
+    top, _, rest = relative.partition("/")
+    if relative in SIZE_LIMIT_EXEMPT:
+        return False
+    if top == "src":
+        return relative.endswith(SIZE_LIMITED_SOURCE_SUFFIXES)
+    if top in {"native", "crates"}:
+        return relative.endswith(".rs")
+    # Test modules and fixture helpers are code. Golden data and fixture sources are inputs.
+    return top in {"tests", "fixtures"} and "/" not in rest and relative.endswith(".py")
 
 
 def _file_size_problems(
@@ -264,13 +275,32 @@ def test_file_size_check_applies_the_ratchet(tmp_path: Path) -> None:
     assert _file_size_problems(tmp_path, ("grown.py", "new.py"), held) == []
 
 
-def test_file_size_limit_covers_source_languages_only() -> None:
+def test_size_ratchet_stops_a_new_long_test_and_a_grown_script(tmp_path: Path) -> None:
+    names = ("test_new.py", "flow.js")
+    assert _is_size_limited("tests/test_new.py")
+    assert _is_size_limited("src/archkeel/render/assets/flow.js")
+    (tmp_path / "test_new.py").write_text("x = 1\n" * 501, encoding="utf-8")
+    (tmp_path / "flow.js").write_text("let x;\n" * 3603, encoding="utf-8")
+    problems = _file_size_problems(tmp_path, names, {"flow.js": 3602})
+    assert [problem.split(" ")[0] for problem in problems] == ["flow.js", "test_new.py"]
+    assert "grew past 3602" in problems[0]
+
+
+def test_file_size_limit_covers_code_and_not_data() -> None:
     assert _is_size_limited("src/archkeel/cli/__init__.py")
     assert _is_size_limited("native/ts/src/lib.rs")
     assert _is_size_limited("crates/py/src/lib.rs")
-    assert not _is_size_limited("tests/test_analyzer.py")
+    assert _is_size_limited("tests/test_analyzer.py")
+    assert _is_size_limited("fixtures/demo_catalog_types.py")
+    assert _is_size_limited("src/archkeel/render/assets/flow.js")
+    assert _is_size_limited("src/archkeel/render/assets/archkeel-report.css")
+    assert _is_size_limited("src/archkeel/studio/ui/workbench.tsx")
     assert not _is_size_limited("tools/against.py")
-    assert not _is_size_limited("src/archkeel/assets/report.js")
+    assert not _is_size_limited("fixtures/H-typescript/src/main.ts")
+    assert not _is_size_limited("tests/golden/typescript/expected.json")
+    assert not _is_size_limited("tests/golden/typescript/sources/a/src/b.py")
+    for relative in SIZE_LIMIT_EXEMPT:
+        assert not _is_size_limited(relative)
 
 
 def test_source_files_stay_within_the_size_limit() -> None:
