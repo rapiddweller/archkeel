@@ -8,6 +8,7 @@ on:
   schedule:
     - cron: "17 2 * * *"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
@@ -30,6 +31,7 @@ concurrency:
 
 jobs:
   full-suite-and-reports:
+    if: github.event.pull_request.draft != true
     name: Architecture, build and report checks
     runs-on: ubuntu-24.04
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
@@ -94,6 +96,7 @@ jobs:
           retention-days: 1
 
   demos:
+    if: github.event.pull_request.draft != true
     name: Demos
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -126,6 +129,7 @@ jobs:
           retention-days: 1
 
   tests:
+    if: github.event.pull_request.draft != true
     name: "Tests: ${{ matrix.area }}"
     runs-on: ubuntu-24.04
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
@@ -191,6 +195,7 @@ jobs:
           retention-days: 1
 
   python-compat:
+    if: github.event.pull_request.draft != true
     name: Python ${{ matrix.python }} compatibility
     runs-on: ubuntu-24.04
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
@@ -222,6 +227,7 @@ jobs:
         run: make python-compat TEST_WORKERS=4
 
   collector-safety-windows:
+    if: github.event.pull_request.draft != true
     name: "Windows: collector safety"
     runs-on: windows-2025
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
@@ -256,6 +262,7 @@ jobs:
         run: make collector-safety SHELL=bash
 
   language-collectors:
+    if: github.event.pull_request.draft != true
     name: "Linux: source collectors"
     runs-on: ubuntu-24.04
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
@@ -292,6 +299,7 @@ jobs:
 
   # AD-317: build each platform wheel on its own target, then install it and run its binary.
   native-wheel-linux:
+    if: github.event.pull_request.draft != true
     name: "Native wheel: ${{ matrix.target }}"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -348,6 +356,7 @@ jobs:
           retention-days: 7
 
   native-wheel-macos:
+    if: github.event.pull_request.draft != true
     name: "Native wheel: ${{ matrix.target }}"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
@@ -391,6 +400,7 @@ jobs:
           retention-days: 7
 
   native-wheel-windows:
+    if: github.event.pull_request.draft != true
     name: "Native wheel: Windows x86_64"
     runs-on: windows-2025
     timeout-minutes: 30
@@ -441,7 +451,7 @@ jobs:
       - native-wheel-macos
       - native-wheel-windows
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
-    if: always()
+    if: always() && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     permissions:
       actions: read
