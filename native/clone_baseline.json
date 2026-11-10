@@ -1,4 +1,300 @@
 {
+  "facts/src/data/constructs.rs|facts/src/data/imports.rs|d6b188ae7f": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/imports.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 80
+  },
+  "facts/src/data/constructs.rs|facts/src/data/sites.rs|c5407a7950": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 93
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|27db5a46e9": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 97
+  },
+  "facts/src/data/constructs.rs|facts/src/data/symbols.rs|38a901b21b": {
+    "files": [
+      "facts/src/data/constructs.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 91
+  },
+  "facts/src/data/imports.rs|facts/src/data/imports.rs|2ba0e6db51": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/imports.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 71
+  },
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|b5a6673413": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 93
+  },
+  "facts/src/data/imports.rs|facts/src/data/symbols.rs|247989d2dc": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 81
+  },
+  "facts/src/data/imports.rs|facts/src/data/symbols.rs|262a8030ea": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 75
+  },
+  "facts/src/data/imports.rs|facts/src/data/symbols.rs|b5a6673413": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 90
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|59d1180c43": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 94
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|7e34952163": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 92
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|06cd601bcc": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 93
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|59d1180c43": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 94
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|a3c5a20b19": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 79
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|fe9636f6e5": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 93
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|0236dd1d43": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 86
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|10ae19658f": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|53ff0190c4": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 70
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|5a5ed060de": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 72
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|6ac410b5bd": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 78
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|caf65bae3f": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 74
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|d50b33cb61": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 115
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|e404e5589e": {
+    "files": [
+      "facts/src/data/symbols.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 73
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|241e8bfe95": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 79
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|2ba04bf7d2": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 71
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|972b699518": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 104
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|01cc8626ad": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 73
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|56b2c8dbfa": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 102
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|6596af88d7": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 89
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|d9d852c59b": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 99
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|da50468bbd": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 86
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|f5827e54f5": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 96
+  },
+  "facts/src/readset_fields.rs|typescript/src/source_input.rs|35b2e49148": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "typescript/src/source_input.rs"
+    ],
+    "reason": "The facts decoders share a block with the TypeScript collector; share it when the Rust collector of #916 reads the same input.",
+    "tokens": 71
+  },
+  "facts/src/sections.rs|facts/src/sections.rs|9583395774": {
+    "files": [
+      "facts/src/sections.rs",
+      "facts/src/sections.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 92
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|7f1b981b84": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 107
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|88acbccd97": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 86
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|a75d8d6cad": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "The facts crate writes one decoder for each record kind with the same shape. Fold the decoders into one shared decoder when the crate next changes.",
+    "tokens": 98
+  },
   "typescript/src/dump.rs|typescript/src/dump.rs|0dac14091e": {
     "files": [
       "typescript/src/dump.rs",
@@ -6,14 +302,6 @@
     ],
     "reason": "The two dev-only dump loops (`run`, `count`) share the request loop. Dev tool behind the `dump` feature, not shipped; merge when it next changes.",
     "tokens": 149
-  },
-  "typescript/src/dump.rs|typescript/src/dump.rs|decffd146b": {
-    "files": [
-      "typescript/src/dump.rs",
-      "typescript/src/dump.rs"
-    ],
-    "reason": "Rows of one JSON object, one `map(record_value)` for each list. The rows differ in the field name.",
-    "tokens": 96
   },
   "typescript/src/dump.rs|typescript/src/parse.rs|d30ab497d1": {
     "files": [
@@ -31,13 +319,13 @@
     "reason": "Same rows as above, in another place of the dump.",
     "tokens": 73
   },
-  "typescript/src/dump.rs|wire/src/reply.rs|decffd146b": {
+  "typescript/src/dump.rs|wire/src/reply.rs|9856c963f9": {
     "files": [
       "typescript/src/dump.rs",
       "wire/src/reply.rs"
     ],
-    "reason": "Rows of `map(record_value)` in the dump and in the reply. The dump is a dev tool that mirrors the reply shape.",
-    "tokens": 93
+    "reason": "Same rows as above, in another place of the dump.",
+    "tokens": 94
   },
   "typescript/src/kinds.rs|typescript/src/kinds.rs|1c22ec29dc": {
     "files": [

@@ -64,6 +64,6 @@ TypeScript collector is byte-equal on x35 except the code digest, and the binary
 
 **Note, 2026-11-10 (no copies, a counted API).** `tools/rust_clones.py` hashes windows of 70 tokens
 (type 2: names and literals hidden; rows of one shape are skipped as tables). A new production clone, or a
-grown one, fails `make native-check`; `native/clone_baseline.json` lists the 9 that remain, each with
+grown one, fails `make native-check`; `native/clone_baseline.json` lists the 45 that exist (36 in `archkeel-facts`), each with
 a reason. A clone in a test file is a warning. `tools/rust_api.py` ratchets the `pub` items of each
-library (wire 40, snapshot 22) in `native/api_baseline.json` and needs `unreachable_pub` in each.
+library (facts 127, wire 45, snapshot 22) in `native/api_baseline.json` and needs `unreachable_pub` in each.
