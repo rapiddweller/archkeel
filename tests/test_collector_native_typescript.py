@@ -26,7 +26,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
 from archkeel.ir.facts import SourceFacts
-from archkeel.ir.facts_codec import encode_request
+from archkeel.ir.facts_codec import encode_request, encode_response
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
@@ -291,3 +291,23 @@ def test_the_host_refuses_a_reply_of_another_protocol_version(binary: Path) -> N
     result = ProcessCollector(argv, protocol_version=ProtocolVersion.V8).collect(request)
     assert isinstance(result, CollectionError)
     assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
+
+
+def test_the_native_reply_has_the_keys_of_the_python_reply_in_the_same_order(
+    tmp_path: Path, binary: Path
+) -> None:
+    """`facts` has its keys sorted, as the Python reply has them, so `evidence` comes before
+    `sections`: the host decodes the evidence first, which lowers its peak (AD-340). The sections
+    are written before the evidence is complete, so this is a contract of the encoder."""
+    root = repository(tmp_path, VARIANTS[0])
+    request = _request(root, ProtocolVersion.V8)
+    payload = encode_request(request)
+    reply = subprocess.run([str(binary)], input=payload, capture_output=True, check=True).stdout
+    native = json.loads(zlib.decompress(reply), object_pairs_hook=lambda pairs: pairs)
+    python = encode_response(CollectionResponse(collect(request), request.protocol_version))
+    wanted = json.loads(zlib.decompress(python), object_pairs_hook=lambda pairs: pairs)
+    keys = lambda pairs: [key for key, _ in pairs]  # noqa: E731
+    assert keys(native) == keys(wanted) == sorted(keys(wanted))
+    native_facts, python_facts = dict(native)["facts"], dict(wanted)["facts"]
+    assert keys(native_facts) == keys(python_facts)
+    assert keys(native_facts).index("evidence") < keys(native_facts).index("sections")

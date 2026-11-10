@@ -11,6 +11,7 @@
 #![deny(unreachable_pub)]
 
 pub mod identity;
+mod pieces;
 pub mod protocol;
 pub mod reply;
 pub mod request;

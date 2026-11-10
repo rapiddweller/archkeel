@@ -5,28 +5,31 @@
 //! The reply of protocols 8.0.0 and 9.0.0, written section by section into the compressor.
 //!
 //! A reply with a tree of all facts is several times the size of the facts, and a list of all
-//! records of a project is large too. Here the head of the facts is written first, each record of a
-//! section is written when the caller makes it and is dropped after that, and the coverage and the
-//! evidence follow. The reply is held only as compressed bytes.
+//! records of a project is large too. Each record of a section is written when the caller makes it
+//! and is dropped after that. The reply is held only as compressed bytes.
+//!
+//! The keys of `facts` have the order of the Python reply (`sort_keys`), so `evidence` comes
+//! before `sections`. The evidence is complete only after the last record was made, so the reply
+//! has three pieces: the text before the records (with the evidence), the records, and the text
+//! after them. The records are compressed first, as a piece of raw deflate blocks of their own,
+//! and the pieces are joined in the order of the text, with one zlib header and one checksum. A
+//! decoder reads the join as one stream.
 //!
 //! The sections that the head declares must be written, in that order, and no other: a reply that
 //! declares a section that it does not hold, or holds one that it does not declare, is an error and
 //! never reaches the host.
 
-use std::io::{self, BufWriter, Write};
+use std::io::{self, Write};
 
-use flate2::write::ZlibEncoder;
-use flate2::Compression;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::pieces::{Adler, Piece, ZLIB_HEADER};
 use crate::protocol::Version;
 use crate::reply::{
     evidence_value, file_value, source_digest, target_value, Evidence, Facts, FileFact, Input,
     Provenance, Record, Target,
 };
-
-type Out<W> = BufWriter<ZlibEncoder<W>>;
 
 /// What the reply says before the records: who made it, what it declares, and the small lists.
 pub struct Head {
@@ -53,8 +56,8 @@ pub struct Tail {
 }
 
 /// The writer of the sections of one reply.
-pub struct Sections<'a, W: Write> {
-    out: &'a mut Out<W>,
+pub struct Sections<'a> {
+    out: &'a mut Piece,
     expected: Vec<&'static str>,
     written: usize,
 }
@@ -86,7 +89,7 @@ pub trait SectionSink {
     }
 }
 
-impl<W: Write> SectionSink for Sections<'_, W> {
+impl SectionSink for Sections<'_> {
     /// The name must be the next one that the head declared.
     fn section(&mut self, name: &'static str, fill: &mut dyn FnMut(Emit<'_>)) -> io::Result<()> {
         if self.expected.get(self.written) != Some(&name) {
@@ -168,28 +171,46 @@ pub fn encode(version: Version, facts: Facts) -> Result<Vec<u8>, String> {
 }
 
 /// Encode a reply for `version` into `sink`. `produce` writes the sections and returns the tail.
-/// The compressed bytes go to `sink` as they are made, so the reply is never held whole.
+/// The records are compressed as they are made; the rest of the reply is written after them, with
+/// the evidence before the records, as the Python reply has it.
 pub fn encode_stream<W: Write>(
     version: Version,
     head: Head,
-    sink: W,
-    produce: impl FnOnce(&mut Sections<'_, W>) -> io::Result<Tail>,
+    mut sink: W,
+    produce: impl FnOnce(&mut Sections<'_>) -> io::Result<Tail>,
 ) -> Result<(), String> {
     if version == Version::V3 {
         return Err("a native collector writes only the compressed reply".to_owned());
     }
-    let encoder = ZlibEncoder::new(sink, Compression::new(1));
-    let mut out = BufWriter::with_capacity(1 << 16, encoder);
-    write_reply(&mut out, version, head, produce)
-        .map_err(|error| format!("cannot write the reply: {error}"))?;
-    let encoder = out
-        .into_inner()
-        .map_err(|error| format!("cannot write the reply: {error}"))?;
-    let mut sink = encoder
-        .finish()
-        .map_err(|error| format!("cannot compress the reply: {error}"))?;
-    sink.flush()
-        .map_err(|error| format!("cannot write the reply: {error}"))
+    let failed = |error: io::Error| format!("cannot write the reply: {error}");
+    let mut records = Piece::new();
+    let expected = head.sections.clone();
+    let mut sections = Sections {
+        out: &mut records,
+        expected,
+        written: 0,
+    };
+    let tail = produce(&mut sections).map_err(failed)?;
+    if sections.written != sections.expected.len() {
+        let reason = "a declared section was not written".to_owned();
+        return Err(format!("cannot write the reply: {reason}"));
+    }
+    let (mut before, mut after) = (Piece::new(), Piece::new());
+    write_before(&mut before, &head, tail).map_err(failed)?;
+    write_after(&mut after, &head, version).map_err(failed)?;
+    let (before, records, after) = (
+        before.close(false).map_err(failed)?,
+        records.close(false).map_err(failed)?,
+        after.close(true).map_err(failed)?,
+    );
+    let inner = Adler::join(before.adler, records.adler, records.length);
+    let whole = Adler::join(inner, after.adler, after.length);
+    sink.write_all(&ZLIB_HEADER).map_err(failed)?;
+    for part in [&before.bytes, &records.bytes, &after.bytes] {
+        sink.write_all(part).map_err(failed)?;
+    }
+    sink.write_all(&whole.to_be_bytes()).map_err(failed)?;
+    sink.flush().map_err(failed)
 }
 
 /// The state of a JSON object that is written key by key into `out`.
@@ -198,12 +219,12 @@ struct Fields {
 }
 
 impl Fields {
-    fn open<W: Write>(out: &mut Out<W>) -> io::Result<Self> {
+    fn open(out: &mut impl Write) -> io::Result<Self> {
         out.write_all(b"{")?;
         Ok(Self { first: true })
     }
 
-    fn key<W: Write>(&mut self, out: &mut Out<W>, name: &str) -> io::Result<()> {
+    fn key(&mut self, out: &mut impl Write, name: &str) -> io::Result<()> {
         if !self.first {
             out.write_all(b",")?;
         }
@@ -212,22 +233,17 @@ impl Fields {
         out.write_all(b":")
     }
 
-    fn put<W: Write>(
-        &mut self,
-        out: &mut Out<W>,
-        name: &str,
-        value: &impl Serialize,
-    ) -> io::Result<()> {
+    fn put(&mut self, out: &mut impl Write, name: &str, value: &impl Serialize) -> io::Result<()> {
         self.key(out, name)?;
         Ok(serde_json::to_writer(out, value)?)
     }
 
     fn list<T, W: Write>(
         &mut self,
-        out: &mut Out<W>,
+        out: &mut W,
         name: &str,
         items: impl IntoIterator<Item = T>,
-        mut write: impl FnMut(&mut Out<W>, T) -> io::Result<()>,
+        mut write: impl FnMut(&mut W, T) -> io::Result<()>,
     ) -> io::Result<()> {
         self.key(out, name)?;
         out.write_all(b"[")?;
@@ -240,71 +256,26 @@ impl Fields {
         out.write_all(b"]")
     }
 
-    fn close<W: Write>(self, out: &mut Out<W>) -> io::Result<()> {
+    fn close(self, out: &mut impl Write) -> io::Result<()> {
         out.write_all(b"}")
     }
 }
 
-fn write_reply<W: Write>(
-    out: &mut Out<W>,
-    version: Version,
-    head: Head,
-    produce: impl FnOnce(&mut Sections<'_, W>) -> io::Result<Tail>,
-) -> io::Result<()> {
-    let mut reply = Fields::open(out)?;
-    reply.put(out, "protocol_version", &version.as_str())?;
-    reply.put(out, "provider_sources", &Vec::<Value>::new())?;
-    reply.key(out, "facts")?;
-    let mut facts = Fields::open(out)?;
-    let files_parsed = head.files.len();
-    let expected = head.sections.clone();
-    write_head(out, &mut facts, head)?;
-    facts.key(out, "sections")?;
-    out.write_all(b"[")?;
-    let mut sections = Sections {
-        out,
-        expected,
-        written: 0,
-    };
-    let tail = produce(&mut sections)?;
-    if sections.written != sections.expected.len() {
-        let reason = "a declared section was not written".to_owned();
-        return Err(io::Error::new(io::ErrorKind::InvalidData, reason));
-    }
-    out.write_all(b"]")?;
-    write_tail(out, &mut facts, tail, files_parsed)?;
-    facts.close(out)?;
-    reply.close(out)
-}
-
-/// The fields of the facts before the sections.
-fn write_head<W: Write>(out: &mut Out<W>, facts: &mut Fields, head: Head) -> io::Result<()> {
+/// The text up to the records: the keys of `facts` that come before `sections`, in the order of
+/// the Python reply, and the opening of the list of sections.
+fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
     let provenance = &head.provenance;
-    facts.put(out, "profile", &provenance.profile)?;
+    out.write_all(b"{\"facts\":")?;
+    let mut facts = Fields::open(out)?;
     facts.key(out, "adapter")?;
     let mut adapter = Fields::open(out)?;
+    adapter.put(out, "code_digest", &provenance.code_digest)?;
     adapter.put(out, "name", &provenance.profile)?;
     adapter.put(out, "version", &provenance.adapter_version)?;
-    adapter.put(out, "code_digest", &provenance.code_digest)?;
     adapter.close(out)?;
-    facts.key(out, "runtime")?;
-    let mut runtime = Fields::open(out)?;
-    runtime.put(out, "name", &provenance.runtime_name)?;
-    runtime.put(out, "version", &provenance.runtime_version)?;
-    runtime.put(out, "required", &provenance.runtime_required)?;
-    runtime.put(out, "requirement_state", &"declared")?;
-    runtime.close(out)?;
-    facts.key(out, "source")?;
-    let mut source = Fields::open(out)?;
-    source.put(out, "git_head", &head.git_head)?;
-    source.put(out, "dirty", &head.dirty)?;
-    source.put(out, "source_digest", &source_digest(&head.inputs))?;
-    source.put(out, "scope", &head.scope)?;
-    source.close(out)?;
+    facts.put(out, "candidate_evidence", &Vec::<Value>::new())?;
     facts.key(out, "capabilities")?;
     let mut capabilities = Fields::open(out)?;
-    capabilities.put(out, "sections", &head.sections)?;
-    capabilities.put(out, "resolution_features", &head.features)?;
     let constructs = head
         .constructs
         .iter()
@@ -312,49 +283,69 @@ fn write_head<W: Write>(out: &mut Out<W>, facts: &mut Fields, head: Head) -> io:
     capabilities.list(out, "constructs", constructs, |out, item| {
         Ok(serde_json::to_writer(out, &item)?)
     })?;
+    capabilities.put(out, "resolution_features", &head.features)?;
+    capabilities.put(out, "sections", &head.sections)?;
     capabilities.close(out)?;
-    facts.list(out, "inputs", &head.inputs, |out, input| {
-        let value = json!({
-            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
-        });
-        Ok(serde_json::to_writer(out, &value)?)
+    facts.key(out, "coverage")?;
+    let mut coverage = Fields::open(out)?;
+    coverage.put(out, "files_parsed", &head.files.len())?;
+    coverage.put(out, "files_read", &tail.files_read)?;
+    coverage.put(out, "full_scope", &tail.gaps.is_empty())?;
+    coverage.list(out, "gaps", &tail.gaps, write_record)?;
+    coverage.put(out, "selected_files", &tail.selected_files)?;
+    coverage.close(out)?;
+    facts.list(out, "evidence", &tail.evidence, |out, item| {
+        Ok(serde_json::to_writer(out, &evidence_value(item))?)
     })?;
     facts.list(out, "files", &head.files, |out, file| {
         Ok(serde_json::to_writer(out, &file_value(file))?)
     })?;
     facts.list(out, "imports", &head.imports, |out, target| {
         Ok(serde_json::to_writer(out, &target_value(target))?)
-    })
+    })?;
+    facts.list(out, "inputs", &head.inputs, |out, input| {
+        let value = json!({
+            "digest": input.digest, "path": input.path, "role": input.role.as_str(),
+        });
+        Ok(serde_json::to_writer(out, &value)?)
+    })?;
+    facts.put(out, "profile", &provenance.profile)?;
+    facts.put(out, "provider_bindings", &Vec::<Value>::new())?;
+    facts.key(out, "runtime")?;
+    let mut runtime = Fields::open(out)?;
+    runtime.put(out, "name", &provenance.runtime_name)?;
+    runtime.put(out, "required", &provenance.runtime_required)?;
+    runtime.put(out, "requirement_state", &"declared")?;
+    runtime.put(out, "version", &provenance.runtime_version)?;
+    runtime.close(out)?;
+    facts.key(out, "sections")?;
+    out.write_all(b"[")
 }
 
-/// The coverage, the evidence and the fields that a native collector leaves empty.
-fn write_tail<W: Write>(
-    out: &mut Out<W>,
-    facts: &mut Fields,
-    tail: Tail,
-    files_parsed: usize,
-) -> io::Result<()> {
-    facts.key(out, "coverage")?;
-    let mut coverage = Fields::open(out)?;
-    coverage.put(out, "selected_files", &tail.selected_files)?;
-    coverage.put(out, "files_read", &tail.files_read)?;
-    coverage.put(out, "files_parsed", &files_parsed)?;
-    coverage.put(out, "full_scope", &tail.gaps.is_empty())?;
-    coverage.list(out, "gaps", &tail.gaps, write_record)?;
-    coverage.close(out)?;
-    facts.list(out, "evidence", &tail.evidence, |out, item| {
-        Ok(serde_json::to_writer(out, &evidence_value(item))?)
-    })?;
-    let empty = Vec::<Value>::new();
-    facts.put(out, "uncertain_reexports", &empty)?;
-    facts.put(out, "type_shapes", &empty)?;
+/// The text after the records: the end of the list of sections, the keys of `facts` that come
+/// after `sections`, and the keys of the reply that come after `facts`.
+fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()> {
+    out.write_all(b"]")?;
+    let mut facts = Fields { first: false };
+    facts.key(out, "source")?;
+    let mut source = Fields::open(out)?;
+    source.put(out, "dirty", &head.dirty)?;
+    source.put(out, "git_head", &head.git_head)?;
+    source.put(out, "scope", &head.scope)?;
+    source.put(out, "source_digest", &source_digest(&head.inputs))?;
+    source.close(out)?;
     facts.put(out, "state", &json!({"classes": [], "functions": []}))?;
-    facts.put(out, "candidate_evidence", &empty)?;
-    facts.put(out, "provider_bindings", &empty)
+    facts.put(out, "type_shapes", &Vec::<Value>::new())?;
+    facts.put(out, "uncertain_reexports", &Vec::<Value>::new())?;
+    facts.close(out)?;
+    let mut reply = Fields { first: false };
+    reply.put(out, "protocol_version", &version.as_str())?;
+    reply.put(out, "provider_sources", &Vec::<Value>::new())?;
+    reply.close(out)
 }
 
 /// One record, with the order of keys of `record_value` and without a copy of its data.
-fn write_record<W: Write>(out: &mut Out<W>, record: &Record) -> io::Result<()> {
+fn write_record(out: &mut impl Write, record: &Record) -> io::Result<()> {
     let mut item = Fields::open(out)?;
     item.put(out, "id", &record.id)?;
     item.put(out, "evidence_class", &record.evidence_class)?;

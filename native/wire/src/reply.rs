@@ -171,24 +171,12 @@ pub fn source_digest(inputs: &[Input]) -> String {
 fn facts_value(facts: &Facts) -> Value {
     let provenance = &facts.provenance;
     json!({
-        "profile": provenance.profile,
         "adapter": {
             "name": provenance.profile,
             "version": provenance.adapter_version,
             "code_digest": provenance.code_digest,
         },
-        "runtime": {
-            "name": provenance.runtime_name,
-            "version": provenance.runtime_version,
-            "required": provenance.runtime_required,
-            "requirement_state": "declared",
-        },
-        "source": {
-            "git_head": facts.git_head,
-            "dirty": facts.dirty,
-            "source_digest": source_digest(&facts.inputs),
-            "scope": facts.scope,
-        },
+        "candidate_evidence": [],
         "capabilities": {
             "sections": facts.sections.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
             "resolution_features": facts.features,
@@ -196,14 +184,6 @@ fn facts_value(facts: &Facts) -> Value {
                 .map(|(name, status)| json!({"name": name, "status": status}))
                 .collect::<Vec<_>>(),
         },
-        "inputs": facts.inputs.iter().map(|input| json!({
-            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
-        })).collect::<Vec<_>>(),
-        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
-        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
-        "sections": facts.sections.iter().map(|(name, records)| json!({
-            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>(),
         "coverage": {
             "selected_files": facts.selected_files,
             "files_read": facts.files_read,
@@ -212,11 +192,31 @@ fn facts_value(facts: &Facts) -> Value {
             "gaps": facts.gaps.iter().map(record_value).collect::<Vec<_>>(),
         },
         "evidence": facts.evidence.iter().map(evidence_value).collect::<Vec<_>>(),
-        "uncertain_reexports": [],
-        "type_shapes": [],
-        "state": {"classes": [], "functions": []},
-        "candidate_evidence": [],
+        "files": facts.files.iter().map(file_value).collect::<Vec<_>>(),
+        "imports": facts.imports.iter().map(target_value).collect::<Vec<_>>(),
+        "inputs": facts.inputs.iter().map(|input| json!({
+            "path": input.path, "digest": input.digest, "role": input.role.as_str(),
+        })).collect::<Vec<_>>(),
+        "profile": provenance.profile,
         "provider_bindings": [],
+        "runtime": {
+            "name": provenance.runtime_name,
+            "version": provenance.runtime_version,
+            "required": provenance.runtime_required,
+            "requirement_state": "declared",
+        },
+        "sections": facts.sections.iter().map(|(name, records)| json!({
+            "name": name, "records": records.iter().map(record_value).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "source": {
+            "git_head": facts.git_head,
+            "dirty": facts.dirty,
+            "source_digest": source_digest(&facts.inputs),
+            "scope": facts.scope,
+        },
+        "state": {"classes": [], "functions": []},
+        "type_shapes": [],
+        "uncertain_reexports": [],
     })
 }
 

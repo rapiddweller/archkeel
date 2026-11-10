@@ -282,4 +282,8 @@ fn the_streamed_reply_is_the_reply_that_a_tree_of_the_facts_gives() {
     let keys: Vec<&String> = reply["facts"].as_object().unwrap().keys().collect();
     let wanted: Vec<&String> = expected.as_object().unwrap().keys().collect();
     assert_eq!(keys, wanted);
+    // The keys are sorted, as the Python reply has them: the evidence comes before the sections.
+    let position = |name: &str| keys.iter().position(|key| key.as_str() == name);
+    assert!(position("evidence") < position("sections"));
+    assert!(keys.windows(2).all(|pair| pair[0] < pair[1]));
 }

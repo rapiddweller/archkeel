@@ -45,22 +45,25 @@ nest: 10 000 nested scopes with 100 000 sites take 2.2 s against 1.1 s (not fixe
 `string_literal_compare` as `partial`. The host reads it as the reply of the default collector, except
 the closed list: script facts (the 4.2 gap stays, so every verdict that needs them is `UNKNOWN`),
 provenance, and the script-global case of 3c. One producer, `Plan::write` in `records.rs`, gives
-each section to a sink: `native/wire/src/stream.rs` writes the head, each record (dropped after it is
-written) and the tail through the compressor to stdout, and fails when a declared section is not
-written or an undeclared one is; the lists of the tests use the same code. Data keys have another
-order than Python, so tests compare decoded values.
+each section to a sink; the lists of the tests use the same code as the stream. The keys of `facts`
+are sorted as in the Python reply, so `evidence` comes before `sections`. The evidence is complete
+only after the last record, so `stream.rs` compresses the records first as raw deflate blocks, writes
+the text before and after them as two more pieces, and joins the three with one zlib header and one
+checksum (`adler32` joined). Record data keys keep another order than Python; tests compare decoded
+values. A reply with a declared section that is not written, or the reverse, is an error.
 
 **Precondition for 4.3a-5.** The host takes a declared section that is present and empty as
 complete: with the default collector `calls`, `references` and `constructs` emptied give
 `complete=PASS` (`imports`, `symbols`, `bindings` give UNKNOWN). The native collector is safe only
-while the 4.2 gap makes every scan incomplete. Before the gap goes, the host must refuse a claimed
-and empty section (the strict xfail `test_a_section_that_is_emptied_is_never_a_pass`).
+while the 4.2 gap makes every scan incomplete. 4.3a-5 closes it for the native binary with an
+invariant inside the collector (each import-bearing node has a record or a gap); protocol 10 closes
+it for the wire; external collectors are capped at UNKNOWN by a separate decision. The strict xfail
+`test_a_section_that_is_emptied_is_never_a_pass` pins it.
 
-**Cost.** x35: collector 2.9 s and 431 MiB (3c: 1.0 s, 117 MiB), reply 36 MB; the host decodes the
-whole reply (2.9 GiB). The gate of at most 2 times the time of 3c is missed (2.9 times): after the
-walk, the time goes to building and writing 270 MB of JSON (malloc, copy), not to the compressor
-(stored blocks take as long; zlib-rs is 2 % faster and its licence is not allowed). The quadratic
-replies by the data model (the qualified name of each nested definition is in each record) are
-timed by their time for each byte of the reply and by an absolute peak (192 MiB) on the real
-collector, and by `--dump-count` for the walk. A shared name cut `writes-distinct-names` n=8 000
-from 1 302 to 474 MiB.
+**Cost (x35, release).** Collector 3.8 s and 481 MiB (3c: 1.0 s, 117 MiB; before the evidence moved:
+3.4 s, 433 MiB; the compressed records wait in memory, 36 MB). The gate of at most 2 times the time
+of 3c is missed (3.7 times): after the walk the time goes to building and writing 270 MB of JSON,
+not to the compressor (zlib-rs is 2 % faster; its licence is not allowed). Host peak of the decode,
+median of 3 (MiB; Python / native before / native after): x35 2 688 / 2 868 / 2 633, excalidraw
+2 507 / 2 255 / 2 167. Replies that are quadratic by the data model are timed by the time for each
+byte and by an absolute peak (320 MiB: the walk plus the compressed reply) on the real collector.

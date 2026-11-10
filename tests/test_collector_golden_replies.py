@@ -194,6 +194,17 @@ def test_a_field_that_only_the_whole_reply_digest_covers_fails() -> None:
     assert "whole reply" in golden_replies.compare(golden, changed).mismatches[0]
 
 
+def test_an_empty_provider_bindings_list_is_the_same_as_no_key() -> None:
+    """Protocol 4.0.0 and later write the key; the golden replies were recorded at 3.0.0."""
+    _, value = _golden(imports=[{"kind": "k"}])
+    newer = copy.deepcopy(value)
+    newer["facts"]["provider_bindings"] = []
+    assert golden_replies.digest(newer)["rest"] == golden_replies.digest(value)["rest"]
+    filled = copy.deepcopy(value)
+    filled["facts"]["provider_bindings"] = [{"name": "x"}]
+    assert golden_replies.digest(filled)["rest"] != golden_replies.digest(value)["rest"]
+
+
 def test_a_subset_fails_without_an_allowance() -> None:
     golden, value = _golden(imports=[{"kind": "k"}], calls=[{"kind": "c"}])
     native = _reply({"imports": [{"kind": "k"}]})

@@ -122,6 +122,7 @@ PR_TEST_FILES := \
 	'tests/test_collector_native_scaling.py::test_a_hung_child_fails_at_the_timeout' \
 	tests/test_collector_native_records.py \
 	tests/test_collector_native_syntax.py \
+	tests/test_collector_native_syntax_scaling.py \
 	tests/test_collector_native_verdicts.py \
 	tests/test_collector_golden_replies.py \
 	tests/test_source_trust_boundary.py \

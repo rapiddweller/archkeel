@@ -91,6 +91,17 @@ def canonical_bytes(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
+def _rest(facts: dict[str, Any]) -> dict[str, Any]:
+    """`facts` without its sections. Protocol 4.0.0 and later write `provider_bindings`, an empty
+    list for a TypeScript scan, and the replies of 3.0.0 do not have the key. The golden replies
+    were recorded at 3.0.0 and the native collector answers with 8.0.0 or 9.0.0, so an empty list
+    is the same as no key."""
+    rest = {key: item for key, item in facts.items() if key != "sections"}
+    if rest.get("provider_bindings") == []:
+        del rest["provider_bindings"]
+    return rest
+
+
 def _sha(value: Any) -> str:
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
@@ -113,7 +124,7 @@ def digest(value: dict[str, Any]) -> dict[str, Any]:
         }
         for section in facts["sections"]
     }
-    rest = {key: item for key, item in facts.items() if key != "sections"}
+    rest = _rest(facts)
     rest["capabilities"] = {k: v for k, v in rest["capabilities"].items() if k != "sections"}
     return {
         "sha256": _sha(value),
@@ -262,7 +273,7 @@ def _describe(
 
 def _part(facts: dict[str, Any], name: str) -> Any:
     if name == "rest":
-        return {key: item for key, item in facts.items() if key != "sections"}
+        return _rest(facts)
     return next((s for s in facts["sections"] if s["name"] == name), None)
 
 
