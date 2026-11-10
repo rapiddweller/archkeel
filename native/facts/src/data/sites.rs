@@ -31,6 +31,36 @@ facts_data! {
     }
 }
 
+impl CallData {
+    /// A call site of the source scope `scope` with the targets that it resolves to. The other
+    /// fields are absent.
+    pub fn new(
+        expression: String,
+        (source_module, source_scope): (ModuleName, String),
+        status: Status,
+        targets: Vec<String>,
+    ) -> Self {
+        Self {
+            call_arguments: Nullable::Absent,
+            call_binding: Nullable::Absent,
+            candidate_count: i64::try_from(targets.len()).unwrap_or(i64::MAX),
+            candidates_truncated: false,
+            construction: Nullable::Absent,
+            expression,
+            guarded_effect: None,
+            reason: None,
+            result_bindings: None,
+            source_definition_id: Nullable::Absent,
+            source_file: None,
+            source_module,
+            source_scope,
+            status,
+            target_evidence_ids: None,
+            targets,
+        }
+    }
+}
+
 facts_data! {
     /// A reference to a name and the targets that it resolves to.
     pub struct ReferenceData {
@@ -56,6 +86,42 @@ facts_data! {
         [read] status: Status,
         [read] targets: Vec<String>,
         [read "use"] use_: Use,
+    }
+}
+
+impl ReferenceData {
+    /// A reference in the source scope `scope` with the targets that it resolves to. The other
+    /// fields are absent.
+    pub fn new(
+        expression: String,
+        (source_module, source_scope): (ModuleName, String),
+        (status, use_): (Status, Use),
+        targets: Vec<String>,
+    ) -> Self {
+        Self {
+            candidate_count: Some(i64::try_from(targets.len()).unwrap_or(i64::MAX)),
+            candidates_truncated: Some(false),
+            declaration_definition_id: None,
+            declaration_evidence_ids: None,
+            declaration_id: None,
+            declaration_owner_id: None,
+            declaration_owner_scope: None,
+            declaration_role: None,
+            declaration_scope: None,
+            declaration_status: None,
+            expression,
+            local_source_binding: None,
+            reason: None,
+            reference_context: None,
+            result_bindings: None,
+            source_definition_id: Nullable::Absent,
+            source_file: None,
+            source_module,
+            source_scope,
+            status,
+            targets,
+            use_,
+        }
     }
 }
 
@@ -91,8 +157,30 @@ facts_data! {
         [wire] module: ModuleName,
         [wire skip] name: Option<String>,
         [wire skip] script_global: Option<String>,
+        [wire skip] script_namespace: Option<String>,
         [wire] source_module: ModuleName,
         [wire] source_scope: String,
+    }
+}
+
+impl BindingData {
+    /// A binding record of the module `module`: the module three times, and no name.
+    pub fn in_module(module: &str) -> Self {
+        Self {
+            binding: None,
+            module: ModuleName::new(module),
+            name: None,
+            script_global: None,
+            script_namespace: None,
+            source_module: ModuleName::new(module),
+            source_scope: module.to_owned(),
+        }
+    }
+
+    /// A binding that proves an export has a `name` and no `binding`; a result binding is the
+    /// other way round.
+    pub fn exports_name(&self) -> bool {
+        self.name.is_some()
     }
 }
 
