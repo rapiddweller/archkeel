@@ -108,6 +108,15 @@ fn only_a_build_that_needs_test_is_test_scope() {
     assert!(!is_test("#[cfg(not(test))]"));
     assert!(!is_test("#[cfg_attr(test, derive(Debug))]"));
     assert!(!is_test("#[cfg(feature = \"test\")]"));
-    assert!(!is_test("#[tokio::test]"));
+}
+
+#[test]
+fn a_test_attribute_of_a_crate_is_test_scope() {
+    assert!(is_test("#[tokio::test]"));
+    assert!(is_test("#[tokio::test(flavor = \"multi_thread\")]"));
+    assert!(is_test("#[rstest]"));
+    assert!(is_test("#[rstest(a, b)]"));
+    assert!(!is_test("#[macros::rstest]"));
+    assert!(!is_test("#[doc = \"test\"]"));
     assert!(!is_test("#[allow(dead_code)]"));
 }

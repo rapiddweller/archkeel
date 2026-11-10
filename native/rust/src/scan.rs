@@ -14,7 +14,10 @@ use proc_macro2::Span;
 use syn::visit::{self, Visit};
 use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro, UseTree};
 
-use crate::attrs::{hidden_by, is_test_attributes, item_attributes, path_literal};
+use crate::attrs::{
+    hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
+    statement_attributes, trait_item_attributes,
+};
 use crate::net;
 use crate::tokens::{chains, plain, Chain};
 
@@ -368,6 +371,24 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             self.bind(name);
         }
         visit::visit_item(self, item);
+    }
+
+    fn visit_impl_item(&mut self, item: &'ast syn::ImplItem) {
+        if !(self.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
+            visit::visit_impl_item(self, item);
+        }
+    }
+
+    fn visit_trait_item(&mut self, item: &'ast syn::TraitItem) {
+        if !(self.exclude_tests && is_test_attributes(trait_item_attributes(item))) {
+            visit::visit_trait_item(self, item);
+        }
+    }
+
+    fn visit_stmt(&mut self, stmt: &'ast syn::Stmt) {
+        if !(self.exclude_tests && is_test_attributes(statement_attributes(stmt))) {
+            visit::visit_stmt(self, stmt);
+        }
     }
 
     fn visit_foreign_item(&mut self, item: &'ast syn::ForeignItem) {

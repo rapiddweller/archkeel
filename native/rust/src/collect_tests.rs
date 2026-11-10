@@ -357,3 +357,40 @@ fn a_scope_with_only_test_files_is_a_gap() {
     let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
     assert_eq!(reasons, [crate::test_scope::NO_PRODUCTION_SOURCE]);
 }
+
+#[test]
+fn a_production_target_in_a_test_directory_is_a_gap_and_never_silent() {
+    let files = [
+        (
+            "crates/Cargo.toml",
+            "[package]\nname = \"app\"\n[[bin]]\nname = \"x\"\npath = \"tests/x.rs\"\n",
+        ),
+        ("crates/src/lib.rs", "mod helper;"),
+        ("crates/src/helper.rs", ""),
+        ("crates/tests/x.rs", "fn main() {}"),
+    ];
+    let facts = run(&files, true);
+    assert_eq!(
+        module_files(&facts),
+        ["crates/src/helper.rs", "crates/src/lib.rs"]
+    );
+    let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
+    assert_eq!(reasons.len(), 1, "{reasons:?}");
+    assert!(reasons[0].contains("crates/tests/x.rs"), "{reasons:?}");
+    // Without the flag the target is a module as before.
+    assert_eq!(module_files(&run(&files, false)).len(), 3);
+}
+
+#[test]
+fn a_production_module_file_in_a_test_directory_is_a_gap() {
+    let files = [
+        ("crates/Cargo.toml", "[package]\nname = \"app\"\n"),
+        ("crates/src/lib.rs", "mod helpers;"),
+        ("crates/src/helpers/mod.rs", "mod tests;"),
+        ("crates/src/helpers/tests/mod.rs", ""),
+    ];
+    let facts = run(&files, true);
+    let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
+    assert_eq!(reasons.len(), 1, "{reasons:?}");
+    assert!(reasons[0].contains("helpers/tests/mod.rs"), "{reasons:?}");
+}

@@ -91,6 +91,9 @@ pub fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -
 impl Walked {
     fn start(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, root: &Root) {
         if self.claimed.insert(root.rel.clone()) {
+            if self.exclude_tests && !root.test && in_test_directory(&root.rel) {
+                self.hidden(&root.rel, &root.rel);
+            }
             let first = Pending {
                 rel: root.rel.clone(),
                 module: root.module.clone(),
@@ -126,6 +129,29 @@ impl Walked {
                 scan: scanned,
             });
         }
+    }
+
+    /// Whether the file of a child is test scope under this request. A production module in a test
+    /// directory is test scope too, and a gap.
+    fn test_scope(&mut self, parent: &Pending, child: &Child, rel: &str) -> bool {
+        let scoped = parent.test || child.test;
+        let directory = in_test_directory(rel);
+        if self.exclude_tests && directory && !scoped {
+            self.hidden(rel, &parent.rel);
+        }
+        self.exclude_tests && (scoped || directory)
+    }
+
+    /// A production file in a test directory leaves the reply, because the host refuses a reply that
+    /// selects a test source by its path. That must not be silent: its facts are missing.
+    fn hidden(&mut self, rel: &str, file: &str) {
+        let reason = format!(
+            "Production source is in a test directory and the request excludes tests: {rel}"
+        );
+        self.problems.push(Problem {
+            reason,
+            file: file.to_owned(),
+        });
     }
 
     /// The text of a file. A test file that cannot be read is out of scope, so it is no problem.
@@ -190,7 +216,7 @@ impl Walked {
                 return;
             }
         };
-        let test = self.exclude_tests && (parent.test || child.test || in_test_directory(&rel));
+        let test = self.test_scope(parent, child, &rel);
         if !self.claimed.insert(rel.clone()) {
             let reason = format!("The file {rel} is the file of two modules");
             self.problems.push(Problem {

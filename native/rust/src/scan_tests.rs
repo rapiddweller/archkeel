@@ -427,3 +427,20 @@ fn a_cfg_test_module_file_below_a_test_item_is_a_test_child() {
         [true, false, false]
     );
 }
+
+#[test]
+fn a_test_member_a_test_statement_and_a_test_attribute_of_a_crate_give_no_fact() {
+    let text = "struct S;\n\
+        impl S {\n\
+            #[cfg(test)] fn t() { let _ = dev::a(); }\n\
+            fn keep() { let _ = kept_crate::a(); #[cfg(test)] let _ = dev::b(); #[cfg(test)] dev::c!(); }\n\
+        }\n\
+        trait T { #[cfg(test)] fn t() { let _ = dev::d(); } fn k() { let _ = kept_crate::b(); } }\n\
+        #[tokio::test] async fn run() { let _ = dev::e(); }\n\
+        #[rstest] fn case() { let _ = dev::f(); }\n";
+    assert!(paths(text).len() > 2);
+    let kept = test_scoped(text);
+    let roots: Vec<&str> = kept.references.iter().map(|r| r.root.as_str()).collect();
+    assert_eq!(roots, ["kept_crate", "kept_crate"]);
+    assert!(kept.mentioned.iter().all(|name| name != "dev"));
+}
