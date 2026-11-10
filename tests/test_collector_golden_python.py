@@ -249,7 +249,7 @@ def test_an_imports_case_has_no_standard_library_text_and_is_stored_in_full(case
     """The survey of phase `imports` is the oracle of slice 1: it holds only the project."""
     assert (golden_replies.GOLDEN / f"python/{case}.json.gz").exists()
     reply = golden_replies.load("python", case).full
-    assert reply is not None and "provider_sources" not in reply
+    assert reply is not None and not reply["provider_sources"]
     assert not [i for i in reply["facts"]["inputs"] if i["path"].startswith(".archkeel-providers")]
 
 

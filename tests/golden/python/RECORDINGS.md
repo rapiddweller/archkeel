@@ -1,18 +1,21 @@
 | Date | Case | Commit | Reason |
 |---|---|---|---|
-| 2026-11-09 | k-python-realworld | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | k-python-realworld-survey | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | f-architecture | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | h-uml | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | m-review-workflow | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | python-stdlib-demo | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | python-stdlib-demo-survey | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | python-newer-syntax-demo | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | synthetic-constructs | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | synthetic-constructs-base-features | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | synthetic-gaps | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | synthetic-gaps-survey | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | synthetic-excluded-tests | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | synthetic-tests-only | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | fastapi-security | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
-| 2026-11-09 | fastapi-encoders | 42c92c70 | First recording before the replacement of the Python collector of Python sources (AD-343) (cpython 3.11.12) |
+| 2026-11-10 | k-python-realworld | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | k-python-realworld-providers | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | k-python-realworld-imports | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | f-architecture | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | h-uml | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | m-review-workflow | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | python-stdlib-demo | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | python-stdlib-demo-providers | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | python-stdlib-demo-imports | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | python-newer-syntax-demo | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-constructs | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-constructs-base-features | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-gaps | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-gaps-providers | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-gaps-imports | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-excluded-tests | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | synthetic-tests-only | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | fastapi-security | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
+| 2026-11-10 | fastapi-encoders | aa84a9a8 | First recording before the replacement of the Python collector of Python sources (AD-343); re-recorded with the imports survey and the licence headers (review of #929) (cpython 3.11.12) |
