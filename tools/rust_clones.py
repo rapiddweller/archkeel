@@ -5,8 +5,10 @@
 
 The tool tokenizes each `.rs` file, drops comments and white space, and hashes each window of
 `WINDOW` tokens. In the default mode (type 2) an identifier and a literal become a placeholder, so
-a renamed copy is still a clone. `--exact` keeps them. Windows with the same hash that follow each
-other join into one block.
+a renamed copy is still a clone. `--exact` keeps them. Each copy of a window links to the copy
+before it, and windows that follow each other join into one block. A block whose every window is a
+table (it repeats within 24 tokens) is skipped; a table inside a function is a clone with the code
+around it. A block is a test block only when both files are test files (`rust_source.test_files`).
 
 Production code is a gate: `native/clone_baseline.json` lists each block that exists with the
 reason it stays. A new block fails, and so does a block that grew. A block that shrank or went
@@ -19,38 +21,23 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+
+from rust_source import read_sources, test_files, tokenize
 
 WINDOW = 70
 # A window that repeats with a period up to this many tokens is a table of similar rows.
 PERIOD = 24
-TOKEN = re.compile(
-    r"""
-    (?P<comment>//[^\n]*|/\*.*?\*/)
-  | (?P<literal>b?r(?P<hashes>\#*)".*?"(?P=hashes)|b?"(?:\\.|[^"\\])*"|b?'(?:\\.[^']*|[^\\'\n])'
-        |\b\d[\w.]*)
-  | (?P<ident>[A-Za-z_]\w*|'[A-Za-z_]\w*)
-  | (?P<punct>[^\s\w])
-    """,
-    re.S | re.X,
-)
 KEYWORDS = frozenset(
     "as async await break const continue crate dyn else enum extern false fn for if impl in let "
     "loop match mod move mut pub ref return self Self static struct super trait true type unsafe "
     "use where while".split()
 )
-TEST_FILE = re.compile(r"(?:_tests|^test_\w+|^tests?)$")
-
-
-@dataclass(frozen=True, slots=True)
-class Token:
-    text: str
-    line: int
+NAME, LITERAL = "\0name", "\0literal"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,38 +50,27 @@ class Block:
     tokens: int
     first_lines: tuple[int, int]
     second_lines: tuple[int, int]
-
-    @property
-    def is_test(self) -> bool:
-        return is_test_file(self.first) or is_test_file(self.second)
+    is_test: bool
 
 
-def is_test_file(relative: str) -> bool:
-    path = Path(relative)
-    return "tests" in path.parts or bool(TEST_FILE.search(path.stem))
+def _texts(text: str, exact: bool) -> tuple[list[str], list[int]]:
+    """Return the token texts and lines; type 2 hides names and literal values."""
+    tokens = tokenize(text)
+    if exact:
+        return [token.text for token in tokens], [token.line for token in tokens]
+    texts = [
+        LITERAL
+        if token.kind == "literal"
+        else NAME
+        if token.kind == "name" and token.text not in KEYWORDS
+        else token.text
+        for token in tokens
+    ]
+    return texts, [token.line for token in tokens]
 
 
-def tokenize(text: str, exact: bool) -> list[Token]:
-    """Return the tokens without comments; a type-2 token hides names and literal values."""
-    tokens: list[Token] = []
-    for match in TOKEN.finditer(text):
-        kind = match.lastgroup
-        if kind == "comment":
-            continue
-        line = text.count("\n", 0, match.start()) + 1
-        value = match.group()
-        if not exact:
-            if kind == "literal":
-                value = "#"
-            elif kind == "ident" and value not in KEYWORDS:
-                value = "$"
-        tokens.append(Token(value, line))
-    return tokens
-
-
-def _is_table(window: Sequence[Token]) -> bool:
-    """A table (rows of one shape) repeats itself in a few tokens: that is data, not logic."""
-    texts = [token.text for token in window]
+def _is_table(texts: Sequence[str]) -> bool:
+    """A table repeats itself in a few tokens: that is data, not logic."""
     return any(
         texts[:-period] == texts[period:] for period in range(1, min(PERIOD, len(texts) // 2) + 1)
     )
@@ -107,83 +83,78 @@ def _digest(texts: Sequence[str]) -> str:
 def find_blocks(
     sources: Mapping[str, str], exact: bool = False, window: int = WINDOW
 ) -> list[Block]:
-    """Return each block of at least `window` tokens that appears twice or more."""
-    tokens = {name: tokenize(text, exact) for name, text in sources.items()}
+    """Return one block for each pair of neighbouring copies of at least `window` tokens.
+
+    The copies of one window are in file order. Each copy links to the one before it, so a block
+    of three copies gives two blocks and a new copy always adds one.
+    """
+    parsed = {name: _texts(text, exact) for name, text in sources.items()}
     places: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    for name in sorted(tokens):
-        texts = [token.text for token in tokens[name]]
+    for name in sorted(parsed):
+        texts = parsed[name][0]
         for start in range(len(texts) - window + 1):
             places[_digest(texts[start : start + window])].append((name, start))
-    # Link each later place to the first one: a block of many copies stays a list of pairs.
-    pairs: dict[tuple[str, str, int], list[tuple[int, int, str]]] = defaultdict(list)
+    pairs: dict[tuple[str, str, int], list[tuple[int, str]]] = defaultdict(list)
     for digest, found in places.items():
-        first_name, first_start = found[0]
-        if len(found) > 1 and _is_table(tokens[first_name][first_start : first_start + window]):
-            continue
-        for name, start in found[1:]:
-            if name == first_name and abs(start - first_start) < window:
-                continue
-            pairs[(first_name, name, start - first_start)].append((first_start, start, digest))
+        for (before, at), (after, start) in zip(found, found[1:], strict=False):
+            if before == after and start - at < window:
+                continue  # a line that repeats itself, not a copy
+            pairs[(before, after, start - at)].append((at, digest))
+    marked = test_files(sources)
     blocks: list[Block] = []
-    for (first, second, _), runs in sorted(pairs.items()):
+    for (first, second, delta), runs in sorted(pairs.items()):
         runs.sort()
-        begin = previous = runs[0][0]
-        digest = runs[0][2]
-        for position, _other, run_digest in [*runs[1:], (-2, 0, "")]:
-            if position == previous + 1:
-                previous = position
+        begin, previous = 0, runs[0][0]
+        for index in range(1, len(runs) + 1):
+            if index < len(runs) and runs[index][0] == previous + 1:
+                previous = runs[index][0]
                 continue
-            blocks.append(_block(tokens, first, second, begin, previous, runs, digest, window))
-            begin = previous = position
-            digest = run_digest
-    return _merged([block for block in blocks if not _overlaps(block)])
+            starts = [start for start, _ in runs[begin:index]]
+            first_texts = parsed[first][0]
+            if not all(_is_table(first_texts[start : start + window]) for start in starts):
+                blocks.append(
+                    _block(parsed, first, second, delta, starts, runs[begin][1], window, marked)
+                )
+            if index < len(runs):
+                begin = index
+                previous = runs[index][0]
+    return _keyed(blocks)
 
 
-def _merged(blocks: Sequence[Block]) -> list[Block]:
-    """Keep the longest of the blocks that overlap in the same two files."""
-    kept: list[Block] = []
-    for block in sorted(
-        blocks, key=lambda item: (item.first, item.second, item.first_lines, -item.tokens)
-    ):
-        last = kept[-1] if kept else None
-        if (
-            last is not None
-            and (last.first, last.second) == (block.first, block.second)
-            and block.first_lines[0] <= last.first_lines[1]
-        ):
-            if block.tokens > last.tokens:
-                kept[-1] = block
-            continue
-        kept.append(block)
-    return kept
-
-
-def _overlaps(block: Block) -> bool:
-    """A block that meets itself in one file is a repeated line, not a copy."""
-    first, second = block.first_lines, block.second_lines
-    return block.first == block.second and first[0] <= second[1] and second[0] <= first[1]
+def _keyed(blocks: list[Block]) -> list[Block]:
+    """Give a second copy in the same two files and with the same text its own key."""
+    seen: dict[str, int] = defaultdict(int)
+    result: list[Block] = []
+    for block in sorted(blocks, key=lambda item: (item.first, item.second, item.first_lines)):
+        seen[block.key] += 1
+        key = block.key if seen[block.key] == 1 else f"{block.key}#{seen[block.key]}"
+        result.append(replace(block, key=key))
+    return result
 
 
 def _block(
-    tokens: Mapping[str, list[Token]],
+    parsed: Mapping[str, tuple[list[str], list[int]]],
     first: str,
     second: str,
-    begin: int,
-    last: int,
-    runs: Sequence[tuple[int, int, str]],
+    delta: int,
+    starts: Sequence[int],
     digest: str,
     window: int,
+    marked: frozenset[str],
 ) -> Block:
-    other = next(other for position, other, _ in runs if position == begin)
-    length = last - begin + window
-    first_tokens, second_tokens = tokens[first], tokens[second]
+    begin = starts[0]
+    length = starts[-1] - begin + window
+    if first == second:
+        length = min(length, delta)  # a unit that repeats in one file: the copies must not overlap
+    first_lines, second_lines = parsed[first][1], parsed[second][1]
     return Block(
         key=f"{first}|{second}|{digest[:10]}",
         first=first,
         second=second,
         tokens=length,
-        first_lines=(first_tokens[begin].line, first_tokens[begin + length - 1].line),
-        second_lines=(second_tokens[other].line, second_tokens[other + length - 1].line),
+        first_lines=(first_lines[begin], first_lines[begin + length - 1]),
+        second_lines=(second_lines[begin + delta], second_lines[begin + delta + length - 1]),
+        is_test=first in marked and second in marked,
     )
 
 
@@ -230,14 +201,6 @@ def lowered(
         key: {**entry, "tokens": min(int(str(entry["tokens"])), now[key].tokens)}
         for key, entry in baseline.items()
         if key in now
-    }
-
-
-def read_sources(native: Path) -> dict[str, str]:
-    return {
-        path.relative_to(native).as_posix(): path.read_text(encoding="utf-8")
-        for path in sorted(native.rglob("*.rs"))
-        if "target" not in path.relative_to(native).parts
     }
 
 

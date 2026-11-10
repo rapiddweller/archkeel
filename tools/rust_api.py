@@ -5,27 +5,30 @@
 
 `native/layers.toml` names the library crates. Each one that has code must deny
 `unreachable_pub`, so a `pub` item is a part of the crate API. `native/api_baseline.json` holds
-the count of `pub` items for each library. A count that grows or shrinks fails until the number
-changes in the same pull request, so each growth of an API shows in the review.
+the count for each library. A count that grows or shrinks fails until the number changes in the
+same pull request, so each growth of an API shows in the review.
+
+What the count holds, one for each: a `pub` item (`fn`, `struct`, `enum`, `trait`, `const`,
+`static`, `type`, `mod`, `union`, `extern crate`, `extern fn`), a `pub` field, a member of a
+`pub use` list (`pub use a::{b, c}` is two), and a variant of a `pub enum`.
+What it does not hold: `pub(crate)` and other restricted items, what a macro adds when it
+expands (a `pub` that stands in the text of a macro call is counted), items of a trait, and the
+files of the tests (`rust_source.test_files`).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-PUBLIC = re.compile(
-    r"^\s*pub\s+(?:unsafe\s+|async\s+|const\s+)*(?:fn|struct|enum|trait|const|static|type|mod|use|union)\b",
-    re.M,
-)
-NOISE = re.compile(r"//[^\n]*|/\*.*?\*/|b?r(#*)\".*?\"\1|\"(?:\\.|[^\"\\])*\"", re.S)
-DENY = re.compile(r"#!\[deny\(unreachable_pub\)\]")
-TEST_FILE = re.compile(r"_tests$|^test_tree$")
+from rust_source import Token, read_sources, test_files, tokenize
+
+ITEMS = frozenset("fn struct enum trait static type mod union use crate".split())
+MODIFIERS = frozenset({"unsafe", "async", "extern"})
 
 
 def libraries(native: Path) -> dict[str, Path]:
@@ -38,13 +41,84 @@ def libraries(native: Path) -> dict[str, Path]:
     }
 
 
-def count_public(source: Path) -> int:
-    """Count the `pub` items of the production files of one crate."""
+def _skip_group(tokens: Sequence[Token], at: int, opening: str, closing: str) -> int:
+    """Return the index after the group that opens at `at`."""
+    depth = 0
+    for position in range(at, len(tokens)):
+        depth += (tokens[position].text == opening) - (tokens[position].text == closing)
+        if depth == 0:
+            return position + 1
+    return len(tokens)
+
+
+def _use_members(tokens: Sequence[Token], at: int) -> int:
+    """Count the names that the `use` tree after `at` brings in, up to its `;`."""
+    count, pending = 0, False
+    for token in tokens[at:]:
+        if token.text in {",", "}", ";"}:
+            count, pending = count + pending, False
+            if token.text == ";":
+                break
+        elif token.text == "{":
+            pending = False
+        elif token.kind == "name" or token.text == "*":
+            pending = True
+    return count
+
+
+def _variants(tokens: Sequence[Token], at: int) -> int:
+    """Count the variants of the enum whose name is at `at`."""
+    start = next((i for i in range(at, len(tokens)) if tokens[i].text == "{"), len(tokens))
+    count, position, expect = 0, start + 1, True
+    while position < len(tokens) and tokens[position].text != "}":
+        text = tokens[position].text
+        if text == "#" and tokens[position + 1].text == "[":
+            position = _skip_group(tokens, position + 1, "[", "]")
+        elif expect and tokens[position].kind == "name":
+            count, expect = count + 1, False
+            position += 1
+        elif text in {"(", "{", "["}:
+            closing = {"(": ")", "{": "}", "[": "]"}[text]
+            position = _skip_group(tokens, position, text, closing)
+        else:
+            expect = expect or text == ","
+            position += 1
+    return count
+
+
+def count_tokens(tokens: Sequence[Token]) -> int:
+    """Count the public API of one file, given as tokens."""
     total = 0
-    for path in sorted(source.rglob("*.rs")):
-        if not TEST_FILE.search(path.stem):
-            total += len(PUBLIC.findall(NOISE.sub("", path.read_text(encoding="utf-8"))))
+    for at, token in enumerate(tokens):
+        if token.text != "pub" or token.kind != "name":
+            continue
+        position = at + 1
+        if position >= len(tokens) or tokens[position].text == "(":
+            continue  # pub(crate) and its kin are not a part of the API
+        while tokens[position].text in MODIFIERS or tokens[position].kind == "literal":
+            position += 1  # `unsafe`, `async`, `extern "C"`
+        if tokens[position].text == "const" and tokens[position + 1].text in {
+            "fn",
+            "unsafe",
+            "async",
+            "extern",
+        }:
+            position += 1
+        text = tokens[position].text
+        if text in ITEMS or text == "const":
+            total += _use_members(tokens, position + 1) if text == "use" else 1
+            if text == "enum":
+                total += _variants(tokens, position + 1)
+        else:
+            total += 1  # a field, named or of a tuple struct
     return total
+
+
+def count_public(source: Path) -> int:
+    """Count the public API of the production files of one crate."""
+    sources = read_sources(source)
+    marked = test_files(sources)
+    return sum(count_tokens(tokenize(text)) for name, text in sources.items() if name not in marked)
 
 
 def problems(native: Path, baseline: Mapping[str, int]) -> list[str]:
@@ -52,7 +126,9 @@ def problems(native: Path, baseline: Mapping[str, int]) -> list[str]:
     found = libraries(native)
     result: list[str] = []
     for name, source in found.items():
-        if not DENY.search((source / "lib.rs").read_text(encoding="utf-8")):
+        if "#![deny(unreachable_pub)]" not in "".join(
+            token.text for token in tokenize((source / "lib.rs").read_text(encoding="utf-8"))
+        ):
             result.append(f"{name} must have #![deny(unreachable_pub)] in lib.rs.")
         count, allowed = count_public(source), baseline.get(name)
         if allowed is None:

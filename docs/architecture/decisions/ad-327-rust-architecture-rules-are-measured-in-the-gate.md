@@ -16,7 +16,7 @@ panic could end a scan.
 | Arguments | clippy `too_many_arguments` | 7 | ratchet (one function) |
 | Panic family | clippy `panic`, `unreachable`, `todo`, `unimplemented` | none in production | blocking |
 | Overflow | `overflow-checks = true` in the release profile | - | blocking |
-| Dead `pub` | `unreachable_pub` in `archkeel-wire` | none | blocking |
+| Dead `pub` | `unreachable_pub` in each library | none | blocking |
 | Crate direction | `native/layers.toml` and `tests/test_self_native_layers.py` | declared | blocking |
 | Parser crates | `cargo deny` `wrappers` for `tree-sitter*` | collector only | blocking |
 | Module cycles | the same test, `crate::` paths | list in `layers.toml` | ratchet |
@@ -62,8 +62,8 @@ facts; no library uses a collector or a parser crate. `native/architecture-contr
 the same directions as a contract, and a test fails when the two files differ. The reply of the
 TypeScript collector is byte-equal on x35 except the code digest, and the binary grew by 0.4 %.
 
-**Note, 2026-11-10 (no copies, a counted API).** `tools/rust_clones.py` hashes windows of 70 tokens
-(type 2: names and literals hidden; rows of one shape are skipped as tables). A new production clone, or a
-grown one, fails `make native-check`; `native/clone_baseline.json` lists the 45 that exist (36 in `archkeel-facts`), each with
-a reason. A clone in a test file is a warning. `tools/rust_api.py` ratchets the `pub` items of each
-library (facts 127, wire 45, snapshot 22) in `native/api_baseline.json` and needs `unreachable_pub` in each.
+**Note, 2026-11-10 (copies and API).** The clone tool compares windows of 70 tokens. It hides names
+and literal values, so a renamed copy still matches. A block of equal rows is skipped when one row
+repeats within 24 tokens. A new or grown production clone fails the gate. A clone in a test file only
+warns. The API tool counts `pub` items, `pub` fields, `pub use` names and enum variants. It does not
+count what a macro adds. A count that differs from its baseline fails until the PR sets the number.

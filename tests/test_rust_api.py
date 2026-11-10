@@ -10,7 +10,10 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
 spec = importlib.util.spec_from_file_location("rust_api", ROOT / "tools/rust_api.py")
 assert spec and spec.loader
 api = importlib.util.module_from_spec(spec)
@@ -37,12 +40,40 @@ def scratch(tmp_path: Path, lib: str) -> Path:
     return native
 
 
-def test_counts_public_items_and_skips_comments_tests_and_crate_items(tmp_path: Path) -> None:
-    text = (
-        "#![deny(unreachable_pub)]\npub fn a() {}\n// pub fn b() {}\npub(crate) fn c() {}\n"
-        'pub struct D;\nfn e() { let _ = "\\npub fn f"; }\n'
-    )
-    assert api.count_public(scratch(tmp_path, text) / "one/src") == 2
+COUNTS = [
+    ("pub fn a() {}", 1),
+    ("pub(crate) fn a() {}", 0),
+    ("pub(super) struct A;", 0),
+    ("fn a() {} struct B;", 0),
+    ("pub use a::{b, c, d};", 3),
+    ("pub use a::{b, c::{d, e}};", 3),
+    ("pub use a::*;", 1),
+    ("pub use a::b as c;", 1),
+    ("pub struct S { pub a: u8, b: u8, pub c: u8 }", 3),
+    ("pub struct T(pub u8, u8);", 2),
+    ("pub enum E { A, B(u8), C { x: u8 }, #[x] D }", 5),
+    ("enum E { A, B }", 0),
+    ('pub extern "C" fn f() {}', 1),
+    ("pub const fn f() {}", 1),
+    ("pub const X: u8 = 1;", 1),
+    ("pub unsafe fn f() {}", 1),
+    ("pub extern crate x;", 1),
+    ("pub mod m;", 1),
+    ("pub fn a() { let q = '\"'; } pub fn b() {}", 2),
+    ("// pub fn a() {}\n/* pub fn b() {} */ pub fn c() {}", 1),
+    ('pub fn a() { let s = "pub fn b() {}"; }', 1),
+]
+
+
+@pytest.mark.parametrize(("text", "expected"), COUNTS, ids=[case[0] for case in COUNTS])
+def test_counts_the_public_api(tmp_path: Path, text: str, expected: int) -> None:
+    assert api.count_public(scratch(tmp_path, text) / "one/src") == expected
+
+
+def test_a_test_file_and_a_cfg_test_module_do_not_count(tmp_path: Path) -> None:
+    native = scratch(tmp_path, "#[cfg(test)]\nmod checks;\npub fn a() {}\n")
+    (native / "one/src/checks.rs").write_text("pub fn b() {}\n", encoding="utf-8")
+    assert api.count_public(native / "one/src") == 1
 
 
 def test_a_missing_deny_fails(tmp_path: Path) -> None:
