@@ -29,6 +29,7 @@ from pathlib import Path
 
 import pytest
 from conftest import build_native_copy
+from script_fields import SCRIPT_FIELDS
 from test_collector_native_imports import (
     COMMONJS,
     CONFIGS,
@@ -64,8 +65,7 @@ FIELDS = (
     "ambient_top_level",
     "module_file",
     "declaration_file",
-    "script_mode",
-    "script_bindings",
+    *SCRIPT_FIELDS,
     "sites",
     "string_comparisons",
 )

@@ -23,6 +23,7 @@ use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::members::{named_children, Cx};
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
+use crate::script_types::Script;
 use crate::sites::{Sites, Visit};
 use crate::source::Span;
 use crate::source_input::{SourceKind, Suffix};
@@ -42,7 +43,11 @@ pub struct Syntax {
     pub module_file: bool,
     pub declaration_file: bool,
     pub script_mode: bool,
+    /// The file has `import` or `export` syntax (`exports.module_syntax`).
+    pub module_syntax: bool,
     pub script_bindings: Vec<String>,
+    /// The script facts (`script::read`).
+    pub script: Script,
     /// The calls, `new` expressions, references and string comparisons (`sites.rs`).
     pub sites: Sites,
 }
@@ -67,7 +72,9 @@ impl Syntax {
             module_file: false,
             declaration_file: false,
             script_mode: false,
+            module_syntax: false,
             script_bindings: Vec::new(),
+            script: Script::default(),
             sites: Sites::default(),
         }
     }
@@ -389,7 +396,9 @@ impl<'a, 't> Walk<'a, 't> {
             ambient_top_level,
             declaration_file,
             script_mode,
+            module_syntax: exports.module_syntax,
             script_bindings: self.frames.sorted_names(ROOT),
+            script: Script::default(),
             sites: self.sites,
         }
     }

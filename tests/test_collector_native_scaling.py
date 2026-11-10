@@ -42,6 +42,7 @@ from pathlib import Path
 
 import pytest
 from collector_timing import Taken, interleaved_least, least_of, timed_run
+from scaling_script_shapes import SCRIPT_FIELD_COVERAGE, SCRIPT_SHAPES
 from scaling_shapes import (
     COVERAGE,
     FIELD_COVERAGE,
@@ -445,8 +446,11 @@ def test_every_kind_of_the_port_is_in_one_construct_class_with_shapes() -> None:
 
 def test_every_fact_and_every_definition_field_has_shapes() -> None:
     fields = {field.name for field in dataclasses.fields(Definition)}
-    assert sorted((set(FIELDS) | fields) - FIELD_COVERAGE.keys()) == []
-    assert sorted(FIELD_COVERAGE.keys() - (set(FIELDS) | fields)) == []
+    covered = FIELD_COVERAGE.keys() | SCRIPT_FIELD_COVERAGE.keys()
+    assert sorted((set(FIELDS) | fields) - covered) == []
+    assert sorted(covered - (set(FIELDS) | fields)) == []
+    named = {name for names in SCRIPT_FIELD_COVERAGE.values() for name in names}
+    assert sorted(named - SCRIPT_SHAPES.keys()) == []
 
 
 def test_a_shape_holds_the_kinds_that_its_class_claims(

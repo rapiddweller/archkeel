@@ -67,3 +67,4 @@ not to the compressor (zlib-rs is 2 % faster; its licence is not allowed). Host 
 median of 3 (MiB; Python / native before / native after): x35 2 688 / 2 868 / 2 633, excalidraw
 2 507 / 2 255 / 2 167. Replies that are quadratic by the data model are timed by the time for each
 byte and by an absolute peak (320 MiB: the walk plus the compressed reply) on the real collector.
+**Note, 2026-11-10 (4.3a-4): script syntax.** `script*.rs` and `umd*.rs` find the script facts; the reply reads them from 4.3a-5.
