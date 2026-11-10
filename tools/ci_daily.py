@@ -7,7 +7,7 @@ The line has the median CI wall time; the median, p90 and maximum CI queue wait 
 slowest-starting job that ran: its start minus the run creation); the median Full wall time on
 `main`; the number of Full runs; the re-runs; and the hours that `main` was red (from the first
 failed Full run to the next green one). A re-run (attempt above 1) and a run with only skipped jobs
-(a draft PR) are not in the CI wall and queue. The data comes from
+are not in the CI wall and queue. The data comes from
 `gh run list` and `gh run view --json jobs`; `daily_line` takes both as values, so a test needs no
 network.
 """
@@ -81,7 +81,7 @@ def daily_line(
     """The line for `day` (UTC, `YYYY-MM-DD`).
 
     CI wall and queue count only first attempts with a job that ran: a re-run keeps the creation
-    time of the first attempt, and an all-skipped run is a draft PR. Both are not CI work.
+    time of the first attempt, and an all-skipped run has no CI work. Both are not CI work.
     """
     today = [run for run in runs if str(run["createdAt"]).startswith(day)]
     ci = []

@@ -87,7 +87,7 @@ native-check:
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
 	cd native && cargo build --locked
-	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py
+	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py
 	$(UV) run --locked python tools/rust_clones.py
 	$(UV) run --locked python tools/rust_api.py --check
 	$(MAKE) self-validate-native

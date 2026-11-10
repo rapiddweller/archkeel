@@ -38,7 +38,7 @@ RUST_ANALYZER: Final = SourceProfile.RUST.value
 
 
 # The languages whose collector honours `exclude_test_sources` (AD-313). Dart has no test rule.
-TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT})
+TEST_SCOPE_LANGUAGES: Final = frozenset({Language.PYTHON, Language.TYPESCRIPT, Language.RUST})
 
 
 def is_test_source(path: str, language: Language) -> bool:
@@ -47,6 +47,8 @@ def is_test_source(path: str, language: Language) -> bool:
     if any(part in {"test", "tests", "__tests__"} for part in parts[:-1]):
         return True
     name = parts[-1] if parts else ""
+    if language == Language.RUST:
+        return any(part in {"benches", "examples"} for part in parts[:-1])
     if language == Language.PYTHON:
         return (name.startswith("test_") and name.endswith(".py")) or name.endswith("_test.py")
     if language == Language.TYPESCRIPT:
@@ -220,8 +222,8 @@ TYPESCRIPT: Final = Profile(
     additional_optional_section_groups=(frozenset({ObservedSection.CONSTRUCTS}),),
 )
 
-# AD-335: the collector reads crate edges and the module tree. Every rule that needs a symbol, a
-# call, a type or a construct is unsupported, so it reports UNKNOWN and never PASS.
+# AD-335: the collector reads crate edges, module edges and the module tree. Every rule that
+# needs a symbol, a call, a type or a construct is unsupported, so it reports UNKNOWN, never PASS.
 RUST: Final = Profile(
     analyzer=RUST_ANALYZER,
     source_suffix=".rs",
@@ -230,7 +232,7 @@ RUST: Final = Profile(
     # `interface_boundary`: every target of a local crate is its root module, so a public list
     # that names the root would pass for any use of the crate.
     unsupported_rules=TYPESCRIPT.unsupported_rules | frozenset({"interface_boundary"}),
-    crate_edges_only=True,
+    crate_edges_only=False,
     # The sysroot crates are the language's own library, not an external dependency.
     standard_library=frozenset({"std", "core", "alloc"}),
     project_import_closure=True,

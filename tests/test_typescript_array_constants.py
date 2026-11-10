@@ -8,11 +8,11 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from test_source_graph import _graph_from_source_facts
 from test_typescript_inner import _collected, _collected_files
 
 from archkeel.analyzer.typescript.parse import parse
-from archkeel.check.observation import assemble_observation
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Coverage, Entity, Visibility
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
@@ -279,7 +279,7 @@ def test_pinned_nest_registry_matches_independent_target_live_and_saved(tmp_path
     (tmp_path / "architecture-contract.json").write_text(
         json.dumps({"schema_version": "2.1.0", "components": [], "rules": []})
     )
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "architecture-contract.json",

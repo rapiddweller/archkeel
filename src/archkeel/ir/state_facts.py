@@ -105,3 +105,11 @@ class FunctionStateTrace:
 class StateFacts:
     classes: tuple[ClassStateFacts, ...]
     functions: tuple[FunctionStateTrace, ...]
+
+
+class ProducerKind(StrEnum):
+    """Who made the facts. The host knows it from how it started the collector (AD-344)."""
+
+    PYTHON = "python"  # the collector of this package
+    PINNED = "pinned"  # a configured collector whose file has the pinned digest
+    EXTERNAL = "external"  # a configured collector without a pin: it cannot prove a rule

@@ -245,6 +245,7 @@
         "archkeel.check.ports:Host",
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
+        "archkeel.check.ports:ProducerKind",
         "archkeel.check.ports:ScanConfig",
         "archkeel.check.ports:SourceCollector",
         "archkeel.check.report",
@@ -776,13 +777,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 407,
+          "line": 431,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 419,
+          "line": 443,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }

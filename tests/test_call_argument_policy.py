@@ -460,7 +460,7 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    historical = json.loads(json.dumps(raw))
+    historical = {k: v for k, v in json.loads(json.dumps(raw)).items() if k != "producer_kind"}
     historical["schema_version"] = "2.8.0"
     for profile in ("decoded", "python-decoded"):
         schema = validator.evolve(schema={"$ref": f"urn:archkeel:architecture-ir:{profile}:2.8.0"})
@@ -591,14 +591,13 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
         "from .storage import page\ndef consume(spec):\n    page(spec)\n",
     )
     raw = observation_payload(result.observation)
-    assert raw["schema_version"] == "2.9.0"
-    assert parse_observation(raw).schema_version == "2.9.0"
+    assert raw["schema_version"] == "2.10.0"
+    assert parse_observation(raw).schema_version == "2.10.0"
+    raw.pop("producer_kind")
 
     old = json.loads(json.dumps(raw))
     old["schema_version"] = "2.4.0"
-    old["declarations"] = [
-        item for item in old["declarations"] if item["kind"] != "source_ownership"
-    ]
+    old["declarations"] = [i for i in old["declarations"] if i["kind"] != "source_ownership"]
     old_references = old["references"]
     old["references"] = []
     for item in old_references:
@@ -634,11 +633,11 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"})
+    now_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.10.0"})
     historical_schema = validator.evolve(
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
-    assert current_schema.is_valid(raw)
+    assert now_schema.is_valid(raw)
     assert not historical_schema.is_valid(raw)
 
 
@@ -674,15 +673,15 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"})
-    assert current_schema.is_valid(raw)
+    now_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.10.0"})
+    assert now_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))
     inconsistent_call = next(
         item for item in inconsistent["calls"] if item["data"]["expression"] == "unknown"
     )
     inconsistent_call["data"]["call_arguments"] = []
-    assert not current_schema.is_valid(inconsistent)
+    assert not now_schema.is_valid(inconsistent)
     with pytest.raises(ValueError, match="canonical call binding"):
         parse_observation(inconsistent)
 

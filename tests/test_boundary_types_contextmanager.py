@@ -7,6 +7,7 @@ import json
 from dataclasses import replace
 
 import pytest
+from collector_pin import assembled
 from test_analyzer import _any_rule, _component
 from test_python_contextmanager_signatures import _PROGRESS, _native_case, _signature
 from test_python_provider_sources import _native_facts
@@ -18,7 +19,6 @@ from archkeel.check.evaluation.boundary_types import (
     public_api_exposed_types,
 )
 from archkeel.check.evaluation.evaluate import evaluate_source
-from archkeel.check.observation import assemble_observation
 from archkeel.ir.codec import (
     canonical_report_bytes,
     contract_bytes,
@@ -107,7 +107,7 @@ def test_native_effective_signature_retains_source_and_saved_provenance(tmp_path
     (tmp_path / "architecture.md").write_text("Publish the proved callable signature.\n")
     contract_path = tmp_path / "contract.json"
     contract_path.write_bytes(contract_bytes(_contract()))
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=contract_path,

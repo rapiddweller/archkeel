@@ -21,12 +21,16 @@ use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::crates::{discover, Crate, Problem, Workspace};
+use crate::manifest::Kind;
+use crate::modules::{index, Edge, Index};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
 use crate::source::walk as list_files;
+use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::{walk, Module, Walked};
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
+use module_edges::local_target;
 
 pub const PROFILE: &str = "archkeel-rust-imports";
 const SECTIONS: [&str; 2] = ["imports", "unknowns"];
@@ -98,15 +102,22 @@ struct Builder {
     seen: BTreeSet<(String, String, String)>,
     /// The manifests of the crates: each is a module that holds the declared dependencies.
     manifests: Vec<String>,
+    /// The request leaves test scope out: a dev-dependency is then no edge.
+    exclude_tests: bool,
+    /// The modules that the body of each `macro_rules!` of a crate names from the crate root.
+    macro_uses: BTreeMap<(usize, String), Vec<(Edge, Reference)>>,
 }
 
 /// Collect the facts of one request.
 pub fn collect(request: &Request, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.root);
-    let mut builder = Builder::default();
+    let mut builder = Builder {
+        exclude_tests: request.exclude_test_sources,
+        ..Builder::default()
+    };
     let (scope, files) = list(&mut source, &request.roots, &mut builder);
     let workspace = discover(&mut source, &files, &request.namespace);
-    let walked = walk(&mut source, &workspace);
+    let walked = walk(&mut source, &workspace, request.exclude_test_sources);
     let modules: BTreeMap<&str, &str> = walked
         .modules
         .iter()
@@ -118,9 +129,11 @@ pub fn collect(request: &Request, provenance: Provenance) -> Collected {
     for problem in workspace.problems.iter().chain(&walked.problems) {
         builder.problem(problem, &modules);
     }
+    let modules_index = index(&workspace, &walked.modules);
     for module in &walked.modules {
-        builder.module(&workspace, module);
+        builder.module(&workspace, &modules_index, module);
     }
+    builder.macro_calls(&modules_index, &walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();
     builder.declared(&workspace, &request.namespace, &taken, &mut source);
     let mut selected: Vec<String> = files
@@ -128,6 +141,11 @@ pub fn collect(request: &Request, provenance: Provenance) -> Collected {
         .filter(|f| f.ends_with(".rs"))
         .cloned()
         .collect();
+    let listed_rust = !selected.is_empty();
+    selected.retain(|rel| !walked.is_excluded(rel));
+    if listed_rust && selected.is_empty() {
+        builder.gap(NO_PRODUCTION_SOURCE, None, "");
+    }
     for rel in selected.iter().filter(|rel| !walked.claimed.contains(*rel)) {
         let reason = format!("Source file is in no module tree: {rel}");
         builder.gap(&reason, None, "");
@@ -183,7 +201,7 @@ impl Builder {
         self.gap(&problem.reason, None, module);
     }
 
-    fn module(&mut self, workspace: &Workspace, module: &Module) {
+    fn module(&mut self, workspace: &Workspace, index: &Index<'_>, module: &Module) {
         let first = module.first_line.as_str();
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
         let cited = Evidence::at(&module.rel, line, line, column, first);
@@ -197,14 +215,14 @@ impl Builder {
             blank: module.blank,
             evidence_id: file_evidence,
         });
-        self.edges(workspace, module);
+        self.edges(workspace, index, module);
         for concern in &module.scan.concerns {
             let evidence = self.cite(&module.rel, &concern.site);
             self.gap(&concern.reason, Some(&evidence), &module.module);
         }
     }
 
-    fn edges(&mut self, workspace: &Workspace, module: &Module) {
+    fn edges(&mut self, workspace: &Workspace, index: &Index<'_>, module: &Module) {
         let Some(krate) = workspace.crates.get(module.crate_index) else {
             return;
         };
@@ -221,14 +239,20 @@ impl Builder {
             }
             match found {
                 Some(Found::Edge(named)) => {
-                    self.import(workspace, Origin::of(module), reference, &named);
+                    self.import(
+                        workspace,
+                        Some(index),
+                        Origin::of(module),
+                        reference,
+                        &named,
+                    );
                 }
                 Some(Found::Shadowed) => {
                     let reason = format!("A local name equals a crate name: {}", reference.root);
                     let evidence = self.cite(&module.rel, &reference.site);
                     self.gap(&reason, Some(&evidence), &module.module);
                 }
-                None => {}
+                None => self.module_edge(index, module, reference),
             }
         }
         self.net(krate, module, &covered);
@@ -286,11 +310,13 @@ impl Builder {
     /// The edge of each dependency that the manifest of `krate` declares.
     fn declared_edges(&mut self, workspace: &Workspace, krate: &Crate, module: &str) {
         let rel = join(&krate.dir, "Cargo.toml");
+        let exclude = self.exclude_tests;
         let others = krate
             .manifest
             .declared
             .iter()
-            .filter(|dependency| dependency.package != krate.ident);
+            .filter(|dependency| dependency.package != krate.ident)
+            .filter(|dependency| !(exclude && dependency.kind == Kind::Dev));
         for dependency in others {
             let (line, excerpt) = krate.lines.find(dependency.kind, &dependency.key);
             let reference = Reference {
@@ -303,6 +329,7 @@ impl Builder {
                     excerpt,
                 },
                 absolute: true,
+                ..Reference::default()
             };
             let from = Origin {
                 module,
@@ -310,13 +337,14 @@ impl Builder {
                 form: "declared",
             };
             let named = Named::Package(dependency.package.clone());
-            self.import(workspace, from, &reference, &named);
+            self.import(workspace, None, from, &reference, &named);
         }
     }
 
     fn import(
         &mut self,
         workspace: &Workspace,
+        index: Option<&Index<'_>>,
         from: Origin<'_>,
         reference: &Reference,
         named: &Named,
@@ -358,16 +386,7 @@ impl Builder {
                 .find(|c| &c.ident == package)
                 .and_then(|c| c.primary.as_ref())
             {
-                Some(root) => (
-                    Target::Local {
-                        import_id,
-                        module: ModuleName::new(root.module.as_str()),
-                        file: root.rel.clone(),
-                        runtime_file: Some(root.rel.clone()),
-                        declaration_file: None,
-                    },
-                    root.module.clone(),
-                ),
+                Some(root) => local_target(index, root, reference, import_id),
                 None => (
                     Target::External {
                         import_id,
@@ -460,6 +479,10 @@ fn record(
         data: ImportFact::Import(data),
     }
 }
+
+/// The edges between the modules of one crate (5b-2c).
+#[path = "collect_modules.rs"]
+mod module_edges;
 
 #[cfg(test)]
 #[path = "collect_tests.rs"]

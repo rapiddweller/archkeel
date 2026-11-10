@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from collector_pin import pin_of
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.typescript.collect import collect
@@ -57,7 +58,11 @@ def _commit(root: Path) -> None:
 def _verdict(root: Path, argv: tuple[str, ...] | None) -> dict[str, object]:
     config = load_config(root)
     observer = observer_for(
-        config.language, collector_argv=argv, tsconfig=config.tsconfig or "tsconfig.json"
+        config.language,
+        collector_argv=argv,
+        tsconfig=config.tsconfig or "tsconfig.json",
+        # AD-344: a configured collector is capped at UNKNOWN unless it is pinned.
+        pinned_digest=None if argv is None else pin_of(argv[0]),
     )
     result, artifact = run_report(root, config=config, analyzer=observer)
     sections: dict[str, object] = json.loads(artifact) if artifact else {}

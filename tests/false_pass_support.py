@@ -160,15 +160,26 @@ def copy_repository(source: Path, workspace: Path) -> Path:
     return root
 
 
-def verdict(root: Path, language: str, argv: tuple[str, ...] | None) -> dict[str, Any]:
-    """The status of each rule, the completeness and the exit code of `run_report`."""
+def verdict(
+    root: Path, language: str, argv: tuple[str, ...] | None, *, pinned: bool = False
+) -> dict[str, Any]:
+    """The status of each rule, the completeness and the exit code of `run_report`.
+
+    An unpinned `argv` is an external producer: the host caps it at UNKNOWN (AD-344). A pinned
+    probe is a producer that the host trusts, so the check of its reply is what the test reads.
+    """
+    from collector_pin import pin_of
+
     from archkeel.check.report import run_report
     from archkeel.cli.config import load_config
     from archkeel.cli.observe import observer_for
 
     config = load_config(root)
     observer = observer_for(
-        config.language, collector_argv=argv, tsconfig=config.tsconfig or "tsconfig.json"
+        config.language,
+        collector_argv=argv,
+        tsconfig=config.tsconfig or "tsconfig.json",
+        pinned_digest=pin_of(argv[0]) if pinned and argv else None,
     )
     result, _ = run_report(root, config=config, analyzer=observer)
     return {
@@ -184,10 +195,6 @@ CLOSED_BY_INVARIANT = (
     "closed by the in-collector invariant of 4.3a-5 for the native collector "
     "and by protocol 10 for the wire"
 )
-UNTRUSTED_PRODUCER = (
-    "closed by the producer trust of owner decision 1 (PR feat/producer-trust-880): "
-    "flip when it merges"
-)
 
 
 # Probe -> the reason that the host still gives PASS, or "" when it must not.
@@ -198,7 +205,8 @@ COMMON = {
     "evidence-outside": "",
     "evidence-outside:/etc/passwd": "",
     "duplicate-id": "",
-    "honest": UNTRUSTED_PRODUCER,
+    # An honest reply of an unpinned producer gives no PASS: the host caps it (AD-344).
+    "honest": "",
 }
 TYPESCRIPT = {
     **COMMON,
@@ -227,7 +235,10 @@ def assert_not_pass(root: Path, language: str, tamper: str, argument: str = "") 
     """
     base = verdict(root, language, None)
     assert base["complete"] == "PASS" and passing(base), "the unchanged scan must pass"
-    result = verdict(root, language, argv_for(language, tamper, argument))
+    # The honest probe is the external producer. Every other probe is a pinned producer.
+    result = verdict(
+        root, language, argv_for(language, tamper, argument), pinned=tamper != "honest"
+    )
     assert result["complete"] != "PASS", (tamper, result["diagnostics"])
     assert result["exit"] != 0, (tamper, result["diagnostics"])
     assert not passing(result), (tamper, passing(result))
@@ -241,7 +252,7 @@ UNREAD_SECTIONS = ("calls", "references", "constructs")
 
 def assert_unchanged(root: Path, language: str, section: str) -> None:
     base = verdict(root, language, None)
-    result = verdict(root, language, argv_for(language, "empty-section", section))
+    result = verdict(root, language, argv_for(language, "empty-section", section), pinned=True)
     assert passing(base), "the unchanged scan must pass"
     assert (result["rules"], result["complete"], result["exit"]) == (
         base["rules"],

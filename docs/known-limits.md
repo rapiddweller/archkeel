@@ -246,9 +246,23 @@ type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 ## Rust profile
 
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
-segment names another crate. A component or a rule on modules below a crate root, an
-`interface_boundary`, symbols, calls, types and constructs are unsupported, so they stay UNKNOWN
-and never PASS. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
+segment names another crate, and the module edges inside a crate: a path that starts at `crate`,
+`self`, `super`, a child `mod`, a `use` binding or a glob `use` and names another module. A path
+into another crate of the workspace names its deepest module. `interface_boundary`, symbols,
+calls, types and constructs are unsupported, so they stay UNKNOWN and never PASS. A name that a
+file declares more than once and that may name a module, a glob that the scan cannot follow, a
+`use` path that starts with a name that a glob may bring in, a `super` above the crate root, two
+`macro_rules!` of one name and a path in a `macro_rules!` body that is relative to the place of the
+call are UNKNOWN. A `crate::` path in a macro body is an edge of each call. Edition 2015 (or none named
+in the manifest): a `use` path and a `::` path start at the crate root. Not seen, and the verdict can
+be PASS: a method that an `impl` block of another module defines (`impl crate::c::S { fn m() }` in
+`b`, and `crate::c::S::m()` in `a`: no path names `b`), a trait method that a glob `use` brings in
+(`use b::T;` in the parent, `use super::*;` and `5u8.m()` in the child), an item that a macro
+generates, and a path into another crate that goes through a `pub use` of its root. A re-exporting
+module is the dependency: for `pub use crate::b::make;` in `c` and `use crate::c::make;` in `a`, the
+edge of `a` goes to `c` and the edge of `c` to `b` (a `reexport` record); a rule that forbids `a`
+to use `b` does not see `a` through `c`. The same holds for `pub use crate::b::*;` in `c` and
+`use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
 attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also
@@ -257,7 +271,10 @@ declares or imports (`::` makes it the crate). A reachable crate name that appea
 not declare. A dependency table that the reader does not know is UNKNOWN. A `macro_rules!` that
 stays in the crate is read as code of its file, and an exported one is UNKNOWN. A planned crate
 has no component in the native contract until it has code. Test code (`cfg(test)`, `tests/`, dev-dependencies) counts as production
-code until module scope is added. A platform wheel carries the collector; an install without it
+code until the host key `[scan] exclude_test_sources` is set. With the flag, a `cfg(test)` or `cfg(all(test, ..))` item, module,
+impl or trait member and `let` or macro statement, a `#[test]`, `#[x::test]` or `#[rstest]` function, and the `tests/`, `benches/` and `examples/` targets
+leave the reply. A `cfg` on a field, a match arm or an expression stays in scope, and so does a test attribute that this list does not
+name (`#[test_case]`). A production target or module file in a test directory is UNKNOWN, because the host refuses a reply that selects it. A platform wheel carries the collector; an install without it
 reports `missing_tool`
 ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 

@@ -70,6 +70,7 @@ PR_TEST_FILES := \
 	tests/test_collector_native_rust.py \
 	tests/test_collector_native_rust_names.py \
 	tests/test_collector_native_rust_scope.py \
+	tests/test_collector_native_rust_test_scope.py \
 	tests/test_collector_native_rust_oracle.py \
 	tests/test_collector_native_rust_language.py \
 	'tests/test_collector_native_rust_scaling.py::test_every_shape_builds_a_crate_that_the_collector_reads_without_a_gap' \
@@ -287,6 +288,7 @@ PR_TEST_FILES := \
 	tests/test_codec_compatibility.py \
 	tests/test_source_provenance_acceptance.py \
 	tests/test_collection_process.py \
+	tests/test_collector_producer_trust.py \
 	tests/test_collection_conformance.py \
 	tests/test_schema_drift.py \
 	tests/test_runtime_delta.py \

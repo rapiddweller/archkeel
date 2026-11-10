@@ -1,6 +1,6 @@
 # Contributing to Archkeel
 
-Thank you for helping. This page lists what a pull request needs to pass CI and review.
+Thank you for helping. This page lists what a pull request needs to pass the local gate and review. CI runs on `main` only (AD-348).
 
 ## Set up
 
@@ -31,24 +31,19 @@ make ci-pr-report-check                  # report data and JavaScript logic
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, and warns when the branch is behind `main`.
 
-Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)):
+Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md), updated by [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md), 2026-11-10):
 
-1. Each PR gets exactly one independent review. A PR that can enable a PASS also gets the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. Then the PR merges: there is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not a perfect one.
-2. Run `make merge-check PR=<number>` before every merge. A branch that is behind `main` is a warning: the PR needs no up-to-date branch. A merge conflict, or a file set that differs from the PR on GitHub, is an error. A file that `main` changed in its last merges is a warning only when the PR removes lines from it, because that is what a revert looks like.
-3. Give each PR one class ([AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md)).
-   - A: no change to an output, golden bytes, a published schema, packaging or a workflow.
-   - B: such a change, or a protocol version. B needs green CI and one Full run on the final reviewed SHA only. Never run Full per push or before the review passes.
-   - C: Windows-sensitive paths, wheel or packaging, `Cargo.lock`, toolchain, `Makefile` or `.github/`. C needs green CI and the Full run of B.
-4. Run the local gate on the final head, rebased on `main`: `make ci-pr-static BASE=origin/main`, the tests of the touched areas, `make native-check` when `native/` changes, `make merge-check`, and the merge-tree check of the lead. Name the commands and the SHA in the PR. Push only when the gate is green. Keep the PR a draft while you fix it: a draft runs no CI.
-5. Class A merges on the review, the local gate and green CI. When CI is not finished 15 minutes after the push, the lead may merge and read the result afterwards.
-6. Do not dispatch Full yourself. The lead dispatches it, for one branch at a time. Full runs on `main` every night and after every 3 merges.
-7. A red `main` stops the line. Merge only the fix. The lead reverts the suspect merge when no fix is green locally within 60 minutes.
-8. Run `python3 tools/ci_daily.py` for the daily line: CI wall, CI queue wait, Full wall on `main`, Full runs, re-runs and red-main hours. The targets: CI at most 10 minutes, queue wait at most 3 minutes, Full at most 30 minutes, red `main` 0 hours.
-9. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
+1. One review per PR. A PR that can enable a PASS also gets the false-PASS probes (`tests/test_collector_false_pass_gate.py` in each PR, `tests/test_collector_false_pass_full.py` in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
+2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate.
+3. Merge when the review and the local gate are green. Pipelines run only on `main`: a push to `main` runs CI, and Full runs nightly. No PR runs CI or Full. This is the rule of [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
+4. Do not update the branch unless the merge-tree shows a real conflict.
+5. Full runs on `main` nightly, and by dispatch when useful. A failure on `main` becomes a backlog issue with a priority, except when `main` no longer builds locally: then fix it at once, because no agent can work.
+6. Run `python3 tools/ci_daily.py` for the daily line. Targets: CI at most 10 min, queue wait at most 3 min.
+7. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
-Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
+Each CI run (a push to `main`) runs the same fixed set of checks. The report sample checks scene/projection data and
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
 The `PR_TEST_FILES` list in `tests/pr-test.mk` names this fixed set file by file and test by test;
@@ -72,7 +67,7 @@ Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `macos-15`,
 `macos-15-intel`). The Linux wheel jobs use manylinux and musllinux images pinned by digest. A move
-to a new image is a deliberate change: run Full on the branch before you merge it.
+to a new image is a deliberate change. The PR needs the local gate; CI and Full on `main` check the image after the merge.
 
 Keep four workflow files: CI, Full verification, Pages and release. Use existing Make targets
 or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
@@ -85,14 +80,14 @@ aggregate would count as passed.
 
 | Workflow and job | Runs on | Command to reproduce |
 |---|---|---|
-| CI: Lint, types and architecture | each PR | `make ci-pr-static BASE=origin/main` |
-| CI: Tests: `<area>` | each PR | `make pr-test AREA="<area>"` |
-| CI: Report and renderer tests | each PR | `make ci-pr-report-check` |
-| CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
-| CI: Demos | each PR | `make demos` |
-| CI: Native: Rust checks and dependency policy | each PR | `make native-check` |
-| CI: All checks passed | each PR | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
-| Full: Architecture, build and report checks | nightly, dispatch, release, PR that changes Full | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
+| CI: Lint, types and architecture | each push to `main` | `make ci-pr-static BASE=origin/main` |
+| CI: Tests: `<area>` | each push to `main` | `make pr-test AREA="<area>"` |
+| CI: Report and renderer tests | each push to `main` | `make ci-pr-report-check` |
+| CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
+| CI: Demos | each push to `main` | `make demos` |
+| CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
+| CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
+| Full: Architecture, build and report checks | nightly, dispatch, release | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |
 | Full: Python 3.12.10 / 3.13.15 / 3.14.7 compatibility | same as above | `make python-compat` |
@@ -105,7 +100,7 @@ aggregate would count as passed.
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
-Full runs all tests. A PR runs Full only if it changes what Full runs. These paths start Full:
+Full runs all tests, on `main` nightly, by dispatch, or when a release calls it. No PR runs Full. Full covers changes to these paths, and a PR that changes them gets no run before its merge:
 `.github/workflows/**`, `.github/actions/**`, `.python-version`, `pyproject.toml`, `uv.lock`,
 `tools/browser-runtime/package*.json`, `tests/conftest.py`, `tests/test_report_pages.py`,
 `tools/report_pages.py`, `tools/report_timing.py` and `tools/full.mk`. `tools/full.mk` holds each
@@ -113,7 +108,7 @@ Make recipe that CI does not run, such as `full-test` and `python-compat`. The `
 `pr-test` list and `tests/areas.py` do not start Full. Tests in CI check that `tests/areas.py`
 still gives each area its files, matches the Full job matrix and keeps a valid `python-compat`
 selection. A change to a `Makefile` variable (`UV`, `TEST_WORKERS`) does not start Full: the
-nightly run covers it. Dispatch Full on the branch to check it before you merge. Name a new test file
+nightly run covers it. Full on `main` checks it after the merge. Name a new test file
 so that an area pattern matches it. Pages publishes only a passed Full run of the current
 `main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
 again.

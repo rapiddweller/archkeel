@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from collector_pin import trusted
 from test_scoped_dependency_proof import _project, _rows
 from test_typescript_partial_uml import _TypeScriptCollector
 
 import archkeel.check.observation as observation
-from archkeel.check.observe import Observer
 from archkeel.check.report import run_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 
@@ -51,7 +51,7 @@ def _receipts(
 
     monkeypatch.setattr(observation, "_certify_dependency_scopes", spy)
     try:
-        _, encoded = run_report(root, config=config, analyzer=Observer(_TypeScriptCollector()))
+        _, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
         if rows is not None and encoded is not None:
             rows.update(_rows(parse_observation(decode_canonical_model(json.loads(encoded)))))
     except (ValueError, KeyError):

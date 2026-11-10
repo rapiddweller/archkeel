@@ -103,7 +103,11 @@ fallback resolves missing inputs.
 Collectors run through a process port. Optional `collector_argv` supplies separate
 arguments without a shell; on Windows use an executable and script, not a `.cmd`
 shim. Every language defaults to its own collector inside this package, so TypeScript
-needs no Node runtime. Runtime mismatch, malformed replies and incomplete evidence
+needs no Node runtime. A scan with `collector_argv` gives at most UNKNOWN, because an
+external collector cannot prove a rule ([AD-344](architecture/decisions/ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md)).
+The result has an `incomplete_scan` diagnostic that names the producer (`external`) and
+the remedy. Use the collector of this package. A configured collector cannot be pinned in
+`archkeel.toml` yet. Runtime mismatch, malformed replies and incomplete evidence
 cannot certify a scan. Legacy observations remain readable only under supported
 schemas; missing required sections fail closed.
 
@@ -475,7 +479,7 @@ Rule and `requires` rationale checks (`rationale.placeholder`, `rationale.repeat
 apply to root and mounted contracts; a mounted diagnostic carries its contract path.
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
-Pin CLI and [command schema](../schema/command-result-12.0.schema.json) together.
+Pin CLI and [command schema](../schema/command-result-13.0.schema.json) together.
 Version 12 adds the diagnostic kinds `unresolved_import`, `not_examined` and `incomplete_scan`
 ([AD-336](architecture/decisions/ad-336-a-coverage-gap-names-its-real-cause-and-never-changes-the-exit-code.md)).
 It retains 11, which adds `findings` to an unfiltered `report` (see below) and `target: unavailable`

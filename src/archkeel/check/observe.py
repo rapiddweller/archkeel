@@ -51,7 +51,7 @@ from .contract_tree import ContractInput, contract_input
 from .declarations import ContractError, load_contract
 from .gap_diagnostics import gap_diagnostic
 from .observation import assemble_observation
-from .ports import SourceCollector
+from .ports import ProducerKind, SourceCollector
 from .runtime import runtime_diagnostic
 
 
@@ -178,7 +178,28 @@ def observation_diagnostics(
                 "Inspect the analyzer coverage and repair its inputs.",
             )
         )
+    if model.producer_kind not in (ProducerKind.PYTHON, ProducerKind.PINNED):
+        diagnostics.append(_untrusted_producer_diagnostic(model.producer_kind))
     return tuple(diagnostics)
+
+
+def _untrusted_producer_diagnostic(kind: ProducerKind | None) -> Diagnostic:
+    """AD-344: an external collector, or a scan with no recorded producer, gives no PASS."""
+    if kind is None:
+        return Diagnostic(
+            DiagnosticKind.INCOMPLETE_SCAN,
+            "producer_kind",
+            "The saved scan does not record its producer (producer not recorded). "
+            "A rule cannot be proven without it.",
+            "Run the scan again with this version of ArchKeel and save the result.",
+        )
+    return Diagnostic(
+        DiagnosticKind.INCOMPLETE_SCAN,
+        "scan.collector_argv",
+        f"The scan used a configured collector (producer: {kind}). "
+        "An external collector cannot prove a rule.",
+        "Use the bundled collector, or pin the external collector by digest.",
+    )
 
 
 def _partial_uml_source_is_eligible(
@@ -263,6 +284,7 @@ def _observe(
     exclude_test_sources: bool = False,
     excluded_tests: list[tuple[str, tuple[str, ...]]] | None = None,
     clock: PhaseClock | None = None,
+    producer: ProducerKind,
 ) -> ObservationResult:
     # AD-346: an observation owns at most one store session; the previous one ends here.
     close_store()
@@ -343,12 +365,14 @@ def _observe(
                 namespace=namespace,
                 language=language,
                 loaded=loaded,
+                producer=producer,
             )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)
         eligibility = (
             UmlEligibility.VALIDATED_PARTIAL_SOURCE
-            if _partial_uml_source_is_eligible(facts, model, runtime)
+            if producer is not ProducerKind.EXTERNAL
+            and _partial_uml_source_is_eligible(facts, model, runtime)
             else UmlEligibility.BLOCKED
         )
         return _observation_result(facts, model, diagnostics, eligibility)
@@ -375,6 +399,9 @@ class Observer:
     bundler: bool = False
     clock: PhaseClock | None = None
     exclude_test_sources: bool = False
+    # Required: the host says who made the facts. Only observer_for derives it from the launch.
+    producer: ProducerKind = field(kw_only=True)
+
     # AD-313: the test files of each observed revision, by git head; the first scan of a head wins.
     excluded_tests: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
 
@@ -412,4 +439,5 @@ class Observer:
             exclude_test_sources=self.exclude_test_sources,
             excluded_tests=self.excluded_tests,
             clock=self.clock,
+            producer=self.producer,
         )

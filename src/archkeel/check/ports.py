@@ -17,6 +17,7 @@ from archkeel.ir.model import Diagnostic, DiagnosticKind
 from archkeel.ir.model import ObservationResult as ObservationResult
 from archkeel.ir.profiles import TEST_SCOPE_LANGUAGES
 from archkeel.ir.protocol import CollectionError, CollectionRequest
+from archkeel.ir.state_facts import ProducerKind as ProducerKind
 
 _LISTED_TEST_FILES: Final = 20
 

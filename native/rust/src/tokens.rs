@@ -7,6 +7,8 @@
 //! A macro body is not Rust syntax, so `syn` cannot parse it. The scan reads `a::b::c` chains of
 //! identifiers and, in an attribute, a string that is only such a path.
 
+use std::collections::BTreeSet;
+
 use proc_macro2::{Span, TokenStream, TokenTree};
 
 /// The name of an identifier as the compiler compares it: a raw identifier `r#name` is `name`.
@@ -34,6 +36,63 @@ const MAX_DEPTH: usize = 64;
 pub fn chains(stream: TokenStream) -> Option<Vec<Chain>> {
     let mut found = Vec::new();
     collect(stream, 0, false, &mut found).then_some(found)
+}
+
+/// Whether the stream writes a relative module path that no chain reads: `super`, `self::`, or
+/// `crate` that is not followed by `::` and a name (`crate::{a, b}`, `crate::*`). A deeper
+/// stream counts as yes, so the caller never reads it as free of module paths.
+pub fn names_relative(stream: TokenStream) -> bool {
+    relative_in(stream, 0)
+}
+
+fn colon(token: Option<&TokenTree>) -> bool {
+    matches!(token, Some(TokenTree::Punct(punct)) if punct.as_char() == ':')
+}
+
+fn relative_in(stream: TokenStream, depth: usize) -> bool {
+    if depth > MAX_DEPTH {
+        return true;
+    }
+    let mut tokens = stream.into_iter().peekable();
+    while let Some(token) = tokens.next() {
+        let found = match token {
+            TokenTree::Group(group) => relative_in(group.stream(), depth + 1),
+            TokenTree::Ident(ident) => {
+                let text = ident.to_string();
+                let mut ahead = tokens.clone();
+                let (first, second) = (ahead.next(), ahead.next());
+                let named = matches!(ahead.next(), Some(TokenTree::Ident(_)));
+                let path = colon(first.as_ref()) && colon(second.as_ref());
+                text == "super" || (text == "self" && path) || (text == "crate" && !(path && named))
+            }
+            _ => false,
+        };
+        if found {
+            return true;
+        }
+    }
+    false
+}
+
+/// The names that the stream calls as macros: an identifier, `!`, and a group.
+pub fn macro_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+    if depth > MAX_DEPTH {
+        return;
+    }
+    let mut tokens = stream.into_iter().peekable();
+    while let Some(token) = tokens.next() {
+        match token {
+            TokenTree::Group(group) => macro_names(group.stream(), depth + 1, found),
+            TokenTree::Ident(ident) => {
+                let mut ahead = tokens.clone();
+                let bang = matches!(ahead.next(), Some(TokenTree::Punct(p)) if p.as_char() == '!');
+                if bang && matches!(ahead.next(), Some(TokenTree::Group(_))) {
+                    found.insert(plain(&ident));
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// The chains of an attribute. A lint list (`allow(...)`, `expect(...)`) holds lint names, not

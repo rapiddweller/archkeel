@@ -10,14 +10,20 @@ use serde_json::Value;
 use super::*;
 use archkeel_snapshot::test_tree::Tree;
 
-const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
+pub(super) const WORKSPACE: &str = "[workspace]\nmembers = [\"base\", \"app\"]\n\
     [workspace.dependencies]\nbase = { path = \"base\", package = \"base-crate\" }\n";
-const BASE: &str = "[package]\nname = \"base-crate\"\n[dependencies]\nserde_json = \"1\"\n";
-const APP: &str = "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace = true }\n\
+pub(super) const BASE: &str =
+    "[package]\nname = \"base-crate\"\n[dependencies]\nserde_json = \"1\"\n";
+pub(super) const APP: &str =
+    "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace = true }\n\
     renamed = { package = \"other-crate\", version = \"1\" }\nserde_json = \"1\"\n\
     [features]\ndump = []\n";
 
 fn facts(files: &[(&str, &str)]) -> Collected {
+    run(files, false)
+}
+
+pub(super) fn run(files: &[(&str, &str)], exclude_tests: bool) -> Collected {
     let root = Tree::new(files);
     let request = Request {
         version: Version::V8,
@@ -26,7 +32,7 @@ fn facts(files: &[(&str, &str)]) -> Collected {
         dirty: Value::Bool(false),
         roots: vec!["crates".to_owned()],
         namespace: "ns".to_owned(),
-        exclude_test_sources: false,
+        exclude_test_sources: exclude_tests,
         tsconfig: String::new(),
         bundler: false,
     };
@@ -52,7 +58,7 @@ fn workspace(app_source: &str) -> Collected {
 }
 
 /// The record of a dependency that a manifest declares: its path is `<section>: <name>`.
-fn is_declared(record: &Record<ImportFact>) -> bool {
+pub(super) fn is_declared(record: &Record<ImportFact>) -> bool {
     let specifier = record.data.data().specifier.clone().unwrap_or_default();
     specifier.contains("dependencies: ")
 }
@@ -264,4 +270,129 @@ fn a_dependency_table_that_the_reader_does_not_know_is_unknown() {
         reasons(&facts),
         ["A dependency table that the reader does not know: [dependancies] in app"]
     );
+}
+
+/// One crate with each form of test code: a sibling file, a `path` file, an inline module that
+/// holds a file, a `#[test]` function, the three test targets and a build script.
+const TEST_FORMS: [(&str, &str); 11] = [
+    ("crates/Cargo.toml", "[package]\nname = \"app\"\nbuild = \"build.rs\"\n[dev-dependencies]\nserde_json = \"1\"\n"),
+    ("crates/src/lib.rs",
+        "mod prod_tests;\n#[cfg(test)] mod tests;\n#[cfg(test)] #[path = \"lib_cases.rs\"] mod cases;\n\
+         #[cfg(test)] mod inline { mod deep; }\n#[test] fn alone() { let _ = serde_json::json!(1); }\n",
+    ),
+    ("crates/src/prod_tests.rs", "pub fn p() {}"),
+    ("crates/src/tests.rs", "fn t() { let _ = serde_json::json!(1); }"),
+    ("crates/src/lib_cases.rs", "fn c() { let _ = serde_json::json!(2); }"),
+    ("crates/src/inline/deep.rs", "fn d() {}"),
+    ("crates/tests/it.rs", "fn i() { let _ = serde_json::json!(3); }"),
+    ("crates/benches/b.rs", "fn b() {}"),
+    ("crates/examples/e.rs", "fn e() {}"),
+    ("crates/build.rs", "fn main() {}"),
+    ("crates/src/unreached.rs", "fn u() {}"),
+];
+
+fn module_files(facts: &Collected) -> Vec<&str> {
+    facts
+        .head
+        .files
+        .iter()
+        .map(|file| file.rel_path.as_str())
+        .filter(|rel| rel.ends_with(".rs"))
+        .collect()
+}
+
+#[test]
+fn a_request_that_excludes_tests_has_no_test_file_and_no_gap_for_one() {
+    let facts = run(&TEST_FORMS, true);
+    assert_eq!(
+        module_files(&facts),
+        [
+            "crates/build.rs",
+            "crates/src/lib.rs",
+            "crates/src/prod_tests.rs"
+        ]
+    );
+    // The unreached file is a gap and stays selected: only test scope leaves.
+    assert_eq!(
+        facts.selected_files,
+        [
+            "crates/Cargo.toml",
+            "crates/build.rs",
+            "crates/src/lib.rs",
+            "crates/src/prod_tests.rs",
+            "crates/src/unreached.rs"
+        ]
+    );
+    let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
+    assert_eq!(reasons.len(), 1, "{reasons:?}");
+    assert!(
+        reasons[0].contains("crates/src/unreached.rs"),
+        "{reasons:?}"
+    );
+    // No test code made an edge, and the dev-dependency is no declared edge.
+    assert_eq!(facts.imports, []);
+}
+
+#[test]
+fn a_request_that_keeps_tests_has_each_test_file_and_its_edges() {
+    let facts = run(&TEST_FORMS, false);
+    assert_eq!(module_files(&facts).len(), 9);
+    let specifiers: Vec<String> = facts
+        .imports
+        .iter()
+        .filter_map(|record| record.data.data().specifier.clone())
+        .collect();
+    assert!(specifiers
+        .iter()
+        .any(|s| s == "dev-dependencies: serde_json"));
+    assert!(facts.imports.len() == 5);
+}
+
+#[test]
+fn a_scope_with_only_test_files_is_a_gap() {
+    let files = [
+        ("crates/Cargo.toml", "[package]\nname = \"app\"\n"),
+        ("crates/tests/it.rs", "fn i() {}"),
+    ];
+    let facts = run(&files, true);
+    assert_eq!(module_files(&facts), Vec::<&str>::new());
+    let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
+    assert_eq!(reasons, [crate::test_scope::NO_PRODUCTION_SOURCE]);
+}
+
+#[test]
+fn a_production_target_in_a_test_directory_is_a_gap_and_never_silent() {
+    let files = [
+        (
+            "crates/Cargo.toml",
+            "[package]\nname = \"app\"\n[[bin]]\nname = \"x\"\npath = \"tests/x.rs\"\n",
+        ),
+        ("crates/src/lib.rs", "mod helper;"),
+        ("crates/src/helper.rs", ""),
+        ("crates/tests/x.rs", "fn main() {}"),
+    ];
+    let facts = run(&files, true);
+    assert_eq!(
+        module_files(&facts),
+        ["crates/src/helper.rs", "crates/src/lib.rs"]
+    );
+    let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
+    assert_eq!(reasons.len(), 1, "{reasons:?}");
+    assert!(reasons[0].contains("crates/tests/x.rs"), "{reasons:?}");
+    // Without the flag the target is a module as before.
+    assert_eq!(module_files(&run(&files, false)).len(), 3);
+}
+
+#[test]
+fn a_production_module_file_in_a_test_directory_is_a_gap() {
+    let files = [
+        ("crates/Cargo.toml", "[package]\nname = \"app\"\n"),
+        ("crates/src/lib.rs", "mod helpers;"),
+        ("crates/src/helpers/mod.rs", "mod tests;"),
+        ("crates/src/helpers/tests/mod.rs", ""),
+    ];
+    let facts = run(&files, true);
+    let reasons: Vec<&str> = facts.gaps.iter().map(|g| g.title.as_str()).collect();
+    assert_eq!(reasons.len(), 1, "{reasons:?}");
+    assert!(reasons[0].contains("helpers/tests/mod.rs"), "{reasons:?}");
 }

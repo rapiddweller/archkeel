@@ -8,9 +8,9 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from test_collection_boundary_regressions import _facts
 
-from archkeel.check.observation import assemble_observation
 from archkeel.check.ratchets import unknown_positions_by_rule
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import decode_response, encode_response
@@ -52,7 +52,7 @@ def test_empty_construct_facts_cannot_pass_without_decided_capability(
             }
         )
     )
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts, contract_root=tmp_path, contract_path=contract, roots=("src",), namespace="sample"
     )
     assessment = rule_assessments(
@@ -96,7 +96,7 @@ def test_decided_construct_capability_allows_clean_rule(tmp_path: Path) -> None:
             }
         )
     )
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts, contract_root=tmp_path, contract_path=contract, roots=("src",), namespace="sample"
     )
     assert (
@@ -146,7 +146,7 @@ def test_construct_identity_decides_rules_independently_of_record_kind(
             }
         )
     )
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts, contract_root=tmp_path, contract_path=contract, roots=("src",), namespace="sample"
     )
     violations = trace_valid_violations(observation)

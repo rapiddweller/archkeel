@@ -65,3 +65,6 @@ output; `init` and `explore` do not support Rust. **Check.** `cargo test`; the R
 - (a) A `macro_rules!` that stays in the crate is read as code of its file. (b) The name of an
   attribute in a macro body is a derive helper. (c) `macro_use` on a module and
   `cfg(any(test, feature = ...))` of known conditions are read. (d) A planned crate is no component.
+
+**Amendment, 2026-11-10 (5b-2c).** Module edges, no `crate_edges_only`, a re-exporting module is the
+dependency: [Rust module edges](../rust-module-edges.md).

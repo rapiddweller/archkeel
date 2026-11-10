@@ -13,12 +13,12 @@ import random
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from test_analyzer import _component, _observe
 from test_collection_boundary_regressions import _facts
 
 import archkeel.check.observation as observation_module
 from archkeel.check.evaluation.evaluate import evaluate_source
-from archkeel.check.observation import assemble_observation
 from archkeel.ir.coverage import observation_complete
 from archkeel.ir.model import Verdict
 
@@ -68,7 +68,7 @@ def _assemble(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str | Non
     _force_coverage(monkeypatch, status, failures)
     contract = tmp_path / "contract.json"
     contract.write_text('{"schema_version":"2.1.0","components":[],"rules":[]}')
-    return assemble_observation(
+    return assembled(
         _facts(tmp_path),
         contract_root=tmp_path,
         contract_path=contract,

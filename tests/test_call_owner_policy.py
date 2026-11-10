@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from collector_pin import assembled
 from jsonschema import Draft202012Validator
 from test_exact_module_ownership import _component, _observe_tree, _rule
 
@@ -2448,7 +2449,6 @@ def test_forged_construction_assignment_link_is_rejected(tmp_path, change):
 
 
 def test_legacy_capability_cannot_certify_or_convict_the_new_rule(tmp_path, owner_facts):
-    from archkeel.check.observation import assemble_observation
     from archkeel.ir.facts import CALL_BINDINGS_FEATURE
 
     legacy = replace(
@@ -2462,7 +2462,7 @@ def test_legacy_capability_cannot_certify_or_convict_the_new_rule(tmp_path, owne
             ),
         ),
     )
-    observed, _ = assemble_observation(
+    observed, _ = assembled(
         legacy,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",

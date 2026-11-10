@@ -196,6 +196,8 @@ def test_legacy_canonical_report_roundtrips_without_requirement_state():
 def test_requirement_state_requires_ir_2_and_survives_canonical_roundtrip(version):
     raw = raw_observation()
     raw["schema_version"] = version
+    if version == SCHEMA_VERSION:
+        raw["producer_kind"] = "python"
     raw["runtime"] = {
         "name": "cpython",
         "version": "3.11.12",

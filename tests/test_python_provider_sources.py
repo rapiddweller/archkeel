@@ -27,13 +27,13 @@ from pathlib import Path
 from types import FunctionType, ModuleType
 
 import pytest
+from collector_pin import assembled
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python import collect as collect_owner
 from archkeel.analyzer.python.collect import PythonProviderCollector, collect, provider_sources
 from archkeel.analyzer.reply_checks import check_provider_sources, check_requested_facts
 from archkeel.check.evaluation.evaluate import evaluate_source
-from archkeel.check.observation import assemble_observation
 from archkeel.cli.observe import observer_for
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
@@ -591,7 +591,7 @@ def _route_assessment(tmp_path, facts):
     (tmp_path / "architecture.md").write_text("Publish declared types.\n")
     contract_path = tmp_path / "contract.json"
     contract_path.write_text(json.dumps(_route_contract()))
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=contract_path,
@@ -3582,7 +3582,7 @@ def test_native_creation_requires_the_retained_namespace_proof(tmp_path, access)
             ProtocolVersion.V4,
         )
     )
-    observation, _ = assemble_observation(
+    observation, _ = assembled(
         facts,
         contract_root=tmp_path,
         contract_path=tmp_path / "contract.json",
