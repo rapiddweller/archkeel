@@ -1,0 +1,426 @@
+{
+  "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
+    "files": [
+      "facts/src/data/imports.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 71
+  },
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|a6651d57cb": {
+    "files": [
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 82
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|8e9f130df0": {
+    "files": [
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 72
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|cd6970d17a": {
+    "files": [
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 71
+  },
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|9f812b0dd1": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|3ee63772cf": {
+    "files": [
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 79
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|a3ab0319d6": {
+    "files": [
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 76
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|b2ce1d8527": {
+    "files": [
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 87
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|c631f85375": {
+    "files": [
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 72
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|f259219496": {
+    "files": [
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 75
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|6715bd1b22": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 73
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|69b2c4d2d7": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 104
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|7cf795bbf4": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 70
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|9d4172abd6": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 74
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|9d4172abd6#2": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 74
+  },
+  "facts/src/nested.rs|facts/src/nested.rs|cd475bd9ba": {
+    "files": [
+      "facts/src/nested.rs",
+      "facts/src/nested.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|068ad3ccc8": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 75
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|1a4bd12a84": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 86
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|3691a9ab57": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 86
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|49779ce93b": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 79
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|4f5a46b57c": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 92
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|53bb937dfe": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 85
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|5b6e3f3430": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 89
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|5b6e3f3430#2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|937c85ddaf": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 70
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|9f30d7fece": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|a4cb2e3159": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 89
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ad443f5fe5": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 79
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ae334daa3f": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 88
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|ae334daa3f#2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 80
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b186fafbb9": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 96
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b5c44909e6": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 94
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b5c44909e6#2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 79
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|e954c7fd30": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 73
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|f5b142ce61": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 73
+  },
+  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|f8bc21a7d2": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "facts/src/readset_fields.rs"
+    ],
+    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
+    "tokens": 78
+  },
+  "facts/src/readset_fields.rs|typescript/src/source_input.rs|365f46d9c6": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "typescript/src/source_input.rs"
+    ],
+    "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
+    "tokens": 71
+  },
+  "facts/src/readset_fields.rs|typescript/src/source_input.rs|432e8990a3": {
+    "files": [
+      "facts/src/readset_fields.rs",
+      "typescript/src/source_input.rs"
+    ],
+    "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
+    "tokens": 70
+  },
+  "facts/src/sections.rs|facts/src/sections.rs|92fc0ebcba": {
+    "files": [
+      "facts/src/sections.rs",
+      "facts/src/sections.rs"
+    ],
+    "reason": "Two section_facts! calls list the variants of a section enum in one shape. They are data.",
+    "tokens": 92
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|35c237e4c6": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 73
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|5329daf3bc": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 107
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|68074d063e": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 98
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|91f62064ba": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 77
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|a521145e05": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 74
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|d702bb6ff4": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 86
+  },
+  "typescript/src/dump.rs|typescript/src/parse.rs|9e628f2150": {
+    "files": [
+      "typescript/src/dump.rs",
+      "typescript/src/parse.rs"
+    ],
+    "reason": "The dump tool classifies a file as `parse` does. One helper would do; dev-only dump code.",
+    "tokens": 82
+  },
+  "typescript/src/dump.rs|wire/src/reply.rs|555e0e37f8": {
+    "files": [
+      "typescript/src/dump.rs",
+      "wire/src/reply.rs"
+    ],
+    "reason": "Same rows as above, in another place of the dump.",
+    "tokens": 98
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|1a2f180862": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 79
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|b8b671847c": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 139
+  },
+  "typescript/src/kinds.rs|typescript/src/kinds.rs|b8b671847c#2": {
+    "files": [
+      "typescript/src/kinds.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
+    "tokens": 79
+  },
+  "typescript/src/manifest.rs|typescript/src/options.rs|a62be8fc91": {
+    "files": [
+      "typescript/src/manifest.rs",
+      "typescript/src/options.rs"
+    ],
+    "reason": "Two truthiness checks of a JSON value that mirror two Python helpers (`_has_exports`, `_option_value`). The arms differ in one case.",
+    "tokens": 84
+  },
+  "typescript/src/sites.rs|typescript/src/sites.rs|4d91b36b51": {
+    "files": [
+      "typescript/src/sites.rs",
+      "typescript/src/sites.rs"
+    ],
+    "reason": "Two match arms read an identifier field and record a write. They differ in the kind and the field.",
+    "tokens": 70
+  },
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|cd4eccf015": {
+    "files": [
+      "typescript/src/symbol_table.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
+    "tokens": 72
+  },
+  "wire/src/stream.rs|wire/src/stream.rs|23bb5d695a": {
+    "files": [
+      "wire/src/stream.rs",
+      "wire/src/stream.rs"
+    ],
+    "reason": "Two objects written field by field with `Fields`. The writer is the clear owner; the field lists differ.",
+    "tokens": 74
+  }
+}

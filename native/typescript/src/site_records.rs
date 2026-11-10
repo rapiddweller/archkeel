@@ -5,7 +5,7 @@
 //! The call, reference and binding records of PR 4.3a-3c (`_inner_sites`, `_reference_record`,
 //! `_call_record`, `_binding_records`, `_result_binding`).
 //!
-//! The reply does not carry them yet (AD-340). The `dump` feature prints them, and
+//! The reply carries them under the capability `inner-uml-v1` (AD-340). The `dump` feature prints them, and
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 
 use archkeel_wire::identity::{stable_id, Part};

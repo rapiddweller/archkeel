@@ -13,7 +13,7 @@ use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
 
-use crate::definitions::{Definition, DefinitionKind};
+use crate::definitions::Definition;
 use crate::members::{Base, Member, Parameter, Visibility};
 use crate::parse::parse;
 use crate::site_paths::Text;
@@ -21,6 +21,7 @@ use crate::site_syntax::ReceiverKind;
 use crate::sites::{Comparison, Expression, Site, SiteKind, SiteUse};
 use crate::source::Span;
 use crate::source_input::classify_file;
+use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 use archkeel_wire::reply::{evidence_value, record_value, target_value, Provenance};
@@ -80,22 +81,10 @@ fn visibility(item: Option<Visibility>) -> Value {
     }))
 }
 
-fn kind(item: DefinitionKind) -> &'static str {
-    match item {
-        DefinitionKind::Class => "class",
-        DefinitionKind::Interface => "interface",
-        DefinitionKind::Enum => "enum",
-        DefinitionKind::Method => "method",
-        DefinitionKind::Function => "function",
-        DefinitionKind::TypeAlias => "type_alias",
-        DefinitionKind::Constant => "constant",
-    }
-}
-
 fn definition(item: &Definition, parent: Option<String>) -> Value {
     json!({
         "name": item.name,
-        "kind": kind(item.kind),
+        "kind": kind_value(item.kind),
         "span": span(&item.span),
         "parent": parent,
         "visibility": visibility(item.visibility),
@@ -215,6 +204,92 @@ pub fn syntax(found: &Syntax, data: &[u8]) -> Value {
         "declaration_file": found.declaration_file,
         "script_mode": found.script_mode,
         "script_bindings": found.script_bindings,
+        "script_globals": found.script.globals.iter().map(script_global).collect::<Vec<_>>(),
+        "script_writes": script_writes(&found.script.writes),
+        "script_aliases": found.script.aliases.iter().map(script_alias).collect::<Vec<_>>(),
+        "script_factories": found.script.factories.iter().map(script_factory).collect::<Vec<_>>(),
+        "script_source_writes": script_writes(&found.script.source_writes),
+        "script_write_paths": found.script.write_paths,
+        "script_top_level_write_paths": found.script.top_level_write_paths,
+        "script_destructures": found.script.destructures.iter().map(|item| json!({
+            "span": span(&item.span),
+            "path": item.path,
+            "members": members(&item.members),
+        })).collect::<Vec<_>>(),
+        "script_namespaces": found.script.namespaces.iter().map(|item| json!({
+            "name": item.name,
+            "span": span(&item.span),
+            "initialization": span(&item.initialization),
+        })).collect::<Vec<_>>(),
+    })
+}
+
+fn members(items: &[crate::script_types::Member]) -> Value {
+    items
+        .iter()
+        .map(|(published, local, at)| json!([published, local, span(at)]))
+        .collect()
+}
+
+fn spans(items: &[Span]) -> Value {
+    items.iter().map(span).collect()
+}
+
+fn script_writes(items: &[crate::script_types::Write]) -> Value {
+    items
+        .iter()
+        .map(|(name, at)| json!([name, span(at)]))
+        .collect()
+}
+
+/// An object with the keys in the order of the pairs.
+fn object(pairs: Vec<(&str, Value)>) -> Value {
+    Value::Object(
+        pairs
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect(),
+    )
+}
+
+fn script_global(item: &crate::script_types::ScriptGlobal) -> Value {
+    object(vec![
+        ("name", json!(item.name)),
+        ("span", span(&item.span)),
+        ("members", members(&item.members)),
+        ("stable", json!(item.stable)),
+        ("source_members", members(&item.source_members)),
+        ("source_origin", json!(item.source_origin)),
+        ("availability", spans(&item.availability)),
+    ])
+}
+
+fn script_alias(item: &crate::script_types::ScriptAlias) -> Value {
+    let mut found = serde_json::Map::new();
+    found.insert("name".into(), json!(item.name));
+    found.insert("span".into(), span(&item.span));
+    found.insert("reference_span".into(), span(&item.reference_span));
+    found.insert("path".into(), json!(item.path));
+    found.insert("calls".into(), spans(&item.calls));
+    found.insert("factory".into(), json!(item.factory));
+    found.insert("reads".into(), spans(&item.reads));
+    found.insert("escapes".into(), json!(item.escapes));
+    found.insert("complete".into(), json!(item.complete));
+    Value::Object(found)
+}
+
+fn script_factory(item: &crate::script_types::ScriptFactory) -> Value {
+    json!({
+        "name": item.name,
+        "span": span(&item.span),
+        "members": item.members.iter().map(|member| json!({
+            "name": member.name,
+            "span": span(&member.span),
+            "target": member.target,
+            "target_span": member.target_span.as_ref().map(span),
+            "forwarded_span": member.forwarded_span.as_ref().map(span),
+            "callable": member.callable,
+        })).collect::<Vec<_>>(),
     })
 }
 
@@ -244,26 +319,14 @@ fn kinds(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Value {
 /// Read `{"rel": ..., "file": ...}` lines from `input`. Print one `{"rel": ..., "syntax": ...}`
 /// line for each, or `{"rel": ..., "error": ...}` when the file cannot be read.
 pub fn run(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
-    let mut parsers = Parsers::new();
-    for line in input.lines() {
-        let line = line.map_err(|error| error.to_string())?;
-        let request: Value = serde_json::from_str(&line)
-            .map_err(|error| format!("dump request is not JSON: {error}"))?;
-        let rel = request["rel"].as_str().unwrap_or("");
-        let reply = match std::fs::read(request["file"].as_str().unwrap_or("")) {
-            Ok(data) => {
-                let facts = syntax(&parse(&mut parsers, rel, &data).syntax, &data);
-                json!({"rel": rel, "syntax": facts, "kinds": kinds(&mut parsers, rel, &data)})
-            }
-            Err(error) => json!({"rel": rel, "error": error.to_string()}),
-        };
-        writeln!(output, "{reply}").map_err(|error| error.to_string())?;
-    }
-    Ok(())
+    per_file(input, output, |parsers, rel, data| {
+        let facts = syntax(&parse(parsers, rel, data).syntax, data);
+        json!({"rel": rel, "syntax": facts, "kinds": kinds(parsers, rel, data)})
+    })
 }
 
 /// The records of PR 4.3a-3a for one request: what `tests/test_collector_native_records.py`
-/// compares with the Python collector. The reply of the collector does not carry them yet.
+/// compares with the Python collector.
 pub fn records(request: &Request, provenance: Provenance) -> Result<Value, String> {
     let (facts, records) = crate::collect::records(request, provenance)?;
     let touched: std::collections::HashSet<&str> =
@@ -281,30 +344,52 @@ pub fn records(request: &Request, provenance: Provenance) -> Result<Value, Strin
     }))
 }
 
-/// Read `{"rel": ..., "file": ...}` lines from `input` and print one line of counts for each file:
-/// the definitions, the sites and the comparisons that the walk found. A file whose reply is
-/// quadratic in the depth of its nest (the qualified name of each definition is in each record)
-/// is timed with this, because it measures the walk and not the size of the reply.
-pub fn count(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
+/// Read `{"rel": ..., "file": ...}` lines from `input` and print the reply of `reply` for each: the
+/// reply for a file that was read, or its error.
+fn per_file(
+    input: impl BufRead,
+    output: &mut impl Write,
+    mut reply: impl FnMut(&mut Parsers, &str, &[u8]) -> Value,
+) -> Result<(), String> {
     let mut parsers = Parsers::new();
     for line in input.lines() {
         let line = line.map_err(|error| error.to_string())?;
         let request: Value = serde_json::from_str(&line)
             .map_err(|error| format!("dump request is not JSON: {error}"))?;
         let rel = request["rel"].as_str().unwrap_or("");
-        let reply = match std::fs::read(request["file"].as_str().unwrap_or("")) {
-            Ok(data) => {
-                let syntax = parse(&mut parsers, rel, &data).syntax;
-                json!({
-                    "rel": rel,
-                    "definitions": syntax.definitions.len(),
-                    "sites": syntax.sites.sites.len(),
-                    "comparisons": syntax.sites.comparisons.len(),
-                })
-            }
+        let answer = match std::fs::read(request["file"].as_str().unwrap_or("")) {
+            Ok(data) => reply(&mut parsers, rel, &data),
             Err(error) => json!({"rel": rel, "error": error.to_string()}),
         };
-        writeln!(output, "{reply}").map_err(|error| error.to_string())?;
+        writeln!(output, "{answer}").map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+/// Read `{"rel": ..., "file": ...}` lines from `input` and print one line of counts for each file:
+/// the definitions, the sites and the comparisons that the walk found. A file whose reply is
+/// quadratic in the depth of its nest (the qualified name of each definition is in each record)
+/// is timed with this, because it measures the walk and not the size of the reply.
+pub fn count(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
+    per_file(input, output, |parsers, rel, data| {
+        let syntax = parse(parsers, rel, data).syntax;
+        json!({
+            "rel": rel,
+            "definitions": syntax.definitions.len(),
+            "sites": syntax.sites.sites.len(),
+            "comparisons": syntax.sites.comparisons.len(),
+        })
+    })
+}
+
+/// Read `{"rel": ..., "file": ...}` lines from `input` and print one line for each: the name, the
+/// span and the writes of the closed UMD envelope that the file is, or `null` (`umd.rs`).
+pub fn umd(input: impl BufRead, output: &mut impl Write) -> Result<(), String> {
+    per_file(input, output, |parsers, rel, data| {
+        let found = crate::umd_publication::publication(parsers, rel, data);
+        let found = found.map(
+            |item| json!({"name": item.name, "span": span(&item.span), "writes": item.writes}),
+        );
+        json!({"rel": rel, "umd": found})
+    })
 }

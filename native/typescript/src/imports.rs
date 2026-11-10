@@ -75,11 +75,9 @@ impl Collection<'_> {
                 GapKind::Collection,
             );
         }
-        if self.keep {
-            let kept = Kept::from_parsed(module, &mut parsed, text);
-            self.order.push(rel.to_owned());
-            self.kept.insert(rel.to_owned(), kept);
-        }
+        let kept = Kept::from_parsed(module, &mut parsed, text);
+        self.order.push(rel.to_owned());
+        self.kept.insert(rel.to_owned(), kept);
         let format = self.resolver.format_of(&mut self.snapshot, rel);
         let explicit = self.resolver.options.module;
         // `collect._global_dependency_scope`: a file that is neither a declaration nor CommonJS.
@@ -162,10 +160,8 @@ impl Collection<'_> {
             module_level_import: reference.module_level,
             ..ImportData::statement()
         };
-        if self.keep {
-            let site = (rel.to_owned(), reference.span.line, reference.span.column);
-            self.sites.insert(identity.clone(), site);
-        }
+        let site = (rel.to_owned(), reference.span.line, reference.span.column);
+        self.sites.insert(identity.clone(), site);
         self.targets.push(target);
         self.imports.push(Record {
             id: FactId::new(identity),

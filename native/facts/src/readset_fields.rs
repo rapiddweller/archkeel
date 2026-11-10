@@ -17,7 +17,7 @@ use crate::vocab::{Area, Kind};
     clippy::too_many_lines,
     reason = "one generated table row for each area and kind (AD-345)"
 )]
-pub fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> {
+pub(crate) fn fields(area: Area, kind: Kind) -> Option<&'static [&'static str]> {
     let fields: &'static [&'static str] = match (area, kind) {
         (Area::AnalysisCoverage, Kind::ExceptionGap) => &[],
         (Area::CallHierarchy, Kind::AttributeReference) => &[

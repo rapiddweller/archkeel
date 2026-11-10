@@ -6,9 +6,8 @@
 //!
 //! This is the API that the records of calls and references (PR 4.3a-3c) read. It holds what
 //! `collect._inner_facts` builds before it makes any record: the id of each definition
-//! (`ids`), the definitions that share a qualified name (`by_qualified`), the id of a definition by
-//! its qualified name and position (`scope_ids`), the top-level definitions of a module
-//! (`top_by_module`) and all definitions of a module (`definitions_by_module`). The entries are in
+//! (`ids`), the definitions that share a qualified name (`by_qualified`) and the id of a definition
+//! by its qualified name and position (`scope_ids`). The entries are in
 //! the order of the Python lists: files in the order that the walk parsed them, then the definitions
 //! of a file by line and column. An index is an entry number, so a lookup costs one hash.
 
@@ -92,8 +91,6 @@ pub struct SymbolTable<'a> {
     named: HashMap<String, HashMap<String, Vec<usize>>>,
     members: HashMap<usize, HashSet<&'a str>>,
     scope_ids: HashMap<Rc<str>, HashMap<(i64, i64), usize>>,
-    top_by_module: HashMap<&'a str, Vec<usize>>,
-    by_module: HashMap<&'a str, Vec<usize>>,
 }
 
 impl<'a> SymbolTable<'a> {
@@ -109,8 +106,6 @@ impl<'a> SymbolTable<'a> {
             named: HashMap::new(),
             members: HashMap::new(),
             scope_ids: HashMap::new(),
-            top_by_module: HashMap::new(),
-            by_module: HashMap::new(),
         };
         for rel in &pending.order {
             let Some(kept) = pending.kept.get(rel) else {
@@ -178,9 +173,7 @@ impl<'a> SymbolTable<'a> {
         }
         let name = definition.name.as_str();
         push_named(&mut self.named, module, name, at);
-        self.by_module.entry(module).or_default().push(at);
         if definition.top_level {
-            self.top_by_module.entry(module).or_default().push(at);
             push_named(&mut self.top_named, module, name, at);
         }
         self.entries.push(Entry {
@@ -194,16 +187,7 @@ impl<'a> SymbolTable<'a> {
         });
     }
 
-    /// `ids[(rel, line, column)]`: the entry of the definition that starts there.
-    #[allow(dead_code)] // read by the records of calls and references (PR 4.3a-3c)
-    pub fn at(&self, rel: &str, line: i64, column: i64) -> Option<&Entry<'a>> {
-        self.ids
-            .get(&(rel, line, column))
-            .map(|&at| &self.entries[at])
-    }
-
     /// `by_qualified[qualified]`: the definitions that share a qualified name, in order.
-    #[allow(dead_code)] // read by the records of calls and references (PR 4.3a-3c)
     pub fn with_qualified(&self, qualified: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = self.by_qualified.get(qualified).map_or(&[], Vec::as_slice);
         found.iter().map(|&at| &self.entries[at])
@@ -225,13 +209,13 @@ impl<'a> SymbolTable<'a> {
         self.classes.get(qualified).copied().unwrap_or(0)
     }
 
-    /// The top-level definitions of a module with this name, in order (`top_by_module` filtered).
+    /// The top-level definitions of a module with this name, in order (index `top_named`).
     pub fn top_named(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = lookup(&self.top_named, module, name);
         found.iter().map(|&at| &self.entries[at])
     }
 
-    /// The definitions of a module with this name, in order (`definitions_by_module` filtered).
+    /// The definitions of a module with this name, in order (index `named`).
     pub fn named_in(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = lookup(&self.named, module, name);
         found.iter().map(|&at| &self.entries[at])
@@ -248,19 +232,5 @@ impl<'a> SymbolTable<'a> {
     pub fn scope(&self, qualified: &str, line: i64, column: i64) -> Option<&Entry<'a>> {
         let at = self.scope_ids.get(qualified)?.get(&(line, column))?;
         self.entries.get(*at)
-    }
-
-    /// `top_by_module[module]`: the top-level definitions of a module, in order.
-    #[allow(dead_code)] // read by the records of calls and references (PR 4.3a-3c)
-    pub fn top_level(&self, module: &str) -> impl Iterator<Item = &Entry<'a>> {
-        let found: &[usize] = self.top_by_module.get(module).map_or(&[], Vec::as_slice);
-        found.iter().map(|&at| &self.entries[at])
-    }
-
-    /// `definitions_by_module[module]`: all definitions of a module, in order.
-    #[allow(dead_code)] // read by the records of calls and references (PR 4.3a-3c)
-    pub fn in_module(&self, module: &str) -> impl Iterator<Item = &Entry<'a>> {
-        let found: &[usize] = self.by_module.get(module).map_or(&[], Vec::as_slice);
-        found.iter().map(|&at| &self.entries[at])
     }
 }

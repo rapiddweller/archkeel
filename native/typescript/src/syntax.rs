@@ -12,6 +12,7 @@ use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
 use crate::kinds::KindMap;
 use crate::scan::Kinds;
+use crate::umd::Templates;
 
 /// One grammar with the node kinds that import extraction matches.
 pub struct Grammar {
@@ -19,6 +20,8 @@ pub struct Grammar {
     pub kinds: Kinds,
     /// The kind of each node id, for the syntax walk.
     pub map: KindMap,
+    /// The templates that a script matches exactly (`umd.rs`).
+    pub templates: Templates,
 }
 
 impl Grammar {
@@ -26,6 +29,7 @@ impl Grammar {
         Self {
             kinds: Kinds::new(&language),
             map: KindMap::new(&language),
+            templates: Templates::new(&language),
             language,
         }
     }

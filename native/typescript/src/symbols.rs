@@ -6,7 +6,7 @@
 //! (`_inner_symbols`, `_symbol_metadata`, `_classifier_data`, `_attribute_declaration`,
 //! `_base_record`).
 //!
-//! The reply does not carry them yet (AD-340). The `dump` feature prints them, and
+//! The reply carries them under the capability `inner-uml-v1` (AD-340). The `dump` feature prints them, and
 //! `tests/test_collector_native_records.py` compares them with the unmodified Python collector.
 
 use std::collections::HashMap;

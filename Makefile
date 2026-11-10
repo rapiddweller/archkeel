@@ -87,7 +87,9 @@ native-check:
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
 	cd native && cargo build --locked
-	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py
+	$(UV) run --locked python -m pytest -q tests/test_self_native_layers.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py
+	$(UV) run --locked python tools/rust_clones.py
+	$(UV) run --locked python tools/rust_api.py --check
 
 # AD-343: record the golden replies of the Python collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
@@ -96,6 +98,8 @@ golden-record:
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:
+	@$(UV) run --locked python tools/rust_api.py
+	@$(UV) run --locked python tools/rust_clones.py --list | head -1
 	@for lint in indexing_slicing arithmetic_side_effects cast_possible_truncation; do \
 		printf '%s: ' $$lint; \
 		(cd native && cargo clippy --locked --message-format short -- -W clippy::$$lint 2>&1) | \
@@ -123,7 +127,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/merge_check.py \
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py \
 	native/hatch_build.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
@@ -150,7 +154,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/merge_check.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:
