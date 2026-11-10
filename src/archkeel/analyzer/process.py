@@ -97,13 +97,10 @@ class ProcessCollector:
     memory_limit_bytes: int = COLLECTOR_MEMORY_LIMIT_BYTES
     # Set for a collector of this package: its reply must carry the host version (AD-319).
     pin_adapter_version: bool = False
-<<<<<<< HEAD
     # AD-346 (opt-in): the path of an `archkeel-store` binary that decodes and keeps the reply.
     store: str | None = None
-=======
     # Set for a configured collector that the user pins: its file must have this digest (AD-344).
     pinned_digest: str | None = None
->>>>>>> origin/main
 
     def __post_init__(self) -> None:
         if self.pinned_digest is not None and not is_pin(self.pinned_digest):

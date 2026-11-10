@@ -1,8 +1,8 @@
 {
-  "after_baseline_digest": "bdda87586b0642ab045491adf01a423b3cee829c8abbbc138c4681ed107c1c78",
-  "after_digest": "24d0270e061d347e0f9bd05980d3279ab1a57304b4d37a7128fb98079d1d16fc",
-  "before_baseline_digest": "7aaf94c39ac55c6181592d5f348388e8d60c5dc03715fc42d16a394dcd85ceab",
-  "before_digest": "0dbab2c59216ed037e392b89a3cc32143749cabfe517cdb4841f62f7f7db88ef",
+  "after_baseline_digest": "0dd1b2d711cc01125f7714aa76ee3790f270b7aa72e375811fe975a565fe2850",
+  "after_digest": "f5d01d6da44f8e3ebf339c3f8e2b2380f992283d99070f9ddf1e9c1c777cc699",
+  "before_baseline_digest": "82620384479c61a730a2770290fa10abb8d50e57942badf68c85c4ddb3bd5a91",
+  "before_digest": "a0b5271cea36aadbed96221c3bc44728a3a0e8fc94c407ebf277e675b34a45ca",
   "decided_by": "agent (per task R3 of the lead, epic #880 WP4, 2026-11-10)",
   "rationale": "AD-346, opt-in store path. Four modules join the contracts: archkeel.ir.store_seam (facts, public StoreSeam and active_store, because the dependency and member inventory digests ask the store), archkeel.ir.readset_codec (facts-codec), archkeel.ir.codec_store (wire) and archkeel.analyzer.store (process). The analyzer may use decode_read_set, StoreEntry, open_store, close_store and store_enabled; ir publishes them and store_disabled, which check uses to observe without the store. calls_unresolved rises from 977 to 986: the store process frames and the two context variables of the session (the active store and store_disabled) are dynamic receivers (store.py, store_seam.py). The two allowed type ignores of process.is_process_alive move 15 lines with the new store field. No rule, component or Any permission changes.",
   "schema_version": "2.0.0"

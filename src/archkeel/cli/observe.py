@@ -79,11 +79,8 @@ def observer_for(
         protocol_version=ProtocolVersion.V8 if native_typescript or native_rust or store else None,
         # A collector of this package must report the host version; a configured one need not.
         pin_adapter_version=bundled,
-<<<<<<< HEAD
         store=store or None,
-=======
         pinned_digest=pinned_digest if not bundled else None,
->>>>>>> origin/main
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)
