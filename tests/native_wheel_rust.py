@@ -53,7 +53,7 @@ def check_rust_binary(tmp_path: Path, python: Path, binary: str, version: str) -
         "version": version,
         "code_digest": facts["adapter"]["code_digest"],
     }
-    assert facts["coverage"]["selected_files"] == ["crates/src/lib.rs"]
+    assert facts["coverage"]["selected_files"] == ["crates/Cargo.toml", "crates/src/lib.rs"]
     # The Rust binary has no test-only mode (AD-323 keeps `dump` out of the TypeScript binary).
     dumped = subprocess.run([binary, "--dump"], input=b"", capture_output=True)
     assert dumped.returncode != 0 and dumped.stdout == b""
@@ -69,5 +69,5 @@ def check_rust_binary(tmp_path: Path, python: Path, binary: str, version: str) -
         "SourceFacts",
         "archkeel-rust-imports",
         version,
-        ["shop.demo"],
+        ["shop.demo.cargo_toml", "shop.demo"],
     ]
