@@ -33,9 +33,6 @@ const MODULE_ATTRIBUTES: [&str; 11] = [
 /// Tool attributes: `clippy::x` and `rustfmt::skip` change no module.
 const TOOLS: [&str; 3] = ["clippy", "rustfmt", "rustdoc"];
 
-/// The start of the reason that a `cfg` on a module gives.
-pub const CFG_GATE_MODULE: &str = "A cfg condition gates a module";
-
 /// The first reason that an attribute list hides something, or `None`.
 pub fn hidden_by(attrs: &[Attribute], what: &str, features: &BTreeSet<String>) -> Option<String> {
     attrs.iter().find_map(|attr| reason(attr, what, features))

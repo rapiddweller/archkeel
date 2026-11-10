@@ -130,3 +130,24 @@ fn two_crates_with_one_name_are_a_problem() {
         "Two crates have the name same"
     );
 }
+
+#[test]
+fn a_root_that_the_manifest_names_and_the_listing_lacks_is_a_problem() {
+    let workspace = found(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"app\"\n[lib]\npath = \"target/lib.rs\"\n",
+        ),
+        ("target/CACHEDIR.TAG", ""),
+        ("target/lib.rs", ""),
+    ]);
+    let reasons: Vec<_> = workspace
+        .problems
+        .iter()
+        .map(|p| p.reason.as_str())
+        .collect();
+    assert_eq!(
+        reasons,
+        ["The manifest names a source file that the scan did not list: target/lib.rs"]
+    );
+}

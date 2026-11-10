@@ -15,13 +15,8 @@ use crate::paths::normalize;
 use crate::scan::{scan, Child, Scan};
 use crate::source::read_text;
 use crate::test_scope::in_test_directory;
-use alternatives::release;
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
-
-/// The `cfg` alternatives of one module name.
-#[path = "alternatives.rs"]
-mod alternatives;
 
 /// One file of a module tree, read and scanned.
 pub struct Module {
@@ -119,7 +114,8 @@ impl Walked {
 
     /// A module id that no other file has. Rust refuses two modules of one name in one parent,
     /// unless `cfg` leaves one of them out: so a second file for the same id is a cfg alternative
-    /// and keeps its own file and edges under a suffixed id. A path to the id names the first.
+    /// and keeps its own file and edges under a suffixed id. The `cfg` on each alternative stays a
+    /// gap, so a rule about the module is UNKNOWN: a path to the id names only the first file.
     fn distinct(&mut self, module: String) -> String {
         let mut chosen = module.clone();
         let mut number = 2;
@@ -219,10 +215,7 @@ impl Walked {
         } else {
             let production = self.exclude_tests && !file.test;
             match scan(text, &krate.manifest.features, production) {
-                Ok(mut scanned) => {
-                    release(&mut scanned);
-                    return scanned;
-                }
+                Ok(scanned) => return scanned,
                 Err(error) => Some(format!("Syntax error in {}: {error}", file.rel)),
             }
         };
