@@ -17,7 +17,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 use crate::tokens::{first_name, split_commas};
 
 /// Attributes that a module can carry without a change to its content.
-const MODULE_ATTRIBUTES: [&str; 10] = [
+const MODULE_ATTRIBUTES: [&str; 11] = [
     "path",
     "allow",
     "warn",
@@ -28,6 +28,7 @@ const MODULE_ATTRIBUTES: [&str; 10] = [
     "deprecated",
     "must_use",
     "no_implicit_prelude",
+    "macro_use",
 ];
 /// Tool attributes: `clippy::x` and `rustfmt::skip` change no module.
 const TOOLS: [&str; 3] = ["clippy", "rustfmt", "rustdoc"];

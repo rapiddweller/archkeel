@@ -18,23 +18,31 @@
 
 use std::collections::BTreeSet;
 
-use proc_macro2::{token_stream::IntoIter, TokenStream, TokenTree};
+use std::iter::Peekable;
+
+use proc_macro2::{token_stream::IntoIter, Delimiter, TokenStream, TokenTree};
 
 use crate::tokens::{plain, MESSAGE_KEYS};
 
 /// One level of brackets that the walk is in, with the last name and whether `=` follows it.
 struct Level {
-    tokens: IntoIter,
+    tokens: Peekable<IntoIter>,
     key: Option<String>,
     armed: bool,
+    /// The level is the inside of `#[...]`: its first name is the name of the attribute.
+    attribute: bool,
+    /// A `#` (and a `!`) came just before: the next bracket group is an attribute.
+    hash: bool,
 }
 
 impl Level {
-    fn new(stream: TokenStream) -> Self {
+    fn new(stream: TokenStream, attribute: bool) -> Self {
         Self {
-            tokens: stream.into_iter(),
+            tokens: stream.into_iter().peekable(),
             key: None,
             armed: false,
+            attribute,
+            hash: false,
         }
     }
 }
@@ -43,7 +51,7 @@ impl Level {
 /// string that is a name or starts with `name::`. The caller passes the places that syn does not
 /// read as code: a macro body and an attribute stream.
 pub fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
-    let mut levels = vec![Level::new(stream)];
+    let mut levels = vec![Level::new(stream, false)];
     // The walk keeps its own stack, so the depth of the brackets costs no stack frame.
     while let Some(level) = levels.last_mut() {
         let Some(token) = level.tokens.next() else {
@@ -53,12 +61,25 @@ pub fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
         match token {
             TokenTree::Group(group) => {
                 (level.key, level.armed) = (None, false);
-                levels.push(Level::new(group.stream()));
+                let attribute = level.hash && group.delimiter() == Delimiter::Bracket;
+                level.hash = false;
+                levels.push(Level::new(group.stream(), attribute));
             }
             TokenTree::Ident(name) => {
                 let name = plain(&name);
-                found.insert(name.clone());
-                (level.key, level.armed) = (Some(name), false);
+                // The name of an attribute without `::` is a helper of a derive (`#[serde(..)]`),
+                // not a path to a crate: a path to a crate is read as a path.
+                let helper = level.attribute
+                    && !matches!(level.tokens.peek(), Some(TokenTree::Punct(next)) if next.as_char() == ':');
+                if !helper {
+                    found.insert(name.clone());
+                }
+                (level.key, level.armed, level.attribute, level.hash) =
+                    (Some(name), false, false, false);
+            }
+            TokenTree::Punct(punct) if matches!(punct.as_char(), '#' | '!') => {
+                level.hash = level.hash || punct.as_char() == '#';
+                (level.key, level.armed) = (None, false);
             }
             TokenTree::Punct(punct) if punct.as_char() == '=' => level.armed = level.key.is_some(),
             TokenTree::Literal(literal) => {
@@ -67,12 +88,12 @@ pub fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
                         .key
                         .as_deref()
                         .is_some_and(|name| MESSAGE_KEYS.contains(&name));
-                (level.key, level.armed) = (None, false);
+                (level.key, level.armed, level.hash) = (None, false, false);
                 if !message {
                     note_literal(&literal.to_string(), found);
                 }
             }
-            _ => (level.key, level.armed) = (None, false),
+            _ => (level.key, level.armed, level.hash) = (None, false, false),
         }
     }
 }

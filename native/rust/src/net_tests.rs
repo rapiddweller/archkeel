@@ -24,6 +24,17 @@ fn an_identifier_counts_in_a_macro_body_an_attribute_stream_and_as_a_raw_identif
 }
 
 #[test]
+fn the_name_of_an_attribute_is_a_helper_and_no_crate_unless_it_is_a_path() {
+    // `#[serde(...)]` in a macro body names the helper of a derive.
+    assert!(!has(&names("#[serde(default)] x: u8"), "serde"));
+    assert!(!has(&names("#![serde(default)]"), "serde"));
+    // A crate in the arguments, or at the start of a path, counts.
+    assert!(has(&names("#[other(serde)] x: u8"), "serde"));
+    assert!(has(&names("#[serde::attr] x: u8"), "serde"));
+    assert!(has(&names("x = serde"), "serde"));
+}
+
+#[test]
 fn a_string_counts_when_it_is_a_name_or_starts_with_one() {
     assert!(has(&names("\"base_crate\""), "base_crate"));
     assert!(has(&names("\"base_crate::make\""), "base_crate"));

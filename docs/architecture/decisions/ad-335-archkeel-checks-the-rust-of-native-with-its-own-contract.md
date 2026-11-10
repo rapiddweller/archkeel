@@ -24,8 +24,8 @@ slice 5b-1 of epic #880. Slices 5b-2 (module edges) and 5b-3 (cycles) amend this
 5. A derive never makes a file UNKNOWN. A path in an attribute is an edge, also in a string under
    any key but a message key (`note`, `since`, `reason`, `rename`, `doc`, ...); a string with `::`
    that does not read is UNKNOWN. A lint list and a key-less string are no path. UNKNOWN, each
-   with its reason: a macro call with a path in its body (the macros of `std` and `json!` are read), `macro_rules!`, `include!`, a `cfg` or `cfg_attr` on a
-   `mod` or `use`, a non-literal `path`, an attribute macro on a module, a missing or ambiguous
+   with its reason: a macro call with a path in its body (the macros of `std` and `json!` are read), an exported `macro_rules!` (one that stays in the
+   crate is read as code of its file), `include!`, a `cfg` or `cfg_attr` on a `mod` or `use`, a non-literal `path`, an attribute macro on a module, a missing or ambiguous
    module file, a syntax error, brackets nested deeper than 256, a file that two modules load, an
    unreadable `Cargo.toml` and a `[lib] name` that differs from the package name.
 6. `cfg(test)` and `cfg(feature = "x")` of a declared feature are read as true, so the edges are the

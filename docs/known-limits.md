@@ -248,7 +248,7 @@ type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
 segment names another crate. A component or a rule on modules below a crate root, an
 `interface_boundary`, symbols, calls, types and constructs are unsupported, so they stay UNKNOWN
-and never PASS. A macro body with a path, `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
+and never PASS. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
 attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also

@@ -66,10 +66,12 @@ fn an_attribute_macro_on_a_module_hides_its_content() {
         "An attribute macro is applied to a module: a path attribute"
     );
     assert_eq!(
-        hidden("#[macro_use]", "module").unwrap(),
-        "An attribute macro is applied to a module: macro_use"
+        hidden("#[tool::rewrite_a]", "module").unwrap(),
+        "An attribute macro is applied to a module: a path attribute"
     );
     for text in [
+        // `macro_use` only widens the scope of the macros of the module.
+        "#[macro_use]",
         "#[path = \"x.rs\"]",
         "#[allow(dead_code)]",
         "#[clippy::x]",

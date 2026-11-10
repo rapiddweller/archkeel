@@ -243,6 +243,40 @@ impl Walker<'_> {
         self.refer_as(prefix, span, self.absolute_use);
     }
 
+    /// A `macro_rules!` definition. Its expansion stays in this crate, so its body is read as code
+    /// of the file: a path is an edge, and a crate name in any token is checked by the net. An
+    /// exported macro expands in other crates too, and those edges are not in this file: UNKNOWN.
+    fn macro_rules(&mut self, node: &ItemMacro) {
+        let span = node
+            .mac
+            .path
+            .segments
+            .first()
+            .map_or(Span::call_site(), |s| s.ident.span());
+        let name = node.ident.as_ref().map_or(String::new(), plain);
+        if node
+            .attrs
+            .iter()
+            .any(|attr| attr.path().is_ident("macro_export"))
+        {
+            let reason = format!(
+                "The macro_rules! definition {name} is exported: it expands in other crates"
+            );
+            self.concern(reason, span);
+        }
+        net::walk(node.mac.tokens.clone(), &mut self.out.mentioned);
+        match chains(node.mac.tokens.clone()) {
+            Some(found) => self.refer_chains(found),
+            None => self.concern(
+                format!("The macro_rules! definition {name} is nested too deep to read"),
+                span,
+            ),
+        }
+        for attr in &node.attrs {
+            self.attribute(attr);
+        }
+    }
+
     fn macro_call(&mut self, node: &Macro) {
         let Some(name) = node.path.segments.last().map(|s| plain(&s.ident)) else {
             return;
@@ -351,23 +385,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
         if node.mac.path.is_ident("macro_rules") {
-            let name = node
-                .ident
-                .as_ref()
-                .map_or(String::new(), ToString::to_string);
-            let span = node
-                .mac
-                .path
-                .segments
-                .first()
-                .map_or(Span::call_site(), |s| s.ident.span());
-            self.concern(
-                format!("The macro_rules! definition {name} is not expanded"),
-                span,
-            );
-            for attr in &node.attrs {
-                self.attribute(attr);
-            }
+            self.macro_rules(node);
             return;
         }
         visit::visit_item_macro(self, node);

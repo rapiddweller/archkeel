@@ -88,11 +88,20 @@ fn another_macro_with_a_path_in_its_body_is_unknown() {
 }
 
 #[test]
-fn macro_rules_and_include_are_unknown() {
+fn an_exported_macro_rules_and_include_are_unknown() {
+    assert_eq!(
+        reasons("#[macro_export]\nmacro_rules! m { () => { a::b() }; }"),
+        ["The macro_rules! definition m is exported: it expands in other crates"]
+    );
+    // A macro that stays in the crate is read as code of the file: its path is a reference.
     assert_eq!(
         reasons("macro_rules! m { () => { a::b() }; }"),
-        ["The macro_rules! definition m is not expanded"]
+        Vec::<String>::new()
     );
+    assert_eq!(paths("macro_rules! m { () => { a::b() }; }"), ["a::b"]);
+    assert!(scanned("macro_rules! m { ($c:ident) => { $c::make() }; }")
+        .mentioned
+        .contains("make"));
     assert_eq!(
         reasons("include!(concat!(env!(\"OUT_DIR\"), \"/x.rs\"));"),
         ["The macro include! adds code that the scan does not read"]

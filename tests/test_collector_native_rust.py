@@ -144,7 +144,10 @@ def test_a_rule_that_needs_symbols_or_calls_is_unknown_and_never_pass(
 
 UNKNOWN = [
     ("fn g() { lazy::m!(a::b); }", "The macro m! holds a path that the scan cannot read"),
-    ("macro_rules! m { () => { x::y() }; }", "The macro_rules! definition m is not expanded"),
+    (
+        "#[macro_export]\nmacro_rules! m { () => { x::y() }; }",
+        "The macro_rules! definition m is exported: it expands in other crates",
+    ),
     ('include!("other.rs");', "The macro include! adds code that the scan does not read"),
     ("#[cfg(unix)]\nmod unix;", "A cfg condition gates a module: cfg(unix)"),
     ("#[cfg(windows)]\nuse std::os::windows::fs;", "A cfg condition gates a use: cfg(windows)"),
