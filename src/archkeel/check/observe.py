@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Build observations by injecting a source collector into Core evaluation."""
 
+import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Final
@@ -313,7 +314,7 @@ def _observe(
                 relative = path.relative_to(source_root).as_posix()
                 if is_test_source(relative, language) and not _INSTALLED.intersection(path.parts):
                     found.add(relative)
-                if _collector_lists(path.relative_to(source_root).parts):
+                if _collector_lists(relative):
                     listed.add(relative)
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
@@ -400,9 +401,9 @@ def _observe(
         )
 
 
-def _collector_lists(parts: tuple[str, ...]) -> bool:
+def _collector_lists(relative: str) -> bool:
     """The Rust collector enters no `target` and no hidden directory, so it never lists them."""
-    return not any(part == "target" or part.startswith(".") for part in parts[:-1])
+    return re.search(r"(?:^|/)(?:target|\.[^/]*)/", relative) is None
 
 
 @dataclass(frozen=True, slots=True)
