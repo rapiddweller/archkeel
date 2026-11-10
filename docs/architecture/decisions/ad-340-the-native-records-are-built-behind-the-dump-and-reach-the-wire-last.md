@@ -45,3 +45,24 @@ does it once. The evidence of a location is decided by its last citation (`recor
 overwrites), so `Cited` starts from the evidence of the reply and the order of the new records
 follows Python: imports, symbols, then constructs. 3c cites the sites between them; the oracle
 leaves those locations to 3c.
+
+**Note, 2026-11-09 (3c): calls, references and bindings.** `site_records.rs` builds the `TSCALL`,
+`TSREF` and `VALUEBIND` records (`_inner_sites` and the record builders), and `resolution.rs` is the
+syntactic resolver (`_site_resolution`, `_unqualified_candidates`, `_local_import_bindings`). Python
+scans the top-level definitions and the definitions of the imported module for each site, and the
+members of the class for each `this` reference; the symbol table answers each with one lookup
+(`top_named`, `named_in`, `has_member`, `class_count`). The question "does a scope of the chain
+hide this name" no longer unites the sets of the chain: `NameIndex` keeps for each scope the ranges
+that its ancestors do not cover, and one binary search in the positions of the name answers it. The
+oracle compares all sections with all evidence now, because the sites cite after the symbols as in
+Python. Not ported: the script paths
+(`script_resolution`, `script_evidence`, `_script_alias_bindings`) belong to PR 4.3a-4 and 4.3a-5.
+The oracle is the Python collector **without `_script_dependencies`**, not the whole Python
+collector: Python runs that producer on every file that is neither a declaration nor CommonJS, an
+ES module included. `Scene.create()` in `mod.ts`, with `legacy.js` publishing `Scene`, is `resolved`
+in full Python (target `legacy_x2e_js.create`, fact `SCRIPTPUBLICATION`) and `unresolved` here;
+a strict xfail test pins the case until 4.3a-4 and 4.3a-5. The records are written one at a time
+(`symbols::each`, `site_records::pass`): a pass for the calls and a pass for the references, so no
+list of all records of a project exists on the wire path. `NameIndex` keeps a list of parameter
+ranges that grows with the depth of the nest: 10 000 nested scopes with 100 000 sites take 2.2 s
+against 1.1 s without the nest (measured in review): bounded, quadratic in the depth, not fixed.

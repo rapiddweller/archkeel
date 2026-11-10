@@ -4,11 +4,13 @@
 
 //! What the walk keeps of each parsed file for the cross-file passes of the records (AD-340).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::definitions::Definition;
+use crate::definitions::{Definition, Scopes};
 use crate::import_bindings::ImportBinding;
 use crate::parse::Parsed;
+use crate::site_names::NameIndex;
+use crate::sites::Sites;
 use crate::source::Span;
 
 /// What one parsed file keeps for the cross-file passes. The walk fills it only when a caller asks
@@ -25,12 +27,21 @@ pub struct Kept {
     /// The exports of the module by name: `(declaration, export)`. Python scans the whole list for
     /// each bound name; a map keeps a file with n exports and n imports linear.
     pub exports: HashMap<String, Vec<(Span, Span)>>,
+    /// The sites of the file and the scopes that hold them (PR 4.3a-3c).
+    pub sites: Sites,
+    pub scopes: Scopes,
+    /// The names that the module assigns outside every function (`rebound_names`).
+    pub rebound: HashSet<String>,
+    /// The text that the byte ranges of the sites point into.
+    pub text: String,
+    /// The question "does a scope hide this name" for the sites of the file.
+    pub shadow: NameIndex,
 }
 
 impl Kept {
     /// What a parsed file keeps for the records of this phase.
-    pub fn from_parsed(module: &str, parsed: &Parsed) -> Self {
-        let syntax = &parsed.syntax;
+    pub fn from_parsed(module: &str, parsed: &mut Parsed, text: &str) -> Self {
+        let syntax = &mut parsed.syntax;
         let definitions = syntax
             .definitions
             .iter()
@@ -45,14 +56,20 @@ impl Kept {
                 (item.span.clone(), scope)
             })
             .collect();
-        Self::new(
+        let mut kept = Self::new(
             module.to_owned(),
             parsed.first_error.is_some(),
             definitions,
             comparisons,
             &syntax.import_bindings,
             &syntax.module_exports,
-        )
+        );
+        kept.rebound = syntax.rebound_names.iter().cloned().collect();
+        kept.sites = std::mem::take(&mut syntax.sites);
+        kept.scopes = std::mem::take(&mut syntax.scopes);
+        kept.shadow = kept.sites.names.index(text.as_bytes());
+        kept.text = text.to_owned();
+        kept
     }
 
     pub fn new(
@@ -82,6 +99,11 @@ impl Kept {
             comparisons,
             bindings,
             exports,
+            sites: Sites::default(),
+            scopes: Scopes::default(),
+            rebound: HashSet::new(),
+            text: String::new(),
+            shadow: NameIndex::default(),
         }
     }
 }

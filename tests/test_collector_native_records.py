@@ -53,7 +53,8 @@ CORPORA = "ARCHKEEL_RECORDS_CORPORA"
 # re-export, a name that is exported twice, a file with a syntax error, and string comparisons.
 EXPORTERS = {
     "src/a.ts": (
-        "export const one = 1;\nexport function two() {}\nexport class Three {}\n"
+        "function hidden() {}\nexport const one = 1;\nexport function two() {}\n"
+        "export class Three {}\n"
         "export default 4;\nexport type Four = number;\nexport { one as uno };\n"
         "const dup = 1;\nexport { dup };\nexport { dup as dup2 };\n"
         "export function twice() {}\nexport const twice2 = 1;\nexport { twice2 as twice };\n"
@@ -88,6 +89,21 @@ IMPORTERS = {
         "import {\n  one,\n  two,\n} from './a'; const s = 'q'; if (s === 'q') {}\nimport 'x';\n"
     ),
     "src/i5.js": "import { one } from './a';\nwindow.foo = one;\n",
+    "src/i7.ts": (
+        "import { one, two as t2, Three, hidden } from './a';\nimport type { Four } from './a';\n"
+        "hidden();\nimport * as ns from './a';\nimport { deux } from './b';\n"
+        "function local() {}\nfunction local() {}\n"
+        "class K { f = 1; g(p) { return this.f + this.zz; } }\n"
+        "class K { h = 2; }\nlet rebound = 1; rebound = 2; function rebound2() {}\n"
+        "function use(one) { one(); t2(); new Three(); }\n"
+        "one(); t2(); new Three(); new K(); local(); ns.two(); deux(); rebound(); other.thing();\n"
+        "const a1 = new Three(1), a2: Four = new K<string>(), a3 = f(new Three());\n"
+        "const o = { m() { return one(); } }; const arrow = () => { one(); };\n"
+        "this.q(); obj['k'](); (one)(); one?.(); let z: Four; z = one; one = 3;\n"
+        "export function ex() {} ex(); const x1 = ex, x2 = [ex];\n"
+        # A name that a function calls and the module assigns later: it is rebound in the module.
+        "function late() { early(); }early = 1;\n"
+    ),
     "src/i6.ts": "import { one } from './a'; export { one }; export default one === 'e';\n",
 }
 
@@ -164,14 +180,10 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
     constructs = [_plain_record(record) for record in collection._constructs()]
     witnesses = list(collection.import_binding_facts.values())
     imports = sorted(collection.imports, key=lambda item: item["id"])
-    # The sites cite their own locations after the symbols, and the last citation of a location
-    # decides its excerpt. Those locations belong to the records of PR 4.3a-3c.
-    later = {item for record in [*calls, *references, *bindings] for item in _evidence_of(record)}
     cited = {
         evidence
-        for record in [*witnesses, *constructs, *symbols]
+        for record in [*witnesses, *constructs, *symbols, *calls, *references, *bindings]
         for evidence in _evidence_of(record)
-        if evidence not in later
     }
     return {
         "imports": imports,
@@ -179,7 +191,10 @@ def python_records(request: CollectionRequest) -> dict[str, object]:
         "witnesses": witnesses,
         "constructs": constructs,
         "symbols": symbols,
-        "later": sorted(later),
+        "calls": calls,
+        "references": references,
+        # The witnesses come first in the bindings of Python; the native dump lists them apart.
+        "site_bindings": bindings[len(witnesses) :],
         "evidence": [collection.evidence[key] for key in sorted(cited)],
     }
 
@@ -210,11 +225,6 @@ def native_records(binary: Path, request: CollectionRequest) -> dict[str, object
 
 def _differences(native: dict[str, object], python: dict[str, object]) -> list[str]:
     found: list[str] = []
-    later = set(python.pop("later"))  # type: ignore[arg-type]
-    native = {
-        **native,
-        "evidence": [item for item in native["evidence"] if item["id"] not in later],  # type: ignore[attr-defined, union-attr]
-    }
     for key in python:
         mine, theirs = native[key], python[key]
         if mine == theirs:
@@ -232,7 +242,7 @@ def _differences(native: dict[str, object], python: dict[str, object]) -> list[s
 def _compare(binary: Path, request: CollectionRequest) -> dict[str, int]:
     first = _dump(binary, request)
     python = python_records(request)
-    counts = {key: len(value) for key, value in python.items() if key != "later"}  # type: ignore[arg-type]
+    counts = {key: len(value) for key, value in python.items()}  # type: ignore[arg-type]
     assert _differences(json.loads(first), python) == []
     # Two runs give identical bytes.
     assert _dump(binary, request) == first
@@ -267,6 +277,9 @@ def test_named_imports_constructs_and_the_resolution_grid_equal_python(
     # The comparison is not empty: bound names that are proven, and comparisons.
     assert counts["witnesses"] >= 4
     assert counts["constructs"] >= 8
+    assert counts["calls"] > 20
+    assert counts["references"] > 40
+    assert counts["site_bindings"] >= 2
     assert counts["imports"] > len(SPECIFIERS)
 
 
@@ -337,6 +350,30 @@ def _records_shape(name: str, n: int) -> dict[str, str]:
             files["src/c.ts"] = "".join(
                 f"function f{i}(k) {{ return k == 'w{i}'; }}\n" for i in range(n)
             )
+        case "sites-resolution":
+            # Many calls, references and `new` expressions of names that the module defines, that
+            # it imports and that the enclosing class declares: each site asks the resolver.
+            files["src/b.ts"] = (
+                "".join(f"import {{ x{i} }} from './a';\nconst v{i} = x{i};\n" for i in range(n))
+                + "".join(f"export function g{i}() {{ return g{i}(); }}\n" for i in range(n))
+                + "".join(
+                    f"class C{i} {{ f = {i}; m() {{ return this.f + new C{i}().f; }} }}\n"
+                    for i in range(n)
+                )
+                + "".join(f"const o{i} = new C{i}(g{i}, x{i});\n" for i in range(n))
+            )
+        case "sites-shadow-nest":
+            # n nested arrow functions that each declare a name, and n sites at the bottom that ask
+            # whether a scope of their chain hides their name: a union of the sets is n squared.
+            files["src/b.ts"] = (
+                "const f = "
+                + "".join(f"(p{i}) => {{ var v{i}; return " for i in range(n))
+                + "["
+                + ", ".join(f"v{i}(p{i})" for i in range(n))
+                + "]"
+                + "; }" * n
+                + ";\n"
+            )
         case "symbols-bases":
             files["src/b.ts"] = "".join(
                 f"interface I{i} {{ a{i}: number }}\n@d({i}) class C{i} extends C{max(i - 1, 0)} "
@@ -393,6 +430,8 @@ RECORD_SHAPES = (
     ("one-statement", 1500),
     ("many-importers", 700),
     ("comparisons", 1000),
+    ("sites-resolution", 500),
+    ("sites-shadow-nest", 800),
     ("symbols-members", 500),
     ("symbols-bases", 700),
 )
@@ -411,3 +450,42 @@ def test_the_records_pass_is_linear_in_time_and_memory(
     assert first_cpu > 0.05, f"{name}: n={n} is too small to measure"
     assert second_cpu / first_cpu < RATIO
     assert second_peak <= GROWTH * first_peak
+
+
+def _python_calls_with_scripts(request: CollectionRequest) -> list[dict[str, object]]:
+    """The call records of the unmodified Python collector with `_script_dependencies` run."""
+    settings = request.resolver
+    assert isinstance(settings, TypeScriptSettings)
+    collection = python_collector._Collection(request, settings)
+    index = 0
+    while index < len(collection.queue):
+        collection._file(collection.queue[index])
+        index += 1
+    collection._named_imports()
+    collection._script_dependencies()
+    _symbols, calls, _references, _bindings = collection._inner_facts()
+    return calls
+
+
+@pytest.mark.xfail(strict=True, reason="the script analysis is ported in PR 4.3a-4 and 4.3a-5")
+def test_a_call_of_a_script_global_resolves_in_python_and_not_yet_in_native(
+    tmp_path: Path, records_binary: Path
+) -> None:
+    """The oracle of this file runs Python without `_script_dependencies`, and so does the native
+    collector. Python runs it for every file that is neither a declaration nor CommonJS, an ES
+    module included: `Scene.create()` in `mod.ts` is `resolved` there (the target is
+    `legacy_x2e_js.create`, with a `SCRIPTPUBLICATION` fact) and `unresolved` here. This test pins
+    the difference and fails (strict xfail) on the day that the native collector resolves it."""
+    _write(
+        tmp_path,
+        {
+            "tsconfig.json": '{"compilerOptions":{"allowJs":true},"include":["src"]}',
+            "src/legacy.js": (
+                "var Scene = (function () { function create() {} return { create }; })();\n"
+            ),
+            "src/mod.ts": "export function run() { return Scene.create(); }\n",
+        },
+    )
+    request = _request(tmp_path)
+    native = native_records(records_binary, request)["calls"]
+    assert native == _python_calls_with_scripts(request)

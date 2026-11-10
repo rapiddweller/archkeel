@@ -12,7 +12,7 @@
 //! the order of the Python lists: files in the order that the walk parsed them, then the definitions
 //! of a file by line and column. An index is an entry number, so a lookup costs one hash.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use archkeel_wire::identity::{package_of, stable_id, Part};
 
@@ -21,6 +21,8 @@ use crate::kept::Pending;
 
 /// One definition with its file, module, qualified name and `TSDEF` id.
 pub struct Entry<'a> {
+    /// The place of the entry in `SymbolTable::entries`.
+    pub at: usize,
     pub rel: &'a str,
     pub module: &'a str,
     pub definition: &'a Definition,
@@ -57,6 +59,25 @@ pub fn kind_value(kind: DefinitionKind) -> &'static str {
     }
 }
 
+type ByName = HashMap<String, HashMap<String, Vec<usize>>>;
+
+fn push_named(index: &mut ByName, module: &str, name: &str, at: usize) {
+    index
+        .entry(module.to_owned())
+        .or_default()
+        .entry(name.to_owned())
+        .or_default()
+        .push(at);
+}
+
+/// A lookup by module and name without a new string: the maps are nested for that.
+fn lookup<'m>(index: &'m ByName, module: &str, name: &str) -> &'m [usize] {
+    index
+        .get(module)
+        .and_then(|names| names.get(name))
+        .map_or(&[], Vec::as_slice)
+}
+
 /// The definitions of all files, with the lookups of `_inner_facts`.
 pub struct SymbolTable<'a> {
     /// All definitions, in the order of the Python list.
@@ -65,6 +86,10 @@ pub struct SymbolTable<'a> {
     by_qualified: HashMap<String, Vec<usize>>,
     /// How many of the definitions of a qualified name are a class or an interface.
     classifiers: HashMap<String, usize>,
+    classes: HashMap<String, usize>,
+    top_named: HashMap<String, HashMap<String, Vec<usize>>>,
+    named: HashMap<String, HashMap<String, Vec<usize>>>,
+    members: HashMap<usize, HashSet<&'a str>>,
     scope_ids: HashMap<String, HashMap<(i64, i64), usize>>,
     top_by_module: HashMap<&'a str, Vec<usize>>,
     by_module: HashMap<&'a str, Vec<usize>>,
@@ -78,6 +103,10 @@ impl<'a> SymbolTable<'a> {
             ids: HashMap::new(),
             by_qualified: HashMap::new(),
             classifiers: HashMap::new(),
+            classes: HashMap::new(),
+            top_named: HashMap::new(),
+            named: HashMap::new(),
+            members: HashMap::new(),
             scope_ids: HashMap::new(),
             top_by_module: HashMap::new(),
             by_module: HashMap::new(),
@@ -136,11 +165,22 @@ impl<'a> SymbolTable<'a> {
         if classifier {
             *self.classifiers.entry(qualified.clone()).or_default() += 1;
         }
+        if definition.kind == DefinitionKind::Class {
+            *self.classes.entry(qualified.clone()).or_default() += 1;
+        }
+        if classifier {
+            let names = definition.members.iter().map(|member| member.name.as_str());
+            self.members.insert(at, names.collect());
+        }
+        let name = definition.name.as_str();
+        push_named(&mut self.named, module, name, at);
         self.by_module.entry(module).or_default().push(at);
         if definition.top_level {
             self.top_by_module.entry(module).or_default().push(at);
+            push_named(&mut self.top_named, module, name, at);
         }
         self.entries.push(Entry {
+            at,
             rel,
             module,
             definition,
@@ -174,6 +214,30 @@ impl<'a> SymbolTable<'a> {
     /// The definitions of a qualified name that are a class or an interface (`classifier_targets`).
     pub fn classifier_count(&self, qualified: &str) -> usize {
         self.classifiers.get(qualified).copied().unwrap_or(0)
+    }
+
+    /// The definitions of a qualified name that are a class (`DefinitionKind::Class`).
+    pub fn class_count(&self, qualified: &str) -> usize {
+        self.classes.get(qualified).copied().unwrap_or(0)
+    }
+
+    /// The top-level definitions of a module with this name, in order (`top_by_module` filtered).
+    pub fn top_named(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
+        let found: &[usize] = lookup(&self.top_named, module, name);
+        found.iter().map(|&at| &self.entries[at])
+    }
+
+    /// The definitions of a module with this name, in order (`definitions_by_module` filtered).
+    pub fn named_in(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
+        let found: &[usize] = lookup(&self.named, module, name);
+        found.iter().map(|&at| &self.entries[at])
+    }
+
+    /// Whether a class or an interface declares a member of this name.
+    pub fn has_member(&self, entry: &Entry, name: &str) -> bool {
+        self.members
+            .get(&entry.at)
+            .is_some_and(|names| names.contains(name))
     }
 
     /// `scope_ids[(qualified, line, column)]`: the definition with that name and position.

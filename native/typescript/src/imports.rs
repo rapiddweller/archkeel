@@ -45,7 +45,7 @@ impl Collection<'_> {
 
     /// Parse a file, report what it cannot prove, and record each of its references.
     pub(super) fn references(&mut self, rel: &str, module: &str, file_evidence: &str, text: &str) {
-        let parsed = parse(&mut self.parsers, rel, text.as_bytes());
+        let mut parsed = parse(&mut self.parsers, rel, text.as_bytes());
         if let Some(line) = parsed.first_error {
             let reason = format!("Syntax error in {rel}: unparseable construct at line {line}");
             self.gap(&reason, Some(file_evidence), module, GapKind::Collection);
@@ -60,7 +60,7 @@ impl Collection<'_> {
             );
         }
         if self.keep {
-            let kept = Kept::from_parsed(module, &parsed);
+            let kept = Kept::from_parsed(module, &mut parsed, text);
             self.order.push(rel.to_owned());
             self.kept.insert(rel.to_owned(), kept);
         }
