@@ -21,9 +21,11 @@ use archkeel_wire::request::Request;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::crates::{discover, Crate, Problem, Workspace};
+use crate::manifest::Kind;
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Site};
 use crate::source::walk as list_files;
+use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::{walk, Module, Walked};
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
@@ -98,15 +100,20 @@ struct Builder {
     seen: BTreeSet<(String, String, String)>,
     /// The manifests of the crates: each is a module that holds the declared dependencies.
     manifests: Vec<String>,
+    /// The request leaves test scope out: a dev-dependency is then no edge.
+    exclude_tests: bool,
 }
 
 /// Collect the facts of one request.
 pub fn collect(request: &Request, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.root);
-    let mut builder = Builder::default();
+    let mut builder = Builder {
+        exclude_tests: request.exclude_test_sources,
+        ..Builder::default()
+    };
     let (scope, files) = list(&mut source, &request.roots, &mut builder);
     let workspace = discover(&mut source, &files, &request.namespace);
-    let walked = walk(&mut source, &workspace);
+    let walked = walk(&mut source, &workspace, request.exclude_test_sources);
     let modules: BTreeMap<&str, &str> = walked
         .modules
         .iter()
@@ -128,6 +135,11 @@ pub fn collect(request: &Request, provenance: Provenance) -> Collected {
         .filter(|f| f.ends_with(".rs"))
         .cloned()
         .collect();
+    let listed_rust = !selected.is_empty();
+    selected.retain(|rel| !walked.is_excluded(rel));
+    if listed_rust && selected.is_empty() {
+        builder.gap(NO_PRODUCTION_SOURCE, None, "");
+    }
     for rel in selected.iter().filter(|rel| !walked.claimed.contains(*rel)) {
         let reason = format!("Source file is in no module tree: {rel}");
         builder.gap(&reason, None, "");
@@ -286,11 +298,13 @@ impl Builder {
     /// The edge of each dependency that the manifest of `krate` declares.
     fn declared_edges(&mut self, workspace: &Workspace, krate: &Crate, module: &str) {
         let rel = join(&krate.dir, "Cargo.toml");
+        let exclude = self.exclude_tests;
         let others = krate
             .manifest
             .declared
             .iter()
-            .filter(|dependency| dependency.package != krate.ident);
+            .filter(|dependency| dependency.package != krate.ident)
+            .filter(|dependency| !(exclude && dependency.kind == Kind::Dev));
         for dependency in others {
             let (line, excerpt) = krate.lines.find(dependency.kind, &dependency.key);
             let reference = Reference {

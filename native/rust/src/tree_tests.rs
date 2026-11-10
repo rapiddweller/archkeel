@@ -19,7 +19,7 @@ fn walked(files: &[(&str, &str)]) -> Walked {
     let mut source = Snapshot::new(&root.path());
     let listed = list_files(&mut source, "");
     let workspace = discover(&mut source, &listed, "ns");
-    walk(&mut source, &workspace)
+    walk(&mut source, &workspace, false)
 }
 
 fn modules(walked: &Walked) -> Vec<(&str, &str)> {
@@ -149,7 +149,7 @@ fn a_build_script_that_two_crates_name_is_walked_once_and_is_a_problem_of_both()
     let mut source = Snapshot::new(&root.path());
     let listed = list_files(&mut source, "");
     let workspace = discover(&mut source, &listed, "ns");
-    let found = walk(&mut source, &workspace);
+    let found = walk(&mut source, &workspace, false);
     let builds: Vec<_> = found
         .modules
         .iter()
@@ -184,7 +184,7 @@ fn a_path_attribute_that_leaves_the_crate_is_a_problem_of_both_files() {
     let mut source = Snapshot::new(&root.path());
     let listed = list_files(&mut source, "");
     let workspace = discover(&mut source, &listed, "ns");
-    let found = walk(&mut source, &workspace);
+    let found = walk(&mut source, &workspace, false);
     let reason = "A path attribute leaves the crate directory: base/src/lib.rs";
     let both: Vec<_> = found
         .problems
@@ -231,4 +231,28 @@ fn a_chain_deeper_than_the_limit_is_cut_with_a_reason_and_a_file_that_nests_too_
     assert!(reasons.contains(&cut.as_str()), "{reasons:?}");
     // The root, c0 to c63 (depth 1 to 64) and `deep` are read; c64 and below are not.
     assert_eq!(found.modules.len(), MAX_MODULE_DEPTH + 2);
+}
+
+#[test]
+fn a_test_module_is_claimed_and_not_a_module_when_the_request_excludes_tests() {
+    let root = Tree::new(&[
+        ("Cargo.toml", "[package]\nname = \"app\"\n"),
+        ("src/lib.rs", "#[cfg(test)] mod tests;\nmod prod;"),
+        ("src/tests.rs", "mod more;"),
+        ("src/tests/more.rs", "fn m() {}"),
+        ("src/prod.rs", ""),
+        ("src/foo_tests.rs", ""),
+    ]);
+    let mut source = Snapshot::new(&root.path());
+    let listed = list_files(&mut source, "");
+    let workspace = discover(&mut source, &listed, "ns");
+    let found = walk(&mut source, &workspace, true);
+    assert_eq!(
+        modules(&found),
+        [("ns.app", "src/lib.rs"), ("ns.app.prod", "src/prod.rs")]
+    );
+    let tests: Vec<&str> = found.tests.iter().map(String::as_str).collect();
+    assert_eq!(tests, ["src/tests.rs", "src/tests/more.rs"]);
+    assert!(found.claimed.contains("src/tests/more.rs"));
+    assert!(found.is_excluded("src/tests.rs") && !found.is_excluded("src/foo_tests.rs"));
 }

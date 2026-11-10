@@ -11,7 +11,7 @@ fn features() -> BTreeSet<String> {
 }
 
 fn scanned(text: &str) -> Scan {
-    scan(text, &features()).unwrap()
+    scan(text, &features(), false).unwrap()
 }
 
 fn paths(text: &str) -> Vec<String> {
@@ -169,7 +169,7 @@ fn a_path_attribute_that_is_not_a_literal_is_unknown() {
 #[test]
 fn a_syntax_error_names_its_line() {
     assert_eq!(
-        scan("fn ok() {}\n\nfn broken( {", &features()).unwrap_err(),
+        scan("fn ok() {}\n\nfn broken( {", &features(), false).unwrap_err(),
         "unparseable construct at line 3"
     );
 }
@@ -374,4 +374,73 @@ fn the_net_collects_names_only_from_macros_attribute_streams_and_strings() {
     assert!(mentioned("#[other::attr(url)]\nstruct S;").contains(&"url".to_owned()));
     assert!(mentioned("const A: &str = \"url::x\";").contains(&"url".to_owned()));
     assert!(mentioned("#[serde(with = \"url\")]\nstruct S;").contains(&"url".to_owned()));
+}
+
+fn test_scoped(text: &str) -> Scan {
+    scan(text, &features(), true).unwrap()
+}
+
+#[test]
+fn a_test_item_gives_no_fact_when_the_request_excludes_tests() {
+    let text = "use kept_crate::Value;\n\
+        #[cfg(test)] use other::Thing;\n\
+        #[cfg(test)] mod tests { fn t() { let _ = dev::x(); } }\n\
+        #[test] fn alone() { let _ = dev::y(); }\n\
+        #[cfg(all(test, unix))] fn gated() { let _ = dev::z(); }\n";
+    assert_eq!(paths(text).len(), 5);
+    let kept = test_scoped(text);
+    let roots: Vec<&str> = kept.references.iter().map(|r| r.root.as_str()).collect();
+    assert_eq!(roots, ["kept_crate"]);
+    assert!(!kept.names.contains("tests") && !kept.names.contains("alone"));
+    assert!(kept.mentioned.iter().all(|name| name != "dev"));
+}
+
+#[test]
+fn a_cfg_test_module_file_below_a_test_item_is_a_test_child() {
+    let text = "#[cfg(test)] mod tests;\n\
+        #[cfg(test)] mod inline { mod deep; }\n\
+        mod prod;\n";
+    let kept = test_scoped(text);
+    let found: Vec<(&str, bool, Vec<&str>)> = kept
+        .children
+        .iter()
+        .map(|c| {
+            (
+                c.name.as_str(),
+                c.test,
+                c.inline.iter().map(String::as_str).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        found,
+        [
+            ("tests", true, vec![]),
+            ("deep", true, vec!["inline"]),
+            ("prod", false, vec![])
+        ]
+    );
+    // Without the flag the scan is as before: the child is marked, and its facts stay.
+    let plain = scanned(text);
+    assert_eq!(
+        plain.children.iter().map(|c| c.test).collect::<Vec<_>>(),
+        [true, false, false]
+    );
+}
+
+#[test]
+fn a_test_member_a_test_statement_and_a_test_attribute_of_a_crate_give_no_fact() {
+    let text = "struct S;\n\
+        impl S {\n\
+            #[cfg(test)] fn t() { let _ = dev::a(); }\n\
+            fn keep() { let _ = kept_crate::a(); #[cfg(test)] let _ = dev::b(); #[cfg(test)] dev::c!(); }\n\
+        }\n\
+        trait T { #[cfg(test)] fn t() { let _ = dev::d(); } fn k() { let _ = kept_crate::b(); } }\n\
+        #[tokio::test] async fn run() { let _ = dev::e(); }\n\
+        #[rstest] fn case() { let _ = dev::f(); }\n";
+    assert!(paths(text).len() > 2);
+    let kept = test_scoped(text);
+    let roots: Vec<&str> = kept.references.iter().map(|r| r.root.as_str()).collect();
+    assert_eq!(roots, ["kept_crate", "kept_crate"]);
+    assert!(kept.mentioned.iter().all(|name| name != "dev"));
 }

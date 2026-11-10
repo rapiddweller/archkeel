@@ -14,6 +14,7 @@ use crate::nesting::{too_deep, MAX_NESTING};
 use crate::paths::normalize;
 use crate::scan::{scan, Child, Scan};
 use crate::source::read_text;
+use crate::test_scope::in_test_directory;
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
 
@@ -34,6 +35,17 @@ pub struct Walked {
     pub problems: Vec<Problem>,
     /// The files that no module tree reaches are those of `files` that are not here.
     pub claimed: BTreeSet<String>,
+    /// The test scope of a request that excludes tests: the files that the walk read for their
+    /// `mod x;` declarations and then left out. They are claimed, but they are no modules.
+    pub tests: BTreeSet<String>,
+    exclude_tests: bool,
+}
+
+impl Walked {
+    /// Whether the request leaves this file out as test scope.
+    pub fn is_excluded(&self, rel: &str) -> bool {
+        self.exclude_tests && (self.tests.contains(rel) || in_test_directory(rel))
+    }
 }
 
 /// A file that waits for its scan.
@@ -44,17 +56,21 @@ struct Pending {
     owner: String,
     /// How many modules lie between this file and the root of its target.
     depth: usize,
+    /// The file is test scope and the request excludes tests.
+    test: bool,
 }
 
 /// The deepest module that the walk reads. A name holds the whole path, so the reply grows with
 /// the square of the depth; the deepest module of the `uv` corpus has depth 4.
 pub const MAX_MODULE_DEPTH: usize = 64;
 
-pub fn walk(source: &mut Snapshot, workspace: &Workspace) -> Walked {
+pub fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -> Walked {
     let mut walked = Walked {
         modules: Vec::new(),
         problems: Vec::new(),
         claimed: BTreeSet::new(),
+        tests: BTreeSet::new(),
+        exclude_tests,
     };
     // A crate walks the files of its own directory first. A file that another crate names, such
     // as a shared build script, then belongs to the crate that holds it and is walked once.
@@ -79,11 +95,15 @@ impl Walked {
             self.both(&reason, &root.rel, &join(&krate.dir, "Cargo.toml"));
             return;
         }
+        if self.exclude_tests && !root.test && in_test_directory(&root.rel) {
+            self.hidden(&root.rel, &root.rel);
+        }
         let first = Pending {
             rel: root.rel.clone(),
             module: root.module.clone(),
             owner: dirname(&root.rel).to_owned(),
             depth: 0,
+            test: self.exclude_tests && (root.test || in_test_directory(&root.rel)),
         };
         self.crate_tree(source, index, krate, first);
     }
@@ -102,22 +122,16 @@ impl Walked {
     fn crate_tree(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, first: Pending) {
         let mut queue = VecDeque::from([first]);
         while let Some(file) = queue.pop_front() {
-            let text = match read_text(source, &file.rel) {
-                Ok(text) => {
-                    source.select(&file.rel);
-                    text
-                }
-                Err(reason) => {
-                    self.problems.push(Problem {
-                        reason,
-                        file: file.rel,
-                    });
-                    continue;
-                }
+            let Some(text) = self.read(source, &file) else {
+                continue;
             };
             let scanned = self.scanned(&file, &text, krate);
             for child in &scanned.children {
                 self.child(source, krate, &file, child, &mut queue);
+            }
+            if file.test {
+                self.tests.insert(file.rel);
+                continue;
             }
             let first = text.split('\n').next().unwrap_or("");
             self.modules.push(Module {
@@ -131,6 +145,48 @@ impl Walked {
         }
     }
 
+    /// Whether the file of a child is test scope under this request. A production module in a test
+    /// directory is test scope too, and a gap.
+    fn test_scope(&mut self, parent: &Pending, child: &Child, rel: &str) -> bool {
+        let scoped = parent.test || child.test;
+        let directory = in_test_directory(rel);
+        if self.exclude_tests && directory && !scoped {
+            self.hidden(rel, &parent.rel);
+        }
+        self.exclude_tests && (scoped || directory)
+    }
+
+    /// A production file in a test directory leaves the reply, because the host refuses a reply that
+    /// selects a test source by its path. That must not be silent: its facts are missing.
+    fn hidden(&mut self, rel: &str, file: &str) {
+        let reason = format!(
+            "Production source is in a test directory and the request excludes tests: {rel}"
+        );
+        self.problems.push(Problem {
+            reason,
+            file: file.to_owned(),
+        });
+    }
+
+    /// The text of a file. A test file that cannot be read is out of scope, so it is no problem.
+    fn read(&mut self, source: &mut Snapshot, file: &Pending) -> Option<String> {
+        match read_text(source, &file.rel) {
+            Ok(text) => {
+                if !file.test {
+                    source.select(&file.rel);
+                }
+                Some(text)
+            }
+            Err(reason) => {
+                if !file.test {
+                    let file = file.rel.clone();
+                    self.problems.push(Problem { reason, file });
+                }
+                None
+            }
+        }
+    }
+
     /// The scan of one file. A file that is too deep or has a syntax error gives no facts.
     fn scanned(&mut self, file: &Pending, text: &str, krate: &Crate) -> Scan {
         let failure = if too_deep(text) {
@@ -139,12 +195,13 @@ impl Walked {
                 file.rel
             ))
         } else {
-            match scan(text, &krate.manifest.features) {
+            let production = self.exclude_tests && !file.test;
+            match scan(text, &krate.manifest.features, production) {
                 Ok(scanned) => return scanned,
                 Err(error) => Some(format!("Syntax error in {}: {error}", file.rel)),
             }
         };
-        if let Some(reason) = failure {
+        if let Some(reason) = failure.filter(|_| !file.test) {
             self.problems.push(Problem {
                 reason,
                 file: file.rel.clone(),
@@ -166,10 +223,11 @@ impl Walked {
         let (rel, path_loaded) = match found {
             Ok(found) => found,
             Err(reason) => {
-                self.problems.push(Problem {
-                    reason,
-                    file: parent.rel.clone(),
-                });
+                let out_of_scope = self.exclude_tests && (parent.test || child.test);
+                if !out_of_scope {
+                    let file = parent.rel.clone();
+                    self.problems.push(Problem { reason, file });
+                }
                 return;
             }
         };
@@ -178,6 +236,7 @@ impl Walked {
             self.both(&reason, &rel, &parent.rel);
             return;
         }
+        let test = self.test_scope(parent, child, &rel);
         if !self.claimed.insert(rel.clone()) {
             let reason = format!("The file {rel} is the file of two modules");
             self.both(&reason, &rel, &parent.rel);
@@ -209,6 +268,7 @@ impl Walked {
             module,
             owner,
             depth,
+            test,
         });
     }
 }

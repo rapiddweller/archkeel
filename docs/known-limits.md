@@ -257,7 +257,10 @@ declares or imports (`::` makes it the crate). A reachable crate name that appea
 not declare. A dependency table that the reader does not know is UNKNOWN. A `macro_rules!` that
 stays in the crate is read as code of its file, and an exported one is UNKNOWN. A planned crate
 has no component in the native contract until it has code. Test code (`cfg(test)`, `tests/`, dev-dependencies) counts as production
-code until module scope is added. A platform wheel carries the collector; an install without it
+code until the host key `[scan] exclude_test_sources` is set. With the flag, a `cfg(test)` or `cfg(all(test, ..))` item, module,
+impl or trait member and `let` or macro statement, a `#[test]`, `#[x::test]` or `#[rstest]` function, and the `tests/`, `benches/` and `examples/` targets
+leave the reply. A `cfg` on a field, a match arm or an expression stays in scope, and so does a test attribute that this list does not
+name (`#[test_case]`). A production target or module file in a test directory is UNKNOWN, because the host refuses a reply that selects it. A platform wheel carries the collector; an install without it
 reports `missing_tool`
 ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 

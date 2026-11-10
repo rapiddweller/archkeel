@@ -5,5 +5,7 @@ language = "rust"
 roots = ["native"]
 namespace = "native"
 contract = "native/architecture-contract.json"
+# The report and the rules read production code only (the collector owns the cfg(test) rule).
+exclude_test_sources = true
 # A source checkout has no platform wheel, so the build of `make native-check` is the collector.
 collector_argv = ["native/target/debug/archkeel-rust-collector"]

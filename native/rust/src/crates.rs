@@ -36,6 +36,9 @@ pub struct Problem {
 pub struct Root {
     pub module: String,
     pub rel: String,
+    /// A `tests/`, `benches/` or `examples/` target: Cargo builds it for tests only. A build
+    /// script stays production scope.
+    pub test: bool,
 }
 
 pub struct Crate {
@@ -174,6 +177,7 @@ impl Workspace {
             let root = Root {
                 module: format!("{namespace}.{name}"),
                 rel,
+                test: matches!(target.kind, "test" | "bench" | "example"),
             };
             if main {
                 primary = Some(root.clone());
@@ -205,7 +209,7 @@ impl Workspace {
 }
 
 fn within(dir: &str, rel: &str) -> bool {
-    dir.is_empty() || rel.starts_with(&format!("{dir}/"))
+    archkeel_snapshot::paths::within(if dir.is_empty() { "." } else { dir }, rel)
 }
 
 impl Crate {
