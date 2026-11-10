@@ -42,9 +42,9 @@ fn a_text_is_cut_from_the_file_with_the_replacement_of_bad_bytes() {
 }
 
 #[test]
-fn only_window_and_globalthis_are_roots() {
-    assert!(is_script_root(b"window") && is_script_root(b"globalThis"));
-    assert!(!is_script_root(b"self") && !is_script_root(b"Window"));
+fn only_window_globalthis_and_self_are_roots() {
+    assert!(is_script_root(b"window") && is_script_root(b"globalThis") && is_script_root(b"self"));
+    assert!(!is_script_root(b"global") && !is_script_root(b"Window"));
 }
 
 #[test]

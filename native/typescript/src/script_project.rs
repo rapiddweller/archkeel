@@ -224,22 +224,29 @@ impl<'a> Project<'a> {
     /// declared names and the files.
     fn mark_bound_elsewhere(&mut self, files: &[(&'a str, &'a Kept)], scripts_are_global: bool) {
         for (_, kept) in files {
-            if !Self::global_script(kept, scripts_are_global) {
-                continue;
+            if Self::global_script(kept, scripts_are_global) {
+                self.mark_bindings_of(kept);
             }
-            let (globals, top) = (&kept.script.ambient_globals, &kept.script.ambient_top_level);
-            let mut declaring: Option<HashSet<&str>> = None;
-            for name in &kept.script.bindings {
-                let Some(entry) = self.declared.get_mut(name.as_str()) else {
-                    continue;
-                };
-                // The names that the file declares are listed once, and only when a binding of the
-                // file is a declared name of the project.
-                let own = declaring.get_or_insert_with(|| {
-                    let listed = globals.iter().chain(top.iter());
-                    listed.map(|(declared, _)| declared.as_str()).collect()
-                });
-                entry.bound_elsewhere |= !own.contains(name.as_str());
+        }
+    }
+
+    /// The bindings of one global script that name a declared name which the script does not declare.
+    fn mark_bindings_of(&mut self, kept: &'a Kept) {
+        let (globals, top) = (&kept.script.ambient_globals, &kept.script.ambient_top_level);
+        // The names that the file declares, listed once and only when a binding needs them.
+        let own = OnceCell::new();
+        let declares = |name: &str| {
+            let listed = own.get_or_init(|| {
+                let names = globals.iter().chain(top.iter());
+                names
+                    .map(|(declared, _)| declared.as_str())
+                    .collect::<HashSet<_>>()
+            });
+            listed.contains(name)
+        };
+        for name in &kept.script.bindings {
+            if let Some(entry) = self.declared.get_mut(name.as_str()) {
+                entry.bound_elsewhere |= !declares(name);
             }
         }
     }
