@@ -221,3 +221,12 @@ fn a_rust_request_has_a_resolver_with_one_field() {
         "TypeScript collector requires the TypeScript resolver"
     );
 }
+
+#[test]
+fn a_duplicate_key_is_refused_because_the_request_is_ambiguous() {
+    let text = r#"{"protocol_version":"8.0.0","snapshot":{"root":"/r","git_head":"a","dirty":false},
+        "scope":{"roots":["src"],"namespace":"shop","namespace":"other"},
+        "resolver":{"language":"typescript","tsconfig":"tsconfig.json"}}"#;
+    let error = decode(text.as_bytes()).unwrap_err();
+    assert!(error.contains("duplicate field `namespace`"), "{error}");
+}

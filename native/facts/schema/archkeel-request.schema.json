@@ -27,7 +27,43 @@
         "scope",
         "resolver"
       ],
-      "description": "One collection request. `R` is the settings of the language: the whole `Resolver` as the wire\nhas it, or the settings of one language after the collector has chosen it."
+      "description": "One collection request. `R` is the settings of the language: the whole `Resolver` as the wire\nhas it, or the settings of one language after the collector has chosen it.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "protocol_version": {
+                "enum": [
+                  "9.0.0"
+                ]
+              }
+            },
+            "required": [
+              "protocol_version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope": {
+                "required": [
+                  "exclude_test_sources"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "scope": {
+                "not": {
+                  "required": [
+                    "exclude_test_sources"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "Version": {
       "type": "string",
@@ -94,10 +130,7 @@
           "description": "A dotted namespace."
         },
         "exclude_test_sources": {
-          "type": [
-            "boolean",
-            "null"
-          ],
+          "type": "boolean",
           "description": "Present exactly in a 9.0.0 request (AD-313)."
         }
       },
@@ -122,10 +155,7 @@
               "description": "A relative path that stays inside the snapshot."
             },
             "bundler": {
-              "type": [
-                "boolean",
-                "null"
-              ],
+              "const": true,
               "description": "The host writes `bundler` only when it is true, so false has one form: absent."
             }
           },

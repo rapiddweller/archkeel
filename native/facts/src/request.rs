@@ -53,6 +53,7 @@ pub struct Scope {
     pub namespace: String,
     /// Present exactly in a 9.0.0 request (AD-313).
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "bool")]
     pub exclude_test_sources: Option<bool>,
 }
 
@@ -78,7 +79,7 @@ pub struct TypeScriptSettings {
         skip_serializing_if = "is_false",
         deserialize_with = "only_true"
     )]
-    #[schemars(with = "Option<bool>")]
+    #[schemars(schema_with = "always_true")]
     pub bundler: bool,
 }
 
@@ -103,6 +104,10 @@ fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Version, D::Err
 fn dirty<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Dirty, D::Error> {
     Dirty::deserialize(deserializer)
         .map_err(|_| serde::de::Error::custom("snapshot.dirty must be a boolean or unknown"))
+}
+
+fn always_true(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({"const": true})
 }
 
 fn is_false(value: &bool) -> bool {
