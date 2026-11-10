@@ -7,7 +7,10 @@
 use super::super::tests::{is_declared, run, APP, BASE, WORKSPACE};
 use super::*;
 
-const APP_MANIFEST: (&str, &str) = ("crates/app/Cargo.toml", "[package]\nname = \"app\"\n");
+const APP_MANIFEST: (&str, &str) = (
+    "crates/app/Cargo.toml",
+    "[package]\nname = \"app\"\nedition = \"2021\"\n",
+);
 
 /// The module edges: (kind, source, target, symbol, binding, level) without the crate edges.
 type Row = (

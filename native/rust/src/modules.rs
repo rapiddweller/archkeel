@@ -185,6 +185,16 @@ impl<'a> Index<'a> {
         let Some(first) = names.first().map(String::as_str) else {
             return Outcome::None;
         };
+        // Edition 2015: a `use` path and a `::` path start at the crate root, so a first name
+        // that is a module of the root names that module (and a crate name is no module).
+        let rooted = frame.krate.manifest.legacy() && (absolute || !globs);
+        let root_child = format!("{}.{first}", frame.root);
+        if rooted
+            && !["crate", "self", "super"].contains(&first)
+            && self.lexical.contains_key(&root_child)
+        {
+            return self.follow(frame.root, 0, names);
+        }
         if absolute {
             return Outcome::None;
         }
@@ -247,6 +257,8 @@ impl<'a> Index<'a> {
         hops: usize,
         globs: bool,
     ) -> Outcome {
+        // The count and the bindings below are read across the whole file, not in the scope of the
+        // path. That is safe only because a name that the file declares more than once is UNKNOWN.
         let first = &names[0];
         if first == "Self" || names.len() < 2 {
             return Outcome::None;

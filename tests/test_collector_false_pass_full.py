@@ -18,7 +18,7 @@ from pathlib import Path
 
 import false_pass_support as support
 import pytest
-from rust_repository import CRATE_RULES, component, repository, rule, statuses, validate
+from rust_repository import APP, CRATE_RULES, component, repository, rule, statuses, validate
 
 from fixtures.demo_catalog_typescript import UNSUPPORTED_RULES, VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
@@ -124,10 +124,27 @@ MODULE_PROBES = {
         "x.rs": "use crate::b::make;\n",
     },
     "a name declared twice": {"a.rs": "mod b {}\nuse crate::b;\npub fn run() { b::make(); }\n"},
-    "a re-export chain": {
+    # A re-exporting module is the dependency (AD-335): the forbidden target of these two is `c`.
+    "a re-exporting module is the dependency": {
         "a.rs": "pub use crate::c::make;\n",
         "c.rs": "pub use crate::b::make;\n",
     },
+    "a glob of a re-exporting module is the dependency": {
+        "a.rs": "use crate::c::*;\npub fn run() { make(); }\n",
+        "c.rs": "pub use crate::b::*;\n",
+    },
+    "edition 2015 use path": {
+        "crates/app/Cargo.toml": APP.replace('edition = "2021"\n', ""),
+        "a.rs": "use b::make;\n",
+    },
+    "edition 2015 colon path": {
+        "crates/app/Cargo.toml": APP.replace('edition = "2021"\n', ""),
+        "a.rs": "pub fn run() { ::b::make(); }\n",
+    },
+}
+RE_EXPORTED = {
+    "a re-exporting module is the dependency",
+    "a glob of a re-exporting module is the dependency",
 }
 
 
@@ -140,9 +157,14 @@ def test_a_rust_source_that_hides_a_module_edge_gives_no_pass(
     probe: dict[str, str],
 ) -> None:
     files = {"crates/app/src/lib.rs": MODULE_LIB, **MODULE_FILES}
-    files.update({f"crates/app/src/{file}": text for file, text in probe.items()})
+    files.update(
+        {
+            (file if file.startswith("crates/") else f"crates/app/src/{file}"): text
+            for file, text in probe.items()
+        }
+    )
     # The module `a` uses `c`, which re-exports `b`: the forbidden edge is the one to `c`.
-    target = "native.app.c" if name == "a re-export chain" else "native.app.b"
+    target = "native.app.c" if name in RE_EXPORTED else "native.app.b"
     forbidden = rule(
         "NO-A-TO-B",
         "forbidden_dependency",

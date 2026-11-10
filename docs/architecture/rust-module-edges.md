@@ -1,0 +1,33 @@
+# Rust module edges (AD-335, slice 5b-2c)
+
+Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md).
+
+- The collector writes the edges between the modules of one crate with the record kinds `import`
+  and `reexport` (`pub use`) of `archkeel-facts`: no new kind. A path that starts at `crate`,
+  `self` (level 1) or `super` (level n + 1), a child `mod`, a `use` binding or a glob `use` is
+  resolved against the module index of the walk. The rule of 5b-1 holds: a name that the file
+  declares more than once and that may name a module is UNKNOWN. An inline `mod` folds into its
+  file. A binary names the library of its package by the package name. A path into another crate of
+  the workspace names its deepest module.
+- A glob is followed into the module that it names, with the names that module binds. A glob that
+  the scan cannot follow, a `use` path that starts with a name that a glob may bring in, a `super`
+  above the root, two `macro_rules!` of one name and a relative path in a `macro_rules!` body are
+  UNKNOWN. A `crate::` path in a macro body is an edge of the file that holds it and of each call.
+  A call of a macro of the crate is an edge to the module that defines it.
+- `crate_edges_only` is false for the Rust profile, so a rule or a component below a crate root is
+  decided from the edges. A rule kind that nobody reviewed stays UNKNOWN. `interface_boundary`
+  stays unsupported until symbols (5b-4).
+- A re-exporting module is the dependency: `a` uses `b` through `pub use crate::b::make;` in `c`
+  as `a -> c`, and `c -> b` is a `reexport` record. A rule on `a -> b` does not see it. The same for
+  a glob re-export.
+- Edition 2015 (or no edition in the manifest, also `edition.workspace` without a workspace
+  value): a `use` path and a `::` path start at the crate root, so a first name that is a module of
+  the root is that module.
+- Oracle: delete `mod m;` from a copy of `native/` and run `cargo check --all-features`: the files of
+  the crate with a name resolution error (`E0432`, `E0433`, `E0412`, `E0425`, `E0405`, `E0422`,
+  `E0423`, `E0531`, `E0599`) are the files with an edge into `m` or below it. `make native-check`
+  runs seven modules (`tests/test_collector_native_rust_module_oracle.py`). A one-off run over all
+  108 modules of `native/` had no missed edge, except where `rustc` blames a macro definition for
+  the error of a call; it is not part of the gate. Not seen, and PASS is possible: a method that an
+  `impl` of another module defines, a trait method that a glob `use` brings in, and an item that a
+  macro generates (`docs/known-limits.md`).

@@ -24,6 +24,7 @@ fn krate() -> Crate {
         declared: Vec::new(),
         unknown: Vec::new(),
         features: BTreeSet::new(),
+        edition: Some("2021".to_owned()),
     };
     Crate {
         ident: "my_app".to_owned(),

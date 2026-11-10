@@ -13,9 +13,17 @@ use archkeel_snapshot::test_tree::Tree;
 use archkeel_snapshot::Snapshot;
 
 fn outcome(files: &[(&str, &str)], module: &str, path: &str) -> Outcome {
-    let mut all = vec![("Cargo.toml", "[package]\nname = \"app\"\n")];
+    let mut all = vec![(
+        "Cargo.toml",
+        "[package]\nname = \"app\"\nedition = \"2021\"\n",
+    )];
     all.extend_from_slice(files);
-    let root = Tree::new(&all);
+    outcome_in(&all, module, path)
+}
+
+/// Like `outcome`, with the manifest in `all`.
+fn outcome_in(all: &[(&str, &str)], module: &str, path: &str) -> Outcome {
+    let root = Tree::new(all);
     let mut source = Snapshot::new(&root.path());
     let listed = list_files(&mut source, "");
     let workspace = discover(&mut source, &listed, "ns");
@@ -223,4 +231,42 @@ fn extern_crate_self_binds_the_root_of_the_crate() {
 
 fn found_text(found: &Outcome) -> String {
     format!("{found:?}")
+}
+
+fn crate_of(edition: &str, a: &'static str) -> Vec<(&'static str, &'static str)> {
+    let manifest = if edition.is_empty() {
+        "[package]\nname = \"app\"\n".to_owned()
+    } else {
+        format!("[package]\nname = \"app\"\nedition = \"{edition}\"\n")
+    };
+    let manifest: &'static str = Box::leak(manifest.into_boxed_str());
+    vec![
+        ("Cargo.toml", manifest),
+        ("src/lib.rs", "mod a;\nmod b;\n"),
+        ("src/a.rs", a),
+        ("src/b.rs", "pub fn make() {}"),
+    ]
+}
+
+#[test]
+fn edition_2015_starts_a_use_path_and_a_colon_path_at_the_crate_root() {
+    let root_edge = edge("ns.app.b", Some("make"), 0);
+    for source in ["use b::make;", "fn t() { ::b::make(); }"] {
+        let old = crate_of("2015", source);
+        assert_eq!(
+            outcome_in(&old, "ns.app.a", "b::make"),
+            root_edge,
+            "{source}"
+        );
+        // An absent edition is 2015, too.
+        let none = crate_of("", source);
+        assert_eq!(
+            outcome_in(&none, "ns.app.a", "b::make"),
+            root_edge,
+            "{source}"
+        );
+    }
+    // From 2018 a `::` path names a crate, and a bare `use b` is no module of the root.
+    let modern = crate_of("2018", "fn t() { ::b::make(); }");
+    assert_eq!(outcome_in(&modern, "ns.app.a", "b::make"), Outcome::None);
 }

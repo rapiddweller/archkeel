@@ -7,7 +7,8 @@ Consumer: the entry criterion of slice 5b-2c. The oracle is the compiler. For a 
 `native/`, delete the line `mod m;` from a copy and run `cargo check --all-features`. The files with
 a name resolution error in the crate of `m` must be exactly the files with an edge into `m` or
 into a module below it. A production scope is used (no `--tests`), as the request that excludes
-test sources reads it. Only some modules run here; the whole set takes about a minute.
+test sources reads it. `make native-check` runs the seven modules below; a run over all 108
+modules of `native/` was a one-off and is not part of the gate.
 """
 
 from __future__ import annotations
@@ -24,7 +25,17 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).parents[1]
-RESOLUTION_ERRORS = {"E0432", "E0433", "E0412", "E0425", "E0405", "E0422", "E0423", "E0531"}
+RESOLUTION_ERRORS = {
+    "E0432",
+    "E0433",
+    "E0412",
+    "E0425",
+    "E0405",
+    "E0422",
+    "E0423",
+    "E0531",
+    "E0599",
+}
 MODULES = [
     "archkeel_rust_collector.paths",
     "archkeel_rust_collector.tokens",

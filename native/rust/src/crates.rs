@@ -75,10 +75,7 @@ pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Wor
             }),
             Ok(None) => {}
             Ok(Some(parsed)) => {
-                let workspace = workspace_table(source, &mut tables, &dir);
-                if let Some(read) = manifest::read(&parsed.table, &workspace) {
-                    found.add(&dir, read, &parsed.text, files, namespace);
-                }
+                found.member(source, &mut tables, (&dir, &parsed), files, namespace);
             }
         }
     }
@@ -114,27 +111,50 @@ fn manifest_table(
     Ok(table)
 }
 
-/// The `[workspace.dependencies]` of the nearest workspace manifest above `dir`.
-fn workspace_table(
+/// The nearest workspace manifest at or above `dir`.
+fn workspace_manifest(
     source: &mut Snapshot,
     tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
     dir: &str,
-) -> Table {
+) -> Option<Rc<Parsed>> {
     let mut at = dir.to_owned();
     loop {
         if let Ok(Some(parsed)) = manifest_table(source, tables, &at) {
             if manifest::is_workspace(&parsed.table) {
-                return manifest::workspace_dependencies(&parsed.table);
+                return Some(parsed);
             }
         }
         if at.is_empty() {
-            return Table::new();
+            return None;
         }
         at = dirname(&at).to_owned();
     }
 }
 
 impl Workspace {
+    /// Add the package of one manifest, with the edition and the dependencies of its workspace.
+    fn member(
+        &mut self,
+        source: &mut Snapshot,
+        tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
+        (dir, parsed): (&str, &Parsed),
+        files: &[String],
+        namespace: &str,
+    ) {
+        let above = workspace_manifest(source, tables, dir);
+        let dependencies = above
+            .as_ref()
+            .map(|above| manifest::workspace_dependencies(&above.table))
+            .unwrap_or_default();
+        let Some(mut read) = manifest::read(&parsed.table, &dependencies) else {
+            return;
+        };
+        if read.edition.is_none() {
+            read.edition = above.and_then(|above| manifest::workspace_edition(&above.table));
+        }
+        self.add(dir, read, &parsed.text, files, namespace);
+    }
+
     fn add(
         &mut self,
         dir: &str,
