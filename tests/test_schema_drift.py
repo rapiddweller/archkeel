@@ -157,18 +157,6 @@ def test_frozen_decoded_27_profiles_close_with_v5_source_facts_resource() -> Non
             registry.resolver(base_uri=schema["$id"]).lookup(reference)
 
 
-# A profile that publishes no calls (Rust, AD-351) has no call counts either.
-_NO_CALLS = dict.fromkeys(
-    (
-        "calls_analyzed",
-        "calls_resolved",
-        "calls_partially_resolved",
-        "calls_unresolved",
-        "call_resolution_percent",
-    )
-)
-
-
 @pytest.fixture(scope="module")
 def typescript_export_binding(tmp_path_factory):
     from test_typescript_collect import _facts
@@ -187,33 +175,6 @@ def typescript_export_binding(tmp_path_factory):
         r for section in facts.sections if section.name == "bindings" for r in section.records
     ]
     return record_payload(binding)
-
-
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.3.0"])
-@pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
-def test_direct_export_binding_schema_is_typescript_21_only(
-    typescript_export_binding, profile, version
-):
-    registry = Registry().with_resources(
-        (schema["$id"], Resource.from_contents(schema))
-        for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
-    )
-    validator = Draft202012Validator(
-        {"$ref": f"urn:archkeel:architecture-ir:decoded:{version}"}, registry=registry
-    )
-    observation = _model(git_head="a" * 40)
-    observation["schema_version"] = version
-    observation["analyzer"]["name"] = profile.analyzer
-    for section in profile.absent_sections:
-        observation[section] = None
-    if "calls" in profile.absent_sections:
-        observation["coverage"] = {**observation["coverage"], **_NO_CALLS}
-    assert validator.is_valid(observation)
-    observation["bindings"] = [typescript_export_binding]
-    accepted = version in {"2.1.0", "2.3.0"} and profile.analyzer == "archkeel-typescript-imports"
-    assert validator.is_valid(observation) is accepted
-    if accepted:
-        assert parse_observation(observation).records("bindings")[0].data.get("name") == "port"
 
 
 @pytest.mark.parametrize("field", ["module", "source_module", "source_scope", "name"])

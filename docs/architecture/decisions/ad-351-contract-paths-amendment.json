@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "after_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "before_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "before_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "decided_by": "lead (size fix of PR 973)",
+  "rationale": "AD-351 size fix. The validators of a declared contract path move from archkeel.ir.architecture_graph to the new archkeel.ir.contract_paths, so that the file stays within the size baseline. The new module joins exact_modules of the architecture owner in contracts/ir.json. No budget, rule, component, requires entry or Any permission changes.",
+  "schema_version": "2.0.0"
+}

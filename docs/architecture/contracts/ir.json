@@ -208,6 +208,7 @@
         "archkeel.ir.widening_ratchet",
         "archkeel.ir.architecture_projection",
         "archkeel.ir.architecture_graph",
+        "archkeel.ir.contract_paths",
         "archkeel.ir.member_inventory",
         "archkeel.ir.source_values",
         "archkeel.ir.source_graph",
