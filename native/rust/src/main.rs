@@ -29,7 +29,6 @@ use std::process::ExitCode;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::reply::Provenance;
 use archkeel_wire::request::decode_rust;
-use archkeel_wire::stream::encode;
 
 /// The stack of the scan thread. The system gives address space, not memory, until it is used.
 const STACK_BYTES: usize = 256 * 1024 * 1024;
@@ -56,8 +55,7 @@ fn run() -> Result<Vec<u8>, String> {
     let worker = std::thread::Builder::new()
         .stack_size(STACK_BYTES)
         .spawn(move || {
-            let facts = collect::collect(&request, provenance());
-            encode(reply_version(request.version), facts)
+            collect::collect(&request, provenance()).encode(reply_version(request.version))
         })
         .map_err(|error| format!("cannot start the scan: {error}"))?;
     worker

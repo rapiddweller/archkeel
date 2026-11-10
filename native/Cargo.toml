@@ -5,7 +5,7 @@
 # The workspace lives in native/: a root Cargo.toml would be a stray file in the repository root.
 [workspace]
 resolver = "2"
-members = ["wire", "snapshot", "build-support", "typescript", "rust"]
+members = ["facts", "wire", "snapshot", "build-support", "typescript", "rust"]
 
 [workspace.package]
 version = "0.0.0"
@@ -16,11 +16,15 @@ publish = false
 
 [workspace.dependencies]
 archkeel-build-support = { path = "build-support" }
+archkeel-facts = { path = "facts" }
 archkeel-snapshot = { path = "snapshot" }
 archkeel-wire = { path = "wire" }
 flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+# AD-345: the JSON schema of archkeel-facts is generated from the types. The exact pin keeps the
+# committed schema stable: a new schemars release can change the generated text.
+schemars = { version = "=1.2.3", default-features = false, features = ["derive", "std"] }
+serde = { version = "1.0", features = ["derive"] }
 # `preserve_order`: the order of `paths` keys and of `exports` conditions decides the result.
-serde = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
 # The Rust collector reads source with `syn`, the parser of proc macros. The `span-locations`
 # feature gives the line and column of a token outside a proc macro.

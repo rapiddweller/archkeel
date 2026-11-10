@@ -17,6 +17,7 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -71,11 +72,38 @@ def conflicting_files(repo: Path, base: str, head: str) -> list[str]:
     return [line for line in result.stdout.splitlines()[1:] if line]
 
 
-def changed_files(repo: Path, base: str, head: str) -> set[str]:
-    """The files that the branch changes since it left `base`."""
-    return _names(
-        _git(repo, "diff", "--name-only", "-z", "--no-renames", f"{base}...{head}").stdout
-    )
+@dataclass
+class Changes:
+    """The files that the branch changes since it left `base`, with rename detection on."""
+
+    paths: set[str] = field(default_factory=set)
+    # New path -> old path, for each renamed file. GitHub lists the same pairs as previous_filename.
+    renamed_from: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def touched(self) -> set[str]:
+        """Every path that the branch touches: the new and the old path of each rename."""
+        return self.paths | set(self.renamed_from.values())
+
+
+def branch_changes(repo: Path, base: str, head: str) -> Changes:
+    """Read `git diff --name-status`. A rename gives the new path and the old path."""
+    output = _git(repo, "diff", "--name-status", "-z", "-M", f"{base}...{head}").stdout
+    tokens = [token for token in output.split("\0") if token]
+    changes = Changes()
+    index = 0
+    while index < len(tokens):
+        status = tokens[index]
+        if status[:1] in ("R", "C"):
+            old, new = tokens[index + 1], tokens[index + 2]
+            index += 3
+            changes.paths.add(new)
+            if status[:1] == "R":
+                changes.renamed_from[new] = old
+        else:
+            changes.paths.add(tokens[index + 1])
+            index += 2
+    return changes
 
 
 def files_with_removed_lines(repo: Path, base: str, head: str) -> set[str]:
@@ -105,21 +133,33 @@ def recently_changed(repo: Path, base: str) -> set[str]:
     return _names(output)
 
 
-def check(repo: Path, base: str, head: str, pr_files: list[str]) -> Report:
-    """Compare `head` with `base` and with the files that GitHub lists for the pull request."""
+def check(
+    repo: Path,
+    base: str,
+    head: str,
+    pr_files: list[str],
+    renamed_from: Mapping[str, str] | None = None,
+) -> Report:
+    """Compare `head` with `base` and with the files that GitHub lists for the pull request.
+
+    `renamed_from` maps each new path that GitHub lists as renamed to its previous path.
+    """
     report = Report()
     if not is_ancestor(repo, base, head):
         report.warnings.append(f"{base} is not an ancestor of the head: the branch is behind")
     for name in conflicting_files(repo, base, head):
         report.errors.append(f"conflict with {base}: {name}")
-    local = changed_files(repo, base, head)
-    listed = set(pr_files)
-    for name in sorted(local - listed):
+    # Both sides give the touched paths. A rename touches its old and its new path, so git and
+    # GitHub agree whether they report a rename or a delete and an add.
+    local = branch_changes(repo, base, head)
+    listed = set(pr_files) | set((renamed_from or {}).values())
+    for name in sorted(local.touched - listed):
         report.errors.append(f"changed in the branch but not listed by GitHub: {name}")
-    for name in sorted(listed - local):
+    for name in sorted(listed - local.touched):
         report.errors.append(f"listed by GitHub but not changed in the branch: {name}")
+    # Only the new path counts: removing the old path of a rename is a move, not a revert.
     removed = files_with_removed_lines(repo, base, head)
-    for name in sorted(local & recently_changed(repo, base) & removed):
+    for name in sorted(local.paths & recently_changed(repo, base) & removed):
         report.warnings.append(
             f"{name} also changed on {base} in its last {RECENT_MERGES} merges and the branch "
             "removes lines from it: check for a revert"
@@ -127,18 +167,51 @@ def check(repo: Path, base: str, head: str, pr_files: list[str]) -> Report:
     return report
 
 
-def pr_view(number: int) -> tuple[str, list[str]]:
-    """The head commit and the changed file paths that GitHub lists for the pull request."""
-    result = subprocess.run(
-        ["gh", "pr", "view", str(number), "--json", "headRefOid,files"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+def _gh(*args: str) -> str:
+    """Run `gh` and return its standard output. Any failure raises MergeCheckError."""
+    command = f"gh {' '.join(args)}"
+    try:
+        result = subprocess.run(["gh", *args], capture_output=True, text=True, check=False)
+    except OSError as error:
+        raise MergeCheckError(f"{command} cannot run: {error}") from error
     if result.returncode != 0:
-        raise MergeCheckError(f"gh pr view {number} failed: {result.stderr.strip()}")
-    data = json.loads(result.stdout)
-    return str(data["headRefOid"]), [str(item["path"]) for item in data["files"]]
+        raise MergeCheckError(f"{command} failed: {result.stderr.strip()}")
+    return result.stdout
+
+
+def parse_pr_files(output: str) -> tuple[list[str], dict[str, str]]:
+    """Read the file lines of `gh api ... --jq`: one JSON object per file.
+
+    Return the listed paths and, for each renamed file, its new path mapped to its previous path.
+    """
+    paths: list[str] = []
+    renamed_from: dict[str, str] = {}
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+            path = str(item["path"])
+        except (json.JSONDecodeError, KeyError, TypeError) as error:
+            raise MergeCheckError(f"unexpected line from gh api: {line!r}") from error
+        paths.append(path)
+        if item.get("status") == "renamed" and item.get("previous"):
+            renamed_from[path] = str(item["previous"])
+    return paths, renamed_from
+
+
+def pr_view(number: int) -> tuple[str, list[str], dict[str, str]]:
+    """The head commit, the listed file paths and the renames that GitHub lists for the PR."""
+    try:
+        head = str(json.loads(_gh("pr", "view", str(number), "--json", "headRefOid"))["headRefOid"])
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise MergeCheckError(f"gh pr view {number} gave no head commit") from error
+    jq = ".[] | {path: .filename, status: .status, previous: .previous_filename}"
+    files = _gh(
+        "api", "--paginate", "--jq", jq, "repos/{owner}/{repo}/pulls/" + str(number) + "/files"
+    )
+    paths, renamed_from = parse_pr_files(files)
+    return head, paths, renamed_from
 
 
 def fetch_pr(repo: Path, number: int) -> str:
@@ -154,13 +227,13 @@ def main(argv: list[str] | None = None, *, repo: Path | None = None) -> int:
     args = parser.parse_args(argv)
     root = repo if repo is not None else Path.cwd()
     try:
-        expected_head, pr_files = pr_view(args.number)
+        expected_head, pr_files, renamed_from = pr_view(args.number)
         head = fetch_pr(root, args.number)
         if head != expected_head:
             raise MergeCheckError(
                 f"the head of PR {args.number} moved while the check ran: run the check again"
             )
-        report = check(root, BASE, head, pr_files)
+        report = check(root, BASE, head, pr_files, renamed_from)
     except MergeCheckError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

@@ -26,17 +26,41 @@ pub struct Request {
     pub bundler: bool,
 }
 
+/// The language that a native collector reads: its resolver names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Language {
+    TypeScript,
+    Rust,
+}
+
+impl Language {
+    /// The text of the resolver and the name in the error.
+    fn resolver_name(self) -> &'static str {
+        match self {
+            Language::TypeScript => "typescript",
+            Language::Rust => "rust",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Language::TypeScript => "TypeScript",
+            Language::Rust => "Rust",
+        }
+    }
+}
+
 /// Decode a TypeScript request. The error text names the first field that is not valid.
 pub fn decode(payload: &[u8]) -> Result<Request, String> {
-    decode_for(payload, "typescript")
+    decode_for(payload, Language::TypeScript)
 }
 
 /// Decode a Rust request. Its resolver is `{"language": "rust"}`, so `tsconfig` is empty.
 pub fn decode_rust(payload: &[u8]) -> Result<Request, String> {
-    decode_for(payload, "rust")
+    decode_for(payload, Language::Rust)
 }
 
-fn decode_for(payload: &[u8], wanted: &str) -> Result<Request, String> {
+fn decode_for(payload: &[u8], wanted: Language) -> Result<Request, String> {
     let raw: Value = serde_json::from_slice(payload)
         .map_err(|error| format!("invalid collection JSON: {error}"))?;
     let raw = object(
@@ -88,18 +112,14 @@ fn decode_for(payload: &[u8], wanted: &str) -> Result<Request, String> {
     })
 }
 
-fn resolver(value: &Value, wanted: &str) -> Result<(String, bool), String> {
+fn resolver(value: &Value, wanted: Language) -> Result<(String, bool), String> {
     let fields = value.as_object().ok_or("resolver fields mismatch")?;
     let language = string(
         fields.get("language").unwrap_or(&Value::Null),
         "resolver.language",
     )?;
-    if language != wanted {
-        let label = if wanted == "rust" {
-            "Rust"
-        } else {
-            "TypeScript"
-        };
+    if language != wanted.resolver_name() {
+        let label = wanted.label();
         return Err(
             if matches!(language.as_str(), "python" | "dart" | "typescript" | "rust") {
                 format!("{label} collector requires the {label} resolver")
@@ -108,7 +128,7 @@ fn resolver(value: &Value, wanted: &str) -> Result<(String, bool), String> {
             },
         );
     }
-    if wanted == "rust" {
+    if wanted == Language::Rust {
         object(value, &["language"], "resolver")?;
         return Ok((String::new(), false));
     }

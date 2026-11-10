@@ -17,6 +17,12 @@
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
         "docs/architecture/native.md"
       ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "A typed section of the reply is written by the types of archkeel-facts (AD-345)."
+        }
+      ],
       "decided_by": "architect"
     },
     {
@@ -36,6 +42,23 @@
           "component": "wire",
           "rationale": "A read input is a wire input with a digest and a role."
         }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-FACTS",
+      "label": "facts",
+      "role": "component",
+      "packages": ["native.archkeel_facts"],
+      "responsibilities": [
+        "The typed facts, defined once: closed kinds, newtype ids, reason codes, the protocol 9 wire, the read-set and the generated schema (AD-345)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a snapshot, parsing source and storing facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
       ],
       "decided_by": "architect"
     },
@@ -71,6 +94,10 @@
           "rationale": "Every read of the snapshot goes through the one owner of paths, symlink rules and limits."
         },
         {
+          "component": "facts",
+          "rationale": "The collector builds its import records with the typed facts (AD-345); the other sections follow."
+        },
+        {
           "component": "build",
           "rationale": "The build script of the crate calls the shared helper that digests the sources, so one script owns the digest."
         }
@@ -82,12 +109,8 @@
       "label": "rust",
       "role": "component",
       "packages": ["native.archkeel_rust_collector"],
-      "responsibilities": [
-        "Read Rust source and write the collection reply."
-      ],
-      "forbidden_responsibilities": [
-        "Reading TypeScript source."
-      ],
+      "responsibilities": ["Read Rust source and write the collection reply."],
+      "forbidden_responsibilities": ["Reading TypeScript source."],
       "provenance": ["docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"],
       "requires": [
         {
@@ -97,6 +120,10 @@
         {
           "component": "snapshot",
           "rationale": "Every read of the snapshot goes through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "facts",
+          "rationale": "The collector builds its import and gap records with the typed facts (AD-345)."
         },
         {
           "component": "build",

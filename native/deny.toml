@@ -36,9 +36,9 @@ confidence-threshold = 0.93
 crate = "foldhash"
 allow = ["Zlib"]
 
-# `syn` (the Rust collector, AD-335) needs `proc-macro2`, which needs `unicode-ident`. That crate
-# is `(MIT OR Apache-2.0) AND Unicode-3.0`: the Unicode data tables have the Unicode License v3,
-# which is permissive and OSI approved. The exception is for this one crate.
+# AD-345 and AD-335: the serde and schemars derives of `archkeel-facts` and the `syn` parser of the
+# Rust collector need `proc-macro2`, and it needs `unicode-ident`, which carries the Unicode data license next to MIT or Apache-2.0. Unicode-3.0 is
+# permissive and OSI approved. The crate runs only in the compiler; the binary does not link it.
 [[licenses.exceptions]]
 crate = "unicode-ident"
 allow = ["Unicode-3.0"]

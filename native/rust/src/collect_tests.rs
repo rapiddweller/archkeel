@@ -17,7 +17,7 @@ const APP: &str = "[package]\nname = \"app\"\n[dependencies]\nbase = { workspace
     renamed = { package = \"other-crate\", version = \"1\" }\nserde_json = \"1\"\n\
     [features]\ndump = []\n";
 
-fn facts(files: &[(&str, &str)]) -> Facts {
+fn facts(files: &[(&str, &str)]) -> Collected {
     let root = Tree::new(files);
     let request = Request {
         version: Version::V8,
@@ -41,7 +41,7 @@ fn facts(files: &[(&str, &str)]) -> Facts {
     collect(&request, provenance)
 }
 
-fn workspace(app_source: &str) -> Facts {
+fn workspace(app_source: &str) -> Collected {
     facts(&[
         ("crates/Cargo.toml", WORKSPACE),
         ("crates/base/Cargo.toml", BASE),
@@ -51,14 +51,16 @@ fn workspace(app_source: &str) -> Facts {
     ])
 }
 
-fn edges(facts: &Facts) -> Vec<(String, String)> {
-    let records = &facts.sections[0].1;
-    let mut found: Vec<_> = records
+fn edges(facts: &Collected) -> Vec<(String, String)> {
+    let mut found: Vec<_> = facts
+        .imports
         .iter()
         .map(|r| {
+            let data = r.data.data();
+            let specifier = data.specifier.clone().unwrap_or_default();
             (
-                r.data["source_module"].to_string(),
-                r.data["specifier"].to_string(),
+                format!("{:?}", data.source_module.as_str()),
+                format!("{specifier:?}"),
             )
         })
         .collect();
@@ -67,7 +69,7 @@ fn edges(facts: &Facts) -> Vec<(String, String)> {
 }
 
 /// The reasons in text order: the gaps are in the order of their identities.
-fn reasons(facts: &Facts) -> Vec<&str> {
+fn reasons(facts: &Collected) -> Vec<&str> {
     let mut found: Vec<&str> = facts.gaps.iter().map(|gap| gap.title.as_str()).collect();
     found.sort_unstable();
     found
@@ -77,8 +79,8 @@ fn reasons(facts: &Facts) -> Vec<&str> {
 fn a_path_to_another_crate_of_the_workspace_is_a_local_edge_to_its_root_module() {
     let facts = workspace("use base::f;\nfn g() { base::f(); }");
     assert_eq!(reasons(&facts), Vec::<&str>::new());
-    assert_eq!(facts.imports.len(), 1);
-    for target in &facts.imports {
+    assert_eq!(facts.head.imports.len(), 1);
+    for target in &facts.head.imports {
         assert!(matches!(
             target,
             Target::Local { module, file, .. }
@@ -91,6 +93,7 @@ fn a_path_to_another_crate_of_the_workspace_is_a_local_edge_to_its_root_module()
 fn a_renamed_dependency_is_an_edge_to_the_package_and_a_local_item_is_not_an_edge() {
     let facts = workspace("use renamed::x;\nmod serde_json {}\nfn g() { serde_json::go(); }");
     let targets: Vec<_> = facts
+        .head
         .imports
         .iter()
         .map(|target| match target {
@@ -105,6 +108,7 @@ fn a_renamed_dependency_is_an_edge_to_the_package_and_a_local_item_is_not_an_edg
 fn std_is_a_builtin_edge_and_one_path_gives_one_record() {
     let facts = workspace("use std::fs;\nfn g() { std::fs::read(\"x\"); std::fs::read(\"y\"); }");
     assert!(facts
+        .head
         .imports
         .iter()
         .all(|t| matches!(t, Target::Builtin { .. })));
@@ -125,6 +129,7 @@ fn a_module_is_named_below_the_namespace_and_the_crate() {
         ["Module file not found: mod inner in crates/app/src/lib.rs"]
     );
     let modules: Vec<_> = facts
+        .head
         .files
         .iter()
         .map(|f| (f.module.as_str(), f.package.as_str()))
@@ -150,8 +155,7 @@ fn each_place_that_cannot_be_read_is_a_gap_with_its_line() {
         .map(|e| e.line)
         .collect();
     assert_eq!(lines, [2]);
-    let section: Vec<_> = facts.sections.iter().map(|(name, _)| *name).collect();
-    assert_eq!(section, ["imports", "unknowns"]);
+    assert_eq!(facts.head.sections, ["imports", "unknowns"]);
 }
 
 #[test]
@@ -169,12 +173,13 @@ fn a_file_in_no_module_tree_and_a_scan_root_that_is_no_directory_are_gaps() {
         facts.selected_files,
         ["crates/src/lib.rs", "crates/src/orphan.rs"]
     );
-    assert_eq!((facts.files.len(), facts.files_read), (1, 1));
+    assert_eq!((facts.head.files.len(), facts.files_read), (1, 1));
 }
 
 #[test]
 fn two_runs_give_the_same_facts() {
     let first = workspace("use base::f;\nuse std::io;\nfn g() { serde_json::json!(1); }");
     let second = workspace("use base::f;\nuse std::io;\nfn g() { serde_json::json!(1); }");
+    let (first, second) = (first.encode(Version::V8), second.encode(Version::V8));
     assert_eq!(first, second);
 }

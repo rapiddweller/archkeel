@@ -12,6 +12,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+archkeel-facts.workspace = true
 archkeel-snapshot.workspace = true
 archkeel-wire.workspace = true
 proc-macro2.workspace = true

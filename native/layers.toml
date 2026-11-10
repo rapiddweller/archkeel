@@ -25,18 +25,18 @@ parser_prefixes = ["tree-sitter"]
 [crates.archkeel-wire]
 role = "library"
 dir = "wire"
-may_use = []
+may_use = ["archkeel-facts"]
 
 [crates.archkeel-snapshot]
 role = "library"
 dir = "snapshot"
 may_use = ["archkeel-wire"]
 
+# AD-345: the one typed definition of each collector fact. It uses no parser and no other crate.
 [crates.archkeel-facts]
 role = "library"
 dir = "facts"
 may_use = []
-planned = true
 
 [crates.archkeel-store]
 role = "library"
@@ -57,4 +57,4 @@ may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-facts", "archkeel-bui
 [crates.archkeel-rust-collector]
 role = "collector"
 dir = "rust"
-may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-build-support"]
+may_use = ["archkeel-wire", "archkeel-snapshot", "archkeel-facts", "archkeel-build-support"]

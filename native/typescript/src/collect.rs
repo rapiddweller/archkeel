@@ -13,9 +13,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
+use archkeel_facts::ids::FactId;
+use archkeel_facts::{GapFact, Record, Section};
 use archkeel_wire::identity::{evidence_id, module_identity, package_of, stable_id, Part};
-use archkeel_wire::records::{gap_record, GapKind};
-use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target};
+use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, ReplySection, Target};
 use archkeel_wire::request::Request;
 
 use crate::config::load_config;
@@ -35,7 +36,6 @@ use archkeel_snapshot::Snapshot;
 
 /// The profile and adapter name of the Python TypeScript collector, so that this is a drop-in.
 pub const PROFILE: &str = "archkeel-typescript-imports";
-const SECTIONS: [&str; 2] = ["imports", "unknowns"];
 pub const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
@@ -44,6 +44,11 @@ pub const FEATURES: [&str; 4] = [
 ];
 // What the compiler's `trim()` removes (`collect._WHITESPACE`).
 const COMPILER_SPACE: &str = " \t\n\u{b}\u{c}\r\u{a0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
+
+enum GapKind {
+    Collection,
+    Resolution,
+}
 
 struct Collection<'a> {
     request: &'a Request,
@@ -57,10 +62,10 @@ struct Collection<'a> {
     /// Every file to read, in discovery order; a file added while walking is walked too.
     queue: Vec<String>,
     queued: HashSet<String>,
-    gaps: BTreeMap<String, Record>,
+    gaps: BTreeMap<String, Record<GapFact>>,
     evidence: BTreeMap<String, Evidence>,
     files: Vec<FileFact>,
-    imports: Vec<Record>,
+    imports: Vec<crate::records::ImportRecord>,
     targets: Vec<Target>,
     read: usize,
     /// Keep what the records of PR 4.3a-3a need (`records.rs`); a plain collection does not.
@@ -176,7 +181,7 @@ pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (
     files.sort_by(|left, right| left.rel_path.cmp(&right.rel_path));
     let mut selected_files = collection.queue;
     selected_files.sort();
-    let gaps: Vec<Record> = collection.gaps.into_values().collect();
+    let gaps: Vec<Record<GapFact>> = collection.gaps.into_values().collect();
     let mut imports = collection.imports;
     imports.sort_by(|left, right| left.id.cmp(&right.id));
     let mut features = FEATURES.to_vec();
@@ -198,7 +203,10 @@ pub(crate) fn gather(request: &Request, provenance: Provenance, keep: bool) -> (
         git_head: request.git_head.clone(),
         dirty: request.dirty.clone(),
         scope,
-        sections: vec![(SECTIONS[0], imports), (SECTIONS[1], gaps.clone())],
+        sections: vec![
+            ReplySection::Typed(Section::Imports(imports)),
+            ReplySection::Typed(Section::Unknowns(gaps.clone())),
+        ],
         features,
         constructs: Vec::new(),
         inputs: collection.snapshot.inputs(),
@@ -298,8 +306,16 @@ impl Collection<'_> {
 
     /// `collect._gap`: one UNKNOWN record; the same reason, evidence and module give one record.
     fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str, kind: GapKind) {
-        let record = gap_record(reason, evidence, module, kind);
-        self.gaps.entry(record.id.clone()).or_insert(record);
+        let mut parts = vec![Part::Text(reason)];
+        parts.extend(evidence.map(Part::Text));
+        parts.push(Part::Text(module));
+        let id = stable_id("UNKNOWN", &parts);
+        let fact = match kind {
+            GapKind::Collection => GapFact::collection(reason, module),
+            GapKind::Resolution => GapFact::resolution(reason, module),
+        };
+        let record = Record::unknown(FactId::new(id.clone()), reason, evidence, module, fact);
+        self.gaps.entry(id).or_insert(record);
     }
 }
 

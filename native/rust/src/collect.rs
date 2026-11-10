@@ -10,11 +10,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_wire::identity::{evidence_id, package_of, stable_id, Part};
-use archkeel_wire::records::{evidence_at, gap_record, GapKind};
-use archkeel_wire::reply::{Evidence, Facts, FileFact, Provenance, Record, Target};
+use archkeel_facts::data::ImportData;
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::{GapFact, ImportFact, Record};
+use archkeel_wire::identity::{package_of, stable_id, Part};
+use archkeel_wire::protocol::Version;
+use archkeel_wire::reply::{Evidence, FileFact, Provenance, Target};
 use archkeel_wire::request::Request;
-use serde_json::{json, Map, Value};
+use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::crates::{discover, Crate, Problem, Workspace};
 use crate::resolve::{classify, Found, Named};
@@ -27,18 +31,55 @@ pub const PROFILE: &str = "archkeel-rust-imports";
 const SECTIONS: [&str; 2] = ["imports", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
 
+/// The facts of one request, as the typed records of `archkeel-facts` (AD-345) and the small lists.
+/// `encode` writes the gaps once: they are the section `unknowns` and the gaps of the coverage.
+pub struct Collected {
+    pub head: Head,
+    pub imports: Vec<Record<ImportFact>>,
+    pub gaps: Vec<Record<GapFact>>,
+    pub selected_files: Vec<String>,
+    pub files_read: usize,
+    pub evidence: Vec<Evidence>,
+}
+
+impl Collected {
+    /// The compressed reply for `version`.
+    pub fn encode(self, version: Version) -> Result<Vec<u8>, String> {
+        let Self {
+            head,
+            imports,
+            gaps,
+            selected_files,
+            files_read,
+            evidence,
+        } = self;
+        let mut bytes = Vec::new();
+        encode_stream(version, head, &mut bytes, |writer| {
+            writer.write_typed_section("imports", |emit| imports.iter().for_each(emit))?;
+            writer.write_typed_section("unknowns", |emit| gaps.iter().for_each(emit))?;
+            Ok(Tail {
+                selected_files,
+                files_read,
+                gaps,
+                evidence,
+            })
+        })?;
+        Ok(bytes)
+    }
+}
+
 #[derive(Default)]
 struct Builder {
-    gaps: BTreeMap<String, Record>,
+    gaps: BTreeMap<String, Record<GapFact>>,
     evidence: BTreeMap<String, Evidence>,
     files: Vec<FileFact>,
-    imports: Vec<Record>,
+    imports: Vec<Record<ImportFact>>,
     targets: Vec<Target>,
     seen: BTreeSet<(String, String, String)>,
 }
 
 /// Collect the facts of one request.
-pub fn collect(request: &Request, provenance: Provenance) -> Facts {
+pub fn collect(request: &Request, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.root);
     let mut builder = Builder::default();
     let (scope, files) = list(&mut source, &request.roots, &mut builder);
@@ -95,12 +136,17 @@ fn list(
 
 impl Builder {
     fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
-        let record = gap_record(reason, evidence, module, GapKind::Collection);
-        self.gaps.entry(record.id.clone()).or_insert(record);
+        let mut parts = vec![Part::Text(reason)];
+        parts.extend(evidence.map(Part::Text));
+        parts.push(Part::Text(module));
+        let id = stable_id("UNKNOWN", &parts);
+        let fact = GapFact::collection(reason, module);
+        let record = Record::unknown(FactId::new(id.clone()), reason, evidence, module, fact);
+        self.gaps.entry(id).or_insert(record);
     }
 
     fn cite(&mut self, rel: &str, site: &Site) -> String {
-        let evidence = evidence_at(rel, site.line, site.end_line, site.column, &site.excerpt);
+        let evidence = Evidence::at(rel, site.line, site.end_line, site.column, &site.excerpt);
         let id = evidence.id.clone();
         self.evidence.insert(id.clone(), evidence);
         id
@@ -114,11 +160,9 @@ impl Builder {
     fn module(&mut self, workspace: &Workspace, module: &Module) {
         let first = module.first_line.as_str();
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
-        let file_evidence = evidence_id(&module.rel, line, line, column);
-        self.evidence.insert(
-            file_evidence.clone(),
-            evidence_at(&module.rel, line, line, column, first),
-        );
+        let cited = Evidence::at(&module.rel, line, line, column, first);
+        let file_evidence = cited.id.clone();
+        self.evidence.insert(file_evidence.clone(), cited);
         self.files.push(FileFact {
             id: stable_id("FILE", &[Part::Text(&module.module)]),
             rel_path: module.rel.clone(),
@@ -261,31 +305,35 @@ impl Builder {
         selected: Vec<String>,
         walked: &Walked,
         source: Snapshot,
-    ) -> Facts {
+    ) -> Collected {
         let mut files = self.files;
         files.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
-        let gaps: Vec<Record> = self.gaps.into_values().collect();
         let mut imports = self.imports;
         imports.sort_by(|a, b| a.id.cmp(&b.id));
-        Facts {
+        let head = Head {
             provenance,
             git_head: request.git_head.clone(),
             dirty: request.dirty.clone(),
             scope,
-            sections: vec![(SECTIONS[0], imports), (SECTIONS[1], gaps.clone())],
+            sections: SECTIONS.to_vec(),
             features: FEATURES.to_vec(),
             constructs: Vec::new(),
             inputs: source.inputs(),
             files,
             imports: self.targets,
+        };
+        Collected {
+            head,
+            imports,
+            gaps: self.gaps.into_values().collect(),
             selected_files: selected,
             files_read: walked.modules.len(),
-            gaps,
             evidence: self.evidence.into_values().collect(),
         }
     }
 }
 
+/// The import record of one path that names another crate.
 fn record(
     module: &Module,
     reference: &Reference,
@@ -293,37 +341,28 @@ fn record(
     evidence: String,
     target_module: &str,
     target_package: &str,
-) -> Record {
+) -> Record<ImportFact> {
     let mut subjects = vec![module.module.clone(), target_module.to_owned()];
     subjects.sort();
     subjects.dedup();
-    let mut data = Map::new();
-    data.insert("source_module".to_owned(), json!(module.module));
-    data.insert(
-        "source_package".to_owned(),
-        json!(package_of(&module.module)),
-    );
-    data.insert("target_module".to_owned(), json!(target_module));
-    data.insert("target_package".to_owned(), json!(target_package));
-    data.insert("symbol".to_owned(), Value::Null);
-    data.insert("binding".to_owned(), Value::Null);
-    data.insert("symbols_known".to_owned(), json!(false));
-    data.insert("specifier".to_owned(), json!(reference.path));
-    data.insert("type_only".to_owned(), json!(false));
-    data.insert("relative_level".to_owned(), json!(0));
-    data.insert("under_type_checking".to_owned(), json!(false));
-    data.insert("reexport".to_owned(), json!(false));
-    data.insert("module_level_import".to_owned(), json!(true));
+    let data = ImportData {
+        source_module: ModuleName::new(&module.module),
+        source_package: PackageName::new(package_of(&module.module)),
+        target_module: ModuleName::new(target_module),
+        target_package: PackageName::new(target_package),
+        specifier: Some(reference.path.clone()),
+        module_level_import: true,
+        ..ImportData::statement()
+    };
     Record {
-        id: identity.to_owned(),
-        evidence_class: "FACT",
-        area: "source",
-        kind: "import",
+        id: FactId::new(identity),
+        evidence_class: EvidenceClass::Fact,
+        area: Area::Source,
         title: format!("{} imports {}", module.module, reference.path),
         subjects,
-        evidence_ids: vec![evidence],
+        evidence_ids: vec![EvidenceId::new(evidence)],
         fact_ids: Vec::new(),
-        data,
+        data: ImportFact::Import(data),
     }
 }
 

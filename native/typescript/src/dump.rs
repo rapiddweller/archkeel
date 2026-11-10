@@ -269,7 +269,7 @@ pub fn records(request: &Request, provenance: Provenance) -> Result<Value, Strin
     let touched: std::collections::HashSet<&str> =
         records.touched.iter().map(String::as_str).collect();
     Ok(json!({
-        "imports": records.imports.iter().map(record_value).collect::<Vec<_>>(),
+        "imports": records.imports,
         "targets": records.targets.iter().map(target_value).collect::<Vec<_>>(),
         "witnesses": records.witnesses.iter().map(record_value).collect::<Vec<_>>(),
         "calls": records.calls.iter().map(record_value).collect::<Vec<_>>(),

@@ -7,13 +7,13 @@ Run `make self-validate-native` to check it.
 
 | Crate | Role | Uses |
 |---|---|---|
-| `archkeel-wire` | The collector wire: requests, replies and source identities. | no crate of the workspace |
+| `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
 | `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-wire` |
-| `archkeel-facts` | The typed facts of protocol 10 (planned, no code yet). | no crate of the workspace |
+| `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates facts once and keeps them (planned, no code yet). | `archkeel-facts` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
-| `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-build-support` |
+| `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
 Clippy, `cargo deny` and the file size rule stay outside the contract
@@ -22,11 +22,14 @@ Clippy, `cargo deny` and the file size rule stay outside the contract
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
+    wire --> facts
     snapshot --> wire
     typescript --> wire
     typescript --> snapshot
+    typescript --> facts
     typescript --> build
     rust --> wire
     rust --> snapshot
+    rust --> facts
     rust --> build
 ```
