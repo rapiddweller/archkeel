@@ -50,8 +50,9 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     };
     let mut walk = Walk::new(cx);
     let found_nodes = scan(&grammar.kinds, &source, root, &mut walk);
+    let layout = walk.take_layout();
     let mut syntax = walk.finish(root, suffix);
-    syntax.script = script::read(cx, root, &syntax, &grammar.templates);
+    syntax.script = script::read(cx, root, layout, &syntax, &grammar.templates);
     let references = references::trusted(&source, root, &found_nodes);
     let found = concerns::read(&source, root, &found_nodes, &references, suffix);
     let first_error = found_nodes
