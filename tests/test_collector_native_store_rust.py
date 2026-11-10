@@ -22,11 +22,11 @@ from rust_repository import CRATE_RULES, repository, rule
 from test_collector_false_pass_full import MODULE_FILES, MODULE_LIB
 
 from archkeel.analyzer import store
-from archkeel.check.report import run_explore, run_report
+from archkeel.check.report import run_explore, run_report, run_report_with_observation
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import NATIVE_STORE, observer_for
 from archkeel.ir.languages import Language
-from archkeel.ir.store_seam import close_store
+from archkeel.ir.store_seam import active_store, close_store
 
 ROOT = Path(__file__).parents[1]
 # Each case is a set of files over the default fixture of `rust_repository`.
@@ -169,3 +169,22 @@ def test_explore_keeps_the_store_of_its_first_pass_with_test_exclusion(
     assert opened == [store_binary.name]
     assert artifacts[0] is not None
     assert artifacts[1] == artifacts[0]
+
+
+def test_a_failed_observation_closes_the_store_of_an_earlier_collection(
+    tmp_path: Path, rust_binary: Path, store_binary: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    good = repository(tmp_path / "good", rust_binary)
+    bad = repository(tmp_path / "bad", rust_binary)
+    (bad / "architecture-contract.json").write_text("{", encoding="utf-8")
+    commit_tree(bad)
+    monkeypatch.setenv(NATIVE_STORE, str(store_binary))
+    for root in (good, bad):
+        config = load_config(root)
+        observer = observer_for(
+            config.language,
+            collector_argv=(str(rust_binary),),
+            pinned_digest=pin_of(str(rust_binary)),
+        )
+        result, _, _ = run_report_with_observation(root, config=config, analyzer=observer)
+        assert (active_store() is not None) is (root == good), result.diagnostics

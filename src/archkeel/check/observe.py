@@ -57,6 +57,7 @@ from .runtime import runtime_diagnostic
 
 
 def _failure(kind: DiagnosticKind, subject: str, claim: str, remedy: str) -> ObservationResult:
+    close_store()  # AD-346: a failed observation keeps no store of an earlier collection.
     return ObservationResult(None, None, (Diagnostic(kind, subject, claim, remedy),))
 
 
@@ -298,6 +299,7 @@ def _observe(
         contract_file = contract_root / contract
         loaded = _contract_tree(contract_file, contract_root)
         if isinstance(loaded, ObservationResult):
+            close_store()
             return loaded
         found: set[str] = set()
         listed: set[str] = set()
