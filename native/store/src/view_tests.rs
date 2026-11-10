@@ -40,16 +40,21 @@ fn lengths<T>(items: Option<&[T]>) -> Option<usize> {
     items.map(<[T]>::len)
 }
 
-fn same(fields: &Fields<'_>, data: &Value) -> Result<(), String> {
+fn first_difference(checks: &[(&'static str, bool)]) -> Result<(), String> {
+    match checks.iter().find(|(_, equal)| !equal) {
+        Some((name, _)) => Err(format!("the field {name} differs from the wire")),
+        None => Ok(()),
+    }
+}
+
+fn texts(fields: &Fields<'_>, data: &Value) -> Result<(), String> {
     let text = |key: &str| data.get(key).and_then(Value::as_str);
     let named = |key: &str| data.get(key).map(Value::as_str);
-    let set = |key: &str| data.get(key).is_some_and(|value| !value.is_null());
-    let count = |key: &str| data.get(key).and_then(Value::as_array).map(Vec::len);
     let targets = data.get("targets").and_then(Value::as_array).map(|items| {
         let names: Vec<_> = items.iter().filter_map(Value::as_str).collect();
         names
     });
-    let checks = [
+    first_difference(&[
         (
             "source_module",
             fields.source_module == named("source_module"),
@@ -100,6 +105,13 @@ fn same(fields: &Fields<'_>, data: &Value) -> Result<(), String> {
             "lexical_parent_id",
             fields.lexical_parent_id == text("lexical_parent_id"),
         ),
+    ])
+}
+
+fn nested(fields: &Fields<'_>, data: &Value) -> Result<(), String> {
+    let set = |key: &str| data.get(key).is_some_and(|value| !value.is_null());
+    let count = |key: &str| data.get(key).and_then(Value::as_array).map(Vec::len);
+    first_difference(&[
         (
             "base_declarations",
             lengths(fields.base_declarations) == count("base_declarations"),
@@ -149,11 +161,11 @@ fn same(fields: &Fields<'_>, data: &Value) -> Result<(), String> {
             "receiver_binding",
             fields.receiver_binding == set("receiver_binding"),
         ),
-    ];
-    match checks.iter().find(|(_, equal)| !equal) {
-        Some((name, _)) => Err(format!("the field {name} differs from the wire")),
-        None => Ok(()),
-    }
+    ])
+}
+
+fn same(fields: &Fields<'_>, data: &Value) -> Result<(), String> {
+    texts(fields, data).and_then(|()| nested(fields, data))
 }
 
 impl Visitor for Compare {
@@ -182,8 +194,8 @@ fn each_field_of_each_golden_record_equals_the_wire_value_of_its_key() {
         let reply = decode::reply(&payload, 1 << 30).unwrap();
         let mut compare = Compare::default();
         for section in &reply.facts.sections {
-            visit(section, 0, section.len(), &mut compare)
-                .unwrap_or_else(|e| panic!("{case}: {e}"));
+            let result = visit(section, 0, section.len(), &mut compare);
+            assert_eq!(result, Ok(()), "{case}");
         }
         assert!(compare.records > 0, "{case}: no record");
         total += compare.records;
