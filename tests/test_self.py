@@ -55,6 +55,12 @@ ANALYZER_PUBLIC_IR = frozenset(
         "archkeel.ir.guard_paths:guarded_call_paths",
         "archkeel.ir.source_proofs:class_instance_member_write_names",
         "archkeel.ir.source_proofs:parse_numeric_evidence_excerpt",
+        # AD-346: the opt-in store collector reads the read-set and opens the store session.
+        "archkeel.ir.readset_codec:decode_read_set",
+        "archkeel.ir.store_seam:StoreEntry",
+        "archkeel.ir.store_seam:close_store",
+        "archkeel.ir.store_seam:open_store",
+        "archkeel.ir.store_seam:store_enabled",
     }
 )
 ROOT = Path(__file__).parents[1]

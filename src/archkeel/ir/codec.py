@@ -34,7 +34,6 @@ from archkeel.ir.codec_inside import (
     load_inside_contract_tree,
 )
 from archkeel.ir.codec_observation import (
-    canonical_report_bytes,
     decode_canonical_model,
     encode_canonical_model,
     observation_payload,
@@ -45,6 +44,7 @@ from archkeel.ir.codec_result import (
     result_bytes,
     result_payload,
 )
+from archkeel.ir.codec_store import canonical_report_bytes, report_bytes
 from archkeel.ir.codec_wire import (
     canonical_json_bytes,
     decode_json,
@@ -81,6 +81,7 @@ __all__ = (
     "baseline_digest",
     "canonical_json_bytes",
     "canonical_report_bytes",
+    "report_bytes",
     "contract_bytes",
     "contract_digest",
     "contract_provenance_locations",

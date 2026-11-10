@@ -67,6 +67,28 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-STORE",
+      "label": "store",
+      "role": "component",
+      "packages": ["native.archkeel_store"],
+      "responsibilities": [
+        "Validate one collector reply once, keep its typed facts, write the read-set and architecture.json, and give the receipt digests (AD-346)."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source and reading a snapshot."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-346-the-rust-store-validates-a-reply-once-and-writes-architecture-json.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "The store reads and holds the typed facts of archkeel-facts (AD-345)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-BUILD",
       "label": "build",
       "role": "component",

@@ -90,6 +90,7 @@ facts_data! {
         [wire skip] binding: Option<String>,
         [wire] module: ModuleName,
         [wire skip] name: Option<String>,
+        [wire skip] script_global: Option<String>,
         [wire] source_module: ModuleName,
         [wire] source_scope: String,
     }

@@ -75,9 +75,11 @@ fn the_read_set_holds_only_the_read_fields() {
         ["id", "kind", "area", "subjects", "evidence_ids", "data"]
     );
     let data = read["data"].as_object().expect("an object");
-    for unread in ["specifier", "type_only", "symbols_known"] {
+    for unread in ["specifier", "type_only"] {
         assert!(!data.contains_key(unread), "{unread} is not read by a rule");
     }
+    // AD-346: `interface_boundary` reads it (`check/evaluation/rules.py`); WP1 traced no demo of it.
+    assert_eq!(data["symbols_known"], Value::Bool(false));
     assert_eq!(data["symbol"], Value::Null);
     assert_eq!(data["source_module"], "app.a_x2e_ts");
     assert!(!data.contains_key("origin_definition"));
