@@ -205,3 +205,21 @@ def test_every_module_specifier_of_the_loader_is_one_concern_per_file() -> None:
     syntax = parse("main.ts", b"import('node:module'); require('module'); export * from 'module';")
     assert [item.specifier for item in syntax.references] == ["node:module", "module", "module"]
     assert _reasons(syntax) == ["Node module loader is not observed"]
+
+
+@pytest.mark.parametrize(
+    ("name", "file", "aliased", "reasons"),
+    [
+        ("a.ts", 'export {};\ndeclare module "@b/t" {}', True, ["@b/t"]),
+        ("a.ts", 'export {};\ndeclare module "@b/t" {}', False, []),
+        ("a.ts", 'declare module "@b/t" {}', True, []),
+        ("a.d.ts", 'import type {T} from "./t";\ndeclare module "pkg" {}', True, ["pkg"]),
+        ("a.ts", 'export {};\ndeclare module "*.css" {}', True, []),
+        ("a.ts", 'export {};\ndeclare module "./t" {}', False, ["./t"]),
+    ],
+)
+def test_a_bare_augmentation_is_a_concern_only_in_a_module_file_of_an_aliased_project(
+    name: str, file: str, aliased: bool, reasons: list[str]
+) -> None:
+    found = _reasons(parse(name, file.encode(), aliased))
+    assert found == sorted(f"Unobserved module augmentation: {item}" for item in reasons)

@@ -61,8 +61,10 @@ class ReceiverKind(Enum):
 class ScriptRoot(Enum):
     WINDOW = "window"
     GLOBAL_THIS = "globalThis"
-    # A browser script and a worker reach the global object through `self` too (#976).
+    # A browser script reaches the global object through `self` and `frames` too (#976); `top` and
+    # `parent` name another window, not this one.
     SELF = "self"
+    FRAMES = "frames"
 
 
 @dataclass(frozen=True, slots=True)

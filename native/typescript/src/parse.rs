@@ -31,6 +31,11 @@ pub struct Parsed {
 
 /// Parse one file. `data` is the text as the Python collector re-encodes it.
 pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
+    parse_for(parsers, rel, data, false)
+}
+
+/// Parse one file of a project that sets `paths` or `baseUrl` (`aliased`) or does not (#976).
+pub fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], aliased: bool) -> Parsed {
     // The filename test of the Python collector ignores one final newline.
     let suffix = classify_file(rel.strip_suffix('\n').unwrap_or(rel));
     // JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
@@ -59,7 +64,14 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     syntax.script = found_script;
     let extracted = references::trusted(&source, root, &found_nodes);
     let references = extracted.trusted;
-    let mut found = concerns::read(&source, root, &found_nodes, &references, suffix);
+    let mut found = concerns::read(
+        &source,
+        root,
+        &found_nodes,
+        &references,
+        suffix,
+        (syntax.module_syntax, aliased),
+    );
     // `parse.parse`: after the comment concerns, one for each scope that binds names unknowably.
     found
         .list

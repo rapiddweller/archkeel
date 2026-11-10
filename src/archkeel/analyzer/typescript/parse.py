@@ -23,6 +23,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
+from .augmentations import augmentation_concerns
 from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
@@ -332,7 +333,6 @@ _LOADER: Final = "Node module loader is not observed"
 _TRIPLE_SLASH: Final = re.compile(
     r"^///\s*<reference\s+(?:path|lib|types(?=\s*=\s*['\"][./]))\s*=\s*(['\"])(.*?)\1"
 )
-_RELATIVE_FIRST: Final = frozenset("./")
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -436,17 +436,18 @@ def _line_starts(data: bytes) -> list[int]:
     return [0, *(found.end() for found in _LINE_BREAK.finditer(data))]
 
 
-def parse(rel_path: str, data: bytes) -> Syntax:
+def parse(rel_path: str, data: bytes, aliased: bool = False) -> Syntax:
     # JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
     # Preserve the old filename regex boundary: $ also accepted one final newline.
     suffix = classify_file(rel_path.removesuffix("\n"))
     kind = _Grammar.TYPESCRIPT if suffix is not None and suffix.parser_typescript else _Grammar.TSX
     root = _parse_root(kind, data)
+    module_syntax = _module_exports(root)[0]
     script_mode = (
         suffix is not None
         and suffix.source_kind is SourceKind.JAVASCRIPT
         and suffix.format_hint is None
-        and not _module_exports(root)[0]
+        and not module_syntax
     )
     source = _Source(kind, root, data, script_mode, _line_starts(data))
     found = source.captures("references")
@@ -475,7 +476,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
         concerns.extend(_comment_concerns(source, suffix))
-    concerns.extend(_augmentation_concerns(source))
+    concerns.extend(_augmentation_concerns(source, module_syntax, aliased))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3690,15 +3691,10 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     return concerns
 
 
-def _augmentation_concerns(source: _Source) -> list[Concern]:
-    """`declare module "./x"` names a file of the project, as an import does (#976). A bare name
-    would need the resolver, so it is not read here."""
-    names = source.captures("augmentations").get("name", [])
-    return [
-        Concern(f"Unobserved module augmentation: {_text(node)[1:-1]}", source.span(node))
-        for node in names
-        if _text(node)[1:2] in _RELATIVE_FIRST
-    ]
+def _augmentation_concerns(source: _Source, module_file: bool, aliased: bool) -> list[Concern]:
+    nodes = source.captures("augmentations").get("name", [])
+    names = [(_text(node)[1:-1], source.span(node)) for node in nodes]
+    return augmentation_concerns(names, module_file, aliased)
 
 
 class _UMDSlot(Enum):

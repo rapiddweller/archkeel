@@ -57,7 +57,8 @@
         "archkeel.analyzer.typescript.parse",
         "archkeel.analyzer.typescript.syntax",
         "archkeel.analyzer.typescript.script_publication",
-        "archkeel.analyzer.typescript.jsdoc_imports"
+        "archkeel.analyzer.typescript.jsdoc_imports",
+        "archkeel.analyzer.typescript.augmentations"
       ],
       "responsibilities": [
         "Parse TypeScript declarations and sites into the immutable syntax model."

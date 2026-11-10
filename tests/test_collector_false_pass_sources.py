@@ -8,9 +8,9 @@ contract lets `a` use nothing, so any edge from `a` to `b` fails it. Each probe 
 reaches `b` from `a` by a construct that both producers read as no dependency: a `/// <reference
 types>` line, a `declare module` augmentation (by a relative name, or by a bare name that `paths`
 or `baseUrl` maps to a project file), and a use of `self.x` or `frames.x` for a global that a
-script of `b` publishes through `window.x`. The honest cases (no such line, and a bare name that no
-alias maps) must still give PASS, so that the probes test the contract and not a broken fixture. Each probe must give an edge (FAIL) or a gap
-(UNKNOWN) in both producers, never PASS.
+script of `b` publishes through `window.x`. The honest cases (no such line, and a bare name that
+no alias maps) must still give PASS, so that the probes test the contract and not a broken
+fixture. Each probe must give an edge (FAIL) or a gap (UNKNOWN) in both producers, never PASS.
 """
 
 from __future__ import annotations

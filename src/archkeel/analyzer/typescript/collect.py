@@ -1906,7 +1906,9 @@ class _Collection:
                 evidence,
             )
         )
-        syntax = parse(rel, text.encode("utf-8"))
+        options = self.resolver.options
+        aliased = options.base_url is not None or bool(options.paths)
+        syntax = parse(rel, text.encode("utf-8"), aliased)
         if syntax.script_mode and (
             self.resolver.format_of(rel) is not None
             or any(
