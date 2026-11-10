@@ -141,15 +141,15 @@ fn visit<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Scan<'t
         }
     } else if kind == kinds.call_expression {
         match field_kind(node, "function") {
-            Some((id, _)) if id == kinds.import => {
-                if !plant::lose("dynamic") {
-                    found.dynamic.push(node);
-                }
+            Some((id, _)) if id == kinds.import && !plant::lose("dynamic") => {
+                found.dynamic.push(node);
             }
-            Some((id, callee)) if id == kinds.identifier && is_text(source, callee, b"require") => {
-                if !plant::lose("require") {
-                    found.requires.push(node);
-                }
+            Some((id, callee))
+                if id == kinds.identifier
+                    && is_text(source, callee, b"require")
+                    && !plant::lose("require") =>
+            {
+                found.requires.push(node);
             }
             _ => {}
         }
