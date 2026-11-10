@@ -28,8 +28,7 @@ def pin_refusal(program: str, root: str, search_path: str, expected: str) -> str
     Any other name is found on the search path. The file is read once, just before the start. A
     file that changes between this read and the start is outside this check.
     """
-    separators = {os.sep, os.altsep} - {None}
-    if any(separator in program for separator in separators):
+    if os.sep in program or (os.altsep is not None and os.altsep in program):
         located: str | None = str(Path(root, program))
     else:
         located = shutil.which(program, path=search_path)

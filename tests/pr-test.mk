@@ -281,6 +281,7 @@ PR_TEST_FILES := \
 	tests/test_codec_compatibility.py \
 	tests/test_source_provenance_acceptance.py \
 	tests/test_collection_process.py \
+	tests/test_collector_producer_trust.py \
 	tests/test_collection_conformance.py \
 	tests/test_schema_drift.py \
 	tests/test_runtime_delta.py \

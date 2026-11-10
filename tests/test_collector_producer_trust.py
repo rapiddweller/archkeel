@@ -81,7 +81,9 @@ def test_a_pinned_collector_with_another_file_digest_is_refused(tmp_path: Path) 
     result = _pinned_report(root, "sha256:" + "0" * 64)
     assert result.exit_code == 2
     assert str(result.observation_complete) != "PASS"
-    assert any("does not match the pinned digest" in item.unknown_claim for item in result.diagnostics)
+    assert any(
+        "does not match the pinned digest" in item.unknown_claim for item in result.diagnostics
+    )
 
 
 def test_the_host_python_collector_and_a_configured_one_are_told_apart() -> None:

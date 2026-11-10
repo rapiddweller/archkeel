@@ -18,8 +18,8 @@ from queue import Empty, Queue
 from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
-from archkeel.analyzer.pin import is_pin, pin_refusal
 from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES, exit_message, limit_memory
+from archkeel.analyzer.pin import is_pin, pin_refusal
 from archkeel.analyzer.reply_checks import check_reply
 from archkeel.analyzer.runtime import package_version
 from archkeel.ir.facts import SourceFacts
@@ -135,12 +135,8 @@ class ProcessCollector:
             command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "LC_ALL": "C"}  # AD-325
             platform = _process_platform(os.name)
-            if self.pinned_digest is not None and (
-                refusal := pin_refusal(
-                    subject, request.snapshot.root, environment.get("PATH", ""), self.pinned_digest
-                )
-            ):
-                return CollectionError(CollectionErrorKind.EXECUTION_ERROR, subject, refusal)
+            if error := self._pin_error(request, environment):
+                return error
             if platform is _ProcessPlatform.WINDOWS:
                 search_path = os.pathsep.join((request.snapshot.root, environment.get("PATH", "")))
                 executable = shutil.which(self.argv[0], path=search_path)
@@ -207,6 +203,18 @@ class ProcessCollector:
             )
         except (ProtocolError, _OutputLimitError) as error:
             return CollectionError(CollectionErrorKind.PROTOCOL_ERROR, subject, str(error))
+
+    def _pin_error(
+        self, request: CollectionRequest, environment: dict[str, str]
+    ) -> CollectionError | None:
+        if self.pinned_digest is None:
+            return None
+        refusal = pin_refusal(
+            self.argv[0], request.snapshot.root, environment.get("PATH", ""), self.pinned_digest
+        )
+        if refusal is None:
+            return None
+        return CollectionError(CollectionErrorKind.EXECUTION_ERROR, self.argv[0], refusal)
 
     def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
         with measured(self.clock, Phase.DECODE):
