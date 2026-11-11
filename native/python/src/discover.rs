@@ -26,6 +26,9 @@ pub enum Unseen {
     NotUtf8(String),
     /// A selected file over `MAX_FILE_BYTES`, which the snapshot does not read (AD-319).
     Oversized(String),
+    /// A selected FIFO, socket or device. Python selects it and its read can block until the
+    /// timeout; the native collector never reads it and writes a collection gap that names it.
+    Special(String),
 }
 
 impl Unseen {
@@ -35,6 +38,7 @@ impl Unseen {
             Unseen::Missing(_) => None,
             Unseen::NotUtf8(path) => Some(format!("Source name is not UTF-8: {path}")),
             Unseen::Oversized(path) => snapshot.size_gap(path),
+            Unseen::Special(path) => Some(format!("Source is not a regular file: {path}")),
         }
     }
 }
@@ -87,10 +91,17 @@ fn hidden(snapshot: &mut Snapshot, directory: &str, exclude_tests: bool, out: &m
         let item = match entry {
             Hidden::Dangling(name) if name.ends_with(".py") => {
                 let rel = join(directory, &name);
-                if exclude_tests && is_test_source(&rel) {
+                if in_cache(&rel) || exclude_tests && is_test_source(&rel) {
                     continue;
                 }
                 Unseen::Missing(rel)
+            }
+            Hidden::Special(name) if name.ends_with(".py") => {
+                let rel = join(directory, &name);
+                if !keep(snapshot, &rel, exclude_tests) {
+                    continue;
+                }
+                Unseen::Special(rel)
             }
             Hidden::NotUtf8 {
                 name,
@@ -102,7 +113,9 @@ fn hidden(snapshot: &mut Snapshot, directory: &str, exclude_tests: bool, out: &m
     }
 }
 
-/// The selected files that the snapshot refused for their size. Call it after the inputs read.
+/// The selected files that the snapshot refused for their size. Call it after the inputs read;
+/// each one must become a gap, so the result must be used.
+#[must_use]
 pub fn oversized(snapshot: &Snapshot, selected: &[String]) -> Vec<Unseen> {
     selected
         .iter()
@@ -111,8 +124,13 @@ pub fn oversized(snapshot: &Snapshot, selected: &[String]) -> Vec<Unseen> {
         .collect()
 }
 
+/// `"__pycache__" in path.parts`: Python never selects a file there.
+fn in_cache(rel: &str) -> bool {
+    rel.split('/').any(|part| part == "__pycache__")
+}
+
 fn keep(snapshot: &mut Snapshot, rel: &str, exclude_tests: bool) -> bool {
-    if rel.split('/').any(|part| part == "__pycache__") {
+    if in_cache(rel) {
         return false;
     }
     let Some(real) = snapshot.real(rel) else {

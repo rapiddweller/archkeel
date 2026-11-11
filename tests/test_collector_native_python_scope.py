@@ -145,6 +145,12 @@ _EDGES = {
     "src/app/Upper.PY": "",
     "src/elsewhere/x.py": "",
     "src/app/bom.py": "﻿import os\n",
+    # `with_suffix("")` differs by version: 3.13 refuses the stem `.`, 3.14 splits as splitext.
+    "src/app/dots/..py": "",
+    "src/app/dots/...py": "",
+    "src/app/dots/a..py": "",
+    "src/app/dots/.h.py": "",
+    "src/app/real/test_a.py": "",
 }
 
 
@@ -161,6 +167,10 @@ def test_the_edge_cases_and_the_shadowed_module_have_the_python_scope(
         (tmp_path / "far.py").write_text("", encoding="utf-8")
         # Python selects a dangling link, and its read fails with `FileNotFoundError` (measured).
         (root / "src/app/dangling.py").symlink_to("nowhere.py")
+        # Python never selects a file under `__pycache__`, a dangling link too.
+        (root / "src/app/__pycache__/gone.py").symlink_to("nowhere.py")
+        # A link to a test source is a test source.
+        (root / "src/app/alias.py").symlink_to("real/test_a.py")
     unseen = () if os.name == "nt" else ('Missing("src/app/dangling.py")',)
     _equal(python_dump_binary, root, ("src",), "app", unseen)
 

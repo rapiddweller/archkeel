@@ -31,15 +31,24 @@ is equal or stricter. Each item below names its test.
    collection gap that names it, so its scope is never PASS. The file is no input, and its bytes
    are not in the source digest: a change of the file does not change the digest, and the gap
    makes that irrelevant, because the scope stays UNKNOWN while the file is over the limit.
-5. A dangling `*.py` link: Python selects it and its read fails with `FileNotFoundError`. Native
-   selects it too (`Unseen::Missing`) and the survey writes the same failure. Equal.
-6. A name that is not UTF-8 (Linux; macOS refuses it): Python selects the file or walks the
-   directory. Native cannot name it in UTF-8 and writes a collection gap (`Unseen::NotUtf8`).
+5. A dangling `*.py` link inside the snapshot, not under `__pycache__`: Python selects it and its
+   read fails with `FileNotFoundError`; native selects it (`Unseen::Missing`) and writes the same
+   failure. Equal. Stricter: a dangling link that resolves outside the snapshot or into a test
+   path under the test exclusion, which Python leaves out, gets the failure and a gap. A symlink
+   loop (`cyc.py` and `cyc2.py`) is `Missing`: 3.11 and 3.12 stop the run with `RuntimeError`,
+   3.13 and 3.14 write `OSError`; native writes the failure of the file only.
+6. A name that is not UTF-8 (Linux; macOS refuses it), or a FIFO, a socket or a device named
+   `*.py`: Python selects the file (the read of a FIFO blocks until the timeout). Native never
+   reads it and writes a collection gap that names it (`Unseen::NotUtf8`, `Unseen::Special`).
 7. An unreadable directory: Python skips it silently, and native keeps parity. Both producers
    change together under #1043 (P2).
-8. An integer beyond 64 bits in `pyproject.toml`: `tomllib` reads it, the `toml` crate refuses it,
-   so the state is `metadata_invalid` instead of `declared`. `metadata_invalid` gives a runtime
-   diagnostic and no declared range (`check/runtime.py`), so it is never more PASS.
+8. `pyproject.toml` that `tomllib` reads and native refuses, so the state is `metadata_invalid`
+   instead of `declared`: an integer beyond 64 bits, a bare CR (`read_text` makes it a newline),
+   a file over 4 MiB (AD-319). `metadata_invalid` gives a runtime diagnostic and no declared
+   range (`check/runtime.py`), so it is never more PASS. A dangling link is `metadata_invalid`
+   where Python writes `metadata_missing`: both give the same diagnostic kind and no range. A
+   Poetry caret over 64 bits stays unexpanded; `check/runtime.py` refuses it as unsupported where
+   Python declares a range that no Python satisfies: a diagnostic in both.
 
 **Records.** 9. `ShadowedModule` (#797) is an exception name of protocol 10.0.0 only; the 9.0.0
 schema stays byte-equal. The survey writes the gap in slice 1c-2, and no native Python reply can

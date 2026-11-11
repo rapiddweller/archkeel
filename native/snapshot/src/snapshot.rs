@@ -30,6 +30,9 @@ pub enum Hidden {
     Dangling(String),
     /// A name that is not UTF-8, written with replacement characters.
     NotUtf8 { name: String, directory: bool },
+    /// An entry inside the snapshot that is neither a file nor a directory: a FIFO, a socket or a
+    /// device. A read of it can block, so no collector reads it.
+    Special(String),
 }
 
 pub struct Snapshot {
@@ -230,7 +233,8 @@ impl Snapshot {
     }
 
     /// The entries of a directory that `entries` leaves out because they cannot be read soundly:
-    /// a symlink whose target does not exist, and a name that is not UTF-8. Sorted by name.
+    /// a symlink whose target does not exist, a name that is not UTF-8, and an entry that is
+    /// neither a file nor a directory. Sorted by name.
     pub fn hidden_entries(&mut self, rel: &str) -> Vec<Hidden> {
         let Some(real) = self.real(rel) else {
             return Vec::new();
@@ -238,9 +242,22 @@ impl Snapshot {
         let Ok(listing) = fs::read_dir(self.absolute(&real)) else {
             return Vec::new();
         };
-        let mut found: Vec<Hidden> = listing.flatten().filter_map(hidden).collect();
+        let mut found = Vec::new();
+        for entry in listing.flatten() {
+            let item = hidden(&entry).or_else(|| self.special(rel, &entry));
+            found.extend(item);
+        }
         found.sort();
         found
+    }
+
+    /// The entry as `Hidden::Special` when it resolves inside the snapshot to an entry that is
+    /// neither a file nor a directory.
+    fn special(&mut self, rel: &str, entry: &fs::DirEntry) -> Option<Hidden> {
+        let name = entry.file_name().into_string().ok()?;
+        let real = self.real(&join(rel, &name))?;
+        let kind = fs::metadata(self.absolute(&real)).ok()?;
+        (!kind.is_file() && !kind.is_dir()).then_some(Hidden::Special(name))
     }
 
     /// The digested inputs, sorted by path.
@@ -256,8 +273,8 @@ impl Snapshot {
     }
 }
 
-/// The entry as a `Hidden` value, or `None` when `entries` reads it.
-fn hidden(entry: fs::DirEntry) -> Option<Hidden> {
+/// The entry as a dangling link or a name that is not UTF-8, or `None`.
+fn hidden(entry: &fs::DirEntry) -> Option<Hidden> {
     let path = entry.path();
     let resolved = fs::metadata(&path);
     match entry.file_name().into_string() {

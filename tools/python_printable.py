@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Final
 
 ROOT: Final = Path(__file__).resolve().parents[1]
-OUTPUT: Final = ROOT / "native/store/src/printable.rs"
+OUTPUT: Final = ROOT / "native/facts/src/printable.rs"
 _PER_LINE: Final = 8
 
 

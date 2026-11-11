@@ -25,14 +25,14 @@ mod discover;
 mod dump;
 #[cfg_attr(
     not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 writes the survey")
-)]
-mod inputs;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
     expect(dead_code, reason = "slice 1c-2 calls the parse")
 )]
 mod identifier;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c-2 writes the survey")
+)]
+mod inputs;
 #[cfg_attr(
     not(any(feature = "dump", test)),
     expect(dead_code, reason = "slice 1c calls the parse")
@@ -95,7 +95,7 @@ fn run() -> Result<(), String> {
     let request = decode_python(&payload)?;
     #[cfg(feature = "dump")]
     if std::env::args().nth(1).as_deref() == Some("--dump-scope") {
-        println!("{}", dump::scope(&request));
+        println!("{}", dump::scope(&request)?);
         return Ok(());
     }
     Err(format!(

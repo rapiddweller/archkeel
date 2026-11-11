@@ -55,7 +55,13 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 }
 
 /// `--dump-scope`: the scope of one 10.0.0 request as one JSON object (slice 1c-1).
-pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
+pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
+    let version = &request.resolver.interpreter.version;
+    let minor: u32 = version
+        .split('.')
+        .nth(1)
+        .and_then(|minor| minor.parse().ok())
+        .ok_or_else(|| format!("the interpreter version {version} has no minor version"))?;
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let roots = &request.scope.roots;
     let found = discover::scope(&mut snapshot, roots, request.excludes_test_sources());
@@ -64,12 +70,12 @@ pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
     let modules: serde_json::Map<String, Value> = selected
         .iter()
         .map(|rel| {
-            let module = names::module_for(rel, namespace);
+            let module = names::module_for(rel, namespace, minor);
             let package = module.as_deref().map(names::package_for);
             (rel.clone(), json!([module, package]))
         })
         .collect();
-    let shadowed: Vec<Value> = names::shadowed(&selected, namespace)
+    let shadowed: Vec<Value> = names::shadowed(&selected, namespace, minor)
         .iter()
         .map(|item| {
             json!({"file": item.file, "module": item.module, "id": item.id(),
@@ -84,7 +90,7 @@ pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
         .map(|item| json!({"item": format!("{item:?}"), "reason": item.reason(&snapshot)}))
         .collect();
     let (required, state) = requirement::requirement(&mut snapshot);
-    json!({
+    Ok(json!({
         "selected": selected,
         "modules": modules,
         "shadowed": shadowed,
@@ -93,5 +99,5 @@ pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
         "required": required,
         "requirement_state": state.as_str(),
         "unseen": unseen,
-    })
+    }))
 }

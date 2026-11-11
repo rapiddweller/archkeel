@@ -21,7 +21,6 @@ mod bindings;
 mod canonical;
 mod decode;
 mod inventory;
-mod printable;
 mod pyjson;
 mod pyrepr;
 mod records;

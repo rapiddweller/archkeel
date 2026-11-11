@@ -8,14 +8,15 @@
 use std::collections::HashSet;
 
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::pyrepr::string;
 
 /// The dotted module of a snapshot path: the path from the first part where the namespace
 /// starts, without its last suffix and without a last `__init__`. `None` when the path does not
 /// hold the namespace (`module_for` raises `ValueError`).
-pub fn module_for(rel: &str, namespace: &str) -> Option<String> {
+pub fn module_for(rel: &str, namespace: &str, minor: u32) -> Option<String> {
     let mut parts: Vec<&str> = rel.split('/').filter(|part| !part.is_empty()).collect();
     let last = parts.pop()?;
-    parts.push(without_suffix(last));
+    parts.push(without_suffix(last, minor)?);
     if parts.last() == Some(&"__init__") {
         parts.pop();
     }
@@ -26,13 +27,24 @@ pub fn module_for(rel: &str, namespace: &str) -> Option<String> {
     Some(parts[start..].join("."))
 }
 
-/// `PurePath.with_suffix("")`: a name drops its last suffix; a name that starts with its only dot
-/// keeps it.
-fn without_suffix(name: &str) -> &str {
-    match name.rfind('.') {
+/// The name without its suffix, as `PurePath.with_suffix("")` of Python 3.`minor` gives it, or
+/// `None` for its `ValueError`. Up to 3.13 the suffix starts at the last dot that is neither the
+/// first nor the last character, and 3.13 refuses the stem `.`; 3.14 splits as
+/// `os.path.splitext`, where leading dots never start the suffix.
+fn without_suffix(name: &str, minor: u32) -> Option<&str> {
+    if minor >= 14 {
+        let dots = name.len() - name.trim_start_matches('.').len();
+        return Some(
+            name[dots..]
+                .rfind('.')
+                .map_or(name, |at| &name[..dots + at]),
+        );
+    }
+    let stem = match name.rfind('.') {
         Some(at) if at > 0 && at + 1 < name.len() => &name[..at],
         _ => name,
-    }
+    };
+    (minor != 13 || stem != ".").then_some(stem)
 }
 
 /// `source.package_for`: the first two parts of a module.
@@ -52,7 +64,7 @@ impl Shadowed {
     pub fn message(&self) -> String {
         format!(
             "module {} is shadowed by the package of the same name and is never imported",
-            python_repr(&self.module)
+            repr(&self.module)
         )
     }
 
@@ -75,13 +87,20 @@ impl Shadowed {
     }
 }
 
+/// `repr()` of a Python `str`.
+fn repr(text: &str) -> String {
+    let mut out = String::new();
+    string(text, &mut out);
+    out
+}
+
 pub const SHADOWED_KIND: &str = "ShadowedModule";
 
 /// The selected modules that a package of the same name shadows, in the order of `selected`.
-pub fn shadowed(selected: &[String], namespace: &str) -> Vec<Shadowed> {
+pub fn shadowed(selected: &[String], namespace: &str, minor: u32) -> Vec<Shadowed> {
     let named: Vec<(&String, String)> = selected
         .iter()
-        .filter_map(|rel| module_for(rel, namespace).map(|module| (rel, module)))
+        .filter_map(|rel| module_for(rel, namespace, minor).map(|module| (rel, module)))
         .collect();
     let packages: HashSet<&str> = named
         .iter()
@@ -100,34 +119,6 @@ pub fn shadowed(selected: &[String], namespace: &str) -> Vec<Shadowed> {
 
 pub fn is_package(rel: &str) -> bool {
     rel.rsplit('/').next() == Some("__init__.py")
-}
-
-/// `repr()` of a Python `str`: single quotes unless the text holds one and no double quote.
-fn python_repr(text: &str) -> String {
-    let quote = if text.contains('\'') && !text.contains('"') {
-        '"'
-    } else {
-        '\''
-    };
-    let mut out = String::from(quote);
-    for character in text.chars() {
-        match character {
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ if character == quote => {
-                out.push('\\');
-                out.push(character);
-            }
-            _ if (character as u32) < 0x20 || character == '\u{7f}' => {
-                out.push_str(&format!("\\x{:02x}", character as u32));
-            }
-            _ => out.push(character),
-        }
-    }
-    out.push(quote);
-    out
 }
 
 #[cfg(test)]

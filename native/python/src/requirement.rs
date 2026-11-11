@@ -7,6 +7,7 @@
 
 use archkeel_facts::envelope::RequirementState;
 use archkeel_snapshot::Snapshot;
+use toml::value::{Datetime, Offset};
 use toml::{Table, Value};
 
 use crate::inputs::PYPROJECT;
@@ -29,6 +30,7 @@ pub fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState
         // `read_text` keeps a byte order mark, and `tomllib` refuses it.
         .filter(|text| !text.starts_with('\u{feff}'))
         .and_then(|text| text.parse::<Table>().ok())
+        .filter(|table| table.values().all(python_values))
     else {
         return (None, RequirementState::MetadataInvalid);
     };
@@ -50,6 +52,40 @@ pub fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState
 }
 
 /// `tool.poetry.dependencies.python`: missing, not a nonblank string, or its text.
+/// Whether `tomllib` can build each value: it turns a datetime into a Python `datetime`, `date`
+/// or `time`, which refuses what TOML allows, for example the leap second `23:59:60`.
+fn python_values(value: &Value) -> bool {
+    match value {
+        Value::Datetime(datetime) => python_datetime(datetime),
+        Value::Array(items) => items.iter().all(python_values),
+        Value::Table(table) => table.values().all(python_values),
+        _ => true,
+    }
+}
+
+fn python_datetime(datetime: &Datetime) -> bool {
+    let date = datetime.date.is_none_or(|date| {
+        let leap = date.year % 4 == 0 && (date.year % 100 != 0 || date.year % 400 == 0);
+        let days = match date.month {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            2 if leap => 29,
+            2 => 28,
+            _ => 0,
+        };
+        (1..=9999).contains(&date.year) && (1..=days).contains(&date.day)
+    });
+    let time = datetime
+        .time
+        .is_none_or(|time| time.hour <= 23 && time.minute <= 59 && time.second <= 59);
+    // `timezone` takes an offset strictly between -24 and 24 hours.
+    let offset = match datetime.offset {
+        Some(Offset::Custom { minutes }) => minutes.unsigned_abs() < 24 * 60,
+        _ => true,
+    };
+    date && time && offset
+}
+
 fn poetry_python(table: &Table) -> Result<&str, RequirementState> {
     let dependencies = table
         .get("tool")
