@@ -303,10 +303,11 @@
         "native.archkeel_dart_collector.pytext",
         "native.archkeel_dart_collector.module",
         "native.archkeel_dart_collector.pubspec",
-        "native.archkeel_dart_collector.dartstr"
+        "native.archkeel_dart_collector.dartstr",
+        "native.archkeel_dart_collector.unicode_tables"
       ],
       "responsibilities": [
-        "The text rules of the Dart collector: the Python str rules that it must equal, the module name of a path, the decode of pubspec.yaml and the byte rules of Dart strings and comments."
+        "The text rules of the Dart collector: the Python str rules that it must equal, the module name of a path, the decode of pubspec.yaml and the byte rules of Dart strings and comments, and the Unicode tables of the oracle Python 3.11 (L-27)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot and building facts."
