@@ -117,14 +117,6 @@ impl Snapshot {
             .is_some_and(|real| self.absolute(&real).is_file())
     }
 
-    /// Whether `rel` itself is a symlink. A walk that copies `Path.rglob` does not enter a
-    /// directory that is a symlink.
-    pub fn is_link(&self, rel: &str) -> bool {
-        !is_outside(rel)
-            && fs::symlink_metadata(self.absolute(rel))
-                .is_ok_and(|found| found.file_type().is_symlink())
-    }
-
     pub fn is_dir(&mut self, rel: &str) -> bool {
         self.real(rel)
             .is_some_and(|real| self.absolute(&real).is_dir())
