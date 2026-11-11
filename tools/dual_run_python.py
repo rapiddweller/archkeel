@@ -84,8 +84,19 @@ def run_python_engine(
     collector_argv: tuple[str, ...] | None = None,
     pinned: bool = False,
     rust_collector: str | None = None,
+    replies: list[bytes] | None = None,
 ) -> dict[str, Any]:
-    """Return the engine frame: `rules` (id to kind and status) and `architecture`."""
+    """Return the engine frame: `rules` (id to kind and status) and `architecture`. With
+    `replies`, each raw collector reply of the run is appended to it."""
+    if replies is not None:
+        decode = ProcessCollector._decode_response
+
+        def captured(collector: ProcessCollector, stdout: bytes, request: Any) -> Any:
+            replies.append(stdout)
+            return decode(collector, stdout, request)
+
+        with mock.patch.object(ProcessCollector, "_decode_response", captured):
+            return run_python_engine(root, config, baseline, collector_argv, pinned, rust_collector)
     scan = load_config(root, config)
     argv = collector_argv
     if argv is None and scan.language == Language.RUST and scan.collector_argv is None:

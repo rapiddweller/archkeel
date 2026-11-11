@@ -59,6 +59,8 @@ from tools.dual_run_oracle import (
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
 PROTOCOL = "archkeel-dual-run-1"
 ENGINE_TIMEOUT_SECONDS = 600
+# The exit code of an engine frame that names an unsupported or refused part (AD-363).
+NAMES_A_GAP = 3
 # The paths whose change can change an oracle; `record` refuses them uncommitted.
 RECORDED_SOURCES = ("src", "fixtures", "native", "tests/golden", "tests/false_pass_support.py")
 RUST_COLLECTOR_VARIABLE = "ARCHKEEL_DUAL_RUN_RUST_COLLECTOR"
@@ -104,14 +106,23 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
     }
 
 
-def python_frame(root: Path, request: Mapping[str, Any]) -> dict[str, Any]:
+def python_frame(
+    root: Path, request: Mapping[str, Any], replies: list[bytes] | None = None
+) -> dict[str, Any]:
+    """The frame of the Python engine; `replies` gets the raw collector replies of the run."""
     from tools.dual_run_python import run_python_engine
 
     os.environ[PROBE_RUST_COLLECTOR] = rust_collector()
     baseline = request["baseline"] and str(root / request["baseline"])
     argv = request["collector_argv"]
     return run_python_engine(
-        root, request["config"], baseline, argv and tuple(argv), request["pinned"], rust_collector()
+        root,
+        request["config"],
+        baseline,
+        argv and tuple(argv),
+        request["pinned"],
+        rust_collector(),
+        replies,
     )
 
 
@@ -126,6 +137,10 @@ def run_engine(
     request = engine_request(case, root, selection)
     if command is None:
         return python_frame(root, request)
+    # The shell runs the collector and sends its reply: the engine reads no file (AD-363).
+    replies: list[bytes] = []
+    python_frame(root, request, replies)
+    request["reply"] = {"hex": replies[-1].hex()} if replies else None
     try:
         done = subprocess.run(
             command,
@@ -138,13 +153,27 @@ def run_engine(
         )
     except subprocess.TimeoutExpired:
         return {"error": f"the engine did not answer in {timeout:g} s"}
-    if done.returncode != 0:
+    if done.returncode not in (0, NAMES_A_GAP):
         return {"error": f"the engine exits with {done.returncode}: {done.stderr[-2000:]}"}
     try:
         frame: dict[str, Any] = json.loads(done.stdout)
     except ValueError as error:
         return {"error": f"the engine frame is not JSON: {error}"}
+    # Exit 3 goes only with a frame that names its unsupported parts, and exit 0 only without:
+    # an empty frame is never a plain success (AD-363).
+    if (done.returncode == NAMES_A_GAP) != names_a_gap(frame):
+        return {"error": f"the engine exits with {done.returncode} for this frame"}
     return frame
+
+
+def names_a_gap(frame: Mapping[str, Any]) -> bool:
+    """True when the frame names an unsupported part or a refused input."""
+    unsupported = frame.get("unsupported") or {}
+    found = frame.get("self_test") or {}
+    refused = bool(found) and (
+        "rules" not in found.get("contract", {}) or "files" not in found.get("reply", {})
+    )
+    return refused or any(unsupported.get(part) for part in ("rules", "sections", "report"))
 
 
 # --- Record ----------------------------------------------------------------------------------
@@ -296,17 +325,27 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--reason", default="", help="record: why the Python result changes.")
     parser.add_argument("--allow-dirty", action="store_true", help="record: log +dirty.")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
+    parser.add_argument(
+        "--self-test", action="store_true", help="Compare what the engine read (AD-363)."
+    )
     args = parser.parse_args(argv)
     if args.action == "serve-python":
         return serve_python()
     try:
         cases = chosen_cases(args.case, args.bench)
         selection = selection_of(args.sections, args.families)
+        if args.self_test:
+            # The wiring check owns nothing unless the slice names what it owns.
+            selection = selection_of(args.sections or "none", args.families or "none")
+            selection = Selection(selection.sections, selection.kinds, self_test=True)
     except ValueError as error:
         print(error)
         return 2
     if not cases:
         print("the run selects 0 projects")
+        return 2
+    if selection.owns_nothing() and not selection.self_test:
+        print("the run selects nothing: name the owned sections or families, or --self-test")
         return 2
     if args.action == "list":
         print("\n".join(case.id for case in cases))
@@ -338,18 +377,19 @@ def report(
     bench = [found for case, _, found in results if case.bench]
     if bench:
         print(f"bench: {len(bench)} projects, {sum(map(len, bench))} differences")
-    family = "all" if selection.kinds is None else ",".join(sorted(selection.kinds))
+    family = "all" if selection.kinds is None else ",".join(sorted(selection.kinds)) or "none"
+    scope = "self-test" if selection.self_test else f"family {family}"
     rules = sum(count for _, count, _ in results)
     total = len(differences) + sum(map(len, bench))
     print(f"engine: {command or 'the Python engine in process'}")
     print(
-        f"dual run: family {family}; {len(selection.sections)} sections; {len(results)} projects; "
+        f"dual run: {scope}; {len(selection.sections)} sections; {len(results)} projects; "
         f"{rules} rules; {total} differences; {seconds:.1f} s"
     )
-    if not selection.sections and rules == 0:
+    if not selection.sections and rules == 0 and not selection.self_test:
         print("the run compares nothing: 0 owned rules and 0 sections")
         return 2
-    if selection.kinds is not None and rules == 0:
+    if selection.kinds and rules == 0:
         print("the families select 0 rules in these projects")
         return 2
     return 1 if total else 0

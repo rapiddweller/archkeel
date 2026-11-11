@@ -112,6 +112,74 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-MODEL",
+      "label": "model",
+      "role": "component",
+      "packages": [
+        "native.archkeel_model"
+      ],
+      "responsibilities": [
+        "Derive the typed model of one run from the contract and the validated reply: ids, tables, components, and slice by slice the modules, packages, edges, cycles and the scope proof (AD-363)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file, parsing source, naming a language, and making a PASS without the scope proof."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Read the records of the validated reply in their typed form (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE",
+      "label": "core",
+      "role": "component",
+      "packages": [
+        "native.archkeel_core"
+      ],
+      "responsibilities": [
+        "Run the one process after the collector: take the typed requests (contract bytes, collector reply, sections, report) and answer each part, or name the slice that ports it (AD-359, AD-363)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file, naming a language, and giving a verdict to the host before a slice owns it."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Validate the collector reply once before the model reads it (AD-346)."
+        },
+        {
+          "component": "build",
+          "rationale": "Record the code digest of the binary when it is built (AD-335)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-BUILD",
       "label": "build",
       "role": "component",

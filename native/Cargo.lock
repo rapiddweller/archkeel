@@ -35,6 +35,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-core"
+version = "0.0.0"
+dependencies = [
+ "archkeel-build-support",
+ "archkeel-contract",
+ "archkeel-model",
+ "archkeel-store",
+ "flate2",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "archkeel-dart-grammar"
 version = "0.0.0"
 dependencies = [
@@ -52,6 +65,15 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "archkeel-model"
+version = "0.0.0"
+dependencies = [
+ "archkeel-contract",
+ "archkeel-facts",
+ "archkeel-store",
 ]
 
 [[package]]
