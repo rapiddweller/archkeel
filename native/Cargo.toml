@@ -5,7 +5,7 @@
 # The workspace lives in native/: a root Cargo.toml would be a stray file in the repository root.
 [workspace]
 resolver = "2"
-members = ["facts", "wire", "snapshot", "build-support", "typescript", "rust", "store", "dart-grammar", "contract", "model", "core"]
+members = ["facts", "wire", "snapshot", "build-support", "typescript", "rust", "store", "dart-grammar", "contract", "model", "core", "dart"]
 
 [workspace.package]
 version = "0.0.0"

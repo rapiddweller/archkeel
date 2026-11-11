@@ -48,6 +48,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-dart-collector"
+version = "0.0.0"
+dependencies = [
+ "archkeel-build-support",
+ "archkeel-facts",
+ "archkeel-snapshot",
+ "serde_json",
+]
+
+[[package]]
 name = "archkeel-dart-grammar"
 version = "0.0.0"
 dependencies = [

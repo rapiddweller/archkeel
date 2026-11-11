@@ -361,3 +361,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-362 | [A one-shot command collects cycles less often](ad-362-a-one-shot-command-collects-cycles-less-often.md) |
 | AD-363 | [A PASS needs a scope proof that only the model can make](ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md) |
 | AD-364 | [The Rust contract parser reads the whole grammar](ad-364-the-rust-contract-parser-reads-the-whole-grammar.md) |
+| AD-365 | [The native Dart discovery equals the Python one and waits for a Dart request](ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md) |

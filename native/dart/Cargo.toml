@@ -1,0 +1,27 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-dart-collector"
+description = "Native Dart collector of Archkeel (#880): slice 1, the discovery of the sources"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[dependencies]
+archkeel-facts.workspace = true
+archkeel-snapshot.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+archkeel-snapshot = { workspace = true, features = ["test-tree"] }
+
+[build-dependencies]
+archkeel-build-support.workspace = true
+
+[lints]
+workspace = true

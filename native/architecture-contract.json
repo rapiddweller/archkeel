@@ -217,6 +217,165 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-DART-TEXT",
+      "label": "dart-text",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_collector.pytext",
+        "native.archkeel_dart_collector.module",
+        "native.archkeel_dart_collector.pubspec"
+      ],
+      "responsibilities": [
+        "The text rules of the Dart collector: the Python str rules that it must equal, the module name of a path and the decode of pubspec.yaml."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-DART-DISCOVER",
+      "label": "dart-discover",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_collector.discover"
+      ],
+      "responsibilities": [
+        "Select and read the Dart sources of a request through the snapshot, without following a link, and name each source that it cannot read as a problem."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "facts",
+          "rationale": "Digest the pubspec.yaml with the shared hash."
+        },
+        {
+          "component": "dart-text",
+          "rationale": "Name the module of a path and decode pubspec.yaml."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-DART-RECORDS",
+      "label": "dart-records",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_collector.records"
+      ],
+      "responsibilities": [
+        "Build the reply sections that the discovery decides: the inputs, the source listing, the file facts, the gaps of the problems and their evidence."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot and parsing source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "dart-discover",
+          "rationale": "Read the sources and the problems of the discovery."
+        },
+        {
+          "component": "dart-text",
+          "rationale": "Split and strip a text as Python does."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-DART-DUMP",
+      "label": "dart-dump",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_collector.dump"
+      ],
+      "responsibilities": [
+        "The development dump of the discovery sections as JSON, for the parity tool, until the protocol has a Dart request."
+      ],
+      "forbidden_responsibilities": [
+        "Holding a rule of the discovery or of a record."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Open the snapshot and normalize the scan roots."
+        },
+        {
+          "component": "dart-text",
+          "rationale": "Name the state of the SDK requirement."
+        },
+        {
+          "component": "dart-discover",
+          "rationale": "Run the discovery."
+        },
+        {
+          "component": "dart-records",
+          "rationale": "Build the sections."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-DART-ENTRY",
+      "label": "dart-entry",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_dart_collector",
+        "native.archkeel_dart_collector.build_script",
+        "native.archkeel_dart_collector.cargo_toml"
+      ],
+      "responsibilities": [
+        "The binary of the Dart collector: refuse a request until the protocol has a Dart request, and run the dump; the build script and the manifest of the crate."
+      ],
+      "forbidden_responsibilities": [
+        "Reading Dart source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "The manifest declares the typed facts that the collector writes (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "The manifest declares the one owner of snapshot reads."
+        },
+        {
+          "component": "build",
+          "rationale": "Call the shared helper that digests the sources, so one script owns the digest."
+        },
+        {
+          "component": "dart-dump",
+          "rationale": "Run the dump."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-TS-INPUT",
       "label": "ts-input",
       "role": "component",

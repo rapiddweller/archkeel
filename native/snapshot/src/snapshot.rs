@@ -234,6 +234,10 @@ fn relative_text(path: &Path) -> String {
     }
 }
 
+// A child module that uses this one, never the reverse: `lib.rs` exports its `Entry`.
+#[path = "listing.rs"]
+pub(crate) mod listing;
+
 #[cfg(test)]
 #[path = "snapshot_tests.rs"]
 mod tests;

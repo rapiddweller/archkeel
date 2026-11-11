@@ -22,4 +22,5 @@ mod snapshot;
 )]
 pub mod test_tree;
 
+pub use snapshot::listing::Entry;
 pub use snapshot::{Snapshot, MAX_FILE_BYTES};
