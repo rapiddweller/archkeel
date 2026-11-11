@@ -110,11 +110,41 @@ def _text(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+_LINK_GAP = "Test exclusion cannot judge the dangling link "
+_EXCLUDED_IMPORT = "Production import targets excluded test source "
+
+
+def _stricter(found: dict[str, Any], expected: dict[str, Any]) -> None:
+    """AD-367 point 5 (L-30): under the test exclusion each dangling link is a native gap that
+    names it, and full_scope is false. Python also judges the target of the link, so it can
+    exclude the link or write an import gap that native replaces with the link gap."""
+    native = {_text(item): item for item in _closed(found["unknowns"])}
+    python = {_text(item): item for item in _closed(expected["unknowns"])}
+    links = {
+        item["subjects"][0]
+        for item in native.values()
+        if item.get("title", "").startswith(_LINK_GAP)
+    }
+    assert links, "a native gap must name each dangling link"
+    for key in python.keys() - native.keys():
+        assert python[key].get("title", "").startswith(_EXCLUDED_IMPORT), python[key]
+    for key in native.keys() - python.keys():
+        item = native[key]
+        file = item.get("file") or item.get("data", {}).get("file")
+        assert item.get("title", "").startswith(_LINK_GAP) or file in links, item
+    assert found["coverage"]["full_scope"] is False
+    assert set(expected["coverage"]["selected_files"]) <= set(found["coverage"]["selected_files"])
+
+
 def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> None:
     for exclude in (False, True):
         request = _request(root, roots, namespace, exclude)
         expected, found = _python(request), _native(binary, request)
-        for section in ("files", "imports", "evidence", "targets", "unknowns", "coverage"):
+        sections = ["files", "imports", "evidence", "targets", "unknowns", "coverage"]
+        if exclude and any(item["title"].startswith(_LINK_GAP) for item in found["unknowns"]):
+            _stricter(found, expected)
+            sections = ["files", "imports", "evidence", "targets"]
+        for section in sections:
             same(
                 _text(_closed(found[section])),
                 _text(_closed(expected[section])),
@@ -160,6 +190,11 @@ _EDGES = {
     "src/app/nul.py": "x = 1\0\n",
     "src/app/dir.py/inner.py": "import json\n",
     "src/other/outside.py": "import app\n",
+    # L-30: the four dangling links of the review; each import names the target of one link.
+    "src/app/user.py": "import app.ghost\n",
+    "src/app/user2.py": "import app.pkg.gone\n",
+    "src/app/user3.py": "import app.helper\n",
+    "src/app/user4.py": "import app.end\n",
 }
 
 
@@ -169,6 +204,11 @@ def test_the_edge_cases_have_the_python_survey(tmp_path: Path, python_dump_binar
     if os.name != "nt":
         (root / "src/app/dangling.py").symlink_to("nowhere.py")
         (root / "src/app/tests/gone_test.py").symlink_to("nowhere.py")
+        (root / "src/app/test_link.py").symlink_to("ghost.py")
+        (root / "src/app/tests_link_test.py").symlink_to("pkg/gone.py")
+        (root / "src/app/helper.py").symlink_to("tests/gone.py")
+        (root / "src/app/test_c.py").symlink_to("mid.py")
+        (root / "src/app/mid.py").symlink_to("end.py")
     _equal(python_dump_binary, root, ("src",), "app")
 
 
@@ -211,7 +251,6 @@ def test_a_file_over_4_mib_is_a_named_gap(tmp_path: Path, python_dump_binary: Pa
     assert not found["coverage"]["full_scope"]
 
 
-@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs POSIX modes")
 def _without_file(found: dict[str, Any], rel: str) -> dict[str, Any]:
     def kept(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [item for item in records if item["data"].get("file") != rel]
@@ -240,4 +279,4 @@ def test_an_unreadable_file_is_a_gap_in_both_producers(
     assert _gap_files(found)[rel] == "OSError"
     expected, found = _without_file(expected, rel), _without_file(found, rel)
     for section in ("files", "imports", "evidence", "targets", "unknowns", "coverage"):
-        assert _text(found[section]) == _text(expected[section]), section
+        same(_text(found[section]), _text(expected[section]), section)

@@ -20,7 +20,8 @@ is equal or stricter. Each item below names its test.
    hostile sources on 3.11 to 3.14). (a) CPython stops past `MAXSTACK` = 6 000 rule calls; the
    cost of a nesting depends on its grammar context, so native sums a measured upper bound (AD-334
    point 5) and refuses some files that CPython accepts, for example 124 to 200 brackets, 2 961 to
-   5 967 `not` or 124 to 149 nested f-strings, with `TooDeepError`: the file has a gap (AD-323
+   5 967 `not`, 2 961 to 5 967 nested conditional expressions or 124 to 149 nested f-strings,
+   with `TooDeepError`: the file has a gap (AD-323
    point 6 by name). Real code stays under 600 of 6 000. (b) `<>` after `barry_as_FLUFL` (3.12+):
    ruff refuses it. (c) CPython 3.11 raises `SystemError` for over 4 300 digits in an f-string;
    the Python collector does not catch it and its run stops, native writes a failure record. No
@@ -36,7 +37,9 @@ is equal or stricter. Each item below names its test.
    failure. Equal. Stricter: a dangling link that resolves outside the snapshot or into a test
    path under the test exclusion, which Python leaves out, gets the failure and a gap. A symlink
    loop (`cyc.py` and `cyc2.py`) is `Missing`: 3.11 and 3.12 stop the run with `RuntimeError`,
-   3.13 and 3.14 write `OSError`; native writes the failure of the file only.
+   3.13 and 3.14 write `OSError`; native writes the failure of the file only. Under the test
+   exclusion Python also judges the target of a dangling link; native cannot read it, so each
+   dangling link of the walk is a gap that names it and `full_scope` is false (L-30). Stricter.
 6. A name that is not UTF-8 (Linux; macOS refuses it), or a FIFO, a socket or a device named
    `*.py`: Python selects the file (the read of a FIFO blocks until the timeout). Native never
    reads it and writes a collection gap that names it (`Unseen::NotUtf8`, `Unseen::Special`).

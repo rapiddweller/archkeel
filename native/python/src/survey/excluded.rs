@@ -30,6 +30,9 @@ pub struct Excluded {
     modules: HashSet<String>,
     prefixes: HashSet<String>,
     files: usize,
+    /// The dangling `*.py` links of the walk. Python also judges the target of such a link
+    /// (`resolve()` without a check); the native walk cannot read it, so each is a gap (L-30).
+    dangling: Vec<String>,
     /// The minor version of the interpreter, for the module names (`names::module_for`).
     minor: u32,
 }
@@ -81,7 +84,9 @@ impl Excluded {
         for entry in snapshot.hidden_entries(directory) {
             match entry {
                 Hidden::Dangling(name) if name.ends_with(".py") => {
-                    self.file(source_root, &[join(directory, &name)], namespace);
+                    let rel = join(directory, &name);
+                    self.file(source_root, std::slice::from_ref(&rel), namespace);
+                    self.dangling.push(rel);
                 }
                 _ => {}
             }
@@ -149,6 +154,9 @@ impl Excluded {
         if self.files > 0 && no_source {
             gaps.push(empty_scope_gap());
         }
+        let mut dangling: Vec<&String> = self.dangling.iter().collect();
+        dangling.sort();
+        gaps.extend(dangling.into_iter().map(|rel| dangling_gap(rel)));
         gaps
     }
 }
@@ -196,6 +204,15 @@ fn import_gap(import: &Record<ImportFact>, source_module: &str, excluded: &str) 
         fact_ids,
         gap,
     )
+}
+
+/// L-30: the test exclusion cannot judge a dangling link, so the scope is never full.
+fn dangling_gap(rel: &str) -> Record<GapFact> {
+    let parts = [Part::Text("dangling test link"), Part::Text(rel)];
+    let title = format!("Test exclusion cannot judge the dangling link {rel}");
+    let head = (stable_id("UNKNOWN", &parts), Area::Source, title.clone());
+    let gap = GapFact::CollectionGap(GapData::at(&title, ""));
+    record(head, vec![rel.to_owned()], Vec::new(), Vec::new(), gap)
 }
 
 fn empty_scope_gap() -> Record<GapFact> {
