@@ -40,12 +40,12 @@ and `_modules_for_rule_source`, and the S1 part of `ir/decisions.py` `_rule_stat
 each with its line. They go when the store path is the only path (design WP6-0, cut rule).
 
 **Differences to Python (all equal or stricter).**
-- A rule that Python passes is a named gap (`the scope proof: slice S4 ports it`): 61
+- A rule that Python passes is a named gap (`the scope proof: slice S4 ports it`): 62
   `complete_assignment` and 8 `root_layout` rules of the corpus.
 - A rule that Python gives UNKNOWN for a cause that S1 does not see is the same named gap: 19
   `complete_assignment` and 1 `root_layout` rules (Rust probes with a hidden edge or crate, the
   subject check of another rule).
-- No rule is decided differently: 0 unnamed differences on 542 cases.
+- No rule is decided differently (0 unnamed differences, 543 cases); 16 baseline rules are named.
 
 **Rejected.**
 - PASS when the reply has no gap. The coverage of Python also fails on the subject check of
@@ -61,7 +61,7 @@ read yet. A request with a `baseline` is refused by name (`Unsupported::Baseline
 reads it. A layout child without a module record is UNKNOWN (`Reason::UncitedChild`), where
 Python stops with `KeyError`. `make dual-run` with
 `--sections violations --families complete_assignment,root_layout` compares 4 FAIL and 57 UNKNOWN
-`complete_assignment` rules and 3 FAIL and 4 UNKNOWN `root_layout` rules as equal; the 12 cases
+`complete_assignment` rules and 4 FAIL and 4 UNKNOWN `root_layout` rules as equal; the 13 cases
 `s1/*` of `tests/dual_run/cases.json` add the FAIL and UNKNOWN cases of AD-360 point 10.
 
 **Tests.** `native/model/src/model_tests.rs`, `native/eval/src/eval_tests.rs`,
