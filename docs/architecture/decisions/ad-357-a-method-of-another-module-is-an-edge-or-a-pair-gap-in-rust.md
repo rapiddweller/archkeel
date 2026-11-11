@@ -5,8 +5,11 @@
 **Decision.**
 1. An inherent `impl` block at any depth is read with the path of its type and its members. A
    block that is not in the file of its type is foreign.
-2. A path `c::S::m` names its member. When the file of `S` defines no `m` for `S`, each module
-   with a foreign block of `S` that defines `m` is an `import` edge of the path (FP-29, path form).
+2. A path `c::S::m` names its member when `c` defines the struct, enum, union or trait `S` (also
+   through a renamed `use`). When the file of `S` defines no `m` for `S`, each module with a foreign
+   block of `S` that defines `m` is an `import` edge (FP-29, path form). A path call that the scan
+   cannot resolve exactly (`<T>::m`, a type alias, a re-export, a glob-imported type, or a type
+   that a foreign block of an unknown type may extend) is a call as in 3, of any arity.
 3. A method call `x.m(..)`, in code or in a macro body, can reach a foreign member `m` that has a
    `self` parameter, as many other parameters as the call has arguments (Rust has no overloads),
    and a visibility that holds the caller: private reaches nothing, `pub(super)` the parent of the
@@ -21,14 +24,14 @@
 5. The host drops a pair gap only when the contract lets `a` use `b`: one component, or a
    `requires` without `through`; no `forbidden_dependency`, `allowed_dependency` or
    `sibling_isolation` names `a` or `b`; no rule of a kind outside the edge-free kinds and
-   `no_component_cycles`; and the edge closes no cycle that a cycle rule reads (module level: `b`
-   reaches `a`; component level: `b` reaches the component of `a`). The walk takes the known edges
-   and every pair gap as an edge, so two gaps `a -> b` and `b -> a`, or a chain of gaps, keep each
-   other. A contract with inside contracts keeps every gap. Protocol 9 carries both fields.
-6. FP-31: a rule on a module pair reads direct imports. "`a` must not use `b`" means "`a` must not
-   import `b` directly". `a -> c -> b` through a `pub use` in `c` is two edges, and a cycle or a
-   layer rule reads both. This replaces the sentence "a rule on `a -> b` does not see it" of the
-   5b-2c amendment of AD-335.
+   `no_component_cycles`; and, for each active cycle level, `a` and `b` (or their components) are
+   in two cycle groups of the graph of the known edges plus every pair gap. So two gaps `a -> b`
+   and `b -> a`, a chain of gaps, or a known edge from another module of the component of `b`
+   keep the gap. A contract with inside contracts keeps every gap. Protocol 9 carries both fields.
+6. FP-31: a rule on a module pair forbids a direct use; a use through a re-export is seen by the
+   layer and cycle rules. `a -> c -> b` through a `pub use` in `c` is two edges, and a module cycle
+   through it is FAIL. This replaces "a rule on `a -> b` does not see it" of the 5b-2c amendment of
+   AD-335.
 
 **Problem.** `impl crate::c::S { pub fn m() }` in `b` with `crate::c::S::m()` in `a`, and
 `use b::T;` in the root with `use super::*; 5u8.m();` in `a`, gave PASS for "a must not use b",
@@ -42,8 +45,8 @@ scan reads no types.
 
 **Limit.** The scan reads no types, so a pair gap may be a name collision of the same arity. Open
 false PASS, not accepted: a trait `impl` in another module than its trait and its type, and a trait
-of a crate outside the workspace that a glob brings in (#1004). A member that a macro generates is
-not read either (AD-351).
+of a crate outside the workspace that a glob brings in (#1004), and a member that a macro generates
+(#1020).
 
 **Tests.** `native/rust/src/impl_edges_tests.rs`, `tests/test_collector_false_pass_rust_impls.py`.
 

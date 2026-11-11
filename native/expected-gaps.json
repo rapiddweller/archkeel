@@ -120,9 +120,24 @@
       "A method call may reach the method count of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
+      "native.archkeel_typescript_collector.script_alias",
+      "native.archkeel_typescript_collector.constructors",
+      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
+    ],
+    [
+      "native.archkeel_typescript_collector.script_bind",
+      "native.archkeel_typescript_collector.constructors",
+      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
+    ],
+    [
       "native.archkeel_typescript_collector.script_bind",
       "native.archkeel_typescript_collector.script_names",
       "A method call may reach the method index_scopes of an impl block in native.archkeel_typescript_collector.script_names"
+    ],
+    [
+      "native.archkeel_typescript_collector.script_declare",
+      "native.archkeel_typescript_collector.constructors",
+      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
     ],
     [
       "native.archkeel_typescript_collector.script_depend",
@@ -138,6 +153,16 @@
       "native.archkeel_typescript_collector.script_deps",
       "native.archkeel_typescript_collector.script_depend",
       "A method call may reach the method dependency of an impl block in native.archkeel_typescript_collector.script_depend"
+    ],
+    [
+      "native.archkeel_typescript_collector.script_factory",
+      "native.archkeel_typescript_collector.constructors",
+      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
+    ],
+    [
+      "native.archkeel_typescript_collector.script_refs",
+      "native.archkeel_typescript_collector.constructors",
+      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
     ],
     [
       "native.archkeel_typescript_collector.script_scope",
@@ -158,6 +183,16 @@
       "native.archkeel_typescript_collector.script_syntax",
       "native.archkeel_typescript_collector.script_writes",
       "A method call may reach the method opaque_writes of an impl block in native.archkeel_typescript_collector.script_writes"
+    ],
+    [
+      "native.archkeel_typescript_collector.script_writes",
+      "native.archkeel_typescript_collector.constructors",
+      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
+    ],
+    [
+      "native.archkeel_typescript_collector.sites",
+      "native.archkeel_typescript_collector.members",
+      "A method call may reach the method type_text of an impl block in native.archkeel_typescript_collector.members"
     ],
     [
       "native.archkeel_typescript_collector.walk",

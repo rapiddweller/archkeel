@@ -20,8 +20,8 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
   stays unsupported until the uses of an item are resolved (5b-4b). The definitions are read since
   5b-4a ([AD-351](decisions/ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).
 - A re-exporting module is the dependency: `a` uses `b` through `pub use crate::b::make;` in `c`
-  as `a -> c`, and `c -> b` is a `reexport` record. A rule on a module pair reads direct imports
-  ("`a` must not import `b` directly"); a cycle or a layer rule reads both edges
+  as `a -> c`, and `c -> b` is a `reexport` record. A rule on a module pair forbids a direct use;
+  a use through a re-export is seen by the layer and cycle rules (a cycle through it is FAIL)
   ([AD-357](decisions/ad-357-a-method-of-another-module-is-an-edge-or-a-pair-gap-in-rust.md)). The
   same for a glob re-export.
 - A method of an `impl` block in another module than its type is an edge when a path names it, and
@@ -39,4 +39,4 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
   the error of a call; it is not part of the gate. A file with `E0599` for a method of an `impl`
   in `m` has an edge into `m` or a pair gap to it (AD-357). Open false PASS (#1004): a trait
   `impl` in another module than its trait and its type, and a glob trait of a crate outside the
-  workspace. Not seen: an item that a macro generates (`docs/known-limits.md`).
+  workspace. Open false PASS (#1020): an item that a macro generates (`docs/known-limits.md`).
