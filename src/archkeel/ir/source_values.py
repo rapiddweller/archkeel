@@ -15,6 +15,13 @@ def optional_text(value: JsonValue) -> str | None:
     raise ValueError("source graph expected text")
 
 
+def required_text(value: JsonValue, label: str) -> str:
+    """A field that every record of its kind has; a copy without it fails (#949 item 3)."""
+    if isinstance(value, str):
+        return value
+    raise ValueError(f"source graph needs {label}")
+
+
 def vocabulary_text(value: JsonValue, *, default: str = "") -> str:
     found = optional_text(value)
     return default if found is None else found

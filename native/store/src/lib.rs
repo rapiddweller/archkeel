@@ -94,6 +94,6 @@ fn digest(request: &[u8], store: &Store) -> Result<String, String> {
 fn write(request: Vec<u8>, store: &Store) -> Result<Vec<u8>, String> {
     let value = serde_json::from_slice::<Value>(&request).map_err(|error| error.to_string())?;
     drop(request);
-    let (shell, model) = shell::frame(value)?;
+    let (shell, model) = shell::frame(value, &canonical::CLASSIFIED_SECTIONS)?;
     canonical::encode(model, &shell, store)
 }

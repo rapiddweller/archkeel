@@ -11,6 +11,7 @@ keep the store of the first.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -188,3 +189,93 @@ def test_a_failed_observation_closes_the_store_of_an_earlier_collection(
         )
         result, _, _ = run_report_with_observation(root, config=config, analyzer=observer)
         assert (active_store() is not None) is (root == good), result.diagnostics
+
+
+def _report_files(
+    root: Path,
+    config: str | None,
+    store: Path | None,
+    rust: Path,
+    out: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> dict[str, bytes]:
+    """`archkeel report --json`: the result document and the three files it writes."""
+    import archkeel.cli as cli
+
+    if store is None:
+        monkeypatch.delenv(NATIVE_STORE, raising=False)
+    else:
+        monkeypatch.setenv(NATIVE_STORE, str(store))
+
+    def pinned(language: Language, **options: Any) -> Any:
+        if language is Language.RUST:
+            options.update(collector_argv=(str(rust),), pinned_digest=pin_of(str(rust)))
+        return observer_for(language, **options)
+
+    monkeypatch.setattr(cli, "observer_for", pinned)
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    argv = ["report", "--root", str(root), "--output", str(out / "architecture.json"), "--json"]
+    capsys.readouterr()
+    cli.main([*argv, *(["--config", config] if config else [])])
+    close_store()
+    files = {path.name: path.read_bytes() for path in sorted(out.iterdir())}
+    return {"result": capsys.readouterr().out.encode(), **files}
+
+
+@pytest.mark.parametrize(
+    "repo",
+    ["native tree", "rust fixture", "H-typescript", "H-uml-typescript", "F-typescript-story"],
+)
+def test_the_store_path_writes_the_result_and_the_pages_of_the_python_path(
+    tmp_path: Path,
+    rust_binary: Path,
+    store_binary: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    repo: str,
+) -> None:
+    # The whole result document and both pages, not only architecture.json and the verdicts: a
+    # reader of the observation (the UML graph, the hubs, the cycles) sees every field it reads.
+    config = None
+    if repo == "native tree":
+        root, config = ROOT, "native/archkeel.toml"
+        monkeypatch.chdir(ROOT)
+    elif repo == "rust fixture":
+        root = repository(tmp_path / "repo", rust_binary, MODULES, rules=(*CRATE_RULES, FORBIDDEN))
+    else:
+        root = support.copy_repository(ROOT / "fixtures" / repo, tmp_path)
+    out = tmp_path / "out"
+    python = _report_files(root, config, None, rust_binary, out, monkeypatch, capsys)
+    stored = _report_files(root, config, store_binary, rust_binary, out, monkeypatch, capsys)
+    assert {"architecture.json", "architecture.report.html", "architecture.detail.html"} <= set(
+        python
+    )
+    assert stored.keys() == python.keys()
+    for name in python:
+        assert stored[name] == python[name], name
+
+
+def test_the_source_graph_refuses_a_symbol_without_its_qualified_name() -> None:
+    # #949 item 3: a read-set that lacks a field that a reader needs must fail, not default.
+    from archkeel.ir.facts import EvidenceClass, Record
+    from archkeel.ir.facts_codec import freeze_data
+    from archkeel.ir.source_graph import _symbol
+
+    data = {"module": "native.app", "name": "run", "parent": "native.app"}
+    record = Record(
+        "SYM-1",
+        EvidenceClass.FACT,
+        "source",
+        "function",
+        "",
+        (),
+        (),
+        (),
+        (),
+        (),
+        freeze_data(data),
+    )
+    with pytest.raises(ValueError, match="qualified_name of SYM-1"):
+        _symbol(record, "rust")

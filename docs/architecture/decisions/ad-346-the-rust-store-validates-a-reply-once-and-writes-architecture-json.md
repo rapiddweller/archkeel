@@ -38,13 +38,13 @@ or Rust collector through it, with or without test exclusion. It is an opt-in, n
    `provider_bindings` or `candidate_evidence`. A refused reply is a protocol error, never a PASS.
 8. **Packaging.** One crate holds the library and the binary entry. The host runs it as a
    subprocess (AD-317). The binary enters the wheel when the store becomes the default.
-9. **Read-set width, checked by the corpus.** The rules read the imports section as one list, so each
-   TypeScript import kind has the union of the import fields, with `symbols_known`. A TypeScript
-   method keeps `async` (UML). `BindingData` holds `script_global`. A TypeScript reference and call
-   drop `candidate_count`, `candidates_truncated` and `reason`; WP2's narrower list (only
-   `targets`) changes verdicts, so it is rejected. The evidence stays whole: the HTML report shows
-   its excerpt and lines (`render/html.py`). The e2e test fails when a rule reads a field that the
-   read-set lacks: the bytes or the verdicts then differ from the Python path.
+9. **Read-set width, checked by the corpus.** The rules read the imports section as one list, so
+   each TypeScript import kind has the union of the import fields, with `symbols_known`. A
+   TypeScript method keeps `async` (UML). `BindingData` holds `script_global`. A TypeScript call
+   and reference keep `candidate_count`, `candidates_truncated` and `reason`: the detail page
+   shows them. The evidence stays whole. The e2e test compares the whole result document and both
+   pages on the native tree and the fixtures; a reader that needs a field raises when it is
+   missing (`source_values.required_text`), so a narrower read-set fails and never defaults.
 
 **Measured (x35, 910 files, macOS, median of 3).** Bytes and verdicts are equal on both paths.
 Native collector: whole run 45.4 to 37.6 s, host peak 2 735 to 2 656 MiB. Python collector: whole
@@ -60,9 +60,9 @@ run 147.0 to 138.8 s, host peak 3 141 to 2 751 MiB. The check still copies each 
 Python source proofs; it does not check them. `repr` follows Unicode 14.0 (Python 3.11): a code
 point that a later Python assigns can change a digest. A `\d` of Python matches every decimal
 digit; the reference test of `canonical.rs` reads only ASCII digits. A large derived shell costs
-memory: on 289 Rust crates host + store peak at 10.9 GiB against 7.0 GiB. The read-set holds
-most of a Rust reply, the store holds the reply too, and the write step adds the text counts and
-the output. The WP1 read lists are a lower bound: a field that no corpus case reads can be missing.
+memory: on 289 Rust crates host + store peak at 9.9 GiB against 6.4 to 7.0 GiB. The host is
+below the Python path (6.0 GiB); the store holds the reply and adds the text counts and the output
+while it writes. The WP1 read lists are a lower bound: a field that no corpus case reads can miss.
 
 **Checked by** `native/store/src/*_tests.rs` (Python bytes and messages),
 `tests/test_collector_native_store.py` (14 golden cases with both collectors, 53 demo variants,

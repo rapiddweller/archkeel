@@ -1,0 +1,1138 @@
+{
+  "texts": [
+    "METRIC-0477b10f3aa518a5",
+    "FACT",
+    "overview",
+    "interface_surface",
+    "Interface surface",
+    "IMP-6e30994841013a2f",
+    "IMP-907cd1d17fb5bd05",
+    "IMP-9d54235d996bcbed",
+    "IMP-b2d5b2797114430a",
+    "IMP-fcbc473da28dea35",
+    "api",
+    "METRIC-115ac1d218349491",
+    "forbidden_package_edges",
+    "Forbidden package edges",
+    "violations",
+    "METRIC-130e9ec98394803f",
+    "private_crossings",
+    "Confirmed private symbol crossings",
+    "ASSIGNMENT",
+    "DECLARED_RULE",
+    "components",
+    "complete_assignment",
+    "Every module in shop belongs to one component",
+    "shop",
+    "docs/architecture/shop.md",
+    "architect",
+    "Keep the shop dependency boundary explicit.",
+    "COMP-APP",
+    "component_responsibility",
+    "app",
+    "shop.src.main_x2e_ts",
+    "data",
+    "Use the declared layer.",
+    "presentation",
+    "Compose application startup and connect presentation to data.",
+    "component",
+    "COMP-DATA",
+    "shop.src.data",
+    "domain",
+    "Persist and retrieve domain data through external systems.",
+    "INSIDE-REQUIRES-EVALUATION-3c33b3d4882ce0c1",
+    "inside_rule_evaluation",
+    "REQUIRES evaluated its scoped imports",
+    "shop.src.data.local_x2e_ts",
+    "shop.src.data.remote_x2e_ts",
+    "shop.src.domain.index_x2e_ts",
+    "shop.src.domain.repository_x2e_ts",
+    "shop.src.presentation.page_x2e_ts",
+    "EVD-43eb9f970a19c1d1",
+    "EVD-80a57c9db2875bca",
+    "EVD-b875714549608478",
+    "EVD-bbc18e35fb0f2cfe",
+    "EVD-c8d5f478786a5302",
+    "REQUIRES",
+    "root",
+    "RULE-EVALUATION-1fa4f6d4b22e5715",
+    "rules",
+    "rule_evaluation",
+    "DOMAIN-NO-DATA evaluator completed",
+    "shop.src.domain.order_x2e_ts",
+    "EVD-e12ab5d23547ab52",
+    "EVD-e3973bfaba7f2e58",
+    "EVD-fbe8aed907cc5c26",
+    "DOMAIN-NO-DATA",
+    "MOD-02edabb83044166e",
+    "MOD-1158a9547ab542c1",
+    "MOD-e824121d31e6cedb",
+    "RULE-EVALUATION-2b1c5c7df77277d7",
+    "LAYOUT evaluator completed",
+    "EVD-2ce1846ffa6244e6",
+    "EVD-bd392def0065ae02",
+    "EVD-d401599d1f487de2",
+    "EVD-f9455899660b88e1",
+    "LAYOUT",
+    "MOD-18a1182dc796d79c",
+    "MOD-36dec96972715336",
+    "MOD-854275065e73afdd",
+    "MOD-b1c96d007c0b91c5",
+    "PKG-388df137d1126397",
+    "package_topology",
+    "package",
+    "shop.src.presentation",
+    "shop.src.domain",
+    "PKG-5891fa080368988a",
+    "PKG-d3faa4252f1c6a72",
+    "shop.src",
+    "module_topology",
+    "module",
+    "src/domain/repository.ts",
+    "src/domain/index.ts",
+    "src/data/local.ts",
+    "IMP-3581d9035ed4c5c7",
+    "source",
+    "import",
+    "shop.src.domain.repository_x2e_ts imports ./order",
+    "EVD-7a25d543a7920654",
+    "$7",
+    "$m",
+    "$$m",
+    "$$12",
+    "plain $",
+    "a repeated text that is long enough to enter the string table",
+    "./order",
+    "IMP-423cab71ac20ad3c",
+    "reexport",
+    "shop.src.domain.index_x2e_ts imports ./repository",
+    "EVD-cf55c8ebcae0b540",
+    "./repository",
+    "EDGE-22d6a0825d11f93b",
+    "module_dependency",
+    "shop.src.data.local_x2e_ts → shop.src.domain.repository_x2e_ts",
+    "EDGE-32f2c67fbafa5a13",
+    "shop.src.main_x2e_ts → shop.src.presentation.page_x2e_ts",
+    "EDGE-478813efe963549c",
+    "package_dependency",
+    "shop.src → shop.src.presentation",
+    "PATH-743948cce499e602",
+    "transitive_package_dependency",
+    "shop.src → shop.src.data → shop.src.domain",
+    "EDGE-8961fc653b491812",
+    "EDGE-e22d4f7008e44423",
+    "UNKNOWN-0f197dd05dfc42f1",
+    "UNKNOWN",
+    "source_resolution_gap",
+    "Script-global dependencies are not examined by the native collector",
+    "imports",
+    "UNKNOWN-12ac072f8bf57d5e",
+    "UNKNOWN-351818e72ac630aa"
+  ],
+  "fields": {
+    "constructs": [],
+    "context_evidence": [],
+    "contexts": [],
+    "cycles": [],
+    "declarations": [
+      "decided_by",
+      "forbidden_responsibilities",
+      "public",
+      "rationale",
+      "requires",
+      "responsibilities",
+      "role",
+      "source"
+    ],
+    "dependency_edges": [
+      "bidirectional",
+      "count",
+      "level",
+      "runtime_count",
+      "source",
+      "source_rank",
+      "target",
+      "target_rank",
+      "type_checking_count"
+    ],
+    "imports": [
+      "binding",
+      "literal",
+      "note",
+      "ratio",
+      "reexport",
+      "relative_level",
+      "source_module",
+      "source_package",
+      "specifier",
+      "symbol",
+      "symbols_known",
+      "target_module",
+      "target_package",
+      "type_only",
+      "under_type_checking"
+    ],
+    "metrics": [
+      "tab",
+      "value"
+    ],
+    "modules": [
+      "all_exports",
+      "all_literal",
+      "compatibility_logic_free",
+      "fan_in",
+      "fan_out",
+      "file",
+      "package",
+      "qualified_name",
+      "rank",
+      "symbol_count"
+    ],
+    "packages": [
+      "dependencies",
+      "fan_in",
+      "fan_out",
+      "module_count",
+      "qualified_name",
+      "rank"
+    ],
+    "path_observations": [],
+    "scope_observations": [
+      "parent_id",
+      "scope"
+    ],
+    "transitive_paths": [
+      "level",
+      "path",
+      "source",
+      "target"
+    ],
+    "unknowns": [
+      "module",
+      "reason",
+      "resolution_dimension"
+    ],
+    "violations": []
+  },
+  "model": {
+    "analyzer": {
+      "code_digest": "043d156a42908a11bbcf45686b6ebcf7c262c9b645a65b05b268ff98010027d6",
+      "name": "archkeel-typescript-imports",
+      "version": "0.75.0"
+    },
+    "bindings": null,
+    "calls": null,
+    "constructs": [],
+    "context_evidence": [],
+    "contexts": [],
+    "contract": {
+      "digest": "36f999ed04ff823dbec994143543718398093d358fde60d1abed45a2c480b6fc",
+      "path": "architecture-contract.json",
+      "schema_version": "2.2.0"
+    },
+    "coverage": {
+      "ast_coverage_percent": 100.0,
+      "call_resolution_percent": null,
+      "calls_analyzed": null,
+      "calls_partially_resolved": null,
+      "calls_resolved": null,
+      "calls_unresolved": null,
+      "failures": [
+        {
+          "area": "source",
+          "data": {
+            "module": "shop.src.presentation.page_x2e_ts",
+            "reason": "Script-global dependencies are not examined by the native collector",
+            "resolution_dimension": "imports"
+          },
+          "evidence_class": "UNKNOWN",
+          "evidence_ids": [
+            "EVD-f9455899660b88e1"
+          ],
+          "fact_ids": [],
+          "id": "UNKNOWN-0f197dd05dfc42f1",
+          "kind": "source_resolution_gap",
+          "provenance": [],
+          "rule_ids": [],
+          "subjects": [
+            "shop.src.presentation.page_x2e_ts"
+          ],
+          "title": "Script-global dependencies are not examined by the native collector"
+        }
+      ],
+      "files_discovered": 7,
+      "files_parsed": 7,
+      "files_read": 7,
+      "rules": "PASS",
+      "status": "FAIL"
+    },
+    "cycles": [],
+    "declarations": [
+      [
+        18,
+        19,
+        20,
+        21,
+        22,
+        [
+          23
+        ],
+        [],
+        [],
+        [],
+        [
+          24
+        ],
+        25,
+        {
+          "m": true
+        },
+        {
+          "m": true
+        },
+        26,
+        {
+          "m": true
+        },
+        {
+          "m": true
+        },
+        {
+          "m": true
+        },
+        23
+      ],
+      [
+        27,
+        19,
+        20,
+        28,
+        29,
+        [
+          30
+        ],
+        [],
+        [],
+        [],
+        [
+          24
+        ],
+        25,
+        [],
+        [
+          30
+        ],
+        {
+          "m": true
+        },
+        [
+          {
+            "o": {
+              "component": 31,
+              "decided_by": 25,
+              "rationale": 32,
+              "through": []
+            }
+          },
+          {
+            "o": {
+              "component": 33,
+              "decided_by": 25,
+              "rationale": 32,
+              "through": []
+            }
+          }
+        ],
+        [
+          34
+        ],
+        35,
+        {
+          "m": true
+        }
+      ],
+      [
+        36,
+        19,
+        20,
+        28,
+        31,
+        [
+          37
+        ],
+        [],
+        [],
+        [],
+        [
+          24
+        ],
+        25,
+        [],
+        [
+          37
+        ],
+        {
+          "m": true
+        },
+        [
+          {
+            "o": {
+              "component": 38,
+              "decided_by": 25,
+              "rationale": 32,
+              "through": []
+            }
+          }
+        ],
+        [
+          39
+        ],
+        35,
+        {
+          "m": true
+        }
+      ]
+    ],
+    "dependency_edges": [
+      [
+        108,
+        1,
+        86,
+        109,
+        110,
+        [
+          43,
+          46
+        ],
+        [],
+        [],
+        [
+          6
+        ],
+        [],
+        {
+          "b": false
+        },
+        {
+          "n": 1
+        },
+        87,
+        {
+          "n": 0
+        },
+        43,
+        {
+          "n": 1
+        },
+        46,
+        {
+          "n": 3
+        },
+        {
+          "n": 1
+        }
+      ],
+      [
+        111,
+        1,
+        86,
+        109,
+        112,
+        [
+          30,
+          47
+        ],
+        [],
+        [],
+        [
+          8
+        ],
+        [],
+        {
+          "b": false
+        },
+        {
+          "n": 1
+        },
+        87,
+        {
+          "n": 1
+        },
+        30,
+        {
+          "n": 0
+        },
+        47,
+        {
+          "n": 1
+        },
+        {
+          "n": 0
+        }
+      ],
+      [
+        113,
+        1,
+        79,
+        114,
+        115,
+        [
+          85,
+          81
+        ],
+        [],
+        [],
+        [
+          8
+        ],
+        [],
+        {
+          "b": false
+        },
+        {
+          "n": 1
+        },
+        80,
+        {
+          "n": 1
+        },
+        85,
+        {
+          "n": 0
+        },
+        81,
+        {
+          "n": 1
+        },
+        {
+          "n": 0
+        }
+      ]
+    ],
+    "evidence": [
+      {
+        "column": 0,
+        "end_line": 1,
+        "excerpt": "// Archkeel",
+        "file": "src/data/remote.ts",
+        "id": "EVD-2ce1846ffa6244e6",
+        "line": 1
+      },
+      "EVD-43eb9f970a19c1d1",
+      {
+        "column": 1,
+        "end_line": 5,
+        "excerpt": "import type { Order } from \"./order\";",
+        "file": "src/domain/repository.ts",
+        "id": "EVD-7a25d543a7920654",
+        "line": 5
+      },
+      {
+        "column": 1,
+        "end_line": 5,
+        "excerpt": "import type { OrderRepository } from \"../domain/repository\";",
+        "file": "src/data/remote.ts",
+        "id": "EVD-80a57c9db2875bca",
+        "line": 5
+      }
+    ],
+    "imports": [
+      [
+        91,
+        1,
+        92,
+        93,
+        94,
+        [
+          59,
+          46
+        ],
+        [
+          95
+        ],
+        [],
+        [],
+        [],
+        null,
+        [
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        101,
+        {
+          "n": 0.1
+        },
+        {
+          "b": false
+        },
+        {
+          "n": 0
+        },
+        46,
+        82,
+        102,
+        null,
+        {
+          "b": false
+        },
+        59,
+        82,
+        {
+          "b": true
+        },
+        {
+          "b": true
+        }
+      ],
+      [
+        103,
+        1,
+        92,
+        104,
+        105,
+        [
+          45,
+          46
+        ],
+        [
+          106
+        ],
+        [],
+        [],
+        [],
+        null,
+        [
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        101,
+        {
+          "m": true
+        },
+        {
+          "b": true
+        },
+        {
+          "n": 0
+        },
+        45,
+        82,
+        107,
+        {
+          "m": true
+        },
+        {
+          "b": false
+        },
+        46,
+        82,
+        {
+          "b": true
+        },
+        {
+          "b": true
+        }
+      ],
+      "IMP-6e30994841013a2f"
+    ],
+    "metrics": [
+      [
+        0,
+        1,
+        2,
+        3,
+        4,
+        [],
+        [],
+        [],
+        [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        [],
+        10,
+        {
+          "n": 4
+        }
+      ],
+      [
+        11,
+        1,
+        2,
+        12,
+        13,
+        [],
+        [],
+        [],
+        [],
+        [],
+        14,
+        {
+          "n": 0
+        }
+      ],
+      [
+        15,
+        1,
+        2,
+        16,
+        17,
+        [],
+        [],
+        [],
+        [],
+        [],
+        10,
+        null
+      ]
+    ],
+    "modules": [
+      [
+        64,
+        1,
+        86,
+        87,
+        46,
+        [
+          82,
+          46
+        ],
+        [
+          62
+        ],
+        [],
+        [],
+        [],
+        [],
+        {
+          "b": false
+        },
+        {
+          "b": false
+        },
+        {
+          "n": 3
+        },
+        {
+          "n": 1
+        },
+        88,
+        82,
+        46,
+        {
+          "n": 3
+        },
+        null
+      ],
+      [
+        65,
+        1,
+        86,
+        87,
+        45,
+        [
+          82,
+          45
+        ],
+        [
+          60
+        ],
+        [],
+        [],
+        [],
+        [],
+        {
+          "b": false
+        },
+        {
+          "b": false
+        },
+        {
+          "n": 1
+        },
+        {
+          "n": 2
+        },
+        89,
+        82,
+        45,
+        {
+          "n": 2
+        },
+        null
+      ],
+      [
+        74,
+        1,
+        86,
+        87,
+        43,
+        [
+          37,
+          43
+        ],
+        [
+          71
+        ],
+        [],
+        [],
+        [],
+        [],
+        {
+          "b": false
+        },
+        {
+          "b": false
+        },
+        {
+          "n": 1
+        },
+        {
+          "n": 1
+        },
+        90,
+        37,
+        43,
+        {
+          "n": 1
+        },
+        null
+      ]
+    ],
+    "packages": [
+      [
+        78,
+        1,
+        79,
+        80,
+        81,
+        [
+          81
+        ],
+        [],
+        [],
+        [
+          75
+        ],
+        [],
+        [
+          82
+        ],
+        {
+          "n": 1
+        },
+        {
+          "n": 1
+        },
+        {
+          "n": 1
+        },
+        81,
+        {
+          "n": 1
+        }
+      ],
+      [
+        83,
+        1,
+        79,
+        80,
+        82,
+        [
+          82
+        ],
+        [],
+        [],
+        [
+          64,
+          65,
+          66
+        ],
+        [],
+        [],
+        {
+          "n": 2
+        },
+        {
+          "n": 0
+        },
+        {
+          "n": 3
+        },
+        82,
+        {
+          "n": 2
+        }
+      ],
+      [
+        84,
+        1,
+        79,
+        80,
+        85,
+        [
+          85
+        ],
+        [],
+        [],
+        [
+          76
+        ],
+        [],
+        [
+          37,
+          81
+        ],
+        {
+          "n": 0
+        },
+        {
+          "n": 2
+        },
+        {
+          "n": 1
+        },
+        85,
+        {
+          "n": 0
+        }
+      ]
+    ],
+    "path_observations": [],
+    "producer": {
+      "code_digest": "c09534472364f1be128804b0bc1bc8f7d2c55d795dc925da1a5b2f96cfeb99c0",
+      "name": "archkeel-typescript-imports",
+      "version": "0+unknown"
+    },
+    "references": null,
+    "runtime": {
+      "name": "rust",
+      "required": ">=1.88",
+      "version": "1.88.0"
+    },
+    "schema_version": "2.9.0",
+    "scope_observations": [
+      [
+        40,
+        1,
+        20,
+        41,
+        42,
+        [
+          43,
+          43,
+          44,
+          45,
+          46,
+          46,
+          30,
+          30,
+          47,
+          47
+        ],
+        [
+          48,
+          49,
+          50,
+          51,
+          52
+        ],
+        [
+          53
+        ],
+        [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        [],
+        54,
+        {
+          "m": true
+        }
+      ],
+      [
+        55,
+        1,
+        56,
+        57,
+        58,
+        [
+          45,
+          59,
+          46
+        ],
+        [
+          60,
+          61,
+          62
+        ],
+        [
+          63
+        ],
+        [
+          64,
+          65,
+          66
+        ],
+        [],
+        {
+          "m": true
+        },
+        54
+      ],
+      [
+        67,
+        1,
+        56,
+        57,
+        68,
+        [
+          43,
+          44,
+          45,
+          59,
+          46,
+          30,
+          47
+        ],
+        [
+          69,
+          70,
+          71,
+          60,
+          61,
+          72,
+          62
+        ],
+        [
+          73
+        ],
+        [
+          64,
+          65,
+          74,
+          75,
+          76,
+          77,
+          66
+        ],
+        [],
+        {
+          "m": true
+        },
+        54
+      ]
+    ],
+    "source": {
+      "dirty": false,
+      "git_head": "9f1bd9cce0eb2e5e802e8361dd6939e19c79d4b9",
+      "scope": [
+        "src/**"
+      ],
+      "source_digest": "9edcd3c46a43046586273b400d85463b58f390300720d9a09394fb78c66ba370"
+    },
+    "symbols": null,
+    "transitive_paths": [
+      [
+        116,
+        1,
+        79,
+        117,
+        118,
+        [
+          85,
+          37,
+          82
+        ],
+        [],
+        [],
+        [
+          119,
+          120
+        ],
+        [],
+        80,
+        [
+          85,
+          37,
+          82
+        ],
+        85,
+        82
+      ]
+    ],
+    "typing_signals": null,
+    "unknowns": [
+      [
+        121,
+        122,
+        92,
+        123,
+        124,
+        [
+          47
+        ],
+        [
+          72
+        ],
+        [],
+        [],
+        [],
+        47,
+        124,
+        125
+      ],
+      [
+        126,
+        122,
+        92,
+        123,
+        124,
+        [
+          43
+        ],
+        [
+          71
+        ],
+        [],
+        [],
+        [],
+        43,
+        124,
+        125
+      ],
+      [
+        127,
+        122,
+        92,
+        123,
+        124,
+        [
+          45
+        ],
+        [
+          60
+        ],
+        [],
+        [],
+        [],
+        45,
+        124,
+        125
+      ]
+    ],
+    "violations": []
+  }
+}

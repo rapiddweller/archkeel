@@ -76,6 +76,10 @@ fn cell(value: &Value, texts: &mut Vec<String>, index: &mut HashMap<String, usiz
     }
 }
 
+fn frame_of(value: Value) -> Result<(Shell, Map<String, Value>), String> {
+    frame(value, &CLASSIFIED_SECTIONS)
+}
+
 fn shell() -> Shell {
     Shell {
         texts: vec!["a text".to_owned()],
@@ -114,9 +118,43 @@ fn an_absent_data_field_stays_absent() -> Result<(), String> {
 
 #[test]
 fn the_frame_has_three_keys() {
-    let error = frame(json!({"texts": [], "fields": {}, "model": {}, "more": 1}))
+    let error = frame_of(json!({"texts": [], "fields": {}, "model": {}, "more": 1}))
         .err()
         .unwrap_or_default();
     assert!(error.contains("texts, fields and model only"), "{error}");
-    assert!(frame(json!({"texts": [], "fields": {}, "model": {}})).is_ok());
+    assert!(frame_of(json!({"texts": [], "fields": {}, "model": {}})).is_ok());
+    let unknown = frame_of(json!({"texts": [], "fields": {"nowhere": []}, "model": {}}));
+    assert!(unknown
+        .err()
+        .unwrap_or_default()
+        .contains("no record section nowhere"));
+    let twice = frame_of(json!({"texts": [], "fields": {"imports": ["a", "a"]}, "model": {}}));
+    assert!(twice.err().unwrap_or_default().contains("repeat a name"));
+}
+
+/// The rows of the canonical fixture: `tests/test_collector_native_store_frame.py` checks that the Python encoder
+/// gives the same rows, so this copy cannot drift from it. `ARCHKEEL_WRITE_FRAME=1` rewrites it.
+#[test]
+fn the_rows_of_the_fixture_are_the_committed_frame() -> Result<(), String> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata");
+    let parts: Value = serde_json::from_slice(
+        &std::fs::read(root.join("canonical-parts.json")).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    let Value::Object(model) = parts["model"].clone() else {
+        return Err("no model".to_owned());
+    };
+    let (shell, rows) = as_rows(model);
+    let fields: std::collections::BTreeMap<_, _> = shell.fields.into_iter().collect();
+    let written = json!({"texts": shell.texts, "fields": fields, "model": rows});
+    let path = root.join("canonical-frame.json");
+    if std::env::var_os("ARCHKEEL_WRITE_FRAME").is_some() {
+        let text = serde_json::to_string_pretty(&written).map_err(|e| e.to_string())?;
+        std::fs::write(&path, text + "\n").map_err(|e| e.to_string())?;
+    }
+    let committed: Value =
+        serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    assert!(committed == written, "rewrite with ARCHKEEL_WRITE_FRAME=1");
+    Ok(())
 }
