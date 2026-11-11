@@ -179,3 +179,14 @@ fn the_store_reads_only_a_complete_compressed_reply() {
     let error = ingest(&compressed(&reply()), 100).err().unwrap_or_default();
     assert!(error.contains("exceeds its 100 byte limit"), "{error}");
 }
+
+#[test]
+fn a_reply_of_protocol_10_is_refused_until_a_native_python_reply_can_pass() {
+    let mut value = reply();
+    value["protocol_version"] = json!("10.0.0");
+    let error = error_of(&value);
+    assert_eq!(
+        error,
+        "the store does not read protocol 10.0.0 replies yet (AD-334)"
+    );
+}

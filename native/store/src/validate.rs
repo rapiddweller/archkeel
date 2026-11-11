@@ -12,7 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Facts, Profile, Role};
+use archkeel_facts::envelope::{Facts, Profile, ProtocolVersion, Role};
 use archkeel_facts::identity::inside;
 
 /// The resolution features of the profiles whose records the store checks completely.
@@ -100,6 +100,17 @@ fn decoder_checks(facts: &Facts) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// A 10.0.0 reply comes only from the native Python collector, which cannot give PASS before
+/// PR 5 slice 8 (AD-334): the store refuses it, as the Python codec does.
+pub(crate) fn version(version: ProtocolVersion) -> Result<(), String> {
+    match version {
+        ProtocolVersion::V8 | ProtocolVersion::V9 => Ok(()),
+        ProtocolVersion::V10 => {
+            Err("the store does not read protocol 10.0.0 replies yet (AD-334)".to_owned())
+        }
+    }
 }
 
 /// The store checks only the replies whose every claim it can check (AD-346).

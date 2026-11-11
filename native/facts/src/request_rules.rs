@@ -83,11 +83,6 @@ impl Resolver {
 const PYTHON_MINORS: std::ops::RangeInclusive<u32> = 11..=14;
 
 impl Interpreter {
-    /// The minor version: `11` for `3.11.12`. `check` proves that it is in `PYTHON_MINORS`.
-    pub fn minor(&self) -> u32 {
-        version_parts(&self.version).map_or(0, |(_, minor)| minor)
-    }
-
     fn check(&self) -> Result<(), String> {
         let label = "resolver.interpreter.version";
         let Some((3, minor)) = version_parts(&self.version) else {
@@ -103,19 +98,33 @@ impl Interpreter {
     }
 }
 
-/// The major and minor number of `platform.python_version()`: three dotted numbers, and the patch
-/// can carry a suffix such as `rc1` or `+`.
+/// The major and minor number of `platform.python_version()`: `major.minor.patch`, each a
+/// number without a sign or a leading zero. The patch can end with one release tag (`a`, `b` or
+/// `rc` and a number) and then one `+`, as a build from a development tree has.
 fn version_parts(version: &str) -> Option<(u32, u32)> {
-    let mut parts = version.splitn(3, '.');
-    let major = parts.next()?.parse().ok()?;
-    let minor = parts.next()?;
-    let patch = parts.next()?;
-    let digits = patch.bytes().take_while(u8::is_ascii_digit).count();
-    let number = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
-    if !number(minor) || digits == 0 {
+    let mut parts = version.split('.');
+    let (major, minor, patch) = (parts.next()?, parts.next()?, parts.next()?);
+    if parts.next().is_some() {
         return None;
     }
-    Some((major, minor.parse().ok()?))
+    let patch = patch.strip_suffix('+').unwrap_or(patch);
+    let digits = patch.len() - patch.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    let (number, tag) = patch.split_at(digits);
+    let tag_ok = tag.is_empty()
+        || ["a", "b", "rc"]
+            .iter()
+            .any(|kind| tag.strip_prefix(kind).is_some_and(is_number));
+    if !(is_number(major) && is_number(minor) && is_number(number) && tag_ok) {
+        return None;
+    }
+    Some((major.parse().ok()?, minor.parse().ok()?))
+}
+
+/// Plain ASCII digits without a leading zero; `0` alone is a number.
+fn is_number(text: &str) -> bool {
+    !text.is_empty()
+        && text.bytes().all(|byte| byte.is_ascii_digit())
+        && (text == "0" || !text.starts_with('0'))
 }
 
 fn module_names(names: &[String], field: &str) -> Result<(), String> {

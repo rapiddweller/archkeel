@@ -251,7 +251,6 @@ fn a_python_request_is_version_10_and_carries_the_interpreter_block() {
     assert_eq!(typed.protocol_version, Version::V10);
     assert_eq!(typed.resolver.phase, PythonPhase::Imports);
     assert_eq!(typed.resolver.interpreter.version, "3.11.12");
-    assert_eq!(typed.resolver.interpreter.minor(), 11);
     let whole: Request = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(serde_json::to_value(&whole).unwrap(), value);
     assert_eq!(
@@ -337,12 +336,41 @@ fn the_interpreter_block_is_closed_and_checked() {
         let error = decoded_python(&value).unwrap_err();
         assert!(error.contains(message), "{pointer}: {error}");
     }
-    let mut value = python("10.0.0");
-    value["resolver"]["interpreter"]["version"] = json!("3.14.0rc1");
-    assert_eq!(
-        decoded_python(&value).unwrap().resolver.interpreter.minor(),
-        14
-    );
+    let hostile = [
+        "3.11.1\u{0}",
+        "3.11.1 junk",
+        "+3.11.1",
+        "03.11.1",
+        "3.11.1.4",
+        "3.011.1",
+        "3.11.01",
+        "3.11.1rc",
+        "3.11.1x1",
+        "3.11.1++",
+        "3.11.",
+        "3.11.1+rc1",
+    ];
+    for version in hostile {
+        let mut value = python("10.0.0");
+        value["resolver"]["interpreter"]["version"] = json!(version);
+        let error = decoded_python(&value).unwrap_err();
+        assert!(
+            error.contains("a full Python version"),
+            "{version:?}: {error}"
+        );
+    }
+    for version in [
+        "3.14.0rc1",
+        "3.13.0a2",
+        "3.12.0b4",
+        "3.12.10+",
+        "3.13.0rc2+",
+        "3.11.0",
+    ] {
+        let mut value = python("10.0.0");
+        value["resolver"]["interpreter"]["version"] = json!(version);
+        assert!(decoded_python(&value).is_ok(), "{version}");
+    }
 }
 
 #[test]
