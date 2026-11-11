@@ -1579,6 +1579,46 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PY-SURVEY",
+      "label": "py-survey",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.survey"
+      ],
+      "responsibilities": [
+        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts and the evidence of both (AD-334)."
+      ],
+      "forbidden_responsibilities": [
+        "Finding the selected files and naming modules."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the files through the one owner of snapshot reads."
+        },
+        {
+          "component": "py-text",
+          "rationale": "Decode the text of a file and read the line of a byte offset."
+        },
+        {
+          "component": "py-parse",
+          "rationale": "Parse a file."
+        },
+        {
+          "component": "py-scope",
+          "rationale": "Read the selected files, the module names and the shadowed modules."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-PY-DUMP",
       "label": "py-dump",
       "role": "component",
@@ -1586,7 +1626,7 @@
         "native.archkeel_python_collector.dump"
       ],
       "responsibilities": [
-        "The development dump of the parse outcome of each file (feature dump)."
+        "The development dump of the parse outcome of each file, of the scope and of the survey of a request (feature dump)."
       ],
       "forbidden_responsibilities": [
         "Production collection."
@@ -1618,6 +1658,10 @@
         {
           "component": "py-inputs",
           "rationale": "Print the inputs and the requirement of a request."
+        },
+        {
+          "component": "py-survey",
+          "rationale": "Print the survey of a request."
         }
       ],
       "decided_by": "architect"
@@ -1892,9 +1936,12 @@
         "native.archkeel_python_collector.limits",
         "native.archkeel_python_collector.stack",
         "native.archkeel_python_collector.depth",
+        "native.archkeel_python_collector.survey.binders",
+        "native.archkeel_python_collector.survey.imports",
+        "native.archkeel_python_collector.survey.module",
         "native.archkeel_python_collector.cargo_toml"
       ],
-      "rationale": "Only the parse modules of the Python collector read the tree of the Python parser; the rest of the collector reads owned facts.",
+      "rationale": "Only the parse modules and the tree readers of the survey of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
         "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
       ],

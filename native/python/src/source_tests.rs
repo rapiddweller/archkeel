@@ -26,3 +26,11 @@ fn a_line_ends_at_each_newline_form_of_the_python_split() {
     assert_eq!(lines.start_of(6), 5);
     assert_eq!(lines.line(1), 1);
 }
+
+#[test]
+fn the_text_of_a_line_is_the_part_of_the_python_split() {
+    let text = "a \r\nb\rc\n";
+    let lines = Lines::new(text);
+    let found: Vec<Option<&str>> = (1..=5).map(|line| lines.text(text, line)).collect();
+    assert_eq!(found, [Some("a "), Some("b"), Some("c"), Some(""), None]);
+}
