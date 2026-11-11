@@ -392,3 +392,12 @@ pub fn classify_asset(specifier: &str) -> Option<&str> {
 #[cfg(test)]
 #[path = "source_input_tests.rs"]
 mod tests;
+
+/// The options that can map a name to a file of the project (#976, #988).
+#[derive(Clone, Copy)]
+pub struct Reach {
+    /// `paths` or `baseUrl` is set.
+    pub aliased: bool,
+    /// A type root may lie inside the project.
+    pub type_roots: bool,
+}

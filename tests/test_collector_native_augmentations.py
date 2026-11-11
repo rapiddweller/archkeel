@@ -35,3 +35,45 @@ def test_augmentation_names_equal_the_python_collector(
 ) -> None:
     _write(tmp_path, {**AUGMENTATIONS, "tsconfig.json": config})
     assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []
+
+
+TYPE_ROOT = '{"compilerOptions":{"allowJs":true,"typeRoots":["./src"]},"include":["src"]}'
+NODE_ROOT = (
+    '{"compilerOptions":{"allowJs":true,"typeRoots":["./node_modules/@types"]},"include":["src"]}'
+)
+DIRECTIVES = {
+    "src/b/index.d.ts": "declare var fromB: number;\n",
+    "src/a/types.ts": '/// <reference types="b" />\nexport const a = fromB;\n',
+    "src/a/path.ts": '/// <reference types="../b/index" />\nexport const p = 1;\n',
+    "src/a/amd.ts": (
+        '/// <amd-dependency path="../b/t" />\n/// <amd-dependency path="x" />\nexport {};\n'
+    ),
+    "src/a/amd-name.ts": (
+        '/// <amd-dependency name="x" />\n/// <reference types="node" />\nexport {};\n'
+    ),
+    "src/a/late.ts": 'export {};\n/// <amd-dependency path="../b/t" />\n',
+    # The attributes in any order and the names in any case, as tsc reads them (#988).
+    "src/a/order.ts": (
+        '/// <amd-dependency name="n" path="../b/t" />\n'
+        '/// <reference preserve="true" path="../b/t.ts" />\n'
+        '/// <AMD-DEPENDENCY PATH="../b/t" />\n'
+        '/// <Reference LIB="dom" />\n'
+        '/// <reference types="x" preserve="true" path="p" />\n'
+        "/// <reference  path = 'q'  />\n"
+        '/// <referencepath="z" />\n'
+        "/// <amd-dependency path='unclosed />\n"
+        "export {};\n"
+    ),
+    "src/a/roots.js": "top.x();\nparent.y();\nvar own = top;\n",
+    "src/b/b.js": "window.x = 1;\nwindow.y = 2;\n",
+}
+
+
+@pytest.mark.parametrize(
+    "config", [TYPE_ROOT, NODE_ROOT, COMMONJS], ids=["project", "node", "none"]
+)
+def test_directives_and_type_roots_equal_the_python_collector(
+    tmp_path: Path, native_binary: Path, config: str
+) -> None:
+    _write(tmp_path, {**DIRECTIVES, "tsconfig.json": config})
+    assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []

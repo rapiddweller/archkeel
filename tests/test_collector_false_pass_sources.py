@@ -68,6 +68,7 @@ BASE = {
     "src/b/t.ts": "export type T = number;\n",
 }
 ALIASES = '{"compilerOptions":{"allowJs":true,"baseUrl":".","paths":{"@b/*":["src/b/*"]}}}'
+TYPE_ROOTS = '{"compilerOptions":{"allowJs":true,"typeRoots":["./src"]},"include":["src"]}'
 BASE_URL = '{"compilerOptions":{"allowJs":true,"baseUrl":"."},"include":["src"]}'
 AUGMENT = 'export {};\ndeclare module "NAME" { interface Q {} }\n'
 CASES = {
@@ -90,6 +91,38 @@ CASES = {
     "this-at-the-top-level": {
         "src/a/a.js": "this.x();\n",
         "src/b/b.js": "window.x = 1;\n",
+    },
+    "amd-dependency": {
+        "src/a/a.ts": '/// <amd-dependency path="../b/t" />\nexport const a = 1;\n',
+    },
+    # A type root inside the project lets `types="b"` name a directory of the project (#988).
+    "type-root-in-the-project": {
+        "tsconfig.json": TYPE_ROOTS,
+        "src/b/index.d.ts": "declare var fromB: number;\n",
+        "src/a/a.ts": '/// <reference types="b" />\nexport const a = fromB;\n',
+    },
+    "edge-and-effect-gap": {
+        "src/a/a.ts": 'import type { T } from "../b/t";\nexport type X = T;\n',
+        "src/a/g.js": "this.x();\n",
+    },
+    # The window outside a frame: a use through `top` or `parent` is never silent (#988).
+    "top-as-script-root": {
+        "src/a/a.js": "top.x();\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
+    "parent-as-script-root": {
+        "src/a/a.js": "parent.x();\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
+    # A directive reads its attributes in any order and any case, as tsc does (#988).
+    "amd-dependency-with-the-name-first": {
+        "src/a/a.ts": '/// <amd-dependency name="n" path="../b/t" />\nexport const a = 1;\n',
+    },
+    "amd-dependency-in-capitals": {
+        "src/a/a.ts": '/// <AMD-DEPENDENCY PATH="../b/t" />\nexport const a = 1;\n',
+    },
+    "reference-with-an-attribute-first": {
+        "src/a/a.ts": '/// <reference preserve="true" path="../b/t.ts" />\nexport const a = 1;\n',
     },
     "frames-as-script-root": {
         "src/a/a.js": "frames.x();\n",
@@ -149,3 +182,13 @@ def test_a_construct_that_reaches_a_forbidden_module_gives_no_pass(
         assert item["exit"] != 0, f"{name}: the {producer} collector gives PASS"
         requires = dict(item["rules"]).get("REQUIRES")  # type: ignore[call-overload]
         assert requires != "PASS", f"{name}: REQUIRES passes with the {producer} collector"
+
+
+def test_a_real_edge_stays_fail_beside_an_effect_gap_in_another_file(
+    tmp_path: Path,
+    bundled_directory: Path,  # noqa: F811
+) -> None:
+    # A runtime-effect gap makes a PASS impossible; it must not turn a found violation into UNKNOWN.
+    found = _verdicts(tmp_path, "edge-and-effect-gap", bundled_directory)
+    for producer, item in zip(("Python", "native"), found, strict=True):
+        assert dict(item["rules"]).get("REQUIRES") == "FAIL", f"{producer}: {item['rules']}"  # type: ignore[call-overload]

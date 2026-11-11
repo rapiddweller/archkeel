@@ -12,16 +12,25 @@ name is a concern, as an unproved reference is. This module takes names and span
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from typing import Final, Protocol
 
 from .syntax import Concern, Span
 
 _PATH_START: Final = frozenset("./")
+# A triple-slash directive is `/// <tag attribute="value" ... />`. tsc lowercases the tag name and
+# reads the attributes in any order, so a directive names a file of the project when one attribute
+# of the right name is there: `path` or `lib` in `reference`, `path` in `amd-dependency` (#988), and
+# a `types` that names a path (#976). A `types` name only adds globals, which the catalog does not
+# model (AD-274), unless a type root lies inside the project (AD-354).
+_TAG: Final = re.compile(r"^///\s*<([^\s/>]+)\s(.*)")
+_ATTRIBUTE: Final = re.compile(r"([^\s=]+)\s*=\s*(['\"])(.*?)\2")
+_FILE_ATTRIBUTES: Final = {"reference": ("path", "lib"), "amd-dependency": ("path",)}
 
 
 class Aliases(Protocol):
-    """The compiler options that map a bare name to a file: `baseUrl` and `paths`."""
+    """The compiler options that map a bare name to a file: `baseUrl`, `paths` and `typeRoots`."""
 
     @property
     def base_url(self) -> str | None: ...
@@ -29,10 +38,37 @@ class Aliases(Protocol):
     @property
     def paths(self) -> tuple[tuple[str, tuple[str, ...]], ...]: ...
 
+    @property
+    def project_type_roots(self) -> bool: ...
+
 
 def has_aliases(options: Aliases) -> bool:
     """The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project."""
     return options.base_url is not None or bool(options.paths)
+
+
+def triple_slash(body: str, options: Aliases | None) -> str | None:
+    """The quoted text of the first attribute of a triple-slash directive that names a file of the
+    project, else `None`. With a type root inside the project, a `types` name is such a file too."""
+    tag = _TAG.match(body)
+    if tag is None:
+        return None
+    tag_name: str = tag[1]
+    attributes: str = tag[2]
+    name = tag_name.lower()
+    for found in re.finditer(_ATTRIBUTE, attributes):
+        attribute_name: str = found[1]
+        value: str = found[3]
+        attribute = attribute_name.lower()
+        if attribute in _FILE_ATTRIBUTES.get(name, ()):
+            return value
+        if name == "reference" and attribute == "types" and _names_a_file(value, options):
+            return value
+    return None
+
+
+def _names_a_file(value: str, options: Aliases | None) -> bool:
+    return value[:1] in _PATH_START or (options is not None and options.project_type_roots)
 
 
 def augmentation_concerns(

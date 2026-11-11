@@ -241,9 +241,16 @@ to a project file; the resolver is not asked, so a name that maps to no project 
 too. Without `paths` and `baseUrl` a bare name stays silent. In a script file `declare module`
 declares an ambient module, so it is no concern. A wildcard name (`declare module "x*"`) is a
 pattern for tsc (TS2664 in a module file), not a module, so it stays silent.
-`self` and `frames` are roots of the global object, like `window` and `globalThis`. `top` and
-`parent` name another window, which a frame can hold, and they stay unproved. A chain such as
-`window.window.x` is read as the name `window`, not as `x`, and stays unproved.
+A `/// <amd-dependency path="x" />` directive is UNKNOWN, as a `path` directive is (#988). When
+`typeRoots` holds an entry without `node_modules` in it (a root that may lie inside the project), a
+`/// <reference types="name" />` directive is UNKNOWN too, because the name may be a directory of
+the project ([AD-354](architecture/decisions/ad-354-a-type-root-inside-the-project-makes-a-types-directive-a-concern.md)).
+`self` and `frames` are roots of the global object, like `window` and `globalThis`. A use through
+`top` or `parent` is read as a use through the window too, so it is an edge or a gap, never silent;
+inside a frame they name another window, so the edge can go to a global of the page above. A write
+through them (`top.x = 1`) publishes nothing. A chain such as
+`window.window.x` is read as the name `window`, not as `x`: a use of `x` through it gives no
+edge and no gap, so a REQUIRES rule can PASS beside it. This is a false PASS that is not fixed yet.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.

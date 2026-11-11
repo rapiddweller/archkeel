@@ -9,7 +9,7 @@ use crate::references::{self, Reference};
 use crate::scan::scan;
 use crate::script;
 use crate::source::Source;
-use crate::source_input::classify_file;
+use crate::source_input::{classify_file, Reach};
 use crate::syntax::Parsers;
 use crate::tree::cx::Cx;
 use crate::walk::{Syntax, Walk};
@@ -32,11 +32,15 @@ pub struct Parsed {
 /// Parse one file of a project without `paths` and `baseUrl`; the dump and the tests read it.
 #[cfg(any(test, feature = "dump"))]
 pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
-    parse_for(parsers, rel, data, false)
+    let reach = Reach {
+        aliased: false,
+        type_roots: false,
+    };
+    parse_for(parsers, rel, data, reach)
 }
 
-/// Parse one file of a project that sets `paths` or `baseUrl` (`aliased`) or does not (#976).
-pub fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], aliased: bool) -> Parsed {
+/// Parse one file of a project; `reach` says which options can map a name to a project file.
+pub fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], reach: Reach) -> Parsed {
     // The filename test of the Python collector ignores one final newline.
     let suffix = classify_file(rel.strip_suffix('\n').unwrap_or(rel));
     // JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
@@ -71,7 +75,7 @@ pub fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], aliased: bool) -
         &found_nodes,
         &references,
         suffix,
-        (syntax.module_syntax, aliased),
+        (syntax.module_syntax, reach),
     );
     // `parse.parse`: after the comment concerns, one for each scope that binds names unknowably.
     found

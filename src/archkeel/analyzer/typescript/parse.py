@@ -23,9 +23,19 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
-from .augmentations import Aliases, augmentation_concerns, has_aliases
+from .augmentations import Aliases, augmentation_concerns, has_aliases, triple_slash
 from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
+from .syntax import (
+    WALK_ROOTS,
+    ScriptAlias,
+    ScriptDestructure,
+    ScriptFactory,
+    ScriptFactoryMember,
+    ScriptGlobal,
+    ScriptNamespace,
+    StringComparison,
+)
 from .syntax import (
     Base as Base,
 )
@@ -58,16 +68,6 @@ from .syntax import (
 )
 from .syntax import (
     ReferenceForm as ReferenceForm,
-)
-from .syntax import (
-    ScriptAlias,
-    ScriptDestructure,
-    ScriptFactory,
-    ScriptFactoryMember,
-    ScriptGlobal,
-    ScriptNamespace,
-    ScriptRoot,
-    StringComparison,
 )
 from .syntax import (
     Site as Site,
@@ -284,7 +284,7 @@ _SCRIPT_EFFECT_NAMES: Final = frozenset(
     }
 )
 _LOADER_MODULES: Final[dict[str, _LoaderModule]] = {item.value: item for item in _LoaderModule}
-_SCRIPT_ROOTS: Final = frozenset(item.value for item in ScriptRoot)
+_SCRIPT_ROOTS: Final = WALK_ROOTS
 _SCRIPT_FUNCTIONS: Final = frozenset(
     {
         _NodeKind.FUNCTION_DECLARATION,
@@ -329,10 +329,6 @@ def _special_name(value: str | None) -> _SpecialName | None:
 _LOADER: Final = "Node module loader is not observed"
 
 
-# A `types` directive counts when it names a path, as `path` does (#976); a name only adds globals.
-_TRIPLE_SLASH: Final = re.compile(
-    r"^///\s*<reference\s+(?:path|lib|types(?=\s*=\s*['\"][./]))\s*=\s*(['\"])(.*?)\1"
-)
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -474,7 +470,7 @@ def parse(rel_path: str, data: bytes, options: Aliases | None = None) -> Syntax:
     if loaders:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
-        concerns.extend(_comment_concerns(source, suffix))
+        concerns.extend(_comment_concerns(source, suffix, options))
     concerns.extend(_augmentation_concerns(source, options))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
@@ -3664,7 +3660,9 @@ def _require_concerns(source: _Source, concerns: list[Concern]) -> bool:
     return shadows
 
 
-def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concern]:
+def _comment_concerns(
+    source: _Source, suffix: FileSuffix | None, options: Aliases | None
+) -> list[Concern]:
     concerns: list[Concern] = []
     # tsc reads JSDoc types only in JavaScript files; an unknown suffix keeps the gap.
     jsdoc = suffix is None or suffix.source_kind not in (
@@ -3680,10 +3678,9 @@ def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concer
     first = statements[0] if statements else len(source.data)
     for node in source.captures("comments").get("comment", []):
         body = _text(node)
-        directive = _TRIPLE_SLASH.match(body) if node.start_byte < first else None
-        # A `types` name adds globals, which the catalog does not model (AD-274): no concern.
+        directive = triple_slash(body, options) if node.start_byte < first else None
         if directive is not None:
-            reason = f"Unobserved triple-slash reference: {directive[2]}"
+            reason = f"Unobserved triple-slash reference: {directive}"
             concerns.append(Concern(reason, source.span(node)))
         if jsdoc and jsdoc_imports(body):
             concerns.append(Concern("JSDoc import is not observed", source.span(node)))

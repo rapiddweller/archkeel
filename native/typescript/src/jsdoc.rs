@@ -152,31 +152,72 @@ pub fn imports(body: &str) -> bool {
     false
 }
 
-/// `_TRIPLE_SLASH`: a leading `/// <reference path="..." />`, `lib=` or `types=`; the quoted text.
-/// A `types` name is no concern; a `types` path that starts with `.` or `/` is one (#976).
-pub fn triple_slash(body: &str) -> Option<String> {
+/// `augmentations.triple_slash`: the quoted text of the first attribute of a leading
+/// `/// <tag attribute="value" ... />` that names a file of the project. tsc lowercases the tag
+/// name and reads the attributes in any order: `path` or `lib` in `reference`, `path` in
+/// `amd-dependency`, and a `types` that names a path (or any name, with a type root inside the
+/// project, `type_roots`). #976, #988.
+pub fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
     let rest = body.strip_prefix("///")?.trim_start_matches(is_space);
-    let rest = rest.strip_prefix("<reference")?;
-    let spaced = rest.trim_start_matches(is_space);
-    if spaced.len() == rest.len() {
-        return None;
+    let rest = rest.strip_prefix('<')?;
+    let name_end = rest
+        .find(|c: char| is_space(c) || c == '/' || c == '>')
+        .unwrap_or(rest.len());
+    let name = rest.get(..name_end)?.to_ascii_lowercase();
+    let attributes = rest.get(name_end..)?;
+    // The tag name is followed by one space; the attributes read from the next character.
+    let first = attributes.chars().next().filter(|c| is_space(*c))?;
+    let mut found = None;
+    attribute_list(attributes.get(first.len_utf8()..)?, |attribute, value| {
+        let file = match (name.as_str(), attribute.to_ascii_lowercase().as_str()) {
+            ("reference", "path" | "lib") | ("amd-dependency", "path") => true,
+            ("reference", "types") => type_roots || value.starts_with(['.', '/']),
+            _ => false,
+        };
+        if file && found.is_none() {
+            found = Some(value.to_owned());
+        }
+    });
+    found
+}
+
+/// `([^\s=]+)\s*=\s*(['"])(.*?)\2` over the text: each attribute and its quoted value, scanned
+/// from every position as `re.finditer` does. A value does not hold a line feed.
+fn attribute_list<'a>(text: &'a str, mut each: impl FnMut(&'a str, &'a str)) {
+    let mut from = 0;
+    while from < text.len() {
+        match attribute_at(text, from) {
+            Some((name, value, end)) => {
+                each(name, value);
+                from = end;
+            }
+            None => {
+                from += text
+                    .get(from..)
+                    .and_then(|t| t.chars().next())
+                    .map_or(1, char::len_utf8)
+            }
+        }
     }
-    let (rest, types) = match spaced.strip_prefix("types") {
-        Some(rest) => (rest, true),
-        None => (
-            spaced
-                .strip_prefix("path")
-                .or_else(|| spaced.strip_prefix("lib"))?,
-            false,
-        ),
-    };
-    let rest = rest.trim_start_matches(is_space).strip_prefix('=')?;
-    let rest = rest.trim_start_matches(is_space);
-    let quote = rest.chars().next().filter(|c| matches!(c, '\'' | '"'))?;
-    let rest = &rest[1..];
-    // The group `(.*?)` stops at the first quote; a dot does not match a line feed.
-    let end = rest.find(quote)?;
-    let value = rest.get(..end)?;
-    let named = types && !value.starts_with(['.', '/']);
-    (!value.contains('\n') && !named).then(|| value.to_owned())
+}
+
+fn attribute_at(text: &str, from: usize) -> Option<(&str, &str, usize)> {
+    let tail = text.get(from..)?;
+    let name_len = tail
+        .find(|c: char| is_space(c) || c == '=')
+        .unwrap_or(tail.len());
+    let name = tail.get(..name_len).filter(|name| !name.is_empty())?;
+    let after = tail
+        .get(name_len..)?
+        .trim_start_matches(is_space)
+        .strip_prefix('=')?;
+    let after = after.trim_start_matches(is_space);
+    let quote = after.chars().next().filter(|c| matches!(c, '\'' | '"'))?;
+    let value_text = after.get(1..)?;
+    let close = value_text.find(quote)?;
+    let value = value_text
+        .get(..close)
+        .filter(|value| !value.contains('\n'))?;
+    let end = text.len() - value_text.len() + close + 1;
+    Some((name, value, end))
 }

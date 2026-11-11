@@ -12,7 +12,7 @@ use crate::jsdoc;
 use crate::references::{literal, Reference};
 use crate::scan::Scan;
 use crate::source::{Source, Span};
-use crate::source_input::{SourceKind, Suffix};
+use crate::source_input::{Reach, SourceKind, Suffix};
 
 const LOADER: &str = "Node module loader is not observed";
 
@@ -105,6 +105,7 @@ fn comment_concerns(
     root: Node,
     scan: &Scan,
     suffix: Option<Suffix>,
+    type_roots: bool,
 ) -> Vec<Concern> {
     let mut list = Vec::new();
     // `tsc` reads JSDoc types only in JavaScript files; an unknown suffix keeps the gap.
@@ -120,7 +121,7 @@ fn comment_concerns(
     for node in scan.comments.iter().copied() {
         let body = source.text(node);
         let directive = if node.start_byte() < first {
-            jsdoc::triple_slash(&body)
+            jsdoc::triple_slash(&body, type_roots)
         } else {
             None
         };
@@ -143,7 +144,7 @@ fn comment_concerns(
 fn augmentation_concerns(
     source: &Source,
     scan: &Scan,
-    (module_file, aliased): (bool, bool),
+    (module_file, reach): (bool, Reach),
 ) -> Vec<Concern> {
     let mut list = Vec::new();
     for node in scan.augmentations.iter().copied() {
@@ -153,7 +154,7 @@ fn augmentation_concerns(
             .skip(1)
             .take(text.chars().count().saturating_sub(2))
             .collect();
-        let bare = module_file && aliased && !value.is_empty() && !value.contains('*');
+        let bare = module_file && reach.aliased && !value.is_empty() && !value.contains('*');
         if value.starts_with(['.', '/']) || bare {
             let reason = format!("Unobserved module augmentation: {value}");
             list.push(concern(source, node, &reason));
@@ -169,7 +170,7 @@ pub fn read(
     scan: &Scan,
     references: &[Reference],
     suffix: Option<Suffix>,
-    augmenting: (bool, bool),
+    augmenting: (bool, Reach),
 ) -> Found {
     let mut list = Vec::new();
     // `module[name]` can reach `require` without spelling it.
@@ -194,7 +195,13 @@ pub fn read(
         });
     }
     if contains(source.data, b"/**") || contains(source.data, b"///") {
-        list.extend(comment_concerns(source, root, scan, suffix));
+        list.extend(comment_concerns(
+            source,
+            root,
+            scan,
+            suffix,
+            augmenting.1.type_roots,
+        ));
     }
     if contains(source.data, b"module") {
         list.extend(augmentation_concerns(source, scan, augmenting));

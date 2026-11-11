@@ -53,8 +53,8 @@ A binding or a write in a global script still blocks. `tsc` 5.9.3 decided each c
 `tests/test_typescript_ambient_globals.py`. Known limit: a file that only uses `import.meta` or
 top-level `await` is a module for the compiler, and its `declare` still publishes here.
 
-**Not changed.** `window.fetch = ...` and `window` as a default parameter value keep their gap
-("Escaped or computed global host dependency"). The amendment above fixes Peter's `open` gap.
+**Not changed.** `window.fetch = ...` and `window` as a default parameter value keep their gap.
+**Note of 2026-11-11 (AD-354, #988):** a type root inside the project makes a `types` name a concern.
 
 **Check.** Each class has a test on a small project:
 - `types` absent, `[]`, one entry, several entries, `typeRoots` only: `Math`, `Date` and `document`
