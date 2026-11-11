@@ -1,4 +1,4 @@
-# AD-367 The Dart request is the Dart resolver of protocols 3, 8 and 9
+# AD-368 The Dart request is the Dart resolver of protocols 3, 8 and 9
 
 **Status.** Accepted. Epic #880, PR 8 slice 2. It follows AD-365 and keeps AD-334.
 

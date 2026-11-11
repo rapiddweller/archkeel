@@ -1,6 +1,6 @@
 # AD-365 The native Dart discovery equals the Python one and waits for a Dart request
 
-**Status.** Accepted. Epic #880, PR 8 slice 1. It follows AD-342. AD-367 adds the Dart request.
+**Status.** Accepted. Epic #880, PR 8 slice 1. It follows AD-342. AD-368 adds the Dart request.
 
 **Decision.**
 1. The crate `native/dart` (`archkeel-dart-collector`) holds the discovery of the native Dart

@@ -390,7 +390,7 @@
       ],
       "provenance": [
         "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md",
-        "docs/architecture/decisions/ad-367-the-dart-request-is-the-dart-resolver-of-protocols-3-8-and-9.md"
+        "docs/architecture/decisions/ad-368-the-dart-request-is-the-dart-resolver-of-protocols-3-8-and-9.md"
       ],
       "requires": [
         {
@@ -403,7 +403,7 @@
         },
         {
           "component": "wire",
-          "rationale": "Decode the Dart request with the shared wire (AD-367)."
+          "rationale": "Decode the Dart request with the shared wire (AD-368)."
         },
         {
           "component": "build",
