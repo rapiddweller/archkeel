@@ -72,7 +72,7 @@ pub type TypedEmit<'e, D> = &'e mut dyn FnMut(&archkeel_facts::Record<D>);
 /// Where the records of a section go: the compressed reply, or the lists of a test.
 pub trait SectionSink {
     /// Take the next section, with records of archkeel-facts. The data type decides the name of the
-    /// section (`IntoSection::SECTION`), and the types write the wire.
+    /// section (`IntoSection::section_name()`), and the types write the wire.
     fn typed_section<D: IntoSection>(
         &mut self,
         fill: &mut dyn FnMut(TypedEmit<'_, D>),

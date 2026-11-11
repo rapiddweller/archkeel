@@ -1,0 +1,1 @@
+{"schema_version": "2.2.0", "components": [{"id": "COMP-APP", "label": "app", "role": "component", "packages": ["synth.ns.src"], "public": ["synth.ns.src"], "responsibilities": ["Hold the namespace sample."], "forbidden_responsibilities": [], "provenance": ["docs/architecture/shop.md"], "requires": [], "decided_by": "architect"}], "rules": []}
