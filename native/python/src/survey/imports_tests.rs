@@ -128,6 +128,21 @@ fn a_guarded_or_nested_import_keeps_its_place() {
 }
 
 #[test]
+fn an_elif_type_checking_guards_only_its_own_body() {
+    let text = "import typing\nif x:\n    import a\nelif typing.TYPE_CHECKING:\n    import b\n\
+                else:\n    import c\n";
+    assert_eq!(
+        rows(&[("app/m.py", "app.m", text)]),
+        [
+            row("app.m", "a", None, "a", (false, true, false)),
+            row("app.m", "b", None, "b", (true, true, false)),
+            row("app.m", "c", None, "c", (false, true, false)),
+            row("app.m", "typing", None, "typing", (false, true, false)),
+        ]
+    );
+}
+
+#[test]
 fn a_literal_all_makes_a_unique_import_a_reexport() {
     let text = "from os import path, sep\n__all__ = ['path']\n";
     let found = rows(&[("app/m.py", "app.m", text)]);

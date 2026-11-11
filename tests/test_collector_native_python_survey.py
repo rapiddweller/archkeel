@@ -115,6 +115,10 @@ _EDGES = {
         "elif x:\n    import a.b\n"
         "else:\n    from .. import far\ndef f():\n    from m import *\nclass C:\n    import c\n"
     ),
+    "src/app/guard_elif.py": (
+        "import typing\nif x:\n    import a\nelif typing.TYPE_CHECKING:\n    import b\n"
+        "else:\n    import c\n"
+    ),
     "src/app/lines.py": "x = 'é'; import os  \t\r\nfrom a import (b,\r    c)\nimport d \x0c\n",
     "src/app/empty.py": "",
     "src/app/blank/__init__.py": "\n\nimport os\n",
