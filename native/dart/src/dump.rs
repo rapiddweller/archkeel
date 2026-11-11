@@ -2,9 +2,13 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! `--dump` (feature `dump`, test only, as AD-323 requires): run the discovery on a snapshot and print its sections as one JSON object, for
-//! `tools/dart_discovery_parity.py`. The time covers the discovery and the sections, not the
-//! start of the process and not the JSON output.
+//! `--dump` (feature `dump`, test only, as AD-323 requires): run the discovery and the parse on a
+//! snapshot and print the sections as one JSON object, for `tools/dart_discovery_parity.py`.
+//! The time covers the discovery, the parse and the sections, not the start of the process and
+//! not the JSON output.
+//!
+//! `--dump-syntax` reads one file path on each line of stdin and prints one JSON line for each:
+//! the syntax of the file and the time of its parse, for `tools/dart_syntax_parity.py`.
 
 use std::time::Instant;
 
@@ -12,6 +16,7 @@ use archkeel_snapshot::Snapshot;
 use serde_json::json;
 
 use crate::discover::{discover, scan_roots};
+use crate::parse::DartParser;
 use crate::records::sections;
 
 /// The JSON text of the sections, from `<snapshot-root> <namespace> <root>...`.
@@ -27,9 +32,15 @@ pub(crate) fn run(arguments: &[String]) -> Result<String, String> {
     // A snapshot root that is a link, missing or not a directory stops the collection.
     let result = Snapshot::open_root(root)
         .and_then(|mut snapshot| discover(&mut snapshot, namespace, &roots));
-    let result = result.map(|found| {
-        let built = sections(&found, &roots);
-        (found, built)
+    let result = result.and_then(|found| {
+        let mut parser = DartParser::new()?;
+        let syntax: Vec<_> = found
+            .sources
+            .iter()
+            .map(|source| parser.parse(&source.content))
+            .collect();
+        let built = sections(&found, &roots, &syntax);
+        Ok((found, built))
     });
     let nanos = started.elapsed().as_nanos();
     let value = match result {
@@ -49,6 +60,23 @@ pub(crate) fn run(arguments: &[String]) -> Result<String, String> {
         Err(error) => json!({"error": error, "nanos": nanos.to_string()}),
     };
     serde_json::to_string(&value).map_err(|error| error.to_string())
+}
+
+/// The JSON lines of `--dump-syntax`: one line for each path of `paths`.
+pub(crate) fn syntax(paths: &str) -> Result<String, String> {
+    let mut parser = DartParser::new()?;
+    let mut lines = String::new();
+    for path in paths.lines().filter(|line| !line.is_empty()) {
+        let content =
+            std::fs::read(path).map_err(|error| format!("cannot read {path}: {error}"))?;
+        let started = Instant::now();
+        let parsed = parser.parse(&content);
+        let nanos = started.elapsed().as_nanos();
+        let value = json!({"syntax": parsed, "nanos": nanos.to_string()});
+        lines.push_str(&serde_json::to_string(&value).map_err(|error| error.to_string())?);
+        lines.push('\n');
+    }
+    Ok(lines)
 }
 
 #[cfg(test)]

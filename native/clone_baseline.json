@@ -37,14 +37,6 @@
     "reason": "Field lists of neighbouring contract types have one shape, as the Python dataclasses do. No logic repeats.",
     "tokens": 82
   },
-  "dart/src/pytext.rs|typescript/src/script_vendor.rs|e45d14a30a": {
-    "files": [
-      "dart/src/pytext.rs",
-      "typescript/src/script_vendor.rs"
-    ],
-    "reason": "Both collectors must split a text where Python str.splitlines splits. A collector crate never uses another collector crate (AD-327), and no shared crate owns Python text rules yet.",
-    "tokens": 104
-  },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
       "facts/src/data/imports.rs"

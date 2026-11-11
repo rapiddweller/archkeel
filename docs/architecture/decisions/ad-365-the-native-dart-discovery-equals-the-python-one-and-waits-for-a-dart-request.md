@@ -41,7 +41,7 @@ syntax error needs the parse.
 error and a source with no unique owner. The parity tool counts these as deferred. The text of
 an OS read error differs from the Python text. A name that is not UTF-8 gives a `SnapshotError`
 gap where Python gives `DartModuleError`. On Windows, `std` has no stable inode, so the check
-after the open only requires a regular file.
+after the open only requires a regular file; AD-369 names this as a gap.
 
 **Measured (2026-11-11, median of 3 interleaved runs, load average about 30).** Equal on every
 fixture, demo variant, the private app and the bench corpora. Discovery time, Rust (with the

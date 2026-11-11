@@ -5,7 +5,7 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 Run `make self-validate-native` to check it.
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
+The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
@@ -25,9 +25,10 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). The core does not call it yet. | `archkeel-model` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run; the host uses it for no verdict (AD-363). | `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
-| `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
-| `archkeel-dart-collector` | Reads Dart source. It holds the discovery (AD-365) and decodes the Dart request (AD-368); it writes no reply before slice 5 of #880. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
-| `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
+| `archkeel-pytext` | The text rules of Python `str` that more than one collector repeats, such as `str.splitlines` (AD-327). | no crate of the workspace |
+| `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse; only the Dart collector uses it (`deny.toml`). | no crate of the workspace |
+| `archkeel-dart-collector` | Reads Dart source. It holds the discovery (AD-365), decodes the Dart request (AD-368) and parses each file without the sites (AD-369); it writes no reply before slice 5 of #880. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
+| `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-build-support` |
 | `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1b: the parse only. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
@@ -77,6 +78,8 @@ part that is not ported answers with the slice that ports it, never with an empt
 ```mermaid
 flowchart LR
     n_41["report"]
+    n_42["dart-parse"]
+    n_43["pytext"]
     n_41 --> n_5
     n_0["build"]
     n_1["contract"]
@@ -255,4 +258,14 @@ flowchart LR
     n_40 --> n_30
     n_40 --> n_0
     n_40 --> n_39
+    n_32 --> n_43
+    n_42 --> n_3
+    n_42 --> n_32
+    n_34 --> n_43
+    n_34 --> n_42
+    n_35 --> n_42
+    n_36 --> n_43
+    n_36 --> n_3
+    n_25 --> n_43
+    n_19 --> n_43
 ```

@@ -1,17 +1,21 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare the discovery of the native Dart collector with the Python Dart collector (#880).
+"""Compare the discovery and parse sections of the native Dart collector with Python (#880).
 
-Slice 1 of PR 8: the native collector selects and reads the sources and builds the sections that
-the discovery decides. The tool runs `archkeel-dart-collector --dump` and the Python `collect`
-on each corpus, and compares these reply sections: the inputs, the source listing, the selected
-files, the file facts, the gaps of the snapshot problems and their evidence.
+Slices 1 and 3a of PR 8: the native collector selects, reads and parses the sources and builds
+the sections that they decide. The tool runs `archkeel-dart-collector --dump` and the Python
+`collect` on each corpus, and compares these reply sections: the inputs, the source listing,
+the selected files, the file facts, the gaps of the snapshot problems, the gaps of the parse
+(`_prepare_sources`) and their evidence.
 
-The native collector has no parse yet, so it gives a file fact for each source. The Python
-collector drops the file fact of a source with a syntax error, of a part with no owner and of a
-`part of` file, whose facts belong to its library. Such a fact is "deferred" to the parse slices:
-it must belong to a file with a Python gap of the parse or the parts, or to a `part of` file.
+The Python collector also drops the file fact of a part with no owner and of a `part of` file,
+whose facts belong to its library. Such a fact is "deferred" to slices 4a and 4b: it must
+belong to a file with a Python `PartError` gap, or to a `part of` file.
+
+`--discovery-only` does not run the Python parse, which is slow on a large corpus. Then a native
+parse gap and the missing file fact of a source with a native `SyntaxError` gap are counted as
+"checked per file": `tools/dart_syntax_parity.py` compares the parse of each file.
 
 The output gives counts only, never a file name, so a private corpus stays private.
 
@@ -31,6 +35,7 @@ import sys
 import tempfile
 import time
 import tomllib
+import unicodedata
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,7 +44,8 @@ from archkeel.analyzer.dart.collect import _Collection, _file_span, collect
 from archkeel.analyzer.dart.parse import parse
 from archkeel.analyzer.dart.resolve import Resolver
 from archkeel.analyzer.dart.snapshot import SnapshotError, SnapshotProblemKind, read_snapshot
-from archkeel.analyzer.dart.syntax import DirectiveKind
+from archkeel.analyzer.dart.syntax import ConcernKind, DirectiveKind, Syntax
+from archkeel.ir.facts import stable_id
 from archkeel.ir.facts_codec import encode_response
 from archkeel.ir.protocol import (
     CollectionRequest,
@@ -56,8 +62,13 @@ BINARY = "archkeel-dart-collector"
 FIXTURES = ("G-dart", "H-uml-dart", "I-flutter-shop", "J-compass")
 # The gaps that the discovery decides: the kinds of `snapshot.SnapshotProblemKind`.
 SNAPSHOT_KINDS = frozenset(kind.value for kind in SnapshotProblemKind)
-# The Python gaps that remove a file fact, which the parse slices of #880 add.
-DEFERRED_KINDS = frozenset({"SyntaxError", "PartError"})
+# The Python gaps that remove a file fact, which slices 4a and 4b of #880 add.
+DEFERRED_KINDS = frozenset({"PartError"})
+# The gap kinds that `_prepare_sources` writes for the concerns of a parse.
+PARSE_KINDS = frozenset(
+    {"SyntaxError", "DirectiveError", "UnsupportedDeclaration"}
+    | {kind.value for kind in ConcernKind}
+)
 JsonObject = dict[str, object]
 
 
@@ -79,8 +90,11 @@ class Result:
     files: int = 0
     equal_files: int = 0
     deferred: int = 0
+    per_file: int = 0
     gaps: int = 0
     equal_gaps: int = 0
+    parse_gaps: int = 0
+    equal_parse_gaps: int = 0
     rust_nanos: int = 0
     python_nanos: int = 0
     problems: list[str] = field(default_factory=list)
@@ -111,8 +125,29 @@ def request(corpus: Corpus) -> CollectionRequest:
     return collection_request(snapshot, SourceScope(corpus.roots, corpus.namespace), DartSettings())
 
 
-def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[str], JsonObject]:
-    """The Python reply facts as JSON or the error text, the discovery time and the parts.
+def parse_gap_ids(rel: str, syntax: Syntax) -> list[str]:
+    """The ids of the gaps that `_Collection._prepare_sources` writes for one parse."""
+    ids = []
+    if syntax.first_error is not None:
+        message = "syntax errors prevent complete source facts"
+        ids.append(stable_id("COVERAGE", rel, syntax.first_error.line, "SyntaxError", message))
+    kinds = {
+        ConcernKind.UNSUPPORTED_DIRECTIVE: "DirectiveError",
+        ConcernKind.UNSUPPORTED_DECLARATION: "UnsupportedDeclaration",
+    }
+    for concern in syntax.concerns:
+        if concern.kind == ConcernKind.SYNTAX_ERROR and syntax.first_error is not None:
+            continue
+        kind = kinds.get(concern.kind, concern.kind.value)
+        ids.append(stable_id("COVERAGE", rel, concern.span.line, kind, concern.message))
+    return ids
+
+
+def python(
+    corpus: Corpus, *, full: bool
+) -> tuple[JsonObject | str, int, tuple[set[str], set[str]], JsonObject]:
+    """The Python reply facts as JSON or the error text, the discovery time, the parts and the
+    ids of the parse gaps.
 
     `full` runs the whole Python collection. Otherwise the Python records code runs without
     the parse, which takes most of the time on a large corpus: each source counts as a parsed
@@ -122,7 +157,7 @@ def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[st
     try:
         snapshot = read_snapshot(request(corpus))
     except SnapshotError as error:
-        return str(error), time.perf_counter_ns() - started, set(), {}
+        return str(error), time.perf_counter_ns() - started, (set(), set()), {}
     nanos = time.perf_counter_ns() - started
     package: JsonObject = {
         "package_name": snapshot.package_name,
@@ -130,10 +165,12 @@ def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[st
         "sdk_state": snapshot.sdk_constraint_state.value,
     }
     parts: set[str] = set()
+    parse_ids: set[str] = set()
     if full:
         for source in snapshot.sources:
-            directives = parse(source.content).directives
-            if any(item.kind == DirectiveKind.PART_OF for item in directives):
+            syntax = parse(source.content)
+            parse_ids.update(parse_gap_ids(source.rel_path, syntax))
+            if any(item.kind == DirectiveKind.PART_OF for item in syntax.directives):
                 parts.add(source.rel_path)
         facts_value = collect(request(corpus))
     else:
@@ -145,7 +182,7 @@ def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[st
         facts_value = collection._source_facts()
     payload = json.loads(encode_response(CollectionResponse(facts_value)))
     facts: JsonObject = payload["facts"]
-    return facts, nanos, parts, package
+    return facts, nanos, (parts, parse_ids), package
 
 
 def by(items: object, key: str) -> dict[str, JsonObject]:
@@ -155,7 +192,7 @@ def by(items: object, key: str) -> dict[str, JsonObject]:
 
 def compare(corpus: Corpus, binary: Path, result: Result, *, full: bool = True) -> None:
     rust = native(binary, corpus)
-    reference, nanos, parts, package = python(corpus, full=full)
+    reference, nanos, parsed, package = python(corpus, full=full)
     result.rust_nanos += int(str(rust["nanos"]))
     result.python_nanos += nanos
     if isinstance(reference, str) or "error" in rust:
@@ -177,7 +214,7 @@ def compare(corpus: Corpus, binary: Path, result: Result, *, full: bool = True) 
     ):
         if rust[key] != expected:
             result.problems.append(f"{key} differs")
-    compare_files(rust, reference, (coverage["gaps"], parts), result)
+    compare_files(rust, reference, (coverage["gaps"], parsed, full), result)
 
 
 def same_error(rust: object, python: object) -> bool:
@@ -189,16 +226,31 @@ def same_error(rust: object, python: object) -> bool:
 
 
 def compare_files(
-    rust: JsonObject, reference: JsonObject, removed: tuple[object, set[str]], result: Result
+    rust: JsonObject,
+    reference: JsonObject,
+    removed: tuple[object, tuple[set[str], set[str]], bool],
+    result: Result,
 ) -> None:
-    gaps, parts = removed
+    gaps, (parts, parse_ids), full = removed
     python_gaps = by(gaps, "id")
     snapshot_gaps = {key: gap for key, gap in python_gaps.items() if gap["kind"] in SNAPSHOT_KINDS}
+    parse_gaps = {key: python_gaps[key] for key in parse_ids if key in python_gaps}
+    if len(parse_gaps) != len(parse_ids):
+        result.problems.append("a parse gap is not in the Python reply")
     rust_gaps = by(rust["gaps"], "id")
     result.gaps += len(snapshot_gaps)
     result.equal_gaps += sum(rust_gaps.get(key) == gap for key, gap in snapshot_gaps.items())
-    if set(rust_gaps) != set(snapshot_gaps):
-        result.problems.append("the set of snapshot gaps differs")
+    result.parse_gaps += len(parse_gaps)
+    result.equal_parse_gaps += sum(rust_gaps.get(key) == gap for key, gap in parse_gaps.items())
+    extra = {key: gap for key, gap in rust_gaps.items() if key not in snapshot_gaps}
+    if full and set(extra) != set(parse_gaps):
+        result.problems.append("the set of parse gaps differs")
+    if not full:
+        result.per_file += len(extra)
+        if any(gap["kind"] not in PARSE_KINDS for gap in extra.values()):
+            result.problems.append("a native gap is neither a snapshot nor a parse gap")
+    if not set(snapshot_gaps) <= set(rust_gaps):
+        result.problems.append("a snapshot gap is missing")
     deferred_paths = parts | {
         str(gap["data"]["file"])  # type: ignore[index]
         for gap in python_gaps.values()
@@ -208,8 +260,11 @@ def compare_files(
     rust_files = by(rust["files"], "rel_path")
     python_evidence = by(reference["evidence"], "id")
     rust_evidence = by(rust["evidence"], "id")
-    cited = [str(item["evidence_id"]) for item in python_files.values()]
-    cited += [str(key) for gap in snapshot_gaps.values() for key in gap["evidence_ids"]]  # type: ignore[attr-defined]
+    cited = [
+        str(item["evidence_id"]) for item in python_files.values() if item["rel_path"] in rust_files
+    ]
+    for gap in [*snapshot_gaps.values(), *parse_gaps.values()]:
+        cited += [str(key) for key in gap["evidence_ids"]]  # type: ignore[attr-defined]
     if any(python_evidence[key] != rust_evidence.get(key) for key in cited):
         result.problems.append("the evidence of a file or a gap differs")
     for path, fact in rust_files.items():
@@ -220,8 +275,16 @@ def compare_files(
             result.deferred += 1
         else:
             result.problems.append("a file fact is not in the Python reply and is not deferred")
-    if set(python_files) - set(rust_files):
+    syntax_paths = {
+        str(gap["data"]["file"])  # type: ignore[index]
+        for gap in extra.values()
+        if gap["kind"] == "SyntaxError"
+    }
+    missing = set(python_files) - set(rust_files)
+    if full and missing:
         result.problems.append("a Python file fact is missing")
+    if not full and missing - syntax_paths:
+        result.problems.append("a Python file fact is missing and native has no SyntaxError gap")
 
 
 def configured(name: str, root: Path) -> Corpus:
@@ -280,8 +343,10 @@ def run(binary: Path, demos: bool, items: Sequence[str], *, full: bool = True) -
 def report(result: Result) -> str:
     return (
         f"{result.name}: files {result.equal_files}/{result.files} equal "
-        f"({result.deferred} deferred to the parse), snapshot gaps "
-        f"{result.equal_gaps}/{result.gaps} equal; discovery Rust "
+        f"({result.deferred} deferred to slices 4a and 4b), snapshot gaps "
+        f"{result.equal_gaps}/{result.gaps} equal, parse gaps "
+        f"{result.equal_parse_gaps}/{result.parse_gaps} equal"
+        f"{f' ({result.per_file} checked per file)' if result.per_file else ''}; Rust "
         f"{result.rust_nanos / 1e6:.1f} ms, Python {result.python_nanos / 1e6:.1f} ms"
         + "".join(f"\n  problem: {problem}" for problem in sorted(set(result.problems)))
     )
@@ -294,9 +359,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments.add_argument(
         "--discovery-only",
         action="store_true",
-        help="stop the Python collection after the discovery (fast on a large corpus)",
+        help="no Python parse (fast on a large corpus); the parse is checked per file",
     )
     options = arguments.parse_args(argv)
+    if (sys.version_info[:2], unicodedata.unidata_version) != ((3, 11), "14.0.0"):
+        print("the oracle is Python 3.11 with Unicode 14.0.0 (L-27)", file=sys.stderr)
+        return 2
+    print(f"oracle: Python {sys.version.split()[0]}, Unicode {unicodedata.unidata_version}")
     results = run(build(), options.demos, options.corpus, full=not options.discovery_only)
     for result in results:
         print(report(result))

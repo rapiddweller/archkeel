@@ -260,6 +260,24 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PYTEXT",
+      "label": "pytext",
+      "role": "component",
+      "packages": [
+        "native.archkeel_pytext"
+      ],
+      "responsibilities": [
+        "The text rules of Python str that more than one collector must repeat, such as str.splitlines."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a snapshot, parsing source, building facts and using a collector crate."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-DART-GRAMMAR",
       "label": "dart-grammar",
       "role": "component",
@@ -284,18 +302,27 @@
       "packages": [
         "native.archkeel_dart_collector.pytext",
         "native.archkeel_dart_collector.module",
-        "native.archkeel_dart_collector.pubspec"
+        "native.archkeel_dart_collector.pubspec",
+        "native.archkeel_dart_collector.dartstr",
+        "native.archkeel_dart_collector.unicode_tables"
       ],
       "responsibilities": [
-        "The text rules of the Dart collector: the Python str rules that it must equal, the module name of a path and the decode of pubspec.yaml."
+        "The text rules of the Dart collector: the Python str rules that it must equal, the module name of a path, the decode of pubspec.yaml and the byte rules of Dart strings and comments, and the Unicode tables of the oracle Python 3.11 (L-27)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot and building facts."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md",
+        "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "pytext",
+          "rationale": "Split a text into lines where Python str.splitlines splits."
+        }
+      ]
     },
     {
       "id": "COMP-NATIVE-DART-DISCOVER",
@@ -330,6 +357,40 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-DART-PARSE",
+      "label": "dart-parse",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_collector.syntax",
+        "native.archkeel_dart_collector.tree",
+        "native.archkeel_dart_collector.parameters",
+        "native.archkeel_dart_collector.members",
+        "native.archkeel_dart_collector.definitions",
+        "native.archkeel_dart_collector.directives",
+        "native.archkeel_dart_collector.parse"
+      ],
+      "responsibilities": [
+        "Parse one Dart source with the vendored grammar into its syntax, as analyzer/dart/parse.py does: the definitions, the directives, the concerns, the first error and the language version (AD-369)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, resolving a name or a URI, and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md"
+      ],
+      "requires": [
+        {
+          "component": "dart-grammar",
+          "rationale": "Load the vendored Dart grammar that the Python collector also loads (AD-342)."
+        },
+        {
+          "component": "dart-text",
+          "rationale": "Use the Python str rules and the byte rules of Dart strings and comments."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-DART-RECORDS",
       "label": "dart-records",
       "role": "component",
@@ -337,13 +398,14 @@
         "native.archkeel_dart_collector.records"
       ],
       "responsibilities": [
-        "Build the reply sections that the discovery decides: the inputs, the source listing, the file facts, the gaps of the problems and their evidence."
+        "Build the reply sections that the discovery and the parse decide: the inputs, the source listing, the file facts, the gaps of the problems and of the parse, and their evidence."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot and parsing source."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md",
+        "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md"
       ],
       "requires": [
         {
@@ -357,6 +419,14 @@
         {
           "component": "dart-text",
           "rationale": "Split and strip a text as Python does."
+        },
+        {
+          "component": "pytext",
+          "rationale": "Split a text into lines where Python str.splitlines splits."
+        },
+        {
+          "component": "dart-parse",
+          "rationale": "Read the first error and the concerns of each parse."
         }
       ],
       "decided_by": "architect"
@@ -369,7 +439,7 @@
         "native.archkeel_dart_collector.dump"
       ],
       "responsibilities": [
-        "The development dump of the discovery sections as JSON, for the parity tool, until the protocol has a Dart request."
+        "The development dump of the discovery sections and of the syntax of each file as JSON, for the parity tools, until slice 5 writes a reply."
       ],
       "forbidden_responsibilities": [
         "Holding a rule of the discovery or of a record."
@@ -393,6 +463,10 @@
         {
           "component": "dart-records",
           "rationale": "Build the sections."
+        },
+        {
+          "component": "dart-parse",
+          "rationale": "Parse each source for the sections and for the syntax dump."
         }
       ],
       "decided_by": "architect"
@@ -437,6 +511,14 @@
         {
           "component": "dart-dump",
           "rationale": "Run the dump."
+        },
+        {
+          "component": "pytext",
+          "rationale": "The manifest declares the shared Python text rules."
+        },
+        {
+          "component": "dart-grammar",
+          "rationale": "The manifest declares the vendored Dart grammar."
         }
       ],
       "decided_by": "architect"
@@ -884,6 +966,10 @@
         {
           "component": "ts-records",
           "rationale": "Read what each file kept and write the records that the later passes read."
+        },
+        {
+          "component": "pytext",
+          "rationale": "Split a provenance file into lines where Python str.splitlines splits."
         }
       ],
       "provenance": [
@@ -1054,6 +1140,10 @@
         {
           "component": "ts-dump",
           "rationale": "Dump the facts of one file for development."
+        },
+        {
+          "component": "pytext",
+          "rationale": "The manifest declares the shared Python text rules."
         }
       ],
       "decided_by": "architect"
@@ -1593,11 +1683,19 @@
         "native.archkeel_typescript_collector.jsdoc",
         "native.archkeel_typescript_collector.umd_publication",
         "native.archkeel_typescript_collector.cargo_toml",
-        "native.archkeel_typescript_collector.places"
+        "native.archkeel_typescript_collector.places",
+        "native.archkeel_dart_collector.tree",
+        "native.archkeel_dart_collector.parameters",
+        "native.archkeel_dart_collector.members",
+        "native.archkeel_dart_collector.definitions",
+        "native.archkeel_dart_collector.directives",
+        "native.archkeel_dart_collector.parse",
+        "native.archkeel_dart_collector.cargo_toml"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [
-        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md"
       ],
       "decided_by": "architect"
     },

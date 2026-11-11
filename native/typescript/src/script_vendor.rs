@@ -9,6 +9,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::identity::sha256_hex;
+use archkeel_pytext::splitlines;
 use archkeel_snapshot::Snapshot;
 
 use crate::options::Options;
@@ -36,42 +37,6 @@ pub struct Setting<'a> {
     pub environment: &'a ScriptEnvironment,
     pub options: &'a Options,
     pub partial: bool,
-}
-
-/// `str.splitlines` for the separators that a provenance file can hold.
-fn split_lines(text: &str) -> Vec<&str> {
-    let mut lines = Vec::new();
-    let mut start = 0;
-    let mut chars = text.char_indices().peekable();
-    while let Some((at, c)) = chars.next() {
-        let breaks = matches!(
-            c,
-            '\n' | '\r'
-                | '\u{b}'
-                | '\u{c}'
-                | '\u{1c}'
-                | '\u{1d}'
-                | '\u{1e}'
-                | '\u{85}'
-                | '\u{2028}'
-                | '\u{2029}'
-        );
-        if !breaks {
-            continue;
-        }
-        lines.push(text.get(start..at).unwrap_or(""));
-        let crlf = c == '\r' && chars.peek().is_some_and(|(_, next)| *next == '\n');
-        if crlf {
-            chars.next();
-        }
-        start = at
-            .saturating_add(c.len_utf8())
-            .saturating_add(usize::from(crlf));
-    }
-    if start < text.len() {
-        lines.push(text.get(start..).unwrap_or(""));
-    }
-    lines
 }
 
 /// `[a-z0-9][a-z0-9._-]*`.
@@ -170,7 +135,7 @@ fn provider(
     let provenance = snapshot.read(&declared.provenance)?;
     let raw = decode(&provenance);
     let text = raw.trim_start_matches('\u{feff}');
-    let lines = split_lines(text);
+    let lines = splitlines(text);
     let counted = text
         .split('\n')
         .filter(|line| line.starts_with("Bundle SHA-256:"))

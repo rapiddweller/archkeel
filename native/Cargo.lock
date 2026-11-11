@@ -53,10 +53,14 @@ name = "archkeel-dart-collector"
 version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
+ "archkeel-dart-grammar",
  "archkeel-facts",
+ "archkeel-pytext",
  "archkeel-snapshot",
  "archkeel-wire",
+ "serde",
  "serde_json",
+ "tree-sitter",
 ]
 
 [[package]]
@@ -99,6 +103,10 @@ dependencies = [
  "archkeel-facts",
  "archkeel-store",
 ]
+
+[[package]]
+name = "archkeel-pytext"
+version = "0.0.0"
 
 [[package]]
 name = "archkeel-python-collector"
@@ -159,6 +167,7 @@ version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
  "archkeel-facts",
+ "archkeel-pytext",
  "archkeel-snapshot",
  "archkeel-wire",
  "serde_json",

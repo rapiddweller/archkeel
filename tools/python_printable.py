@@ -54,7 +54,7 @@ def source() -> str:
         "/// Sorted, inclusive and disjoint ranges in hexadecimal: `low-high`, separated by spaces.\n"
         "#[rustfmt::skip]\n"
         'pub(crate) const HIDDEN: &str = "\\\n'
-        f"{body}\";\n"
+        f'{body}";\n'
     )
 
 
