@@ -10,7 +10,8 @@
    rule, whatever its binding. A call in a class body has no path facts, so a guarded effect there
    gives UNKNOWN.
 3. Python collector: a bare decorator (`@d`, not `@d(...)`) that a function encloses is the call
-   `d(g)`. The collector records it as a call at the place of the decorator.
+   `d(g)`. The collector records it as an unresolved call at the place of the decorator: its
+   evidence shows no call, so the replay check cannot bind it.
 
 **Problem.** Each form gave PASS with no gap. The extern crate compiles only through a link that a
 `build.rs` prints, which the collector does not read. A class-body call had no binding and no path
