@@ -142,6 +142,23 @@ CASES = {
         "src/a/a.d.ts": AUGMENT.replace("NAME", "@b/t"),
     },
 }
+# A chain of aliases of the global object is a use of the global object (#1007).
+CHAINS = (
+    "window.window",
+    "self.window",
+    "globalThis.window",
+    "window.self",
+    "window.globalThis",
+    "top.window",
+    "parent.top",
+    "frames.self.window",
+)
+CASES.update(
+    {
+        f"alias-chain-{chain}": {"src/a/a.js": f"{chain}.x();\n", "src/b/b.js": "window.x = 1;\n"}
+        for chain in CHAINS
+    }
+)
 HONEST = ("honest", "bare-augmentation-without-aliases")
 
 
