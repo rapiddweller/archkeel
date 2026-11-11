@@ -16,7 +16,7 @@
     "members": 8
   },
   "archkeel-facts": {
-    "items": 236,
+    "items": 238,
     "members": 564
   },
   "archkeel-model": {
@@ -32,8 +32,8 @@
     "members": 288
   },
   "archkeel-snapshot": {
-    "items": 31,
-    "members": 9
+    "items": 34,
+    "members": 12
   },
   "archkeel-store": {
     "items": 5,

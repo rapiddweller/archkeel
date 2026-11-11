@@ -22,6 +22,8 @@ archkeel-wire.workspace = true
 ruff_python_ast.workspace = true
 ruff_python_parser.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
 
 [build-dependencies]
 archkeel-build-support.workspace = true

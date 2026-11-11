@@ -9,12 +9,10 @@
 //! the same text. A record is the Python `Record` that `facts_codec.parse_record` builds: its data
 //! keys are sorted, a list is a tuple and an object is a `RecordData`.
 
-use std::sync::OnceLock;
-
+use archkeel_facts::pyrepr::string;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
-use crate::printable::HIDDEN;
 use crate::pyjson::scalar;
 
 /// The fields of a record in the order of the Python dataclass.
@@ -30,66 +28,6 @@ const RECORD_FIELDS: [&str; 10] = [
     "fact_ids",
     "provenance",
 ];
-
-/// The ranges of `printable::HIDDEN`, parsed once. A malformed range is skipped; the test of the
-/// table checks that every range parses.
-fn ranges() -> &'static [(u32, u32)] {
-    static RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
-    RANGES.get_or_init(|| {
-        HIDDEN
-            .split_whitespace()
-            .filter_map(|range| {
-                let (low, high) = range.split_once('-')?;
-                Some((
-                    u32::from_str_radix(low, 16).ok()?,
-                    u32::from_str_radix(high, 16).ok()?,
-                ))
-            })
-            .collect()
-    })
-}
-
-fn hidden(point: u32) -> bool {
-    ranges()
-        .binary_search_by(|&(low, high)| {
-            if high < point {
-                std::cmp::Ordering::Less
-            } else if low > point {
-                std::cmp::Ordering::Greater
-            } else {
-                std::cmp::Ordering::Equal
-            }
-        })
-        .is_ok()
-}
-
-/// `repr(text)` of CPython: the quote, the escapes and the printable test of `unicode_repr`.
-pub(crate) fn string(text: &str, out: &mut String) {
-    let quote = if text.contains('\'') && !text.contains('"') {
-        '"'
-    } else {
-        '\''
-    };
-    out.push(quote);
-    for c in text.chars() {
-        let point = u32::from(c);
-        match c {
-            _ if c == quote || c == '\\' => {
-                out.push('\\');
-                out.push(c);
-            }
-            '\t' => out.push_str("\\t"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            _ if point < 0x20 || point == 0x7F => out.push_str(&format!("\\x{point:02x}")),
-            _ if point < 0x80 || !hidden(point) => out.push(c),
-            _ if point <= 0xFF => out.push_str(&format!("\\x{point:02x}")),
-            _ if point <= 0xFFFF => out.push_str(&format!("\\u{point:04x}")),
-            _ => out.push_str(&format!("\\U{point:08x}")),
-        }
-    }
-    out.push(quote);
-}
 
 /// `repr` of a tuple of already written items.
 fn tuple(items: &[String], out: &mut String) {

@@ -11,6 +11,7 @@ PR_TEST_FILES := \
 	tests/test_collector_native_python_interpreter.py \
 	tests/test_collector_native_python_parse.py \
 	tests/test_collector_native_python_hostile.py \
+	tests/test_collector_native_python_scope.py \
 	tests/test_rust_clones.py \
 	tests/test_rust_api.py \
 	tests/test_rust_source.py \

@@ -23,6 +23,18 @@ const SYMLINK: &str = "Resolver symlink outside snapshot";
 /// UI corpus has 92 KB, so a larger file is generated or hostile, and its gap names it.
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
+/// A directory entry that a collector cannot read soundly (`Snapshot::hidden_entries`).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Hidden {
+    /// A symlink whose target does not exist.
+    Dangling(String),
+    /// A name that is not UTF-8, written with replacement characters.
+    NotUtf8 { name: String, directory: bool },
+    /// An entry inside the snapshot that is neither a file nor a directory: a FIFO, a socket or a
+    /// device. A read of it can block, so no collector reads it.
+    Special(String),
+}
+
 pub struct Snapshot {
     root: PathBuf,
     // The directories above the root, which the format lookup must also cover.
@@ -212,6 +224,34 @@ impl Snapshot {
         (files, directories)
     }
 
+    /// The entries of a directory that `entries` leaves out because they cannot be read soundly:
+    /// a symlink whose target does not exist, a name that is not UTF-8, and an entry that is
+    /// neither a file nor a directory. Sorted by name.
+    pub fn hidden_entries(&mut self, rel: &str) -> Vec<Hidden> {
+        let Some(real) = self.real(rel) else {
+            return Vec::new();
+        };
+        let Ok(listing) = fs::read_dir(self.absolute(&real)) else {
+            return Vec::new();
+        };
+        let mut found = Vec::new();
+        for entry in listing.flatten() {
+            let item = hidden(&entry).or_else(|| self.special(rel, &entry));
+            found.extend(item);
+        }
+        found.sort();
+        found
+    }
+
+    /// The entry as `Hidden::Special` when it resolves inside the snapshot to an entry that is
+    /// neither a file nor a directory.
+    fn special(&mut self, rel: &str, entry: &fs::DirEntry) -> Option<Hidden> {
+        let name = entry.file_name().into_string().ok()?;
+        let real = self.real(&join(rel, &name))?;
+        let kind = fs::metadata(self.absolute(&real)).ok()?;
+        (!kind.is_file() && !kind.is_dir()).then_some(Hidden::Special(name))
+    }
+
     /// The digested inputs, sorted by path.
     pub fn inputs(&self) -> Vec<Input> {
         self.inputs
@@ -222,6 +262,22 @@ impl Snapshot {
                 role: *role,
             })
             .collect()
+    }
+}
+
+/// The entry as a dangling link or a name that is not UTF-8, or `None`.
+fn hidden(entry: &fs::DirEntry) -> Option<Hidden> {
+    let path = entry.path();
+    let resolved = fs::metadata(&path);
+    match entry.file_name().into_string() {
+        Err(raw) => Some(Hidden::NotUtf8 {
+            name: raw.to_string_lossy().into_owned(),
+            directory: resolved.is_ok_and(|found| found.is_dir()),
+        }),
+        Ok(name) => {
+            let link = entry.file_type().is_ok_and(|kind| kind.is_symlink());
+            (link && resolved.is_err()).then_some(Hidden::Dangling(name))
+        }
     }
 }
 

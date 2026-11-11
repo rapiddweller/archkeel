@@ -1521,6 +1521,64 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PY-SCOPE",
+      "label": "py-scope",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.discover",
+        "native.archkeel_python_collector.names"
+      ],
+      "responsibilities": [
+        "The scope of a Python scan as the Python collector finds it: the selected files with the rules of Path.rglob, the test sources, the module names and the modules that a package shadows (AD-334)."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source and building records."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-INPUTS",
+      "label": "py-inputs",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.inputs",
+        "native.archkeel_python_collector.requirement"
+      ],
+      "responsibilities": [
+        "The digested inputs of a survey, its source digest and the Python requirement of pyproject.toml, as the Python collector gives them (AD-334)."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing Python source and naming modules."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-PY-DUMP",
       "label": "py-dump",
       "role": "component",
@@ -1548,6 +1606,18 @@
         {
           "component": "py-parse",
           "rationale": "Parse a file."
+        },
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "py-scope",
+          "rationale": "Print the scope of a request."
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Print the inputs and the requirement of a request."
         }
       ],
       "decided_by": "architect"

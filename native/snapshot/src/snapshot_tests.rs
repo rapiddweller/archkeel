@@ -91,3 +91,29 @@ fn a_file_over_the_size_limit_is_refused_once_and_then_at_once() {
     assert!(snapshot.size_gap("src/over.ts").is_some());
     assert!(snapshot.readable("src/ok.ts") && snapshot.readable("src/ok.ts"));
 }
+
+#[cfg(unix)]
+#[test]
+fn a_symlink_is_known_as_a_link_and_its_target_is_not() {
+    let tree = Tree::new(&[("src/pkg/a.py", "")]);
+    std::os::unix::fs::symlink("pkg", std::path::Path::new(&tree.path()).join("src/link")).unwrap();
+    let snapshot = Snapshot::new(&tree.path());
+    assert!(snapshot.is_link("src/link"));
+    assert!(!snapshot.is_link("src/pkg"));
+    assert!(!snapshot.is_link("../src"));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_dangling_link_is_a_hidden_entry_and_a_good_link_is_not() {
+    let tree = Tree::new(&[("src/a.py", "")]);
+    let src = std::path::Path::new(&tree.path()).join("src");
+    std::os::unix::fs::symlink("missing.py", src.join("dangling.py")).unwrap();
+    std::os::unix::fs::symlink("a.py", src.join("good.py")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert_eq!(
+        snapshot.hidden_entries("src"),
+        [Hidden::Dangling("dangling.py".to_owned())]
+    );
+    assert_eq!(snapshot.entries("src").0, ["a.py", "good.py"]);
+}
