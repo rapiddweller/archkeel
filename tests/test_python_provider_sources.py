@@ -162,7 +162,7 @@ def test_provider_capture_never_parses_project_ast_in_the_parent(tmp_path, monke
 
     with monkeypatch.context() as traps:
         traps.setattr(ast, "parse", parent_parser_trap)
-        traps.setattr(collect_owner, "parse_sources", parent_parser_trap)
+        traps.setattr(collect_owner, "parse_unshadowed", parent_parser_trap)
         traps.setattr(collect_owner, "provider_sources", parent_parser_trap)
         result = PythonProviderCollector(
             ProcessCollector((sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry"))

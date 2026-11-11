@@ -89,20 +89,19 @@ def test_class_inventory_does_not_borrow_another_module_global(tmp_path: Path, c
         if item.kind == "class" and evidence[item.evidence_ids[0]].file == "sample/m/__init__.py"
     ]
     inventories = thaw_data(empty.data)["member_inventories"]
-    assert [item["status"] for item in inventories] == (
-        ["partial", "partial"] if class_name == "C" else ["complete", "complete"]
-    )
+    # The import system never loads sample/m.py beside sample/m/__init__.py (#797), so the
+    # package class owns its empty inventory, and the shadowed file is an UNKNOWN gap.
+    assert [item["status"] for item in inventories] == ["complete", "complete"]
     assert all(item["definition_ids"] == [] for item in inventories)
     assert empty.data.get("source_binding_unique") is True
     assert empty.data.get("source_member_binding_static") is True
-    assert [item["reason"] for item in inventories] == (
-        [
-            f"{kind} declaration ownership or collection is incomplete"
-            for kind in ("attribute", "method")
-        ]
-        if class_name == "C"
-        else [None, None]
-    )
+    assert [item["reason"] for item in inventories] == [None, None]
+    assert [
+        (item.kind, item.subjects)
+        for section in facts.sections
+        if section.name == "unknowns"
+        for item in section.records
+    ] == [("ShadowedModule", ("sample/m.py",))]
 
 
 def test_conditional_collision_keeps_state_evidence_at_its_definition(tmp_path: Path):

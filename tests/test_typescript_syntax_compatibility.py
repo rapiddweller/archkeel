@@ -79,8 +79,8 @@ def test_valid_legacy_dtos_preserve_real_collector_wire_facts(tmp_path, monkeypa
     expected = _facts(tmp_path, FILES, options=NODE10)
     original_parse = frontend.parse
 
-    def legacy_parse(rel, raw):
-        return _legacy(original_parse(rel, raw), family)
+    def legacy_parse(rel, raw, options=None):
+        return _legacy(original_parse(rel, raw, options), family)
 
     monkeypatch.setattr(frontend, "parse", legacy_parse)
     observed = _facts(tmp_path, FILES, options=NODE10)

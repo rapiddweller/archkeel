@@ -16,7 +16,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from archkeel.ir.protocol import (
-    NATIVE_REQUEST_PROTOCOLS,
+    ProtocolVersion,
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
@@ -24,6 +24,9 @@ from archkeel.ir.protocol import (
 )
 
 SCHEMA = Path(__file__).parents[1] / "native/facts/schema/archkeel-request.schema.json"
+# The request versions that a native collector reads: the same list as `Version::ALL` in
+# `native/facts/src/protocol.rs`. Only this test reads the list, so it lives here (#1009).
+NATIVE_REQUEST_PROTOCOLS = (ProtocolVersion.V3, ProtocolVersion.V8, ProtocolVersion.V9)
 
 
 def test_the_python_list_equals_the_versions_of_the_generated_request_schema() -> None:
