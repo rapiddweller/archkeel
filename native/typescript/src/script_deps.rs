@@ -107,7 +107,9 @@ impl<'a> AliasIndex<'a> {
             .flatten()
             .filter_map(|at| {
                 let alias = self.aliases.get(*at)?;
+                // An alias of the global object itself has no name to follow (#1007).
                 let fits = (probe.kind == SiteKind::Call || alias.factory)
+                    && leading_roots(&alias.path) < alias.path.len()
                     && probe.path.len() == 2
                     && probe.path.first() == Some(&alias.name);
                 fits.then_some(alias)
@@ -200,7 +202,8 @@ impl<'a, 'p> Run<'a, 'p> {
             return;
         }
         path.drain(..leading_roots(&path));
-        if let Some(initialized) = alias_initializer.filter(|alias| !alias.factory) {
+        let initialized = alias_initializer.filter(|alias| !alias.factory && !path.is_empty());
+        if let Some(initialized) = initialized {
             if self.alias_decomposition(rel, &probe, initialized, &path) {
                 return;
             }
@@ -229,7 +232,7 @@ impl<'a, 'p> Run<'a, 'p> {
             let path: Vec<String> = item
                 .path
                 .iter()
-                .skip(1)
+                .skip(leading_roots(&item.path))
                 .chain(std::iter::once(published))
                 .cloned()
                 .collect();
@@ -246,9 +249,10 @@ impl<'a, 'p> Run<'a, 'p> {
 
     /// `_script_root_escape`: a root used as a value cannot be followed.
     fn root_escape(&mut self, rel: &str, site: &Site, probe: &Probe, path: &[String]) -> bool {
-        // A chain such as `window.parent` is read as a use of a name; only the bare root is a value
-        // that escapes (a chain of roots is as common in `window.top === window.self`).
-        let escaped = matches!(path, [only] if is_root(only))
+        // A chain of roots is a value of the global object too; a comparison of members such as
+        // `window.top === window.self` is no escape (`script_escape` is false for it).
+        let escaped = !path.is_empty()
+            && leading_roots(path) == path.len()
             && site.script_free
             && (site.script_escape || site.computed || site.kind != SiteKind::Reference);
         if !escaped {

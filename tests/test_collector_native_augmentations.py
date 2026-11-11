@@ -89,6 +89,18 @@ CHAIN_FILES = {
         "var w = window.window;\nfoo(window.self);\nvar o = { v: top.parent };\n"
         "window.window.x.z;\nwindow.window;\nwindow.window[name]();\n"
     ),
+    # An alias, a destructuring and a call receiver that are chains (the first two crashed Python).
+    "src/a/aliases.js": (
+        "const w1 = window.top;\nw1.x();\nconst w2 = window.window;\nw2.x();\n"
+        "const { x } = window.self;\nx();\nconst { y: z } = parent.window;\nz();\n"
+        "var w3 = top.self;\nw3.x();\nvar f = window.self;\nf.x();\n(window.self).x();\n"
+        "const w4 = window.top;\n"
+    ),
+    # A comparison of members is a use of names, and no gap (flow.js does it).
+    "src/a/compares.js": (
+        "if (event.source !== window.parent) {}\nwindow.top === window.self;\n"
+        "a == window.window;\nb != top.parent;\n"
+    ),
     # A local variable named like a root is no root: no gap, as before.
     "src/a/locals.js": "function f(parent, top) { parent.appendChild(top); }\n",
 }

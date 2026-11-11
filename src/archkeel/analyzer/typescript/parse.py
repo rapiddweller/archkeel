@@ -23,7 +23,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
-from .augmentations import Aliases, augmentation_concerns, has_aliases, triple_slash
+from .augmentations import Aliases, augmentation_concerns, compares, has_aliases, triple_slash
 from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
@@ -284,7 +284,6 @@ _SCRIPT_EFFECT_NAMES: Final = frozenset(
     }
 )
 _LOADER_MODULES: Final[dict[str, _LoaderModule]] = {item.value: item for item in _LoaderModule}
-_SCRIPT_ROOTS: Final = WALK_ROOTS
 _SCRIPT_FUNCTIONS: Final = frozenset(
     {
         _NodeKind.FUNCTION_DECLARATION,
@@ -1591,7 +1590,7 @@ def _global_publication_target(node: _RawNode) -> bool:
         _node_kind(parent) is _NodeKind.ASSIGNMENT_EXPRESSION
         and (left := parent.child_by_field_name("left")) is not None
         and len(path := _static_path(left)) == 2
-        and path[0] in _SCRIPT_ROOTS
+        and path[0] in WALK_ROOTS
         and _contains(left, node)
         for parent in _ancestors(node)
     )
@@ -1898,7 +1897,7 @@ def _script_destructures(
         property_name = value.child_by_field_name("property")
         if (
             len(path) != 2
-            or path[0] not in _SCRIPT_ROOTS
+            or path[0] not in WALK_ROOTS
             or property_name is None
             or not _script_free(value, node, bindings, ambiguous)
         ):
@@ -1961,7 +1960,7 @@ def _script_aliases(
         member = target.child_by_field_name("property")
         scope = _script_bound_scope(node, _text(name), bindings)
         if (
-            (len(path) not in {2, 3} if factory else len(path) != 2 or path[0] not in _SCRIPT_ROOTS)
+            (len(path) not in {2, 3} if factory else len(path) != 2 or path[0] not in WALK_ROOTS)
             or member is None
             or not _valid_unicode_member_name(member)
             or scope is None
@@ -2092,13 +2091,13 @@ def _script_factory_publication_escape(source: _Source, pair: _RawNode) -> tuple
     ):
         return None
     path = _static_path(target)
-    if len(path) != 2 or path[0] not in _SCRIPT_ROOTS:
+    if len(path) != 2 or path[0] not in WALK_ROOTS:
         return None
     prefix = (*path[1:], _text(key))
     for node in _walk(source.root):
         for written in _script_assignment_targets(node):
             route = _static_path(written)
-            if route and route[0] in _SCRIPT_ROOTS:
+            if route and route[0] in WALK_ROOTS:
                 route = route[1:]
             if route[: len(prefix)] == prefix:
                 return None
@@ -2206,6 +2205,7 @@ def _script_escape(node: _RawNode) -> bool:
         and parent.child_by_field_name("object") == target
         or _node_kind(parent) is _NodeKind.UNARY_EXPRESSION
         and any(_node_kind(child) is _NodeKind.TYPEOF for child in parent.children)
+        or compares(parent, target is not node)
     ):
         return False
     return not (
@@ -2322,7 +2322,7 @@ def _script_wrapper(node: _RawNode) -> tuple[_RawNode, tuple[str, ...]] | None:
         patterns = tuple(param.child_by_field_name("pattern") for param in params)
         if len(params) == len(args) and all(
             _node_kind(arg) is _NodeKind.IDENTIFIER
-            and _text(arg) in _SCRIPT_ROOTS
+            and _text(arg) in WALK_ROOTS
             and _node_kind(param) is _NodeKind.REQUIRED_PARAMETER
             and pattern is not None
             and _node_kind(pattern) is _NodeKind.IDENTIFIER
@@ -2452,7 +2452,7 @@ def _script_declaration_write(node: _RawNode, source: _Source) -> tuple[str | No
         name = node.child_by_field_name("name")
         if name is not None and _node_kind(name) is _NodeKind.IDENTIFIER:
             written = _text(name)
-            return None if written in _SCRIPT_ROOTS else written, source.span(node)
+            return None if written in WALK_ROOTS else written, source.span(node)
     return None
 
 
@@ -2572,9 +2572,9 @@ def _script_call_writes(
             if path:
                 yield (
                     None
-                    if path[0] in _SCRIPT_ROOTS and len(path) == 1
+                    if path[0] in WALK_ROOTS and len(path) == 1
                     else path[1]
-                    if path[0] in _SCRIPT_ROOTS
+                    if path[0] in WALK_ROOTS
                     else path[0],
                     source.span(argument),
                 )
@@ -2628,7 +2628,7 @@ def _script_globals(
     }
     callables = _script_callable_bindings(source, bindings)
     wrapper_calls = {info[0] for info in wrappers.values()}
-    roots = _SCRIPT_ROOTS
+    roots = WALK_ROOTS
     root_aliases = roots | {alias for _, aliases in wrappers.values() for alias in aliases}
     module_syntax = _module_exports(source.root)[0]
     for node in _walk(source.root):
@@ -2796,7 +2796,7 @@ def _script_declarations(
         if (written := _script_declaration_write(node, source)) is not None:
             writes.append(written)
         wrapper = next((parent for parent in _ancestors(node) if parent in wrappers), None)
-        aliases = _SCRIPT_ROOTS | set(wrappers[wrapper][1] if wrapper is not None else ())
+        aliases = WALK_ROOTS | set(wrappers[wrapper][1] if wrapper is not None else ())
         for target in _script_assignment_targets(node):
             receiver = target
             while _node_kind(receiver) in {
@@ -2811,9 +2811,9 @@ def _script_declarations(
                 writes.append(_script_target_write(node, target, aliases, source))
                 route = _static_path(target)
                 if route and (
-                    route[0] in _SCRIPT_ROOTS or _script_free(target, target, bindings, set())
+                    route[0] in WALK_ROOTS or _script_free(target, target, bindings, set())
                 ):
-                    paths.append(route[1:] if route[0] in _SCRIPT_ROOTS else route)
+                    paths.append(route[1:] if route[0] in WALK_ROOTS else route)
                 elif route and _script_bound_scope(target, route[0], bindings) == source.root:
                     top_level_paths.append(route)
                 alias_route = (
@@ -2914,7 +2914,7 @@ def _script_write_alias_path(
         return () if declarations_by_binding is not None else None
     scope = _script_bound_scope(receiver, path[0], bindings)
     if scope is None:
-        return path[1:] if path[0] in _SCRIPT_ROOTS else path
+        return path[1:] if path[0] in WALK_ROOTS else path
     declarations = (
         declarations_by_binding.get((scope, path[0]), [])
         if declarations_by_binding is not None
@@ -3128,7 +3128,7 @@ def _script_namespaces(
                 _static_path(target) == (_text(name),)
                 and _script_bound_scope(target, _text(name), bindings) == source.root
                 or len(route := _static_path(target)) == 2
-                and route[0] in _SCRIPT_ROOTS
+                and route[0] in WALK_ROOTS
                 and route[1] == _text(name)
                 and _script_free(target, target, bindings, set())
             )

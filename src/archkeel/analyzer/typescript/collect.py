@@ -139,8 +139,6 @@ _FEATURES: Final = (
     "local-runtime-closure",
     "inner-uml-v1",
 )
-
-
 _SCRIPT_HOST_NAMES: Final = frozenset(item.value for item in _ScriptHostName)
 _SCRIPT_LOADER_NAMES: Final = frozenset(
     item.value for item in (_ScriptHostName.EXPORTS, _ScriptHostName.MODULE, _ScriptHostName.DEFINE)
@@ -411,7 +409,7 @@ class _Collection:
                 if destructures:
                     for item in destructures:
                         for published, _, span in item.members:
-                            path = (*item.path[1:], published)
+                            path = (*ScriptRoot.unrooted(item.path), published)
                             self._script_dependency(
                                 rel,
                                 replace(site, span=span, path=path),
@@ -433,7 +431,8 @@ class _Collection:
                     continue
                 path = ScriptRoot.unrooted(path)
                 if (
-                    alias_initializer is not None
+                    path
+                    and alias_initializer is not None
                     and not alias_initializer.factory
                     and self._script_alias_decomposition(
                         rel,
@@ -458,7 +457,7 @@ class _Collection:
 
     def _script_root_escape(self, rel: str, site: Site, path: tuple[str, ...]) -> bool:
         if (
-            len(path) == 1
+            bool(path)
             and not ScriptRoot.unrooted(path)
             and site.script_free
             and (site.script_escape or site.computed or site.kind is not SiteKind.REFERENCE)
@@ -1000,7 +999,7 @@ class _Collection:
                 (source_rel, publication)
                 for source_rel, syntax in self.syntax.items()
                 for publication in syntax.script_globals
-                if publication.name == path[0]
+                if path and publication.name == path[0]
             ]
             writes = self.script_source_writes
             if len(path) != 2 or not stable_publication(path[0], publications, writes):

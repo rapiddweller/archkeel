@@ -16,7 +16,7 @@
   "src/archkeel/analyzer/python/references.py": 890,
   "src/archkeel/analyzer/python/source.py": 3464,
   "src/archkeel/analyzer/python/symbols.py": 1397,
-  "src/archkeel/analyzer/typescript/collect.py": 2204,
+  "src/archkeel/analyzer/typescript/collect.py": 2203,
   "src/archkeel/analyzer/typescript/config.py": 932,
   "src/archkeel/analyzer/typescript/parse.py": 3875,
   "src/archkeel/analyzer/typescript/resolve.py": 585,
