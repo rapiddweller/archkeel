@@ -30,6 +30,7 @@ toml.workspace = true
 archkeel-build-support.workspace = true
 
 [dev-dependencies]
+flate2.workspace = true
 archkeel-snapshot = { workspace = true, features = ["test-tree"] }
 
 [lints]

@@ -82,6 +82,7 @@ impl Builder {
             features: FEATURES.to_vec(),
             constructs: Vec::new(),
             inputs: source.inputs(),
+            source_digest: None,
             files,
             imports: self.targets,
         };

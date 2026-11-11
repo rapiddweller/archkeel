@@ -1619,6 +1619,46 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PY-REPLY",
+      "label": "py-reply",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.reply"
+      ],
+      "responsibilities": [
+        "The 10.0.0 reply of the import survey as the Python collector writes it in the phase imports: the provenance with the interpreter version of the request, the inputs, and only the sections of the survey (AD-334)."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source, finding the selected files and claiming a section that the survey does not collect."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the inputs through the one owner of snapshot reads."
+        },
+        {
+          "component": "wire",
+          "rationale": "Encode the reply with the shared stream."
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Digest the inputs and read the Python requirement."
+        },
+        {
+          "component": "py-survey",
+          "rationale": "Write the records of the survey."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-PY-DUMP",
       "label": "py-dump",
       "role": "component",
@@ -1677,7 +1717,7 @@
         "native.archkeel_python_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The binary of the Python collector: read the 10.0.0 request and run the work on a thread with a big stack; the build script and the manifest of the crate."
+        "The binary of the Python collector: read the 10.0.0 request, run the survey on a thread with a big stack and write its reply; the build script and the manifest of the crate."
       ],
       "forbidden_responsibilities": [
         "Reading TypeScript or Rust source."
@@ -1701,6 +1741,14 @@
         {
           "component": "build",
           "rationale": "Call the shared helper that digests the sources, so one script owns the digest."
+        },
+        {
+          "component": "py-survey",
+          "rationale": "Run the survey of the request."
+        },
+        {
+          "component": "py-reply",
+          "rationale": "Encode the reply of the survey."
         },
         {
           "component": "py-dump",

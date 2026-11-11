@@ -77,6 +77,7 @@ pub fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, Plan<'_>
         features: std::mem::take(&mut facts.features),
         constructs: vec![(STRING_LITERAL_COMPARE, "partial")],
         inputs: std::mem::take(&mut facts.inputs),
+        source_digest: None,
         files: std::mem::take(&mut facts.files),
         imports: std::mem::take(&mut expanded.targets),
     };

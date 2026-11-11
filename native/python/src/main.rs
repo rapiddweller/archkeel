@@ -4,83 +4,40 @@
 
 //! `archkeel-python-collector`: read one 10.0.0 request on stdin, write one reply (AD-334).
 //!
-//! Slice 1b has the parse of one file with the limits of CPython. The import survey of the
-//! request follows in slice 1c; until then the binary refuses each request with its reason.
+//! The reply is the import survey of the Python collector (phase `imports`), never the whole
+//! collection: it declares only the sections of the survey (`reply.rs`, AD-334).
 
 #![forbid(unsafe_code)]
 
-// Slice 1b: only the dump calls the parse; the collection of slice 1c calls it next. The
-// expectation fails the build once the parse is used, so it goes with that change.
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 calls the parse")
-)]
 mod depth;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 writes the survey")
-)]
 mod discover;
 #[cfg(feature = "dump")]
 mod dump;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 calls the parse")
-)]
 mod identifier;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 writes the survey")
-)]
 mod inputs;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c calls the parse")
-)]
 mod limits;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 writes the survey")
-)]
 mod names;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 calls the parse")
-)]
 mod parse;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 writes the survey")
-)]
+mod reply;
 mod requirement;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 calls the parse")
-)]
 mod source;
-#[cfg_attr(
-    not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c-2 calls the parse")
-)]
 mod stack;
-#[cfg_attr(
-    not(feature = "dump"),
-    expect(dead_code, reason = "slice 1c-2b writes the survey reply")
-)]
 mod survey;
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process::ExitCode;
 
 use archkeel_wire::request::decode_python;
 
 /// The stack of the work thread. The parser recurses once for each nested expression, and the
 /// token scan bounds that depth before the parse (`stack::MAX_STACK`).
-#[cfg_attr(
-    not(feature = "dump"),
-    expect(dead_code, reason = "slice 1c runs the scan")
-)]
 const STACK_BYTES: usize = 256 * 1024 * 1024;
+
+/// The version and the code digest of this binary (`archkeel-build-support`).
+const BUILD: reply::Build<'static> = reply::Build {
+    version: env!("ARCHKEEL_VERSION"),
+    code_digest: env!("ARCHKEEL_CODE_DIGEST"),
+};
 
 fn run() -> Result<(), String> {
     #[cfg(feature = "dump")]
@@ -109,17 +66,16 @@ fn run() -> Result<(), String> {
         println!("{found}");
         return Ok(());
     }
-    Err(format!(
-        "the phase {} of the native Python collector arrives in PR 5 slice 1c",
-        request.resolver.phase.as_str()
-    ))
+    let bytes = on_big_stack(move || {
+        let found = survey::survey(&request)?;
+        reply::reply(&request, found, &BUILD)
+    })?;
+    std::io::stdout()
+        .write_all(&bytes)
+        .map_err(|error| format!("cannot write the reply: {error}"))
 }
 
 /// Run `work` on a thread with a stack of `STACK_BYTES`.
-#[cfg_attr(
-    not(feature = "dump"),
-    expect(dead_code, reason = "slice 1c runs the scan")
-)]
 fn on_big_stack<T: Send + 'static>(
     work: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {

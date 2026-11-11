@@ -114,7 +114,9 @@ fn hidden(snapshot: &mut Snapshot, directory: &str, exclude_tests: bool, out: &m
 }
 
 /// The selected files that the snapshot refused for their size. Call it after the inputs read;
-/// each one must become a gap, so the result must be used.
+/// each one must become a gap, so the result must be used. The survey finds them as it reads
+/// (`survey::unread`); the scope dump and its tests use this.
+#[cfg(any(feature = "dump", test))]
 #[must_use]
 pub fn oversized(snapshot: &Snapshot, selected: &[String]) -> Vec<Unseen> {
     selected

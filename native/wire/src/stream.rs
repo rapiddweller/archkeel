@@ -45,6 +45,9 @@ pub struct Head {
     pub features: Vec<&'static str>,
     pub constructs: Vec<(&'static str, &'static str)>,
     pub inputs: Vec<Input>,
+    /// The source digest of a collector that digests its inputs in its own way, as the Python
+    /// collector does (`collect._inputs`). `None` is the digest of the input listing.
+    pub source_digest: Option<String>,
     pub files: Vec<FileFact>,
     pub imports: Vec<Target>,
 }
@@ -270,8 +273,11 @@ fn write_fields(out: &mut Piece, value: &impl Serialize) -> io::Result<()> {
 /// The text after the records: the end of the list of sections, the keys of `facts` that come
 /// after `sections`, and the keys of the reply that come after `facts`.
 fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()> {
-    let source =
+    let mut source =
         Source::of((&head.git_head, &head.dirty), &head.scope, &head.inputs).map_err(invalid)?;
+    if let Some(digest) = &head.source_digest {
+        source.source_digest.clone_from(digest);
+    }
     let protocol_version = version.compressed().ok_or_else(|| {
         invalid(format!(
             "no compressed reply for version {}",
