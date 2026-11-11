@@ -37,6 +37,7 @@ mod model_rules;
 mod model_uml;
 mod names;
 mod paths;
+pub mod policy;
 mod python_rules;
 mod read;
 mod rule;
