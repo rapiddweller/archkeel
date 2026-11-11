@@ -21,17 +21,30 @@ use super::binders::{first_part, import_bindings, Binders};
 use super::module::{EvidenceMap, Module};
 use crate::names::package_for;
 
-/// The import records of all modules, sorted by id. `binders` has one entry for each module.
+/// What a module-level import binds a name to (`source.AliasBinding`): the target module, or
+/// the module and the symbol joined by a dot.
+pub struct Alias {
+    pub target: String,
+    pub module: bool,
+}
+
+/// `ParsedModule.aliases`: the last module-level import of each name wins, as in the dict.
+pub type Aliases = HashMap<String, Alias>;
+
+/// The import records of all modules, sorted by id, and the aliases of each module.
+/// `binders` has one entry for each module.
 pub fn collect(
     modules: &[Module],
     binders: &[Binders],
     namespace: &str,
     evidence: &mut EvidenceMap,
-) -> Vec<Record<ImportFact>> {
+) -> (Vec<Record<ImportFact>>, Vec<Aliases>) {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
     let bindings = package_bindings(modules);
     let mut records = Vec::new();
+    let mut aliases = Vec::with_capacity(modules.len());
     for (module, binders) in modules.iter().zip(binders) {
+        let mut found = Aliases::new();
         let mut collector = Collector {
             module,
             binders,
@@ -41,11 +54,13 @@ pub fn collect(
             namespace,
             evidence: &mut *evidence,
             records: &mut records,
+            aliases: &mut found,
         };
         collector.body(&module.tree.body, true, false);
+        aliases.push(found);
     }
     records.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-    records
+    (records, aliases)
 }
 
 /// `collect_package_bindings`: for each package, the names that its body binds ahead of a
@@ -139,6 +154,16 @@ fn name_of(target: &Expr) -> Option<String> {
     }
 }
 
+/// The alias target of `import a.b`: the module `a`, or `a.b` itself under an `as` name.
+fn import_target(alias: &ruff_python_ast::Alias) -> &str {
+    let name = alias.name.as_str();
+    if alias.asname.is_some() {
+        name
+    } else {
+        first_part(name)
+    }
+}
+
 /// `_is_type_checking_test`: the name `TYPE_CHECKING` or any attribute of that name.
 fn is_type_checking(test: &Expr) -> bool {
     match test {
@@ -157,6 +182,7 @@ struct Collector<'m, 'e> {
     namespace: &'m str,
     evidence: &'e mut EvidenceMap,
     records: &'e mut Vec<Record<ImportFact>>,
+    aliases: &'e mut Aliases,
 }
 
 /// What one import binding is: the target, the symbol, the binding and the relative level.
@@ -230,6 +256,7 @@ impl Collector<'_, '_> {
                         binding,
                         level: 0,
                     };
+                    self.bind(level, binding, import_target(alias).to_owned(), true);
                     self.record(place, &found);
                 }
             }
@@ -268,13 +295,28 @@ impl Collector<'_, '_> {
                 .get(anchor.as_str())
                 .is_some_and(|names| names.contains(name));
             let local = !shadowed && self.names.contains(submodule.as_str());
+            let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
+            let target = if local {
+                submodule.clone()
+            } else {
+                format!("{anchor}.{name}")
+            };
+            self.bind(place.1, binding, target, local);
             let found = Binding {
                 target: if local { &submodule } else { &anchor },
                 symbol: if local { None } else { Some(name) },
-                binding: alias.asname.as_ref().map_or(name, |a| a.as_str()),
+                binding,
                 level: node.level,
             };
             self.record(place, &found);
+        }
+    }
+
+    /// `_bind`: only a module-level import changes the namespace of the module.
+    fn bind(&mut self, module_level: bool, binding: &str, target: String, module: bool) {
+        if module_level {
+            let alias = Alias { target, module };
+            self.aliases.insert(binding.to_owned(), alias);
         }
     }
 

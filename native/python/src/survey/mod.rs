@@ -6,8 +6,7 @@
 //! modules, their static imports, their file facts, the evidence, the import targets, the
 //! UNKNOWN records and the coverage.
 //!
-//! The `stable_bindings` of a file fact need the member analysis of `source.py`. They follow in
-//! slice 1c-2c; until then the binary refuses each request, so no reply carries the empty value.
+//! The `stable_bindings` of a file fact are `source._stable_direct_module_bindings` (`stable`).
 
 use std::collections::{HashMap, HashSet};
 
@@ -33,6 +32,9 @@ mod excluded;
 mod failures;
 mod imports;
 mod module;
+mod namespace;
+mod stable;
+mod walks;
 
 pub struct Survey {
     pub files: Vec<FileFact>,
@@ -67,11 +69,15 @@ pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let imports = imports::collect(modules, &binders, namespace, &mut evidence);
+    let (imports, aliases) = imports::collect(modules, &binders, namespace, &mut evidence);
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
-        .map(|(module, binders)| file_fact(module, binders, &mut evidence))
+        .zip(&aliases)
+        .map(|((module, binders), aliases)| {
+            let stable = stable::bindings(module, binders, aliases, minor);
+            file_fact(module, binders, stable, &mut evidence)
+        })
         .collect();
     let mut unknowns = parsed.gaps;
     if exclude {
@@ -189,8 +195,13 @@ fn parsed_module(rel: &str, raw: &[u8], namespace: &str, minor: u32) -> Result<M
     Ok(Module::new(rel.to_owned(), name, text.to_owned(), tree))
 }
 
-/// `collect._file_facts` without `stable_bindings` (slice 1c-2c).
-fn file_fact(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> FileFact {
+/// `collect._file_facts`.
+fn file_fact(
+    module: &Module,
+    binders: &Binders,
+    stable_bindings: Vec<String>,
+    evidence: &mut EvidenceMap,
+) -> FileFact {
     let mut exports: Vec<String> = binders.all_exports.iter().cloned().collect();
     exports.sort();
     FileFact {
@@ -201,7 +212,7 @@ fn file_fact(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> 
         all_exports: exports,
         all_literal: binders.all_literal,
         compatibility_logic_free: binders.logic_free,
-        stable_bindings: Vec::new(),
+        stable_bindings,
         blank: module.tree.body.is_empty(),
         evidence_id: EvidenceId::new(module.file_evidence(evidence)),
     }
