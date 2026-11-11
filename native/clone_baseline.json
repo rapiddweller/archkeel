@@ -29,6 +29,30 @@
     "reason": "Field lists of neighbouring contract types have one shape, as the Python dataclasses do. No logic repeats.",
     "tokens": 82
   },
+  "contract/src/policy/printable.rs|store/src/pyrepr_tests.rs|3d85e546b4": {
+    "files": [
+      "contract/src/policy/printable.rs",
+      "store/src/pyrepr_tests.rs"
+    ],
+    "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
+    "tokens": 70
+  },
+  "contract/src/policy/printable.rs|store/src/pyrepr_tests.rs|ba51243f6f": {
+    "files": [
+      "contract/src/policy/printable.rs",
+      "store/src/pyrepr_tests.rs"
+    ],
+    "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
+    "tokens": 71
+  },
+  "contract/src/policy/printable.rs|typescript/src/resolve_tests.rs|4638f1c05f": {
+    "files": [
+      "contract/src/policy/printable.rs",
+      "typescript/src/resolve_tests.rs"
+    ],
+    "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
+    "tokens": 74
+  },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
       "facts/src/data/imports.rs"

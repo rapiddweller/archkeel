@@ -102,7 +102,8 @@
       ],
       "responsibilities": [
         "Parse the bytes of one architecture contract into typed and closed values, with the error kinds and the canonical bytes of the Python parser (AD-359).",
-        "Assemble and check the tree of a root contract and its inside contracts from bytes that the shell sends, with the issues and the digests of the Python tree (AD-366)."
+        "Assemble and check the tree of a root contract and its inside contracts from bytes that the shell sends, with the issues and the digests of the Python tree (AD-366).",
+        "Compare two contract trees as validate --against does, with the widenings, narrowings and messages of the Python comparison (AD-373)."
       ],
       "forbidden_responsibilities": [
         "Reading a file, evaluating a rule, and using a source fact or a source id."
@@ -110,7 +111,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
         "docs/architecture/decisions/ad-364-the-rust-contract-parser-reads-the-whole-grammar.md",
-        "docs/architecture/decisions/ad-366-the-inside-contract-tree-is-assembled-and-checked-in-the-contract-crate.md"
+        "docs/architecture/decisions/ad-366-the-inside-contract-tree-is-assembled-and-checked-in-the-contract-crate.md",
+        "docs/architecture/decisions/ad-373-the-contract-crate-compares-two-contract-trees-for-against.md"
       ],
       "decided_by": "architect"
     },

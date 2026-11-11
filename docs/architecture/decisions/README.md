@@ -368,3 +368,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-370 | [The core decides the rule kinds of modules and ownership](ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md) |
 | AD-371 | [The report crate owns the payload and builds only an explained frame](ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md) |
 | AD-372 | [The core projects the edges and decides the external rule kinds](ad-372-the-core-projects-the-edges-and-decides-the-external-rule-kinds.md) |
+| AD-373 | [The contract crate compares two contract trees for --against](ad-373-the-contract-crate-compares-two-contract-trees-for-against.md) |
