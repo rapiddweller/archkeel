@@ -1980,12 +1980,8 @@ class CallCollector(ast.NodeVisitor):
     ) -> list[GuardedPathCandidate]:
         candidates: list[GuardedPathCandidate] = []
         for argument in (*owner.args.posonlyargs, *owner.args.args, *owner.args.kwonlyargs):
-            by_location = self.guarded_paths.get((owner, argument.arg))
-            paths = (
-                by_location.get((node.lineno, node.col_offset), ())
-                if by_location is not None
-                else ()
-            )
+            by_location = self.guarded_paths.get((owner, argument.arg), {})
+            paths = by_location.get((node.lineno, node.col_offset), ())
             if paths:
                 candidates.append(
                     ("parameter", scope.qualified_name, argument.arg, argument, paths)
@@ -2211,12 +2207,12 @@ class CallCollector(ast.NodeVisitor):
             if scope is not None and _in_function(scope) and not isinstance(decorator, ast.Call):
                 call = ast.copy_location(ast.Call(decorator, [], []), decorator)
                 self.scopes.by_node[call] = scope
-                self.visit_Call(call)
+                self.visit_Call(call, bare=True)
         self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_ClassDef = visit_FunctionDef
 
-    def visit_Call(self, node: ast.Call) -> None:
+    def visit_Call(self, node: ast.Call, bare: bool = False) -> None:
         scope = self.scopes.by_node[node]
         expression = annotation_text(node.func) or "<unparseable>"
         status, targets, reason, candidate_count = resolve_name(
@@ -2234,6 +2230,9 @@ class CallCollector(ast.NodeVisitor):
             targets = []
             candidate_count = 0
             reason = "Parenthesized callee source evidence is unsupported"
+        if bare:  # The evidence of a bare decorator shows no call, so nothing binds it (#759).
+            binding, status, targets, candidate_count = None, SourceResolution.UNRESOLVED, [], 0
+            reason = "A bare decorator has no call evidence"
         if binding is not None:
             canonical_target = binding["target"]
             targets = [canonical_target] if isinstance(canonical_target, str) else targets
