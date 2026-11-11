@@ -101,7 +101,10 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
     # Other review candidates keep the existing limit, including three used Dart
     # resolver methods whose injected receiver remains outside the reference proof.
     # COUNTER_LABELS is read only by tools/report_timing.py, outside the scanned package.
-    assert len([candidate for candidate in result.candidates if candidate.name not in legacy]) <= 12
+    # interpreter and python_request (AD-334) have no caller in the package yet: the native
+    # Python collector slice that runs the collector calls them, and until then only
+    # tests/test_collector_native_python_interpreter.py does.
+    assert len([candidate for candidate in result.candidates if candidate.name not in legacy]) <= 14
 
 
 def test_enum_member_constructor_argument_references_its_class(
