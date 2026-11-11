@@ -102,3 +102,18 @@ fn a_symlink_is_known_as_a_link_and_its_target_is_not() {
     assert!(!snapshot.is_link("src/pkg"));
     assert!(!snapshot.is_link("../src"));
 }
+
+#[cfg(unix)]
+#[test]
+fn a_dangling_link_is_a_hidden_entry_and_a_good_link_is_not() {
+    let tree = Tree::new(&[("src/a.py", "")]);
+    let src = std::path::Path::new(&tree.path()).join("src");
+    std::os::unix::fs::symlink("missing.py", src.join("dangling.py")).unwrap();
+    std::os::unix::fs::symlink("a.py", src.join("good.py")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    assert_eq!(
+        snapshot.hidden_entries("src"),
+        [Hidden::Dangling("dangling.py".to_owned())]
+    );
+    assert_eq!(snapshot.entries("src").0, ["a.py", "good.py"]);
+}

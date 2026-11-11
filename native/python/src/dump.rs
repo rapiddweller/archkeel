@@ -58,7 +58,8 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let roots = &request.scope.roots;
-    let selected = discover::selected(&mut snapshot, roots, request.excludes_test_sources());
+    let found = discover::scope(&mut snapshot, roots, request.excludes_test_sources());
+    let selected = found.selected;
     let namespace = &request.scope.namespace;
     let modules: serde_json::Map<String, Value> = selected
         .iter()
@@ -76,6 +77,12 @@ pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
         })
         .collect();
     let (inputs, source_digest) = inputs::inputs(&mut snapshot, &selected);
+    let mut unseen = found.unseen;
+    unseen.extend(discover::oversized(&snapshot, &selected));
+    let unseen: Vec<Value> = unseen
+        .iter()
+        .map(|item| json!({"item": format!("{item:?}"), "reason": item.reason(&snapshot)}))
+        .collect();
     let (required, state) = requirement::requirement(&mut snapshot);
     json!({
         "selected": selected,
@@ -85,5 +92,6 @@ pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
         "source_digest": source_digest,
         "required": required,
         "requirement_state": state.as_str(),
+        "unseen": unseen,
     })
 }

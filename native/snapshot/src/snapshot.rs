@@ -23,6 +23,15 @@ const SYMLINK: &str = "Resolver symlink outside snapshot";
 /// UI corpus has 92 KB, so a larger file is generated or hostile, and its gap names it.
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
+/// A directory entry that a collector cannot read soundly (`Snapshot::hidden_entries`).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Hidden {
+    /// A symlink whose target does not exist.
+    Dangling(String),
+    /// A name that is not UTF-8, written with replacement characters.
+    NotUtf8 { name: String, directory: bool },
+}
+
 pub struct Snapshot {
     root: PathBuf,
     // The directories above the root, which the format lookup must also cover.
@@ -220,6 +229,20 @@ impl Snapshot {
         (files, directories)
     }
 
+    /// The entries of a directory that `entries` leaves out because they cannot be read soundly:
+    /// a symlink whose target does not exist, and a name that is not UTF-8. Sorted by name.
+    pub fn hidden_entries(&mut self, rel: &str) -> Vec<Hidden> {
+        let Some(real) = self.real(rel) else {
+            return Vec::new();
+        };
+        let Ok(listing) = fs::read_dir(self.absolute(&real)) else {
+            return Vec::new();
+        };
+        let mut found: Vec<Hidden> = listing.flatten().filter_map(hidden).collect();
+        found.sort();
+        found
+    }
+
     /// The digested inputs, sorted by path.
     pub fn inputs(&self) -> Vec<Input> {
         self.inputs
@@ -230,6 +253,22 @@ impl Snapshot {
                 role: *role,
             })
             .collect()
+    }
+}
+
+/// The entry as a `Hidden` value, or `None` when `entries` reads it.
+fn hidden(entry: fs::DirEntry) -> Option<Hidden> {
+    let path = entry.path();
+    let resolved = fs::metadata(&path);
+    match entry.file_name().into_string() {
+        Err(raw) => Some(Hidden::NotUtf8 {
+            name: raw.to_string_lossy().into_owned(),
+            directory: resolved.is_ok_and(|found| found.is_dir()),
+        }),
+        Ok(name) => {
+            let link = entry.file_type().is_ok_and(|kind| kind.is_symlink());
+            (link && resolved.is_err()).then_some(Hidden::Dangling(name))
+        }
     }
 }
 

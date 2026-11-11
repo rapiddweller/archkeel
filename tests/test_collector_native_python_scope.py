@@ -109,10 +109,15 @@ def _native(
     return found
 
 
-def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> None:
+def _equal(
+    binary: Path, root: Path, roots: tuple[str, ...], namespace: str, unseen: tuple[str, ...] = ()
+) -> None:
+    """Equal scope; `unseen` are the values that the survey turns into gaps (AD-367)."""
     for exclude in (False, True):
         expected = _python(root, roots, namespace, exclude)
-        assert _native(binary, root, roots, namespace, exclude) == expected, (root, exclude)
+        found = _native(binary, root, roots, namespace, exclude)
+        assert [item["item"] for item in found.pop("unseen")] == list(unseen)
+        assert found == expected, (root, exclude)
 
 
 def _tree(root: Path, files: dict[str, str]) -> Path:
@@ -154,7 +159,30 @@ def test_the_edge_cases_and_the_shadowed_module_have_the_python_scope(
         (root / "src/app/link_test_dir").symlink_to("tests")
         (root / "src/app/outfile.py").symlink_to(tmp_path / "far.py")
         (tmp_path / "far.py").write_text("", encoding="utf-8")
-    _equal(python_dump_binary, root, ("src",), "app")
+        # Python selects a dangling link, and its read fails with `FileNotFoundError` (measured).
+        (root / "src/app/dangling.py").symlink_to("nowhere.py")
+    unseen = () if os.name == "nt" else ('Missing("src/app/dangling.py")',)
+    _equal(python_dump_binary, root, ("src",), "app", unseen)
+
+
+def test_a_file_over_4_mib_is_named_as_unseen_and_is_the_one_difference(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    root = _tree(tmp_path / "repo", {"src/app/__init__.py": "", "src/app/big.py": "#" * (5 << 20)})
+    expected = _python(root, ("src",), "app", False)
+    found = _native(python_dump_binary, root, ("src",), "app", False)
+    assert found.pop("unseen") == [
+        {
+            "item": 'Oversized("src/app/big.py")',
+            "reason": "Source file over the size limit of 4194304 bytes: src/app/big.py",
+        }
+    ]
+    # The file is no input and not in the source digest; its gap keeps the scope from PASS.
+    big = next(item for item in expected["inputs"] if item["path"] == "src/app/big.py")
+    expected["inputs"].remove(big)
+    assert {key: found[key] for key in found if key != "source_digest"} == {
+        key: expected[key] for key in expected if key != "source_digest"
+    }
 
 
 @pytest.mark.parametrize(

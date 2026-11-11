@@ -1,0 +1,50 @@
+# AD-367 The native Python collector differs from Python only where it is stricter
+
+**Status.** Accepted. PR 5 of issue #880; it holds the closed list of differences of AD-334.
+
+**Rule (owner).** A documented limit must never hide a silent false PASS. What the collector does
+not see soundly gives a named gap (UNKNOWN). A difference is allowed only when the native verdict
+is equal or stricter. Each item below names its test.
+
+**Parse** (`tests/test_collector_native_python_parse.py`).
+1. The message of a parser error is the text of ruff. On 3 000 mutated files accept or refuse is
+   equal on each file, the class on 2 387 of 2 395 failures and the line on 2 328 (3.11; 2 329 on
+   3.14). The survey compares a syntax failure record on its file and its exception class family;
+   message, line and record id differ. The file gets a gap in both producers, never a PASS.
+2. The 8 class differences stay in the `SyntaxError` family: 5 files put an indented line after a
+   decorator (CPython `IndentationError` "unexpected indent", ruff "Expected class, function
+   definition ... after decorator"); 2 files indent line 1 and have a bracket error on it (native
+   reports the bracket); 1 file opens a triple-quoted string that never ends (CPython reports the
+   string, ruff a missing indented block 10 lines before it). Each file gets a gap in both.
+3. Stricter parse outcomes (`STRICTER` in `tests/test_collector_native_python_hostile.py`, 320
+   hostile sources on 3.11 to 3.14). (a) CPython stops past `MAXSTACK` = 6 000 rule calls; the
+   cost of a nesting depends on its grammar context, so native sums a measured upper bound (AD-334
+   point 5) and refuses some files that CPython accepts, for example 124 to 200 brackets, 2 961 to
+   5 967 `not` or 124 to 149 nested f-strings, with `TooDeepError`: the file has a gap (AD-323
+   point 6 by name). Real code stays under 600 of 6 000. (b) `<>` after `barry_as_FLUFL` (3.12+):
+   ruff refuses it. (c) CPython 3.11 raises `SystemError` for over 4 300 digits in an f-string;
+   the Python collector does not catch it and its run stops, native writes a failure record. No
+   tree in both; the run of Python is UNKNOWN as a whole, so this item waits for the owner.
+
+**Scope** (`tests/test_collector_native_python_scope.py`, `discover_tests.rs`).
+4. A file over 4 MiB (AD-319) is selected and is an `Unseen::Oversized` value; the survey writes a
+   collection gap that names it, so its scope is never PASS. The file is no input, and its bytes
+   are not in the source digest: a change of the file does not change the digest, and the gap
+   makes that irrelevant, because the scope stays UNKNOWN while the file is over the limit.
+5. A dangling `*.py` link: Python selects it and its read fails with `FileNotFoundError`. Native
+   selects it too (`Unseen::Missing`) and the survey writes the same failure. Equal.
+6. A name that is not UTF-8 (Linux; macOS refuses it): Python selects the file or walks the
+   directory. Native cannot name it in UTF-8 and writes a collection gap (`Unseen::NotUtf8`).
+7. An unreadable directory: Python skips it silently, and native keeps parity. Both producers
+   change together under #1043 (P2).
+8. An integer beyond 64 bits in `pyproject.toml`: `tomllib` reads it, the `toml` crate refuses it,
+   so the state is `metadata_invalid` instead of `declared`. `metadata_invalid` gives a runtime
+   diagnostic and no declared range (`check/runtime.py`), so it is never more PASS.
+
+**Records.** 9. `ShadowedModule` (#797) is an exception name of protocol 10.0.0 only; the 9.0.0
+schema stays byte-equal. The survey writes the gap in slice 1c-2, and no native Python reply can
+be PASS before it does (AD-334: the host does not decode 10.0.0).
+
+**Rejected.** (a) Gaps only in the documentation: a limit without a gap can hide a false PASS.
+(b) Reading a file over 4 MiB for the digest only: the size limit is the defence of AD-319.
+(c) A difference where native is less strict: it is a bug of the native collector.

@@ -6,6 +6,10 @@ use archkeel_snapshot::test_tree::Tree;
 
 use super::*;
 
+fn selected(snapshot: &mut Snapshot, roots: &[String], exclude: bool) -> Vec<String> {
+    scope(snapshot, roots, exclude).selected
+}
+
 #[test]
 fn the_walk_selects_python_files_in_the_order_of_their_parts() {
     let tree = Tree::new(&[
@@ -40,4 +44,52 @@ fn a_test_source_is_named_by_a_directory_or_by_the_file_name() {
     assert!(!is_test_source("tests"));
     assert!(!is_test_source("pkg/testing.py"));
     assert!(!is_test_source("pkg/contest.py"));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_dangling_link_is_selected_and_kept_as_unseen() {
+    let tree = Tree::new(&[("src/a.py", "")]);
+    let src = std::path::Path::new(&tree.path()).join("src");
+    std::os::unix::fs::symlink("missing.py", src.join("dangling.py")).unwrap();
+    std::os::unix::fs::symlink("missing", src.join("dangling_dir")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    let found = scope(&mut snapshot, &["src".to_owned()], false);
+    assert_eq!(found.selected, ["src/a.py", "src/dangling.py"]);
+    assert_eq!(
+        found.unseen,
+        [Unseen::Missing("src/dangling.py".to_owned())]
+    );
+    assert_eq!(found.unseen[0].reason(&snapshot), None);
+}
+
+#[test]
+fn a_file_over_the_size_limit_is_unseen_with_its_reason() {
+    let big = "#".repeat(usize::try_from(archkeel_snapshot::MAX_FILE_BYTES).unwrap() + 1);
+    let tree = Tree::new(&[("src/big.py", big.as_str()), ("src/a.py", "")]);
+    let mut snapshot = Snapshot::new(&tree.path());
+    let found = scope(&mut snapshot, &["src".to_owned()], false);
+    let (inputs, _) = crate::inputs::inputs(&mut snapshot, &found.selected);
+    assert_eq!(inputs.len(), 1);
+    let unseen = oversized(&snapshot, &found.selected);
+    assert_eq!(unseen, [Unseen::Oversized("src/big.py".to_owned())]);
+    let reason = unseen[0].reason(&snapshot).unwrap();
+    assert!(reason.contains("src/big.py"), "{reason}");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_name_that_is_not_utf8_is_unseen_with_its_reason() {
+    use std::os::unix::ffi::OsStrExt;
+    let tree = Tree::new(&[("src/a.py", "")]);
+    let src = std::path::Path::new(&tree.path()).join("src");
+    std::fs::write(src.join(std::ffi::OsStr::from_bytes(b"caf\xe9.py")), "").unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    let found = scope(&mut snapshot, &["src".to_owned()], false);
+    assert_eq!(found.unseen.len(), 1);
+    let reason = found.unseen[0].reason(&snapshot).unwrap();
+    assert!(
+        reason.starts_with("Source name is not UTF-8: src/caf"),
+        "{reason}"
+    );
 }

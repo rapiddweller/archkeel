@@ -8,13 +8,47 @@
 //! each directory that is not a symlink. A file under `__pycache__`, a file that resolves outside
 //! the snapshot and, when the scope leaves tests out, a test source (as written or as resolved)
 //! is not selected. The order is the order of the path parts.
+//!
+//! What the walk cannot see soundly is an `Unseen` value, never a silent omission (AD-367): the
+//! survey writes a gap for each one, so the scope that holds it cannot be PASS.
 
 use archkeel_snapshot::paths::join;
-use archkeel_snapshot::Snapshot;
+use archkeel_snapshot::{Hidden, Snapshot};
 
-/// The selected snapshot paths of the roots, sorted by their parts.
-pub fn selected(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> Vec<String> {
+/// A file or directory that the native walk cannot read soundly.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Unseen {
+    /// A selected symlink to a missing file. Python selects it too, and its read fails with
+    /// `FileNotFoundError`; the survey writes that failure.
+    Missing(String),
+    /// A name that is not UTF-8. Python selects the file or walks the directory; the native
+    /// collector writes a collection gap that names the path.
+    NotUtf8(String),
+    /// A selected file over `MAX_FILE_BYTES`, which the snapshot does not read (AD-319).
+    Oversized(String),
+}
+
+impl Unseen {
+    /// The reason of the collection gap; `None` for `Missing`, whose gap is a parse failure.
+    pub fn reason(&self, snapshot: &Snapshot) -> Option<String> {
+        match self {
+            Unseen::Missing(_) => None,
+            Unseen::NotUtf8(path) => Some(format!("Source name is not UTF-8: {path}")),
+            Unseen::Oversized(path) => snapshot.size_gap(path),
+        }
+    }
+}
+
+/// The selected files of the roots, sorted by their parts, and what the walk cannot see.
+pub struct Scope {
+    pub selected: Vec<String>,
+    pub unseen: Vec<Unseen>,
+}
+
+/// The scope of the roots: the selected files and the unseen entries.
+pub fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> Scope {
     let mut found = Vec::new();
+    let mut unseen = Vec::new();
     for root in roots {
         if !snapshot.is_dir(root) {
             continue;
@@ -30,12 +64,51 @@ pub fn selected(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) 
             );
             let children = directories.iter().map(|name| join(&directory, name));
             pending.extend(children.filter(|child| !snapshot.is_link(child)));
+            hidden(snapshot, &directory, exclude_tests, &mut unseen);
         }
     }
     found.retain(|rel| keep(snapshot, rel, exclude_tests));
+    found.extend(unseen.iter().filter_map(|item| match item {
+        Unseen::Missing(rel) => Some(rel.clone()),
+        _ => None,
+    }));
     found.sort_by(|left, right| left.split('/').cmp(right.split('/')));
     found.dedup();
-    found
+    Scope {
+        selected: found,
+        unseen,
+    }
+}
+
+/// The entries of `directory` that `Snapshot::entries` leaves out. A dangling `*.py` link is
+/// selected, as `Path.rglob` and `_inside` select it.
+fn hidden(snapshot: &mut Snapshot, directory: &str, exclude_tests: bool, out: &mut Vec<Unseen>) {
+    for entry in snapshot.hidden_entries(directory) {
+        let item = match entry {
+            Hidden::Dangling(name) if name.ends_with(".py") => {
+                let rel = join(directory, &name);
+                if exclude_tests && is_test_source(&rel) {
+                    continue;
+                }
+                Unseen::Missing(rel)
+            }
+            Hidden::NotUtf8 {
+                name,
+                directory: is_dir,
+            } if is_dir || name.ends_with(".py") => Unseen::NotUtf8(join(directory, &name)),
+            _ => continue,
+        };
+        out.push(item);
+    }
+}
+
+/// The selected files that the snapshot refused for their size. Call it after the inputs read.
+pub fn oversized(snapshot: &Snapshot, selected: &[String]) -> Vec<Unseen> {
+    selected
+        .iter()
+        .filter(|rel| snapshot.size_gap(rel).is_some())
+        .map(|rel| Unseen::Oversized(rel.clone()))
+        .collect()
 }
 
 fn keep(snapshot: &mut Snapshot, rel: &str, exclude_tests: bool) -> bool {
