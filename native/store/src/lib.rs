@@ -120,15 +120,24 @@ impl std::io::Write for Count {
     }
 }
 
+/// The error of a frame that the stream ends before its length; it gets no answer.
+pub(crate) fn truncated() -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "frame truncated")
+}
+
 /// Write the canonical `architecture.json` of the parts of the shell as one answer frame. It is
 /// written twice, once to count its length for the frame header, and is never held. An error
-/// before the header is the answer; an error after it ends the session.
+/// before the header is the answer; an error after it ends the session. A frame that the stream
+/// ends before its length gets no answer and ends the session.
 fn write(
-    request: &mut impl std::io::Read,
+    request: &mut std::io::Take<impl std::io::Read>,
     store: &Store,
     output: &mut impl std::io::Write,
 ) -> Result<std::io::Result<()>, String> {
-    let (shell, model) = shell::frame(request, &canonical::CLASSIFIED_SECTIONS)?;
+    let (shell, model) = shell::frame(&mut *request, &canonical::CLASSIFIED_SECTIONS)?;
+    if request.limit() > 0 {
+        return Ok(Err(truncated()));
+    }
     let prepared = canonical::prepare(model, &shell, store)?;
     let mut count = Count(0);
     prepared.write_to(&mut count)?;

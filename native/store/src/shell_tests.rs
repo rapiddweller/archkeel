@@ -169,3 +169,30 @@ fn the_rows_of_the_fixture_are_the_committed_frame() -> Result<(), String> {
     assert!(committed == written, "rewrite with ARCHKEEL_WRITE_FRAME=1");
     Ok(())
 }
+
+/// Python never sends a text twice; a repeat would split the count of one text in two.
+#[test]
+fn a_frame_whose_texts_repeat_is_an_error() {
+    let twice = frame_of(json!({"texts": ["a", "b", "a"], "fields": {}, "model": {}}));
+    assert!(twice.err().unwrap_or_default().contains("texts repeat"));
+    assert!(frame_of(json!({"texts": ["a", "b"], "fields": {}, "model": {}})).is_ok());
+}
+
+/// Only the exact marker `{"m": true}` makes a data field absent, also for a field named `m`.
+#[test]
+fn only_the_exact_missing_marker_makes_a_field_absent() -> Result<(), String> {
+    let fields = ["m".to_owned()];
+    let record = row_record(json!([0, {"m": true}]), &["id"], &fields)?;
+    assert_eq!(Value::Object(record), json!({"id": "a text", "data": {}}));
+    for cell in [
+        json!({"m": false}),
+        json!({"m": true, "n": 1}),
+        json!({"m": 1}),
+    ] {
+        let error = row_record(json!([0, cell]), &["id"], &fields)
+            .err()
+            .unwrap_or_default();
+        assert!(error.contains("unknown tag"), "{cell}: {error}");
+    }
+    Ok(())
+}

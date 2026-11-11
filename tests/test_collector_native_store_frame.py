@@ -121,3 +121,24 @@ def test_the_frame_pieces_join_to_the_bytes_of_one_json_dump() -> None:
     }
     joined = b"".join(_pieces(frame))
     assert joined == json.dumps(frame, ensure_ascii=False, separators=(",", ":")).encode()
+
+
+def test_a_frame_key_that_is_not_a_text_is_a_type_error() -> None:
+    import pytest
+
+    from archkeel.analyzer.store import _pieces
+
+    with pytest.raises(TypeError, match="key that is not a text: 1"):
+        b"".join(_pieces({"model": {1: "a"}}))
+
+
+def test_an_answer_longer_than_the_frame_limit_is_a_store_error() -> None:
+    import io
+
+    import pytest
+
+    from archkeel.analyzer.store import _read, _StoreError
+
+    with pytest.raises(_StoreError, match="answer is too long"):
+        _read(io.BytesIO(b""), 2**62)
+    assert _read(io.BytesIO(b"abc"), 3) == b"abc"

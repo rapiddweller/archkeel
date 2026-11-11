@@ -40,10 +40,7 @@ fn read_payload(input: &mut impl Read, length: u64) -> io::Result<Vec<u8>> {
     let mut payload = Vec::new();
     input.take(length).read_to_end(&mut payload)?;
     if payload.len() as u64 != length {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "frame truncated",
-        ));
+        return Err(crate::truncated());
     }
     Ok(payload)
 }
@@ -68,6 +65,9 @@ pub fn run(input: &mut impl Read, output: &mut impl Write, inflate_limit: u64) -
             let mut body = input.by_ref().take(length);
             let answer = crate::write(&mut body, kept, output);
             io::copy(&mut body, &mut io::sink())?;
+            if body.limit() > 0 {
+                return Err(crate::truncated());
+            }
             match answer {
                 Ok(written) => written?,
                 Err(message) => write_frame(output, Err(message))?,

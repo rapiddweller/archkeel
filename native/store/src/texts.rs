@@ -35,9 +35,25 @@ pub(crate) fn profitable(text: &str, occurrences: u64) -> bool {
         || (occurrences >= 2 && length >= 8 && (occurrences - 1) * length > occurrences * 8 + 100)
 }
 
+/// The zero of each run of ten decimal digits (Unicode category Nd) of Unicode 14.0, the version
+/// of the pinned Python 3.11. The `\d` of Python `re` matches each of these digits.
+const DIGIT_ZEROS: &str =
+    "0\u{660}\u{6f0}\u{7c0}\u{966}\u{9e6}\u{a66}\u{ae6}\u{b66}\u{be6}\u{c66}\u{ce6}\u{d66}\
+     \u{de6}\u{e50}\u{ed0}\u{f20}\u{1040}\u{1090}\u{17e0}\u{1810}\u{1946}\u{19d0}\u{1a80}\
+     \u{1a90}\u{1b50}\u{1bb0}\u{1c40}\u{1c50}\u{a620}\u{a8d0}\u{a900}\u{a9d0}\u{a9f0}\u{aa50}\
+     \u{abf0}\u{ff10}\u{104a0}\u{10d30}\u{11066}\u{110f0}\u{11136}\u{111d0}\u{112f0}\u{11450}\
+     \u{114d0}\u{11650}\u{116c0}\u{11730}\u{118e0}\u{11950}\u{11c50}\u{11d50}\u{11da0}\u{16a60}\
+     \u{16ac0}\u{16b50}\u{1d7ce}\u{1d7d8}\u{1d7e2}\u{1d7ec}\u{1d7f6}\u{1e140}\u{1e2f0}\u{1e950}\
+     \u{1fbf0}";
+
+fn decimal(digit: char) -> bool {
+    let zero = DIGIT_ZEROS.chars().take_while(|zero| *zero <= digit).last();
+    zero.is_some_and(|zero| u32::from(digit) - u32::from(zero) < 10)
+}
+
 /// `observation_escaped`: the missing marker and the spellings of a reference.
 pub(crate) fn escaped(text: &str) -> bool {
-    let digits = |rest: &str| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit());
+    let digits = |rest: &str| !rest.is_empty() && rest.chars().all(decimal);
     text == "$m"
         || text == "$$m"
         || text.strip_prefix('$').is_some_and(digits)
@@ -76,6 +92,13 @@ impl<'a> Counts<'a> {
     /// A text of a stored record or of a plain shell entry.
     pub(crate) fn text(&mut self, text: &str) {
         if !candidate(text) {
+            return;
+        }
+        if text == "$$m" {
+            // `$$m` enters the table at one occurrence, so the first pass counts it exactly.
+            if !self.exact {
+                *self.other.entry(text.to_owned()).or_insert(0) += 1;
+            }
             return;
         }
         let seen = self.seen.entry(hashed(text)).or_insert(0);

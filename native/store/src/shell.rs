@@ -79,6 +79,9 @@ pub(crate) fn frame(
         .deserialize(&mut deserializer)
         .and_then(|model| deserializer.end().map(|()| model))
         .map_err(|error| error.to_string())?;
+    if shell.texts_repeat() {
+        return Err("the frame texts repeat".to_owned());
+    }
     for (section, names) in &shell.fields {
         if !sections.contains(&section.as_str()) {
             return Err(format!("the shell names no record section {section}"));
@@ -272,6 +275,16 @@ impl Shell {
         let end = *self.ends.get(index)?;
         let start = if index == 0 { 0 } else { self.ends[index - 1] };
         self.text.get(start..end)
+    }
+
+    /// Whether two texts of the frame are equal: Python sends each text once, and a repeat would
+    /// split the count of one text in two. The sort holds the indexes, not the texts.
+    fn texts_repeat(&self) -> bool {
+        let mut order: Vec<usize> = (0..self.texts()).collect();
+        order.sort_unstable_by(|a, b| self.text(*a).cmp(&self.text(*b)));
+        order
+            .windows(2)
+            .any(|pair| self.text(pair[0]) == self.text(pair[1]))
     }
 
     /// Every text of the frame with its index.

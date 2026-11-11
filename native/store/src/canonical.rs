@@ -289,7 +289,7 @@ enum Part {
     Coverage(Map<String, Value>, Option<Vec<Entry>>),
 }
 
-/// The coverage failures of the shell, with each stored gap written in full.
+/// The rows of one record section; a stored record or a shell row is built only while it is written.
 fn write_section(
     rows: &Rows,
     plain: Source<'_>,
@@ -310,8 +310,10 @@ fn write_section(
 /// The coverage object without its failures, and the failures as entries: a stored gap is
 /// written from the store when the coverage is written, never held as JSON.
 fn coverage(model: &mut HashMap<String, Top>) -> Result<Option<Part>, String> {
-    let Some(Top::Plain(Value::Object(mut coverage))) = model.remove("coverage") else {
-        return Ok(None);
+    let mut coverage = match model.remove("coverage") {
+        None => return Ok(None),
+        Some(Top::Plain(Value::Object(coverage))) => coverage,
+        Some(_) => return Err("coverage must be an object".to_owned()),
     };
     let failures = match coverage.remove("failures") {
         Some(failures) => Some(failure_entries(failures)?),
@@ -353,7 +355,6 @@ fn write_coverage(
     Ok(())
 }
 
-/// The canonical bytes of the observation. `model` is the part of the shell, with stored ids.
 /// The observation, ready to write: its parts and its string table.
 pub(crate) struct Prepared<'a> {
     parts: BTreeMap<String, Part>,

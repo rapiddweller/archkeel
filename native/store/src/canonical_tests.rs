@@ -107,3 +107,72 @@ fn a_text_enters_the_table_by_the_observation_policy() {
         assert_eq!(escaped(text), reserved, "{text}");
     }
 }
+
+/// A shell record of `metrics` with the data `data`.
+fn shell_record(data: Value) -> Value {
+    json!({"id": "METRIC-1", "evidence_class": "FACT", "area": "a", "kind": "k", "title": "t",
+           "subjects": [], "evidence_ids": [], "rule_ids": [], "fact_ids": [],
+           "provenance": [], "data": data})
+}
+
+/// The written observation of a model whose sections are null, with the values of `more`.
+fn written(more: Value) -> Result<Value, String> {
+    let parts: Value =
+        serde_json::from_slice(&testdata("canonical-parts.json")).map_err(|e| e.to_string())?;
+    let store = store(&parts["record"], &parts["evidence"])?;
+    let mut model = serde_json::Map::new();
+    for name in super::CLASSIFIED_SECTIONS {
+        model.insert(name.to_owned(), Value::Null);
+    }
+    if let Value::Object(more) = more {
+        model.extend(more);
+    }
+    let (empty, model) = framed(json!({"texts": [], "fields": {}, "model": model}));
+    let bytes = encode(model, &empty, &store)?;
+    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+}
+
+/// `observation_profitable` keeps `$$m` at one occurrence, so the hash gate must not drop it.
+#[test]
+fn the_missing_marker_text_enters_the_table_when_it_occurs_once() -> Result<(), String> {
+    let got = written(json!({"metrics": [shell_record(json!({"q": "$$m"}))]}))?;
+    assert_eq!(got["string_table"], json!(["$$m"]));
+    assert_eq!(got["metrics"][0][10], json!(["$0"]));
+    let evidence = json!({"id": "E-1", "file": "$$m", "line": 1, "end_line": 1, "column": 0,
+                          "excerpt": "x"});
+    let got = written(json!({"evidence": [evidence]}))?;
+    assert_eq!(got["string_table"], json!(["$$m"]));
+    assert_eq!(got["evidence"][0][1], json!("$0"));
+    Ok(())
+}
+
+/// The `\d` of Python `re` matches every decimal digit of Unicode, not only ASCII digits.
+#[test]
+fn a_reference_with_a_unicode_digit_is_escaped() -> Result<(), String> {
+    for (text, reserved) in [
+        ("$\u{663}", true),
+        ("$$\u{967}\u{968}", true),
+        ("$\u{ff11}", true),
+        ("$\u{1d7ce}", true),
+        ("$\u{b2}", false),
+        ("$\u{2167}", false),
+    ] {
+        assert_eq!(escaped(text), reserved, "{text}");
+    }
+    // Unicode 14.0 has 660 decimal digits (`$m` is the marker); each one is numeric.
+    let digits: Vec<char> = (0..=0x10ffff_u32)
+        .filter_map(char::from_u32)
+        .filter(|digit| *digit != 'm' && escaped(&format!("${digit}")))
+        .collect();
+    assert_eq!(digits.len(), 660);
+    assert!(digits.iter().all(|digit| digit.is_numeric()));
+    let got = written(json!({"metrics": [shell_record(json!({"q": "$\u{663}"}))]}))?;
+    assert_eq!(got["metrics"][0][10], json!(["$$\u{663}"]));
+    Ok(())
+}
+
+#[test]
+fn a_coverage_that_is_not_an_object_is_an_error() {
+    let error = written(json!({"coverage": 5})).err().unwrap_or_default();
+    assert!(error.contains("coverage must be an object"), "{error}");
+}

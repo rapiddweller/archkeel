@@ -169,7 +169,42 @@ pub(crate) fn write_list<T>(
 
 #[cfg(test)]
 mod tests {
-    use super::python_float;
+    use super::{python_float, write_list, Chunked};
+
+    struct Broken;
+
+    impl std::io::Write for Broken {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("the sink is broken"))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A sink that fails is an error, also when a list spills its pieces.
+    #[test]
+    fn a_failing_sink_is_an_error() {
+        let mut sink = Broken;
+        let mut out = Chunked {
+            buf: b"[1".to_vec(),
+            sink: &mut sink,
+        };
+        assert_eq!(out.spill(3), Ok(()));
+        let error = out.spill(0).err().unwrap_or_default();
+        assert!(error.contains("the sink is broken"), "{error}");
+        let mut sink = Broken;
+        let mut out = Chunked {
+            buf: Vec::new(),
+            sink: &mut sink,
+        };
+        let long = vec![0u8; 1 << 20];
+        let error = write_list(&[1, 2], &mut out, |_, buf| {
+            buf.extend_from_slice(&long);
+            Ok(())
+        });
+        assert!(error.is_err());
+    }
 
     #[test]
     fn a_float_is_written_as_python_repr_writes_it() -> Result<(), String> {

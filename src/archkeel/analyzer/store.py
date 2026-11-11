@@ -29,6 +29,8 @@ from archkeel.ir.store_seam import StoreEntry, close_store, open_store
 
 # The factor of `facts_codec.decode_response`: a reply may inflate to 16 times its bytes.
 _INFLATE_FACTOR = 16
+# The longest answer: the frame limit of the store (`session.rs:FRAME_LIMIT`).
+_ANSWER_LIMIT = 1 << 40
 
 
 class _StoreError(Exception):
@@ -37,6 +39,8 @@ class _StoreError(Exception):
 
 def _read(stream: IO[bytes], size: int) -> bytes:
     """One frame body: a buffered read of `size` fills one bytes object, so it is held once."""
+    if size > _ANSWER_LIMIT:
+        raise _StoreError("the store answer is too long")
     data = stream.read(size)
     if len(data) != size:
         raise _StoreError("the store process ended")
@@ -60,6 +64,8 @@ def _pieces(value: Mapping[str, object]) -> Iterator[bytes]:
     """
     yield b"{"
     for index, (key, item) in enumerate(value.items()):
+        if not isinstance(key, str):
+            raise TypeError(f"the frame holds a key that is not a text: {key}")
         yield (b"," if index else b"") + _json(key) + b":"
         if isinstance(item, Mapping):
             yield from _pieces(item)
