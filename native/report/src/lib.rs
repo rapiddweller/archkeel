@@ -15,10 +15,11 @@
 //!   outcome of the evaluator and the rows of the model; `Report::read` a `Report<Recorded>`.
 //!
 //! The crate is not wired yet: the core binary does not call it. The input types of `build`
-//! (`Outcome`, `Records`) are the seam that the eval crate and the model slices fill.
+//! (`RunOutcome`, `Records`) are the seam that the eval crate and the model slices fill.
 
 #![deny(unreachable_pub)]
 
+mod build_error;
 mod build_tables;
 mod check;
 mod check_order;
@@ -26,6 +27,7 @@ mod check_rows;
 mod check_structure;
 mod codes;
 mod frame;
+mod frame_rules;
 mod head;
 mod input;
 mod payload;
@@ -33,25 +35,26 @@ mod problem;
 mod report;
 mod status;
 
+pub use build_error::BuildError;
 pub use check::problems;
 pub use codes::{
     Code, CodeList, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Measure, MeasureState,
     Permission, Reason, Relation, UnknownReason, UnknownSource, Verdict, Vis, NOT_CARRIED,
 };
-pub use frame::{build, BuildError};
+pub use frame::build;
 pub use head::{
     Component, Counts, Coverage, GapRow, NotRanked, PayloadBudget, RuleReason, RuleResult,
     RuleVerdict, Run, RunContract, Source, Status, Summary, TrendPoint,
 };
 pub use input::{
     ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, Graph, MeasureRow, NodeRow,
-    Outcome, PermissionRow, Produced, Records, RuleDecision, RuleOutcome, RunFacts, Target, Tree,
-    Undecided, UnitRow, UnknownRecord, ViolationRow,
+    PermissionRow, Produced, Records, RuleDecision, RuleOutcome, RunFacts, RunOutcome, Target,
+    Tree, Undecided, UnitRow, UnknownRecord, ViolationRow, WhyUnknown,
 };
 pub use payload::{DecodeError, Payload, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
-pub use status::{status_of, unexplained, Unexplained};
+pub use status::{status_of, unexplained, Unexplained, PASS_NEEDS};
 pub use tables::{
     opt_gap, Carriers, Crossings, Edges, Fields, Findings, Flag, Id, Measures, Nodes, OptGap,
     OptId, OptStr, Params, Permissions, StrId, Units, Unknowns, Variants, Violations,
@@ -67,6 +70,8 @@ mod codec_tests;
 mod corpus_tests;
 #[cfg(test)]
 mod fault_tests;
+#[cfg(test)]
+mod review_tests;
 #[cfg(test)]
 mod schema_tests;
 #[cfg(test)]

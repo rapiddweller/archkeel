@@ -4,7 +4,7 @@
 
 //! The inputs of `build`: the seam that the eval crate and the model slices fill (AD-371).
 //!
-//! `Outcome` is the Decision of the evaluator (AD-361 point 3): the status, the observation, each
+//! `RunOutcome` is the Decision of the evaluator (AD-361 point 3): the observation, each
 //! rule with its `Decision`, reason and undecided positions, the Target and the diagnostics. A
 //! PASS in it can only come from `Scope::pass` of the model (AD-363). `Records` holds the rows
 //! that the model derives. A table that no slice produces yet is `Produced::NotProduced` with the
@@ -16,7 +16,7 @@ use crate::codes::{
     Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Measure, MeasureState, Permission,
     Reason, Verdict, Vis,
 };
-use crate::head::{Coverage, RuleReason, RunContract};
+use crate::head::{Coverage, RunContract};
 
 /// Rows of one table, or the named part that does not produce them yet.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,6 +40,16 @@ pub enum RuleDecision {
     Declaration,
 }
 
+/// Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict
+/// from the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WhyUnknown {
+    ScopeIncomplete,
+    NoReceipt,
+    Undecided,
+    OwnershipBlocker,
+}
+
 /// One position that the evaluator left undecided for a rule (AD-92).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Undecided {
@@ -55,7 +65,8 @@ pub struct RuleOutcome {
     pub decision: RuleDecision,
     /// True when the evaluator wrote a complete receipt for the rule (AD-117).
     pub evaluated: bool,
-    pub reason: RuleReason,
+    /// Set for an UNKNOWN rule only; any other verdict with it is `BuildError::ReasonMismatch`.
+    pub why_unknown: Option<WhyUnknown>,
     pub undecided: Vec<Undecided>,
     pub rationale: String,
     pub decided_by: Option<String>,
@@ -70,10 +81,10 @@ pub struct Diagnostic {
     pub claim: String,
 }
 
-/// The Decision of the evaluator for one run.
+/// The Decision of the evaluator for one run. It has no status: `build` takes the status from
+/// the rows (`status_of`) and asks for a PASS `Decision` only when that status is PASS.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Outcome {
-    pub status: Decision,
+pub struct RunOutcome {
     pub target: Target,
     /// The completeness verdict of the observation.
     pub observation: Decision,

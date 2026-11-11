@@ -12,8 +12,9 @@ use crate::codes::{
     Code, CodeList, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, MeasureState,
     Permission, Relation, UnknownSource, Verdict,
 };
-use crate::head::{Counts, RuleVerdict};
+use crate::head::{Counts, RuleReason, RuleVerdict};
 use crate::payload::Payload;
+use crate::payload::MAX_BYTES;
 use crate::problem::Problem;
 use crate::status::{status_of, unexplained};
 
@@ -34,11 +35,40 @@ pub(crate) fn rows(p: &Payload, found: &mut Vec<Problem>) {
                 rule: rule.id.clone(),
             });
         }
+        if !reason_fits(rule.verdict, rule.reason) {
+            found.push(Problem::VerdictReason {
+                rule: rule.id.clone(),
+            });
+        }
+        if rule.verdict == RuleVerdict::Fail && rule.violations == 0 {
+            found.push(Problem::FailRuleWithoutViolation {
+                rule: rule.id.clone(),
+            });
+        }
+    }
+    if p.run.payload_budget.max_bytes != MAX_BYTES {
+        found.push(Problem::PayloadBudget);
     }
     if p.run.target && p.unknowns.source.iter().any(|s| s.is(UnknownSource::Run)) {
         found.push(Problem::RunRowWithTarget);
     }
     permissions(p, found);
+}
+
+/// The reasons that each rule verdict can have (the reason codes of the Decision).
+pub(crate) fn reason_fits(verdict: RuleVerdict, reason: RuleReason) -> bool {
+    match verdict {
+        RuleVerdict::Pass => reason == RuleReason::Evaluated,
+        RuleVerdict::Fail => reason == RuleReason::Violations,
+        RuleVerdict::Declaration => reason == RuleReason::Declaration,
+        RuleVerdict::Unknown => matches!(
+            reason,
+            RuleReason::ScopeIncomplete
+                | RuleReason::NoReceipt
+                | RuleReason::Undecided
+                | RuleReason::OwnershipBlocker
+        ),
+    }
 }
 
 fn measures(p: &Payload, found: &mut Vec<Problem>) {
@@ -116,7 +146,11 @@ fn findings_of(p: &Payload, kind: Option<FindingKind>, disposition: Disposition)
 /// The counts that follow from the rows. `unowned_modules` needs the owner chains of the model,
 /// and `crossing_names_unbound` cannot be counted when the cap left crossings out: both keep the
 /// stated value.
-pub(crate) fn counted(p: &Payload) -> Counts {
+///
+/// A sum of payload numbers that overflows `u64` is named in the second value and counts as
+/// `u64::MAX`: the check refuses it by name and never aborts on it.
+pub(crate) fn counted(p: &Payload) -> (Counts, Vec<&'static str>) {
+    let mut overflow = Vec::new();
     let e = &p.edges;
     let at = |level: Level| count_of(&e.level, |l| l.is(level));
     let component = |row: usize| e.level.get(row).is_some_and(|l| l.is(Level::Component));
@@ -129,14 +163,19 @@ pub(crate) fn counted(p: &Payload) -> Counts {
                 .count(),
         )
     };
-    let omitted: u64 = (0..e.level.len())
-        .filter(|row| e.level.get(*row).is_some_and(|l| l.is(Level::Module)))
-        .map(|row| e.omitted.get(row).copied().unwrap_or(0))
-        .sum();
+    let omitted = checked_sum(
+        (0..e.level.len())
+            .filter(|row| e.level.get(*row).is_some_and(|l| l.is(Level::Module)))
+            .map(|row| e.omitted.get(row).copied().unwrap_or(0)),
+    )
+    .unwrap_or_else(|| {
+        overflow.push("crossing_names");
+        u64::MAX
+    });
     let crossings = size(p.crossings.edge.len());
     let stated = p.summary.counts;
     let verdicts = |wanted: RuleVerdict| count_of(&p.rules, |rule| rule.verdict == wanted);
-    Counts {
+    let counts = Counts {
         packages: count_of(&p.nodes.level, |l| l.is(Level::Package)),
         components: count_of(&p.nodes.level, |l| l.is(Level::Component)),
         modules: count_of(&p.nodes.level, |l| l.is(Level::Module)),
@@ -168,9 +207,13 @@ pub(crate) fn counted(p: &Payload) -> Counts {
         rules_declaration: verdicts(RuleVerdict::Declaration),
         violations: size(p.violations.kind.len()),
         unknowns: size(p.unknowns.source.len()),
-        undecided: p.rules.iter().map(|rule| rule.undecided).sum(),
+        undecided: checked_sum(p.rules.iter().map(|rule| rule.undecided)).unwrap_or_else(|| {
+            overflow.push("undecided");
+            u64::MAX
+        }),
         gaps: size(p.gaps.len()),
-    }
+    };
+    (counts, overflow)
 }
 
 /// The counts in schema order, with their names.
@@ -204,15 +247,34 @@ fn named(c: &Counts) -> [(&'static str, u64); 25] {
     ]
 }
 
+/// The sum of payload numbers, or `None` when it overflows `u64`.
+pub(crate) fn checked_sum(values: impl Iterator<Item = u64>) -> Option<u64> {
+    values.into_iter().try_fold(0u64, u64::checked_add)
+}
+
 fn counts(p: &Payload, found: &mut Vec<Problem>) {
-    let rows = counted(p);
+    let (rows, overflow) = counted(p);
     let rollup = findings_of(p, Some(FindingKind::Cycle), Disposition::Context);
-    let not_ranked: u64 = p.run.not_ranked.iter().map(|item| item.count).sum();
-    if p.summary.counts.cycles != rows.cycles || not_ranked != rollup {
-        found.push(Problem::CycleCounts);
+    let not_ranked = checked_sum(p.run.not_ranked.iter().map(|item| item.count));
+    match not_ranked {
+        None => found.push(Problem::Count {
+            name: "run.not_ranked",
+            stated: 0,
+            rows: u64::MAX,
+        }),
+        Some(n) if p.summary.counts.cycles != rows.cycles || n != rollup => {
+            found.push(Problem::CycleCounts);
+        }
+        Some(_) => {}
     }
     for ((name, stated), (_, counted)) in named(&p.summary.counts).into_iter().zip(named(&rows)) {
-        if stated != counted && name != "cycles" {
+        if overflow.contains(&name) {
+            found.push(Problem::Count {
+                name,
+                stated,
+                rows: u64::MAX,
+            });
+        } else if stated != counted && name != "cycles" {
             found.push(Problem::Count {
                 name,
                 stated,
@@ -235,7 +297,8 @@ fn citations(p: &Payload, found: &mut Vec<Problem>) {
             .map(String::as_str)
             .collect();
         for name in names {
-            *cited.entry(name).or_insert(0) += 1;
+            let count = cited.entry(name).or_insert(0);
+            *count = count.saturating_add(1);
         }
         start = end;
     }

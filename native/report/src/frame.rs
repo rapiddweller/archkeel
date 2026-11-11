@@ -11,66 +11,25 @@
 //! unexplained is a named `BuildError`, never bytes.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt;
 
-use archkeel_model::{Decision, Unsupported, Verdict as ModelVerdict};
+use archkeel_model::{Decision, Verdict as ModelVerdict};
 
+use crate::build_error::BuildError;
 use crate::build_tables::{self as layout, node_of, Strings, UnknownCell, CROSSING_CAP};
 use crate::check_rows::counted;
 use crate::codes::{
     Code, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Relation, UnknownSource,
     NOT_CARRIED,
 };
+use crate::frame_rules::{rule_rows, status};
 use crate::head::{
-    Counts, GapRow, NotRanked, PayloadBudget, RuleResult, RuleVerdict, Run, Source, Status, Summary,
+    Counts, GapRow, NotRanked, PayloadBudget, RuleResult, Run, Source, Status, Summary,
 };
-use crate::input::{EdgeRow, Outcome, Produced, Records, RuleDecision, RuleOutcome, Target, Tree};
+use crate::input::{EdgeRow, Produced, Records, RuleDecision, RunOutcome, Target, Tree};
 use crate::payload::{Payload, MAX_BYTES, SCHEMA_VERSION};
 use crate::problem::Problem;
 use crate::report::{Decided, Report};
-use crate::status::Unexplained;
-
-/// Why no `Report` can be built.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BuildError {
-    /// A table that the schema requires and cannot mark as not produced has no rows yet.
-    NotProduced {
-        table: &'static str,
-        part: Unsupported,
-    },
-    /// A rule decides PASS without an evaluator receipt (AD-117).
-    PassWithoutReceipt { rule: String },
-    /// A status other than PASS has no row that explains it (AD-361 point 5).
-    Unexplained(Vec<Unexplained>),
-    /// The frame breaks other rules of the check, such as the status rule.
-    Invalid(Vec<Problem>),
-    /// The canonical bytes are above the budget; the payload is never cut in silence.
-    TooLarge { bytes: u64 },
-    /// The bytes cannot be written.
-    Encode(String),
-}
-
-impl fmt::Display for BuildError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BuildError::NotProduced { table, part } => {
-                write!(formatter, "the {table} table is not produced: {part}")
-            }
-            BuildError::PassWithoutReceipt { rule } => {
-                write!(formatter, "rule {rule} decides PASS without a receipt")
-            }
-            BuildError::Unexplained(found) => write!(formatter, "{found:?}"),
-            BuildError::Invalid(found) => write!(formatter, "{found:?}"),
-            BuildError::TooLarge { bytes } => {
-                write!(
-                    formatter,
-                    "the payload has {bytes} bytes, above {MAX_BYTES}"
-                )
-            }
-            BuildError::Encode(error) => formatter.write_str(error),
-        }
-    }
-}
+use crate::status::{status_of, Unexplained};
 
 fn rows<T>(table: &'static str, produced: Produced<T>) -> Result<T, BuildError> {
     match produced {
@@ -79,28 +38,9 @@ fn rows<T>(table: &'static str, produced: Produced<T>) -> Result<T, BuildError> 
     }
 }
 
-fn status(decision: &Decision) -> Status {
-    match decision.verdict() {
-        ModelVerdict::Pass(_) => Status::Pass,
-        ModelVerdict::Fail => Status::Fail,
-        ModelVerdict::Unknown => Status::Unknown,
-    }
-}
-
-fn rule_verdict(decision: &RuleDecision) -> RuleVerdict {
-    match decision {
-        RuleDecision::Declaration => RuleVerdict::Declaration,
-        RuleDecision::Decided(decision) => match status(decision) {
-            Status::Pass => RuleVerdict::Pass,
-            Status::Fail => RuleVerdict::Fail,
-            Status::Unknown => RuleVerdict::Unknown,
-        },
-    }
-}
-
 /// The unknowns rows: each record, each diagnostic, and a missing Target.
 fn unknown_cells(
-    outcome: &Outcome,
+    outcome: &RunOutcome,
     records: Vec<crate::input::UnknownRecord>,
     tree: &Tree,
 ) -> Vec<UnknownCell> {
@@ -141,43 +81,6 @@ fn unknown_cells(
     cells
 }
 
-/// The rule rows, by id; the violation count of each is the number of violation rows citing it.
-fn rule_rows(
-    rules: &[RuleOutcome],
-    violations: &[crate::input::ViolationRow],
-) -> Result<Vec<RuleResult>, BuildError> {
-    let mut cited: BTreeMap<&str, u64> = BTreeMap::new();
-    for row in violations {
-        let names: BTreeSet<&str> = row.rules.iter().map(String::as_str).collect();
-        for name in names {
-            *cited.entry(name).or_insert(0) += 1;
-        }
-    }
-    let mut out = Vec::with_capacity(rules.len());
-    for rule in rules {
-        let verdict = rule_verdict(&rule.decision);
-        if verdict == RuleVerdict::Pass && !rule.evaluated {
-            return Err(BuildError::PassWithoutReceipt {
-                rule: rule.id.clone(),
-            });
-        }
-        out.push(RuleResult {
-            id: rule.id.clone(),
-            kind: rule.kind.clone(),
-            title: rule.title.clone(),
-            verdict,
-            evaluated: rule.evaluated,
-            violations: cited.get(rule.id.as_str()).copied().unwrap_or(0),
-            undecided: u64::try_from(rule.undecided.len()).unwrap_or(u64::MAX),
-            reason: rule.reason,
-            rationale: rule.rationale.clone(),
-            decided_by: rule.decided_by.clone(),
-        });
-    }
-    out.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(out)
-}
-
 /// The gaps that the rows reference and the rows that each blocks. `G-CONTRACT-LINES` blocks the
 /// contract link of each component edge with a target; `G-TREND` is listed while the payload
 /// has fewer than two trend points.
@@ -185,7 +88,8 @@ fn gap_rows(payload: &Payload) -> Vec<GapRow> {
     let mut blocks: BTreeMap<u32, u64> = BTreeMap::new();
     for gap in payload.measures.gap.iter().chain(&payload.findings.gap) {
         if let Ok(code) = u32::try_from(*gap) {
-            *blocks.entry(code).or_insert(0) += 1;
+            let count = blocks.entry(code).or_insert(0);
+            *count = count.saturating_add(1);
         }
     }
     let e = &payload.edges;
@@ -195,9 +99,10 @@ fn gap_rows(payload: &Payload) -> Vec<GapRow> {
         .zip(&e.target)
         .filter(|(l, t)| l.is(Level::Component) && !t.is(EdgeTarget::NoTarget));
     let lines = u64::try_from(lines.count()).unwrap_or(u64::MAX);
-    *blocks
+    let contract_lines = blocks
         .entry(Code::of(Gap::ContractLines).value())
-        .or_insert(0) += lines;
+        .or_insert(0);
+    *contract_lines = contract_lines.saturating_add(lines);
     if payload.trend.len() < 2 {
         blocks.entry(Code::of(Gap::Trend).value()).or_insert(0);
     }
@@ -346,7 +251,7 @@ fn component(c: &crate::input::ComponentText) -> crate::head::Component {
     }
 }
 
-fn run_of(outcome: &Outcome, records: &Records, graph: bool) -> Run {
+fn run_of(outcome: &RunOutcome, records: &Records, graph: bool) -> Run {
     let facts = &records.run;
     let mut not_carried: Vec<Relation> = NOT_CARRIED.to_vec();
     if !graph {
@@ -375,12 +280,17 @@ fn run_of(outcome: &Outcome, records: &Records, graph: bool) -> Run {
 }
 
 /// Build the `Report` frame of one run.
-pub fn build(outcome: Outcome, records: Records) -> Result<Report<Decided>, BuildError> {
-    let run = run_of(
-        &outcome,
-        &records,
-        matches!(records.graph, Produced::Rows(_)),
-    );
+///
+/// The status is the status rule over the rows (`status_of`). Only when it is PASS does the
+/// builder call `pass`, which must give a PASS `Decision` of the model (the scope proof of
+/// AD-363); else the build fails with `BuildError::PassWithoutProof`.
+pub fn build(
+    outcome: RunOutcome,
+    records: Records,
+    pass: impl FnOnce() -> Option<Decision>,
+) -> Result<Report<Decided>, BuildError> {
+    let graph = matches!(records.graph, Produced::Rows(_));
+    let run = run_of(&outcome, &records, graph);
     let tree = rows("nodes", records.tree)?;
     let measures = rows("measures", records.measures)?;
     let units = rows("units", records.units)?;
@@ -403,7 +313,17 @@ pub fn build(outcome: Outcome, records: Records) -> Result<Report<Decided>, Buil
         violations: &violations,
         findings: &findings,
     };
-    let mut payload = payload_of(run, rules, &body, &cells, tree.unowned_modules);
+    let payload = payload_of(run, rules, &body, &cells, tree.unowned_modules);
+    finish(payload, &findings, outcome, pass)
+}
+
+/// The derived head, the status from the rows, the PASS proof, the check and the budget.
+fn finish(
+    mut payload: Payload,
+    findings: &[crate::input::FindingRow],
+    outcome: RunOutcome,
+    pass: impl FnOnce() -> Option<Decision>,
+) -> Result<Report<Decided>, BuildError> {
     let rollup = findings
         .iter()
         .filter(|f| f.kind == FindingKind::Cycle && f.disposition == Disposition::Context)
@@ -413,26 +333,28 @@ pub fn build(outcome: Outcome, records: Records) -> Result<Report<Decided>, Buil
         count: u64::try_from(rollup).unwrap_or(u64::MAX),
     }];
     payload.gaps = gap_rows(&payload);
-    payload.summary = Summary {
-        status: status(&outcome.status),
-        counts: counted(&payload),
+    payload.summary.counts = counted(&payload).0;
+    let status = status_of(&payload);
+    payload.summary.status = status;
+    let proof = match status {
+        Status::Pass => match pass() {
+            Some(d) if matches!(d.verdict(), ModelVerdict::Pass(_)) => Some(d),
+            _ => return Err(BuildError::PassWithoutProof),
+        },
+        Status::Fail | Status::Unknown => None,
     };
+    let rules = outcome.rules.into_iter().map(|r| {
+        let decision = match r.decision {
+            RuleDecision::Decided(d) => Some(d),
+            RuleDecision::Declaration => None,
+        };
+        (r.id, decision)
+    });
     let decided = Decided {
-        status: outcome.status,
+        status,
+        pass: proof,
         observation: outcome.observation,
-        rules: outcome
-            .rules
-            .into_iter()
-            .map(|r| {
-                (
-                    r.id,
-                    match r.decision {
-                        RuleDecision::Decided(d) => Some(d),
-                        RuleDecision::Declaration => None,
-                    },
-                )
-            })
-            .collect(),
+        rules: rules.collect(),
     };
     let report = Report::checked(payload, decided).map_err(refusal)?;
     let bytes = report

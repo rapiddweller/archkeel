@@ -35,7 +35,8 @@ use std::fmt;
 use archkeel_model::Decision;
 
 use crate::check::problems;
-use crate::payload::{DecodeError, Payload};
+use crate::head::Status;
+use crate::payload::{DecodeError, Payload, MAX_BYTES};
 use crate::problem::Problem;
 
 /// The mark of a report read from bytes.
@@ -45,15 +46,21 @@ pub struct Recorded(());
 /// The mark of a report built from the Decision of the evaluator. It keeps that Decision.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decided {
-    pub(crate) status: Decision,
+    pub(crate) status: Status,
+    pub(crate) pass: Option<Decision>,
     pub(crate) observation: Decision,
     pub(crate) rules: Vec<(String, Option<Decision>)>,
 }
 
 impl Decided {
-    /// The status of the run, as the evaluator decided it.
-    pub fn status(&self) -> &Decision {
-        &self.status
+    /// The status of the run: the status rule over the rows (`status_of`).
+    pub fn status(&self) -> Status {
+        self.status
+    }
+
+    /// The PASS `Decision` of the model; only a PASS status has one.
+    pub fn pass(&self) -> Option<&Decision> {
+        self.pass.as_ref()
     }
 
     /// The completeness of the observation, as the evaluator decided it.
@@ -84,12 +91,17 @@ pub enum ReadError {
     Decode(DecodeError),
     /// The payload breaks the named rules.
     Check(Vec<Problem>),
+    /// The input is above the byte budget; it is refused before the parse.
+    TooLarge { bytes: u64 },
 }
 
 impl fmt::Display for ReadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ReadError::Decode(error) => write!(formatter, "{error}"),
+            ReadError::TooLarge { bytes } => {
+                write!(formatter, "the input has {bytes} bytes, above {MAX_BYTES}")
+            }
             ReadError::Check(found) => {
                 let texts: Vec<String> = found.iter().map(ToString::to_string).collect();
                 write!(formatter, "the payload breaks: {}", texts.join("; "))
@@ -101,6 +113,10 @@ impl fmt::Display for ReadError {
 impl Report<Recorded> {
     /// Read canonical payload bytes and check them.
     pub fn read(bytes: &[u8]) -> Result<Report<Recorded>, ReadError> {
+        let size = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+        if size > MAX_BYTES {
+            return Err(ReadError::TooLarge { bytes: size });
+        }
         let payload = Payload::decode(bytes).map_err(ReadError::Decode)?;
         Report::checked(payload, Recorded(())).map_err(ReadError::Check)
     }
@@ -126,8 +142,11 @@ impl<S> Report<S> {
     pub fn source(&self) -> &S {
         &self.source
     }
+}
 
-    /// The canonical bytes.
+impl Report<Decided> {
+    /// The canonical bytes of the frame: the encode path of the core. A recorded report has no
+    /// such path; a test reads its bytes through `payload().encode()`.
     pub fn encode(&self) -> Result<Vec<u8>, serde_json::Error> {
         self.payload.encode()
     }

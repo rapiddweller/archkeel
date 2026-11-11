@@ -123,7 +123,7 @@ fn nodes(p: &Payload, found: &mut Vec<Problem>) {
         let above = usize::try_from(*parent)
             .ok()
             .and_then(|parent| depth.get(parent).copied());
-        depth.push(above.map_or(0, |d| d + 1));
+        depth.push(above.map_or(0, |d| d.saturating_add(1)));
     }
     let module_depth = |(level, depth): (&crate::codes::Code<Level>, &usize)| {
         if level.is(Level::Module) {

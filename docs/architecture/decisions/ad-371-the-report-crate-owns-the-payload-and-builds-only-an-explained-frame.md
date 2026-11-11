@@ -9,9 +9,11 @@
 2. A `Report` exists only after the check. `build(Outcome, Records)` gives `Report<Decided>`;
    `Report::read(bytes)` gives `Report<Recorded>`. The fields are private, and a recorded report
    never becomes a decided one (`compile_fail` doctests in `report.rs`).
-3. The status, the observation and each rule verdict of a decided report come from a `Decision`
-   of the model, so a PASS needs the scope proof (AD-363). A rule that decides PASS without a
-   receipt is `BuildError::PassWithoutReceipt`.
+3. The builder takes the run status from `status_of` over the rows; `RunOutcome` has no status.
+   Only for a PASS does it call `pass`, which must give a PASS `Decision` of the model (AD-363),
+   else `BuildError::PassWithoutProof`. The observation and each rule verdict come from a
+   `Decision`. The rule reason follows the verdict (PASS `evaluated`, FAIL `violations`, a
+   declaration `declaration`); only UNKNOWN takes a `WhyUnknown`. Only `Report<Decided>` encodes.
 4. `status_of` is the status rule of AD-361 point 4 over the rows; `unexplained` is point 5.
    The builder and the check call the same two functions. A frame whose stated status differs
    from the rule is `BuildError::Invalid`; a status without its explaining row is
@@ -26,9 +28,11 @@
 7. The check has every rule of the Python checker of #1040 and adds: a code beyond the lists of
    this crate (never read as clean), the row order of each table (a repeated row in a table with
    a unique key), the flags, the permission of each component edge and package edge, a PASS rule
-   without receipt, a `run` row with a Target, and the counts that follow from the rows. The bytes
-   must be canonical: bytes that decode but differ from their own encoding are refused.
-8. Seam: `Outcome` and `Records` (`input.rs`) are the inputs that the eval crate and the model
+   without receipt, a verdict with a reason it cannot have, a FAIL rule without a violation row,
+   a budget other than 8 MB, a `run` row with a Target, and the counts that follow from the rows.
+   A sum of payload numbers that overflows is a named count, never an abort. Bytes above 8 MB are
+   refused before the parse; other bytes must be canonical.
+8. Seam: `RunOutcome` and `Records` (`input.rs`) are the inputs that the eval crate and the model
    slices fill. The core answers `Unsupported::Report` until a wiring slice calls `build`.
 
 **Reason.** The payload is the frame of the core (AD-361). If the frame type and its check are
@@ -41,6 +45,9 @@ one crate, no producer can write a status that its rows do not explain.
 - Deciding the status in the builder: a second evaluator (AD-361, rejected item c).
 
 **Limit.**
+- A PASS status or a PASS observation needs `imports`, `reexports` and `variants`: when
+  `run.not_carried` names one, the frame is refused (`Unexplained::PassWithoutPart`, also in
+  `checker.py`). The other relations are display parts that every 2.0 payload leaves out.
 - Until slice S4 makes the scope proof, no `Decision` holds PASS, so `build` cannot write a
   complete observation, a PASS rule or a PASS status.
 - The schema says "level, then depth, then key" for nodes; the Python producer gives every
@@ -53,4 +60,5 @@ one crate, no producer can write a status that its rows do not explain.
 **Tests.** `native/report/src/corpus_tests.rs` (18 oracle payloads: byte-equal round trip, check,
 status rule), `fault_tests.rs` (planted payload faults), `build_tests.rs` (the frames of 4
 payloads byte-equal to the Python producer, the named build errors), `codec_tests.rs`,
-`schema_tests.rs`; `tests/test_native_report.py` (each payload and frame against the schema).
+`schema_tests.rs`, `status_tests.rs`, `review_tests.rs`; `tests/test_native_report.py`,
+`tests/test_report_checker.py` (each payload and frame against the schema).

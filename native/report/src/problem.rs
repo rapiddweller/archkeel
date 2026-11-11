@@ -66,6 +66,12 @@ pub enum Problem {
     RunRowWithTarget,
     /// A row breaks the row order of its table.
     RowOrder { table: &'static str, row: usize },
+    /// A rule verdict with a reason that the verdict cannot have (PASS with `no_receipt`).
+    VerdictReason { rule: String },
+    /// A rule with verdict FAIL that no violation row cites (AD-361 point 5, lead decision L-23).
+    FailRuleWithoutViolation { rule: String },
+    /// `run.payload_budget.max_bytes` is not the budget of this version.
+    PayloadBudget,
     /// A forbidden pair without its deciding rule, or an undecided pair with one.
     PermissionRule { row: usize },
     /// A component edge does not carry the permission of its pair.

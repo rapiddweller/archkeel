@@ -68,7 +68,7 @@ fn each_oracle_payload_passes_the_check_and_its_status_follows_the_rule() {
             .unwrap();
         assert_eq!(report.payload().summary.status, stated, "{name}");
         assert_eq!(status_of(report.payload()), stated, "{name}");
-        assert_eq!(report.encode().unwrap(), bytes(name), "{name}");
+        assert_eq!(report.payload().encode().unwrap(), bytes(name), "{name}");
     }
 }
 

@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: MIT
 
 //! The status rule of AD-361 point 4 and the rule that each status other than PASS has a row
-//! that explains it (point 5). Both read only the rows of the payload, so a reader can recompute
+//! that explains it (point 5), and that a PASS carries the parts that it depends on (AD-371). Both read only the rows of the payload, so a reader can recompute
 //! them, and the builder and the check use the same two functions.
 
 use std::fmt;
 
-use crate::codes::UnknownSource;
+use crate::codes::{Relation, UnknownSource};
 use crate::head::{RuleVerdict, Status};
 use crate::payload::Payload;
 
@@ -59,7 +59,17 @@ pub enum Unexplained {
     IncompleteWithoutRow,
     /// UNKNOWN without an unknowns row and without an open rule row.
     UnknownWithoutRow,
+    /// A PASS status or a PASS observation in a payload that does not carry a part that a PASS
+    /// depends on (`PASS_NEEDS`): the rows of that part were not seen.
+    PassWithoutPart,
 }
+
+/// The relations that a PASS depends on. Without `imports` and `reexports` the payload has no
+/// edges and no crossings, so no edge rule, permission or cycle was seen; without `variants`
+/// the units are not complete. The other relations of `run.not_carried` (calls, references,
+/// implements, uses_type, fields, signatures, code_lines, contract_lines) are display parts:
+/// every 2.0 payload leaves them out, and the evaluator decides its rules without them.
+pub const PASS_NEEDS: [Relation; 3] = [Relation::Imports, Relation::Reexports, Relation::Variants];
 
 impl fmt::Display for Unexplained {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -72,6 +82,9 @@ impl fmt::Display for Unexplained {
                 "an incomplete observation has no unknown row that explains it"
             }
             Unexplained::UnknownWithoutRow => "status UNKNOWN has no row that explains it",
+            Unexplained::PassWithoutPart => {
+                "a PASS status or observation does not carry imports, reexports and variants"
+            }
         })
     }
 }
@@ -96,6 +109,15 @@ pub fn unexplained(payload: &Payload, status: Status) -> Vec<Unexplained> {
     let any_known_source = sources.iter().any(|source| source.known().is_some());
     if status == Status::Unknown && !any_known_source && !payload.rules.iter().any(rule_open) {
         found.push(Unexplained::UnknownWithoutRow);
+    }
+    let pass = status == Status::Pass || payload.run.observation == Status::Pass;
+    let missing = payload
+        .run
+        .not_carried
+        .iter()
+        .any(|code| code.known().is_some_and(|r| PASS_NEEDS.contains(&r)));
+    if pass && missing {
+        found.push(Unexplained::PassWithoutPart);
     }
     found
 }

@@ -13,9 +13,9 @@ use std::path::PathBuf;
 
 use crate::{
     Code, CodeList, ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, Graph, Level,
-    MeasureRow, NodeRow, OptId, Outcome, Payload, PermissionRow, Produced, Records, RuleDecision,
-    RuleOutcome, RuleVerdict, RunFacts, Status, Target, Tree, Undecided, UnitRow, UnknownRecord,
-    UnknownSource, ViolationRow,
+    MeasureRow, NodeRow, OptId, Payload, PermissionRow, Produced, Records, RuleDecision,
+    RuleOutcome, RuleReason, RuleVerdict, RunFacts, RunOutcome, Status, Target, Tree, Undecided,
+    UnitRow, UnknownRecord, UnknownSource, ViolationRow, WhyUnknown,
 };
 use archkeel_model::{Decision, Reason, Unsupported};
 
@@ -278,7 +278,7 @@ fn findings(p: &Payload) -> Vec<FindingRow> {
 }
 
 /// The inputs of a payload without PASS, or `None` when a PASS needs the scope proof.
-pub(crate) fn inputs(p: &Payload) -> Option<(Outcome, Records)> {
+pub(crate) fn inputs(p: &Payload) -> Option<(RunOutcome, Records)> {
     let mut rules = Vec::new();
     for r in &p.rules {
         let decision = match r.verdict {
@@ -294,7 +294,13 @@ pub(crate) fn inputs(p: &Payload) -> Option<(Outcome, Records)> {
             title: r.title.clone(),
             decision,
             evaluated: r.evaluated,
-            reason: r.reason,
+            why_unknown: match r.reason {
+                RuleReason::ScopeIncomplete => Some(WhyUnknown::ScopeIncomplete),
+                RuleReason::NoReceipt => Some(WhyUnknown::NoReceipt),
+                RuleReason::Undecided => Some(WhyUnknown::Undecided),
+                RuleReason::OwnershipBlocker => Some(WhyUnknown::OwnershipBlocker),
+                _ => None,
+            },
             undecided: vec![
                 Undecided {
                     subject: String::new()
@@ -306,8 +312,8 @@ pub(crate) fn inputs(p: &Payload) -> Option<(Outcome, Records)> {
         });
     }
     let (unknown_records, diagnostics) = unknowns(p);
-    let outcome = Outcome {
-        status: decision(p.summary.status)?,
+    decision(p.summary.status)?;
+    let outcome = RunOutcome {
         target: if p.run.target {
             Target::Present
         } else {
