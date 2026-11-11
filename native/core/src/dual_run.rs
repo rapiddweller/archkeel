@@ -33,7 +33,9 @@ const INFLATE_LIMIT: u64 = 1 << 32;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DualRunRequest {
-    protocol: String,
+    // Checked before through `Head`.
+    #[serde(rename = "protocol")]
+    _protocol: String,
     case: String,
     // The shell fields: the core reads no file, so it uses only the bytes below.
     #[serde(rename = "root")]

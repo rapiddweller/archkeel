@@ -14,11 +14,14 @@
 3. `archkeel-eval` decides `external_dependency_scope` and `complete_external_scope`. An external
    import matches a dependency by its package name, any other import by the scope of its target.
    The order of the decision is the order of AD-370; a PASS still needs the scope proof of S4.
-4. Protocol change of AD-360 point 7: the request is `archkeel-dual-run-2`. It adds `namespace`,
-   which the shell reads from `archkeel.toml`, and `standard_library`, the top-level names that
-   the profile table of the shell gives for the profile of the reply. The core reads no
-   configuration and names no language (`Settings`). The core takes an edge row only from a
-   reply and these settings, so a contract that the core cannot use still has its edges.
+4. Protocol change of AD-360 point 7: the request is `archkeel-dual-run-2`. It adds `namespace`
+   (from `archkeel.toml`), `profile` and `standard_library` (the names that the profile table of
+   the shell gives for that profile). The core reads no configuration and names no language. It
+   binds the settings to the reply by a check and refuses by name (exit 3): a profile that is not
+   the profile of the reply, a module or package outside the namespace (`evaluate_source`), and a
+   standard library with more than 1 024 names, an empty, NUL or over 128-byte name, or a duplicate.
+   The final request of M1 must guarantee the same: namespace and standard library are bound to
+   the reply by a check, never trusted. Edge rows need only the reply and these settings.
 5. The rows of `dependency_edges` hold the ranks of the condensation (S3), so the section moves to
    S3. The frame carries the edge rows without the ranks in `edges`, and the harness compares
    them with the Python engine on every case whose reply the store accepts. The rows of `imports`
@@ -37,7 +40,7 @@ list in the core would name a language.
 `_external_completeness_violations`. They go when the store path is the only path.
 
 **Differences to Python (all equal or stricter).**
-- A rule that Python passes is a named gap of S4: 19 `external_dependency_scope` and 20
+- A rule that Python passes is a named gap of S4: 19 `external_dependency_scope` and 21
   `complete_external_scope` rules of the corpus.
 - A Python UNKNOWN for a cause that S2 does not see (a hidden Rust edge, the subject check of
   another rule) is the same named gap: 7 and 2 rules.
@@ -50,14 +53,16 @@ list in the core would name a language.
 - Compare the edges only through the rules. A wrong edge that no S2 rule reads stays unseen.
 
 **Limit.** The marks of an external package and a builtin target apply to every reply that the
-store accepts (TypeScript and Rust). When the store accepts another profile, the shell must send
-whether that profile marks them. The dual-run shell reads the standard library from
-`ir/profiles.py`; the host shell owns that table when `ir/` goes. `make dual-run` with the S2
-families compares 5 FAIL and 5 UNKNOWN `external_dependency_scope` and 3 FAIL and 7 UNKNOWN
-`complete_external_scope` rules as equal, and 2 058 edge rows on 180 cases; the 15 cases `s2/*`
-give the FAIL and UNKNOWN cases of AD-360 point 10.
+store accepts; Python marks them for two profiles, and a test fails when the store accepts a
+third. The core cannot check that the standard library belongs to the profile: the shell table
+gives it. The dual-run shell reads it from `ir/profiles.py`; the host owns it when `ir/` goes.
+Edge parity is shown on 181 of 559 cases only (2 070 rows): the store accepts two profiles of protocol 8 and 9.
+Behind the inside-tree class are 3 + 2 Python FAIL rules, behind the refused-reply class 5.
+`make dual-run` with the S2 families compares 6 FAIL and 5 UNKNOWN `external_dependency_scope`
+and 3 FAIL and 7 UNKNOWN `complete_external_scope` rules as equal; the 16 cases `s2/*` give
+the FAIL and UNKNOWN cases of AD-360 point 10.
 
 **Tests.** `native/model/src/edges_tests.rs`, `native/eval/src/external_tests.rs`,
 `native/core/src/dual_run_tests.rs`; `tests/test_native_core.py`
-(`test_the_s2_kinds_and_the_edges_equal_python_or_name_their_slice`); `tests/test_dual_run.py`
-(the edge comparison without ranks, the settings of the shell).
+(`test_the_s2_kinds_and_the_edges_equal_python_or_name_their_slice`);
+`native/model/src/settings_tests.rs`; `tests/test_dual_run_shell.py`.
