@@ -10,6 +10,7 @@
 //! A float is written as Python `repr` writes it.
 
 use serde_json::Value;
+use std::io::Write;
 
 /// `repr(value)` of a Python float. JSON holds no NaN and no infinity.
 pub(crate) fn python_float(value: f64) -> Result<String, String> {
@@ -127,6 +128,42 @@ pub(crate) fn write_value(
         }
         atom => out.extend_from_slice(scalar(atom, ["null", "true", "false"])?.as_bytes()),
     }
+    Ok(())
+}
+
+/// The output in pieces: each written item goes to the sink once the piece holds 1 MiB, so the
+/// whole `architecture.json` is never held (AD-346).
+pub(crate) struct Chunked<'a> {
+    pub(crate) buf: Vec<u8>,
+    pub(crate) sink: &'a mut dyn Write,
+}
+
+impl Chunked<'_> {
+    pub(crate) fn spill(&mut self, at: usize) -> Result<(), String> {
+        if self.buf.len() >= at {
+            self.sink
+                .write_all(&self.buf)
+                .map_err(|error| error.to_string())?;
+            self.buf.clear();
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn write_list<T>(
+    items: &[T],
+    out: &mut Chunked<'_>,
+    mut each: impl FnMut(&T, &mut Vec<u8>) -> Result<(), String>,
+) -> Result<(), String> {
+    out.buf.push(b'[');
+    for (index, item) in items.iter().enumerate() {
+        if index > 0 {
+            out.buf.push(b',');
+        }
+        each(item, &mut out.buf)?;
+        out.spill(1 << 20)?;
+    }
+    out.buf.push(b']');
     Ok(())
 }
 

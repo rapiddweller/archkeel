@@ -104,3 +104,20 @@ def test_a_row_reads_back_as_its_record_whatever_its_texts_look_like() -> None:
     frame = _shell_frame(model)
     assert json.loads(json.dumps(frame)) == frame
     assert _records(frame)["metrics"] == [record, "METRIC-stored", {**record, "data": {}}]
+
+
+def test_the_frame_pieces_join_to_the_bytes_of_one_json_dump() -> None:
+    from archkeel.analyzer.store import _pieces
+
+    rows = [[index, {"n": index}, None, [index, "é"]] for index in range(25_001)]
+    frame = {
+        "texts": ["$m", "\N{LINE SEPARATOR}"],
+        "fields": {"metrics": []},
+        "model": {
+            "metrics": rows,
+            "evidence": [],
+            "coverage": {"files_read": 3, "ok": True, "ratio": 0.5, "none": None},
+        },
+    }
+    joined = b"".join(_pieces(frame))
+    assert joined == json.dumps(frame, ensure_ascii=False, separators=(",", ":")).encode()

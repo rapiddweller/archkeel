@@ -43,7 +43,7 @@ pub(crate) fn golden(case: &str) -> Value {
     value
 }
 
-fn compressed(value: &Value) -> Vec<u8> {
+pub(crate) fn compressed(value: &Value) -> Vec<u8> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
     let _ = encoder.write_all(value.to_string().as_bytes());
     encoder.finish().unwrap_or_default()

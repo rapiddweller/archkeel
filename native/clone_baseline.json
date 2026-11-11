@@ -333,6 +333,27 @@
     "reason": "Each collector lists its modules as `mod name;` lines in one shape. They are data.",
     "tokens": 71
   },
+  "store/src/shell.rs|store/src/shell.rs|161cd47fd0": {
+    "files": [
+      "store/src/shell.rs"
+    ],
+    "reason": "Each serde visitor of the W frame (store/src/shell.rs) states its own `type Value` and `expecting`, which the `Visitor` trait requires per type; the visit methods differ.",
+    "tokens": 76
+  },
+  "store/src/shell.rs|store/src/shell.rs|209a445fb2": {
+    "files": [
+      "store/src/shell.rs"
+    ],
+    "reason": "Each serde visitor of the W frame (store/src/shell.rs) states its own `type Value` and `expecting`, which the `Visitor` trait requires per type; the visit methods differ.",
+    "tokens": 74
+  },
+  "store/src/shell.rs|store/src/shell.rs|e5fbf9ccb6": {
+    "files": [
+      "store/src/shell.rs"
+    ],
+    "reason": "Each serde visitor of the W frame (store/src/shell.rs) states its own `type Value` and `expecting`, which the `Visitor` trait requires per type; the visit methods differ.",
+    "tokens": 107
+  },
   "typescript/src/kinds.rs|typescript/src/kinds.rs|1a2f180862": {
     "files": [
       "typescript/src/kinds.rs",

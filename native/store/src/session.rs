@@ -22,7 +22,7 @@ use crate::stored::Store;
 /// The largest frame the host may send: the reply limit of the host times the inflate bound.
 const FRAME_LIMIT: u64 = 1 << 40;
 
-fn read_frame(input: &mut impl Read) -> io::Result<Option<(u8, Vec<u8>)>> {
+fn read_header(input: &mut impl Read) -> io::Result<Option<(u8, u64)>> {
     let mut tag = [0u8; 1];
     if input.read(&mut tag)? == 0 {
         return Ok(None);
@@ -33,6 +33,10 @@ fn read_frame(input: &mut impl Read) -> io::Result<Option<(u8, Vec<u8>)>> {
     if length > FRAME_LIMIT {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "frame too long"));
     }
+    Ok(Some((tag[0], length)))
+}
+
+fn read_payload(input: &mut impl Read, length: u64) -> io::Result<Vec<u8>> {
     let mut payload = Vec::new();
     input.take(length).read_to_end(&mut payload)?;
     if payload.len() as u64 != length {
@@ -41,7 +45,7 @@ fn read_frame(input: &mut impl Read) -> io::Result<Option<(u8, Vec<u8>)>> {
             "frame truncated",
         ));
     }
-    Ok(Some((tag[0], payload)))
+    Ok(payload)
 }
 
 fn write_frame(output: &mut impl Write, answer: Result<Vec<u8>, String>) -> io::Result<()> {
@@ -58,7 +62,19 @@ fn write_frame(output: &mut impl Write, answer: Result<Vec<u8>, String>) -> io::
 /// Answer the frames of one collection until the end of `input`.
 pub fn run(input: &mut impl Read, output: &mut impl Write, inflate_limit: u64) -> io::Result<()> {
     let mut store: Option<Store> = None;
-    while let Some((tag, payload)) = read_frame(input)? {
+    while let Some((tag, length)) = read_header(input)? {
+        if let (b'W', Some(kept)) = (tag, &store) {
+            // The observation is read from the stream into typed values; its bytes are never held.
+            let mut body = input.by_ref().take(length);
+            let answer = crate::write(&mut body, kept, output);
+            io::copy(&mut body, &mut io::sink())?;
+            match answer {
+                Ok(written) => written?,
+                Err(message) => write_frame(output, Err(message))?,
+            }
+            continue;
+        }
+        let payload = read_payload(input, length)?;
         let answer = match (tag, &store) {
             (b'R', _) => match crate::ingest(&payload, inflate_limit) {
                 Ok(kept) => {
@@ -71,7 +87,6 @@ pub fn run(input: &mut impl Read, output: &mut impl Write, inflate_limit: u64) -
             },
             (b'B', Some(kept)) => crate::bind(&payload, kept).map(String::into_bytes),
             (b'D', Some(kept)) => crate::digest(&payload, kept).map(String::into_bytes),
-            (b'W', Some(kept)) => crate::write(payload, kept),
             (b'B' | b'D' | b'W', None) => Err("the store holds no reply".to_owned()),
             _ => Err(format!("unknown frame tag {tag}")),
         };

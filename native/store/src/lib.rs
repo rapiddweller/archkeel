@@ -29,12 +29,12 @@ mod seam;
 pub mod session;
 mod shell;
 mod stored;
+mod texts;
 mod validate;
 mod view;
 
 use archkeel_facts::Section;
 use serde::Deserialize;
-use serde_json::Value;
 
 use crate::stored::Store;
 
@@ -107,10 +107,35 @@ fn digest(request: &[u8], store: &Store) -> Result<String, String> {
     inventory::digest(value, store)
 }
 
-/// The canonical `architecture.json` of the parts of the shell.
-fn write(request: Vec<u8>, store: &Store) -> Result<Vec<u8>, String> {
-    let value = serde_json::from_slice::<Value>(&request).map_err(|error| error.to_string())?;
-    drop(request);
-    let (shell, model) = shell::frame(value, &canonical::CLASSIFIED_SECTIONS)?;
-    canonical::encode(model, &shell, store)
+/// Bytes that a writer counts and drops: a frame is written once to count its length.
+pub(crate) struct Count(pub(crate) u64);
+
+impl std::io::Write for Count {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 += bytes.len() as u64;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Write the canonical `architecture.json` of the parts of the shell as one answer frame. It is
+/// written twice, once to count its length for the frame header, and is never held. An error
+/// before the header is the answer; an error after it ends the session.
+fn write(
+    request: &mut impl std::io::Read,
+    store: &Store,
+    output: &mut impl std::io::Write,
+) -> Result<std::io::Result<()>, String> {
+    let (shell, model) = shell::frame(request, &canonical::CLASSIFIED_SECTIONS)?;
+    let prepared = canonical::prepare(model, &shell, store)?;
+    let mut count = Count(0);
+    prepared.write_to(&mut count)?;
+    Ok((|| {
+        output.write_all(b"O")?;
+        output.write_all(&count.0.to_be_bytes())?;
+        prepared.write_to(output).map_err(std::io::Error::other)?;
+        output.flush()
+    })())
 }

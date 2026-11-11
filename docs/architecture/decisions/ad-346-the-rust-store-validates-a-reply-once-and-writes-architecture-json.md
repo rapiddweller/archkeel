@@ -22,8 +22,8 @@ or Rust collector through it, with or without test exclusion. It is an opt-in, n
    (`ir/readset_codec.py`).
 4. **The store writes `architecture.json` 2.9.** Python sends its parts and names each stored
    record and evidence entry by its id (`ir/codec_store.py`); a shell record of a record section
-   is a row of indexes into one text list (`shell.rs`). The store writes the canonical columnar
-   bytes (`canonical.rs`), byte-equal to the Python writer, which refuses a stored observation.
+   is a row of indexes into one text list (`shell.rs`), read from the stream into flat buffers.
+   The store writes the canonical bytes twice, to count and to send (`canonical.rs`), never held.
 5. **JSON edges.** Only two places see JSON: the parts of the shell (untyped observation
    records until the observation moves to the core, WP6); the Python byte formats of stage 1
    (`canonical.rs`, `pyrepr.rs`, `inventory.rs`, `pyjson.rs`), one stored record at a time
@@ -60,9 +60,9 @@ run 147.0 to 138.8 s, host peak 3 141 to 2 751 MiB. The check still copies each 
 Python source proofs; it does not check them. `repr` follows Unicode 14.0 (Python 3.11): a code
 point that a later Python assigns can change a digest. A `\d` of Python matches every decimal
 digit; the reference test of `canonical.rs` reads only ASCII digits. A large derived shell costs
-memory: on 289 Rust crates host + store peak at 9.9 GiB against 6.4 to 7.0 GiB. The host is
-below the Python path (6.0 GiB); the store holds the reply and adds the text counts and the output
-while it writes. The WP1 read lists are a lower bound: a field that no corpus case reads can miss.
+memory: on 289 Rust crates host + store peak at 7.2 GiB against 6.7 GiB (median of 3): the store
+holds the typed reply (1.3 GiB) and peaks at 1.9 GiB in the write step. The WP1 read lists are a
+lower bound: a field that no corpus case reads can miss.
 
 **Checked by** `native/store/src/*_tests.rs` (Python bytes and messages),
 `tests/test_collector_native_store.py` (14 golden cases with both collectors, 53 demo variants,

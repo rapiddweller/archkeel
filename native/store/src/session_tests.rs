@@ -54,3 +54,24 @@ fn a_truncated_frame_ends_the_process_with_an_error() {
     let input = [b'R', 0, 0, 0, 0, 0, 0, 0, 9, 1];
     assert!(run(&mut input.as_slice(), &mut output, 1 << 20).is_err());
 }
+
+#[test]
+fn a_bad_observation_frame_is_an_error_answer_and_the_next_frame_is_read() {
+    use crate::validate::tests::{compressed, golden};
+
+    let mut input = frame(b'R', &compressed(&golden("h-typescript")));
+    input.extend(frame(
+        b'W',
+        b"{\"texts\": [], \"fields\": {}, \"model\": {\"x\": [1",
+    ));
+    input.extend(frame(
+        b'W',
+        b"{\"texts\": [], \"fields\": {}, \"model\": {}, \"more\": 1}",
+    ));
+    input.extend(frame(b'Q', b""));
+    let got = answers(&input);
+    let tags: Vec<u8> = got.iter().map(|(tag, _)| *tag).collect();
+    assert_eq!(tags, vec![b'O', b'E', b'E', b'E'], "{got:?}");
+    assert!(got[2].1.contains("unknown field `more`"), "{}", got[2].1);
+    assert_eq!(got[3].1, "unknown frame tag 81");
+}
