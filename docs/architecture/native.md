@@ -112,6 +112,10 @@ flowchart LR
     n_34["dart-records"]
     n_35["dart-dump"]
     n_36["dart-entry"]
+    n_37["py-text"]
+    n_38["py-parse"]
+    n_39["py-dump"]
+    n_40["py-entry"]
     n_10 --> n_12
     n_10 --> n_13
     n_10 --> n_14
@@ -238,4 +242,14 @@ flowchart LR
     n_36 --> n_14
     n_36 --> n_0
     n_36 --> n_35
+    n_38 --> n_4
+    n_38 --> n_37
+    n_39 --> n_14
+    n_39 --> n_37
+    n_39 --> n_38
+    n_40 --> n_4
+    n_40 --> n_14
+    n_40 --> n_30
+    n_40 --> n_0
+    n_40 --> n_39
 ```
