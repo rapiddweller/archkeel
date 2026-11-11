@@ -10,6 +10,7 @@ to its parent component or to the system. Packages form their own tree under the
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -33,9 +34,6 @@ class Tree:
     chain: Mapping[str, tuple[int, ...]]
     ancestors: Mapping[int, frozenset[int]]
 
-    def modules_under(self, node: int) -> frozenset[int]:
-        return frozenset(m for m, above in self.ancestors.items() if node in above)
-
 
 @dataclass(frozen=True)
 class _Spec:
@@ -49,9 +47,9 @@ class _Spec:
 
 
 def _parents(components: Sequence[Component]) -> dict[str, str | None]:
-    by_title: dict[str, list[str]] = {}
+    by_title: defaultdict[str, list[str]] = defaultdict(list)
     for item in components:
-        by_title.setdefault(item.title, []).append(item.id)
+        by_title[item.title].append(item.id)
     ids = {item.id for item in components}
     out: dict[str, str | None] = {}
     for item in components:
@@ -96,19 +94,19 @@ def ownership(records: Records) -> tuple[dict[str, tuple[str, ...]], dict[str, s
     components = records.components
     parents = _parents(components)
     depth = _depths(parents)
-    top_claims: dict[str, list[str]] = {}
+    top_claims: defaultdict[str, list[str]] = defaultdict(list)
     for item in components:
         if parents[item.id] is None:
             for module in records.scopes.get(item.id, ()):
-                top_claims.setdefault(module, []).append(item.id)
+                top_claims[module].append(item.id)
     chain: dict[str, tuple[str, ...]] = {
         m: (owners[0],) for m, owners in top_claims.items() if len(owners) == 1
     }
-    children: dict[str, list[Component]] = {}
+    children: defaultdict[str, list[Component]] = defaultdict(list)
     for item in components:
         above = parents[item.id]
         if above is not None:
-            children.setdefault(above, []).append(item)
+            children[above].append(item)
     for parent_id in sorted(children, key=lambda c: (depth[c], c)):
         for module in sorted(m for m, c in chain.items() if c[-1] == parent_id):
             scored = [

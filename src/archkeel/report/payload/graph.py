@@ -4,17 +4,28 @@
 """Units, direct edges and the names that cross them (AD-361).
 
 A crossing is stored once, on its module edge. A component or package edge lists its module
-edges in `via` and carries no crossing of its own. A declared `requires` entry without an
-observed edge is a component edge with zero sites: the target is visible next to the actual.
+edges in `via` and carries no crossing of its own. A pair that the contract allows and
+that no import uses is a component edge with zero sites: the target is visible next to the actual.
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from archkeel.report.payload.codes import ABSENT, DECL_CHARS, EDGE_TARGET, KIND, LEVEL, VIS, code
-from archkeel.report.payload.records import Component, Import, Records, Symbol
+from archkeel.report.payload.codes import (
+    ABSENT,
+    DECL_CHARS,
+    EDGE_TARGET,
+    KIND,
+    LEVEL,
+    PERMISSION,
+    VIS,
+    code,
+)
+from archkeel.report.payload.permissions import Permission, permission_of, requires_pairs
+from archkeel.report.payload.records import Import, Records, Symbol
 from archkeel.report.payload.tree import Tree
 
 _VISIBILITY = {
@@ -86,7 +97,8 @@ def unit_kind(symbol: Symbol, language: str) -> str:
     return _SIMPLE_KINDS.get(symbol.kind, "unknown")
 
 
-def _decl(text: str) -> str:
+def decl_text(text: str) -> str:
+    """Cut a declaration line: strip ASCII spaces and tabs, keep at most 72 code points."""
     return text.strip(" \t")[:DECL_CHARS]
 
 
@@ -112,7 +124,7 @@ def build_units(records: Records, tree: Tree) -> tuple[Unit, ...]:
             vis=code(VIS, vis),
             line=line,
             parent=first.get(symbol.parent, ABSENT) if symbol.parent else ABSENT,
-            decl=_decl(symbol.decl),
+            decl=decl_text(symbol.decl),
             static=int(symbol.static),
             qualified_name=symbol.qualified_name,
             variants=symbol.variants if kind == code(KIND, "enum") else (),
@@ -124,11 +136,11 @@ def build_units(records: Records, tree: Tree) -> tuple[Unit, ...]:
 class _Binder:
     def __init__(self, units: Sequence[Unit]) -> None:
         self.by_name: dict[str, int] = {}
-        top: dict[tuple[int, str], list[int]] = {}
+        top: defaultdict[tuple[int, str], list[int]] = defaultdict(list)
         for position, unit in enumerate(units):
             self.by_name.setdefault(unit.qualified_name, position)
             if unit.parent == ABSENT:
-                top.setdefault((unit.module, unit.name), []).append(position)
+                top[(unit.module, unit.name)].append(position)
         self.top = {key: found[0] for key, found in top.items() if len(found) == 1}
         self.units = units
 
@@ -146,9 +158,9 @@ class _Binder:
 
 
 def _crossings(imports: Sequence[Import], target: int, binder: _Binder) -> tuple[Crossing, ...]:
-    groups: dict[str, list[Import]] = {}
+    groups: defaultdict[str, list[Import]] = defaultdict(list)
     for item in sorted(imports, key=lambda i: i.id):
-        groups.setdefault(item.symbol or "*", []).append(item)
+        groups[item.symbol or "*"].append(item)
     out = []
     for name in sorted(groups):
         group = groups[name]
@@ -161,40 +173,18 @@ def _crossings(imports: Sequence[Import], target: int, binder: _Binder) -> tuple
     return tuple(out)
 
 
-def _siblings(tree: Tree) -> dict[int, list[int]]:
-    out: dict[int, list[int]] = {}
-    for node in tree.component_of_node:
-        out.setdefault(tree.parent[node], []).append(node)
-    return out
+_STATE = {"allowed": "declared", "forbidden": "forbidden", "undecided": "undeclared"}
 
 
-def _resolve(name: str, node: int, tree: Tree, siblings: Mapping[int, list[int]]) -> int:
-    above = tree.parent[node]
-    group = [n for n in siblings.get(above, []) if n != node]
-    prefix = tree.component_of_node[above].title + ":" if above in tree.component_of_node else ""
-    components = tree.component_of_node
-    by_id = [n for n in group if components[n].id == name]
-    by_title = [n for n in group if components[n].title == name]
-    by_local = [n for n in group if prefix and components[n].id == prefix + name]
-    for found in (by_id, by_title, by_local):
-        if len(found) == 1:
-            return found[0]
-    return ABSENT
-
-
-def declared_pairs(tree: Tree, records: Records) -> dict[tuple[int, int], str | None]:
-    """Return each resolved `requires` pair of sibling components; none without a contract."""
-    if records.contract is None:
-        return {}
-    siblings = _siblings(tree)
-    out: dict[tuple[int, int], str | None] = {}
-    for node in sorted(tree.component_of_node):
-        component: Component = tree.component_of_node[node]
-        for entry in component.requires:
-            other = _resolve(entry.component, node, tree, siblings)
-            if other != ABSENT:
-                out.setdefault((node, other), entry.rationale)
-    return out
+def _state(
+    pair: tuple[int, int] | None,
+    permissions: Mapping[tuple[int, int], Permission],
+    has_target: bool,
+) -> int:
+    """The target of an edge: the permission of its component pair; none without Target."""
+    if pair is None or not has_target or pair not in permissions:
+        return code(EDGE_TARGET, "no_target")
+    return code(EDGE_TARGET, _STATE[PERMISSION[permissions[pair].status]])
 
 
 def _pair(tree: Tree, source: str, target: str) -> tuple[int, int] | None:
@@ -218,36 +208,44 @@ def _aggregate(
     return Edge(code(LEVEL, level), pair[0], pair[1], len(names), sites, state, why, tuple(via), ())
 
 
-def build_edges(records: Records, tree: Tree, units: Sequence[Unit]) -> tuple[Edge, ...]:
-    """Return module edges, then component edges, then package edges; each by from, then to."""
-    facts: dict[tuple[str, str], set[str]] = {}
+def _module_facts(records: Records, tree: Tree) -> dict[tuple[str, str], set[str]]:
+    facts: defaultdict[tuple[str, str], set[str]] = defaultdict(set)
     for edge in records.module_edges:
         if (
             edge.source != edge.target
             and edge.source in tree.module_node
             and edge.target in tree.module_node
         ):
-            facts.setdefault((edge.source, edge.target), set()).update(edge.fact_ids)
-    declared = declared_pairs(tree, records)
+            facts[(edge.source, edge.target)].update(edge.fact_ids)
+    return facts
+
+
+def build_edges(
+    records: Records, tree: Tree, units: Sequence[Unit], permissions: Sequence[Permission]
+) -> tuple[Edge, ...]:
+    """Return module edges, then component edges, then package edges; each by from, then to.
+
+    A pair that the contract allows and that no import uses is a component edge with zero sites.
+    """
+    facts = _module_facts(records, tree)
+    allowed = permission_of(permissions)
     has_target = records.contract is not None
+    rationale = {
+        (tree.component_node[a], tree.component_node[b]): why
+        for (a, b), why in requires_pairs(records).items()
+    }
     binder = _Binder(units)
-    ordered = sorted(facts, key=lambda p: (tree.module_node[p[0]], tree.module_node[p[1]]))
     modules: list[Edge] = []
-    by_component: dict[tuple[int, int], list[int]] = {}
-    by_package: dict[tuple[int, int], list[int]] = {}
-    for source, target in ordered:
+    by_component: defaultdict[tuple[int, int], list[int]] = defaultdict(list)
+    by_package: defaultdict[tuple[int, int], list[int]] = defaultdict(list)
+    for source, target in sorted(
+        facts, key=lambda p: (tree.module_node[p[0]], tree.module_node[p[1]])
+    ):
         imports = [records.imports[i] for i in facts[(source, target)] if i in records.imports]
         crossings = _crossings(imports, tree.module_node[target], binder)
         pair = _pair(tree, source, target)
-        state = (
-            "no_target"
-            if pair is None or not has_target
-            else "declared"
-            if pair in declared
-            else "undeclared"
-        )
         s, t = tree.module_node[source], tree.module_node[target]
-        position = len(modules)
+        state = _state(pair, allowed, has_target)
         modules.append(
             Edge(
                 code(LEVEL, "module"),
@@ -255,30 +253,30 @@ def build_edges(records: Records, tree: Tree, units: Sequence[Unit]) -> tuple[Ed
                 t,
                 len(crossings),
                 max(1, len(imports)),
-                code(EDGE_TARGET, state),
+                state,
                 None,
                 (),
                 crossings,
             )
         )
         if pair is not None:
-            by_component.setdefault(pair, []).append(position)
+            by_component[pair].append(len(modules) - 1)
         ps, pt = tree.package[s], tree.package[t]
         if ABSENT not in (ps, pt) and ps != pt:
-            by_package.setdefault((ps, pt), []).append(position)
+            by_package[(ps, pt)].append(len(modules) - 1)
+    unused = {
+        pair for pair, p in allowed.items() if has_target and PERMISSION[p.status] == "allowed"
+    }
     components = [
         _aggregate(
             "component",
             pair,
             by_component.get(pair, []),
             modules,
-            code(
-                EDGE_TARGET,
-                "no_target" if not has_target else "declared" if pair in declared else "undeclared",
-            ),
-            declared.get(pair),
+            _state(pair, allowed, has_target),
+            rationale.get(pair),
         )
-        for pair in sorted(set(by_component) | set(declared))
+        for pair in sorted(set(by_component) | unused)
     ]
     packages = [
         _aggregate("package", pair, by_package[pair], modules, code(EDGE_TARGET, "no_target"), None)

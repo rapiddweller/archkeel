@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from archkeel.report.payload.codes import LANGUAGE_OF
+
 SECTIONS = (
     "modules",
     "packages",
@@ -22,6 +24,8 @@ SECTIONS = (
     "scope_observations",
     "cycles",
     "metrics",
+    "violations",
+    "unknowns",
 )
 COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_responsibility"})
 
@@ -46,6 +50,7 @@ class Component:
     role: str | None
     public_api: tuple[str, ...] | None
     requires: tuple[Requires, ...]
+    top: bool
 
 
 @dataclass(frozen=True)
@@ -54,6 +59,43 @@ class RuleDeclaration:
     kind: str
     title: str
     parent_id: str | None
+
+
+@dataclass(frozen=True)
+class DependencyRule:
+    """An allowed or forbidden dependency rule, or a complete_requires rule of one level."""
+
+    id: str
+    kind: str
+    parent_id: str | None
+    source: str | None
+    target: str | None
+    whole_pair: bool
+    allowed_sources: bool
+
+
+@dataclass(frozen=True)
+class Violation:
+    id: str
+    kind: str
+    rules: tuple[str, ...]
+    subjects: tuple[str, ...]
+    source_module: str | None
+    target_module: str | None
+    symbol: str | None
+    evidence_ids: tuple[str, ...]
+    path: str | None
+    line: int
+
+
+@dataclass(frozen=True)
+class Unknown:
+    id: str
+    kind: str
+    subjects: tuple[str, ...]
+    module: str | None
+    rules: tuple[str, ...]
+    title: str
 
 
 @dataclass(frozen=True)
@@ -113,8 +155,11 @@ class Records:
     components: tuple[Component, ...]
     rule_declarations: tuple[RuleDeclaration, ...]
     scopes: Mapping[str, tuple[str, ...]]
-    cycles: tuple[tuple[str, tuple[str, ...]], ...]
+    cycles: tuple[tuple[str, tuple[str, ...], bool], ...]
     metrics: Mapping[str, int]
+    dependency_rules: tuple[DependencyRule, ...]
+    violations: tuple[Violation, ...]
+    unknowns: tuple[Unknown, ...]
 
 
 def _opt(mapping: Mapping[str, object], key: str) -> str | None:
@@ -148,16 +193,19 @@ class _Decoder:
         )
         evidence_fields = _texts(encoding.get("evidence_fields"))
         self.document = document
-        self.evidence: dict[str, tuple[int, str]] = {}
+        self.evidence: dict[str, tuple[int, str, str | None]] = {}
         line_at = evidence_fields.index("line")
         excerpt_at = evidence_fields.index("excerpt")
+        file_at = evidence_fields.index("file")
         rows = document.get("evidence")
         for row in rows if isinstance(rows, list) else ():
             if isinstance(row, list):
                 excerpt = self.value(row[excerpt_at])
+                file = self.value(row[file_at])
                 self.evidence[str(row[0])] = (
                     _int(row[line_at]),
                     excerpt if isinstance(excerpt, str) else "",
+                    file if isinstance(file, str) else None,
                 )
 
     def value(self, raw: object) -> object:
@@ -193,7 +241,14 @@ class _Decoder:
 
     def first_evidence(self, record: Mapping[str, object]) -> tuple[int, str]:
         ids = _texts(record.get("evidence_ids"))
-        return self.evidence.get(ids[0], (0, "")) if ids else (0, "")
+        line, excerpt, _ = self.evidence.get(ids[0], (0, "", None)) if ids else (0, "", None)
+        return line, excerpt
+
+    def site(self, record: Mapping[str, object]) -> tuple[str | None, int]:
+        """Return the file and line of the first evidence of a record, for a link."""
+        ids = _texts(record.get("evidence_ids"))
+        line, _, file = self.evidence.get(ids[0], (-1, "", None)) if ids else (-1, "", None)
+        return file, line
 
 
 def _data(record: Mapping[str, object]) -> Mapping[str, object]:
@@ -229,6 +284,7 @@ def _component(record: Mapping[str, object]) -> Component:
         role=_opt(data, "role"),
         public_api=_texts(public_api) if isinstance(public_api, list) else None,
         requires=entries,
+        top=record.get("kind") == "component_responsibility",
     )
 
 
@@ -263,6 +319,69 @@ def _import(record: Mapping[str, object], decoder: _Decoder) -> Import:
     )
 
 
+_DEPENDENCY_KINDS = frozenset({"allowed_dependency", "forbidden_dependency", "complete_requires"})
+
+
+def _dependency_rule(record: Mapping[str, object], data: Mapping[str, object]) -> DependencyRule:
+    whole_pair = (
+        data.get("target_symbol") is None
+        and data.get("source_match") in (None, "prefix")
+        and data.get("target_match") in (None, "prefix")
+        and data.get("target_kind") in (None, "module")
+    )
+    return DependencyRule(
+        id=str(record.get("id")),
+        kind=str(record.get("kind")),
+        parent_id=_opt(data, "parent_id"),
+        source=_opt(data, "source"),
+        target=_opt(data, "target"),
+        whole_pair=whole_pair,
+        allowed_sources=bool(_texts(data.get("allowed_sources"))),
+    )
+
+
+def _violation(record: Mapping[str, object], decoder: _Decoder) -> Violation:
+    data = _data(record)
+    path, line = decoder.site(record)
+    return Violation(
+        id=str(record.get("id")),
+        kind=str(record.get("kind")),
+        rules=_texts(record.get("rule_ids")),
+        subjects=_texts(record.get("subjects")),
+        source_module=_opt(data, "source_module") or None,
+        target_module=_opt(data, "target_module") or None,
+        symbol=_opt(data, "symbol") or None,
+        evidence_ids=_texts(record.get("evidence_ids")),
+        path=path,
+        line=line,
+    )
+
+
+def _unknown(record: Mapping[str, object]) -> Unknown:
+    data = _data(record)
+    return Unknown(
+        id=str(record.get("id")),
+        kind=str(record.get("kind")),
+        subjects=_texts(record.get("subjects")),
+        module=_opt(data, "module"),
+        rules=_texts(record.get("rule_ids")),
+        title=str(record.get("title")),
+    )
+
+
+def _unknowns(
+    rows: Sequence[Mapping[str, object]], coverage: Mapping[str, object]
+) -> tuple[Unknown, ...]:
+    """The unknowns section, plus each coverage failure that the section does not hold."""
+    found = [_unknown(row) for row in rows]
+    known = {item.id for item in found}
+    failures = coverage.get("failures")
+    for item in failures if isinstance(failures, list) else ():
+        if isinstance(item, dict) and str(item.get("id")) not in known:
+            found.append(_unknown(item))
+    return tuple(found)
+
+
 def read_records(document: Mapping[str, object]) -> Records:
     """Decode the needed sections of one parsed architecture.json document."""
     decoder = _Decoder(document)
@@ -272,10 +391,11 @@ def read_records(document: Mapping[str, object]) -> Records:
     contract = document.get("contract")
     coverage = document.get("coverage")
     coverage = coverage if isinstance(coverage, dict) else {}
-    runtime = document.get("runtime")
+    analyzer = document.get("analyzer")
+    name = _opt(analyzer, "name") if isinstance(analyzer, dict) else None
     declarations = sections["declarations"]
     return Records(
-        language=str(runtime.get("name")) if isinstance(runtime, dict) else "",
+        language=LANGUAGE_OF.get(name or "", name or ""),
         git_head=_opt(source, "git_head"),
         dirty=source.get("dirty") is True,
         scope=_texts(source.get("scope")),
@@ -317,10 +437,19 @@ def read_records(document: Mapping[str, object]) -> Records:
             if r.get("kind") == "declared_component_scope_observation"
         },
         cycles=tuple(
-            (str(d.get("level")), _texts(r.get("subjects")))
+            (str(d.get("level")), _texts(r.get("subjects")), bool(d.get("backed_by")))
             for r, d in _with_data(sections["cycles"])
         ),
         metrics={
             str(r.get("kind")): _int(d.get("value")) for r, d in _with_data(sections["metrics"])
         },
+        dependency_rules=tuple(
+            _dependency_rule(r, d)
+            for r, d in _with_data(declarations)
+            if r.get("kind") in _DEPENDENCY_KINDS
+        ),
+        violations=tuple(
+            sorted((_violation(r, decoder) for r in sections["violations"]), key=lambda v: v.id)
+        ),
+        unknowns=_unknowns(sections["unknowns"], coverage),
     )

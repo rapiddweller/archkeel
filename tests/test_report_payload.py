@@ -11,6 +11,7 @@ import copy
 import io
 import json
 import random
+from dataclasses import replace
 from functools import cache
 from pathlib import Path
 
@@ -18,11 +19,11 @@ import jsonschema
 import pytest
 
 from archkeel.cli import main
-from archkeel.report.payload import Evaluation, PayloadTooLarge, build_payload, evaluation
+from archkeel.report.payload import Evaluation, PayloadTooLarge, build_payload, codes, evaluation
 from archkeel.report.payload.__main__ import default_output
 from archkeel.report.payload.__main__ import main as payload_main
 from archkeel.report.payload.canonical import encode
-from archkeel.report.payload.codes import CODE_LISTS, GAP, MEASURE, MEASURE_STATE
+from archkeel.report.payload.codes import GAP, MEASURE, MEASURE_STATE
 from archkeel.report.payload.records import SECTIONS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +53,25 @@ def _run(case: str, workdir: str) -> tuple[bytes, str]:
     return output.read_bytes(), stdout.getvalue().splitlines()[-1]
 
 
+CODE_LISTS = {
+    "Level": codes.LEVEL,
+    "Kind": codes.KIND,
+    "Vis": codes.VIS,
+    "MeasureState": codes.MEASURE_STATE,
+    "Verdict": codes.VERDICT,
+    "EdgeTarget": codes.EDGE_TARGET,
+    "FindingKind": codes.FINDING_KIND,
+    "Disposition": codes.DISPOSITION,
+    "Reason": codes.REASON,
+    "Measure": codes.MEASURE,
+    "Gap": codes.GAP,
+    "Relation": codes.RELATION,
+    "Permission": codes.PERMISSION,
+    "UnknownSource": codes.UNKNOWN_SOURCE,
+    "UnknownReason": codes.UNKNOWN_REASON,
+}
+
+
 @pytest.fixture(scope="session")
 def workdir(tmp_path_factory: pytest.TempPathFactory) -> str:
     return str(tmp_path_factory.mktemp("report-payload"))
@@ -68,7 +88,7 @@ def _shuffled(document: dict[str, object], seed: int) -> dict[str, object]:
 
 
 def _reversed_rules(verdicts: Evaluation) -> Evaluation:
-    return Evaluation(verdicts.status, tuple(reversed(verdicts.rules)), verdicts.target)
+    return replace(verdicts, rules=tuple(reversed(verdicts.rules)))
 
 
 @pytest.mark.parametrize("case", CASES)
@@ -142,10 +162,10 @@ def test_an_unevaluated_budget_rule_gives_no_verdict(workdir: str) -> None:
     raw, line = _run("fixtures/K-python-realworld/archkeel.toml", workdir)
     document = json.loads(raw)
     verdicts = evaluation(json.loads(line))
-    unproven = Evaluation(
-        verdicts.status,
-        tuple(
-            type(rule)(rule.id, rule.kind, "UNKNOWN", False, 0, rule.rationale, rule.decided_by)
+    unproven = replace(
+        verdicts,
+        rules=tuple(
+            replace(rule, verdict="UNKNOWN", evaluated=False, violations=0, reason="no_receipt")
             for rule in verdicts.rules
         ),
     )

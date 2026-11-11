@@ -41,7 +41,7 @@ KIND: Final = (
 VIS: Final = ("public", "package", "private", "unknown")
 MEASURE_STATE: Final = ("measured", "unknown", "undeclared", "not_applicable")
 VERDICT: Final = ("none", "within", "over")
-EDGE_TARGET: Final = ("no_target", "declared", "undeclared")
+EDGE_TARGET: Final = ("no_target", "declared", "undeclared", "forbidden")
 FINDING_KIND: Final = (
     "fan_in_hub",
     "fan_out_hub",
@@ -88,6 +88,8 @@ GAP: Final = (
     "G-TREND",
     "G-EXCLUDED",
     "G-NO-CONTRACT",
+    "G-CONTRACT-LINES",
+    "G-ROLES",
 )
 RELATION: Final = (
     "imports",
@@ -100,6 +102,7 @@ RELATION: Final = (
     "fields",
     "signatures",
     "code_lines",
+    "contract_lines",
 )
 # The relations that this payload version does not carry. The page shows each one as
 # "not collected yet". A producer that adds a table removes its relation from this list.
@@ -111,25 +114,74 @@ NOT_CARRIED: Final = (
     "fields",
     "signatures",
     "code_lines",
+    "contract_lines",
 )
 RULE_VERDICT: Final = ("PASS", "FAIL", "UNKNOWN", "DECLARATION")
-DATA_KINDS: Final = frozenset({"struct", "enum", "type_alias", "constant"})
-CODE_LISTS: Final = {
-    "Level": LEVEL,
-    "Kind": KIND,
-    "Vis": VIS,
-    "MeasureState": MEASURE_STATE,
-    "Verdict": VERDICT,
-    "EdgeTarget": EDGE_TARGET,
-    "FindingKind": FINDING_KIND,
-    "Disposition": DISPOSITION,
-    "Reason": REASON,
-    "Measure": MEASURE,
-    "Gap": GAP,
-    "Relation": RELATION,
+RULE_REASON: Final = (
+    "evaluated",
+    "violations",
+    "scope_incomplete",
+    "no_receipt",
+    "undecided",
+    "declaration",
+    "ownership_blocker",
+)
+PERMISSION: Final = ("allowed", "forbidden", "undecided")
+UNKNOWN_SOURCE: Final = ("record", "diagnostic", "run")
+# The record kinds of the unknowns section, then the diagnostic kinds of the run result, then
+# `no_target` for a run without Target. `other` keeps a kind outside this list visible.
+UNKNOWN_REASON: Final = (
+    "collection_gap",
+    "source_resolution_gap",
+    "SyntaxError",
+    "TooDeepError",
+    "UnicodeDecodeError",
+    "UnsupportedDeclaration",
+    "boundary_type_limit",
+    "boundary_type_position",
+    "call_argument_limit",
+    "call_owner_limit",
+    "context_alias_limit",
+    "dynamic_call_limit",
+    "dynamic_dependency_limit",
+    "dynamic_import_limit",
+    "interface_symbol_limit",
+    "private_attribute_access_limit",
+    "uml_assessment_unavailable",
+    "uml_conformance",
+    "missing_tool",
+    "timeout",
+    "parse_error",
+    "unresolved_import",
+    "not_examined",
+    "incomplete_scan",
+    "scope_empty",
+    "rule_without_subjects",
+    "rule_unsupported_by_profile",
+    "runtime_mismatch",
+    "incomparable_runtime",
+    "contract_invalid",
+    "existing_files",
+    "filter_unknown",
+    "no_target",
+    "other",
+)
+# A diagnostic of these kinds revokes the proofs, so a violation of an incomplete run is no FAIL.
+REVOKING: Final = frozenset({"runtime_mismatch", "incomparable_runtime", "contract_invalid"})
+LANGUAGE_OF: Final = {
+    "archkeel-python-analyzer": "python",
+    "archkeel-dart-analyzer": "dart",
+    "archkeel-typescript-imports": "typescript",
+    "archkeel-rust-imports": "rust",
 }
+DATA_KINDS: Final = frozenset({"struct", "enum", "type_alias", "constant"})
 
 
 def code(values: tuple[str, ...], value: str) -> int:
     """Return the code of one value of a closed list."""
     return values.index(value)
+
+
+def reason_code(kind: str) -> int:
+    """Return the unknown reason code of a kind; a kind outside the list is `other`."""
+    return code(UNKNOWN_REASON, kind if kind in UNKNOWN_REASON else "other")

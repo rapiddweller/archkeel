@@ -9,31 +9,29 @@ a budget only when a root contract rule sets it, and a verdict only with a budge
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from archkeel.report.payload.codes import (
     ABSENT,
-    CARRIER_CAP,
     DATA_KINDS,
     DISPOSITION,
     EDGE_TARGET,
-    FINDING_KIND,
-    HUB_ABSOLUTE,
-    HUB_RELATIVE_PERMILLE,
     KIND,
     LEVEL,
     MEASURE,
     MEASURE_STATE,
-    REASON,
     VERDICT,
     VIS,
     code,
 )
-from archkeel.report.payload.graph import Edge, Unit, declared_pairs
+from archkeel.report.payload.findings import Finding
+from archkeel.report.payload.graph import Edge, Unit
 from archkeel.report.payload.records import Records
 from archkeel.report.payload.tree import SYSTEM, Tree
 
+_FIRST_EVIDENCE = code(MEASURE, "E.known")
 _MODULE, _COMPONENT, _PACKAGE = (
     code(LEVEL, "module"),
     code(LEVEL, "component"),
@@ -54,20 +52,6 @@ _PER_LEVEL = {
     _COMPONENT: tuple(m for m in MEASURE if m not in ("E.parsed", "E.excluded")),
     _MODULE: ("R.clear", "R.size", "I.surface", "D.resolved", "D.types", "D.signatures", "E.known"),
 }
-
-
-@dataclass(frozen=True)
-class Finding:
-    kind: int
-    subject: int
-    value: int
-    pool: int
-    absolute: int
-    relative_permille: int
-    disposition: int
-    reason: int
-    carrier_total: int
-    carriers: tuple[tuple[str, int, int], ...]
 
 
 @dataclass(frozen=True)
@@ -95,112 +79,6 @@ def _module_edges(edges: Sequence[Edge]) -> list[Edge]:
     return [e for e in edges if e.level == _MODULE]
 
 
-def _top_owner(tree: Tree, node: int) -> int:
-    for owner in tree.chain.get(tree.name[node], ()):
-        return owner
-    return ABSENT
-
-
-def _pools(tree: Tree, records: Records) -> tuple[dict[int, int], dict[int, int]]:
-    modules = sorted(tree.module_node.values())
-    if records.contract is None or not tree.component_of_node:
-        return {m: len(modules) - 1 for m in modules}, {m: len(modules) - 1 for m in modules}
-    declared = declared_pairs(tree, records)
-    count: dict[int, int] = {}
-    for m in modules:
-        owner = _top_owner(tree, m)
-        count[owner] = count.get(owner, 0) + 1
-    pools_in: dict[int, int] = {}
-    pools_out: dict[int, int] = {}
-    for m in modules:
-        owner = _top_owner(tree, m)
-        if owner == ABSENT:
-            pools_in[m] = pools_out[m] = len(modules) - 1
-            continue
-        users = {a for (a, b) in declared if b == owner} | {owner}
-        used = {b for (a, b) in declared if a == owner} | {owner}
-        pools_in[m] = sum(count.get(c, 0) for c in users) - 1
-        pools_out[m] = sum(count.get(c, 0) for c in used) - 1
-    return pools_in, pools_out
-
-
-def build_findings(records: Records, tree: Tree, edges: Sequence[Edge]) -> tuple[Finding, ...]:
-    """Return the hub and cycle findings, by disposition, kind, value descending, subject."""
-    fan_in: dict[int, set[int]] = {}
-    fan_out: dict[int, set[int]] = {}
-    carried: dict[int, dict[str, tuple[set[int], int]]] = {}
-    for edge in _module_edges(edges):
-        fan_in.setdefault(edge.target, set()).add(edge.source)
-        fan_out.setdefault(edge.source, set()).add(edge.target)
-        names = carried.setdefault(edge.target, {})
-        for crossing in edge.crossings:
-            importers, unit = names.get(crossing.name, (set(), crossing.unit))
-            importers.add(edge.source)
-            names[crossing.name] = (importers, unit)
-    pools_in, pools_out = _pools(tree, records)
-    facades = frozenset(records.packages)
-    found: list[Finding] = []
-    for module in sorted(tree.module_node.values()):
-        for kind, degree, pool in (
-            ("fan_in_hub", fan_in.get(module, set()), pools_in[module]),
-            ("fan_out_hub", fan_out.get(module, set()), pools_out[module]),
-        ):
-            value = len(degree)
-            if value < HUB_ABSOLUTE or value * 1000 < HUB_RELATIVE_PERMILLE * pool:
-                continue
-            carriers: tuple[tuple[str, int, int], ...] = ()
-            total = 0
-            disposition, reason = "ranked", "open_question"
-            if kind == "fan_in_hub":
-                names = carried.get(module, {})
-                ranked = sorted(
-                    ((n, len(i), u) for n, (i, u) in names.items()), key=lambda c: (-c[1], c[0])
-                )
-                carriers, total = tuple(ranked[:CARRIER_CAP]), len(ranked)
-                if tree.name[module] in facades:
-                    disposition, reason = "context", "crate_facade"
-            found.append(
-                Finding(
-                    code(FINDING_KIND, kind),
-                    module,
-                    value,
-                    pool,
-                    HUB_ABSOLUTE,
-                    HUB_RELATIVE_PERMILLE,
-                    code(DISPOSITION, disposition),
-                    code(REASON, reason),
-                    total,
-                    carriers,
-                )
-            )
-    for level, members in records.cycles:
-        lookup = (
-            tree.module_node
-            if level == "module"
-            else tree.component_node
-            if level == "component"
-            else None
-        )
-        nodes = sorted(lookup[m] for m in members if m in lookup) if lookup is not None else []
-        if nodes:
-            found.append(
-                Finding(
-                    code(FINDING_KIND, "cycle"),
-                    nodes[0],
-                    len(members),
-                    ABSENT,
-                    ABSENT,
-                    ABSENT,
-                    0,
-                    0,
-                    0,
-                    (),
-                )
-            )
-    found.sort(key=lambda f: (f.disposition, f.kind, -f.value, f.subject))
-    return tuple(found)
-
-
 def _under(tree: Tree) -> dict[int, set[int]]:
     under: dict[int, set[int]] = {n: set() for n in range(len(tree.level))}
     for module, above in tree.ancestors.items():
@@ -215,14 +93,14 @@ def node_counts(tree: Tree, units: Sequence[Unit], edges: Sequence[Edge]) -> Nod
     per_module: dict[int, int] = {}
     for unit in units:
         per_module[unit.module] = per_module.get(unit.module, 0) + 1
-    fan_in: dict[int, set[int]] = {}
-    fan_out: dict[int, set[int]] = {}
+    fan_in: defaultdict[int, set[int]] = defaultdict(set)
+    fan_out: defaultdict[int, set[int]] = defaultdict(set)
     for edge in _module_edges(edges):
         above_s, above_t = tree.ancestors[edge.source], tree.ancestors[edge.target]
         for node in above_t - above_s:
-            fan_in.setdefault(node, set()).add(edge.source)
+            fan_in[node].add(edge.source)
         for node in above_s - above_t:
-            fan_out.setdefault(node, set()).add(edge.target)
+            fan_out[node].add(edge.target)
     nodes = range(len(tree.level))
     return NodeCounts(
         modules=tuple(len(under[n]) for n in nodes),
@@ -236,7 +114,7 @@ class _Tally:
     def __init__(self) -> None:
         self.resolved: dict[int, list[int]] = {}
         self.types: dict[int, list[int]] = {}
-        self.used: dict[int, set[int]] = {}
+        self.used: defaultdict[int, set[int]] = defaultdict(set)
         self.api: dict[int, list[int]] = {}
 
     def add(self, table: dict[int, list[int]], node: int, hit: bool) -> None:
@@ -261,7 +139,7 @@ def _tally(tree: Tree, edges: Sequence[Edge]) -> _Tally:
                     tally.add(tally.types, node, crossing.kind in data)
             for node in entering:
                 if crossing.unit != ABSENT:
-                    tally.used.setdefault(node, set()).add(crossing.unit)
+                    tally.used[node].add(crossing.unit)
                 component = tree.component_of_node.get(node)
                 if component is not None and component.public_api is not None:
                     tally.add(tally.api, node, crossing.name in component.public_api)
@@ -284,7 +162,8 @@ def _ratio(
     if of <= 0:
         return None
     if source is None:
-        return MeasureRow(node, code(MEASURE, measure), 0, value, of)
+        # No budget and no baseline: G-BUDGETS says "no limit", which differs from "not collected".
+        return MeasureRow(node, code(MEASURE, measure), 0, value, of, "G-BUDGETS")
     verdict = code(VERDICT, "within" if value >= of else "over")
     return MeasureRow(node, code(MEASURE, measure), 0, value, of, None, of, source, verdict)
 
@@ -317,10 +196,10 @@ def _context(
 ) -> _Context:
     public = code(VIS, "public")
     callable_kinds = {code(KIND, "function"), code(KIND, "method")}
-    public_of: dict[int, set[int]] = {}
+    public_of: defaultdict[int, set[int]] = defaultdict(set)
     for position, unit in enumerate(units):
         if unit.vis == public and unit.parent == ABSENT:
-            public_of.setdefault(unit.module, set()).add(position)
+            public_of[unit.module].add(position)
     return _Context(
         records=records,
         tree=tree,
@@ -335,7 +214,7 @@ def _context(
         callables=frozenset(
             u.module for u in units if u.vis == public and u.kind in callable_kinds
         ),
-        lists=any(c.public_api is not None for c in tree.component_of_node.values()),
+        lists=any(tree.component_of_node[c].public_api is not None for c in tree.component_of_node),
     )
 
 
@@ -375,7 +254,7 @@ def _declared(
 
 def _observed(ctx: _Context, node: int, mods: set[int]) -> dict[str, MeasureRow | None]:
     """Return the measures that need no contract."""
-    top_public: set[int] = set().union(*(ctx.public_of.get(m, frozenset()) for m in mods))
+    top_public = {unit for m in mods for unit in ctx.public_of.get(m, frozenset())}
     used = ctx.tally.used.get(node, set())
     resolved, types = ctx.tally.resolved.get(node, [0, 0]), ctx.tally.types.get(node, [0, 0])
     out = {
@@ -419,7 +298,7 @@ def build_measures(
             }
         out = {**_declared(ctx, node, level, mods, comps), **_observed(ctx, node, mods)}
         kept = [r for m, r in out.items() if r is not None and m in _PER_LEVEL[level]]
-        panels = [r for r in kept if not MEASURE[r.measure].startswith("E.")]
+        panels = [r for r in kept if r.measure < _FIRST_EVIDENCE]
         known = sum(1 for r in panels if r.state == code(MEASURE_STATE, "measured"))
         unknown = sum(1 for r in panels if r.state == code(MEASURE_STATE, "unknown"))
         evidence = _ratio(node, "E.known", known, known + unknown)
