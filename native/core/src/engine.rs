@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The engine of one run: it keeps the contract and the reply and gives each request to the
-//! module that answers it. Each request has a file of its own (`contract`, `ingest`,
+//! module that answers it. Each request has a file of its own (`contract`, `ingest`, `rules`,
 //! `sections`, `report`), so that the slices change different files.
 
 use archkeel_contract::Contract;
@@ -13,6 +13,7 @@ use archkeel_store::Ingested;
 use crate::contract::ContractState;
 use crate::ingest::ReplyState;
 use crate::request::Request;
+use crate::rules::RuleAnswer;
 use crate::sections::SectionAnswer;
 
 /// The answer to one request.
@@ -21,6 +22,7 @@ pub(crate) enum Answer {
     Contract(ContractState),
     Reply(ReplyState),
     Sections(Vec<SectionAnswer>),
+    Rules(RuleAnswer),
     Report(Reason),
 }
 
@@ -48,7 +50,15 @@ impl Engine {
                 Answer::Reply(state)
             }
             Request::Sections(sections) => {
-                Answer::Sections(crate::sections::answer(&self.model(), &sections))
+                let model = self.model();
+                let outcomes = match self.contract.as_ref() {
+                    Some(contract) => crate::rules::outcomes(contract, &model),
+                    None => Vec::new(),
+                };
+                Answer::Sections(crate::sections::answer(&model, &outcomes, &sections))
+            }
+            Request::Rules => {
+                Answer::Rules(crate::rules::answer(self.contract.as_ref(), &self.model()))
             }
             Request::Report => Answer::Report(crate::report::answer()),
         }

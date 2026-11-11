@@ -10,6 +10,7 @@ self-test proves the round trip; the host uses the core for no verdict.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -58,10 +59,30 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     code, lines = _run(["compare", "--case", "rust/native", "--engine-command", core], capsys)
     assert code == 1
     differences = [line for line in lines if line.startswith("rust/native: ")]
-    assert len(differences) == 1 + 20
+    # The violations of the S1 kinds are equal; each other section and rule names its part.
+    assert len(differences) == 1 + 19
     assert differences[0].startswith("rust/native: rules: ")
     assert "8 owned rules are unsupported" in differences[0]
-    assert "rust/native: modules: -: unsupported: section modules: slice S1 ports it" in lines
+    assert "rust/native: modules: -: unsupported: section modules: slice S3 ports it" in lines
+    assert not [line for line in differences if ": violations: " in line]
+
+
+def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-370: on the hand-made S1 cases each decided rule and each violation row equals the
+    Python engine; a rule that only the scope proof of S4 can pass names it."""
+    arguments = ["compare", "--case", "s1/*", "--sections", "violations", "--engine-command", core]
+    code, lines = _run([*arguments, "--families", "complete_assignment,root_layout"], capsys)
+    differences = [line for line in lines if line.startswith("s1/")]
+    assert code == 1
+    assert differences
+    assert all(
+        line.endswith("unsupported: the scope proof: slice S4 ports it") for line in differences
+    )
+    assert lines[-1].startswith(
+        "dual run: family complete_assignment,root_layout; 1 sections; 13 projects; 26 rules;"
+    )
 
 
 def test_a_part_without_its_input_names_the_missing_input(
@@ -111,14 +132,25 @@ def test_the_host_uses_the_core_for_no_verdict() -> None:
     assert "archkeel-core" not in (ROOT / "native/hatch_build.py").read_text()
 
 
-def test_the_model_and_the_core_name_no_language() -> None:
+def test_the_model_the_evaluator_and_the_core_name_no_language() -> None:
     """The no-language rule of design WP6-0 section B; the Rust profile has no rule kind that
     reads an identifier, so the check is here and not in the native contract."""
     found = [
         f"{path.relative_to(ROOT)}: {match.group(0)}"
-        for crate in ("model", "core")
+        for crate in ("model", "eval", "core")
         for path in (ROOT / "native" / crate / "src").glob("*.rs")
         if not path.name.endswith("_tests.rs")
         for match in LANGUAGES.finditer(path.read_text())
     ]
     assert found == []
+
+
+def test_each_native_component_is_a_node_of_the_component_graph() -> None:
+    """The graph of native.md is written by hand while the native scan has gaps
+    (`archkeel validate --write-graph` refuses), so a new component must not go missing."""
+    contract = json.loads((ROOT / "native/architecture-contract.json").read_text())
+    page = (ROOT / "docs/architecture/native.md").read_text()
+    block = page.split("<!-- archkeel-component-graph -->", 1)[1].split("```", 2)[1]
+    nodes = set(re.findall(r'n_\d+\["([^"]+)"\]', block))
+    assert {component["label"] for component in contract["components"]} <= nodes
+    assert "n_2 --> n_31" in block

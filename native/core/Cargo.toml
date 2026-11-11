@@ -18,6 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 archkeel-contract = { path = "../contract" }
+archkeel-eval = { path = "../eval" }
 archkeel-model = { path = "../model" }
 archkeel-store = { path = "../store" }
 serde.workspace = true

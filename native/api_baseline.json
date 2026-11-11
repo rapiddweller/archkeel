@@ -11,13 +11,17 @@
     "items": 1,
     "members": 0
   },
+  "archkeel-eval": {
+    "items": 10,
+    "members": 2
+  },
   "archkeel-facts": {
     "items": 233,
     "members": 563
   },
   "archkeel-model": {
-    "items": 56,
-    "members": 43
+    "items": 76,
+    "members": 48
   },
   "archkeel-snapshot": {
     "items": 31,

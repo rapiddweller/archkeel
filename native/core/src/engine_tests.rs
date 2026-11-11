@@ -64,12 +64,72 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     };
     assert_eq!(rules.len(), 8);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
-    let reasons =
-        crate::contract::rule_reasons(engine.contract(), "native/architecture-contract.json");
-    assert_eq!(reasons.len(), 8);
-    assert!(reasons
-        .values()
-        .all(|reason| reason.to_string().starts_with("unsupported: rule kind")));
+    let Answer::Rules(answer) = engine.answer(Request::Rules) else {
+        fail("a rules answer");
+        return;
+    };
+    assert!(answer.decided.is_empty());
+    assert_eq!(answer.reasons.len(), 8);
+    // A rule of a decided kind needs the model; a rule of another kind names its kind.
+    assert_eq!(
+        answer.reasons.get("NATIVE-ASSIGNMENT-COMPLETE"),
+        Some(&Reason::MissingInput(Input::Reply))
+    );
+    assert!(answer
+        .reasons
+        .iter()
+        .filter(|(id, _)| *id != "NATIVE-ASSIGNMENT-COMPLETE")
+        .all(|(_, reason)| reason.to_string().starts_with("unsupported: rule kind")));
+}
+
+/// The H-typescript contract with the packages of `data` moved away: two modules lose their owner.
+fn unowned_contract() -> Vec<u8> {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/H-typescript/architecture-contract.json");
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    let mut value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    if let Some(components) = value["components"].as_array_mut() {
+        for component in components {
+            if component["id"] == "COMP-DATA" {
+                component["packages"] = json!(["shop.src.store"]);
+            }
+        }
+    }
+    value.to_string().into_bytes()
+}
+
+#[test]
+fn the_engine_decides_the_s1_kinds_and_writes_their_violation_rows() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(unowned_contract()));
+    let _ = ingest(&mut engine);
+    let Answer::Rules(answer) = engine.answer(Request::Rules) else {
+        fail("a rules answer");
+        return;
+    };
+    let failed = ["complete_assignment".to_owned(), "FAIL".to_owned()];
+    assert_eq!(answer.decided.get("ASSIGNMENT"), Some(&failed));
+    assert_eq!(
+        answer.reasons.get("LAYOUT"),
+        Some(&Reason::Unsupported(Unsupported::ScopeProof))
+    );
+    let Answer::Sections(rows) = engine.answer(Request::Sections(vec![Section::Violations])) else {
+        fail("a sections answer");
+        return;
+    };
+    let rows = rows.into_iter().next().and_then(|(_, rows)| rows.ok());
+    let rows = rows.unwrap_or_default();
+    assert_eq!(rows.len(), 2);
+    let local = rows.iter().find(|row| row["id"] == "VIO-671ede9c9771d825");
+    let expected = json!({
+        "id": "VIO-671ede9c9771d825", "evidence_class": "VIOLATION", "area": "components",
+        "kind": "complete_assignment",
+        "title": "shop.src.data.local_x2e_ts is not owned by exactly one component",
+        "subjects": ["shop.src.data.local_x2e_ts"], "evidence_ids": [local.map(|r| r["evidence_ids"][0].clone())],
+        "rule_ids": ["ASSIGNMENT"], "fact_ids": ["MOD-18a1182dc796d79c"], "provenance": [],
+        "data": {"source": "shop", "module": "shop.src.data.local_x2e_ts"}
+    });
+    assert_eq!(local, Some(&expected));
 }
 
 #[test]
@@ -122,6 +182,11 @@ fn the_engine_ingests_a_reply_and_every_section_names_its_slice() {
     };
     assert_eq!(rows.len(), Section::ALL.len());
     for (section, rows) in rows {
+        if section == Section::Violations {
+            // The rows of the decided kinds; the native contract finds no violation here.
+            assert!(rows.is_ok_and(|rows| rows.is_empty()));
+            continue;
+        }
         assert_eq!(
             rows.err(),
             Some(Reason::Unsupported(Unsupported::Section(section)))
@@ -174,12 +239,15 @@ fn the_uml_target_of_a_contract_is_an_unsupported_rule_by_name() {
         "declarations": {"uml": {"schema_version": "1.1.0"}}}"#
             .to_vec(),
     ));
-    let reasons = crate::contract::rule_reasons(engine.contract(), "architecture-contract.json");
-    let reason = reasons
-        .get("UML-TARGET-a2e40c5592b1b06a")
-        .map(ToString::to_string);
+    let reason = crate::contract::uml_reason(engine.contract(), "architecture-contract.json");
+    let reason = reason.map(|(id, reason)| format!("{id}: {reason}"));
     assert_eq!(
         reason.as_deref(),
-        Some("unsupported: the UML target of the contract: no slice ports it yet")
+        Some("UML-TARGET-a2e40c5592b1b06a: unsupported: the UML target of the contract: no slice ports it yet")
     );
+}
+
+/// Fail the test with a message (clippy refuses `panic!` in this workspace).
+fn fail(message: &str) {
+    assert_eq!(message, "", "the test setup failed");
 }

@@ -40,6 +40,7 @@ version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
  "archkeel-contract",
+ "archkeel-eval",
  "archkeel-model",
  "archkeel-store",
  "flate2",
@@ -65,6 +66,18 @@ dependencies = [
  "sha2",
  "tree-sitter",
  "tree-sitter-language",
+]
+
+[[package]]
+name = "archkeel-eval"
+version = "0.0.0"
+dependencies = [
+ "archkeel-contract",
+ "archkeel-facts",
+ "archkeel-model",
+ "archkeel-store",
+ "flate2",
+ "serde_json",
 ]
 
 [[package]]

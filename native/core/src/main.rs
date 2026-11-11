@@ -6,7 +6,8 @@
 //!
 //! The one process after the collector. It takes typed requests (`request`): the contract bytes,
 //! the collector reply and the sections to write. Today it speaks the engine command of the dual
-//! run (`archkeel-core dual-run`, AD-360). It owns no section and no rule family yet: each part
+//! run (`archkeel-core dual-run`, AD-360). It decides the rule kinds of slice S1
+//! (`complete_assignment`, `root_layout`; AD-370) and writes their `violations` rows; each part
 //! that no slice has ported answers with its name. The host uses the core for no verdict.
 //!
 //! Exit codes: 0 for a frame without a gap, 3 for a frame that names an unsupported or refused
@@ -18,6 +19,7 @@ mod engine;
 mod ingest;
 mod report;
 mod request;
+mod rules;
 mod sections;
 
 /// The exit code of a frame that names an unsupported or refused part.

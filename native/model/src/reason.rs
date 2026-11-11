@@ -8,6 +8,7 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
+use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 
 /// A part of the core that no slice has ported yet. It is a named answer, never an empty one.
@@ -25,6 +26,8 @@ pub enum Unsupported {
     InsideTree,
     /// The UML target row of a contract with `declarations.uml`.
     UmlTarget,
+    /// The baseline of a request: no slice reads it yet.
+    Baseline,
 }
 
 /// An input of a run that the core needs.
@@ -45,6 +48,12 @@ pub enum Reason {
     TooManyRows(&'static str),
     /// The run has no valid input of this kind.
     MissingInput(Input),
+    /// The reply proves that the scope of the run is not complete.
+    Incomplete(Incomplete),
+    /// The rule selects no module of the reply, so no evaluator receipt exists for it.
+    NoSubjects,
+    /// A child of a layout root has no module record to cite (the reference engine stops).
+    UncitedChild(String),
 }
 
 impl fmt::Display for Unsupported {
@@ -72,6 +81,9 @@ impl fmt::Display for Unsupported {
             Unsupported::UmlTarget => {
                 formatter.write_str("the UML target of the contract: no slice ports it yet")
             }
+            Unsupported::Baseline => {
+                formatter.write_str("the baseline of the request: no slice reads it yet")
+            }
         }
     }
 }
@@ -87,6 +99,19 @@ impl fmt::Display for Reason {
             Reason::MissingInput(Input::Reply) => {
                 formatter.write_str("missing input: no valid collector reply")
             }
+            Reason::Incomplete(Incomplete::NoSourceFiles) => {
+                formatter.write_str("incomplete scope: the collector selected no source file")
+            }
+            Reason::Incomplete(Incomplete::CoverageGaps(count)) => write!(
+                formatter,
+                "incomplete scope: the collector reports {count} coverage gaps"
+            ),
+            Reason::NoSubjects => formatter
+                .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
+            Reason::UncitedChild(child) => write!(
+                formatter,
+                "the layout child {child} has no module record to cite"
+            ),
         }
     }
 }

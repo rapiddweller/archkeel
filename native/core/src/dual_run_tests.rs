@@ -32,10 +32,16 @@ fn names_a_gap(value: &Value) -> bool {
 }
 
 #[test]
-fn the_frame_shows_what_the_core_read_and_decides_nothing() {
+fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let reply = golden_reply();
-    let got = frame(&request(Some(&reply), &["modules", "evidence"]));
-    assert_eq!(got["rules"], json!({}));
+    let got = frame(&request(
+        Some(&reply),
+        &["modules", "evidence", "violations"],
+    ));
+    // The native rule selects no module of the H-typescript reply: no receipt, so UNKNOWN.
+    let unknown = json!({"NATIVE-ASSIGNMENT-COMPLETE": ["complete_assignment", "UNKNOWN"]});
+    assert_eq!(got["rules"], unknown);
+    assert_eq!(got["sections"], json!({"violations": []}));
     assert_eq!(
         got["unsupported"]["report"],
         "unsupported: the report payload: slice 0d ports it"
@@ -47,12 +53,12 @@ fn the_frame_shows_what_the_core_read_and_decides_nothing() {
     assert!(got["self_test"]["reply"]["files"].as_u64().unwrap_or(0) > 0);
     assert_eq!(
         got["unsupported"]["sections"]["modules"],
-        "unsupported: section modules: slice S1 ports it"
+        "unsupported: section modules: slice S3 ports it"
     );
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 8);
+    assert_eq!(rules, 7);
 }
 
 #[test]
@@ -96,4 +102,18 @@ fn a_frame_with_an_unsupported_or_refused_part_names_a_gap() {
     let truncated = request(Some(&reply[..reply.len() / 2]), &[]);
     assert!(names_a_gap(&truncated));
     assert!(frame(&truncated)["self_test"]["reply"]["refused"].is_string());
+}
+
+#[test]
+fn a_request_with_a_baseline_is_refused_by_name() {
+    let reply = golden_reply();
+    let mut with_baseline = request(Some(&reply), &["violations"]);
+    with_baseline["baseline"] = json!("baseline.json");
+    assert!(names_a_gap(&with_baseline));
+    let got = frame(&with_baseline);
+    assert_eq!(got["rules"], json!({}));
+    assert_eq!(
+        got["unsupported"]["rules"],
+        "unsupported: the baseline of the request: no slice reads it yet"
+    );
 }

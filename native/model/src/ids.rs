@@ -75,6 +75,12 @@ id_type!(
 );
 
 /// The rows of one kind, indexed by their id.
+/// The id of a row index. The caller puts the row into a table that `Table::of_rows` checks, so
+/// an index above `u32` never gives an id that leaves the crate.
+pub(crate) fn id_of<I: Id>(index: usize) -> I {
+    I::from_index(u32::try_from(index).unwrap_or(u32::MAX))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Table<I, T> {
     rows: Vec<T>,

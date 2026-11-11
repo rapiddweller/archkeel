@@ -5,10 +5,10 @@
 //! The engine command of the dual run (AD-360): one JSON request in, one engine frame out.
 //!
 //! The request carries the contract bytes and the collector reply (hex). The core sends them as
-//! typed requests to the engine. The frame has no rule verdict and no section rows yet: each rule
-//! and each requested section is in `unsupported` with its reason, and `self_test` shows what the
-//! core read (the rule ids and kinds of the contract, the file count of the reply), so the harness
-//! can prove the round trip.
+//! typed requests to the engine. The frame has the status of each decided rule (`rules`) and the
+//! rows of each ported section (`sections`). Each other rule and section is in `unsupported` with
+//! its reason, and `self_test` shows what the core read (the rule ids and kinds of the contract,
+//! the file count of the reply), so the harness can prove the round trip.
 
 use std::collections::BTreeMap;
 
@@ -19,6 +19,8 @@ use crate::contract::ContractState;
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::{self, Request};
+use crate::rules::RuleAnswer;
+use archkeel_model::{Reason, Unsupported};
 
 const PROTOCOL: &str = "archkeel-dual-run-1";
 /// The provenance of this build (`archkeel-build-support`).
@@ -36,8 +38,8 @@ struct DualRunRequest {
     _root: String,
     #[serde(rename = "config")]
     _config: String,
-    #[serde(rename = "baseline")]
-    _baseline: Option<String>,
+    /// A baseline changes what a run reports; no slice reads it yet, so it is refused by name.
+    baseline: Option<String>,
     #[serde(rename = "collector_argv")]
     _collector_argv: Option<Vec<String>>,
     #[serde(rename = "pinned")]
@@ -57,6 +59,7 @@ struct ReplyBytes {
 struct Frame {
     engine: &'static str,
     rules: BTreeMap<String, [String; 2]>,
+    sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
 }
@@ -148,17 +151,32 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
-    let rules = match &contract {
-        ContractState::Parsed(_) => RuleReasons::Each(
-            crate::contract::rule_reasons(engine.contract(), &path)
-                .into_iter()
-                .map(|(id, reason)| (id, reason.to_string()))
-                .collect(),
-        ),
-        ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
-        ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
+    let mut decided = match engine.answer(Request::Rules) {
+        Answer::Rules(answer) => answer,
+        _ => RuleAnswer::default(),
     };
-    let sections = crate::sections::unsupported(rows);
+    let baseline = request
+        .baseline
+        .is_some()
+        .then_some(Reason::Unsupported(Unsupported::Baseline));
+    let rules = match (&contract, baseline) {
+        (_, Some(reason)) => {
+            decided.decided.clear();
+            RuleReasons::All(reason.to_string())
+        }
+        (contract, None) => match contract {
+            ContractState::Parsed(_) => RuleReasons::Each(
+                crate::contract::uml_reason(engine.contract(), &path)
+                    .into_iter()
+                    .chain(decided.reasons)
+                    .map(|(id, reason)| (id, reason.to_string()))
+                    .collect(),
+            ),
+            ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
+            ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
+        },
+    };
+    let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
         || !sections.is_empty()
@@ -166,7 +184,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         || !matches!(contract, ContractState::Parsed(_));
     let frame = Frame {
         engine: ENGINE,
-        rules: BTreeMap::new(),
+        rules: decided.decided,
+        sections: rows,
         unsupported: UnsupportedParts {
             rules,
             sections,

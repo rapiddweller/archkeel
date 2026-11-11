@@ -145,6 +145,38 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-EVAL",
+      "label": "eval",
+      "role": "component",
+      "packages": [
+        "native.archkeel_eval"
+      ],
+      "responsibilities": [
+        "Decide each rule of the contract over the model: one outcome with a decision and its violations per rule, and a named reason for each rule kind that no slice ports (AD-363, AD-370)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file, naming a language, deriving the model, and making a PASS without the scope proof."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Read the typed rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Give a violation the record id of Python with the one stable_id of the typed facts (AD-370)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-CORE",
       "label": "core",
       "role": "component",
@@ -152,7 +184,7 @@
         "native.archkeel_core"
       ],
       "responsibilities": [
-        "Run the one process after the collector: take the typed requests (contract bytes, collector reply, sections, report) and answer each part, or name the slice that ports it (AD-359, AD-363)."
+        "Run the one process after the collector: take the typed requests (contract bytes, collector reply, rules, sections, report) and answer each part, or name the slice that ports it (AD-359, AD-363, AD-370)."
       ],
       "forbidden_responsibilities": [
         "Reading a file, naming a language, and giving a verdict to the host before a slice owns it."
@@ -164,6 +196,10 @@
         {
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "eval",
+          "rationale": "Decide the rules of the run and write the violation rows of the decided kinds (AD-370)."
         },
         {
           "component": "contract",
