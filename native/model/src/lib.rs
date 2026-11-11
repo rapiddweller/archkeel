@@ -18,13 +18,19 @@
 //!   that a rule source selects, and what the reply proves not seen (`Incomplete`).
 //! - Slice S2: the resolved imports with their typed targets, the module and package edges, the
 //!   unresolved imports that no gap names, and the settings that the shell sends (`Settings`).
+//! - Slice S3: the condensation ranks of the edges, modules and packages, the fan counts with the
+//!   macro bodies (`MacroBody`, `Measure`) and the module and package cycles (`Cycle`). The part
+//!   that needs no contract is the `Graph`; a run derives it one time and moves it into the model.
 //!
 //! The model names no language: a rule of the native contract and a test check that.
 
 #![deny(unreachable_pub)]
 
+mod condensation;
 mod coverage;
+mod cycles;
 mod edges;
+mod graph;
 mod ids;
 mod imports;
 mod model;
@@ -34,17 +40,21 @@ mod reason;
 mod scope;
 mod section;
 mod settings;
+mod topology;
 mod verdict;
 
 pub use coverage::Incomplete;
+pub use cycles::Cycle;
 pub use edges::{Edge, Level};
+pub use graph::Graph;
 pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
-pub use imports::{Import, Resolved};
-pub use model::{reply_edges, Model, Rows};
+pub use imports::{Import, MacroBody, Resolved};
+pub use model::{Model, Rows};
 pub use modules::{Module, Package};
 pub use ownership::in_scope;
 pub use reason::{Input, Reason, Refusal, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
 pub use settings::{Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+pub use topology::Measure;
 pub use verdict::{Decision, Proven, Verdict};

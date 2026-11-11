@@ -7,30 +7,39 @@
 //! `violations` holds the rows of the rule kinds that `archkeel-eval` decides, sorted by id as
 //! the reference engine sorts the section. A row of another kind is not in it: the harness compares a rule
 //! section per family (AD-360 point 5), and the rules of that kind are named unsupported.
+//! The sections of slice S3 come from the reply part of the model (`topology.rs`): they need no
+//! contract, so their reason is the reason of the reply part.
 
 use std::collections::BTreeMap;
 
 use archkeel_eval::{Cited, Outcome, Violation};
-use archkeel_model::{Model, Reason, Section};
+use archkeel_model::{Reason, Section};
+
+use crate::engine::Derived;
 use serde_json::{json, Value};
 
 /// One requested section and its rows or the reason that it has none.
 pub(crate) type SectionAnswer = (Section, Result<Vec<Value>, Reason>);
 
 pub(crate) fn answer(
-    model: &Result<Model, Reason>,
+    derived: &Derived,
     outcomes: &[Outcome],
     sections: &[Section],
 ) -> Vec<SectionAnswer> {
     sections
         .iter()
-        .map(|section| {
-            let rows = match model {
-                Ok(_) if *section == Section::Violations => Ok(violation_rows(outcomes)),
-                Ok(model) => model.rows(*section).map(|rows| match rows {}),
-                Err(reason) => Err(reason.clone()),
+        .map(|&section| {
+            let graph_rows = derived
+                .graph()
+                .map(|graph| crate::topology::rows(graph, section));
+            let rows = match (graph_rows, derived.model()) {
+                (Ok(Some(rows)), _) => Ok(rows),
+                (Err(reason), _) if crate::topology::owns(section) => Err(reason),
+                (_, Ok(_)) if section == Section::Violations => Ok(violation_rows(outcomes)),
+                (_, Ok(model)) => model.rows(section).map(|rows| match rows {}),
+                (_, Err(reason)) => Err(reason),
             };
-            (*section, rows)
+            (section, rows)
         })
         .collect()
 }

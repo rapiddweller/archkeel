@@ -16,13 +16,13 @@
 
 mod contract;
 mod dual_run;
-mod edges;
 mod engine;
 mod ingest;
 mod report;
 mod request;
 mod rules;
 mod sections;
+mod topology;
 
 /// The exit code of a frame that names an unsupported or refused part.
 const NAMES_A_GAP: u8 = 3;

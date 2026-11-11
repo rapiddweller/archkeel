@@ -39,7 +39,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let reply = golden_reply();
     let got = frame(&request(
         Some(&reply),
-        &["modules", "evidence", "violations"],
+        &["metrics", "evidence", "violations"],
     ));
     // The native rule selects no module of the H-typescript reply: no receipt, so UNKNOWN.
     let unknown = json!({"NATIVE-ASSIGNMENT-COMPLETE": ["complete_assignment", "UNKNOWN"]});
@@ -55,8 +55,8 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     );
     assert!(got["self_test"]["reply"]["files"].as_u64().unwrap_or(0) > 0);
     assert_eq!(
-        got["unsupported"]["sections"]["modules"],
-        "unsupported: section modules: slice S3 ports it"
+        got["unsupported"]["sections"]["metrics"],
+        "unsupported: section metrics: slice S10 ports it"
     );
     let rules = got["unsupported"]["rules"]
         .as_object()
@@ -141,11 +141,19 @@ fn a_request_of_another_protocol_is_refused_by_its_protocol_name() {
 fn settings_of_another_profile_are_refused_by_name_and_give_no_edges() {
     let reply = golden_reply();
     let mut value = request(Some(&reply), &["violations", "dependency_edges"]);
-    assert!(frame(&value)["edges"].is_array());
+    let edges = &frame(&value)["sections"]["dependency_edges"];
+    // Each edge row holds its ranks; the old field `edges` without ranks is gone.
+    assert!(edges.as_array().is_some_and(|rows| !rows.is_empty()
+        && rows.iter().all(|row| row["data"]["source_rank"].is_u64()
+            && row["data"]["target_rank"].is_u64())));
+    assert!(frame(&value)["edges"].is_null());
     value["profile"] = json!("other");
     let got = frame(&value);
     assert!(names_a_gap(&value));
-    assert!(got["edges"].is_null());
+    assert!(got["sections"]["dependency_edges"].is_null());
+    assert!(got["unsupported"]["sections"]["dependency_edges"]
+        .as_str()
+        .is_some_and(|text| text.contains("refused settings: the profile")));
     let reasons = got["unsupported"]["rules"]
         .as_object()
         .cloned()
@@ -153,4 +161,24 @@ fn settings_of_another_profile_are_refused_by_name_and_give_no_edges() {
     assert!(reasons.values().any(|reason| reason
         .as_str()
         .is_some_and(|text| text.contains("refused settings: the profile"))));
+}
+
+#[test]
+fn the_sections_of_slice_s3_need_no_contract_that_the_core_can_use() {
+    let reply = golden_reply();
+    let sections = ["dependency_edges", "modules", "packages", "cycles", "violations"];
+    let mut value = request(Some(&reply), &sections);
+    value["contracts"] = json!({"architecture-contract.json": "{not a contract"});
+    let got = frame(&value);
+    for section in ["dependency_edges", "modules", "packages", "cycles"] {
+        assert!(got["sections"][section].is_array(), "{section}");
+    }
+    assert!(got["sections"]["modules"]
+        .as_array()
+        .is_some_and(|rows| !rows.is_empty()));
+    // The violations need the model, so they name the missing contract.
+    assert_eq!(
+        got["unsupported"]["sections"]["violations"],
+        "missing input: no valid contract"
+    );
 }

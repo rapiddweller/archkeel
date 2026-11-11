@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_contract::RuleKind;
-use archkeel_model::{Section, Settings};
+use archkeel_model::Settings;
 use serde::{Deserialize, Serialize};
 
 use crate::contract::ContractState;
@@ -75,9 +75,6 @@ struct Frame {
     engine: &'static str,
     rules: BTreeMap<String, [String; 2]>,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
-    /// The edge rows without the ranks of S3, when the request names `dependency_edges`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    edges: Option<Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
 }
@@ -146,7 +143,6 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
                 )
             })?;
     let sections = request::sections(&request.sections)?;
-    let edges_asked = sections.contains(&Section::DependencyEdges);
     let mut engine = Engine::default();
     engine.answer(Request::Settings(Settings::new(
         request.namespace,
@@ -192,10 +188,6 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
         },
     };
-    let edges = edges_asked
-        .then(|| engine.reply_and_settings())
-        .flatten()
-        .and_then(|(reply, settings)| crate::edges::rows(reply, settings));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
@@ -206,7 +198,6 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         engine: ENGINE,
         rules: decided.decided,
         sections: rows,
-        edges,
         unsupported: UnsupportedParts {
             rules,
             sections,
