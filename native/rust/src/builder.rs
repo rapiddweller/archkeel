@@ -78,6 +78,12 @@ pub(crate) struct Builder {
     pub(crate) macro_methods: BTreeMap<String, Vec<MethodCall>>,
     /// The pairs that have a pair gap: one gap is enough for each pair.
     pub(crate) gapped: BTreeSet<(String, String)>,
+    /// The outcomes that the edges ended, for the invariant of the extraction
+    /// (`edges_extracted.rs`): a running total, and the references and macro calls by file.
+    pub(crate) ended: usize,
+    pub(crate) ended_references: BTreeMap<String, usize>,
+    pub(crate) ended_calls: BTreeMap<String, usize>,
+    pub(crate) ended_methods: BTreeMap<String, usize>,
 }
 
 impl Builder {

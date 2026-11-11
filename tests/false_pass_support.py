@@ -203,8 +203,8 @@ def verdict(
 
 
 CLOSED_BY_INVARIANT = (
-    "closed by the in-collector invariant of 4.3a-5 for the native collector "
-    "and by protocol 10 for the wire"
+    "closed by the in-collector invariant of the native collectors (4.3a-5 for TypeScript, "
+    "#1003 for Rust) and by protocol 10 for the wire"
 )
 
 
@@ -229,8 +229,9 @@ TYPESCRIPT = {
 }
 RUST = {
     **COMMON,
-    # A trusted producer that drops every import gives PASS on both decode paths (AD-346).
-    "empty-section": "a pinned Rust reply with no imports: closed by protocol 10 for the wire",
+    # A tampered reply of a pinned producer gives PASS on both decode paths (AD-346); the honest
+    # collector cannot drop an import silently (`unextracted`).
+    "empty-section": CLOSED_BY_INVARIANT,
     # The profile of Rust never produces `typing_signals` (`absent_sections`).
     "unsupported-claim:typing_signals": "",
 }

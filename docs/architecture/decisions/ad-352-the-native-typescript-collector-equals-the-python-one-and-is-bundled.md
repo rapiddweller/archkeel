@@ -13,6 +13,15 @@ AD-320.
    `collection_gap`, `unextracted: n import-bearing node(s) of <file> have no record and no gap`
    (`imports.rs`, `check_extracted`). A node in a repaired part has the gap of the syntax error.
    The test binary can skip one reference on purpose (`plant.rs`); the release binary cannot.
+   The Rust collector has the same invariant (#1003): a second visitor (`scan_extracted.rs`)
+   counts `use` leaves with a path, `extern crate` items, qualified paths, macro calls and the
+   code in the value of `key = value` attributes. The count must equal the outcomes that the
+   edges produced: each record, gap or local outcome adds one to `Builder::ended`, each macro
+   call adds one when its expansion ends (`edges_extracted.rs`). A difference is the gap
+   `unextracted: n use, path or macro call node(s) of <file> have no record and no gap`. The check
+   proves that no node of the tree ends without an outcome. It does not prove that an outcome is
+   right, and a path that the scan reads in the tokens of a macro or an attribute has no node
+   and is not counted (open follow-up).
 3. The oracle `tests/native_oracle.py` is deleted. The native tests compare with `collect.collect`.
    The verdicts equal on the four fixtures and the 53 demo variants.
 4. `ProducerKind.BUNDLED` is the native collector of this package. A platform wheel carries the
@@ -41,5 +50,6 @@ closes the rest with protocol 10. The native binary is not the default for a sou
 digest inside the binary: it cannot vouch for its own file.
 
 **Check.** `tests/test_collector_native_script_deps.py` (grid, vendors, mutated projects),
-`test_collector_native_unextracted.py`, `test_collector_bundled_launcher.py`,
+`test_collector_native_unextracted.py`, `test_collector_native_rust_unextracted.py`,
+`test_collector_bundled_launcher.py`,
 `test_collector_native_verdicts.py`, the golden replies with the native producer.

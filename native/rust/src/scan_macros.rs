@@ -13,6 +13,7 @@ use syn::{ItemMacro, Macro};
 use super::{Local, MacroCall, MacroDef, Walker};
 use crate::definitions::MethodCall;
 use crate::net;
+use crate::plant;
 use crate::tokens::{chains, macro_names, method_names, names_relative, plain, string_paths};
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -155,9 +156,11 @@ impl Walker<'_> {
             placed: false,
             ..call.clone()
         });
+        let before = self.out.macro_calls.len();
         self.out.macro_calls.extend(hidden);
         let mut methods = BTreeSet::new();
         method_names(node.tokens.clone(), 0, &mut methods);
+        self.out.tally.hidden_methods += methods.len();
         let (site, scope) = (call.site.clone(), self.inline.clone());
         self.out
             .method_calls
@@ -168,7 +171,10 @@ impl Walker<'_> {
                 path: false,
                 arity: None,
             }));
-        self.out.macro_calls.push(call);
+        self.out.tally.hidden += self.out.macro_calls.len() - before;
+        if !plant::lose("call") {
+            self.out.macro_calls.push(call);
+        }
         if name == "include" {
             self.concern(
                 "The macro include! adds code that the scan does not read".to_owned(),

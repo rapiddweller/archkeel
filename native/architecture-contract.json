@@ -743,7 +743,8 @@
         "native.archkeel_rust_collector.scan.use_items",
         "native.archkeel_rust_collector.definitions",
         "native.archkeel_rust_collector.site",
-        "native.archkeel_rust_collector.scan.define"
+        "native.archkeel_rust_collector.scan.define",
+        "native.archkeel_rust_collector.plant"
       ],
       "responsibilities": [
         "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, definitions, use paths and macros."
@@ -862,6 +863,7 @@
       "role": "component",
       "packages": [
         "native.archkeel_rust_collector.edges",
+        "native.archkeel_rust_collector.edges_extracted",
         "native.archkeel_rust_collector.module_edges",
         "native.archkeel_rust_collector.declared",
         "native.archkeel_rust_collector.symbols",

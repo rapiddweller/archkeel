@@ -141,6 +141,7 @@ PR_TEST_FILES := \
 	tests/test_collector_native_script_deps.py \
 	tests/test_collector_native_script_deps_scaling.py \
 	tests/test_collector_native_unextracted.py \
+	tests/test_collector_native_rust_unextracted.py \
 	tests/test_collector_bundled_launcher.py \
 	tests/test_collector_native_syntax_scaling.py \
 	tests/test_collector_native_verdicts.py \

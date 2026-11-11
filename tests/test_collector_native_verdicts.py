@@ -200,8 +200,9 @@ def test_a_reply_that_lacks_a_declared_section_is_never_a_pass(tmp_path: Path) -
 @pytest.mark.xfail(
     strict=True,
     reason="the host accepts a declared section that is present and empty as complete. The "
-    "native collector cannot lose an import node silently since PR 4.3a-5 (the `unextracted` "
-    "gap, AD-352); an emptied section of a reply stays open until protocol 10",
+    "native collectors cannot lose an import node silently (the `unextracted` gap, AD-352: "
+    "TypeScript since 4.3a-5, Rust since #1003); an emptied section of a reply stays open until "
+    "protocol 10",
 )
 def test_a_section_that_is_emptied_is_never_a_pass(tmp_path: Path) -> None:
     name, root = _passing_variant(tmp_path)

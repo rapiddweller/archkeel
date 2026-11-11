@@ -21,6 +21,7 @@ use crate::crates::Workspace;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall};
 use crate::impl_globs::{crate_path, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
+use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
 
@@ -161,7 +162,9 @@ impl Builder {
                 calls: &calls,
                 edges: &edges,
             };
-            self.method_gaps(workspace, &reached, &found);
+            // The first calls of the list are the ones of the scan: `calls_of` puts them first.
+            let own = module.scan.method_calls.len();
+            self.method_gaps(workspace, &reached, &found, own);
             self.glob_trait_gaps(workspace, &reached);
         }
     }
@@ -268,12 +271,21 @@ impl Builder {
     }
 
     /// A gap for each foreign member that a call of the module can reach, and no edge explains.
-    fn method_gaps(&mut self, workspace: &Workspace, reached: &Reached<'_>, found: &Members<'_>) {
+    fn method_gaps(
+        &mut self,
+        workspace: &Workspace,
+        reached: &Reached<'_>,
+        found: &Members<'_>,
+        own: usize,
+    ) {
         let (module, frame) = (reached.module, reached.index.frame(&reached.module.module));
         let Some(frame) = frame else {
             return;
         };
-        for call in reached.calls {
+        for (at_index, call) in reached.calls.iter().enumerate() {
+            if at_index < own && plant::method(&module.rel, at_index) {
+                continue;
+            }
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
             for block in blocks.filter(|block| visible(workspace, (module, &at), call, block)) {
@@ -283,6 +295,9 @@ impl Builder {
                     call.name
                 );
                 self.reached_gap(reached, call, target, &reason);
+            }
+            if at_index < own {
+                *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
             }
         }
     }

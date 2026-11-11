@@ -26,6 +26,7 @@ impl Walker<'_> {
         }
         let names: Vec<String> = path.segments.iter().map(|s| plain(&s.ident)).collect();
         if names.len() > 1 {
+            self.out.tally.unseen += 1;
             self.refer(
                 &names,
                 path.segments

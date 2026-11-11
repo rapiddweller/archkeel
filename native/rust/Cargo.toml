@@ -19,6 +19,10 @@ proc-macro2.workspace = true
 serde_json.workspace = true
 syn.workspace = true
 
+[features]
+# Test only: the plants of `plant.rs`. The release binary is built without it.
+dump = []
+
 [build-dependencies]
 archkeel-build-support.workspace = true
 
