@@ -86,7 +86,7 @@ PASS_NEEDS = frozenset(code(RELATION, r) for r in ("imports", "reexports", "vari
 _UNKNOWN_REASONS = frozenset({"scope_incomplete", "no_receipt", "undecided", "ownership_blocker"})
 
 
-def _reason_fits(verdict: object, reason: object) -> bool:
+def _reason_fits(verdict: str, reason: str) -> bool:
     """The reasons that each rule verdict can have."""
     if verdict == "PASS":
         return reason == "evaluated"
@@ -295,9 +295,11 @@ def _explained(payload: Mapping[str, object], status: str, problems: list[str]) 
     not_carried = run.get("not_carried")
     missing = PASS_NEEDS & set(not_carried if isinstance(not_carried, list) else [])
     if missing and (status == "PASS" or run.get("observation") == "PASS"):
-        problems.append("a PASS status or observation does not carry imports, reexports and variants")
+        problems.append(
+            "a PASS status or observation does not carry imports, reexports and variants"
+        )
     for rule in rules:
-        if not _reason_fits(rule.get("verdict"), rule.get("reason")):
+        if not _reason_fits(str(rule.get("verdict")), str(rule.get("reason"))):
             problems.append(f"rule {rule.get('id')} has a reason that its verdict cannot have")
         if rule.get("verdict") == "FAIL" and not rule.get("violations"):
             problems.append(f"rule {rule.get('id')} is FAIL and no violation row cites it")
