@@ -139,7 +139,8 @@ _FEATURES: Final = (
     "local-runtime-closure",
     "inner-uml-v1",
 )
-_SCRIPT_ROOTS: Final = frozenset(item.value for item in ScriptRoot)
+
+
 _SCRIPT_HOST_NAMES: Final = frozenset(item.value for item in _ScriptHostName)
 _SCRIPT_LOADER_NAMES: Final = frozenset(
     item.value for item in (_ScriptHostName.EXPORTS, _ScriptHostName.MODULE, _ScriptHostName.DEFINE)
@@ -430,8 +431,7 @@ class _Collection:
                 )
                 if self._script_root_escape(rel, site, path):
                     continue
-                if path and path[0] in _SCRIPT_ROOTS:
-                    path = path[1:]
+                path = ScriptRoot.unrooted(path)
                 if (
                     alias_initializer is not None
                     and not alias_initializer.factory
@@ -459,7 +459,7 @@ class _Collection:
     def _script_root_escape(self, rel: str, site: Site, path: tuple[str, ...]) -> bool:
         if (
             len(path) == 1
-            and path[0] in _SCRIPT_ROOTS
+            and not ScriptRoot.unrooted(path)
             and site.script_free
             and (site.script_escape or site.computed or site.kind is not SiteKind.REFERENCE)
         ):
@@ -517,7 +517,7 @@ class _Collection:
         # An escaped object can be mutated through aliases the collector cannot track.
         for rel, syntax in self.syntax.items():
             for site in syntax.sites:
-                path = site.path[1:] if site.path and site.path[0] in _SCRIPT_ROOTS else site.path
+                path = ScriptRoot.unrooted(site.path)
                 if (
                     site.kind is SiteKind.REFERENCE
                     and site.script_escape
@@ -995,7 +995,7 @@ class _Collection:
         for alias in self.syntax[rel].script_aliases:
             if not alias.factory or item.forwarded_span not in alias.reads:
                 continue
-            path = alias.path[1:] if alias.path[0] in _SCRIPT_ROOTS else alias.path
+            path = ScriptRoot.unrooted(alias.path)
             publications = [
                 (source_rel, publication)
                 for source_rel, syntax in self.syntax.items()

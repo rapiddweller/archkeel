@@ -8,6 +8,7 @@ from __future__ import annotations
 import builtins
 from dataclasses import dataclass
 from enum import Enum
+from itertools import dropwhile
 from typing import Final
 
 
@@ -70,6 +71,12 @@ class ScriptRoot(Enum):
     # The window outside a frame, and another window inside one.
     TOP = "top"
     PARENT = "parent"
+
+    @staticmethod
+    def unrooted(path: tuple[str, ...]) -> tuple[str, ...]:
+        """The path without its leading names of the global object: `window.self.x` is `x`."""
+        names = {item.value for item in ScriptRoot}
+        return tuple(dropwhile(names.__contains__, path))
 
 
 # The walk of a file reads `top` and `parent` as ordinary names: a local variable `parent` is

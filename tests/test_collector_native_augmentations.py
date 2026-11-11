@@ -77,3 +77,25 @@ def test_directives_and_type_roots_equal_the_python_collector(
 ) -> None:
     _write(tmp_path, {**DIRECTIVES, "tsconfig.json": config})
     assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []
+
+
+CHAIN_FILES = {
+    "src/b/b.js": "window.x = 1;\nwindow.y = 2;\n",
+    # A use through a chain of aliases of the global object, as a call, a read, a value and a path
+    # with a name that no file publishes (#1007).
+    "src/a/chains.js": (
+        "window.window.x();\nself.window.y;\nglobalThis.window.x();\nwindow.self.y();\n"
+        "window.globalThis.x();\ntop.window.x();\nparent.top.y;\nframes.self.window.nobody();\n"
+        "var w = window.window;\nfoo(window.self);\nvar o = { v: top.parent };\n"
+        "window.window.x.z;\nwindow.window;\nwindow.window[name]();\n"
+    ),
+    # A local variable named like a root is no root: no gap, as before.
+    "src/a/locals.js": "function f(parent, top) { parent.appendChild(top); }\n",
+}
+
+
+def test_chains_of_global_object_aliases_equal_the_python_collector(
+    tmp_path: Path, native_binary: Path
+) -> None:
+    _write(tmp_path, {**CHAIN_FILES, "tsconfig.json": COMMONJS})
+    assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []

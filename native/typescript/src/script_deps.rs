@@ -31,6 +31,12 @@ pub fn is_root(name: &str) -> bool {
     )
 }
 
+/// `ScriptRoot.unrooted`: how many leading names of a path name the global object, so that
+/// `window.self.x` is `x` (#1007).
+pub fn leading_roots(path: &[String]) -> usize {
+    path.iter().take_while(|name| is_root(name)).count()
+}
+
 /// A site as the analysis reads it: a site of the file, or a name that a destructuring brings.
 pub struct Probe {
     pub kind: SiteKind,
@@ -193,9 +199,7 @@ impl<'a, 'p> Run<'a, 'p> {
         if self.root_escape(rel, site, &probe, &path) {
             return;
         }
-        if path.first().is_some_and(|first| is_root(first)) {
-            path.remove(0);
-        }
+        path.drain(..leading_roots(&path));
         if let Some(initialized) = alias_initializer.filter(|alias| !alias.factory) {
             if self.alias_decomposition(rel, &probe, initialized, &path) {
                 return;
@@ -242,10 +246,9 @@ impl<'a, 'p> Run<'a, 'p> {
 
     /// `_script_root_escape`: a root used as a value cannot be followed.
     fn root_escape(&mut self, rel: &str, site: &Site, probe: &Probe, path: &[String]) -> bool {
-        let [only] = path else {
-            return false;
-        };
-        let escaped = is_root(only)
+        // A chain such as `window.parent` is read as a use of a name; only the bare root is a value
+        // that escapes (a chain of roots is as common in `window.top === window.self`).
+        let escaped = matches!(path, [only] if is_root(only))
             && site.script_free
             && (site.script_escape || site.computed || site.kind != SiteKind::Reference);
         if !escaped {
@@ -357,7 +360,7 @@ fn escaped<'a>(project: &Project<'a>, rel: &'a str, file: &'a Kept) -> Vec<Write
             .path
             .map(|at| file.sites.paths.names(at, data))
             .unwrap_or_default();
-        let skip = usize::from(path.first().is_some_and(|first| is_root(first)));
+        let skip = leading_roots(&path);
         let [name] = path.get(skip..).unwrap_or(&[]) else {
             continue;
         };

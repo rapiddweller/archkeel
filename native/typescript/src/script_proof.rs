@@ -8,7 +8,7 @@
 use archkeel_facts::data::BindingData;
 use archkeel_facts::identity::{stable_id, Part};
 
-use crate::script_deps::{is_root, Probe, Run};
+use crate::script_deps::{leading_roots, Probe, Run};
 use crate::script_project::stable_publication;
 use crate::script_records::binding;
 use crate::script_types::ScriptAlias;
@@ -95,7 +95,7 @@ impl<'a, 'p> Run<'a, 'p> {
         next: (Seen, &Span, &ScriptAlias),
     ) -> Step {
         let (identity, forwarded, alias) = next;
-        let skip = usize::from(alias.path.first().is_some_and(|first| is_root(first)));
+        let skip = leading_roots(&alias.path);
         let path = alias.path.get(skip..).unwrap_or(&[]);
         let publishers = self.publishers(path.first());
         let ([_, published], Some(first)) = (path, path.first()) else {
