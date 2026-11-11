@@ -81,7 +81,7 @@ def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
         line.endswith("unsupported: the scope proof: slice S4 ports it") for line in differences
     )
     assert lines[-1].startswith(
-        "dual run: family complete_assignment,root_layout; 1 sections; 12 projects; 24 rules;"
+        "dual run: family complete_assignment,root_layout; 1 sections; 13 projects; 26 rules;"
     )
 
 
