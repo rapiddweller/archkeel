@@ -62,14 +62,14 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
             return;
         }
     };
-    assert_eq!(rules.len(), 8);
+    assert_eq!(rules.len(), 10);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
     let Answer::Rules(answer) = engine.answer(Request::Rules) else {
         fail("a rules answer");
         return;
     };
     assert!(answer.decided.is_empty());
-    assert_eq!(answer.reasons.len(), 8);
+    assert_eq!(answer.reasons.len(), 10);
     // A rule of a decided kind needs the model; a rule of another kind names its kind.
     assert_eq!(
         answer.reasons.get("NATIVE-ASSIGNMENT-COMPLETE"),

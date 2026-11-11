@@ -1345,6 +1345,131 @@
         }
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-TEXT",
+      "label": "py-text",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.source"
+      ],
+      "responsibilities": [
+        "The text of one Python source file: the decode of the Python collector and the line of a byte offset."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, parsing and building facts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-PARSE",
+      "label": "py-parse",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.parse",
+        "native.archkeel_python_collector.limits",
+        "native.archkeel_python_collector.identifier",
+        "native.archkeel_python_collector.stack",
+        "native.archkeel_python_collector.depth"
+      ],
+      "responsibilities": [
+        "Parse one Python module with the grammar of one Python version and the limits of CPython: the tokenizer limits, the depth bound before the parse and MAX_AST_DEPTH (AD-334)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, naming modules and building records."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "py-text",
+          "rationale": "Read the line of a byte offset."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-DUMP",
+      "label": "py-dump",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.dump"
+      ],
+      "responsibilities": [
+        "The development dump of the parse outcome of each file (feature dump)."
+      ],
+      "forbidden_responsibilities": [
+        "Production collection."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "snapshot",
+          "rationale": "Read the files through the one owner of snapshot reads."
+        },
+        {
+          "component": "py-text",
+          "rationale": "Decode the text of a file."
+        },
+        {
+          "component": "py-parse",
+          "rationale": "Parse a file."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-ENTRY",
+      "label": "py-entry",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_python_collector",
+        "native.archkeel_python_collector.build_script",
+        "native.archkeel_python_collector.cargo_toml"
+      ],
+      "responsibilities": [
+        "The binary of the Python collector: read the 10.0.0 request and run the work on a thread with a big stack; the build script and the manifest of the crate."
+      ],
+      "forbidden_responsibilities": [
+        "Reading TypeScript or Rust source."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the request with the shared wire."
+        },
+        {
+          "component": "build",
+          "rationale": "Call the shared helper that digests the sources, so one script owns the digest."
+        },
+        {
+          "component": "py-dump",
+          "rationale": "Run the development dump (feature dump)."
+        }
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [
@@ -1536,6 +1661,40 @@
       "rationale": "Only a grammar crate links a C parser to a Tree-sitter language; a collector gets the language from the grammar crate.",
       "provenance": [
         "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-RUFF-PYTHON-PARSER",
+      "kind": "external_dependency_scope",
+      "dependency": "ruff_python_parser",
+      "allowed_sources": [
+        "native.archkeel_python_collector.parse",
+        "native.archkeel_python_collector.limits",
+        "native.archkeel_python_collector.stack",
+        "native.archkeel_python_collector.depth",
+        "native.archkeel_python_collector.cargo_toml"
+      ],
+      "rationale": "Only the parse modules of the Python collector use the Python parser, so a parser update cannot reach discovery, naming or records.",
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-RUFF-PYTHON-AST",
+      "kind": "external_dependency_scope",
+      "dependency": "ruff_python_ast",
+      "allowed_sources": [
+        "native.archkeel_python_collector.parse",
+        "native.archkeel_python_collector.limits",
+        "native.archkeel_python_collector.stack",
+        "native.archkeel_python_collector.depth",
+        "native.archkeel_python_collector.cargo_toml"
+      ],
+      "rationale": "Only the parse modules of the Python collector read the tree of the Python parser; the rest of the collector reads owned facts.",
+      "provenance": [
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
       ],
       "decided_by": "architect"
     }

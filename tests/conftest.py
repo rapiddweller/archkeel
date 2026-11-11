@@ -223,6 +223,14 @@ def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="session")
+def python_dump_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The native Python collector with the test-only `dump` feature (AD-334)."""
+    return build_native_copy(
+        tmp_path_factory, "native-dump-python", ("dump",), binary="archkeel-python-collector"
+    )
+
+
+@pytest.fixture(scope="session")
 def rust_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The debug build of the native Rust collector (AD-335), copied for its own tests."""
     return build_native_copy(tmp_path_factory, "native-rust", binary="archkeel-rust-collector")
