@@ -67,14 +67,15 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
 def test_a_part_without_its_input_names_the_missing_input(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The contract of H-typescript has `declarations` (slice 0c-2): the rules say so, and each
-    section names the missing contract, not a slice."""
-    code, lines = _run(
-        ["compare", "--case", "fixture/H-typescript", "--engine-command", core], capsys
-    )
+    """The contract of J-compass mounts inside contracts: the core does not assemble the tree, so
+    the rules name it, and each section names the missing contract, not a slice."""
+    code, lines = _run(["compare", "--case", "fixture/J-compass", "--engine-command", core], capsys)
     assert code == 1
-    differences = [line for line in lines if line.startswith("fixture/H-typescript: ")]
-    assert "contract declarations: slice 0c-2 ports them" in differences[0]
+    differences = [line for line in lines if line.startswith("fixture/J-compass: ")]
+    assert (
+        "the contract mounts inside contracts; the tree assembly is not in the core yet"
+        in (differences[0])
+    )
     assert all(line.endswith(": -: missing input: no valid contract") for line in differences[1:])
 
 

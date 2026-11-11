@@ -8,105 +8,7 @@
 //! The fields are private to the crate and each has a read accessor. So a `Contract` and each value
 //! in it come only from `parse`: a caller cannot build or change one.
 
-use serde::{Deserialize, Serialize};
-
-use crate::version::ContractVersion;
-
-/// A text value that only this crate can make.
-pub(crate) trait Wrap {
-    fn wrap(text: String) -> Self;
-}
-
-/// The text of a text value, for the canonical writer.
-pub(crate) trait TextOf {
-    fn text_of(&self) -> &str;
-}
-
-impl Wrap for String {
-    fn wrap(text: String) -> Self {
-        text
-    }
-}
-
-impl TextOf for str {
-    fn text_of(&self) -> &str {
-        self
-    }
-}
-
-impl TextOf for String {
-    fn text_of(&self) -> &str {
-        self
-    }
-}
-
-/// Wrap each text.
-pub(crate) fn wrap_all<T: Wrap>(texts: Vec<String>) -> Vec<T> {
-    texts.into_iter().map(T::wrap).collect()
-}
-
-/// Declare a text newtype with a read accessor and no public constructor. The call passes the
-/// visibility of the inner text (the crate), so the definition names no `crate` that the scan
-/// cannot place.
-macro_rules! text_type {
-    ($inner:vis, $(#[$meta:meta])* $name:ident) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub struct $name($inner String);
-
-        impl $name {
-            /// The text of the value.
-            pub fn as_text(&self) -> &str {
-                &self.0
-            }
-        }
-
-        impl Wrap for $name {
-            fn wrap(text: String) -> $name {
-                $name(text)
-            }
-        }
-
-        impl TextOf for $name {
-            fn text_of(&self) -> &str {
-                &self.0
-            }
-        }
-    };
-}
-
-/// Declare a struct with fields of the visibility that the call passes (the crate) and a public
-/// read accessor for each field.
-macro_rules! record {
-    ($inner:vis, $(#[$meta:meta])* $name:ident { $($(#[$field_meta:meta])* $field:ident: $kind:ty),* $(,)? }) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, Eq)]
-        pub struct $name {
-            $($(#[$field_meta])* $inner $field: $kind),*
-        }
-
-        impl $name {
-            $(
-                $(#[$field_meta])*
-                pub fn $field(&self) -> &$kind {
-                    &self.$field
-                }
-            )*
-        }
-    };
-}
-
-/// Declare a closed enum whose words are the snake case names of its variants.
-macro_rules! closed_enum {
-    ($(#[$meta:meta])* $name:ident { $($variant:ident),* $(,)? }) => {
-        $(#[$meta])*
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-        #[serde(rename_all = "snake_case")]
-        pub enum $name {
-            $($variant),*
-        }
-    };
-}
+pub(crate) use crate::macros::{wrap_all, Wrap};
 
 text_type!(
     pub(crate),
@@ -130,20 +32,18 @@ text_type!(
 );
 text_type!(
     pub(crate),
+    /// The repository path of an inside contract that a component mounts (AD-20).
+    InsidePath
+);
+text_type!(
+    pub(crate),
+    /// A repository-relative source path.
+    SourcePath
+);
+text_type!(
+    pub(crate),
     /// The SHA-256 of bytes in lower-case hex.
     ContractDigest
-);
-
-record!(
-    pub(crate),
-    /// One parsed contract. Its digest is the SHA-256 of the bytes: the contract identity of a run.
-    Contract {
-        version: ContractVersion,
-        schema: Option<String>,
-        components: Vec<Component>,
-        rules: Vec<Rule>,
-        digest: ContractDigest,
-    }
 );
 
 closed_enum!(
@@ -176,6 +76,7 @@ record!(
         component: ComponentLabel,
         rationale: String,
         through: Vec<Selector>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         decided_by: Option<DecidedBy>,
     }
 );
@@ -191,16 +92,26 @@ record!(
         responsibilities: Vec<String>,
         forbidden_responsibilities: Vec<String>,
         provenance: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         capability_id: Option<ItemId>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         requires: Option<Vec<Requirement>>,
-        inside: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        inside: Option<InsidePath>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         public: Option<Vec<Selector>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         planned: Option<Vec<Selector>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         decided_by: Option<DecidedBy>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         namespace: Option<Package>,
         /// Empty when the contract declares no exact module.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
         exact_modules: Vec<Package>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         layer: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         lifecycle: Option<Lifecycle>,
     }
 );
@@ -244,23 +155,6 @@ record!(
     }
 );
 
-/// One rule of a structural kind. The other ten kinds are `Unsupported` until slice 0c-2.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Rule {
-    ForbiddenDependency(ForbiddenDependency),
-    AllowedDependency(AllowedDependency),
-    ForbiddenConstruct(ForbiddenConstruct),
-    ExternalDependencyScope(ExternalDependencyScope),
-    CompleteAssignment(SourceRule),
-    RootLayout(RootLayout),
-    CompleteExternalScope(SourceRule),
-    CompleteRequires(CompleteRequires),
-    LayerOrder(LayerOrder),
-    NoComponentCycles(NoComponentCycles),
-    InterfaceBoundary(InterfaceBoundary),
-    SiblingIsolation(SiblingIsolation),
-}
-
 closed_enum!(SelectorMatch { Prefix, Exact });
 
 closed_enum!(TargetKind {
@@ -273,10 +167,14 @@ record!(pub(crate), ForbiddenDependency {
     source: Selector,
     target: Selector,
     include_type_checking: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     target_symbol: Option<String>,
     allowed_sources: Vec<Selector>,
+    #[serde(skip_serializing_if = "is_prefix")]
     source_match: SelectorMatch,
+    #[serde(skip_serializing_if = "is_prefix")]
     target_match: SelectorMatch,
+    #[serde(skip_serializing_if = "is_module")]
     target_kind: TargetKind,
 });
 
@@ -341,8 +239,10 @@ record!(
     /// One nominal receiver and member, with an optional literal operand.
     ConstructSelector {
         receiver: Selector,
+        #[serde(skip_serializing_if = "Option::is_none")]
         member: Option<String>,
         role: SelectorRole,
+        #[serde(skip_serializing_if = "Option::is_none")]
         literal: Option<String>,
     }
 );
@@ -353,7 +253,9 @@ record!(pub(crate), ForbiddenConstruct {
     constructs: Vec<ConstructKind>,
     allowed_sources: Vec<Selector>,
     exact_sources: Vec<Selector>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     allowed_type_ignores: Vec<TypeIgnore>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     selector: Option<ConstructSelector>,
 });
 
@@ -390,6 +292,7 @@ record!(
 record!(pub(crate), LayerOrder {
     head: RuleHead,
     layers: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     components: Option<Vec<ComponentLabel>>,
 });
 
@@ -397,7 +300,9 @@ closed_enum!(CycleLevel { Component, Module });
 
 record!(pub(crate), NoComponentCycles {
     head: RuleHead,
+    #[serde(skip_serializing_if = "is_component")]
     level: CycleLevel,
+    #[serde(skip_serializing_if = "Option::is_none")]
     components: Option<Vec<ComponentLabel>>,
 });
 
@@ -413,6 +318,7 @@ record!(
 record!(pub(crate), InterfaceBoundary {
     head: RuleHead,
     include_type_checking: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     module_object_grants: Option<Vec<ModuleObjectGrant>>,
 });
 
@@ -421,3 +327,17 @@ record!(pub(crate), SiblingIsolation {
     members: Vec<Selector>,
     include_type_checking: bool,
 });
+
+/// The defaults that the canonical bytes leave out: an absent permission keeps the amendment
+/// digests of older contracts.
+fn is_prefix(value: &SelectorMatch) -> bool {
+    *value == SelectorMatch::Prefix
+}
+
+fn is_module(value: &TargetKind) -> bool {
+    *value == TargetKind::Module
+}
+
+fn is_component(value: &CycleLevel) -> bool {
+    *value == CycleLevel::Component
+}

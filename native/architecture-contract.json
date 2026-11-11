@@ -107,7 +107,8 @@
         "Reading a file, evaluating a rule, and using a source fact or a source id."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md"
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-364-the-rust-contract-parser-reads-the-whole-grammar.md"
       ],
       "decided_by": "architect"
     },

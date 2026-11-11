@@ -14,7 +14,7 @@ use crate::model::{
     TargetKind,
 };
 use crate::names::{has_text, package_identity, python_identifier};
-use crate::read::{listed_strings, nonempty_field, present, rule_record};
+use crate::read::{listed_strings, named_sources, nonempty_field, present, rule_record};
 use crate::words::value_of;
 
 pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenDependency> {
@@ -115,13 +115,7 @@ pub(crate) fn external_dependency_scope(
             "{label}.dependency must be an import name or package identity"
         )));
     }
-    let allowed_sources = listed_strings(item, "allowed_sources", label)?;
-    let exact_sources = listed_strings(item, "exact_sources", label)?;
-    if allowed_sources.is_empty() && exact_sources.is_empty() {
-        return Err(invalid(format!(
-            "{label} must name allowed_sources or exact_sources"
-        )));
-    }
+    let (allowed_sources, exact_sources) = named_sources(item, label)?;
     Ok(ExternalDependencyScope {
         head,
         dependency: Selector(dependency),

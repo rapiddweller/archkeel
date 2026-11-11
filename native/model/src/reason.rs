@@ -6,7 +6,7 @@
 
 use std::fmt;
 
-use archkeel_contract::{RuleKind, Unported};
+use archkeel_contract::RuleKind;
 
 use crate::section::{Porting, Section};
 
@@ -19,10 +19,12 @@ pub enum Unsupported {
     Section(Section),
     /// The rules of one kind (the slice of its family).
     Rule(RuleKind),
-    /// A part of the contract grammar that `archkeel-contract` does not parse yet (slice 0c-2).
-    Contract(Unported),
     /// The report v2 payload (slice 0d).
     Report,
+    /// A contract that mounts inside contracts: the core does not assemble the tree yet.
+    InsideTree,
+    /// The UML target row of a contract with `declarations.uml`.
+    UmlTarget,
 }
 
 /// An input of a run that the core needs.
@@ -63,16 +65,13 @@ impl fmt::Display for Unsupported {
                     "rule kind {kind:?}: the slice of its family ports it"
                 )
             }
-            Unsupported::Contract(Unported::Declarations) => {
-                formatter.write_str("contract declarations: slice 0c-2 ports them")
-            }
-            Unsupported::Contract(Unported::Rule(kind)) => {
-                write!(
-                    formatter,
-                    "contract rule kind {kind:?}: slice 0c-2 ports it"
-                )
-            }
             Unsupported::Report => formatter.write_str("the report payload: slice 0d ports it"),
+            Unsupported::InsideTree => formatter.write_str(
+                "the contract mounts inside contracts; the tree assembly is not in the core yet",
+            ),
+            Unsupported::UmlTarget => {
+                formatter.write_str("the UML target of the contract: no slice ports it yet")
+            }
         }
     }
 }

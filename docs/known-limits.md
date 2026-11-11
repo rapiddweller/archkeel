@@ -340,6 +340,21 @@ reports `missing_tool`
   leaves the directory of its crate, make the owners UNKNOWN. The collector does not choose an
   owner for such a file.
 
+## The Rust contract parser
+
+The Rust contract parser (`native/contract`, [AD-359](architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md), [AD-364](architecture/decisions/ad-364-the-rust-contract-parser-reads-the-whole-grammar.md)) decides each contract as the Python parser does, with these stricter cases:
+
+- A repeated JSON key is an error (`DuplicateKey`). Python keeps the last value.
+- A lone surrogate escape is invalid JSON. Python parses it, and then `contract_bytes` fails with `UnicodeEncodeError`.
+- An integer above 2^64 is read as a float, so a field that needs an integer refuses it. Python accepts it.
+- The XID tables of `unicode-ident` and of the Python release can differ for a new Unicode character.
+
+A contract that mounts inside contracts parses as `NeedsTree`, not as a complete contract; the tree assembly (a separate slice of #880) must check the mounted contracts first.
+
+The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its template. The
+contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
+counts of `native/api_baseline.json`.
+
 ## Scope and nested contracts
 
 A run covers only configured roots and namespace. Adjacent tests need another

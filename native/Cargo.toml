@@ -37,6 +37,12 @@ unicode-ident = "1.0"
 # The grammar release of the Python collector (`tree-sitter-typescript` in uv.lock).
 tree-sitter-typescript = "=0.23.2"
 
+# AD-364: the contract parity probe runs about 26 000 cases; opt-level 1 cuts its run time to a
+# third and keeps the debug build of the other targets.
+[profile.parity]
+inherits = "dev"
+opt-level = 1
+
 # AD-317: the wheel binary. A panic aborts the process, and the host reports execution_error.
 [profile.release]
 strip = true

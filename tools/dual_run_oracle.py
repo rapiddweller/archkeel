@@ -367,12 +367,18 @@ def _self_test(case: str, oracle: Mapping[str, Any], frame: Mapping[str, Any]) -
     differences = []
     if "rules" in contract:
         expected = {rule: kind for rule, (kind, _) in oracle["rules"].items()}
+        # A rule that the contract does not hold (the UML target of `declarations.uml`) and that
+        # the engine names unsupported is a named difference with the reason of the engine.
+        reasons = (frame.get("unsupported") or {}).get("rules")
+        named: dict[str, str] = reasons if isinstance(reasons, dict) else {}
         differences += [
             Difference(
                 case,
                 "self_test",
                 rule,
-                f"kind {expected.get(rule)} expected, {contract['rules'].get(rule)} read",
+                named[rule]
+                if rule not in contract["rules"] and rule in named
+                else f"kind {expected.get(rule)} expected, {contract['rules'].get(rule)} read",
             )
             for rule in sorted(set(expected) | set(contract["rules"]))
             if expected.get(rule) != contract["rules"].get(rule)

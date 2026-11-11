@@ -9,7 +9,7 @@ use crate::json::{field, has, Json, Object};
 use crate::model::{ConstructSelector, ForbiddenConstruct, Selector, SelectorRole, TypeIgnore};
 use crate::names::{python_identifier, qualified_identifier};
 use crate::read::{
-    fields, listed_strings, nonempty, nonempty_field, positive, present, repeats, rule_record,
+    fields, listed_sources, nonempty, nonempty_field, positive, present, repeats, rule_record,
     strings_field,
 };
 use crate::words::value_of;
@@ -35,8 +35,7 @@ pub(crate) fn forbidden_construct(raw: &Json, label: &str) -> Parsed<ForbiddenCo
                 "{label}.constructs contains an unsupported construct"
             ))
         })?;
-    let allowed_sources = listed_strings(item, "allowed_sources", label)?;
-    let exact_sources = listed_strings(item, "exact_sources", label)?;
+    let (allowed_sources, exact_sources) = listed_sources(item, label)?;
     let allowed_type_ignores = type_ignores(item, label)?;
     let selector = selector(item, label)?;
     let source = nonempty_field(item, "source", label)?;

@@ -65,6 +65,7 @@ pub fn version_text(version: ContractVersion) -> String {
 /// A contract feature that the parser checks against the declared version.
 #[derive(Clone, Copy)]
 pub(crate) enum Feature {
+    Uml,
     Layers,
     PlannedComponentOwner,
     ModuleSelectors,
@@ -83,6 +84,7 @@ pub(crate) enum Feature {
 /// The first version that holds the feature (`_FEATURE_START`).
 fn start(feature: Feature) -> ContractVersion {
     match feature {
+        Feature::Uml => ContractVersion::V2_2,
         Feature::Layers => ContractVersion::V2_3,
         Feature::PlannedComponentOwner => ContractVersion::V2_4,
         Feature::ModuleSelectors => ContractVersion::V3_4,
