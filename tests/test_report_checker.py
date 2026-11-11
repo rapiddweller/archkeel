@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from report_payload_support import run_case
@@ -16,6 +17,8 @@ from archkeel.report.payload import build_payload, evaluation
 from archkeel.report.payload.canonical import encode
 from archkeel.report.payload.checker import PayloadInvalid, check_payload
 from archkeel.report.payload.graph import decl_text
+
+TESTDATA = Path(__file__).resolve().parents[1] / "native" / "report" / "testdata"
 
 Payload = dict[str, object]
 CASE = "fixtures/K-python-realworld/archkeel.toml"
@@ -123,3 +126,41 @@ def test_decl_is_cut_at_72_code_points_without_normalisation() -> None:
 
     assert cut == "😀" * 72
     assert decl_text("  café  ") == "café"
+
+
+def _testdata(name: str) -> Payload:
+    loaded: Payload = json.loads((TESTDATA / f"{name}.report-v2.json").read_bytes())
+    return loaded
+
+
+@pytest.mark.parametrize("name", ["H-uml-dart", "G-dart"])
+@pytest.mark.parametrize("relation", [0, 1, 2])
+def test_a_pass_without_a_part_that_it_needs_is_refused(name: str, relation: int) -> None:
+    p = _testdata(name)
+    run = p["run"]
+    assert isinstance(run, dict) and run["observation"] == "PASS"
+    run["not_carried"] = sorted([relation, *run["not_carried"]])
+    with pytest.raises(PayloadInvalid, match="does not carry imports"):
+        check_payload(p)
+
+
+def test_a_fail_rule_without_a_violation_row_is_refused() -> None:
+    p = _testdata("python-newer-syntax-demo")
+    rules = p["rules"]
+    assert isinstance(rules, list)
+    rule = next(r for r in rules if r["verdict"] == "PASS")
+    rule.update(verdict="FAIL", reason="violations")
+    counts = p["summary"]["counts"]  # type: ignore[index]
+    counts["rules_pass"] -= 1
+    counts["rules_fail"] += 1
+    with pytest.raises(PayloadInvalid, match="is FAIL and no violation row cites it"):
+        check_payload(p)
+
+
+def test_a_reason_that_the_verdict_cannot_have_is_refused() -> None:
+    p = _testdata("H-uml-dart")
+    rules = p["rules"]
+    assert isinstance(rules, list)
+    rules[0]["reason"] = "no_receipt"
+    with pytest.raises(PayloadInvalid, match="reason that its verdict cannot have"):
+        check_payload(p)

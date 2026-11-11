@@ -173,6 +173,38 @@
     "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
     "tokens": 71
   },
+  "facts/src/nested.rs|report/src/head.rs|2f9a288de4": {
+    "files": [
+      "facts/src/nested.rs",
+      "report/src/head.rs"
+    ],
+    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
+    "tokens": 75
+  },
+  "facts/src/nested.rs|report/src/head.rs|859357fe2a": {
+    "files": [
+      "facts/src/nested.rs",
+      "report/src/head.rs"
+    ],
+    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
+    "tokens": 77
+  },
+  "facts/src/nested.rs|report/src/head.rs|8ab25facc4": {
+    "files": [
+      "facts/src/nested.rs",
+      "report/src/head.rs"
+    ],
+    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
+    "tokens": 74
+  },
+  "facts/src/nested.rs|report/src/head.rs|ef5b91edfd": {
+    "files": [
+      "facts/src/nested.rs",
+      "report/src/head.rs"
+    ],
+    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
+    "tokens": 75
+  },
   "facts/src/readset_fields.rs|facts/src/readset_fields.rs|068ad3ccc8": {
     "files": [
       "facts/src/readset_fields.rs",
@@ -324,6 +356,94 @@
     ],
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 86
+  },
+  "facts/src/vocab.rs|report/src/codes.rs|68074d063e": {
+    "files": [
+      "facts/src/vocab.rs",
+      "report/src/codes.rs"
+    ],
+    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
+    "tokens": 70
+  },
+  "facts/src/vocab.rs|report/src/codes.rs|d23e706e13": {
+    "files": [
+      "facts/src/vocab.rs",
+      "report/src/codes.rs"
+    ],
+    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
+    "tokens": 71
+  },
+  "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
+    "files": [
+      "report/src/build_tables.rs"
+    ],
+    "reason": "Each layout function pushes one cell per column of its table. The columns differ; no logic repeats.",
+    "tokens": 76
+  },
+  "report/src/check_structure.rs|report/src/check_structure.rs|b22255ca85": {
+    "files": [
+      "report/src/check_structure.rs"
+    ],
+    "reason": "ids! and opt_ids! calls list the id columns of the payload and the table they point into. They are data.",
+    "tokens": 71
+  },
+  "report/src/codes.rs|report/src/codes.rs|c4f377b227": {
+    "files": [
+      "report/src/codes.rs"
+    ],
+    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
+    "tokens": 79
+  },
+  "report/src/codes.rs|report/src/codes.rs|cc3606ea98": {
+    "files": [
+      "report/src/codes.rs"
+    ],
+    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
+    "tokens": 79
+  },
+  "report/src/head.rs|report/src/head.rs|79d9f589f7": {
+    "files": [
+      "report/src/head.rs"
+    ],
+    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
+    "tokens": 73
+  },
+  "report/src/head.rs|report/src/input.rs|de8a734d40": {
+    "files": [
+      "report/src/head.rs",
+      "report/src/input.rs"
+    ],
+    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
+    "tokens": 75
+  },
+  "report/src/input.rs|report/src/input.rs|227b8d937f": {
+    "files": [
+      "report/src/input.rs"
+    ],
+    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
+    "tokens": 82
+  },
+  "report/src/input.rs|report/src/input.rs|4570b7b76d": {
+    "files": [
+      "report/src/input.rs"
+    ],
+    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
+    "tokens": 73
+  },
+  "report/src/input.rs|report/src/input.rs|b2e845ea6d": {
+    "files": [
+      "report/src/input.rs"
+    ],
+    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
+    "tokens": 70
+  },
+  "report/src/payload.rs|typescript/src/definitions.rs|b53e2fe389": {
+    "files": [
+      "report/src/payload.rs",
+      "typescript/src/definitions.rs"
+    ],
+    "reason": "Derive lines and pub field lists of wire structs have one shape. No logic repeats.",
+    "tokens": 80
   },
   "rust/src/main.rs|typescript/src/main.rs|9ac1f99895": {
     "files": [

@@ -20,6 +20,8 @@
 5. Each status other than PASS has a row: FAIL a violation row; no Target an unknowns row of
    source `run`; an incomplete observation a diagnostic or record row; UNKNOWN at least one
    unknowns row or rule row. `rules[].violations` equals the violation rows that cite the rule.
+   A rule with verdict FAIL has at least one violation row that cites it; a payload that breaks
+   this is refused (lead decision L-23, AD-371).
 6. Target and actual: `permissions` holds the decision of `report --only architecture` per pair of
    sibling components (allowed, forbidden, undecided). An edge carries the permission of its pair
    as `target` (declared, forbidden, undeclared). An allowed pair without an import is a component

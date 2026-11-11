@@ -18,6 +18,7 @@ from archkeel.report.payload.codes import (
     FINDING_KIND,
     GAP,
     MEASURE_STATE,
+    RELATION,
     REVOKING,
     UNKNOWN_REASON,
     UNKNOWN_SOURCE,
@@ -77,6 +78,23 @@ _RULE_COUNTS = (
     ("rules_unknown", "UNKNOWN"),
     ("rules_declaration", "DECLARATION"),
 )
+
+
+# The relations that a PASS status or a PASS observation depends on (AD-371): without them the
+# payload has no edges, crossings or complete units, so no rule over them was seen.
+PASS_NEEDS = frozenset(code(RELATION, r) for r in ("imports", "reexports", "variants"))
+_UNKNOWN_REASONS = frozenset({"scope_incomplete", "no_receipt", "undecided", "ownership_blocker"})
+
+
+def _reason_fits(verdict: str, reason: str) -> bool:
+    """The reasons that each rule verdict can have."""
+    if verdict == "PASS":
+        return reason == "evaluated"
+    if verdict == "FAIL":
+        return reason == "violations"
+    if verdict == "DECLARATION":
+        return reason == "declaration"
+    return verdict == "UNKNOWN" and reason in _UNKNOWN_REASONS
 
 
 class PayloadInvalid(ValueError):
@@ -274,6 +292,17 @@ def _explained(payload: Mapping[str, object], status: str, problems: list[str]) 
         and not any(r.get("undecided") or r.get("verdict") == "UNKNOWN" for r in rules)
     ):
         problems.append("status UNKNOWN has no row that explains it")
+    not_carried = run.get("not_carried")
+    missing = PASS_NEEDS & set(not_carried if isinstance(not_carried, list) else [])
+    if missing and (status == "PASS" or run.get("observation") == "PASS"):
+        problems.append(
+            "a PASS status or observation does not carry imports, reexports and variants"
+        )
+    for rule in rules:
+        if not _reason_fits(str(rule.get("verdict")), str(rule.get("reason"))):
+            problems.append(f"rule {rule.get('id')} has a reason that its verdict cannot have")
+        if rule.get("verdict") == "FAIL" and not rule.get("violations"):
+            problems.append(f"rule {rule.get('id')} is FAIL and no violation row cites it")
     strings = _strings(payload)
     citations: dict[str, int] = {}
     for row in range(len(violations["kind"])):

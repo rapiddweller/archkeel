@@ -5,7 +5,7 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 Run `make self-validate-native` to check it.
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`) and the core after the collector (`model`, `core`, AD-359). Each
+The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
@@ -22,6 +22,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
 | `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, what the reply proves not seen, and the scope proof that a PASS needs (AD-363, AD-370). Slices S2 to S4 add edges, cycles and the proof. | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`; each other kind names its slice (AD-370). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
+| `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). The core does not call it yet. | `archkeel-model` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run; the host uses it for no verdict (AD-363). | `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
@@ -75,6 +76,8 @@ part that is not ported answers with the slice that ports it, never with an empt
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
+    n_41["report"]
+    n_41 --> n_5
     n_0["build"]
     n_1["contract"]
     n_2["core"]
