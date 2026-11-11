@@ -21,14 +21,6 @@
     "reason": "Two lists of imported names have one shape. They are data.",
     "tokens": 85
   },
-  "contract/src/lib.rs|rust/src/main.rs|a06a880c69": {
-    "files": [
-      "contract/src/lib.rs",
-      "rust/src/main.rs"
-    ],
-    "reason": "Each crate lists its modules as `mod name;` lines in one shape. They are data.",
-    "tokens": 70
-  },
   "contract/src/model.rs|contract/src/model_rules.rs|f1b6bace03": {
     "files": [
       "contract/src/model.rs",

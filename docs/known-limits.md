@@ -349,7 +349,14 @@ The Rust contract parser (`native/contract`, [AD-359](architecture/decisions/ad-
 - An integer above 2^64 is read as a float, so a field that needs an integer refuses it. Python accepts it.
 - The XID tables of `unicode-ident` and of the Python release can differ for a new Unicode character.
 
-A contract that mounts inside contracts parses as `NeedsTree`, not as a complete contract; the tree assembly (a separate slice of #880) must check the mounted contracts first.
+A contract that mounts inside contracts parses as `NeedsTree`, not as a complete contract. Only the tree assembly (`policy::assemble_tree`, [AD-366](architecture/decisions/ad-366-the-inside-contract-tree-is-assembled-and-checked-in-the-contract-crate.md)) makes it complete. No command calls it yet; the Python shell still assembles the tree. The tree is stricter than Python in these cases:
+
+- Bytes that no mount reads are an error (`Unmounted`). Python reads only what a mount names.
+- Two inputs with one repository path are an error (`Duplicate`).
+- An input path or identity that is not a repository path is an error (`Unsafe`), for example a symbolic link out of the repository.
+- A JSON object with one key two times is an error (AD-364).
+- A mount deeper than 900 levels is an issue (`TooDeep`). Python stops near depth 984 with a `RecursionError` and gives no verdict.
+- An inside whose resolved path (the identity that the shell sends) differs from its reference is an issue (`Linked`). Python refuses a link to a mounted file as a duplicate mount and accepts a link to an unmounted file inside the repository.
 
 The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its template. The
 contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
