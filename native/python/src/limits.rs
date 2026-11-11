@@ -2,31 +2,35 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The token scan before the parse (AD-334).
+//! The token scan before the parse (AD-334, AD-334).
 //!
-//! It copies the limits of the CPython tokenizer that `ruff_python_parser` does not have: 200
-//! nested brackets, 100 indentation levels, the tab rule and the unindent rule. It also bounds
-//! the depth of the parse: a chain of `not`, unary signs, `await`, `lambda`, a conditional `else`
-//! or `**` makes the parser recurse once for each link, and 30 000 links overflow its stack.
+//! It copies the checks of CPython that `ruff_python_parser` does not have: the tokenizer limits
+//! (200 nested brackets, 100 indentation levels, the tab rule, the unindent rule, 150 nested
+//! f-strings, a second byte order mark, the identifier characters of each Unicode version), the
+//! f-string limits of Python 3.11, the integer digit limit and `barry_as_FLUFL`. It also sums the
+//! bound of the CPython parser stack of `stack.rs` for each token.
 
 use archkeel_facts::vocab::ExceptionName;
 use ruff_python_ast::token::TokenKind as T;
 use ruff_python_parser::lexer::lex;
 use ruff_python_parser::Mode;
 
+use crate::identifier::refused;
 use crate::source::Lines;
+use crate::stack::{Frame, STACK_BASE, STACK_BLOCK, STACK_BRACKET};
 
 /// `MAXLEVEL` of the CPython tokenizer.
-pub const MAX_BRACKETS: usize = 200;
+const MAX_BRACKETS: usize = 200;
 /// `MAXINDENT` of the CPython tokenizer: the indentation stack holds at most 100 levels.
 const MAX_INDENT: usize = 100;
+/// `MAXFSTRINGLEVEL` of the CPython tokenizer (3.12 and later).
+const MAX_STRINGS: usize = 150;
+/// `sys.get_int_max_str_digits()` of an interpreter that `-I` starts.
+const MAX_DIGITS: usize = 4_300;
 /// `MAX_AST_DEPTH` of the Python collector (`source.py`).
 pub const MAX_AST_DEPTH: usize = 5_000;
-/// A parse deeper than this cannot give a tree of at most `MAX_AST_DEPTH` levels: each counted
-/// link is one level of the tree, and only a bracket that groups adds a count without a level.
-pub const MAX_PARSE_DEPTH: usize = MAX_AST_DEPTH + MAX_BRACKETS + 1;
 
-/// The first tokenizer error of CPython: its exception, its line and its message.
+/// One error of CPython: its exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Problem {
     pub exception: ExceptionName,
@@ -36,35 +40,28 @@ pub struct Problem {
     pub offset: usize,
 }
 
-/// What the scan found: the first tokenizer error, the deepest parse that the file needs, and the
-/// innermost bracket that is open at the end of the file (its character and its line).
+/// What the scan found: the first tokenizer error, the first error that the CPython parser gives
+/// and ruff does not, the stack bound, and the innermost bracket that is open at the end of the
+/// file (its character and its line).
 pub struct Scan {
     pub problem: Option<Problem>,
-    pub depth: usize,
+    pub parser: Option<Problem>,
+    pub stack: usize,
     pub unclosed: Option<(char, usize)>,
 }
 
-/// The links of one bracket level that the parser has not closed yet.
-#[derive(Clone, Copy, Default)]
-struct Frame {
-    /// `lambda` and a conditional `else`: they last to the end of the expression.
-    open: usize,
-    /// Unary signs, `not` and `await`: a binary operator ends them.
-    unary: usize,
-    /// `**`: a binary operator of a lower rank ends them.
-    power: usize,
-    /// The `lambda` whose `:` has not come yet.
-    lambdas: usize,
-}
-
-impl Frame {
-    fn depth(&self) -> usize {
-        1 + self.open + self.unary + self.power
-    }
-
-    fn end_expression(&mut self) {
-        *self = Frame::default();
-    }
+/// An open f-string, replacement field or bracket, for the f-string rules.
+enum Context {
+    String,
+    /// A replacement field: its format spec level, whether its spec started, and the offset of a
+    /// leading `*` until a comma of the field makes a tuple.
+    Field {
+        level: usize,
+        spec: bool,
+        star: Option<usize>,
+    },
+    /// A bracket and its depth inside the innermost replacement field (0 outside a field).
+    Bracket(usize),
 }
 
 /// Scan `text` for the minor version `minor` of Python 3.
@@ -74,15 +71,25 @@ pub fn scan(text: &str, lines: &Lines, minor: u32) -> Scan {
         lines,
         minor,
         problem: None,
+        parser: None,
         indents: vec![(0, 0)],
         brackets: Vec::new(),
         strings: 0,
+        contexts: Vec::new(),
+        field_start: false,
+        future: 0,
+        barry: false,
         frames: Vec::new(),
         frame: Frame::default(),
         base: 0,
-        depth: 0,
+        stack: 0,
         previous: T::Newline,
     };
+    if text.starts_with('\u{feff}') {
+        // `decode` drops one mark; ruff drops the next one, CPython refuses it.
+        let message = "invalid non-printable character U+FEFF";
+        state.fail(ExceptionName::SyntaxError, 0, message);
+    }
     let mut lexer = lex(text, Mode::Module);
     let mut line_start = true;
     loop {
@@ -90,12 +97,13 @@ pub fn scan(text: &str, lines: &Lines, minor: u32) -> Scan {
         if kind == T::EndOfFile {
             break;
         }
-        let start = usize::from(lexer.current_range().start());
+        let range = lexer.current_range();
+        let (start, end) = (usize::from(range.start()), usize::from(range.end()));
         if line_start && !kind.is_trivia() && !matches!(kind, T::Indent | T::Dedent | T::Newline) {
             state.indentation(start);
             line_start = false;
         }
-        state.token(kind, start);
+        state.token(kind, start, &text[start..end]);
         if kind == T::Newline {
             line_start = true;
         }
@@ -103,7 +111,8 @@ pub fn scan(text: &str, lines: &Lines, minor: u32) -> Scan {
     Scan {
         unclosed: state.brackets.last().copied(),
         problem: state.problem,
-        depth: state.depth,
+        parser: state.parser,
+        stack: state.stack,
     }
 }
 
@@ -112,35 +121,60 @@ struct State<'a> {
     lines: &'a Lines,
     minor: u32,
     problem: Option<Problem>,
+    parser: Option<Problem>,
     /// The CPython indentation stack: the column with tab size 8 and with tab size 1.
     indents: Vec<(usize, usize)>,
     /// The open brackets that count for `MAXLEVEL`: the character and the line of each.
     brackets: Vec<(char, usize)>,
     /// The open f-strings and t-strings; Python 3.11 reads one as a single token.
     strings: usize,
+    contexts: Vec<Context>,
+    /// The last token opened a replacement field.
+    field_start: bool,
+    /// How much of `from __future__ import` the statement has, and whether it named
+    /// `barry_as_FLUFL`: the CPython parser then refuses each later `!=` (3.12 and later).
+    future: u8,
+    barry: bool,
+    /// The frame and the stack of each enclosing bracket level.
     frames: Vec<(Frame, usize)>,
     frame: Frame,
-    /// The depth of the enclosing bracket levels.
+    /// The stack of the enclosing bracket levels.
     base: usize,
-    depth: usize,
+    stack: usize,
     previous: T,
 }
 
 impl State<'_> {
+    fn problem(&self, exception: ExceptionName, offset: usize, message: &str) -> Problem {
+        Problem {
+            exception,
+            line: self.lines.line(offset),
+            message: message.to_owned(),
+            offset,
+        }
+    }
+
     fn fail(&mut self, exception: ExceptionName, start: usize, message: &str) {
         if self.problem.is_none() {
-            let line = self.lines.line(start);
             // CPython reads the indentation of a line before any token of it.
             let offset = match exception {
                 ExceptionName::SyntaxError => start,
                 _ => self.lines.start_of(start),
             };
-            self.problem = Some(Problem {
-                exception,
-                line,
-                message: message.to_owned(),
-                offset,
-            });
+            let mut problem = self.problem(exception, offset, message);
+            problem.line = self.lines.line(start);
+            self.problem = Some(problem);
+        }
+    }
+
+    /// An error of the CPython parser at `offset`; the first by offset wins.
+    fn parser_error(&mut self, offset: usize, message: &str) {
+        if self
+            .parser
+            .as_ref()
+            .is_none_or(|found| offset < found.offset)
+        {
+            self.parser = Some(self.problem(ExceptionName::SyntaxError, offset, message));
         }
     }
 
@@ -190,38 +224,116 @@ impl State<'_> {
         }
     }
 
-    fn token(&mut self, kind: T, start: usize) {
-        let prefix = !ends_operand(self.previous);
+    fn token(&mut self, kind: T, start: usize, text: &str) {
+        if std::mem::take(&mut self.field_start) && kind == T::Star {
+            if let Some(Context::Field { star, .. }) = self.contexts.last_mut() {
+                *star = Some(start);
+            }
+        }
+        self.words(kind, start, text);
         match kind {
-            T::FStringStart | T::TStringStart => self.strings += 1,
-            T::FStringEnd | T::TStringEnd => self.strings = self.strings.saturating_sub(1),
+            T::FStringStart | T::TStringStart => self.open_string(start),
+            T::FStringEnd | T::TStringEnd => self.close_string(),
             T::Lpar => self.open(start, '('),
             T::Lsqb => self.open(start, '['),
             T::Lbrace => self.open(start, '{'),
             T::Rpar => self.close(start, ')'),
             T::Rsqb => self.close(start, ']'),
             T::Rbrace => self.close(start, '}'),
-            T::Colon if self.frame.lambdas > 0 => self.frame.lambdas -= 1,
-            T::Lambda => {
-                self.frame.open += 1;
-                self.frame.lambdas += 1;
+            _ => {
+                if self.frame.token(kind, self.previous) {
+                    self.field_part(kind);
+                    self.frame = Frame::default();
+                }
             }
-            T::Else => self.frame.open += 1,
-            T::Not if prefix && self.previous != T::Is => self.frame.unary += 1,
-            T::Minus | T::Plus | T::Tilde | T::Await if prefix || kind == T::Await => {
-                self.frame.unary += 1;
+        }
+        let blocks = self.indents.len() - 1;
+        let stack = STACK_BASE + blocks * STACK_BLOCK + self.base + self.frame.stack();
+        self.stack = self.stack.max(stack);
+        if !kind.is_trivia() {
+            self.previous = kind;
+        }
+    }
+
+    /// The checks of a name and a number: the identifier characters, the digit limit and
+    /// `from __future__ import barry_as_FLUFL`.
+    fn words(&mut self, kind: T, start: usize, text: &str) {
+        match kind {
+            T::Identifier if !text.is_ascii() => {
+                let mut chars = text.chars();
+                let first = chars.next().filter(|c| refused(self.minor, true, *c));
+                if let Some(c) = first.or_else(|| chars.find(|c| refused(self.minor, false, *c))) {
+                    let message = format!("invalid character '{c}' (U+{:04X})", u32::from(c));
+                    self.fail(ExceptionName::SyntaxError, start, &message);
+                }
             }
-            T::DoubleStar if !prefix => self.frame.power += 1,
-            _ if ends_expression(kind) => self.frame.end_expression(),
-            _ if !prefix && is_binary(kind) => {
-                self.frame.unary = 0;
-                self.frame.power = 0;
+            T::Int => {
+                let bytes = text.as_bytes();
+                let prefixed = bytes.len() > 1
+                    && bytes[0] == b'0'
+                    && matches!(bytes[1], b'x' | b'X' | b'o' | b'O' | b'b' | b'B');
+                let digits = bytes.iter().filter(|byte| byte.is_ascii_digit()).count();
+                // A literal of zeros only has no limit: CPython converts it without the check.
+                let zero = bytes.iter().all(|byte| matches!(byte, b'0' | b'_'));
+                if !prefixed && !zero && digits > MAX_DIGITS {
+                    let message = format!(
+                        "Exceeds the limit ({MAX_DIGITS} digits) for integer string conversion: \
+                         value has {digits} digits; use sys.set_int_max_str_digits() to increase \
+                         the limit - Consider hexadecimal for huge integer literals to avoid \
+                         decimal conversion limits."
+                    );
+                    self.parser_error(start, &message);
+                }
+            }
+            T::NotEqual if self.barry && self.minor >= 12 => {
+                let message = "with Barry as BDFL, use '<>' instead of '!='";
+                self.parser_error(start, message);
             }
             _ => {}
         }
-        self.depth = self.depth.max(self.base + self.frame.depth());
-        if !kind.is_trivia() {
-            self.previous = kind;
+        self.future = match (self.future, kind) {
+            (_, T::From) => 1,
+            (1, T::Identifier) if text == "__future__" => 2,
+            (2, T::Import) => 3,
+            (3, T::Identifier) if matches!(self.previous, T::Import | T::Comma | T::Lpar) => {
+                self.barry |= text == "barry_as_FLUFL";
+                3
+            }
+            (3, _) if !kind.is_any_newline() && kind != T::Semi => 3,
+            _ => 0,
+        };
+    }
+
+    fn open_string(&mut self, start: usize) {
+        self.strings += 1;
+        self.contexts.push(Context::String);
+        if self.minor >= 12 && self.strings >= MAX_STRINGS {
+            let message = if self.minor >= 14 {
+                "too many nested f-strings or t-strings"
+            } else {
+                "too many nested f-strings"
+            };
+            self.fail(ExceptionName::SyntaxError, start, message);
+        }
+    }
+
+    fn close_string(&mut self) {
+        self.strings = self.strings.saturating_sub(1);
+        while let Some(context) = self.contexts.pop() {
+            if matches!(context, Context::String) {
+                break;
+            }
+        }
+    }
+
+    /// A `,` makes a starred field a tuple, and a `:` starts the format spec of a field.
+    fn field_part(&mut self, kind: T) {
+        if let Some(Context::Field { spec, star, .. }) = self.contexts.last_mut() {
+            match kind {
+                T::Comma if !*spec => *star = None,
+                T::Colon => *spec = true,
+                _ => {}
+            }
         }
     }
 
@@ -237,9 +349,43 @@ impl State<'_> {
             }
             self.brackets.push((bracket, self.lines.line(start)));
         }
-        self.base += self.frame.depth();
+        self.open_context(start, bracket);
         self.frames.push((self.frame, self.base));
+        self.base += self.frame.stack() + STACK_BRACKET;
         self.frame = Frame::default();
+    }
+
+    /// The f-string rules of Python 3.11: it parses each field alone, with at most 199 brackets
+    /// inside, no field in the format spec of a field in a format spec, and no lone `*a`.
+    fn open_context(&mut self, start: usize, bracket: char) {
+        let context = match self.contexts.last() {
+            Some(Context::String) if bracket == '{' => Some(0),
+            Some(Context::Field {
+                level, spec: true, ..
+            }) if bracket == '{' => Some(level + 1),
+            _ => None,
+        };
+        if let Some(level) = context {
+            if self.minor == 11 && level >= 2 {
+                self.parser_error(start, "f-string: expressions nested too deeply");
+            }
+            self.field_start = true;
+            self.contexts.push(Context::Field {
+                level,
+                spec: false,
+                star: None,
+            });
+            return;
+        }
+        let inner = match self.contexts.last() {
+            Some(Context::Field { .. }) => 1,
+            Some(Context::Bracket(inner)) if *inner > 0 => inner + 1,
+            _ => 0,
+        };
+        if self.minor == 11 && inner >= MAX_BRACKETS {
+            self.parser_error(start, "f-string: too many nested parenthesis");
+        }
+        self.contexts.push(Context::Bracket(inner));
     }
 
     /// The closing check of `tok_get`: a closing bracket must match the innermost open one.
@@ -265,69 +411,26 @@ impl State<'_> {
                 self.fail(ExceptionName::SyntaxError, start, &message);
             }
         }
+        match self.contexts.last() {
+            Some(Context::String) | None => {}
+            Some(Context::Field { star, .. }) => {
+                if let (Some(star), 11) = (*star, self.minor) {
+                    self.parser_error(star, "f-string: cannot use starred expression here");
+                }
+                self.contexts.pop();
+            }
+            Some(Context::Bracket(_)) => {
+                self.contexts.pop();
+            }
+        }
         if let Some((frame, base)) = self.frames.pop() {
             self.frame = frame;
-            self.base = base - frame.depth();
+            self.base = base;
         }
     }
 }
 
 const TAB_MESSAGE: &str = "inconsistent use of tabs and spaces in indentation";
-
-/// Whether a token can end an operand, so that a sign after it is a binary operator. A soft
-/// keyword can be a name.
-fn ends_operand(kind: T) -> bool {
-    kind.is_singleton()
-        || kind.is_soft_keyword()
-        || matches!(
-            kind,
-            T::Identifier
-                | T::Int
-                | T::Float
-                | T::Complex
-                | T::String
-                | T::FStringEnd
-                | T::TStringEnd
-                | T::Rpar
-                | T::Rsqb
-                | T::Rbrace
-                | T::Ellipsis
-        )
-}
-
-/// A token after which the next expression starts at the depth of its bracket level.
-fn ends_expression(kind: T) -> bool {
-    kind.is_any_newline()
-        || is_augmented_assign(kind)
-        || matches!(
-            kind,
-            T::Comma | T::Semi | T::Colon | T::Equal | T::ColonEqual | T::Rarrow | T::Indent
-        )
-}
-
-fn is_augmented_assign(kind: T) -> bool {
-    kind.as_augmented_assign_operator().is_some()
-}
-
-/// A binary operator, or a keyword after which an operand ends a chain of unary signs.
-fn is_binary(kind: T) -> bool {
-    kind.as_binary_operator().is_some()
-        || kind.as_bool_operator().is_some()
-        || matches!(
-            kind,
-            T::Less
-                | T::Greater
-                | T::EqEqual
-                | T::NotEqual
-                | T::LessEqual
-                | T::GreaterEqual
-                | T::In
-                | T::Is
-                | T::Not
-                | T::If
-                | T::For
-        )
-}
 
 #[cfg(test)]
 #[path = "limits_tests.rs"]

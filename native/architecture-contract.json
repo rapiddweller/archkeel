@@ -1371,6 +1371,8 @@
       "packages": [
         "native.archkeel_python_collector.parse",
         "native.archkeel_python_collector.limits",
+        "native.archkeel_python_collector.identifier",
+        "native.archkeel_python_collector.stack",
         "native.archkeel_python_collector.depth"
       ],
       "responsibilities": [
@@ -1669,6 +1671,7 @@
       "allowed_sources": [
         "native.archkeel_python_collector.parse",
         "native.archkeel_python_collector.limits",
+        "native.archkeel_python_collector.stack",
         "native.archkeel_python_collector.depth",
         "native.archkeel_python_collector.cargo_toml"
       ],
@@ -1685,6 +1688,7 @@
       "allowed_sources": [
         "native.archkeel_python_collector.parse",
         "native.archkeel_python_collector.limits",
+        "native.archkeel_python_collector.stack",
         "native.archkeel_python_collector.depth",
         "native.archkeel_python_collector.cargo_toml"
       ],

@@ -22,6 +22,11 @@ mod dump;
     not(any(feature = "dump", test)),
     expect(dead_code, reason = "slice 1c calls the parse")
 )]
+mod identifier;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c calls the parse")
+)]
 mod limits;
 #[cfg_attr(
     not(any(feature = "dump", test)),
@@ -33,6 +38,11 @@ mod parse;
     expect(dead_code, reason = "slice 1c calls the parse")
 )]
 mod source;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c calls the parse")
+)]
+mod stack;
 
 use std::io::Read;
 use std::process::ExitCode;
@@ -40,7 +50,7 @@ use std::process::ExitCode;
 use archkeel_wire::request::decode_python;
 
 /// The stack of the work thread. The parser recurses once for each nested expression, and the
-/// token scan bounds that depth before the parse (`limits::MAX_PARSE_DEPTH`).
+/// token scan bounds that depth before the parse (`stack::MAX_STACK`).
 #[cfg_attr(
     not(feature = "dump"),
     expect(dead_code, reason = "slice 1c runs the scan")

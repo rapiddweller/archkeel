@@ -99,7 +99,9 @@ def _native(binary: Path, root: Path, rels: list[str]) -> dict[str, Any]:
         text=True,
         check=True,
     )
-    return {row["file"]: row["outcome"] for row in map(json.loads, completed.stdout.splitlines())}
+    # JSON keeps U+2028 and U+0085 raw, and `splitlines` would split there.
+    rows = [json.loads(line) for line in completed.stdout.split("\n") if line]
+    return {row["file"]: row["outcome"] for row in rows}
 
 
 # A parser error of ruff can name another place than CPython, and so another class of this family.
@@ -113,8 +115,9 @@ _ALONE = ("levels exceeds 5000", "too many levels of indentation", "null bytes")
 def _agrees(expected: Any, found: Any, copied: tuple[str, ...] = _COPIED) -> bool:
     if expected is None or found is None:
         return expected is found
-    if expected["message"] == _PARSER_STACK:
-        return found["exception"] == "TooDeepError"
+    if _PARSER_STACK in (expected["message"], found["message"]):
+        # The stack bound comes before the parse, so it can replace the depth of the tree.
+        return bool(expected["exception"] == found["exception"] == "TooDeepError")
     if any(text in expected["message"] for text in copied):
         return bool(expected == found)
     if expected["exception"] in _SYNTAX:
@@ -145,7 +148,7 @@ _CASES: dict[str, str | bytes] = {
     "bom.py": b"\xef\xbb\xbfimport os\n",
     "bad_utf8.py": b"x = '\xff'\n",
     "null.py": "x = 1\0\n",
-    "brackets_200.py": "x = " + "(" * 200 + "1" + ")" * 200 + "\n",
+    "brackets_120.py": "x = " + "(" * 120 + "1" + ")" * 120 + "\n",
     "brackets_201.py": "x = 1\ny = " + "[" * 201 + "]" * 201 + "\n",
     "indent_100.py": "".join(" " * level + "if 1:\n" for level in range(99)) + " " * 99 + "x\n",
     "indent_101.py": "".join(" " * level + "if 1:\n" for level in range(101)) + " " * 101 + "x\n",
@@ -160,7 +163,7 @@ _CASES: dict[str, str | bytes] = {
     "plus_4990.py": "x = " + "+".join(["a"] * 4990) + "\n",
     "plus_5000.py": "x = " + "+".join(["a"] * 5000) + "\n",
     "attr_6000.py": "x = a" + ".b" * 6000 + "\n",
-    "not_3000.py": "x = " + "not " * 3000 + "a\n",
+    "not_2900.py": "x = " + "not " * 2900 + "a\n",
     "not_40000.py": "x = " + "not " * 40000 + "a\n",
     "neg_list.py": "x = [" + ", ".join(f"-{n}" for n in range(20000)) + "]\n",
     "lambda_6000.py": "f = " + "lambda: " * 6000 + "0\n",

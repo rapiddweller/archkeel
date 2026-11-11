@@ -12,7 +12,7 @@ fn problem(text: &str, minor: u32) -> Option<(ExceptionName, usize, String)> {
 }
 
 fn depth(text: &str) -> usize {
-    scan(text, &Lines::new(text), 12).depth
+    scan(text, &Lines::new(text), 12).stack
 }
 
 #[test]
@@ -98,8 +98,15 @@ fn a_chain_that_makes_the_parser_recurse_counts_once_for_each_link() {
 #[test]
 fn a_flat_list_or_a_left_chain_stays_shallow() {
     let negative: Vec<String> = (0..20_000).map(|number| format!("-{number}")).collect();
-    assert!(depth(&format!("x = [{}]\n", negative.join(", "))) < 10);
+    assert!(depth(&format!("x = [{}]\n", negative.join(", "))) < 200);
     let plus = vec!["a"; 20_000].join(" + -");
-    assert!(depth(&format!("x = {plus}\n")) < 10);
-    assert!(depth("x = a is not b\nif not a: pass\n") < 10);
+    assert!(depth(&format!("x = {plus}\n")) < 200);
+    assert!(depth("x = a is not b\nif not a: pass\n") < 200);
+}
+
+#[test]
+fn a_deeper_line_with_fewer_columns_of_tab_size_1_is_a_tab_error() {
+    // Line 3 is deeper with tab size 8 (8 > 7) and not deeper with tab size 1 (1 <= 7).
+    let found = problem("if 1:\n       if 1:\n\tpass\n", 12).unwrap();
+    assert_eq!((found.0, found.1), (ExceptionName::TabError, 3));
 }

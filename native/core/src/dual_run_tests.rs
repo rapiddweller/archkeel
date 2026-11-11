@@ -58,7 +58,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 7);
+    assert_eq!(rules, 9);
 }
 
 #[test]

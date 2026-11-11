@@ -6,15 +6,18 @@
 //!
 //! `archkeel-python-collector --dump <minor> <root>` reads one snapshot path a line on stdin.
 //! `tests/test_collector_native_python_parse.py` compares each outcome with the failure that
-//! `source.parse_sources` gives for the same bytes. This module is not part of the release binary.
+//! `source.parse_sources` gives for the same bytes. `stack` is the bound of the parser stack of the
+//! scan (AD-334 point 5), to measure a corpus against `MAX_STACK`. This module is not part of the
+//! release binary.
 
 use std::io::{BufRead, Write};
 
 use archkeel_snapshot::Snapshot;
 use serde_json::{json, Value};
 
+use crate::limits::scan;
 use crate::parse::parse;
-use crate::source::decode;
+use crate::source::{decode, Lines};
 
 /// The outcome of one file: `null` for a tree, else the exception, the line and the message.
 fn outcome(raw: Option<Vec<u8>>, minor: u32) -> Value {
@@ -40,8 +43,11 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
     let mut out = std::io::stdout().lock();
     for line in std::io::stdin().lock().lines() {
         let rel = line.map_err(|error| format!("cannot read stdin: {error}"))?;
-        let found = outcome(snapshot.read(&rel), minor);
-        let row = json!({"file": rel, "outcome": found});
+        let raw = snapshot.read(&rel);
+        let text = raw.as_deref().and_then(decode);
+        let stack = text.map(|text| scan(text, &Lines::new(text), minor).stack);
+        let found = outcome(raw, minor);
+        let row = json!({"file": rel, "outcome": found, "stack": stack});
         writeln!(out, "{row}").map_err(|error| format!("cannot write: {error}"))?;
     }
     Ok(())

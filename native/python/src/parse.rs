@@ -10,12 +10,13 @@
 //! a tokenizer limit and of the depth rule is the text of CPython (AD-334).
 
 use archkeel_facts::vocab::ExceptionName;
-use ruff_python_ast::{ModModule, PythonVersion};
+use ruff_python_ast::{ModModule, PythonVersion, Stmt};
 use ruff_python_parser::{parse_unchecked, Mode, ParseErrorType, ParseOptions};
 
 use crate::depth::depth;
-use crate::limits::{scan, Problem, MAX_AST_DEPTH, MAX_PARSE_DEPTH};
+use crate::limits::{scan, Problem, MAX_AST_DEPTH};
 use crate::source::Lines;
+use crate::stack::MAX_STACK;
 
 /// Why a file has no tree: the class name of the Python exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]
@@ -44,8 +45,14 @@ pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
     }
     let lines = Lines::new(text);
     let scan = scan(text, &lines, minor);
-    if scan.depth > MAX_PARSE_DEPTH {
-        // The parser would recurse past its stack, and CPython stops too (AD-323 point 6).
+    if scan.stack > MAX_STACK {
+        // An upper bound of the CPython parser stack: CPython can stop here, so the file has no
+        // tree (AD-323 point 6, AD-334). The bound also keeps ruff inside its own stack. The
+        // bound is above the real stack, so an error that the scan found is the likelier error.
+        let found = scan.problem.into_iter().chain(scan.parser);
+        if let Some(problem) = found.min_by_key(|problem| problem.offset) {
+            return Err(problem.into());
+        }
         let message = "expression nesting exceeds the parser stack";
         return Err(failure(ExceptionName::TooDeepError, 1, message));
     }
@@ -55,7 +62,7 @@ pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
     };
     let options = ParseOptions::from(Mode::Module).with_target_version(version);
     let parsed = parse_unchecked(text, options);
-    let parser = first_parser_error(&parsed, &lines);
+    let parser = first_parser_error(&parsed, &lines, scan.parser);
     match (scan.problem, parser) {
         // CPython then reads the rest of the file, and its first tokenizer error replaces a
         // parser error inside an open bracket: the problem, or else the bracket at the end.
@@ -71,6 +78,11 @@ pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
         return Err(failure(ExceptionName::SyntaxError, 1, "invalid syntax"));
     };
     let module = parsed.into_syntax();
+    if minor >= 14 {
+        if let Some(failure) = future(&module, &lines) {
+            return Err(failure);
+        }
+    }
     let levels = depth(&module);
     if levels > MAX_AST_DEPTH {
         // A deep tree drops by recursion; the process ends soon, so it keeps the memory.
@@ -110,11 +122,63 @@ fn failure(exception: ExceptionName, line: usize, message: &str) -> Failure {
     }
 }
 
-/// The first syntax error by position, and its byte offset: a parse error, or a construct that
-/// is newer than the target version.
+/// The features of `__future__` in CPython 3.14.
+const FEATURES: [&str; 10] = [
+    "nested_scopes",
+    "generators",
+    "division",
+    "absolute_import",
+    "with_statement",
+    "print_function",
+    "unicode_literals",
+    "barry_as_FLUFL",
+    "generator_stop",
+    "annotations",
+];
+
+/// `future_parse` of CPython 3.14, which `ast.parse` runs: each name of a `from __future__`
+/// import at the start of the module (after the docstring) must be a known feature.
+fn future(module: &ModModule, lines: &Lines) -> Option<Failure> {
+    let mut body = module.body.as_slice();
+    if let [Stmt::Expr(docstring), rest @ ..] = body {
+        if docstring.value.is_string_literal_expr() {
+            body = rest;
+        }
+    }
+    for statement in body {
+        let Stmt::ImportFrom(import) = statement else {
+            break;
+        };
+        if import.level != 0
+            || import
+                .module
+                .as_ref()
+                .is_none_or(|name| name != "__future__")
+        {
+            break;
+        }
+        for alias in &import.names {
+            let name = alias.name.as_str();
+            if FEATURES.contains(&name) {
+                continue;
+            }
+            let message = match name {
+                "braces" => "not a chance".to_owned(),
+                _ => format!("future feature {name} is not defined"),
+            };
+            let line = lines.line(usize::from(alias.range.start()));
+            return Some(failure(ExceptionName::SyntaxError, line, &message));
+        }
+    }
+    None
+}
+
+/// The first syntax error by position, and its byte offset: a parse error, a construct that is
+/// newer than the target version, or an error of the CPython parser that the scan found.
 fn first_parser_error<T>(
     parsed: &ruff_python_parser::Parsed<T>,
     lines: &Lines,
+    scanned: Option<Problem>,
 ) -> Option<(usize, Failure)> {
     let errors = parsed.errors().iter().map(|error| {
         (
@@ -127,8 +191,12 @@ fn first_parser_error<T>(
         let at = usize::from(error.range.start());
         (at, ExceptionName::SyntaxError, error.to_string())
     });
+    let scanned = scanned
+        .into_iter()
+        .map(|problem| (problem.offset, problem.exception, problem.message));
     errors
         .chain(unsupported)
+        .chain(scanned)
         .min_by_key(|(at, _, _)| *at)
         .map(|(at, exception, message)| {
             let line = lines.line(at);
