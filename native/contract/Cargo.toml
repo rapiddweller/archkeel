@@ -1,0 +1,22 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-contract"
+description = "The contract parser of Archkeel: contract bytes in, a typed and closed contract out (AD-359)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# AD-359: the crate does not depend on archkeel-facts, so a Target id can never be a source id.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+unicode-ident.workspace = true
+
+[lints]
+workspace = true

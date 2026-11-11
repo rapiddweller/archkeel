@@ -25,6 +25,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-contract"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "unicode-ident",
+]
+
+[[package]]
 name = "archkeel-dart-grammar"
 version = "0.0.0"
 dependencies = [
