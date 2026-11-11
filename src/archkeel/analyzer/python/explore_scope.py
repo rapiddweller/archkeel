@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Final
 
 from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, EvidenceClass, Language, Record, stable_id
 from archkeel.ir.facts_codec import RawRecord, classified, parse_record
@@ -16,8 +17,9 @@ from archkeel.ir.profiles import is_test_source
 from archkeel.ir.protocol import CollectionRequest, ProtocolVersion
 
 from .imports import collect_package_bindings
-from .source import ParsedModule, module_for
+from .source import ParsedModule, ParsedSources, module_for, parse_sources
 
+_SHADOWED_KIND: Final = "ShadowedModule"
 NO_PRODUCTION_SOURCE = "No production source files in scope after the test exclusion"
 
 
@@ -188,4 +190,33 @@ def _empty_scope_gap() -> Record:
             subjects=[""],
             data={"reason": NO_PRODUCTION_SOURCE, "module": ""},
         )
+    )
+
+
+def parse_unshadowed(paths: Sequence[Path], *, root: Path, namespace: str) -> ParsedSources:
+    """Parse the sources the import system can reach; a shadowed module is a named gap (#797)."""
+    names: dict[Path, str] = {}
+    for path in paths:
+        with suppress(ValueError):
+            names[path] = module_for(path, root=root, namespace=namespace)
+    packages = {names[path] for path in names if path.name == "__init__.py"}
+    shadowed = [path for path in names if path.name != "__init__.py" and names[path] in packages]
+    parsed = parse_sources(
+        [path for path in paths if path not in shadowed], root=root, namespace=namespace
+    )
+    gaps = [_shadowed_gap(root, path, names[path]) for path in shadowed]
+    return replace(parsed, failures=[*parsed.failures, *gaps])
+
+
+def _shadowed_gap(root: Path, path: Path, name: str) -> RawRecord:
+    rel = path.relative_to(root).as_posix()
+    message = f"module {name!r} is shadowed by the package of the same name and is never imported"
+    return classified(
+        item_id=stable_id("COVERAGE", rel, 1, _SHADOWED_KIND, message),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="analysis_coverage",
+        kind=_SHADOWED_KIND,
+        title=f"{rel}: module is shadowed by a package of the same name",
+        subjects=[rel],
+        data={"file": rel, "line": 1, "message": message},
     )

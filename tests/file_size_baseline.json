@@ -10,7 +10,7 @@
   "src/archkeel/analyzer/dart/resolve.py": 2013,
   "src/archkeel/analyzer/python/callable_signatures.py": 1048,
   "src/archkeel/analyzer/python/calls.py": 2338,
-  "src/archkeel/analyzer/python/collect.py": 1288,
+  "src/archkeel/analyzer/python/collect.py": 1287,
   "src/archkeel/analyzer/python/constructs.py": 1846,
   "src/archkeel/analyzer/python/imports.py": 1572,
   "src/archkeel/analyzer/python/references.py": 890,

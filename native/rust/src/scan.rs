@@ -76,6 +76,8 @@ pub struct Reference {
     pub via: Via,
     /// The name of the `macro_rules!` definition whose body holds the path.
     pub in_macro: Option<String>,
+    /// The `MacroDef::id` of that definition, in the file of the path.
+    pub macro_id: usize,
 }
 
 /// A `macro_rules!` definition: the macros that its body calls, and the reasons why the scan
@@ -83,8 +85,28 @@ pub struct Reference {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MacroDef {
     pub name: String,
+    /// The place of the definition in the macro list of its file.
+    pub id: usize,
     pub calls: BTreeSet<String>,
     pub unknowns: Vec<String>,
+    /// A definition in a function body is visible only in the rest of that body.
+    pub local: Option<Local>,
+}
+
+/// The text where a `macro_rules!` of a block is visible: from its definition to the end of the
+/// block. A position is a line and a column.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Local {
+    pub from: (i64, i64),
+    pub until: (i64, i64),
+}
+
+impl Local {
+    /// Whether the call at `site` is in the text of the block after the definition.
+    pub fn sees(&self, site: &Site) -> bool {
+        let at = (site.line, site.column);
+        self.from < at && at <= self.until
+    }
 }
 
 /// A call of a macro. A call is placed when the scan reads it in code, and the macro is named by
@@ -175,6 +197,7 @@ pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Res
         public_use: false,
         blocks: 0,
         in_macro: None,
+        block_ends: Vec::new(),
         via: Via::Path,
         holder: Holder::default(),
         out: Scan::default(),
@@ -196,6 +219,8 @@ struct Walker<'a> {
     blocks: usize,
     /// The name of the `macro_rules!` definition that the walk is in.
     in_macro: Option<String>,
+    /// The end of each block that encloses the walk, the inner block last.
+    block_ends: Vec<(i64, i64)>,
     /// What the next reference is: set by the `use` handling, `Path` otherwise.
     via: Via,
     /// What the walk is inside: it decides which members are definitions.
@@ -237,6 +262,7 @@ impl Walker<'_> {
                 scope: self.inline.clone(),
                 via: self.via.clone(),
                 in_macro: self.in_macro.clone(),
+                macro_id: self.out.macro_defs.len(),
             });
         }
     }
@@ -381,9 +407,12 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     }
 
     fn visit_block(&mut self, node: &'ast syn::Block) {
+        let end = node.brace_token.span.close().end();
+        self.block_ends.push((to_i64(end.line), to_i64(end.column)));
         self.blocks += 1;
         visit::visit_block(self, node);
         self.blocks -= 1;
+        self.block_ends.pop();
     }
 
     /// `pub(in crate::a)` restricts visibility: it is no use of the module `a`.

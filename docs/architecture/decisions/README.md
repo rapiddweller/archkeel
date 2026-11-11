@@ -349,3 +349,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-352 | [The native TypeScript collector equals the Python one and is the bundled producer](ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md) |
 | AD-353 | [A reference that names a project file is never silent in TypeScript](ad-353-a-reference-that-names-a-project-file-is-never-silent-in-typescript.md) |
 | AD-354 | [A type root inside the project makes a `types` directive a concern](ad-354-a-type-root-inside-the-project-makes-a-types-directive-a-concern.md) |
+| AD-355 | [The Rust collector reads test targets and scopes the macros of a function body](ad-355-the-rust-collector-reads-test-targets-and-scopes-the-macros-of-a-function-body.md) |
