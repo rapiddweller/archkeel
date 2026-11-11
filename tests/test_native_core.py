@@ -85,6 +85,28 @@ def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
     )
 
 
+def test_the_s2_kinds_and_the_edges_equal_python_or_name_their_slice(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-372: on the hand-made S2 cases each decided rule, each violation row and each edge
+    equals the Python engine; a PASS names the scope proof, and the ranked rows name slice S3."""
+    families = "external_dependency_scope,complete_external_scope"
+    arguments = ["compare", "--case", "s2/*", "--sections", "violations,dependency_edges"]
+    code, lines = _run([*arguments, "--families", families, "--engine-command", core], capsys)
+    differences = [line for line in lines if line.startswith("s2/")]
+    assert code == 1
+    named = (
+        "unsupported: the scope proof: slice S4 ports it",
+        "unsupported: section dependency_edges: slice S3 ports it",
+    )
+    assert all(line.endswith(named) for line in differences), differences
+    assert sum(line.endswith(named[1]) for line in differences) == 16
+    assert lines[-1].startswith(
+        f"dual run: family {','.join(sorted(families.split(',')))}; 2 sections; 16 projects; "
+        "32 rules;"
+    )
+
+
 def test_a_part_without_its_input_names_the_missing_input(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

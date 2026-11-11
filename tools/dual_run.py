@@ -24,6 +24,7 @@ import sys
 import tempfile
 import time
 import tomllib
+import zlib
 from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
@@ -47,17 +48,20 @@ from tools.dual_run_oracle import (
     base_oracle,
     compare_case,
     decode_sections,
+    first_difference,
     oracle_file,
     oracle_section,
     owned_rules,
     read_oracle,
     section_rows,
     selection_of,
+    to_rows,
     write_oracle,
 )
 
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
-PROTOCOL = "archkeel-dual-run-1"
+# Version 2 adds the settings of the shell: `namespace`, `profile` and `standard_library` (AD-372).
+PROTOCOL = "archkeel-dual-run-2"
 ENGINE_TIMEOUT_SECONDS = 600
 # The exit code of an engine frame that names an unsupported or refused part (AD-363).
 NAMES_A_GAP = 3
@@ -66,6 +70,10 @@ RECORDED_SOURCES = ("src", "fixtures", "native", "tests/golden", "tests/false_pa
 RUST_COLLECTOR_VARIABLE = "ARCHKEEL_DUAL_RUN_RUST_COLLECTOR"
 # The variable that names the Rust collector for a `rust` probe of `false_pass_support.py`.
 PROBE_RUST_COLLECTOR = "ARCHKEEL_PROBE_RUST_COLLECTOR"
+# The first byte of a zlib stream; a plain JSON reply never starts with it.
+ZLIB_HEADER = b"x"
+# The fields of a `dependency_edges` row that the condensation of slice S3 gives (AD-372).
+RANK_FIELDS = ("source_rank", "target_rank")
 
 
 # --- Engines ---------------------------------------------------------------------------------
@@ -89,8 +97,10 @@ def collector_argv(case: Case) -> tuple[str, ...] | None:
 
 def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, Any]:
     """The request of a command engine (AD-360). `reply` stays `null` until the core ingests a
-    collector reply; until then the engine reads the sources below `root`."""
-    contract = tomllib.loads((root / case.config).read_text())["scan"].get("contract")
+    collector reply; until then the engine reads the sources below `root`. The shell reads the
+    namespace from the configuration (AD-372): the core parses no configuration file."""
+    scan = tomllib.loads((root / case.config).read_text())["scan"]
+    contract = scan.get("contract")
     contracts = {} if contract is None else {contract: (root / contract).read_text()}
     return {
         "protocol": PROTOCOL,
@@ -103,7 +113,24 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
         "pinned": case.pinned,
         "reply": None,
         "sections": list(selection.sections),
+        "namespace": scan["namespace"],
+        "profile": "",
+        "standard_library": [],
     }
+
+
+def reply_profile(reply: bytes) -> tuple[str, list[str]]:
+    """The profile of a reply and the top-level standard library names of that profile (AD-372).
+    The shell owns the table of profiles; the core names no language and checks that the
+    profile is the profile of the reply. A reply that is not JSON gives no profile."""
+    from archkeel.ir.profiles import profile_for
+
+    try:
+        value = json.loads(zlib.decompress(reply) if reply[:1] == ZLIB_HEADER else reply)
+        profile = value["facts"]["profile"]
+        return profile, sorted(profile_for(profile).standard_library)
+    except (ValueError, KeyError, TypeError, zlib.error):
+        return "", []
 
 
 def python_frame(
@@ -134,13 +161,33 @@ def run_engine(
     timeout: float = ENGINE_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """The engine frame. A failed, slow or unreadable engine gives a frame with `error`."""
+    return engine_and_reference(case, root, command, selection, timeout)[0]
+
+
+def engine_and_reference(
+    case: Case,
+    root: Path,
+    command: str | None,
+    selection: Selection,
+    timeout: float = ENGINE_TIMEOUT_SECONDS,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """The engine frame, and the frame of the Python engine that ran the collector for a
+    command engine (`None` for the Python engine itself)."""
     request = engine_request(case, root, selection)
     if command is None:
-        return python_frame(root, request)
+        return python_frame(root, request), None
     # The shell runs the collector and sends its reply: the engine reads no file (AD-363).
     replies: list[bytes] = []
-    python_frame(root, request, replies)
+    reference = python_frame(root, request, replies)
     request["reply"] = {"hex": replies[-1].hex()} if replies else None
+    request["profile"], request["standard_library"] = (
+        reply_profile(replies[-1]) if replies else ("", [])
+    )
+    return command_frame(command, request, timeout), reference
+
+
+def command_frame(command: str, request: Mapping[str, Any], timeout: float) -> dict[str, Any]:
+    """The frame of a command engine for a request."""
     try:
         done = subprocess.run(
             command,
@@ -164,6 +211,32 @@ def run_engine(
     if (done.returncode == NAMES_A_GAP) != names_a_gap(frame):
         return {"error": f"the engine exits with {done.returncode} for this frame"}
     return frame
+
+
+def reference_edges(reference: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    """The `dependency_edges` rows of the Python engine, or `None` without architecture.json."""
+    architecture = reference.get("architecture")
+    return None if architecture is None else decode_sections(architecture)["dependency_edges"]
+
+
+def edge_differences(
+    case: str, rows: list[dict[str, Any]] | None, frame: Mapping[str, Any]
+) -> list[Difference]:
+    """The first difference of the edge rows of the engine (`edges`, without ranks) to the
+    `dependency_edges` rows of the Python engine on the same reply, without their ranks.
+    An engine that refuses the reply has no edges: its refusal is already a named difference."""
+    actual = frame.get("edges")
+    if actual is None:
+        refused = "files" not in ((frame.get("self_test") or {}).get("reply") or {})
+        if frame.get("error") or rows is None or refused:
+            return []
+        return [Difference(case, "edges", "-", "the engine writes no edge rows")]
+    expected = [
+        {**row, "data": {k: v for k, v in row["data"].items() if k not in RANK_FIELDS}}
+        for row in rows or []
+    ]
+    found = first_difference(case, "edges", to_rows(expected), to_rows(actual))
+    return [] if found is None else [found]
 
 
 def names_a_gap(frame: Mapping[str, Any]) -> bool:
@@ -296,9 +369,13 @@ def compare_one(
     case, command, selection, timeout = job
     oracle = read_oracle(oracle_path(case))
     with materialized(case) as root:
-        frame = run_engine(case, root, command, selection, timeout)
+        frame, reference = engine_and_reference(case, root, command, selection, timeout)
     owned = owned_rules(oracle["rules"], selection.kinds)
-    return case, len(owned), compare_case(oracle, frame, selection)
+    differences = compare_case(oracle, frame, selection)
+    # AD-372: the edge lists are compared on every case, also while the ranks are not ported.
+    if reference is not None and "dependency_edges" in selection.sections:
+        differences += edge_differences(case.id, reference_edges(reference), frame)
+    return case, len(owned), differences
 
 
 def chosen_cases(patterns: list[str] | None, bench: list[str]) -> list[Case]:

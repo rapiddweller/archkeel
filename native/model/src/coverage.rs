@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! What the reply itself names as not seen (slice S1).
+//! What the reply itself names as not seen (slices S1 and S2).
 //!
 //! This is the other side of the scope proof: not the proof that a run saw its whole scope (S4
 //! makes `ScopeComplete`), but a fact that it did not. A fact of this kind can only turn a rule
@@ -12,6 +12,10 @@
 //! `not paths`), `ir/coverage.py` `observation_complete`, and `check/pair_gaps.py`
 //! `drop_allowed_pair_gaps`, which can drop a gap with a `source_module` and a different
 //! `module` before the evaluation. Such a gap is not a certain fact here, so it is not counted.
+//!
+//! Slice S2 adds the unresolved imports that no collector gap names (`evaluate_source` appends an
+//! `unknown_import_failure` for each). A gap that the contract can drop still names its site
+//! here, so this count is never larger than the count of the reference engine.
 
 use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::Coverage;
@@ -24,10 +28,12 @@ pub enum Incomplete {
     NoSourceFiles,
     /// The collector reports gaps that no contract can drop (their number).
     CoverageGaps(usize),
+    /// Imports that the collector cannot resolve and that no gap names (their number).
+    UnknownImports(usize),
 }
 
 /// The incompleteness that the coverage of a reply proves, if any.
-pub(crate) fn incomplete(coverage: &Coverage) -> Option<Incomplete> {
+pub(crate) fn incomplete(coverage: &Coverage, unknown_imports: usize) -> Option<Incomplete> {
     if coverage.selected_files.is_empty() {
         return Some(Incomplete::NoSourceFiles);
     }
@@ -36,7 +42,10 @@ pub(crate) fn incomplete(coverage: &Coverage) -> Option<Incomplete> {
         .iter()
         .filter(|gap| !droppable(data_of(&gap.data)))
         .count();
-    (certain > 0).then_some(Incomplete::CoverageGaps(certain))
+    if certain > 0 {
+        return Some(Incomplete::CoverageGaps(certain));
+    }
+    (unknown_imports > 0).then_some(Incomplete::UnknownImports(unknown_imports))
 }
 
 /// True for a gap between two modules: the contract can allow it (`drop_allowed_pair_gaps`).
@@ -47,7 +56,7 @@ fn droppable(data: &GapData) -> bool {
     }
 }
 
-fn data_of(gap: &GapFact) -> &GapData {
+pub(crate) fn data_of(gap: &GapFact) -> &GapData {
     match gap {
         GapFact::CollectionGap(data)
         | GapFact::SourceResolutionGap(data)

@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_contract::RuleKind;
+use archkeel_model::{Section, Settings};
 use serde::{Deserialize, Serialize};
 
 use crate::contract::ContractState;
@@ -22,7 +23,8 @@ use crate::request::{self, Request};
 use crate::rules::RuleAnswer;
 use archkeel_model::{Reason, Unsupported};
 
-const PROTOCOL: &str = "archkeel-dual-run-1";
+/// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
+const PROTOCOL: &str = "archkeel-dual-run-2";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 /// The decompressed size limit of a reply in the dual run.
@@ -31,7 +33,9 @@ const INFLATE_LIMIT: u64 = 1 << 32;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DualRunRequest {
-    protocol: String,
+    // Checked before through `Head`.
+    #[serde(rename = "protocol")]
+    _protocol: String,
     case: String,
     // The shell fields: the core reads no file, so it uses only the bytes below.
     #[serde(rename = "root")]
@@ -47,6 +51,17 @@ struct DualRunRequest {
     contracts: BTreeMap<String, String>,
     reply: Option<ReplyBytes>,
     sections: Vec<String>,
+    /// The namespace of the configuration, which the shell reads (AD-372).
+    namespace: String,
+    /// The profile of the reply as the shell read it, and its standard library (AD-372).
+    profile: String,
+    standard_library: Vec<String>,
+}
+
+/// The protocol of a request, read before the fields that the protocol defines.
+#[derive(Deserialize)]
+struct Head {
+    protocol: String,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +75,9 @@ struct Frame {
     engine: &'static str,
     rules: BTreeMap<String, [String; 2]>,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
+    /// The edge rows without the ranks of S3, when the request names `dependency_edges`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edges: Option<Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
 }
@@ -111,11 +129,13 @@ pub(crate) struct Answered {
 
 /// The frame of one request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
+    let head: Head =
+        serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
+    if head.protocol != PROTOCOL {
+        return Err(format!("unknown protocol {}", head.protocol));
+    }
     let request: DualRunRequest =
         serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
-    if request.protocol != PROTOCOL {
-        return Err(format!("unknown protocol {}", request.protocol));
-    }
     let [(path, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
             .map_err(|found| {
@@ -126,22 +146,18 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
                 )
             })?;
     let sections = request::sections(&request.sections)?;
+    let edges_asked = sections.contains(&Section::DependencyEdges);
     let mut engine = Engine::default();
+    engine.answer(Request::Settings(Settings::new(
+        request.namespace,
+        request.profile,
+        request.standard_library,
+    )));
     let contract = match engine.answer(Request::Contract(contract.into_bytes())) {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
     };
-    let reply = match request.reply {
-        None => ReplyCheck::Absent("the request carries no collector reply".to_owned()),
-        Some(bytes) => match engine.answer(Request::Ingest {
-            reply: hex(&bytes.hex)?,
-            inflate_limit: INFLATE_LIMIT,
-        }) {
-            Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
-            Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
-            other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
-        },
-    };
+    let reply = ingest(&mut engine, request.reply)?;
     let rows = match engine.answer(Request::Sections(sections)) {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
@@ -176,6 +192,10 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
         },
     };
+    let edges = edges_asked
+        .then(|| engine.reply_and_settings())
+        .flatten()
+        .and_then(|(reply, settings)| crate::edges::rows(reply, settings));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
@@ -186,6 +206,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         engine: ENGINE,
         rules: decided.decided,
         sections: rows,
+        edges,
         unsupported: UnsupportedParts {
             rules,
             sections,
@@ -204,6 +225,24 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     };
     let frame = serde_json::to_vec(&frame).map_err(|error| error.to_string())?;
     Ok(Answered { frame, names_a_gap })
+}
+
+/// What the engine knows of the reply of the request, after it ingests the reply.
+fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, String> {
+    let Some(bytes) = reply else {
+        let absent = "the request carries no collector reply".to_owned();
+        return Ok(ReplyCheck::Absent(absent));
+    };
+    Ok(
+        match engine.answer(Request::Ingest {
+            reply: hex(&bytes.hex)?,
+            inflate_limit: INFLATE_LIMIT,
+        }) {
+            Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
+            Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
+            other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
+        },
+    )
 }
 
 /// The bytes of a hex text.

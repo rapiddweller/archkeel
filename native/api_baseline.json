@@ -12,16 +12,16 @@
     "members": 0
   },
   "archkeel-eval": {
-    "items": 10,
-    "members": 2
+    "items": 12,
+    "members": 8
   },
   "archkeel-facts": {
     "items": 236,
     "members": 564
   },
   "archkeel-model": {
-    "items": 76,
-    "members": 48
+    "items": 118,
+    "members": 59
   },
   "archkeel-pytext": {
     "items": 1,

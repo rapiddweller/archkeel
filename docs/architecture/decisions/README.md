@@ -366,3 +366,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-369 | [The native Dart syntax equals the Python parse file by file](ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md) |
 | AD-370 | [The core decides the rule kinds of modules and ownership](ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md) |
 | AD-371 | [The report crate owns the payload and builds only an explained frame](ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md) |
+| AD-372 | [The core projects the edges and decides the external rule kinds](ad-372-the-core-projects-the-edges-and-decides-the-external-rule-kinds.md) |

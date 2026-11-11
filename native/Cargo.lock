@@ -102,6 +102,8 @@ dependencies = [
  "archkeel-contract",
  "archkeel-facts",
  "archkeel-store",
+ "flate2",
+ "serde_json",
 ]
 
 [[package]]

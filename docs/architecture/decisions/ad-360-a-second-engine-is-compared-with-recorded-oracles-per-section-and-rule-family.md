@@ -36,6 +36,9 @@
 10. A rule kind with fewer than `fail_case_minimum` FAIL cases of its own (distinct violation rows)
    is in `fail_case_gap`. The slice of that kind adds FAIL cases before it deletes Python code.
 
+**Amendment (2026-11-11, AD-372).** The request of point 7 is `archkeel-dual-run-2`: it also
+carries `namespace` and `standard_library`, which the shell reads, so the core reads no file.
+
 **Reason.** The Rust model and evaluator replace `ir/` and `check/` one family at a time. Each
 slice needs a proof that it gives the verdicts and rows of Python, and the proof must stay after
 the Python code is deleted. A typo or a filter must never turn the proof into an empty PASS.

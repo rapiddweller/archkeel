@@ -7,7 +7,7 @@
 //! `sections`, `report`), so that the slices change different files.
 
 use archkeel_contract::Contract;
-use archkeel_model::{Model, Reason};
+use archkeel_model::{Input, Model, Reason, Settings};
 use archkeel_store::Ingested;
 
 use crate::contract::ContractState;
@@ -24,6 +24,7 @@ pub(crate) enum Answer {
     Sections(Vec<SectionAnswer>),
     Rules(RuleAnswer),
     Report(Reason),
+    Settings,
 }
 
 /// One run: the parsed contract and the validated reply.
@@ -31,6 +32,7 @@ pub(crate) enum Answer {
 pub(crate) struct Engine {
     contract: Option<Contract>,
     reply: Option<Ingested>,
+    settings: Option<Settings>,
 }
 
 impl Engine {
@@ -49,6 +51,10 @@ impl Engine {
                 self.reply = ingested;
                 Answer::Reply(state)
             }
+            Request::Settings(settings) => {
+                self.settings = Some(settings);
+                Answer::Settings
+            }
             Request::Sections(sections) => {
                 let model = self.model();
                 let outcomes = match self.contract.as_ref() {
@@ -64,18 +70,25 @@ impl Engine {
         }
     }
 
+    /// The validated reply and the settings of the shell, when the run has both.
+    pub(crate) fn reply_and_settings(&self) -> Option<(&Ingested, &Settings)> {
+        self.reply.as_ref().zip(self.settings.as_ref())
+    }
+
     /// The parsed contract.
     pub(crate) fn contract(&self) -> Option<&Contract> {
         self.contract.as_ref()
     }
 
-    /// The model, or the reason that the run has none: a missing contract or reply.
+    /// The model, or the reason that the run has none: a missing contract, reply or settings.
     pub(crate) fn model(&self) -> Result<Model, Reason> {
         let contract = self.contract.as_ref();
-        let contract = contract.ok_or(Reason::MissingInput(archkeel_model::Input::Contract))?;
+        let contract = contract.ok_or(Reason::MissingInput(Input::Contract))?;
         let reply = self.reply.as_ref();
-        let reply = reply.ok_or(Reason::MissingInput(archkeel_model::Input::Reply))?;
-        Model::derive(contract, reply)
+        let reply = reply.ok_or(Reason::MissingInput(Input::Reply))?;
+        let settings = self.settings.clone();
+        let settings = settings.ok_or(Reason::MissingInput(Input::Settings))?;
+        Model::derive(contract, reply, settings)
     }
 }
 

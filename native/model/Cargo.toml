@@ -18,5 +18,9 @@ archkeel-contract = { path = "../contract" }
 archkeel-facts.workspace = true
 archkeel-store = { path = "../store" }
 
+[dev-dependencies]
+flate2.workspace = true
+serde_json.workspace = true
+
 [lints]
 workspace = true

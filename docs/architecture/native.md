@@ -20,8 +20,8 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
-| `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, what the reply proves not seen, and the scope proof that a PASS needs (AD-363, AD-370). Slices S2 to S4 add edges, cycles and the proof. | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
-| `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`; each other kind names its slice (AD-370). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
+| `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, the imports and the module and package edges of slice S2, what the reply proves not seen, and the scope proof that a PASS needs (AD-363, AD-370, AD-372). Slices S3 and S4 add cycles, ranks and the proof. | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
+| `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`; each other kind names its slice (AD-370, AD-372). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
 | `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). The core does not call it yet. | `archkeel-model` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run; the host uses it for no verdict (AD-363). | `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
@@ -51,7 +51,8 @@ make dual-run DUAL_RUN_ARGS="--sections modules,packages --families direction \
 ```
 
 The engine command reads one JSON request on standard input: `protocol`, `case`, `root`,
-`config`, `baseline`, `contracts`, `collector_argv`, `pinned`, `reply` and `sections`. It writes
+`config`, `baseline`, `contracts`, `collector_argv`, `pinned`, `reply`, `sections`, and, from
+`archkeel-dual-run-2`, `namespace` and `standard_library` (the shell reads both; AD-372). It writes
 one frame on standard output: `rules` (rule id to kind and status) and the columnar
 `architecture` or the canonical `sections`. A failed or slow engine is a difference
 (`--engine-timeout`, default 600 s). The sections and rule families are in
@@ -70,7 +71,19 @@ other requested section has an `unsupported` reason, and a slice that names no p
 make dual-run DUAL_RUN_ARGS="--sections violations --families complete_assignment,root_layout \
   --engine-command 'native/target/debug/archkeel-core dual-run'"
 ```
- `--self-test` compares what the core read: the rule ids and
+
+The core also decides `external_dependency_scope` and `complete_external_scope`
+([AD-372](decisions/ad-372-the-core-projects-the-edges-and-decides-the-external-rule-kinds.md)).
+When the request names `dependency_edges`, the frame holds the edge rows without the ranks of S3
+in `edges`, and the harness compares them with the Python engine on every case. The S2 run:
+
+```bash
+make dual-run DUAL_RUN_ARGS="--sections violations,dependency_edges \
+  --families external_dependency_scope,complete_external_scope \
+  --engine-command 'native/target/debug/archkeel-core dual-run'"
+```
+
+`--self-test` compares what the core read: the rule ids and
 kinds of the contract bytes against the verdict map, and the reply that the store accepts. A
 part that is not ported answers with the slice that ports it, never with an empty result.
 

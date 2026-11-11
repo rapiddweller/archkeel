@@ -9,7 +9,7 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use serde_json::{json, Value};
 
-use archkeel_model::{Input, Reason, Section, Unsupported};
+use archkeel_model::{Input, Reason, Section, Settings, Unsupported};
 
 use super::{Answer, Engine};
 use crate::contract::ContractState;
@@ -44,7 +44,20 @@ pub(crate) fn golden_reply() -> Vec<u8> {
     encoder.finish().unwrap_or_default()
 }
 
+/// The profile of the frozen reply, read from the reply (the sources name no language).
+pub(crate) fn golden_profile() -> String {
+    archkeel_store::ingest_reply(&golden_reply(), LIMIT).map_or_else(
+        |_| String::new(),
+        |r| r.reply().facts.profile.as_str().to_owned(),
+    )
+}
+
 fn ingest(engine: &mut Engine) -> Answer {
+    engine.answer(Request::Settings(Settings::new(
+        "shop".to_owned(),
+        golden_profile(),
+        Vec::new(),
+    )));
     engine.answer(Request::Ingest {
         reply: golden_reply(),
         inflate_limit: LIMIT,
@@ -71,15 +84,16 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     assert!(answer.decided.is_empty());
     assert_eq!(answer.reasons.len(), 10);
     // A rule of a decided kind needs the model; a rule of another kind names its kind.
-    assert_eq!(
-        answer.reasons.get("NATIVE-ASSIGNMENT-COMPLETE"),
-        Some(&Reason::MissingInput(Input::Reply))
-    );
-    assert!(answer
-        .reasons
-        .iter()
-        .filter(|(id, _)| *id != "NATIVE-ASSIGNMENT-COMPLETE")
-        .all(|(_, reason)| reason.to_string().starts_with("unsupported: rule kind")));
+    for (id, reason) in &answer.reasons {
+        if id == "NATIVE-ASSIGNMENT-COMPLETE" || id.starts_with("NATIVE-EXTERNAL-") {
+            assert_eq!(reason, &Reason::MissingInput(Input::Reply), "{id}");
+        } else {
+            assert!(
+                reason.to_string().starts_with("unsupported: rule kind"),
+                "{id}"
+            );
+        }
+    }
 }
 
 /// The H-typescript contract with the packages of `data` moved away: two modules lose their owner.
