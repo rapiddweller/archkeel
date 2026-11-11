@@ -42,10 +42,12 @@ fn each_table_equals_the_dump_of_the_oracle() {
         ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, LINE_BREAK, SPACE, WORD,
     };
     let source = include_str!("unicode_tables.rs");
-    for table in [
+    for text in [
         WORD, SPACE, LINE_BREAK, ASSIGNED, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT,
     ] {
-        let digest = archkeel_facts::identity::sha256_hex(python_repr(table).as_bytes());
+        let table = ranges(text);
+        assert_eq!(table.len(), text.split_whitespace().count());
+        let digest = archkeel_facts::identity::sha256_hex(python_repr(&table).as_bytes());
         assert!(source.contains(&format!("SHA-256 {digest},")), "{digest}");
     }
 }
@@ -92,36 +94,40 @@ fn a_code_point_that_unicode_14_does_not_assign_is_unassigned() {
 #[test]
 fn the_byte_predicates_equal_python_over_each_byte() {
     use crate::unicode_tables::{BYTE_DIGIT, BYTE_SPACE, BYTE_WORD};
+    let (word, space, digit) = (ranges(BYTE_WORD), ranges(BYTE_SPACE), ranges(BYTE_DIGIT));
     for value in 0..=255u8 {
         let c = char::from(value);
-        assert_eq!(is_word_byte(value), in_table(BYTE_WORD, c), "{value}");
-        assert_eq!(is_space_byte(value), in_table(BYTE_SPACE, c), "{value}");
-        assert_eq!(value.is_ascii_digit(), in_table(BYTE_DIGIT, c), "{value}");
+        assert_eq!(is_word_byte(value), in_table(&word, c), "{value}");
+        assert_eq!(is_space_byte(value), in_table(&space, c), "{value}");
+        assert_eq!(value.is_ascii_digit(), in_table(&digit, c), "{value}");
     }
 }
 
 #[test]
 fn splitlines_breaks_where_python_311_breaks_for_each_code_point() {
-    use crate::unicode_tables::LINE_BREAK;
+    let line_break = ranges(crate::unicode_tables::LINE_BREAK);
     for code in (0..=0x10_FFFFu32).filter(|code| !(0xD800..0xE000).contains(code)) {
         let Some(c) = char::from_u32(code) else {
             continue;
         };
         let text = format!("a{c}b");
         let breaks = archkeel_pytext::splitlines(&text).len() == 2;
-        assert_eq!(breaks, in_table(LINE_BREAK, c), "U+{code:04X}");
+        assert_eq!(breaks, in_table(&line_break, c), "U+{code:04X}");
     }
 }
 
 #[test]
 #[ignore = "a report for AD-369, not a gate: run with --ignored --nocapture"]
 fn report_the_differences_of_the_rust_predicates() {
-    use crate::unicode_tables::{SPACE, WORD};
+    let (word_table, space_table) = (
+        ranges(crate::unicode_tables::WORD),
+        ranges(crate::unicode_tables::SPACE),
+    );
     let (mut word, mut space) = (0, 0);
     for c in (0..=0x10_FFFFu32).filter_map(char::from_u32) {
-        word += usize::from((c.is_alphanumeric() || c == '_') != in_table(WORD, c));
+        word += usize::from((c.is_alphanumeric() || c == '_') != in_table(&word_table, c));
         let rust_space = c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c);
-        space += usize::from(rust_space != in_table(SPACE, c));
+        space += usize::from(rust_space != in_table(&space_table, c));
     }
     println!("is_alphanumeric differs on {word}, is_whitespace on {space}");
 }

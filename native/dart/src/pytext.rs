@@ -5,23 +5,41 @@
 //! The text rules of Python `str` that the Python Dart collector uses, so that both collectors
 //! split and strip a text in the same places.
 
+use std::sync::OnceLock;
+
 use crate::unicode_tables::{ASSIGNED, SPACE, WORD};
+
+static WORD_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
+static SPACE_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
+static ASSIGNED_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
+
+/// The ranges of a generated table text: `START-END` in hex, separated by white space. The
+/// generator writes only valid cells; `each_table_equals_the_dump_of_the_oracle` checks them.
+pub(crate) fn ranges(text: &str) -> Vec<(u32, u32)> {
+    text.split_whitespace()
+        .filter_map(|cell| {
+            let (start, end) = cell.split_once('-')?;
+            let start = u32::from_str_radix(start, 16).ok()?;
+            Some((start, u32::from_str_radix(end, 16).ok()?))
+        })
+        .collect()
+}
 
 /// `str.isspace` and the `\s` of `re`, as Python 3.11 with Unicode 14 decides it (L-27).
 pub(crate) fn is_space(c: char) -> bool {
-    in_table(SPACE, c)
+    in_table(SPACE_RANGES.get_or_init(|| ranges(SPACE)), c)
 }
 
 /// Python `\w` for a text, as Python 3.11 with Unicode 14 decides it (L-27): the table of the
 /// oracle, not `char::is_alphanumeric`. The two differ on about 11 000 code points, such as the
 /// combining marks U+0345 and U+093E and each letter that Unicode 14 does not assign.
 pub(crate) fn is_word(c: char) -> bool {
-    in_table(WORD, c)
+    in_table(WORD_RANGES.get_or_init(|| ranges(WORD)), c)
 }
 
 /// The code point is assigned in Unicode 14, the Unicode version of the oracle Python 3.11.
 pub(crate) fn is_assigned(c: char) -> bool {
-    in_table(ASSIGNED, c)
+    in_table(ASSIGNED_RANGES.get_or_init(|| ranges(ASSIGNED)), c)
 }
 
 /// The code point is in one of the sorted inclusive ranges of `table`.
