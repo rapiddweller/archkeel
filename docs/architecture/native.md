@@ -137,6 +137,7 @@ flowchart LR
     n_40["py-entry"]
     n_44["py-scope"]
     n_45["py-inputs"]
+    n_46["py-survey"]
     n_10 --> n_12
     n_10 --> n_13
     n_10 --> n_14
@@ -290,4 +291,10 @@ flowchart LR
     n_39 --> n_4
     n_39 --> n_44
     n_39 --> n_45
+    n_46 --> n_4
+    n_46 --> n_14
+    n_46 --> n_37
+    n_46 --> n_38
+    n_46 --> n_44
+    n_39 --> n_46
 ```
