@@ -1,0 +1,27 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-eval"
+description = "The rule families of Archkeel: decisions over the model (AD-359, AD-363, AD-370)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# AD-359: eval uses the model and the contract; it reads the record identity of the typed facts.
+# It names no language.
+[dependencies]
+archkeel-contract = { path = "../contract" }
+archkeel-facts.workspace = true
+archkeel-model = { path = "../model" }
+
+[dev-dependencies]
+archkeel-store = { path = "../store" }
+flate2.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

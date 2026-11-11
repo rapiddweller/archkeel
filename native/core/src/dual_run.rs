@@ -5,10 +5,10 @@
 //! The engine command of the dual run (AD-360): one JSON request in, one engine frame out.
 //!
 //! The request carries the contract bytes and the collector reply (hex). The core sends them as
-//! typed requests to the engine. The frame has no rule verdict and no section rows yet: each rule
-//! and each requested section is in `unsupported` with its reason, and `self_test` shows what the
-//! core read (the rule ids and kinds of the contract, the file count of the reply), so the harness
-//! can prove the round trip.
+//! typed requests to the engine. The frame has the status of each decided rule (`rules`) and the
+//! rows of each ported section (`sections`). Each other rule and section is in `unsupported` with
+//! its reason, and `self_test` shows what the core read (the rule ids and kinds of the contract,
+//! the file count of the reply), so the harness can prove the round trip.
 
 use std::collections::BTreeMap;
 
@@ -19,6 +19,7 @@ use crate::contract::ContractState;
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::{self, Request};
+use crate::rules::RuleAnswer;
 
 const PROTOCOL: &str = "archkeel-dual-run-1";
 /// The provenance of this build (`archkeel-build-support`).
@@ -57,6 +58,7 @@ struct ReplyBytes {
 struct Frame {
     engine: &'static str,
     rules: BTreeMap<String, [String; 2]>,
+    sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
 }
@@ -148,17 +150,22 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
+    let decided = match engine.answer(Request::Rules) {
+        Answer::Rules(answer) => answer,
+        _ => RuleAnswer::default(),
+    };
     let rules = match &contract {
         ContractState::Parsed(_) => RuleReasons::Each(
-            crate::contract::rule_reasons(engine.contract(), &path)
+            crate::contract::uml_reason(engine.contract(), &path)
                 .into_iter()
+                .chain(decided.reasons)
                 .map(|(id, reason)| (id, reason.to_string()))
                 .collect(),
         ),
         ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
         ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
     };
-    let sections = crate::sections::unsupported(rows);
+    let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
         || !sections.is_empty()
@@ -166,7 +173,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         || !matches!(contract, ContractState::Parsed(_));
     let frame = Frame {
         engine: ENGINE,
-        rules: BTreeMap::new(),
+        rules: decided.decided,
+        sections: rows,
         unsupported: UnsupportedParts {
             rules,
             sections,

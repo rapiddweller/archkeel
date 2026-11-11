@@ -16,6 +16,8 @@ pub(crate) enum Request {
     Ingest { reply: Vec<u8>, inflate_limit: u64 },
     /// The rows of these sections (the dual run and the 2.9 writer).
     Sections(Vec<Section>),
+    /// The decision of each rule of the contract.
+    Rules,
     /// The report v2 payload.
     Report,
 }

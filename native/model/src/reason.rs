@@ -8,6 +8,7 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
+use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 
 /// A part of the core that no slice has ported yet. It is a named answer, never an empty one.
@@ -45,6 +46,10 @@ pub enum Reason {
     TooManyRows(&'static str),
     /// The run has no valid input of this kind.
     MissingInput(Input),
+    /// The reply proves that the scope of the run is not complete.
+    Incomplete(Incomplete),
+    /// The rule selects no module of the reply, so no evaluator receipt exists for it.
+    NoSubjects,
 }
 
 impl fmt::Display for Unsupported {
@@ -87,6 +92,15 @@ impl fmt::Display for Reason {
             Reason::MissingInput(Input::Reply) => {
                 formatter.write_str("missing input: no valid collector reply")
             }
+            Reason::Incomplete(Incomplete::NoSourceFiles) => {
+                formatter.write_str("incomplete scope: the collector selected no source file")
+            }
+            Reason::Incomplete(Incomplete::CoverageGaps(count)) => write!(
+                formatter,
+                "incomplete scope: the collector reports {count} coverage gaps"
+            ),
+            Reason::NoSubjects => formatter
+                .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
         }
     }
 }

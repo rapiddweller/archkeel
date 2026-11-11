@@ -8,8 +8,6 @@
 /// A WP6 slice that ports a derived section.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Slice {
-    /// Modules, packages, ownership.
-    S1,
     /// Import projection and dependency edges.
     S2,
     /// Cycles.
@@ -136,7 +134,9 @@ impl Section {
             Section::Declarations | Section::ScopeObservations | Section::PathObservations => {
                 Porting::Slice(Slice::S4)
             }
-            Section::Packages | Section::Modules => Porting::Slice(Slice::S1),
+            // The rows hold fan-in, fan-out (S2) and the condensation rank (S3); the modules,
+            // packages and owners of slice S1 are in the model.
+            Section::Packages | Section::Modules => Porting::Slice(Slice::S3),
             Section::Symbols
             | Section::Calls
             | Section::References

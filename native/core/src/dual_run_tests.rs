@@ -32,10 +32,16 @@ fn names_a_gap(value: &Value) -> bool {
 }
 
 #[test]
-fn the_frame_shows_what_the_core_read_and_decides_nothing() {
+fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let reply = golden_reply();
-    let got = frame(&request(Some(&reply), &["modules", "evidence"]));
-    assert_eq!(got["rules"], json!({}));
+    let got = frame(&request(
+        Some(&reply),
+        &["modules", "evidence", "violations"],
+    ));
+    // The native rule selects no module of the H-typescript reply: no receipt, so UNKNOWN.
+    let unknown = json!({"NATIVE-ASSIGNMENT-COMPLETE": ["complete_assignment", "UNKNOWN"]});
+    assert_eq!(got["rules"], unknown);
+    assert_eq!(got["sections"], json!({"violations": []}));
     assert_eq!(
         got["unsupported"]["report"],
         "unsupported: the report payload: slice 0d ports it"
@@ -47,12 +53,12 @@ fn the_frame_shows_what_the_core_read_and_decides_nothing() {
     assert!(got["self_test"]["reply"]["files"].as_u64().unwrap_or(0) > 0);
     assert_eq!(
         got["unsupported"]["sections"]["modules"],
-        "unsupported: section modules: slice S1 ports it"
+        "unsupported: section modules: slice S3 ports it"
     );
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 8);
+    assert_eq!(rules, 7);
 }
 
 #[test]

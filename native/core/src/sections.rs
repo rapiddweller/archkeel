@@ -3,21 +3,31 @@
 // SPDX-License-Identifier: MIT
 
 //! The `Sections` request: the rows of each requested section, or the reason that it has none.
-//! Slice S1 writes the rows of `modules` and `packages` here.
+//!
+//! `violations` holds the rows of the rule kinds that `archkeel-eval` decides, sorted by id as
+//! Python sorts the section. A row of another kind is not in it: the harness compares a rule
+//! section per family (AD-360 point 5), and the rules of that kind are named unsupported.
 
 use std::collections::BTreeMap;
 
-use archkeel_model::{Model, Reason, Rows, Section};
+use archkeel_eval::{Outcome, Violation};
+use archkeel_model::{Model, Reason, Section};
+use serde_json::{json, Value};
 
 /// One requested section and its rows or the reason that it has none.
-pub(crate) type SectionAnswer = (Section, Result<Rows, Reason>);
+pub(crate) type SectionAnswer = (Section, Result<Vec<Value>, Reason>);
 
-pub(crate) fn answer(model: &Result<Model, Reason>, sections: &[Section]) -> Vec<SectionAnswer> {
+pub(crate) fn answer(
+    model: &Result<Model, Reason>,
+    outcomes: &[Outcome],
+    sections: &[Section],
+) -> Vec<SectionAnswer> {
     sections
         .iter()
         .map(|section| {
             let rows = match model {
-                Ok(model) => model.rows(*section),
+                Ok(_) if *section == Section::Violations => Ok(violation_rows(outcomes)),
+                Ok(model) => model.rows(*section).map(|rows| match rows {}),
                 Err(reason) => Err(reason.clone()),
             };
             (*section, rows)
@@ -25,13 +35,90 @@ pub(crate) fn answer(model: &Result<Model, Reason>, sections: &[Section]) -> Vec
         .collect()
 }
 
-/// The reason of each section that has no rows.
-pub(crate) fn unsupported(answers: Vec<SectionAnswer>) -> BTreeMap<&'static str, String> {
-    answers
+/// The rows of the sections that have rows, and the reason of each section that has none.
+pub(crate) fn split(
+    answers: Vec<SectionAnswer>,
+) -> (
+    BTreeMap<&'static str, Vec<Value>>,
+    BTreeMap<&'static str, String>,
+) {
+    let mut rows = BTreeMap::new();
+    let mut reasons = BTreeMap::new();
+    for (section, answer) in answers {
+        match answer {
+            Ok(found) => {
+                rows.insert(section.name(), found);
+            }
+            Err(reason) => {
+                reasons.insert(section.name(), reason.to_string());
+            }
+        }
+    }
+    (rows, reasons)
+}
+
+fn violation_rows(outcomes: &[Outcome]) -> Vec<Value> {
+    let mut violations: Vec<&Violation> = outcomes
+        .iter()
+        .flat_map(|outcome| outcome.violations())
+        .collect();
+    violations.sort_by(|a, b| a.id().cmp(b.id()));
+    violations.into_iter().map(row).collect()
+}
+
+/// The 2.9 row of a violation (`classified` in `ir/source_records.py`).
+fn row(violation: &Violation) -> Value {
+    match violation {
+        Violation::Unassigned {
+            id,
+            rule,
+            source,
+            name,
+            fact_id,
+            evidence,
+            ..
+        } => json!({
+            "id": id,
+            "evidence_class": "VIOLATION",
+            "area": "components",
+            "kind": "complete_assignment",
+            "title": format!("{name} is not owned by exactly one component"),
+            "subjects": subjects(name),
+            "evidence_ids": [evidence],
+            "rule_ids": [rule],
+            "fact_ids": [fact_id],
+            "provenance": [],
+            "data": {"source": source, "module": name},
+        }),
+        Violation::NotAllowedChild {
+            id,
+            rule,
+            root,
+            child,
+            allowed,
+            fact_id,
+            evidence,
+            ..
+        } => json!({
+            "id": id,
+            "evidence_class": "VIOLATION",
+            "area": "module_topology",
+            "kind": "root_layout",
+            "title": format!("{child} is not an allowed child of {root}"),
+            "subjects": subjects(child),
+            "evidence_ids": [evidence],
+            "rule_ids": [rule],
+            "fact_ids": [fact_id],
+            "provenance": [],
+            "data": {"root": root, "child": child, "allowed_children": allowed},
+        }),
+    }
+}
+
+/// `classified` drops an empty subject.
+fn subjects(name: &str) -> Vec<&str> {
+    Some(name)
+        .filter(|name| !name.is_empty())
         .into_iter()
-        .map(|(section, rows)| match rows {
-            Ok(rows) => match rows {},
-            Err(reason) => (section.name(), reason.to_string()),
-        })
         .collect()
 }

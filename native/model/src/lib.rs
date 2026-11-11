@@ -14,20 +14,28 @@
 //! - `Reason` and `Unsupported`: a part that no slice has ported answers with its name, never
 //!   with an empty result.
 //! - `Section`: the 20 compared sections of `architecture.json` and the slice that ports each.
+//! - Slice S1: the modules and packages of the reply, the one owner of each module, the modules
+//!   that a rule source selects, and what the reply proves not seen (`Incomplete`).
 //!
 //! The model names no language: a rule of the native contract and a test check that.
 
 #![deny(unreachable_pub)]
 
+mod coverage;
 mod ids;
 mod model;
+mod modules;
+mod ownership;
 mod reason;
 mod scope;
 mod section;
 mod verdict;
 
+pub use coverage::Incomplete;
 pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
 pub use model::{Model, Rows};
+pub use modules::{Module, Package};
+pub use ownership::{claims, in_scope};
 pub use reason::{Input, Reason, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};

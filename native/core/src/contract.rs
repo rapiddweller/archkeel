@@ -40,23 +40,14 @@ pub(crate) fn answer(bytes: &[u8]) -> (ContractState, Option<Contract>) {
     }
 }
 
-/// The reason of each rule of the parsed contract: no rule family is ported yet. A contract with
-/// `declarations.uml` also has the UML target row of the contract at `path`, by name.
-pub(crate) fn rule_reasons(contract: Option<&Contract>, path: &str) -> BTreeMap<String, Reason> {
-    let mut reasons: BTreeMap<String, Reason> = contract
-        .into_iter()
-        .flat_map(Contract::rules)
-        .map(|rule| {
-            let reason = Reason::Unsupported(Unsupported::Rule(kind_of(rule)));
-            (head_of(rule).id().as_text().to_owned(), reason)
-        })
-        .collect();
+/// The UML target row of a contract with `declarations.uml`, at `path`, by name: no slice ports
+/// it. The rules of the contract have their reasons from the `Rules` request.
+pub(crate) fn uml_reason(contract: Option<&Contract>, path: &str) -> Option<(String, Reason)> {
     let uml = contract
         .and_then(|item| item.declarations().as_ref())
         .is_some_and(|declarations| declarations.uml().is_some());
-    if uml {
+    uml.then(|| {
         let id = uml_target_id(path).as_text().to_owned();
-        reasons.insert(id, Reason::Unsupported(Unsupported::UmlTarget));
-    }
-    reasons
+        (id, Reason::Unsupported(Unsupported::UmlTarget))
+    })
 }
