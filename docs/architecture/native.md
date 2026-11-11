@@ -76,8 +76,8 @@ part that is not ported answers with the slice that ports it, never with an empt
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    n_37["report"]
-    n_37 --> n_5
+    n_41["report"]
+    n_41 --> n_5
     n_0["build"]
     n_1["contract"]
     n_2["core"]
