@@ -13,26 +13,27 @@
 use std::collections::BTreeMap;
 
 use archkeel_eval::{Cited, Outcome, Violation};
-use archkeel_model::{Reason, Section};
-
-use crate::engine::Derived;
+use archkeel_model::{Graph, Model, Reason, Section};
 use serde_json::{json, Value};
 
 /// One requested section and its rows or the reason that it has none.
 pub(crate) type SectionAnswer = (Section, Result<Vec<Value>, Reason>);
 
+/// The derivation of a run: its reply part and its model, or the reason of each missing part.
+pub(crate) type Derivation<'a> = (Result<&'a Graph, Reason>, Result<&'a Model, Reason>);
+
 pub(crate) fn answer(
-    derived: &Derived,
+    (graph, model): Derivation<'_>,
     outcomes: &[Outcome],
     sections: &[Section],
 ) -> Vec<SectionAnswer> {
     sections
         .iter()
         .map(|&section| {
-            let graph_rows = derived
-                .graph()
+            let graph_rows = graph
+                .clone()
                 .map(|graph| crate::topology::rows(graph, section));
-            let rows = match (graph_rows, derived.model()) {
+            let rows = match (graph_rows, model.clone()) {
                 (Ok(Some(rows)), _) => Ok(rows),
                 (Err(reason), _) if crate::topology::owns(section) => Err(reason),
                 (_, Ok(_)) if section == Section::Violations => Ok(violation_rows(outcomes)),

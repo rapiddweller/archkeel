@@ -96,7 +96,8 @@ impl Engine {
                     Some(contract) => crate::rules::outcomes(contract, derived.model()),
                     None => Vec::new(),
                 };
-                Answer::Sections(crate::sections::answer(derived, &outcomes, &sections))
+                let derivation = (derived.graph(), derived.model());
+                Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
             Request::Rules => {
                 let (contract, derived) = self.derived();
