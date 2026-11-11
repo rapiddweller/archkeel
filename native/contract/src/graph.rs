@@ -168,7 +168,7 @@ fn requirements(components: &[Component]) -> Vec<Relationship> {
                 candidate_count: None,
                 candidates_truncated: false,
                 reason: Some(entry.rationale.clone()),
-                through,
+                through: crate::model::wrap_all(through),
                 decided_by,
             });
         }

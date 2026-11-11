@@ -16,7 +16,11 @@
 4. The canonical bytes come from `serde::Serialize` on the contract types. Each type has the field
    order of its dataclass, and serde attributes leave out what `contract_bytes` leaves out. The UML
    Target keeps each `null`, as `asdict` writes it.
-5. Each repository contract parses. The self contract, `native/architecture-contract.json` and
+5. `parse` returns `ParsedContract::Complete(Contract)` or `ParsedContract::NeedsTree(NeedsTree)`.
+   A contract whose components mount inside contracts is a `NeedsTree`: it gives its mounts as
+   typed `InsideRef` values (component id and `InsidePath`), but no `Contract`. Only the tree
+   assembly of the inside contract tree (#880, a separate slice) can make it complete; it reads each file with the crate-internal `parse_file`.
+6. Each repository contract parses. The self contract, `native/architecture-contract.json` and
    the inside contracts give canonical bytes and digests equal to Python.
 
 **Reason.** The model and the evaluator need every rule and every declaration in Rust. An
@@ -28,8 +32,9 @@
 - Hand-written canonical writers for each type. Their field lists repeat in one shape, and a
   derive keeps the order in one place.
 
-**Limit.** The inside contract tree (`codec_inside.py`: mounts, paths, depth, identity) is not in
-Rust; the shell still assembles it, and slice 0b or a later slice decides its frame. The ids of
+**Limit.** This slice does not assemble the inside contract tree (`codec_inside.py`); a separate slice does,
+on top of `parse_file`. The API ratchet counts a declaration macro once, so the contract types are
+not in `native/api_baseline.json` (`tools/rust_api.py` documents the limit). The ids of
 `stable_id` use a Python `repr` that covers printable text and ASCII control characters; another
 Unicode character that Python does not print can give another id. The stricter cases of AD-359
 stay; `docs/known-limits.md` lists them.

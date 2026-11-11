@@ -5,7 +5,7 @@
 //! The UML Target of `declarations.uml` (`TargetDefinition` and its parts in
 //! `ir/architecture_graph.py`).
 
-use crate::model::{DecidedBy, ItemId};
+use crate::model::{DecidedBy, ItemId, Selector};
 
 closed_enum!(EntityKind {
     Component,
@@ -189,7 +189,7 @@ record!(
         candidate_count: Option<u64>,
         candidates_truncated: bool,
         reason: Option<String>,
-        through: Vec<String>,
+        through: Vec<Selector>,
         decided_by: Option<DecidedBy>,
     }
 );

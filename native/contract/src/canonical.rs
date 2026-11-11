@@ -12,7 +12,7 @@
 use serde_json::{Map, Value};
 
 use crate::contract::digest_of;
-use crate::document::Contract;
+use crate::document::{Contract, ParsedContract};
 use crate::model::{ContractDigest, RuleKind};
 use crate::rule::{body_of, head_of, kind_of, Rule};
 use crate::version::version_text;
@@ -43,6 +43,31 @@ pub fn canonical_bytes(contract: &Contract) -> Vec<u8> {
 /// The digest that an amendment binds to: the SHA-256 of the canonical bytes (AD-61).
 pub fn canonical_digest(contract: &Contract) -> ContractDigest {
     digest_of(&canonical_bytes(contract))
+}
+
+impl ParsedContract {
+    /// The parsed file, complete or not.
+    fn file(&self) -> &Contract {
+        match self {
+            ParsedContract::Complete(contract) => contract,
+            ParsedContract::NeedsTree(tree) => &tree.contract,
+        }
+    }
+
+    /// The canonical bytes of the parsed file. An amendment binds each file of a tree on its own.
+    pub fn file_canonical_bytes(&self) -> Vec<u8> {
+        canonical_bytes(self.file())
+    }
+
+    /// The SHA-256 of the canonical bytes of the parsed file.
+    pub fn file_canonical_digest(&self) -> ContractDigest {
+        canonical_digest(self.file())
+    }
+
+    /// The SHA-256 of the bytes of the parsed file: its identity in a run.
+    pub fn file_digest(&self) -> &ContractDigest {
+        &self.file().digest
+    }
 }
 
 /// The serde value of a type of this crate. It holds no map with a key that is not text, so it

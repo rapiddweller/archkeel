@@ -274,7 +274,7 @@ fn permission(edge: &Relationship, source: &Entity, target: Option<&Entity>) -> 
     if !components || !reason || edge.expression.is_some() {
         return fail("dependency permission needs declared component endpoints and rationale");
     }
-    if repeats(&edge.through) || edge.through.iter().any(|value| !has_text(value)) {
+    if repeats(&edge.through) || edge.through.iter().any(|value| !has_text(&value.0)) {
         return fail("invalid dependency permission selector");
     }
     Ok(())

@@ -24,6 +24,7 @@ from typing import Any
 
 import pytest
 from filelock import FileLock
+from rust_contract_declaration_cases import declaration_cases, full
 from rust_contract_graph_cases import base, graph_cases
 
 from archkeel.ir.codec import (
@@ -242,14 +243,31 @@ GATED = frozenset(
 
 
 def _probe() -> Path:
-    """Build the parity probe of the contract crate under the native build lock."""
+    """Build the parity probe of the contract crate under the native build lock.
+
+    `ARCHKEEL_CONTRACT_PROBE` names another probe binary: the fault proof of AD-364 builds one
+    from a scratch copy with one check disabled.
+    """
+    planted = os.environ.get("ARCHKEEL_CONTRACT_PROBE")
+    if planted:
+        return Path(planted)
     cargo = shutil.which("cargo")
     if cargo is None and os.environ.get("CI"):
         pytest.fail("CI must provide cargo for the native contract parity test.")
     if cargo is None:
         pytest.skip("cargo is not installed; install Rust to test changes in native/.")
     (NATIVE / "target").mkdir(exist_ok=True)
-    command = [cargo, "build", "--locked", "-p", "archkeel-contract", "--example", "contract_dump"]
+    command = [
+        cargo,
+        "build",
+        "--locked",
+        "--profile",
+        "parity",
+        "-p",
+        "archkeel-contract",
+        "--example",
+        "contract_dump",
+    ]
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         built = subprocess.run(command, cwd=NATIVE, capture_output=True, text=True, check=False)
     assert built.returncode == 0, built.stderr
@@ -262,7 +280,8 @@ def _rust(cases: list[Case]) -> list[dict[str, Any]]:
     frames = b"".join(str(len(raw)).encode() + b"\n" + raw for _, raw in cases)
     done = subprocess.run([_probe()], input=frames, capture_output=True, check=False)
     assert done.returncode == 0, done.stderr.decode()
-    lines = done.stdout.decode().splitlines()
+    # A line ends at a line feed only: an accepted text can hold U+2028 or U+0085.
+    lines = done.stdout.decode().split("\n")[:-1]
     assert len(lines) == len(cases)
     return [json.loads(line) for line in lines]
 
@@ -383,6 +402,19 @@ def _semantic(source: dict[str, Any]) -> list[Case]:
     return cases
 
 
+def _separators() -> bytes:
+    """A contract whose accepted text holds U+2028 and U+0085 as raw characters."""
+    rule = {
+        "id": "R",
+        "kind": "complete_requires",
+        "rationale": "one\u2028two\u0085three",
+        "provenance": ["p"],
+        "decided_by": "agent",
+    }
+    document = {"schema_version": "2.1.0", "components": [], "rules": [rule]}
+    return json.dumps(document, ensure_ascii=False).encode()
+
+
 def special_cases(base: bytes) -> list[Case]:
     text = base.decode()
     return [
@@ -390,6 +422,7 @@ def special_cases(base: bytes) -> list[Case]:
         ("not an object", b"[]"),
         ("trailing text", base + b"x"),
         ("BOM", b"\xef\xbb\xbf" + base),
+        ("line separators", _separators()),
         (
             "escaped text",
             text.replace('"rationale": "', '"rationale": "\\t\\u0001\\"\xe9 ', 1).encode(),
@@ -400,7 +433,7 @@ def special_cases(base: bytes) -> list[Case]:
 def test_the_rust_parser_decides_each_contract_as_python_does() -> None:
     repository = repository_contracts()
     accepted = [json.loads(raw) for _, raw in repository if _python(raw)["kind"] == "accept"]
-    generated = mutations([*accepted, base()]) + graph_cases(_encode)
+    generated = mutations([*accepted, base(), full()])
     special = special_cases(_encode(min(accepted, key=lambda value: len(_encode(value)))))
     cases = repository + generated + special
     outcomes = _rust(cases)
@@ -417,6 +450,24 @@ def test_the_rust_parser_decides_each_contract_as_python_does() -> None:
     assert tally["repository rejected"] >= 20
     assert tally["generated rejected"] >= 10000
     assert tally["generated accepted"] >= 2000
+
+
+def _assert_equal(cases: list[Case]) -> Counter[str]:
+    tally: Counter[str] = Counter()
+    for (name, raw), rust in zip(cases, _rust(cases), strict=True):
+        python = _python(raw)
+        assert rust["kind"] == python["kind"], (name, rust, python)
+        if python["kind"] == "accept":
+            assert rust == python, name
+        tally[python["kind"]] += 1
+    return tally
+
+
+def test_hand_written_cases_decide_as_python() -> None:
+    """The UML graph faults and the declaration faults that a single-key mutation cannot build."""
+    tally = _assert_equal(graph_cases(_encode) + declaration_cases(_encode))
+    assert tally["invalid"] >= 80
+    assert tally["accept"] >= 15
 
 
 def test_a_repeated_key_is_refused_in_rust_and_kept_last_in_python() -> None:

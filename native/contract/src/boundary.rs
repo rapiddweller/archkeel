@@ -236,7 +236,7 @@ pub(crate) fn protocol_declarations(raw: &Json, label: &str) -> Parsed<ProtocolD
     }
     Ok(ProtocolDeclarations {
         source: crate::model::Selector(source),
-        protocol,
+        protocol: crate::model::Selector(protocol),
         selectors,
         head,
     })

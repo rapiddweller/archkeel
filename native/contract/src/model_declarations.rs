@@ -4,7 +4,7 @@
 
 //! The `declarations` object of a contract (`ContractDeclarations` in `ir/model.py`).
 
-use crate::model::{ComponentLabel, ItemId, Package, Selector};
+use crate::model::{ComponentLabel, ItemId, Package, Selector, SourcePath};
 use crate::model_uml::Target;
 
 record!(pub(crate), Capability {
@@ -50,7 +50,7 @@ record!(
     SpotOwner {
         id: ItemId,
         label: String,
-        owner: String,
+        owner: Selector,
         responsibility: String,
         provenance: Vec<String>,
     }
@@ -102,7 +102,7 @@ record!(
     pub(crate),
     /// One exact source file and its intended responsibility.
     ModuleTarget {
-        path: String,
+        path: SourcePath,
         responsibility: String,
     }
 );

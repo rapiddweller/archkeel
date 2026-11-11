@@ -297,7 +297,7 @@ pub(crate) fn relationship(raw: &Json) -> Parsed<Relationship> {
             "relationship.candidates_truncated",
         )?,
         reason: nullable(item, "reason", "relationship.reason")?,
-        through: listed_texts(item, "through", "relationship.through")?,
+        through: wrap_all(listed_texts(item, "through", "relationship.through")?),
         decided_by,
     })
 }

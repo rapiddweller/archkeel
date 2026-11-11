@@ -150,7 +150,8 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
     let facade_budgets = optional_records(object, "facade_budgets", facade_budget)?;
     let coupling_budgets = optional_records(object, "coupling_budgets", coupling_budget)?;
     let modules = optional_records(object, "modules", module_target)?;
-    let paths_of_modules: Vec<&String> = modules.iter().flatten().map(|item| &item.path).collect();
+    let paths_of_modules: Vec<&crate::model::SourcePath> =
+        modules.iter().flatten().map(|item| &item.path).collect();
     if repeats(&paths_of_modules) {
         return Err(invalid("contract.declarations.modules repeats a path"));
     }
@@ -342,7 +343,7 @@ fn module_target(raw: &Json, label: &str) -> Parsed<ModuleTarget> {
         )));
     }
     Ok(ModuleTarget {
-        path,
+        path: crate::model::SourcePath(path),
         responsibility,
     })
 }

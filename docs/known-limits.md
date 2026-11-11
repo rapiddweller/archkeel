@@ -349,7 +349,11 @@ The Rust contract parser (`native/contract`, [AD-359](architecture/decisions/ad-
 - An integer above 2^64 is read as a float, so a field that needs an integer refuses it. Python accepts it.
 - The XID tables of `unicode-ident` and of the Python release can differ for a new Unicode character.
 
-It does not assemble the tree of inside contracts; the Python shell still does.
+A contract that mounts inside contracts parses as `NeedsTree`, not as a complete contract; the tree assembly (a separate slice of #880) must check the mounted contracts first.
+
+The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its template. The
+contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
+counts of `native/api_baseline.json`.
 
 ## Scope and nested contracts
 

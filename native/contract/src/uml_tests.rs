@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::canonical::canonical_bytes;
-use crate::contract::parse;
+use crate::contract::parse_file as parse;
 use crate::error::ErrorKind;
 
 const COMPONENT: &str = r#"{"id": "C-A", "label": "a", "role": "component", "packages": ["p.a"],

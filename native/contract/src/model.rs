@@ -32,6 +32,16 @@ text_type!(
 );
 text_type!(
     pub(crate),
+    /// The repository path of an inside contract that a component mounts (AD-20).
+    InsidePath
+);
+text_type!(
+    pub(crate),
+    /// A repository-relative source path.
+    SourcePath
+);
+text_type!(
+    pub(crate),
     /// The SHA-256 of bytes in lower-case hex.
     ContractDigest
 );
@@ -87,7 +97,7 @@ record!(
         #[serde(skip_serializing_if = "Option::is_none")]
         requires: Option<Vec<Requirement>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        inside: Option<String>,
+        inside: Option<InsidePath>,
         #[serde(skip_serializing_if = "Option::is_none")]
         public: Option<Vec<Selector>>,
         #[serde(skip_serializing_if = "Option::is_none")]

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-use super::parse;
+use super::parse_file as parse;
 use crate::canonical::{canonical_bytes, canonical_digest};
 use crate::error::ErrorKind;
 use crate::model::{CycleLevel, SelectorMatch};
@@ -179,4 +179,27 @@ fn python_white_space_and_identifiers_are_read_as_python_reads_them() {
         kind_of(&contract("2.1.0", &rule("forbidden_dependency", symbol))),
         None
     );
+}
+
+#[test]
+fn a_contract_with_a_mount_needs_its_tree_and_names_the_mount_by_type() -> Result<(), String> {
+    use crate::document::ParsedContract;
+    let plain = contract("2.1.0", "");
+    assert!(matches!(
+        super::parse(plain.as_bytes()),
+        Ok(ParsedContract::Complete(_))
+    ));
+    let mounted = plain.replace(
+        r#""packages": ["p.a"]"#,
+        r#""packages": ["p.a"], "inside": "inner.json""#,
+    );
+    let Ok(ParsedContract::NeedsTree(tree)) = super::parse(mounted.as_bytes()) else {
+        return Err("a mount must need its tree".to_owned());
+    };
+    let mount = tree.mounts().first().ok_or("one mount")?;
+    assert_eq!(
+        (mount.component().as_text(), mount.path().as_text()),
+        ("C-A", "inner.json")
+    );
+    Ok(())
 }

@@ -12,7 +12,7 @@ use crate::component::parse_component;
 use crate::declarations::{
     budgets, capabilities, declarations_object, finish, later_records, record_ids, Records,
 };
-use crate::document::Contract;
+use crate::document::{classify, Contract, ParsedContract};
 use crate::error::{invalid, ErrorKind, ParseError, Parsed};
 use crate::graph::check_declared_graph;
 use crate::json::{read, Json};
@@ -23,9 +23,16 @@ use crate::rule::{head_of, Rule};
 use crate::rules::{check_boundary_features, check_rule_features, parse_rule, rule_kind};
 use crate::version::{version_of, ContractVersion};
 
-/// Parse contract bytes into a typed contract. The bytes are the whole file; this crate reads no
-/// file. The digest of the contract is the SHA-256 of these bytes.
-pub fn parse(bytes: &[u8]) -> Result<Contract, ParseError> {
+/// Parse contract bytes. The bytes are the whole file; this crate reads no file. A contract whose
+/// components mount inside contracts comes back as `ParsedContract::NeedsTree`: it is complete
+/// only after the tree assembly of the inside contracts has checked the mounted contracts.
+pub fn parse(bytes: &[u8]) -> Result<ParsedContract, ParseError> {
+    parse_file(bytes).map(classify)
+}
+
+/// Parse the bytes of one contract file, without its inside tree. The digest of the contract is
+/// the SHA-256 of these bytes. The tree assembly reads each file of the tree with this function.
+pub(crate) fn parse_file(bytes: &[u8]) -> Result<Contract, ParseError> {
     let raw = read(bytes)?;
     let root = fields(
         &raw,

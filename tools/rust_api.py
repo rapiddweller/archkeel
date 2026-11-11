@@ -22,6 +22,12 @@ not `pub`, items of a trait, and the files of the tests (`rust_source.test_files
 Macros: the text of a `macro_rules!` body is read as written. A `pub` item in a template counts
 once, and its expansions do not count. A `pub` item in the text of a macro call counts, and a
 visibility token that the call passes on does not.
+
+Limit: a declaration macro whose template builds the items (`record!`, `text_type!`,
+`closed_enum!` and `rules!` of `archkeel-contract`) counts once in its template, not once for
+each call. So the counts of `archkeel-contract` miss about 90 public types, their accessors and
+their enum variants. The baseline still ratchets the hand-written items; a change of a macro
+call does not show. See `docs/known-limits.md`.
 """
 
 from __future__ import annotations

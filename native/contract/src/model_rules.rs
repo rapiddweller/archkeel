@@ -39,12 +39,12 @@ record!(pub(crate), SourceOwnership {
     source: Selector,
     mode: OwnershipMode,
     roles: Vec<OwnershipRole>,
-    symbols: Vec<String>,
-    parameters: Vec<String>,
+    symbols: Vec<Selector>,
+    parameters: Vec<Selector>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    owner: Option<String>,
+    owner: Option<Selector>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    value_owner: Option<String>,
+    value_owner: Option<Selector>,
 });
 
 record!(
@@ -101,7 +101,7 @@ record!(pub(crate), ProtocolSelector {
 record!(pub(crate), ProtocolDeclarations {
     head: RuleHead,
     source: Selector,
-    protocol: String,
+    protocol: Selector,
     selectors: Vec<ProtocolSelector>,
 });
 
@@ -139,7 +139,7 @@ record!(pub(crate), CatalogArgument {
     source: Selector,
     target: Selector,
     parameter: String,
-    catalog: String,
+    catalog: Selector,
     overlays: Vec<String>,
     source_match: SelectorMatch,
 });
@@ -147,7 +147,7 @@ record!(pub(crate), CatalogArgument {
 record!(pub(crate), CatalogUse {
     head: RuleHead,
     source: Selector,
-    catalog: String,
+    catalog: Selector,
     overlays: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     member: Option<String>,

@@ -48,7 +48,7 @@ mod words;
 
 pub use canonical::{canonical_bytes, canonical_digest};
 pub use contract::parse;
-pub use document::Contract;
+pub use document::{Contract, InsideRef, NeedsTree, ParsedContract};
 pub use error::{ErrorKind, ParseError};
 pub use model::*;
 pub use model_declarations::*;
