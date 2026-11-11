@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The collection request that the host writes and a native collector reads (3.0.0, 8.0.0, 9.0.0).
+//! The collection request that the host writes and a native collector reads (3.0.0, 8.0.0, 9.0.0,
+//! 10.0.0).
 //!
 //! The types are closed: an unknown field is a decode error. The JSON schema of the request is
 //! generated from them (`schema::request_schema`). A rule that a type cannot hold, such as the
@@ -30,6 +31,8 @@ pub struct Request<R = Resolver> {
 pub type TypeScriptRequest = Request<TypeScriptSettings>;
 /// A request for the Rust collector.
 pub type RustRequest = Request<RustSettings>;
+/// A request for the Python collector (10.0.0).
+pub type PythonRequest = Request<PythonSettings>;
 
 /// The snapshot to read.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -65,6 +68,8 @@ pub enum Resolver {
     TypeScript(TypeScriptSettings),
     #[serde(rename = "rust")]
     Rust(RustSettings),
+    #[serde(rename = "python")]
+    Python(PythonSettings),
 }
 
 /// The settings of the TypeScript collector.
@@ -87,6 +92,34 @@ pub struct TypeScriptSettings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RustSettings {}
+
+/// The settings of the Python collector (AD-334). Only protocol 10.0.0 carries them.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PythonSettings {
+    pub phase: PythonPhase,
+    pub interpreter: Interpreter,
+}
+
+closed! {
+    /// The part of the Python collection that the request asks for. Slice 1 has the import survey.
+    pub enum PythonPhase {
+        Imports = "imports",
+    }
+}
+
+/// What the host interpreter is, as one isolated child (`python -I`) sees it. The host builds it
+/// in one function (`analyzer/interpreter.py`); the collector reads it and never runs Python.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Interpreter {
+    /// `platform.python_version()`, for example `3.11.12`: the version that the facts claim.
+    pub version: String,
+    /// `sys.stdlib_module_names`, sorted.
+    pub stdlib_module_names: Vec<String>,
+    /// `sys.builtin_module_names`, sorted. The set depends on the build, not on the version.
+    pub builtin_module_names: Vec<String>,
+}
 
 fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Version, D::Error> {
     Version::deserialize(deserializer).map_err(|_| {
@@ -144,9 +177,7 @@ impl Request {
     pub fn typescript(self) -> Result<TypeScriptRequest, String> {
         match self.resolver.clone() {
             Resolver::TypeScript(settings) => Ok(self.with(settings)),
-            Resolver::Rust(_) => {
-                Err("TypeScript collector requires the TypeScript resolver".into())
-            }
+            _ => Err("TypeScript collector requires the TypeScript resolver".into()),
         }
     }
 
@@ -154,13 +185,27 @@ impl Request {
     pub fn rust(self) -> Result<RustRequest, String> {
         match self.resolver.clone() {
             Resolver::Rust(settings) => Ok(self.with(settings)),
-            Resolver::TypeScript(_) => Err("Rust collector requires the Rust resolver".into()),
+            _ => Err("Rust collector requires the Rust resolver".into()),
+        }
+    }
+
+    /// The request for the Python collector, or the message when it is for another language.
+    pub fn python(self) -> Result<PythonRequest, String> {
+        match self.resolver.clone() {
+            Resolver::Python(settings) => Ok(self.with(settings)),
+            _ => Err("Python collector requires the Python resolver".into()),
         }
     }
 
     /// Check the request, settings included.
     pub fn validate(&self) -> Result<(), String> {
         self.check()?;
+        let python = matches!(self.resolver, Resolver::Python(_));
+        match (python, self.protocol_version.is_python()) {
+            (true, false) => return Err("the Python resolver requires protocol 10.0.0".into()),
+            (false, true) => return Err("protocol 10.0.0 requires the Python resolver".into()),
+            _ => {}
+        }
         self.resolver.check()
     }
 }

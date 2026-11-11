@@ -41,6 +41,7 @@ use crate::stored::Store;
 /// Decode, validate and keep one reply in its typed form.
 fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
     let reply = decode::reply(payload, inflate_limit)?;
+    validate::version(reply.protocol_version)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;
     let places = records::records(&reply.facts, &validate::index(&reply.facts))?;

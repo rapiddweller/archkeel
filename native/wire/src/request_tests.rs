@@ -10,6 +10,7 @@ use super::*;
 use crate::protocol::{reply_version, Version};
 use archkeel_facts::envelope::{Dirty, UnknownDirty};
 use archkeel_facts::request::Request;
+use archkeel_facts::request::{PythonPhase, PythonRequest};
 
 fn request(version: &str) -> Value {
     json!({
@@ -60,8 +61,8 @@ fn a_field_that_the_request_does_not_know_or_a_wrong_type_is_refused() {
         ("/resolver/tsconfig", json!(null), "invalid type: null"),
         (
             "/resolver/language",
-            json!("python"),
-            "unknown variant `python`",
+            json!("dart"),
+            "unknown variant `dart`",
         ),
     ] {
         let mut value = request("8.0.0");
@@ -106,15 +107,17 @@ fn the_reply_version_is_the_version_the_host_accepts() {
     assert_eq!(reply_version(Version::V3), Version::V8);
     assert_eq!(reply_version(Version::V8), Version::V8);
     assert_eq!(reply_version(Version::V9), Version::V9);
+    assert_eq!(reply_version(Version::V10), Version::V10);
 }
 
 #[test]
 fn refuses_versions_the_typescript_host_never_sends() {
-    for version in ["1.0.0", "7.0.0", "10.0.0", ""] {
+    for version in ["1.0.0", "7.0.0", "11.0.0", ""] {
         let error = decoded(&request(version)).unwrap_err();
         assert!(
             error.contains(
-                "unsupported collection protocol version, expected one of 3.0.0, 8.0.0, 9.0.0"
+                "unsupported collection protocol version, expected one of 3.0.0, 8.0.0, 9.0.0, \
+                 10.0.0"
             ),
             "{error}"
         );
@@ -137,10 +140,10 @@ fn bundler_is_present_only_when_true() {
 #[test]
 fn refuses_other_languages_and_unsafe_paths() {
     let mut value = request("8.0.0");
-    value["resolver"] = json!({"language": "python"});
+    value["resolver"] = json!({"language": "dart"});
     assert!(decoded(&value)
         .unwrap_err()
-        .contains("unknown variant `python`"));
+        .contains("unknown variant `dart`"));
     let cases = [
         (
             "/snapshot/root",
@@ -220,6 +223,154 @@ fn a_rust_request_has_a_resolver_with_one_field() {
         decoded(&value).unwrap_err(),
         "TypeScript collector requires the TypeScript resolver"
     );
+}
+
+fn python(version: &str) -> Value {
+    let mut value = request(version);
+    value["scope"]["exclude_test_sources"] = json!(false);
+    value["resolver"] = json!({
+        "language": "python",
+        "phase": "imports",
+        "interpreter": {
+            "version": "3.11.12",
+            "stdlib_module_names": ["abc", "os"],
+            "builtin_module_names": ["sys"],
+        },
+    });
+    value
+}
+
+fn decoded_python(value: &Value) -> Result<PythonRequest, String> {
+    decode_python(&serde_json::to_vec(value).unwrap())
+}
+
+#[test]
+fn a_python_request_is_version_10_and_carries_the_interpreter_block() {
+    let value = python("10.0.0");
+    let typed = decoded_python(&value).unwrap();
+    assert_eq!(typed.protocol_version, Version::V10);
+    assert_eq!(typed.resolver.phase, PythonPhase::Imports);
+    assert_eq!(typed.resolver.interpreter.version, "3.11.12");
+    let whole: Request = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&whole).unwrap(), value);
+    assert_eq!(
+        decoded(&value).unwrap_err(),
+        "TypeScript collector requires the TypeScript resolver"
+    );
+}
+
+#[test]
+fn the_python_resolver_and_version_10_need_each_other() {
+    let mut old = python("9.0.0");
+    assert_eq!(
+        decoded_python(&old).unwrap_err(),
+        "the Python resolver requires protocol 10.0.0"
+    );
+    old["protocol_version"] = json!("8.0.0");
+    old["scope"]
+        .as_object_mut()
+        .unwrap()
+        .remove("exclude_test_sources");
+    assert!(decoded_python(&old).is_err());
+    let mut typescript = request("10.0.0");
+    typescript["scope"]["exclude_test_sources"] = json!(false);
+    assert_eq!(
+        decoded(&typescript).unwrap_err(),
+        "protocol 10.0.0 requires the Python resolver"
+    );
+}
+
+#[test]
+fn the_interpreter_block_is_closed_and_checked() {
+    let cases = [
+        (
+            "/resolver/interpreter/extra",
+            json!(1),
+            "unknown field `extra`",
+        ),
+        (
+            "/resolver/phase",
+            json!("providers"),
+            "unknown variant `providers`",
+        ),
+        (
+            "/resolver/interpreter/version",
+            json!("3.10.4"),
+            "Python 3.11 to 3.14",
+        ),
+        (
+            "/resolver/interpreter/version",
+            json!("3.15.0"),
+            "Python 3.11 to 3.14",
+        ),
+        (
+            "/resolver/interpreter/version",
+            json!("3.11"),
+            "a full Python version",
+        ),
+        (
+            "/resolver/interpreter/version",
+            json!("2.7.18"),
+            "a full Python version",
+        ),
+        (
+            "/resolver/interpreter/stdlib_module_names",
+            json!(["os", "abc"]),
+            "stdlib_module_names must be sorted and unique",
+        ),
+        (
+            "/resolver/interpreter/builtin_module_names",
+            json!(["sys", "sys"]),
+            "builtin_module_names must be sorted and unique",
+        ),
+        (
+            "/resolver/interpreter/builtin_module_names",
+            json!(["no-name"]),
+            "builtin_module_names must hold module names",
+        ),
+    ];
+    for (pointer, replacement, message) in cases {
+        let mut value = python("10.0.0");
+        let (parent, key) = pointer.rsplit_once('/').unwrap();
+        value.pointer_mut(parent).unwrap()[key] = replacement;
+        let error = decoded_python(&value).unwrap_err();
+        assert!(error.contains(message), "{pointer}: {error}");
+    }
+    let hostile = [
+        "3.11.1\u{0}",
+        "3.11.1 junk",
+        "+3.11.1",
+        "03.11.1",
+        "3.11.1.4",
+        "3.011.1",
+        "3.11.01",
+        "3.11.1rc",
+        "3.11.1x1",
+        "3.11.1++",
+        "3.11.",
+        "3.11.1+rc1",
+    ];
+    for version in hostile {
+        let mut value = python("10.0.0");
+        value["resolver"]["interpreter"]["version"] = json!(version);
+        let error = decoded_python(&value).unwrap_err();
+        assert!(
+            error.contains("a full Python version"),
+            "{version:?}: {error}"
+        );
+    }
+    for version in [
+        "3.14.0rc1",
+        "3.13.0a2",
+        "3.12.0b4",
+        "3.12.10+",
+        "3.13.0rc2+",
+        "3.11.0",
+    ] {
+        let mut value = python("10.0.0");
+        value["resolver"]["interpreter"]["version"] = json!(version);
+        assert!(decoded_python(&value).is_ok(), "{version}");
+    }
 }
 
 #[test]

@@ -6,7 +6,7 @@
 //! that is not valid, as `facts_codec.decode_request` does.
 
 use crate::identity::{inside, is_identifier};
-use crate::request::{Request, Resolver, Scope, Snapshot};
+use crate::request::{Interpreter, Request, Resolver, Scope, Snapshot};
 
 impl<R> Request<R> {
     /// Check the snapshot and the scope. The settings of a language check themselves.
@@ -74,8 +74,68 @@ impl Resolver {
         match self {
             Resolver::TypeScript(settings) => relative(&settings.tsconfig, "resolver.tsconfig"),
             Resolver::Rust(_) => Ok(()),
+            Resolver::Python(settings) => settings.interpreter.check(),
         }
     }
+}
+
+/// The minor versions of Python that the native collector parses (`CPYTHON_NATIVE_RUNTIMES`).
+const PYTHON_MINORS: std::ops::RangeInclusive<u32> = 11..=14;
+
+impl Interpreter {
+    fn check(&self) -> Result<(), String> {
+        let label = "resolver.interpreter.version";
+        let Some((3, minor)) = version_parts(&self.version) else {
+            return Err(format!(
+                "{label} must be a full Python version, such as 3.11.12"
+            ));
+        };
+        if !PYTHON_MINORS.contains(&minor) {
+            return Err(format!("{label} must be Python 3.11 to 3.14"));
+        }
+        module_names(&self.stdlib_module_names, "stdlib_module_names")?;
+        module_names(&self.builtin_module_names, "builtin_module_names")
+    }
+}
+
+/// The major and minor number of `platform.python_version()`: `major.minor.patch`, each a
+/// number without a sign or a leading zero. The patch can end with one release tag (`a`, `b` or
+/// `rc` and a number) and then one `+`, as a build from a development tree has.
+fn version_parts(version: &str) -> Option<(u32, u32)> {
+    let mut parts = version.split('.');
+    let (major, minor, patch) = (parts.next()?, parts.next()?, parts.next()?);
+    if parts.next().is_some() {
+        return None;
+    }
+    let patch = patch.strip_suffix('+').unwrap_or(patch);
+    let digits = patch.len() - patch.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    let (number, tag) = patch.split_at(digits);
+    let tag_ok = tag.is_empty()
+        || ["a", "b", "rc"]
+            .iter()
+            .any(|kind| tag.strip_prefix(kind).is_some_and(is_number));
+    if !(is_number(major) && is_number(minor) && is_number(number) && tag_ok) {
+        return None;
+    }
+    Some((major.parse().ok()?, minor.parse().ok()?))
+}
+
+/// Plain ASCII digits without a leading zero; `0` alone is a number.
+fn is_number(text: &str) -> bool {
+    !text.is_empty()
+        && text.bytes().all(|byte| byte.is_ascii_digit())
+        && (text == "0" || !text.starts_with('0'))
+}
+
+fn module_names(names: &[String], field: &str) -> Result<(), String> {
+    let label = format!("resolver.interpreter.{field}");
+    if !names.iter().all(|name| is_identifier(name)) {
+        return Err(format!("{label} must hold module names"));
+    }
+    if names.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(format!("{label} must be sorted and unique"));
+    }
+    Ok(())
 }
 
 fn text(value: &str, label: &str) -> Result<(), String> {
