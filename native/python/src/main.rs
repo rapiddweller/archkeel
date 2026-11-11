@@ -13,14 +13,24 @@
 // expectation fails the build once the parse is used, so it goes with that change.
 #[cfg_attr(
     not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c calls the parse")
+    expect(dead_code, reason = "slice 1c-2 calls the parse")
 )]
 mod depth;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c-2 writes the survey")
+)]
+mod discover;
 #[cfg(feature = "dump")]
 mod dump;
 #[cfg_attr(
     not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c calls the parse")
+    expect(dead_code, reason = "slice 1c-2 writes the survey")
+)]
+mod inputs;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c-2 calls the parse")
 )]
 mod identifier;
 #[cfg_attr(
@@ -30,12 +40,22 @@ mod identifier;
 mod limits;
 #[cfg_attr(
     not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c calls the parse")
+    expect(dead_code, reason = "slice 1c-2 writes the survey")
+)]
+mod names;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c-2 calls the parse")
 )]
 mod parse;
 #[cfg_attr(
     not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c calls the parse")
+    expect(dead_code, reason = "slice 1c-2 writes the survey")
+)]
+mod requirement;
+#[cfg_attr(
+    not(any(feature = "dump", test)),
+    expect(dead_code, reason = "slice 1c-2 calls the parse")
 )]
 mod source;
 #[cfg_attr(
@@ -73,6 +93,11 @@ fn run() -> Result<(), String> {
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode_python(&payload)?;
+    #[cfg(feature = "dump")]
+    if std::env::args().nth(1).as_deref() == Some("--dump-scope") {
+        println!("{}", dump::scope(&request));
+        return Ok(());
+    }
     Err(format!(
         "the phase {} of the native Python collector arrives in PR 5 slice 1c",
         request.resolver.phase.as_str()

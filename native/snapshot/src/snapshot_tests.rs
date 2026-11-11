@@ -91,3 +91,14 @@ fn a_file_over_the_size_limit_is_refused_once_and_then_at_once() {
     assert!(snapshot.size_gap("src/over.ts").is_some());
     assert!(snapshot.readable("src/ok.ts") && snapshot.readable("src/ok.ts"));
 }
+
+#[cfg(unix)]
+#[test]
+fn a_symlink_is_known_as_a_link_and_its_target_is_not() {
+    let tree = Tree::new(&[("src/pkg/a.py", "")]);
+    std::os::unix::fs::symlink("pkg", std::path::Path::new(&tree.path()).join("src/link")).unwrap();
+    let snapshot = Snapshot::new(&tree.path());
+    assert!(snapshot.is_link("src/link"));
+    assert!(!snapshot.is_link("src/pkg"));
+    assert!(!snapshot.is_link("../src"));
+}

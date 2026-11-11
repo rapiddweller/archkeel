@@ -52,6 +52,13 @@
 8. **Comparison of a failure record (lead, 2026-11-11).** The survey parity compares a syntax
    failure record on its file and its exception class; message, line and record id are the closed
    difference of points 6 and 7. The file gets a gap in both producers, never a PASS.
+9. **Scope (slice 1c-1).** `discover.rs`, `names.rs`, `inputs.rs` and `requirement.rs` copy
+   `selected_paths` (rglob: a directory named `*.py` is selected, a symlinked directory is not
+   entered), the test rule, `module_for`, the shadowed module (#797), `_inputs` (digest of
+   `path\0bytes\0`) and `python_requirement` (`toml` 0.8.23 reads TOML 1.0, as `tomllib`).
+   Proposed differences: a file over 4 MiB is no input (AD-319); an integer beyond 64 bits makes
+   `pyproject.toml` invalid; a dangling link, a name that is not UTF-8 and an unreadable directory
+   select nothing. The typed `ShadowedModule` gap waits: the 9.0.0 schema lacks the name.
 
 **Rejected.** (a) A JSON table for each version: it cannot hold the set of each build. (b) The
 tables of the host process: the host `sys.path` and site differ from the isolated child. (c) 10.0.0

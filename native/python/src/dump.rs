@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use crate::limits::scan;
 use crate::parse::parse;
 use crate::source::{decode, Lines};
+use crate::{discover, inputs, names, requirement};
 
 /// The outcome of one file: `null` for a tree, else the exception, the line and the message.
 fn outcome(raw: Option<Vec<u8>>, minor: u32) -> Value {
@@ -51,4 +52,38 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
         writeln!(out, "{row}").map_err(|error| format!("cannot write: {error}"))?;
     }
     Ok(())
+}
+
+/// `--dump-scope`: the scope of one 10.0.0 request as one JSON object (slice 1c-1).
+pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Value {
+    let mut snapshot = Snapshot::new(&request.snapshot.root);
+    let roots = &request.scope.roots;
+    let selected = discover::selected(&mut snapshot, roots, request.excludes_test_sources());
+    let namespace = &request.scope.namespace;
+    let modules: serde_json::Map<String, Value> = selected
+        .iter()
+        .map(|rel| {
+            let module = names::module_for(rel, namespace);
+            let package = module.as_deref().map(names::package_for);
+            (rel.clone(), json!([module, package]))
+        })
+        .collect();
+    let shadowed: Vec<Value> = names::shadowed(&selected, namespace)
+        .iter()
+        .map(|item| {
+            json!({"file": item.file, "module": item.module, "id": item.id(),
+                   "title": item.title(), "message": item.message()})
+        })
+        .collect();
+    let (inputs, source_digest) = inputs::inputs(&mut snapshot, &selected);
+    let (required, state) = requirement::requirement(&mut snapshot);
+    json!({
+        "selected": selected,
+        "modules": modules,
+        "shadowed": shadowed,
+        "inputs": inputs,
+        "source_digest": source_digest,
+        "required": required,
+        "requirement_state": state.as_str(),
+    })
 }
