@@ -23,6 +23,23 @@ use crate::tree::Module;
 /// The `macro_rules!` definitions of each crate, by name: the module, and the definition.
 type Defs<'a> = BTreeMap<(usize, &'a str), Vec<(&'a Module, &'a MacroDef)>>;
 
+/// The definitions of `name` that a call sees: each crate-wide one, and each one of a block that
+/// holds the call after the definition.
+fn visible<'a>(
+    defs: &Defs<'a>,
+    module: &Module,
+    call: &MacroCall,
+    name: &str,
+) -> Vec<(&'a Module, &'a MacroDef)> {
+    let all = defs.get(&(module.crate_index, name)).into_iter().flatten();
+    all.filter(|(owner, def)| {
+        def.local
+            .is_none_or(|local| owner.module == module.module && local.sees(&call.site))
+    })
+    .copied()
+    .collect()
+}
+
 impl Builder {
     pub(crate) fn module_edge(
         &mut self,
@@ -43,7 +60,7 @@ impl Builder {
             Outcome::Unknown(reason) => self.unreadable(module, reference, reason),
             Outcome::Edge(edge) => match &reference.in_macro {
                 None => self.module_import(index, module, reference, &edge),
-                Some(name) => self.macro_use(index, module, reference, edge, name),
+                Some(_) => self.macro_use(index, module, reference, edge),
             },
         }
     }
@@ -52,17 +69,10 @@ impl Builder {
     /// macro expands, so each call of the macro gets the edge (`macro_calls`). The definition keeps
     /// its own edge as `macro_body`, which no cycle or layer rule reads. Any other path in a body
     /// is relative to the place of the call: the scan does not know it, and each call is UNKNOWN.
-    fn macro_use(
-        &mut self,
-        index: &Index<'_>,
-        module: &Module,
-        reference: &Reference,
-        edge: Edge,
-        name: &str,
-    ) {
+    fn macro_use(&mut self, index: &Index<'_>, module: &Module, reference: &Reference, edge: Edge) {
         if reference.names.first().map(String::as_str) == Some("crate") {
             self.module_import(index, module, reference, &edge);
-            let key = (module.crate_index, name.to_owned());
+            let key = (module.module.clone(), reference.macro_id);
             self.macro_uses
                 .entry(key)
                 .or_default()
@@ -83,8 +93,8 @@ impl Builder {
 
     /// The body of a macro holds a path that the scan cannot read: each call of it is UNKNOWN.
     fn unread_macro(&mut self, module: &Module, reference: &Reference, reason: String) {
-        if let Some(name) = &reference.in_macro {
-            let key = (module.crate_index, name.clone());
+        if reference.in_macro.is_some() {
+            let key = (module.module.clone(), reference.macro_id);
             self.macro_unknowns.entry(key).or_default().push(reason);
         }
     }
@@ -110,9 +120,10 @@ impl Builder {
 
     fn expand(&mut self, index: &Index<'_>, defs: &Defs<'_>, module: &Module, call: &MacroCall) {
         let name = call.name.as_str();
-        let Some(found) = defs.get(&(module.crate_index, name)) else {
+        let found = visible(defs, module, call, name);
+        if found.is_empty() {
             return;
-        };
+        }
         let reason = match (found.len(), call.placed) {
             (1, true) => None,
             (1, false) => Some(format!(
@@ -133,27 +144,43 @@ impl Builder {
             if !seen.insert(next.clone()) {
                 continue;
             }
-            let key = (module.crate_index, next);
-            if let Some([(owner, def)]) = defs.get(&(key.0, key.1.as_str())).map(Vec::as_slice) {
+            if let [(owner, def)] = visible(defs, module, call, &next)[..] {
                 queue.extend(def.calls.iter().cloned());
-                self.call_edge(index, module, owner, (&key.1, &call.site));
-                self.unknown_expansion(module, call, def);
-            }
-            let uses = self.macro_uses.get(&key).cloned();
-            for (edge, reference) in uses.into_iter().flatten() {
-                let at = Reference {
-                    site: call.site.clone(),
-                    in_macro: None,
-                    ..reference
-                };
-                self.module_import(index, module, &at, &edge);
+                self.call_edge(index, module, owner, (&next, &call.site));
+                self.unknown_expansion(module, call, (owner, def));
+                self.expand_uses(index, module, call, (owner, def));
             }
         }
     }
 
+    /// The edges that the body of a macro names from the crate root, for the module of the call.
+    fn expand_uses(
+        &mut self,
+        index: &Index<'_>,
+        module: &Module,
+        call: &MacroCall,
+        (owner, def): (&Module, &MacroDef),
+    ) {
+        let key = (owner.module.clone(), def.id);
+        let uses = self.macro_uses.get(&key).cloned();
+        for (edge, reference) in uses.into_iter().flatten() {
+            let at = Reference {
+                site: call.site.clone(),
+                in_macro: None,
+                ..reference
+            };
+            self.module_import(index, module, &at, &edge);
+        }
+    }
+
     /// The call is UNKNOWN for each reason why the scan cannot read the body of the macro.
-    fn unknown_expansion(&mut self, module: &Module, call: &MacroCall, def: &MacroDef) {
-        let key = (module.crate_index, def.name.clone());
+    fn unknown_expansion(
+        &mut self,
+        module: &Module,
+        call: &MacroCall,
+        (owner, def): (&Module, &MacroDef),
+    ) {
+        let key = (owner.module.clone(), def.id);
         let found = self.macro_unknowns.get(&key).into_iter().flatten();
         let reasons: Vec<String> = def.unknowns.iter().chain(found).cloned().collect();
         for reason in reasons {

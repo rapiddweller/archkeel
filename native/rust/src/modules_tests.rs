@@ -270,3 +270,23 @@ fn edition_2015_starts_a_use_path_and_a_colon_path_at_the_crate_root() {
     let modern = crate_of("2018", "fn t() { ::b::make(); }");
     assert_eq!(outcome_in(&modern, "ns.app.a", "b::make"), Outcome::None);
 }
+
+#[test]
+fn a_leaf_that_has_the_name_of_its_own_first_segment_starts_at_a_crate_not_at_itself() {
+    let text =
+        "use dep::{dep, tool};\nuse dep::kinds::Kind;\nfn f() { Kind::A; tool::run(); dep(); }";
+    let files = [("src/lib.rs", text)];
+    assert_eq!(outcome(&files, "ns.app", "Kind::A"), Outcome::None);
+    assert_eq!(outcome(&files, "ns.app", "tool::run"), Outcome::None);
+    assert_eq!(outcome(&files, "ns.app", "dep::kinds::Kind"), Outcome::None);
+}
+
+#[test]
+fn a_leaf_with_the_name_of_its_first_segment_stays_unknown_when_a_glob_may_bring_in_the_name() {
+    let text = "use other::*;\nuse dep::{dep};\nuse dep::kinds::Kind;";
+    let files = [("src/lib.rs", text)];
+    assert!(matches!(
+        outcome(&files, "ns.app", "dep::kinds::Kind"),
+        Outcome::Unknown(_)
+    ));
+}

@@ -15,6 +15,7 @@ fn krate() -> Crate {
         lib_name: None,
         lib_path: None,
         bins: Vec::new(),
+        extra: Vec::new(),
         build: None,
         dependencies: BTreeMap::from([
             ("json_dep".to_owned(), "json_dep".to_owned()),

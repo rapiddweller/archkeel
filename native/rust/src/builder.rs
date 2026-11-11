@@ -67,10 +67,11 @@ pub(crate) struct Builder {
     pub(crate) manifests: Vec<String>,
     /// The request leaves test scope out: a dev-dependency is then no edge.
     pub(crate) exclude_tests: bool,
-    /// The modules that the body of each `macro_rules!` of a crate names from the crate root.
-    pub(crate) macro_uses: BTreeMap<(usize, String), Vec<(Edge, Reference)>>,
-    /// The reasons why the scan cannot read the body of each `macro_rules!` of a crate.
-    pub(crate) macro_unknowns: BTreeMap<(usize, String), Vec<String>>,
+    /// The modules that the body of each `macro_rules!` names from the crate root, by the module
+    /// of the file and the id of the definition in it.
+    pub(crate) macro_uses: BTreeMap<(String, usize), Vec<(Edge, Reference)>>,
+    /// The reasons why the scan cannot read the body of each `macro_rules!`, by the same key.
+    pub(crate) macro_unknowns: BTreeMap<(String, usize), Vec<String>>,
 }
 
 impl Builder {

@@ -102,6 +102,9 @@ pub struct Manifest {
     pub lib_name: Option<String>,
     pub lib_path: Option<String>,
     pub bins: Vec<Target>,
+    /// The `[[test]]`, `[[bench]]` and `[[example]]` entries that name a `path`. Cargo finds the
+    /// others by their directory, so only a named path adds a root.
+    pub extra: Vec<Target>,
     /// `None` when `build = false`; the path of the script when the key is a string.
     pub build: Option<Option<String>>,
     /// The name that source writes, and the package it stands for.
@@ -185,6 +188,7 @@ pub fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
         lib_name,
         lib_path: text(table, &["lib", "path"]).map(str::to_owned),
         bins: bins(table, &package),
+        extra: extra_targets(table),
         build: build(table),
         package,
         dependencies,
@@ -224,6 +228,34 @@ fn bins(table: &Table, package: &str) -> Vec<Target> {
             })
         })
         .collect()
+}
+
+/// The `[[test]]`, `[[bench]]` and `[[example]]` entries that name a `path`.
+fn extra_targets(table: &Table) -> Vec<Target> {
+    let mut found = Vec::new();
+    for (kind, key) in [
+        (TargetKind::Test, "test"),
+        (TargetKind::Bench, "bench"),
+        (TargetKind::Example, "example"),
+    ] {
+        let Some(Value::Array(items)) = get(table, &[key]) else {
+            continue;
+        };
+        for entry in items.iter().filter_map(Value::table) {
+            let (Some(name), Some(path)) = (
+                entry.get("name").and_then(Value::text),
+                entry.get("path").and_then(Value::text),
+            ) else {
+                continue;
+            };
+            found.push(Target {
+                kind,
+                name: name.to_owned(),
+                path: path.to_owned(),
+            });
+        }
+    }
+    found
 }
 
 /// Each entry of each dependency section, also below `[target.<name>.<section>]`.

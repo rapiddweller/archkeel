@@ -57,6 +57,57 @@ fn a_package_has_a_primary_root_and_named_secondary_roots() {
 }
 
 #[test]
+fn a_test_target_in_its_own_directory_or_named_by_a_path_is_a_secondary_root() {
+    let workspace = found(&[
+        (
+            "a/Cargo.toml",
+            "[package]\nname = \"app\"\n[[test]]\nname = \"named\"\npath = \"checks/entry.rs\"\n",
+        ),
+        ("a/src/lib.rs", ""),
+        ("a/tests/it/main.rs", "mod helper;"),
+        ("a/tests/it/helper.rs", ""),
+        ("a/benches/speed/main.rs", ""),
+        ("a/examples/demo/main.rs", ""),
+        ("a/checks/entry.rs", ""),
+    ]);
+    assert_eq!(workspace.problems, []);
+    let found: Vec<_> = workspace.crates[0]
+        .roots
+        .iter()
+        .map(|r| (r.module.as_str(), r.rel.as_str(), r.test))
+        .collect();
+    assert_eq!(
+        found,
+        [
+            ("ns.app.bench_speed", "a/benches/speed/main.rs", true),
+            ("ns.app.test_named", "a/checks/entry.rs", true),
+            ("ns.app.example_demo", "a/examples/demo/main.rs", true),
+            ("ns.app", "a/src/lib.rs", false),
+            ("ns.app.test_it", "a/tests/it/main.rs", true),
+        ]
+    );
+}
+
+#[test]
+fn a_test_target_path_that_the_scan_did_not_list_is_a_gap() {
+    let workspace = found(&[
+        (
+            "a/Cargo.toml",
+            "[package]\nname = \"app\"\n[[bench]]\nname = \"b\"\npath = \"gone.rs\"\n",
+        ),
+        ("a/src/lib.rs", ""),
+    ]);
+    assert_eq!(
+        workspace
+            .problems
+            .iter()
+            .map(|p| p.reason.as_str())
+            .collect::<Vec<_>>(),
+        ["The manifest names a source file that the scan did not list: a/gone.rs"]
+    );
+}
+
+#[test]
 fn without_a_library_the_main_binary_is_primary() {
     let workspace = found(&[
         ("Cargo.toml", "[package]\nname = \"app\"\n"),
