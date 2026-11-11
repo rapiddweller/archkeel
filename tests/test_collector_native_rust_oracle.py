@@ -82,8 +82,12 @@ def facts(rust_binary: Path) -> dict[str, Any]:
 
 
 def test_the_scan_of_native_is_complete(facts: dict[str, Any]) -> None:
-    assert facts["coverage"]["full_scope"] is True
-    assert facts["coverage"]["gaps"] == []
+    # AD-357: a method call that may reach an impl block in another module is a pair-scoped gap.
+    # The host drops the gaps that the contract allows, and native/expected-gaps.json pins the
+    # rest. Any other gap means the scan of native/ missed something.
+    gaps = facts["coverage"]["gaps"]
+    assert [gap["title"] for gap in gaps if not gap["data"].get("source_module")] == []
+    assert facts["coverage"]["full_scope"] is (not gaps)
     assert len(facts["files"]) == len(facts["coverage"]["selected_files"])
 
 
