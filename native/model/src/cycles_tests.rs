@@ -129,3 +129,35 @@ fn disconnected_cycles_are_sorted_by_id() {
     assert_eq!(ids, sorted);
     assert_eq!(found.len(), 2);
 }
+
+#[test]
+fn a_package_cycle_names_each_backing_module_cycle_sorted_by_id() {
+    // Three module cycles cross the packages shop.a and shop.b: each backs the package cycle.
+    // The walk meets them in name order (a.v, a.w, a.x), and their ids are in another order.
+    let mut all = files();
+    for (module, package) in [("shop.a.w", "shop.a"), ("shop.b.u", "shop.b")] {
+        all.push(file(module, package));
+    }
+    for (module, package) in [("shop.a.v", "shop.a"), ("shop.b.t", "shop.b")] {
+        all.push(file(module, package));
+    }
+    let imports = [
+        import("I1", "shop.a.x", "shop.b.z"),
+        import("I2", "shop.b.z", "shop.a.x"),
+        import("I3", "shop.a.w", "shop.b.u"),
+        import("I4", "shop.b.u", "shop.a.w"),
+        import("I5", "shop.a.v", "shop.b.t"),
+        import("I6", "shop.b.t", "shop.a.v"),
+    ];
+    let found = cycles_of(&all, &imports);
+    let walked = [
+        id("module", &["shop.a.v", "shop.b.t"]),
+        id("module", &["shop.a.w", "shop.b.u"]),
+        id("module", &["shop.a.x", "shop.b.z"]),
+    ];
+    let mut backers = walked.to_vec();
+    backers.sort();
+    assert_ne!(backers, walked);
+    let package_cycle = found.iter().find(|c| c.level() == Level::Package).unwrap();
+    assert_eq!(package_cycle.backed_by(), Some(&backers[..]));
+}
