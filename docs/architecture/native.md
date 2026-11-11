@@ -135,6 +135,8 @@ flowchart LR
     n_38["py-parse"]
     n_39["py-dump"]
     n_40["py-entry"]
+    n_44["py-scope"]
+    n_45["py-inputs"]
     n_10 --> n_12
     n_10 --> n_13
     n_10 --> n_14
@@ -281,4 +283,11 @@ flowchart LR
     n_36 --> n_3
     n_25 --> n_43
     n_19 --> n_43
+    n_44 --> n_4
+    n_44 --> n_14
+    n_45 --> n_4
+    n_45 --> n_14
+    n_39 --> n_4
+    n_39 --> n_44
+    n_39 --> n_45
 ```
