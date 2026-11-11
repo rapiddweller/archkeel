@@ -287,6 +287,13 @@ impl<'a> Index<'a> {
                 let at = lexical(frame, &binding.scope);
                 let mut full = binding.names.clone();
                 full.extend_from_slice(&names[1..]);
+                // The only declaration of the name is this leaf, and its path starts with the
+                // same name: the path cannot start at the leaf itself (`use dep::{dep}`). It
+                // starts at a crate, and the name is no declaration for it.
+                if binding.names.first() == Some(first) {
+                    let unbound = self.unbound(frame, &full, (&at, hops), false);
+                    return unbound.unwrap_or(Outcome::None);
+                }
                 self.path(frame, &full, binding.absolute, (&at, false), hops + 1)
             }
             None => self.follow(&child, 1, &names[1..]),

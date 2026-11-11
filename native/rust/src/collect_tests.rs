@@ -401,3 +401,45 @@ fn a_production_module_file_in_a_test_directory_is_a_gap() {
     assert_eq!(reasons.len(), 1, "{reasons:?}");
     assert!(reasons[0].contains("helpers/tests/mod.rs"), "{reasons:?}");
 }
+
+const TEST_CRATE: [(&str, &str); 5] = [
+    (
+        "crates/Cargo.toml",
+        "[package]\nname = \"a\"\n[dependencies]\nserde_json = \"1\"\n",
+    ),
+    ("crates/src/lib.rs", "pub fn f() {}"),
+    (
+        "crates/tests/it/main.rs",
+        "mod helper;\nuse serde_json::Value;",
+    ),
+    ("crates/tests/it/helper.rs", "use serde_json::Map;"),
+    ("crates/benches/b.rs", "use serde_json::Number;"),
+];
+
+fn modules_of(facts: &Collected) -> Vec<&str> {
+    facts.head.files.iter().map(|f| f.module.as_str()).collect()
+}
+
+#[test]
+fn an_integration_test_target_is_a_crate_root_with_its_modules_and_edges() {
+    let facts = run(&TEST_CRATE, false);
+    assert_eq!(reasons(&facts), Vec::<String>::new());
+    let modules = modules_of(&facts);
+    for expected in ["ns.a.test_it", "ns.a.test_it.helper", "ns.a.bench_b"] {
+        assert!(modules.contains(&expected), "{expected} in {modules:?}");
+    }
+    let sources: BTreeSet<&str> = facts
+        .imports
+        .iter()
+        .map(|record| record.data.data().source_module.as_str())
+        .collect();
+    assert!(sources.contains("ns.a.test_it.helper"), "{sources:?}");
+    assert!(sources.contains("ns.a.bench_b"), "{sources:?}");
+}
+
+#[test]
+fn an_excluded_test_target_leaves_no_gap_and_no_module() {
+    let facts = run(&TEST_CRATE, true);
+    assert_eq!(reasons(&facts), Vec::<String>::new());
+    assert_eq!(modules_of(&facts), ["ns.a.cargo_toml", "ns.a"]);
+}

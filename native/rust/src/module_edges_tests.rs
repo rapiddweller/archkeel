@@ -296,3 +296,67 @@ fn a_path_into_another_crate_of_the_workspace_names_the_deepest_module() {
         .collect();
     assert_eq!(targets, ["ns.base_crate.deep"]);
 }
+
+fn gap_titles(files: &[(&str, &str)]) -> Vec<String> {
+    let mut all = vec![APP_MANIFEST];
+    all.extend_from_slice(files);
+    let facts = run(&all, false);
+    facts.gaps.iter().map(|g| g.title.clone()).collect()
+}
+
+const LOCAL_MACROS: &str =
+    "fn one() {\n    macro_rules! m { () => { crate::b::f() }; }\n    m!();\n}\n\
+    fn two() {\n    macro_rules! m { () => { crate::c::f() }; }\n    m!();\n}\n";
+
+#[test]
+fn a_macro_of_a_function_body_is_scoped_to_that_body_and_its_path_is_an_edge() {
+    let files = [
+        ("crates/app/src/lib.rs", "mod a;\nmod b;\nmod c;\n"),
+        ("crates/app/src/a.rs", LOCAL_MACROS),
+        ("crates/app/src/b.rs", "pub fn f() {}"),
+        ("crates/app/src/c.rs", "pub fn f() {}"),
+    ];
+    assert_eq!(gap_titles(&files), Vec::<String>::new());
+    let found = module_edges(&files);
+    for target in ["ns.app.b", "ns.app.c"] {
+        let edge = |r: &&Row| r.0 == "import" && r.1 == "ns.app.a" && r.2 == target;
+        assert_eq!(found.iter().filter(edge).count(), 1, "{target}: {found:?}");
+    }
+}
+
+#[test]
+fn two_macros_that_one_call_sees_are_unknown_and_a_call_outside_the_body_sees_none() {
+    let both = LOCAL_MACROS.replace("fn two() {", "fn two() {\n    macro_rules! m { () => {}; }");
+    let nested = format!("{both}fn after() {{ m!(); }}\n");
+    let files = [
+        ("crates/app/src/lib.rs", "mod a;\nmod b;\nmod c;\n"),
+        ("crates/app/src/a.rs", nested.as_str()),
+        ("crates/app/src/b.rs", "macro_rules! m { () => {}; }"),
+        ("crates/app/src/c.rs", "pub fn f() {}"),
+    ];
+    let titles = gap_titles(&files);
+    // `two` sees its own definition and the one of `b`; `one` and `after` see only the crate-wide one.
+    let twice = "The macro m! is defined more than once in the crate";
+    assert_eq!(
+        titles.iter().filter(|t| *t == twice).count(),
+        2,
+        "{titles:?}"
+    );
+}
+
+#[test]
+fn a_call_before_the_macro_of_a_body_does_not_see_it() {
+    let files = [
+        ("crates/app/src/lib.rs", "mod a;\nmod b;\n"),
+        (
+            "crates/app/src/a.rs",
+            "fn t() {\n    m!();\n    macro_rules! m { () => { crate::b::f() }; }\n}\n",
+        ),
+        ("crates/app/src/b.rs", "pub fn f() {}"),
+    ];
+    let found = module_edges(&files);
+    assert!(
+        found.iter().all(|r| r.2 != "ns.app.b" || r.0 != "import"),
+        "{found:?}"
+    );
+}

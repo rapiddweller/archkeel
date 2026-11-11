@@ -241,6 +241,7 @@ impl Workspace {
             .lib_path
             .iter()
             .chain(manifest.bins.iter().map(|bin| &bin.path))
+            .chain(manifest.extra.iter().map(|target| &target.path))
             .chain(build);
         for path in named {
             let Some(rel) = normalize(&join(dir, path)).filter(|rel| !files.contains(rel)) else {
@@ -312,6 +313,7 @@ fn declared(manifest: &Manifest, dir: &str, files: &[String]) -> Vec<(Target, St
         path: lib,
     });
     targets.extend(manifest.bins.iter().cloned());
+    targets.extend(manifest.extra.iter().cloned());
     targets.push(Target {
         kind: TargetKind::Bin,
         name: manifest.package.clone(),
@@ -323,22 +325,7 @@ fn declared(manifest: &Manifest, dir: &str, files: &[String]) -> Vec<(Target, St
         (TargetKind::Example, "examples"),
         (TargetKind::Bench, "benches"),
     ] {
-        let prefix = join(dir, folder) + "/";
-        for file in files {
-            let Some(name) = file
-                .strip_prefix(&prefix)
-                .and_then(|n| n.strip_suffix(".rs"))
-            else {
-                continue;
-            };
-            if !name.contains('/') {
-                targets.push(Target {
-                    kind,
-                    name: name.to_owned(),
-                    path: format!("{folder}/{name}.rs"),
-                });
-            }
-        }
+        targets.extend(discovered(kind, folder, &join(dir, folder), files));
     }
     match &manifest.build {
         Some(Some(path)) => targets.push(Target {
@@ -365,6 +352,31 @@ fn declared(manifest: &Manifest, dir: &str, files: &[String]) -> Vec<(Target, St
         }
     }
     resolved
+}
+
+/// The targets that Cargo finds in `folder`: `folder/name.rs` and `folder/name/main.rs`.
+fn discovered(kind: TargetKind, folder: &str, below: &str, files: &[String]) -> Vec<Target> {
+    let prefix = format!("{below}/");
+    let mut found = Vec::new();
+    for file in files {
+        let Some(rest) = file.strip_prefix(&prefix) else {
+            continue;
+        };
+        let name = match rest.split('/').collect::<Vec<_>>()[..] {
+            [leaf] => leaf.strip_suffix(".rs"),
+            [name, "main.rs"] => Some(name),
+            _ => None,
+        };
+        if let Some(name) = name {
+            let path = rest.to_owned();
+            found.push(Target {
+                kind,
+                name: name.to_owned(),
+                path: format!("{folder}/{path}"),
+            });
+        }
+    }
+    found
 }
 
 #[cfg(test)]

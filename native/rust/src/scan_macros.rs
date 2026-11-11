@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
-use super::{MacroCall, MacroDef, Walker, KNOWN_MACROS};
+use super::{Local, MacroCall, MacroDef, Walker, KNOWN_MACROS};
 use crate::net;
 use crate::tokens::{chains, macro_names, names_relative, plain, string_paths};
 
@@ -26,11 +26,11 @@ impl Walker<'_> {
             .first()
             .map_or(Span::call_site(), |s| s.ident.span());
         let name = node.ident.as_ref().map_or(String::new(), plain);
-        if node
+        let exported = node
             .attrs
             .iter()
-            .any(|attr| attr.path().is_ident("macro_export"))
-        {
+            .any(|attr| attr.path().is_ident("macro_export"));
+        if exported {
             let reason = format!(
                 "The macro_rules! definition {name} is exported: it expands in other crates"
             );
@@ -64,10 +64,23 @@ impl Walker<'_> {
         let unknowns = (self.out.concerns.iter().skip(first_unknown))
             .map(|concern| concern.reason.clone())
             .collect();
+        // A macro of a function body is scoped to the rest of that body. An exported one is also
+        // a path at the crate root, so it stays crate-wide.
+        let from = self.site(span);
+        let local = self
+            .block_ends
+            .last()
+            .filter(|_| !exported)
+            .map(|until| Local {
+                from: (from.line, from.column),
+                until: *until,
+            });
         self.out.macro_defs.push(MacroDef {
             name,
+            id: self.out.macro_defs.len(),
             calls,
             unknowns,
+            local,
         });
         for attr in &node.attrs {
             self.attribute(attr);
