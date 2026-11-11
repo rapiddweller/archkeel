@@ -221,7 +221,7 @@ impl<'a> Number<'a> {
 /// `version < (2, 12) or version > (3, 12)`, or a number that Python `int` refuses.
 fn out_of_range(major: Number<'_>, minor: Number<'_>) -> bool {
     let version = (major.value(), minor.value());
-    major.too_long() || minor.too_long() || version < (2, 12) || version > (3, 12)
+    major.too_long() || minor.too_long() || !((2, 12)..=(3, 12)).contains(&version)
 }
 
 /// The match after `^\s*` at `at`: the major and the minor version and the end of the match.
