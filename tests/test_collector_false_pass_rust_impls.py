@@ -225,3 +225,59 @@ def test_pair_gaps_that_may_form_a_component_cycle_give_no_pass(
     )
 
     assert _verdict(result, "NO-CYCLES") == "UNKNOWN", result["diagnostics"]
+
+
+def test_a_known_edge_from_another_module_of_the_component_closes_the_cycle(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Review of #1017: A = {a}, B = {b, e}; each requires the other. The gap a -> b and the known
+    # edge e -> a close a component cycle, although b itself does not reach a.
+    files = {
+        "lib.rs": LIB + "mod e;\n",
+        "c.rs": TYPE,
+        "b.rs": IMPL_METHOD["b.rs"],
+        "a.rs": IMPL_METHOD["a.rs"],
+        "e.rs": "pub fn g(s: &crate::c::S) {\n    crate::a::f(s);\n}\n",
+    }
+    base, root, part_a, _, part_c = _modules(("b", "c"), files)
+    part_b = component("b", "app.b", ("a", "c"))
+    part_b["packages"] = ["native.app.b", "native.app.e"]
+    components = (base, root, part_a, part_b, part_c)
+    result = validate(
+        repository(tmp_path, rust_binary, _sources(files), components=components), capsys
+    )
+
+    assert _verdict(result, "NO-CYCLES") != "PASS", result["diagnostics"]
+    assert result["declared_rules"] != "PASS"
+
+
+IMPL_PATHS = {
+    **IMPL_METHOD,
+    "b.rs": "impl crate::c::S {\n    pub fn m(&self) {}\n    pub fn new() {}\n}\n",
+}
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        pytest.param(
+            "pub fn f(s: &crate::c::S) {\n    <crate::c::S>::m(s);\n}\n", id="qualified self"
+        ),
+        pytest.param(
+            "use crate::c::S as Q;\npub fn f(s: &Q) {\n    Q::m(s);\n}\n", id="renamed use"
+        ),
+        pytest.param(
+            "type Al = crate::c::S;\npub fn f(s: &Al) {\n    Al::m(s);\n}\n", id="type alias"
+        ),
+        pytest.param("use crate::c::*;\npub fn f() {\n    S::new();\n}\n", id="glob-imported type"),
+    ],
+)
+def test_a_path_call_that_the_scan_cannot_resolve_exactly_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], caller: str
+) -> None:
+    # Review of #1017: cargo gives E0599 in a for each form when `mod b;` is deleted.
+    files = {**IMPL_PATHS, "a.rs": caller}
+    rules = (*CRATE_RULES, NO_A_TO_B)
+    result = validate(repository(tmp_path, rust_binary, _sources(files), rules=rules), capsys)
+
+    assert _verdict(result, "NO-A-TO-B") in {"FAIL", "UNKNOWN"}, result["diagnostics"]
