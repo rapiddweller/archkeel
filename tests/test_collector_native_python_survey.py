@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from first_difference import same
 from test_collector_native_python_scope import _FIXTURES
 
 from archkeel.analyzer.interpreter import interpreter, python_request
@@ -94,7 +95,7 @@ def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> 
         request = _request(root, roots, namespace, exclude)
         expected, found = _python(request), _native(binary, request)
         for section in ("files", "imports", "evidence"):
-            assert _text(found[section]) == _text(expected[section]), (root, exclude, section)
+            same(_text(found[section]), _text(expected[section]), (root, exclude, section))
 
 
 def _tree(root: Path, files: dict[str, str]) -> Path:
