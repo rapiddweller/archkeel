@@ -17,10 +17,11 @@ EXPECTED_RULES = [
     ("NATIVE-EXTERNAL-TREE-SITTER", "external_dependency_scope"),
     ("NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT", "external_dependency_scope"),
     ("NATIVE-EXTERNAL-SYN", "external_dependency_scope"),
+    ("NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE", "external_dependency_scope"),
 ]
 
 
-def test_the_native_contract_keeps_its_seven_rules() -> None:
+def test_the_native_contract_keeps_its_eight_rules() -> None:
     rules = json.loads(CONTRACT.read_text(encoding="utf-8"))["rules"]
     assert [(rule["id"], rule["kind"]) for rule in rules] == EXPECTED_RULES
 

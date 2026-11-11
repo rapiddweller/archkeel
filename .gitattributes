@@ -20,6 +20,12 @@ native/**/*.rs text eol=lf
 native/**/Cargo.toml text eol=lf
 native/**/Cargo.lock text eol=lf
 native/**/rust-toolchain.toml text eol=lf
+native/**/*.c text eol=lf
+native/**/*.h text eol=lf
+
+# AD-342: the vendored parser of tree-sitter-dart 0.1.0 is generated code.
+native/dart-grammar/vendor/** linguist-vendored
+native/dart-grammar/vendor/src/parser.c linguist-generated
 
 # Vendor provenance authenticates the original bytes.
 src/archkeel/render/assets/elkjs-0.12.0.bundled.js -text

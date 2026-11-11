@@ -25,6 +25,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-dart-grammar"
+version = "0.0.0"
+dependencies = [
+ "cc",
+ "sha2",
+ "tree-sitter",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "archkeel-facts"
 version = "0.0.0"
 dependencies = [

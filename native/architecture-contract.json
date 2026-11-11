@@ -112,6 +112,24 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-DART-GRAMMAR",
+      "label": "dart-grammar",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_grammar"
+      ],
+      "responsibilities": [
+        "Expose the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, which the Python collector also loads, as one Tree-sitter language (AD-342)."
+      ],
+      "forbidden_responsibilities": [
+        "Parsing source, collecting facts and reading a snapshot."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-TS-INPUT",
       "label": "ts-input",
       "role": "component",
@@ -1220,6 +1238,20 @@
       "rationale": "Only the Rust collector parses Rust source with syn.",
       "provenance": [
         "docs/architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE",
+      "kind": "external_dependency_scope",
+      "dependency": "tree_sitter_language",
+      "allowed_sources": [
+        "native.archkeel_dart_grammar",
+        "native.archkeel_dart_grammar.cargo_toml"
+      ],
+      "rationale": "Only a grammar crate links a C parser to a Tree-sitter language; a collector gets the language from the grammar crate.",
+      "provenance": [
+        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
       ],
       "decided_by": "architect"
     }

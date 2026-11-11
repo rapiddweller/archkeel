@@ -10,8 +10,9 @@
 //! `analyzer/runtime.collector_provenance` digests the Python collector: the relative path, a NUL,
 //! the bytes, a NUL. It is the same on every platform.
 //!
-//! The inputs come from the workspace tree, not from a list: every `.rs` file and every
-//! `Cargo.toml` under `native/`, plus `Cargo.lock` and `rust-toolchain.toml`. A new crate or a
+//! The inputs come from the workspace tree, not from a list: every `.rs`, `.c` and `.h` file and
+//! every `Cargo.toml` under `native/`, plus `Cargo.lock` and `rust-toolchain.toml`. The C files
+//! are the vendored parser of a grammar crate (AD-342), which the binary links. A new crate or a
 //! new directory of a crate therefore changes the digest. Each input and each directory under
 //! `native/` is a `rerun-if-changed` path, so cargo runs this script again when an input changes
 //! or a file or directory appears. The root directory is not a rerun path: it holds `target/`,
@@ -103,7 +104,10 @@ fn walk(directory: &Path, inputs: &mut Vec<PathBuf>, directories: &mut Vec<PathB
 }
 
 fn is_input(name: &str) -> bool {
-    name.ends_with(".rs") || matches!(name, "Cargo.toml" | "Cargo.lock" | "rust-toolchain.toml")
+    [".rs", ".c", ".h"]
+        .iter()
+        .any(|suffix| name.ends_with(suffix))
+        || matches!(name, "Cargo.toml" | "Cargo.lock" | "rust-toolchain.toml")
 }
 
 // `rustc 1.88.0 (6b00bc388 2025-06-23)` gives `1.88.0`.

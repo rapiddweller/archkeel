@@ -1,0 +1,45 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-dart-grammar"
+description = "The vendored Dart grammar of the native Dart collector (tree-sitter-dart 0.1.0, MIT)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[dependencies]
+# The grammar crate gives a `LanguageFn`. It does not parse: only a collector crate depends on
+# `tree-sitter` (deny.toml, AD-327).
+tree-sitter-language = "0.1"
+
+[dev-dependencies]
+# Test only (AD-342): the parity test parses the corpus with the vendored grammar.
+sha2.workspace = true
+tree-sitter.workspace = true
+
+[build-dependencies]
+cc = "1.2"
+
+# AD-342: the workspace forbids `unsafe_code`, and a forbid cannot be lifted for one item. The
+# link to the C parser needs one `unsafe` call, so this crate denies `unsafe_code` and allows it
+# on that one item. The other lints are the same as the workspace lints.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"
+too_many_lines = "warn"
+too_many_arguments = "warn"
+cognitive_complexity = "warn"
+excessive_nesting = "warn"

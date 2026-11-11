@@ -67,4 +67,4 @@ from the Python functions. `make native-check` runs format, lint, `cargo deny`, 
 `tests/test_native_ci.py` checks the pinned `cargo deny` and the PR gate job.
 
 **Note (2026-11-09, issue #880).** `ARCHKEEL_CODE_DIGEST` covers each `.rs` and `Cargo.toml` outside
-`target/`. A new crate or directory changes it; `test_collector_native_digest.py` checks this.
+`target/`, and since AD-342 each `.c` and `.h`. A new crate or directory changes it; `test_collector_native_digest.py` checks this.
