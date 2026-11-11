@@ -105,6 +105,25 @@ CASES = {
         "src/a/a.ts": 'import type { T } from "../b/t";\nexport type X = T;\n',
         "src/a/g.js": "this.x();\n",
     },
+    # The window outside a frame: a use through `top` or `parent` is never silent (#988).
+    "top-as-script-root": {
+        "src/a/a.js": "top.x();\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
+    "parent-as-script-root": {
+        "src/a/a.js": "parent.x();\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
+    # A directive reads its attributes in any order and any case, as tsc does (#988).
+    "amd-dependency-with-the-name-first": {
+        "src/a/a.ts": '/// <amd-dependency name="n" path="../b/t" />\nexport const a = 1;\n',
+    },
+    "amd-dependency-in-capitals": {
+        "src/a/a.ts": '/// <AMD-DEPENDENCY PATH="../b/t" />\nexport const a = 1;\n',
+    },
+    "reference-with-an-attribute-first": {
+        "src/a/a.ts": '/// <reference preserve="true" path="../b/t.ts" />\nexport const a = 1;\n',
+    },
     "frames-as-script-root": {
         "src/a/a.js": "frames.x();\n",
         "src/b/b.js": "window.x = 1;\n",
