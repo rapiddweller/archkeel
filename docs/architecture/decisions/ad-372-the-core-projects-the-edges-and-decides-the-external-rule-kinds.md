@@ -37,7 +37,7 @@ list in the core would name a language.
 `_external_completeness_violations`. They go when the store path is the only path.
 
 **Differences to Python (all equal or stricter).**
-- A rule that Python passes is a named gap of S4: 18 `external_dependency_scope` and 19
+- A rule that Python passes is a named gap of S4: 19 `external_dependency_scope` and 20
   `complete_external_scope` rules of the corpus.
 - A Python UNKNOWN for a cause that S2 does not see (a hidden Rust edge, the subject check of
   another rule) is the same named gap: 7 and 2 rules.
@@ -54,7 +54,7 @@ store accepts (TypeScript and Rust). When the store accepts another profile, the
 whether that profile marks them. The dual-run shell reads the standard library from
 `ir/profiles.py`; the host shell owns that table when `ir/` goes. `make dual-run` with the S2
 families compares 5 FAIL and 5 UNKNOWN `external_dependency_scope` and 3 FAIL and 7 UNKNOWN
-`complete_external_scope` rules as equal, and 2 046 edge rows on 179 cases; the 15 cases `s2/*`
+`complete_external_scope` rules as equal, and 2 058 edge rows on 180 cases; the 15 cases `s2/*`
 give the FAIL and UNKNOWN cases of AD-360 point 10.
 
 **Tests.** `native/model/src/edges_tests.rs`, `native/eval/src/external_tests.rs`,
