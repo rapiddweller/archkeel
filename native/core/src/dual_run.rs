@@ -145,17 +145,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
     };
-    let reply = match request.reply {
-        None => ReplyCheck::Absent("the request carries no collector reply".to_owned()),
-        Some(bytes) => match engine.answer(Request::Ingest {
-            reply: hex(&bytes.hex)?,
-            inflate_limit: INFLATE_LIMIT,
-        }) {
-            Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
-            Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
-            other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
-        },
-    };
+    let reply = ingest(&mut engine, request.reply)?;
     let rows = match engine.answer(Request::Sections(sections)) {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
@@ -223,6 +213,24 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     };
     let frame = serde_json::to_vec(&frame).map_err(|error| error.to_string())?;
     Ok(Answered { frame, names_a_gap })
+}
+
+/// What the engine knows of the reply of the request, after it ingests the reply.
+fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, String> {
+    let Some(bytes) = reply else {
+        let absent = "the request carries no collector reply".to_owned();
+        return Ok(ReplyCheck::Absent(absent));
+    };
+    Ok(
+        match engine.answer(Request::Ingest {
+            reply: hex(&bytes.hex)?,
+            inflate_limit: INFLATE_LIMIT,
+        }) {
+            Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
+            Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
+            other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
+        },
+    )
 }
 
 /// The bytes of a hex text.
