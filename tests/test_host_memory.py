@@ -29,6 +29,7 @@ from archkeel.ir.codec import (
     write_json,
 )
 from archkeel.ir.codec_strings import StringTablePolicy, intern_strings
+from archkeel.ir.codec_wire import raw_fields
 from archkeel.ir.graph_codec import report_bytes, report_payload
 from archkeel.ir.model import CLASSIFIED_SECTIONS, Observation
 from archkeel.ir.report_graph import architecture_report
@@ -61,6 +62,32 @@ def test_a_repeated_string_has_one_reference_object() -> None:
     assert table == [text]
     assert references == ["$0"] * 4
     assert len({id(reference) for reference in references}) == 1
+
+
+def test_raw_fields_equal_the_json_of_asdict_and_share_the_leaves(
+    observation: Observation,
+) -> None:
+    records = [record for section in observation.sections for record in section.records]
+    values = [observation, observation.coverage, *observation.evidence, *records]
+
+    for value in values:
+        assert _dumps(raw_fields(value), _COMPACT) == _dumps(asdict(value), _COMPACT)
+    assert raw_fields(records[0])["id"] is records[0].id
+
+
+def test_an_encoder_stops_cyclic_collection_and_restores_the_state_of_the_caller() -> None:
+    with codec_wire.without_cycle_collection():
+        with codec_wire.without_cycle_collection():
+            assert not gc.isenabled()
+        assert not gc.isenabled()
+    assert gc.isenabled()
+    gc.disable()
+    try:
+        with codec_wire.without_cycle_collection():
+            pass
+        assert not gc.isenabled()
+    finally:
+        gc.enable()
 
 
 _VALUES = [

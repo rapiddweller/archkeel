@@ -5,10 +5,14 @@
 
 from __future__ import annotations
 
+import gc
 import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import Field, fields
 from io import BytesIO
-from typing import Any, BinaryIO
+from operator import attrgetter
+from typing import Any, BinaryIO, ClassVar, Protocol, TypeAlias
 
 from archkeel.ir.facts import EVIDENCE_FIELDS, RECORD_FIELDS
 from archkeel.ir.model import JsonValue, RecordData
@@ -38,18 +42,54 @@ def _strings(raw: object, label: str) -> tuple[str, ...]:
     return tuple(raw)
 
 
-def _raw_object(value: dict[str, Any]) -> dict[str, RawJson]:
-    return {key: _raw_value(item) for key, item in value.items()}
-
-
 def _raw_value(value: JsonValue | dict[str, Any] | tuple[Any, ...]) -> RawJson:
     if isinstance(value, RecordData):
         return {key: _raw_value(item) for key, item in value.entries}
     if isinstance(value, tuple):
         return [_raw_value(item) for item in value]
     if isinstance(value, dict):
-        return _raw_object(value)
+        return {key: _raw_value(item) for key, item in value.items()}
     return value
+
+
+class _Data(Protocol):  # The structural form of `_typeshed.DataclassInstance`.
+    __dataclass_fields__: ClassVar[dict[str, Field[object]]]
+
+
+_Item: TypeAlias = "str | float | None | _Data | tuple[_Item, ...] | list[_Item] | dict[str, _Item]"
+_FIELD_READERS: dict[type, tuple[tuple[str, ...], attrgetter[tuple[_Item, ...]]]] = {}
+
+
+def raw_fields(value: _Data) -> dict[str, RawJson]:
+    """The JSON tree of `_raw_object(asdict(value))`. The frozen leaves are shared, not copied."""
+    if type(value) not in _FIELD_READERS:
+        names = tuple(field.name for field in fields(value))
+        # The first name again makes `attrgetter` return a tuple for a value with one field too.
+        _FIELD_READERS[type(value)] = (names, attrgetter(*names, *names[:1]))
+    names, read = _FIELD_READERS[type(value)]
+    return {name: _raw_field(item) for name, item in zip(names, read(value), strict=False)}
+
+
+def _raw_field(value: _Item) -> RawJson:
+    if isinstance(value, str | int | float) or value is None:
+        return value
+    if isinstance(value, tuple | list):
+        return [_raw_field(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _raw_field(item) for key, item in value.items()}
+    return raw_fields(value)
+
+
+@contextmanager
+def without_cycle_collection() -> Iterator[None]:
+    """Stop cyclic collection while an encoder builds acyclic trees: it rescans the live model."""
+    enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if enabled:
+            gc.enable()
 
 
 def value_bytes(value: JsonValue) -> bytes:

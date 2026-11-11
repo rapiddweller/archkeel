@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict
 
 from archkeel.ir.amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
 from archkeel.ir.amendment import Amendment as Amendment
@@ -29,10 +28,10 @@ from archkeel.ir.codec_wire import (
     _exact,
     _nonempty,
     _object,
-    _raw_object,
     _string,
     _strings,
     decode_json,
+    raw_fields,
 )
 from archkeel.ir.lock import LOCK_SCHEMA_VERSION, AcceptedLock, LockError
 from archkeel.ir.measurements import (
@@ -50,7 +49,7 @@ from archkeel.ir.model import RawJson as RawJson
 
 
 def _measurement_payload(value: Measurements, *, legacy_calls: bool = False) -> dict[str, RawJson]:
-    result = _raw_object(asdict(value))
+    result = raw_fields(value)
     if legacy_calls and value.calls_total is None:
         result["calls_total"] = 0
     return result

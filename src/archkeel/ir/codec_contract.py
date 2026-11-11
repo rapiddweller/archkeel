@@ -29,7 +29,7 @@ from archkeel.ir.codec_wire import (
     _has_field,
     _nonempty,
     _object,
-    _raw_object,
+    _raw_value,
     _string,
     _strings,
 )
@@ -1835,4 +1835,4 @@ def _rule_payload(rule: ArchitectureRule) -> dict[str, RawJson]:
                 del encoded["literal_mapping_arm"]
             if not item.native_mapping:
                 del encoded["native_mapping"]
-    return {key: value for key, value in _raw_object(fields).items() if value is not None}
+    return {key: _raw_value(value) for key, value in fields.items() if value is not None}
