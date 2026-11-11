@@ -246,6 +246,20 @@
             "interpreter"
           ],
           "description": "The settings of the Python collector (AD-334). Only protocol 10.0.0 carries them."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The Dart collector has no settings: its resolver is `{\"language\": \"dart\"}`, as\n`ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-334, AD-368).",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "dart"
+            }
+          },
+          "required": [
+            "language"
+          ]
         }
       ],
       "description": "The settings of one language. The tag is the language that the collector reads."

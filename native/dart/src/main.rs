@@ -5,9 +5,9 @@
 //! The native Dart collector (#880, PR 8). Slice 1 holds the discovery: it selects and reads the
 //! Dart sources and builds the inputs, the file facts and the gaps of the problems.
 //!
-//! The collection protocol has no Dart request in `archkeel-facts` yet: `Resolver` has no `dart`
-//! variant. Until it exists, the binary refuses a request, and the wheel does not carry it, so the
-//! host never runs it and a native Dart reply can never give PASS. A build with the test-only
+//! Slice 2 decodes the Dart request (`archkeel_wire::request::decode_dart`) and still writes no
+//! reply: a valid request gives exit code 2. The wheel does not carry the binary and the host has
+//! no launcher for it, so a native Dart reply can never give PASS before slice 5. A build with the test-only
 //! feature `dump` adds `--dump <snapshot-root> <namespace> <root>...`, which prints the sections
 //! as JSON for the parity tool.
 
@@ -29,11 +29,11 @@ mod pubspec;
 mod pytext;
 mod records;
 
-use std::io::Write;
+use std::io::{Read, Write};
 use std::process::ExitCode;
 
-const NO_REQUEST: &str = "archkeel-dart-collector: the collection protocol has no Dart request \
-    yet (archkeel-facts Resolver has no dart variant)";
+const NO_REPLY: &str = "archkeel-dart-collector: the request is valid, but the native Dart \
+    collector writes no reply before slice 5 of #880";
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
@@ -43,7 +43,14 @@ fn main() -> ExitCode {
             Ok(text) => (ExitCode::SUCCESS, text, String::new()),
             Err(error) => (ExitCode::from(1), String::new(), error),
         },
-        _ => (ExitCode::from(2), String::new(), NO_REQUEST.to_owned()),
+        _ => match request() {
+            Ok(()) => (ExitCode::from(2), String::new(), NO_REPLY.to_owned()),
+            Err(error) => (
+                ExitCode::from(1),
+                String::new(),
+                format!("archkeel-dart-collector: {error}"),
+            ),
+        },
     };
     // A closed pipe is the only write failure, and the exit code already tells the result.
     let _ = std::io::stdout().write_all(output.as_bytes());
@@ -51,4 +58,13 @@ fn main() -> ExitCode {
         let _ = writeln!(std::io::stderr(), "{message}");
     }
     code
+}
+
+/// Read and decode the request on stdin (3.0.0, 8.0.0 or 9.0.0 with the Dart resolver).
+fn request() -> Result<(), String> {
+    let mut payload = Vec::new();
+    std::io::stdin()
+        .read_to_end(&mut payload)
+        .map_err(|error| format!("cannot read the request: {error}"))?;
+    archkeel_wire::request::decode_dart(&payload).map(|_| ())
 }

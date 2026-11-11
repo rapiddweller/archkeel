@@ -61,8 +61,8 @@ fn a_field_that_the_request_does_not_know_or_a_wrong_type_is_refused() {
         ("/resolver/tsconfig", json!(null), "invalid type: null"),
         (
             "/resolver/language",
-            json!("dart"),
-            "unknown variant `dart`",
+            json!("kotlin"),
+            "unknown variant `kotlin`",
         ),
     ] {
         let mut value = request("8.0.0");
@@ -140,10 +140,10 @@ fn bundler_is_present_only_when_true() {
 #[test]
 fn refuses_other_languages_and_unsafe_paths() {
     let mut value = request("8.0.0");
-    value["resolver"] = json!({"language": "dart"});
+    value["resolver"] = json!({"language": "kotlin"});
     assert!(decoded(&value)
         .unwrap_err()
-        .contains("unknown variant `dart`"));
+        .contains("unknown variant `kotlin`"));
     let cases = [
         (
             "/snapshot/root",
@@ -380,4 +380,55 @@ fn a_duplicate_key_is_refused_because_the_request_is_ambiguous() {
         "resolver":{"language":"typescript","tsconfig":"tsconfig.json"}}"#;
     let error = decode(text.as_bytes()).unwrap_err();
     assert!(error.contains("duplicate field `namespace`"), "{error}");
+}
+
+// Consumer: the native Dart collector (#880, PR 8 slice 2). The host writes the Dart resolver
+// `{"language": "dart"}` with protocol 3.0.0, 8.0.0 or 9.0.0; protocol 10.0.0 stays Python only.
+
+fn dart(version: &str) -> Value {
+    let mut value = request(version);
+    value["resolver"] = json!({"language": "dart"});
+    if matches!(version, "9.0.0" | "10.0.0") {
+        value["scope"]["exclude_test_sources"] = json!(true);
+    }
+    value
+}
+
+fn decoded_dart(value: &Value) -> Result<archkeel_facts::request::DartRequest, String> {
+    decode_dart(&serde_json::to_vec(value).unwrap())
+}
+
+#[test]
+fn a_dart_request_decodes_with_each_protocol_that_the_host_sends_for_dart() {
+    for version in ["3.0.0", "8.0.0", "9.0.0"] {
+        let value = dart(version);
+        let typed = decoded_dart(&value).unwrap();
+        assert_eq!(typed.scope.namespace, "shop", "{version}");
+        let wire: Request = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&wire).unwrap(), value, "{version}");
+    }
+    assert!(decoded_dart(&dart("9.0.0"))
+        .unwrap()
+        .excludes_test_sources());
+}
+
+#[test]
+fn protocol_10_stays_python_only_and_each_collector_refuses_another_language() {
+    assert_eq!(
+        decoded_dart(&dart("10.0.0")).unwrap_err(),
+        "protocol 10.0.0 requires the Python resolver"
+    );
+    assert_eq!(
+        decoded_dart(&request("8.0.0")).unwrap_err(),
+        "Dart collector requires the Dart resolver"
+    );
+    assert_eq!(
+        decoded(&dart("8.0.0")).unwrap_err(),
+        "TypeScript collector requires the TypeScript resolver"
+    );
+    let mut extra = dart("8.0.0");
+    extra["resolver"]["tsconfig"] = json!("tsconfig.json");
+    assert!(decoded_dart(&extra)
+        .unwrap_err()
+        .contains("unknown field `tsconfig`"));
 }

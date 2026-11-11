@@ -15,6 +15,7 @@ build = "build.rs"
 [dependencies]
 archkeel-facts.workspace = true
 archkeel-snapshot.workspace = true
+archkeel-wire.workspace = true
 serde_json.workspace = true
 
 [features]

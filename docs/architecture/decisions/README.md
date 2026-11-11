@@ -362,5 +362,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-363 | [A PASS needs a scope proof that only the model can make](ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md) |
 | AD-364 | [The Rust contract parser reads the whole grammar](ad-364-the-rust-contract-parser-reads-the-whole-grammar.md) |
 | AD-365 | [The native Dart discovery equals the Python one and waits for a Dart request](ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md) |
+| AD-368 | [The Dart request is the Dart resolver of protocols 3, 8 and 9](ad-368-the-dart-request-is-the-dart-resolver-of-protocols-3-8-and-9.md) |
 | AD-370 | [The core decides the rule kinds of modules and ownership](ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md) |
 | AD-371 | [The report crate owns the payload and builds only an explained frame](ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md) |

@@ -5,7 +5,9 @@
 //! The framing of a collection request: JSON bytes in, a typed request out. The types and their
 //! rules are in `archkeel_facts::request`.
 
-use archkeel_facts::request::{PythonRequest, Request, RustRequest, TypeScriptRequest};
+use archkeel_facts::request::{
+    DartRequest, PythonRequest, Request, RustRequest, TypeScriptRequest,
+};
 
 /// Decode a TypeScript request. The error text names the first field that is not valid.
 pub fn decode(payload: &[u8]) -> Result<TypeScriptRequest, String> {
@@ -20,6 +22,11 @@ pub fn decode_rust(payload: &[u8]) -> Result<RustRequest, String> {
 /// Decode a Python request: protocol 10.0.0 with the interpreter block (AD-334).
 pub fn decode_python(payload: &[u8]) -> Result<PythonRequest, String> {
     parse(payload)?.python()
+}
+
+/// Decode a Dart request. Its resolver is `{"language": "dart"}` (3.0.0, 8.0.0 or 9.0.0).
+pub fn decode_dart(payload: &[u8]) -> Result<DartRequest, String> {
+    parse(payload)?.dart()
 }
 
 fn parse(payload: &[u8]) -> Result<Request, String> {

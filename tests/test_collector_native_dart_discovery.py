@@ -11,6 +11,7 @@ the Dart fixtures and on the demo variants.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import os
 import shutil
@@ -20,6 +21,17 @@ from pathlib import Path
 
 import pytest
 from conftest import install_rust_toolchain
+
+from archkeel.check.ports import Language, ProducerKind
+from archkeel.cli.observe import observer_for
+from archkeel.ir.facts_codec import encode_request
+from archkeel.ir.protocol import (
+    DartSettings,
+    SnapshotInput,
+    SourceScope,
+    TypeScriptSettings,
+    collection_request,
+)
 
 ROOT = Path(__file__).parents[1]
 spec = importlib.util.spec_from_file_location(
@@ -158,9 +170,35 @@ def test_the_fixtures_and_demos_give_the_python_sections(binary: Path) -> None:
         assert result.equal_files + result.deferred == result.files > 0, result.name
 
 
-def test_the_binary_refuses_a_request_and_the_wheel_does_not_carry_it(binary: Path) -> None:
-    """No host path runs the native Dart collector, so its reply can never give PASS."""
-    run = subprocess.run([binary], input=b"{}", capture_output=True, check=False)
-    assert run.returncode == 2
-    assert b"no Dart request" in run.stderr
+@pytest.mark.parametrize("exclude_test_sources", [False, True], ids=["3.0.0", "9.0.0"])
+def test_the_binary_decodes_the_dart_request_of_the_host_and_writes_no_reply(
+    binary: Path, tmp_path: Path, exclude_test_sources: bool
+) -> None:
+    """Slice 2: the request path. A valid request still gives no reply before slice 5."""
+    snapshot = SnapshotInput(str(tmp_path), "a" * 40, False)
+    scope = SourceScope(("lib",), "shop", exclude_test_sources)
+    payload = encode_request(collection_request(snapshot, scope, DartSettings()))
+    run = subprocess.run([binary], input=payload, capture_output=True, check=False)
+    assert run.returncode == 2, run.stderr
+    assert b"writes no reply before slice 5" in run.stderr
+    assert run.stdout == b""
+    other = encode_request(collection_request(snapshot, scope, TypeScriptSettings()))
+    run = subprocess.run([binary], input=other, capture_output=True, check=False)
+    assert run.returncode == 1
+    # Each native binary names itself before an error, as the Rust and TypeScript ones do.
+    assert run.stderr.startswith(b"archkeel-dart-collector: "), run.stderr
+    assert b"Dart collector requires the Dart resolver" in run.stderr
+
+
+def test_the_host_never_launches_the_native_dart_collector(tmp_path: Path) -> None:
+    """No PASS before slice 5 (AD-344): the host keeps the Python Dart collector, also when a
+    native Dart binary and its digest lie in the native directory, and the wheel carries none."""
+    name = "archkeel-dart-collector" + (".exe" if os.name == "nt" else "")
+    (tmp_path / name).write_bytes(b"binary")
+    digest = hashlib.sha256(b"binary").hexdigest()
+    (tmp_path / f"{name}.sha256").write_text(digest + "\n", encoding="utf-8")
+    observer = observer_for(Language.DART, native_directory=tmp_path)
+    assert observer.producer == ProducerKind.PYTHON
+    assert observer.collector.argv[-1] == "archkeel.analyzer.dart.entry"
     assert '"archkeel-dart-collector"' not in (ROOT / "native/hatch_build.py").read_text()
+    assert "archkeel-dart-collector" not in (ROOT / "src/archkeel/cli/observe.py").read_text()
