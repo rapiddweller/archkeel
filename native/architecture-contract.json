@@ -383,13 +383,14 @@
         "native.archkeel_dart_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The binary of the Dart collector: refuse a request until the protocol has a Dart request, and run the dump; the build script and the manifest of the crate."
+        "The binary of the Dart collector: decode the Dart request, which gives no reply before slice 5 of #880, and run the dump; the build script and the manifest of the crate."
       ],
       "forbidden_responsibilities": [
         "Reading Dart source."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
+        "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md",
+        "docs/architecture/decisions/ad-367-the-dart-request-is-the-dart-resolver-of-protocols-3-8-and-9.md"
       ],
       "requires": [
         {
@@ -399,6 +400,10 @@
         {
           "component": "snapshot",
           "rationale": "The manifest declares the one owner of snapshot reads."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the Dart request with the shared wire (AD-367)."
         },
         {
           "component": "build",

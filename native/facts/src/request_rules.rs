@@ -73,7 +73,7 @@ impl Resolver {
     pub(crate) fn check(&self) -> Result<(), String> {
         match self {
             Resolver::TypeScript(settings) => relative(&settings.tsconfig, "resolver.tsconfig"),
-            Resolver::Rust(_) => Ok(()),
+            Resolver::Rust(_) | Resolver::Dart(_) => Ok(()),
             Resolver::Python(settings) => settings.interpreter.check(),
         }
     }

@@ -55,6 +55,7 @@ dependencies = [
  "archkeel-build-support",
  "archkeel-facts",
  "archkeel-snapshot",
+ "archkeel-wire",
  "serde_json",
 ]
 

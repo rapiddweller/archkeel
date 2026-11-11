@@ -33,6 +33,8 @@ pub type TypeScriptRequest = Request<TypeScriptSettings>;
 pub type RustRequest = Request<RustSettings>;
 /// A request for the Python collector (10.0.0).
 pub type PythonRequest = Request<PythonSettings>;
+/// A request for the Dart collector (3.0.0, 8.0.0 or 9.0.0).
+pub type DartRequest = Request<DartSettings>;
 
 /// The snapshot to read.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -70,6 +72,8 @@ pub enum Resolver {
     Rust(RustSettings),
     #[serde(rename = "python")]
     Python(PythonSettings),
+    #[serde(rename = "dart")]
+    Dart(DartSettings),
 }
 
 /// The settings of the TypeScript collector.
@@ -92,6 +96,12 @@ pub struct TypeScriptSettings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RustSettings {}
+
+/// The Dart collector has no settings: its resolver is `{"language": "dart"}`, as
+/// `ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-365).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DartSettings {}
 
 /// The settings of the Python collector (AD-334). Only protocol 10.0.0 carries them.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -194,6 +204,14 @@ impl Request {
         match self.resolver.clone() {
             Resolver::Python(settings) => Ok(self.with(settings)),
             _ => Err("Python collector requires the Python resolver".into()),
+        }
+    }
+
+    /// The request for the Dart collector, or the message when it is for another language.
+    pub fn dart(self) -> Result<DartRequest, String> {
+        match self.resolver.clone() {
+            Resolver::Dart(settings) => Ok(self.with(settings)),
+            _ => Err("Dart collector requires the Dart resolver".into()),
         }
     }
 
