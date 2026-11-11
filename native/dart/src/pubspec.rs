@@ -5,8 +5,10 @@
 //! Read the package name and the SDK constraint of `pubspec.yaml` without a YAML parser, as
 //! `snapshot._pubspec_metadata` of the Python Dart collector does, line by line.
 
+use archkeel_pytext::splitlines;
+
 use crate::module::is_identifier;
-use crate::pytext::{is_space, lstrip, splitlines, strip};
+use crate::pytext::{is_space, lstrip, strip};
 
 /// The state of the SDK requirement, as `RuntimeRequirementState` names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

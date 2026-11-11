@@ -22,7 +22,9 @@ use archkeel_facts::Record;
 use serde_json::json;
 
 use crate::discover::{Discovery, Problem};
-use crate::pytext::{is_blank, rstrip, splitlines};
+use archkeel_pytext::splitlines;
+
+use crate::pytext::{is_blank, rstrip};
 
 /// The reply sections of a discovery.
 pub(crate) struct Sections {

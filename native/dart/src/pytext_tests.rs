@@ -2,21 +2,9 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// The expected values come from Python 3.11: `str.splitlines`, `str.strip` and `bytes.strip`.
+// The expected values come from Python 3.11: `str.strip` and `bytes.strip`.
 
 use super::*;
-
-#[test]
-fn splitlines_breaks_where_python_breaks() {
-    assert_eq!(splitlines("a\nb\r\nc\rd"), ["a", "b", "c", "d"]);
-    assert_eq!(splitlines("a\n\nb\n"), ["a", "", "b"]);
-    assert_eq!(
-        splitlines("a\u{0b}b\u{0c}c\u{1c}d\u{85}e\u{2028}f"),
-        ["a", "b", "c", "d", "e", "f"]
-    );
-    assert_eq!(splitlines(""), Vec::<&str>::new());
-    assert_eq!(splitlines("\r\n"), [""]);
-}
 
 #[test]
 fn strip_removes_python_white_space() {

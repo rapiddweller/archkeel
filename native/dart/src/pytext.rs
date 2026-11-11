@@ -10,40 +10,6 @@ pub(crate) fn is_space(c: char) -> bool {
     c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
 }
 
-/// `str.splitlines()`: the lines without their line breaks.
-pub(crate) fn splitlines(text: &str) -> Vec<&str> {
-    let mut lines = Vec::new();
-    let mut start = 0;
-    let mut chars = text.char_indices().peekable();
-    while let Some((index, c)) = chars.next() {
-        let is_break = matches!(
-            c,
-            '\n' | '\r'
-                | '\u{0b}'
-                | '\u{0c}'
-                | '\u{1c}'
-                | '\u{1d}'
-                | '\u{1e}'
-                | '\u{85}'
-                | '\u{2028}'
-                | '\u{2029}'
-        );
-        if !is_break {
-            continue;
-        }
-        lines.push(&text[start..index]);
-        start = index + c.len_utf8();
-        if c == '\r' && chars.peek().is_some_and(|(_, next)| *next == '\n') {
-            chars.next();
-            start += 1;
-        }
-    }
-    if start < text.len() {
-        lines.push(&text[start..]);
-    }
-    lines
-}
-
 /// `str.strip()`.
 pub(crate) fn strip(text: &str) -> &str {
     text.trim_matches(is_space)

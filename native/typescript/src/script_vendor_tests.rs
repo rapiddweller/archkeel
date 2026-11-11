@@ -9,17 +9,6 @@
 use super::*;
 
 #[test]
-fn lines_are_split_as_python_splits_them() {
-    assert_eq!(
-        split_lines("a\nb\r\nc\rd\u{2028}e"),
-        ["a", "b", "c", "d", "e"]
-    );
-    assert_eq!(split_lines("a\n"), ["a"]);
-    assert_eq!(split_lines("a\n\nb"), ["a", "", "b"]);
-    assert!(split_lines("").is_empty());
-}
-
-#[test]
 fn a_vendored_line_names_a_package_a_version_a_file_and_an_address() {
     let line = "Vendored from `vendor@1.2.3` (`dist/v.js`), https://example.org/vendor.";
     assert_eq!(vendored(line), Some(("vendor", "1.2.3")));

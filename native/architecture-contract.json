@@ -260,6 +260,24 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PYTEXT",
+      "label": "pytext",
+      "role": "component",
+      "packages": [
+        "native.archkeel_pytext"
+      ],
+      "responsibilities": [
+        "The text rules of Python str that more than one collector must repeat, such as str.splitlines."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a snapshot, parsing source, building facts and using a collector crate."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-DART-GRAMMAR",
       "label": "dart-grammar",
       "role": "component",
@@ -295,7 +313,13 @@
       "provenance": [
         "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "pytext",
+          "rationale": "Split a text into lines where Python str.splitlines splits."
+        }
+      ]
     },
     {
       "id": "COMP-NATIVE-DART-DISCOVER",
@@ -357,6 +381,10 @@
         {
           "component": "dart-text",
           "rationale": "Split and strip a text as Python does."
+        },
+        {
+          "component": "pytext",
+          "rationale": "Split a text into lines where Python str.splitlines splits."
         }
       ],
       "decided_by": "architect"
@@ -437,6 +465,10 @@
         {
           "component": "dart-dump",
           "rationale": "Run the dump."
+        },
+        {
+          "component": "pytext",
+          "rationale": "The manifest declares the shared Python text rules."
         }
       ],
       "decided_by": "architect"
@@ -884,6 +916,10 @@
         {
           "component": "ts-records",
           "rationale": "Read what each file kept and write the records that the later passes read."
+        },
+        {
+          "component": "pytext",
+          "rationale": "Split a provenance file into lines where Python str.splitlines splits."
         }
       ],
       "provenance": [
@@ -1054,6 +1090,10 @@
         {
           "component": "ts-dump",
           "rationale": "Dump the facts of one file for development."
+        },
+        {
+          "component": "pytext",
+          "rationale": "The manifest declares the shared Python text rules."
         }
       ],
       "decided_by": "architect"
