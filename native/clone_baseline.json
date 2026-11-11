@@ -423,6 +423,13 @@
     "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
     "tokens": 82
   },
+  "report/src/input.rs|report/src/input.rs|4570b7b76d": {
+    "files": [
+      "report/src/input.rs"
+    ],
+    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
+    "tokens": 73
+  },
   "report/src/input.rs|report/src/input.rs|b2e845ea6d": {
     "files": [
       "report/src/input.rs"
