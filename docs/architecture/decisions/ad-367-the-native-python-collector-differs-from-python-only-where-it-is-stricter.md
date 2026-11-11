@@ -23,9 +23,7 @@ is equal or stricter. Each item below names its test.
    5 967 `not`, 2 961 to 5 967 nested conditional expressions or 124 to 149 nested f-strings,
    with `TooDeepError`: the file has a gap (AD-323
    point 6 by name). Real code stays under 600 of 6 000. (b) `<>` after `barry_as_FLUFL` (3.12+):
-   ruff refuses it. (c) CPython 3.11 raises `SystemError` for over 4 300 digits in an f-string;
-   the Python collector does not catch it and its run stops, native writes a failure record. No
-   tree in both; the run of Python is UNKNOWN as a whole, so this item waits for the owner.
+   ruff refuses it. (c) Over 4 300 digits in an f-string on 3.11: point 11.
 
 **Scope** (`tests/test_collector_native_python_scope.py`, `discover_tests.rs`).
 4. A file over 4 MiB (AD-319) is selected and is an `Unseen::Oversized` value; the survey writes a
@@ -36,10 +34,9 @@ is equal or stricter. Each item below names its test.
    read fails with `FileNotFoundError`; native selects it (`Unseen::Missing`) and writes the same
    failure. Equal. Stricter: a dangling link that resolves outside the snapshot or into a test
    path under the test exclusion, which Python leaves out, gets the failure and a gap. A symlink
-   loop (`cyc.py` and `cyc2.py`) is `Missing`: 3.11 and 3.12 stop the run with `RuntimeError`,
-   3.13 and 3.14 write `OSError`; native writes the failure of the file only. Under the test
-   exclusion Python also judges the target of a dangling link; native cannot read it, so each
-   dangling link of the walk is a gap that names it and `full_scope` is false (L-30). Stricter.
+   loop is `Missing`: point 12. Under the test exclusion Python also judges the target of a
+   dangling link; native cannot read it, so each dangling link of the walk is a gap that names it
+   and `full_scope` is false (L-30). Stricter.
 6. A name that is not UTF-8 (Linux; macOS refuses it), or a FIFO, a socket or a device named
    `*.py`: Python selects the file (the read of a FIFO blocks until the timeout). Native never
    reads it and writes a collection gap that names it (`Unseen::NotUtf8`, `Unseen::Special`).
@@ -63,6 +60,13 @@ be PASS before it does (AD-334: the host does not decode 10.0.0).
     keep the error kind. Both producers write a gap that names the file, so the verdict is equal.
     The comparison rule for this case only: the file and its gap are present in both producers,
     and the exception class may be the base class `OSError`; the rest of the survey is equal.
+
+**Stops of the Python collector** (L-20, `tests/test_collector_native_python_reply.py`).
+11. Over 4 300 digits in an f-string: CPython 3.11 raises `SystemError` (3.12 on: a failure).
+12. A symlink loop (`cyc.py`, `cyc2.py`): 3.11 and 3.12 raise `RuntimeError` (3.13 on: point 10).
+In both the Python collector does not catch the error, and its run stops without a verdict, so no
+PASS. Native writes a failure record and a gap that names each file, and no file fact, so the run
+is never PASS-complete. Accepted: a crash of the tool is a defect of Python, not a stricter one.
 
 **Rejected.** (a) Gaps only in the documentation: a limit without a gap can hide a false PASS.
 (b) Reading a file over 4 MiB for the digest only: the size limit is the defence of AD-319.

@@ -12,6 +12,7 @@ refuse it with a named error, also when it claims completeness (AD-334, AD-365).
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import os
@@ -23,7 +24,7 @@ from typing import Any
 
 import pytest
 from collector_pin import pin_of
-from conftest import build_native_copy
+from conftest import build_native_copy, by_python
 from false_pass_support import copy_repository
 from test_collector_native_python_scope import _FIXTURES
 from test_collector_native_python_survey import _EDGES, _PARSE_FAILURES, _closed, _request, _tree
@@ -128,6 +129,62 @@ def test_the_reply_of_each_named_corpus_is_the_python_survey(python_binary: Path
     for entry in os.environ["ARCHKEEL_PYTHON_SCOPE_CORPORA"].split(";"):
         root, namespace, roots = entry.split("=")
         _equal(python_binary, Path(root), tuple(roots.split(",")), namespace)
+
+
+def _stops_python(
+    binary: Path, root: Path, rels: tuple[str, ...], error: type[Exception], fixed: bool
+) -> None:
+    """AD-365 points 11 and 12: where the Python collector stops with `error`, native writes a
+    gap that names each file and no file fact for it. Where Python does not stop, the replies are
+    equal."""
+    request = _request(root, ("src",), "app", False)
+    if fixed and error is RuntimeError:
+        _equal_but_os_error(binary, request, rels)
+    elif fixed:
+        _equal(binary, root, ("src",), "app")
+    else:
+        with pytest.raises(error):
+            collect(request)
+    facts = json.loads(zlib.decompress(_native(binary, request)))["facts"]
+    named = {gap["data"].get("file") for gap in facts["coverage"]["gaps"]}
+    assert set(rels) <= named, named
+    assert not {item["rel_path"] for item in facts["files"]} & set(rels)
+    assert not facts["coverage"]["full_scope"]
+
+
+def _equal_but_os_error(binary: Path, request: CollectionRequest, rels: tuple[str, ...]) -> None:
+    """3.13 and 3.14 write `OSError` for a file of the loop and native `FileNotFoundError`: the
+    rule of AD-365 point 10 for these files only. The rest of the reply is equal."""
+    replies = [json.loads(zlib.decompress(_native(binary, request))), _python(request)]
+    for reply in replies:
+        facts = reply["facts"]
+        for records in (facts["coverage"]["gaps"], facts["sections"][1]["records"]):
+            kinds = {item["data"].get("file"): item["kind"] for item in records}
+            assert all(issubclass(getattr(builtins, kinds[rel]), OSError) for rel in rels), kinds
+            records[:] = [item for item in records if item["data"].get("file") not in rels]
+    assert _comparable(replies[0]) == _comparable(replies[1])
+
+
+@pytest.mark.parametrize("fixed", by_python(12))
+def test_an_integer_in_an_f_string_that_stops_python_is_a_named_gap(
+    fixed: bool, tmp_path: Path, python_binary: Path
+) -> None:
+    rel = "src/app/big.py"
+    root = _tree(
+        tmp_path / "repo", {"src/app/__init__.py": "", rel: 'x = f"{' + "1" * 5000 + '}"\n'}
+    )
+    _stops_python(python_binary, root, (rel,), SystemError, fixed)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="needs POSIX symbolic links")
+@pytest.mark.parametrize("fixed", by_python(13))
+def test_a_symlink_loop_that_stops_python_is_a_named_gap(
+    fixed: bool, tmp_path: Path, python_binary: Path
+) -> None:
+    root = _tree(tmp_path / "repo", {"src/app/__init__.py": "import os\n"})
+    (root / "src/app/cyc.py").symlink_to("cyc2.py")
+    (root / "src/app/cyc2.py").symlink_to("cyc.py")
+    _stops_python(python_binary, root, ("src/app/cyc.py", "src/app/cyc2.py"), RuntimeError, fixed)
 
 
 def test_the_reply_declares_only_the_sections_of_the_survey(python_binary: Path) -> None:
