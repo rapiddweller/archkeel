@@ -4,10 +4,11 @@
 """The native import survey equals the survey of the Python collector (AD-334, slice 1c-2a).
 
 The oracle is the unmodified `collect.collect` in the phase `imports`, encoded as the facts of
-protocol 9. Slice 1c-2a compares the static imports, the file facts and their evidence. The
-`stable_bindings` of a file fact follow in slice 1c-2b and are not compared yet; the binary still
-refuses each request, so no reply can carry them. `ARCHKEEL_PYTHON_SCOPE_CORPORA` names more
-trees, as in `test_collector_native_python_scope.py`.
+protocol 9. The test compares the static imports, the file facts, their evidence, the import
+targets, the UNKNOWN records and the coverage. A syntax failure is compared on its file and its
+class only (AD-365 point 1). The `stable_bindings` of a file fact follow in slice 1c-2c and are
+not compared yet; the binary still refuses each request, so no reply can carry them.
+`ARCHKEEL_PYTHON_SCOPE_CORPORA` names more trees, as in `test_collector_native_python_scope.py`.
 """
 
 from __future__ import annotations
@@ -65,10 +66,14 @@ def _python(request: CollectionRequest) -> dict[str, Any]:
     imports = next(item["records"] for item in payload["sections"] if item["name"] == "imports")
     cited = {item["evidence_id"] for item in payload["files"]}
     cited.update(evidence for item in imports for evidence in item["evidence_ids"])
+    unknowns = next(item["records"] for item in payload["sections"] if item["name"] == "unknowns")
     return {
         "files": _without_stable_bindings(payload["files"]),
         "imports": imports,
         "evidence": [item for item in payload["evidence"] if item["id"] in cited],
+        "targets": payload["imports"],
+        "unknowns": unknowns,
+        "coverage": payload["coverage"],
     }
 
 
@@ -86,6 +91,20 @@ def _native(binary: Path, request: CollectionRequest) -> dict[str, Any]:
     return found
 
 
+_PARSE_FAILURES = {"SyntaxError", "IndentationError", "TabError", "TooDeepError"}
+
+
+def _closed(value: Any) -> Any:
+    """Keep the file and the class of a syntax failure only (AD-365 point 1)."""
+    if isinstance(value, list):
+        return [_closed(item) for item in value]
+    if isinstance(value, dict) and value.get("kind") in _PARSE_FAILURES and "data" in value:
+        return {"kind": value["kind"], "file": value["data"]["file"]}
+    if isinstance(value, dict):
+        return {key: _closed(item) for key, item in value.items()}
+    return value
+
+
 def _text(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -94,8 +113,12 @@ def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> 
     for exclude in (False, True):
         request = _request(root, roots, namespace, exclude)
         expected, found = _python(request), _native(binary, request)
-        for section in ("files", "imports", "evidence"):
-            same(_text(found[section]), _text(expected[section]), (root, exclude, section))
+        for section in ("files", "imports", "evidence", "targets", "unknowns", "coverage"):
+            same(
+                _text(_closed(found[section])),
+                _text(_closed(expected[section])),
+                (root, exclude, section),
+            )
 
 
 def _tree(root: Path, files: dict[str, str]) -> Path:
@@ -128,11 +151,28 @@ _EDGES = {
     "src/app/fmt.py": "import shadowed\n",
     "src/app/fmt/__init__.py": "from app.fmt import fmt\n",
     "src/app/test_x.py": "import os\n",
+    "src/app/tests/__init__.py": "",
+    "src/app/tests/helpers.py": "",
+    "src/app/uses_tests.py": (
+        "from app.tests import helpers\nfrom app import test_x\nimport app.tests\n"
+    ),
+    "src/app/nul.py": "x = 1\0\n",
+    "src/app/dir.py/inner.py": "import json\n",
+    "src/other/outside.py": "import app\n",
 }
 
 
 def test_the_edge_cases_have_the_python_survey(tmp_path: Path, python_dump_binary: Path) -> None:
     root = _tree(tmp_path / "repo", _EDGES)
+    (root / "src/app/latin.py").write_bytes(b"x = '\\xff'\n\xff\n")
+    if os.name != "nt":
+        (root / "src/app/dangling.py").symlink_to("nowhere.py")
+        (root / "src/app/tests/gone_test.py").symlink_to("nowhere.py")
+    _equal(python_dump_binary, root, ("src",), "app")
+
+
+def test_a_scope_of_only_tests_has_the_python_gap(tmp_path: Path, python_dump_binary: Path) -> None:
+    root = _tree(tmp_path / "repo", {"src/app/tests/test_a.py": "import os\n"})
     _equal(python_dump_binary, root, ("src",), "app")
 
 
@@ -154,3 +194,35 @@ def test_each_named_corpus_has_the_python_survey(python_dump_binary: Path) -> No
     for entry in os.environ["ARCHKEEL_PYTHON_SCOPE_CORPORA"].split(";"):
         root, namespace, roots = entry.split("=")
         _equal(python_dump_binary, Path(root), tuple(roots.split(",")), namespace)
+
+
+def _gap_files(found: dict[str, Any]) -> dict[str, str]:
+    return {
+        item["data"]["file"]: item["kind"] for item in found["unknowns"] if "file" in item["data"]
+    }
+
+
+def test_a_file_over_4_mib_is_a_named_gap(tmp_path: Path, python_dump_binary: Path) -> None:
+    """AD-365 point 4: the snapshot does not read the file, and the survey names it."""
+    root = _tree(tmp_path / "repo", {"src/app/__init__.py": "", "src/app/big.py": "#" * (5 << 20)})
+    found = _native(python_dump_binary, _request(root, ("src",), "app", False))
+    assert _gap_files(found) == {"src/app/big.py": "collection_gap"}
+    assert not found["coverage"]["full_scope"]
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs POSIX modes")
+def test_an_unreadable_file_is_a_gap_in_both_producers(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    """Python names the errno class (`PermissionError`); native writes `OSError` (proposed)."""
+    root = _tree(tmp_path / "repo", {"src/app/__init__.py": "", "src/app/secret.py": "x = 1\n"})
+    secret = root / "src/app/secret.py"
+    secret.chmod(0)
+    try:
+        request = _request(root, ("src",), "app", False)
+        expected, found = _python(request), _native(python_dump_binary, request)
+    finally:
+        secret.chmod(0o644)
+    assert _gap_files(expected) == {"src/app/secret.py": "PermissionError"}
+    assert _gap_files(found) == {"src/app/secret.py": "OSError"}
+    assert not found["coverage"]["full_scope"]

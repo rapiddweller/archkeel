@@ -266,6 +266,7 @@ impl FactData for GapFact {
         .collect();
         let names: Vec<&str> = ExceptionName::ALL
             .iter()
+            .filter(|name| name.in_v9())
             .map(|name| name.as_str())
             .collect();
         variants.push((json!({"enum": names}), data));

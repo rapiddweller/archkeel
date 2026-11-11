@@ -131,6 +131,15 @@ closed! {
         PubspecMissing = "PubspecMissing",
         DartSyntaxError = "syntax_error",
         InvalidEncoding = "invalid_encoding",
+        /// Protocol 10.0.0 only (AD-365): the published 9.0.0 schema does not list it.
+        ShadowedModule = "ShadowedModule",
+    }
+}
+
+impl ExceptionName {
+    /// Whether the published 9.0.0 schema lists the name.
+    pub(crate) fn in_v9(self) -> bool {
+        self != Self::ShadowedModule
     }
 }
 

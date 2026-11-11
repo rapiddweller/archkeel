@@ -29,11 +29,7 @@ pub fn collect(
     evidence: &mut EvidenceMap,
 ) -> Vec<Record<ImportFact>> {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
-    let bindings: HashMap<&str, HashSet<String>> = modules
-        .iter()
-        .filter(|module| module.is_init())
-        .map(|module| (module.name.as_str(), shadowing_names(module)))
-        .collect();
+    let bindings = package_bindings(modules);
     let mut records = Vec::new();
     for (module, binders) in modules.iter().zip(binders) {
         let mut collector = Collector {
@@ -50,6 +46,16 @@ pub fn collect(
     }
     records.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
     records
+}
+
+/// `collect_package_bindings`: for each package, the names that its body binds ahead of a
+/// submodule. A later module of the same name replaces an earlier one, as in the Python dict.
+pub fn package_bindings(modules: &[Module]) -> HashMap<&str, HashSet<String>> {
+    modules
+        .iter()
+        .filter(|module| module.is_init())
+        .map(|module| (module.name.as_str(), shadowing_names(module)))
+        .collect()
 }
 
 /// `_owning_package`: the package that a relative import of the module starts from.
