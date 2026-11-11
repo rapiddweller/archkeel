@@ -47,9 +47,14 @@ def test_the_shell_sends_the_namespace_and_the_standard_library_of_the_reply_pro
     with dual_run.materialized(case) as root:
         request = dual_run.engine_request(case, root, Selection())
     assert request["protocol"] == "archkeel-dual-run-2"
-    assert (request["namespace"], request["standard_library"]) == ("shop", [])
+    assert (request["namespace"], request["profile"], request["standard_library"]) == (
+        "shop",
+        "",
+        [],
+    )
     rust = b'{"facts": {"profile": "archkeel-rust-imports"}}'
-    assert dual_run.standard_library(rust) == ["alloc", "core", "std"]
-    assert dual_run.standard_library(zlib.compress(rust)) == ["alloc", "core", "std"]
-    assert dual_run.standard_library(b"not json") == []
-    assert dual_run.standard_library(b'{"facts": {"profile": "unknown"}}') == []
+    expected = ("archkeel-rust-imports", ["alloc", "core", "std"])
+    assert dual_run.reply_profile(rust) == expected
+    assert dual_run.reply_profile(zlib.compress(rust)) == expected
+    assert dual_run.reply_profile(b"not json") == ("", [])
+    assert dual_run.reply_profile(b'{"facts": {"profile": "unknown"}}') == ("", [])

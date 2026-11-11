@@ -4,10 +4,10 @@
 
 //! The external rule kinds of S2 over the frozen H-typescript reply with retargeted imports.
 
-use archkeel_model::{Decision, Incomplete, Model, Reason, Settings, Verdict};
+use archkeel_model::{Decision, Incomplete, Model, Reason, Refusal, Settings, Verdict};
 use serde_json::{json, Value};
 
-use crate::tests::{contract, reply, shop_settings};
+use crate::tests::{contract, reply, shop_profile, shop_settings};
 use crate::{evaluate, Outcome, Violation};
 
 /// The import of `shop.src.domain.index_x2e_ts` that is the first record of the imports section.
@@ -156,7 +156,7 @@ fn a_builtin_import_matches_by_its_module_and_is_never_undeclared() {
 
 #[test]
 fn the_standard_library_of_the_shell_settings_is_exempt() {
-    let std_settings = Settings::new("shop".to_owned(), vec!["std".to_owned()]);
+    let std_settings = Settings::new("shop".to_owned(), shop_profile(), vec!["std".to_owned()]);
     let outcomes = run(|_| {}, external(DOMAIN, "std"), std_settings);
     assert!(of(&outcomes, "EXTERNAL-COMPLETE").is_empty());
     let outcomes = run(|_| {}, external(DOMAIN, "std"), shop_settings());
@@ -251,4 +251,44 @@ fn complete_external_scope_checks_only_the_imports_below_its_source() {
         dependencies(&of(&outcomes, "EXTERNAL-COMPLETE")),
         vec!["transport-client"]
     );
+}
+
+#[test]
+fn an_allowed_source_matches_whole_segments_only() {
+    // `shop.src.dat` is a text prefix of `shop.src.data.*`, not a scope of it.
+    let partial = |value: &mut Value| {
+        if let Some(rules) = value["rules"].as_array_mut() {
+            for rule in rules.iter_mut().filter(|r| r["id"] == "EXTERNAL-SHOP") {
+                rule["dependency"] = json!("shop.src.domain");
+                rule["allowed_sources"] = json!(["shop.src.dat"]);
+            }
+        }
+    };
+    let outcomes = run(partial, |_| {}, shop_settings());
+    let sources = dependencies(&of(&outcomes, "EXTERNAL-SHOP"));
+    assert!(
+        sources.contains(&"shop.src.data.local_x2e_ts".to_owned()),
+        "{sources:?}"
+    );
+}
+
+#[test]
+fn settings_that_do_not_hold_for_the_reply_give_no_model() {
+    let (Some(contract), Some(reply)) = (contract(|_| {}), reply(|_| {})) else {
+        return assert_eq!("the golden inputs", "");
+    };
+    let derive = |settings: Settings| Model::derive(&contract, &reply, settings).err();
+    assert_eq!(derive(shop_settings()), None);
+    let other = Settings::new("shop".to_owned(), "other".to_owned(), Vec::new());
+    assert_eq!(
+        derive(other),
+        Some(Reason::Refused(Refusal::ProfileMismatch))
+    );
+    for namespace in ["", "nothing", "sho"] {
+        let settings = Settings::new(namespace.to_owned(), shop_profile(), Vec::new());
+        assert!(matches!(
+            derive(settings),
+            Some(Reason::Refused(Refusal::OutsideNamespace(_)))
+        ));
+    }
 }

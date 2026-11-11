@@ -60,7 +60,7 @@ from tools.dual_run_oracle import (
 )
 
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
-# Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
+# Version 2 adds the settings of the shell: `namespace`, `profile` and `standard_library` (AD-372).
 PROTOCOL = "archkeel-dual-run-2"
 ENGINE_TIMEOUT_SECONDS = 600
 # The exit code of an engine frame that names an unsupported or refused part (AD-363).
@@ -114,20 +114,23 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
         "reply": None,
         "sections": list(selection.sections),
         "namespace": scan["namespace"],
+        "profile": "",
         "standard_library": [],
     }
 
 
-def standard_library(reply: bytes) -> list[str]:
-    """The top-level standard library names of the profile of a reply (AD-372). The shell owns
-    the table of profiles; the core names no language. A reply that is not JSON gives none."""
+def reply_profile(reply: bytes) -> tuple[str, list[str]]:
+    """The profile of a reply and the top-level standard library names of that profile (AD-372).
+    The shell owns the table of profiles; the core names no language and checks that the
+    profile is the profile of the reply. A reply that is not JSON gives no profile."""
     from archkeel.ir.profiles import profile_for
 
     try:
         value = json.loads(zlib.decompress(reply) if reply[:1] == ZLIB_HEADER else reply)
-        return sorted(profile_for(value["facts"]["profile"]).standard_library)
+        profile = value["facts"]["profile"]
+        return profile, sorted(profile_for(profile).standard_library)
     except (ValueError, KeyError, TypeError, zlib.error):
-        return []
+        return "", []
 
 
 def python_frame(
@@ -177,7 +180,9 @@ def engine_and_reference(
     replies: list[bytes] = []
     reference = python_frame(root, request, replies)
     request["reply"] = {"hex": replies[-1].hex()} if replies else None
-    request["standard_library"] = standard_library(replies[-1]) if replies else []
+    request["profile"], request["standard_library"] = (
+        reply_profile(replies[-1]) if replies else ("", [])
+    )
     return command_frame(command, request, timeout), reference
 
 

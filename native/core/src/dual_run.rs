@@ -51,8 +51,15 @@ struct DualRunRequest {
     sections: Vec<String>,
     /// The namespace of the configuration, which the shell reads (AD-372).
     namespace: String,
-    /// The top-level names of the standard library of the profile of the reply (AD-372).
+    /// The profile of the reply as the shell read it, and its standard library (AD-372).
+    profile: String,
     standard_library: Vec<String>,
+}
+
+/// The protocol of a request, read before the fields that the protocol defines.
+#[derive(Deserialize)]
+struct Head {
+    protocol: String,
 }
 
 #[derive(Deserialize)]
@@ -120,11 +127,13 @@ pub(crate) struct Answered {
 
 /// The frame of one request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
+    let head: Head =
+        serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
+    if head.protocol != PROTOCOL {
+        return Err(format!("unknown protocol {}", head.protocol));
+    }
     let request: DualRunRequest =
         serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
-    if request.protocol != PROTOCOL {
-        return Err(format!("unknown protocol {}", request.protocol));
-    }
     let [(path, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
             .map_err(|found| {
@@ -139,6 +148,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let mut engine = Engine::default();
     engine.answer(Request::Settings(Settings::new(
         request.namespace,
+        request.profile,
         request.standard_library,
     )));
     let contract = match engine.answer(Request::Contract(contract.into_bytes())) {
@@ -183,7 +193,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let edges = edges_asked
         .then(|| engine.reply_and_settings())
         .flatten()
-        .map(|(reply, settings)| crate::edges::rows(reply, settings));
+        .and_then(|(reply, settings)| crate::edges::rows(reply, settings));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())

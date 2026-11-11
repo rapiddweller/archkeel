@@ -472,5 +472,10 @@ fn fail(message: &str) {
 
 /// The settings that the shell sends for H-typescript: its namespace, and no standard library.
 pub(crate) fn shop_settings() -> Settings {
-    Settings::new("shop".to_owned(), Vec::new())
+    Settings::new("shop".to_owned(), shop_profile(), Vec::new())
+}
+
+/// The profile of the frozen reply, read from the reply (the sources name no language).
+pub(crate) fn shop_profile() -> String {
+    reply(|_| {}).map_or_else(String::new, |r| r.reply().facts.profile.as_str().to_owned())
 }

@@ -81,7 +81,8 @@ make dual-run DUAL_RUN_ARGS="--sections violations,dependency_edges \
   --families external_dependency_scope,complete_external_scope \
   --engine-command 'native/target/debug/archkeel-core dual-run'"
 ```
- `--self-test` compares what the core read: the rule ids and
+
+`--self-test` compares what the core read: the rule ids and
 kinds of the contract bytes against the verdict map, and the reply that the store accepts. A
 part that is not ported answers with the slice that ports it, never with an empty result.
 

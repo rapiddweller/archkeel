@@ -133,7 +133,7 @@ pub(crate) fn split(facts: &Facts) -> (Vec<Import>, usize) {
             under_type_checking: data.under_type_checking,
             relative: data.relative_level != 0,
             resolved,
-            evidence: evidence(record).into_iter().map(str::to_owned).collect(),
+            evidence: sorted(evidence(record)),
         });
     }
     (imports, unknown)
@@ -144,6 +144,13 @@ fn records(section: &Section) -> &[Record<ImportFact>] {
         Section::Imports(records) => records,
         _ => &[],
     }
+}
+
+/// The evidence ids sorted, as `classified` sorts the `evidence_ids` of a row. The site of a
+/// gap keeps the order of the reply, as `derived_unresolved_imports` compares it.
+fn sorted(mut ids: Vec<&str>) -> Vec<String> {
+    ids.sort_unstable();
+    ids.into_iter().map(str::to_owned).collect()
 }
 
 fn evidence<D>(record: &Record<D>) -> Vec<&str> {

@@ -283,3 +283,72 @@ fn the_import_keeps_the_typed_target_and_the_type_check_flag() {
 fn fail(message: &str) {
     assert_eq!(message, "", "the test setup failed");
 }
+
+#[test]
+fn an_unresolved_macro_body_counts_as_an_unknown_import() {
+    let Some((mut reply, id, _, _)) = unresolved() else {
+        return fail("the golden reply");
+    };
+    let Some(records) = import_records(&mut reply) else {
+        return fail("an imports section");
+    };
+    for record in records.iter_mut().filter(|r| r.id.as_str() == id) {
+        record.data = ImportFact::MacroBody(record.data.data().clone());
+    }
+    assert_eq!(split(&reply.facts).1, 1);
+}
+
+#[test]
+fn the_evidence_of_an_import_is_sorted_and_the_gap_site_keeps_the_reply_order() {
+    let Some((mut reply, id, module, _)) = unresolved() else {
+        return fail("the golden reply");
+    };
+    let unsorted = vec![EvidenceId::new("EVD-b"), EvidenceId::new("EVD-a")];
+    let Some(records) = import_records(&mut reply) else {
+        return fail("an imports section");
+    };
+    for record in records.iter_mut() {
+        record.evidence_ids = unsorted.clone();
+    }
+    let (imports, _) = split(&reply.facts);
+    assert!(imports.iter().all(|i| i.evidence() == ["EVD-a", "EVD-b"]));
+    // A gap with the sorted evidence names another site than the import with the reply order.
+    let gap = GapFact::resolution("gone", &module);
+    let mut record = Record::unknown(FactId::new("UNKNOWN-G"), "gone", None, &module, gap);
+    record.evidence_ids = vec![EvidenceId::new("EVD-a"), EvidenceId::new("EVD-b")];
+    reply.facts.coverage.gaps = vec![record.clone()];
+    assert_eq!(split(&reply.facts).1, 1, "{id}");
+    record.evidence_ids = unsorted;
+    reply.facts.coverage.gaps = vec![record];
+    assert_eq!(split(&reply.facts).1, 0);
+}
+
+#[test]
+fn the_store_accepts_the_replies_of_two_profiles_only() {
+    // The marks of an external and a builtin target apply to every accepted reply; the reference
+    // engine marks them for two profiles (AD-372, limit). A third accepted profile must fail here.
+    let Some(golden) = golden() else {
+        return fail("the golden reply");
+    };
+    let refused: Vec<&str> = archkeel_facts::envelope::Profile::ALL
+        .iter()
+        .map(|profile| profile.as_str())
+        .filter(|name| {
+            let mut reply = golden.clone();
+            reply.facts.profile =
+                archkeel_facts::envelope::Profile::parse(name).unwrap_or(golden.facts.profile);
+            let text = serde_json::to_string(&reply).unwrap_or_default();
+            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+            let _ = encoder.write_all(text.as_bytes());
+            let bytes = encoder.finish().unwrap_or_default();
+            archkeel_store::ingest_reply(&bytes, 1 << 30)
+                .err()
+                .is_some_and(|message| message.contains(&format!("does not check {name} replies")))
+        })
+        .collect();
+    assert_eq!(
+        refused.len() + 2,
+        archkeel_facts::envelope::Profile::ALL.len(),
+        "{refused:?}"
+    );
+}

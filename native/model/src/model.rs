@@ -5,6 +5,7 @@
 //! The model of one run: what the contract and the reply give, derived once.
 
 use archkeel_contract::{Component, Contract};
+use archkeel_facts::envelope::Facts;
 use archkeel_store::Ingested;
 
 use crate::coverage::{self, Incomplete};
@@ -46,7 +47,7 @@ impl Model {
     ) -> Result<Model, Reason> {
         let components = Table::of_rows(contract.components().to_vec())
             .ok_or(Reason::TooManyRows("components"))?;
-        let facts = &reply.reply().facts;
+        let facts = admitted(reply, &settings)?;
         let (modules, packages) = modules::tables(&facts.files)?;
         let owners = ownership::owners(&components, &modules);
         let (imports, unknown_imports) = imports::split(facts);
@@ -129,11 +130,26 @@ impl Model {
 
 /// The package and module edges of a reply. They need no contract, so a run whose contract the
 /// core cannot use yet still has them.
-pub fn reply_edges(reply: &Ingested, settings: &Settings) -> Vec<Edge> {
-    let facts = &reply.reply().facts;
+pub fn reply_edges(reply: &Ingested, settings: &Settings) -> Result<Vec<Edge>, Reason> {
+    let facts = admitted(reply, settings)?;
     let (imports, _) = imports::split(facts);
     let (module, package) = edges::both(&facts.files, &imports, settings.namespace());
-    package.into_iter().chain(module).collect()
+    Ok(package.into_iter().chain(module).collect())
+}
+
+/// The facts of the reply, when the settings of the shell hold for it (AD-372): the profile is
+/// the profile of the reply, and each module lies in the namespace.
+fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, Reason> {
+    let facts = &reply.reply().facts;
+    settings
+        .check(facts.profile.as_str())
+        .map_err(Reason::Refused)?;
+    for file in &facts.files {
+        settings
+            .admits(file.module.as_str(), file.package.as_str())
+            .map_err(Reason::Refused)?;
+    }
+    Ok(facts)
 }
 
 #[cfg(test)]

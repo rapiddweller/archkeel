@@ -56,6 +56,35 @@ pub enum Reason {
     NoSubjects,
     /// A child of a layout root has no module record to cite (the reference engine stops).
     UncitedChild(String),
+    /// The settings of the shell do not hold for the reply (AD-372).
+    Refused(Refusal),
+}
+
+/// Why the core refuses the settings that the shell sends with a reply (AD-372).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    /// The profile of the settings is not the profile of the reply.
+    ProfileMismatch,
+    /// A module of the reply, or its package, lies outside the namespace.
+    OutsideNamespace(String),
+    /// The standard library list breaks a rule: its limit, a name, or a duplicate.
+    StandardLibrary(&'static str),
+}
+
+impl fmt::Display for Refusal {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Refusal::ProfileMismatch => {
+                formatter.write_str("the profile of the settings is not the profile of the reply")
+            }
+            Refusal::OutsideNamespace(module) => {
+                write!(formatter, "the module {module} lies outside the namespace")
+            }
+            Refusal::StandardLibrary(rule) => {
+                write!(formatter, "the standard library of the settings has {rule}")
+            }
+        }
+    }
 }
 
 impl fmt::Display for Unsupported {
@@ -117,6 +146,7 @@ impl fmt::Display for Reason {
             ),
             Reason::NoSubjects => formatter
                 .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
+            Reason::Refused(refusal) => write!(formatter, "refused settings: {refusal}"),
             Reason::UncitedChild(child) => write!(
                 formatter,
                 "the layout child {child} has no module record to cite"

@@ -44,9 +44,18 @@ pub(crate) fn golden_reply() -> Vec<u8> {
     encoder.finish().unwrap_or_default()
 }
 
+/// The profile of the frozen reply, read from the reply (the sources name no language).
+pub(crate) fn golden_profile() -> String {
+    archkeel_store::ingest_reply(&golden_reply(), LIMIT).map_or_else(
+        |_| String::new(),
+        |r| r.reply().facts.profile.as_str().to_owned(),
+    )
+}
+
 fn ingest(engine: &mut Engine) -> Answer {
     engine.answer(Request::Settings(Settings::new(
         "shop".to_owned(),
+        golden_profile(),
         Vec::new(),
     )));
     engine.answer(Request::Ingest {

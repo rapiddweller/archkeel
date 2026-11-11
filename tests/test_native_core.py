@@ -100,10 +100,10 @@ def test_the_s2_kinds_and_the_edges_equal_python_or_name_their_slice(
         "unsupported: section dependency_edges: slice S3 ports it",
     )
     assert all(line.endswith(named) for line in differences), differences
-    assert sum(line.endswith(named[1]) for line in differences) == 15
+    assert sum(line.endswith(named[1]) for line in differences) == 16
     assert lines[-1].startswith(
-        f"dual run: family {','.join(sorted(families.split(',')))}; 2 sections; 15 projects; "
-        "30 rules;"
+        f"dual run: family {','.join(sorted(families.split(',')))}; 2 sections; 16 projects; "
+        "32 rules;"
     )
 
 

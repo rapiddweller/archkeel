@@ -5,7 +5,7 @@
 use serde_json::{json, Value};
 
 use super::{answer, hex};
-use crate::engine::tests::{golden_reply, NATIVE_CONTRACT};
+use crate::engine::tests::{golden_profile, golden_reply, NATIVE_CONTRACT};
 
 fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
     json!({
@@ -20,6 +20,7 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
         "reply": reply.map(|bytes| json!({"hex": bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()})),
         "sections": sections,
         "namespace": "shop",
+        "profile": golden_profile(),
         "standard_library": [],
     })
 }
@@ -118,4 +119,38 @@ fn a_request_with_a_baseline_is_refused_by_name() {
         got["unsupported"]["rules"],
         "unsupported: the baseline of the request: no slice reads it yet"
     );
+}
+
+#[test]
+fn a_request_of_another_protocol_is_refused_by_its_protocol_name() {
+    let mut old = request(None, &["violations"]);
+    old["protocol"] = json!("archkeel-dual-run-1");
+    if let Some(fields) = old.as_object_mut() {
+        fields.remove("namespace");
+        fields.remove("profile");
+        fields.remove("standard_library");
+    }
+    let refused = answer(old.to_string().as_bytes()).err();
+    assert_eq!(
+        refused.as_deref(),
+        Some("unknown protocol archkeel-dual-run-1")
+    );
+}
+
+#[test]
+fn settings_of_another_profile_are_refused_by_name_and_give_no_edges() {
+    let reply = golden_reply();
+    let mut value = request(Some(&reply), &["violations", "dependency_edges"]);
+    assert!(frame(&value)["edges"].is_array());
+    value["profile"] = json!("other");
+    let got = frame(&value);
+    assert!(names_a_gap(&value));
+    assert!(got["edges"].is_null());
+    let reasons = got["unsupported"]["rules"]
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    assert!(reasons.values().any(|reason| reason
+        .as_str()
+        .is_some_and(|text| text.contains("refused settings: the profile"))));
 }

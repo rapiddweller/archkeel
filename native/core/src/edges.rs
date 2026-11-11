@@ -13,11 +13,12 @@ use archkeel_model::{reply_edges, Edge, Settings};
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
-/// The rows of the package and module edges of a reply, sorted by id.
-pub(crate) fn rows(reply: &Ingested, settings: &Settings) -> Vec<Value> {
-    let mut edges = reply_edges(reply, settings);
+/// The rows of the package and module edges of a reply, sorted by id. Settings that do not hold
+/// for the reply give no rows; the rules of the frame name that refusal.
+pub(crate) fn rows(reply: &Ingested, settings: &Settings) -> Option<Vec<Value>> {
+    let mut edges = reply_edges(reply, settings).ok()?;
     edges.sort_by(|a, b| a.id().cmp(b.id()));
-    edges.iter().map(row).collect()
+    Some(edges.iter().map(row).collect())
 }
 
 /// The 2.9 row of an edge (`aggregate_edges` in `check/evaluation/topology.py`), without ranks.
