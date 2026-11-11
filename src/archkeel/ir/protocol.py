@@ -126,11 +126,6 @@ class CollectionRequest:
     protocol_version: ProtocolVersion = ProtocolVersion(PROTOCOL_VERSION)
 
 
-# The request versions that a native collector reads: the same list as `Version::ALL` in
-# `native/facts/src/protocol.rs`. `tests/test_native_versions.py` compares the two.
-NATIVE_REQUEST_PROTOCOLS: Final = (ProtocolVersion.V3, ProtocolVersion.V8, ProtocolVersion.V9)
-
-
 def collection_request(
     snapshot: SnapshotInput, scope: SourceScope, resolver: ResolverSettings
 ) -> CollectionRequest:
