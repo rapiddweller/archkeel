@@ -170,3 +170,58 @@ def test_a_cycle_rule_sees_a_path_through_a_pub_use_re_export(
 
     assert statuses(result).get("NO-A-TO-B") == "PASS", result["diagnostics"]
     assert statuses(result).get("MODULE-CYCLES") == "FAIL", result["diagnostics"]
+
+
+def _calls(name: str, impl: str) -> str:
+    """A module that calls `s.name(1)` and holds `impl crate::c::S { pub fn impl(&self, x) }`."""
+    return (
+        f"pub fn call_{name}(s: &crate::c::S) {{\n    s.{name}(1);\n}}\n"
+        f"impl crate::c::S {{\n    pub fn {impl}(&self, x: u8) {{}}\n}}\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param(
+            {"lib.rs": LIB, "c.rs": TYPE, "a.rs": _calls("m", "n"), "b.rs": _calls("n", "m")},
+            id="two pair gaps a -> b and b -> a",
+        ),
+        pytest.param(
+            {
+                "lib.rs": LIB + "mod d;\n",
+                "c.rs": TYPE,
+                "a.rs": _calls("m", "k"),
+                "b.rs": _calls("n", "m"),
+                "d.rs": _calls("k", "n"),
+            },
+            id="a chain of three pair gaps a -> b -> d -> a",
+        ),
+    ],
+)
+def test_pair_gaps_that_may_form_a_cycle_give_no_pass_for_a_cycle_rule(
+    tmp_path: Path,
+    rust_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    files: dict[str, str],
+) -> None:
+    # One component holds every module, so the contract allows each pair alone. Together the
+    # hidden edges may close a module cycle, so the gaps stay and the cycle rule is never PASS.
+    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    rules = (*CRATE_RULES, cycles)
+    result = validate(repository(tmp_path, rust_binary, _sources(files), rules=rules), capsys)
+
+    assert _verdict(result, "MODULE-CYCLES") == "UNKNOWN", result["diagnostics"]
+
+
+def test_pair_gaps_that_may_form_a_component_cycle_give_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The contract allows a -> b and b -> a; the two hidden edges together close a component cycle.
+    files = {"lib.rs": LIB, "c.rs": TYPE, "a.rs": _calls("m", "n"), "b.rs": _calls("n", "m")}
+    components = _modules(("b", "c"), files, requires_of_b=("a",))
+    result = validate(
+        repository(tmp_path, rust_binary, _sources(files), components=components), capsys
+    )
+
+    assert _verdict(result, "NO-CYCLES") == "UNKNOWN", result["diagnostics"]
