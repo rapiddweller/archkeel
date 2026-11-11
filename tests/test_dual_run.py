@@ -261,8 +261,8 @@ def test_an_engine_that_does_not_answer_is_a_difference(
     assert dual_run.main([*arguments, "--engine-command", "sleep 5", "--engine-timeout", "1"]) == 1
     output = capsys.readouterr().out
     assert "fixture/E-runtime: engine: -: the engine did not answer in 1 s" in output
-    assert dual_run.main([*arguments, "--engine-command", "exit 3"]) == 1
-    assert "the engine exits with 3" in capsys.readouterr().out
+    assert dual_run.main([*arguments, "--engine-command", "exit 4"]) == 1
+    assert "the engine exits with 4" in capsys.readouterr().out
 
 
 def test_a_command_engine_with_a_planted_difference_fails_the_run(
@@ -437,3 +437,37 @@ def test_the_self_test_compares_the_rule_kinds_that_the_engine_read(run: Run) ->
     frame["self_test"]["reply"] = {"refused": "not compressed"}
     got = [(d.scope, d.id) for d in _compare(oracle, frame, selection)]
     assert got == [("self_test", rule), ("self_test", "reply")]
+
+
+def test_a_self_test_run_owns_no_part_and_says_so(capsys: pytest.CaptureFixture[str]) -> None:
+    """AD-363: the wiring check owns no rule and no section, and its summary says self-test."""
+    case = _case("fixture/E-runtime")
+    self_test = Selection((), frozenset(), self_test=True)
+    assert dual_run.report([(case, 0, [])], self_test, None, 0.0) == 0
+    assert "dual run: self-test; " in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("unsupported", "code", "accepted"),
+    [
+        ({"rules": {"R": "unsupported: rule kind X"}}, 3, True),
+        ({"rules": {}, "sections": {}, "report": None}, 3, False),
+        ({"sections": {"modules": "unsupported: section modules"}}, 0, False),
+        ({}, 0, True),
+    ],
+)
+def test_exit_3_goes_only_with_a_frame_that_names_a_gap(
+    tmp_path: Path, unsupported: dict[str, Any], code: int, accepted: bool
+) -> None:
+    """AD-363: a frame without verdicts is never a plain success, and exit 3 is never empty."""
+    import json
+
+    frame = {"rules": {}, "unsupported": unsupported}
+    if accepted and not unsupported:
+        frame["self_test"] = {"contract": {"rules": {}}, "reply": {"files": 1}}
+    script = tmp_path / "engine.py"
+    script.write_text(f"import sys\nprint({json.dumps(json.dumps(frame))})\nsys.exit({code})\n")
+    case = _case("fixture/E-runtime")
+    with dual_run.materialized(case) as root:
+        got = dual_run.run_engine(case, root, f"{sys.executable} {script}", Selection())
+    assert ("error" not in got) is accepted, got

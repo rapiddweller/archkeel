@@ -2,20 +2,32 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The verdict of one rule and the decision that carries it.
+//! The verdict of one rule and the decision that carries it (AD-363).
+//!
+//! Another crate cannot write a PASS: `Verdict::Pass` holds a `Proven` mark that only this module
+//! makes, and only `Scope::pass` (with the scope proof) gives a `Decision` that holds one.
+//!
+//! ```compile_fail
+//! let pass = archkeel_model::Verdict::Pass(archkeel_model::Proven { _scope: () });
+//! ```
 
 use crate::reason::Reason;
-use crate::scope::ScopeComplete;
 
-/// The verdict of one rule.
+/// The mark of a PASS: only the scope proof of the model gives one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Proven {
+    _scope: (),
+}
+
+/// The verdict of one rule. A caller reads it from a `Decision`; it holds no bare `Verdict`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verdict {
-    Pass,
+    Pass(Proven),
     Fail,
     Unknown,
 }
 
-/// A decided rule. The fields are private: a PASS comes only from `pass`, which needs the proof.
+/// A decided rule. The fields are private: a PASS comes only from `Scope::pass`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decision {
     verdict: Verdict,
@@ -23,10 +35,10 @@ pub struct Decision {
 }
 
 impl Decision {
-    /// PASS: only with the scope proof of the model.
-    pub fn pass(_proof: &ScopeComplete) -> Decision {
+    /// PASS: only `Scope::pass` calls it, with the scope proof.
+    pub(crate) fn passed() -> Decision {
         Decision {
-            verdict: Verdict::Pass,
+            verdict: Verdict::Pass(Proven { _scope: () }),
             reason: None,
         }
     }

@@ -25,6 +25,15 @@ pub enum Unsupported {
     Report,
 }
 
+/// An input of a run that the core needs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Input {
+    /// The bytes of the root contract.
+    Contract,
+    /// The validated collector reply.
+    Reply,
+}
+
 /// Why a part has no result.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reason {
@@ -32,6 +41,8 @@ pub enum Reason {
     Unsupported(Unsupported),
     /// A table has more rows than its id can count.
     TooManyRows(&'static str),
+    /// The run has no valid input of this kind.
+    MissingInput(Input),
 }
 
 impl fmt::Display for Unsupported {
@@ -71,6 +82,12 @@ impl fmt::Display for Reason {
         match self {
             Reason::Unsupported(part) => write!(formatter, "unsupported: {part}"),
             Reason::TooManyRows(table) => write!(formatter, "the {table} table is too large"),
+            Reason::MissingInput(Input::Contract) => {
+                formatter.write_str("missing input: no valid contract")
+            }
+            Reason::MissingInput(Input::Reply) => {
+                formatter.write_str("missing input: no valid collector reply")
+            }
         }
     }
 }

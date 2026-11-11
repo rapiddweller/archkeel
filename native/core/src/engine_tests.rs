@@ -9,9 +9,11 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use serde_json::{json, Value};
 
-use archkeel_model::{Reason, Section, Unsupported};
+use archkeel_model::{Input, Reason, Section, Unsupported};
 
-use super::{Answer, ContractState, Engine};
+use super::{Answer, Engine};
+use crate::contract::ContractState;
+use crate::ingest::ReplyState;
 use crate::request::Request;
 
 const LIMIT: u64 = 1 << 30;
@@ -62,7 +64,7 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     };
     assert_eq!(rules.len(), 8);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
-    let reasons = engine.rule_reasons();
+    let reasons = crate::contract::rule_reasons(engine.contract());
     assert_eq!(reasons.len(), 8);
     assert!(reasons
         .values()
@@ -93,7 +95,7 @@ fn a_contract_part_of_slice_0c_2_is_unsupported_by_name() {
 fn the_engine_ingests_a_reply_and_every_section_names_its_slice() {
     let mut engine = Engine::default();
     let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
-    assert!(matches!(ingest(&mut engine), Answer::Ingested(files) if files > 0));
+    assert!(matches!(ingest(&mut engine), Answer::Reply(ReplyState::Ingested(files)) if files > 0));
     let rows = match engine.answer(Request::Sections(Section::ALL.to_vec())) {
         Answer::Sections(rows) => rows,
         other => {
@@ -102,8 +104,11 @@ fn the_engine_ingests_a_reply_and_every_section_names_its_slice() {
         }
     };
     assert_eq!(rows.len(), Section::ALL.len());
-    for (section, reason) in rows {
-        assert_eq!(reason, Reason::Unsupported(Unsupported::Section(section)));
+    for (section, rows) in rows {
+        assert_eq!(
+            rows.err(),
+            Some(Reason::Unsupported(Unsupported::Section(section)))
+        );
     }
 }
 
@@ -114,7 +119,9 @@ fn a_reply_that_is_not_compressed_is_refused_by_the_store() {
         reply: b"{}".to_vec(),
         inflate_limit: LIMIT,
     });
-    assert!(matches!(answer, Answer::ReplyRefused(message) if message.contains("compressed")));
+    assert!(
+        matches!(answer, Answer::Reply(ReplyState::Refused(message)) if message.contains("compressed"))
+    );
 }
 
 #[test]
@@ -122,6 +129,22 @@ fn the_report_is_unsupported_until_slice_0d() {
     let answer = Engine::default().answer(Request::Report);
     assert!(matches!(
         answer,
-        Answer::Unsupported(Reason::Unsupported(Unsupported::Report))
+        Answer::Report(Reason::Unsupported(Unsupported::Report))
     ));
+}
+
+#[test]
+fn a_section_without_a_contract_or_a_reply_names_the_missing_input() {
+    let mut engine = Engine::default();
+    let rows = engine.answer(Request::Sections(vec![Section::Modules]));
+    let text = format!("{rows:?}");
+    assert!(text.contains("MissingInput(Contract)"), "{text}");
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let rows = engine.answer(Request::Sections(vec![Section::Modules]));
+    let text = format!("{rows:?}");
+    assert!(text.contains("MissingInput(Reply)"), "{text}");
+    assert_eq!(
+        Reason::MissingInput(Input::Reply).to_string(),
+        "missing input: no valid collector reply"
+    );
 }

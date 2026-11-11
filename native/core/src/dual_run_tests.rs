@@ -23,8 +23,12 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
 }
 
 fn frame(value: &Value) -> Value {
-    let bytes = answer(value.to_string().as_bytes()).unwrap_or_default();
+    let bytes = answer(value.to_string().as_bytes()).map_or(Vec::new(), |answered| answered.frame);
     serde_json::from_slice(&bytes).unwrap_or(Value::Null)
+}
+
+fn names_a_gap(value: &Value) -> bool {
+    answer(value.to_string().as_bytes()).is_ok_and(|answered| answered.names_a_gap)
 }
 
 #[test]
@@ -33,7 +37,7 @@ fn the_frame_shows_what_the_core_read_and_decides_nothing() {
     let got = frame(&request(Some(&reply), &["modules", "evidence"]));
     assert_eq!(got["rules"], json!({}));
     assert_eq!(
-        got["report"],
+        got["unsupported"]["report"],
         "unsupported: the report payload: slice 0d ports it"
     );
     assert_eq!(
@@ -79,4 +83,17 @@ fn hex_reads_bytes_and_refuses_bad_text() {
     assert_eq!(hex("00ff10"), Ok(vec![0, 255, 16]));
     assert!(hex("0").is_err());
     assert!(hex("zz").is_err());
+}
+
+#[test]
+fn a_frame_with_an_unsupported_or_refused_part_names_a_gap() {
+    let reply = golden_reply();
+    assert!(names_a_gap(&request(Some(&reply), &["modules"])));
+    let mut invalid = request(Some(&reply), &[]);
+    invalid["contracts"] = json!({"architecture-contract.json": "not a contract"});
+    assert!(names_a_gap(&invalid));
+    assert!(frame(&invalid)["self_test"]["contract"]["refused"].is_string());
+    let truncated = request(Some(&reply[..reply.len() / 2]), &[]);
+    assert!(names_a_gap(&truncated));
+    assert!(frame(&truncated)["self_test"]["reply"]["refused"].is_string());
 }

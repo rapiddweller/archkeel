@@ -7,12 +7,38 @@
 
 use std::marker::PhantomData;
 
-/// An id of one table. Only `Table::push` makes an id.
-pub trait Id: Copy + Eq + Ord + std::hash::Hash + std::fmt::Debug {
+use self::sealed::Sealed;
+
+/// The seal of `Id`: its module is private, so no other crate can implement `Id` or call
+/// `from_index`.
+pub(crate) mod sealed {
+    pub trait Sealed {
+        /// The id of an index. Only a table of this crate calls it.
+        fn from_index(index: u32) -> Self;
+    }
+}
+
+/// An id of one table. Only a `Table` of this crate gives out an id (`Table::iter`).
+///
+/// Another crate cannot make an id from a number:
+///
+/// ```compile_fail
+/// use archkeel_model::ComponentId;
+/// let forged = ComponentId::from_index(7);
+/// ```
+///
+/// and cannot add an id type of its own:
+///
+/// ```compile_fail
+/// #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// struct Forged;
+/// impl archkeel_model::Id for Forged {
+///     fn index(self) -> usize { 0 }
+/// }
+/// ```
+pub trait Id: Sealed + Copy + Eq + Ord + std::hash::Hash + std::fmt::Debug {
     /// The index of the row in its table.
     fn index(self) -> usize;
-    #[doc(hidden)]
-    fn from_index(index: u32) -> Self;
 }
 
 macro_rules! id_type {
@@ -25,7 +51,9 @@ macro_rules! id_type {
             fn index(self) -> usize {
                 self.0 as usize
             }
+        }
 
+        impl Sealed for $name {
             fn from_index(index: u32) -> Self {
                 $name(index)
             }

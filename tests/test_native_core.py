@@ -43,21 +43,39 @@ def test_a_slice_that_owns_nothing_fails_the_run(
     assert lines == ["the run selects nothing: name the owned sections or families, or --self-test"]
 
 
+def test_a_run_of_cases_without_rules_and_without_sections_fails(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cases = ["--case", "fixture/E-runtime", "--case", "fixture/F-typescript-story"]
+    code, lines = _run(["compare", *cases, "--sections", "none", "--engine-command", core], capsys)
+    assert code == 2
+    assert lines[-1] == "the run compares nothing: 0 owned rules and 0 sections"
+
+
 def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    code, lines = _run(["compare", "--case", "rust/native", "--engine-command", core], capsys)
+    assert code == 1
+    differences = [line for line in lines if line.startswith("rust/native: ")]
+    assert len(differences) == 1 + 20
+    assert differences[0].startswith("rust/native: rules: ")
+    assert "8 owned rules are unsupported" in differences[0]
+    assert "rust/native: modules: -: unsupported: section modules: slice S1 ports it" in lines
+
+
+def test_a_part_without_its_input_names_the_missing_input(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The contract of H-typescript has `declarations` (slice 0c-2): the rules say so, and each
+    section names the missing contract, not a slice."""
     code, lines = _run(
         ["compare", "--case", "fixture/H-typescript", "--engine-command", core], capsys
     )
     assert code == 1
     differences = [line for line in lines if line.startswith("fixture/H-typescript: ")]
-    assert len(differences) == 1 + 20
-    assert all(
-        ": unsupported: " in line or "owned rules: unsupported" in line for line in differences
-    )
-    assert (
-        "fixture/H-typescript: modules: -: unsupported: section modules: slice S1 ports it" in lines
-    )
+    assert "contract declarations: slice 0c-2 ports them" in differences[0]
+    assert all(line.endswith(": -: missing input: no valid contract") for line in differences[1:])
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
@@ -66,7 +84,7 @@ def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
     cases = ["--case", "rust/native", "--case", "probe/rust_impls-*"]
     code, lines = _run(["compare", *cases, "--engine-command", core, "--self-test"], capsys)
     assert code == 0, lines
-    assert "19 projects" in lines[-1]
+    assert lines[-1].startswith("dual run: self-test; 0 sections; 19 projects;")
 
 
 def test_on_the_fixtures_each_self_test_difference_is_named(

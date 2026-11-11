@@ -8,7 +8,7 @@
    `contract`, `store`, `facts`). The shell sends the contract bytes and gets one Report frame.
    Milestone M1 is Cut A of the design.
 2. The dependency graph points down only. `core` uses the libraries. `report` uses `eval`. `eval`
-   uses `model` and `contract`. `model` uses `contract` and `store`. `store` uses `facts`.
+   uses `model` and `contract`. `model` uses `contract`, `store` and `facts` (amended by AD-363). `store` uses `facts`.
    `contract` uses no crate of the workspace, so a Target id can never be a source id.
 3. The shell reads the root contract and each inside contract (it owns Git and the file system).
    It sends the bytes. The core reads no file.

@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
+use crate::ids::sealed::Sealed;
 use crate::ids::{ComponentId, Id, ModuleId, Table};
-use crate::reason::{Reason, Unsupported};
+use crate::reason::{Input, Reason, Unsupported};
 use crate::section::{Porting, Section, Slice};
 use crate::verdict::{Decision, Verdict};
 
@@ -59,6 +60,18 @@ fn an_unknown_carries_its_reason_and_no_pass_exists_without_the_proof() {
     assert_eq!(decision.verdict(), Verdict::Unknown);
     assert_eq!(decision.reason(), Some(&reason));
     assert_eq!(Decision::fail().reason(), None);
+    assert_eq!(Decision::fail().verdict(), Verdict::Fail);
+    assert!(matches!(Decision::passed().verdict(), Verdict::Pass(_)));
+}
+
+#[test]
+fn a_missing_input_has_its_own_reason() {
+    let reason = Reason::MissingInput(Input::Reply);
+    assert_eq!(
+        reason.to_string(),
+        "missing input: no valid collector reply"
+    );
+    assert!(!reason.to_string().contains("slice"));
 }
 
 #[test]

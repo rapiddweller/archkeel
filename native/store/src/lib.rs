@@ -43,9 +43,9 @@ use crate::stored::Store;
 pub struct Ingested(Store);
 
 impl Ingested {
-    /// The number of source files of the reply.
-    pub fn file_count(&self) -> usize {
-        self.0.reply().facts.files.len()
+    /// The typed reply: the model reads its records through the types of `archkeel-facts`.
+    pub fn reply(&self) -> &archkeel_facts::envelope::Reply {
+        self.0.reply()
     }
 }
 

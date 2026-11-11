@@ -11,9 +11,11 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# AD-359: the model uses the contract and the store; it names no language (AD-363).
+# AD-359 as amended by AD-363: the model uses the contract, the store and the typed facts of the
+# reply; it names no language.
 [dependencies]
 archkeel-contract = { path = "../contract" }
+archkeel-facts.workspace = true
 archkeel-store = { path = "../store" }
 
 [lints]

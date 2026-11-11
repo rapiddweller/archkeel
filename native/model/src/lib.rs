@@ -8,8 +8,9 @@
 //! slice, the modules, packages, edges, cycles and the scope proof of the reply. This skeleton has
 //! the ids, the tables, the components and the vocabulary of a decision:
 //!
-//! - `Verdict` and `Decision`: a PASS needs a `ScopeComplete` value, and only the scope proof of
-//!   this crate makes one (`Model::scope_complete`). Until slice S4 it makes none.
+//! - `Verdict` and `Decision`: a PASS needs a `ScopeComplete` proof of the same model, and only
+//!   the scope of this crate makes one (`Model::scope`, `Scope::complete`). Until slice S4 it
+//!   makes none. `Verdict::Pass` holds a mark that only this crate makes.
 //! - `Reason` and `Unsupported`: a part that no slice has ported answers with its name, never
 //!   with an empty result.
 //! - `Section`: the 20 compared sections of `architecture.json` and the slice that ports each.
@@ -27,7 +28,7 @@ mod verdict;
 
 pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
 pub use model::{Model, Rows};
-pub use reason::{Reason, Unsupported};
-pub use scope::ScopeComplete;
+pub use reason::{Input, Reason, Unsupported};
+pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
-pub use verdict::{Decision, Verdict};
+pub use verdict::{Decision, Proven, Verdict};

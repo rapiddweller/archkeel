@@ -59,6 +59,8 @@ from tools.dual_run_oracle import (
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
 PROTOCOL = "archkeel-dual-run-1"
 ENGINE_TIMEOUT_SECONDS = 600
+# The exit code of an engine frame that names an unsupported or refused part (AD-363).
+NAMES_A_GAP = 3
 # The paths whose change can change an oracle; `record` refuses them uncommitted.
 RECORDED_SOURCES = ("src", "fixtures", "native", "tests/golden", "tests/false_pass_support.py")
 RUST_COLLECTOR_VARIABLE = "ARCHKEEL_DUAL_RUN_RUST_COLLECTOR"
@@ -151,13 +153,27 @@ def run_engine(
         )
     except subprocess.TimeoutExpired:
         return {"error": f"the engine did not answer in {timeout:g} s"}
-    if done.returncode != 0:
+    if done.returncode not in (0, NAMES_A_GAP):
         return {"error": f"the engine exits with {done.returncode}: {done.stderr[-2000:]}"}
     try:
         frame: dict[str, Any] = json.loads(done.stdout)
     except ValueError as error:
         return {"error": f"the engine frame is not JSON: {error}"}
+    # Exit 3 goes only with a frame that names its unsupported parts, and exit 0 only without:
+    # an empty frame is never a plain success (AD-363).
+    if (done.returncode == NAMES_A_GAP) != names_a_gap(frame):
+        return {"error": f"the engine exits with {done.returncode} for this frame"}
     return frame
+
+
+def names_a_gap(frame: Mapping[str, Any]) -> bool:
+    """True when the frame names an unsupported part or a refused input."""
+    unsupported = frame.get("unsupported") or {}
+    found = frame.get("self_test") or {}
+    refused = bool(found) and (
+        "rules" not in found.get("contract", {}) or "files" not in found.get("reply", {})
+    )
+    return refused or any(unsupported.get(part) for part in ("rules", "sections", "report"))
 
 
 # --- Record ----------------------------------------------------------------------------------
@@ -362,11 +378,12 @@ def report(
     if bench:
         print(f"bench: {len(bench)} projects, {sum(map(len, bench))} differences")
     family = "all" if selection.kinds is None else ",".join(sorted(selection.kinds)) or "none"
+    scope = "self-test" if selection.self_test else f"family {family}"
     rules = sum(count for _, count, _ in results)
     total = len(differences) + sum(map(len, bench))
     print(f"engine: {command or 'the Python engine in process'}")
     print(
-        f"dual run: family {family}; {len(selection.sections)} sections; {len(results)} projects; "
+        f"dual run: {scope}; {len(selection.sections)} sections; {len(results)} projects; "
         f"{rules} rules; {total} differences; {seconds:.1f} s"
     )
     if not selection.sections and rules == 0 and not selection.self_test:

@@ -20,7 +20,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
-| `archkeel-model` | The typed model of one run: ids, tables, the components and the scope proof that a PASS needs (AD-363). Slices S1 to S4 add modules, packages, edges and cycles. | `archkeel-contract`, `archkeel-store` |
+| `archkeel-model` | The typed model of one run: ids, tables, the components and the scope proof that a PASS needs (AD-363). Slices S1 to S4 add modules, packages, edges and cycles. | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run and owns no section yet; the host uses it for no verdict (AD-363). | `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
@@ -178,6 +178,7 @@ flowchart LR
     n_30 --> n_4
     n_5 --> n_1
     n_5 --> n_15
+    n_5 --> n_4
     n_6 --> n_10
     n_6 --> n_12
     n_6 --> n_13

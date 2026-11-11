@@ -135,6 +135,10 @@
         {
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
         }
       ],
       "decided_by": "architect"

@@ -30,7 +30,7 @@ impl Model {
             .ok_or(Reason::TooManyRows("components"))?;
         Ok(Model {
             components,
-            files: reply.file_count(),
+            files: reply.reply().facts.files.len(),
         })
     }
 

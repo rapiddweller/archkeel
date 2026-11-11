@@ -15,7 +15,9 @@ use std::collections::BTreeMap;
 use archkeel_contract::RuleKind;
 use serde::{Deserialize, Serialize};
 
-use crate::engine::{Answer, ContractState, Engine};
+use crate::contract::ContractState;
+use crate::engine::{Answer, Engine};
+use crate::ingest::ReplyState;
 use crate::request::{self, Request};
 
 const PROTOCOL: &str = "archkeel-dual-run-1";
@@ -54,8 +56,6 @@ struct ReplyBytes {
 #[derive(Serialize)]
 struct Frame {
     engine: &'static str,
-    /// The report v2 payload, or the reason that the core has none.
-    report: String,
     rules: BTreeMap<String, [String; 2]>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
@@ -66,6 +66,8 @@ struct UnsupportedParts {
     /// The reason of each rule, or one reason for the whole contract.
     rules: RuleReasons,
     sections: BTreeMap<&'static str, String>,
+    /// The reason that the core has no report v2 payload (slice 0d).
+    report: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -97,8 +99,15 @@ enum ReplyCheck {
     Absent(String),
 }
 
+/// The answer of the core: the frame bytes, and whether the frame names a part that is
+/// unsupported or refused. A caller never sees a frame without verdicts as a plain success.
+pub(crate) struct Answered {
+    pub(crate) frame: Vec<u8>,
+    pub(crate) names_a_gap: bool,
+}
+
 /// The frame of one request. An error is a request that the core cannot read.
-pub(crate) fn answer(input: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let request: DualRunRequest =
         serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
     if request.protocol != PROTOCOL {
@@ -107,10 +116,10 @@ pub(crate) fn answer(input: &[u8]) -> Result<Vec<u8>, String> {
     let [(_, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
             .map_err(|found| {
+                let count = found.len();
                 format!(
-                    "{}: one root contract expected, {} found",
-                    request.case,
-                    found.len()
+                    "{}: one root contract expected, {count} found",
+                    request.case
                 )
             })?;
     let sections = request::sections(&request.sections)?;
@@ -125,8 +134,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Vec<u8>, String> {
             reply: hex(&bytes.hex)?,
             inflate_limit: INFLATE_LIMIT,
         }) {
-            Answer::Ingested(files) => ReplyCheck::Files(files),
-            Answer::ReplyRefused(message) => ReplyCheck::Refused(message),
+            Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
+            Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
             other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
         },
     };
@@ -134,10 +143,14 @@ pub(crate) fn answer(input: &[u8]) -> Result<Vec<u8>, String> {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
     };
+    // The report holds a reason until slice 0d writes the payload, so it is a named gap.
+    let report: Result<(), String> = match engine.answer(Request::Report) {
+        Answer::Report(reason) => Err(reason.to_string()),
+        other => Err(format!("unexpected answer {other:?}")),
+    };
     let rules = match &contract {
         ContractState::Parsed(_) => RuleReasons::Each(
-            engine
-                .rule_reasons()
+            crate::contract::rule_reasons(engine.contract())
                 .into_iter()
                 .map(|(id, reason)| (id, reason.to_string()))
                 .collect(),
@@ -145,20 +158,19 @@ pub(crate) fn answer(input: &[u8]) -> Result<Vec<u8>, String> {
         ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
         ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
     };
-    let report = match engine.answer(Request::Report) {
-        Answer::Unsupported(reason) => reason.to_string(),
-        other => format!("unexpected answer {other:?}"),
-    };
+    let sections = crate::sections::unsupported(rows);
+    let names_a_gap = report.is_err()
+        || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
+        || !sections.is_empty()
+        || !matches!(reply, ReplyCheck::Files(_))
+        || !matches!(contract, ContractState::Parsed(_));
     let frame = Frame {
         engine: ENGINE,
-        report,
         rules: BTreeMap::new(),
         unsupported: UnsupportedParts {
             rules,
-            sections: rows
-                .into_iter()
-                .map(|(section, reason)| (section.name(), reason.to_string()))
-                .collect(),
+            sections,
+            report: report.err(),
         },
         self_test: SelfTest {
             contract: match contract {
@@ -171,7 +183,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Vec<u8>, String> {
             reply,
         },
     };
-    serde_json::to_vec(&frame).map_err(|error| error.to_string())
+    let frame = serde_json::to_vec(&frame).map_err(|error| error.to_string())?;
+    Ok(Answered { frame, names_a_gap })
 }
 
 /// The bytes of a hex text.
