@@ -34,19 +34,10 @@ facts that the model sees are sound before the scope proof exists. The Python ve
 kinds also depends on facts that S1 does not see (the subject check of every rule, unknown
 imports, profile limits): those are the scope proof of S4, so S1 does not guess them.
 
-**Python replaced (when the store path is the only path).**
-- `ir/ownership.py:44` `sole`; `ir/model.py:1046` `ArchitectureContract.component_for`;
-  `ir/model.py:964` `component_owns_module`; `ir/model.py:969` `package_owners`;
-  `ir/dependency.py:32` `module_in_ownership`; `ir/facts.py:1345` `in_scope`.
-- `check/evaluation/rules.py:377` `_assignment_violations`; `rules.py:410`
-  `_root_layout_violations`; `rules.py:2877` `_modules_for_rule_source`; the branches of
-  `rules.py:2685` `_rule_evaluation_facts_for_rule` for these two kinds.
-- `check/evaluation/evaluate.py:1074` (the files), `evaluate.py:1076` (the gaps that make the
-  coverage FAIL), `evaluate.py:1081` (the module evidence), `evaluate.py:1152` (the packages),
-  `evaluate.py:1211` (`blank_modules`); `ir/coverage.py:26` `observation_complete`;
-  `check/pair_gaps.py:59` `drop_allowed_pair_gaps` (which gaps are not proven) and the ids of
-  `check/evaluation/topology.py:79` `package_records` and `topology.py:115` `module_records`.
-- `ir/decisions.py:760` `_rule_status` for these kinds, without the parts of S4.
+**Python replaced.** `ir/ownership.py` `sole`, `ir/model.py` `component_for` and
+`package_owners`, `check/evaluation/rules.py` `_assignment_violations`, `_root_layout_violations`
+and `_modules_for_rule_source`, and the S1 part of `ir/decisions.py` `_rule_status`. The PR lists
+each with its line. They go when the store path is the only path (design WP6-0, cut rule).
 
 **Differences to Python (all equal or stricter).**
 - A rule that Python passes is a named gap (`the scope proof: slice S4 ports it`): 61

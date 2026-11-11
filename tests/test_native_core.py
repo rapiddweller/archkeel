@@ -76,8 +76,12 @@ def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
     differences = [line for line in lines if line.startswith("s1/")]
     assert code == 1
     assert differences
-    assert all(line.endswith("unsupported: the scope proof: slice S4 ports it") for line in differences)
-    assert lines[-1].startswith("dual run: family complete_assignment,root_layout; 1 sections; 12 projects; 24 rules;")
+    assert all(
+        line.endswith("unsupported: the scope proof: slice S4 ports it") for line in differences
+    )
+    assert lines[-1].startswith(
+        "dual run: family complete_assignment,root_layout; 1 sections; 12 projects; 24 rules;"
+    )
 
 
 def test_a_part_without_its_input_names_the_missing_input(
