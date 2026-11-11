@@ -14,7 +14,9 @@ use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::{has_backslash, named_children, Cx};
+use crate::pytext::has_backslash;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::named_children;
 
 /// The frame of the root node. Every other frame has a parent.
 pub const ROOT: u32 = 0;

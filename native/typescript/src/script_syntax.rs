@@ -12,12 +12,12 @@ use tree_sitter::Node;
 
 use crate::definitions::{Definition, Scopes};
 use crate::kinds::{F, K};
-use crate::members::named_children;
 use crate::script_index::DeclIndex;
 use crate::script_refs::References;
 use crate::script_scope::{is_function_like, is_receiver_scope, is_root, Tree, Wrapper, NONE};
 use crate::script_types::{ScriptGlobal, Write};
 use crate::source::Span;
+use crate::tree::nodes::named_children;
 use crate::umd::Templates;
 
 /// What the producers read, built once for a file.

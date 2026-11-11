@@ -18,9 +18,10 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::{children, Cx};
 use crate::scope::assignment_targets;
 use crate::source::Span;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::children;
 
 /// `_SCRIPT_ROOTS`: the names of the browser global object.
 pub fn is_root(name: &str) -> bool {

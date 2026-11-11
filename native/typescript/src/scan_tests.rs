@@ -14,7 +14,7 @@ use tree_sitter_typescript::{LANGUAGE_TSX, LANGUAGE_TYPESCRIPT};
 
 use super::*;
 use crate::kinds::KindMap;
-use crate::members::Cx;
+use crate::tree::cx::Cx;
 
 const QUERIES: [(&str, &str); 7] = [
     (

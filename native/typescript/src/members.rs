@@ -9,16 +9,11 @@
 
 use tree_sitter::Node;
 
-use crate::kinds::{KindMap, F, K};
-use crate::pytext::is_space;
-use crate::source::{Source, Span};
-
-/// The grammar and the text of one file: what every reader of a node needs.
-#[derive(Clone, Copy)]
-pub struct Cx<'a> {
-    pub kinds: &'a KindMap,
-    pub source: &'a Source<'a>,
-}
+use crate::kinds::{F, K};
+use crate::pytext::{has_backslash, is_space};
+use crate::source::Span;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::{children, each_child, named_children};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Visibility {
@@ -117,49 +112,6 @@ pub struct Base {
     pub span: Span,
 }
 
-/// A node with this many children or fewer is read by index, which costs no cursor.
-const FEW_CHILDREN: usize = 12;
-
-pub fn named_children(node: Node) -> Vec<Node> {
-    if node.child_count() <= FEW_CHILDREN {
-        return (0..node.child_count())
-            .filter_map(|index| node.child(index))
-            .filter(Node::is_named)
-            .collect();
-    }
-    let mut cursor = node.walk();
-    node.named_children(&mut cursor).collect()
-}
-
-/// Call `visit` for each child, without a vector: a node with few children is read by index.
-pub fn each_child<'t>(node: Node<'t>, mut visit: impl FnMut(Node<'t>)) {
-    if node.child_count() <= FEW_CHILDREN {
-        (0..node.child_count())
-            .filter_map(|index| node.child(index))
-            .for_each(visit);
-        return;
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        visit(child);
-    }
-}
-
-pub fn children(node: Node) -> Vec<Node> {
-    if node.child_count() <= FEW_CHILDREN {
-        return (0..node.child_count())
-            .filter_map(|index| node.child(index))
-            .collect();
-    }
-    let mut cursor = node.walk();
-    node.children(&mut cursor).collect()
-}
-
-/// `re.search(r"\\", text)`.
-pub fn has_backslash(text: &str) -> bool {
-    text.contains('\\')
-}
-
 /// `_static_member_name`: the name without its quotes, or `None` when it holds an escape.
 pub fn static_member_name(raw: &str) -> Option<String> {
     if has_backslash(raw) {
@@ -179,36 +131,6 @@ pub fn static_member_name(raw: &str) -> Option<String> {
 }
 
 impl Cx<'_> {
-    pub fn k(&self, node: Node) -> K {
-        self.kinds.of(node)
-    }
-
-    pub fn text(&self, node: Node) -> String {
-        self.source.text(node)
-    }
-
-    pub fn span(&self, node: Node) -> Span {
-        self.source.span(node, None)
-    }
-
-    fn bytes(&self, node: Node) -> &[u8] {
-        self.source
-            .data
-            .get(node.start_byte()..node.end_byte())
-            .unwrap_or(&[])
-    }
-
-    pub fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
-        self.kinds.field(node, field)
-    }
-
-    /// Whether a child of `node` has the kind `kind`.
-    pub fn has_child(&self, node: Node, kind: K) -> bool {
-        let mut found = false;
-        each_child(node, |child| found |= self.k(child) == kind);
-        found
-    }
-
     /// `_modifiers`.
     pub fn modifiers(&self, node: Node) -> Modifiers {
         let mut bits = 0;

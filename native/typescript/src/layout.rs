@@ -12,7 +12,7 @@ use std::hash::{BuildHasherDefault, Hasher};
 use tree_sitter::{Node, TreeCursor};
 
 use crate::kinds::K;
-use crate::members::Cx;
+use crate::tree::cx::Cx;
 
 /// The functions that a return statement belongs to: the four kinds that a wrapper can be.
 pub fn is_function_like(kind: K) -> bool {

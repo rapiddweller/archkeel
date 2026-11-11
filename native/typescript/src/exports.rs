@@ -12,9 +12,10 @@ use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::{children, named_children, Cx};
 use crate::scope::{Frames, ROOT};
 use crate::source::Span;
+use crate::tree::cx::Cx;
+use crate::tree::nodes::{children, named_children};
 
 /// Names with the span of each.
 pub type Named = Vec<(String, Span)>;

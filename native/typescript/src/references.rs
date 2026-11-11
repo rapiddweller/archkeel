@@ -55,7 +55,7 @@ pub struct Reference {
 
 fn children<'t>(node: Option<Node<'t>>, kind: &str) -> Vec<Node<'t>> {
     node.map(|node| {
-        crate::members::children(node)
+        crate::tree::nodes::children(node)
             .into_iter()
             .filter(|child| child.kind() == kind)
             .collect()
@@ -64,7 +64,7 @@ fn children<'t>(node: Option<Node<'t>>, kind: &str) -> Vec<Node<'t>> {
 }
 
 fn has_type_keyword(node: Node) -> bool {
-    crate::members::children(node)
+    crate::tree::nodes::children(node)
         .into_iter()
         .any(|child| child.kind() == "type")
 }
@@ -91,7 +91,7 @@ pub fn literal(node: Option<Node>, source: &Source) -> Option<String> {
     if text.contains('\\') {
         return None;
     }
-    if crate::members::children(node)
+    if crate::tree::nodes::children(node)
         .into_iter()
         .any(|child| child.kind() == "template_substitution")
     {

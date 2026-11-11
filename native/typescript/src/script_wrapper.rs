@@ -8,8 +8,8 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::named_children;
 use crate::script_scope::{is_root, Tree, Wrapper};
+use crate::tree::nodes::named_children;
 
 impl<'a, 't> Tree<'a, 't> {
     /// The object literal that a body returns, when one of its statements is the only `return` and

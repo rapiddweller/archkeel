@@ -11,11 +11,11 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::children;
 use crate::script_scope::is_root;
 use crate::script_syntax::Producer;
 use crate::script_types::ScriptAlias;
 use crate::source::Span;
+use crate::tree::nodes::children;
 
 /// The calls, the reads and the escapes of a factory alias.
 pub type Uses = (Vec<Span>, Vec<Span>, Vec<Vec<String>>);

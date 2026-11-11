@@ -1,0 +1,50 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! The grammar and the text of one file: the context that every reader of a node needs.
+
+use tree_sitter::Node;
+
+use crate::kinds::{KindMap, F, K};
+use crate::source::{Source, Span};
+use crate::tree::nodes::each_child;
+
+/// The grammar and the text of one file: what every reader of a node needs.
+#[derive(Clone, Copy)]
+pub struct Cx<'a> {
+    pub kinds: &'a KindMap,
+    pub source: &'a Source<'a>,
+}
+
+impl Cx<'_> {
+    pub fn k(&self, node: Node) -> K {
+        self.kinds.of(node)
+    }
+
+    pub fn text(&self, node: Node) -> String {
+        self.source.text(node)
+    }
+
+    pub fn span(&self, node: Node) -> Span {
+        self.source.span(node, None)
+    }
+
+    pub(crate) fn bytes(&self, node: Node) -> &[u8] {
+        self.source
+            .data
+            .get(node.start_byte()..node.end_byte())
+            .unwrap_or(&[])
+    }
+
+    pub fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
+        self.kinds.field(node, field)
+    }
+
+    /// Whether a child of `node` has the kind `kind`.
+    pub fn has_child(&self, node: Node, kind: K) -> bool {
+        let mut found = false;
+        each_child(node, |child| found |= self.k(child) == kind);
+        found
+    }
+}

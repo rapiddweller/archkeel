@@ -14,11 +14,11 @@ use tree_sitter::Node;
 
 use crate::definitions::Definition;
 use crate::kinds::{F, K};
-use crate::members::named_children;
 use crate::script_index::Key;
 use crate::script_scope::{is_function, is_root};
 use crate::script_syntax::Producer;
 use crate::script_types::Member;
+use crate::tree::nodes::named_children;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `f"{definition.parent}.{definition.name}" if definition.parent else definition.name`.

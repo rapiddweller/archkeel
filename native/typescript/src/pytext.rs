@@ -35,3 +35,8 @@ pub fn first_chars(text: &str, count: usize) -> &str {
         None => text,
     }
 }
+
+/// `re.search(r"\\", text)`.
+pub fn has_backslash(text: &str) -> bool {
+    text.contains('\\')
+}

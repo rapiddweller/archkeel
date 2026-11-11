@@ -11,10 +11,10 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::members::named_children;
 use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
 use crate::script_types::{Member, ScriptGlobal};
+use crate::tree::nodes::named_children;
 
 /// The `(published name, local name)` pairs and the keys of an object literal.
 type Keyed = (Vec<(String, String)>, Vec<String>);

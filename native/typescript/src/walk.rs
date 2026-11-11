@@ -22,12 +22,13 @@ use crate::exports::{ambient, export_bindings, module_exports, Named};
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::layout::Layout;
-use crate::members::{named_children, Cx};
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
 use crate::script_types::Script;
 use crate::sites::{Sites, Visit};
 use crate::source::Span;
 use crate::source_input::{SourceKind, Suffix};
+use crate::tree::cx::Cx;
+use crate::tree::nodes::named_children;
 
 /// The facts of `Syntax` that this phase produces. The reply does not read them yet; the `dump`
 /// feature does (AD-323).

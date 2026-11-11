@@ -9,10 +9,10 @@ use tree_sitter::Node;
 
 use crate::definitions::DefinitionKind;
 use crate::kinds::{F, K};
-use crate::members::named_children;
 use crate::script_scope::is_root;
 use crate::script_syntax::Producer;
 use crate::script_types::{FactoryMember, Member, ScriptDestructure, ScriptFactory};
+use crate::tree::nodes::named_children;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_destructures`: `const { a, b } = window.object`.
