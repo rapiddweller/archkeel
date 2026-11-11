@@ -2,19 +2,28 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A trait that a glob brings in (#953, AD-355): `use super::*;` in `a` takes the `use b::T;` of
+//! A trait that a glob brings in (#953, AD-357): `use super::*;` in `a` takes the `use b::T;` of
 //! its parent, and `x.m()` in `a` may then call a method of `T`. The module of `T` gets a pair gap
-//! when `a` calls a method of `T`, or any method when the scan does not know what `T` is.
+//! when `a` calls a method of `T`, or any method when the scan does not know what `T` is. This file
+//! also writes each pair gap (`reached_gap`), for itself and for `impl_edges.rs`.
 
 use std::collections::BTreeSet;
 
-use super::{Builder, Reached};
+use crate::builder::Builder;
 use crate::crates::{Root, Workspace};
-use crate::definitions::{Form, Owner};
+use crate::definitions::{Form, MethodCall, Owner};
 use crate::modules::{Edge, Frame, Index, Outcome};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::Reference;
 use crate::tree::Module;
+
+/// One module, its method calls and the module pairs that an edge joins.
+pub(crate) struct Reached<'a> {
+    pub(crate) index: &'a Index<'a>,
+    pub(crate) module: &'a Module,
+    pub(crate) calls: &'a [MethodCall],
+    pub(crate) edges: &'a BTreeSet<(String, String)>,
+}
 
 /// The deepest chain of globs that the scan follows.
 const MAX_GLOBS: usize = 8;
@@ -40,7 +49,7 @@ fn workspace_root<'w>(
 
 /// Whether a path may start at another crate of the workspace: by the name of the crate, by a
 /// `use` leaf from it, or by a name that the file does not declare and a glob from it may bring in.
-pub(super) fn crate_path(workspace: &Workspace, frame: &Frame<'_>, reference: &Reference) -> bool {
+pub(crate) fn crate_path(workspace: &Workspace, frame: &Frame<'_>, reference: &Reference) -> bool {
     let module = frame.module;
     let from_crate = |leaf: &&Reference| workspace_root(workspace, module, leaf).is_some();
     let undeclared = !module.scan.counts.contains_key(&reference.root);
@@ -128,7 +137,7 @@ fn globbed(index: &Index<'_>, module: &Module) -> (Vec<(String, String)>, bool) 
 
 impl Builder {
     /// A pair gap for each trait of another module that a glob of the module may bring in.
-    pub(super) fn glob_trait_gaps(&mut self, workspace: &Workspace, reached: &Reached<'_>) {
+    pub(crate) fn glob_trait_gaps(&mut self, workspace: &Workspace, reached: &Reached<'_>) {
         if reached.calls.is_empty() {
             return;
         }
@@ -173,5 +182,22 @@ impl Builder {
             edge.module
         );
         self.reached_gap(reached, call, &edge.module, &reason);
+    }
+
+    /// The pair gap of a call, unless the module is the target or already has an edge to it.
+    pub(crate) fn reached_gap(
+        &mut self,
+        reached: &Reached<'_>,
+        call: &MethodCall,
+        target: &str,
+        why: &str,
+    ) {
+        let source = reached.module.module.as_str();
+        let pair = (source.to_owned(), target.to_owned());
+        if source == target || reached.edges.contains(&pair) || !self.gapped.insert(pair) {
+            return;
+        }
+        let evidence = self.cite(&reached.module.rel, &call.site);
+        self.pair_gap(why, &evidence, (source, target));
     }
 }

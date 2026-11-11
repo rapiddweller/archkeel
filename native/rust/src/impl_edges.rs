@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The uses of a method that another module defines (#953, AD-355).
+//! The uses of a method that another module defines (#953, AD-357).
 //!
 //! An inherent `impl` of a type can stand in any module of the crate of the type. A member of a
 //! block that is not in the file of its type is foreign. A path `c::S::m` names its member: when
@@ -19,6 +19,7 @@ use archkeel_facts::ImportFact;
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall};
+use crate::impl_globs::{crate_path, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
@@ -227,7 +228,7 @@ impl Builder {
             return calls;
         };
         let crate_paths = module.scan.references.iter().filter(|r| r.via == Via::Path);
-        for reference in crate_paths.filter(|r| globs::crate_path(workspace, frame, r)) {
+        for reference in crate_paths.filter(|r| crate_path(workspace, frame, r)) {
             if let Some(name) = reference.names.last() {
                 calls.push(MethodCall {
                     name: name.clone(),
@@ -260,30 +261,7 @@ impl Builder {
             }
         }
     }
-
-    /// The pair gap of a call, unless the module is the target or already has an edge to it.
-    fn reached_gap(&mut self, reached: &Reached<'_>, call: &MethodCall, target: &str, why: &str) {
-        let source = reached.module.module.as_str();
-        let pair = (source.to_owned(), target.to_owned());
-        if source == target || reached.edges.contains(&pair) || !self.gapped.insert(pair) {
-            return;
-        }
-        let evidence = self.cite(&reached.module.rel, &call.site);
-        self.pair_gap(why, &evidence, (source, target));
-    }
 }
-
-/// One module, its method calls and the module pairs that an edge joins.
-struct Reached<'a> {
-    index: &'a Index<'a>,
-    module: &'a Module,
-    calls: &'a [MethodCall],
-    edges: &'a BTreeSet<(String, String)>,
-}
-
-/// The trait gaps of a glob, and the paths into another crate.
-#[path = "impl_globs.rs"]
-mod globs;
 
 #[cfg(test)]
 #[path = "impl_edges_tests.rs"]
