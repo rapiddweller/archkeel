@@ -6,7 +6,7 @@
 //!
 //! A failure is the record of `source.parse_sources`, a shadowed module is `_shadowed_gap`
 //! (#797), and a file that the native collector does not see (`Unseen`) is a collection gap that
-//! names it, so that nothing unseen is silent (AD-365 points 4 and 6).
+//! names it, so that nothing unseen is silent (AD-367 points 4 and 6).
 
 use archkeel_facts::data::GapData;
 use archkeel_facts::identity::{stable_id, Part};
@@ -91,7 +91,7 @@ pub fn early(exception: ExceptionName, message: &str) -> Failure {
 }
 
 /// `_shadowed_gap`: a module that a package of the same name shadows (#797). The name
-/// `ShadowedModule` exists in protocol 10.0.0 only (AD-365 point 9).
+/// `ShadowedModule` exists in protocol 10.0.0 only (AD-367 point 9).
 pub fn shadowed(item: &Shadowed) -> Record<GapFact> {
     let data = GapFact::ExceptionGap {
         exception: ExceptionName::ShadowedModule,

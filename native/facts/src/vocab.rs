@@ -131,7 +131,7 @@ closed! {
         PubspecMissing = "PubspecMissing",
         DartSyntaxError = "syntax_error",
         InvalidEncoding = "invalid_encoding",
-        /// Protocol 10.0.0 only (AD-365): the published 9.0.0 schema does not list it.
+        /// Protocol 10.0.0 only (AD-367): the published 9.0.0 schema does not list it.
         ShadowedModule = "ShadowedModule",
     }
 }

@@ -6,7 +6,7 @@
 The oracle is the unmodified `collect.collect` in the phase `imports`, encoded as the facts of
 protocol 9. The test compares the static imports, the file facts, their evidence, the import
 targets, the UNKNOWN records and the coverage. A syntax failure is compared on its file and its
-class only (AD-365 point 1). The `stable_bindings` of a file fact follow in slice 1c-2c and are
+class only (AD-367 point 1). The `stable_bindings` of a file fact follow in slice 1c-2c and are
 not compared yet; the binary still refuses each request, so no reply can carry them.
 `ARCHKEEL_PYTHON_SCOPE_CORPORA` names more trees, as in `test_collector_native_python_scope.py`.
 """
@@ -96,7 +96,7 @@ _PARSE_FAILURES = {"SyntaxError", "IndentationError", "TabError", "TooDeepError"
 
 
 def _closed(value: Any) -> Any:
-    """Keep the file and the class of a syntax failure only (AD-365 point 1)."""
+    """Keep the file and the class of a syntax failure only (AD-367 point 1)."""
     if isinstance(value, list):
         return [_closed(item) for item in value]
     if isinstance(value, dict) and value.get("kind") in _PARSE_FAILURES and "data" in value:
@@ -204,7 +204,7 @@ def _gap_files(found: dict[str, Any]) -> dict[str, str]:
 
 
 def test_a_file_over_4_mib_is_a_named_gap(tmp_path: Path, python_dump_binary: Path) -> None:
-    """AD-365 point 4: the snapshot does not read the file, and the survey names it."""
+    """AD-367 point 4: the snapshot does not read the file, and the survey names it."""
     root = _tree(tmp_path / "repo", {"src/app/__init__.py": "", "src/app/big.py": "#" * (5 << 20)})
     found = _native(python_dump_binary, _request(root, ("src",), "app", False))
     assert _gap_files(found) == {"src/app/big.py": "collection_gap"}
@@ -224,7 +224,7 @@ def _without_file(found: dict[str, Any], rel: str) -> dict[str, Any]:
 def test_an_unreadable_file_is_a_gap_in_both_producers(
     tmp_path: Path, python_dump_binary: Path
 ) -> None:
-    """AD-365 point 10: the file and its gap are present in both producers, and the class may
+    """AD-367 point 10: the file and its gap are present in both producers, and the class may
     be the base class `OSError`. The rest of the survey is equal."""
     rel = "src/app/secret.py"
     root = _tree(tmp_path / "repo", {"src/app/__init__.py": "import os\n", rel: "x = 1\n"})

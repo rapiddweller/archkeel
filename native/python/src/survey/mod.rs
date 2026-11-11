@@ -162,7 +162,7 @@ fn parse_unshadowed(
 }
 
 /// Why a selected file did not read: the failure of Python, or a file that the native
-/// collector does not see (over the size limit, AD-365 point 4).
+/// collector does not see (over the size limit, AD-367 point 4).
 fn unread(snapshot: &mut Snapshot, rel: &str) -> Result<Failure, Unseen> {
     if snapshot.size_gap(rel).is_some() {
         return Err(Unseen::Oversized(rel.to_owned()));
