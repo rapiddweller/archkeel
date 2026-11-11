@@ -987,6 +987,10 @@
           "rationale": "Add a record to the builder."
         },
         {
+          "component": "rs-edges",
+          "rationale": "Call the builder methods that edges, declared, module_edges and impl_edges define (#953: an impl method of another module is a use of that module)."
+        },
+        {
           "component": "rs-reply",
           "rationale": "Encode the reply."
         }
