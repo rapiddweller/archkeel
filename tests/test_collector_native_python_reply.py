@@ -44,6 +44,7 @@ from archkeel.ir.protocol import (
     CollectionResponse,
     ProtocolVersion,
     PythonCollectionPhase,
+    PythonSettings,
 )
 from archkeel.ir.state_facts import ProducerKind
 
@@ -94,12 +95,22 @@ def _comparable(reply: dict[str, Any]) -> str:
     return json.dumps(_closed({**rest, "facts": facts}), sort_keys=True, ensure_ascii=False)
 
 
+def _same(found: str, expected: str, label: object) -> None:
+    """Fail with the first different slice: a diff of two replies of `src/` takes minutes."""
+    if found != expected:
+        at = len(os.path.commonprefix([found, expected]))
+        pytest.fail(
+            f"{label}: at {at} native {found[at - 80 : at + 80]!r} "
+            f"python {expected[at - 80 : at + 80]!r}"
+        )
+
+
 def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> None:
     for exclude in (False, True):
         request = _request(root, roots, namespace, exclude)
         found = json.loads(zlib.decompress(_native(binary, request)))
         assert found["protocol_version"] == "10.0.0"
-        assert _comparable(found) == _comparable(_python(request)), (root, exclude)
+        _same(_comparable(found), _comparable(_python(request)), (root, exclude))
 
 
 def test_the_reply_of_the_edge_cases_is_the_python_survey(
@@ -162,7 +173,7 @@ def _equal_but_os_error(binary: Path, request: CollectionRequest, rels: tuple[st
             kinds = {item["data"].get("file"): item["kind"] for item in records}
             assert all(issubclass(getattr(builtins, kinds[rel]), OSError) for rel in rels), kinds
             records[:] = [item for item in records if item["data"].get("file") not in rels]
-    assert _comparable(replies[0]) == _comparable(replies[1])
+    _same(_comparable(replies[0]), _comparable(replies[1]), rels)
 
 
 @pytest.mark.parametrize("fixed", by_python(12))
@@ -208,7 +219,7 @@ def _claims_completeness(reply: dict[str, Any], root: Path, namespace: str) -> N
         CollectionRequest(
             request.snapshot,
             request.scope,
-            type(request.resolver)(phase=PythonCollectionPhase.COLLECT),
+            PythonSettings(phase=PythonCollectionPhase.COLLECT),
             request.protocol_version,
         )
     )
