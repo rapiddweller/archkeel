@@ -56,7 +56,6 @@
     "bounded_numeric_operand",
     "catalog_argument",
     "catalog_use",
-    "complete_external_scope",
     "forbidden_call_argument",
     "layer_order",
     "protocol_declarations",
