@@ -45,6 +45,24 @@ def binary() -> Path:
     return built
 
 
+def test_a_plain_build_does_not_replace_the_dump_binary(binary: Path, tmp_path: Path) -> None:
+    """The dump binary has its own target dir, so no other build can leave it without `dump`."""
+    plain = subprocess.run(
+        ["cargo", "build", "--locked", "-p", parity.BINARY],
+        cwd=parity.NATIVE,
+        capture_output=True,
+        check=False,
+    )
+    assert plain.returncode == 0
+    root = _tree(tmp_path, {"pubspec.yaml": PUBSPEC, "lib/a.dart": "class A {}\n"})
+    result = subprocess.run(
+        [str(parity.build(release=False)), "--dump", str(root), "shop", "lib"],
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0
+
+
 def _tree(root: Path, files: dict[str, str | bytes]) -> Path:
     for relative, text in files.items():
         path = root / relative

@@ -89,9 +89,12 @@ class Result:
 def build(*, release: bool = True) -> Path:
     """Build the native collector and return the binary."""
     profile = ["--release"] if release else []
+    # The test-only `dump` feature gets its own target dir: a plain build of the same crate
+    # elsewhere (make native-check, another test) must never replace this binary.
+    target = Path(os.environ.get("CARGO_TARGET_DIR", NATIVE / "target")) / "dart-dump"
     command = ["cargo", "build", "--locked", *profile, "-p", BINARY, "--features", "dump"]
+    command += ["--target-dir", str(target)]
     subprocess.run(command, cwd=NATIVE, check=True, capture_output=True)
-    target = Path(os.environ.get("CARGO_TARGET_DIR", NATIVE / "target"))
     suffix = ".exe" if sys.platform == "win32" else ""
     return target / ("release" if release else "debug") / f"{BINARY}{suffix}"
 
