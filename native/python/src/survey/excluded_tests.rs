@@ -41,3 +41,30 @@ fn an_excluded_package_matches_its_modules_and_not_a_longer_name() {
         Some("app.test_x")
     );
 }
+
+/// L-30: Python also judges the target of a dangling link (`resolve()` without a check), which the
+/// native walk cannot read; each dangling link under the test exclusion is a named gap.
+#[cfg(unix)]
+#[test]
+fn a_dangling_link_under_the_test_exclusion_is_a_gap_that_names_it() {
+    use archkeel_snapshot::test_tree::Tree;
+    let tree = Tree::new(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/user.py", "import app.ghost\n"),
+    ]);
+    let app = std::path::Path::new(&tree.path()).join("src/app");
+    std::os::unix::fs::symlink("ghost.py", app.join("test_link.py")).unwrap();
+    std::os::unix::fs::symlink("tests/gone.py", app.join("helper.py")).unwrap();
+    let mut snapshot = Snapshot::new(&tree.path());
+    let found = Excluded::find(&mut snapshot, &["src".to_owned()], "app", 12);
+    let gaps = found.gaps(&[], &HashMap::new(), false);
+    let titles: Vec<&str> = gaps.iter().map(|gap| gap.title.as_str()).collect();
+    assert_eq!(
+        titles,
+        [
+            "Test exclusion cannot judge the dangling link src/app/helper.py",
+            "Test exclusion cannot judge the dangling link src/app/test_link.py",
+        ]
+    );
+    assert_eq!(gaps[0].subjects, ["src/app/helper.py"]);
+}
