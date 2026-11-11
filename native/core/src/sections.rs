@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_eval::{Outcome, Violation};
+use archkeel_eval::{Cited, Outcome, Violation};
 use archkeel_model::{Model, Reason, Section};
 use serde_json::{json, Value};
 
@@ -78,8 +78,10 @@ fn row(violation: &Violation) -> Value {
             evidence,
             ..
         } => record(
-            [id, rule, fact_id, evidence],
-            ["components", "complete_assignment", name],
+            [id, rule, fact_id],
+            std::slice::from_ref(evidence),
+            ["components", "complete_assignment"],
+            &[name],
             format!("{name} is not owned by exactly one component"),
             json!({"source": source, "module": name}),
         ),
@@ -93,26 +95,81 @@ fn row(violation: &Violation) -> Value {
             evidence,
             ..
         } => record(
-            [id, rule, fact_id, evidence],
-            ["module_topology", "root_layout", child],
+            [id, rule, fact_id],
+            std::slice::from_ref(evidence),
+            ["module_topology", "root_layout"],
+            &[child],
             format!("{child} is not an allowed child of {root}"),
             json!({"root": root, "child": child, "allowed_children": allowed}),
         ),
+        Violation::OutsideScope {
+            id,
+            rule,
+            dependency,
+            cited,
+        } => {
+            let Cited {
+                import,
+                source_module,
+                target_module,
+                evidence,
+            } = cited;
+            record(
+                [id, rule, import],
+                evidence,
+                ["dependency_violations", "external_dependency_scope"],
+                &[source_module, target_module],
+                format!("{source_module} imports {dependency} outside its allowed scope"),
+                json!({"source_module": source_module, "target_module": target_module,
+                       "dependency": dependency}),
+            )
+        }
+        Violation::Undeclared {
+            id,
+            rule,
+            source,
+            dependency,
+            cited,
+        } => {
+            let Cited {
+                import,
+                source_module,
+                target_module,
+                evidence,
+            } = cited;
+            record(
+                [id, rule, import],
+                evidence,
+                ["dependency_violations", "complete_external_scope"],
+                &[source_module, target_module],
+                format!("{source_module} imports undeclared {dependency}"),
+                json!({"source": source, "source_module": source_module,
+                       "target_module": target_module, "dependency": dependency}),
+            )
+        }
     }
 }
 
-/// A violation record: `[id, rule, cited record, its evidence]` and `[area, kind, subject]`.
-fn record(ids: [&str; 4], names: [&str; 3], title: String, data: Value) -> Value {
-    let [id, rule, fact_id, evidence] = ids;
-    let [area, kind, subject] = names;
+/// A violation record: `[id, rule, cited record]`, the evidence of the cited record (sorted),
+/// `[area, kind]` and the subjects.
+fn record(
+    ids: [&str; 3],
+    evidence: &[String],
+    names: [&str; 2],
+    subjects: &[&String],
+    title: String,
+    data: Value,
+) -> Value {
+    let [id, rule, fact_id] = ids;
+    let [area, kind] = names;
     json!({
         "id": id,
         "evidence_class": "VIOLATION",
         "area": area,
         "kind": kind,
         "title": title,
-        "subjects": subjects(subject),
-        "evidence_ids": [evidence],
+        "subjects": sorted_subjects(subjects),
+        "evidence_ids": evidence,
         "rule_ids": [rule],
         "fact_ids": [fact_id],
         "provenance": [],
@@ -120,10 +177,13 @@ fn record(ids: [&str; 4], names: [&str; 3], title: String, data: Value) -> Value
     })
 }
 
-/// `classified` drops an empty subject.
-fn subjects(name: &str) -> Vec<&str> {
-    Some(name)
+/// `classified` drops an empty subject and sorts the others.
+fn sorted_subjects<'a>(names: &[&'a String]) -> Vec<&'a str> {
+    let mut found: Vec<&str> = names
+        .iter()
+        .map(|name| name.as_str())
         .filter(|name| !name.is_empty())
-        .into_iter()
-        .collect()
+        .collect();
+    found.sort_unstable();
+    found
 }

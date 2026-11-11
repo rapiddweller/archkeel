@@ -13,18 +13,22 @@
 //! FAIL needs no proof. UNKNOWN comes from a fact that the reply proves not seen, or from a rule
 //! that selects no module (no evaluator receipt). Any other case needs the scope proof of slice
 //! S4; until then it is UNKNOWN with the reason `Unsupported::ScopeProof`, a named gap.
+//!
+//! Slice S2 decides `external_dependency_scope` and `complete_external_scope`: they read only the
+//! resolved imports with their typed targets, the modules and the owners (AD-372).
 
 #![deny(unreachable_pub)]
 
 mod assignment;
 mod decide;
+mod external;
 mod layout;
 mod violation;
 
 use archkeel_contract::{head_of, kind_of, Contract, Rule, RuleKind};
 use archkeel_model::{Decision, Model, Reason, Unsupported};
 
-pub use violation::Violation;
+pub use violation::{Cited, Violation};
 
 /// The result of one rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,11 +66,11 @@ pub fn evaluate(contract: &Contract, model: &Model) -> Vec<Outcome> {
     contract
         .rules()
         .iter()
-        .map(|rule| outcome(rule, model))
+        .map(|rule| outcome(rule, contract.rules(), model))
         .collect()
 }
 
-fn outcome(rule: &Rule, model: &Model) -> Outcome {
+fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
     let id = head_of(rule).id().as_text();
     let (violations, selected) = match rule {
         Rule::CompleteAssignment(rule) => assignment::check(id, rule, model),
@@ -81,6 +85,8 @@ fn outcome(rule: &Rule, model: &Model) -> Outcome {
                 };
             }
         },
+        Rule::ExternalDependencyScope(rule) => external::dependency_scope(id, rule, model),
+        Rule::CompleteExternalScope(rule) => external::complete_scope(id, rule, rules, model),
         other => {
             let kind = kind_of(other);
             let reason = Reason::Unsupported(Unsupported::Rule(kind));

@@ -51,7 +51,12 @@ fn the_rows_of_modules_and_packages_wait_for_the_ranks_of_s3() {
         .collect();
     assert_eq!(
         s3,
-        vec![Section::Packages, Section::Modules, Section::Cycles]
+        vec![
+            Section::Packages,
+            Section::Modules,
+            Section::DependencyEdges,
+            Section::Cycles
+        ]
     );
 }
 
@@ -264,16 +269,16 @@ fn gap(source_module: Option<&str>) -> Record<GapFact> {
 
 #[test]
 fn the_reply_proves_an_incomplete_scope_only_with_a_gap_that_no_contract_drops() {
-    assert_eq!(incomplete(&coverage(&["a.ts"], Vec::new())), None);
+    assert_eq!(incomplete(&coverage(&["a.ts"], Vec::new()), 0), None);
     assert_eq!(
-        incomplete(&coverage(&[], Vec::new())),
+        incomplete(&coverage(&[], Vec::new()), 0),
         Some(Incomplete::NoSourceFiles)
     );
     let certain = coverage(&["a.ts"], vec![gap(None), gap(Some("shop.a"))]);
-    assert_eq!(incomplete(&certain), Some(Incomplete::CoverageGaps(2)));
+    assert_eq!(incomplete(&certain, 0), Some(Incomplete::CoverageGaps(2)));
     // A gap between two modules can be allowed by the contract (`drop_allowed_pair_gaps`).
     assert_eq!(
-        incomplete(&coverage(&["a.ts"], vec![gap(Some("shop.b"))])),
+        incomplete(&coverage(&["a.ts"], vec![gap(Some("shop.b"))]), 0),
         None
     );
 }

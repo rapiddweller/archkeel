@@ -144,8 +144,10 @@ impl Section {
             | Section::TypingSignals
             | Section::Constructs
             | Section::Evidence => Porting::Store,
-            Section::Imports | Section::DependencyEdges => Porting::Slice(Slice::S2),
-            Section::Cycles => Porting::Slice(Slice::S3),
+            // The rows of `dependency_edges` hold the condensation ranks of S3. The rows of
+            // `imports` are the records of the store with the marks of the typed targets.
+            Section::DependencyEdges | Section::Cycles => Porting::Slice(Slice::S3),
+            Section::Imports => Porting::Store,
             Section::Contexts | Section::ContextEvidence => Porting::Slice(Slice::S15),
             Section::Violations | Section::Unknowns => Porting::RuleFamilies,
         }

@@ -9,7 +9,7 @@ use crate::engine::tests::{golden_reply, NATIVE_CONTRACT};
 
 fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
     json!({
-        "protocol": "archkeel-dual-run-1",
+        "protocol": "archkeel-dual-run-2",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
@@ -19,6 +19,8 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
         "contracts": {"architecture-contract.json": NATIVE_CONTRACT},
         "reply": reply.map(|bytes| json!({"hex": bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()})),
         "sections": sections,
+        "namespace": "shop",
+        "standard_library": [],
     })
 }
 

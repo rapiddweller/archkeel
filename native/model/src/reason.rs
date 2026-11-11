@@ -37,6 +37,8 @@ pub enum Input {
     Contract,
     /// The validated collector reply.
     Reply,
+    /// The settings of the shell: the namespace and the standard library (AD-372).
+    Settings,
 }
 
 /// Why a part has no result.
@@ -99,12 +101,19 @@ impl fmt::Display for Reason {
             Reason::MissingInput(Input::Reply) => {
                 formatter.write_str("missing input: no valid collector reply")
             }
+            Reason::MissingInput(Input::Settings) => {
+                formatter.write_str("missing input: no settings from the shell")
+            }
             Reason::Incomplete(Incomplete::NoSourceFiles) => {
                 formatter.write_str("incomplete scope: the collector selected no source file")
             }
             Reason::Incomplete(Incomplete::CoverageGaps(count)) => write!(
                 formatter,
                 "incomplete scope: the collector reports {count} coverage gaps"
+            ),
+            Reason::Incomplete(Incomplete::UnknownImports(count)) => write!(
+                formatter,
+                "incomplete scope: {count} imports are not resolved and no gap names them"
             ),
             Reason::NoSubjects => formatter
                 .write_str("the rule selects no module of the reply: no evaluator receipt exists"),

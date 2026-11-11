@@ -16,27 +16,35 @@
 //! - `Section`: the 20 compared sections of `architecture.json` and the slice that ports each.
 //! - Slice S1: the modules and packages of the reply, the one owner of each module, the modules
 //!   that a rule source selects, and what the reply proves not seen (`Incomplete`).
+//! - Slice S2: the resolved imports with their typed targets, the module and package edges, the
+//!   unresolved imports that no gap names, and the settings that the shell sends (`Settings`).
 //!
 //! The model names no language: a rule of the native contract and a test check that.
 
 #![deny(unreachable_pub)]
 
 mod coverage;
+mod edges;
 mod ids;
+mod imports;
 mod model;
 mod modules;
 mod ownership;
 mod reason;
 mod scope;
 mod section;
+mod settings;
 mod verdict;
 
 pub use coverage::Incomplete;
+pub use edges::{Edge, Level};
 pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
-pub use model::{Model, Rows};
+pub use imports::{Import, Resolved};
+pub use model::{reply_edges, Model, Rows};
 pub use modules::{Module, Package};
 pub use ownership::in_scope;
 pub use reason::{Input, Reason, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
+pub use settings::Settings;
 pub use verdict::{Decision, Proven, Verdict};

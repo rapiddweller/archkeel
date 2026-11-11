@@ -15,7 +15,12 @@ use archkeel_eval::Outcome;
 use archkeel_model::{Model, Reason, Unsupported, Verdict};
 
 /// The rule kinds that `archkeel-eval` decides.
-const DECIDED: &[RuleKind] = &[RuleKind::CompleteAssignment, RuleKind::RootLayout];
+const DECIDED: &[RuleKind] = &[
+    RuleKind::CompleteAssignment,
+    RuleKind::RootLayout,
+    RuleKind::ExternalDependencyScope,
+    RuleKind::CompleteExternalScope,
+];
 
 /// The decided rules (id to kind and status) and the reason of each rule without a decision.
 #[derive(Debug, Default)]

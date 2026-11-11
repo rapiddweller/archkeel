@@ -7,7 +7,7 @@
 use std::io::{Read, Write};
 
 use archkeel_contract::{Contract, ParsedContract};
-use archkeel_model::{Decision, Incomplete, Model, Reason, Unsupported, Verdict};
+use archkeel_model::{Decision, Incomplete, Model, Reason, Settings, Unsupported, Verdict};
 use flate2::read::GzDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -72,7 +72,7 @@ fn run(
     let (Some(contract), Some(reply)) = (contract(contract_change), reply(reply_change)) else {
         return Vec::new();
     };
-    let Ok(model) = Model::derive(&contract, &reply) else {
+    let Ok(model) = Model::derive(&contract, &reply, shop_settings()) else {
         return Vec::new();
     };
     evaluate(&contract, &model)
@@ -99,6 +99,9 @@ fn name(violation: &Violation) -> String {
     match violation {
         Violation::Unassigned { name, .. } => name.clone(),
         Violation::NotAllowedChild { child, .. } => child.clone(),
+        Violation::OutsideScope { cited, .. } | Violation::Undeclared { cited, .. } => {
+            format!("{} -> {}", cited.source_module, cited.target_module)
+        }
     }
 }
 
@@ -359,7 +362,7 @@ fn a_rule_kind_without_a_slice_names_its_kind() {
         fail("the H-typescript contract and reply load");
         return;
     };
-    let Ok(model) = Model::derive(&contract, &reply) else {
+    let Ok(model) = Model::derive(&contract, &reply, shop_settings()) else {
         fail("the model derives");
         return;
     };
@@ -463,4 +466,9 @@ fn a_violation_cites_the_evidence_of_the_module_not_its_record_id() {
 /// Fail the test with a message (clippy refuses `panic!` in this workspace).
 fn fail(message: &str) {
     assert_eq!(message, "", "the test setup failed");
+}
+
+/// The settings that the shell sends for H-typescript: its namespace, and no standard library.
+pub(crate) fn shop_settings() -> Settings {
+    Settings::new("shop".to_owned(), Vec::new())
 }

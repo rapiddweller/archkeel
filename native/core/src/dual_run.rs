@@ -13,6 +13,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_contract::RuleKind;
+use archkeel_model::{Section, Settings};
 use serde::{Deserialize, Serialize};
 
 use crate::contract::ContractState;
@@ -22,7 +23,8 @@ use crate::request::{self, Request};
 use crate::rules::RuleAnswer;
 use archkeel_model::{Reason, Unsupported};
 
-const PROTOCOL: &str = "archkeel-dual-run-1";
+/// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
+const PROTOCOL: &str = "archkeel-dual-run-2";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 /// The decompressed size limit of a reply in the dual run.
@@ -47,6 +49,10 @@ struct DualRunRequest {
     contracts: BTreeMap<String, String>,
     reply: Option<ReplyBytes>,
     sections: Vec<String>,
+    /// The namespace of the configuration, which the shell reads (AD-372).
+    namespace: String,
+    /// The top-level names of the standard library of the profile of the reply (AD-372).
+    standard_library: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +66,9 @@ struct Frame {
     engine: &'static str,
     rules: BTreeMap<String, [String; 2]>,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
+    /// The edge rows without the ranks of S3, when the request names `dependency_edges`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edges: Option<Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
 }
@@ -126,7 +135,12 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
                 )
             })?;
     let sections = request::sections(&request.sections)?;
+    let edges_asked = sections.contains(&Section::DependencyEdges);
     let mut engine = Engine::default();
+    engine.answer(Request::Settings(Settings::new(
+        request.namespace,
+        request.standard_library,
+    )));
     let contract = match engine.answer(Request::Contract(contract.into_bytes())) {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
@@ -176,6 +190,10 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
         },
     };
+    let edges = edges_asked
+        .then(|| engine.reply_and_settings())
+        .flatten()
+        .map(|(reply, settings)| crate::edges::rows(reply, settings));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
@@ -186,6 +204,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         engine: ENGINE,
         rules: decided.decided,
         sections: rows,
+        edges,
         unsupported: UnsupportedParts {
             rules,
             sections,
