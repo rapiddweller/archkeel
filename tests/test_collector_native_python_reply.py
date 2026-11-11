@@ -26,6 +26,7 @@ import pytest
 from collector_pin import pin_of
 from conftest import build_native_copy, by_python
 from false_pass_support import copy_repository
+from first_difference import same
 from test_collector_native_python_scope import _FIXTURES
 from test_collector_native_python_survey import _EDGES, _PARSE_FAILURES, _closed, _request, _tree
 
@@ -95,22 +96,12 @@ def _comparable(reply: dict[str, Any]) -> str:
     return json.dumps(_closed({**rest, "facts": facts}), sort_keys=True, ensure_ascii=False)
 
 
-def _same(found: str, expected: str, label: object) -> None:
-    """Fail with the first different slice: a diff of two replies of `src/` takes minutes."""
-    if found != expected:
-        at = len(os.path.commonprefix([found, expected]))
-        pytest.fail(
-            f"{label}: at {at} native {found[at - 80 : at + 80]!r} "
-            f"python {expected[at - 80 : at + 80]!r}"
-        )
-
-
 def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> None:
     for exclude in (False, True):
         request = _request(root, roots, namespace, exclude)
         found = json.loads(zlib.decompress(_native(binary, request)))
         assert found["protocol_version"] == "10.0.0"
-        _same(_comparable(found), _comparable(_python(request)), (root, exclude))
+        same(_comparable(found), _comparable(_python(request)), (root, exclude))
 
 
 def test_the_reply_of_the_edge_cases_is_the_python_survey(
@@ -173,7 +164,7 @@ def _equal_but_os_error(binary: Path, request: CollectionRequest, rels: tuple[st
             kinds = {item["data"].get("file"): item["kind"] for item in records}
             assert all(issubclass(getattr(builtins, kinds[rel]), OSError) for rel in rels), kinds
             records[:] = [item for item in records if item["data"].get("file") not in rels]
-    _same(_comparable(replies[0]), _comparable(replies[1]), rels)
+    same(_comparable(replies[0]), _comparable(replies[1]), rels)
 
 
 @pytest.mark.parametrize("fixed", by_python(12))
