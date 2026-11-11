@@ -351,4 +351,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-354 | [A type root inside the project makes a `types` directive a concern](ad-354-a-type-root-inside-the-project-makes-a-types-directive-a-concern.md) |
 | AD-355 | [The Rust collector reads test targets and scopes the macros of a function body](ad-355-the-rust-collector-reads-test-targets-and-scopes-the-macros-of-a-function-body.md) |
 | AD-356 | [A call or a crate that a producer cannot see is a gap, not a PASS](ad-356-a-call-or-crate-that-a-producer-cannot-see-is-a-gap.md) |
-| AD-356 | [A method of another module is an edge or a pair gap in Rust](ad-356-a-method-of-another-module-is-an-edge-or-a-pair-gap-in-rust.md) |
+| AD-357 | [A method of another module is an edge or a pair gap in Rust](ad-357-a-method-of-another-module-is-an-edge-or-a-pair-gap-in-rust.md) |

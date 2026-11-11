@@ -283,11 +283,12 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
 `5u8.m()` in the child), give a gap of the pair `a -> b`. The host drops that gap only when the
-contract lets `a` use `b` and the edge closes no cycle that a rule reads (AD-356). Not seen, and the
-verdict can be PASS: an item that a macro generates, a trait `impl` in another module than its trait
-and its type, a trait of a crate outside the workspace that a glob brings in, and a path into
-another crate that goes through a `pub use` of its root. A rule on a module pair reads direct
-imports: "`a` must not use `b`" means "`a` must not import `b` directly" (AD-356). For
+contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
+close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
+trait and its type, and a trait of a crate outside the workspace that a glob brings in. Not seen,
+and the verdict can be PASS: an item that a macro generates, and a path into another crate that
+goes through a `pub use` of its root. A rule on a module pair reads direct
+imports: "`a` must not use `b`" means "`a` must not import `b` directly" (AD-357). For
 `pub use crate::b::make;` in `c` and `use crate::c::make;` in `a`, the edge of `a` goes to `c` and
 the edge of `c` to `b` (a `reexport` record), and a cycle or a layer rule reads both edges. The same
 holds for `pub use crate::b::*;` in `c` and `use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or

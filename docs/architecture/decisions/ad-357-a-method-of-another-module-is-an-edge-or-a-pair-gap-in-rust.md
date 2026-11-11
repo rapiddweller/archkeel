@@ -1,4 +1,4 @@
-# AD-356 A method of another module is an edge or a pair gap in Rust
+# AD-357 A method of another module is an edge or a pair gap in Rust
 
 **Status.** Accepted. It amends AD-335 (the 5b-2c module edges) for issue #953 and epic #880.
 
@@ -22,8 +22,9 @@
    `requires` without `through`; no `forbidden_dependency`, `allowed_dependency` or
    `sibling_isolation` names `a` or `b`; no rule of a kind outside the edge-free kinds and
    `no_component_cycles`; and the edge closes no cycle that a cycle rule reads (module level: `b`
-   reaches `a`; component level: `b` reaches the component of `a`). A contract with inside
-   contracts keeps every gap. No protocol change: protocol 9 carries both fields.
+   reaches `a`; component level: `b` reaches the component of `a`). The walk takes the known edges
+   and every pair gap as an edge, so two gaps `a -> b` and `b -> a`, or a chain of gaps, keep each
+   other. A contract with inside contracts keeps every gap. Protocol 9 carries both fields.
 6. FP-31: a rule on a module pair reads direct imports. "`a` must not use `b`" means "`a` must not
    import `b` directly". `a -> c -> b` through a `pub use` in `c` is two edges, and a cycle or a
    layer rule reads both. This replaces the sentence "a rule on `a -> b` does not see it" of the
@@ -39,14 +40,19 @@ a FAIL that may be false. (c) Drop a pair gap for one component without the cycl
 edge can close a module cycle, and `no_component_cycles` would PASS. (d) Read the type of `x`: the
 scan reads no types.
 
-**Limit.** The scan reads no types, so a pair gap may be a name collision of the same arity. A
-member that a macro generates, a trait `impl` in another module than its trait and its type, and a
-trait of a crate outside the workspace that a glob brings in are not read (`docs/known-limits.md`).
+**Limit.** The scan reads no types, so a pair gap may be a name collision of the same arity. Open
+false PASS, not accepted: a trait `impl` in another module than its trait and its type, and a trait
+of a crate outside the workspace that a glob brings in (#1004). A member that a macro generates is
+not read either (AD-351).
 
 **Tests.** `native/rust/src/impl_edges_tests.rs`, `tests/test_collector_false_pass_rust_impls.py`.
 
-**Cost.** uv `crates/uv` (3e2f08f8e756, `exclude_test_sources`): 22 gaps before and after. native/
-(`make self-validate-native`): 0 gaps before; 28 pair gaps kept after this change; after the
-cleanup of the Rust collector (`rs-flow` requires `rs-edges`, the real use that #953 names) 23 stay:
-module cycles of a type file and the files of its `impl` blocks (`scan`, the TypeScript collector,
-`archkeel_facts.request`) and same-arity name collisions in the TypeScript collector.
+**Cost.** uv `crates/uv` (3e2f08f8e756, `exclude_test_sources`): 22 gaps before and after.
+native/ (`make self-validate-native`): 0 gaps before, 33 kept pair gaps after (pairs that the
+contract forbids, or that together with the edges and the other gaps may close a cycle), and
+`rs-flow` now requires `rs-edges` (the use that #953 names). The first native PASS of native/ is
+withdrawn: part of it came from method calls into `impl` blocks of other files that the scan did
+not see. The cycles of a type file and its `impl` files are real under the current rule. A gap
+makes every rule UNKNOWN, so the gate pins the exact 33 gaps and the status of each rule
+(`native/expected-gaps.json`, `tools/native_expected.py`): a new or a missing gap, another status or
+a violation fails it. A parent/child option of the cycle rule is a later, separate decision.
