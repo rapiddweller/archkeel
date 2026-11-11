@@ -43,6 +43,19 @@ allow = ["Zlib"]
 crate = "unicode-ident"
 allow = ["Unicode-3.0"]
 
+# AD-334: the Python parser decodes `\N{...}` escapes with the Unicode name table of
+# `ruff_unicode_names2`, which carries the Unicode data license next to MIT or Apache-2.0.
+# Unicode-DFS-2016 is permissive and OSI approved. The exception is for this one crate.
+[[licenses.exceptions]]
+crate = "ruff_unicode_names2"
+allow = ["Unicode-DFS-2016"]
+
+# AD-334: the Python parser normalizes identifiers (NFKC) with `unicode-normalization`, which
+# carries the Unicode data license next to MIT or Apache-2.0, as `unicode-ident` does.
+[[licenses.exceptions]]
+crate = "unicode-normalization"
+allow = ["Unicode-3.0"]
+
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
@@ -75,6 +88,20 @@ deny = [
     { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector", "archkeel-dart-grammar"], reason = "only a collector crate parses source" },
     { crate = "tree-sitter-language", wrappers = ["tree-sitter", "tree-sitter-typescript", "archkeel-dart-grammar"], reason = "every grammar crate depends on it: a new grammar crate fails here until it is listed and has an external_dependency_scope rule" },
     { crate = "tree-sitter-typescript", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
+    # AD-334: the Python parser and its tree. Only the Python collector uses them; the parser uses
+    # the tree, and the helper crates of ruff use neither.
+    { crate = "ruff_python_parser", wrappers = ["archkeel-python-collector"], reason = "only a collector crate parses source" },
+    { crate = "ruff_python_ast", wrappers = ["archkeel-python-collector", "ruff_python_parser"], reason = "only a collector crate parses source" },
+    { crate = "ruff_python_trivia", wrappers = ["ruff_python_ast", "ruff_python_parser"], reason = "a part of the Python parser, not for a crate of the workspace" },
+]
+# Two versions are allowed only where a build-time dependency of a parser needs an older release.
+# Neither is linked into a binary.
+skip = [
+    # The `is-macro` derive of `ruff_python_ast` needs syn 2; the workspace uses syn 3 (AD-334).
+    { crate = "syn@2.0.119", reason = "a proc macro of ruff_python_ast needs syn 2; it runs in the compiler only" },
+    # The build script of `ruff_unicode_names2` hashes its table with `rand` 0.10, whose
+    # `chacha20` needs cpufeatures 0.3; `sha2` of the code digest needs 0.2 (AD-334).
+    { crate = "cpufeatures@0.3.1", reason = "a build script of ruff_unicode_names2 needs it; it runs at build time only" },
 ]
 
 [sources]

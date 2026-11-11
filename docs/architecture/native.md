@@ -28,6 +28,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-dart-collector` | Reads Dart source. Slice 1 holds the discovery; the binary refuses a request until the protocol has a Dart request (AD-365). | `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
+| `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1b: the parse only. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on

@@ -1,0 +1,33 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-python-collector"
+description = "Native Python collector of Archkeel; it runs as a subprocess of the host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# AD-334: `--dump` prints the parse outcome of each file for the tests. Not in the wheel.
+dump = []
+
+[dependencies]
+archkeel-facts.workspace = true
+archkeel-snapshot.workspace = true
+archkeel-wire.workspace = true
+ruff_python_ast.workspace = true
+ruff_python_parser.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+archkeel-build-support.workspace = true
+
+[dev-dependencies]
+archkeel-snapshot = { workspace = true, features = ["test-tree"] }
+
+[lints]
+workspace = true
