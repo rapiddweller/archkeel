@@ -149,7 +149,13 @@ fn a_code_point_that_unicode_14_does_not_assign_gives_an_encoding_concern() {
     let found: Vec<(&str, usize, usize)> = syntax
         .concerns
         .iter()
-        .map(|c| (c.message.as_str(), c.span.line, c.span.end_byte - c.span.start_byte))
+        .map(|c| {
+            (
+                c.message.as_str(),
+                c.span.line,
+                c.span.end_byte - c.span.start_byte,
+            )
+        })
         .collect();
     let message = "Dart source holds a code point that Unicode 14 does not assign.";
     assert_eq!(found, [(message, 2, 4)]);

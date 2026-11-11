@@ -42,7 +42,9 @@ fn each_table_equals_the_dump_of_the_oracle() {
         ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, LINE_BREAK, SPACE, WORD,
     };
     let source = include_str!("unicode_tables.rs");
-    for table in [WORD, SPACE, LINE_BREAK, ASSIGNED, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT] {
+    for table in [
+        WORD, SPACE, LINE_BREAK, ASSIGNED, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT,
+    ] {
         let digest = archkeel_facts::identity::sha256_hex(python_repr(table).as_bytes());
         assert!(source.contains(&format!("SHA-256 {digest},")), "{digest}");
     }
@@ -50,8 +52,20 @@ fn each_table_equals_the_dump_of_the_oracle() {
 
 #[test]
 fn python_word_characters_are_the_python_311_set() {
-    for c in ['\u{345}', '\u{93e}', '\u{64b}', '\u{24b6}', '\u{10d40}', '-', ' '] {
-        assert!(!is_word(c), "U+{:04X} is not \\w in Python 3.11", u32::from(c));
+    for c in [
+        '\u{345}',
+        '\u{93e}',
+        '\u{64b}',
+        '\u{24b6}',
+        '\u{10d40}',
+        '-',
+        ' ',
+    ] {
+        assert!(
+            !is_word(c),
+            "U+{:04X} is not \\w in Python 3.11",
+            u32::from(c)
+        );
     }
     for c in ['_', 'a', '\u{b2}', '\u{663}', '\u{2160}', '\u{e9}'] {
         assert!(is_word(c), "U+{:04X} is \\w in Python 3.11", u32::from(c));
@@ -64,7 +78,13 @@ fn python_word_characters_are_the_python_311_set() {
 #[test]
 fn a_code_point_that_unicode_14_does_not_assign_is_unassigned() {
     assert!(is_assigned('a') && is_assigned('\u{e000}') && is_assigned('\u{1fae0}'));
-    for c in ['\u{10d40}', '\u{1fae8}', '\u{378}', '\u{fffe}', '\u{10ffff}'] {
+    for c in [
+        '\u{10d40}',
+        '\u{1fae8}',
+        '\u{378}',
+        '\u{fffe}',
+        '\u{10ffff}',
+    ] {
         assert!(!is_assigned(c), "U+{:04X}", u32::from(c));
     }
 }

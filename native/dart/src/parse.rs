@@ -8,9 +8,9 @@
 use tree_sitter::{Node, Parser};
 
 use crate::dartstr::unclosed_block_comment;
-use crate::pytext::{is_assigned, is_space_byte};
 use crate::definitions::definitions;
 use crate::directives::directives;
+use crate::pytext::{is_assigned, is_space_byte};
 use crate::syntax::{Concern, ConcernKind, Syntax};
 use crate::tree::{children, walk, Source};
 

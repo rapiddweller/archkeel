@@ -199,9 +199,7 @@ pub(crate) fn directive_uri(data: &[u8], start: usize, end: usize) -> Option<Str
     let text = data.get(start..end.min(data.len()))?;
     let keyword = ["import", "export", "part"].into_iter().find(|word| {
         text.starts_with(word.as_bytes())
-            && !text
-                .get(word.len())
-                .is_some_and(|next| is_word_byte(*next))
+            && !text.get(word.len()).is_some_and(|next| is_word_byte(*next))
     })?;
     string_sequence(data, start.saturating_add(keyword.len()), end)
 }
