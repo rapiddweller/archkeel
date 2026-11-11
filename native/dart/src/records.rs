@@ -6,9 +6,10 @@
 //! Dart collector builds them: the inputs, the source listing, the file facts, the gaps of the
 //! problems and their evidence.
 //!
-//! Slice 1 of #880 has no parse: each selected source gets a file fact. The Python collector
-//! drops the file fact of a source with a syntax error or of a `part of` file; the parse slices
-//! add that rule.
+//! Slice 3a of #880 adds the parse: a source with a syntax error has no file fact and a
+//! `SyntaxError` gap, and each other concern of the parse is a gap. The Python collector also
+//! drops the file fact of a `part of` file and of a source with no unique owner; slices 4a and
+//! 4b add those rules.
 
 use std::collections::BTreeMap;
 
@@ -17,11 +18,12 @@ use archkeel_facts::envelope::{Evidence, FileFact, Input, Role};
 use archkeel_facts::identity::{sha256_hex, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::sections::GapFact;
-use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::vocab::{Area, EvidenceClass, ExceptionName};
 use archkeel_facts::Record;
 use serde_json::json;
 
-use crate::discover::{Discovery, Problem};
+use crate::discover::{Discovery, Source};
+use crate::syntax::{ConcernKind, Span, Syntax};
 use archkeel_pytext::splitlines;
 
 use crate::pytext::{is_blank, rstrip};
@@ -42,8 +44,9 @@ pub(crate) struct Sections {
     pub(crate) selected_files: Vec<String>,
 }
 
-/// Build the sections of `discovery` for the scan roots `roots`.
-pub(crate) fn sections(discovery: &Discovery, roots: &[String]) -> Sections {
+/// Build the sections of `discovery` for the scan roots `roots`. `syntax` holds the parse of
+/// each source, in the order of `discovery.sources`.
+pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax]) -> Sections {
     let mut evidence = BTreeMap::new();
     let mut inputs: Vec<Input> = discovery
         .sources
@@ -62,10 +65,33 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String]) -> Sections {
         });
     }
     inputs.sort_by(|a, b| a.path.cmp(&b.path));
+    // `_prepare_sources`: the gaps of the parse first, then the snapshot problems. The first gap
+    // of an id stays, and the file evidence is written last, as `_files` writes it.
+    let mut gaps = BTreeMap::new();
+    for (source, parsed) in discovery.sources.iter().zip(syntax) {
+        for (span, kind, message) in parse_gaps(parsed) {
+            let cited = cite(&mut evidence, source, span);
+            let (id, record) = gap(&source.rel_path, span.line, kind, message, Some(cited));
+            gaps.entry(id).or_insert(record);
+        }
+    }
+    for found in &discovery.problems {
+        let content = discovery
+            .sources
+            .iter()
+            .find(|source| source.rel_path == found.path)
+            .map(|source| source.content.as_slice());
+        let cited = content.map(|content| file_evidence(&mut evidence, &found.path, content));
+        let (id, record) = gap(&found.path, 1, found.kind, &found.message, cited);
+        gaps.entry(id).or_insert(record);
+    }
+    // A source with a syntax error has no file fact (`_prepare_sources` leaves it unparsed).
     let files = discovery
         .sources
         .iter()
-        .map(|source| {
+        .zip(syntax)
+        .filter(|(_, parsed)| parsed.first_error.is_none())
+        .map(|(source, _)| {
             let id = file_evidence(&mut evidence, &source.rel_path, &source.content);
             FileFact::of(
                 (&source.rel_path, &source.module),
@@ -74,17 +100,6 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String]) -> Sections {
             )
         })
         .collect();
-    let mut gaps = BTreeMap::new();
-    for found in &discovery.problems {
-        let content = discovery
-            .sources
-            .iter()
-            .find(|source| source.rel_path == found.path)
-            .map(|source| source.content.as_slice());
-        let cited = content.map(|content| file_evidence(&mut evidence, &found.path, content));
-        let (id, record) = gap(found, cited);
-        gaps.entry(id).or_insert(record);
-    }
     Sections {
         source_digest: listing_digest(&inputs),
         inputs,
@@ -98,6 +113,50 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String]) -> Sections {
             .map(|source| source.rel_path.clone())
             .collect(),
     }
+}
+
+/// The gaps of one parse, as `_prepare_sources` writes them: the first error as `SyntaxError`,
+/// then each concern that is not a syntax error, with the kind of the concern.
+fn parse_gaps(parsed: &Syntax) -> Vec<(&Span, ExceptionName, &str)> {
+    let mut found = Vec::new();
+    if let Some(span) = &parsed.first_error {
+        let message = "syntax errors prevent complete source facts";
+        found.push((span, ExceptionName::SyntaxError, message));
+    }
+    for concern in &parsed.concerns {
+        let kind = match concern.kind {
+            ConcernKind::SyntaxError if parsed.first_error.is_some() => continue,
+            ConcernKind::SyntaxError => ExceptionName::DartSyntaxError,
+            ConcernKind::InvalidEncoding => ExceptionName::InvalidEncoding,
+            ConcernKind::LanguageVersionError => ExceptionName::LanguageVersionError,
+            ConcernKind::UnsupportedDirective => ExceptionName::DirectiveError,
+            ConcernKind::UnsupportedDeclaration => ExceptionName::UnsupportedDeclaration,
+        };
+        found.push((&concern.span, kind, concern.message.as_str()));
+    }
+    found
+}
+
+/// `_Collection._gap` evidence: the span when it has an excerpt, else the first line.
+fn cite(evidence: &mut BTreeMap<String, Evidence>, source: &Source, span: &Span) -> String {
+    if span.excerpt.is_empty() {
+        return file_evidence(evidence, &source.rel_path, &source.content);
+    }
+    let found = Evidence::at(
+        &source.rel_path,
+        number(span.line),
+        number(span.end_line),
+        number(span.column),
+        &span.excerpt,
+    );
+    let id = found.id.as_str().to_owned();
+    evidence.insert(id.clone(), found);
+    id
+}
+
+/// A line or a column as the evidence holds it. A source holds at most 4 MiB, so it fits.
+fn number(value: usize) -> i64 {
+    i64::try_from(value).unwrap_or(i64::MAX)
 }
 
 /// `source_records.file_evidence`: line 1 when the first line holds text, else line 0.
@@ -117,34 +176,39 @@ fn file_evidence(evidence: &mut BTreeMap<String, Evidence>, rel: &str, content: 
     id
 }
 
-/// The UNKNOWN record of one problem, at line 1 of its path, as `_Collection._gap` writes it.
-fn gap(found: &Problem, cited: Option<String>) -> (String, Record<GapFact>) {
-    let kind = found.kind.as_str();
+/// The UNKNOWN record of one gap at `line` of `rel`, as `_Collection._gap` writes it.
+fn gap(
+    rel: &str,
+    line: usize,
+    kind: ExceptionName,
+    message: &str,
+    cited: Option<String>,
+) -> (String, Record<GapFact>) {
     let id = stable_id(
         "COVERAGE",
         &[
-            Part::Text(&found.path),
-            Part::Number(1),
-            Part::Text(kind),
-            Part::Text(&found.message),
+            Part::Text(rel),
+            Part::Number(number(line)),
+            Part::Text(kind.as_str()),
+            Part::Text(message),
         ],
     );
     let mut data = GapData::at("", "");
     data.reason = None;
     data.module = None;
-    data.file = Some(found.path.clone());
-    data.line = Some(1);
-    data.message = Some(found.message.clone());
+    data.file = Some(rel.to_owned());
+    data.line = Some(number(line));
+    data.message = Some(message.to_owned());
     let record = Record {
         id: FactId::new(id.clone()),
         evidence_class: EvidenceClass::Unknown,
         area: Area::AnalysisCoverage,
-        title: format!("{}:1 could not be analyzed: {}", found.path, found.message),
-        subjects: vec![format!("{}:1", found.path)],
+        title: format!("{rel}:{line} could not be analyzed: {message}"),
+        subjects: vec![format!("{rel}:{line}")],
         evidence_ids: cited.map(EvidenceId::new).into_iter().collect(),
         fact_ids: Vec::new(),
         data: GapFact::ExceptionGap {
-            exception: found.kind,
+            exception: kind,
             data,
         },
     };

@@ -53,11 +53,14 @@ name = "archkeel-dart-collector"
 version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
+ "archkeel-dart-grammar",
  "archkeel-facts",
  "archkeel-pytext",
  "archkeel-snapshot",
  "archkeel-wire",
+ "serde",
  "serde_json",
+ "tree-sitter",
 ]
 
 [[package]]

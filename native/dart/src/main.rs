@@ -21,13 +21,21 @@
     )
 )]
 
+mod dartstr;
+mod definitions;
+mod directives;
 mod discover;
 #[cfg(feature = "dump")]
 mod dump;
+mod members;
 mod module;
+mod parameters;
+mod parse;
 mod pubspec;
 mod pytext;
 mod records;
+mod syntax;
+mod tree;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -43,6 +51,13 @@ fn main() -> ExitCode {
             Ok(text) => (ExitCode::SUCCESS, text, String::new()),
             Err(error) => (ExitCode::from(1), String::new(), error),
         },
+        #[cfg(feature = "dump")]
+        Some((flag, _)) if flag == "--dump-syntax" => {
+            match read_stdin().and_then(|paths| dump::syntax(&paths)) {
+                Ok(text) => (ExitCode::SUCCESS, text, String::new()),
+                Err(error) => (ExitCode::from(1), String::new(), error),
+            }
+        }
         _ => match request() {
             Ok(()) => (ExitCode::from(2), String::new(), NO_REPLY.to_owned()),
             Err(error) => (
@@ -67,4 +82,14 @@ fn request() -> Result<(), String> {
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     archkeel_wire::request::decode_dart(&payload).map(|_| ())
+}
+
+/// The text on stdin: the file paths of `--dump-syntax`.
+#[cfg(feature = "dump")]
+fn read_stdin() -> Result<String, String> {
+    let mut text = String::new();
+    std::io::stdin()
+        .read_to_string(&mut text)
+        .map_err(|error| format!("cannot read the paths: {error}"))?;
+    Ok(text)
 }

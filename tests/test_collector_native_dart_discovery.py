@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#880 PR 8 slice 1: the native Dart discovery equals the discovery of the Python collector.
+"""#880 PR 8 slices 1 and 3a: the native Dart discovery and parse sections equal Python.
 
 Consumer: the host, which reads the inputs, the file facts and the gaps of a Dart reply. The
 native collector must select, read and report the same sources and problems as the Python
@@ -106,6 +106,9 @@ def test_each_problem_kind_gives_the_python_gap(binary: Path, tmp_path: Path) ->
         "lib/owner.dart": "part 'piece.dart';\n",
         "lib/piece.dart": "part of 'owner.dart';\nclass H {}\n",
         "lib/broken.dart": "class {\n",
+        "lib/mixin.dart": "mixin M on A {}\n",
+        "lib/uri.dart": "import 'a$b.dart';\nclass J {}\n",
+        "lib/version.dart": "// @dart=2.0\nclass V {}\n",
         "other/target.dart": "class I {}\n",
     }
     root = _tree(tmp_path / "snapshot", files)
@@ -115,9 +118,13 @@ def test_each_problem_kind_gives_the_python_gap(binary: Path, tmp_path: Path) ->
     result = _compare(binary, root, ("lib", "missing"))
     assert result.problems == []
     assert result.equal_gaps == result.gaps >= 4
-    # The parse and the parts remove 5 file facts: the syntax error, the source that is not
-    # UTF-8, the `part of` file and both colliding sources, which have no unique owner.
-    assert result.deferred == 5
+    # Slice 3a: the syntax error, the source that is not UTF-8 and the language version out of
+    # range give a `SyntaxError` gap and no file fact; the mixin and the URI give a gap each.
+    # The syntax error gives 1 gap (its syntax concerns stay out), the others 2, 2, 1 and 1.
+    assert result.equal_parse_gaps == result.parse_gaps == 7
+    # The parts remove 3 file facts: the `part of` file and both colliding sources, which have
+    # no unique owner (slices 4a and 4b).
+    assert result.deferred == 3
     assert result.equal_files + result.deferred == result.files
 
 

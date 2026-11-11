@@ -86,7 +86,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py
+	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py tests/test_collector_native_dart_syntax.py
 	$(MAKE) self-validate-native
 
 # AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.
@@ -145,7 +145,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py \
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py \
 	tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
 	tools/dual_run_capture.py \
 	native/hatch_build.py
@@ -174,7 +174,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dual_run.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dual_run.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:

@@ -85,7 +85,8 @@ deny = [
     # AD-327: only a collector crate may use a parser. `wrappers` names the crates that may depend
     # on the denied crate. The grammar crate depends on `tree-sitter-language`, not on `tree-sitter`.
     # AD-342: `archkeel-dart-grammar` uses `tree-sitter` as a dev-dependency only, for its parity test.
-    { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector", "archkeel-dart-grammar"], reason = "only a collector crate parses source" },
+    # AD-369: `archkeel-dart-collector` parses Dart source with the vendored grammar.
+    { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector", "archkeel-dart-grammar", "archkeel-dart-collector"], reason = "only a collector crate parses source" },
     { crate = "tree-sitter-language", wrappers = ["tree-sitter", "tree-sitter-typescript", "archkeel-dart-grammar"], reason = "every grammar crate depends on it: a new grammar crate fails here until it is listed and has an external_dependency_scope rule" },
     { crate = "tree-sitter-typescript", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
     # AD-334: the Python parser and its tree. Only the Python collector uses them; the parser uses
@@ -93,6 +94,7 @@ deny = [
     { crate = "ruff_python_parser", wrappers = ["archkeel-python-collector"], reason = "only a collector crate parses source" },
     { crate = "ruff_python_ast", wrappers = ["archkeel-python-collector", "ruff_python_parser"], reason = "only a collector crate parses source" },
     { crate = "ruff_python_trivia", wrappers = ["ruff_python_ast", "ruff_python_parser"], reason = "a part of the Python parser, not for a crate of the workspace" },
+    { crate = "archkeel-dart-grammar", wrappers = ["archkeel-dart-collector"], reason = "only the Dart collector parses Dart source" },
 ]
 # Two versions are allowed only where a build-time dependency of a parser needs an older release.
 # Neither is linked into a binary.

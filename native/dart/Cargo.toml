@@ -13,16 +13,19 @@ publish.workspace = true
 build = "build.rs"
 
 [dependencies]
+archkeel-dart-grammar = { path = "../dart-grammar" }
 archkeel-facts.workspace = true
 archkeel-pytext.workspace = true
 archkeel-snapshot.workspace = true
 archkeel-wire.workspace = true
+serde = { workspace = true, optional = true }
 serde_json.workspace = true
+tree-sitter.workspace = true
 
 [features]
 # Test only: `--dump` prints the discovery sections as JSON for `tools/dart_discovery_parity.py`.
 # The release binary is built without it (AD-323).
-dump = []
+dump = ["dep:serde"]
 
 [dev-dependencies]
 archkeel-snapshot = { workspace = true, features = ["test-tree"] }

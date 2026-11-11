@@ -10,6 +10,43 @@ pub(crate) fn is_space(c: char) -> bool {
     c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
 }
 
+/// Python `\w` for a text: a letter, a digit or an underscore.
+pub(crate) fn is_word(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// `re.search(rf"\b{word}\b", text)` for a word of word characters.
+pub(crate) fn has_word(text: &str, word: &str) -> bool {
+    text.match_indices(word).any(|(at, _)| {
+        let before = text.get(..at).and_then(|head| head.chars().next_back());
+        let after = text
+            .get(at.saturating_add(word.len())..)
+            .and_then(|tail| tail.chars().next());
+        !before.is_some_and(is_word) && !after.is_some_and(is_word)
+    })
+}
+
+/// `re.search(rb"\b{word}\b", data)`: the word test of a `bytes` pattern, ASCII only.
+pub(crate) fn has_ascii_word(data: &[u8], word: &[u8]) -> bool {
+    let is_word = |b: &u8| b.is_ascii_alphanumeric() || *b == b'_';
+    data.windows(word.len()).enumerate().any(|(at, window)| {
+        window == word
+            && !at
+                .checked_sub(1)
+                .and_then(|before| data.get(before))
+                .is_some_and(is_word)
+            && !data.get(at.saturating_add(word.len())).is_some_and(is_word)
+    })
+}
+
+/// `text[:count]` for code points.
+pub(crate) fn first_chars(text: &str, count: usize) -> &str {
+    match text.char_indices().nth(count) {
+        Some((end, _)) => text.get(..end).unwrap_or(text),
+        None => text,
+    }
+}
+
 /// `str.strip()`.
 pub(crate) fn strip(text: &str) -> &str {
     text.trim_matches(is_space)
