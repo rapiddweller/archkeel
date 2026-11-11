@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .syntax import ScriptAlias, ScriptGlobal, Site, SiteKind, Span, Syntax
+from .syntax import ScriptAlias, ScriptGlobal, ScriptRoot, Site, SiteKind, Span, Syntax
 
 
 def stable_publication(
@@ -46,6 +46,8 @@ def site_aliases(syntax: Syntax, site: Site) -> tuple[ScriptAlias | None, Script
             alias
             for alias in syntax.script_aliases
             if (site.kind is SiteKind.CALL or alias.factory)
+            # An alias of the global object itself has no name to follow (#1007).
+            and ScriptRoot.unrooted(alias.path)
             and len(site.path) == 2
             and site.path[0] == alias.name
             and site.span in (*alias.calls, *alias.reads)

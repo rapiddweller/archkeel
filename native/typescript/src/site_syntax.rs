@@ -265,6 +265,14 @@ pub fn written_string<'t>(cx: &Cx, start: Option<Node<'t>>) -> Option<Node<'t>> 
     }
 }
 
+/// `augmentations.compares`: the binary expression is `==`, `!=`, `===` or `!==`. A member that it
+/// compares is read and does not leave the script (#1007).
+fn compares(cx: &Cx, node: Node) -> bool {
+    [K::Equal, K::NotEqual, K::StrictEqual, K::StrictNotEqual]
+        .into_iter()
+        .any(|kind| cx.has_child(node, kind))
+}
+
 /// `_script_escape`: whether a reference to a name lets the value leave the script. `callee_wraps`
 /// tells whether the call that holds the arguments is a wrapper of a script.
 pub fn script_escape(cx: &Cx, node: Node, relatives: (Option<&Entry>, Option<&Entry>)) -> bool {
@@ -289,6 +297,7 @@ pub fn script_escape(cx: &Cx, node: Node, relatives: (Option<&Entry>, Option<&En
     if matches!(above.kind, K::MemberExpression | K::SubscriptExpression)
         && cx.field(above.node, F::Object) == Some(target)
         || above.kind == K::UnaryExpression && operand(K::Typeof)
+        || member.is_some() && above.kind == K::BinaryExpression && compares(cx, above.node)
     {
         return false;
     }

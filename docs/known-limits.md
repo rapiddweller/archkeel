@@ -248,9 +248,8 @@ the project ([AD-354](architecture/decisions/ad-354-a-type-root-inside-the-proje
 `self` and `frames` are roots of the global object, like `window` and `globalThis`. A use through
 `top` or `parent` is read as a use through the window too, so it is an edge or a gap, never silent;
 inside a frame they name another window, so the edge can go to a global of the page above. A write
-through them (`top.x = 1`) publishes nothing. A chain such as
-`window.window.x` is read as the name `window`, not as `x`: a use of `x` through it gives no
-edge and no gap, so a REQUIRES rule can PASS beside it. This is a false PASS that is not fixed yet.
+through them (`top.x = 1`) publishes nothing. A chain of these names (`window.self.x`, `top.window.x`,
+`parent.top.x`) is read like one of them (#1007).
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.

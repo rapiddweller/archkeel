@@ -19,6 +19,7 @@ from typing import Final, Protocol
 from .syntax import Concern, Span
 
 _PATH_START: Final = frozenset("./")
+_EQUALITY: Final = frozenset({"==", "!=", "===", "!=="})
 # A triple-slash directive is `/// <tag attribute="value" ... />`. tsc lowercases the tag name and
 # reads the attributes in any order, so a directive names a file of the project when one attribute
 # of the right name is there: `path` or `lib` in `reference`, `path` in `amd-dependency` (#988), and
@@ -27,6 +28,17 @@ _PATH_START: Final = frozenset("./")
 _TAG: Final = re.compile(r"^///\s*<([^\s/>]+)\s(.*)")
 _ATTRIBUTE: Final = re.compile(r"([^\s=]+)\s*=\s*(['\"])(.*?)\2")
 _FILE_ATTRIBUTES: Final = {"reference": ("path", "lib"), "amd-dependency": ("path",)}
+
+
+class Operated(Protocol):
+    """A syntax node that may hold an operator."""
+
+    def child_by_field_name(self, name: str, /) -> Operator | None: ...
+
+
+class Operator(Protocol):
+    @property
+    def type(self) -> str: ...
 
 
 class Aliases(Protocol):
@@ -45,6 +57,13 @@ class Aliases(Protocol):
 def has_aliases(options: Aliases) -> bool:
     """The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project."""
     return options.base_url is not None or bool(options.paths)
+
+
+def compares(parent: Operated, member: bool) -> bool:
+    """A member (`window.top`) that a comparison (`==`, `!=`, `===`, `!==`) takes as an operand is
+    read, and it does not leave the script: `window.top === window.self` uses two names (#1007)."""
+    operator = parent.child_by_field_name("operator")
+    return member and operator is not None and operator.type in _EQUALITY
 
 
 def triple_slash(body: str, options: Aliases | None) -> str | None:

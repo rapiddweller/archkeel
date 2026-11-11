@@ -8,6 +8,7 @@ from __future__ import annotations
 import builtins
 from dataclasses import dataclass
 from enum import Enum
+from itertools import dropwhile
 from typing import Final
 
 
@@ -71,7 +72,13 @@ class ScriptRoot(Enum):
     TOP = "top"
     PARENT = "parent"
 
+    @staticmethod
+    def unrooted(path: tuple[str, ...]) -> tuple[str, ...]:
+        """The path without its leading names of the global object: `window.self.x` is `x`."""
+        return tuple(dropwhile(_ROOT_NAMES.__contains__, path))
 
+
+_ROOT_NAMES: Final = frozenset(item.value for item in ScriptRoot)
 # The walk of a file reads `top` and `parent` as ordinary names: a local variable `parent` is
 # common, and a write through them publishes nothing.
 WALK_ROOTS: Final = frozenset(

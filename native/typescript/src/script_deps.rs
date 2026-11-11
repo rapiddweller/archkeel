@@ -31,6 +31,12 @@ pub fn is_root(name: &str) -> bool {
     )
 }
 
+/// `ScriptRoot.unrooted`: how many leading names of a path name the global object, so that
+/// `window.self.x` is `x` (#1007).
+pub fn leading_roots(path: &[String]) -> usize {
+    path.iter().take_while(|name| is_root(name)).count()
+}
+
 /// A site as the analysis reads it: a site of the file, or a name that a destructuring brings.
 pub struct Probe {
     pub kind: SiteKind,
@@ -101,7 +107,9 @@ impl<'a> AliasIndex<'a> {
             .flatten()
             .filter_map(|at| {
                 let alias = self.aliases.get(*at)?;
+                // An alias of the global object itself has no name to follow (#1007).
                 let fits = (probe.kind == SiteKind::Call || alias.factory)
+                    && leading_roots(&alias.path) < alias.path.len()
                     && probe.path.len() == 2
                     && probe.path.first() == Some(&alias.name);
                 fits.then_some(alias)
@@ -193,10 +201,9 @@ impl<'a, 'p> Run<'a, 'p> {
         if self.root_escape(rel, site, &probe, &path) {
             return;
         }
-        if path.first().is_some_and(|first| is_root(first)) {
-            path.remove(0);
-        }
-        if let Some(initialized) = alias_initializer.filter(|alias| !alias.factory) {
+        path.drain(..leading_roots(&path));
+        let initialized = alias_initializer.filter(|alias| !alias.factory && !path.is_empty());
+        if let Some(initialized) = initialized {
             if self.alias_decomposition(rel, &probe, initialized, &path) {
                 return;
             }
@@ -225,7 +232,7 @@ impl<'a, 'p> Run<'a, 'p> {
             let path: Vec<String> = item
                 .path
                 .iter()
-                .skip(1)
+                .skip(leading_roots(&item.path))
                 .chain(std::iter::once(published))
                 .cloned()
                 .collect();
@@ -242,10 +249,10 @@ impl<'a, 'p> Run<'a, 'p> {
 
     /// `_script_root_escape`: a root used as a value cannot be followed.
     fn root_escape(&mut self, rel: &str, site: &Site, probe: &Probe, path: &[String]) -> bool {
-        let [only] = path else {
-            return false;
-        };
-        let escaped = is_root(only)
+        // A chain of roots is a value of the global object too; a comparison of members such as
+        // `window.top === window.self` is no escape (`script_escape` is false for it).
+        let escaped = !path.is_empty()
+            && leading_roots(path) == path.len()
             && site.script_free
             && (site.script_escape || site.computed || site.kind != SiteKind::Reference);
         if !escaped {
@@ -357,7 +364,7 @@ fn escaped<'a>(project: &Project<'a>, rel: &'a str, file: &'a Kept) -> Vec<Write
             .path
             .map(|at| file.sites.paths.names(at, data))
             .unwrap_or_default();
-        let skip = usize::from(path.first().is_some_and(|first| is_root(first)));
+        let skip = leading_roots(&path);
         let [name] = path.get(skip..).unwrap_or(&[]) else {
             continue;
         };

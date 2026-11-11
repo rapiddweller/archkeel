@@ -142,6 +142,40 @@ CASES = {
         "src/a/a.d.ts": AUGMENT.replace("NAME", "@b/t"),
     },
 }
+# A chain of aliases of the global object is a use of the global object (#1007).
+CHAINS = (
+    "window.window",
+    "self.window",
+    "globalThis.window",
+    "window.self",
+    "window.globalThis",
+    "top.window",
+    "parent.top",
+    "frames.self.window",
+)
+CASES.update(
+    {
+        f"alias-chain-{chain}": {"src/a/a.js": f"{chain}.x();\n", "src/b/b.js": "window.x = 1;\n"}
+        for chain in CHAINS
+    }
+)
+# An alias, a destructuring or a call receiver that is a chain of aliases is as much a use of the
+# global object as the one-alias form (#1007). The first two crashed the Python collector.
+CHAIN_USES = {
+    "const-alias-of-top": "const w = window.top;\nw.x();\n",
+    "const-alias-of-a-chain": "const w = window.window;\nw.x();\n",
+    "destructuring-of-a-chain": "const { x } = window.self;\nx();\n",
+    "destructuring-of-parent-window": "const { x } = parent.window;\nx();\n",
+    "var-alias-of-a-chain": "var w = top.self;\nw.x();\n",
+    "function-alias-of-a-chain": "var f = window.self;\nf.x();\n",
+    "parenthesized-chain-receiver": "(window.self).x();\n",
+}
+CASES.update(
+    {
+        f"alias-use-{name}": {"src/a/a.js": text, "src/b/b.js": "window.x = 1;\n"}
+        for name, text in CHAIN_USES.items()
+    }
+)
 HONEST = ("honest", "bare-augmentation-without-aliases")
 
 
@@ -180,6 +214,8 @@ def test_a_construct_that_reaches_a_forbidden_module_gives_no_pass(
     found = _verdicts(tmp_path, name, bundled_directory)
     for producer, item in zip(("Python", "native"), found, strict=True):
         assert item["exit"] != 0, f"{name}: the {producer} collector gives PASS"
+        # A crash or an invalid reply ends the scan as a parse error: no verdict, not an UNKNOWN.
+        assert "parse_error" not in item["diagnostics"], f"{name}: {producer}: no valid reply"  # type: ignore[operator]
         requires = dict(item["rules"]).get("REQUIRES")  # type: ignore[call-overload]
         assert requires != "PASS", f"{name}: REQUIRES passes with the {producer} collector"
 
