@@ -7,8 +7,9 @@
    of 9.0.0 and the resolver `{"language": "python", "phase": "imports", "interpreter": {...}}`.
    The Python resolver needs 10.0.0, and 10.0.0 needs the Python resolver. The reply is the 9.0.0
    reply with `protocol_version` 10.0.0. The one list is `Version::ALL` in
-   `native/facts/src/protocol.rs`; the host names 10.0.0 once, `NATIVE_PYTHON_PROTOCOL` in
-   `ir/protocol.py`, and `tests/test_native_versions.py` compares both with the schema.
+   `native/facts/src/protocol.rs`. The host names 10.0.0 once, `NATIVE_PYTHON_PROTOCOL` in
+   `analyzer/interpreter.py`, the one builder of the request, so `ir/` stays unchanged.
+   `tests/test_native_versions.py` compares both with the schema.
 2. **The interpreter block.** It is closed: `version` (the full `platform.python_version()`,
    such as `3.11.12`), `stdlib_module_names` and `builtin_module_names` (sorted). The built-in
    set depends on the build, not on the version (31 modules on Homebrew 3.12, 101 on uv 3.11).

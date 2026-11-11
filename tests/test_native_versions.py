@@ -15,8 +15,8 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
+from archkeel.analyzer.interpreter import NATIVE_PYTHON_PROTOCOL
 from archkeel.ir.protocol import (
-    NATIVE_PYTHON_PROTOCOL,
     ProtocolVersion,
     SnapshotInput,
     SourceScope,

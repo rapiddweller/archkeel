@@ -17,8 +17,6 @@ from .facts import (
 )
 
 PROTOCOL_VERSION: Final = "3.0.0"
-# The request of the native Python collector only, with the interpreter block (AD-334).
-NATIVE_PYTHON_PROTOCOL: Final = "10.0.0"
 
 
 class ProtocolVersion(StrEnum):

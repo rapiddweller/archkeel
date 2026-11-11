@@ -15,9 +15,9 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Final
 
 from archkeel.ir.protocol import (
-    NATIVE_PYTHON_PROTOCOL,
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
@@ -32,6 +32,9 @@ _PROBE = (
     "'builtin_module_names': sorted(sys.builtin_module_names)}))"
 )
 _TIMEOUT_SECONDS = 30
+# The request of the native Python collector only. The Python codec of `ir/` does not read it, so
+# the Python collector refuses it and the host cannot decode a 10.0.0 reply (AD-334).
+NATIVE_PYTHON_PROTOCOL: Final = "10.0.0"
 
 
 @dataclass(frozen=True, slots=True)
