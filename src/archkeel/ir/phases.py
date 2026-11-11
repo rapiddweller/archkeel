@@ -13,7 +13,6 @@ from .model import Observation
 
 
 class Phase(StrEnum):
-    PROVIDERS = "providers"
     COLLECT = "collect"
     DECODE = "decode"
     ASSEMBLE = "assemble"

@@ -31,8 +31,17 @@ from collector_pin import assembled
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python import collect as collect_owner
-from archkeel.analyzer.python.collect import PythonProviderCollector, collect, provider_sources
-from archkeel.analyzer.reply_checks import check_provider_sources, check_requested_facts
+from archkeel.analyzer.python.collect import (
+    PythonProviderCollector,
+    collect,
+    complete_collection,
+    provider_sources,
+)
+from archkeel.analyzer.reply_checks import (
+    check_provider_sources,
+    check_reply,
+    check_requested_facts,
+)
 from archkeel.check.evaluation.evaluate import evaluate_source
 from archkeel.cli.observe import observer_for
 from archkeel.ir.codec import parse_contract
@@ -173,161 +182,13 @@ def test_provider_capture_never_parses_project_ast_in_the_parent(tmp_path, monke
     ]
 
 
-@pytest.mark.parametrize("phase", ["initial", "enriched"])
 @pytest.mark.parametrize("kind", list(CollectionErrorKind))
-def test_provider_pass_errors_are_returned_unchanged(tmp_path, monkeypatch, phase, kind):
-    request, provider, initial, _ = _provider_passes(tmp_path)
+def test_one_pass_collector_errors_are_returned_unchanged(tmp_path, monkeypatch, kind):
+    request, _, _, _ = _provider_passes(tmp_path)
     expected = CollectionError(kind, "fixture", "bounded collector failure")
-    calls = []
-
-    def bounded(_collector, actual):
-        calls.append(actual.protocol_version)
-        return (
-            expected
-            if phase == "initial" or len(calls) == 2
-            else CollectionResponse(initial, ProtocolVersion.V4, (provider,))
-        )
-
-    monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
+    monkeypatch.setattr(ProcessCollector, "collect_response", lambda *_args: expected)
     result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
     assert result is expected
-    assert calls == [ProtocolVersion.V4, ProtocolVersion.V8][: 1 if phase == "initial" else 2]
-
-
-def test_no_provider_sources_still_require_a_final_full_collection(tmp_path, monkeypatch):
-    request, _, initial, _ = _provider_passes(tmp_path)
-    initial = replace(
-        initial,
-        inputs=tuple(
-            item for item in initial.inputs if not item.path.startswith(".archkeel-providers/")
-        ),
-    )
-    complete = _native_facts(request)
-    calls = []
-
-    def bounded(_collector, actual):
-        calls.append(actual)
-        return CollectionResponse(initial if len(calls) == 1 else complete, actual.protocol_version)
-
-    monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
-    result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
-    assert result is complete
-    assert calls == [
-        replace(
-            request,
-            resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
-            protocol_version=ProtocolVersion.V4,
-        ),
-        replace(request, protocol_version=ProtocolVersion.V8),
-    ]
-
-
-def test_provider_passes_share_one_deadline_and_preserve_process_limits(tmp_path, monkeypatch):
-    request, provider, initial, enriched = _provider_passes(tmp_path)
-    now = [10.0]
-    calls = []
-
-    def bounded(_collector, actual):
-        calls.append((_collector, actual))
-        now[0] += 5 if len(calls) == 1 else 4
-        return CollectionResponse(
-            initial if len(calls) == 1 else enriched,
-            actual.protocol_version,
-            (provider,) if len(calls) == 1 else (),
-        )
-
-    monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
-    monkeypatch.setattr(collect_owner, "monotonic", lambda: now[0])
-    process = ProcessCollector(("native-python", "--fixed"), 20, 123456, 654)
-    result = PythonProviderCollector(process).collect(request)
-    assert result is enriched
-    assert calls[0] == (
-        process,
-        replace(
-            request,
-            resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
-            protocol_version=ProtocolVersion.V4,
-        ),
-    )
-    second, final_request = calls[1]
-    assert second == replace(process, timeout_seconds=15)
-    assert final_request == replace(
-        request,
-        resolver=PythonSettings(provider_sources=(provider,)),
-        protocol_version=ProtocolVersion.V8,
-    )
-
-
-@pytest.mark.parametrize("phase", ["initial", "enriched"])
-def test_exhausted_provider_deadline_is_a_typed_timeout(tmp_path, monkeypatch, phase):
-    request, provider, initial, enriched = _provider_passes(tmp_path)
-    now = [0.0]
-    calls = []
-
-    def bounded(_collector, actual):
-        calls.append(actual.protocol_version)
-        current = "initial" if len(calls) == 1 else "enriched"
-        now[0] += 11 if current == phase else 1
-        return CollectionResponse(
-            initial if len(calls) == 1 else enriched,
-            actual.protocol_version,
-            (provider,) if len(calls) == 1 else (),
-        )
-
-    monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
-    monkeypatch.setattr(collect_owner, "monotonic", lambda: now[0])
-    result = PythonProviderCollector(ProcessCollector(("native-python",), 10)).collect(request)
-    assert isinstance(result, CollectionError)
-    assert result.kind is CollectionErrorKind.TIMEOUT
-    assert result.subject == "native-python"
-    assert len(calls) == (2 if phase == "enriched" else 1)
-
-
-@pytest.mark.parametrize(
-    "changed", ["digest", "resolution", "added", "removed", "adapter", "runtime", "scope"]
-)
-def test_provider_passes_reject_changed_project_manifest_or_execution_origin(
-    tmp_path, monkeypatch, changed
-):
-    request, provider, initial, enriched = _provider_passes(tmp_path)
-    if changed in {"digest", "resolution"}:
-        path = "src/sample/api.py" if changed == "digest" else "pyproject.toml"
-        enriched = replace(
-            enriched,
-            inputs=tuple(
-                replace(item, digest="0" * 64) if item.path == path else item
-                for item in enriched.inputs
-            ),
-        )
-    elif changed == "added":
-        enriched = replace(
-            enriched, inputs=(*enriched.inputs, replace(initial.inputs[0], path="extra.py"))
-        )
-    elif changed == "removed":
-        enriched = replace(
-            enriched,
-            inputs=tuple(item for item in enriched.inputs if item.path != "src/sample/api.py"),
-        )
-    elif changed == "adapter":
-        enriched = replace(enriched, adapter=replace(enriched.adapter, code_digest="0" * 64))
-    elif changed == "runtime":
-        enriched = replace(enriched, runtime=replace(enriched.runtime, version="0.0.0"))
-    else:
-        enriched = replace(enriched, source=replace(enriched.source, scope=("different/**/*.py",)))
-    calls = []
-
-    def bounded(_collector, actual):
-        calls.append(actual.protocol_version)
-        return CollectionResponse(
-            initial if len(calls) == 1 else enriched,
-            actual.protocol_version,
-            (provider,) if len(calls) == 1 else (),
-        )
-
-    monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
-    result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
-    assert isinstance(result, CollectionError)
-    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
 
 
 def test_custom_python_collector_argv_keeps_single_pass_composition():
@@ -354,7 +215,7 @@ def test_other_default_languages_keep_the_original_process_collector(language):
 
 
 @pytest.mark.parametrize("sibling", ["", "from collections.abc import Mapping\n"])
-def test_default_provider_port_runs_both_native_phases_for_actual_contextlib(
+def test_default_provider_port_runs_one_native_pass_for_actual_contextlib(
     tmp_path, monkeypatch, sibling
 ):
     (tmp_path / "pyproject.toml").write_text("[project]\nrequires-python = '>=3.11'\n")
@@ -374,10 +235,7 @@ def test_default_provider_port_runs_both_native_phases_for_actual_contextlib(
     monkeypatch.setattr(ProcessCollector, "collect_response", execute)
     facts = observer.collector.collect(request)
     assert not isinstance(facts, CollectionError), facts
-    assert calls == [
-        (ProtocolVersion.V4, PythonCollectionPhase.PROVIDERS, request.scope),
-        (ProtocolVersion.V8, PythonCollectionPhase.COLLECT, request.scope),
-    ]
+    assert calls == [(ProtocolVersion.V8, PythonCollectionPhase.PROVIDERS, request.scope)]
     expected = {"contextlib.contextmanager"}
     if sibling:
         expected.update({"collections.abc.Mapping", "_collections_abc.Mapping"})
@@ -486,19 +344,11 @@ def test_import_survey_cannot_satisfy_the_full_python_core_profile(tmp_path, sco
         _route_records(survey)
 
 
-@pytest.mark.parametrize("providers", [False, True])
 @pytest.mark.parametrize("returned", ["survey", "partial"])
 def test_provider_wrapper_rejects_a_survey_instead_of_final_full_facts(
-    tmp_path, monkeypatch, providers, returned
+    tmp_path, monkeypatch, returned
 ):
-    request, provider, initial, complete = _provider_passes(tmp_path)
-    if not providers:
-        initial = replace(
-            initial,
-            inputs=tuple(
-                item for item in initial.inputs if not item.path.startswith(".archkeel-providers/")
-            ),
-        )
+    request, _, initial, complete = _provider_passes(tmp_path)
     final = (
         initial
         if returned == "survey"
@@ -514,18 +364,13 @@ def test_provider_wrapper_rejects_a_survey_instead_of_final_full_facts(
 
     def bounded(_collector, actual):
         calls.append(actual)
-        return CollectionResponse(
-            initial if len(calls) == 1 else final,
-            actual.protocol_version,
-            (provider,) if providers and len(calls) == 1 else (),
-        )
+        return CollectionResponse(final, actual.protocol_version)
 
     monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
     result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
     assert isinstance(result, CollectionError)
     assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
-    assert len(calls) == 2
-    assert calls[-1].resolver.phase is PythonCollectionPhase.COLLECT
+    assert len(calls) == 1
 
 
 def test_explicit_import_survey_is_delegated_once_without_autophases(tmp_path, monkeypatch):
@@ -2066,9 +1911,7 @@ def test_provider_alias_without_a_unique_terminal_remains_unknown(tmp_path, term
     assert len(_route_records(facts)[0]) == 1
 
 
-def test_native_provider_discovery_binds_actual_resources_files_in_two_passes(
-    tmp_path, monkeypatch
-):
+def test_native_provider_discovery_binds_actual_resources_files_in_one_pass(tmp_path, monkeypatch):
     request = replace(
         _request(tmp_path, imported="importlib.resources", binding="files"),
         protocol_version=ProtocolVersion.V3,
@@ -2083,7 +1926,7 @@ def test_native_provider_discovery_binds_actual_resources_files_in_two_passes(
     monkeypatch.setattr(ProcessCollector, "collect_response", execute)
     facts = observer_for(Language.PYTHON).collector.collect(request)
     assert not isinstance(facts, CollectionError), facts
-    assert calls == [PythonCollectionPhase.PROVIDERS, PythonCollectionPhase.COLLECT]
+    assert calls == [PythonCollectionPhase.PROVIDERS]
     by_name = {item.qualified_name: item for item in facts.provider_bindings}
     assert by_name["importlib.resources.files"].target == "importlib.resources._common.files"
     assert "importlib.resources._common.files" in by_name
@@ -2119,26 +1962,6 @@ def test_provider_alias_wire_rejects_unbound_proof_fields(tmp_path, change):
         alias["evidence_id"] = terminal["evidence_id"]
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
-
-
-def test_provider_discovery_readback_rejects_changed_provider_before_full_collection(
-    tmp_path, monkeypatch
-):
-    request, provider, initial, _ = _provider_passes(tmp_path)
-    calls = []
-
-    source = provider.source + "\nchanged = True\n"
-    changed = replace(provider, source=source, digest=hashlib.sha256(source.encode()).hexdigest())
-
-    def bounded(_collector, actual):
-        calls.append(actual)
-        return CollectionResponse(initial, ProtocolVersion.V4, (changed,))
-
-    monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
-    result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
-    assert isinstance(result, CollectionError) and result.kind is CollectionErrorKind.PROTOCOL_ERROR
-    assert "changed after discovery" in result.message
-    assert len(calls) == 1
 
 
 @pytest.mark.parametrize(
@@ -3167,10 +2990,11 @@ def test_requested_registry_alias_needs_the_producer_proof(
     )
 
 
-def test_provider_collector_rejects_an_unproven_registry_alias(tmp_path, monkeypatch):
+def test_one_pass_refuses_an_unproven_registry_alias(tmp_path, monkeypatch):
     request = replace(
         _request(tmp_path, imported="collections.abc", binding="Iterator"),
-        protocol_version=ProtocolVersion.V3,
+        resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+        protocol_version=ProtocolVersion.V8,
     )
     checked = []
 
@@ -3179,9 +3003,9 @@ def test_provider_collector_rejects_an_unproven_registry_alias(tmp_path, monkeyp
         return False
 
     monkeypatch.setattr(collect_owner, "_registry_aliases_proven", unproven)
-    result = observer_for(Language.PYTHON).collector.collect(request)
-    assert isinstance(result, CollectionError) and checked
-    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
+    with pytest.raises(ProtocolError, match="registry alias disagrees"):
+        complete_collection(request)
+    assert checked
 
 
 def test_default_provider_discovery_binds_actual_collections_iterator(tmp_path, monkeypatch):
@@ -3199,7 +3023,7 @@ def test_default_provider_discovery_binds_actual_collections_iterator(tmp_path, 
     monkeypatch.setattr(ProcessCollector, "collect_response", execute)
     facts = observer_for(Language.PYTHON).collector.collect(request)
     assert not isinstance(facts, CollectionError), facts
-    assert calls == [PythonCollectionPhase.PROVIDERS, PythonCollectionPhase.COLLECT]
+    assert calls == [PythonCollectionPhase.PROVIDERS]
     by_name = {item.qualified_name: item for item in facts.provider_bindings}
     alias = by_name["collections.abc.Iterator"]
     assert alias.target == "_collections_abc.Iterator"
@@ -3352,11 +3176,11 @@ def test_provider_recapture_is_killed_by_the_native_process_deadline(tmp_path):
     marker = tmp_path / "provider-capture-started"
     code = (
         "import os, time\nfrom pathlib import Path\n"
-        "from archkeel.analyzer.python import entry\n"
+        "from archkeel.analyzer.python import collect, entry\n"
         "def blocked_capture(request, facts):\n"
         f"    Path({str(marker)!r}).write_text(str(os.getpid()))\n"
         f"    time.sleep({blocked_seconds})\n    return ()\n"
-        "entry.provider_sources = blocked_capture\nentry.main()\n"
+        "collect.provider_sources = blocked_capture\nentry.main()\n"
     )
     started = time.monotonic()
     result = PythonProviderCollector(
@@ -3606,3 +3430,140 @@ def test_native_creation_requires_the_retained_namespace_proof(tmp_path, access)
     for name in ("Base", "Child"):
         assert symbols[name].data.get("source_member_binding_static") is (access == "none")
     assert (symbols["Owner"].data.get("typed_dict_header_static") is True) is (access == "none")
+
+
+def _two_pass_facts(request):
+    """The facts of the old host sequence: survey, then the collection with the sources."""
+    survey = replace(
+        request,
+        resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+        protocol_version=ProtocolVersion.V8,
+    )
+    sources = provider_sources(survey, collect(survey))
+    final = replace(
+        request,
+        resolver=PythonSettings(provider_sources=sources),
+        protocol_version=ProtocolVersion.V8,
+    )
+    return collect(final)
+
+
+@pytest.mark.parametrize("imported", ["contextlib", "collections.abc", "importlib.resources"])
+def test_host_starts_one_collector_for_the_survey_and_the_collection(
+    tmp_path, monkeypatch, imported
+):
+    (tmp_path / "pyproject.toml").write_text("[project]\nrequires-python = '>=3.11'\n")
+    binding = {"contextlib": "contextmanager", "collections.abc": "Iterator"}.get(imported, "files")
+    request = replace(
+        _request(tmp_path, imported=imported, binding=binding), protocol_version=ProtocolVersion.V3
+    )
+    started = []
+    native = ProcessCollector.collect_response
+
+    def execute(collector, actual):
+        started.append((collector.argv[-1], actual.protocol_version, actual.resolver.phase))
+        return native(collector, actual)
+
+    monkeypatch.setattr(ProcessCollector, "collect_response", execute)
+    facts = observer_for(Language.PYTHON).collector.collect(request)
+    assert not isinstance(facts, CollectionError), facts
+    assert started == [("--one-pass", ProtocolVersion.V8, PythonCollectionPhase.PROVIDERS)]
+    assert facts == _two_pass_facts(request)
+    assert facts.provider_bindings
+
+
+def test_one_pass_collection_without_provider_sources_equals_the_plain_collection(tmp_path):
+    source = tmp_path / "src/sample"
+    source.mkdir(parents=True)
+    (source / "api.py").write_text("VALUE = 1\n")
+    request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope(("src",), "sample"),
+        PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+        ProtocolVersion.V8,
+    )
+    plain = replace(request, resolver=PythonSettings())
+    assert complete_collection(request) == collect(plain)
+
+
+@pytest.mark.parametrize(
+    "changed", ["digest", "resolution", "added", "removed", "adapter", "runtime", "scope"]
+)
+def test_one_pass_refuses_a_project_that_changes_between_the_survey_and_the_collection(
+    tmp_path, monkeypatch, changed
+):
+    request, _, initial, enriched = _provider_passes(tmp_path)
+    request = replace(
+        request,
+        resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+        protocol_version=ProtocolVersion.V8,
+    )
+    if changed in {"digest", "resolution"}:
+        path = "src/sample/api.py" if changed == "digest" else "pyproject.toml"
+        enriched = replace(
+            enriched,
+            inputs=tuple(
+                replace(item, digest="0" * 64) if item.path == path else item
+                for item in enriched.inputs
+            ),
+        )
+    elif changed == "removed":
+        enriched = replace(
+            enriched,
+            inputs=tuple(item for item in enriched.inputs if item.path != "src/sample/api.py"),
+        )
+    elif changed == "added":
+        enriched = replace(
+            enriched, inputs=(*enriched.inputs, replace(initial.inputs[0], path="extra.py"))
+        )
+    elif changed == "adapter":
+        enriched = replace(enriched, adapter=replace(enriched.adapter, code_digest="0" * 64))
+    elif changed == "runtime":
+        enriched = replace(enriched, runtime=replace(enriched.runtime, version="0.0.0"))
+    else:
+        enriched = replace(enriched, source=replace(enriched.source, scope=("different/**/*.py",)))
+    replies = iter((initial, enriched))
+    monkeypatch.setattr(collect_owner, "collect", lambda _request: next(replies))
+    monkeypatch.setattr(collect_owner, "provider_sources", lambda *_args: (_provider_of(initial),))
+    with pytest.raises(ProtocolError, match="changed between provider passes"):
+        complete_collection(request)
+
+
+def _provider_of(facts):
+    item = next(item for item in facts.inputs if item.path.startswith(".archkeel-providers/"))
+    return PythonProviderSource("contextlib", item.path, "", item.digest)
+
+
+def test_one_pass_refuses_provider_inputs_that_differ_from_the_captured_sources(
+    tmp_path, monkeypatch
+):
+    request, provider, initial, _ = _provider_passes(tmp_path)
+    changed = replace(provider, digest="0" * 64)
+    monkeypatch.setattr(collect_owner, "collect", lambda _request: initial)
+    monkeypatch.setattr(collect_owner, "provider_sources", lambda *_args: (changed,))
+    with pytest.raises(ProtocolError, match="changed after discovery"):
+        complete_collection(request)
+
+
+def test_reply_check_binds_a_one_pass_reply_to_the_provider_inputs_that_it_lists(tmp_path):
+    request, _, _, enriched = _provider_passes(tmp_path)
+    survey = replace(
+        request,
+        resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+        protocol_version=ProtocolVersion.V4,
+    )
+    response = CollectionResponse(enriched, ProtocolVersion.V4)
+    check_reply(response, survey, protocol_version=None, adapter_version=None)
+    stray = replace(
+        enriched,
+        provider_bindings=(
+            replace(enriched.provider_bindings[0], qualified_name="elsewhere.contextmanager"),
+        ),
+    )
+    with pytest.raises(ProtocolError, match="provider binding disagrees"):
+        check_reply(
+            CollectionResponse(stray, ProtocolVersion.V4),
+            survey,
+            protocol_version=None,
+            adapter_version=None,
+        )

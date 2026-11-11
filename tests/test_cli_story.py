@@ -15,8 +15,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_cli_view import ROOT, _observation, _snapshot
 
-from archkeel import cli
-from archkeel.cli import main
+from archkeel.cli import main, studio
 from archkeel.ir import flow_graph, view_spec
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
@@ -598,11 +597,11 @@ def test_story_checker_cache_is_cleared_for_a_new_snapshot_run(
         loaded.append(path)
         return shop
 
-    monkeypatch.setattr(cli, "read_saved_snapshot", read)
+    monkeypatch.setattr(studio, "read_saved_snapshot", read)
     snapshot = tmp_path / "architecture.json"
     snapshot.touch()
     spec = json.dumps(_spec(shop, [{"node": MAIN}])).encode()
-    check, clear = cli._story_checker()
+    check, clear = studio._story_checker()
     check(spec, snapshot)
     check(spec, snapshot)
     assert loaded == [snapshot]
@@ -637,12 +636,12 @@ def test_a_session_built_during_invalidation_is_not_cached_for_the_next_run(
     def result_for_session(spec: bytes, snapshot: Path, *, session: BlockingSession):
         return CheckResult({"observation": id(session.observation)}, False)
 
-    monkeypatch.setattr(cli, "read_saved_snapshot", read)
-    monkeypatch.setattr(cli, "ViewCheckSession", BlockingSession)
-    monkeypatch.setattr(cli, "_check_story", result_for_session)
+    monkeypatch.setattr(studio, "read_saved_snapshot", read)
+    monkeypatch.setattr(studio, "ViewCheckSession", BlockingSession)
+    monkeypatch.setattr(studio, "_check_story", result_for_session)
     snapshot = tmp_path / "architecture.json"
     spec = b"{}"
-    check, clear = cli._story_checker()
+    check, clear = studio._story_checker()
     old_result: list[CheckResult] = []
     request = threading.Thread(target=lambda: old_result.append(check(spec, snapshot)))
     request.start()
@@ -669,7 +668,7 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
     monkeypatch: pytest.MonkeyPatch,
     returncode: int,
 ) -> None:
-    from archkeel.cli import _decode_snapshot
+    from archkeel.cli.studio import _decode_snapshot
     from archkeel.studio.api import ContractState, ExploreState
     from archkeel.studio.stories import CheckResult, Stories
     from archkeel.studio.workspace import Workspace
@@ -695,15 +694,15 @@ def test_workspace_completion_invalidates_sessions_built_from_the_previous_file(
     def result_for_session(spec: bytes, snapshot: Path, *, session: Session):
         return CheckResult({"observation": id(session.observation)}, False)
 
-    monkeypatch.setattr(cli, "read_saved_snapshot", read)
-    monkeypatch.setattr(cli, "ViewCheckSession", Session)
-    monkeypatch.setattr(cli, "_check_story", result_for_session)
+    monkeypatch.setattr(studio, "read_saved_snapshot", read)
+    monkeypatch.setattr(studio, "ViewCheckSession", Session)
+    monkeypatch.setattr(studio, "_check_story", result_for_session)
     snapshot = tmp_path / "cache" / "architecture.json"
     snapshot.parent.mkdir()
     snapshot_bytes = _snapshot(tmp_path / "source")
     snapshot.write_bytes(snapshot_bytes)
     spec = b"{}"
-    check, clear = cli._story_checker()
+    check, clear = studio._story_checker()
     stories = Stories((), check, lambda path, source: {}, lambda: None, clear)
     workspace = Workspace(
         tmp_path,

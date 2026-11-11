@@ -4,16 +4,15 @@
 - `archkeel report --timings PATH` writes one JSON file with two parts: `phases` (wall-clock
   seconds) and `counters` (deterministic numbers). The report, the HTML pages and the `--json`
   result do not change. Without the flag, nothing is measured and nothing is written.
-- Phases: `providers` (the survey pass of the Python collector), `collect`, `decode`
+- Phases: `collect`, `decode`
   (decompress, decode, validate once), `assemble` (the observation is built from the facts, with UML graphs and checks),
   `result` (rule results and the report result), `encode` (`architecture.json` bytes), `render`
-  (both pages). A phase that did not run is absent, never zero. Only the Python collector has
-  a survey pass, so only a Python run has `providers`. The survey pass is one phase; its inner
-  collect and decode are not counted twice.
+  (both pages). A phase that did not run is absent, never zero. The Python survey pass had a
+  phase `providers` until AD-358: the survey and the collection now share one collector process.
 - Counters: files parsed, modules, calls analyzed, records, evidence records, collector wire
   bytes, `architecture.json` bytes, report page bytes. The same input gives the same counters.
 - One `PhaseClock` is created by the CLI and passed on as a parameter: to the observer, so the
-  collector times `providers`, `collect` and `decode` around its own work, and to the report and
+  collector times `collect` and `decode` around its own work, and to the report and
   render calls. No global recorder and no environment switch.
 - `tools/report_timing.py` passes `--timings`, copies both parts into its receipt
   (`phase_seconds`, `counters`) and, when `GITHUB_STEP_SUMMARY` is set, appends a Markdown table
@@ -37,7 +36,7 @@ reviewer tell "the input grew" from "the code got slower".
 **Not in this decision.** The nightly benchmark on a pinned public project stays in #659.
 
 **Check.**
-- `--timings` writes the seven phases for a Python run and only the phases that ran otherwise.
+- `--timings` writes the six phases and only the phases that ran otherwise.
 - All seconds are finite and not negative. Their sum is at most the wall time of the run.
 - `architecture.json`, both pages and the `--json` result are identical with and without
   `--timings`.

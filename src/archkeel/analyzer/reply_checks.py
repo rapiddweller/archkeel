@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Check that a collector reply answers its request (AD-319)."""
 
+from dataclasses import replace
 from pathlib import PurePosixPath
 
 from archkeel.analyzer.selected_scope import check_selected_files
@@ -21,9 +22,12 @@ from archkeel.ir.protocol import (
     CollectionResponse,
     ProtocolVersion,
     PythonCollectionPhase,
+    PythonProviderSource,
     PythonSettings,
     collected_resolution_features,
 )
+
+PROVIDER_PREFIX = ".archkeel-providers"
 
 
 def check_reply(
@@ -43,8 +47,45 @@ def check_reply(
             f"collector adapter version {reported[:64]!r} does not match "
             f"the host version {adapter_version!r}"
         )
+    request = _as_collected(response, request)
     check_requested_facts(response.facts, request)
     check_provider_sources(response, request)
+
+
+def _as_collected(response: CollectionResponse, request: CollectionRequest) -> CollectionRequest:
+    """A full reply to a survey request is the one-process reply (AD-358): check it as a collection.
+
+    The provider sources are the inputs that the reply lists; the collector checked them
+    against its own survey before it replied.
+    """
+    resolver = request.resolver
+    if not (
+        isinstance(resolver, PythonSettings)
+        and resolver.phase is PythonCollectionPhase.PROVIDERS
+        and frozenset(response.facts.capabilities.sections)
+        != frozenset(PYTHON_IMPORT_SURVEY_SECTIONS)
+    ):
+        return request
+    listed: list[PythonProviderSource] = []
+    for item in response.facts.inputs:
+        path: str = item.path
+        if path.startswith(PROVIDER_PREFIX + "/") and item.role is ResolutionRole.RESOLUTION:
+            listed.append(_listed_provider(path, item.digest))
+    return replace(
+        request,
+        resolver=replace(
+            resolver, phase=PythonCollectionPhase.COLLECT, provider_sources=tuple(listed)
+        ),
+    )
+
+
+def _listed_provider(path: str, digest: str) -> PythonProviderSource:
+    relative: str = path.removeprefix(PROVIDER_PREFIX + "/")
+    parts: list[str] = relative.split("/")
+    leaf: str = parts.pop()
+    if leaf != "__init__.py":
+        parts.append(leaf.removesuffix(".py"))
+    return PythonProviderSource(".".join(parts), path, "", digest)
 
 
 def check_provider_sources(response: CollectionResponse, request: CollectionRequest) -> None:
