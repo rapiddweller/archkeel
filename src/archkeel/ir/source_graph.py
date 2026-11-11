@@ -53,6 +53,7 @@ from archkeel.ir.profiles import PROFILES, UnmeasurableScalar, profile_for
 from archkeel.ir.source_values import (
     optional_text,
     record_array,
+    required_text,
     text_array,
     visibility_detail,
     vocabulary_text,
@@ -142,13 +143,11 @@ def _symbol(record: Record, language: str) -> Entity:
             modifiers.append(modifier)
     method_kind = parse_method_kind(data.get("method_kind"))
     if method_kind in (MethodKind.STATIC, MethodKind.CLASS):
-        modifiers.append(
-            ModifierKind.STATIC if method_kind is MethodKind.STATIC else ModifierKind.CLASS
-        )
+        modifiers.append(ModifierKind(method_kind.value))
     return Entity(
         record.id,
         kind,
-        optional_text(data.get("qualified_name")) or "",
+        required_text(data.get("qualified_name"), f"the qualified_name of {record.id}"),
         language,
         visibility=visibility_detail(
             data.get("visibility_detail"), optional_text(data.get("name"))

@@ -12,7 +12,7 @@
 //! a row as small numbers. It builds the record object of one row only while it reads it
 //! (`canonical.rs:with_record`), so the bytes are those of the plain record.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde_json::{Map, Value};
 
@@ -22,8 +22,12 @@ pub(crate) struct Shell {
     pub(crate) fields: HashMap<String, Vec<String>>,
 }
 
-/// Split a `W` frame into the shell texts and fields, and the model.
-pub(crate) fn frame(value: Value) -> Result<(Shell, Map<String, Value>), String> {
+/// Split a `W` frame into the shell texts and fields, and the model. `sections` names the record
+/// sections that a shell field list may name.
+pub(crate) fn frame(
+    value: Value,
+    sections: &[&str],
+) -> Result<(Shell, Map<String, Value>), String> {
     let Value::Object(mut frame) = value else {
         return Err("the observation frame must be an object".to_owned());
     };
@@ -36,7 +40,16 @@ pub(crate) fn frame(value: Value) -> Result<(Shell, Map<String, Value>), String>
         return Err("the observation frame has the keys texts, fields and model only".to_owned());
     };
     let texts: Vec<String> = serde_json::from_value(texts).map_err(|error| error.to_string())?;
-    let fields = serde_json::from_value(fields).map_err(|error| error.to_string())?;
+    let fields: HashMap<String, Vec<String>> =
+        serde_json::from_value(fields).map_err(|error| error.to_string())?;
+    for (section, names) in &fields {
+        if !sections.contains(&section.as_str()) {
+            return Err(format!("the shell names no record section {section}"));
+        }
+        if names.iter().collect::<HashSet<_>>().len() != names.len() {
+            return Err(format!("the shell fields of {section} repeat a name"));
+        }
+    }
     Ok((Shell { texts, fields }, model))
 }
 

@@ -33,11 +33,14 @@ const TYPESCRIPT_IMPORT: &[&str] = &[
     "under_type_checking",
 ];
 
-/// The read fields of a TypeScript call. The rules and views read no candidate count and no reason
-/// (AD-346: the end-to-end corpus of the store gives equal bytes and verdicts without them).
+/// The read fields of a TypeScript call. The detail page shows the candidate count, the
+/// truncation and the reason (AD-346: the end-to-end test compares both pages).
 const TYPESCRIPT_CALLS: &[&str] = &[
+    "candidate_count",
+    "candidates_truncated",
     "construction",
     "expression",
+    "reason",
     "result_bindings",
     "source_definition_id",
     "source_module",
@@ -48,7 +51,10 @@ const TYPESCRIPT_CALLS: &[&str] = &[
 
 /// The read fields of a TypeScript reference; the UML relationships read `source_definition_id`.
 const TYPESCRIPT_REFERENCES: &[&str] = &[
+    "candidate_count",
+    "candidates_truncated",
     "expression",
+    "reason",
     "source_definition_id",
     "source_scope",
     "status",

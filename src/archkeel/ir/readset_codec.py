@@ -26,6 +26,7 @@ from .facts import (
 )
 from .facts_codec import (
     ProtocolError,
+    _boolean,
     _capabilities,
     _file,
     _freeze_object,
@@ -39,22 +40,11 @@ from .facts_codec import (
     _target,
     _version,
 )
+from .facts_codec import _array as _list
+from .facts_codec import _record_strings as _strings
 from .protocol import CollectionResponse
 from .state_codec import parse_state_data
 from .validated_facts import accept_store_facts
-
-
-def _list(value: RawJson, label: str) -> list[RawJson]:
-    if not isinstance(value, list):
-        raise ProtocolError(f"{label} must be an array")
-    return value
-
-
-def _strings(value: RawJson, label: str) -> tuple[str, ...]:
-    items = _list(value, label)
-    if not all(isinstance(item, str) for item in items):
-        raise ProtocolError(f"{label} must be a string array")
-    return tuple(item for item in items if isinstance(item, str))
 
 
 def _text(item: dict[str, RawJson], key: str) -> str:
@@ -90,14 +80,11 @@ def _coverage(value: RawJson) -> CollectionCoverage:
     counts = (item["files_read"], item["files_parsed"])
     if not all(isinstance(count, int) and not isinstance(count, bool) for count in counts):
         raise ProtocolError("coverage counts must be integers")
-    full_scope = item["full_scope"]
-    if not isinstance(full_scope, bool):
-        raise ProtocolError("coverage.full_scope must be a boolean")
     return CollectionCoverage(
         _strings(item["selected_files"], "coverage.selected_files"),
         int(str(counts[0])),
         int(str(counts[1])),
-        full_scope,
+        _boolean(item["full_scope"], "coverage.full_scope"),
         tuple(_record(gap) for gap in _list(item["gaps"], "coverage.gaps")),
     )
 

@@ -50,7 +50,7 @@
   "src/archkeel/ir/model.py": 2017,
   "src/archkeel/ir/module_explore.py": 866,
   "src/archkeel/ir/report_projection.py": 1011,
-  "src/archkeel/ir/source_graph.py": 962,
+  "src/archkeel/ir/source_graph.py": 961,
   "src/archkeel/ir/view_spec.py": 1256,
   "src/archkeel/render/assets/archkeel-report.css": 2727,
   "src/archkeel/render/assets/flow.js": 3602,
