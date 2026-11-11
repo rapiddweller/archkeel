@@ -41,6 +41,8 @@ NOT_RECORDED = {
 # Kinds that the collector can emit and that no repository file can freeze, with the reason.
 UNREACHABLE = {
     "OSError": "it needs an unreadable file, and the permissions of a checkout change",
+    "ShadowedModule": "no golden case holds a module and a package of one name (#797); "
+    "tests/test_python_shadowed_module.py covers it",
     "ValueError": "a null byte gives SyntaxError from Python 3.12, so the kind needs one minor",
 }
 
@@ -82,6 +84,7 @@ _SITES: dict[tuple[str, str], tuple[str, set[str]]] = {
     ("constructs.py", "_REFLECTION_CALLS[name]"): ("constructs", _REFLECTION),
     ("constructs.py", "kind"): ("constructs", _CONSTRUCT_KINDS | _REFLECTION | {"dunder_dict"}),
     ("explore_scope.py", "SOURCE_RESOLUTION_GAP_KIND"): ("unknowns", {"source_resolution_gap"}),
+    ("explore_scope.py", "_SHADOWED_KIND"): ("unknowns", {"ShadowedModule"}),
     ("explore_scope.py", "'collection_gap'"): ("unknowns", {"collection_gap"}),
     ("imports.py", "'import'"): ("imports", {"import"}),
     ("imports.py", "'dynamic_import_limit'"): ("unknowns", {"dynamic_import_limit"}),
