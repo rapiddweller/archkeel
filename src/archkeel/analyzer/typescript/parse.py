@@ -27,6 +27,16 @@ from .augmentations import Aliases, augmentation_concerns, has_aliases, triple_s
 from .jsdoc_imports import jsdoc_imports
 from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
+    WALK_ROOTS,
+    ScriptAlias,
+    ScriptDestructure,
+    ScriptFactory,
+    ScriptFactoryMember,
+    ScriptGlobal,
+    ScriptNamespace,
+    StringComparison,
+)
+from .syntax import (
     Base as Base,
 )
 from .syntax import (
@@ -58,16 +68,6 @@ from .syntax import (
 )
 from .syntax import (
     ReferenceForm as ReferenceForm,
-)
-from .syntax import (
-    ScriptAlias,
-    ScriptDestructure,
-    ScriptFactory,
-    ScriptFactoryMember,
-    ScriptGlobal,
-    ScriptNamespace,
-    ScriptRoot,
-    StringComparison,
 )
 from .syntax import (
     Site as Site,
@@ -284,7 +284,7 @@ _SCRIPT_EFFECT_NAMES: Final = frozenset(
     }
 )
 _LOADER_MODULES: Final[dict[str, _LoaderModule]] = {item.value: item for item in _LoaderModule}
-_SCRIPT_ROOTS: Final = frozenset(item.value for item in ScriptRoot)
+_SCRIPT_ROOTS: Final = WALK_ROOTS
 _SCRIPT_FUNCTIONS: Final = frozenset(
     {
         _NodeKind.FUNCTION_DECLARATION,

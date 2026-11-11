@@ -52,6 +52,20 @@ DIRECTIVES = {
         '/// <amd-dependency name="x" />\n/// <reference types="node" />\nexport {};\n'
     ),
     "src/a/late.ts": 'export {};\n/// <amd-dependency path="../b/t" />\n',
+    # The attributes in any order and the names in any case, as tsc reads them (#988).
+    "src/a/order.ts": (
+        '/// <amd-dependency name="n" path="../b/t" />\n'
+        '/// <reference preserve="true" path="../b/t.ts" />\n'
+        '/// <AMD-DEPENDENCY PATH="../b/t" />\n'
+        '/// <Reference LIB="dom" />\n'
+        '/// <reference types="x" preserve="true" path="p" />\n'
+        "/// <reference  path = 'q'  />\n"
+        '/// <referencepath="z" />\n'
+        "/// <amd-dependency path='unclosed />\n"
+        "export {};\n"
+    ),
+    "src/a/roots.js": "top.x();\nparent.y();\nvar own = top;\n",
+    "src/b/b.js": "window.x = 1;\nwindow.y = 2;\n",
 }
 
 

@@ -14,10 +14,14 @@ could use `fromB`, and the scan gave PASS for a rule that forbids a -> b.
    "Unobserved triple-slash reference: name", as a `path` directive is. The scan stays UNKNOWN.
 3. Without such an entry, rule 3 of AD-274 holds: a `types` name is silent. A `types` directive
    whose value starts with `.` or `/` is a concern in every project (#976).
-4. `/// <amd-dependency path="x" />` is a concern as a `path` directive is. A form without `path`
-   (`name=`) is not.
-5. `top` and `parent` stay no roots: they are the window only outside a frame. A use through them
-   gives no edge and no gap; `docs/known-limits.md` says so.
+4. `/// <amd-dependency path="x" />` is a concern as a `path` directive is; a form without `path`
+   (`name=` alone) is not. A directive is read as tsc reads it: the tag and attribute names in any
+   case, the attributes in any order (`<amd-dependency name="n" path="x" />`, `<reference
+   preserve="true" path="x" />`).
+5. A use through `top` or `parent` is read as a use through the window, like `self`, so it is an
+   edge or a gap, never silent. Inside a frame they name another window, so the edge can go to a
+   global of the page above. They are no roots for the walk of a file: a write through them
+   publishes nothing, and a local variable `parent` is no root (the studio assets have many).
 
 **Reason.** A concern costs one UNKNOWN in the rare project that sets a project type root and names
 a type package by `types`. A silent PASS hides an edge.

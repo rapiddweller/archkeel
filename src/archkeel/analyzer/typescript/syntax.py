@@ -8,6 +8,7 @@ from __future__ import annotations
 import builtins
 from dataclasses import dataclass
 from enum import Enum
+from typing import Final
 
 
 class ReferenceForm(Enum):
@@ -59,12 +60,23 @@ class ReceiverKind(Enum):
 
 
 class ScriptRoot(Enum):
+    """The names that reach the global object of a script. The analysis of a use reads all of them
+    as roots, so a use through them is an edge or a gap, never silent (#976, #988)."""
+
     WINDOW = "window"
     GLOBAL_THIS = "globalThis"
-    # A browser script reaches the global object through `self` and `frames` too (#976); `top` and
-    # `parent` name another window, not this one.
     SELF = "self"
     FRAMES = "frames"
+    # The window outside a frame, and another window inside one.
+    TOP = "top"
+    PARENT = "parent"
+
+
+# The walk of a file reads `top` and `parent` as ordinary names: a local variable `parent` is
+# common, and a write through them publishes nothing.
+WALK_ROOTS: Final = frozenset(
+    item.value for item in ScriptRoot if item not in (ScriptRoot.TOP, ScriptRoot.PARENT)
+)
 
 
 @dataclass(frozen=True, slots=True)

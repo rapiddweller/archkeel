@@ -21,9 +21,14 @@ use crate::script_vendor::Vendors;
 use crate::sites::{Site, SiteKind};
 use crate::source::Span;
 
-/// `_SCRIPT_ROOTS`: the names of the global object.
+/// `collect._SCRIPT_ROOTS`: the names of the global object, and `top` and `parent`, which are the
+/// window outside a frame. The analysis of a use reads them as roots; the walk of a file does not,
+/// so a write through them publishes nothing, and a local variable named `parent` is no root.
 pub fn is_root(name: &str) -> bool {
-    matches!(name, "window" | "globalThis" | "self" | "frames")
+    matches!(
+        name,
+        "window" | "globalThis" | "self" | "frames" | "top" | "parent"
+    )
 }
 
 /// A site as the analysis reads it: a site of the file, or a name that a destructuring brings.
