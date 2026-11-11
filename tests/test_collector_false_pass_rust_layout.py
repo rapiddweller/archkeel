@@ -105,3 +105,27 @@ def test_a_crate_root_in_a_skipped_directory_gives_a_gap_and_no_pass(
 
     assert statuses(result).get("REQUIRES") != "PASS"
     assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+
+
+# FP-28: `extern crate` of a crate that no manifest declares compiles only through a link that a
+# `build.rs` prints. The collector does not read that link, so the name is a gap and never PASS.
+UNDECLARED = "extern crate base_crate;\npub fn run() { base_crate::make(); }\n"
+UNDECLARED_PROBES = {
+    "plain": UNDECLARED,
+    "renamed": UNDECLARED.replace("base_crate;", "base_crate as b;"),
+}
+
+
+@pytest.mark.parametrize("source", UNDECLARED_PROBES.values(), ids=UNDECLARED_PROBES.keys())
+def test_an_extern_crate_that_no_manifest_declares_gives_no_pass(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    files = {
+        "crates/app/Cargo.toml": APP.split("[dependencies]")[0],
+        "crates/app/build.rs": 'fn main() { println!("cargo:rustc-link-search=crate=x"); }\n',
+        "crates/app/src/lib.rs": source,
+    }
+    result = validate(repository(tmp_path, rust_binary, files, components=NO_REQUIRES), capsys)
+
+    assert statuses(result).get("REQUIRES") != "PASS", result["diagnostics"]
+    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
