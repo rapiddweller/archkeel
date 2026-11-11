@@ -1028,7 +1028,6 @@ def _certify_dependency_scopes(
             import_ids=(),
             selected_inputs=selected,
             source_records=records,
-            allow_script_effects=facts.profile == PROFILES[Language.TYPESCRIPT].analyzer,
         )
     except ValueError:
         return

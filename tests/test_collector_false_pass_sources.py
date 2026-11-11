@@ -1,16 +1,17 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Issue #976: a source that reaches a forbidden module in a way the collector skips gives no PASS.
+"""Issues #976 and #988: a source that reaches a forbidden module in a skipped way gives no PASS.
 
 Consumer: the host (`run_report`), with the Python collector and with the bundled native one. The
 contract lets `a` use nothing, so any edge from `a` to `b` fails it. Each probe is a source that
 reaches `b` from `a` by a construct that both producers read as no dependency: a `/// <reference
 types>` line, a `declare module` augmentation (by a relative name, or by a bare name that `paths`
 or `baseUrl` maps to a project file), and a use of `self.x` or `frames.x` for a global that a
-script of `b` publishes through `window.x`. The honest cases (no such line, and a bare name that
-no alias maps) must still give PASS, so that the probes test the contract and not a broken
-fixture. Each probe must give an edge (FAIL) or a gap (UNKNOWN) in both producers, never PASS.
+script of `b` publishes through `window.x` (also through `this`, which is the global object in a
+classic script). The honest cases (no such line, and a bare name that no alias maps) must still
+give PASS, so that the probes test the contract and not a broken fixture. Each probe must give an
+edge (FAIL) or a gap (UNKNOWN) in both producers, never PASS.
 """
 
 from __future__ import annotations
@@ -81,6 +82,15 @@ CASES = {
         "src/a/a.js": "self.x();\n",
         "src/b/b.js": "window.x = 1;\n",
     },
+    # `this` is the global object in a classic script, at the top level and in a plain call (#988).
+    "this-alias-in-a-function": {
+        "src/a/a.js": "function f() { var self = this; self.x(); }\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
+    "this-at-the-top-level": {
+        "src/a/a.js": "this.x();\n",
+        "src/b/b.js": "window.x = 1;\n",
+    },
     "frames-as-script-root": {
         "src/a/a.js": "frames.x();\n",
         "src/b/b.js": "window.x = 1;\n",
@@ -112,11 +122,9 @@ def _project(tmp_path: Path, name: str) -> Path:
     return root
 
 
-def _exits(tmp_path: Path, name: str, directory: Path) -> tuple[int, int]:
+def _verdicts(tmp_path: Path, name: str, directory: Path) -> list[dict[str, object]]:
     root = _project(tmp_path, name)
-    python = _verdict(root, None)
-    native = _verdict(root, None, directory)
-    return int(python["exit"]), int(native["exit"])  # type: ignore[call-overload]
+    return [_verdict(root, None), _verdict(root, None, directory)]
 
 
 @pytest.mark.parametrize("name", HONEST)
@@ -125,7 +133,7 @@ def test_an_honest_project_gives_pass_in_both_producers(
     bundled_directory: Path,  # noqa: F811
     name: str,
 ) -> None:
-    assert _exits(tmp_path, name, bundled_directory) == (0, 0)
+    assert [item["exit"] for item in _verdicts(tmp_path, name, bundled_directory)] == [0, 0]
 
 
 @pytest.mark.parametrize("name", [name for name in CASES if name not in HONEST])
@@ -134,6 +142,10 @@ def test_a_construct_that_reaches_a_forbidden_module_gives_no_pass(
     bundled_directory: Path,  # noqa: F811
     name: str,
 ) -> None:
-    python, native = _exits(tmp_path, name, bundled_directory)
-    assert python != 0, f"{name}: the Python collector gives PASS"
-    assert native != 0, f"{name}: the native collector gives PASS"
+    # An incomplete scan makes the exit code 2 whatever a rule says, so the rule itself is read: a
+    # REQUIRES that passes beside an incomplete scan is a PASS for the edge a -> b (#988).
+    found = _verdicts(tmp_path, name, bundled_directory)
+    for producer, item in zip(("Python", "native"), found, strict=True):
+        assert item["exit"] != 0, f"{name}: the {producer} collector gives PASS"
+        requires = dict(item["rules"]).get("REQUIRES")  # type: ignore[call-overload]
+        assert requires != "PASS", f"{name}: REQUIRES passes with the {producer} collector"
