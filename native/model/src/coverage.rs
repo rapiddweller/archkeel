@@ -8,7 +8,7 @@
 //! makes `ScopeComplete`), but a fact that it did not. A fact of this kind can only turn a rule
 //! into UNKNOWN, never into PASS, so it is safe before S4.
 //!
-//! Python: `check/evaluation/evaluate.py` `coverage_payload` (status FAIL when `failures` or
+//! Reference engine: `check/evaluation/evaluate.py` `coverage_payload` (status FAIL when `failures` or
 //! `not paths`), `ir/coverage.py` `observation_complete`, and `check/pair_gaps.py`
 //! `drop_allowed_pair_gaps`, which can drop a gap with a `source_module` and a different
 //! `module` before the evaluation. Such a gap is not a certain fact here, so it is not counted.

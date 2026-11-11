@@ -4,7 +4,7 @@
 
 //! The modules and packages of a reply (slice S1).
 //!
-//! Python: `check/evaluation/evaluate.py` `scan_source_facts` (the `parsed` files, `packages =
+//! Reference engine: `check/evaluation/evaluate.py` `scan_source_facts` (the `parsed` files, `packages =
 //! sorted({module.package ...})`, `module_evidence`, `blank_modules`) and the ids of
 //! `check/evaluation/topology.py` `module_records` and `package_records`. The rows of the
 //! `modules` and `packages` sections also need the edges of S2 and the ranks of S3, so this file
@@ -91,7 +91,7 @@ pub(crate) type Tables = (Table<ModuleId, Module>, Table<PackageId, Package>);
 
 /// The modules and packages of the files of a reply.
 pub(crate) fn tables(files: &[FileFact]) -> Result<Tables, Reason> {
-    // Python sorts the package names as `str`: by code point, as `BTreeMap` does for UTF-8.
+    // The reference engine sorts the package names as `str`: by code point, as `BTreeMap` does for UTF-8.
     let mut names: BTreeMap<&str, usize> = files
         .iter()
         .map(|file| (file.package.as_str(), 0))

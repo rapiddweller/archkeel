@@ -4,10 +4,10 @@
 
 //! The status fold of one rule of S1.
 //!
-//! Python: `ir/decisions.py` `_rule_status` and `rule_assessments`. The order is the order of
-//! Python: violations give FAIL; an incomplete observation gives UNKNOWN; a rule without a
-//! receipt (`rules.py` `_rule_evaluation_facts_for_rule` issues none for an empty selection)
-//! gives UNKNOWN; else PASS. The core does not see every cause of an incomplete observation yet
+//! Reference engine: `ir/decisions.py` `_rule_status` and `rule_assessments`. The order is its
+//! order: violations give FAIL; an incomplete observation gives UNKNOWN; a rule without a receipt
+//! (`rules.py` `_rule_evaluation_facts_for_rule` issues none for an empty selection) gives
+//! UNKNOWN; else PASS. The core does not see every cause of an incomplete observation yet
 //! (the rule subject failures of all rules, the unknown imports, the profile limits): only the
 //! scope proof of S4 sees them, so a PASS goes through `Scope::complete`.
 

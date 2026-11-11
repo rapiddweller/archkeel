@@ -4,3 +4,4 @@
 |---|---|---|---|
 | 2026-11-11 | 530 | c9b7f8e82 | Record the probe and Rust cases and the key fields of large sections (AD-360) |
 | 2026-11-11 | 530 | fa24e84a0 | Pin the engine identity (version and code digests) of the member inventory binding (AD-360) |
+| 2026-11-11 | 12 | a81ef148b | AD-370: 12 hand-made S1 cases (complete_assignment, root_layout: FAIL and UNKNOWN) |

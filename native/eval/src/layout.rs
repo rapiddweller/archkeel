@@ -4,7 +4,7 @@
 
 //! `root_layout`: each direct child of `root` (a package or a module) is an allowed child.
 //!
-//! Python: `check/evaluation/rules.py` `_root_layout_violations` (the violations) and
+//! Reference engine: `check/evaluation/rules.py` `_root_layout_violations` (the violations) and
 //! `_rule_evaluation_facts_for_rule` (the receipt: the modules below `root`).
 
 use std::collections::{BTreeSet, HashMap};
@@ -23,7 +23,7 @@ pub(crate) fn check(id: &str, rule: &RootLayout, model: &Model) -> (Vec<Violatio
         .iter()
         .map(|(_, package)| package.name())
         .chain(model.modules().iter().map(|(_, module)| module.name()));
-    // Python sorts the children as `str`: by code point, as `BTreeSet` does for UTF-8.
+    // The reference engine sorts the children as `str`: by code point, as `BTreeSet` does for UTF-8.
     let children: BTreeSet<&str> = names
         .filter(|name| *name != root && in_scope(name, root) && name.split('.').count() == depth)
         .collect();

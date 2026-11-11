@@ -35,7 +35,7 @@ pub use coverage::Incomplete;
 pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
 pub use model::{Model, Rows};
 pub use modules::{Module, Package};
-pub use ownership::{claims, in_scope};
+pub use ownership::in_scope;
 pub use reason::{Input, Reason, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};

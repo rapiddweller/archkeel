@@ -4,7 +4,7 @@
 
 //! The owner of each module (slice S1).
 //!
-//! Python: `ir/facts.py` `in_scope`, `ir/dependency.py` `module_in_ownership`, `ir/ownership.py`
+//! Reference engine: `ir/facts.py` `in_scope`, `ir/dependency.py` `module_in_ownership`, `ir/ownership.py`
 //! `sole`, `ir/model.py` `ArchitectureContract.component_for` and `package_owners`, and
 //! `check/evaluation/rules.py` `_modules_for_rule_source`. A module has an owner only when
 //! exactly one component claims it: no claim and two claims (a nested package of two components,
@@ -25,7 +25,7 @@ pub fn in_scope(name: &str, scope: &str) -> bool {
 }
 
 /// True when a component claims a module: one of its exact modules, or below one of its packages.
-pub fn claims(component: &Component, module: &str) -> bool {
+pub(crate) fn claims(component: &Component, module: &str) -> bool {
     component
         .exact_modules()
         .iter()

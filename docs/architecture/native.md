@@ -20,8 +20,9 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
-| `archkeel-model` | The typed model of one run: ids, tables, the components and the scope proof that a PASS needs (AD-363). Slices S1 to S4 add modules, packages, edges and cycles. | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
-| `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run and owns no section yet; the host uses it for no verdict (AD-363). | `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
+| `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, what the reply proves not seen, and the scope proof that a PASS needs (AD-363, AD-370). Slices S2 to S4 add edges, cycles and the proof. | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
+| `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`; each other kind names its slice (AD-370). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
+| `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run; the host uses it for no verdict (AD-363). | `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
 | `archkeel-dart-collector` | Reads Dart source. Slice 1 holds the discovery; the binary refuses a request until the protocol has a Dart request (AD-365). | `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
@@ -56,9 +57,17 @@ one frame on standard output: `rules` (rule id to kind and status) and the colum
 
 `archkeel-core dual-run` is the Rust engine ([AD-363](decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md)).
 With a command engine, the harness runs the collector and sends its reply as hex in `reply`.
-The core owns no section and no rule family yet, so the frame has an `unsupported` reason for
-each rule and each requested section, and a slice that names no part fails
-(`--sections none --families none`). `--self-test` compares what the core read: the rule ids and
+The core decides `complete_assignment` and `root_layout` and writes their `violations` rows
+([AD-370](decisions/ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md)); a rule
+of these kinds that only the scope proof of S4 can pass is a named gap. Each other rule and each
+other requested section has an `unsupported` reason, and a slice that names no part fails
+(`--sections none --families none`). The S1 run:
+
+```bash
+make dual-run DUAL_RUN_ARGS="--sections violations --families complete_assignment,root_layout \
+  --engine-command 'native/target/debug/archkeel-core dual-run'"
+```
+ `--self-test` compares what the core read: the rule ids and
 kinds of the contract bytes against the verdict map, and the reply that the store accepts. A
 part that is not ported answers with the slice that ports it, never with an empty result.
 

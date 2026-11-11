@@ -5,7 +5,7 @@
 //! The `Sections` request: the rows of each requested section, or the reason that it has none.
 //!
 //! `violations` holds the rows of the rule kinds that `archkeel-eval` decides, sorted by id as
-//! Python sorts the section. A row of another kind is not in it: the harness compares a rule
+//! the reference engine sorts the section. A row of another kind is not in it: the harness compares a rule
 //! section per family (AD-360 point 5), and the rules of that kind are named unsupported.
 
 use std::collections::BTreeMap;
@@ -77,19 +77,12 @@ fn row(violation: &Violation) -> Value {
             fact_id,
             evidence,
             ..
-        } => json!({
-            "id": id,
-            "evidence_class": "VIOLATION",
-            "area": "components",
-            "kind": "complete_assignment",
-            "title": format!("{name} is not owned by exactly one component"),
-            "subjects": subjects(name),
-            "evidence_ids": [evidence],
-            "rule_ids": [rule],
-            "fact_ids": [fact_id],
-            "provenance": [],
-            "data": {"source": source, "module": name},
-        }),
+        } => record(
+            [id, rule, fact_id, evidence],
+            ["components", "complete_assignment", name],
+            format!("{name} is not owned by exactly one component"),
+            json!({"source": source, "module": name}),
+        ),
         Violation::NotAllowedChild {
             id,
             rule,
@@ -99,20 +92,32 @@ fn row(violation: &Violation) -> Value {
             fact_id,
             evidence,
             ..
-        } => json!({
-            "id": id,
-            "evidence_class": "VIOLATION",
-            "area": "module_topology",
-            "kind": "root_layout",
-            "title": format!("{child} is not an allowed child of {root}"),
-            "subjects": subjects(child),
-            "evidence_ids": [evidence],
-            "rule_ids": [rule],
-            "fact_ids": [fact_id],
-            "provenance": [],
-            "data": {"root": root, "child": child, "allowed_children": allowed},
-        }),
+        } => record(
+            [id, rule, fact_id, evidence],
+            ["module_topology", "root_layout", child],
+            format!("{child} is not an allowed child of {root}"),
+            json!({"root": root, "child": child, "allowed_children": allowed}),
+        ),
     }
+}
+
+/// A violation record: `[id, rule, cited record, its evidence]` and `[area, kind, subject]`.
+fn record(ids: [&str; 4], names: [&str; 3], title: String, data: Value) -> Value {
+    let [id, rule, fact_id, evidence] = ids;
+    let [area, kind, subject] = names;
+    json!({
+        "id": id,
+        "evidence_class": "VIOLATION",
+        "area": area,
+        "kind": kind,
+        "title": title,
+        "subjects": subjects(subject),
+        "evidence_ids": [evidence],
+        "rule_ids": [rule],
+        "fact_ids": [fact_id],
+        "provenance": [],
+        "data": data,
+    })
 }
 
 /// `classified` drops an empty subject.

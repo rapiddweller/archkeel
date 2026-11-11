@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The violations of the S1 rule kinds, with the ids of the Python records.
+//! The violations of the S1 rule kinds, with the ids of the records of the reference engine.
 //!
-//! Python: the `classified(...)` calls of `check/evaluation/rules.py` `_assignment_violations`
+//! Reference engine: the `classified(...)` calls of `check/evaluation/rules.py` `_assignment_violations`
 //! (`stable_id("VIO", rule.id, module record id)`) and `_root_layout_violations`
 //! (`stable_id("VIO", rule.id, child)`). The cited record is a module record: its id is
 //! `stable_id("MOD", name)` and its evidence is the evidence id of the file.

@@ -4,7 +4,7 @@
 
 //! `complete_assignment`: each module below `source` has exactly one owner.
 //!
-//! Python: `check/evaluation/rules.py` `_assignment_violations` (the violations; a blank file is
+//! Reference engine: `check/evaluation/rules.py` `_assignment_violations` (the violations; a blank file is
 //! exempt) and `_rule_evaluation_facts_for_rule` with `_modules_for_rule_source` (the receipt).
 
 use archkeel_contract::SourceRule;
