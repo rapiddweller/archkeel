@@ -35,6 +35,7 @@ import sys
 import tempfile
 import time
 import tomllib
+import unicodedata
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -361,6 +362,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="no Python parse (fast on a large corpus); the parse is checked per file",
     )
     options = arguments.parse_args(argv)
+    if (sys.version_info[:2], unicodedata.unidata_version) != ((3, 11), "14.0.0"):
+        print("the oracle is Python 3.11 with Unicode 14.0.0 (L-27)", file=sys.stderr)
+        return 2
+    print(f"oracle: Python {sys.version.split()[0]}, Unicode {unicodedata.unidata_version}")
     results = run(build(), options.demos, options.corpus, full=not options.discovery_only)
     for result in results:
         print(report(result))

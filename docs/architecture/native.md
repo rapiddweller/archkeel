@@ -78,6 +78,8 @@ part that is not ported answers with the slice that ports it, never with an empt
 ```mermaid
 flowchart LR
     n_41["report"]
+    n_42["dart-parse"]
+    n_43["pytext"]
     n_41 --> n_5
     n_0["build"]
     n_1["contract"]
@@ -256,4 +258,14 @@ flowchart LR
     n_40 --> n_30
     n_40 --> n_0
     n_40 --> n_39
+    n_32 --> n_43
+    n_42 --> n_3
+    n_42 --> n_32
+    n_34 --> n_43
+    n_34 --> n_42
+    n_35 --> n_42
+    n_36 --> n_43
+    n_36 --> n_3
+    n_25 --> n_43
+    n_19 --> n_43
 ```

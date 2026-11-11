@@ -13,18 +13,28 @@
    `LanguageVersionError`). A source that is not UTF-8 gets `invalid_encoding` and `SyntaxError`.
 4. `--dump-syntax` (feature `dump`) prints the syntax of each file. `tools/dart_syntax_parity.py`
    compares it with `dataclasses.asdict(parse(content))`, byte for byte as canonical JSON.
+5. L-27: the oracle of each `str` predicate is Python 3.11 with Unicode 14.0.0. The script
+   `tools/dart_unicode_tables.py` writes `unicode_tables.rs` from it; `is_word` and `is_space`
+   read the tables. Rust `char::is_alphanumeric` differs from `\w` on 15 559 code points. The
+   parity tools refuse another interpreter. Slice 3b reads `str.isalnum` from a table too.
 
 **Problem.** Slice 5 switches the Dart default only when each section equals the Python reply.
 The parse decides which files have facts and the gaps of the parse.
 
 **Differences to Python, a closed list (native is equal or stricter).**
-- *Depth:* a node deeper than 900 levels gives a syntax concern, so the file has a gap. Python
+- *Depth:* a node at depth 900 or deeper gives a syntax concern, so the file has a gap. Python
   stops the whole scan with `RecursionError` near depth 987. This is the closed exception of #880.
+  `MAX_DEPTH` must stay below the shallowest depth where a Python walk fails. The review of
+  #1055 measured the recursive site walks: closures fail at 170 and local functions at 250
+  levels; native flags them at 150 and 230. Each recursive walk of slice 3b gets a parity case
+  at its own Python limit.
+- *Unicode version (L-27):* a code point that Unicode 14 does not assign gives an
+  `invalid_encoding` concern and a gap. Python 3.12 and later read it with newer data.
 - *Surrogate:* a `\uD800` escape in a URI is not a plain string (a `DirectiveError` gap). Python
   keeps a lone surrogate in the target.
 - *Combinator:* a combinator that is not `show` or `hide` is a syntax concern. Python raises.
-- *Version digits:* a language version with more than 4 300 digits is out of range (a gap).
-  Python raises `ValueError` in `int`.
+- *Version digits:* a version number with more than 4 300 written digits, leading zeros
+  included, is out of range (a gap). Python raises `ValueError` in `int`.
 
 **Windows snapshot reads (AD-365) are a gap, not an equal check.** On Windows, Python
 `os.path.samestat` compares `st_dev` and `st_ino` of the `lstat` before the open and the `fstat`
@@ -38,14 +48,14 @@ be in place before slice 5 gives a native Dart PASS on Windows.
 recursive walk, as in Python: a deep tree overflows the stack and aborts the scan (AD-317).
 (c) Port the sites in this PR: they are about 950 of the 2 436 lines, so slice 3b ports them.
 
-**Limit.** Python `\w` is `str.isalnum` or `_`; native uses `char::is_alphanumeric`. The two
-differ only on rare marks, such as U+0345, next to a modifier word. No corpus file has one.
-`part of` files and sources with no unique owner keep their file fact until slices 4a and 4b.
+**Limit.** `part of` files and sources with no unique owner keep their file fact until
+slices 4a and 4b.
 
-**Measured (2026-11-11).** Files byte-equal: fixtures 151 of 151, demo variants 295 of 295,
-the private app 28 of 28. Bench samples with 240 s of Python time each: `dart-http` 287 of 344,
-`flutter` 665 of 6 623. Sections equal on all corpora; on `flutter` 6 619 file facts.
+**Measured (2026-11-11, oracle Python 3.11.12).** Files byte-equal: fixtures 151 of 151, demo
+variants 295 of 295, the private app 28 of 28. Bench samples with 240 s of Python time each:
+`dart-http` 287 of 344, `flutter` 665 of 6 623; after L-27, with 90 s: `dart-http` 152 of 152,
+`flutter` 200 of 200 and 1 file named by L-27. Sections equal on all corpora; on `flutter` 6 618 file facts.
 
 **Tests.** `tests/test_collector_native_dart_syntax.py`,
 `tests/test_collector_native_dart_discovery.py`, `native/dart/src/*_tests.rs`,
-`native/pytext/src/lib.rs`.
+`native/pytext/src/lib.rs`, `tools/dart_unicode_tables.py --check`.
