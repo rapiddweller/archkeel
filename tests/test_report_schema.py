@@ -15,7 +15,19 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "schema" / "report-2.0.schema.json").read_text(encoding="utf-8"))
 VALIDATOR = jsonschema.Draft202012Validator(SCHEMA)
-TABLES = ("nodes", "measures", "units", "variants", "edges", "crossings", "findings", "carriers")
+TABLES = (
+    "nodes",
+    "measures",
+    "units",
+    "variants",
+    "edges",
+    "crossings",
+    "permissions",
+    "violations",
+    "unknowns",
+    "findings",
+    "carriers",
+)
 COUNTS = SCHEMA["$defs"]["Summary"]["properties"]["counts"]["required"]
 
 
@@ -56,6 +68,8 @@ def _minimal() -> dict[str, object]:
             "source": {"git_head": None, "dirty": False, "scope": ["app/**/*.py"]},
             "contract": None,
             "coverage": {"files_discovered": 1, "files_read": 1, "files_parsed": 1},
+            "target": True,
+            "observation": "PASS",
             "not_ranked": [],
             "not_carried": [3, 4, 5, 6, 7, 8, 9],
             "payload_budget": {"max_bytes": 8000000},
@@ -68,7 +82,11 @@ def _minimal() -> dict[str, object]:
         "strings": ["", "module:app", "app", "app/__init__.py"],
         **{name: empty[name] for name in TABLES[:5]},
         "via": [],
-        **{name: empty[name] for name in TABLES[5:]},
+        **{name: empty[name] for name in TABLES[5:8]},
+        "violation_rules": [],
+        "violation_subjects": [],
+        "violation_evidence": [],
+        **{name: empty[name] for name in TABLES[8:]},
     }
 
 
@@ -78,13 +96,12 @@ def test_the_schema_is_a_valid_draft_2020_12_schema() -> None:
     assert VALIDATOR.is_valid(_minimal())
 
 
-def test_each_code_list_bounds_its_codes() -> None:
+def test_code_lists_are_open_within_the_major_version() -> None:
     defs = SCHEMA["$defs"]
     lists = {name: item for name, item in defs.items() if "x-codes" in item}
 
-    assert {name: (item["minimum"], item["maximum"]) for name, item in lists.items()} == {
-        name: (0, len(item["x-codes"]) - 1) for name, item in lists.items()
-    }
+    assert lists
+    assert all(item["minimum"] == 0 and "maximum" not in item for item in lists.values())
     assert [m["id"] for m in defs["Measure"]["x-measures"]] == defs["Measure"]["x-codes"]
     assert [g["id"] for g in defs["Gap"]["x-gaps"]] == defs["Gap"]["x-codes"]
     assert set(defs["Relation"]["x-codes"]) >= {
@@ -94,6 +111,16 @@ def test_each_code_list_bounds_its_codes() -> None:
         "fields",
         "signatures",
     }
+
+
+def test_a_later_minor_version_with_appended_codes_still_validates() -> None:
+    payload = copy.deepcopy(_minimal())
+    payload["schema_version"] = "2.1.0"
+    measures = payload["measures"]
+    assert isinstance(measures, dict)
+    measures["state"] = [9]
+
+    assert VALIDATOR.is_valid(payload)
 
 
 def test_the_top_level_key_order_is_the_canonical_order() -> None:
@@ -107,8 +134,7 @@ def test_the_top_level_key_order_is_the_canonical_order() -> None:
             ("rules",),
             [{"id": "R", "kind": "k", "title": "", "verdict": "PASS", "evaluated": False}],
         ),
-        (("measures", "verdict"), [3]),
-        (("nodes", "level"), [0, 4]),
+        (("measures", "verdict"), [-1]),
         (("strings",), ["", "", "app", "app/__init__.py"]),
         (("run", "producer"), "archkeel 9.9"),
         (("summary", "score"), 5),
@@ -124,7 +150,16 @@ def test_the_schema_rejects(path: tuple[str, ...], value: object) -> None:
         assert isinstance(child, dict)
         target = child
     if path == ("rules",):
-        value = [dict(value[0], violations=0, rationale="", decided_by=None)]  # type: ignore[index]
+        value = [
+            dict(
+                value[0],
+                violations=0,
+                undecided=0,
+                reason="evaluated",
+                rationale="",
+                decided_by=None,
+            )
+        ]  # type: ignore[index]
     target[path[-1]] = value
 
     assert not VALIDATOR.is_valid(payload)

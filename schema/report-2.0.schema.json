@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://archkeel.dev/schema/report-2.0.schema.json",
   "title": "ArchKeel report v2 payload",
-  "description": "AD-361. One payload, two readers: the page renders it, and the host prints its head (run, summary, rules, gaps and the node 0 rows of measures). It derives from the record sections of architecture.json, the contract as recorded there, and the rule rows of the evaluator. The tables are columnar: integer ids and codes and one string table. No path record and no reachability pair. Canonical bytes: keys in the order of `required`, no whitespace, UTF-8, JSON escapes only where JSON requires them, integers only in the tables, one trailing newline.",
+  "description": "AD-361. One payload, two readers: the page renders it, and the host prints its head (run, summary, rules, gaps and the node 0 rows of measures). It derives from the record sections of architecture.json, the contract as recorded there, and the rule rows of the evaluator. The tables are columnar: integer ids and codes and one string table. No path record and no reachability pair. Canonical bytes: keys in the order of `required` (the optional fields and params after carriers), no whitespace, UTF-8, a string escapes only the quote, the backslash and U+0000 to U+001F (as \\b \\f \\n \\r \\t or \\u00xx with lowercase hex), no Unicode normalisation, integers only in the tables, one trailing newline.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,13 +21,20 @@
     "edges",
     "via",
     "crossings",
+    "permissions",
+    "violations",
+    "violation_rules",
+    "violation_subjects",
+    "violation_evidence",
+    "unknowns",
     "findings",
     "carriers"
   ],
   "properties": {
     "schema_version": {
-      "const": "2.0.0",
-      "description": "Semver. A reader accepts its own major version and shows a visible message for any other."
+      "type": "string",
+      "pattern": "^2\\.[0-9]+\\.[0-9]+$",
+      "description": "Semver. This schema accepts every 2.x payload. A reader accepts its own major version and shows a visible message for any other."
     },
     "run": {
       "$ref": "#/$defs/Run"
@@ -211,7 +218,7 @@
           "items": {
             "$ref": "#/$defs/OptGap"
           },
-          "description": "Set for unknown and undeclared."
+          "description": "Set for unknown and undeclared; G-BUDGETS for a measured value without budget and baseline."
         },
         "budget": {
           "type": "array",
@@ -315,7 +322,7 @@
           "items": {
             "$ref": "#/$defs/StrId"
           },
-          "description": "The first evidence line, without leading and trailing spaces and tabs, cut at 72 code points."
+          "description": "The first evidence line without leading and trailing ASCII spaces and tabs, cut at 72 Unicode code points, not normalised."
         },
         "static": {
           "type": "array",
@@ -350,7 +357,7 @@
     },
     "edges": {
       "type": "object",
-      "description": "Direct edges only. The page computes reachability and cycles from these rows. `target` compares the actual edge with the contract: a module edge has the target of the component pair at the first level where the two owner chains differ. A declared `requires` entry without an observed edge is a component edge with zero sites. Columns have equal length. Row order: module edges first, then component, then package; inside a level by from, then to.",
+      "description": "Direct edges only. The page computes reachability and cycles from these rows. `target` is the permission of the component pair (allowed: declared, forbidden: forbidden, undecided: undeclared); a module edge has the target of the component pair at the first level where the two owner chains differ. An allowed pair without an observed edge is a component edge with zero sites. Columns have equal length. Row order: module edges first, then component, then package; inside a level by from, then to.",
       "additionalProperties": false,
       "required": [
         "level",
@@ -509,7 +516,8 @@
         "relative_permille",
         "disposition",
         "reason",
-        "carrier_total"
+        "carrier_total",
+        "gap"
       ],
       "properties": {
         "kind": {
@@ -570,6 +578,229 @@
             "type": "integer",
             "minimum": 0
           }
+        },
+        "gap": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptGap"
+          },
+          "description": "The gap that keeps the declared block of a hub empty (G-PUBLIC-API, G-ROLES, G-NO-CONTRACT); -1 for a cycle."
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "description": "The permission of each ordered pair of sibling components, the decision of report --only architecture. A forbidden dependency rule forbids; else a complete_requires rule of the level forbids a pair without requires; else requires or an allowed dependency rule allows; else undecided. Columns have equal length. Row order: component, then target.",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "target",
+        "status",
+        "rule"
+      ],
+      "properties": {
+        "component": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "status": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Permission"
+          }
+        },
+        "rule": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          },
+          "description": "The deciding rule id; -1 when only a requires entry allows the pair or nothing decides it."
+        }
+      }
+    },
+    "violations": {
+      "type": "object",
+      "description": "One row per violation record, the fields of archkeel.api.load_violations. A row owns violation_rules[rules_end[i-1] .. rules_end[i]], and the same for subjects and evidence. Columns have equal length. Row order: record id.",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "rules_end",
+        "subjects_end",
+        "source_module",
+        "target_module",
+        "symbol",
+        "source_component",
+        "target_component",
+        "evidence_end",
+        "path",
+        "line",
+        "node"
+      ],
+      "properties": {
+        "kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          },
+          "description": "The record kind."
+        },
+        "rules_end": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "subjects_end": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "source_module": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "target_module": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "symbol": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "source_component": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          },
+          "description": "The top-level component that alone claims source_module."
+        },
+        "target_component": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        },
+        "evidence_end": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          },
+          "description": "File of the first evidence."
+        },
+        "line": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "description": "Line of the first evidence, or -1."
+        },
+        "node": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          },
+          "description": "The module node of the source module or the first subject."
+        }
+      }
+    },
+    "violation_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StrId"
+      },
+      "description": "Flat rule ids of the violation rows."
+    },
+    "violation_subjects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StrId"
+      },
+      "description": "Flat subjects of the violation rows."
+    },
+    "violation_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StrId"
+      },
+      "description": "Flat evidence ids of the violation rows."
+    },
+    "unknowns": {
+      "type": "object",
+      "description": "Why a fact or a verdict is unknown: each record of the unknowns section and each coverage failure (source record), each diagnostic of the run (source diagnostic), and a run without Target (source run). Columns have equal length. Row order: source, then node, then reason, then kind, then detail, then rule.",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "reason",
+        "kind",
+        "node",
+        "rule",
+        "detail"
+      ],
+      "properties": {
+        "source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnknownSource"
+          }
+        },
+        "reason": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnknownReason"
+          }
+        },
+        "kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          },
+          "description": "The raw kind; it keeps a reason `other` readable."
+        },
+        "node": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "description": "The module, file or package that the row names; else the system."
+        },
+        "rule": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          },
+          "description": "The first rule id of the record."
+        },
+        "detail": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          },
+          "description": "The record title or the claim of the diagnostic."
         }
       }
     },
@@ -613,7 +844,7 @@
     },
     "fields": {
       "type": "object",
-      "description": "Optional. An absent table means that fields are not collected (`run.not_carried`). Columns have equal length. Row order: unit, then declaration order.",
+      "description": "Optional, after carriers. An absent table means that fields are not collected (`run.not_carried`). Columns have equal length. Row order: unit, then declaration order.",
       "additionalProperties": false,
       "required": [
         "unit",
@@ -650,7 +881,7 @@
     },
     "params": {
       "type": "object",
-      "description": "Optional. An absent table means that signatures are not collected. pos -1 is the return type. Columns have equal length. Row order: unit, then pos.",
+      "description": "Optional, after fields. An absent table means that signatures are not collected. pos -1 is the return type. Columns have equal length. Row order: unit, then pos.",
       "additionalProperties": false,
       "required": [
         "unit",
@@ -723,19 +954,17 @@
     "Level": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 3,
       "x-codes": [
         "system",
         "package",
         "component",
         "module"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "Kind": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 14,
       "x-codes": [
         "struct",
         "enum",
@@ -753,58 +982,54 @@
         "module",
         "unknown"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "Vis": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 3,
       "x-codes": [
         "public",
         "package",
         "private",
         "unknown"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "MeasureState": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 3,
       "x-codes": [
         "measured",
         "unknown",
         "undeclared",
         "not_applicable"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "Verdict": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 2,
       "x-codes": [
         "none",
         "within",
         "over"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "EdgeTarget": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 2,
       "x-codes": [
         "no_target",
         "declared",
-        "undeclared"
+        "undeclared",
+        "forbidden"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "FindingKind": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 6,
       "x-codes": [
         "fan_in_hub",
         "fan_out_hub",
@@ -814,23 +1039,21 @@
         "over_budget",
         "unused_requires"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "Disposition": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 2,
       "x-codes": [
         "ranked",
         "declared",
         "context"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "Reason": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 6,
       "x-codes": [
         "open_question",
         "kernel",
@@ -840,12 +1063,11 @@
         "rule_passes",
         "left_declaration"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "Measure": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 13,
       "x-codes": [
         "R.clear",
         "R.owned",
@@ -862,7 +1084,7 @@
         "E.parsed",
         "E.excluded"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted. `x-measures` holds the text of each measure; the readers show it, the payload holds none.",
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean. `x-measures` holds the text of each measure; the readers show it, the payload holds none.",
       "x-measures": [
         {
           "id": "R.clear",
@@ -995,7 +1217,6 @@
     "Gap": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9,
       "x-codes": [
         "G-CODE-LINES",
         "G-SIGNATURES",
@@ -1006,9 +1227,11 @@
         "G-BUDGETS",
         "G-TREND",
         "G-EXCLUDED",
-        "G-NO-CONTRACT"
+        "G-NO-CONTRACT",
+        "G-CONTRACT-LINES",
+        "G-ROLES"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted. `x-gaps` holds the text of each gap; the readers show it, the payload holds none.",
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean. `x-gaps` holds the text of each gap; the readers show it, the payload holds none.",
       "x-gaps": [
         {
           "id": "G-CODE-LINES",
@@ -1089,13 +1312,28 @@
           "reason": "The run has no contract, so every measure that needs a declaration has no target.",
           "owner": "Contract owner",
           "remedy": "Write a contract with archkeel init."
+        },
+        {
+          "id": "G-CONTRACT-LINES",
+          "kind": "fact_missing",
+          "title": "No contract line for a declared edge",
+          "reason": "The declarations section records no line of the contract file, so the page cannot link a requires entry or a permission to its line.",
+          "owner": "Rust contract parser (WP6 0c)",
+          "remedy": "Record the line of each declaration and add a contract_line column to edges and permissions."
+        },
+        {
+          "id": "G-ROLES",
+          "kind": "contract_silent",
+          "title": "No declared role or public_api list for this finding",
+          "reason": "A hub finding can be declared only when the contract states the role or the public_api list of its component (AD-NEW-6), so its declared block stays empty.",
+          "owner": "Contract owner",
+          "remedy": "Declare the role (kernel, orchestrator, facade) and the public_api list of the component."
         }
       ]
     },
     "Relation": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9,
       "x-codes": [
         "imports",
         "reexports",
@@ -1106,14 +1344,75 @@
         "uses_type",
         "fields",
         "signatures",
-        "code_lines"
+        "code_lines",
+        "contract_lines"
       ],
-      "description": "Code = position in x-codes. A new value is appended and never inserted."
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
+    },
+    "Permission": {
+      "type": "integer",
+      "minimum": 0,
+      "x-codes": [
+        "allowed",
+        "forbidden",
+        "undecided"
+      ],
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
+    },
+    "UnknownSource": {
+      "type": "integer",
+      "minimum": 0,
+      "x-codes": [
+        "record",
+        "diagnostic",
+        "run"
+      ],
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
+    },
+    "UnknownReason": {
+      "type": "integer",
+      "minimum": 0,
+      "x-codes": [
+        "collection_gap",
+        "source_resolution_gap",
+        "SyntaxError",
+        "TooDeepError",
+        "UnicodeDecodeError",
+        "UnsupportedDeclaration",
+        "boundary_type_limit",
+        "boundary_type_position",
+        "call_argument_limit",
+        "call_owner_limit",
+        "context_alias_limit",
+        "dynamic_call_limit",
+        "dynamic_dependency_limit",
+        "dynamic_import_limit",
+        "interface_symbol_limit",
+        "private_attribute_access_limit",
+        "uml_assessment_unavailable",
+        "uml_conformance",
+        "missing_tool",
+        "timeout",
+        "parse_error",
+        "unresolved_import",
+        "not_examined",
+        "incomplete_scan",
+        "scope_empty",
+        "rule_without_subjects",
+        "rule_unsupported_by_profile",
+        "runtime_mismatch",
+        "incomparable_runtime",
+        "contract_invalid",
+        "existing_files",
+        "filter_unknown",
+        "no_target",
+        "other"
+      ],
+      "description": "Code = position in x-codes. Within a major version a new value is only appended, so a 2.x payload validates against every 2.y schema. A reader shows a code beyond its own list as unknown, never as clean."
     },
     "OptGap": {
       "type": "integer",
       "minimum": -1,
-      "maximum": 9,
       "description": "A code of Gap, or -1 for absent."
     },
     "Run": {
@@ -1124,6 +1423,8 @@
         "source",
         "contract",
         "coverage",
+        "target",
+        "observation",
         "not_ranked",
         "not_carried",
         "payload_budget"
@@ -1210,6 +1511,18 @@
             }
           }
         },
+        "target": {
+          "type": "boolean",
+          "description": "false: the run has no Target (explore, AD-285); the status is UNKNOWN and an unknowns row of source run says so."
+        },
+        "observation": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ],
+          "description": "The completeness verdict of the observation, copied from the Decision of the evaluator."
+        },
         "not_ranked": {
           "type": "array",
           "items": {
@@ -1269,7 +1582,7 @@
             "FAIL",
             "UNKNOWN"
           ],
-          "description": "The declared-rules verdict of the evaluator, copied: FAIL if a rule fails; UNKNOWN if a rule is UNKNOWN or a position is undecided (AD-92); else PASS."
+          "description": "The status of the Decision. It follows from the rows by the rule of AD-361: no Target gives UNKNOWN; a violation row gives FAIL, unless the observation is incomplete and a diagnostic revokes the proofs; an incomplete observation gives UNKNOWN; a rule with an undecided position or an UNKNOWN verdict gives UNKNOWN; else PASS."
         },
         "counts": {
           "type": "object",
@@ -1285,6 +1598,7 @@
             "crossing_names",
             "crossing_names_unbound",
             "undeclared_edges",
+            "forbidden_edges",
             "unused_edges",
             "cycles",
             "unowned_modules",
@@ -1295,6 +1609,9 @@
             "rules_fail",
             "rules_unknown",
             "rules_declaration",
+            "violations",
+            "unknowns",
+            "undecided",
             "gaps"
           ],
           "properties": {
@@ -1338,6 +1655,10 @@
               "type": "integer",
               "minimum": 0
             },
+            "forbidden_edges": {
+              "type": "integer",
+              "minimum": 0
+            },
             "unused_edges": {
               "type": "integer",
               "minimum": 0
@@ -1378,6 +1699,18 @@
               "type": "integer",
               "minimum": 0
             },
+            "violations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknowns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "undecided": {
+              "type": "integer",
+              "minimum": 0
+            },
             "gaps": {
               "type": "integer",
               "minimum": 0
@@ -1398,6 +1731,8 @@
         "verdict",
         "evaluated",
         "violations",
+        "undecided",
+        "reason",
         "rationale",
         "decided_by"
       ],
@@ -1426,7 +1761,24 @@
         "violations": {
           "type": "integer",
           "minimum": 0,
-          "description": "Violations of this rule. The printed summary shows it."
+          "description": "Violation rows that cite this rule."
+        },
+        "undecided": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Positions that the evaluator left undecided for this rule (AD-92)."
+        },
+        "reason": {
+          "enum": [
+            "evaluated",
+            "violations",
+            "scope_incomplete",
+            "no_receipt",
+            "undecided",
+            "declaration",
+            "ownership_blocker"
+          ],
+          "description": "Why the verdict is what it is, as a code of the Decision."
         },
         "rationale": {
           "type": "string"
@@ -1544,6 +1896,7 @@
       "additionalProperties": false,
       "required": [
         "commit",
+        "date",
         "measure",
         "value",
         "of"
@@ -1551,6 +1904,10 @@
       "properties": {
         "commit": {
           "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "description": "Commit date, ISO 8601."
         },
         "measure": {
           "type": "array",
