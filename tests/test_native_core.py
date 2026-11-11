@@ -114,8 +114,12 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
     store refuses names that refusal; no other difference is allowed."""
     arguments = ["compare", "--sections", "dependency_edges,modules,packages,cycles"]
     code, lines = _run([*arguments, "--families", "none", "--engine-command", core], capsys)
-    differences = [line for line in lines if ": " in line and not line.startswith(("engine", "dual"))]
-    assert all(line.endswith(": -: missing input: no valid collector reply") for line in differences)
+    differences = [
+        line for line in lines if ": " in line and not line.startswith(("engine", "dual"))
+    ]
+    assert all(
+        line.endswith(": -: missing input: no valid collector reply") for line in differences
+    )
     refused = {line.split(": ")[0] for line in differences}
     assert not [case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/"))]
     assert code == (1 if differences else 0)
