@@ -118,6 +118,11 @@ CASES: dict[str, str | bytes] = {
     "conditional.dart": "import 'a.dart' if (dart.library.io) b;\n",
     "interpolated.dart": 'import \'a${b}.dart\';\nexport """c.dart""";\n',
     "keyword_uri.dart": "import'a.dart';\nexport/*x*/'b.dart';\npart//y\n'c.dart';\n",
+    # Python 3.11 `\w` is not `char::is_alphanumeric`: a combining mark ends a word (AD-369).
+    "word_mark_late.dart": "class A { var x = 'late\u093e'; }\n",
+    "word_mark_sealed.dart": "abstract /*sealed\u0345*/ class A {}\n",
+    "word_mark_deferred.dart": "import 'a.dart' /*deferred as\u064b*/ as p;\n",
+    "word_underscore.dart": "class A { final _late = 1; static var x_static = '_static'; }\n",
 }
 
 
@@ -146,6 +151,24 @@ def test_a_hostile_source_gives_the_python_syntax(binary: Path, tmp_path: Path, 
     expected, _ = parity.python_syntax(path.read_bytes())  # type: ignore[attr-defined]
     assert expected is not None
     assert text == expected, parity.difference(expected, text)  # type: ignore[attr-defined]
+
+
+def test_a_code_point_that_unicode_14_does_not_assign_is_a_native_gap(
+    binary: Path, tmp_path: Path
+) -> None:
+    """L-27, AD-369: Python 3.12 and later read U+10D40 with newer data; native names the file."""
+    path = _write(tmp_path, "new.dart", "var s = 'x\U00010d40';\n")
+    [(_, _, value)] = parity.native_syntax(binary, [path])  # type: ignore[attr-defined]
+    syntax = value  # type: ignore[assignment]
+    messages = [item["message"] for item in syntax["concerns"]]  # type: ignore[index]
+    assert messages == [parity.UNASSIGNED]  # type: ignore[attr-defined]
+    assert syntax["first_error"]["line"] == 1  # type: ignore[index]
+
+
+def test_the_unicode_tables_equal_the_oracle_python_311() -> None:
+    """L-27: the committed tables are what Python 3.11 with Unicode 14.0.0 says today."""
+    tables = _load("dart_unicode_tables")
+    assert tables.main(["--check"]) == 0  # type: ignore[attr-defined]
 
 
 def test_a_surrogate_escape_is_not_a_plain_uri_in_native(binary: Path, tmp_path: Path) -> None:

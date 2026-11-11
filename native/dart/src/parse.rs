@@ -8,6 +8,7 @@
 use tree_sitter::{Node, Parser};
 
 use crate::dartstr::unclosed_block_comment;
+use crate::pytext::{is_assigned, is_space_byte};
 use crate::definitions::definitions;
 use crate::directives::directives;
 use crate::syntax::{Concern, ConcernKind, Syntax};
@@ -48,17 +49,7 @@ impl DartParser {
             let message = "Dart source ends inside a nested block comment.";
             concerns.push(syntax_concern(&source, start, content.len(), message));
         }
-        if let Err(error) = std::str::from_utf8(content) {
-            let start = error.valid_up_to();
-            let end = error
-                .error_len()
-                .map_or(content.len(), |length| start.saturating_add(length));
-            concerns.push(Concern {
-                kind: ConcernKind::InvalidEncoding,
-                message: "Dart source is not valid UTF-8.".to_owned(),
-                span: source.span_bytes(start, end),
-            });
-        }
+        concerns.extend(encoding_concern(content, &source));
         let language_version = language_version(&source, &mut concerns);
         let directives = directives(root, &source, &mut concerns);
         concerns.extend(unsupported_concerns(root, &source));
@@ -88,6 +79,31 @@ fn finish(
         first_error,
         language_version,
     }
+}
+
+/// The UTF-8 error of Python, or else the first code point that Unicode 14 does not assign.
+/// Python 3.12 and later read such a code point with newer Unicode data than the oracle Python
+/// 3.11, so `\w` can differ: native names the file (L-27, AD-369).
+fn encoding_concern(content: &[u8], source: &Source<'_>) -> Option<Concern> {
+    let (start, end, message) = match std::str::from_utf8(content) {
+        Err(error) => {
+            let start = error.valid_up_to();
+            let end = error
+                .error_len()
+                .map_or(content.len(), |length| start.saturating_add(length));
+            (start, end, "Dart source is not valid UTF-8.")
+        }
+        Ok(text) => {
+            let (start, c) = text.char_indices().find(|(_, c)| !is_assigned(*c))?;
+            let message = "Dart source holds a code point that Unicode 14 does not assign.";
+            (start, start.saturating_add(c.len_utf8()), message)
+        }
+    };
+    Some(Concern {
+        kind: ConcernKind::InvalidEncoding,
+        message: message.to_owned(),
+        span: source.span_bytes(start, end),
+    })
 }
 
 fn syntax_concern(source: &Source<'_>, start: usize, end: usize, message: &str) -> Concern {
@@ -147,7 +163,7 @@ fn language_version(source: &Source<'_>, concerns: &mut Vec<Concern>) -> Option<
         let landing = skip_space(data, start);
         if let Some((major, minor, end)) = version_at(data, landing) {
             let value = format!("{}.{}", major.text, minor.text);
-            if major.below(2, minor, 12) || major.above(3, minor, 12) {
+            if out_of_range(major, minor) {
                 concerns.push(Concern {
                     kind: ConcernKind::LanguageVersionError,
                     message: "Dart language override is outside supported range 2.12 through 3.12."
@@ -164,11 +180,6 @@ fn language_version(source: &Source<'_>, concerns: &mut Vec<Concern>) -> Option<
     }
 }
 
-/// The bytes of `\s` in a `bytes` pattern.
-fn is_space_byte(value: u8) -> bool {
-    matches!(value, b' ' | b'\t' | b'\n' | b'\r' | 0x0b | 0x0c)
-}
-
 fn skip_space(data: &[u8], from: usize) -> usize {
     let run = data.get(from..).map_or(0, |rest| {
         rest.iter().take_while(|b| is_space_byte(**b)).count()
@@ -180,29 +191,37 @@ fn skip_space(data: &[u8], from: usize) -> usize {
 #[derive(Clone, Copy)]
 struct Number<'a> {
     text: &'a str,
+    /// The digits as written, with the leading zeros, which Python `int` also counts.
+    digits: usize,
 }
+
+/// Python `int` refuses a text of more than 4 300 digits (`sys.int_info.default_max_str_digits`).
+const MAX_DIGITS: usize = 4300;
 
 impl<'a> Number<'a> {
     fn of(digits: &'a str) -> Self {
         let text = digits.trim_start_matches('0');
         Self {
             text: if text.is_empty() { "0" } else { text },
+            digits: digits.len(),
         }
     }
 
-    /// The value, or `u64::MAX` for a number with more than 19 digits. Python stops on more
-    /// than 4 300 digits; such a version is out of range here (AD-369).
+    /// Python stops with `ValueError`; native gives the version concern (AD-369).
+    fn too_long(self) -> bool {
+        self.digits > MAX_DIGITS
+    }
+
+    /// The value, or `u64::MAX` for a number with more than 19 significant digits.
     fn value(self) -> u64 {
         self.text.parse().unwrap_or(u64::MAX)
     }
+}
 
-    fn below(self, major: u64, minor: Self, limit: u64) -> bool {
-        (self.value(), minor.value()) < (major, limit)
-    }
-
-    fn above(self, major: u64, minor: Self, limit: u64) -> bool {
-        (self.value(), minor.value()) > (major, limit)
-    }
+/// `version < (2, 12) or version > (3, 12)`, or a number that Python `int` refuses.
+fn out_of_range(major: Number<'_>, minor: Number<'_>) -> bool {
+    let version = (major.value(), minor.value());
+    major.too_long() || minor.too_long() || version < (2, 12) || version > (3, 12)
 }
 
 /// The match after `^\s*` at `at`: the major and the minor version and the end of the match.

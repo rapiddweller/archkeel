@@ -36,6 +36,7 @@ mod pytext;
 mod records;
 mod syntax;
 mod tree;
+mod unicode_tables;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;

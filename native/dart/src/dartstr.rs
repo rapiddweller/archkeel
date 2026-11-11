@@ -9,6 +9,8 @@
 
 use std::borrow::Cow;
 
+use crate::pytext::is_word_byte;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Delimiter {
     Line,
@@ -199,7 +201,7 @@ pub(crate) fn directive_uri(data: &[u8], start: usize, end: usize) -> Option<Str
         text.starts_with(word.as_bytes())
             && !text
                 .get(word.len())
-                .is_some_and(|next| next.is_ascii_alphanumeric() || *next == b'_')
+                .is_some_and(|next| is_word_byte(*next))
     })?;
     string_sequence(data, start.saturating_add(keyword.len()), end)
 }

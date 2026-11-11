@@ -5,14 +5,43 @@
 //! The text rules of Python `str` that the Python Dart collector uses, so that both collectors
 //! split and strip a text in the same places.
 
-/// `str.isspace` and the `\s` of `re`: the White_Space characters and U+001C to U+001F.
+use crate::unicode_tables::{ASSIGNED, SPACE, WORD};
+
+/// `str.isspace` and the `\s` of `re`, as Python 3.11 with Unicode 14 decides it (L-27).
 pub(crate) fn is_space(c: char) -> bool {
-    c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
+    in_table(SPACE, c)
 }
 
-/// Python `\w` for a text: a letter, a digit or an underscore.
+/// Python `\w` for a text, as Python 3.11 with Unicode 14 decides it (L-27): the table of the
+/// oracle, not `char::is_alphanumeric`. The two differ on about 11 000 code points, such as the
+/// combining marks U+0345 and U+093E and each letter that Unicode 14 does not assign.
 pub(crate) fn is_word(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+    in_table(WORD, c)
+}
+
+/// The code point is assigned in Unicode 14, the Unicode version of the oracle Python 3.11.
+pub(crate) fn is_assigned(c: char) -> bool {
+    in_table(ASSIGNED, c)
+}
+
+/// The code point is in one of the sorted inclusive ranges of `table`.
+pub(crate) fn in_table(table: &[(u32, u32)], c: char) -> bool {
+    let code = u32::from(c);
+    let after = table.partition_point(|(start, _)| *start <= code);
+    after
+        .checked_sub(1)
+        .and_then(|at| table.get(at))
+        .is_some_and(|(_, end)| code <= *end)
+}
+
+/// `\w` of a `bytes` pattern: an ASCII letter, an ASCII digit or `_`.
+pub(crate) fn is_word_byte(value: u8) -> bool {
+    value.is_ascii_alphanumeric() || value == b'_'
+}
+
+/// `\s` of a `bytes` pattern and the white space of `bytes.strip`.
+pub(crate) fn is_space_byte(value: u8) -> bool {
+    matches!(value, b' ' | b'\t' | b'\n' | b'\r' | 0x0b | 0x0c)
 }
 
 /// `re.search(rf"\b{word}\b", text)` for a word of word characters.
@@ -28,7 +57,7 @@ pub(crate) fn has_word(text: &str, word: &str) -> bool {
 
 /// `re.search(rb"\b{word}\b", data)`: the word test of a `bytes` pattern, ASCII only.
 pub(crate) fn has_ascii_word(data: &[u8], word: &[u8]) -> bool {
-    let is_word = |b: &u8| b.is_ascii_alphanumeric() || *b == b'_';
+    let is_word = |b: &u8| is_word_byte(*b);
     data.windows(word.len()).enumerate().any(|(at, window)| {
         window == word
             && !at
@@ -64,8 +93,7 @@ pub(crate) fn rstrip(text: &str) -> &str {
 
 /// `bytes.strip()` is empty: the bytes hold only ASCII white space.
 pub(crate) fn is_blank(raw: &[u8]) -> bool {
-    raw.iter()
-        .all(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | 0x0b | 0x0c))
+    raw.iter().all(|byte| is_space_byte(*byte))
 }
 
 #[cfg(test)]

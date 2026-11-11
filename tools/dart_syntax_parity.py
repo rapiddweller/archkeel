@@ -11,7 +11,10 @@ version. The tool compares it with `dataclasses.asdict(parse(content))` without 
 The Python parse is slow, so `--budget` stops a corpus after that many seconds of Python time.
 The files of a corpus are compared in a fixed shuffled order, so a partial run is a sample.
 A file where Python stops with `RecursionError` is the closed exception of AD-369: native must
-give the deep-nesting concern.
+give the deep-nesting concern. A file with a code point that Unicode 14 does not assign is the
+stricter difference of L-27: native gives a named gap, so the file is counted, not compared.
+
+The oracle is Python 3.11 with Unicode 14.0.0 (L-27): the tool refuses another interpreter.
 
 The output gives counts only, never a file name, so a private corpus stays private.
 
@@ -29,6 +32,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,6 +49,8 @@ from dart_discovery_parity import (  # noqa: E402
 
 EXCLUDED = frozenset({".dart_tool", "pubcache", ".pub-cache", ".git"})
 DEEP = "Dart source nests deeper than"
+UNASSIGNED = "Dart source holds a code point that Unicode 14 does not assign."
+ORACLE = ((3, 11), "14.0.0")
 
 
 @dataclass
@@ -56,6 +62,7 @@ class Result:
     equal: int = 0
     total: int = 0
     deep: int = 0
+    unassigned: int = 0
     rust_nanos: int = 0
     python_nanos: int = 0
     problems: list[str] = field(default_factory=list)
@@ -116,9 +123,11 @@ def compare(binary: Path, root: Path, result: Result, budget: float | None) -> N
             result.python_nanos += python_nanos
             result.rust_nanos += nanos
             result.files += 1
-            if expected is None:
+            concerns = value["concerns"]  # type: ignore[index]
+            if any(item["message"] == UNASSIGNED for item in concerns):
+                result.unassigned += 1
+            elif expected is None:
                 result.deep += 1
-                concerns = value["concerns"]  # type: ignore[index]
                 if any(DEEP in item["message"] for item in concerns):
                     result.equal += 1
                 else:
@@ -169,7 +178,8 @@ def corpora(demos: bool, items: Sequence[str], scratch: Path) -> Iterator[tuple[
 def report(result: Result) -> str:
     return (
         f"{result.name}: {result.equal}/{result.files} files equal "
-        f"(of {result.total}; {result.deep} with RecursionError in Python); "
+        f"(of {result.total}; {result.deep} with RecursionError in Python, "
+        f"{result.unassigned} named by L-27); "
         f"parse Rust {result.rust_nanos / 1e6:.1f} ms, Python {result.python_nanos / 1e6:.1f} ms"
         + "".join(f"\n  problem: {problem}" for problem in sorted(set(result.problems)))
     )
@@ -182,6 +192,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments.add_argument("--budget", type=float, help="Python seconds for each corpus")
     arguments.add_argument("--debug", action="store_true", help="a debug build of the binary")
     options = arguments.parse_args(argv)
+    if (sys.version_info[:2], unicodedata.unidata_version) != ORACLE:
+        print("the oracle is Python 3.11 with Unicode 14.0.0 (L-27)", file=sys.stderr)
+        return 2
+    print(f"oracle: Python {sys.version.split()[0]}, Unicode {unicodedata.unidata_version}")
     binary = build(release=not options.debug)
     results: dict[str, Result] = {}
     with tempfile.TemporaryDirectory() as scratch:
