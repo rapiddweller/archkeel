@@ -20,6 +20,7 @@ use crate::attrs::{
 };
 use crate::definitions::{Definition, Holder, ImplBlock, MethodCall};
 use crate::net;
+use crate::plant;
 pub use crate::site::Site;
 use crate::tokens::{plain, Chain};
 
@@ -146,6 +147,8 @@ pub struct Scan {
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
     pub impls: Vec<ImplBlock>,
     pub method_calls: Vec<MethodCall>,
+    /// The second count of the tree, for the invariant of the extraction.
+    pub tally: Tally,
 }
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
@@ -169,7 +172,10 @@ pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Res
         block_ends: Vec::new(),
         via: Via::Path,
         holder: Holder::default(),
-        out: Scan::default(),
+        out: Scan {
+            tally: Tally::of(&file, exclude_tests),
+            ..Scan::default()
+        },
     };
     walker.visit_file(&file);
     Ok(walker.out)
@@ -218,6 +224,9 @@ impl Walker<'_> {
     /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
     fn method_call(&mut self, name: String, span: Span, (path, arity): (bool, Option<usize>)) {
         let (site, scope) = (self.site(span), self.inline.clone());
+        if plant::lose("method") {
+            return;
+        }
         self.out.method_calls.push(MethodCall {
             name,
             site,
@@ -233,6 +242,9 @@ impl Walker<'_> {
 
     fn refer_as(&mut self, names: &[String], span: Span, absolute: bool) {
         if let Some(first) = names.first() {
+            if plant::lose("reference") {
+                return;
+            }
             let site = self.site(span);
             self.out.references.push(Reference {
                 root: first.clone(),
@@ -249,9 +261,11 @@ impl Walker<'_> {
     }
 
     fn refer_chains(&mut self, found: Vec<Chain>) {
+        let before = self.out.references.len();
         for chain in found {
             self.refer_as(&chain.names, chain.span, chain.absolute);
         }
+        self.out.tally.unseen += self.out.references.len() - before;
     }
 
     fn gate(&mut self, attrs: &[Attribute], what: &str, span: Span) {
@@ -463,6 +477,11 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
+
+/// The second count of the nodes that must end as an outcome (`edges_extracted.rs`).
+#[path = "scan_extracted.rs"]
+mod extracted;
+pub use extracted::Tally;
 
 /// The read of the items that a file defines: names, forms and visibility.
 #[path = "scan_definitions.rs"]

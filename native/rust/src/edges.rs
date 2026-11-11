@@ -17,6 +17,7 @@ use crate::builder::{import_record, Builder, Origin};
 use crate::crates::{Crate, Workspace};
 use crate::module_edges::local_target;
 use crate::modules::Index;
+use crate::plant;
 use crate::resolve::{classify, linked, Found, Named};
 use crate::scan::Reference;
 use crate::tree::Module;
@@ -40,7 +41,11 @@ impl Builder {
             return;
         };
         let mut covered = BTreeSet::new();
-        for reference in &module.scan.references {
+        let before = self.ended;
+        for (at, reference) in module.scan.references.iter().enumerate() {
+            if plant::skip(&module.rel, at) {
+                continue;
+            }
             let found = classify(
                 &reference.root,
                 krate,
@@ -51,6 +56,7 @@ impl Builder {
                 covered.insert(reference.root.clone());
             }
             match found {
+                Some(Found::Edge(_)) if plant::arm(&module.rel, at) => {}
                 Some(Found::Edge(named)) => {
                     self.import(
                         workspace,
@@ -64,10 +70,13 @@ impl Builder {
                     let reason = format!("A local name equals a crate name: {}", reference.root);
                     let evidence = self.cite(&module.rel, &reference.site);
                     self.gap(&reason, Some(&evidence), &module.module);
+                    self.ended += 1;
                 }
                 None => self.module_edge(index, module, reference),
             }
         }
+        let ended = self.ended - before;
+        self.ended_references.insert(module.rel.clone(), ended);
         self.net(krate, module, &covered);
         for (name, site) in &module.scan.extern_crates {
             if !linked(name, krate) {
@@ -109,6 +118,7 @@ impl Builder {
             .seen
             .insert((from.module.to_owned(), key, reference.path.clone()))
         {
+            self.ended += 1;
             return;
         }
         let site = &reference.site;
@@ -155,6 +165,7 @@ impl Builder {
             &target_module,
             &target_package,
         ));
+        self.ended += 1;
     }
 }
 

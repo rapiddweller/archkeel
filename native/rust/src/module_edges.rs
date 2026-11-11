@@ -57,7 +57,8 @@ impl Builder {
                 let reason = "A macro_rules! body holds a path from the name of its own crate";
                 self.unreadable(module, reference, reason.to_owned());
             }
-            Outcome::None => {}
+            // A path inside one crate that no module edge names: a local outcome.
+            Outcome::None => self.ended += 1,
             Outcome::Unknown(reason) => self.unreadable(module, reference, reason),
             Outcome::Edge(edge) => match &reference.in_macro {
                 None => self.module_import(index, module, reference, &edge),
@@ -90,6 +91,7 @@ impl Builder {
         let evidence = self.cite(&module.rel, &reference.site);
         self.gap(&reason, Some(&evidence), &module.module);
         self.unread_macro(module, reference, reason);
+        self.ended += 1;
     }
 
     /// The body of a macro holds a path that the scan cannot read: each call of it is UNKNOWN.
@@ -115,6 +117,7 @@ impl Builder {
         for module in modules {
             for call in &module.scan.macro_calls {
                 self.expand(index, &defs, module, call);
+                *self.ended_calls.entry(module.rel.clone()).or_default() += 1;
             }
         }
     }
@@ -243,6 +246,7 @@ impl Builder {
             return;
         };
         if edge.module == module.module {
+            self.ended += 1;
             return;
         }
         // The path of a macro body in its own definition is a template, not code (`macro_body`).
@@ -256,6 +260,7 @@ impl Builder {
             reference.path.clone(),
         );
         if !self.seen.insert(key) {
+            self.ended += 1;
             return;
         }
         let site = &reference.site;
@@ -280,6 +285,7 @@ impl Builder {
         });
         self.imports
             .push(module_record(module, reference, edge, &identity, evidence));
+        self.ended += 1;
     }
 }
 
