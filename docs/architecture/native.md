@@ -106,6 +106,11 @@ flowchart LR
     n_29["ts-walk"]
     n_30["wire"]
     n_31["eval"]
+    n_32["dart-text"]
+    n_33["dart-discover"]
+    n_34["dart-records"]
+    n_35["dart-dump"]
+    n_36["dart-entry"]
     n_10 --> n_12
     n_10 --> n_13
     n_10 --> n_14
@@ -218,4 +223,18 @@ flowchart LR
     n_31 --> n_1
     n_31 --> n_4
     n_31 --> n_5
+    n_33 --> n_14
+    n_33 --> n_4
+    n_33 --> n_32
+    n_34 --> n_4
+    n_34 --> n_33
+    n_34 --> n_32
+    n_35 --> n_14
+    n_35 --> n_32
+    n_35 --> n_33
+    n_35 --> n_34
+    n_36 --> n_4
+    n_36 --> n_14
+    n_36 --> n_0
+    n_36 --> n_35
 ```
