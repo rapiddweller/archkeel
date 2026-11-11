@@ -55,7 +55,11 @@ each with its line. They go when the store path is the only path (design WP6-0, 
 - The rule evaluation inside `model`. The model derives; the evaluator decides (AD-359).
 
 **Limit.** The store refuses the Python and Dart replies, and the core refuses a contract with
-inside contracts, so these cases name their missing input. `make dual-run` with
+inside contracts, so these cases name their missing input. These two classes hold 17 rules that
+Python decides FAIL (11 behind inside contracts, 6 behind a refused reply), which the core cannot
+read yet. A request with a `baseline` is refused by name (`Unsupported::Baseline`) until a slice
+reads it. A layout child without a module record is UNKNOWN (`Reason::UncitedChild`), where
+Python stops with `KeyError`. `make dual-run` with
 `--sections violations --families complete_assignment,root_layout` compares 4 FAIL and 57 UNKNOWN
 `complete_assignment` rules and 3 FAIL and 4 UNKNOWN `root_layout` rules as equal; the 12 cases
 `s1/*` of `tests/dual_run/cases.json` add the FAIL and UNKNOWN cases of AD-360 point 10.

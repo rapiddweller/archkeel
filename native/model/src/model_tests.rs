@@ -214,6 +214,32 @@ fn a_source_that_names_a_component_package_selects_all_its_modules() {
     assert_eq!(source_modules(&table, &modules, "shop.c").len(), 0);
 }
 
+#[test]
+fn a_package_of_two_components_selects_the_modules_of_the_last_one() {
+    let Some(table) = components(&format!(
+        "[{}, {}]",
+        component("COMP-A", r#"["shop.a", "shop.x"]"#, "[]"),
+        component("COMP-B", r#"["shop.a", "shop.y"]"#, "[]"),
+    )) else {
+        fail("two components make a table");
+        return;
+    };
+    let files = [
+        file("shop.a.m", "shop.a", "a/m.ts"),
+        file("shop.x.m", "shop.x", "x/m.ts"),
+        file("shop.y.m", "shop.y", "y/m.ts"),
+    ];
+    let Ok((modules, _)) = crate::modules::tables(&files) else {
+        fail("three files make a model");
+        return;
+    };
+    let selected: Vec<usize> = source_modules(&table, &modules, "shop.a")
+        .into_iter()
+        .map(|id| id.index())
+        .collect();
+    assert_eq!(selected, [0, 2]);
+}
+
 fn coverage(selected: &[&str], gaps: Vec<Record<GapFact>>) -> Coverage {
     Coverage {
         files_parsed: 1,

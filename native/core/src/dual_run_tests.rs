@@ -103,3 +103,17 @@ fn a_frame_with_an_unsupported_or_refused_part_names_a_gap() {
     assert!(names_a_gap(&truncated));
     assert!(frame(&truncated)["self_test"]["reply"]["refused"].is_string());
 }
+
+#[test]
+fn a_request_with_a_baseline_is_refused_by_name() {
+    let reply = golden_reply();
+    let mut with_baseline = request(Some(&reply), &["violations"]);
+    with_baseline["baseline"] = json!("baseline.json");
+    assert!(names_a_gap(&with_baseline));
+    let got = frame(&with_baseline);
+    assert_eq!(got["rules"], json!({}));
+    assert_eq!(
+        got["unsupported"]["rules"],
+        "unsupported: the baseline of the request: no slice reads it yet"
+    );
+}

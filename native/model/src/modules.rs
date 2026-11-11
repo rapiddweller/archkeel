@@ -6,7 +6,7 @@
 //!
 //! Reference engine: `check/evaluation/evaluate.py` `scan_source_facts` (the `parsed` files, `packages =
 //! sorted({module.package ...})`, `module_evidence`, `blank_modules`) and the ids of
-//! `check/evaluation/topology.py` `module_records` and `package_records`. The rows of the
+//! `check/evaluation/topology.py` `module_records`. The rows of the
 //! `modules` and `packages` sections also need the edges of S2 and the ranks of S3, so this file
 //! holds only what the reply gives.
 
@@ -66,7 +66,6 @@ impl Module {
 pub struct Package {
     name: String,
     modules: Vec<ModuleId>,
-    fact_id: String,
 }
 
 impl Package {
@@ -78,11 +77,6 @@ impl Package {
     /// The modules of the package, in the order of the reply.
     pub fn modules(&self) -> &[ModuleId] {
         &self.modules
-    }
-
-    /// The id of the package record: `stable_id("PKG", name)`.
-    pub fn fact_id(&self) -> &str {
-        &self.fact_id
     }
 }
 
@@ -118,7 +112,6 @@ pub(crate) fn tables(files: &[FileFact]) -> Result<Tables, Reason> {
             .map(|(name, modules)| Package {
                 name: (*name).to_owned(),
                 modules: modules.into_iter().map(module_id).collect(),
-                fact_id: stable_id("PKG", &[Part::Text(name)]),
             })
             .collect(),
     )

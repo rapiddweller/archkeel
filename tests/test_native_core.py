@@ -10,6 +10,7 @@ self-test proves the round trip; the host uses the core for no verdict.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -142,3 +143,14 @@ def test_the_model_the_evaluator_and_the_core_name_no_language() -> None:
         for match in LANGUAGES.finditer(path.read_text())
     ]
     assert found == []
+
+
+def test_each_native_component_is_a_node_of_the_component_graph() -> None:
+    """The graph of native.md is written by hand while the native scan has gaps
+    (`archkeel validate --write-graph` refuses), so a new component must not go missing."""
+    contract = json.loads((ROOT / "native/architecture-contract.json").read_text())
+    page = (ROOT / "docs/architecture/native.md").read_text()
+    block = page.split("<!-- archkeel-component-graph -->", 1)[1].split("```", 2)[1]
+    nodes = set(re.findall(r'n_\d+\["([^"]+)"\]', block))
+    assert {component["label"] for component in contract["components"]} <= nodes
+    assert "n_2 --> n_31" in block

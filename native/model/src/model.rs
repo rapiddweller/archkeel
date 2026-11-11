@@ -85,11 +85,6 @@ impl Model {
         self.incomplete
     }
 
-    /// The number of source files of the reply.
-    pub fn files(&self) -> usize {
-        self.modules.len()
-    }
-
     /// The rows of one section. No section is ported yet: each answers its slice by name.
     pub fn rows(&self, section: Section) -> Result<Rows, Reason> {
         Err(Reason::Unsupported(Unsupported::Section(section)))

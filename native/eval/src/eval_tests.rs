@@ -374,6 +374,92 @@ fn a_rule_kind_without_a_slice_names_its_kind() {
     ));
 }
 
+#[test]
+fn an_allowed_child_matches_by_its_whole_name_not_by_a_prefix() {
+    let outcomes = run(
+        |c| {
+            let allowed = json!([
+                "shop.src.dat",
+                "shop.src.domain",
+                "shop.src.presentation",
+                "shop.src.main_x2e_ts"
+            ]);
+            set_rule(c, "LAYOUT", "allowed_children", allowed);
+        },
+        unchanged,
+    );
+    assert_eq!(names(&outcomes, "LAYOUT"), ["shop.src.data"]);
+}
+
+#[test]
+fn a_child_without_a_record_is_unknown_by_name() {
+    let records = crate::layout::child_records([(7_usize, "a.b.m", "a.b")]);
+    assert_eq!(crate::layout::cite("a.b", &records), Ok(7));
+    assert_eq!(
+        crate::layout::cite("a.c", &records),
+        Err(Reason::UncitedChild("a.c".to_owned()))
+    );
+}
+
+#[test]
+fn a_module_of_the_same_name_as_a_package_is_the_cited_record() {
+    // The first module of package `a.b` comes first; the module named `a.b` still wins.
+    let records = crate::layout::child_records([
+        (1_usize, "a.b.x", "a.b"),
+        (2, "a.b.y", "a.b"),
+        (3, "a.b", "a"),
+    ]);
+    assert_eq!(records.get("a.b"), Some(&3));
+    let first = crate::layout::child_records([(1_usize, "a.b.x", "a.b"), (2, "a.b.y", "a.b")]);
+    assert_eq!(first.get("a.b"), Some(&1));
+}
+
+#[test]
+fn the_receipt_comes_from_the_component_that_declares_the_source() {
+    // `shop.src.none` has no module, but it is a package of `data`: the receipt holds the modules
+    // of `data`, so the rule is not `NoSubjects` (it waits for the scope proof).
+    let outcomes = run(
+        |c| {
+            set_component(
+                c,
+                "COMP-DATA",
+                "packages",
+                json!(["shop.src.data", "shop.src.none"]),
+            );
+            set_rule(c, "ASSIGNMENT", "source", json!("shop.src.none"));
+        },
+        unchanged,
+    );
+    assert_eq!(
+        decision(&outcomes, "ASSIGNMENT"),
+        Some(Decision::unknown(SCOPE_PROOF))
+    );
+}
+
+#[test]
+fn a_violation_cites_the_evidence_of_the_module_not_its_record_id() {
+    let golden = read_json("tests/golden/typescript/h-typescript.json.gz");
+    let expected = golden["facts"]["files"][0]["evidence_id"]
+        .as_str()
+        .map(str::to_owned);
+    let outcomes = run(
+        |c| set_component(c, "COMP-DATA", "packages", json!(["shop.src.store"])),
+        unchanged,
+    );
+    let found = outcome(&outcomes, "ASSIGNMENT").and_then(|o| {
+        o.violations().iter().find_map(|v| match v {
+            Violation::Unassigned { name, evidence, .. }
+                if name == "shop.src.data.local_x2e_ts" =>
+            {
+                Some(evidence.clone())
+            }
+            _ => None,
+        })
+    });
+    assert!(expected.as_deref().is_some_and(|id| id.starts_with("EVD-")));
+    assert_eq!(found, expected);
+}
+
 /// Fail the test with a message (clippy refuses `panic!` in this workspace).
 fn fail(message: &str) {
     assert_eq!(message, "", "the test setup failed");

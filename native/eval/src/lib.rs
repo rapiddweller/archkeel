@@ -70,7 +70,17 @@ fn outcome(rule: &Rule, model: &Model) -> Outcome {
     let id = head_of(rule).id().as_text();
     let (violations, selected) = match rule {
         Rule::CompleteAssignment(rule) => assignment::check(id, rule, model),
-        Rule::RootLayout(rule) => layout::check(id, rule, model),
+        Rule::RootLayout(rule) => match layout::check(id, rule, model) {
+            Ok(found) => found,
+            Err(reason) => {
+                return Outcome {
+                    rule: id.to_owned(),
+                    kind: RuleKind::RootLayout,
+                    decision: Decision::unknown(reason),
+                    violations: Vec::new(),
+                };
+            }
+        },
         other => {
             let kind = kind_of(other);
             let reason = Reason::Unsupported(Unsupported::Rule(kind));
