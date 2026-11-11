@@ -98,7 +98,7 @@ pub struct TypeScriptSettings {
 pub struct RustSettings {}
 
 /// The Dart collector has no settings: its resolver is `{"language": "dart"}`, as
-/// `ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-365).
+/// `ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-334, AD-368).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DartSettings {}

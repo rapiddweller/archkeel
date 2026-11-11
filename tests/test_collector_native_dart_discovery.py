@@ -185,6 +185,8 @@ def test_the_binary_decodes_the_dart_request_of_the_host_and_writes_no_reply(
     other = encode_request(collection_request(snapshot, scope, TypeScriptSettings()))
     run = subprocess.run([binary], input=other, capture_output=True, check=False)
     assert run.returncode == 1
+    # Each native binary names itself before an error, as the Rust and TypeScript ones do.
+    assert run.stderr.startswith(b"archkeel-dart-collector: "), run.stderr
     assert b"Dart collector requires the Dart resolver" in run.stderr
 
 

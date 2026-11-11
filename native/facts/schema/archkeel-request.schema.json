@@ -250,7 +250,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "description": "The Dart collector has no settings: its resolver is `{\"language\": \"dart\"}`, as\n`ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-365).",
+          "description": "The Dart collector has no settings: its resolver is `{\"language\": \"dart\"}`, as\n`ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-334, AD-368).",
           "properties": {
             "language": {
               "type": "string",

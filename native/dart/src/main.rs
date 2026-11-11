@@ -45,7 +45,11 @@ fn main() -> ExitCode {
         },
         _ => match request() {
             Ok(()) => (ExitCode::from(2), String::new(), NO_REPLY.to_owned()),
-            Err(error) => (ExitCode::from(1), String::new(), error),
+            Err(error) => (
+                ExitCode::from(1),
+                String::new(),
+                format!("archkeel-dart-collector: {error}"),
+            ),
         },
     };
     // A closed pipe is the only write failure, and the exit code already tells the result.
