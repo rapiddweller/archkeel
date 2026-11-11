@@ -42,6 +42,17 @@ impl Lines {
         self.starts.partition_point(|start| *start <= offset)
     }
 
+    /// The text of the 1-based `line` without its newline, as the Python split gives it.
+    pub fn text<'t>(&self, text: &'t str, line: usize) -> Option<&'t str> {
+        let start = *self.starts.get(line.checked_sub(1)?)?;
+        let part = match self.starts.get(line) {
+            Some(end) => &text[start..*end],
+            None => &text[start..],
+        };
+        let part = part.strip_suffix('\n').unwrap_or(part);
+        Some(part.strip_suffix('\r').unwrap_or(part))
+    }
+
     /// The byte offset where the line of `offset` starts.
     pub fn start_of(&self, offset: usize) -> usize {
         let line = self.line(offset);

@@ -120,6 +120,7 @@ dependencies = [
  "archkeel-wire",
  "ruff_python_ast",
  "ruff_python_parser",
+ "ruff_text_size",
  "serde_json",
  "sha2",
  "toml",

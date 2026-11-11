@@ -39,6 +39,7 @@ unicode-ident = "1.0"
 # pin is exact and an update is its own change, checked with the parse parity tests.
 ruff_python_ast = "=0.0.21"
 ruff_python_parser = "=0.0.21"
+ruff_text_size = "=0.0.21"
 # AD-334: `pyproject.toml` as `tomllib` reads it (TOML 1.0); an invalid file is `metadata_invalid`.
 toml = { version = "=0.8.23", default-features = false, features = ["parse"] }
 # The grammar release of the Python collector (`tree-sitter-typescript` in uv.lock).

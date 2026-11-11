@@ -60,9 +60,14 @@ mod requirement;
 mod source;
 #[cfg_attr(
     not(any(feature = "dump", test)),
-    expect(dead_code, reason = "slice 1c calls the parse")
+    expect(dead_code, reason = "slice 1c-2 calls the parse")
 )]
 mod stack;
+#[cfg_attr(
+    not(feature = "dump"),
+    expect(dead_code, reason = "slice 1c-2b writes the survey reply")
+)]
+mod survey;
 
 use std::io::Read;
 use std::process::ExitCode;
@@ -96,6 +101,12 @@ fn run() -> Result<(), String> {
     #[cfg(feature = "dump")]
     if std::env::args().nth(1).as_deref() == Some("--dump-scope") {
         println!("{}", dump::scope(&request)?);
+        return Ok(());
+    }
+    #[cfg(feature = "dump")]
+    if std::env::args().nth(1).as_deref() == Some("--dump-survey") {
+        let found = on_big_stack(move || dump::survey(&request))?;
+        println!("{found}");
         return Ok(());
     }
     Err(format!(

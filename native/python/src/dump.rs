@@ -54,6 +54,17 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// `--dump-survey`: the file facts, the imports and the evidence of one request (slice 1c-2a).
+pub fn survey(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
+    let found = crate::survey::survey(request)?;
+    let value = |error: serde_json::Error| error.to_string();
+    Ok(json!({
+        "files": serde_json::to_value(&found.files).map_err(value)?,
+        "imports": serde_json::to_value(&found.imports).map_err(value)?,
+        "evidence": serde_json::to_value(&found.evidence).map_err(value)?,
+    }))
+}
+
 /// `--dump-scope`: the scope of one 10.0.0 request as one JSON object (slice 1c-1).
 pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
     let version = &request.resolver.interpreter.version;
