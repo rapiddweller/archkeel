@@ -19,7 +19,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from archkeel.analyzer.python.source import RECURSION_LIMIT, parse_sources
-from tests.test_collector_native_python_parse import _native, _write
+from tests.test_collector_native_python_parse import _minor, _native, _write
 
 # Case prefix -> why native may refuse a file that CPython accepts (AD-334 point 6).
 _BOUND = "the stack bound is above the real CPython parser stack (AD-334 point 6 (b))"
@@ -311,7 +311,7 @@ def test_the_identifier_table_of_this_python_is_the_table_of_its_unicode_version
     tmp_path: Path, python_dump_binary: Path
 ) -> None:
     # CPython of this version refuses both ends of each range, and so does native.
-    minor = sys.version_info.minor
+    minor = _minor()
     sources: dict[str, str | bytes] = {}
     for kind, low, high in _table(minor):
         for code in {low, high}:
