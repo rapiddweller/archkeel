@@ -53,6 +53,14 @@
     "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
     "tokens": 74
   },
+  "dart/src/main.rs|python/src/main.rs|5fa0125aa5": {
+    "files": [
+      "dart/src/main.rs",
+      "python/src/main.rs"
+    ],
+    "reason": "The module declarations of two collector binaries: a list of mod lines and the same std imports. They hold no logic to share.",
+    "tokens": 70
+  },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
       "facts/src/data/imports.rs"
