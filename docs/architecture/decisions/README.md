@@ -354,3 +354,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-356 | [A call or a crate that a producer cannot see is a gap, not a PASS](ad-356-a-call-or-crate-that-a-producer-cannot-see-is-a-gap.md) |
 | AD-357 | [A method of another module is an edge or a pair gap in Rust](ad-357-a-method-of-another-module-is-an-edge-or-a-pair-gap-in-rust.md) |
 | AD-358 | [One collector process serves the Python survey and the collection](ad-358-one-collector-process-serves-the-python-survey-and-the-collection.md) |
+| AD-360 | [A second engine is compared with recorded oracles per section and rule family](ad-360-a-second-engine-is-compared-with-recorded-oracles-per-section-and-rule-family.md) |
