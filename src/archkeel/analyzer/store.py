@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import IO
 
@@ -29,26 +29,56 @@ from archkeel.ir.store_seam import StoreEntry, close_store, open_store
 
 # The factor of `facts_codec.decode_response`: a reply may inflate to 16 times its bytes.
 _INFLATE_FACTOR = 16
+# The longest answer: the frame limit of the store (`session.rs:FRAME_LIMIT`).
+_ANSWER_LIMIT = 1 << 40
 
 
 class _StoreError(Exception):
     """The store refused a frame or ended."""
 
 
-# A frame body is read in pieces of this size into one buffer, so it is held once (AD-346).
-_PIECE = 1 << 20
-
-
-def _read(stream: IO[bytes], size: int) -> bytearray:
-    data = bytearray(size)
-    position = 0
-    while position < size:
-        piece = stream.read(min(_PIECE, size - position))
-        if not piece:
-            raise _StoreError("the store process ended")
-        data[position : position + len(piece)] = piece
-        position += len(piece)
+def _read(stream: IO[bytes], size: int) -> bytes:
+    """One frame body: a buffered read of `size` fills one bytes object, so it is held once."""
+    if size > _ANSWER_LIMIT:
+        raise _StoreError("the store answer is too long")
+    data = stream.read(size)
+    if len(data) != size:
+        raise _StoreError("the store process ended")
     return data
+
+
+# The rows of a long list are encoded in slices of this many items (AD-346).
+_SLICE = 10_000
+# A JSON value of the frame.
+_Json = Mapping[str, object] | list[object] | str | float | None
+
+
+def _json(value: _Json) -> bytes:
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+
+
+def _pieces(value: Mapping[str, object]) -> Iterator[bytes]:
+    """The compact JSON of `value` in pieces: an object by its entries, a long list by slices.
+
+    The bytes equal one `json.dumps` call, and no piece holds a whole section.
+    """
+    yield b"{"
+    for index, (key, item) in enumerate(value.items()):
+        if not isinstance(key, str):
+            raise TypeError(f"the frame holds a key that is not a text: {key}")
+        yield (b"," if index else b"") + _json(key) + b":"
+        if isinstance(item, Mapping):
+            yield from _pieces(item)
+        elif isinstance(item, list) and len(item) > _SLICE:
+            yield b"["
+            for start in range(0, len(item), _SLICE):
+                yield (b"," if start else b"") + _json(item[start : start + _SLICE])[1:-1]
+            yield b"]"
+        elif isinstance(item, str | int | float | list) or item is None:
+            yield _json(item)
+        else:
+            raise TypeError(f"the frame holds a value that is not JSON: {key}")
+    yield b"}"
 
 
 class StoreSession:
@@ -75,12 +105,18 @@ class StoreSession:
         self._evidence = frozenset(entry.id for entry in facts.evidence)
         return response
 
-    def _ask(self, tag: bytes, payload: bytes) -> bytearray:
+    def _ask(self, tag: bytes, payload: bytes) -> bytes:
+        return self._ask_pieces(tag, len(payload), (payload,))
+
+    def _ask_pieces(self, tag: bytes, size: int, pieces: Iterable[bytes]) -> bytes:
+        """Send one frame from its pieces; the payload is never joined into one copy."""
         process = self._process
         if process is None or process.stdin is None or process.stdout is None:
             raise _StoreError("the store process is not running")
         try:
-            process.stdin.write(tag + len(payload).to_bytes(8, "big") + payload)
+            process.stdin.write(tag + size.to_bytes(8, "big"))
+            for piece in pieces:
+                process.stdin.write(piece)
             process.stdin.flush()
         except BrokenPipeError as error:
             raise _StoreError("the store process ended") from error
@@ -104,10 +140,9 @@ class StoreSession:
         return self._ask(b"D", json.dumps(value, ensure_ascii=False).encode()).decode()
 
     def write(self, model: Mapping[str, object]) -> bytes:
-        payload = json.dumps(
-            model, ensure_ascii=False, allow_nan=False, separators=(",", ":")
-        ).encode()
-        return bytes(self._ask(b"W", payload))
+        # The frame goes in pieces, written twice: once to count its length, once to send.
+        size = sum(len(piece) for piece in _pieces(model))
+        return self._ask_pieces(b"W", size, _pieces(model))
 
     def close(self) -> None:
         process, self._process = self._process, None

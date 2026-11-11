@@ -6,11 +6,11 @@ use std::collections::{BTreeSet, HashMap};
 
 use serde_json::{json, Map, Value};
 
-use super::{frame, Shell};
+use super::{frame, Entry, Shell, Top};
 use crate::canonical::{CLASSIFIED_SECTIONS, RECORD_FIELDS};
 
 /// The compact form of `ir/codec_store.py:_shell_frame`: each shell record of a section as a row.
-pub(crate) fn as_rows(mut model: Map<String, Value>) -> (Shell, Map<String, Value>) {
+pub(crate) fn as_rows(mut model: Map<String, Value>) -> Value {
     let mut texts: Vec<String> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     let mut fields = HashMap::new();
@@ -47,7 +47,8 @@ pub(crate) fn as_rows(mut model: Map<String, Value>) -> (Shell, Map<String, Valu
         model.insert(name.to_owned(), Value::Array(rows));
         fields.insert(name.to_owned(), keys);
     }
-    (Shell { texts, fields }, model)
+    let fields: std::collections::BTreeMap<_, _> = fields.into_iter().collect();
+    json!({"texts": texts, "fields": fields, "model": model})
 }
 
 fn cell(value: &Value, texts: &mut Vec<String>, index: &mut HashMap<String, usize>) -> Value {
@@ -76,15 +77,29 @@ fn cell(value: &Value, texts: &mut Vec<String>, index: &mut HashMap<String, usiz
     }
 }
 
-fn frame_of(value: Value) -> Result<(Shell, Map<String, Value>), String> {
-    frame(value, &CLASSIFIED_SECTIONS)
+fn frame_of(value: Value) -> Result<(Shell, HashMap<String, Top>), String> {
+    frame(
+        serde_json::to_vec(&value).unwrap_or_default().as_slice(),
+        &CLASSIFIED_SECTIONS,
+    )
 }
 
-fn shell() -> Shell {
-    Shell {
-        texts: vec!["a text".to_owned()],
-        fields: HashMap::new(),
-    }
+/// The shell and the model of a frame written as JSON.
+pub(crate) fn framed(value: Value) -> (Shell, HashMap<String, Top>) {
+    frame_of(value).unwrap_or_default()
+}
+
+/// The record of one row written as JSON, in a frame with the one text "a text".
+fn row_record(row: Value, head: &[&str], fields: &[String]) -> Result<Map<String, Value>, String> {
+    let (shell, mut model) =
+        frame_of(json!({"texts": ["a text"], "fields": {}, "model": {"metrics": [row]}}))?;
+    let Some(Top::Entries(entries)) = model.remove("metrics") else {
+        return Err("no row".to_owned());
+    };
+    let Some(Entry::Row(start, end)) = entries.first() else {
+        return Err("no row".to_owned());
+    };
+    shell.record(*start, *end, head, fields)
 }
 
 #[test]
@@ -94,12 +109,11 @@ fn a_row_with_an_unknown_cell_or_length_is_an_error() {
         (json!([5]), "names no text"),
         (json!([{"x": 1}]), "unknown tag"),
         (json!([{"n": "1"}]), "unknown tag"),
-        (json!(["plain"]), "unknown form"),
+        (json!(["plain"]), "expected a shell cell"),
         (json!([0, 0]), "does not match its fields"),
     ];
     for (row, message) in cases {
-        let Value::Array(row) = row else { continue };
-        let error = shell().record(&row, &head, &[]).err().unwrap_or_default();
+        let error = row_record(row, &head, &[]).err().unwrap_or_default();
         assert!(error.contains(message), "{message}: {error}");
     }
 }
@@ -107,8 +121,7 @@ fn a_row_with_an_unknown_cell_or_length_is_an_error() {
 #[test]
 fn an_absent_data_field_stays_absent() -> Result<(), String> {
     let fields = ["note".to_owned(), "gone".to_owned()];
-    let row = vec![json!(0), json!(0), json!({"m": true})];
-    let record = shell().record(&row, &["id"], &fields)?;
+    let record = row_record(json!([0, 0, {"m": true}]), &["id"], &fields)?;
     assert_eq!(
         Value::Object(record),
         json!({"id": "a text", "data": {"note": "a text"}})
@@ -121,7 +134,7 @@ fn the_frame_has_three_keys() {
     let error = frame_of(json!({"texts": [], "fields": {}, "model": {}, "more": 1}))
         .err()
         .unwrap_or_default();
-    assert!(error.contains("texts, fields and model only"), "{error}");
+    assert!(error.contains("unknown field `more`"), "{error}");
     assert!(frame_of(json!({"texts": [], "fields": {}, "model": {}})).is_ok());
     let unknown = frame_of(json!({"texts": [], "fields": {"nowhere": []}, "model": {}}));
     assert!(unknown
@@ -144,9 +157,7 @@ fn the_rows_of_the_fixture_are_the_committed_frame() -> Result<(), String> {
     let Value::Object(model) = parts["model"].clone() else {
         return Err("no model".to_owned());
     };
-    let (shell, rows) = as_rows(model);
-    let fields: std::collections::BTreeMap<_, _> = shell.fields.into_iter().collect();
-    let written = json!({"texts": shell.texts, "fields": fields, "model": rows});
+    let written = as_rows(model);
     let path = root.join("canonical-frame.json");
     if std::env::var_os("ARCHKEEL_WRITE_FRAME").is_some() {
         let text = serde_json::to_string_pretty(&written).map_err(|e| e.to_string())?;
@@ -156,5 +167,32 @@ fn the_rows_of_the_fixture_are_the_committed_frame() -> Result<(), String> {
         serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
     assert!(committed == written, "rewrite with ARCHKEEL_WRITE_FRAME=1");
+    Ok(())
+}
+
+/// Python never sends a text twice; a repeat would split the count of one text in two.
+#[test]
+fn a_frame_whose_texts_repeat_is_an_error() {
+    let twice = frame_of(json!({"texts": ["a", "b", "a"], "fields": {}, "model": {}}));
+    assert!(twice.err().unwrap_or_default().contains("texts repeat"));
+    assert!(frame_of(json!({"texts": ["a", "b"], "fields": {}, "model": {}})).is_ok());
+}
+
+/// Only the exact marker `{"m": true}` makes a data field absent, also for a field named `m`.
+#[test]
+fn only_the_exact_missing_marker_makes_a_field_absent() -> Result<(), String> {
+    let fields = ["m".to_owned()];
+    let record = row_record(json!([0, {"m": true}]), &["id"], &fields)?;
+    assert_eq!(Value::Object(record), json!({"id": "a text", "data": {}}));
+    for cell in [
+        json!({"m": false}),
+        json!({"m": true, "n": 1}),
+        json!({"m": 1}),
+    ] {
+        let error = row_record(json!([0, cell]), &["id"], &fields)
+            .err()
+            .unwrap_or_default();
+        assert!(error.contains("unknown tag"), "{cell}: {error}");
+    }
     Ok(())
 }

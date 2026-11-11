@@ -77,23 +77,10 @@ struct Document<'a> {
     facts: FactsEntry<'a>,
 }
 
-/// Bytes that a writer counts and drops.
-struct Count(u64);
-
-impl Write for Count {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0 += bytes.len() as u64;
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 /// Write the read-set document of a decoded reply as one answer frame. The document is written
 /// twice: once to count its length for the frame header, once to `output`. It is never held.
 pub(crate) fn write_frame(reply: &Reply, output: &mut impl Write) -> Result<(), String> {
-    let mut count = Count(0);
+    let mut count = crate::Count(0);
     serde_json::to_writer(&mut count, &document(reply)).map_err(|error| error.to_string())?;
     output.write_all(b"O").map_err(|error| error.to_string())?;
     output

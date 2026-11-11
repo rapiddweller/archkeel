@@ -11,9 +11,10 @@ use std::collections::HashMap;
 use archkeel_facts::envelope::Reply;
 use serde_json::{json, Value};
 
-use super::{encode, escaped, profitable};
-use crate::shell::Shell;
+use super::encode;
+use crate::shell::tests::framed;
 use crate::stored::Store;
+use crate::texts::{escaped, profitable};
 
 fn testdata(name: &str) -> Vec<u8> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -59,10 +60,11 @@ fn the_store_writes_the_bytes_of_the_python_writer() -> Result<(), String> {
     let Value::Object(model) = parts["model"].clone() else {
         return Err("no model".to_owned());
     };
-    let written = encode(model.clone(), &Shell::empty(), &store)?;
+    let (empty, plain) = framed(json!({"texts": [], "fields": {}, "model": model.clone()}));
+    let written = encode(plain, &empty, &store)?;
     assert!(written == testdata("canonical-expected.json"));
     // The same shell records as compact rows (`shell.rs`) give the same bytes.
-    let (shell, rows) = crate::shell::tests::as_rows(model);
+    let (shell, rows) = framed(crate::shell::tests::as_rows(model));
     assert!(encode(rows, &shell, &store)? == written);
     Ok(())
 }
@@ -77,9 +79,8 @@ fn an_id_that_the_store_does_not_hold_is_an_error() -> Result<(), String> {
         model.insert(name.to_owned(), Value::Null);
     }
     model.insert("imports".to_owned(), Value::from(vec!["IMP-unknown"]));
-    let error = encode(model, &Shell::empty(), &store)
-        .err()
-        .unwrap_or_default();
+    let (empty, model) = framed(json!({"texts": [], "fields": {}, "model": model}));
+    let error = encode(model, &empty, &store).err().unwrap_or_default();
     assert!(error.contains("holds no record IMP-unknown"), "{error}");
     Ok(())
 }
@@ -105,4 +106,73 @@ fn a_text_enters_the_table_by_the_observation_policy() {
     ] {
         assert_eq!(escaped(text), reserved, "{text}");
     }
+}
+
+/// A shell record of `metrics` with the data `data`.
+fn shell_record(data: Value) -> Value {
+    json!({"id": "METRIC-1", "evidence_class": "FACT", "area": "a", "kind": "k", "title": "t",
+           "subjects": [], "evidence_ids": [], "rule_ids": [], "fact_ids": [],
+           "provenance": [], "data": data})
+}
+
+/// The written observation of a model whose sections are null, with the values of `more`.
+fn written(more: Value) -> Result<Value, String> {
+    let parts: Value =
+        serde_json::from_slice(&testdata("canonical-parts.json")).map_err(|e| e.to_string())?;
+    let store = store(&parts["record"], &parts["evidence"])?;
+    let mut model = serde_json::Map::new();
+    for name in super::CLASSIFIED_SECTIONS {
+        model.insert(name.to_owned(), Value::Null);
+    }
+    if let Value::Object(more) = more {
+        model.extend(more);
+    }
+    let (empty, model) = framed(json!({"texts": [], "fields": {}, "model": model}));
+    let bytes = encode(model, &empty, &store)?;
+    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+}
+
+/// `observation_profitable` keeps `$$m` at one occurrence, so the hash gate must not drop it.
+#[test]
+fn the_missing_marker_text_enters_the_table_when_it_occurs_once() -> Result<(), String> {
+    let got = written(json!({"metrics": [shell_record(json!({"q": "$$m"}))]}))?;
+    assert_eq!(got["string_table"], json!(["$$m"]));
+    assert_eq!(got["metrics"][0][10], json!(["$0"]));
+    let evidence = json!({"id": "E-1", "file": "$$m", "line": 1, "end_line": 1, "column": 0,
+                          "excerpt": "x"});
+    let got = written(json!({"evidence": [evidence]}))?;
+    assert_eq!(got["string_table"], json!(["$$m"]));
+    assert_eq!(got["evidence"][0][1], json!("$0"));
+    Ok(())
+}
+
+/// The `\d` of Python `re` matches every decimal digit of Unicode, not only ASCII digits.
+#[test]
+fn a_reference_with_a_unicode_digit_is_escaped() -> Result<(), String> {
+    for (text, reserved) in [
+        ("$\u{663}", true),
+        ("$$\u{967}\u{968}", true),
+        ("$\u{ff11}", true),
+        ("$\u{1d7ce}", true),
+        ("$\u{b2}", false),
+        ("$\u{2167}", false),
+    ] {
+        assert_eq!(escaped(text), reserved, "{text}");
+    }
+    // Unicode 14.0 has 660 decimal digits (`$m` is the marker); each one is numeric.
+    let digits: Vec<char> = (0..=0x10ffff_u32)
+        .filter_map(char::from_u32)
+        .filter(|digit| *digit != 'm' && escaped(&format!("${digit}")))
+        .collect();
+    assert_eq!(digits.len(), 660);
+    assert!(digits.iter().all(|digit| digit.is_numeric()));
+    let got = written(json!({"metrics": [shell_record(json!({"q": "$\u{663}"}))]}))?;
+    assert_eq!(got["metrics"][0][10], json!(["$$\u{663}"]));
+    Ok(())
+}
+
+#[test]
+fn a_coverage_that_is_not_an_object_is_an_error() {
+    let error = written(json!({"coverage": 5})).err().unwrap_or_default();
+    assert!(error.contains("coverage must be an object"), "{error}");
 }
