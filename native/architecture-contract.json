@@ -864,7 +864,9 @@
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.module_edges",
         "native.archkeel_rust_collector.declared",
-        "native.archkeel_rust_collector.symbols"
+        "native.archkeel_rust_collector.symbols",
+        "native.archkeel_rust_collector.impl_edges",
+        "native.archkeel_rust_collector.impl_globs"
       ],
       "responsibilities": [
         "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."
@@ -983,6 +985,10 @@
         {
           "component": "rs-builder",
           "rationale": "Add a record to the builder."
+        },
+        {
+          "component": "rs-edges",
+          "rationale": "Call the builder methods that edges, declared, module_edges and impl_edges define (#953: an impl method of another module is a use of that module)."
         },
         {
           "component": "rs-reply",

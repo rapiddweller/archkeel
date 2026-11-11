@@ -7,13 +7,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::envelope::{Evidence, FileFact};
-use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 
 use crate::crates::Problem;
+use crate::definitions::MethodCall;
 use crate::modules::Edge;
 use crate::scan::{Reference, Site};
 use crate::tree::Module;
@@ -72,12 +74,27 @@ pub(crate) struct Builder {
     pub(crate) macro_uses: BTreeMap<(String, usize), Vec<(Edge, Reference)>>,
     /// The reasons why the scan cannot read the body of each `macro_rules!`, by the same key.
     pub(crate) macro_unknowns: BTreeMap<(String, usize), Vec<String>>,
+    /// The methods that the macros called in each module call there, at the place of the call.
+    pub(crate) macro_methods: BTreeMap<String, Vec<MethodCall>>,
+    /// The pairs that have a pair gap: one gap is enough for each pair.
+    pub(crate) gapped: BTreeSet<(String, String)>,
 }
 
 impl Builder {
     pub(crate) fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str) {
         let fact = GapFact::collection(reason, module);
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
+        self.gaps.entry(id).or_insert(record);
+    }
+
+    /// The gap of one pair: the scan cannot tell whether `source` uses `target` (#953). The host
+    /// drops it when the contract lets the component of `source` use the component of `target`.
+    pub(crate) fn pair_gap(&mut self, reason: &str, evidence: &str, pair: (&str, &str)) {
+        let (source, target) = pair;
+        let mut data = GapData::at(reason, target);
+        data.source_module = Some(ModuleName::new(source));
+        let fact = GapFact::CollectionGap(data);
+        let (id, record) = Record::unknown_gap(reason, Some(evidence), source, fact);
         self.gaps.entry(id).or_insert(record);
     }
 

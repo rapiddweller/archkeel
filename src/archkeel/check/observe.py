@@ -51,6 +51,7 @@ from .contract_tree import ContractInput, contract_input
 from .declarations import ContractError, load_contract
 from .gap_diagnostics import gap_diagnostic
 from .observation import assemble_observation
+from .pair_gaps import drop_allowed_pair_gaps
 from .ports import ProducerKind, SourceCollector
 from .runtime import runtime_diagnostic
 
@@ -373,6 +374,7 @@ def _observe(
             if all(sha != git_head for sha, _ in excluded_tests):
                 left_out = sorted(listed - set(facts.coverage.selected_files))
                 excluded_tests.append((git_head, tuple(left_out)))
+        facts = drop_allowed_pair_gaps(facts, loaded.contract, has_insides=bool(loaded.tree.mounts))
         with measured(clock, Phase.ASSEMBLE):
             model, _ = assemble_observation(
                 facts,

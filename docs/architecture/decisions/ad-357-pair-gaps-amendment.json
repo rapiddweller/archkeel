@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "11b1c1a46c5ac66d23272ba2d4a7e8b5782dbfecff33bda6016470498fb1eecb",
+  "after_digest": "05f2c8e082635fac470ac5d335dd3cb7c2f0c6ec798483386c52ac3532bb9ce0",
+  "before_baseline_digest": "11b1c1a46c5ac66d23272ba2d4a7e8b5782dbfecff33bda6016470498fb1eecb",
+  "before_digest": "83568c215e041a1b164a700320fdeaefb73ddd638696230e7635cf7afaca2a7d",
+  "decided_by": "architect",
+  "rationale": "AD-357 and issue #953. The module archkeel.check.pair_gaps joins the package list of the check component observation. It drops the Rust pair gap that the contract allows and is imported by archkeel.check.observe. No requires entry, budget, baseline entry, Any permission or through selector changes.",
+  "schema_version": "2.0.0"
+}

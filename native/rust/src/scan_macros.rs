@@ -10,9 +10,48 @@ use std::collections::BTreeSet;
 use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
-use super::{Local, MacroCall, MacroDef, Walker, KNOWN_MACROS};
+use super::{Local, MacroCall, MacroDef, Walker};
+use crate::definitions::MethodCall;
 use crate::net;
-use crate::tokens::{chains, macro_names, names_relative, plain, string_paths};
+use crate::tokens::{chains, macro_names, method_names, names_relative, plain, string_paths};
+
+/// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
+/// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
+const KNOWN_MACROS: [&str; 33] = [
+    "assert",
+    "assert_eq",
+    "assert_ne",
+    "debug_assert",
+    "debug_assert_eq",
+    "debug_assert_ne",
+    "format",
+    "format_args",
+    "print",
+    "println",
+    "eprint",
+    "eprintln",
+    "write",
+    "writeln",
+    "panic",
+    "unreachable",
+    "todo",
+    "unimplemented",
+    "vec",
+    "matches",
+    "dbg",
+    "env",
+    "option_env",
+    "concat",
+    "stringify",
+    "line",
+    "file",
+    "column",
+    "module_path",
+    "include_str",
+    "include_bytes",
+    "cfg",
+    "json",
+];
 
 impl Walker<'_> {
     /// A `macro_rules!` definition. Its expansion stays in this crate, so its body is read as code
@@ -46,8 +85,9 @@ impl Walker<'_> {
             self.concern(reason, span);
         }
         self.in_macro = Some(name.clone());
-        let mut calls = BTreeSet::new();
+        let (mut calls, mut methods) = (BTreeSet::new(), BTreeSet::new());
         macro_names(node.mac.tokens.clone(), 0, &mut calls);
+        method_names(node.mac.tokens.clone(), 0, &mut methods);
         let mut found = Vec::new();
         let strings = string_paths(node.mac.tokens.clone(), 0, &mut found);
         match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
@@ -79,6 +119,7 @@ impl Walker<'_> {
             name,
             id: self.out.macro_defs.len(),
             calls,
+            methods,
             unknowns,
             local,
         });
@@ -115,6 +156,18 @@ impl Walker<'_> {
             ..call.clone()
         });
         self.out.macro_calls.extend(hidden);
+        let mut methods = BTreeSet::new();
+        method_names(node.tokens.clone(), 0, &mut methods);
+        let (site, scope) = (call.site.clone(), self.inline.clone());
+        self.out
+            .method_calls
+            .extend(methods.into_iter().map(|name| MethodCall {
+                name,
+                site: site.clone(),
+                scope: scope.clone(),
+                path: false,
+                arity: None,
+            }));
         self.out.macro_calls.push(call);
         if name == "include" {
             self.concern(

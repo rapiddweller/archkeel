@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 
 use crate::crates::{Crate, Workspace};
+use crate::definitions::{Form, Owner};
 use crate::resolve::classify;
 use crate::scan::Reference;
 use crate::tree::Module;
@@ -33,6 +34,17 @@ pub struct Edge {
     pub symbol: Option<String>,
     /// 0 for `crate::`, 1 for `self::` and a child name, `n + 1` for `super::` n times.
     pub level: i64,
+}
+
+/// The type that a path names, for the members of its `impl` blocks (#953).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TypeOf {
+    /// The lexical module that defines the type, and its name.
+    Known(String, String),
+    /// The scan cannot say which type it is: a glob may bring it in, or the path is UNKNOWN.
+    Unknown,
+    /// No type of this crate: another crate, `Self`, or an associated item.
+    Other,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -130,7 +142,8 @@ fn climb(
     Ok((cur, ups, at))
 }
 
-fn inside(module: &str, root: &str) -> bool {
+/// Whether `module` is `root` or a module below it.
+pub fn inside(module: &str, root: &str) -> bool {
     module == root
         || module
             .strip_prefix(root)
@@ -143,7 +156,88 @@ fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
     })
 }
 
+impl Frame<'_> {
+    /// The lexical module of a place in the file: the file module and the enclosing inline ones.
+    pub fn lexical_at(&self, scope: &[String]) -> String {
+        lexical(self, scope)
+    }
+
+    /// The glob `use` items of the file.
+    pub fn globs(&self) -> impl Iterator<Item = &Reference> {
+        self.globs.iter().copied()
+    }
+
+    /// The `use` leaves of the file that bind `name`.
+    pub fn bound(&self, name: &str) -> &[&Reference] {
+        self.bindings.get(name).map_or(&[], Vec::as_slice)
+    }
+
+    /// The `use` leaves of the file that bind a name, also `_`.
+    pub fn leaves(&self) -> impl Iterator<Item = &Reference> {
+        self.bindings.values().flatten().copied()
+    }
+}
+
 impl<'a> Index<'a> {
+    /// The file module that holds a module or an inline module.
+    pub fn file_of(&self, lexical: &str) -> Option<&str> {
+        self.lexical.get(lexical).copied()
+    }
+
+    /// From the module `start` of the walk, down the modules that `rest` names.
+    pub fn reach(&self, start: &str, rest: &[String]) -> Outcome {
+        self.follow(start, 0, rest)
+    }
+
+    /// The type that `ty` names at `scope` of the file of `frame`. It is `Known` only when the
+    /// module defines a struct, enum, union or trait of that name. A type alias, a re-export, a
+    /// type that a macro or a function body defines, and a name that a glob may bring in are
+    /// `Unknown`: the scan cannot say which type they are (#953).
+    pub fn type_of(&self, frame: &Frame<'_>, scope: &[String], ty: &[String]) -> TypeOf {
+        let Some(name) = ty.last().filter(|name| *name != "Self") else {
+            return TypeOf::Other;
+        };
+        let mut names = ty.to_vec();
+        names.push(String::new());
+        let path = Reference {
+            names,
+            scope: scope.to_vec(),
+            ..Reference::default()
+        };
+        let declared = frame.module.scan.counts.contains_key(name);
+        let (at, ty_name) = match self.resolve(frame, &path) {
+            // A renamed `use` binds one name to the type of the path.
+            Outcome::Edge(edge) => match edge.symbol {
+                Some(symbol) if !symbol.is_empty() && (ty.len() == 1 || symbol == *name) => {
+                    (edge.lexical, symbol)
+                }
+                _ => return TypeOf::Other,
+            },
+            Outcome::None if ty.len() == 1 && declared => (lexical(frame, scope), name.clone()),
+            Outcome::None if ty.len() != 1 || frame.globs.is_empty() => return TypeOf::Other,
+            _ => return TypeOf::Unknown,
+        };
+        if self.defines_type(&at, &ty_name) {
+            TypeOf::Known(at, ty_name)
+        } else {
+            TypeOf::Unknown
+        }
+    }
+
+    /// Whether the lexical module defines a struct, an enum, a union or a trait named `name`.
+    fn defines_type(&self, lexical: &str, name: &str) -> bool {
+        let Some(frame) = self.file_of(lexical).and_then(|file| self.frames.get(file)) else {
+            return false;
+        };
+        let types = [Form::Struct, Form::Enum, Form::Trait];
+        frame.module.scan.definitions.iter().any(|d| {
+            d.name == name
+                && d.owner == Owner::Module
+                && types.contains(&d.form)
+                && self::lexical(frame, &d.scope) == lexical
+        })
+    }
+
     pub fn frame(&self, module: &str) -> Option<&Frame<'a>> {
         self.frames.get(module)
     }

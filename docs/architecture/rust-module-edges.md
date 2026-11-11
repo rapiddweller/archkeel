@@ -20,8 +20,14 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
   stays unsupported until the uses of an item are resolved (5b-4b). The definitions are read since
   5b-4a ([AD-351](decisions/ad-351-the-rust-collector-reports-definitions-and-never-invents-one.md)).
 - A re-exporting module is the dependency: `a` uses `b` through `pub use crate::b::make;` in `c`
-  as `a -> c`, and `c -> b` is a `reexport` record. A rule on `a -> b` does not see it. The same for
-  a glob re-export.
+  as `a -> c`, and `c -> b` is a `reexport` record. A rule on a module pair forbids a direct use;
+  a use through a re-export is seen by the layer and cycle rules (a cycle through it is FAIL)
+  ([AD-357](decisions/ad-357-a-method-of-another-module-is-an-edge-or-a-pair-gap-in-rust.md)). The
+  same for a glob re-export.
+- A method of an `impl` block in another module than its type is an edge when a path names it, and
+  a pair gap `a -> b` when a method call may reach it or a glob brings in a trait of `b` whose
+  method `a` may call. The host drops the pair gap when the contract lets `a` use `b` and the edge
+  closes no cycle (AD-357).
 - Edition 2015 (or no edition in the manifest, also `edition.workspace` without a workspace
   value): a `use` path and a `::` path start at the crate root, so a first name that is a module of
   the root is that module.
@@ -30,6 +36,7 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
   `E0423`, `E0531`, `E0599`) are the files with an edge into `m` or below it. `make native-check`
   runs seven modules (`tests/test_collector_native_rust_module_oracle.py`). A one-off run over all
   108 modules of `native/` had no missed edge, except where `rustc` blames a macro definition for
-  the error of a call; it is not part of the gate. Not seen, and PASS is possible: a method that an
-  `impl` of another module defines, a trait method that a glob `use` brings in, and an item that a
-  macro generates (`docs/known-limits.md`).
+  the error of a call; it is not part of the gate. A file with `E0599` for a method of an `impl`
+  in `m` has an edge into `m` or a pair gap to it (AD-357). Open false PASS (#1004): a trait
+  `impl` in another module than its trait and its type, and a glob trait of a crate outside the
+  workspace. Open false PASS (#1020): an item that a macro generates (`docs/known-limits.md`).

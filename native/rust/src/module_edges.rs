@@ -16,6 +16,7 @@ use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder};
 use crate::crates::Root;
+use crate::definitions::MethodCall;
 use crate::modules::{Edge, Index, Outcome};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
 use crate::tree::Module;
@@ -146,11 +147,25 @@ impl Builder {
             }
             if let [(owner, def)] = visible(defs, module, call, &next)[..] {
                 queue.extend(def.calls.iter().cloned());
+                self.expand_methods(module, call, def);
                 self.call_edge(index, module, owner, (&next, &call.site));
                 self.unknown_expansion(module, call, (owner, def));
                 self.expand_uses(index, module, call, (owner, def));
             }
         }
+    }
+
+    /// The methods that the body of a macro calls are calls of the module of the call (#953).
+    fn expand_methods(&mut self, module: &Module, call: &MacroCall, def: &MacroDef) {
+        let calls = def.methods.iter().map(|name| MethodCall {
+            name: name.clone(),
+            site: call.site.clone(),
+            scope: Vec::new(),
+            path: false,
+            arity: None,
+        });
+        let found = self.macro_methods.entry(module.module.clone()).or_default();
+        found.extend(calls);
     }
 
     /// The edges that the body of a macro names from the crate root, for the module of the call.
@@ -217,7 +232,7 @@ impl Builder {
         self.module_import(index, module, &reference, &edge);
     }
 
-    fn module_import(
+    pub(crate) fn module_import(
         &mut self,
         index: &Index<'_>,
         module: &Module,

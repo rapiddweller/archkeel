@@ -277,15 +277,22 @@ file declares more than once and that may name a module, a glob that the scan ca
 `use` path that starts with a name that a glob may bring in, a `super` above the crate root, two
 `macro_rules!` of one name and a path in a `macro_rules!` body that is relative to the place of the
 call are UNKNOWN, and so is a macro call that the scan cannot place (in the tokens of another macro, or by the path of a module). A `crate::` path in a macro body is an edge of each call (AD-349). Edition 2015 (or none named
-in the manifest): a `use` path and a `::` path start at the crate root. Not seen, and the verdict can
-be PASS: a method that an `impl` block of another module defines (`impl crate::c::S { fn m() }` in
-`b`, and `crate::c::S::m()` in `a`: no path names `b`), a trait method that a glob `use` brings in
-(`use b::T;` in the parent, `use super::*;` and `5u8.m()` in the child), an item that a macro
-generates, and a path into another crate that goes through a `pub use` of its root. A re-exporting
-module is the dependency: for `pub use crate::b::make;` in `c` and `use crate::c::make;` in `a`, the
-edge of `a` goes to `c` and the edge of `c` to `b` (a `reexport` record); a rule that forbids `a`
-to use `b` does not see `a` through `c`. The same holds for `pub use crate::b::*;` in `c` and
-`use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
+in the manifest): a `use` path and a `::` path start at the crate root. A method of an `impl` block
+in another module than its type is an edge when a path names it (`impl crate::c::S { fn m() }` in
+`b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
+(it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
+call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
+`5u8.m()` in the child), give a gap of the pair `a -> b`. The host drops that gap only when the
+contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
+close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
+trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
+PASS, not accepted (#1020): an item that a macro generates. Not seen, and the verdict can be PASS:
+a path into another crate that goes through a `pub use` of its root. A rule on a module pair
+forbids a direct use; a use through a re-export is seen by the layer and cycle rules (AD-357). For
+`pub use crate::b::make;` in `c` and `use crate::c::make;` in `a`, the edge of `a` goes to `c` and
+the edge of `c` to `b` (a `reexport` record); a module cycle through such a `pub use` gives FAIL
+(`tests/test_collector_false_pass_rust_impls.py`). The same holds for `pub use crate::b::*;` in `c`
+and `use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
 attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also

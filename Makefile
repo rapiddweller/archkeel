@@ -86,7 +86,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py
+	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py
 	$(MAKE) self-validate-native
 
 # AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.
@@ -98,10 +98,11 @@ self-validate-native:
 		cargo build --locked --bin archkeel-rust-collector --target-dir target/self
 	@mkdir -p test-artifacts/validation-native src/archkeel/_native
 	@cp native/target/self/debug/archkeel-rust-collector src/archkeel/_native/archkeel-rust-collector
-	@status=0; $(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || status=$$?; \
-		rm -f src/archkeel/_native/archkeel-rust-collector; rmdir src/archkeel/_native 2>/dev/null || true; \
-		if [ $$status -ne 0 ]; then cat test-artifacts/validation-native/result.json; exit 1; fi
-	@echo "Native architecture rules: PASS; full result: test-artifacts/validation-native/result.json"
+	@$(UV) run --locked archkeel report --config native/archkeel.toml --output test-artifacts/validation-native/architecture.json --json > test-artifacts/validation-native/result.json || true; \
+		rm -f src/archkeel/_native/archkeel-rust-collector; rmdir src/archkeel/_native 2>/dev/null || true
+	@# AD-357: the result must equal the pinned gaps and rule statuses of native/expected-gaps.json.
+	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json
+	@echo "Native architecture rules: as pinned in native/expected-gaps.json; full result: test-artifacts/validation-native/result.json"
 
 # AD-343: record the golden replies of the Python collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
@@ -139,7 +140,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py \
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py \
 	native/hatch_build.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
@@ -166,7 +167,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:

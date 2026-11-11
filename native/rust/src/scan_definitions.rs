@@ -14,7 +14,8 @@
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
 use super::Walker;
-use crate::definitions::{Access, Definition, Form, Holder, Owner};
+use crate::attrs::{impl_item_attributes, is_test_attributes};
+use crate::definitions::{Access, Definition, Form, Holder, ImplBlock, Member, Owner};
 use crate::tokens::plain;
 
 fn access(vis: &syn::Visibility) -> Access {
@@ -113,6 +114,46 @@ impl Walker<'_> {
             Holder::Impl(type_name(item))
         };
         std::mem::replace(&mut self.holder, holder)
+    }
+
+    /// Read an inherent `impl` block at any depth (#953): the path of its type and its members.
+    pub(super) fn impl_block(&mut self, item: &ItemImpl) {
+        if item.trait_.is_some() {
+            return;
+        }
+        let path = match &*item.self_ty {
+            Type::Path(path) if path.qself.is_none() && path.path.leading_colon.is_none() => {
+                Some(path.path.segments.iter().map(|s| plain(&s.ident)).collect())
+            }
+            _ => None,
+        };
+        let tests = |member: &&syn::ImplItem| {
+            self.exclude_tests && is_test_attributes(impl_item_attributes(member))
+        };
+        let members = (item.items.iter().filter(|member| !tests(member)))
+            .filter_map(|member| match member {
+                syn::ImplItem::Fn(f) => Some(Member {
+                    name: plain(&f.sig.ident),
+                    access: access(&f.vis),
+                    receiver: f.sig.receiver().is_some(),
+                    arity: (f.sig.inputs.len())
+                        .saturating_sub(usize::from(f.sig.receiver().is_some())),
+                }),
+                syn::ImplItem::Const(c) => Some(Member {
+                    name: plain(&c.ident),
+                    access: access(&c.vis),
+                    receiver: false,
+                    arity: 0,
+                }),
+                _ => None,
+            })
+            .collect();
+        let scope = self.inline.clone();
+        self.out.impls.push(ImplBlock {
+            path,
+            scope,
+            members,
+        });
     }
 
     pub(super) fn enter_trait(&mut self, item: &ItemTrait) -> Holder {

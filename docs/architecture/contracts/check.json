@@ -67,6 +67,7 @@
       "role": "component",
       "packages": [
         "archkeel.check.gap_diagnostics",
+        "archkeel.check.pair_gaps",
         "archkeel.check.observation",
         "archkeel.check.observe",
         "archkeel.check.contract_tree",
