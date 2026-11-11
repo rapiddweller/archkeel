@@ -448,6 +448,28 @@
       "layer": "Adapters"
     },
     {
+      "id": "COMP-REPORT",
+      "label": "report",
+      "capability_id": "CAP-ARCHKEEL",
+      "role": "component",
+      "packages": [
+        "archkeel.report"
+      ],
+      "namespace": "archkeel.report",
+      "requires": [],
+      "responsibilities": [
+        "Write the report v2 payload from the record sections of a saved architecture.json and the verdicts of the evaluator (AD-361)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a rule verdict, building an Observation or reading transitive_paths, calls or references."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md"
+      ],
+      "decided_by": "architect",
+      "layer": "Adapters"
+    },
+    {
       "id": "COMP-ANALYZER",
       "label": "analyzer",
       "capability_id": "CAP-ARCHKEEL",
@@ -974,6 +996,7 @@
         "archkeel.host",
         "archkeel.ir",
         "archkeel.render",
+        "archkeel.report",
         "archkeel.studio"
       ],
       "rationale": "The package root exposes only its declared top-level packages and modules.",
