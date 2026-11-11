@@ -32,6 +32,8 @@ FAMILIES: dict[str, tuple[str, ...]] = {k: tuple(v) for k, v in SCHEMA["families
 KEY_FIELDS: tuple[str, ...] = tuple(SCHEMA["key_fields"])
 # A section with more canonical bytes keeps the id, digest, rule ids and key fields of each row.
 FULL_ROWS_BYTES = 4096
+# `--sections none` and `--families none`: the slice owns no section or no rule family.
+NONE = "none"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,10 +60,16 @@ class Difference:
 
 @dataclass(frozen=True, slots=True)
 class Selection:
-    """What a slice owns: sections (L2) and rule kinds (L1); `None` kinds means every kind."""
+    """What a slice owns: sections (L2) and rule kinds (L1); `None` kinds means every kind.
+    `self_test` compares what the engine read (the rule ids and kinds of the contract, the
+    reply), the wiring check of an engine that owns nothing yet (AD-363)."""
 
     sections: tuple[str, ...] = SECTIONS
     kinds: frozenset[str] | None = None
+    self_test: bool = False
+
+    def owns_nothing(self) -> bool:
+        return not self.sections and self.kinds is not None and not self.kinds
 
 
 # --- Canonical rows -------------------------------------------------------------------------
@@ -280,7 +288,11 @@ def compare_case(
     expected_rules, actual_rules = oracle["rules"], frame["rules"]
     kinds = selection.kinds
     owned = owned_rules(expected_rules, kinds) | owned_rules(actual_rules, kinds)
-    differences = [
+    unsupported = frame.get("unsupported") or {}
+    differences = [*_self_test(case, oracle, frame)] if selection.self_test else []
+    owned, named = _unsupported_rules(case, owned, unsupported.get("rules"))
+    differences += named
+    differences += [
         Difference(
             case,
             "rules",
@@ -290,6 +302,16 @@ def compare_case(
         for rule in sorted(owned)
         if expected_rules.get(rule) != actual_rules.get(rule)
     ]
+    not_ported = unsupported.get("sections") or {}
+    differences += [
+        Difference(case, name, "-", not_ported[name])
+        for name in selection.sections
+        if name in not_ported
+    ]
+    sections = tuple(name for name in selection.sections if name not in not_ported)
+    if not sections:
+        return differences
+    selection = Selection(sections, kinds)
     if (oracle["sections"] is None) != (
         frame.get("architecture") is None and not frame.get("sections")
     ):
@@ -321,6 +343,49 @@ def compare_case(
     return differences
 
 
+def _unsupported_rules(
+    case: str, owned: set[str], reasons: str | Mapping[str, str] | None
+) -> tuple[set[str], list[Difference]]:
+    """The owned rules that the engine decides, and one difference for the owned rules that it
+    names unsupported: a named part is never equal (AD-363)."""
+    if not reasons or not owned:
+        return owned, []
+    if isinstance(reasons, str):
+        return set(), [Difference(case, "rules", "-", f"{len(owned)} owned rules: {reasons}")]
+    named = sorted(owned.intersection(reasons))
+    if not named:
+        return owned, []
+    detail = f"{len(named)} owned rules are unsupported, first: {reasons[named[0]]}"
+    return owned - set(named), [Difference(case, "rules", named[0], detail)]
+
+
+def _self_test(case: str, oracle: Mapping[str, Any], frame: Mapping[str, Any]) -> list[Difference]:
+    """The rule ids and kinds that the engine read from the contract bytes must equal the
+    verdict map of the oracle, and the engine must accept the collector reply."""
+    found = frame.get("self_test") or {}
+    contract, reply = found.get("contract") or {}, found.get("reply") or {}
+    differences = []
+    if "rules" in contract:
+        expected = {rule: kind for rule, (kind, _) in oracle["rules"].items()}
+        differences += [
+            Difference(
+                case,
+                "self_test",
+                rule,
+                f"kind {expected.get(rule)} expected, {contract['rules'].get(rule)} read",
+            )
+            for rule in sorted(set(expected) | set(contract["rules"]))
+            if expected.get(rule) != contract["rules"].get(rule)
+        ]
+    else:
+        detail = contract.get("unsupported") or f"refused: {contract.get('refused')}"
+        differences.append(Difference(case, "self_test", "contract", detail))
+    if "files" not in reply:
+        detail = f"refused: {reply['refused']}" if "refused" in reply else f"absent: {reply}"
+        differences.append(Difference(case, "self_test", "reply", detail))
+    return differences
+
+
 def frame_sections(frame: Mapping[str, Any]) -> tuple[dict[str, list[Row]], set[str]]:
     """The compared rows of an engine frame (a columnar `architecture` or the decoded
     `sections`) and the names of all sections that the frame writes."""
@@ -336,11 +401,13 @@ def frame_sections(frame: Mapping[str, Any]) -> tuple[dict[str, list[Row]], set[
 
 def selection_of(sections: str | None, families: str | None) -> Selection:
     """The owned sections and rule kinds. An unknown name is an error: a typo selects nothing."""
-    chosen = SECTIONS if not sections else tuple(sections.split(","))
+    chosen = SECTIONS if not sections else () if sections == NONE else tuple(sections.split(","))
     if unknown := sorted(set(chosen) - set(SECTIONS)):
         raise ValueError(f"unknown sections: {', '.join(unknown)}")
     if not families:
         return Selection(chosen, None)
+    if families == NONE:
+        return Selection(chosen, frozenset())
     names = families.split(",")
     if unknown := sorted(name for name in names if name not in FAMILIES and name not in RULE_KINDS):
         raise ValueError(f"unknown families or rule kinds: {', '.join(unknown)}")

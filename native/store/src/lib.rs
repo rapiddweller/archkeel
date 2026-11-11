@@ -38,6 +38,22 @@ use serde_json::Value;
 
 use crate::stored::Store;
 
+/// A reply that the store decoded and validated once, for a library of the core (WP6, AD-363).
+/// The records stay in their typed form; nothing outside the store can make one.
+pub struct Ingested(Store);
+
+impl Ingested {
+    /// The number of source files of the reply.
+    pub fn file_count(&self) -> usize {
+        self.0.reply().facts.files.len()
+    }
+}
+
+/// Decode and validate one compressed reply (protocol 8 or 9) for a library of the core.
+pub fn ingest_reply(payload: &[u8], inflate_limit: u64) -> Result<Ingested, String> {
+    ingest(payload, inflate_limit).map(Ingested)
+}
+
 /// Decode, validate and keep one reply in its typed form.
 fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
     let reply = decode::reply(payload, inflate_limit)?;

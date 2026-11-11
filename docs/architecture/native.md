@@ -5,7 +5,7 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 Run `make self-validate-native` to check it.
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`). Each
+The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`) and the core after the collector (`model`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
@@ -20,6 +20,8 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
+| `archkeel-model` | The typed model of one run: ids, tables, the components and the scope proof that a PASS needs (AD-363). Slices S1 to S4 add modules, packages, edges and cycles. | `archkeel-contract`, `archkeel-store` |
+| `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run and owns no section yet; the host uses it for no verdict (AD-363). | `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
@@ -49,134 +51,155 @@ one frame on standard output: `rules` (rule id to kind and status) and the colum
 `architecture` or the canonical `sections`. A failed or slow engine is a difference
 (`--engine-timeout`, default 600 s). The sections and rule families are in
 `tools/dual_run_schema.json`.
-`python -m tools.dual_run serve-python` is the reference: it serves the Python engine. The
-binary name in the example is a placeholder: no Rust engine exists yet.
+`python -m tools.dual_run serve-python` is the reference: it serves the Python engine.
+
+`archkeel-core dual-run` is the Rust engine ([AD-363](decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md)).
+With a command engine, the harness runs the collector and sends its reply as hex in `reply`.
+The core owns no section and no rule family yet, so the frame has an `unsupported` reason for
+each rule and each requested section, and a slice that names no part fails
+(`--sections none --families none`). `--self-test` compares what the core read: the rule ids and
+kinds of the contract bytes against the verdict map, and the reply that the store accepts. A
+part that is not ported answers with the slice that ports it, never with an empty result.
 
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
     n_0["build"]
-    n_1["facts"]
-    n_2["rs-builder"]
-    n_3["rs-edges"]
-    n_4["rs-entry"]
-    n_5["rs-flow"]
-    n_6["rs-modules"]
-    n_7["rs-reply"]
-    n_8["rs-text"]
-    n_9["rs-workspace"]
-    n_10["snapshot"]
-    n_11["store"]
-    n_12["ts-declarations"]
-    n_13["ts-discover"]
-    n_14["ts-dump"]
-    n_15["ts-entry"]
-    n_16["ts-flow"]
-    n_17["ts-input"]
-    n_18["ts-parse"]
-    n_19["ts-records"]
-    n_20["ts-resolve"]
-    n_21["ts-script-deps"]
-    n_22["ts-scripts"]
-    n_23["ts-sites"]
-    n_24["ts-tree"]
-    n_25["ts-walk"]
-    n_26["wire"]
-    n_10 --> n_1
-    n_11 --> n_1
-    n_12 --> n_17
-    n_12 --> n_24
-    n_13 --> n_10
-    n_13 --> n_17
-    n_14 --> n_1
-    n_14 --> n_12
-    n_14 --> n_16
-    n_14 --> n_17
-    n_14 --> n_18
-    n_14 --> n_19
-    n_14 --> n_23
-    n_14 --> n_25
-    n_15 --> n_0
-    n_15 --> n_1
-    n_15 --> n_10
-    n_15 --> n_14
-    n_15 --> n_16
-    n_15 --> n_26
-    n_16 --> n_1
-    n_16 --> n_10
-    n_16 --> n_13
-    n_16 --> n_17
-    n_16 --> n_18
-    n_16 --> n_19
-    n_16 --> n_20
+    n_1["contract"]
+    n_2["core"]
+    n_3["dart-grammar"]
+    n_4["facts"]
+    n_5["model"]
+    n_6["rs-builder"]
+    n_7["rs-edges"]
+    n_8["rs-entry"]
+    n_9["rs-flow"]
+    n_10["rs-modules"]
+    n_11["rs-reply"]
+    n_12["rs-text"]
+    n_13["rs-workspace"]
+    n_14["snapshot"]
+    n_15["store"]
+    n_16["ts-declarations"]
+    n_17["ts-discover"]
+    n_18["ts-dump"]
+    n_19["ts-entry"]
+    n_20["ts-flow"]
+    n_21["ts-input"]
+    n_22["ts-parse"]
+    n_23["ts-records"]
+    n_24["ts-resolve"]
+    n_25["ts-script-deps"]
+    n_26["ts-scripts"]
+    n_27["ts-sites"]
+    n_28["ts-tree"]
+    n_29["ts-walk"]
+    n_30["wire"]
+    n_10 --> n_12
+    n_10 --> n_13
+    n_10 --> n_14
+    n_11 --> n_10
+    n_11 --> n_14
+    n_11 --> n_30
+    n_11 --> n_4
+    n_11 --> n_6
+    n_13 --> n_14
+    n_14 --> n_4
+    n_15 --> n_4
     n_16 --> n_21
-    n_16 --> n_25
-    n_16 --> n_26
-    n_18 --> n_12
-    n_18 --> n_17
+    n_16 --> n_28
+    n_17 --> n_14
+    n_17 --> n_21
+    n_18 --> n_16
+    n_18 --> n_20
+    n_18 --> n_21
     n_18 --> n_22
-    n_18 --> n_24
-    n_18 --> n_25
-    n_19 --> n_1
-    n_19 --> n_12
-    n_19 --> n_17
+    n_18 --> n_23
+    n_18 --> n_27
+    n_18 --> n_29
+    n_18 --> n_30
+    n_18 --> n_4
+    n_19 --> n_0
+    n_19 --> n_14
     n_19 --> n_18
-    n_19 --> n_23
-    n_19 --> n_25
-    n_19 --> n_26
+    n_19 --> n_20
+    n_19 --> n_30
+    n_19 --> n_4
+    n_2 --> n_0
     n_2 --> n_1
-    n_2 --> n_6
-    n_2 --> n_8
-    n_2 --> n_9
-    n_20 --> n_10
-    n_20 --> n_13
+    n_2 --> n_15
+    n_2 --> n_5
+    n_20 --> n_14
     n_20 --> n_17
-    n_21 --> n_1
-    n_21 --> n_10
-    n_21 --> n_13
-    n_21 --> n_17
-    n_21 --> n_18
-    n_21 --> n_19
-    n_21 --> n_23
-    n_21 --> n_25
-    n_22 --> n_12
-    n_22 --> n_17
-    n_22 --> n_24
-    n_22 --> n_25
-    n_23 --> n_12
-    n_23 --> n_17
-    n_23 --> n_24
+    n_20 --> n_21
+    n_20 --> n_22
+    n_20 --> n_23
+    n_20 --> n_24
+    n_20 --> n_25
+    n_20 --> n_29
+    n_20 --> n_30
+    n_20 --> n_4
+    n_22 --> n_16
+    n_22 --> n_21
+    n_22 --> n_26
+    n_22 --> n_28
+    n_22 --> n_29
+    n_23 --> n_16
+    n_23 --> n_21
+    n_23 --> n_22
+    n_23 --> n_27
+    n_23 --> n_29
+    n_23 --> n_30
+    n_23 --> n_4
+    n_24 --> n_14
     n_24 --> n_17
-    n_25 --> n_1
-    n_25 --> n_12
+    n_24 --> n_21
+    n_25 --> n_14
     n_25 --> n_17
+    n_25 --> n_21
+    n_25 --> n_22
     n_25 --> n_23
-    n_25 --> n_24
-    n_26 --> n_1
-    n_3 --> n_1
-    n_3 --> n_10
-    n_3 --> n_2
-    n_3 --> n_6
-    n_3 --> n_8
-    n_3 --> n_9
-    n_4 --> n_0
-    n_4 --> n_1
-    n_4 --> n_10
-    n_4 --> n_26
-    n_4 --> n_5
+    n_25 --> n_27
+    n_25 --> n_29
+    n_25 --> n_4
+    n_26 --> n_16
+    n_26 --> n_21
+    n_26 --> n_28
+    n_26 --> n_29
+    n_27 --> n_16
+    n_27 --> n_21
+    n_27 --> n_28
+    n_28 --> n_21
+    n_29 --> n_16
+    n_29 --> n_21
+    n_29 --> n_27
+    n_29 --> n_28
+    n_29 --> n_4
+    n_30 --> n_4
     n_5 --> n_1
-    n_5 --> n_10
-    n_5 --> n_2
-    n_5 --> n_6
-    n_5 --> n_7
-    n_5 --> n_9
+    n_5 --> n_15
     n_6 --> n_10
-    n_6 --> n_8
-    n_6 --> n_9
-    n_7 --> n_1
+    n_6 --> n_12
+    n_6 --> n_13
+    n_6 --> n_4
     n_7 --> n_10
-    n_7 --> n_2
-    n_7 --> n_26
+    n_7 --> n_12
+    n_7 --> n_13
+    n_7 --> n_14
+    n_7 --> n_4
     n_7 --> n_6
+    n_8 --> n_0
+    n_8 --> n_11
+    n_8 --> n_14
+    n_8 --> n_30
+    n_8 --> n_4
+    n_8 --> n_9
     n_9 --> n_10
+    n_9 --> n_11
+    n_9 --> n_13
+    n_9 --> n_14
+    n_9 --> n_30
+    n_9 --> n_4
+    n_9 --> n_6
+    n_9 --> n_7
 ```

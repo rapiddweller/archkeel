@@ -15,12 +15,16 @@
     "items": 233,
     "members": 563
   },
+  "archkeel-model": {
+    "items": 47,
+    "members": 39
+  },
   "archkeel-snapshot": {
     "items": 22,
     "members": 1
   },
   "archkeel-store": {
-    "items": 2,
+    "items": 5,
     "members": 0
   },
   "archkeel-wire": {

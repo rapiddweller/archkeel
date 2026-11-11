@@ -1,0 +1,20 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-model"
+description = "The model of Archkeel: typed ids and tables derived from the contract and the reply (AD-363)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# AD-359: the model uses the contract and the store; it names no language (AD-363).
+[dependencies]
+archkeel-contract = { path = "../contract" }
+archkeel-store = { path = "../store" }
+
+[lints]
+workspace = true
