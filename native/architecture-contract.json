@@ -451,6 +451,7 @@
         "native.archkeel_typescript_collector.cited",
         "native.archkeel_typescript_collector.class_data",
         "native.archkeel_typescript_collector.collected",
+        "native.archkeel_typescript_collector.construct_records",
         "native.archkeel_typescript_collector.kept",
         "native.archkeel_typescript_collector.kept_script",
         "native.archkeel_typescript_collector.records",
