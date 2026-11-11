@@ -864,7 +864,9 @@
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.module_edges",
         "native.archkeel_rust_collector.declared",
-        "native.archkeel_rust_collector.symbols"
+        "native.archkeel_rust_collector.symbols",
+        "native.archkeel_rust_collector.impl_edges",
+        "native.archkeel_rust_collector.impl_edges.globs"
       ],
       "responsibilities": [
         "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."

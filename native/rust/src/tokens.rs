@@ -74,25 +74,62 @@ fn relative_in(stream: TokenStream, depth: usize) -> bool {
     false
 }
 
-/// The names that the stream calls as macros: an identifier, `!`, and a group.
-pub fn macro_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+/// The rest of a token stream after one token.
+type Rest = std::iter::Peekable<proc_macro2::token_stream::IntoIter>;
+
+/// Each name that `pick` finds at a token of the stream, in any group down to `MAX_DEPTH`.
+fn each_name(
+    stream: TokenStream,
+    depth: usize,
+    pick: fn(&TokenTree, &Rest) -> Option<String>,
+    found: &mut BTreeSet<String>,
+) {
     if depth > MAX_DEPTH {
         return;
     }
     let mut tokens = stream.into_iter().peekable();
     while let Some(token) = tokens.next() {
-        match token {
-            TokenTree::Group(group) => macro_names(group.stream(), depth + 1, found),
-            TokenTree::Ident(ident) => {
-                let mut ahead = tokens.clone();
-                let bang = matches!(ahead.next(), Some(TokenTree::Punct(p)) if p.as_char() == '!');
-                if bang && matches!(ahead.next(), Some(TokenTree::Group(_))) {
-                    found.insert(plain(&ident));
-                }
-            }
-            _ => {}
+        if let TokenTree::Group(group) = &token {
+            each_name(group.stream(), depth + 1, pick, found);
+        } else if let Some(name) = pick(&token, &tokens) {
+            found.insert(name);
         }
     }
+}
+
+/// The names that the stream calls as macros: an identifier, `!`, and a group.
+pub fn macro_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+    each_name(stream, depth, macro_name, found);
+}
+
+fn macro_name(token: &TokenTree, rest: &Rest) -> Option<String> {
+    let TokenTree::Ident(ident) = token else {
+        return None;
+    };
+    let mut ahead = rest.clone();
+    let bang = matches!(ahead.next(), Some(TokenTree::Punct(p)) if p.as_char() == '!');
+    (bang && matches!(ahead.next(), Some(TokenTree::Group(_)))).then(|| plain(ident))
+}
+
+/// The names that the stream calls as methods: `.`, an identifier, and a `(` group or `::`.
+pub fn method_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+    each_name(stream, depth, method_name, found);
+}
+
+fn method_name(token: &TokenTree, rest: &Rest) -> Option<String> {
+    if !matches!(token, TokenTree::Punct(dot) if dot.as_char() == '.') {
+        return None;
+    }
+    let mut ahead = rest.clone();
+    let Some(TokenTree::Ident(name)) = ahead.next() else {
+        return None;
+    };
+    let called = match ahead.next() {
+        Some(TokenTree::Group(group)) => group.delimiter() == proc_macro2::Delimiter::Parenthesis,
+        Some(TokenTree::Punct(colon)) => colon.as_char() == ':',
+        _ => false,
+    };
+    called.then(|| plain(&name))
 }
 
 /// The chains of an attribute. A lint list (`allow(...)`, `expect(...)`) holds lint names, not
@@ -148,9 +185,7 @@ fn skips_group(name: &proc_macro2::Ident, next: Option<&TokenTree>) -> bool {
 }
 
 /// Take `::` and the identifier after it, or take nothing.
-fn separator_then_name(
-    tokens: &mut std::iter::Peekable<proc_macro2::token_stream::IntoIter>,
-) -> Option<String> {
+fn separator_then_name(tokens: &mut Rest) -> Option<String> {
     let mut ahead = tokens.clone();
     let colons = [ahead.next()?, ahead.next()?];
     let both = colons

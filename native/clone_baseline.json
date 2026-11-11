@@ -285,7 +285,7 @@
       "typescript/src/main.rs"
     ],
     "reason": "Each collector lists its modules as `mod name;` lines in one shape. They are data.",
-    "tokens": 74
+    "tokens": 71
   },
   "typescript/src/kinds.rs|typescript/src/kinds.rs|1a2f180862": {
     "files": [

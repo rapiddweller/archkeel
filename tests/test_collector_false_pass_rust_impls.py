@@ -52,11 +52,21 @@ GLOB_TRAIT = {
 PRIVATE_MEMBER = {**IMPL_METHOD, "b.rs": "impl crate::c::S {\n    fn m(&self) {}\n}\n"}
 
 
+def _verdict(result: dict[str, Any], identifier: str) -> str:
+    """The status of the rule. A scan with a gap decides no rule: the verdict is UNKNOWN then."""
+    status = statuses(result).get(identifier)
+    if status is None and result["declared_rules"] == "UNKNOWN":
+        return "UNKNOWN"
+    return str(status)
+
+
 def _sources(files: dict[str, str]) -> dict[str, str]:
     return {f"crates/app/src/{name}": text for name, text in files.items()}
 
 
-def _modules(requires_of_a: tuple[str, ...], files: dict[str, str]) -> tuple[dict[str, Any], ...]:
+def _modules(
+    requires_of_a: tuple[str, ...], files: dict[str, str], requires_of_b: tuple[str, ...] = ()
+) -> tuple[dict[str, Any], ...]:
     """A component for each module of `app`: the root (with the manifest), `a`, `b` and `c`."""
     root = {
         "id": "COMP-ROOT",
@@ -77,7 +87,7 @@ def _modules(requires_of_a: tuple[str, ...], files: dict[str, str]) -> tuple[dic
         component("base", "base_crate"),
         root,
         component("a", "app.a", ("root", *requires_of_a)),
-        component("b", "app.b", ("c",) if "crate::c" in files["b.rs"] else ()),
+        component("b", "app.b", (*requires_of_b, *(("c",) if "crate::c" in files["b.rs"] else ()))),
         component("c", "app.c"),
     )
 
@@ -102,7 +112,7 @@ def test_a_method_of_another_module_gives_no_false_pass(
     root = repository(tmp_path, rust_binary, _sources(files), rules=rules)
     result = validate(root, capsys)
 
-    assert statuses(result).get("NO-A-TO-B") == expected, result["diagnostics"]
+    assert _verdict(result, "NO-A-TO-B") == expected, result["diagnostics"]
 
 
 @pytest.mark.parametrize(
@@ -126,5 +136,37 @@ def test_the_gap_of_a_pair_is_dropped_only_when_the_contract_allows_the_pair(
     components = _modules(requires, files)
     result = validate(repository(tmp_path, rust_binary, sources, components=components), capsys)
 
-    assert statuses(result).get("REQUIRES") == expected, result["diagnostics"]
-    assert set(statuses(result).values()) == {expected}, statuses(result)
+    assert _verdict(result, "REQUIRES") == expected, result["diagnostics"]
+    assert result["declared_rules"] == expected, statuses(result)
+
+
+def test_the_gap_of_an_allowed_pair_stays_when_the_edge_closes_a_cycle(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # `b` uses `a`, so the hidden edge `a -> b` closes a cycle that NO-CYCLES must see.
+    files = {**IMPL_METHOD, "b.rs": "pub fn g() {\n    crate::a::f;\n}\n" + IMPL_METHOD["b.rs"]}
+    components = _modules(("b", "c"), files, requires_of_b=("a",))
+    result = validate(
+        repository(tmp_path, rust_binary, _sources(files), components=components), capsys
+    )
+
+    assert _verdict(result, "NO-CYCLES") == "UNKNOWN", result["diagnostics"]
+
+
+def test_a_cycle_rule_sees_a_path_through_a_pub_use_re_export(
+    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # AD-355 (FP-31): a rule on a module pair reads direct imports; `a -> c -> b` through the
+    # `pub use` of `c` is two edges, and a cycle or layer rule reads the path.
+    files = {
+        "lib.rs": LIB,
+        "b.rs": "pub fn make() {}\npub fn g() {\n    crate::a::f();\n}\n",
+        "c.rs": "pub use crate::b::make;\n",
+        "a.rs": "use crate::c::make;\npub fn f() {\n    make();\n}\n",
+    }
+    cycles = rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    rules = (*CRATE_RULES, NO_A_TO_B, cycles)
+    result = validate(repository(tmp_path, rust_binary, _sources(files), rules=rules), capsys)
+
+    assert statuses(result).get("NO-A-TO-B") == "PASS", result["diagnostics"]
+    assert statuses(result).get("MODULE-CYCLES") == "FAIL", result["diagnostics"]

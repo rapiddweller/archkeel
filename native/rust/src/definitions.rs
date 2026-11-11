@@ -65,3 +65,39 @@ pub enum Holder {
     /// `impl Trait for T`: the trait declares the members, so the block defines nothing.
     TraitImpl,
 }
+
+/// An inherent `impl` block at any depth: the path of its type as written, and its members. A
+/// method call elsewhere may reach a member, so the collector reads the block even in a function
+/// body, where it defines nothing of the module (#953).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImplBlock {
+    /// The segments of the type path, or `None` when the type is not a plain path.
+    pub path: Option<Vec<String>>,
+    /// The inline modules of the file that enclose the block.
+    pub scope: Vec<String>,
+    /// Each `fn` and `const` of the block, with its visibility as written.
+    pub members: Vec<Member>,
+}
+
+/// A member of an inherent `impl` block. Only a `fn` with a `self` parameter can be called as
+/// `x.m()`; any other member needs a path.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Member {
+    pub name: String,
+    pub access: Access,
+    pub receiver: bool,
+    /// The parameters besides `self`.
+    pub arity: usize,
+}
+
+/// A method call `x.m(..)` or `x.m::<..>(..)`, or a path `T::m` into another crate: the name, the
+/// place and the enclosing inline modules. A path can reach a member without a `self` parameter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MethodCall {
+    pub name: String,
+    pub site: Site,
+    pub scope: Vec<String>,
+    pub path: bool,
+    /// The arguments of `x.m(..)`, or `None` when the scan does not know them (a macro, a path).
+    pub arity: Option<usize>,
+}

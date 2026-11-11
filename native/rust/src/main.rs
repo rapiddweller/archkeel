@@ -16,6 +16,7 @@ mod crates;
 mod declared;
 mod definitions;
 mod edges;
+mod impl_edges;
 mod manifest;
 mod manifest_lines;
 mod module_edges;

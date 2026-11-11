@@ -18,48 +18,10 @@ use crate::attrs::{
     hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
     statement_attributes, trait_item_attributes,
 };
-use crate::definitions::{Definition, Holder};
+use crate::definitions::{Definition, Holder, ImplBlock, MethodCall};
 use crate::net;
 pub use crate::site::Site;
 use crate::tokens::{plain, Chain};
-
-/// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
-/// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
-const KNOWN_MACROS: [&str; 33] = [
-    "assert",
-    "assert_eq",
-    "assert_ne",
-    "debug_assert",
-    "debug_assert_eq",
-    "debug_assert_ne",
-    "format",
-    "format_args",
-    "print",
-    "println",
-    "eprint",
-    "eprintln",
-    "write",
-    "writeln",
-    "panic",
-    "unreachable",
-    "todo",
-    "unimplemented",
-    "vec",
-    "matches",
-    "dbg",
-    "env",
-    "option_env",
-    "concat",
-    "stringify",
-    "line",
-    "file",
-    "column",
-    "module_path",
-    "include_str",
-    "include_bytes",
-    "cfg",
-    "json",
-];
 
 /// A qualified path, or a `use` leaf: its first segment and the path as written.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -88,6 +50,8 @@ pub struct MacroDef {
     /// The place of the definition in the macro list of its file.
     pub id: usize,
     pub calls: BTreeSet<String>,
+    /// The methods that the body calls: each call of the macro calls them too (#953).
+    pub methods: BTreeSet<String>,
     pub unknowns: Vec<String>,
     /// A definition in a function body is visible only in the rest of that body.
     pub local: Option<Local>,
@@ -179,6 +143,9 @@ pub struct Scan {
     pub definitions: Vec<Definition>,
     /// The crate of each `extern crate name;` other than `self`, and its place.
     pub extern_crates: Vec<(String, Site)>,
+    /// The inherent `impl` blocks at any depth, and the method calls (#953).
+    pub impls: Vec<ImplBlock>,
+    pub method_calls: Vec<MethodCall>,
 }
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
@@ -246,6 +213,17 @@ impl Walker<'_> {
     fn concern(&mut self, reason: String, span: Span) {
         let site = self.site(span);
         self.out.concerns.push(Concern { reason, site });
+    }
+
+    fn method_call(&mut self, name: String, span: Span, arity: usize) {
+        let (site, scope) = (self.site(span), self.inline.clone());
+        self.out.method_calls.push(MethodCall {
+            name,
+            site,
+            scope,
+            path: false,
+            arity: Some(arity),
+        });
     }
 
     fn refer(&mut self, names: &[String], span: Span) {
@@ -335,6 +313,9 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             self.bind(name);
         }
         self.define(item);
+        if let Item::Impl(found) = item {
+            self.impl_block(found);
+        }
         let outer = match item {
             Item::Impl(item) if self.blocks == 0 => Some(self.enter_impl(item)),
             Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
@@ -385,6 +366,11 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             }
         }
         visit::visit_path(self, path);
+    }
+
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        self.method_call(plain(&node.method), node.method.span(), node.args.len());
+        visit::visit_expr_method_call(self, node);
     }
 
     fn visit_lit_str(&mut self, text: &'ast syn::LitStr) {

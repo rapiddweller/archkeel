@@ -35,6 +35,17 @@ pub struct Edge {
     pub level: i64,
 }
 
+/// The type that a path names, for the members of its `impl` blocks (#953).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TypeOf {
+    /// The lexical module that defines the type, and its name.
+    Known(String, String),
+    /// The scan cannot say which type it is: a glob may bring it in, or the path is UNKNOWN.
+    Unknown,
+    /// No type of this crate: another crate, `Self`, or an associated item.
+    Other,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     /// The path names no module of this crate (a crate, a type, a function).
@@ -130,7 +141,8 @@ fn climb(
     Ok((cur, ups, at))
 }
 
-fn inside(module: &str, root: &str) -> bool {
+/// Whether `module` is `root` or a module below it.
+pub fn inside(module: &str, root: &str) -> bool {
     module == root
         || module
             .strip_prefix(root)
@@ -143,7 +155,67 @@ fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
     })
 }
 
+impl Frame<'_> {
+    /// The lexical module of a place in the file: the file module and the enclosing inline ones.
+    pub fn lexical_at(&self, scope: &[String]) -> String {
+        lexical(self, scope)
+    }
+
+    /// The glob `use` items of the file.
+    pub fn globs(&self) -> impl Iterator<Item = &Reference> {
+        self.globs.iter().copied()
+    }
+
+    /// The `use` leaves of the file that bind `name`.
+    pub fn bound(&self, name: &str) -> &[&Reference] {
+        self.bindings.get(name).map_or(&[], Vec::as_slice)
+    }
+
+    /// The `use` leaves of the file that bind a name, also `_`.
+    pub fn leaves(&self) -> impl Iterator<Item = &Reference> {
+        self.bindings.values().flatten().copied()
+    }
+}
+
 impl<'a> Index<'a> {
+    /// The file module that holds a module or an inline module.
+    pub fn file_of(&self, lexical: &str) -> Option<&str> {
+        self.lexical.get(lexical).copied()
+    }
+
+    /// From the module `start` of the walk, down the modules that `rest` names.
+    pub fn reach(&self, start: &str, rest: &[String]) -> Outcome {
+        self.follow(start, 0, rest)
+    }
+
+    /// The type that `ty` names at `scope` of the file of `frame`. A name of one segment that the
+    /// file declares and that no `use` binds is a type of the place. One that the file does not
+    /// declare may come from a glob: the scan does not follow it, so it is `Unknown`.
+    pub fn type_of(&self, frame: &Frame<'_>, scope: &[String], ty: &[String]) -> TypeOf {
+        let Some(name) = ty.last().filter(|name| *name != "Self") else {
+            return TypeOf::Other;
+        };
+        let mut names = ty.to_vec();
+        names.push(String::new());
+        let path = Reference {
+            names,
+            scope: scope.to_vec(),
+            ..Reference::default()
+        };
+        let declared = frame.module.scan.counts.contains_key(name);
+        match self.resolve(frame, &path) {
+            Outcome::Edge(edge) if edge.symbol.as_ref() == Some(name) => {
+                TypeOf::Known(edge.lexical, name.clone())
+            }
+            Outcome::Unknown(_) => TypeOf::Unknown,
+            Outcome::None if ty.len() == 1 && declared => {
+                TypeOf::Known(lexical(frame, scope), name.clone())
+            }
+            Outcome::None if ty.len() == 1 && !frame.globs.is_empty() => TypeOf::Unknown,
+            _ => TypeOf::Other,
+        }
+    }
+
     pub fn frame(&self, module: &str) -> Option<&Frame<'a>> {
         self.frames.get(module)
     }
