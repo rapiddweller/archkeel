@@ -342,7 +342,7 @@ reports `missing_tool`
 
 ## The Rust contract parser
 
-The Rust contract parser (`native/contract`, [AD-359](architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md), [AD-361](architecture/decisions/ad-361-the-rust-contract-parser-reads-the-whole-grammar.md)) decides each contract as the Python parser does, with these stricter cases:
+The Rust contract parser (`native/contract`, [AD-359](architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md), [AD-364](architecture/decisions/ad-364-the-rust-contract-parser-reads-the-whole-grammar.md)) decides each contract as the Python parser does, with these stricter cases:
 
 - A repeated JSON key is an error (`DuplicateKey`). Python keeps the last value.
 - A lone surrogate escape is invalid JSON. Python parses it, and then `contract_bytes` fails with `UnicodeEncodeError`.

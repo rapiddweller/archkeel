@@ -1,4 +1,4 @@
-# AD-361 The Rust contract parser reads the whole grammar
+# AD-364 The Rust contract parser reads the whole grammar
 
 **Status.** Accepted. Epic #880, WP6 slice 0c-2. It extends [AD-359](ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md).
 

@@ -22,7 +22,7 @@
    first error has the same kind: `Invalid` (`ValueError`), `Version` (`ContractVersionError`) or
    `Input` (`ContractInputError`).
 6. Slice 0c-1 stopped with `Unsupported` at the rest of the grammar. Slice 0c-2 parses it and
-   removes that error kind ([AD-361](ad-361-the-rust-contract-parser-reads-the-whole-grammar.md)).
+   removes that error kind ([AD-364](ad-364-the-rust-contract-parser-reads-the-whole-grammar.md)).
 
 **Reason.** The model and the evaluator (64 000 lines of `ir/` and `check/`) need the contract in
 Rust. A crate boundary checks "no source id in the contract" without a review. The parity with the
@@ -31,11 +31,11 @@ Python parser lets the dual run compare verdicts, because both engines read one 
 **Rejected.**
 - A serde derive that parses the contract structs. The grammar must tell an absent key from `null`
   and must keep the Python check order. A derive cannot give both. Serde only writes the canonical
-  bytes (AD-361) and reads the words of the closed enums.
+  bytes (AD-364) and reads the words of the closed enums.
 - A contract parser inside `store`. Then `contract` would see `facts`.
 - A binary of the contract crate. The core is the only binary; the parity probe is an example.
 
-**Limit.** The inside contract tree is not in Rust (AD-361). Rust is stricter than Python in
+**Limit.** The inside contract tree is not in Rust (AD-364). Rust is stricter than Python in
 these cases:
 - A repeated JSON key is `DuplicateKey` (as #982). Python keeps the last value.
 - A lone surrogate escape: Python parses it, then `contract_bytes` fails with

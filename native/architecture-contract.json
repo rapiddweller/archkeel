@@ -108,7 +108,7 @@
       ],
       "provenance": [
         "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
-        "docs/architecture/decisions/ad-361-the-rust-contract-parser-reads-the-whole-grammar.md"
+        "docs/architecture/decisions/ad-364-the-rust-contract-parser-reads-the-whole-grammar.md"
       ],
       "decided_by": "architect"
     },
