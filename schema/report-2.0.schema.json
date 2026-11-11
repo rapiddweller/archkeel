@@ -1,0 +1,1579 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archkeel.dev/schema/report-2.0.schema.json",
+  "title": "ArchKeel report v2 payload",
+  "description": "AD-361. One payload, two readers: the page renders it, and the host prints its head (run, summary, rules, gaps and the node 0 rows of measures). It derives from the record sections of architecture.json, the contract as recorded there, and the rule rows of the evaluator. The tables are columnar: integer ids and codes and one string table. No path record and no reachability pair. Canonical bytes: keys in the order of `required`, no whitespace, UTF-8, JSON escapes only where JSON requires them, integers only in the tables, one trailing newline.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run",
+    "summary",
+    "rules",
+    "gaps",
+    "components",
+    "trend",
+    "strings",
+    "nodes",
+    "measures",
+    "units",
+    "variants",
+    "edges",
+    "via",
+    "crossings",
+    "findings",
+    "carriers"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0",
+      "description": "Semver. A reader accepts its own major version and shows a visible message for any other."
+    },
+    "run": {
+      "$ref": "#/$defs/Run"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RuleResult"
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/GapRow"
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Component"
+      }
+    },
+    "trend": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TrendPoint"
+      },
+      "description": "Oldest first. Empty or one point means no trend (G-TREND)."
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "description": "The one string table of the tables. Unique, sorted by UTF-8 bytes."
+    },
+    "nodes": {
+      "type": "object",
+      "description": "The containment tree. `parent` is the component tree: a module belongs to its innermost owning component, else to the system; a component to its parent component, else to the system; a package to its enclosing package, else to the system. `package` links a module to its package. No ancestor or reachability pair is stored. Columns have equal length. Row order: level, then depth, then key by UTF-8 bytes; a parent comes before its children.",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "parent",
+        "key",
+        "name",
+        "path",
+        "package",
+        "modules",
+        "units",
+        "fan_in",
+        "fan_out"
+      ],
+      "properties": {
+        "level": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Level"
+          }
+        },
+        "parent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        },
+        "key": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          },
+          "description": "Stable identity for the URL and for trend: \"\" for the system, \"package:\", \"component:\" or \"module:\" and the name."
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "package": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          },
+          "description": "The package node of a module; -1 for other nodes."
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "fan_in": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Distinct modules outside the node that import a module under it."
+        },
+        "fan_out": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Distinct modules outside the node that a module under it imports."
+        }
+      }
+    },
+    "measures": {
+      "type": "object",
+      "description": "One row per node and measure that applies; a missing row means not applicable. Integers only: a ratio is value and of. Columns have equal length. Row order: node, then measure.",
+      "additionalProperties": false,
+      "required": [
+        "node",
+        "def",
+        "state",
+        "value",
+        "of",
+        "gap",
+        "budget",
+        "budget_source",
+        "baseline",
+        "baseline_source",
+        "verdict"
+      ],
+      "properties": {
+        "node": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "def": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Measure"
+          }
+        },
+        "state": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MeasureState"
+          }
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "of": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "description": "-1 for a plain count."
+        },
+        "gap": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptGap"
+          },
+          "description": "Set for unknown and undeclared."
+        },
+        "budget": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "budget_source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          },
+          "description": "The id of the evaluated contract rule that sets the budget."
+        },
+        "baseline": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "baseline_source": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "verdict": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Verdict"
+          },
+          "description": "`none` without a budget or a baseline."
+        }
+      }
+    },
+    "units": {
+      "type": "object",
+      "description": "Definitions. Columns have equal length. Row order: module, then line, then name, then kind, then record id.",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "name",
+        "kind",
+        "vis",
+        "line",
+        "end_line",
+        "parent",
+        "decl",
+        "static"
+      ],
+      "properties": {
+        "module": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Kind"
+          }
+        },
+        "vis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Vis"
+          }
+        },
+        "line": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "end_line": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "description": "-1: not collected (G-CODE-LINES)."
+        },
+        "parent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        },
+        "decl": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          },
+          "description": "The first evidence line, without leading and trailing spaces and tabs, cut at 72 code points."
+        },
+        "static": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Flag"
+          }
+        }
+      }
+    },
+    "variants": {
+      "type": "object",
+      "description": "Enum variants. Columns have equal length. Row order: unit, then declaration order.",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "name"
+      ],
+      "properties": {
+        "unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "object",
+      "description": "Direct edges only. The page computes reachability and cycles from these rows. `target` compares the actual edge with the contract: a module edge has the target of the component pair at the first level where the two owner chains differ. A declared `requires` entry without an observed edge is a component edge with zero sites. Columns have equal length. Row order: module edges first, then component, then package; inside a level by from, then to.",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "from",
+        "to",
+        "names",
+        "sites",
+        "target",
+        "rationale",
+        "omitted",
+        "via_end"
+      ],
+      "properties": {
+        "level": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Level"
+          }
+        },
+        "from": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "to": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Distinct crossing names, including the omitted ones."
+        },
+        "sites": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Import sites. 0: declared and not observed."
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EdgeTarget"
+          }
+        },
+        "rationale": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "omitted": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Crossings left out by the cap of 200 per module edge."
+        },
+        "via_end": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "End offset into `via`. The module edges of edge i are via[via_end[i-1] .. via_end[i]]."
+        }
+      }
+    },
+    "via": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Id"
+      },
+      "description": "Module edge indexes, flat. A crossing is stored once, on its module edge."
+    },
+    "crossings": {
+      "type": "object",
+      "description": "The names that cross a module edge; \"*\" is a whole-module import. Columns have equal length. Row order: edge, then name.",
+      "additionalProperties": false,
+      "required": [
+        "edge",
+        "name",
+        "kind",
+        "unit",
+        "sites",
+        "line",
+        "reexport"
+      ],
+      "properties": {
+        "edge": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Kind"
+          }
+        },
+        "unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        },
+        "sites": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "line": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          },
+          "description": "First import line, or -1."
+        },
+        "reexport": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Flag"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "object",
+      "description": "Typed values only; each reader composes its own title. A hub has value at least `absolute` and at least `relative_permille` of `pool`. Columns have equal length. Row order: disposition, then kind, then value descending, then subject.",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "subject",
+        "value",
+        "pool",
+        "absolute",
+        "relative_permille",
+        "disposition",
+        "reason",
+        "carrier_total"
+      ],
+      "properties": {
+        "kind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FindingKind"
+          }
+        },
+        "subject": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "pool": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "absolute": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "relative_permille": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "disposition": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Disposition"
+          }
+        },
+        "reason": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Reason"
+          }
+        },
+        "carrier_total": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "carriers": {
+      "type": "object",
+      "description": "The names that carry a fan-in hub, at most 6 per finding. Columns have equal length. Row order: finding, then importers descending, then name.",
+      "additionalProperties": false,
+      "required": [
+        "finding",
+        "name",
+        "importers",
+        "unit"
+      ],
+      "properties": {
+        "finding": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "importers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "description": "Optional. An absent table means that fields are not collected (`run.not_carried`). Columns have equal length. Row order: unit, then declaration order.",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "name",
+        "type",
+        "type_unit"
+      ],
+      "properties": {
+        "unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "type_unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "description": "Optional. An absent table means that signatures are not collected. pos -1 is the return type. Columns have equal length. Row order: unit, then pos.",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "pos",
+        "name",
+        "type",
+        "type_unit"
+      ],
+      "properties": {
+        "unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "pos": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptStr"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StrId"
+          }
+        },
+        "type_unit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OptId"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Id": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Row index into the table that the column names."
+    },
+    "OptId": {
+      "type": "integer",
+      "minimum": -1,
+      "description": "Row index, or -1 for absent."
+    },
+    "StrId": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Index into `strings`."
+    },
+    "OptStr": {
+      "type": "integer",
+      "minimum": -1,
+      "description": "Index into `strings`, or -1 for absent."
+    },
+    "Flag": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "Level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "x-codes": [
+        "system",
+        "package",
+        "component",
+        "module"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "Kind": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 14,
+      "x-codes": [
+        "struct",
+        "enum",
+        "trait",
+        "class",
+        "interface",
+        "type_alias",
+        "constant",
+        "function",
+        "method",
+        "macro",
+        "variable",
+        "component",
+        "static",
+        "module",
+        "unknown"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "Vis": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "x-codes": [
+        "public",
+        "package",
+        "private",
+        "unknown"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "MeasureState": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "x-codes": [
+        "measured",
+        "unknown",
+        "undeclared",
+        "not_applicable"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "Verdict": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "x-codes": [
+        "none",
+        "within",
+        "over"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "EdgeTarget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "x-codes": [
+        "no_target",
+        "declared",
+        "undeclared"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "FindingKind": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "x-codes": [
+        "fan_in_hub",
+        "fan_out_hub",
+        "cycle",
+        "violation",
+        "api_outside_list",
+        "over_budget",
+        "unused_requires"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "Disposition": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "x-codes": [
+        "ranked",
+        "declared",
+        "context"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "Reason": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "x-codes": [
+        "open_question",
+        "kernel",
+        "orchestrator",
+        "crate_facade",
+        "test_only",
+        "rule_passes",
+        "left_declaration"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "Measure": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 13,
+      "x-codes": [
+        "R.clear",
+        "R.owned",
+        "R.stated",
+        "R.size",
+        "I.declared",
+        "I.api",
+        "I.surface",
+        "D.resolved",
+        "D.types",
+        "D.signatures",
+        "D.declared",
+        "E.known",
+        "E.parsed",
+        "E.excluded"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted. `x-measures` holds the text of each measure; the readers show it, the payload holds none.",
+      "x-measures": [
+        {
+          "id": "R.clear",
+          "panel": "responsibility",
+          "headline": true,
+          "title": "Modules with one owner and no open question",
+          "numerator": "modules that exactly one component owns and that no ranked finding names",
+          "denominator": "modules under this node",
+          "better": "higher"
+        },
+        {
+          "id": "R.owned",
+          "panel": "responsibility",
+          "headline": false,
+          "title": "Modules owned by exactly one component",
+          "numerator": "modules that exactly one component owns",
+          "denominator": "modules under this node",
+          "better": "higher"
+        },
+        {
+          "id": "R.stated",
+          "panel": "responsibility",
+          "headline": false,
+          "title": "Components that state what they do and what they never do",
+          "numerator": "components with at least one responsibility and one forbidden responsibility",
+          "denominator": "components under this node",
+          "better": "higher"
+        },
+        {
+          "id": "R.size",
+          "panel": "responsibility",
+          "headline": false,
+          "title": "Modules within the line budget",
+          "numerator": "modules with code_lines at most the budget (500, AD-314)",
+          "denominator": "modules under this node",
+          "better": "higher"
+        },
+        {
+          "id": "I.declared",
+          "panel": "interfaces",
+          "headline": true,
+          "title": "Observed component edges that the contract declares",
+          "numerator": "observed component edges with a requires entry",
+          "denominator": "observed component edges whose source is under this node",
+          "better": "higher"
+        },
+        {
+          "id": "I.api",
+          "panel": "interfaces",
+          "headline": false,
+          "title": "Crossing names inside the declared public API",
+          "numerator": "names imported from outside that the public_api list holds",
+          "denominator": "names imported from outside into a component with a public_api list",
+          "better": "higher"
+        },
+        {
+          "id": "I.surface",
+          "panel": "interfaces",
+          "headline": false,
+          "title": "Public items that another node imports",
+          "numerator": "top-level public units that a module outside this node imports",
+          "denominator": "top-level public units under this node",
+          "better": "neutral"
+        },
+        {
+          "id": "D.resolved",
+          "panel": "data",
+          "headline": true,
+          "title": "Crossing names bound to a definition",
+          "numerator": "imported names (without whole-module imports) bound to one definition",
+          "denominator": "imported names on module edges with an end under this node",
+          "better": "higher"
+        },
+        {
+          "id": "D.types",
+          "panel": "data",
+          "headline": false,
+          "title": "Crossing names that are data",
+          "numerator": "bound crossing names of kind struct, enum, type alias or constant",
+          "denominator": "crossing names bound to a definition",
+          "better": "neutral"
+        },
+        {
+          "id": "D.signatures",
+          "panel": "data",
+          "headline": false,
+          "title": "Public functions with parsed parameter and return types",
+          "numerator": "public functions and methods with complete parsed signatures",
+          "denominator": "public functions and methods",
+          "better": "higher"
+        },
+        {
+          "id": "D.declared",
+          "panel": "data",
+          "headline": false,
+          "title": "Crossing data types that the contract declares",
+          "numerator": "crossing data types in the declared boundary types",
+          "denominator": "crossing data types",
+          "better": "higher"
+        },
+        {
+          "id": "E.known",
+          "panel": "evidence",
+          "headline": true,
+          "title": "Measures of this node that are observed",
+          "numerator": "measures of the other panels in state measured",
+          "denominator": "measures of the other panels in state measured or unknown",
+          "better": "higher"
+        },
+        {
+          "id": "E.parsed",
+          "panel": "evidence",
+          "headline": false,
+          "title": "Files parsed",
+          "numerator": "files parsed",
+          "denominator": "files discovered in scope",
+          "better": "higher"
+        },
+        {
+          "id": "E.excluded",
+          "panel": "evidence",
+          "headline": false,
+          "title": "Files excluded by configuration",
+          "numerator": "files that the configuration excludes",
+          "denominator": null,
+          "better": "neutral"
+        }
+      ]
+    },
+    "Gap": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9,
+      "x-codes": [
+        "G-CODE-LINES",
+        "G-SIGNATURES",
+        "G-ORIGIN",
+        "G-USES",
+        "G-PUBLIC-API",
+        "G-BOUNDARY-TYPES",
+        "G-BUDGETS",
+        "G-TREND",
+        "G-EXCLUDED",
+        "G-NO-CONTRACT"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted. `x-gaps` holds the text of each gap; the readers show it, the payload holds none.",
+      "x-gaps": [
+        {
+          "id": "G-CODE-LINES",
+          "kind": "fact_missing",
+          "title": "No line count per module",
+          "reason": "The module record has no code_lines, so the report cannot apply the line budget of AD-314.",
+          "owner": "Collector",
+          "remedy": "Write code_lines per module, without test-only spans."
+        },
+        {
+          "id": "G-SIGNATURES",
+          "kind": "fact_missing",
+          "title": "No parsed signatures in the payload",
+          "reason": "The payload carries no parameter and return types, so it cannot say which data types a function takes or gives.",
+          "owner": "Collector and producer",
+          "remedy": "Write parsed parameters and returns, and add the params table."
+        },
+        {
+          "id": "G-ORIGIN",
+          "kind": "fact_missing",
+          "title": "An imported name is not bound to its definition",
+          "reason": "The import record has no origin_definition. A name that reaches its definition through a re-export stays unbound.",
+          "owner": "Collector",
+          "remedy": "Write origin_definition for each resolved import and follow re-exports."
+        },
+        {
+          "id": "G-USES",
+          "kind": "fact_missing",
+          "title": "No use sites below the import",
+          "reason": "The payload carries no references or calls, so it says \"imported by\" and never \"used by\".",
+          "owner": "Collector and producer",
+          "remedy": "Write reference records and add their count per crossing."
+        },
+        {
+          "id": "G-PUBLIC-API",
+          "kind": "contract_silent",
+          "title": "No public_api list",
+          "reason": "The contract names the direction (requires) and not the names that may cross.",
+          "owner": "Contract owner",
+          "remedy": "Add a public_api list to the component."
+        },
+        {
+          "id": "G-BOUNDARY-TYPES",
+          "kind": "contract_silent",
+          "title": "No declared data types on the boundary",
+          "reason": "The contract declares no boundary types, so the report cannot say which crossing types are intended.",
+          "owner": "Contract owner",
+          "remedy": "Declare the boundary types of each component."
+        },
+        {
+          "id": "G-BUDGETS",
+          "kind": "contract_silent",
+          "title": "No budget or baseline",
+          "reason": "No contract rule and no configured budget sets a limit for this measure, so it has no verdict (AD-21).",
+          "owner": "Contract owner",
+          "remedy": "Set a budget, or record the current value as the baseline."
+        },
+        {
+          "id": "G-TREND",
+          "kind": "history_missing",
+          "title": "No earlier measure points",
+          "reason": "A trend needs the measures of earlier commits. This payload has fewer than two points.",
+          "owner": "CI",
+          "remedy": "Keep the measures of each main commit and pass them to the producer."
+        },
+        {
+          "id": "G-EXCLUDED",
+          "kind": "fact_missing",
+          "title": "Excluded files are not in the record sections",
+          "reason": "architecture.json does not record the files that the configuration excludes, so the payload cannot count them.",
+          "owner": "Producer",
+          "remedy": "Record the excluded files in the report and copy the count."
+        },
+        {
+          "id": "G-NO-CONTRACT",
+          "kind": "contract_silent",
+          "title": "No contract",
+          "reason": "The run has no contract, so every measure that needs a declaration has no target.",
+          "owner": "Contract owner",
+          "remedy": "Write a contract with archkeel init."
+        }
+      ]
+    },
+    "Relation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9,
+      "x-codes": [
+        "imports",
+        "reexports",
+        "variants",
+        "calls",
+        "references",
+        "implements",
+        "uses_type",
+        "fields",
+        "signatures",
+        "code_lines"
+      ],
+      "description": "Code = position in x-codes. A new value is appended and never inserted."
+    },
+    "OptGap": {
+      "type": "integer",
+      "minimum": -1,
+      "maximum": 9,
+      "description": "A code of Gap, or -1 for absent."
+    },
+    "Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language",
+        "source",
+        "contract",
+        "coverage",
+        "not_ranked",
+        "not_carried",
+        "payload_budget"
+      ],
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "The `runtime.name` of architecture.json, such as python, rust, typescript or dart."
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "git_head",
+            "dirty",
+            "scope"
+          ],
+          "properties": {
+            "git_head": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dirty": {
+              "type": "boolean"
+            },
+            "scope": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "contract": {
+          "description": "null for a run without a contract (explore). Then every measure that needs a declaration is undeclared.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "digest",
+                "schema_version"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "digest": {
+                  "type": "string"
+                },
+                "schema_version": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "files_discovered",
+            "files_read",
+            "files_parsed"
+          ],
+          "properties": {
+            "files_discovered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "files_read": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "files_parsed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "not_ranked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "count"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "description": "Derived shapes that are never ranked while their rule passes, such as a package cycle that exists only in the roll-up."
+        },
+        "not_carried": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relation"
+          },
+          "description": "Relations that this payload does not carry. The page shows each one as \"not collected yet\" and never draws it. Ascending codes."
+        },
+        "payload_budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_bytes"
+          ],
+          "properties": {
+            "max_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "description": "The producer fails the run above max_bytes and never truncates in silence."
+        }
+      },
+      "description": "No producer name, version or timestamp: the Python oracle and the Rust core write the same bytes."
+    },
+    "Summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "counts"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN"
+          ],
+          "description": "The declared-rules verdict of the evaluator, copied: FAIL if a rule fails; UNKNOWN if a rule is UNKNOWN or a position is undecided (AD-92); else PASS."
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "packages",
+            "components",
+            "modules",
+            "units",
+            "module_edges",
+            "component_edges",
+            "package_edges",
+            "crossing_names",
+            "crossing_names_unbound",
+            "undeclared_edges",
+            "unused_edges",
+            "cycles",
+            "unowned_modules",
+            "findings_ranked",
+            "findings_declared",
+            "findings_context",
+            "rules_pass",
+            "rules_fail",
+            "rules_unknown",
+            "rules_declaration",
+            "gaps"
+          ],
+          "properties": {
+            "packages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "components": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modules": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "units": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "module_edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "component_edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "package_edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "crossing_names": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "crossing_names_unbound": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "undeclared_edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unused_edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cycles": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unowned_modules": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "findings_ranked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "findings_declared": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "findings_context": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rules_pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rules_fail": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rules_unknown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rules_declaration": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gaps": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "`cycles` leaves out the package cycles that exist only in the roll-up; `run.not_ranked` counts them."
+        }
+      },
+      "description": "What the host prints, with `run`, `rules`, `gaps` and the `measures` rows of node 0. Typed fields only: each reader composes its own text. Never a score."
+    },
+    "RuleResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "verdict",
+        "evaluated",
+        "violations",
+        "rationale",
+        "decided_by"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNKNOWN",
+            "DECLARATION"
+          ]
+        },
+        "evaluated": {
+          "type": "boolean",
+          "description": "false forces a verdict other than PASS: a rule without an evaluator receipt never shows PASS (AD-117)."
+        },
+        "violations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Violations of this rule. The printed summary shows it."
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "decided_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "if": {
+        "properties": {
+          "evaluated": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "verdict": {
+            "not": {
+              "const": "PASS"
+            }
+          }
+        }
+      },
+      "description": "One rule row of the evaluator, copied and never decided by the producer. Order: id."
+    },
+    "GapRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap",
+        "blocks"
+      ],
+      "properties": {
+        "gap": {
+          "$ref": "#/$defs/Gap"
+        },
+        "blocks": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Measure rows that the gap blocks."
+        }
+      },
+      "description": "One gap that this payload references. Order: gap code."
+    },
+    "Component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node",
+        "does",
+        "never",
+        "decided_by",
+        "provenance",
+        "role",
+        "public_api"
+      ],
+      "properties": {
+        "node": {
+          "$ref": "#/$defs/Id"
+        },
+        "does": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "never": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "decided_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "From the contract; null when the contract declares none."
+        },
+        "public_api": {
+          "description": "The flat public_api list of the contract, or null when the contract has none.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "description": "Contract text of one component node. Order: node."
+    },
+    "TrendPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "measure",
+        "value",
+        "of"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string"
+        },
+        "measure": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Measure"
+          }
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        },
+        "of": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        }
+      },
+      "description": "The system measures of one earlier commit. Columns have equal length."
+    }
+  }
+}
