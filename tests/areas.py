@@ -10,7 +10,11 @@ from fnmatch import fnmatchcase
 # up to 2 times as long on one runner as on another, so the summed test time of an area on such a
 # runner must stay below about 24 minutes for 4 workers.
 AREAS: dict[str, tuple[str, ...]] = {
-    "demo catalog": ("test_architecture_demo.py", "test_demo_catalog_studio.py"),
+    "demo catalog": (
+        "test_architecture_demo.py",
+        "test_demo_catalog_studio.py",
+        "test_dual_run.py",
+    ),
     "TypeScript collector target": ("test_typescript_control_target.py",),
     "boundary types": (
         "test_boundary_*.py",

@@ -30,6 +30,24 @@ A grammar crate links a vendored C parser and gives its language; only a grammar
 Clippy, `cargo deny` and the file size rule stay outside the contract
 ([AD-327](decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md)).
 
+## The dual run
+
+The Rust model and evaluator (WP6 of #880) must give the verdicts and rows of the Python engine.
+`make dual-run` compares a candidate engine with the recorded oracles in `tests/dual_run/`
+([AD-360](decisions/ad-360-a-second-engine-is-compared-with-recorded-oracles-per-section-and-rule-family.md)).
+A slice names what it owns:
+
+```bash
+make dual-run DUAL_RUN_ARGS="--sections modules,packages --families direction \
+  --engine-command 'native/target/debug/archkeel-core dual-run'"
+```
+
+The engine command reads one JSON request on standard input: `protocol`, `case`, `root`,
+`config`, `baseline`, `contracts` and `reply`. It writes one frame on standard output: `rules`
+(rule id to kind and status) and the columnar `architecture` or the canonical `sections`.
+`python -m tools.dual_run serve-python` is the reference: it serves the Python engine. The
+binary name in the example is a placeholder: no Rust engine exists yet.
+
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
