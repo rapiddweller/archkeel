@@ -34,7 +34,8 @@
             "properties": {
               "protocol_version": {
                 "enum": [
-                  "9.0.0"
+                  "9.0.0",
+                  "10.0.0"
                 ]
               }
             },
@@ -62,6 +63,50 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol_version": {
+                "enum": [
+                  "10.0.0"
+                ]
+              }
+            },
+            "required": [
+              "protocol_version"
+            ]
+          },
+          "then": {
+            "properties": {
+              "resolver": {
+                "properties": {
+                  "language": {
+                    "const": "python"
+                  }
+                },
+                "required": [
+                  "language"
+                ]
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "properties": {
+                "resolver": {
+                  "properties": {
+                    "language": {
+                      "const": "python"
+                    }
+                  },
+                  "required": [
+                    "language"
+                  ]
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -70,7 +115,8 @@
       "enum": [
         "3.0.0",
         "8.0.0",
-        "9.0.0"
+        "9.0.0",
+        "10.0.0"
       ],
       "description": "A request version that the host sends to a native collector."
     },
@@ -178,9 +224,68 @@
           "required": [
             "language"
           ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "python"
+            },
+            "phase": {
+              "$ref": "#/$defs/PythonPhase"
+            },
+            "interpreter": {
+              "$ref": "#/$defs/Interpreter"
+            }
+          },
+          "required": [
+            "language",
+            "phase",
+            "interpreter"
+          ],
+          "description": "The settings of the Python collector (AD-334). Only protocol 10.0.0 carries them."
         }
       ],
       "description": "The settings of one language. The tag is the language that the collector reads."
+    },
+    "PythonPhase": {
+      "type": "string",
+      "enum": [
+        "imports"
+      ],
+      "description": "The part of the Python collection that the request asks for. Slice 1 has the import survey."
+    },
+    "Interpreter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "`platform.python_version()`, for example `3.11.12`: the version that the facts claim."
+        },
+        "stdlib_module_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "`sys.stdlib_module_names`, sorted."
+        },
+        "builtin_module_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "`sys.builtin_module_names`, sorted. The set depends on the build, not on the version."
+        }
+      },
+      "required": [
+        "version",
+        "stdlib_module_names",
+        "builtin_module_names"
+      ],
+      "description": "What the host interpreter is, as one isolated child (`python -I`) sees it. The host builds it\nin one function (`analyzer/interpreter.py`); the collector reads it and never runs Python."
     }
   }
 }

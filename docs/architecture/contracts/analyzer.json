@@ -24,6 +24,7 @@
       "exact_modules": [
         "archkeel.analyzer",
         "archkeel.analyzer.process",
+        "archkeel.analyzer.interpreter",
         "archkeel.analyzer.pin",
         "archkeel.analyzer.memory_limit",
         "archkeel.analyzer.reply_checks",

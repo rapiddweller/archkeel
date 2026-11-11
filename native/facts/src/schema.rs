@@ -46,7 +46,9 @@ pub fn request_schema() -> Value {
     let mut generator = SchemaSettings::draft2020_12().into_generator();
     let root = generator.subschema_for::<Request>();
     let mut definitions = generator.take_definitions(true);
-    definitions["Request"]["allOf"] = test_scope_rule();
+    let mut rules = test_scope_rule();
+    rules.push(python_rule());
+    definitions["Request"]["allOf"] = Value::Array(rules);
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "archkeel collection request",
@@ -58,17 +60,34 @@ pub fn request_schema() -> Value {
 
 /// A version with a test scope requires `scope.exclude_test_sources`; the others refuse it
 /// (`Scope::check`). A type cannot say this, so the schema says it per version.
-fn test_scope_rule() -> Value {
+fn test_scope_rule() -> Vec<Value> {
     let with: Vec<&str> = Version::ALL
         .iter()
         .filter(|version| version.has_test_scope())
         .map(|version| version.as_str())
         .collect();
-    json!([{
+    vec![json!({
         "if": {"properties": {"protocol_version": {"enum": with}}, "required": ["protocol_version"]},
         "then": {"properties": {"scope": {"required": ["exclude_test_sources"]}}},
         "else": {"properties": {"scope": {"not": {"required": ["exclude_test_sources"]}}}},
-    }])
+    })]
+}
+
+/// The Python resolver comes only with a Python version, and a Python version only with it
+/// (`Request::validate`).
+fn python_rule() -> Value {
+    let python: Vec<&str> = Version::ALL
+        .iter()
+        .filter(|version| version.is_python())
+        .map(|version| version.as_str())
+        .collect();
+    let resolver = json!({"properties": {"resolver": {
+        "properties": {"language": {"const": "python"}}, "required": ["language"]}}});
+    json!({
+        "if": {"properties": {"protocol_version": {"enum": python}}, "required": ["protocol_version"]},
+        "then": resolver,
+        "else": {"not": resolver},
+    })
 }
 
 /// The text of the request schema.

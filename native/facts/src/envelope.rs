@@ -40,6 +40,7 @@ closed! {
     pub enum ProtocolVersion {
         V8 = "8.0.0",
         V9 = "9.0.0",
+        V10 = "10.0.0",
     }
 }
 

@@ -181,7 +181,8 @@ def test_a_refused_request_is_an_execution_error_with_the_stderr_tail(binary: Pa
     assert isinstance(result, CollectionError)
     assert result.kind is CollectionErrorKind.EXECUTION_ERROR
     assert "Collector exited 1" in result.message
-    assert "unknown variant `python`, expected `typescript` or `rust`" in result.message
+    # A Python resolver needs the fields of protocol 10.0.0 (AD-334).
+    assert "invalid collection request: missing field `phase`" in result.message
 
 
 def test_the_host_bounds_time_and_output(tmp_path: Path, binary: Path) -> None:

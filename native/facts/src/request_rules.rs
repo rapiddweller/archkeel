@@ -6,7 +6,7 @@
 //! that is not valid, as `facts_codec.decode_request` does.
 
 use crate::identity::{inside, is_identifier};
-use crate::request::{Request, Resolver, Scope, Snapshot};
+use crate::request::{Interpreter, Request, Resolver, Scope, Snapshot};
 
 impl<R> Request<R> {
     /// Check the snapshot and the scope. The settings of a language check themselves.
@@ -74,8 +74,59 @@ impl Resolver {
         match self {
             Resolver::TypeScript(settings) => relative(&settings.tsconfig, "resolver.tsconfig"),
             Resolver::Rust(_) => Ok(()),
+            Resolver::Python(settings) => settings.interpreter.check(),
         }
     }
+}
+
+/// The minor versions of Python that the native collector parses (`CPYTHON_NATIVE_RUNTIMES`).
+const PYTHON_MINORS: std::ops::RangeInclusive<u32> = 11..=14;
+
+impl Interpreter {
+    /// The minor version: `11` for `3.11.12`. `check` proves that it is in `PYTHON_MINORS`.
+    pub fn minor(&self) -> u32 {
+        version_parts(&self.version).map_or(0, |(_, minor)| minor)
+    }
+
+    fn check(&self) -> Result<(), String> {
+        let label = "resolver.interpreter.version";
+        let Some((3, minor)) = version_parts(&self.version) else {
+            return Err(format!(
+                "{label} must be a full Python version, such as 3.11.12"
+            ));
+        };
+        if !PYTHON_MINORS.contains(&minor) {
+            return Err(format!("{label} must be Python 3.11 to 3.14"));
+        }
+        module_names(&self.stdlib_module_names, "stdlib_module_names")?;
+        module_names(&self.builtin_module_names, "builtin_module_names")
+    }
+}
+
+/// The major and minor number of `platform.python_version()`: three dotted numbers, and the patch
+/// can carry a suffix such as `rc1` or `+`.
+fn version_parts(version: &str) -> Option<(u32, u32)> {
+    let mut parts = version.splitn(3, '.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?;
+    let patch = parts.next()?;
+    let digits = patch.bytes().take_while(u8::is_ascii_digit).count();
+    let number = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    if !number(minor) || digits == 0 {
+        return None;
+    }
+    Some((major, minor.parse().ok()?))
+}
+
+fn module_names(names: &[String], field: &str) -> Result<(), String> {
+    let label = format!("resolver.interpreter.{field}");
+    if !names.iter().all(|name| is_identifier(name)) {
+        return Err(format!("{label} must hold module names"));
+    }
+    if names.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(format!("{label} must be sorted and unique"));
+    }
+    Ok(())
 }
 
 fn text(value: &str, label: &str) -> Result<(), String> {

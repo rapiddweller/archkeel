@@ -16,6 +16,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from archkeel.ir.protocol import (
+    NATIVE_PYTHON_PROTOCOL,
     ProtocolVersion,
     SnapshotInput,
     SourceScope,
@@ -26,7 +27,12 @@ from archkeel.ir.protocol import (
 SCHEMA = Path(__file__).parents[1] / "native/facts/schema/archkeel-request.schema.json"
 # The request versions that a native collector reads: the same list as `Version::ALL` in
 # `native/facts/src/protocol.rs`. Only this test reads the list, so it lives here (#1009).
-NATIVE_REQUEST_PROTOCOLS = (ProtocolVersion.V3, ProtocolVersion.V8, ProtocolVersion.V9)
+NATIVE_REQUEST_PROTOCOLS = (
+    ProtocolVersion.V3,
+    ProtocolVersion.V8,
+    ProtocolVersion.V9,
+    NATIVE_PYTHON_PROTOCOL,
+)
 
 
 def test_the_python_list_equals_the_versions_of_the_generated_request_schema() -> None:
@@ -41,11 +47,13 @@ def test_the_builder_sends_a_version_of_the_list() -> None:
     scoped = collection_request(snapshot, SourceScope(("src",), "shop", True), TypeScriptSettings())
     assert {plain.protocol_version, scoped.protocol_version} <= set(NATIVE_REQUEST_PROTOCOLS)
     assert plain.protocol_version != scoped.protocol_version
+    # 10.0.0 is only the request of the native Python collector (AD-334).
+    assert NATIVE_PYTHON_PROTOCOL not in {plain.protocol_version, scoped.protocol_version}
 
 
 def _request(version: str = "8.0.0") -> dict[str, Any]:
     scope: dict[str, Any] = {"roots": ["src"], "namespace": "shop"}
-    if version == "9.0.0":
+    if version in {"9.0.0", "10.0.0"}:
         scope["exclude_test_sources"] = False
     return {
         "protocol_version": version,
@@ -72,7 +80,10 @@ def _refused() -> list[dict[str, Any]]:
         cases.append(case)
     nine = _request("9.0.0")
     del nine["scope"]["exclude_test_sources"]
-    return [*cases, nine]
+    # 10.0.0 carries only the Python resolver, and the Python resolver only 10.0.0 (AD-334).
+    ten = _request("10.0.0")
+    ten["scope"]["exclude_test_sources"] = False
+    return [*cases, nine, ten]
 
 
 @pytest.mark.parametrize("request_value", _refused())
