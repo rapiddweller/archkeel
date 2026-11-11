@@ -109,6 +109,31 @@ MACRO_PROBES = {
         },
         "FAIL",
     ),
+    "a nested function of the body calls the macro": (
+        {
+            "lib.rs": "mod a;\nmod b;\n",
+            "a.rs": "fn f() {\n    macro_rules! m { () => { crate::b::make() }; }\n"
+            "    fn g() { m!(); }\n}\n",
+        },
+        "FAIL",
+    ),
+    "a closure of the body calls the macro": (
+        {
+            "lib.rs": "mod a;\nmod b;\n",
+            "a.rs": "fn f() {\n    macro_rules! m { () => { crate::b::make() }; }\n"
+            "    let c = || { m!(); };\n    c();\n}\n",
+        },
+        "FAIL",
+    ),
+    "a later definition of the name does not hide the earlier one": (
+        {
+            "lib.rs": "mod a;\nmod b;\nmod c;\n",
+            "a.rs": "fn f() {\n    macro_rules! m { () => { crate::b::make() }; }\n    m!();\n"
+            "    macro_rules! m { () => { crate::c::make() }; }\n}\n",
+            "c.rs": "pub fn make() {}\n",
+        },
+        "FAIL",
+    ),
     "a crate-wide macro of the same name is also in scope": (
         {
             "lib.rs": "mod a;\nmod b;\n",
