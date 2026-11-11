@@ -6,7 +6,10 @@
 from __future__ import annotations
 
 import copy
+import shutil
+import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 from typing import Any
 
@@ -285,3 +288,113 @@ def test_a_command_engine_with_a_planted_difference_fails_the_run(
     assert "fixture/H-uml: rules: " in output
     assert f"engine: {command}" in output
     assert "1 differences" in output
+
+
+def _python_with(tmp_path: Path, version: str, source: Path | None = None) -> Path:
+    """An interpreter whose installed `archkeel` metadata says `version`, and that imports
+    `archkeel` from `source` when given. The host and each collector process that it starts see
+    both (`-I` still reads the site-packages)."""
+    venv = tmp_path / "venv"
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], check=True)
+    [site] = (venv / "lib").glob("python*/site-packages")
+    dist = site / f"archkeel-{version}.dist-info"
+    dist.mkdir()
+    (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: archkeel\nVersion: {version}\n")
+    real = sysconfig.get_paths()["purelib"]
+    lines = [f"import site; site.addsitedir({real!r})"]
+    if source is not None:
+        lines.append(f"import sys; sys.path.insert(0, {str(source)!r})")
+    (site / "installed.pth").write_text("\n".join(lines) + "\n")
+    return venv / "bin" / "python"
+
+
+INVENTORY_CASES = ["--case", "fixture/J-compass", "--case", "fixture/L-nest-realworld"]
+
+
+def _compare_with(python: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(python), "-m", "tools.dual_run", "compare", *INVENTORY_CASES, "--jobs", "2"],
+        cwd=REPOSITORY,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the venv layout of the test is POSIX")
+def test_the_oracles_hold_for_any_installed_version(tmp_path: Path) -> None:
+    """CI installs a version from Git (for example `4.0.2.dev293+g...`), a local install can
+    have `0.0.0`. The member inventory binding reads the adapter version, so the harness pins it."""
+    python = _python_with(tmp_path, "9.9.9.dev1+gplanted")
+    version = subprocess.run(
+        [str(python), "-I", "-c", "import importlib.metadata as m; print(m.version('archkeel'))"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert version == "9.9.9.dev1+gplanted"
+    done = _compare_with(python)
+    assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the venv layout of the test is POSIX")
+def test_the_oracles_hold_when_the_python_source_changes(tmp_path: Path) -> None:
+    """The binding reads the code digest of the package and of the collector. A comment in a
+    collector file changes both digests; the harness pins them, so the oracles stay valid."""
+    source = tmp_path / "src"
+    shutil.copytree(REPOSITORY / "src", source, ignore=shutil.ignore_patterns("__pycache__"))
+    changed = source / "archkeel/analyzer/typescript/__init__.py"
+    changed.write_text(changed.read_text() + "# A planted comment changes the code digest.\n")
+    python = _python_with(tmp_path, "0.0.0", source)
+    imported = subprocess.run(
+        [str(python), "-I", "-c", "import archkeel; print(archkeel.__file__)"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert imported.startswith(str(source))
+    done = _compare_with(python)
+    assert done.returncode == 0, done.stdout[-3000:] + done.stderr[-3000:]
+
+
+def test_a_changed_member_inventory_row_still_fails() -> None:
+    """The pin fixes the inputs of the binding; it masks no row. A changed row is a difference."""
+    case = _case("fixture/L-nest-realworld")
+    with dual_run.materialized(case) as root:
+        frame = dual_run.run_engine(case, root, None, Selection())
+    oracle = dual_run_oracle.read_oracle(dual_run.oracle_path(case))
+    sections = dual_run_oracle.decode_sections(frame["architecture"])
+    assert _compare(oracle, {"rules": frame["rules"], "sections": sections}) == []
+    rows = sections["scope_observations"]
+    [index] = [i for i, row in enumerate(rows) if row["id"].startswith("MEMBER-INVENTORY-")]
+    rows[index]["data"]["binding"] = "0" * 64
+    [difference] = _compare(oracle, {"rules": frame["rules"], "sections": sections})
+    assert (difference.scope, difference.id) == ("scope_observations", rows[index]["id"])
+    assert "differs" in difference.detail
+
+
+def test_the_pin_changes_only_the_adapter_identity_of_this_install() -> None:
+    import json
+    import zlib
+
+    from tools.dual_run_python import PINNED_DIGEST, PINNED_VERSION, with_pinned_version
+
+    reply = {"facts": {"adapter": {"name": "x", "version": "4.0.2.dev1+g1"}, "files": [1]}}
+    plain = json.dumps(reply).encode()
+    assert json.loads(with_pinned_version(plain, "4.0.2.dev1+g1"))["facts"] == {
+        "adapter": {"name": "x", "version": PINNED_VERSION, "code_digest": PINNED_DIGEST},
+        "files": [1],
+    }
+    pinned = with_pinned_version(zlib.compress(plain), "4.0.2.dev1+g1")
+    assert json.loads(zlib.decompress(pinned))["facts"]["adapter"]["version"] == PINNED_VERSION
+    # Another producer (a native collector of its own version) and a reply that is no JSON stay.
+    assert with_pinned_version(plain, "5.0.0") == plain
+    assert with_pinned_version(b"not json", "4.0.2.dev1+g1") == b"not json"
+
+
+def test_a_run_with_no_owned_rule_and_no_section_fails(capsys: pytest.CaptureFixture[str]) -> None:
+    """58 corpus cases have no rule: with no section either, such a run compares nothing."""
+    case = _case("fixture/E-runtime")
+    assert dual_run.report([(case, 0, [])], Selection((), None), None, 0.0) == 2
+    assert "compares nothing" in capsys.readouterr().out
+    assert dual_run.report([(case, 0, [])], Selection(("modules",), None), None, 0.0) == 0

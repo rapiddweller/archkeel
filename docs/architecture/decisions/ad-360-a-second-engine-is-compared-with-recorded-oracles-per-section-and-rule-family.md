@@ -30,7 +30,10 @@
    writes a frame: `rules` and a columnar `architecture` or the canonical `sections`.
    `python -m tools.dual_run serve-python` serves the Python engine this way.
 8. The harness commits each case with a fixed date, so a binding to the source identity is stable.
-9. A rule kind with fewer than `fail_case_minimum` FAIL cases of its own (distinct violation rows)
+9. The Python adapter pins the Archkeel version that the engine sees to `0.0.0`: the host expects
+   it, and the reply of a collector of this install carries it. A member inventory binding reads
+   that version, so the oracles hold for an install from Git too (`tools/dual_run_python.py`).
+10. A rule kind with fewer than `fail_case_minimum` FAIL cases of its own (distinct violation rows)
    is in `fail_case_gap`. The slice of that kind adds FAIL cases before it deletes Python code.
 
 **Reason.** The Rust model and evaluator replace `ir/` and `check/` one family at a time. Each
@@ -49,4 +52,4 @@ collector change changes the Rust oracles: record them again in the same PR.
 **Tests.** `tests/test_dual_run.py` (26 tests, in the PR suite): planted verdict, dropped, reordered
 and added rows, unknown sections and families, rows without rule ids in a family slice, a run
 that selects nothing, `record` guards, an engine timeout, the schema, the named gap, the fixture
-subset equal to its oracles.
+subset equal to its oracles, also under another installed version.

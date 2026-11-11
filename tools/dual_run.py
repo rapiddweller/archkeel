@@ -346,6 +346,9 @@ def report(
         f"dual run: family {family}; {len(selection.sections)} sections; {len(results)} projects; "
         f"{rules} rules; {total} differences; {seconds:.1f} s"
     )
+    if not selection.sections and rules == 0:
+        print("the run compares nothing: 0 owned rules and 0 sections")
+        return 2
     if selection.kinds is not None and rules == 0:
         print("the families select 0 rules in these projects")
         return 2
