@@ -17,6 +17,8 @@ use crate::crates::Crate;
 /// The crates that every Rust program can name without a dependency.
 /// One string, so that no literal of this file is itself the name of a crate (the safety net).
 const SYSROOT: &str = "std core alloc";
+/// The crates of the sysroot that only `extern crate` brings in.
+const EXTERN_SYSROOT: &str = "proc_macro test";
 /// First segments that never name a crate.
 const RELATIVE: [&str; 4] = ["crate", "self", "super", "Self"];
 
@@ -65,6 +67,16 @@ pub fn classify(
     } else {
         Found::Edge(named)
     })
+}
+
+/// Whether the build gives `extern crate name;` without a link that a `build.rs` prints: a crate
+/// of the sysroot, an entry of the manifest, or the library of the own package.
+pub fn linked(name: &str, krate: &Crate) -> bool {
+    let sysroot = SYSROOT.split(' ').chain(EXTERN_SYSROOT.split(' '));
+    sysroot
+        .chain([krate.ident.as_str()])
+        .any(|known| known == name)
+        || krate.manifest.dependencies.contains_key(name)
 }
 
 #[cfg(test)]

@@ -177,6 +177,8 @@ pub struct Scan {
     pub mentioned: BTreeSet<String>,
     /// The items, the members of the inherent `impl` blocks and the members of the traits.
     pub definitions: Vec<Definition>,
+    /// The crate of each `extern crate name;` other than `self`, and its place.
+    pub extern_crates: Vec<(String, Site)>,
 }
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only

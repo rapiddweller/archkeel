@@ -306,8 +306,9 @@ reports `missing_tool`
   scan does not know is read (the union of the cases). `interface_boundary` stays unsupported until
   the uses of an item are resolved (slice 5b-4b).
 - **`extern crate` without a manifest entry.** `extern crate base_crate;` with no entry in
-  `Cargo.toml` gives no edge. It compiles only when a `build.rs` prints
-  `cargo:rustc-link-search=crate=...`. Such a link is not read.
+  `Cargo.toml` is UNKNOWN, never PASS. It compiles only when a `build.rs` prints
+  `cargo:rustc-link-search=crate=...`. Such a link is not read
+  ([AD-356](architecture/decisions/ad-356-a-call-or-crate-that-a-producer-cannot-see-is-a-gap.md)).
 - **An attribute name in a macro body** is read as a derive helper, not as a crate name
   ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md),
   amendment (b)). A crate that a macro reaches through such a name is seen only when the manifest

@@ -96,3 +96,20 @@ fn a_local_root_a_prelude_name_an_unknown_name_and_the_package_itself_are_no_edg
         assert_eq!(found(root, &[], false), None, "{root}");
     }
 }
+
+#[test]
+fn an_extern_crate_is_linked_only_by_the_sysroot_the_manifest_or_the_own_library() {
+    for name in [
+        "std",
+        "alloc",
+        "proc_macro",
+        "test",
+        "json_dep",
+        "renamed",
+        "my_app",
+    ] {
+        assert!(linked(name, &krate()), "{name}");
+    }
+    assert!(!linked("real_name", &krate()));
+    assert!(!linked("base_crate", &krate()));
+}

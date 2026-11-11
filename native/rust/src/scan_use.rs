@@ -97,6 +97,10 @@ impl Walker<'_> {
     pub(super) fn extern_crate(&mut self, node: &ItemExternCrate) {
         let span = node.ident.span();
         self.refer(&[plain(&node.ident)], span);
+        if node.ident != "self" {
+            let site = self.site(span);
+            self.out.extern_crates.push((plain(&node.ident), site));
+        }
         if let (true, Some((_, rename))) = (node.ident == "self", &node.rename) {
             self.via = Via::Use {
                 binding: Some(plain(rename)),
