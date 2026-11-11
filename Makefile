@@ -86,7 +86,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py
+	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py
 	$(MAKE) self-validate-native
 
 # AD-335: Archkeel checks the Rust of native/ with its own Rust collector and its own contract.

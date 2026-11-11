@@ -177,6 +177,31 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-REPORT",
+      "label": "report",
+      "role": "component",
+      "packages": [
+        "native.archkeel_report"
+      ],
+      "responsibilities": [
+        "Own the report v2 payload: the typed Report frame, its canonical bytes, the status rule and the check that refuses a frame whose status has no explaining row (AD-361, AD-371)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file, deciding a verdict, naming a language, and writing a PASS that no Decision of the model holds."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-CORE",
       "label": "core",
       "role": "component",

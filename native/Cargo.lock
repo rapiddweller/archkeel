@@ -113,6 +113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-report"
+version = "0.0.0"
+dependencies = [
+ "archkeel-model",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "archkeel-rust-collector"
 version = "0.0.0"
 dependencies = [
