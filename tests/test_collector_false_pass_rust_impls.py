@@ -156,7 +156,7 @@ def test_the_gap_of_an_allowed_pair_stays_when_the_edge_closes_a_cycle(
 def test_a_cycle_rule_sees_a_path_through_a_pub_use_re_export(
     tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # AD-355 (FP-31): a rule on a module pair reads direct imports; `a -> c -> b` through the
+    # AD-357 (FP-31): a rule on a module pair reads direct imports; `a -> c -> b` through the
     # `pub use` of `c` is two edges, and a cycle or layer rule reads the path.
     files = {
         "lib.rs": LIB,

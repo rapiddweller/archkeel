@@ -1,0 +1,69 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Compare the self-check of native/ with its pinned result (AD-357).
+
+`make self-validate-native` writes the report of native/ with its own contract. Since #953 the scan
+of native/ has pair gaps: method calls that may reach `impl` blocks of other files. The pinned file
+`native/expected-gaps.json` lists each gap (source module, module, reason) and the status of each
+rule. A new gap, a missing gap, another status or a violation fails the gate. With no pinned gap,
+every rule must PASS.
+
+Run: `python tools/native_expected.py <report.json> <expected-gaps.json> [--write]`.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+Gap = tuple[str, str, str]
+
+
+def observed(report: dict[str, Any]) -> tuple[list[Gap], dict[str, str], list[str]]:
+    """The gaps, the status of each rule, and each rule with a violation."""
+    coverage = report.get("coverage") or {}
+    gaps = sorted(
+        (
+            str(item["data"].get("source_module", "")),
+            str(item["data"].get("module", "")),
+            str(item["data"].get("reason", item["title"])),
+        )
+        for item in coverage.get("failures") or ()
+    )
+    rules = report.get("rule_assessments") or ()
+    statuses = {str(item["id"]): str(item["status"]) for item in rules}
+    violated = sorted(str(item["id"]) for item in rules if item.get("count"))
+    return gaps, statuses, violated
+
+
+def problems(report: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    gaps, statuses, violated = observed(report)
+    pinned = sorted(tuple(gap) for gap in expected["gaps"])
+    found = [f"new gap: {gap}" for gap in gaps if gap not in pinned]
+    found += [f"missing gap: {gap}" for gap in pinned if gap not in gaps]
+    wanted = expected["rules"] if pinned else dict.fromkeys(expected["rules"], "PASS")
+    if statuses != wanted:
+        found.append(f"rule statuses {statuses} differ from {wanted}")
+    found += [f"violation of {rule}" for rule in violated]
+    return found
+
+
+def main(argv: list[str]) -> int:
+    report = json.loads(Path(argv[0]).read_text(encoding="utf-8"))
+    path = Path(argv[1])
+    if argv[2:] == ["--write"]:
+        gaps, statuses, _ = observed(report)
+        pinned = {"rules": statuses, "gaps": [list(gap) for gap in gaps]}
+        path.write_text(json.dumps(pinned, indent=2) + "\n", encoding="utf-8")
+        return 0
+    found = problems(report, json.loads(path.read_text(encoding="utf-8")))
+    for line in found:
+        print(line, file=sys.stderr)
+    return 1 if found else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
