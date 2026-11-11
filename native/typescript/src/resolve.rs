@@ -15,7 +15,7 @@ use serde_json::Value;
 use crate::manifest::{self, Json, Lookup, Unknown};
 use crate::options::{Options, Resolution};
 use crate::source_input::{
-    classify_file, classify_specifier, ModuleFormat, SourceKind, SpecifierKind, Suffix,
+    classify_file, classify_specifier, ModuleFormat, SourceKind, Specifier, SpecifierKind, Suffix,
 };
 use archkeel_snapshot::paths::{basename, dirname, join};
 use archkeel_snapshot::Snapshot;
@@ -183,10 +183,7 @@ impl Resolver {
     }
 
     /// The snapshot file that `specifier` names, `Missing` when it names none.
-    #[expect(
-        clippy::excessive_nesting,
-        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
-    )]
+    #[cfg(test)]
     pub fn resolve(
         &mut self,
         snapshot: &mut Snapshot,
@@ -195,8 +192,30 @@ impl Resolver {
         mode: Option<ModuleFormat>,
         prefer_builtin: bool,
     ) -> Lookup<Found> {
+        let class = classify_specifier(specifier);
+        self.resolve_classified(
+            snapshot,
+            (specifier, &class),
+            importer,
+            mode,
+            prefer_builtin,
+        )
+    }
+
+    /// `resolve` for a specifier that the caller has classified already.
+    #[expect(
+        clippy::excessive_nesting,
+        reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
+    )]
+    pub fn resolve_classified(
+        &mut self,
+        snapshot: &mut Snapshot,
+        (specifier, source): (&str, &Specifier),
+        importer: &str,
+        mode: Option<ModuleFormat>,
+        prefer_builtin: bool,
+    ) -> Lookup<Found> {
         self.reads.clear();
-        let source = classify_specifier(specifier);
         let esm = mode == Some(ModuleFormat::Esm);
         let node10 = self.options.resolution() == Resolution::Node10;
         // Under Node10 the compiler looks for TypeScript everywhere before it looks for

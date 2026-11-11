@@ -567,7 +567,9 @@
       "packages": [
         "native.archkeel_typescript_collector.collect",
         "native.archkeel_typescript_collector.collect.imports",
-        "native.archkeel_typescript_collector.collect.script_run"
+        "native.archkeel_typescript_collector.collect.script_run",
+        "native.archkeel_typescript_collector.collect.import_target",
+        "native.archkeel_typescript_collector.collect.import_record"
       ],
       "responsibilities": [
         "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."

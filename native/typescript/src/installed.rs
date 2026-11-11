@@ -10,6 +10,11 @@ use archkeel_snapshot::Snapshot;
 /// Whether a path, or its real path, is inside an installed package (`node_modules`).
 pub fn installed(snapshot: &mut Snapshot, rel: &str) -> bool {
     let path = snapshot.real(rel).unwrap_or_else(|| rel.to_owned());
+    in_node_modules(&path)
+}
+
+/// Whether a path has a `node_modules` segment.
+pub fn in_node_modules(path: &str) -> bool {
     path.split('/').any(|part| part == "node_modules")
 }
 
