@@ -46,7 +46,13 @@ pub(crate) fn rows(graph: &Graph, section: Section) -> Option<Vec<Value>> {
 
 /// The fields of `classified` that every row of this file has: `[id, area, kind, title]`, the
 /// subjects, the evidence ids and the fact ids.
-fn record(names: [&str; 4], subjects: &[&str], evidence: &[&str], facts: &[&str], data: Value) -> Value {
+fn record(
+    names: [&str; 4],
+    subjects: &[&str],
+    evidence: &[&str],
+    facts: &[&str],
+    data: Value,
+) -> Value {
     let [id, area, kind, title] = names;
     json!({
         "id": id,
@@ -103,7 +109,10 @@ fn module_rows(graph: &Graph) -> Vec<Value> {
         .modules()
         .iter()
         .map(|(id, module)| {
-            let package = graph.packages().get(module.package()).map_or("", |p| p.name());
+            let package = graph
+                .packages()
+                .get(module.package())
+                .map_or("", |p| p.name());
             let measure = graph.module_measure(id);
             record(
                 [module.fact_id(), "module_topology", "module", module.name()],
@@ -172,7 +181,11 @@ fn cycle_row(cycle: &Cycle) -> Value {
     let level = cycle.level().name();
     let members: Vec<&str> = cycle.members().iter().map(String::as_str).collect();
     let edges: Vec<&str> = cycle.internal_edges().iter().map(String::as_str).collect();
-    let mut title = format!("{} cycle with {} members", capitalized(level), members.len());
+    let mut title = format!(
+        "{} cycle with {} members",
+        capitalized(level),
+        members.len()
+    );
     let mut data = json!({"level": level, "members": members, "internal_edges": edges});
     if let Some(backed_by) = cycle.backed_by() {
         if backed_by.is_empty() {
@@ -180,7 +193,13 @@ fn cycle_row(cycle: &Cycle) -> Value {
         }
         data["backed_by"] = json!(backed_by);
     }
-    record([cycle.id(), "cycles", &format!("{level}_scc"), &title], &members, &[], &edges, data)
+    record(
+        [cycle.id(), "cycles", &format!("{level}_scc"), &title],
+        &members,
+        &[],
+        &edges,
+        data,
+    )
 }
 
 /// The level word with a capital first letter (`str.capitalize` of an ASCII word).

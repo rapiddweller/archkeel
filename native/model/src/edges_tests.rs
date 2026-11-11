@@ -234,7 +234,10 @@ fn a_macro_body_is_no_import_and_no_unknown() {
     assert_eq!((found.imports.len() + 1, found.unknown), (total, 0));
     // The macro body stays as a row of its own, for the fan counts of the modules.
     let bodies: Vec<&str> = found.macro_bodies.iter().map(|body| body.id()).collect();
-    assert_eq!(bodies, macro_id.iter().map(String::as_str).collect::<Vec<_>>());
+    assert_eq!(
+        bodies,
+        macro_id.iter().map(String::as_str).collect::<Vec<_>>()
+    );
 }
 
 #[test]

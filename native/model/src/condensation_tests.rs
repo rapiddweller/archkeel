@@ -36,7 +36,10 @@ fn the_members_of_a_cycle_share_one_rank_and_one_sorted_component() {
     // 0 -> 1 -> 2 -> 1 and 2 -> 3: {1, 2} is one component of rank 1, and 3 has rank 2.
     let found = condense(4, &[(0, 1), (1, 2), (2, 1), (2, 3)]);
     assert_eq!(ranks(&found, 4), vec![0, 1, 1, 2]);
-    assert_eq!(sorted_components(&found), vec![vec![0], vec![1, 2], vec![3]]);
+    assert_eq!(
+        sorted_components(&found),
+        vec![vec![0], vec![1, 2], vec![3]]
+    );
 }
 
 #[test]
@@ -82,7 +85,9 @@ fn one_cycle_of_100_000_nodes_is_one_component_of_rank_0() {
     let found = condense(count, &edges);
     assert_eq!(found.components().len(), 1);
     assert_eq!(found.components()[0].len(), count);
-    assert!(found.components()[0].windows(2).all(|pair| pair[0] < pair[1]));
+    assert!(found.components()[0]
+        .windows(2)
+        .all(|pair| pair[0] < pair[1]));
     assert_eq!(found.rank(count / 2), 0);
 }
 
@@ -144,7 +149,11 @@ fn reference(count: usize, edges: &[(usize, usize)]) -> (Vec<Vec<usize>>, Vec<us
     while !ready.is_empty() {
         let current = ready.remove(0);
         for &target in &successors[current].clone() {
-            let value = rank.get(&target).copied().unwrap_or(0).max(rank[&current] + 1);
+            let value = rank
+                .get(&target)
+                .copied()
+                .unwrap_or(0)
+                .max(rank[&current] + 1);
             rank.insert(target, value);
             predecessors[target].remove(&current);
             if predecessors[target].is_empty() && !ready.contains(&target) {

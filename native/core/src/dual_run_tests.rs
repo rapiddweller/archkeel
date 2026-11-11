@@ -143,9 +143,12 @@ fn settings_of_another_profile_are_refused_by_name_and_give_no_edges() {
     let mut value = request(Some(&reply), &["violations", "dependency_edges"]);
     let edges = &frame(&value)["sections"]["dependency_edges"];
     // Each edge row holds its ranks; the old field `edges` without ranks is gone.
-    assert!(edges.as_array().is_some_and(|rows| !rows.is_empty()
-        && rows.iter().all(|row| row["data"]["source_rank"].is_u64()
-            && row["data"]["target_rank"].is_u64())));
+    assert!(edges.as_array().is_some_and(|rows| {
+        !rows.is_empty()
+            && rows.iter().all(|row| {
+                row["data"]["source_rank"].is_u64() && row["data"]["target_rank"].is_u64()
+            })
+    }));
     assert!(frame(&value)["edges"].is_null());
     value["profile"] = json!("other");
     let got = frame(&value);
@@ -166,7 +169,13 @@ fn settings_of_another_profile_are_refused_by_name_and_give_no_edges() {
 #[test]
 fn the_sections_of_slice_s3_need_no_contract_that_the_core_can_use() {
     let reply = golden_reply();
-    let sections = ["dependency_edges", "modules", "packages", "cycles", "violations"];
+    let sections = [
+        "dependency_edges",
+        "modules",
+        "packages",
+        "cycles",
+        "violations",
+    ];
     let mut value = request(Some(&reply), &sections);
     value["contracts"] = json!({"architecture-contract.json": "{not a contract"});
     let got = frame(&value);

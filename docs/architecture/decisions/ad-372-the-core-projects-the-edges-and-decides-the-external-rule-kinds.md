@@ -23,8 +23,8 @@
    The final request of M1 must guarantee the same: namespace and standard library are bound to
    the reply by a check, never trusted. Edge rows need only the reply and these settings.
 5. The rows of `dependency_edges` hold the ranks of the condensation (S3), so the section moves to
-   S3. The frame carries the edge rows without the ranks in `edges`, and the harness compares
-   them with the Python engine on every case whose reply the store accepts. The rows of `imports`
+   S3. The frame carried the edge rows without the ranks in `edges` until
+   [AD-374](ad-374-the-core-ranks-the-edges-and-derives-the-modules-packages-and-cycles.md) wrote the ranked rows. The rows of `imports`
    are the records of the store plus the marks of the typed targets (`Porting::Store`).
 
 **Reason.** The edges are the input of each direction and cycle slice; a wrong edge list breaks

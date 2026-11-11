@@ -93,55 +93,80 @@ const UNSEEN: usize = usize::MAX;
 /// members of each component.
 fn components(successors: &Adjacency) -> (Vec<usize>, Vec<Vec<usize>>) {
     let count = successors.starts.len().saturating_sub(1);
-    let mut order = vec![UNSEEN; count];
-    let mut low = vec![0; count];
-    let mut on_stack = vec![false; count];
-    let mut component = vec![0; count];
-    let mut members: Vec<Vec<usize>> = Vec::new();
-    let mut stack: Vec<usize> = Vec::new();
-    let mut calls: Vec<(usize, usize)> = Vec::new();
-    let mut seen = 0;
+    let mut walk = Walk {
+        order: vec![UNSEEN; count],
+        low: vec![0; count],
+        on_stack: vec![false; count],
+        component: vec![0; count],
+        members: Vec::new(),
+        stack: Vec::new(),
+        calls: Vec::new(),
+        seen: 0,
+    };
     for root in 0..count {
-        if order[root] != UNSEEN {
-            continue;
-        }
-        calls.push((root, 0));
-        order[root] = seen;
-        low[root] = seen;
-        seen += 1;
-        stack.push(root);
-        on_stack[root] = true;
-        while let Some(&(node, position)) = calls.last() {
-            if let Some(&next) = successors.of(node).get(position) {
-                if let Some(call) = calls.last_mut() {
-                    call.1 += 1;
-                }
-                if order[next] == UNSEEN {
-                    order[next] = seen;
-                    low[next] = seen;
-                    seen += 1;
-                    stack.push(next);
-                    on_stack[next] = true;
-                    calls.push((next, 0));
-                } else if on_stack[next] {
-                    low[node] = low[node].min(order[next]);
-                }
-                continue;
-            }
-            calls.pop();
-            if let Some(&(parent, _)) = calls.last() {
-                low[parent] = low[parent].min(low[node]);
-            }
-            if low[node] == order[node] {
-                let found = pop_component(&mut stack, &mut on_stack, node);
-                for &member in &found {
-                    component[member] = members.len();
-                }
-                members.push(found);
-            }
+        if walk.order[root] == UNSEEN {
+            walk.enter(root);
+            while walk.step(successors) {}
         }
     }
-    (component, members)
+    (walk.component, walk.members)
+}
+
+/// The state of one walk of Tarjan's algorithm. `calls` holds each open node and the position
+/// of its next successor: it replaces the call stack of a recursive walk.
+struct Walk {
+    order: Vec<usize>,
+    low: Vec<usize>,
+    on_stack: Vec<bool>,
+    component: Vec<usize>,
+    members: Vec<Vec<usize>>,
+    stack: Vec<usize>,
+    calls: Vec<(usize, usize)>,
+    seen: usize,
+}
+
+impl Walk {
+    fn enter(&mut self, node: usize) {
+        self.order[node] = self.seen;
+        self.low[node] = self.seen;
+        self.seen += 1;
+        self.stack.push(node);
+        self.on_stack[node] = true;
+        self.calls.push((node, 0));
+    }
+
+    /// One step: follow the next successor of the open node, or close the node. False when no
+    /// node is open.
+    fn step(&mut self, successors: &Adjacency) -> bool {
+        let Some(call) = self.calls.last_mut() else {
+            return false;
+        };
+        let (node, position) = *call;
+        call.1 += 1;
+        match successors.of(node).get(position) {
+            Some(&next) if self.order[next] == UNSEEN => self.enter(next),
+            Some(&next) if self.on_stack[next] => {
+                self.low[node] = self.low[node].min(self.order[next]);
+            }
+            Some(_) => {}
+            None => self.close(node),
+        }
+        true
+    }
+
+    fn close(&mut self, node: usize) {
+        self.calls.pop();
+        if let Some(&(parent, _)) = self.calls.last() {
+            self.low[parent] = self.low[parent].min(self.low[node]);
+        }
+        if self.low[node] == self.order[node] {
+            let found = pop_component(&mut self.stack, &mut self.on_stack, node);
+            for &member in &found {
+                self.component[member] = self.members.len();
+            }
+            self.members.push(found);
+        }
+    }
 }
 
 /// Pop the members of the component of `root` from the stack, sorted.

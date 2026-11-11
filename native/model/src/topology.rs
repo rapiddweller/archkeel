@@ -12,11 +12,13 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use crate::condensation::{condense, Condensation};
-use crate::edges::Edge;
-use crate::ids::{Id, ModuleId, PackageId, Table};
-use crate::imports::MacroBody;
-use crate::modules::{Module, Package};
+use crate::{
+    condensation::{condense, Condensation},
+    edges::Edge,
+    ids::{Id, ModuleId, PackageId, Table},
+    imports::MacroBody,
+    modules::{Module, Package},
+};
 
 /// The fan-in, fan-out and rank of one module or package.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -97,7 +99,11 @@ fn measure(names: &[&str], edges: &[Edge]) -> Measured {
         .collect::<BTreeSet<&str>>()
         .into_iter()
         .collect();
-    let index: HashMap<&str, usize> = distinct.iter().enumerate().map(|(at, n)| (*n, at)).collect();
+    let index: HashMap<&str, usize> = distinct
+        .iter()
+        .enumerate()
+        .map(|(at, n)| (*n, at))
+        .collect();
     let mut fan_in: HashMap<&str, usize> = HashMap::new();
     let mut fan_out: HashMap<&str, usize> = HashMap::new();
     for edge in edges {

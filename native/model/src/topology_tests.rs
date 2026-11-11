@@ -30,7 +30,11 @@ pub(crate) fn file(module: &str, package: &str) -> FileFact {
 
 /// An import from one module to another; the package is the name before the last dot.
 pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
-    let package = |name: &str| name.rsplit_once('.').map_or("", |(head, _)| head).to_owned();
+    let package = |name: &str| {
+        name.rsplit_once('.')
+            .map_or("", |(head, _)| head)
+            .to_owned()
+    };
     Import {
         id: id.to_owned(),
         source_module: source.to_owned(),

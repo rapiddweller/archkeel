@@ -204,7 +204,10 @@ fn the_engine_ingests_a_reply_and_each_section_has_rows_or_names_its_slice() {
         if crate::topology::owns(section) {
             // The rows of slice S3; the golden reply has no cycle.
             let empty = section == Section::Cycles;
-            assert!(rows.is_ok_and(|rows| rows.is_empty() == empty), "{section:?}");
+            assert!(
+                rows.is_ok_and(|rows| rows.is_empty() == empty),
+                "{section:?}"
+            );
             continue;
         }
         assert_eq!(
@@ -220,7 +223,10 @@ fn a_run_derives_its_model_one_time_until_an_input_changes() {
     let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
     let _ = ingest(&mut engine);
     assert_eq!(engine.derivations(), 0);
-    let _ = engine.answer(Request::Sections(vec![Section::Modules, Section::Violations]));
+    let _ = engine.answer(Request::Sections(vec![
+        Section::Modules,
+        Section::Violations,
+    ]));
     let _ = engine.answer(Request::Rules);
     let _ = engine.answer(Request::Sections(vec![Section::DependencyEdges]));
     assert_eq!(engine.derivations(), 1);
