@@ -29,7 +29,6 @@ from .dependency_binding import replayed_dependency_binding_id
 from .duplication import repeated_logic
 from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
 from .facts import RuntimeRequirementState as _RuntimeRequirementState
-from .facts import SourceProfile as _SourceProfile
 from .facts_codec import thaw_data as _thaw_data
 from .facts_validation import validate_source_bindings
 from .interfaces import component_owners
@@ -1339,7 +1338,6 @@ def _dependency_gaps_complete(
             import_ids=(),
             selected_inputs=tuple(str(path) for path in selected),
             source_records=records,
-            allow_script_effects=observation.analyzer.name == _SourceProfile.TYPESCRIPT,
         )
     except ValueError:
         return False

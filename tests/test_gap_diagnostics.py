@@ -25,7 +25,8 @@ from archkeel.ir.profiles import Language, is_test_source
 from archkeel.ir.protocol import GapTitle
 
 ROOT = Path(__file__).parents[1]
-_RUST = ROOT / "native" / "typescript" / "src" / "imports.rs"
+# The titles are written in the loop of the imports and in the search of the target of an import.
+_RUST = tuple(ROOT / "native/typescript/src" / name for name in ("imports.rs", "import_target.rs"))
 TS, PY, DART = Language.TYPESCRIPT, Language.PYTHON, Language.DART
 PARSE, UNRESOLVED = DiagnosticKind.PARSE_ERROR, DiagnosticKind.UNRESOLVED_IMPORT
 NOT_EXAMINED, INCOMPLETE = DiagnosticKind.NOT_EXAMINED, DiagnosticKind.INCOMPLETE_SCAN
@@ -199,7 +200,7 @@ _RUST_TITLES = (
 
 @pytest.mark.parametrize("title", _RUST_TITLES)
 def test_the_native_collector_emits_the_title_that_the_host_matches(title: str) -> None:
-    assert title in _RUST.read_text(encoding="utf-8")
+    assert any(title in path.read_text(encoding="utf-8") for path in _RUST)
 
 
 def test_the_embedded_copies_of_schema_12_equal_a_rebuild_from_the_published_schemas() -> None:

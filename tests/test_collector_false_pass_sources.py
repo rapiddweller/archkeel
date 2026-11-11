@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Issues #976 and #988: a source that reaches a forbidden module in a way the collector skips gives no PASS.
+"""Issues #976 and #988: a source that reaches a forbidden module in a skipped way gives no PASS.
 
 Consumer: the host (`run_report`), with the Python collector and with the bundled native one. The
 contract lets `a` use nothing, so any edge from `a` to `b` fails it. Each probe is a source that
