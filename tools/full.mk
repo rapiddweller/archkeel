@@ -100,3 +100,12 @@ smoke:
 typescript-libs-check: browser-runtime-install
 	$(UV) run --locked mypy --strict tools/typescript_libs.py
 	$(UV) run --locked python -m tools.typescript_libs --check
+
+# AD-360: compare the engine with the recorded oracles in tests/dual_run. Narrow a slice with
+# DUAL_RUN_ARGS="--sections modules,packages --families direction --engine-command '<command>'".
+dual-run: dual-run-collector
+	$(UV) run --locked python -m tools.dual_run compare $(DUAL_RUN_ARGS)
+
+# The Rust cases of the corpus run the Rust collector of this workspace.
+dual-run-collector:
+	cd native && cargo build --locked -q -p archkeel-rust-collector

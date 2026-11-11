@@ -43,8 +43,11 @@ make dual-run DUAL_RUN_ARGS="--sections modules,packages --families direction \
 ```
 
 The engine command reads one JSON request on standard input: `protocol`, `case`, `root`,
-`config`, `baseline`, `contracts` and `reply`. It writes one frame on standard output: `rules`
-(rule id to kind and status) and the columnar `architecture` or the canonical `sections`.
+`config`, `baseline`, `contracts`, `collector_argv`, `pinned`, `reply` and `sections`. It writes
+one frame on standard output: `rules` (rule id to kind and status) and the columnar
+`architecture` or the canonical `sections`. A failed or slow engine is a difference
+(`--engine-timeout`, default 600 s). The sections and rule families are in
+`tools/dual_run_schema.json`.
 `python -m tools.dual_run serve-python` is the reference: it serves the Python engine. The
 binary name in the example is a placeholder: no Rust engine exists yet.
 

@@ -5,6 +5,7 @@
 
 A row is canonical when its JSON text has sorted keys, no spaces and the strings of the string
 table expanded. L1 is the verdict map (rule id to kind and status); L2 is the rows of a section.
+The sections and the rule families are data: `tools/dual_run_schema.json`.
 """
 
 from __future__ import annotations
@@ -20,64 +21,28 @@ from pathlib import Path
 from typing import Any
 
 ORACLE_DIR = Path(__file__).resolve().parent.parent / "tests" / "dual_run"
-
-# The compared sections of architecture.json (`CLASSIFIED_SECTIONS` without `transitive_paths`,
-# which is not ported, plus `evidence`). Remove a line when the schema drops a section.
-SECTIONS: tuple[str, ...] = (
-    "metrics",
-    "declarations",
-    "scope_observations",
-    "packages",
-    "modules",
-    "symbols",
-    "imports",
-    "dependency_edges",
-    "path_observations",
-    "cycles",
-    "calls",
-    "references",
-    "bindings",
-    "typing_signals",
-    "constructs",
-    "contexts",
-    "context_evidence",
-    "violations",
-    "unknowns",
-    "evidence",
-)
+SCHEMA = json.loads((Path(__file__).resolve().parent / "dual_run_schema.json").read_text())
+SECTIONS: tuple[str, ...] = tuple(SCHEMA["sections"])
+NOT_COMPARED = frozenset(SCHEMA["not_compared"])
 # The rows of these sections belong to the rule families that their `rule_ids` name.
-RULE_SECTIONS = frozenset({"violations", "unknowns"})
-# The rule families of the WP6 slices (WP6-0, section C). A family name or a rule kind selects.
-FAMILIES: dict[str, tuple[str, ...]] = {
-    "direction": (
-        "forbidden_dependency",
-        "allowed_dependency",
-        "sibling_isolation",
-        "layer_order",
-        "complete_requires",
-    ),
-    "completeness": (
-        "complete_assignment",
-        "root_layout",
-        "external_dependency_scope",
-        "complete_external_scope",
-    ),
-    "cycles": ("no_component_cycles",),
-    "interface": ("interface_boundary",),
-    "construct": ("forbidden_construct",),
-}
-# A section with more canonical bytes keeps only the id and a digest of each row.
+RULE_SECTIONS = frozenset(SCHEMA["rule_sections"])
+RULE_KINDS = frozenset(SCHEMA["rule_kinds"])
+FAMILIES: dict[str, tuple[str, ...]] = {k: tuple(v) for k, v in SCHEMA["families"].items()}
+# A large section keeps these fields of each row, so a difference shows the expected content.
+KEY_FIELDS: tuple[str, ...] = tuple(SCHEMA["key_fields"])
+# A section with more canonical bytes keeps the id, digest, rule ids and key fields of each row.
 FULL_ROWS_BYTES = 4096
 
 
 @dataclass(frozen=True, slots=True)
 class Row:
-    """One canonical row of a section: the row itself is absent in a compact oracle."""
+    """One canonical row: `row` is the full row, or `None` in a large section of an oracle."""
 
     id: str
     digest: str
     rule_ids: tuple[str, ...]
     row: dict[str, Any] | None
+    keys: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,8 +91,13 @@ def _expand(value: Any, table: list[str]) -> Any:
     return value
 
 
+def document_sections(architecture: Mapping[str, Any]) -> set[str]:
+    """The names of the row sections that a columnar architecture.json declares."""
+    return {*architecture["encoding"]["section_data_fields"], "evidence"}
+
+
 def decode_sections(architecture: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    """The rows of each section of a columnar architecture.json, with the strings expanded."""
+    """The rows of each compared section of a columnar architecture.json, strings expanded."""
     table = architecture.get("string_table", [])
     encoding = architecture["encoding"]
     record_fields = encoding["record_fields"]
@@ -154,24 +124,27 @@ def decode_sections(architecture: Mapping[str, Any]) -> dict[str, list[dict[str,
     return sections
 
 
+def _keys(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: row[key] for key in KEY_FIELDS if key in row}
+
+
 def to_rows(rows: Iterable[Mapping[str, Any]]) -> list[Row]:
     return [
-        Row(str(r["id"]), _digest(row_text(r)), tuple(r.get("rule_ids", ())), dict(r)) for r in rows
+        Row(str(r["id"]), _digest(row_text(r)), tuple(r.get("rule_ids") or ()), dict(r), _keys(r))
+        for r in rows
     ]
 
 
 def oracle_section(
-    name: str, rows: list[dict[str, Any]], base: tuple[str, str, list[Row]] | None = None
+    rows: list[dict[str, Any]], base: tuple[str, str, list[Row]] | None = None
 ) -> dict[str, Any]:
-    """The rows of a section: a full row when the section is small, else its id, digest and
-    rule ids. With a base, a run of rows equal to the base is stored as `[start, length]`."""
+    """The rows of a section: full rows when the section is small, else the id, digest, rule ids
+    and key fields of each row. With a base, a run of rows equal to the base is `[start, n]`."""
     texts = [row_text(row) for row in rows]
     entry: dict[str, Any] = {"count": len(rows), "digest": section_digest(texts)}
     full = sum(map(len, texts)) <= FULL_ROWS_BYTES
     items: list[Any] = [
-        row
-        if full
-        else [row["id"], _digest(text), *([row["rule_ids"]] if name in RULE_SECTIONS else [])]
+        row if full else [row["id"], _digest(text), row.get("rule_ids") or [], _keys(row)]
         for row, text in zip(rows, texts, strict=True)
     ]
     if base is None:
@@ -197,26 +170,30 @@ def oracle_rows(entry: Mapping[str, Any], base: list[Row] | None = None) -> list
         elif isinstance(item[0], int) and base is not None:
             rows.extend(base[item[0] : item[0] + item[1]])
         else:
-            rows.append(Row(item[0], item[1], tuple(item[2] if len(item) > 2 else ()), None))
+            rows.append(Row(item[0], item[1], tuple(item[2]), None, item[3]))
     return rows
 
 
-def section_rows(oracle: Mapping[str, Any], name: str) -> list[Row]:
+def section_rows(oracle: Mapping[str, Any], name: str, directory: Path = ORACLE_DIR) -> list[Row]:
     """The rows of one section of an oracle, with the rows of its base resolved."""
     entry = oracle["sections"][name]
     if "base" not in entry:
         return oracle_rows(entry)
-    base = base_oracle(entry["base"])
+    base = base_oracle(entry["base"], directory)
     if base["sections"][name]["digest"] != entry["base_digest"]:
         raise RuntimeError(
             f"{entry['base']} changed after its delta {name} was recorded: record again"
         )
-    return oracle_rows(entry, section_rows(base, name))
+    return oracle_rows(entry, section_rows(base, name, directory))
+
+
+def oracle_file(directory: Path, case_id: str) -> Path:
+    return directory / f"{case_id.replace('/', '--')}.json.gz"
 
 
 @functools.cache
-def base_oracle(case_id: str) -> dict[str, Any]:
-    return read_oracle(ORACLE_DIR / f"{case_id.replace('/', '--')}.json.gz")
+def base_oracle(case_id: str, directory: Path = ORACLE_DIR) -> dict[str, Any]:
+    return read_oracle(oracle_file(directory, case_id))
 
 
 def write_oracle(path: Path, oracle: Mapping[str, Any]) -> None:
@@ -237,20 +214,31 @@ def _explain(index: int, expected: list[Row], actual: list[Row]) -> tuple[str, s
     want, have = expected[index], actual[index]
     if want.id != have.id:
         if want.id not in {row.id for row in actual}:
-            return want.id, f"row {index}: the candidate drops this row (it has {have.id} here)"
+            return want.id, f"row {index}: the candidate drops this row {_shown(want)}"
         if have.id not in {row.id for row in expected}:
             return have.id, f"row {index}: the candidate adds this row before {want.id}"
         return have.id, f"row {index}: the order differs: the candidate puts it before {want.id}"
     if want.row is None or have.row is None:
-        found = "" if have.row is None else f"; candidate row {row_text(have.row)[:400]}"
-        return want.id, f"row {index}: digest {want.digest} expected, {have.digest} found{found}"
+        keys = sorted(set(want.keys) | set(have.keys))
+        changed = [key for key in keys if want.keys.get(key) != have.keys.get(key)]
+        if changed:
+            return want.id, _field(index, changed[0], want.keys, have.keys)
+        return want.id, f"row {index}: a field outside {list(KEY_FIELDS)} differs {_shown(want)}"
     for key in sorted(set(want.row) | set(have.row)):
         if want.row.get(key) != have.row.get(key):
-            return want.id, (
-                f"row {index}: field {key}: expected {json.dumps(want.row.get(key))[:300]}, "
-                f"found {json.dumps(have.row.get(key))[:300]}"
-            )
+            return want.id, _field(index, key, want.row, have.row)
     return want.id, f"row {index}: the rows differ"
+
+
+def _shown(row: Row) -> str:
+    return json.dumps(row.keys if row.row is None else row.row, ensure_ascii=False)[:400]
+
+
+def _field(index: int, key: str, want: Mapping[str, Any], have: Mapping[str, Any]) -> str:
+    return (
+        f"row {index}: field {key}: expected {json.dumps(want.get(key))[:300]}, "
+        f"found {json.dumps(have.get(key))[:300]}"
+    )
 
 
 def first_difference(
@@ -261,7 +249,8 @@ def first_difference(
             return Difference(case, name, *_explain(index, expected, actual))
     if len(expected) > len(actual):
         row = expected[len(actual)]
-        return Difference(case, name, row.id, f"row {len(actual)}: the candidate drops this row")
+        detail = f"row {len(actual)}: the candidate drops this row {_shown(row)}"
+        return Difference(case, name, row.id, detail)
     if len(actual) > len(expected):
         row = actual[len(expected)]
         return Difference(case, name, row.id, f"row {len(expected)}: the candidate adds this row")
@@ -272,15 +261,25 @@ def owned_rules(rules: Mapping[str, list[str]], kinds: frozenset[str] | None) ->
     return {rule for rule, (kind, _) in rules.items() if kinds is None or kind in kinds}
 
 
+def _owned_row(row: Row, owned: set[str]) -> bool:
+    """A row without rule ids belongs to every family: no slice can drop it unseen."""
+    return not row.rule_ids or bool(owned.intersection(row.rule_ids))
+
+
 def compare_case(
-    oracle: Mapping[str, Any], frame: Mapping[str, Any], selection: Selection
+    oracle: Mapping[str, Any],
+    frame: Mapping[str, Any],
+    selection: Selection,
+    directory: Path = ORACLE_DIR,
 ) -> list[Difference]:
-    """The verdict differences of the owned rules and the first differing row of each section."""
+    """The verdict differences of the owned rules and the first differing row of each section.
+    `directory` holds the base of a delta oracle."""
     case = oracle["case"]["id"]
+    if frame.get("error"):
+        return [Difference(case, "engine", "-", frame["error"])]
     expected_rules, actual_rules = oracle["rules"], frame["rules"]
-    owned = owned_rules(expected_rules, selection.kinds) | owned_rules(
-        actual_rules, selection.kinds
-    )
+    kinds = selection.kinds
+    owned = owned_rules(expected_rules, kinds) | owned_rules(actual_rules, kinds)
     differences = [
         Difference(
             case,
@@ -301,38 +300,48 @@ def compare_case(
         ]
     if oracle["sections"] is None:
         return differences
-    actual_sections = frame_sections(frame)
+    actual_sections, names = frame_sections(frame)
+    differences += [
+        Difference(case, name, "-", "the candidate writes a section outside the known list")
+        for name in sorted(names - set(SECTIONS) - NOT_COMPARED)
+    ]
     for name in selection.sections:
         actual = actual_sections.get(name, [])
-        if selection.kinds is None or name not in RULE_SECTIONS:
+        if kinds is None or name not in RULE_SECTIONS:
             texts = (row_text(row.row) for row in actual if row.row is not None)
             if section_digest(texts) == oracle["sections"][name]["digest"]:
                 continue
-        expected = section_rows(oracle, name)
-        if selection.kinds is not None and name in RULE_SECTIONS:
-            expected = [row for row in expected if owned.intersection(row.rule_ids)]
-            actual = [row for row in actual if owned.intersection(row.rule_ids)]
+        expected = section_rows(oracle, name, directory)
+        if kinds is not None and name in RULE_SECTIONS:
+            expected = [row for row in expected if _owned_row(row, owned)]
+            actual = [row for row in actual if _owned_row(row, owned)]
         difference = first_difference(case, name, expected, actual)
         if difference is not None:
             differences.append(difference)
     return differences
 
 
-def frame_sections(frame: Mapping[str, Any]) -> dict[str, list[Row]]:
-    """An engine frame carries a columnar `architecture` or the decoded `sections`."""
+def frame_sections(frame: Mapping[str, Any]) -> tuple[dict[str, list[Row]], set[str]]:
+    """The compared rows of an engine frame (a columnar `architecture` or the decoded
+    `sections`) and the names of all sections that the frame writes."""
     if frame.get("architecture") is not None:
         sections = decode_sections(frame["architecture"])
+        names = document_sections(frame["architecture"])
     else:
         sections = frame.get("sections") or {}
-    return {name: to_rows(rows) for name, rows in sections.items()}
+        names = set(sections)
+    rows = {name: to_rows(sections[name]) for name in SECTIONS if name in sections}
+    return rows, names
 
 
 def selection_of(sections: str | None, families: str | None) -> Selection:
+    """The owned sections and rule kinds. An unknown name is an error: a typo selects nothing."""
     chosen = SECTIONS if not sections else tuple(sections.split(","))
-    unknown = sorted(set(chosen) - set(SECTIONS))
-    if unknown:
-        raise SystemExit(f"unknown sections: {', '.join(unknown)}")
+    if unknown := sorted(set(chosen) - set(SECTIONS)):
+        raise ValueError(f"unknown sections: {', '.join(unknown)}")
     if not families:
         return Selection(chosen, None)
-    kinds = frozenset(k for name in families.split(",") for k in FAMILIES.get(name, (name,)))
-    return Selection(chosen, kinds)
+    names = families.split(",")
+    if unknown := sorted(name for name in names if name not in FAMILIES and name not in RULE_KINDS):
+        raise ValueError(f"unknown families or rule kinds: {', '.join(unknown)}")
+    return Selection(chosen, frozenset(k for name in names for k in FAMILIES.get(name, (name,))))

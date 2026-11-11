@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record dual-run dual-run-record
+.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record dual-run dual-run-record dual-run-collector
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
@@ -109,14 +109,10 @@ self-validate-native:
 golden-record:
 	$(UV) run --locked python tests/golden_record.py --language "$(LANGUAGE)" --case "$(CASE)" --reason "$(REASON)" $(if $(ALLOW_DIRTY),--allow-dirty,)
 
-# AD-360: compare the engine with the recorded oracles in tests/dual_run. Narrow a slice with
-# DUAL_RUN_ARGS="--sections modules,packages --families direction --engine-command '<command>'".
-dual-run:
-	$(UV) run --locked python -m tools.dual_run compare $(DUAL_RUN_ARGS)
-
 # AD-360: record the oracles of the Python engine again, after a reviewed change of its result.
-dual-run-record:
-	$(UV) run --locked python -m tools.dual_run record $(DUAL_RUN_ARGS)
+# REASON says why; the source must be committed (or ALLOW_DIRTY=1).
+dual-run-record: dual-run-collector
+	$(UV) run --locked python -m tools.dual_run record --reason "$(REASON)" $(if $(ALLOW_DIRTY),--allow-dirty,) $(DUAL_RUN_ARGS)
 
 # AD-327: counts of the lints that only report. They never fail the build.
 native-report:
@@ -150,7 +146,8 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py \
-	tools/dual_run.py tools/dual_run_oracle.py tools/dual_run_python.py \
+	tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
+	tools/dual_run_capture.py \
 	native/hatch_build.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.

@@ -352,4 +352,5 @@ PR_TEST_FILES := \
 	tests/test_collector_false_pass_gate.py \
 	tests/test_collector_false_pass_rust_layout.py \
 	tests/test_collector_false_pass_rust_test_targets.py \
-	tests/test_collector_false_pass_rust_impls.py
+	tests/test_collector_false_pass_rust_impls.py \
+	tests/test_dual_run.py
