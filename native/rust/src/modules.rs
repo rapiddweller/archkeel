@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 
 use crate::crates::{Crate, Workspace};
+use crate::definitions::{Form, Owner};
 use crate::resolve::classify;
 use crate::scan::Reference;
 use crate::tree::Module;
@@ -188,9 +189,10 @@ impl<'a> Index<'a> {
         self.follow(start, 0, rest)
     }
 
-    /// The type that `ty` names at `scope` of the file of `frame`. A name of one segment that the
-    /// file declares and that no `use` binds is a type of the place. One that the file does not
-    /// declare may come from a glob: the scan does not follow it, so it is `Unknown`.
+    /// The type that `ty` names at `scope` of the file of `frame`. It is `Known` only when the
+    /// module defines a struct, enum, union or trait of that name. A type alias, a re-export, a
+    /// type that a macro or a function body defines, and a name that a glob may bring in are
+    /// `Unknown`: the scan cannot say which type they are (#953).
     pub fn type_of(&self, frame: &Frame<'_>, scope: &[String], ty: &[String]) -> TypeOf {
         let Some(name) = ty.last().filter(|name| *name != "Self") else {
             return TypeOf::Other;
@@ -203,17 +205,37 @@ impl<'a> Index<'a> {
             ..Reference::default()
         };
         let declared = frame.module.scan.counts.contains_key(name);
-        match self.resolve(frame, &path) {
-            Outcome::Edge(edge) if edge.symbol.as_ref() == Some(name) => {
-                TypeOf::Known(edge.lexical, name.clone())
-            }
-            Outcome::Unknown(_) => TypeOf::Unknown,
-            Outcome::None if ty.len() == 1 && declared => {
-                TypeOf::Known(lexical(frame, scope), name.clone())
-            }
-            Outcome::None if ty.len() == 1 && !frame.globs.is_empty() => TypeOf::Unknown,
-            _ => TypeOf::Other,
+        let (at, ty_name) = match self.resolve(frame, &path) {
+            // A renamed `use` binds one name to the type of the path.
+            Outcome::Edge(edge) => match edge.symbol {
+                Some(symbol) if !symbol.is_empty() && (ty.len() == 1 || symbol == *name) => {
+                    (edge.lexical, symbol)
+                }
+                _ => return TypeOf::Other,
+            },
+            Outcome::None if ty.len() == 1 && declared => (lexical(frame, scope), name.clone()),
+            Outcome::None if ty.len() != 1 || frame.globs.is_empty() => return TypeOf::Other,
+            _ => return TypeOf::Unknown,
+        };
+        if self.defines_type(&at, &ty_name) {
+            TypeOf::Known(at, ty_name)
+        } else {
+            TypeOf::Unknown
         }
+    }
+
+    /// Whether the lexical module defines a struct, an enum, a union or a trait named `name`.
+    fn defines_type(&self, lexical: &str, name: &str) -> bool {
+        let Some(frame) = self.file_of(lexical).and_then(|file| self.frames.get(file)) else {
+            return false;
+        };
+        let types = [Form::Struct, Form::Enum, Form::Trait];
+        frame.module.scan.definitions.iter().any(|d| {
+            d.name == name
+                && d.owner == Owner::Module
+                && types.contains(&d.form)
+                && self::lexical(frame, &d.scope) == lexical
+        })
     }
 
     pub fn frame(&self, module: &str) -> Option<&Frame<'a>> {

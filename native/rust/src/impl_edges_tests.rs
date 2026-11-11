@@ -124,3 +124,22 @@ fn a_trait_that_a_glob_brings_in_is_a_gap_when_a_call_may_use_it() {
     let unknown = found(&[lib.clone(), reexport, calls("5u8.other();")]);
     assert_eq!(unknown, (false, pair()));
 }
+
+#[test]
+fn a_path_call_that_the_scan_cannot_resolve_exactly_is_a_gap_of_the_pair() {
+    let impl_b = b("impl crate::c::S {\n    pub fn m(&self) {}\n    pub fn new() {}\n}\n");
+    for caller in [
+        "pub fn f(s: &crate::c::S) {\n    <crate::c::S>::m(s);\n}\n",
+        "type Al = crate::c::S;\npub fn f(s: &Al) {\n    Al::m(s);\n}\n",
+        "use crate::c::*;\npub fn f() {\n    S::new();\n}\n",
+    ] {
+        assert_eq!(
+            found(&[impl_b.clone(), a(caller)]),
+            (false, pair()),
+            "{caller}"
+        );
+    }
+    // A renamed `use` names the type exactly: the path is an edge.
+    let renamed = a("use crate::c::S as Q;\npub fn f(s: &Q) {\n    Q::m(s);\n}\n");
+    assert_eq!(found(&[impl_b, renamed]), (true, Vec::new()));
+}

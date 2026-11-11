@@ -89,6 +89,17 @@ impl<'a> Members<'a> {
     }
 }
 
+/// A path call `T::m(..)`: it can reach a member with or without `self`, of any arity.
+fn path_call(reference: &crate::scan::Reference) -> MethodCall {
+    MethodCall {
+        name: reference.names.last().cloned().unwrap_or_default(),
+        site: reference.site.clone(),
+        scope: reference.scope.clone(),
+        path: true,
+        arity: None,
+    }
+}
+
 /// Whether a call at `at` in `caller` can reach the member: `x.m(..)` reaches only a member with a
 /// `self` parameter and as many other parameters as the call has arguments (Rust has no overloads).
 /// `pub(in path)` counts as the crate.
@@ -137,12 +148,13 @@ impl Builder {
         modules: &[Module],
     ) {
         let found = members(index, modules);
-        for module in modules {
-            self.member_paths(index, module, &found);
-        }
+        let paths: Vec<Vec<MethodCall>> = (modules.iter())
+            .map(|module| self.member_paths(index, module, &found))
+            .collect();
         let edges = self.module_pairs();
-        for module in modules {
-            let calls = self.calls_of(workspace, index, module);
+        for (module, unresolved) in modules.iter().zip(paths) {
+            let mut calls = self.calls_of(workspace, index, module);
+            calls.extend(unresolved);
             let reached = Reached {
                 index,
                 module,
@@ -155,32 +167,44 @@ impl Builder {
     }
 
     /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it.
-    fn member_paths(&mut self, index: &Index<'_>, module: &Module, found: &Members<'_>) {
+    /// A path whose type the scan cannot resolve exactly, or a type that a foreign block of an
+    /// unknown type may also extend, is returned as a call: it may reach any foreign `m` (#953).
+    fn member_paths(
+        &mut self,
+        index: &Index<'_>,
+        module: &Module,
+        found: &Members<'_>,
+    ) -> Vec<MethodCall> {
+        let mut unresolved = Vec::new();
         let Some(frame) = index.frame(&module.module) else {
-            return;
+            return unresolved;
         };
         let paths = module.scan.references.iter();
         for reference in paths.filter(|r| r.via == Via::Path && r.in_macro.is_none()) {
             let Some((member, ty)) = reference.names.split_last() else {
                 continue;
             };
-            let Some(blocks) = found
-                .foreign
-                .get(member.as_str())
-                .filter(|_| !ty.is_empty())
+            let Some(blocks) = (found.foreign.get(member.as_str())).filter(|_| !ty.is_empty())
             else {
                 continue;
             };
-            let TypeOf::Known(lexical, name) = index.type_of(frame, &reference.scope, ty) else {
-                continue;
+            let known = index.type_of(frame, &reference.scope, ty);
+            let own = match &known {
+                TypeOf::Known(lexical, name) => {
+                    found
+                        .own
+                        .contains(&(lexical.clone(), name.clone(), member.as_str()))
+                }
+                TypeOf::Unknown => false,
+                TypeOf::Other => continue,
             };
-            if found
-                .own
-                .contains(&(lexical.clone(), name.clone(), member.as_str()))
-            {
+            let unknown_block = blocks.iter().any(|block| block.ty == TypeOf::Unknown);
+            if known == TypeOf::Unknown || (!own && unknown_block) {
+                unresolved.push(path_call(reference));
+            }
+            if own || known == TypeOf::Unknown {
                 continue;
             }
-            let known = TypeOf::Known(lexical, name);
             for block in blocks.iter().filter(|block| block.ty == known) {
                 let edge = Edge {
                     module: block.module.module.clone(),
@@ -191,6 +215,7 @@ impl Builder {
                 self.module_import(index, module, reference, &edge);
             }
         }
+        unresolved
     }
 
     /// The pairs of modules that an `import` or `reexport` record joins.

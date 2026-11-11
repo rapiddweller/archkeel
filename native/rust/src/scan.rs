@@ -215,14 +215,15 @@ impl Walker<'_> {
         self.out.concerns.push(Concern { reason, site });
     }
 
-    fn method_call(&mut self, name: String, span: Span, arity: usize) {
+    /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
+    fn method_call(&mut self, name: String, span: Span, (path, arity): (bool, Option<usize>)) {
         let (site, scope) = (self.site(span), self.inline.clone());
         self.out.method_calls.push(MethodCall {
             name,
             site,
             scope,
-            path: false,
-            arity: Some(arity),
+            path,
+            arity,
         });
     }
 
@@ -369,8 +370,17 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        self.method_call(plain(&node.method), node.method.span(), node.args.len());
+        let arity = Some(node.args.len());
+        self.method_call(plain(&node.method), node.method.span(), (false, arity));
         visit::visit_expr_method_call(self, node);
+    }
+
+    /// `<T>::m(..)` names `T` in its qualified self; the scan does not resolve the member (#953).
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if let (Some(_), Some(last)) = (&node.qself, node.path.segments.last()) {
+            self.method_call(plain(&last.ident), last.ident.span(), (true, None));
+        }
+        visit::visit_expr_path(self, node);
     }
 
     fn visit_lit_str(&mut self, text: &'ast syn::LitStr) {
