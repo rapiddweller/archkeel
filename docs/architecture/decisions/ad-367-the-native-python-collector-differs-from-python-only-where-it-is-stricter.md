@@ -54,6 +54,13 @@ is equal or stricter. Each item below names its test.
 schema stays byte-equal. The survey writes the gap in slice 1c-2, and no native Python reply can
 be PASS before it does (AD-334: the host does not decode 10.0.0).
 
+**Read** (`tests/test_collector_native_python_survey.py`).
+10. A selected file that exists but does not open (for example mode 000): Python writes the class
+    of the errno (`PermissionError`), native writes `OSError`, because `Snapshot::read` does not
+    keep the error kind. Both producers write a gap that names the file, so the verdict is equal.
+    The comparison rule for this case only: the file and its gap are present in both producers,
+    and the exception class may be the base class `OSError`; the rest of the survey is equal.
+
 **Rejected.** (a) Gaps only in the documentation: a limit without a gap can hide a false PASS.
 (b) Reading a file over 4 MiB for the digest only: the size limit is the defence of AD-319.
 (c) A difference where native is less strict: it is a bug of the native collector.

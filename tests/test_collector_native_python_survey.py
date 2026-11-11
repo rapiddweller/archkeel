@@ -13,6 +13,7 @@ not compared yet; the binary still refuses each request, so no reply can carry t
 
 from __future__ import annotations
 
+import builtins
 import json
 import os
 import subprocess
@@ -211,18 +212,32 @@ def test_a_file_over_4_mib_is_a_named_gap(tmp_path: Path, python_dump_binary: Pa
 
 
 @pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs POSIX modes")
+def _without_file(found: dict[str, Any], rel: str) -> dict[str, Any]:
+    def kept(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [item for item in records if item["data"].get("file") != rel]
+
+    coverage = {**found["coverage"], "gaps": kept(found["coverage"]["gaps"])}
+    return {**found, "unknowns": kept(found["unknowns"]), "coverage": coverage}
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs POSIX modes")
 def test_an_unreadable_file_is_a_gap_in_both_producers(
     tmp_path: Path, python_dump_binary: Path
 ) -> None:
-    """Python names the errno class (`PermissionError`); native writes `OSError` (proposed)."""
-    root = _tree(tmp_path / "repo", {"src/app/__init__.py": "", "src/app/secret.py": "x = 1\n"})
-    secret = root / "src/app/secret.py"
+    """AD-365 point 10: the file and its gap are present in both producers, and the class may
+    be the base class `OSError`. The rest of the survey is equal."""
+    rel = "src/app/secret.py"
+    root = _tree(tmp_path / "repo", {"src/app/__init__.py": "import os\n", rel: "x = 1\n"})
+    secret = root / rel
     secret.chmod(0)
     try:
         request = _request(root, ("src",), "app", False)
         expected, found = _python(request), _native(python_dump_binary, request)
     finally:
         secret.chmod(0o644)
-    assert _gap_files(expected) == {"src/app/secret.py": "PermissionError"}
-    assert _gap_files(found) == {"src/app/secret.py": "OSError"}
-    assert not found["coverage"]["full_scope"]
+    python_class = getattr(builtins, _gap_files(expected)[rel])
+    assert issubclass(python_class, OSError)
+    assert _gap_files(found)[rel] == "OSError"
+    expected, found = _without_file(expected, rel), _without_file(found, rel)
+    for section in ("files", "imports", "evidence", "targets", "unknowns", "coverage"):
+        assert _text(found[section]) == _text(expected[section]), section
