@@ -307,7 +307,15 @@ def test_self_oversized_components_claim_still_counts_analyzer(
     # AD-290: studio adds a top-level component and an edge, so render no longer outgrows them;
     # studio itself outgrows them once the story, chat and graph components exist. AD-358: the
     # Studio command moves to its own module, so cli has one more module and outgrows them too.
-    assert {item.scope for item in sizes.candidates} == {"analyzer", "check", "cli", "ir", "studio"}
+    # AD-361: the report payload producer has 11 modules and no inside contract yet.
+    assert {item.scope for item in sizes.candidates} == {
+        "analyzer",
+        "check",
+        "cli",
+        "ir",
+        "report",
+        "studio",
+    }
 
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:

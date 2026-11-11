@@ -57,4 +57,4 @@ until CI keeps measure points (`G-TREND`). A diagnostic text comes from the host
 
 **Dual run.** The payload becomes the owned section set `report-v2` of AD-360 in a later PR.
 
-**Tests.** `tests/test_report_schema.py`.
+**Tests.** `tests/test_report_schema.py`, `tests/test_report_payload.py`.

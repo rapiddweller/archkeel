@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "8db20a41932d3b21b97c4c9d3a9b1ce2e1769af009217c2b5d5f356781ea9c32",
+  "after_digest": "70ad1e2c40564e1a592f3791d7cb210c89e4602820c6b99db64f5dbba02f18af",
+  "before_baseline_digest": "11b1c1a46c5ac66d23272ba2d4a7e8b5782dbfecff33bda6016470498fb1eecb",
+  "before_digest": "cbd5d13f24766420bbcf43da5edaeaf7baeea5886d8f0ca92ad940b56301f685",
+  "decided_by": "Agent session for Alexander Kell (epic #880 report v2 data, owner approval 2026-11-11); review in the pull request decides",
+  "rationale": "AD-361 adds the package archkeel.report with the Python oracle producer of the report v2 payload. The contract gets the component COMP-REPORT (no requires, no public names: no other component imports it yet), and the root layout lists archkeel.report. Two budgets rise because of the new code only. calls_unresolved rises from 988 to 1007: the producer decodes JSON values, so calls such as setdefault(...).append and read_text on argparse values have no proven target. typing_positions rises from 58 to 62: four object annotations at the JSON boundary of records.py, where the decoder narrows each value with isinstance.",
+  "schema_version": "2.0.0"
+}
