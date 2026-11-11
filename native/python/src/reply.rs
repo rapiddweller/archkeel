@@ -10,7 +10,7 @@
 //! no resolution feature and no construct. The sections `symbols`, `calls`, `references`,
 //! `bindings`, `typing_signals` and `constructs` are not declared, so they are not collected, and
 //! the lists of the collection phase are empty. The host refuses a 10.0.0 reply, and the evaluation
-//! refuses a Python reply with these capabilities (AD-334, AD-365).
+//! refuses a Python reply with these capabilities (AD-334, AD-367).
 
 use archkeel_facts::envelope::{Adapter, Coverage, Profile, Provenance, Runtime};
 use archkeel_facts::request::PythonRequest;

@@ -7,7 +7,7 @@ Consumers: the host codec (`facts_codec.decode_response`), the Rust store (`arch
 the evaluation of a Python reply. The reply must equal the reply of the unmodified Python collector
 in the phase `imports`; only the adapter (the producer) and the version differ. The reply declares
 only the sections of the survey, so it never claims the whole collection. The codec and the store
-refuse it with a named error, also when it claims completeness (AD-334, AD-365).
+refuse it with a named error, also when it claims completeness (AD-334, AD-367).
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def _python(request: CollectionRequest) -> dict[str, Any]:
 
 def _comparable(reply: dict[str, Any]) -> str:
     """The reply without its producer and version, with each syntax failure on its file and
-    class only, and without the evidence that only a syntax failure cites (AD-365 point 1)."""
+    class only, and without the evidence that only a syntax failure cites (AD-367 point 1)."""
     facts = dict(reply["facts"])
     del facts["adapter"]
     records = [record for section in facts["sections"] for record in section["records"]]
@@ -145,7 +145,7 @@ def test_the_reply_of_each_named_corpus_is_the_python_survey(python_binary: Path
 def _stops_python(
     binary: Path, root: Path, rels: tuple[str, ...], error: type[Exception], fixed: bool
 ) -> None:
-    """AD-365 points 11 and 12: where the Python collector stops with `error`, native writes a
+    """AD-367 points 11 and 12: where the Python collector stops with `error`, native writes a
     gap that names each file and no file fact for it. Where Python does not stop, the replies are
     equal."""
     request = _request(root, ("src",), "app", False)
@@ -165,7 +165,7 @@ def _stops_python(
 
 def _equal_but_os_error(binary: Path, request: CollectionRequest, rels: tuple[str, ...]) -> None:
     """3.13 and 3.14 write `OSError` for a file of the loop and native `FileNotFoundError`: the
-    rule of AD-365 point 10 for these files only. The rest of the reply is equal."""
+    rule of AD-367 point 10 for these files only. The rest of the reply is equal."""
     replies = [json.loads(zlib.decompress(_native(binary, request))), _python(request)]
     for reply in replies:
         facts = reply["facts"]
