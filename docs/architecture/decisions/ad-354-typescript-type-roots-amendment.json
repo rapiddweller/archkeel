@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "",
+  "after_digest": "",
+  "before_baseline_digest": "",
+  "before_digest": "",
+  "decided_by": "architect",
+  "rationale": "AD-354 and issue #988. The module archkeel.analyzer.typescript.config_reads joins the configuration component: it holds the reading of the lib list, moved out of config.py, and the new reading of typeRoots, so that config.py shrinks while the option is read. No requires entry, Any permission, interface, coupling budget or measurement budget changes.",
+  "schema_version": "2.0.0"
+}

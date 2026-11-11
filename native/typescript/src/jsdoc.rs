@@ -152,18 +152,25 @@ pub fn imports(body: &str) -> bool {
     false
 }
 
-/// `_TRIPLE_SLASH`: a leading `/// <reference path="..." />`, `lib=` or `types=`; the quoted text.
-/// A `types` name is no concern; a `types` path that starts with `.` or `/` is one (#976).
-pub fn triple_slash(body: &str) -> Option<String> {
+/// `augmentations._DIRECTIVE`: a leading `/// <reference path="..." />`, `lib=` or `types=`, or
+/// `/// <amd-dependency path="..." />`; the quoted text. A `types` name is no concern, unless a type
+/// root lies inside the project (`type_roots`); a `types` path that starts with `.` or `/` is one
+/// (#976, #988).
+pub fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
     let rest = body.strip_prefix("///")?.trim_start_matches(is_space);
-    let rest = rest.strip_prefix("<reference")?;
+    let rest = rest.strip_prefix('<')?;
+    let (rest, amd) = match rest.strip_prefix("reference") {
+        Some(rest) => (rest, false),
+        None => (rest.strip_prefix("amd-dependency")?, true),
+    };
     let spaced = rest.trim_start_matches(is_space);
     if spaced.len() == rest.len() {
         return None;
     }
-    let (rest, types) = match spaced.strip_prefix("types") {
-        Some(rest) => (rest, true),
-        None => (
+    let (rest, types) = match (amd, spaced.strip_prefix("types")) {
+        (false, Some(rest)) => (rest, true),
+        (true, _) => (spaced.strip_prefix("path")?, false),
+        (false, None) => (
             spaced
                 .strip_prefix("path")
                 .or_else(|| spaced.strip_prefix("lib"))?,
@@ -177,6 +184,6 @@ pub fn triple_slash(body: &str) -> Option<String> {
     // The group `(.*?)` stops at the first quote; a dot does not match a line feed.
     let end = rest.find(quote)?;
     let value = rest.get(..end)?;
-    let named = types && !value.starts_with(['.', '/']);
+    let named = types && !type_roots && !value.starts_with(['.', '/']);
     (!value.contains('\n') && !named).then(|| value.to_owned())
 }

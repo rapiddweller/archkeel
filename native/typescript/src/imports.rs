@@ -20,8 +20,8 @@ use crate::source_input::{classify_file, ModuleFormat, SourceKind};
 impl Collection<'_> {
     /// Parse a file, report what it cannot prove, and record each of its references.
     pub(super) fn references(&mut self, rel: &str, module: &str, file_evidence: &str, text: &str) {
-        let aliased = self.resolver.options.aliased();
-        let mut parsed = parse_for(&mut self.parsers, rel, text.as_bytes(), aliased);
+        let reach = self.resolver.options.reach();
+        let mut parsed = parse_for(&mut self.parsers, rel, text.as_bytes(), reach);
         if let Some(line) = parsed.first_error {
             let reason = format!("Syntax error in {rel}: unparseable construct at line {line}");
             self.gap(&reason, Some(file_evidence), module, GapKind::Collection);

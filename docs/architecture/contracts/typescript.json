@@ -118,6 +118,7 @@
       "role": "component",
       "packages": [
         "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.config_reads",
         "archkeel.analyzer.typescript.standard_libs"
       ],
       "responsibilities": [

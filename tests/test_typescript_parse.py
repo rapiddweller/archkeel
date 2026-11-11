@@ -224,3 +224,23 @@ def test_a_bare_augmentation_is_a_concern_only_in_a_module_file_of_an_aliased_pr
 ) -> None:
     found = _reasons(parse(name, file.encode(), Options(base_url=".") if aliased else None))
     assert found == sorted(f"Unobserved module augmentation: {item}" for item in reasons)
+
+
+@pytest.mark.parametrize(
+    ("directive", "roots", "reasons"),
+    [
+        ('/// <amd-dependency path="../b/t" />', False, ["../b/t"]),
+        ('/// <amd-dependency path="x" />', False, ["x"]),
+        ('/// <amd-dependency name="x" />', False, []),
+        ('/// <reference types="b" />', False, []),
+        ('/// <reference types="b" />', True, ["b"]),
+        ('/// <reference types="node" />', True, ["node"]),
+        ('/// <reference lib="dom" />', False, ["dom"]),
+    ],
+)
+def test_a_directive_names_a_file_of_the_project_with_a_type_root_or_a_path(
+    directive: str, roots: bool, reasons: list[str]
+) -> None:
+    options = Options(project_type_roots=roots)
+    found = _reasons(parse("a.ts", f"{directive}\nexport {{}};".encode(), options))
+    assert found == sorted(f"Unobserved triple-slash reference: {item}" for item in reasons)

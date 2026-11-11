@@ -35,3 +35,31 @@ def test_augmentation_names_equal_the_python_collector(
 ) -> None:
     _write(tmp_path, {**AUGMENTATIONS, "tsconfig.json": config})
     assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []
+
+
+TYPE_ROOT = '{"compilerOptions":{"allowJs":true,"typeRoots":["./src"]},"include":["src"]}'
+NODE_ROOT = (
+    '{"compilerOptions":{"allowJs":true,"typeRoots":["./node_modules/@types"]},"include":["src"]}'
+)
+DIRECTIVES = {
+    "src/b/index.d.ts": "declare var fromB: number;\n",
+    "src/a/types.ts": '/// <reference types="b" />\nexport const a = fromB;\n',
+    "src/a/path.ts": '/// <reference types="../b/index" />\nexport const p = 1;\n',
+    "src/a/amd.ts": (
+        '/// <amd-dependency path="../b/t" />\n/// <amd-dependency path="x" />\nexport {};\n'
+    ),
+    "src/a/amd-name.ts": (
+        '/// <amd-dependency name="x" />\n/// <reference types="node" />\nexport {};\n'
+    ),
+    "src/a/late.ts": 'export {};\n/// <amd-dependency path="../b/t" />\n',
+}
+
+
+@pytest.mark.parametrize(
+    "config", [TYPE_ROOT, NODE_ROOT, COMMONJS], ids=["project", "node", "none"]
+)
+def test_directives_and_type_roots_equal_the_python_collector(
+    tmp_path: Path, native_binary: Path, config: str
+) -> None:
+    _write(tmp_path, {**DIRECTIVES, "tsconfig.json": config})
+    assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []

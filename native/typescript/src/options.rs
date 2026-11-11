@@ -7,6 +7,7 @@
 //! Every value that this reader does not understand becomes a problem. A problem makes the
 //! settings partial, and a partial setting resolves nothing: the collector invents no evidence.
 
+use crate::source_input::Reach;
 use serde_json::{Map, Value};
 
 use crate::layer::Layer;
@@ -63,6 +64,8 @@ pub struct Options {
     /// A `lib` value that the pinned compiler does not know, or `libReplacement`.
     pub lib_unmodeled: bool,
     pub module_detection: Option<Detection>,
+    /// A `typeRoots` entry is not under `node_modules`, so it may name a directory of the project.
+    pub project_type_roots: bool,
 }
 
 const NODE16_MODULES: [ModuleKind; 3] =
@@ -96,9 +99,12 @@ impl Options {
             && self.emit_module() != ModuleKind::NodeNext
     }
 
-    /// The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project.
-    pub fn aliased(&self) -> bool {
-        self.base_url.is_some() || !self.paths.is_empty()
+    /// Which options can map a bare name to a file of the project.
+    pub fn reach(&self) -> Reach {
+        Reach {
+            aliased: self.base_url.is_some() || !self.paths.is_empty(),
+            type_roots: self.project_type_roots,
+        }
     }
 
     /// The effective resolution mode.
@@ -306,6 +312,18 @@ pub fn paths(raw: &Map<String, Value>, problems: &mut Vec<String>) -> Vec<(Strin
     patterns
 }
 
+/// A `typeRoots` list that holds a string without `node_modules`: the root may lie inside the
+/// project (`config._options`).
+fn project_type_roots(raw: &Map<String, Value>) -> bool {
+    let Some(Value::Array(roots)) = raw.get("typeRoots") else {
+        return false;
+    };
+    roots.iter().any(|root| {
+        root.as_str()
+            .is_some_and(|root| !root.contains("node_modules"))
+    })
+}
+
 /// `raw.get(name) not in (None, False)`: a zero counts as false, an empty list as set.
 fn replaced(raw: &Map<String, Value>, name: &str) -> bool {
     match raw.get(name) {
@@ -359,6 +377,7 @@ pub fn build(layer: &Layer, problems: &mut Vec<String>) -> Options {
         // change what a lib name means.
         lib_unmodeled: replaced(raw, "libReplacement"),
         module_detection: detection_kind(&normalized(raw, "moduleDetection")),
+        project_type_roots: project_type_roots(raw),
     };
     let lib = raw.get("lib").is_some_and(|value| !value.is_null());
     if raw.get("noLib") == Some(&Value::Bool(true)) && lib {

@@ -12,16 +12,25 @@ name is a concern, as an unproved reference is. This module takes names and span
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from typing import Final, Protocol
 
 from .syntax import Concern, Span
 
 _PATH_START: Final = frozenset("./")
+# A directive that names a file of the project: `path`, `lib`, `amd-dependency` (#988) and a `types`
+# directive that names a path (#976). A `types` name only adds globals, which the catalog does not
+# model (AD-274), unless a type root lies inside the project (AD-354).
+_DIRECTIVE: Final = re.compile(
+    r"^///\s*<(?:reference\s+(?:path|lib|types(?=\s*=\s*['\"][./]))|amd-dependency\s+path)"
+    r"\s*=\s*(['\"])(.*?)\1"
+)
+_TYPES_NAME: Final = re.compile(r"^///\s*<reference\s+types\s*=\s*(['\"])(.*?)\1")
 
 
 class Aliases(Protocol):
-    """The compiler options that map a bare name to a file: `baseUrl` and `paths`."""
+    """The compiler options that map a bare name to a file: `baseUrl`, `paths` and `typeRoots`."""
 
     @property
     def base_url(self) -> str | None: ...
@@ -29,10 +38,22 @@ class Aliases(Protocol):
     @property
     def paths(self) -> tuple[tuple[str, tuple[str, ...]], ...]: ...
 
+    @property
+    def project_type_roots(self) -> bool: ...
+
 
 def has_aliases(options: Aliases) -> bool:
     """The project sets `paths` or `baseUrl`, so a bare name can reach a file of the project."""
     return options.base_url is not None or bool(options.paths)
+
+
+def triple_slash(body: str, options: Aliases | None) -> str | None:
+    """The quoted text of a triple-slash directive that names a file of the project, else `None`.
+    With a type root inside the project, a `types` name is such a file too."""
+    found = _DIRECTIVE.match(body)
+    if found is None and options is not None and options.project_type_roots:
+        found = _TYPES_NAME.match(body)
+    return found[2] if found is not None else None
 
 
 def augmentation_concerns(

@@ -21,6 +21,7 @@ from typing import Final
 
 from archkeel.ir.facts import ResolutionRole
 
+from .config_reads import project_type_roots, read_libraries
 from .source_input import (
     FileSuffix,
     SourceKind,
@@ -211,6 +212,8 @@ class Options:
     no_lib: bool = False
     lib_unmodeled: bool = False
     module_detection: ModuleDetection | None = None
+    # A `typeRoots` entry is not under `node_modules`, so it may name a directory of the project.
+    project_type_roots: bool = False
 
     def __post_init__(self) -> None:
         for name, value, kind in (
@@ -638,28 +641,12 @@ def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tupl
     return tuple(patterns)
 
 
-def _libraries(raw: Json) -> tuple[tuple[StandardLibrary, ...] | None, bool]:
-    value = raw.get("lib")
-    if value is None:
-        return None, False
-    if not isinstance(value, list) or not all(isinstance(name, str) for name in value):
-        return (), True
-    libraries: list[StandardLibrary] = []
-    unsupported = False
-    for name in value:
-        try:
-            libraries.append(StandardLibrary(name.lower()))
-        except ValueError:
-            unsupported = True
-    return tuple(dict.fromkeys(libraries)), unsupported
-
-
 def _options(layer: _Layer, problems: list[str]) -> Options:
     raw = layer.compiler
     resolution = _RESOLUTION_VALUES.get(_normalized(raw, "moduleResolution"))
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
-    libraries, unsupported_library = _libraries(raw)
+    libraries, unsupported_library = read_libraries(raw)
     if any(
         re.search(re.escape(_CONFIG_DIRECTORY), target)
         for _, targets in paths
@@ -683,6 +670,7 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
         # can change what a lib name means.
         unsupported_library or raw.get("libReplacement") not in (None, False),
         _DETECTION_VALUES.get(_normalized(raw, "moduleDetection")),
+        project_type_roots(raw),
     )
     if options.no_lib and libraries is not None:
         problems.append("Compiler option 5053: 'lib' cannot be specified with 'noLib'.")
