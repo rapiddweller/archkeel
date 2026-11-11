@@ -15,6 +15,8 @@ from archkeel.ir.decisions import RuleAssessmentStatus
 SOURCE = """
     import os
 
+    ds = {{}}
+
     def _effect(value=None):
         return value
 
@@ -31,6 +33,9 @@ HIDDEN = {
     # #759: a decorator application `@d def g` is `g = d(g)`, with no call node.
     "bare_function_decorator": "@_effect\ndef local():\n    return 1",
     "bare_class_decorator": "@_effect\nclass Local:\n    pass",
+    # A bare decorator that holds a call: the inner call is recorded once, and the run completes.
+    "lambda_decorator": "@(lambda f: _effect(f))\ndef local():\n    return 1",
+    "subscript_decorator": "@ds[int()]\ndef local():\n    return 1",
 }
 
 

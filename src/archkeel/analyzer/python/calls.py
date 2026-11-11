@@ -2269,7 +2269,8 @@ class CallCollector(ast.NodeVisitor):
             target_evidence_ids,
             guarded_effect,
         )
-        self.generic_visit(node)
+        if not bare:  # The definition visits the parts of its decorator once.
+            self.generic_visit(node)
 
 
 def collect_calls_with_resolvers(
