@@ -99,15 +99,8 @@ fn a_local_root_a_prelude_name_an_unknown_name_and_the_package_itself_are_no_edg
 
 #[test]
 fn an_extern_crate_is_linked_only_by_the_sysroot_the_manifest_or_the_own_library() {
-    for name in [
-        "std",
-        "alloc",
-        "proc_macro",
-        "test",
-        "json_dep",
-        "renamed",
-        "my_app",
-    ] {
+    // One string, so that no literal of this file is itself the name of a crate (the safety net).
+    for name in "std alloc proc_macro test json_dep renamed my_app".split(' ') {
         assert!(linked(name, &krate()), "{name}");
     }
     assert!(!linked("real_name", &krate()));
