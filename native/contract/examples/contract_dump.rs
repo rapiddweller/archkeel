@@ -8,21 +8,15 @@
 
 use std::io::{self, BufRead, Read, Write};
 
-use archkeel_contract::{canonical_bytes, canonical_digest, parse, ErrorKind, Unported};
+use archkeel_contract::{canonical_bytes, canonical_digest, parse, ErrorKind};
 use serde_json::{json, Value};
 
-fn kind(error: ErrorKind) -> (&'static str, Option<String>) {
+fn kind(error: ErrorKind) -> &'static str {
     match error {
-        ErrorKind::Invalid => ("invalid", None),
-        ErrorKind::Version => ("version", None),
-        ErrorKind::Input => ("input", None),
-        ErrorKind::DuplicateKey => ("duplicate_key", None),
-        ErrorKind::Unsupported(Unported::Declarations) => {
-            ("unsupported", Some("declarations".to_owned()))
-        }
-        ErrorKind::Unsupported(Unported::Rule(rule)) => {
-            ("unsupported", Some(format!("rule:{rule:?}")))
-        }
+        ErrorKind::Invalid => "invalid",
+        ErrorKind::Version => "version",
+        ErrorKind::Input => "input",
+        ErrorKind::DuplicateKey => "duplicate_key",
     }
 }
 
@@ -35,8 +29,7 @@ fn line(bytes: &[u8]) -> Value {
             "canonical_digest": canonical_digest(&contract).as_text(),
         }),
         Err(error) => {
-            let (name, part) = kind(error.kind);
-            json!({"kind": name, "part": part, "message": error.message})
+            json!({"kind": kind(error.kind), "message": error.message})
         }
     }
 }

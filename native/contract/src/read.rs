@@ -8,7 +8,7 @@
 
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, keys, Json, Object};
-use crate::model::{wrap_all, DecidedBy, ItemId, RuleHead, Wrap};
+use crate::model::{wrap_all, DecidedBy, ItemId, RuleHead, Selector, Wrap};
 use crate::names::has_text;
 use crate::words::value_of;
 
@@ -165,6 +165,15 @@ pub(crate) fn positive(raw: &Json, label: &str) -> Parsed<u64> {
     }
 }
 
+/// `_count`: an integer of at least 0 that is not a Boolean.
+pub(crate) fn count(raw: &Json, label: &str) -> Parsed<u64> {
+    match raw {
+        Json::Int(value) => u64::try_from(*value).ok(),
+        _ => None,
+    }
+    .ok_or_else(|| invalid(format!("{label} must be a non-negative integer")))
+}
+
 /// `_decided_by`.
 pub(crate) fn decided_by(raw: &Json, label: &str) -> Parsed<DecidedBy> {
     let value: String = nonempty(raw, label)?;
@@ -204,4 +213,23 @@ pub(crate) fn rule_record<'a>(
         decided_by: decided_by(decided, &format!("{label}.decided_by"))?,
     };
     Ok((item, head))
+}
+
+/// `allowed_sources` and `exact_sources`, each empty when absent.
+pub(crate) fn listed_sources(item: &Object, label: &str) -> Parsed<(Vec<Selector>, Vec<Selector>)> {
+    Ok((
+        listed_strings(item, "allowed_sources", label)?,
+        listed_strings(item, "exact_sources", label)?,
+    ))
+}
+
+/// `listed_sources` where at least one of the two lists must name a source.
+pub(crate) fn named_sources(item: &Object, label: &str) -> Parsed<(Vec<Selector>, Vec<Selector>)> {
+    let (allowed, exact) = listed_sources(item, label)?;
+    if allowed.is_empty() && exact.is_empty() {
+        return Err(invalid(format!(
+            "{label} must name allowed_sources or exact_sources"
+        )));
+    }
+    Ok((allowed, exact))
 }

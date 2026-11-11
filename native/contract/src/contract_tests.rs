@@ -4,8 +4,9 @@
 
 use super::parse;
 use crate::canonical::{canonical_bytes, canonical_digest};
-use crate::error::{ErrorKind, Unported};
-use crate::model::{CycleLevel, Rule, RuleKind, SelectorMatch};
+use crate::error::ErrorKind;
+use crate::model::{CycleLevel, SelectorMatch};
+use crate::rule::Rule;
 
 const COMPONENT: &str = r#"{"id": "C-A", "label": "a", "role": "component", "packages": ["p.a"],
   "responsibilities": ["Own a."], "forbidden_responsibilities": [], "provenance": ["d.md"],
@@ -22,7 +23,7 @@ fn rule(kind: &str, extra: &str) -> String {
     )
 }
 
-fn read_contract(text: &str) -> Result<crate::model::Contract, String> {
+fn read_contract(text: &str) -> Result<crate::document::Contract, String> {
     parse(text.as_bytes()).map_err(|error| error.message)
 }
 
@@ -117,13 +118,10 @@ fn an_earlier_invalid_component_wins_over_a_later_input_error() {
 }
 
 #[test]
-fn declarations_and_a_python_only_rule_stop_as_unsupported() {
+fn declarations_and_a_python_only_rule_parse() {
     let declared =
         r#"{"schema_version": "2.1.0", "components": [], "rules": [], "declarations": {}}"#;
-    assert_eq!(
-        kind_of(declared),
-        Some(ErrorKind::Unsupported(Unported::Declarations))
-    );
+    assert_eq!(kind_of(declared), None);
     let null =
         r#"{"schema_version": "2.1.0", "components": [], "rules": [], "declarations": null}"#;
     assert_eq!(kind_of(null), None);
@@ -131,14 +129,11 @@ fn declarations_and_a_python_only_rule_stop_as_unsupported() {
         "3.7.0",
         &rule("call_owner", r#", "source": "a", "target": "b""#),
     );
-    assert_eq!(
-        kind_of(&call_owner),
-        Some(ErrorKind::Unsupported(Unported::Rule(RuleKind::CallOwner)))
-    );
+    assert_eq!(kind_of(&call_owner), None);
 }
 
 #[test]
-fn a_version_gate_is_checked_before_a_python_only_rule_stops() {
+fn a_version_gate_refuses_a_python_only_rule_of_an_older_contract() {
     let early = contract(
         "3.6.0",
         &rule("call_owner", r#", "source": "a", "target": "b""#),

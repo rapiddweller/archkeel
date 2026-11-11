@@ -7,12 +7,20 @@
 
 use sha2::{Digest, Sha256};
 
+use crate::budgets::check_interface_budgets;
 use crate::component::parse_component;
-use crate::error::{invalid, unsupported, ErrorKind, ParseError, Parsed, Unported};
+use crate::declarations::{
+    budgets, capabilities, declarations_object, finish, later_records, record_ids, Records,
+};
+use crate::document::Contract;
+use crate::error::{invalid, ErrorKind, ParseError, Parsed};
+use crate::graph::check_declared_graph;
 use crate::json::{read, Json};
-use crate::model::{Component, ComponentLabel, Contract, ContractDigest, ItemId, Rule};
+use crate::model::{Component, ComponentLabel, ContractDigest, ItemId};
+use crate::model_declarations::Capability;
 use crate::read::{fields, given, nonempty, present, repeats};
-use crate::rules::{check_rule_features, head_of, parse_rule, rule_kind};
+use crate::rule::{head_of, Rule};
+use crate::rules::{check_boundary_features, check_rule_features, parse_rule, rule_kind};
 use crate::version::{version_of, ContractVersion};
 
 /// Parse contract bytes into a typed contract. The bytes are the whole file; this crate reads no
@@ -32,18 +40,49 @@ pub fn parse(bytes: &[u8]) -> Result<Contract, ParseError> {
     ) else {
         return Err(invalid("contract components and rules must be arrays"));
     };
-    if given(root, "declarations").is_some() {
-        return Err(unsupported(
-            Unported::Declarations,
-            "contract.declarations is not parsed in Rust yet (slice 0c-2)",
-        ));
-    }
+    let declared = given(root, "declarations")
+        .map(declarations_object)
+        .transpose()?;
+    let capabilities = declared.map(capabilities).transpose()?.unwrap_or_default();
     let components = components_raw
         .iter()
         .enumerate()
         .map(|(index, value)| parse_component(value, &format!("components[{index}]"), version))
         .collect::<Parsed<Vec<_>>>()?;
     check_namespaces(&components)?;
+    let records = declared
+        .map(|object| later_records(object, version))
+        .transpose()?;
+    let rules = parse_rules(version, rules_raw)?;
+    check_labels(&components)?;
+    check_rule_components(&components, &rules)?;
+    let (facades, pairs) = records.as_ref().map(budgets).unwrap_or_default();
+    check_interface_budgets(&components, &rules, facades, pairs)?;
+    check_unique_ids(&capabilities, &components, records.as_ref(), &rules)?;
+    let schema = given(root, "$schema")
+        .map(|value| nonempty(value, "contract.$schema"))
+        .transpose()?;
+    let declarations = match (declared, records) {
+        (Some(object), Some(records)) => Some(finish(object, capabilities, records)?),
+        _ => None,
+    };
+    if let Some(declarations) = &declarations {
+        if let Some(target) = &declarations.uml {
+            check_declared_graph(&components, &rules, declarations, target)?;
+        }
+    }
+    Ok(Contract {
+        version,
+        schema,
+        components,
+        rules,
+        declarations,
+        digest: digest_of(bytes),
+    })
+}
+
+/// The rule kinds, the feature gates, each rule and the gates of the boundary positions.
+fn parse_rules(version: ContractVersion, rules_raw: &[Json]) -> Parsed<Vec<Rule>> {
     let kinds = rules_raw
         .iter()
         .enumerate()
@@ -56,19 +95,8 @@ pub fn parse(bytes: &[u8]) -> Result<Contract, ParseError> {
         .enumerate()
         .map(|(index, (value, kind))| parse_rule(value, &format!("rules[{index}]"), *kind))
         .collect::<Parsed<Vec<_>>>()?;
-    check_labels(&components)?;
-    check_rule_components(&components, &rules)?;
-    check_unique_ids(&components, &rules)?;
-    let schema = given(root, "$schema")
-        .map(|value| nonempty(value, "contract.$schema"))
-        .transpose()?;
-    Ok(Contract {
-        version,
-        schema,
-        components,
-        rules,
-        digest: digest_of(bytes),
-    })
+    check_boundary_features(version, &rules)?;
+    Ok(rules)
 }
 
 /// The SHA-256 of bytes in lower-case hex.
@@ -175,13 +203,24 @@ fn check_rule_components(components: &[Component], rules: &[Rule]) -> Parsed<()>
     Ok(())
 }
 
-/// Each id of a component and of a rule is unique in the contract.
-fn check_unique_ids(components: &[Component], rules: &[Rule]) -> Parsed<()> {
-    let ids: Vec<&ItemId> = components
-        .iter()
-        .map(|component| &component.id)
-        .chain(rules.iter().map(|rule| &head_of(rule).id))
-        .collect();
+/// Each id of the contract is unique: capabilities, components, the records of the declarations,
+/// rules, and the entities and relationships of the UML Target.
+fn check_unique_ids(
+    capabilities: &[Capability],
+    components: &[Component],
+    records: Option<&Records>,
+    rules: &[Rule],
+) -> Parsed<()> {
+    let mut ids: Vec<&ItemId> = capabilities.iter().map(|item| &item.id).collect();
+    ids.extend(components.iter().map(|component| &component.id));
+    if let Some(records) = records {
+        ids.extend(record_ids(records));
+    }
+    ids.extend(rules.iter().map(|rule| &head_of(rule).id));
+    if let Some(target) = records.and_then(|records| records.uml.as_ref()) {
+        ids.extend(target.entities.iter().map(|entity| &entity.id));
+        ids.extend(target.relationships.iter().map(|edge| &edge.id));
+    }
     if repeats(&ids) {
         return Err(invalid("duplicate contract ID"));
     }

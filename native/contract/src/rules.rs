@@ -4,18 +4,24 @@
 
 //! The rule kind, the version gates of the rule features and the parser of each kind.
 
+use crate::boundary::{boundary_types, protocol_declarations};
 use crate::construct::forbidden_construct;
 use crate::dependency::{allowed_dependency, external_dependency_scope, forbidden_dependency};
-use crate::error::{invalid, unsupported, Parsed, Unported};
+use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json};
-use crate::model::{Rule, RuleKind};
+use crate::model::RuleKind;
+use crate::python_rules::{
+    bounded_numeric_operand, call_owner, catalog_argument, catalog_use, forbidden_call_argument,
+    forbidden_effect_under_condition, source_ownership, symbol_placement,
+};
 use crate::read::object;
+use crate::rule::Rule;
 use crate::structure::{
     complete_requires, interface_boundary, layer_order, no_component_cycles, root_layout,
     sibling_isolation, source_rule,
 };
 use crate::version::{supports, ContractVersion, Feature};
-use crate::words::{spelling, value_of};
+use crate::words::value_of;
 
 /// `_rule_kind`.
 pub(crate) fn rule_kind(raw: &Json, label: &str) -> Parsed<RuleKind> {
@@ -128,68 +134,114 @@ pub(crate) fn check_rule_features(
     Ok(())
 }
 
-/// The parser of one rule. A kind that only the Python profile decides is `Unsupported`.
+type Parser = fn(&Json, &str) -> Parsed<Rule>;
+
+/// The parser of each kind (`_RULE_PARSERS`).
+const PARSERS: [(RuleKind, Parser); 22] = [
+    (RuleKind::ForbiddenDependency, |raw, label| {
+        forbidden_dependency(raw, label).map(Rule::ForbiddenDependency)
+    }),
+    (RuleKind::AllowedDependency, |raw, label| {
+        allowed_dependency(raw, label).map(Rule::AllowedDependency)
+    }),
+    (RuleKind::ForbiddenConstruct, |raw, label| {
+        forbidden_construct(raw, label).map(Rule::ForbiddenConstruct)
+    }),
+    (RuleKind::ExternalDependencyScope, |raw, label| {
+        external_dependency_scope(raw, label).map(Rule::ExternalDependencyScope)
+    }),
+    (RuleKind::CompleteAssignment, |raw, label| {
+        source_rule(raw, label).map(Rule::CompleteAssignment)
+    }),
+    (RuleKind::RootLayout, |raw, label| {
+        root_layout(raw, label).map(Rule::RootLayout)
+    }),
+    (RuleKind::CompleteExternalScope, |raw, label| {
+        source_rule(raw, label).map(Rule::CompleteExternalScope)
+    }),
+    (RuleKind::CompleteRequires, |raw, label| {
+        complete_requires(raw, label).map(Rule::CompleteRequires)
+    }),
+    (RuleKind::LayerOrder, |raw, label| {
+        layer_order(raw, label).map(Rule::LayerOrder)
+    }),
+    (RuleKind::NoComponentCycles, |raw, label| {
+        no_component_cycles(raw, label).map(Rule::NoComponentCycles)
+    }),
+    (RuleKind::InterfaceBoundary, |raw, label| {
+        interface_boundary(raw, label).map(Rule::InterfaceBoundary)
+    }),
+    (RuleKind::SiblingIsolation, |raw, label| {
+        sibling_isolation(raw, label).map(Rule::SiblingIsolation)
+    }),
+    (RuleKind::SymbolPlacement, |raw, label| {
+        symbol_placement(raw, label).map(Rule::SymbolPlacement)
+    }),
+    (RuleKind::SourceOwnership, |raw, label| {
+        source_ownership(raw, label).map(Rule::SourceOwnership)
+    }),
+    (RuleKind::BoundaryTypes, |raw, label| {
+        boundary_types(raw, label).map(Rule::BoundaryTypes)
+    }),
+    (RuleKind::ProtocolDeclarations, |raw, label| {
+        protocol_declarations(raw, label).map(Rule::ProtocolDeclarations)
+    }),
+    (RuleKind::CallOwner, |raw, label| {
+        call_owner(raw, label).map(Rule::CallOwner)
+    }),
+    (RuleKind::BoundedNumericOperand, |raw, label| {
+        bounded_numeric_operand(raw, label).map(Rule::BoundedNumericOperand)
+    }),
+    (RuleKind::ForbiddenCallArgument, |raw, label| {
+        forbidden_call_argument(raw, label).map(Rule::ForbiddenCallArgument)
+    }),
+    (RuleKind::CatalogArgument, |raw, label| {
+        catalog_argument(raw, label).map(Rule::CatalogArgument)
+    }),
+    (RuleKind::CatalogUse, |raw, label| {
+        catalog_use(raw, label).map(Rule::CatalogUse)
+    }),
+    (RuleKind::ForbiddenEffectUnderCondition, |raw, label| {
+        forbidden_effect_under_condition(raw, label).map(Rule::ForbiddenEffectUnderCondition)
+    }),
+];
+
+/// The parser of one rule.
 pub(crate) fn parse_rule(raw: &Json, label: &str, kind: RuleKind) -> Parsed<Rule> {
-    match kind {
-        RuleKind::ForbiddenDependency => {
-            forbidden_dependency(raw, label).map(Rule::ForbiddenDependency)
-        }
-        RuleKind::AllowedDependency => allowed_dependency(raw, label).map(Rule::AllowedDependency),
-        RuleKind::ForbiddenConstruct => {
-            forbidden_construct(raw, label).map(Rule::ForbiddenConstruct)
-        }
-        RuleKind::ExternalDependencyScope => {
-            external_dependency_scope(raw, label).map(Rule::ExternalDependencyScope)
-        }
-        RuleKind::CompleteAssignment => source_rule(raw, label).map(Rule::CompleteAssignment),
-        RuleKind::RootLayout => root_layout(raw, label).map(Rule::RootLayout),
-        RuleKind::CompleteExternalScope => source_rule(raw, label).map(Rule::CompleteExternalScope),
-        RuleKind::CompleteRequires => complete_requires(raw, label).map(Rule::CompleteRequires),
-        RuleKind::LayerOrder => layer_order(raw, label).map(Rule::LayerOrder),
-        RuleKind::NoComponentCycles => no_component_cycles(raw, label).map(Rule::NoComponentCycles),
-        RuleKind::InterfaceBoundary => interface_boundary(raw, label).map(Rule::InterfaceBoundary),
-        RuleKind::SiblingIsolation => sibling_isolation(raw, label).map(Rule::SiblingIsolation),
-        other => Err(unsupported(
-            Unported::Rule(other),
-            format!(
-                "{label}.kind {} is not parsed in Rust yet (slice 0c-2)",
-                spelling(&other)
+    let parser = PARSERS
+        .iter()
+        .find(|(known, _)| *known == kind)
+        .map(|(_, parser)| *parser);
+    parser.map_or_else(
+        || Err(invalid(format!("{label}.kind is unsupported"))),
+        |parse| parse(raw, label),
+    )
+}
+
+/// The version gates of the allowed boundary positions, after Python parses every rule.
+pub(crate) fn check_boundary_features(version: ContractVersion, rules: &[Rule]) -> Parsed<()> {
+    let positions = rules.iter().flat_map(|rule| match rule {
+        Rule::BoundaryTypes(rule) => rule.allowed_positions.as_slice(),
+        _ => &[],
+    });
+    for position in positions {
+        let gates = [
+            (position.alias_body.is_some(), ContractVersion::V3_0, "alias_body requires contract schema_version 3.0.0"),
+            (position.key_alias_body.is_some(), ContractVersion::V3_1, "key_alias_body requires contract schema_version 3.1.0"),
+            (position.literal_mapping_arm.is_some(), ContractVersion::V3_2, "literal_mapping_arm requires contract schema_version 3.2.0"),
+            (
+                position.native_mapping
+                    || (position.literal_mapping_arm.is_some() && position.container_depth.is_some()),
+                ContractVersion::V3_3,
+                "native_mapping and literal-arm object values require contract schema_version 3.3.0",
             ),
-        )),
+        ];
+        if let Some((_, _, message)) = gates
+            .iter()
+            .find(|(used, first, _)| *used && version < *first)
+        {
+            return Err(invalid(*message));
+        }
     }
-}
-
-/// The kind of a parsed rule.
-pub fn kind_of(rule: &Rule) -> RuleKind {
-    match rule {
-        Rule::ForbiddenDependency(_) => RuleKind::ForbiddenDependency,
-        Rule::AllowedDependency(_) => RuleKind::AllowedDependency,
-        Rule::ForbiddenConstruct(_) => RuleKind::ForbiddenConstruct,
-        Rule::ExternalDependencyScope(_) => RuleKind::ExternalDependencyScope,
-        Rule::CompleteAssignment(_) => RuleKind::CompleteAssignment,
-        Rule::RootLayout(_) => RuleKind::RootLayout,
-        Rule::CompleteExternalScope(_) => RuleKind::CompleteExternalScope,
-        Rule::CompleteRequires(_) => RuleKind::CompleteRequires,
-        Rule::LayerOrder(_) => RuleKind::LayerOrder,
-        Rule::NoComponentCycles(_) => RuleKind::NoComponentCycles,
-        Rule::InterfaceBoundary(_) => RuleKind::InterfaceBoundary,
-        Rule::SiblingIsolation(_) => RuleKind::SiblingIsolation,
-    }
-}
-
-/// The fields that each rule holds.
-pub fn head_of(rule: &Rule) -> &crate::model::RuleHead {
-    match rule {
-        Rule::ForbiddenDependency(rule) => &rule.head,
-        Rule::AllowedDependency(rule) => &rule.head,
-        Rule::ForbiddenConstruct(rule) => &rule.head,
-        Rule::ExternalDependencyScope(rule) => &rule.head,
-        Rule::CompleteAssignment(rule) | Rule::CompleteExternalScope(rule) => &rule.head,
-        Rule::RootLayout(rule) => &rule.head,
-        Rule::CompleteRequires(rule) => &rule.head,
-        Rule::LayerOrder(rule) => &rule.head,
-        Rule::NoComponentCycles(rule) => &rule.head,
-        Rule::InterfaceBoundary(rule) => &rule.head,
-        Rule::SiblingIsolation(rule) => &rule.head,
-    }
+    Ok(())
 }

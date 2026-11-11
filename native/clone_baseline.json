@@ -1,4 +1,42 @@
 {
+  "contract/src/declarations.rs|contract/src/declarations.rs|0e79b575cf": {
+    "files": [
+      "contract/src/declarations.rs"
+    ],
+    "reason": "Two declaration records with three text fields (review scope, SPOT owner) have one shape, as their Python parsers do. Each field has its own name and check.",
+    "tokens": 92
+  },
+  "contract/src/declarations.rs|contract/src/declarations.rs|c595213a81": {
+    "files": [
+      "contract/src/declarations.rs"
+    ],
+    "reason": "The facade budget and the coupling budget read the same field kinds in one shape, as their Python parsers do. They are data, not logic.",
+    "tokens": 85
+  },
+  "contract/src/graph.rs|contract/src/python_rules.rs|6ff88f9ff0": {
+    "files": [
+      "contract/src/graph.rs",
+      "contract/src/python_rules.rs"
+    ],
+    "reason": "Two lists of imported names have one shape. They are data.",
+    "tokens": 85
+  },
+  "contract/src/lib.rs|rust/src/main.rs|a06a880c69": {
+    "files": [
+      "contract/src/lib.rs",
+      "rust/src/main.rs"
+    ],
+    "reason": "Each crate lists its modules as `mod name;` lines in one shape. They are data.",
+    "tokens": 70
+  },
+  "contract/src/model.rs|contract/src/model_rules.rs|f1b6bace03": {
+    "files": [
+      "contract/src/model.rs",
+      "contract/src/model_rules.rs"
+    ],
+    "reason": "Field lists of neighbouring contract types have one shape, as the Python dataclasses do. No logic repeats.",
+    "tokens": 82
+  },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
       "facts/src/data/imports.rs"
