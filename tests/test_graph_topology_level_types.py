@@ -20,7 +20,7 @@ from archkeel.check.evaluation.evaluate import evaluate_source
 from archkeel.check.evaluation.topology import (
     aggregate_edges,
     cycle_sections,
-    transitive_path_records,
+    transitive_reach_records,
 )
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import facts, model
@@ -104,7 +104,7 @@ def test_actual_edge_cycle_and_transitive_producers_share_the_same_topology_doma
     assert len(module_cycles) == 1
     assert module_cycles[0]["data"]["level"] is level.MODULE
     assert {row["data"]["level"] for row in cycles} == {level.MODULE, level.PACKAGE}
-    paths = transitive_path_records(
+    paths = transitive_reach_records(
         ["sample.a", "sample.b", "sample.c"],
         [("sample.a", "sample.b"), ("sample.b", "sample.c")],
     )

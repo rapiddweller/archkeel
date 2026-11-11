@@ -483,7 +483,7 @@ Rule and `requires` rationale checks (`rationale.placeholder`, `rationale.repeat
 apply to root and mounted contracts; a mounted diagnostic carries its contract path.
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
-Pin CLI and [command schema](../schema/command-result-13.0.schema.json) together.
+Pin CLI and [command schema](../schema/command-result-14.0.schema.json) together.
 Version 12 adds the diagnostic kinds `unresolved_import`, `not_examined` and `incomplete_scan`
 ([AD-336](architecture/decisions/ad-336-a-coverage-gap-names-its-real-cause-and-never-changes-the-exit-code.md)).
 It retains 11, which adds `findings` to an unfiltered `report` (see below) and `target: unavailable`

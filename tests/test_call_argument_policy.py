@@ -591,8 +591,8 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
         "from .storage import page\ndef consume(spec):\n    page(spec)\n",
     )
     raw = observation_payload(result.observation)
-    assert raw["schema_version"] == "2.10.0"
-    assert parse_observation(raw).schema_version == "2.10.0"
+    assert raw["schema_version"] == "2.11.0"
+    assert parse_observation(raw).schema_version == "2.11.0"
     raw.pop("producer_kind")
 
     old = json.loads(json.dumps(raw))
@@ -633,7 +633,7 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    now_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.10.0"})
+    now_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.11.0"})
     historical_schema = validator.evolve(
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
@@ -673,7 +673,7 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    now_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.10.0"})
+    now_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.11.0"})
     assert now_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))

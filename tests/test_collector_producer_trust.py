@@ -176,7 +176,7 @@ def test_a_saved_external_scan_cannot_be_laundered_into_pass(
         snapshots[name] = saved
     recorded = {k: json.loads(v.read_bytes()).get("producer_kind") for k, v in snapshots.items()}
     assert recorded == {"python": "python", "external": "external"}
-    assert json.loads(snapshots["external"].read_bytes())["schema_version"] == "2.10.0"
+    assert json.loads(snapshots["external"].read_bytes())["schema_version"] == "2.11.0"
     _, python_rules = _saved_report(root, snapshots["python"], capsys)
     code, external_rules = _saved_report(root, snapshots["external"], capsys)
     assert python_rules != "UNKNOWN"

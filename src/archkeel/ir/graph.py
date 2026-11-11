@@ -66,25 +66,25 @@ def _bfs_parents(ordered: dict[str, list[str]], source: str) -> dict[str, str | 
     return parent
 
 
-def transitive_paths(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> list[list[str]]:
+def transitive_targets(
+    nodes: Iterable[str], edges: Iterable[tuple[str, str]]
+) -> dict[str, list[str]]:
+    """Each node's sorted targets that it reaches only through another node (AD-361).
+
+    A shortest path of one pair comes from `_bfs_parents` of the same ordered graph.
+    """
     node_list = sorted(set(nodes))
     adjacency: dict[str, set[str]] = {node: set() for node in node_list}
     for source, target in sorted(set(edges)):
         if source in adjacency and target in adjacency and source != target:
             adjacency[source].add(target)
     ordered = {node: sorted(targets) for node, targets in adjacency.items()}
-    paths: list[list[str]] = []
+    reach: dict[str, list[str]] = {}
     for source in node_list:
         parent = _bfs_parents(ordered, source)
-        for target in node_list:
-            if source == target or target in adjacency[source] or target not in parent:
-                continue
-            path = [target]
-            while (step := parent[path[-1]]) is not None:
-                path.append(step)
-            path.reverse()
-            paths.append(path)
-    return paths
+        if targets := [t for t in parent if t != source and t not in adjacency[source]]:
+            reach[source] = sorted(targets)
+    return reach
 
 
 def condensation_ranks(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> dict[str, int]:

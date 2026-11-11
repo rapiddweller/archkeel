@@ -133,7 +133,7 @@ def test_explore_shows_a_repository_without_a_contract(
     assert payload["rule_assessments"] == []
     assert payload["open_decisions"] == []
     assert payload["scan_roots"] == ["shop"]
-    validator = _validator("command-result-13.0.schema.json")
+    validator = _validator("command-result-14.0.schema.json")
     assert validator.is_valid(payload)
     assert not validator.is_valid({**payload, "declared_rules": "PASS"})
     key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:16]

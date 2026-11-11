@@ -85,7 +85,8 @@ class _ObservationVersion(StrEnum):
     V2_7 = "2.7.0"
     V2_8 = "2.8.0"
     V2_9 = "2.9.0"
-    V2_10 = SCHEMA_VERSION
+    V2_10 = "2.10.0"
+    V2_11 = SCHEMA_VERSION
 
 
 def _version_numbers(version: _ObservationVersion) -> tuple[int, int]:
@@ -641,11 +642,7 @@ def _parse_coverage(
     status = _parse_verdict(coverage["status"], "coverage status/rules")
     raw_rules = coverage.get("rules")
     rules = _parse_verdict(raw_rules, "coverage status/rules") if raw_rules is not None else None
-    file_counts = (
-        "files_discovered",
-        "files_read",
-        "files_parsed",
-    )
+    file_counts = ("files_discovered", "files_read", "files_parsed")
     call_counts = (
         "calls_analyzed",
         "calls_resolved",
@@ -790,6 +787,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_8,
             _ObservationVersion.V2_9,
             _ObservationVersion.V2_10,
+            _ObservationVersion.V2_11,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED

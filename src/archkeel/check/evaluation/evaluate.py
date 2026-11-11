@@ -93,7 +93,7 @@ from .topology import (
     declared_path_observations,
     module_records,
     package_records,
-    transitive_path_records,
+    transitive_reach_records,
 )
 from .unknown_imports import unknown_import_failure
 
@@ -1199,7 +1199,7 @@ def evaluate_source(
         coverage_failures=failures,
     )
 
-    transitive_records = transitive_path_records(packages, package_edge_pairs)
+    transitive_records = transitive_reach_records(packages, package_edge_pairs)
     module_cycles, cycles = cycle_sections(
         modules=module_facts,
         packages=packages,

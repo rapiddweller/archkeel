@@ -214,12 +214,12 @@ def legacy_validator() -> Draft202012Validator:
 
 @pytest.fixture(scope="session")
 def validator() -> Draft202012Validator:
-    return _validator("command-result-13.0.schema.json")
+    return _validator("command-result-14.0.schema.json")
 
 
 @pytest.fixture(scope="session")
 def current_validator() -> Draft202012Validator:
-    return _validator("command-result-13.0.schema.json")
+    return _validator("command-result-14.0.schema.json")
 
 
 def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(legacy_validator) -> None:

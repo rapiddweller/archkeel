@@ -654,7 +654,7 @@ def test_an_edge_whose_only_import_is_type_checking_is_marked(tmp_path: Path) ->
 
 
 def test_a_hub_carries_no_path_and_the_result_validates_with_and_without(run: Run) -> None:
-    validator = _validator("command-result-13.0.schema.json")
+    validator = _validator("command-result-14.0.schema.json")
     assert run.result.findings is not None
     by_kind = {item.kind: item for item in run.result.findings}
     payload = result_payload(run.result)

@@ -10,7 +10,7 @@ from collections.abc import Iterable, Sequence
 
 from archkeel.ir.facts import FileFact
 from archkeel.ir.facts_codec import RawRecord, classified
-from archkeel.ir.graph import condensation_ranks, strongly_connected_components, transitive_paths
+from archkeel.ir.graph import condensation_ranks, strongly_connected_components, transitive_targets
 from archkeel.ir.model import (
     ContractComponent,
     ContractPath,
@@ -151,30 +151,25 @@ def module_records(
     ]
 
 
-def transitive_path_records(
+def transitive_reach_records(
     packages: Sequence[str], package_edge_pairs: Sequence[tuple[str, str]]
 ) -> list[RawRecord]:
-    """Build one FACT record per transitive package path, sorted by id."""
+    """One FACT record per package with the packages it reaches only through another, by id.
+
+    Schema 2.11 (AD-361): one record per source, not one per reachable pair with its path.
+    """
+    reach = transitive_targets(packages, package_edge_pairs)
     records = [
         classified(
-            item_id=stable_id("PATH", GraphTopologyLevel.PACKAGE, *path),
+            item_id=stable_id("REACH", GraphTopologyLevel.PACKAGE, source),
             evidence_class=EvidenceClass.FACT,
             area="package_topology",
-            kind="transitive_package_dependency",
-            title=" → ".join(path),
-            subjects=path,
-            fact_ids=[
-                stable_id("EDGE", GraphTopologyLevel.PACKAGE, source, target)
-                for source, target in zip(path, path[1:], strict=False)
-            ],
-            data={
-                "level": GraphTopologyLevel.PACKAGE,
-                "source": path[0],
-                "target": path[-1],
-                "path": path,
-            },
+            kind="transitive_package_reach",
+            title=f"{source} reaches {len(reach[source])} packages through others",
+            subjects=[source],
+            data={"level": GraphTopologyLevel.PACKAGE, "source": source, "targets": reach[source]},
         )
-        for path in transitive_paths(packages, package_edge_pairs)
+        for source in reach
     ]
     return sorted(records, key=lambda item: item["id"])
 

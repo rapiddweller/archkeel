@@ -357,5 +357,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-358 | [One collector process serves the Python survey and the collection](ad-358-one-collector-process-serves-the-python-survey-and-the-collection.md) |
 | AD-359 | [The Rust core after the collector: crates and boundaries](ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md) |
 | AD-360 | [A second engine is compared with recorded oracles per section and rule family](ad-360-a-second-engine-is-compared-with-recorded-oracles-per-section-and-rule-family.md) |
+| AD-361 | [Transitive package reach is one record per package](ad-361-transitive-package-reach-is-one-record-per-package.md) |
 | AD-362 | [A one-shot command collects cycles less often](ad-362-a-one-shot-command-collects-cycles-less-often.md) |
 | AD-363 | [A PASS needs a scope proof that only the model can make](ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md) |

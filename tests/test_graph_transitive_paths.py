@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""transitive_paths walks once per source and returns what one search per pair returned."""
+"""transitive_targets holds the pairs that the per-pair paths of schema 2.10 named (AD-361)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from collections.abc import Iterable
 
 import pytest
 
-from archkeel.ir.graph import transitive_paths
+from archkeel.ir.graph import transitive_targets
 
 
 def _shortest_path(adjacency: dict[str, set[str]], source: str, target: str) -> list[str] | None:
@@ -63,18 +63,24 @@ def _random_graph(seed: int) -> tuple[list[str], list[tuple[str, str]]]:
     return nodes, edges
 
 
+def _pairs(paths: list[list[str]]) -> dict[str, list[str]]:
+    """The per-source targets of the earlier paths: the compact form keeps these pairs."""
+    reach: dict[str, list[str]] = {}
+    for path in paths:
+        reach.setdefault(path[0], []).append(path[-1])
+    return {source: sorted(targets) for source, targets in reach.items()}
+
+
 @pytest.mark.parametrize("seed", range(300))
-def test_transitive_paths_equal_one_search_per_pair(seed: int) -> None:
+def test_transitive_targets_equal_the_pairs_of_one_search_per_pair(seed: int) -> None:
     nodes, edges = _random_graph(seed)
-    assert transitive_paths(nodes, edges) == _one_search_per_pair(nodes, edges)
+    assert transitive_targets(nodes, edges) == _pairs(_one_search_per_pair(nodes, edges))
 
 
-def test_transitive_paths_cover_cycles_self_loops_parallel_edges_and_islands() -> None:
+def test_transitive_targets_cover_cycles_self_loops_parallel_edges_and_islands() -> None:
     nodes = ["a", "b", "c", "d", "e", "island"]
     edges = [("a", "b"), ("a", "b"), ("b", "c"), ("c", "a"), ("c", "c"), ("c", "d"), ("d", "e")]
-    paths = transitive_paths(nodes, edges)
-    assert paths == _one_search_per_pair(nodes, edges)
-    assert ["a", "b", "c"] in paths
-    assert ["a", "b", "c", "d", "e"] in paths
-    assert not any("island" in path for path in paths)
-    assert not any(len(path) == 2 for path in paths)  # a direct edge is no transitive path
+    reach = transitive_targets(nodes, edges)
+    assert reach == _pairs(_one_search_per_pair(nodes, edges))
+    assert reach["a"] == ["c", "d", "e"]  # b is a direct edge, a itself is no target
+    assert "island" not in reach and all("island" not in t for t in reach.values())
