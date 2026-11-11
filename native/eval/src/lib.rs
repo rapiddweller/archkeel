@@ -109,3 +109,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
 #[cfg(test)]
 #[path = "eval_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "external_tests.rs"]
+mod external_tests;

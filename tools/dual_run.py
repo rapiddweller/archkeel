@@ -208,23 +208,27 @@ def command_frame(command: str, request: Mapping[str, Any], timeout: float) -> d
     return frame
 
 
+def reference_edges(reference: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    """The `dependency_edges` rows of the Python engine, or `None` without architecture.json."""
+    architecture = reference.get("architecture")
+    return None if architecture is None else decode_sections(architecture)["dependency_edges"]
+
+
 def edge_differences(
-    case: str, reference: Mapping[str, Any], frame: Mapping[str, Any]
+    case: str, rows: list[dict[str, Any]] | None, frame: Mapping[str, Any]
 ) -> list[Difference]:
     """The first difference of the edge rows of the engine (`edges`, without ranks) to the
     `dependency_edges` rows of the Python engine on the same reply, without their ranks.
     An engine that refuses the reply has no edges: its refusal is already a named difference."""
-    architecture = reference.get("architecture")
     actual = frame.get("edges")
     if actual is None:
         refused = "files" not in ((frame.get("self_test") or {}).get("reply") or {})
-        if frame.get("error") or architecture is None or refused:
+        if frame.get("error") or rows is None or refused:
             return []
         return [Difference(case, "edges", "-", "the engine writes no edge rows")]
-    rows = [] if architecture is None else decode_sections(architecture)["dependency_edges"]
     expected = [
         {**row, "data": {k: v for k, v in row["data"].items() if k not in RANK_FIELDS}}
-        for row in rows
+        for row in rows or []
     ]
     found = first_difference(case, "edges", to_rows(expected), to_rows(actual))
     return [] if found is None else [found]
@@ -365,7 +369,7 @@ def compare_one(
     differences = compare_case(oracle, frame, selection)
     # AD-372: the edge lists are compared on every case, also while the ranks are not ported.
     if reference is not None and "dependency_edges" in selection.sections:
-        differences += edge_differences(case.id, reference, frame)
+        differences += edge_differences(case.id, reference_edges(reference), frame)
     return case, len(owned), differences
 
 

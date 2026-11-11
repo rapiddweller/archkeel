@@ -157,3 +157,7 @@ fn edges(imports: &[Import], level: Level, modules: &HashSet<&str>, namespace: &
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "edges_tests.rs"]
+mod tests;

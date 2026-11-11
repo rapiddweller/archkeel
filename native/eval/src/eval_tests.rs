@@ -31,7 +31,7 @@ fn read_json(path: &str) -> Value {
 }
 
 /// The contract of H-typescript after `change`.
-fn contract(change: impl FnOnce(&mut Value)) -> Option<Contract> {
+pub(crate) fn contract(change: impl FnOnce(&mut Value)) -> Option<Contract> {
     let mut value = read_json("fixtures/H-typescript/architecture-contract.json");
     change(&mut value);
     match archkeel_contract::parse(value.to_string().as_bytes()) {
@@ -41,12 +41,14 @@ fn contract(change: impl FnOnce(&mut Value)) -> Option<Contract> {
 }
 
 /// The H-typescript reply after `change`, as the store accepts it.
-fn reply(change: impl FnOnce(&mut Value)) -> Option<archkeel_store::Ingested> {
+pub(crate) fn reply(change: impl FnOnce(&mut Value)) -> Option<archkeel_store::Ingested> {
     reply_or_refusal(change).ok()
 }
 
 /// The H-typescript reply after `change`, or the refusal of the store.
-fn reply_or_refusal(change: impl FnOnce(&mut Value)) -> Result<archkeel_store::Ingested, String> {
+pub(crate) fn reply_or_refusal(
+    change: impl FnOnce(&mut Value),
+) -> Result<archkeel_store::Ingested, String> {
     let mut value = read_json("tests/golden/typescript/h-typescript.json.gz");
     value["facts"]["adapter"]["version"] = json!("0");
     value["facts"]["adapter"]["code_digest"] = json!("0".repeat(64));

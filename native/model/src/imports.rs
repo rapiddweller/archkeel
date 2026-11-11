@@ -33,15 +33,15 @@ pub enum Resolved {
 /// One resolved import that is not a macro body: the input of the edges and the rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
-    id: String,
-    source_module: String,
-    target_module: String,
-    source_package: String,
-    target_package: String,
-    under_type_checking: bool,
-    relative: bool,
-    resolved: Resolved,
-    evidence: Vec<String>,
+    pub(crate) id: String,
+    pub(crate) source_module: String,
+    pub(crate) target_module: String,
+    pub(crate) source_package: String,
+    pub(crate) target_package: String,
+    pub(crate) under_type_checking: bool,
+    pub(crate) relative: bool,
+    pub(crate) resolved: Resolved,
+    pub(crate) evidence: Vec<String>,
 }
 
 impl Import {
