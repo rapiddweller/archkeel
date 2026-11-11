@@ -7,7 +7,7 @@
 //! A read is contained and digested, and the file is never executed. A path that leaves the
 //! snapshot, by name or by symlink, is never read.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -31,6 +31,8 @@ pub struct Snapshot {
     // The snapshot does not change during one collection, so each real path is looked up once.
     reals: HashMap<String, Option<String>>,
     oversized: BTreeSet<String>,
+    // The directories that a walk without links reached from a checked scan root (`listing.rs`).
+    walked: HashSet<String>,
     /// Problems become collection gaps.
     pub problems: BTreeSet<String>,
 }
@@ -49,6 +51,7 @@ impl Snapshot {
             inputs: BTreeMap::new(),
             reals: HashMap::new(),
             oversized: BTreeSet::new(),
+            walked: HashSet::new(),
             problems: BTreeSet::new(),
         }
     }

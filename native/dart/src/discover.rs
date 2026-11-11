@@ -9,7 +9,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_facts::vocab::ExceptionName;
-use archkeel_snapshot::{Entry, Snapshot};
+use archkeel_snapshot::paths::normpath;
+use archkeel_snapshot::{Entry, RootCheck, Snapshot};
 
 use crate::module::dart_module_name;
 use crate::pubspec::{self, Pubspec, SdkState};
@@ -91,6 +92,7 @@ pub(crate) fn discover(
         ));
     }
     collisions(&sources, &mut problems);
+    problems.extend(snapshot_problems(snapshot));
     sources.sort_by(|a, b| a.rel_path.cmp(&b.rel_path));
     let digests: BTreeMap<String, String> = snapshot
         .inputs()
@@ -112,6 +114,37 @@ pub(crate) fn discover(
     })
 }
 
+/// The normalized scan roots without a repeat, in their first order, as `snapshot._roots`.
+pub(crate) fn scan_roots(roots: &[String]) -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    for root in roots.iter().map(|root| normpath(root)) {
+        if !result.contains(&root) {
+            result.push(root);
+        }
+    }
+    result
+}
+
+/// Each problem that `archkeel-snapshot` recorded, such as a name that is not UTF-8 or a
+/// directory that cannot be read, as a `SnapshotError` at the path that the text names. Nothing
+/// that the walk could not see stays silent.
+fn snapshot_problems(snapshot: &mut Snapshot) -> Vec<Problem> {
+    std::mem::take(&mut snapshot.problems)
+        .into_iter()
+        .map(|text| {
+            let path = text
+                .split_once(": ")
+                .map_or(".", |(_, path)| path)
+                .to_owned();
+            Problem {
+                path,
+                kind: ExceptionName::SnapshotError,
+                message: text,
+            }
+        })
+        .collect()
+}
+
 fn problem(path: &str, kind: ExceptionName, message: &str) -> Problem {
     Problem {
         path: path.to_owned(),
@@ -122,27 +155,24 @@ fn problem(path: &str, kind: ExceptionName, message: &str) -> Problem {
 
 impl Walk<'_> {
     fn root(&mut self, root: &str) {
-        if self.snapshot.is_link(root) {
-            let found = problem(
-                root,
-                ExceptionName::DartSourceLink,
-                "source root is a symlink",
-            );
-            self.problems.push(found);
-        } else if !self.snapshot.is_dir(root) {
-            let message = "selected root is missing or not a directory";
-            self.problems
-                .push(problem(root, ExceptionName::SelectedRootError, message));
-        } else {
-            self.directory(root, root);
-        }
+        let (kind, message) = match self.snapshot.check_root(root) {
+            RootCheck::Contained => return self.directory(root, root),
+            RootCheck::Link => (ExceptionName::DartSourceLink, "source root is a symlink"),
+            RootCheck::NotDirectory => (
+                ExceptionName::SelectedRootError,
+                "selected root is missing or not a directory",
+            ),
+            RootCheck::Escapes => (
+                ExceptionName::ContainmentError,
+                "source root escapes snapshot",
+            ),
+        };
+        self.problems.push(problem(root, kind, message));
     }
 
     fn directory(&mut self, root: &str, directory: &str) {
+        // A directory that cannot be read is a problem of the snapshot, which becomes a gap.
         let Some(entries) = self.snapshot.listing(directory) else {
-            let message = "cannot read the source directory";
-            self.problems
-                .push(problem(directory, ExceptionName::SnapshotError, message));
             return;
         };
         let mut subdirectories = Vec::new();
@@ -185,21 +215,24 @@ impl Walk<'_> {
             self.problems.push(found);
             return;
         }
-        let Some(content) = self.snapshot.read(rel) else {
-            let message = self.snapshot.size_gap(rel).map_or_else(
-                || NOT_REGULAR.to_owned(),
-                |_| {
-                    format!(
-                        "source file is over the size limit of {} bytes",
-                        archkeel_snapshot::MAX_FILE_BYTES
-                    )
-                },
-            );
-            self.problems.push(Problem {
-                path: rel.to_owned(),
-                kind: ExceptionName::SnapshotError,
-                message,
-            });
+        if entry == Entry::Other {
+            self.problems
+                .push(problem(rel, ExceptionName::SnapshotError, NOT_REGULAR));
+            return;
+        }
+        // Any other refusal of the read is a problem of the snapshot, which becomes a gap.
+        let Some(content) = self.snapshot.read_walked(rel) else {
+            if self.snapshot.size_gap(rel).is_some() {
+                let message = format!(
+                    "source file is over the size limit of {} bytes",
+                    archkeel_snapshot::MAX_FILE_BYTES
+                );
+                self.problems.push(Problem {
+                    path: rel.to_owned(),
+                    kind: ExceptionName::SnapshotError,
+                    message,
+                });
+            }
             return;
         };
         let relative = if root == "." {

@@ -17,6 +17,11 @@ archkeel-facts.workspace = true
 archkeel-snapshot.workspace = true
 serde_json.workspace = true
 
+[features]
+# Test only: `--dump` prints the discovery sections as JSON for `tools/dart_discovery_parity.py`.
+# The release binary is built without it (AD-323).
+dump = []
+
 [dev-dependencies]
 archkeel-snapshot = { workspace = true, features = ["test-tree"] }
 

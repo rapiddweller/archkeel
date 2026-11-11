@@ -89,7 +89,7 @@ class Result:
 def build(*, release: bool = True) -> Path:
     """Build the native collector and return the binary."""
     profile = ["--release"] if release else []
-    command = ["cargo", "build", "--locked", *profile, "-p", BINARY]
+    command = ["cargo", "build", "--locked", *profile, "-p", BINARY, "--features", "dump"]
     subprocess.run(command, cwd=NATIVE, check=True, capture_output=True)
     target = Path(os.environ.get("CARGO_TARGET_DIR", NATIVE / "target"))
     suffix = ".exe" if sys.platform == "win32" else ""
@@ -108,7 +108,7 @@ def request(corpus: Corpus) -> CollectionRequest:
     return collection_request(snapshot, SourceScope(corpus.roots, corpus.namespace), DartSettings())
 
 
-def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[str]]:
+def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[str], JsonObject]:
     """The Python reply facts as JSON or the error text, the discovery time and the parts.
 
     `full` runs the whole Python collection. Otherwise the Python records code runs without
@@ -119,8 +119,13 @@ def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[st
     try:
         snapshot = read_snapshot(request(corpus))
     except SnapshotError as error:
-        return str(error), time.perf_counter_ns() - started, set()
+        return str(error), time.perf_counter_ns() - started, set(), {}
     nanos = time.perf_counter_ns() - started
+    package: JsonObject = {
+        "package_name": snapshot.package_name,
+        "sdk_constraint": snapshot.sdk_constraint,
+        "sdk_state": snapshot.sdk_constraint_state.value,
+    }
     parts: set[str] = set()
     if full:
         for source in snapshot.sources:
@@ -137,7 +142,7 @@ def python(corpus: Corpus, *, full: bool) -> tuple[JsonObject | str, int, set[st
         facts_value = collection._source_facts()
     payload = json.loads(encode_response(CollectionResponse(facts_value)))
     facts: JsonObject = payload["facts"]
-    return facts, nanos, parts
+    return facts, nanos, parts, package
 
 
 def by(items: object, key: str) -> dict[str, JsonObject]:
@@ -147,13 +152,16 @@ def by(items: object, key: str) -> dict[str, JsonObject]:
 
 def compare(corpus: Corpus, binary: Path, result: Result, *, full: bool = True) -> None:
     rust = native(binary, corpus)
-    reference, nanos, parts = python(corpus, full=full)
+    reference, nanos, parts, package = python(corpus, full=full)
     result.rust_nanos += int(str(rust["nanos"]))
     result.python_nanos += nanos
     if isinstance(reference, str) or "error" in rust:
-        if rust.get("error") != reference:
+        if not same_error(rust.get("error"), reference):
             result.problems.append("the collection errors differ")
         return
+    for key, value in package.items():
+        if rust[key] != value:
+            result.problems.append(f"{key} differs")
     coverage = reference["coverage"]
     assert isinstance(coverage, Mapping)
     source = reference["source"]
@@ -167,6 +175,14 @@ def compare(corpus: Corpus, binary: Path, result: Result, *, full: bool = True) 
         if rust[key] != expected:
             result.problems.append(f"{key} differs")
     compare_files(rust, reference, (coverage["gaps"], parts), result)
+
+
+def same_error(rust: object, python: object) -> bool:
+    """Both stop. An OS error differs after its named prefix, such as `cannot resolve ...: `."""
+    if not isinstance(rust, str) or not isinstance(python, str):
+        return False
+    prefix, separator, _ = rust.partition(": ")
+    return rust == python or (bool(separator) and python.startswith(prefix + separator))
 
 
 def compare_files(

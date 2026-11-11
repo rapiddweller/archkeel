@@ -73,11 +73,13 @@ fn each_unreadable_source_is_a_problem() {
         ("lib/a_b.dart", ""),
         ("lib/.dart_tool/x.dart", ""),
         ("lib/sub/pubcache/y.dart", ""),
+        ("lib/.pub-cache/z.dart", ""),
     ];
     let tree = Tree::new(&files);
     let found = run(&tree, &["lib", "missing"]).unwrap();
     let expected = [
         ("lib/.dart_tool", "ExcludedTreeError"),
+        ("lib/.pub-cache", "ExcludedTreeError"),
         ("lib/9bad.dart", "DartModuleError"),
         ("lib/a-b.dart", "DartModuleCollision"),
         ("lib/a_b.dart", "DartModuleCollision"),
@@ -158,6 +160,102 @@ fn a_source_over_the_size_limit_is_a_problem_and_not_a_source() {
         found.problems[0].message,
         "source file is over the size limit of 4194304 bytes"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_file_link_and_a_directory_link_that_escape_are_gaps_and_never_read() {
+    use std::os::unix::fs::symlink;
+
+    let outside = Tree::new(&[("secret.dart", "secret"), ("dir/x.dart", "secret")]);
+    let tree = Tree::new(&[("pubspec.yaml", PUBSPEC), ("lib/a.dart", "a")]);
+    symlink(
+        outside.root.join("secret.dart"),
+        tree.root.join("lib/leak.dart"),
+    )
+    .unwrap();
+    symlink(outside.root.join("dir"), tree.root.join("lib/leak_dir")).unwrap();
+    let found = run(&tree, &["lib"]).unwrap();
+    let expected = [
+        ("lib/leak.dart", "DartSourceLink"),
+        ("lib/leak_dir", "DartSourceLink"),
+    ];
+    assert_eq!(problems(&found), expected);
+    let read: Vec<&str> = found.sources.iter().map(|s| s.rel_path.as_str()).collect();
+    assert_eq!(read, ["lib/a.dart"]);
+}
+
+#[test]
+fn each_problem_of_the_snapshot_is_a_typed_gap() {
+    // A name that is not UTF-8 cannot exist on macOS, so this case feeds the problem directly.
+    let tree = Tree::new(&[("pubspec.yaml", PUBSPEC), ("lib/a.dart", "")]);
+    let mut snapshot = Snapshot::new(&tree.path());
+    snapshot
+        .problems
+        .insert("Source name is not UTF-8: lib/x\u{fffd}".to_owned());
+    let found = discover(&mut snapshot, "shop", &["lib".to_owned()]).unwrap();
+    assert_eq!(
+        found.problems,
+        [problem(
+            "lib/x\u{fffd}",
+            ExceptionName::SnapshotError,
+            "Source name is not UTF-8: lib/x\u{fffd}"
+        )]
+    );
+    assert!(snapshot.problems.is_empty());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_name_that_is_not_utf8_is_a_gap() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let tree = Tree::new(&[("pubspec.yaml", PUBSPEC), ("lib/a.dart", "")]);
+    let lib = tree.root.join("lib");
+    let directory = lib.join(OsStr::from_bytes(b"x\xff"));
+    std::fs::create_dir(&directory).unwrap();
+    std::fs::write(directory.join("b.dart"), "").unwrap();
+    std::fs::write(lib.join(OsStr::from_bytes(b"c\xfe.dart")), "").unwrap();
+    let found = run(&tree, &["lib"]).unwrap();
+    let expected = [
+        ("lib/c\u{fffd}.dart", "SnapshotError"),
+        ("lib/x\u{fffd}", "SnapshotError"),
+    ];
+    assert_eq!(problems(&found), expected);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_unreadable_directory_is_a_gap() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tree = Tree::new(&[
+        ("pubspec.yaml", PUBSPEC),
+        ("lib/a.dart", ""),
+        ("lib/locked/b.dart", ""),
+    ]);
+    let locked = tree.root.join("lib/locked");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let readable = std::fs::read_dir(&locked).is_ok();
+    let found = run(&tree, &["lib"]);
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+    if readable {
+        eprintln!("skipped: the superuser can read a directory with mode 000");
+        return;
+    }
+    assert_eq!(problems(&found.unwrap()), [("lib/locked", "SnapshotError")]);
+}
+
+#[test]
+fn a_repeated_scan_root_is_read_once() {
+    let roots = vec![
+        "lib".to_owned(),
+        "./lib".to_owned(),
+        "lib/".to_owned(),
+        "bin".to_owned(),
+    ];
+    assert_eq!(scan_roots(&roots), ["lib", "bin"]);
 }
 
 use archkeel_facts::identity::sha256_hex;

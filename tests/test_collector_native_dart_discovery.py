@@ -93,13 +93,45 @@ def test_each_problem_kind_gives_the_python_gap(binary: Path, tmp_path: Path) ->
 
 @pytest.mark.parametrize(
     ("files", "label"),
-    [({"lib/a.dart": ""}, "no pubspec"), ({"pubspec.yaml": "name: 9x\n"}, "invalid name")],
+    [
+        ({"lib/a.dart": ""}, "no pubspec"),
+        ({"pubspec.yaml": "name: 9x\n"}, "invalid name"),
+        ({"pubspec.yaml": "name: shop\nenvironment:\n  sdk: '*'\n"}, "invalid sdk"),
+        ({"pubspec.yaml": "name: shop\nenvironment:\n  sdk: ^3.1.0 # c\n"}, "declared sdk"),
+    ],
 )
 def test_a_missing_or_invalid_pubspec_gives_the_python_result(
     binary: Path, tmp_path: Path, files: dict[str, str | bytes], label: str
 ) -> None:
     root = _tree(tmp_path / "snapshot", {"lib/a.dart": "class A {}\n", **files})
     assert _compare(binary, root, ("lib",)).problems == [], label
+
+
+def test_a_snapshot_root_that_is_a_link_or_missing_stops_both_collectors(
+    binary: Path, tmp_path: Path
+) -> None:
+    real = _tree(tmp_path / "real", {"pubspec.yaml": PUBSPEC, "lib/a.dart": ""})
+    roots: list[Path] = [tmp_path / "absent"]
+    if os.name != "nt":
+        (tmp_path / "link").symlink_to(real)
+        roots.append(tmp_path / "link")
+    for root in roots:
+        result = _compare(binary, root, ("lib",))
+        assert result.problems == [], root.name
+
+
+def test_a_repeated_root_and_a_root_after_pubspec_give_the_python_sections(
+    binary: Path, tmp_path: Path
+) -> None:
+    files: dict[str, str | bytes] = {
+        "pubspec.yaml": PUBSPEC,
+        "lib/a.dart": "",
+        "test/a_test.dart": "",
+    }
+    root = _tree(tmp_path / "snapshot", files)
+    result = _compare(binary, root, ("lib", "test", "lib"))
+    assert result.problems == []
+    assert result.equal_files == result.files == 2
 
 
 def test_the_fixtures_and_demos_give_the_python_sections(binary: Path) -> None:

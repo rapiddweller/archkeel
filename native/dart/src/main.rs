@@ -6,11 +6,23 @@
 //! Dart sources and builds the inputs, the file facts and the gaps of the problems.
 //!
 //! The collection protocol has no Dart request in `archkeel-facts` yet: `Resolver` has no `dart`
-//! variant. Until protocol V10 adds it, the binary refuses a request, and the wheel does not
-//! carry it, so the host never runs it and a native Dart reply can never give PASS. The parity
-//! tool runs `--dump <snapshot-root> <namespace> <root>...`, which prints the sections as JSON.
+//! variant. Until it exists, the binary refuses a request, and the wheel does not carry it, so the
+//! host never runs it and a native Dart reply can never give PASS. A build with the test-only
+//! feature `dump` adds `--dump <snapshot-root> <namespace> <root>...`, which prints the sections
+//! as JSON for the parity tool.
+
+// The request path of slice 2 uses these modules. Until then only the dump uses them, so a build
+// without the `dump` feature holds unused code; the expectation fails once the code is used.
+#![cfg_attr(
+    not(feature = "dump"),
+    expect(
+        dead_code,
+        reason = "slice 2 of #880 adds the request path that uses the discovery"
+    )
+)]
 
 mod discover;
+#[cfg(feature = "dump")]
 mod dump;
 mod module;
 mod pubspec;
@@ -21,11 +33,12 @@ use std::io::Write;
 use std::process::ExitCode;
 
 const NO_REQUEST: &str = "archkeel-dart-collector: the collection protocol has no Dart request \
-    yet (archkeel-facts Resolver has no dart variant); only --dump is available";
+    yet (archkeel-facts Resolver has no dart variant)";
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let (code, output, message) = match arguments.split_first() {
+        #[cfg(feature = "dump")]
         Some((flag, rest)) if flag == "--dump" => match dump::run(rest) {
             Ok(text) => (ExitCode::SUCCESS, text, String::new()),
             Err(error) => (ExitCode::from(1), String::new(), error),

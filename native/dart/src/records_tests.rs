@@ -93,3 +93,21 @@ fn a_problem_is_an_unknown_gap_at_line_one_of_its_path() {
     );
     assert_eq!(built.scope, ["**/*.dart"]);
 }
+
+#[test]
+fn the_inputs_are_sorted_by_path_also_after_pubspec_yaml() {
+    let sources = vec![
+        source("test/a_test.dart", "shop.a_test", ""),
+        source("lib/a.dart", "shop.a", ""),
+    ];
+    let built = sections(
+        &discovery(sources, Vec::new()),
+        &["lib".to_owned(), "test".to_owned()],
+    );
+    let paths: Vec<&str> = built
+        .inputs
+        .iter()
+        .map(|input| input.path.as_str())
+        .collect();
+    assert_eq!(paths, ["lib/a.dart", "pubspec.yaml", "test/a_test.dart"]);
+}
