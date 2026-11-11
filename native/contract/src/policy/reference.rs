@@ -5,6 +5,8 @@
 //! The path rules of an inside reference, equal to Python `contract_relative_path`,
 //! `_safe_inside_reference` and `_contract_identity` (`ir/codec_inside.py`). They read no file.
 
+use crate::policy::printable::NOT_PRINTABLE;
+
 /// The parts of a relative POSIX path, as Python `PurePosixPath(value).parts` gives them: no empty
 /// part and no `.` part.
 fn parts(value: &str) -> Vec<&str> {
@@ -43,7 +45,23 @@ pub(crate) fn python_repr(value: &str) -> String {
     format!("{quote}{body}{quote}")
 }
 
-/// One character of a Python `repr`.
+/// Python `str.isprintable` for one character, from the table of Python 3.11 (L-28).
+pub(crate) fn printable(character: char) -> bool {
+    let code = u32::from(character);
+    NOT_PRINTABLE
+        .binary_search_by(|(start, end)| {
+            if code < *start {
+                std::cmp::Ordering::Greater
+            } else if code > *end {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+        .is_err()
+}
+
+/// One character of a Python `repr`: `\xNN`, `\uNNNN` or `\UNNNNNNNN` when it is not printable.
 fn escaped(character: char, quote: char) -> String {
     let code = u32::from(character);
     match character {
@@ -52,7 +70,9 @@ fn escaped(character: char, quote: char) -> String {
         '\n' => "\\n".to_owned(),
         '\r' => "\\r".to_owned(),
         _ if character == quote => format!("\\{character}"),
-        _ if code < 0x20 || (0x7f..0xa1).contains(&code) => format!("\\x{code:02x}"),
-        _ => character.to_string(),
+        _ if printable(character) => character.to_string(),
+        _ if code < 0x100 => format!("\\x{code:02x}"),
+        _ if code < 0x1_0000 => format!("\\u{code:04x}"),
+        _ => format!("\\U{code:08x}"),
     }
 }

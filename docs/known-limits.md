@@ -358,6 +358,8 @@ A contract that mounts inside contracts parses as `NeedsTree`, not as a complete
 - A mount deeper than 900 levels is an issue (`TooDeep`). Python stops near depth 984 with a `RecursionError` and gives no verdict.
 - An inside whose resolved path (the identity that the shell sends) differs from its reference is an issue (`Linked`). Python refuses a link to a mounted file as a duplicate mount and accepts a link to an unmounted file inside the repository.
 
+The crate also compares two trees as `validate --against` does (`policy::compare_trees`, [AD-373](architecture/decisions/ad-373-the-contract-crate-compares-two-contract-trees-for-against.md)). No command calls it yet. It does not recognise a rename (AD-105), so a moved package shows as widenings. Its messages equal those of Python 3.11; on Python 3.12 or later a code point assigned after Unicode 14 gives other message bytes in the Python engine (L-28). No decision depends on a message.
+
 The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its template. The
 contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
 counts of `native/api_baseline.json`.
