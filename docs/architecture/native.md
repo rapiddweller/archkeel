@@ -5,7 +5,7 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 Run `make self-validate-native` to check it.
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `build`). Each
+The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
@@ -19,6 +19,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-facts` |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
+| `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |

@@ -94,6 +94,24 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-CONTRACT",
+      "label": "contract",
+      "role": "component",
+      "packages": [
+        "native.archkeel_contract"
+      ],
+      "responsibilities": [
+        "Parse the bytes of one architecture contract into typed and closed values, with the error kinds and the canonical bytes of the Python parser (AD-359)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file, evaluating a rule, and using a source fact or a source id."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-BUILD",
       "label": "build",
       "role": "component",

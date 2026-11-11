@@ -1,4 +1,32 @@
 {
+  "contract/src/model.rs|contract/src/model.rs|1df4ad6632": {
+    "files": [
+      "contract/src/model.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring contract structs have one shape, as the Python dataclasses do. No logic repeats.",
+    "tokens": 70
+  },
+  "contract/src/model.rs|contract/src/model.rs|7dbedc7a7e": {
+    "files": [
+      "contract/src/model.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring contract structs have one shape, as the Python dataclasses do. No logic repeats.",
+    "tokens": 73
+  },
+  "contract/src/model.rs|contract/src/model.rs|a6dce8b168": {
+    "files": [
+      "contract/src/model.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring contract structs have one shape, as the Python dataclasses do. No logic repeats.",
+    "tokens": 70
+  },
+  "contract/src/model.rs|contract/src/model.rs|ae5ea4310e": {
+    "files": [
+      "contract/src/model.rs"
+    ],
+    "reason": "Derive lines and pub field lists of neighbouring contract structs have one shape, as the Python dataclasses do. No logic repeats.",
+    "tokens": 75
+  },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
       "facts/src/data/imports.rs"
