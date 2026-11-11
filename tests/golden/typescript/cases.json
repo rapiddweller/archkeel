@@ -12,5 +12,6 @@
   {"case": "synthetic-nodenext", "root": "tests/golden/typescript/sources/synthetic-nodenext"},
   {"case": "synthetic-allowjs", "root": "tests/golden/typescript/sources/synthetic-allowjs"},
   {"case": "synthetic-paths-multi", "root": "tests/golden/typescript/sources/synthetic-paths-multi"},
-  {"case": "synthetic-package-maps", "root": "tests/golden/typescript/sources/synthetic-package-maps"}
+  {"case": "synthetic-package-maps", "root": "tests/golden/typescript/sources/synthetic-package-maps"},
+  {"case": "synthetic-script-namespace", "root": "tests/golden/typescript/sources/synthetic-script-namespace"}
 ]
