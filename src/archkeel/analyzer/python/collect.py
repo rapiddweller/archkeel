@@ -79,7 +79,7 @@ from .callable_signatures import (
 )
 from .calls import collect_calls_with_resolvers
 from .constructs import collect_constructs
-from .explore_scope import ExcludedTests, selected_paths, wire_protocol
+from .explore_scope import ExcludedTests, parse_unshadowed, selected_paths, wire_protocol
 from .imports import (
     collect_dynamic_imports,
     collect_imports,
@@ -100,7 +100,6 @@ from .source import (
     member_binding_closure,
     module_registry,
     parse_provider,
-    parse_sources,
     resolve_static_name,
     stable_direct_module_bindings,
     star_facade_static,
@@ -367,7 +366,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
     selected = selected_paths(
         root, request.scope.roots, exclude_test_sources=request.scope.exclude_test_sources
     )
-    parsed_sources = parse_sources(selected, root=root, namespace=request.scope.namespace)
+    parsed_sources = parse_unshadowed(selected, root=root, namespace=request.scope.namespace)
     modules = parsed_sources.modules
     evidence: dict[str, RawEvidence] = {}
 

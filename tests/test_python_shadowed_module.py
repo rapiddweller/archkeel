@@ -9,12 +9,16 @@ from pathlib import Path
 from test_architecture_demo import _prepare_repo
 from test_python_source_evidence_lines import GUARD, RULE
 
-from archkeel.analyzer.python.source import parse_sources
+from archkeel.analyzer.python.explore_scope import parse_unshadowed
+from archkeel.check.gap_diagnostics import gap_diagnostic
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.facts import Language
+from archkeel.ir.facts_codec import parse_record
+from archkeel.ir.model import DiagnosticKind
 
 
 def _write(tmp_path: Path, *names: str) -> list[Path]:
@@ -29,17 +33,18 @@ def _write(tmp_path: Path, *names: str) -> list[Path]:
 
 def test_package_wins_and_the_shadowed_module_is_a_named_gap(tmp_path: Path) -> None:
     paths = _write(tmp_path, "app/__init__.py", "app/fmt.py", "app/fmt/__init__.py")
-    parsed = parse_sources(paths, root=tmp_path, namespace="app")
+    parsed = parse_unshadowed(paths, root=tmp_path, namespace="app")
     by_path = {module.rel_path: module.module for module in parsed.modules}
     assert by_path == {"app/__init__.py": "app", "app/fmt/__init__.py": "app.fmt"}
     assert [failure["data"]["file"] for failure in parsed.failures] == ["app/fmt.py"]
     assert "app.fmt" in parsed.failures[0]["data"]["message"]
     assert "shadowed" in parsed.failures[0]["data"]["message"]
+    assert not parsed.failures[0]["title"].endswith(" could not be analyzed")
 
 
 def test_the_result_does_not_depend_on_the_path_order(tmp_path: Path) -> None:
     paths = _write(tmp_path, "app/__init__.py", "app/fmt.py", "app/fmt/__init__.py")
-    parsed = parse_sources(paths[::-1], root=tmp_path, namespace="app")
+    parsed = parse_unshadowed(paths[::-1], root=tmp_path, namespace="app")
     assert sorted(module.rel_path for module in parsed.modules) == [
         "app/__init__.py",
         "app/fmt/__init__.py",
@@ -69,3 +74,11 @@ def test_a_violation_in_the_package_fails_and_the_shadowed_module_is_named(tmp_p
     assert rule.status == "FAIL"
     assert {row.file for row in model.evidence if row.excerpt} >= {"sample/fmt/__init__.py"}
     assert "sample/fmt.py" in json.dumps(model.records("unknowns"), default=str)
+
+
+def test_the_shadowed_module_is_an_incomplete_scan_and_not_a_parse_error(tmp_path: Path) -> None:
+    paths = _write(tmp_path, "app/__init__.py", "app/fmt.py", "app/fmt/__init__.py")
+    [failure] = parse_unshadowed(paths, root=tmp_path, namespace="app").failures
+    kind, remedy = gap_diagnostic(parse_record(failure), Language.PYTHON)
+    assert kind is DiagnosticKind.INCOMPLETE_SCAN
+    assert "syntax" not in remedy.lower()
