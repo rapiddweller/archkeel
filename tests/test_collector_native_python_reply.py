@@ -28,7 +28,14 @@ from conftest import build_native_copy, by_python
 from false_pass_support import copy_repository
 from first_difference import same
 from test_collector_native_python_scope import _FIXTURES
-from test_collector_native_python_survey import _EDGES, _PARSE_FAILURES, _closed, _request, _tree
+from test_collector_native_python_survey import (
+    _EDGES,
+    _LINK_GAP,
+    _PARSE_FAILURES,
+    _closed,
+    _request,
+    _tree,
+)
 
 from archkeel.analyzer.interpreter import interpreter, python_request
 from archkeel.analyzer.python.collect import PythonProviderCollector, collect
@@ -96,11 +103,31 @@ def _comparable(reply: dict[str, Any]) -> str:
     return json.dumps(_closed({**rest, "facts": facts}), sort_keys=True, ensure_ascii=False)
 
 
-def _equal(binary: Path, root: Path, roots: tuple[str, ...], namespace: str) -> None:
+def _without_link_gaps(value: Any, links: set[str]) -> Any:
+    """The reply without the gaps of AD-367 point 5 (L-30): under the test exclusion native names
+    each dangling link, which Python does not. Each removed gap must name a dangling link."""
+    if isinstance(value, list):
+        kept = []
+        for item in value:
+            if isinstance(item, dict) and str(item.get("title", "")).startswith(_LINK_GAP):
+                assert item["subjects"][0] in links, item
+                continue
+            kept.append(_without_link_gaps(item, links))
+        return kept
+    if isinstance(value, dict):
+        return {key: _without_link_gaps(item, links) for key, item in value.items()}
+    return value
+
+
+def _equal(
+    binary: Path, root: Path, roots: tuple[str, ...], namespace: str, links: tuple[str, ...] = ()
+) -> None:
     for exclude in (False, True):
         request = _request(root, roots, namespace, exclude)
         found = json.loads(zlib.decompress(_native(binary, request)))
         assert found["protocol_version"] == "10.0.0"
+        if exclude:
+            found = _without_link_gaps(found, set(links))
         same(_comparable(found), _comparable(_python(request)), (root, exclude))
 
 
@@ -109,9 +136,11 @@ def test_the_reply_of_the_edge_cases_is_the_python_survey(
 ) -> None:
     root = _tree(tmp_path / "repo", _EDGES)
     (root / "src/app/latin.py").write_bytes(b"x = '\\xff'\n\xff\n")
+    links: tuple[str, ...] = ()
     if os.name != "nt":
         (root / "src/app/dangling.py").symlink_to("nowhere.py")
-    _equal(python_binary, root, ("src",), "app")
+        links = ("src/app/dangling.py",)
+    _equal(python_binary, root, ("src",), "app", links)
 
 
 @pytest.mark.parametrize("fixture", _FIXTURES)
