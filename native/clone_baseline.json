@@ -323,7 +323,7 @@
       "facts/src/vocab.rs"
     ],
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 98
+    "tokens": 71
   },
   "facts/src/vocab.rs|facts/src/vocab.rs|70c78392c2": {
     "files": [

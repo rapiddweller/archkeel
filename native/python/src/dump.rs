@@ -54,13 +54,16 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// `--dump-survey`: the file facts, the imports and the evidence of one request (slice 1c-2a).
+/// `--dump-survey`: the survey sections of one request (slices 1c-2a and 1c-2b).
 pub fn survey(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
     let found = crate::survey::survey(request)?;
     let value = |error: serde_json::Error| error.to_string();
     Ok(json!({
         "files": serde_json::to_value(&found.files).map_err(value)?,
         "imports": serde_json::to_value(&found.imports).map_err(value)?,
+        "targets": serde_json::to_value(&found.targets).map_err(value)?,
+        "unknowns": serde_json::to_value(&found.unknowns).map_err(value)?,
+        "coverage": serde_json::to_value(&found.coverage).map_err(value)?,
         "evidence": serde_json::to_value(&found.evidence).map_err(value)?,
     }))
 }
