@@ -6,7 +6,9 @@
 
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json, Object};
-use crate::model::{Component, ComponentLabel, ItemId, Lifecycle, Requirement};
+use crate::model::{
+    wrap_all, Component, ComponentLabel, ItemId, Lifecycle, Package, Requirement, Selector,
+};
 use crate::names::{dotted_name, public_entry};
 use crate::read::{
     contract_strings, decided_by, fields, given, nonempty, nonempty_field, object,
@@ -65,9 +67,9 @@ pub(crate) fn parse_component(
     }
     let requires = requires(item, label)?;
     let (packages, exact_modules) = owned_names(item, label, planned_owner)?;
-    let namespace = optional_nonempty(item, "namespace", label)?;
+    let namespace: Option<Package> = optional_nonempty(item, "namespace", label)?;
     if let Some(name) = &namespace {
-        if !dotted_name(name) {
+        if !dotted_name(&name.0) {
             return Err(invalid(format!(
                 "{label}.namespace must be a dotted Python package"
             )));
@@ -124,16 +126,16 @@ fn optional_decided_by(item: &Object, label: &str) -> Parsed<Option<crate::model
 }
 
 /// `_public_entries`: `None` when absent or `null`, else entries of the `pkg.module[:Name]` form.
-fn public_entries(item: &Object, key: &str, label: &str) -> Parsed<Option<Vec<String>>> {
+fn public_entries(item: &Object, key: &str, label: &str) -> Parsed<Option<Vec<Selector>>> {
     let Some(raw) = given(item, key) else {
         return Ok(None);
     };
-    let entries = contract_strings(raw, &format!("{label}.{key}"), false)?;
+    let entries: Vec<String> = contract_strings(raw, &format!("{label}.{key}"), false)?;
     match entries.iter().position(|entry| !public_entry(entry)) {
         Some(index) => Err(invalid(format!(
             "{label}.{key}[{index}] must be pkg.module or pkg.module:Name"
         ))),
-        None => Ok(Some(entries)),
+        None => Ok(Some(wrap_all(entries))),
     }
 }
 
@@ -175,9 +177,9 @@ fn owned_names(
     item: &Object,
     label: &str,
     planned_owner: bool,
-) -> Parsed<(Vec<String>, Vec<String>)> {
-    let packages = strings_field(item, "packages", label, false)?;
-    let exact = match field(item, "exact_modules") {
+) -> Parsed<(Vec<Package>, Vec<Package>)> {
+    let packages: Vec<Package> = strings_field(item, "packages", label, false)?;
+    let exact: Vec<String> = match field(item, "exact_modules") {
         Some(value) => contract_strings(value, &format!("{label}.exact_modules"), false)?,
         None => Vec::new(),
     };
@@ -197,5 +199,5 @@ fn owned_names(
             "{label} must claim at least one package or exact module"
         )));
     }
-    Ok((packages, exact))
+    Ok((packages, wrap_all(exact)))
 }

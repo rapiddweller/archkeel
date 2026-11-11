@@ -8,7 +8,7 @@
 
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, keys, Json, Object};
-use crate::model::{DecidedBy, ItemId, RuleHead};
+use crate::model::{wrap_all, DecidedBy, ItemId, RuleHead, Wrap};
 use crate::names::has_text;
 use crate::words::value_of;
 
@@ -63,24 +63,28 @@ pub(crate) fn text<'a>(raw: &'a Json, label: &str) -> Parsed<&'a str> {
 }
 
 /// `_nonempty`: a string with a character that is not white space.
-pub(crate) fn nonempty(raw: &Json, label: &str) -> Parsed<String> {
+pub(crate) fn nonempty<T: Wrap>(raw: &Json, label: &str) -> Parsed<T> {
     let value = text(raw, label)?;
     if has_text(value) {
-        Ok(value.to_owned())
+        Ok(T::wrap(value.to_owned()))
     } else {
         Err(invalid(format!("{label} must not be empty")))
     }
 }
 
 /// `_nonempty` of `item.get(key)` when the value is given.
-pub(crate) fn optional_nonempty(item: &Object, key: &str, label: &str) -> Parsed<Option<String>> {
+pub(crate) fn optional_nonempty<T: Wrap>(
+    item: &Object,
+    key: &str,
+    label: &str,
+) -> Parsed<Option<T>> {
     given(item, key)
         .map(|value| nonempty(value, &format!("{label}.{key}")))
         .transpose()
 }
 
 /// `_nonempty` of a key that `fields` has proved present.
-pub(crate) fn nonempty_field(item: &Object, key: &str, label: &str) -> Parsed<String> {
+pub(crate) fn nonempty_field<T: Wrap>(item: &Object, key: &str, label: &str) -> Parsed<T> {
     nonempty(present(item, key, label)?, &format!("{label}.{key}"))
 }
 
@@ -108,7 +112,7 @@ pub(crate) fn repeats<T: PartialEq>(items: &[T]) -> bool {
 }
 
 /// `_contract_strings`: unique strings that are not empty, and at least one when `required`.
-pub(crate) fn contract_strings(raw: &Json, label: &str, required: bool) -> Parsed<Vec<String>> {
+pub(crate) fn contract_strings<T: Wrap>(raw: &Json, label: &str, required: bool) -> Parsed<Vec<T>> {
     let values = strings(raw, label)?;
     if required && values.is_empty() {
         return Err(invalid(format!("{label} must not be empty")));
@@ -118,16 +122,16 @@ pub(crate) fn contract_strings(raw: &Json, label: &str, required: bool) -> Parse
             "{label} must contain unique non-empty strings"
         )));
     }
-    Ok(values)
+    Ok(wrap_all(values))
 }
 
 /// `_contract_strings` of a key that `fields` has proved present.
-pub(crate) fn strings_field(
+pub(crate) fn strings_field<T: Wrap>(
     item: &Object,
     key: &str,
     label: &str,
     required: bool,
-) -> Parsed<Vec<String>> {
+) -> Parsed<Vec<T>> {
     contract_strings(
         present(item, key, label)?,
         &format!("{label}.{key}"),
@@ -136,7 +140,7 @@ pub(crate) fn strings_field(
 }
 
 /// `_contract_strings(item.get(key, []))`: an absent key is empty, `null` is an error.
-pub(crate) fn listed_strings(item: &Object, key: &str, label: &str) -> Parsed<Vec<String>> {
+pub(crate) fn listed_strings<T: Wrap>(item: &Object, key: &str, label: &str) -> Parsed<Vec<T>> {
     match field(item, key) {
         Some(value) => contract_strings(value, &format!("{label}.{key}"), false),
         None => Ok(Vec::new()),
@@ -163,7 +167,7 @@ pub(crate) fn positive(raw: &Json, label: &str) -> Parsed<u64> {
 
 /// `_decided_by`.
 pub(crate) fn decided_by(raw: &Json, label: &str) -> Parsed<DecidedBy> {
-    let value = nonempty(raw, label)?;
+    let value: String = nonempty(raw, label)?;
     value_of(&value).ok_or_else(|| invalid(format!("{label} must be architect or agent")))
 }
 

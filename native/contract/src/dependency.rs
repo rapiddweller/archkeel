@@ -10,7 +10,8 @@ use serde::de::DeserializeOwned;
 use crate::error::{invalid, Parsed};
 use crate::json::{field, Json, Object};
 use crate::model::{
-    AllowedDependency, ExternalDependencyScope, ForbiddenDependency, SelectorMatch, TargetKind,
+    AllowedDependency, ExternalDependencyScope, ForbiddenDependency, Selector, SelectorMatch,
+    TargetKind,
 };
 use crate::names::{has_text, package_identity, python_identifier};
 use crate::read::{listed_strings, nonempty_field, present, rule_record};
@@ -45,8 +46,8 @@ pub(crate) fn forbidden_dependency(raw: &Json, label: &str) -> Parsed<ForbiddenD
     let target_kind = selector_word(item, "target_kind", label)?;
     Ok(ForbiddenDependency {
         head,
-        source,
-        target,
+        source: Selector(source),
+        target: Selector(target),
         include_type_checking,
         target_symbol,
         allowed_sources: listed_strings(item, "allowed_sources", label)?,
@@ -108,7 +109,7 @@ pub(crate) fn external_dependency_scope(
         &["allowed_sources", "exact_sources"],
         label,
     )?;
-    let dependency = nonempty_field(item, "dependency", label)?;
+    let dependency: String = nonempty_field(item, "dependency", label)?;
     if !python_identifier(&dependency) && !package_identity(&dependency) {
         return Err(invalid(format!(
             "{label}.dependency must be an import name or package identity"
@@ -123,7 +124,7 @@ pub(crate) fn external_dependency_scope(
     }
     Ok(ExternalDependencyScope {
         head,
-        dependency,
+        dependency: Selector(dependency),
         allowed_sources,
         exact_sources,
     })

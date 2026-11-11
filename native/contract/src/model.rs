@@ -4,126 +4,245 @@
 
 //! The typed and closed contract. Each type holds what the Python dataclass of the same name in
 //! `ir/model.py` holds, so the canonical bytes come from the same values.
+//!
+//! The fields are private to the crate and each has a read accessor. So a `Contract` and each value
+//! in it come only from `parse`: a caller cannot build or change one.
 
 use serde::{Deserialize, Serialize};
 
 use crate::version::ContractVersion;
 
-/// The id of a contract item: a component or a rule.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ItemId(pub String);
-
-/// The label of a component. A `requires` entry and a rule name a component by its label.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ComponentLabel(pub String);
-
-/// The SHA-256 of the contract bytes in lower-case hex: the contract identity of a run.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ContractDigest(pub String);
-
-/// One parsed contract.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Contract {
-    pub version: ContractVersion,
-    pub schema: Option<String>,
-    pub components: Vec<Component>,
-    pub rules: Vec<Rule>,
-    pub digest: ContractDigest,
+/// A text value that only this crate can make.
+pub(crate) trait Wrap {
+    fn wrap(text: String) -> Self;
 }
 
-/// Who decided a component, an edge or a rule.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DecidedBy {
-    Architect,
-    Agent,
+/// The text of a text value, for the canonical writer.
+pub(crate) trait TextOf {
+    fn text_of(&self) -> &str;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ComponentRole {
+impl Wrap for String {
+    fn wrap(text: String) -> Self {
+        text
+    }
+}
+
+impl TextOf for str {
+    fn text_of(&self) -> &str {
+        self
+    }
+}
+
+impl TextOf for String {
+    fn text_of(&self) -> &str {
+        self
+    }
+}
+
+/// Wrap each text.
+pub(crate) fn wrap_all<T: Wrap>(texts: Vec<String>) -> Vec<T> {
+    texts.into_iter().map(T::wrap).collect()
+}
+
+/// Declare a text newtype with a read accessor and no public constructor. The call passes the
+/// visibility of the inner text (the crate), so the definition names no `crate` that the scan
+/// cannot place.
+macro_rules! text_type {
+    ($inner:vis, $(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub struct $name($inner String);
+
+        impl $name {
+            /// The text of the value.
+            pub fn as_text(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl Wrap for $name {
+            fn wrap(text: String) -> $name {
+                $name(text)
+            }
+        }
+
+        impl TextOf for $name {
+            fn text_of(&self) -> &str {
+                &self.0
+            }
+        }
+    };
+}
+
+/// Declare a struct with fields of the visibility that the call passes (the crate) and a public
+/// read accessor for each field.
+macro_rules! record {
+    ($inner:vis, $(#[$meta:meta])* $name:ident { $($(#[$field_meta:meta])* $field:ident: $kind:ty),* $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, PartialEq, Eq)]
+        pub struct $name {
+            $($(#[$field_meta])* $inner $field: $kind),*
+        }
+
+        impl $name {
+            $(
+                $(#[$field_meta])*
+                pub fn $field(&self) -> &$kind {
+                    &self.$field
+                }
+            )*
+        }
+    };
+}
+
+/// Declare a closed enum whose words are the snake case names of its variants.
+macro_rules! closed_enum {
+    ($(#[$meta:meta])* $name:ident { $($variant:ident),* $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+        #[serde(rename_all = "snake_case")]
+        pub enum $name {
+            $($variant),*
+        }
+    };
+}
+
+text_type!(
+    pub(crate),
+    /// The id of a contract item: a component or a rule.
+    ItemId
+);
+text_type!(
+    pub(crate),
+    /// The label of a component. A `requires` entry and a rule name a component by its label.
+    ComponentLabel
+);
+text_type!(
+    pub(crate),
+    /// A package or a module that a component owns: dotted names.
+    Package
+);
+text_type!(
+    pub(crate),
+    /// A module selector of a rule or of an interface: a prefix, an exact module or `module:Name`.
+    Selector
+);
+text_type!(
+    pub(crate),
+    /// The SHA-256 of bytes in lower-case hex.
+    ContractDigest
+);
+
+record!(
+    pub(crate),
+    /// One parsed contract. Its digest is the SHA-256 of the bytes: the contract identity of a run.
+    Contract {
+        version: ContractVersion,
+        schema: Option<String>,
+        components: Vec<Component>,
+        rules: Vec<Rule>,
+        digest: ContractDigest,
+    }
+);
+
+closed_enum!(
+    /// Who decided a component, an edge or a rule.
+    DecidedBy {
+        Architect,
+        Agent,
+    }
+);
+
+closed_enum!(ComponentRole {
     Component,
     Interface,
     Contract,
     Projection,
     Foundation,
-}
+});
 
-/// A planned component owns no module yet.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Lifecycle {
-    Planned,
-}
+closed_enum!(
+    /// A planned component owns no module yet.
+    Lifecycle {
+        Planned,
+    }
+);
 
-/// One component that its owner can import, and the reason (AD-32).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Requirement {
-    pub component: ComponentLabel,
-    pub rationale: String,
-    pub through: Vec<String>,
-    pub decided_by: Option<DecidedBy>,
-}
+record!(
+    pub(crate),
+    /// One component that its owner can import, and the reason (AD-32).
+    Requirement {
+        component: ComponentLabel,
+        rationale: String,
+        through: Vec<Selector>,
+        decided_by: Option<DecidedBy>,
+    }
+);
 
-/// One component. An absent optional field stays absent in the canonical bytes.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Component {
-    pub id: ItemId,
-    pub label: ComponentLabel,
-    pub role: ComponentRole,
-    pub packages: Vec<String>,
-    pub responsibilities: Vec<String>,
-    pub forbidden_responsibilities: Vec<String>,
-    pub provenance: Vec<String>,
-    pub capability_id: Option<ItemId>,
-    pub requires: Option<Vec<Requirement>>,
-    pub inside: Option<String>,
-    pub public: Option<Vec<String>>,
-    pub planned: Option<Vec<String>>,
-    pub decided_by: Option<DecidedBy>,
-    pub namespace: Option<String>,
-    /// Empty when the contract declares no exact module.
-    pub exact_modules: Vec<String>,
-    pub layer: Option<String>,
-    pub lifecycle: Option<Lifecycle>,
-}
+record!(
+    pub(crate),
+    /// One component. An absent optional field stays absent in the canonical bytes.
+    Component {
+        id: ItemId,
+        label: ComponentLabel,
+        role: ComponentRole,
+        packages: Vec<Package>,
+        responsibilities: Vec<String>,
+        forbidden_responsibilities: Vec<String>,
+        provenance: Vec<String>,
+        capability_id: Option<ItemId>,
+        requires: Option<Vec<Requirement>>,
+        inside: Option<String>,
+        public: Option<Vec<Selector>>,
+        planned: Option<Vec<Selector>>,
+        decided_by: Option<DecidedBy>,
+        namespace: Option<Package>,
+        /// Empty when the contract declares no exact module.
+        exact_modules: Vec<Package>,
+        layer: Option<String>,
+        lifecycle: Option<Lifecycle>,
+    }
+);
 
-/// The 22 rule kinds of the grammar (`ArchitectureRuleKind`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RuleKind {
-    CallOwner,
-    ForbiddenCallArgument,
-    CatalogArgument,
-    CatalogUse,
-    ForbiddenEffectUnderCondition,
-    ForbiddenDependency,
-    AllowedDependency,
-    ForbiddenConstruct,
-    SourceOwnership,
-    ExternalDependencyScope,
-    CompleteAssignment,
-    RootLayout,
-    CompleteExternalScope,
-    CompleteRequires,
-    LayerOrder,
-    NoComponentCycles,
-    InterfaceBoundary,
-    SiblingIsolation,
-    SymbolPlacement,
-    BoundaryTypes,
-    BoundedNumericOperand,
-    ProtocolDeclarations,
-}
+closed_enum!(
+    /// The 22 rule kinds of the grammar (`ArchitectureRuleKind`).
+    RuleKind {
+        CallOwner,
+        ForbiddenCallArgument,
+        CatalogArgument,
+        CatalogUse,
+        ForbiddenEffectUnderCondition,
+        ForbiddenDependency,
+        AllowedDependency,
+        ForbiddenConstruct,
+        SourceOwnership,
+        ExternalDependencyScope,
+        CompleteAssignment,
+        RootLayout,
+        CompleteExternalScope,
+        CompleteRequires,
+        LayerOrder,
+        NoComponentCycles,
+        InterfaceBoundary,
+        SiblingIsolation,
+        SymbolPlacement,
+        BoundaryTypes,
+        BoundedNumericOperand,
+        ProtocolDeclarations,
+    }
+);
 
-/// The fields that each rule holds.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RuleHead {
-    pub id: ItemId,
-    pub rationale: String,
-    pub provenance: Vec<String>,
-    pub decided_by: DecidedBy,
-}
+record!(
+    pub(crate),
+    /// The fields that each rule holds.
+    RuleHead {
+        id: ItemId,
+        rationale: String,
+        provenance: Vec<String>,
+        decided_by: DecidedBy,
+    }
+);
 
 /// One rule of a structural kind. The other ten kinds are `Unsupported` until slice 0c-2.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -142,74 +261,68 @@ pub enum Rule {
     SiblingIsolation(SiblingIsolation),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SelectorMatch {
-    Prefix,
-    Exact,
-}
+closed_enum!(SelectorMatch { Prefix, Exact });
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TargetKind {
+closed_enum!(TargetKind {
     Module,
     ImportNamespace,
-}
+});
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ForbiddenDependency {
-    pub head: RuleHead,
-    pub source: String,
-    pub target: String,
-    pub include_type_checking: bool,
-    pub target_symbol: Option<String>,
-    pub allowed_sources: Vec<String>,
-    pub source_match: SelectorMatch,
-    pub target_match: SelectorMatch,
-    pub target_kind: TargetKind,
-}
+record!(pub(crate), ForbiddenDependency {
+    head: RuleHead,
+    source: Selector,
+    target: Selector,
+    include_type_checking: bool,
+    target_symbol: Option<String>,
+    allowed_sources: Vec<Selector>,
+    source_match: SelectorMatch,
+    target_match: SelectorMatch,
+    target_kind: TargetKind,
+});
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AllowedDependency {
-    pub head: RuleHead,
-    pub source: String,
-    pub target: String,
-}
+record!(
+    pub(crate),
+    AllowedDependency {
+        head: RuleHead,
+        source: Selector,
+        target: Selector,
+    }
+);
 
-/// The constructs that `forbidden_construct` names (`ForbiddenConstructKind`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConstructKind {
-    Getattr,
-    Hasattr,
-    Cast,
-    Eval,
-    Exec,
-    DynamicImport,
-    TypeIgnore,
-    AnyAnnotation,
-    PlaceholderBody,
-    Assert,
-    BroadExcept,
-    Setattr,
-    Delattr,
-    Vars,
-    DunderDict,
-    StringLiteralCompare,
-}
+closed_enum!(
+    /// The constructs that `forbidden_construct` names (`ForbiddenConstructKind`).
+    ConstructKind {
+        Getattr,
+        Hasattr,
+        Cast,
+        Eval,
+        Exec,
+        DynamicImport,
+        TypeIgnore,
+        AnyAnnotation,
+        PlaceholderBody,
+        Assert,
+        BroadExcept,
+        Setattr,
+        Delattr,
+        Vars,
+        DunderDict,
+        StringLiteralCompare,
+    }
+);
 
-/// One allowed suppression: its scope, line, statement and exact tag.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TypeIgnore {
-    pub qualified_name: String,
-    pub line: u64,
-    pub statement: String,
-    pub tag: String,
-}
+record!(
+    pub(crate),
+    /// One allowed suppression: its scope, line, statement and exact tag.
+    TypeIgnore {
+        qualified_name: Selector,
+        line: u64,
+        statement: String,
+        tag: String,
+    }
+);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SelectorRole {
+closed_enum!(SelectorRole {
     Read,
     Write,
     Call,
@@ -221,94 +334,90 @@ pub enum SelectorRole {
     Match,
     Startswith,
     Endswith,
-}
+});
 
-/// One nominal receiver and member, with an optional literal operand.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConstructSelector {
-    pub receiver: String,
-    pub member: Option<String>,
-    pub role: SelectorRole,
-    pub literal: Option<String>,
-}
+record!(
+    pub(crate),
+    /// One nominal receiver and member, with an optional literal operand.
+    ConstructSelector {
+        receiver: Selector,
+        member: Option<String>,
+        role: SelectorRole,
+        literal: Option<String>,
+    }
+);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ForbiddenConstruct {
-    pub head: RuleHead,
-    pub source: String,
-    pub constructs: Vec<ConstructKind>,
-    pub allowed_sources: Vec<String>,
-    pub exact_sources: Vec<String>,
-    pub allowed_type_ignores: Vec<TypeIgnore>,
-    pub selector: Option<ConstructSelector>,
-}
+record!(pub(crate), ForbiddenConstruct {
+    head: RuleHead,
+    source: Selector,
+    constructs: Vec<ConstructKind>,
+    allowed_sources: Vec<Selector>,
+    exact_sources: Vec<Selector>,
+    allowed_type_ignores: Vec<TypeIgnore>,
+    selector: Option<ConstructSelector>,
+});
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExternalDependencyScope {
-    pub head: RuleHead,
-    pub dependency: String,
-    pub allowed_sources: Vec<String>,
-    pub exact_sources: Vec<String>,
-}
+record!(pub(crate), ExternalDependencyScope {
+    head: RuleHead,
+    dependency: Selector,
+    allowed_sources: Vec<Selector>,
+    exact_sources: Vec<Selector>,
+});
 
-/// `complete_assignment` and `complete_external_scope`: a rule over one source prefix.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SourceRule {
-    pub head: RuleHead,
-    pub source: String,
-}
+record!(
+    pub(crate),
+    /// `complete_assignment` and `complete_external_scope`: a rule over one source prefix.
+    SourceRule {
+        head: RuleHead,
+        source: Selector,
+    }
+);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RootLayout {
-    pub head: RuleHead,
-    pub root: String,
-    pub allowed_children: Vec<String>,
-}
+record!(pub(crate), RootLayout {
+    head: RuleHead,
+    root: Selector,
+    allowed_children: Vec<Selector>,
+});
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CompleteRequires {
-    pub head: RuleHead,
-    pub include_type_checking: bool,
-}
+record!(
+    pub(crate),
+    CompleteRequires {
+        head: RuleHead,
+        include_type_checking: bool,
+    }
+);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LayerOrder {
-    pub head: RuleHead,
-    pub layers: Vec<String>,
-    pub components: Option<Vec<ComponentLabel>>,
-}
+record!(pub(crate), LayerOrder {
+    head: RuleHead,
+    layers: Vec<String>,
+    components: Option<Vec<ComponentLabel>>,
+});
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CycleLevel {
-    Component,
-    Module,
-}
+closed_enum!(CycleLevel { Component, Module });
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NoComponentCycles {
-    pub head: RuleHead,
-    pub level: CycleLevel,
-    pub components: Option<Vec<ComponentLabel>>,
-}
+record!(pub(crate), NoComponentCycles {
+    head: RuleHead,
+    level: CycleLevel,
+    components: Option<Vec<ComponentLabel>>,
+});
 
-/// One exact caller module can import one exact module object.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ModuleObjectGrant {
-    pub source_module: String,
-    pub target_module: String,
-}
+record!(
+    pub(crate),
+    /// One exact caller module can import one exact module object.
+    ModuleObjectGrant {
+        source_module: Selector,
+        target_module: Selector,
+    }
+);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct InterfaceBoundary {
-    pub head: RuleHead,
-    pub include_type_checking: bool,
-    pub module_object_grants: Option<Vec<ModuleObjectGrant>>,
-}
+record!(pub(crate), InterfaceBoundary {
+    head: RuleHead,
+    include_type_checking: bool,
+    module_object_grants: Option<Vec<ModuleObjectGrant>>,
+});
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SiblingIsolation {
-    pub head: RuleHead,
-    pub members: Vec<String>,
-    pub include_type_checking: bool,
-}
+record!(pub(crate), SiblingIsolation {
+    head: RuleHead,
+    members: Vec<Selector>,
+    include_type_checking: bool,
+});

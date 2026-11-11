@@ -10,7 +10,7 @@ use crate::contract::digest_of;
 use crate::model::{
     Component, ComponentLabel, ConstructSelector, Contract, ContractDigest, CycleLevel,
     ForbiddenConstruct, ForbiddenDependency, Requirement, Rule, RuleHead, SelectorMatch,
-    TargetKind,
+    TargetKind, TextOf,
 };
 use crate::rules::kind_of;
 use crate::version::version_text;
@@ -29,15 +29,15 @@ enum Out {
 #[derive(Default)]
 struct Fields(Vec<(&'static str, Out)>);
 
-fn text(value: &str) -> Out {
-    Out::Text(value.to_owned())
+fn text<T: TextOf + ?Sized>(value: &T) -> Out {
+    Out::Text(value.text_of().to_owned())
 }
 
 fn word<T: serde::Serialize>(value: &T) -> Out {
     Out::Text(spelling(value))
 }
 
-fn texts(values: &[String]) -> Out {
+fn texts<T: TextOf>(values: &[T]) -> Out {
     Out::List(values.iter().map(|value| text(value)).collect())
 }
 
@@ -139,11 +139,7 @@ fn component(item: &Component) -> Out {
         "decided_by",
         item.decided_by.map(|by| word(&by)),
     );
-    put_some(
-        &mut fields,
-        "namespace",
-        item.namespace.as_deref().map(text),
-    );
+    put_some(&mut fields, "namespace", item.namespace.as_ref().map(text));
     if !item.exact_modules.is_empty() {
         put(&mut fields, "exact_modules", texts(&item.exact_modules));
     }

@@ -6,7 +6,7 @@
 
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json, Object};
-use crate::model::{ConstructSelector, ForbiddenConstruct, SelectorRole, TypeIgnore};
+use crate::model::{ConstructSelector, ForbiddenConstruct, Selector, SelectorRole, TypeIgnore};
 use crate::names::{python_identifier, qualified_identifier};
 use crate::read::{
     fields, listed_strings, nonempty, nonempty_field, positive, present, repeats, rule_record,
@@ -26,7 +26,7 @@ pub(crate) fn forbidden_construct(raw: &Json, label: &str) -> Parsed<ForbiddenCo
         ],
         label,
     )?;
-    let constructs = strings_field(item, "constructs", label, true)?
+    let constructs = strings_field::<String>(item, "constructs", label, true)?
         .iter()
         .map(|name| value_of(name))
         .collect::<Option<Vec<_>>>()
@@ -113,13 +113,13 @@ fn selector(item: &Object, label: &str) -> Parsed<Option<ConstructSelector>> {
         &["member", "literal"],
         &selector_label,
     )?;
-    let role_text = nonempty(
+    let role_text: String = nonempty(
         present(selected, "role", &selector_label)?,
         &format!("{selector_label}.role"),
     )?;
     let role = value_of(&role_text)
         .ok_or_else(|| invalid(format!("{selector_label}.role is unsupported")))?;
-    let receiver = nonempty_field(selected, "receiver", &selector_label)?;
+    let receiver: Selector = nonempty_field(selected, "receiver", &selector_label)?;
     let member = match field(selected, "member") {
         None | Some(Json::Null) => None,
         Some(value) => Some(nonempty(value, &format!("{selector_label}.member"))?),
@@ -149,7 +149,7 @@ fn selector(item: &Object, label: &str) -> Parsed<Option<ConstructSelector>> {
         )));
     }
     let member_is_identifier = member.as_deref().is_none_or(python_identifier);
-    if !qualified_identifier(&receiver) || !member_is_identifier {
+    if !qualified_identifier(&receiver.0) || !member_is_identifier {
         return Err(invalid(format!(
             "{selector_label} receiver and member must be qualified identifiers"
         )));

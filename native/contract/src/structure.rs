@@ -8,8 +8,8 @@
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json, Object};
 use crate::model::{
-    CompleteRequires, ComponentLabel, CycleLevel, InterfaceBoundary, LayerOrder, ModuleObjectGrant,
-    NoComponentCycles, RootLayout, SiblingIsolation, SourceRule,
+    wrap_all, CompleteRequires, ComponentLabel, CycleLevel, InterfaceBoundary, LayerOrder,
+    ModuleObjectGrant, NoComponentCycles, RootLayout, Selector, SiblingIsolation, SourceRule,
 };
 use crate::names::dotted_name;
 use crate::read::{
@@ -28,8 +28,8 @@ pub(crate) fn source_rule(raw: &Json, label: &str) -> Parsed<SourceRule> {
 /// `root_layout` with `validate_layout_rule`: each child is one immediate child of the root.
 pub(crate) fn root_layout(raw: &Json, label: &str) -> Parsed<RootLayout> {
     let (item, head) = rule_record(raw, &["root", "allowed_children"], &[], label)?;
-    let root = nonempty_field(item, "root", label)?;
-    let allowed_children = strings_field(item, "allowed_children", label, false)?;
+    let root: String = nonempty_field(item, "root", label)?;
+    let allowed_children: Vec<String> = strings_field(item, "allowed_children", label, false)?;
     let outside = allowed_children.iter().position(|child| {
         let (parent, name) = child.rsplit_once('.').unwrap_or(("", child));
         parent != root || name.is_empty()
@@ -41,8 +41,8 @@ pub(crate) fn root_layout(raw: &Json, label: &str) -> Parsed<RootLayout> {
     }
     Ok(RootLayout {
         head,
-        root,
-        allowed_children,
+        root: Selector(root),
+        allowed_children: wrap_all(allowed_children),
     })
 }
 
@@ -80,7 +80,7 @@ pub(crate) fn no_component_cycles(raw: &Json, label: &str) -> Parsed<NoComponent
         None => CycleLevel::Component,
         Some(value) => {
             let level_label = format!("{label}.level");
-            let word = nonempty(value, &level_label)?;
+            let word: String = nonempty(value, &level_label)?;
             value_of(&word)
                 .ok_or_else(|| invalid(format!("{level_label} must be component or module")))?
         }
@@ -129,8 +129,8 @@ fn grants(item: &Object, label: &str) -> Parsed<Option<Vec<ModuleObjectGrant>>> 
             .try_into()
             .map_err(|_| invalid(format!("{entry_label} needs two modules")))?;
         grants.push(ModuleObjectGrant {
-            source_module,
-            target_module,
+            source_module: Selector(source_module),
+            target_module: Selector(target_module),
         });
     }
     if repeats(&grants) {

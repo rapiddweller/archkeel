@@ -81,7 +81,54 @@ VALUES: list[Any] = [
     ["a:B", "a.b:C"],
     [1],
     {},
+    "call",
+    "equality",
+    "constructor",
+    "import_namespace",
+    [{"source_module": "a.b", "target_module": "a.c"}],
+    [{"qualified_name": "a.b", "line": 1, "statement": "s", "tag": "t"}],
+    {"receiver": "a.b", "role": "call", "member": "m"},
+    {"receiver": "a", "role": "equality", "member": "m", "literal": ""},
+    [{"component": "x", "rationale": "r"}],
 ]
+# The optional keys of each role, so that each one is tested absent, null and present, also when
+# the smallest contract of the role does not write it.
+OPTIONAL_KEYS: dict[str, tuple[str, ...]] = {
+    "root": ("$schema", "declarations"),
+    "component": (
+        "capability_id",
+        "decided_by",
+        "inside",
+        "planned",
+        "public",
+        "requires",
+        "namespace",
+        "exact_modules",
+        "layer",
+        "lifecycle",
+    ),
+    "requires": ("through", "decided_by"),
+    "rule:forbidden_dependency": (
+        "target_symbol",
+        "allowed_sources",
+        "source_match",
+        "target_match",
+        "target_kind",
+    ),
+    "rule:forbidden_construct": (
+        "allowed_sources",
+        "exact_sources",
+        "allowed_type_ignores",
+        "selector",
+    ),
+    "rule:external_dependency_scope": ("allowed_sources", "exact_sources"),
+    "rule:complete_requires": ("include_type_checking",),
+    "rule:layer_order": ("components",),
+    "rule:no_component_cycles": ("level", "components"),
+    "rule:interface_boundary": ("include_type_checking", "module_object_grants"),
+    "rule:sibling_isolation": ("include_type_checking",),
+    "selector": ("member", "literal"),
+}
 VERSIONS = [
     "2.1.0",
     "2.2.0",
@@ -230,15 +277,18 @@ def mutations(sources: list[dict[str, Any]]) -> list[Case]:
             if role in done:
                 continue
             done.add(role)
-            for key in [*_at(source, path), "zz_unknown"]:
+            keys = dict.fromkeys([*_at(source, path), *OPTIONAL_KEYS.get(role, ()), "zz_unknown"])
+            for key in keys:
                 for value in ["<delete>", *VALUES]:
-                    mutated = copy.deepcopy(source)
-                    target = _at(mutated, path)
-                    if value == "<delete>":
-                        target.pop(key, None)
-                    else:
-                        target[key] = value
-                    cases.append((f"{role}.{key}={value!r}", _encode(mutated)))
+                    for version in (source["schema_version"], "3.14.0"):
+                        mutated = copy.deepcopy(source)
+                        mutated["schema_version"] = version
+                        target = _at(mutated, path)
+                        if value == "<delete>":
+                            target.pop(key, None)
+                        else:
+                            target[key] = value
+                        cases.append((f"{role}.{key}={value!r}@{version}", _encode(mutated)))
         cases.extend(_semantic(source))
     return cases
 

@@ -31,8 +31,8 @@ fn line(bytes: &[u8]) -> Value {
         Ok(contract) => json!({
             "kind": "accept",
             "canonical": String::from_utf8_lossy(&canonical_bytes(&contract)),
-            "digest": contract.digest.0,
-            "canonical_digest": canonical_digest(&contract).0,
+            "digest": contract.digest().as_text(),
+            "canonical_digest": canonical_digest(&contract).as_text(),
         }),
         Err(error) => {
             let (name, part) = kind(error.kind);
