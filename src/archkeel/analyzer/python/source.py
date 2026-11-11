@@ -2991,6 +2991,26 @@ class TooDeepError(ValueError):
     pass
 
 
+class ShadowedModuleError(ValueError):
+    """A module file that a package of the same name hides from the import system (#797)."""
+
+
+def _shadowed_paths(paths: Sequence[Path], *, root: Path, namespace: str) -> frozenset[Path]:
+    """Modules whose name a package also claims; the import system resolves the package."""
+    packages: set[str] = set()
+    modules: list[tuple[str, Path]] = []
+    for path in paths:
+        try:
+            name = module_for(path, root=root, namespace=namespace)
+        except ValueError:
+            continue
+        if path.name == "__init__.py":
+            packages.add(name)
+        else:
+            modules.append((name, path))
+    return frozenset(path for name, path in modules if name in packages)
+
+
 def _ast_depth(tree: ast.AST) -> int:
     deepest = 0
     pending: list[tuple[ast.AST, int]] = [(tree, 1)]
@@ -3038,6 +3058,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
     failures: list[RawRecord] = []
     read_count = 0
     digest = hashlib.sha256()
+    shadowed = _shadowed_paths(paths, root=root, namespace=namespace)
     for path in paths:
         rel = path.relative_to(root).as_posix()
         try:
@@ -3050,8 +3071,15 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
             source = decode_source(raw)
             tree = _parse_bounded(source, rel)
             module_name = module_for(path, root=root, namespace=namespace)
+            if path in shadowed:
+                raise ShadowedModuleError(
+                    f"module {module_name!r} is shadowed by the package of the same name "
+                    "and is never imported by that name"
+                )
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
-            if isinstance(exc, SyntaxError):
+            if isinstance(exc, ShadowedModuleError):
+                line, message = 1, str(exc)
+            elif isinstance(exc, SyntaxError):
                 line, message = exc.lineno or 1, exc.msg
             elif isinstance(exc, TooDeepError):
                 line, message = 1, str(exc)
