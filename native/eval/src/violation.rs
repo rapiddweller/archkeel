@@ -66,13 +66,16 @@ pub struct Cited {
 }
 
 impl Cited {
-    fn of(import: &Import) -> Self {
-        Cited {
+    /// The violation id (`stable_id("VIO", rule, import id)`), the rule and the cited import.
+    fn of(rule: &str, import: &Import) -> (String, String, Self) {
+        let id = stable_id("VIO", &[Part::Text(rule), Part::Text(import.id())]);
+        let cited = Cited {
             import: import.id().to_owned(),
             source_module: import.source_module().to_owned(),
             target_module: import.target_module().to_owned(),
             evidence: import.evidence().to_vec(),
-        }
+        };
+        (id, rule.to_owned(), cited)
     }
 }
 
@@ -112,21 +115,25 @@ impl Violation {
     }
 
     pub(crate) fn outside_scope(rule: &str, dependency: &str, import: &Import) -> Self {
+        let (id, rule, cited) = Cited::of(rule, import);
+        let dependency = dependency.to_owned();
         Violation::OutsideScope {
-            id: stable_id("VIO", &[Part::Text(rule), Part::Text(import.id())]),
-            rule: rule.to_owned(),
-            dependency: dependency.to_owned(),
-            cited: Cited::of(import),
+            id,
+            rule,
+            dependency,
+            cited,
         }
     }
 
     pub(crate) fn undeclared(rule: &str, source: &str, dependency: &str, import: &Import) -> Self {
+        let (id, rule, cited) = Cited::of(rule, import);
+        let (source, dependency) = (source.to_owned(), dependency.to_owned());
         Violation::Undeclared {
-            id: stable_id("VIO", &[Part::Text(rule), Part::Text(import.id())]),
-            rule: rule.to_owned(),
-            source: source.to_owned(),
-            dependency: dependency.to_owned(),
-            cited: Cited::of(import),
+            id,
+            rule,
+            source,
+            dependency,
+            cited,
         }
     }
 

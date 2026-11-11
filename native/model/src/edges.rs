@@ -60,14 +60,14 @@ pub struct Edge {
 }
 
 impl Edge {
-    /// The id of the edge record: `stable_id("EDGE", level, source, target)`.
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
     /// The level of the edge.
     pub fn level(&self) -> Level {
         self.level
+    }
+
+    /// The id of the edge record: `stable_id("EDGE", level, source, target)`.
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     /// The source module or package.
@@ -85,14 +85,14 @@ impl Edge {
         &self.imports
     }
 
-    /// The number of imports that only a type check reads.
-    pub fn type_checking(&self) -> usize {
-        self.type_checking
-    }
-
     /// The number of imports that the program reads when it runs.
     pub fn runtime(&self) -> usize {
         self.imports.len().saturating_sub(self.type_checking)
+    }
+
+    /// The number of imports that only a type check reads.
+    pub fn type_checking(&self) -> usize {
+        self.type_checking
     }
 
     /// True when the reverse edge exists at the same level.

@@ -107,47 +107,45 @@ fn row(violation: &Violation) -> Value {
             rule,
             dependency,
             cited,
-        } => {
-            let Cited {
-                import,
-                source_module,
-                target_module,
-                evidence,
-            } = cited;
-            record(
-                [id, rule, import],
-                evidence,
-                ["dependency_violations", "external_dependency_scope"],
-                &[source_module, target_module],
-                format!("{source_module} imports {dependency} outside its allowed scope"),
-                json!({"source_module": source_module, "target_module": target_module,
-                       "dependency": dependency}),
-            )
-        }
+        } => import_record(
+            [id, rule],
+            cited,
+            "external_dependency_scope",
+            format!(
+                "{} imports {dependency} outside its allowed scope",
+                cited.source_module
+            ),
+            json!({"source_module": cited.source_module, "target_module": cited.target_module,
+                   "dependency": dependency}),
+        ),
         Violation::Undeclared {
             id,
             rule,
             source,
             dependency,
             cited,
-        } => {
-            let Cited {
-                import,
-                source_module,
-                target_module,
-                evidence,
-            } = cited;
-            record(
-                [id, rule, import],
-                evidence,
-                ["dependency_violations", "complete_external_scope"],
-                &[source_module, target_module],
-                format!("{source_module} imports undeclared {dependency}"),
-                json!({"source": source, "source_module": source_module,
-                       "target_module": target_module, "dependency": dependency}),
-            )
-        }
+        } => import_record(
+            [id, rule],
+            cited,
+            "complete_external_scope",
+            format!("{} imports undeclared {dependency}", cited.source_module),
+            json!({"source": source, "source_module": cited.source_module,
+                   "target_module": cited.target_module, "dependency": dependency}),
+        ),
     }
+}
+
+/// A violation record that cites one import: its subjects are the two modules of the import.
+fn import_record(ids: [&str; 2], cited: &Cited, kind: &str, title: String, data: Value) -> Value {
+    let [id, rule] = ids;
+    record(
+        [id, rule, &cited.import],
+        &cited.evidence,
+        ["dependency_violations", kind],
+        &[&cited.source_module, &cited.target_module],
+        title,
+        data,
+    )
 }
 
 /// A violation record: `[id, rule, cited record]`, the evidence of the cited record (sorted),
