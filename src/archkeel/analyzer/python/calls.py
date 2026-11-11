@@ -2329,5 +2329,6 @@ def _in_function(scope: Scope | None) -> bool:
 def _by_site(paths: Iterable[GuardedCallPath]) -> PathsBySite:
     found: dict[tuple[int, int], list[GuardedCallPath]] = {}
     for path in paths:
-        found.setdefault((path.line, path.column), []).append(path)
+        site: list[GuardedCallPath] = found.setdefault((path.line, path.column), [])
+        site.append(path)
     return {site: tuple(items) for site, items in found.items()}
