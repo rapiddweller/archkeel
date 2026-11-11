@@ -6,7 +6,8 @@
 `make self-validate-native` writes the report of native/ with its own contract. Since #953 the scan
 of native/ has pair gaps: method calls that may reach `impl` blocks of other files. The pinned file
 `native/expected-gaps.json` lists each gap (source module, module, reason) and the status of each
-rule. A new gap, a missing gap, another status or a violation fails the gate. With no pinned gap,
+rule. A new gap, a missing gap, another status, a violation, a diagnostic other than
+`incomplete_scan` or another exit code (2 with gaps, 0 without) fails the gate. With no pinned gap,
 every rule must PASS.
 
 Run: `python tools/native_expected.py <report.json> <expected-gaps.json> [--write]`.
@@ -48,6 +49,11 @@ def problems(report: dict[str, Any], expected: dict[str, Any]) -> list[str]:
     if statuses != wanted:
         found.append(f"rule statuses {statuses} differ from {wanted}")
     found += [f"violation of {rule}" for rule in violated]
+    kinds = {str(item["kind"]) for item in report.get("diagnostics") or ()} - {"incomplete_scan"}
+    found += [f"diagnostic {kind}" for kind in sorted(kinds)]
+    exit_code = 2 if pinned else 0
+    if report.get("exit_code") != exit_code:
+        found.append(f"exit code {report.get('exit_code')} differs from {exit_code}")
     return found
 
 
