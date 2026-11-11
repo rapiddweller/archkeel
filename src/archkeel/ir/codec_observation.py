@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import asdict, replace
+from dataclasses import replace
 from enum import StrEnum
 from math import isfinite
 from typing import Any, TypeGuard
@@ -19,12 +19,13 @@ from archkeel.ir.codec_wire import (
     _has_field,
     _nonempty,
     _object,
-    _raw_object,
     _string,
     _strings,
     canonical_json_bytes,
     evidence_rows,
+    raw_fields,
     section_rows,
+    without_cycle_collection,
 )
 from archkeel.ir.facts import (
     CallBindingOrigin,
@@ -255,7 +256,7 @@ _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
 
 
-_MISSING_VALUE: RawJson = float("nan")
+_MISSING_VALUE: float = float("nan")
 
 
 _TOP_LEVEL = {
@@ -769,7 +770,9 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
-    _validate_guarded_effect_version(observation)
+    _validate_guarded_effect_schema_floor(
+        observation.sections, _observation_version(observation.schema_version)
+    )
     if _has_selector_vocabulary(observation.sections) and _before_version(
         _observation_version(observation.schema_version), _ObservationVersion.V2_6
     ):
@@ -793,10 +796,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
     ):
         raise ValueError("runtime.requirement_state requires observation schema 2.0.0")
-    result = _raw_object(
-        asdict(
-            replace(observation, sections=(), coverage=replace(observation.coverage, failures=()))
-        )
+    result = raw_fields(
+        replace(observation, sections=(), coverage=replace(observation.coverage, failures=()))
     )
     if observation.python_version is None:
         del result["python_version"]
@@ -835,23 +836,6 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     ):
         raise ValueError("producer_kind belongs to observation schema 2.10.0 and later")
     return result
-
-
-def _validate_guarded_effect_version(observation: Observation) -> None:
-    version = _observation_version(observation.schema_version)
-    if _version_at_least(version, (2, 8)):
-        return
-    for section in observation.sections:
-        if section.name == ObservedSection.CALLS and any(
-            _has_field((key for key, _ in call.data.entries), "guarded_effect")
-            for call in section.records
-        ):
-            raise ValueError("guarded-effect evidence requires observation 2.8.0")
-        if section.name == ObservedSection.SYMBOLS and any(
-            _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
-            for symbol in section.records
-        ):
-            raise ValueError("guard Boolean members require observation 2.8.0")
 
 
 def _validate_guarded_effect_schema_floor(
@@ -909,9 +893,8 @@ def encode_canonical_model(
     )
     if not isinstance(interned_tree, dict):
         raise ValueError("interned observation must be an object")
-    interned = _raw_object(interned_tree)
-    interned_sections = interned.get("sections")
-    interned_evidence = interned.get("evidence")
+    interned_sections = interned_tree.get("sections")
+    interned_evidence = interned_tree.get("evidence")
     if not isinstance(interned_sections, dict) or not isinstance(interned_evidence, list):
         raise ValueError("interned observation sections and evidence must have valid shapes")
     encoded.update(interned_sections)
@@ -1011,15 +994,16 @@ def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
 
 
 def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:
-    if not isinstance(model, Observation):
-        return canonical_json_bytes(encode_canonical_model(model))
-    # AD-324: the encoder consumes a payload built here, so its records are not kept.
-    raw = observation_payload(model)
-    return canonical_json_bytes(encode_canonical_model(raw, consume=True))
+    with without_cycle_collection():
+        if not isinstance(model, Observation):
+            return canonical_json_bytes(encode_canonical_model(model))
+        # AD-324: the encoder consumes a payload built here, so its records are not kept.
+        raw = observation_payload(model)
+        return canonical_json_bytes(encode_canonical_model(raw, consume=True))
 
 
 def _coverage_payload(value: Coverage) -> dict[str, RawJson]:
-    result = _raw_object(asdict(replace(value, failures=())))
+    result = raw_fields(replace(value, failures=()))
     result["failures"] = [_record_payload(record) for record in value.failures]
     if value.rules is None:
         del result["rules"]

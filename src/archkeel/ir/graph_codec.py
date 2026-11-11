@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import TypeGuard
 
 from archkeel.ir.architecture_graph import (
@@ -56,7 +55,7 @@ from archkeel.ir.architecture_graph import (
     VisibilityKind,
     component_ancestor_ids,
 )
-from archkeel.ir.codec_wire import json_bytes
+from archkeel.ir.codec_wire import json_bytes, raw_fields
 from archkeel.ir.dependency import ModuleSelection
 from archkeel.ir.facts import Evidence
 from archkeel.ir.model import RawJson
@@ -560,13 +559,12 @@ def parse_target(value: RawJson) -> TargetDefinition:
 
 
 def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
-    encoded = asdict(graph)
-    for intent in encoded["component_intents"]:
-        if intent["layer"] is None:
-            del intent["layer"]
-        if intent["lifecycle"] is None:
-            del intent["lifecycle"]
-    return encoded
+    intents = [raw_fields(intent) for intent in graph.component_intents]
+    for intent in intents:
+        for key in ("layer", "lifecycle"):
+            if intent[key] is None:
+                del intent[key]
+    return {**raw_fields(graph), "component_intents": intents}
 
 
 def graph_bytes(graph: ArchitectureGraph) -> bytes:
@@ -629,7 +627,7 @@ def _correspondence(value: RawJson) -> EntityCorrespondence:
 
 def comparison_bytes(comparison: GraphComparison) -> bytes:
     comparison.validate()
-    return json_bytes(asdict(comparison), separators=(", ", ": "), tail=b"\n")
+    return json_bytes(raw_fields(comparison), separators=(", ", ": "), tail=b"\n")
 
 
 def parse_report(value: RawJson) -> ArchitectureReport:
@@ -730,12 +728,12 @@ def report_payload(report: ArchitectureReport) -> dict[str, object]:
     return {
         "observed": None if report.observed is None else _graph_payload(report.observed),
         "target": None if report.target is None else _graph_payload(report.target),
-        "comparison": None if report.comparison is None else asdict(report.comparison),
+        "comparison": None if report.comparison is None else raw_fields(report.comparison),
         "unavailable": report.unavailable,
         "schema_version": report.schema_version,
-        "findings": [asdict(item) for item in report.findings],
-        "memberships": [asdict(item) for item in report.memberships],
-        "decision_gaps": [asdict(item) for item in report.decision_gaps],
+        "findings": [raw_fields(item) for item in report.findings],
+        "memberships": [raw_fields(item) for item in report.memberships],
+        "decision_gaps": [raw_fields(item) for item in report.decision_gaps],
     }
 
 

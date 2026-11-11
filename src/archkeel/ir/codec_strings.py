@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import re
-from collections import Counter
 
 from archkeel.ir.facts import RawJson
 from archkeel.ir.facts import ReservedString as ReservedString
@@ -22,16 +21,14 @@ def intern_strings(
     value: object,
     *,
     policy: StringTablePolicy,
-    missing_value: object | None = None,
+    missing_value: float | None = None,
 ) -> tuple[RawJson, list[str]]:
     """Return a JSON tree with profitable repeated strings represented by a sorted table."""
-    counts: Counter[str] = Counter()
+    counts: dict[str, int] = {}
 
     def count(item: object) -> None:
-        if missing_value is not None and item is missing_value:
-            return
         if isinstance(item, str):
-            counts[item] += 1
+            counts[item] = counts.get(item, 0) + 1
         elif isinstance(item, list):
             for child in item:
                 count(child)
@@ -40,30 +37,23 @@ def intern_strings(
                 if not isinstance(key, str):
                     raise ValueError("JSON fields must be strings")
                 count(child)
-        elif not isinstance(item, (bool, int, float)) and item is not None:
+        elif not isinstance(item, bool | int | float) and item is not None:
             raise ValueError("value is not JSON")
 
     count(value)
-    table = sorted(
-        text for text, occurrences in counts.items() if _profitable(policy, text, occurrences)
-    )
-    references = {text: f"${index}" for index, text in enumerate(table)}
+    table = sorted(text for text, seen in counts.items() if _profitable(policy, text, seen))
+    encoded = {text: f"${text}" if _reserved_reference(text, policy) else text for text in counts}
+    encoded.update((text, f"${index}") for index, text in enumerate(table))
 
     def encode(item: object) -> RawJson:
+        if isinstance(item, str):
+            return encoded[item]
+        if isinstance(item, list):
+            return [encoded[child] if type(child) is str else encode(child) for child in item]
+        if isinstance(item, dict):
+            return {key: encode(child) for key, child in item.items()}
         if missing_value is not None and item is missing_value:
             return _MISSING
-        if isinstance(item, str):
-            if item in references:
-                return references[item]
-            if _reserved_reference(item, policy):
-                return f"${item}"
-            return item
-        if isinstance(item, list):
-            return [encode(child) for child in item]
-        if isinstance(item, dict):
-            if any(not isinstance(key, str) for key in item):
-                raise ValueError("JSON fields must be strings")
-            return {key: encode(child) for key, child in item.items()}
         if item is None or isinstance(item, bool | int | float):
             return item
         raise ValueError("value is not JSON")

@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
-
 from archkeel.ir.codec_governance import _measurement_payload, parse_measurements
 from archkeel.ir.codec_observation import (
     _parse_analyzer,
@@ -18,10 +16,10 @@ from archkeel.ir.codec_wire import (
     _count,
     _exact,
     _object,
-    _raw_object,
     _raw_value,
     _string,
     _strings,
+    raw_fields,
 )
 from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.model import (
@@ -65,7 +63,7 @@ def _parse_comparison_status(value: RawJson, label: str) -> ComparisonStatus:
 
 
 def _projection_payload(value: Projection) -> dict[str, RawJson]:
-    result = _raw_object(asdict(value))
+    result = raw_fields(value)
     result["data"] = _raw_value(value.data)
     return result
 
@@ -77,7 +75,7 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
         for snapshot in (delta.baseline, delta.head)
     ):
         raise ValueError("runtime.requirement_state requires Delta schema 2.0.0")
-    result = _raw_object(asdict(delta))
+    result = raw_fields(delta)
     for side in ("baseline", "head"):
         snapshot = result[side]
         if isinstance(snapshot, dict):
@@ -92,12 +90,12 @@ def delta_payload(delta: ArchitectureDelta) -> dict[str, RawJson]:
             if snapshot.get("producer") is None:
                 del snapshot["producer"]
     result["dimensions"] = {
-        item.name: {key: value for key, value in _raw_object(asdict(item)).items() if key != "name"}
+        item.name: {key: value for key, value in raw_fields(item).items() if key != "name"}
         for item in delta.dimensions
     }
     changes = []
     for item in delta.semantic_changes:
-        change = _raw_object(asdict(item))
+        change = raw_fields(item)
         change["before"] = _projection_payload(item.before) if item.before is not None else None
         change["after"] = _projection_payload(item.after) if item.after is not None else None
         if item.before_fingerprints is None:

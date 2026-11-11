@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, replace
+from dataclasses import replace
 
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.codec_contract import _rule_payload
 from archkeel.ir.codec_delta import delta_payload
 from archkeel.ir.codec_observation import _coverage_payload, observation_payload
-from archkeel.ir.codec_wire import _raw_object, canonical_json_bytes
+from archkeel.ir.codec_wire import canonical_json_bytes, raw_fields
 from archkeel.ir.command_view import ArchitectureComponentView, architecture_command_envelope
 from archkeel.ir.facts_codec import record_payload as _record_payload
 from archkeel.ir.model import Command as _Command
@@ -86,7 +86,7 @@ def _architecture_component_payload(
             ),
             permissions=tuple(replace(item, rule_ids=()) for item in component.permissions),
         )
-    row = _raw_object(asdict(component))
+    row = raw_fields(component)
     for name in ("parent_id", "namespace", "selector_prefix", "layer", "public", "planned"):
         if row[name] is None:
             del row[name]
@@ -109,7 +109,7 @@ def _architecture_component_payload(
                 {"status": permission.status, "target_ids": list(permission.target_ids)}
             )
         else:
-            item = _raw_object(asdict(permission))
+            item = raw_fields(permission)
             if item["rule_ids"] == []:
                 del item["rule_ids"]
             permission_rows.append(item)
@@ -138,12 +138,12 @@ def _architecture_component_payload(
 
 def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     envelope = architecture_command_envelope(result)
-    payload = _raw_object(asdict(replace(envelope, filtered_violations=(), recorded_unknowns=None)))
+    payload = raw_fields(replace(envelope, filtered_violations=(), recorded_unknowns=None))
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     full_architecture = bool(result.report_filter and result.report_filter.full_architecture)
     projection_view = envelope.architecture_projection
-    projection = _raw_object(asdict(projection_view))
+    projection = raw_fields(projection_view)
     component_selected = bool(result.report_filter and result.report_filter.component)
     projection["components"] = [
         {
@@ -163,9 +163,7 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     projection["permission_rules"] = [
         {
             "declaration": _record_payload(rule.declaration),
-            "assessment": _raw_object(asdict(rule.assessment))
-            if rule.assessment is not None
-            else None,
+            "assessment": raw_fields(rule.assessment) if rule.assessment is not None else None,
             **({"parent_id": rule.parent_id} if rule.parent_id is not None else {}),
         }
         for rule in envelope.architecture_projection.permission_rules
@@ -176,15 +174,7 @@ def _architecture_result_payload(result: RunResult) -> dict[str, RawJson]:
     payload["architecture_projection"] = projection
     if result.coverage is not None:
         payload["coverage"] = _coverage_payload(result.coverage)
-    payload["diagnostics"] = [
-        {
-            key: value
-            for key, value in _raw_object(asdict(item)).items()
-            if (key not in {"pointer", "code", "contract_path"} or value is not None)
-            and (key != "locations" or value)
-        }
-        for item in result.diagnostics
-    ]
+    payload["diagnostics"] = [_diagnostic_payload(item) for item in result.diagnostics]
     rows = result.filtered_violations
     payload["filtered_violation_count"] = len(rows) if rows is not None else None
     payload["violation_details_included"] = full_architecture and rows is not None
@@ -230,7 +220,7 @@ def _filtered_violation_payload(
 ) -> dict[str, RawJson]:
     row: dict[str, RawJson] = {
         **_record_payload(item.record),
-        "locations": [_raw_object(asdict(location)) for location in item.locations],
+        "locations": [raw_fields(location) for location in item.locations],
     }
     if item.record.kind == "complete_assignment" and remedy is not None:
         module = item.record.data.get("module")
@@ -250,7 +240,7 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         and result.architecture_projection is not None
     ):
         return _architecture_result_payload(result)
-    payload = _raw_object(asdict(replace(result, architecture_projection=None)))
+    payload = raw_fields(replace(result, architecture_projection=None))
     if result.contract_changes is None:
         # AD-255: absent without --against, so every other result keeps its 9.0 shape.
         del payload["contract_changes"]
@@ -272,7 +262,7 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:
-        provenance = _raw_object(asdict(result.provenance))
+        provenance = raw_fields(result.provenance)
         del provenance["initial_pr"]
         payload["provenance"] = provenance
     payload["diagnostics"] = [_diagnostic_payload(item) for item in result.diagnostics]
@@ -302,14 +292,14 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
 def _diagnostic_payload(diagnostic: Diagnostic) -> dict[str, RawJson]:
     return {
         key: value
-        for key, value in _raw_object(asdict(diagnostic)).items()
+        for key, value in raw_fields(diagnostic).items()
         if (key not in {"pointer", "code", "contract_path"} or value is not None)
         and (key != "locations" or value)
     }
 
 
 def finding_payload(finding: Finding) -> dict[str, RawJson]:
-    payload = _raw_object(asdict(finding))
+    payload = raw_fields(finding)
     # Without a comparison the change is absent, never "new" (AD-130, AD-258); only a cycle
     # carries a path (AD-263).
     for name in ("change", "before", "path"):
