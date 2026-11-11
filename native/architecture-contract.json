@@ -1586,7 +1586,7 @@
         "native.archkeel_python_collector.survey"
       ],
       "responsibilities": [
-        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts and the evidence of both (AD-334)."
+        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts with the stable bindings, and the evidence of both (AD-334)."
       ],
       "forbidden_responsibilities": [
         "Finding the selected files and naming modules."
@@ -1939,6 +1939,9 @@
         "native.archkeel_python_collector.survey.binders",
         "native.archkeel_python_collector.survey.imports",
         "native.archkeel_python_collector.survey.module",
+        "native.archkeel_python_collector.survey.namespace",
+        "native.archkeel_python_collector.survey.stable",
+        "native.archkeel_python_collector.survey.walks",
         "native.archkeel_python_collector.cargo_toml"
       ],
       "rationale": "Only the parse modules and the tree readers of the survey of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",

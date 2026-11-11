@@ -31,6 +31,7 @@ fn rows(files: &[(&str, &str, &str)]) -> Vec<Row> {
         .collect();
     let mut evidence = EvidenceMap::new();
     let mut found: Vec<_> = collect(&modules, &binders, "app", &mut evidence)
+        .0
         .into_iter()
         .map(|record| {
             let data = record.data.data().clone();

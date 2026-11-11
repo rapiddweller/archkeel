@@ -12,7 +12,8 @@ use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
-    Alias, ExceptHandler, Expr, ExprContext, ModModule, Parameter, Pattern, Stmt, TypeParams,
+    Alias, ExceptHandler, Expr, ExprContext, Identifier, ModModule, Parameter, Pattern, Stmt,
+    TypeParams,
 };
 
 const ALL: &str = "__all__";
@@ -55,6 +56,13 @@ impl Binders {
             all_literal: !walk.all_imported && one_literal(&tree.body, walk.all_names),
             logic_free: logic_free(&tree.body),
         }
+    }
+
+    /// `_bare_builtin`: no star import and no type parameter list in the module, and no binder of
+    /// the name anywhere in it. A type parameter list parses only from Python 3.12, where the
+    /// Python rule applies it.
+    pub fn builtin_visible(&self, name: &str) -> bool {
+        !self.opaque && !self.counts.contains_key(name)
     }
 
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
@@ -134,8 +142,11 @@ impl<'a> Visitor<'a> for Walk {
                 }
                 self.imports(&node.names, stmt);
             }
-            Stmt::Global(node) => node.names.iter().for_each(|name| self.bind(name.as_str())),
-            Stmt::Nonlocal(node) => node.names.iter().for_each(|name| self.bind(name.as_str())),
+            Stmt::Global(_) | Stmt::Nonlocal(_) => {
+                declared(stmt)
+                    .iter()
+                    .for_each(|name| self.bind(name.as_str()));
+            }
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
@@ -159,25 +170,65 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
-        let ExceptHandler::ExceptHandler(node) = handler;
-        if let Some(name) = &node.name {
-            self.bind(name.as_str());
-        }
-        visitor::walk_except_handler(self, handler);
+        bind_handler(self, handler);
     }
 
     fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        let name = match pattern {
-            Pattern::MatchAs(node) => node.name.as_ref(),
-            Pattern::MatchStar(node) => node.name.as_ref(),
-            Pattern::MatchMapping(node) => node.rest.as_ref(),
-            _ => None,
-        };
-        if let Some(name) = name {
-            self.bind(name.as_str());
-        }
-        visitor::walk_pattern(self, pattern);
+        bind_pattern(self, pattern);
     }
+}
+
+impl<'a> Bind<'a> for Walk {
+    fn bind_name(&mut self, name: &'a str) {
+        self.bind(name);
+    }
+}
+
+/// A visitor that counts the names that binders bind.
+pub trait Bind<'a>: Visitor<'a> {
+    fn bind_name(&mut self, name: &'a str);
+}
+
+/// Count the name of an except handler and walk the handler.
+pub fn bind_handler<'a, V: Bind<'a>>(visitor: &mut V, handler: &'a ExceptHandler) {
+    if let Some(name) = handler_name(handler) {
+        visitor.bind_name(name);
+    }
+    visitor::walk_except_handler(visitor, handler);
+}
+
+/// Count the name of a pattern and walk the pattern.
+pub fn bind_pattern<'a, V: Bind<'a>>(visitor: &mut V, pattern: &'a Pattern) {
+    if let Some(name) = pattern_name(pattern) {
+        visitor.bind_name(name);
+    }
+    visitor::walk_pattern(visitor, pattern);
+}
+
+/// The names of a `global` or a `nonlocal` statement.
+pub fn declared(stmt: &Stmt) -> &[Identifier] {
+    match stmt {
+        Stmt::Global(node) => &node.names,
+        Stmt::Nonlocal(node) => &node.names,
+        _ => &[],
+    }
+}
+
+/// The name that `except ... as name` binds.
+fn handler_name(handler: &ExceptHandler) -> Option<&str> {
+    let ExceptHandler::ExceptHandler(node) = handler;
+    node.name.as_ref().map(Identifier::as_str)
+}
+
+/// The name that a capture, a star or a mapping rest pattern binds.
+fn pattern_name(pattern: &Pattern) -> Option<&str> {
+    let name = match pattern {
+        Pattern::MatchAs(node) => node.name.as_ref(),
+        Pattern::MatchStar(node) => node.name.as_ref(),
+        Pattern::MatchMapping(node) => node.rest.as_ref(),
+        _ => None,
+    };
+    name.map(Identifier::as_str)
 }
 
 impl Walk {

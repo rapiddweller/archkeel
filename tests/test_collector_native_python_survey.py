@@ -6,8 +6,7 @@
 The oracle is the unmodified `collect.collect` in the phase `imports`, encoded as the facts of
 protocol 9. The test compares the static imports, the file facts, their evidence, the import
 targets, the UNKNOWN records and the coverage. A syntax failure is compared on its file and its
-class only (AD-367 point 1). The `stable_bindings` of a file fact follow in slice 1c-2c and are
-not compared yet; the binary still refuses each request, so no reply can carry them.
+class only (AD-367 point 1). The `stable_bindings` of each file fact are compared too.
 `ARCHKEEL_PYTHON_SCOPE_CORPORA` names more trees, as in `test_collector_native_python_scope.py`.
 """
 
@@ -52,12 +51,6 @@ def _request(
     )
 
 
-def _without_stable_bindings(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {key: value for key, value in item.items() if key != "stable_bindings"} for item in files
-    ]
-
-
 def _python(request: CollectionRequest) -> dict[str, Any]:
     facts = collect(request)
     version = ProtocolVersion.V9
@@ -69,7 +62,7 @@ def _python(request: CollectionRequest) -> dict[str, Any]:
     cited.update(evidence for item in imports for evidence in item["evidence_ids"])
     unknowns = next(item["records"] for item in payload["sections"] if item["name"] == "unknowns")
     return {
-        "files": _without_stable_bindings(payload["files"]),
+        "files": payload["files"],
         "imports": imports,
         "evidence": [item for item in payload["evidence"] if item["id"] in cited],
         "targets": payload["imports"],
@@ -88,7 +81,6 @@ def _native(binary: Path, request: CollectionRequest) -> dict[str, Any]:
         check=True,
     )
     found: dict[str, Any] = json.loads(completed.stdout)
-    found["files"] = _without_stable_bindings(found["files"])
     return found
 
 
