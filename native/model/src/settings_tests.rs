@@ -23,15 +23,15 @@ fn a_profile_that_is_not_the_profile_of_the_reply_is_refused() {
 
 #[test]
 fn a_standard_library_with_a_duplicate_a_nul_or_too_many_names_is_refused() {
-    assert_eq!(settings("shop", &["core", "std"]).check("p"), Ok(()));
+    assert_eq!(settings("shop", &["alpha", "beta"]).check("p"), Ok(()));
     let refused = |names: &[&str]| {
         matches!(
             settings("shop", names).check("p"),
             Err(Refusal::StandardLibrary(_))
         )
     };
-    assert!(refused(&["std", "core", "std"]));
-    assert!(refused(&["st\0d"]));
+    assert!(refused(&["alpha", "beta", "alpha"]));
+    assert!(refused(&["al\0pha"]));
     assert!(refused(&[""]));
     let long = "a".repeat(STANDARD_NAME_LIMIT + 1);
     assert!(refused(&[long.as_str()]));

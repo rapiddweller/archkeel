@@ -156,13 +156,17 @@ fn a_builtin_import_matches_by_its_module_and_is_never_undeclared() {
 
 #[test]
 fn the_standard_library_of_the_shell_settings_is_exempt() {
-    let std_settings = Settings::new("shop".to_owned(), shop_profile(), vec!["std".to_owned()]);
-    let outcomes = run(|_| {}, external(DOMAIN, "std"), std_settings);
+    let std_settings = Settings::new(
+        "shop".to_owned(),
+        shop_profile(),
+        vec!["platform".to_owned()],
+    );
+    let outcomes = run(|_| {}, external(DOMAIN, "platform"), std_settings);
     assert!(of(&outcomes, "EXTERNAL-COMPLETE").is_empty());
-    let outcomes = run(|_| {}, external(DOMAIN, "std"), shop_settings());
+    let outcomes = run(|_| {}, external(DOMAIN, "platform"), shop_settings());
     assert_eq!(
         dependencies(&of(&outcomes, "EXTERNAL-COMPLETE")),
-        vec!["std"]
+        vec!["platform"]
     );
 }
 
