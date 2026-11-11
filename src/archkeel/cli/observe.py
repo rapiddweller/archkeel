@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Compose configured language processes with the Core observer."""
 
+import gc
 import os
 import sys
 import sysconfig
@@ -30,6 +31,11 @@ _NATIVE_DIRECTORY: Final = Path(__file__).resolve().parents[1] / "_native"
 _EXECUTABLE_SUFFIX: Final = sysconfig.get_config_var("EXE") or ""
 DIGEST_SUFFIX: Final = ".sha256"
 TYPESCRIPT_COLLECTOR: Final = "archkeel-typescript-collector"
+
+
+def collect_cycles_less_often() -> None:
+    """A one-shot command keeps its model until it exits: scan it 20 times less often (#1023)."""
+    gc.set_threshold(50_000, 20, 100)
 
 
 def executable(name: str, directory: Path | None = None) -> Path:

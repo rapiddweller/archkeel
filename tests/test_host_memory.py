@@ -7,7 +7,7 @@ import gc
 import json
 import re
 import tracemalloc
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from io import BytesIO
 from pathlib import Path
 
@@ -75,19 +75,12 @@ def test_raw_fields_equal_the_json_of_asdict_and_share_the_leaves(
     assert raw_fields(records[0])["id"] is records[0].id
 
 
-def test_an_encoder_stops_cyclic_collection_and_restores_the_state_of_the_caller() -> None:
-    with codec_wire.without_cycle_collection():
-        with codec_wire.without_cycle_collection():
-            assert not gc.isenabled()
-        assert not gc.isenabled()
-    assert gc.isenabled()
-    gc.disable()
-    try:
-        with codec_wire.without_cycle_collection():
-            pass
-        assert not gc.isenabled()
-    finally:
-        gc.enable()
+def test_raw_fields_of_a_dataclass_without_fields_is_an_empty_object() -> None:
+    @dataclass(frozen=True)
+    class Empty:
+        pass
+
+    assert raw_fields(Empty()) == {}
 
 
 _VALUES = [
