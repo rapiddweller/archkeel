@@ -559,12 +559,12 @@ def parse_target(value: RawJson) -> TargetDefinition:
 
 
 def _graph_payload(graph: ArchitectureGraph) -> dict[str, object]:
-    intents = [raw_fields(intent) for intent in graph.component_intents]
-    for intent in intents:
+    intents = (payload := raw_fields(graph))["component_intents"]
+    for intent in intents if isinstance(intents, list) else ():
         for key in ("layer", "lifecycle"):
-            if intent[key] is None:
+            if isinstance(intent, dict) and intent[key] is None:
                 del intent[key]
-    return {**raw_fields(graph), "component_intents": intents}
+    return {**payload}
 
 
 def graph_bytes(graph: ArchitectureGraph) -> bytes:

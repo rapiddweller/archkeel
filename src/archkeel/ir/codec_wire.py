@@ -5,10 +5,8 @@
 
 from __future__ import annotations
 
-import gc
 import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
 from dataclasses import Field, fields
 from io import BytesIO
 from operator import attrgetter
@@ -64,6 +62,8 @@ def raw_fields(value: _Data) -> dict[str, RawJson]:
     """The JSON tree of `_raw_object(asdict(value))`. The frozen leaves are shared, not copied."""
     if type(value) not in _FIELD_READERS:
         names = tuple(field.name for field in fields(value))
+        if not names:
+            return {}
         # The first name again makes `attrgetter` return a tuple for a value with one field too.
         _FIELD_READERS[type(value)] = (names, attrgetter(*names, *names[:1]))
     names, read = _FIELD_READERS[type(value)]
@@ -78,18 +78,6 @@ def _raw_field(value: _Item) -> RawJson:
     if isinstance(value, dict):
         return {key: _raw_field(item) for key, item in value.items()}
     return raw_fields(value)
-
-
-@contextmanager
-def without_cycle_collection() -> Iterator[None]:
-    """Stop cyclic collection while an encoder builds acyclic trees: it rescans the live model."""
-    enabled = gc.isenabled()
-    gc.disable()
-    try:
-        yield
-    finally:
-        if enabled:
-            gc.enable()
 
 
 def value_bytes(value: JsonValue) -> bytes:

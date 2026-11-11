@@ -25,7 +25,6 @@ from archkeel.ir.codec_wire import (
     evidence_rows,
     raw_fields,
     section_rows,
-    without_cycle_collection,
 )
 from archkeel.ir.facts import (
     CallBindingOrigin,
@@ -994,12 +993,11 @@ def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
 
 
 def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:
-    with without_cycle_collection():
-        if not isinstance(model, Observation):
-            return canonical_json_bytes(encode_canonical_model(model))
-        # AD-324: the encoder consumes a payload built here, so its records are not kept.
-        raw = observation_payload(model)
-        return canonical_json_bytes(encode_canonical_model(raw, consume=True))
+    if not isinstance(model, Observation):
+        return canonical_json_bytes(encode_canonical_model(model))
+    # AD-324: the encoder consumes a payload built here, so its records are not kept.
+    raw = observation_payload(model)
+    return canonical_json_bytes(encode_canonical_model(raw, consume=True))
 
 
 def _coverage_payload(value: Coverage) -> dict[str, RawJson]:

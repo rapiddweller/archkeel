@@ -72,7 +72,7 @@ from .config import (
     project_name,
 )
 from .guide import GUIDE_PATH, run_guide
-from .observe import configured_observer, observer_for
+from .observe import collect_cycles_less_often, configured_observer, observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -865,6 +865,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .studio import serve_studio
 
             return serve_studio(args)
+        collect_cycles_less_often()
         if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
         if command is Command.GUIDE:
@@ -883,9 +884,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 0
         if command is Command.VIEW:
-            spec_path: Path = args.spec
-            subject = str(spec_path)
-            spec_bytes = spec_path.read_bytes()
+            subject = str(args.spec)
+            spec_bytes = Path.read_bytes(args.spec)
             spec = parse_view_spec(decode_json(spec_bytes))
             subject = str(args.snapshot)
             view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)

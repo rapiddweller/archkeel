@@ -355,3 +355,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-357 | [A method of another module is an edge or a pair gap in Rust](ad-357-a-method-of-another-module-is-an-edge-or-a-pair-gap-in-rust.md) |
 | AD-358 | [One collector process serves the Python survey and the collection](ad-358-one-collector-process-serves-the-python-survey-and-the-collection.md) |
 | AD-360 | [A second engine is compared with recorded oracles per section and rule family](ad-360-a-second-engine-is-compared-with-recorded-oracles-per-section-and-rule-family.md) |
+| AD-362 | [A one-shot command collects cycles less often](ad-362-a-one-shot-command-collects-cycles-less-often.md) |
