@@ -18,6 +18,7 @@ mod collect;
 mod collected;
 mod concerns;
 mod config;
+mod construct_records;
 mod constructors;
 mod definitions;
 mod discover;

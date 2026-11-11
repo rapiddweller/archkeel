@@ -11,10 +11,6 @@
 
 use std::io::{self, Write};
 
-use archkeel_facts::data::ConstructData;
-use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{
     BindingFact, CallFact, ConstructFact, ImportFact, IntoSection, Record, ReferenceFact,
     SymbolFact,
@@ -24,16 +20,14 @@ use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 
 use crate::bound_names::expand;
 use crate::cited::Cited;
-use crate::collected::{sorted, Facts, Records};
+use crate::collected::{Facts, Records};
+use crate::construct_records::{constructs, STRING_LITERAL_COMPARE};
 use crate::kept::Pending;
 use crate::resolution::{local_imports, Imports};
 use crate::script_effects::effect_record;
 use crate::site_records::{self, Pass};
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
-
-/// The string comparison construct of `ForbiddenConstructKind`.
-pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
 
 /// What the producer holds before the first record is written: the targets of the imports, the
 /// table of symbols and the evidence, which the records cite while they are written.
@@ -187,47 +181,6 @@ pub fn write_reply(
     encode_stream(version, head, out, |writer| {
         plan.write(writer).map(|(tail, _)| tail)
     })
-}
-
-/// `_constructs`: one record for each written string comparison.
-fn constructs(pending: &Pending, cited: &mut Cited, records: &mut Records) {
-    let mut out = Vec::new();
-    for (rel, kept) in &pending.kept {
-        for (span, scope) in &kept.comparisons {
-            let owner = match scope.as_deref().filter(|name| !name.is_empty()) {
-                Some(name) => format!("{}.{name}", kept.module),
-                None => kept.module.clone(),
-            };
-            let id = stable_id(
-                "TSCONSTRUCT",
-                &[
-                    Part::Text(rel),
-                    Part::Number(span.line),
-                    Part::Number(span.column),
-                    Part::Text(STRING_LITERAL_COMPARE),
-                ],
-            );
-            let evidence = cited.cite(rel, span);
-            let data = ConstructData {
-                construct: STRING_LITERAL_COMPARE.to_owned(),
-                form: None,
-                handled: None,
-                owner: owner.clone(),
-            };
-            out.push(Record {
-                id: FactId::new(id),
-                evidence_class: EvidenceClass::Fact,
-                area: Area::Constructs,
-                title: format!("{owner} compares a written string literal"),
-                subjects: sorted(vec![owner]),
-                evidence_ids: vec![EvidenceId::new(evidence)],
-                fact_ids: Vec::new(),
-                data: ConstructFact::StringLiteralCompare(data),
-            });
-        }
-    }
-    out.sort_by(|left, right| left.id.cmp(&right.id));
-    records.constructs = out;
 }
 
 #[cfg(test)]
