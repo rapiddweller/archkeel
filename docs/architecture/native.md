@@ -20,10 +20,13 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
+| `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse. | no crate of the workspace |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
+A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
+`tree-sitter-language` (rule `NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE`).
 Clippy, `cargo deny` and the file size rule stay outside the contract
 ([AD-327](decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md)).
 

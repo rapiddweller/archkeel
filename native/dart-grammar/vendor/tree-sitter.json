@@ -1,0 +1,19 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "dart",
+      "camelcase": "Dart",
+      "scope": "source.dart",
+      "file-types": ["dart"],
+      "highlights": "queries/highlights.scm",
+      "tags": "queries/tags.scm"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "links": {
+      "repository": "https://github.com/efrenbl/tree-sitter-dart"
+    }
+  }
+}

@@ -104,6 +104,17 @@ def _new_file_in_new_directory_of_collector(workspace: Path) -> None:
     (nested / "extra.rs").write_text("pub const EXTRA: u8 = 1;\n")
 
 
+def _edit_grammar_c_source(workspace: Path) -> None:
+    """AD-342: the vendored C parser of a grammar crate is a source input."""
+    scanner = workspace / "dart-grammar/vendor/src/scanner.c"
+    scanner.write_text(scanner.read_text() + "\n/* digest test: an edit */\n")
+
+
+def _edit_grammar_header(workspace: Path) -> None:
+    header = workspace / "dart-grammar/vendor/src/tree_sitter/alloc.h"
+    header.write_text(header.read_text() + "\n/* digest test: an edit */\n")
+
+
 def _edit_cargo_lock(workspace: Path) -> None:
     lock = workspace / "Cargo.lock"
     lock.write_text(lock.read_text() + "\n# digest test: an edit\n")
@@ -116,12 +127,16 @@ def _edit_cargo_lock(workspace: Path) -> None:
         _new_file_in_new_directory_of_dependency,
         _new_file_in_new_directory_of_collector,
         _edit_cargo_lock,
+        _edit_grammar_c_source,
+        _edit_grammar_header,
     ],
     ids=[
         "edit-dependency-source",
         "new-directory-dependency",
         "new-directory-collector",
         "edit-cargo-lock",
+        "edit-grammar-c-source",
+        "edit-grammar-header",
     ],
 )
 def test_a_source_change_changes_the_digest(
