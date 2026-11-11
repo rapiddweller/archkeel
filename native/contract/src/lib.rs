@@ -50,6 +50,7 @@ pub use canonical::{canonical_bytes, canonical_digest};
 pub use contract::parse;
 pub use document::{Contract, InsideRef, NeedsTree, ParsedContract};
 pub use error::{ErrorKind, ParseError};
+pub use graph::uml_target_id;
 pub use model::*;
 pub use model_declarations::*;
 pub use model_rules::*;

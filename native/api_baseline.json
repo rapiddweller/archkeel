@@ -4,7 +4,7 @@
     "members": 0
   },
   "archkeel-contract": {
-    "items": 39,
+    "items": 41,
     "members": 27
   },
   "archkeel-dart-grammar": {
@@ -17,7 +17,7 @@
   },
   "archkeel-model": {
     "items": 56,
-    "members": 42
+    "members": 43
   },
   "archkeel-snapshot": {
     "items": 22,

@@ -64,7 +64,8 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     };
     assert_eq!(rules.len(), 8);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
-    let reasons = crate::contract::rule_reasons(engine.contract());
+    let reasons =
+        crate::contract::rule_reasons(engine.contract(), "native/architecture-contract.json");
     assert_eq!(reasons.len(), 8);
     assert!(reasons
         .values()
@@ -72,11 +73,26 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
 }
 
 #[test]
-fn a_contract_part_of_slice_0c_2_is_unsupported_by_name() {
+fn a_contract_with_declarations_parses_in_the_core() {
     let mut engine = Engine::default();
     let answer = engine.answer(Request::Contract(
         br#"{"schema_version": "3.14.0",
         "components": [], "rules": [], "declarations": {}}"#
+            .to_vec(),
+    ));
+    assert!(
+        matches!(answer, Answer::Contract(ContractState::Parsed(_))),
+        "{answer:?}"
+    );
+}
+
+#[test]
+fn a_contract_that_mounts_an_inside_contract_is_refused_by_name_and_never_used() {
+    let mut engine = Engine::default();
+    let answer = engine.answer(Request::Contract(
+        br#"{"schema_version": "2.1.0", "rules": [], "components": [{"id": "C-A",
+        "label": "a", "role": "component", "packages": ["p.a"], "responsibilities": ["A."],
+        "forbidden_responsibilities": [], "provenance": ["d.md"], "inside": "inner.json"}]}"#
             .to_vec(),
     ));
     let text = format!("{answer:?}");
@@ -84,11 +100,12 @@ fn a_contract_part_of_slice_0c_2_is_unsupported_by_name() {
         matches!(
             answer,
             Answer::Contract(ContractState::Unsupported(Reason::Unsupported(
-                Unsupported::Contract(_)
+                Unsupported::InsideTree
             )))
         ),
         "{text}"
     );
+    assert!(engine.contract().is_none());
 }
 
 #[test]
@@ -146,5 +163,23 @@ fn a_section_without_a_contract_or_a_reply_names_the_missing_input() {
     assert_eq!(
         Reason::MissingInput(Input::Reply).to_string(),
         "missing input: no valid collector reply"
+    );
+}
+
+#[test]
+fn the_uml_target_of_a_contract_is_an_unsupported_rule_by_name() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(
+        br#"{"schema_version": "2.2.0", "components": [], "rules": [],
+        "declarations": {"uml": {"schema_version": "1.1.0"}}}"#
+            .to_vec(),
+    ));
+    let reasons = crate::contract::rule_reasons(engine.contract(), "architecture-contract.json");
+    let reason = reasons
+        .get("UML-TARGET-a2e40c5592b1b06a")
+        .map(ToString::to_string);
+    assert_eq!(
+        reason.as_deref(),
+        Some("unsupported: the UML target of the contract: no slice ports it yet")
     );
 }

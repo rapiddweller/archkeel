@@ -71,6 +71,13 @@ fn stable_id(prefix: &str, parts: &[String]) -> ItemId {
     ))
 }
 
+/// The id of the UML target row of a contract at `contract_path`: Python
+/// `stable_id("UML-TARGET", path)` (`check/uml.py`). The row comes from `declarations.uml`, not
+/// from a rule of the contract.
+pub fn uml_target_id(contract_path: &str) -> ItemId {
+    stable_id("UML-TARGET", &[contract_path.to_owned()])
+}
+
 /// `public_api_id`.
 fn public_api_id(selector: &str) -> ItemId {
     ItemId(format!("API-{}", &hex(selector.as_bytes())[..16]))

@@ -85,3 +85,12 @@ fn a_table_gives_ids_in_order_and_an_id_reads_its_row() {
     assert_eq!(table.get(ComponentId::from_index(2)), None);
     assert_eq!(ModuleId::from_index(1).index(), 1);
 }
+
+#[test]
+fn a_contract_with_mounts_names_the_missing_tree_assembly() {
+    let reason = Reason::Unsupported(Unsupported::InsideTree);
+    assert_eq!(
+        reason.to_string(),
+        "unsupported: the contract mounts inside contracts; the tree assembly is not in the core yet"
+    );
+}

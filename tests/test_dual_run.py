@@ -439,6 +439,26 @@ def test_the_self_test_compares_the_rule_kinds_that_the_engine_read(run: Run) ->
     assert got == [("self_test", rule), ("self_test", "reply")]
 
 
+def test_a_rule_that_the_engine_names_unsupported_is_a_named_self_test_difference(
+    run: Run,
+) -> None:
+    """AD-363: a rule that the contract does not hold (the UML target of `declarations.uml`) and
+    that the engine names unsupported is a named difference, never an unexplained kind."""
+    oracle, _ = run
+    kinds = {rule: kind for rule, (kind, _) in oracle["rules"].items()}
+    rule = sorted(kinds)[0]
+    read = {key: value for key, value in kinds.items() if key != rule}
+    reason = "unsupported: the UML target of the contract: no slice ports it yet"
+    frame = {
+        "rules": {},
+        "unsupported": {"rules": {rule: reason}},
+        "self_test": {"contract": {"rules": read}, "reply": {"files": 3}},
+    }
+    selection = Selection((), frozenset(), self_test=True)
+    got = [(d.scope, d.id, d.detail) for d in _compare(oracle, frame, selection)]
+    assert got == [("self_test", rule, reason)]
+
+
 def test_a_self_test_run_owns_no_part_and_says_so(capsys: pytest.CaptureFixture[str]) -> None:
     """AD-363: the wiring check owns no rule and no section, and its summary says self-test."""
     case = _case("fixture/E-runtime")

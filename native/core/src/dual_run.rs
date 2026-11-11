@@ -113,7 +113,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     if request.protocol != PROTOCOL {
         return Err(format!("unknown protocol {}", request.protocol));
     }
-    let [(_, contract)] =
+    let [(path, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
             .map_err(|found| {
                 let count = found.len();
@@ -150,7 +150,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     };
     let rules = match &contract {
         ContractState::Parsed(_) => RuleReasons::Each(
-            crate::contract::rule_reasons(engine.contract())
+            crate::contract::rule_reasons(engine.contract(), &path)
                 .into_iter()
                 .map(|(id, reason)| (id, reason.to_string()))
                 .collect(),
