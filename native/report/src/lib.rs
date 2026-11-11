@@ -70,4 +70,6 @@ mod fault_tests;
 #[cfg(test)]
 mod schema_tests;
 #[cfg(test)]
+mod status_tests;
+#[cfg(test)]
 mod test_support;
