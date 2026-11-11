@@ -437,3 +437,14 @@ fn a_test_member_a_test_statement_and_a_test_attribute_of_a_crate_give_no_fact()
     assert_eq!(roots, ["kept_crate", "kept_crate"]);
     assert!(kept.mentioned.iter().all(|name| name != "dev"));
 }
+
+#[test]
+fn each_extern_crate_but_self_is_listed_with_its_place() {
+    let found = scanned("extern crate a;\nextern crate b as c;\nextern crate self as me;");
+    let listed: Vec<(&str, i64)> = found
+        .extern_crates
+        .iter()
+        .map(|(name, site)| (name.as_str(), site.line))
+        .collect();
+    assert_eq!(listed, [("a", 1), ("b", 2)]);
+}

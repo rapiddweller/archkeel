@@ -270,6 +270,7 @@ PR_TEST_FILES := \
 	tests/test_guarded_effect_wire_compatibility.py \
 	tests/test_guarded_effect_source_validation.py \
 	tests/test_guarded_effect_scan_completeness.py \
+	tests/test_guarded_effect_hidden_calls.py \
 	tests/test_protocol_conditional_identity.py \
 	tests/test_typescript_namespace_identities.py \
 	tests/test_result_schema.py \

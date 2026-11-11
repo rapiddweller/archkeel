@@ -17,7 +17,7 @@ use crate::builder::{import_record, Builder, Origin};
 use crate::crates::{Crate, Workspace};
 use crate::module_edges::local_target;
 use crate::modules::Index;
-use crate::resolve::{classify, Found, Named};
+use crate::resolve::{classify, linked, Found, Named};
 use crate::scan::Reference;
 use crate::tree::Module;
 
@@ -69,6 +69,14 @@ impl Builder {
             }
         }
         self.net(krate, module, &covered);
+        for (name, site) in &module.scan.extern_crates {
+            if !linked(name, krate) {
+                // Only a link that a `build.rs` prints gives this crate: the collector does not read it.
+                let reason = format!("The manifest does not declare the extern crate {name}");
+                let evidence = self.cite(&module.rel, site);
+                self.gap(&reason, Some(&evidence), &module.module);
+            }
+        }
     }
 
     /// The safety net: a reachable crate name that the file writes, and that no edge explains.

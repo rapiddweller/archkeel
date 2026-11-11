@@ -12,7 +12,7 @@ import hashlib
 import inspect
 import sys
 import sysconfig
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -97,6 +97,9 @@ def _call_receivers(collector: CallCollector, node: ast.Call) -> dict[str, Recei
 
 
 GuardedPathCandidate = tuple[str, str, str, ast.AST, tuple[GuardedCallPath, ...]]
+PathsBySite = dict[tuple[int, int], tuple[GuardedCallPath, ...]]
+ParameterPaths = dict[tuple[FunctionNode, str], PathsBySite]
+MemberPaths = dict[tuple[FunctionNode, str], tuple[ast.ClassDef, ast.AST, PathsBySite]]
 _BUILTIN_EXCEPTION_TARGETS = frozenset(
     {
         "builtins.ArithmeticError",
@@ -487,36 +490,15 @@ class CallCollector(ast.NodeVisitor):
                         declarations[name] = [*declarations.get(name, ()), child]
         return declarations
 
-    def _guarded_facts(
-        self,
-    ) -> tuple[
-        dict[tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
-        dict[
-            tuple[FunctionNode, str],
-            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
-        ],
-    ]:
+    def _guarded_facts(self) -> tuple[ParameterPaths, MemberPaths]:
         # Guarded paths are only consumed when a declared rule reads them (AD-257).
         if not self.include_guarded_effects:
             return {}, {}
         return self._guarded_path_facts()
 
-    def _guarded_path_facts(
-        self,
-    ) -> tuple[
-        dict[tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
-        dict[
-            tuple[FunctionNode, str],
-            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
-        ],
-    ]:
-        member_paths: dict[
-            tuple[FunctionNode, str],
-            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
-        ] = {}
-        guarded_paths: dict[
-            tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
-        ] = {}
+    def _guarded_path_facts(self) -> tuple[ParameterPaths, MemberPaths]:
+        member_paths: MemberPaths = {}
+        guarded_paths: ParameterPaths = {}
         # Declarations depend only on the class and receiver name, so methods share them.
         declarations_by_scope: dict[tuple[ast.ClassDef, str], dict[str, list[ast.AST]]] = {}
         for function in self.module.all_nodes:
@@ -529,14 +511,9 @@ class CallCollector(ast.NodeVisitor):
             ):
                 if annotation_text(argument.annotation) != "bool":
                     continue
-                by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
-                for path in guarded_call_paths(function, argument.arg):
-                    key = (path.line, path.column)
-                    records: list[GuardedCallPath] = by_location.setdefault(key, [])
-                    records.append(path)
-                guarded_paths[(function, argument.arg)] = {
-                    location: tuple(paths) for location, paths in by_location.items()
-                }
+                guarded_paths[(function, argument.arg)] = _by_site(
+                    guarded_call_paths(function, argument.arg)
+                )
             parent = self.parents.get(function)
             if not isinstance(parent, ast.ClassDef) or function.decorator_list:
                 continue
@@ -550,16 +527,8 @@ class CallCollector(ast.NodeVisitor):
             for name, sites in declarations.items():
                 if len(sites) != 1:
                     continue
-                member_by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
-                for path in guarded_call_paths(function, name, receiver_name=receiver.arg):
-                    key = (path.line, path.column)
-                    member_records: list[GuardedCallPath] = member_by_location.setdefault(key, [])
-                    member_records.append(path)
-                member_paths[(function, name)] = (
-                    parent,
-                    sites[0],
-                    {location: tuple(paths) for location, paths in member_by_location.items()},
-                )
+                paths = guarded_call_paths(function, name, receiver_name=receiver.arg)
+                member_paths[(function, name)] = (parent, sites[0], _by_site(paths))
         return guarded_paths, member_paths
 
     def _discarded_attribute_read(self, reference: ast.Name) -> bool:
@@ -2011,12 +1980,8 @@ class CallCollector(ast.NodeVisitor):
     ) -> list[GuardedPathCandidate]:
         candidates: list[GuardedPathCandidate] = []
         for argument in (*owner.args.posonlyargs, *owner.args.args, *owner.args.kwonlyargs):
-            by_location = self.guarded_paths.get((owner, argument.arg))
-            paths = (
-                by_location.get((node.lineno, node.col_offset), ())
-                if by_location is not None
-                else ()
-            )
+            by_location = self.guarded_paths.get((owner, argument.arg), {})
+            paths = by_location.get((node.lineno, node.col_offset), ())
             if paths:
                 candidates.append(
                     ("parameter", scope.qualified_name, argument.arg, argument, paths)
@@ -2234,7 +2199,20 @@ class CallCollector(ast.NodeVisitor):
             )
         )
 
-    def visit_Call(self, node: ast.Call) -> None:
+    def visit_FunctionDef(self, node: FunctionNode | ast.ClassDef) -> None:
+        # `@d def g` is `g = d(g)` with no call node (#759). In a function the application runs
+        # under the guards of that function, so it is a call; a module-level one is not recorded.
+        for decorator in node.decorator_list:
+            scope = self.scopes.by_node.get(decorator)
+            if scope is not None and _in_function(scope) and not isinstance(decorator, ast.Call):
+                call = ast.copy_location(ast.Call(decorator, [], []), decorator)
+                self.scopes.by_node[call] = scope
+                self.visit_Call(call, bare=True)
+        self.generic_visit(node)
+
+    visit_AsyncFunctionDef = visit_ClassDef = visit_FunctionDef
+
+    def visit_Call(self, node: ast.Call, bare: bool = False) -> None:
         scope = self.scopes.by_node[node]
         expression = annotation_text(node.func) or "<unparseable>"
         status, targets, reason, candidate_count = resolve_name(
@@ -2252,6 +2230,9 @@ class CallCollector(ast.NodeVisitor):
             targets = []
             candidate_count = 0
             reason = "Parenthesized callee source evidence is unsupported"
+        if bare:  # The evidence of a bare decorator shows no call, so nothing binds it (#759).
+            binding, status, targets, candidate_count = None, SourceResolution.UNRESOLVED, [], 0
+            reason = "A bare decorator has no call evidence"
         if binding is not None:
             canonical_target = binding["target"]
             targets = [canonical_target] if isinstance(canonical_target, str) else targets
@@ -2288,7 +2269,8 @@ class CallCollector(ast.NodeVisitor):
             target_evidence_ids,
             guarded_effect,
         )
-        self.generic_visit(node)
+        if not bare:  # The definition visits the parts of its decorator once.
+            self.generic_visit(node)
 
 
 def collect_calls_with_resolvers(
@@ -2336,3 +2318,18 @@ def collect_calls_with_resolvers(
         resolvers.append(call_collector)
     calls.sort(key=lambda item: item["id"])
     return calls, tuple(resolvers)
+
+
+def _in_function(scope: Scope | None) -> bool:
+    """Whether a function encloses the scope: its code runs when that function runs."""
+    while scope is not None and not isinstance(scope.node, ast.FunctionDef | ast.AsyncFunctionDef):
+        scope = scope.parent
+    return scope is not None
+
+
+def _by_site(paths: Iterable[GuardedCallPath]) -> PathsBySite:
+    found: dict[tuple[int, int], list[GuardedCallPath]] = {}
+    for path in paths:
+        site: list[GuardedCallPath] = found.setdefault((path.line, path.column), [])
+        site.append(path)
+    return {site: tuple(items) for site, items in found.items()}

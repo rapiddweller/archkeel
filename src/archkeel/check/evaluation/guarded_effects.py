@@ -630,13 +630,9 @@ def _guarded_call_results(
             if _matches_condition(proof, rule):
                 proofs.append(proof)
     binding = call_binding(parsed.data.get("call_binding"))
-    data = call["data"]
-    if (
-        binding is not None
-        and binding.target == rule.target
-        and any(in_scope(data["source_scope"], owner) for owner in condition_scopes)
-        and not proofs
-    ):
+    # A call without path facts in a condition scope (a class body, #758) can be the effect, or
+    # can reach it through a helper or an alias: it is never proven safe.
+    if not proofs and any(in_scope(call["data"]["source_scope"], o) for o in condition_scopes):
         limits.append(
             _limit(rule, scope, "The selected effect has no typed condition path inventory", [call])
         )

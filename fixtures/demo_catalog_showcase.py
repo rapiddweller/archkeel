@@ -13,6 +13,8 @@ from fixtures.demo_catalog_dependencies import (
     SHOP_EXTRA,
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
 )
+from fixtures.demo_catalog_hidden_effects import TOKEN_GUARD_LIMIT
+from fixtures.demo_catalog_hidden_effects import VARIANTS as _HIDDEN_EFFECTS
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
 from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
@@ -234,8 +236,6 @@ _SEEDED_EFFECT = Variant(
     expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
     expected_codes=("rule.violated",),
 )
-# The guard path limit that an UNKNOWN guarded row records for the seeded token function.
-_TOKEN_GUARD_LIMIT = (("guarded_effect_limit", "shop.app.tokens.token_for_run"),)
 _HELPER_ELSEWHERE = Variant(
     id="class-a-forbidden-effect-under-condition-helper-elsewhere",
     section="class_a",
@@ -289,7 +289,7 @@ _DELETED_GUARD = Variant(
     },
     expected_violations=(),
     expected_codes=(),
-    expected_unknowns=_TOKEN_GUARD_LIMIT,
+    expected_unknowns=TOKEN_GUARD_LIMIT,
     expected_declared_rules="UNKNOWN",
 )
 _CLASS_BODY_MUTATION = Variant(
@@ -339,8 +339,7 @@ _HEADER_CALL = Variant(
     "whose default value is self.reset(), then calls secrets.token_hex. A default value, an "
     "annotation, a decorator, a class base and a class keyword run when the statement runs "
     "(an annotation only before Python 3.14), so the call can change the member and the rule "
-    "is UNKNOWN. Before #761 the walker kept the guard and "
-    "gave a false proven FAIL.",
+    "is UNKNOWN. Before #761 the walker kept the guard and gave a false proven FAIL.",
     files={
         "shop/app/tokens.py": HEADER
         + (
@@ -421,7 +420,7 @@ _WITH_ITEM = Variant(
     },
     expected_violations=(),
     expected_codes=(),
-    expected_unknowns=_TOKEN_GUARD_LIMIT,
+    expected_unknowns=TOKEN_GUARD_LIMIT,
     expected_declared_rules="UNKNOWN",
 )
 _TOUR = Variant(
@@ -591,6 +590,7 @@ VARIANTS: tuple[Variant, ...] = (
     _DELETED_GUARD,
     _CLASS_BODY_MUTATION,
     _HEADER_CALL,
+    *_HIDDEN_EFFECTS,
     _REPEATED_BLOCKS,
     _WITH_ITEM,
     _CLEAN,
