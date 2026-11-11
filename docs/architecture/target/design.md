@@ -231,13 +231,15 @@ Misplacement findings name the current owner, target owner and offending crossin
 
 ## Native evidence extension
 
-`PythonProviderCollector` obtains a bounded V4 import survey through `ProcessCollector`,
-captures provider bytes inside that bounded child, then requests full collection
-(V5 with or without providers). The parent authenticates the complete captured inventory
-without provider-file I/O. Both passes share one deadline and the existing output bounds.
-Non-provider inputs and producer identities must match; records from different passes are never merged.
-The survey retains all selected files, digests and parse gaps. Core rejects its partial
-sections as a complete Python observation; the wrapper always returns the final collection.
+`PythonProviderCollector` starts one bounded collector child with `--one-pass` (AD-358). The child
+surveys the imports, captures the provider bytes and collects with them (V8 or V9), then replies
+with the final facts. The child rejects a provider input that differs from the captured bytes and
+rejects a change of the non-provider inputs or producer identities between the passes. The parent
+checks the reply against the provider inputs that it lists, without provider-file I/O. Records from
+different passes are never merged. The survey retains all selected files, digests and parse
+gaps. Core rejects its partial sections as a complete Python observation; the wrapper always
+returns the final collection. The `providers` phase of a request without `--one-pass` still returns
+the survey.
 V4 binds provider bytes and hashes in the request; V5 retains those fields while using
 compact lossless source rows. V1–V4 wire formats and custom collector wiring retain their
 existing behavior. Separate resolution inputs never become governed

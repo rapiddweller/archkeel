@@ -17,8 +17,10 @@ from test_explore import _repository
 
 import archkeel.analyzer.process as process_module
 import archkeel.cli as cli
-from archkeel.cli import launcher
+from archkeel.cli import launcher, studio
+from archkeel.cli.launcher import StudioScope
 from archkeel.ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
+from archkeel.studio.api import AgentKind
 
 
 def test_windows_pid_liveness_never_uses_signal_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -170,12 +172,12 @@ def test_a_different_scope_does_not_reuse_a_live_studio(
         scope=SimpleNamespace(language="python", sources=(), namespace=None, tsconfig=None),
         stopping=False,
     )
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: active)
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("mismatch must not start a scan")
+        studio, "studio_workspace", lambda *_args: pytest.fail("mismatch must not start a scan")
     )
 
-    result = cli._studio(
+    result = studio.serve_studio(
         _args(
             root,
             "--language",
@@ -208,9 +210,9 @@ def test_a_legacy_studio_without_scope_metadata_is_not_reused(
         scope=None,
         stopping=False,
     )
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: active)
 
-    result = cli._studio(_args(root))
+    result = studio.serve_studio(_args(root))
 
     output = capsys.readouterr().out
     assert result != 0
@@ -346,15 +348,15 @@ def test_a_different_chat_agent_does_not_reuse_a_live_studio(
     active = SimpleNamespace(
         root=str(root),
         url="http://127.0.0.1:1234/?token=active",
-        scope=cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE),
+        scope=StudioScope("python", (), None, None, AgentKind.CLAUDE),
         stopping=False,
     )
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: active)
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("agent mismatch must not scan")
+        studio, "studio_workspace", lambda *_args: pytest.fail("agent mismatch must not scan")
     )
 
-    result = cli._studio(_args(root, "--agent", "codex"))
+    result = studio.serve_studio(_args(root, "--agent", "codex"))
 
     output = capsys.readouterr().out
     assert result != 0
@@ -371,17 +373,15 @@ def test_a_different_collector_limit_does_not_reuse_a_live_studio(
     active = SimpleNamespace(
         root=str(root),
         url="http://127.0.0.1:1234/?token=active",
-        scope=cli.StudioScope(
-            "typescript", ("src",), "shop", "tsconfig.json", cli.AgentKind.CLAUDE, 1
-        ),
+        scope=StudioScope("typescript", ("src",), "shop", "tsconfig.json", AgentKind.CLAUDE, 1),
         stopping=False,
     )
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: active)
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("limit mismatch must not scan")
+        studio, "studio_workspace", lambda *_args: pytest.fail("limit mismatch must not scan")
     )
 
-    result = cli._studio(
+    result = studio.serve_studio(
         _args(
             root,
             "--language",
@@ -416,21 +416,21 @@ def test_default_and_explicit_default_collector_limits_share_scope(
         root=str(root),
         url="http://127.0.0.1:1234/?token=active",
         scope=(
-            cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE)
+            StudioScope("python", (), None, None, AgentKind.CLAUDE)
             if active_uses_default
-            else cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE, 64 * 1024 * 1024)
+            else StudioScope("python", (), None, None, AgentKind.CLAUDE, 64 * 1024 * 1024)
         ),
         stopping=False,
     )
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: active)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: active)
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("equivalent scope must be reused")
+        studio, "studio_workspace", lambda *_args: pytest.fail("equivalent scope must be reused")
     )
 
     options = (
         ("--collector-output-limit-bytes", str(64 * 1024 * 1024)) if active_uses_default else ()
     )
-    result = cli._studio(_args(root, *options))
+    result = studio.serve_studio(_args(root, *options))
 
     assert result == 0
     assert "already running" in capsys.readouterr().out
@@ -444,13 +444,13 @@ def test_a_timed_out_start_does_not_scan_and_reports_retry(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    cache = cli._cache_folder(cli.Command.EXPLORE, cli._root_digest(root.resolve()))
+    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("a timed-out start must not scan")
+        studio, "studio_workspace", lambda *_args: pytest.fail("a timed-out start must not scan")
     )
 
     with launcher.studio_lock(cache):
-        result = cli._studio(_args(root))
+        result = studio.serve_studio(_args(root))
 
     error = capsys.readouterr().err
     assert result == 1
@@ -482,7 +482,7 @@ def test_the_start_lock_is_held_until_http_service_is_ready(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    cache = cli._cache_folder(cli.Command.EXPLORE, cli._root_digest(root.resolve()))
+    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
     observed: list[str] = []
 
     def run_studio_stub(_workspace: object, *, ready, serving=None, **_kwargs: object) -> int:
@@ -501,11 +501,11 @@ def test_the_start_lock_is_held_until_http_service_is_ready(
         contender.release()
         return 0
 
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: None)
-    monkeypatch.setattr(cli, "studio_workspace", lambda *_args: object())
-    monkeypatch.setattr(cli, "run_studio", run_studio_stub)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: None)
+    monkeypatch.setattr(studio, "studio_workspace", lambda *_args: object())
+    monkeypatch.setattr(studio, "run_studio", run_studio_stub)
 
-    assert cli._studio(_args(root)) == 0
+    assert studio.serve_studio(_args(root)) == 0
     assert observed == ["held until serving"]
 
 
@@ -515,7 +515,7 @@ def test_a_second_start_cannot_replace_state_before_http_readiness(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: None)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: None)
     workspaces: list[object] = []
     starts: list[int] = []
 
@@ -528,16 +528,16 @@ def test_a_second_start_cannot_replace_state_before_http_readiness(
         starts.append(1)
         ready("http://127.0.0.1:1234/?token=fake")
         if len(starts) == 1:
-            nested_result = cli._studio(_args(root))
+            nested_result = studio.serve_studio(_args(root))
             assert nested_result == 1
             assert callable(serving), "HTTP readiness must release the start lock"
             serving()
         return 0
 
-    monkeypatch.setattr(cli, "studio_workspace", workspace)
-    monkeypatch.setattr(cli, "run_studio", run_studio_stub)
+    monkeypatch.setattr(studio, "studio_workspace", workspace)
+    monkeypatch.setattr(studio, "run_studio", run_studio_stub)
 
-    assert cli._studio(_args(root)) == 0
+    assert studio.serve_studio(_args(root)) == 0
     assert len(workspaces) == 1
 
 
@@ -547,21 +547,21 @@ def test_stop_does_not_report_not_running_before_http_readiness(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: None)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: None)
     monkeypatch.setattr(launcher, "running_studio", lambda _folder: None)
 
     def run_studio_stub(_workspace: object, *, ready, serving=None, **_kwargs: object) -> int:
         ready("http://127.0.0.1:1234/?token=fake")
-        result = cli._studio(_args(root, "--stop"))
+        result = studio.serve_studio(_args(root, "--stop"))
         assert result == 1
         assert callable(serving), "HTTP readiness must release the start lock"
         serving()
         return 0
 
-    monkeypatch.setattr(cli, "studio_workspace", lambda *_args: object())
-    monkeypatch.setattr(cli, "run_studio", run_studio_stub)
+    monkeypatch.setattr(studio, "studio_workspace", lambda *_args: object())
+    monkeypatch.setattr(studio, "run_studio", run_studio_stub)
 
-    assert cli._studio(_args(root)) == 0
+    assert studio.serve_studio(_args(root)) == 0
     assert "no stop was sent" in capsys.readouterr().out
 
 
@@ -571,7 +571,7 @@ def test_stop_keeps_the_lock_until_workspace_cleanup_finishes(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    cache = cli._cache_folder(cli.Command.EXPLORE, cli._root_digest(root.resolve()))
+    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
     cache.mkdir(parents=True)
     active = launcher.StudioProcess(
         os.getpid(),
@@ -579,22 +579,22 @@ def test_stop_keeps_the_lock_until_workspace_cleanup_finishes(
         1234,
         str(root),
         "2026-11-05T00:00:00Z",
-        cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE),
+        StudioScope("python", (), None, None, AgentKind.CLAUDE),
     )
     launcher.write_state(cache, active)
     monkeypatch.setattr(launcher, "running_studio", lambda _folder: active)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: True)
     monkeypatch.setattr(launcher.os, "kill", lambda *_args: None)
-    monkeypatch.setattr(cli, "running_studio", lambda _folder: None)
+    monkeypatch.setattr(studio, "running_studio", lambda _folder: None)
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("restart must wait for cleanup")
+        studio, "studio_workspace", lambda *_args: pytest.fail("restart must wait for cleanup")
     )
     original_sleep = time.sleep
     restart_results: list[int] = []
 
     def slow_workspace_cleanup(_seconds: float) -> None:
         if not restart_results:
-            restart_results.append(cli._studio(_args(root)))
+            restart_results.append(studio.serve_studio(_args(root)))
             launcher.forget_state(cache, active.pid)
         else:
             original_sleep(_seconds)
@@ -619,7 +619,7 @@ def test_a_timed_out_cleanup_keeps_state_and_denies_a_second_scan(
     monkeypatch.setattr(launcher, "_STOP_SECONDS", 0.01)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
     monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: True)
-    cache = cli._cache_folder(cli.Command.EXPLORE, cli._root_digest(root.resolve()))
+    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
     cache.mkdir(parents=True)
     active = launcher.StudioProcess(
         os.getpid(),
@@ -627,12 +627,12 @@ def test_a_timed_out_cleanup_keeps_state_and_denies_a_second_scan(
         1234,
         str(root),
         "2026-11-05T00:00:00Z",
-        cli.StudioScope("python", (), None, None, cli.AgentKind.CLAUDE),
+        StudioScope("python", (), None, None, AgentKind.CLAUDE),
         stopping=True,
     )
     launcher.write_state(cache, active)
     monkeypatch.setattr(
-        cli, "studio_workspace", lambda *_args: pytest.fail("pending cleanup must not scan")
+        studio, "studio_workspace", lambda *_args: pytest.fail("pending cleanup must not scan")
     )
 
     assert launcher.stop_studio(cache) == 1
@@ -641,7 +641,7 @@ def test_a_timed_out_cleanup_keeps_state_and_denies_a_second_scan(
     assert str(cache / "studio.json") in output
     assert "verify no ArchKeel Studio or Explore process" in output
     assert (cache / "studio.json").exists()
-    assert cli._studio(_args(root)) == 1
+    assert studio.serve_studio(_args(root)) == 1
     start_output = capsys.readouterr().out
     assert "no new session was started" in start_output
     assert str(cache / "studio.json") in start_output
@@ -734,8 +734,7 @@ import os
 import sys
 import time
 from pathlib import Path
-import archkeel.cli as cli
-from archkeel.cli import launcher
+from archkeel.cli import launcher, main, studio
 
 entered = Path(__ENTER__)
 go = Path(__GO__)
@@ -746,7 +745,7 @@ with entered.open("a") as stream:
 while not go.exists():
     time.sleep(0.01)
 
-original_running = cli.running_studio
+original_running = studio.running_studio
 def slow_running(folder):
     active = original_running(folder)
     if active is None:
@@ -754,7 +753,7 @@ def slow_running(folder):
     return active
 
 launcher.is_studio = lambda _url: True
-cli.running_studio = slow_running
+studio.running_studio = slow_running
 def workspace(_args, _cache):
     with started.open("a") as stream:
         stream.write("created\\n")
@@ -769,9 +768,9 @@ def run_studio(_workspace, *, ready, serving, idle_seconds, agent):
         time.sleep(0.01)
     return 0
 
-cli.studio_workspace = workspace
-cli.run_studio = run_studio
-sys.exit(cli.main(["studio", "--root", __ROOT__, "--no-open"]))
+studio.studio_workspace = workspace
+studio.run_studio = run_studio
+sys.exit(main(["studio", "--root", __ROOT__, "--no-open"]))
 """
     for marker, path in (
         ("__ENTER__", entered),

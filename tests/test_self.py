@@ -305,8 +305,9 @@ def test_self_oversized_components_claim_still_counts_analyzer(
     `analyzer` joins `check` on this claim instead of leaving it once its inside is declared."""
     sizes = oversized_insides(self_observation)
     # AD-290: studio adds a top-level component and an edge, so render no longer outgrows them;
-    # studio itself outgrows them once the story, chat and graph components exist.
-    assert {item.scope for item in sizes.candidates} == {"analyzer", "check", "ir", "studio"}
+    # studio itself outgrows them once the story, chat and graph components exist. AD-358: the
+    # Studio command moves to its own module, so cli has one more module and outgrows them too.
+    assert {item.scope for item in sizes.candidates} == {"analyzer", "check", "cli", "ir", "studio"}
 
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "11b1c1a46c5ac66d23272ba2d4a7e8b5782dbfecff33bda6016470498fb1eecb",
+  "after_digest": "cbd5d13f24766420bbcf43da5edaeaf7baeea5886d8f0ca92ad940b56301f685",
+  "before_baseline_digest": "11b1c1a46c5ac66d23272ba2d4a7e8b5782dbfecff33bda6016470498fb1eecb",
+  "before_digest": "05f2c8e082635fac470ac5d335dd3cb7c2f0c6ec798483386c52ac3532bb9ce0",
+  "decided_by": "Agent session for Alexander Kell (epic #880 host PR 2); review in the pull request decides",
+  "rationale": "The Studio command moves from archkeel.cli to the new module archkeel.cli.studio, so that only `archkeel studio` imports the HTTP server and the file lock. Three contract changes follow from the move and from nothing else. First, the module archkeel.cli.studio joins the exact modules of the composition component, as archkeel.cli.launcher did. Second, the arguments component publishes cache_folder and root_digest, which moved from archkeel.cli to archkeel.cli.arguments because both the composition root and the Studio module need them. Third, the composition component requires these two names from arguments. The calls_unresolved budget does not change: 989 before and after. The move of the Studio functions only moves their unresolved calls to the new module.",
+  "schema_version": "2.0.0"
+}

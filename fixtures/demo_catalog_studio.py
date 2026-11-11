@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from archkeel.cli import _root_digest
+from archkeel.cli import root_digest
 from archkeel.cli.arguments import Command
 
 
@@ -222,7 +222,7 @@ def run(variant: StudioDemoVariant) -> str:
                 if server.wait(timeout=20) != 0:
                     raise RuntimeError("Studio did not exit cleanly after --stop")
 
-                session = cache / "archkeel" / Command.EXPLORE.value / _root_digest(root.resolve())
+                session = cache / "archkeel" / Command.EXPLORE.value / root_digest(root.resolve())
                 if (session / "studio.json").exists() or list(session.glob("studio-*")):
                     raise RuntimeError("Studio left state or a run folder in the demo cache")
                 return (

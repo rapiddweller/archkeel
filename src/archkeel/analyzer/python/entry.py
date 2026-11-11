@@ -8,9 +8,14 @@ import threading
 
 from archkeel.analyzer.bootstrap import is_direct_entrypoint
 from archkeel.ir.facts_codec import decode_request, encode_response
-from archkeel.ir.protocol import CollectionResponse, PythonCollectionPhase, PythonSettings
+from archkeel.ir.protocol import (
+    CollectionResponse,
+    PythonCollectionPhase,
+    PythonProviderSource,
+    PythonSettings,
+)
 
-from .collect import collect, provider_sources
+from .collect import collect, complete_collection, one_pass_requested, provider_sources
 from .source import RECURSION_LIMIT
 
 # Sympy's resolvent_lookup.py nests 568 levels. The default limit of 1000 frames is too low.
@@ -22,12 +27,14 @@ def main() -> int:
     request = decode_request(sys.stdin.buffer.read())
     if not isinstance(request.resolver, PythonSettings):
         raise ValueError("Python collector requires the Python resolver")
-    facts = collect(request)
-    providers = (
-        provider_sources(request, facts)
-        if request.resolver.phase is PythonCollectionPhase.PROVIDERS
-        else ()
-    )
+    surveying = request.resolver.phase is PythonCollectionPhase.PROVIDERS
+    providers: tuple[PythonProviderSource, ...] = ()
+    if surveying and one_pass_requested(sys.argv[1:]):
+        # The host asked for the survey and the collection together (AD-358): no second start.
+        facts = complete_collection(request)
+    else:
+        facts = collect(request)
+        providers = provider_sources(request, facts) if surveying else ()
     response = CollectionResponse(facts, request.protocol_version, providers)
     sys.stdout.buffer.write(encode_response(response))
     return 0

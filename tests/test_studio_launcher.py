@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from test_explore import _repository
 
-from archkeel.cli import _cache_folder, _root_digest, launcher
+from archkeel.cli import cache_folder, launcher, root_digest
 from archkeel.cli.arguments import Command
 from archkeel.studio.api import ContractState
 from archkeel.studio.server import is_studio, run_studio
@@ -40,7 +40,7 @@ class Launcher:
         self.cache = tmp_path / "cache"
         monkeypatch.setenv("XDG_CACHE_HOME", str(self.cache))
         self.root = _repository(tmp_path / "shop").resolve()
-        self.folder = _cache_folder(Command.EXPLORE, _root_digest(self.root))
+        self.folder = cache_folder(Command.EXPLORE, root_digest(self.root))
         self.state = self.folder / "studio.json"
         self.children: list[subprocess.Popen[str] | subprocess.Popen[bytes]] = []
 
@@ -346,7 +346,8 @@ def workspace(args, cache):
         lambda raw: {{}},
     )
 
-cli.studio_workspace = workspace
+import archkeel.cli.studio as studio
+studio.studio_workspace = workspace
 sys.exit(cli.main(["studio", "--root", {root!r}, "--no-open"]))
 """
 

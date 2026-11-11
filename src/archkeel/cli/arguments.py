@@ -4,7 +4,10 @@
 """Decode the CLI's closed argument protocols before workflow dispatch."""
 
 import argparse
+import hashlib
+import os
 from enum import StrEnum
+from pathlib import Path
 from typing import NoReturn
 
 from ..check.ports import Language
@@ -78,3 +81,14 @@ def skill_action(value: str) -> SkillAction:
         return SkillAction(value)
     except ValueError:
         _invalid_choice(value, tuple(item.value for item in SkillAction))
+
+
+def root_digest(root: Path) -> str:
+    """AD-285: the root of an explore run, named without its absolute path."""
+    return hashlib.sha256(os.fsencode(root)).hexdigest()[:16]
+
+
+def cache_folder(command: Command, digest: str) -> Path:
+    """AD-285, AD-287: one cache folder for each command and digest, outside the repository."""
+    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+    return cache / "archkeel" / command.value / digest

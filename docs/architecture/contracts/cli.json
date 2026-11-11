@@ -16,7 +16,9 @@
         "archkeel.cli.arguments:report_mode",
         "archkeel.cli.arguments:source_language",
         "archkeel.cli.arguments:installation_agent",
-        "archkeel.cli.arguments:skill_action"
+        "archkeel.cli.arguments:skill_action",
+        "archkeel.cli.arguments:cache_folder",
+        "archkeel.cli.arguments:root_digest"
       ],
       "responsibilities": [
         "Decode command, configuration and installation input into owned types."
@@ -100,7 +102,9 @@
             "archkeel.cli.arguments:report_mode",
             "archkeel.cli.arguments:source_language",
             "archkeel.cli.arguments:installation_agent",
-            "archkeel.cli.arguments:skill_action"
+            "archkeel.cli.arguments:skill_action",
+            "archkeel.cli.arguments:cache_folder",
+            "archkeel.cli.arguments:root_digest"
           ]
         },
         {
@@ -118,7 +122,8 @@
         "archkeel.cli.config",
         "archkeel.cli.observe",
         "archkeel.cli.guide",
-        "archkeel.cli.launcher"
+        "archkeel.cli.launcher",
+        "archkeel.cli.studio"
       ],
       "packages": []
     }

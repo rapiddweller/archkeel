@@ -20,9 +20,10 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from test_explore import _repository, _tree_digest
 
-from archkeel.cli import _decode_snapshot as _decode
-from archkeel.cli import build_parser, main, studio_workspace
+from archkeel.cli import build_parser, main
 from archkeel.cli.config import load_config
+from archkeel.cli.studio import _decode_snapshot as _decode
+from archkeel.cli.studio import studio_workspace
 from archkeel.ir.facts import SourceResolution
 from archkeel.studio.api import API_VERSION, CallStatus, ContractState, ExploreState, graph_json
 from archkeel.studio.graph import build_graph
@@ -42,9 +43,8 @@ def _no_contract(_modules: Sequence[str]) -> list[tuple[str, str, list[str]]]:
 
 def _workspace(root: Path, cache: Path, *options: str) -> Workspace:
     """The workspace that `archkeel studio --root ROOT OPTIONS` makes, with its cache in `cache`."""
-    return studio_workspace(
-        build_parser().parse_cli_args(["studio", "--root", str(root), *options]), cache
-    )
+    args = build_parser().parse_cli_args(["studio", "--root", str(root), *options])
+    return studio_workspace(args, cache)
 
 
 def _start(root: Path, cache: Path, *options: str) -> Studio:

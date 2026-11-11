@@ -71,7 +71,7 @@ def _written_bytes(output: Path) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in sorted(output.parent.iterdir())}
 
 
-def test_timings_file_has_seven_phases_within_the_wall_time(
+def test_timings_file_has_six_phases_within_the_wall_time(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = _prepare_repo(tmp_path, {})
@@ -160,7 +160,7 @@ def test_receipt_carries_phases_and_counters_and_a_step_summary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Keys are out of pipeline order on purpose: the table must follow the Phase enum.
-    phase_seconds = {"render": 0.2, "providers": 1.2, "collect": 0.6}
+    phase_seconds = {"render": 0.2, "decode": 1.2, "collect": 0.6}
     counters = {
         "architecture_bytes": 27825554,
         "calls_analyzed": 28990,
@@ -188,8 +188,8 @@ def test_receipt_carries_phases_and_counters_and_a_step_summary(
         "\n"
         "| Phase | Seconds | Share |\n"
         "| --- | ---: | ---: |\n"
-        "| providers | 1.20 | 60.0 % |\n"
         "| collect | 0.60 | 30.0 % |\n"
+        "| decode | 1.20 | 60.0 % |\n"
         "| render | 0.20 | 10.0 % |\n"
         "| **Total** | 2.00 | 100 % |\n"
         "\n"

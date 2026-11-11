@@ -9,6 +9,7 @@ import ast
 import hashlib
 import sys
 import sysconfig
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from importlib.machinery import (
     BYTECODE_SUFFIXES,
@@ -17,7 +18,6 @@ from importlib.machinery import (
     FrozenImporter,
 )
 from pathlib import Path, PurePosixPath
-from time import monotonic
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.runtime import (
@@ -56,14 +56,19 @@ from archkeel.ir.facts import (
     UnresolvedTarget,
     stable_id,
 )
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record, raw_record
-from archkeel.ir.phases import Phase, measured
+from archkeel.ir.facts_codec import (
+    ProtocolError,
+    RawEvidence,
+    RawRecord,
+    parse_evidence,
+    parse_record,
+    raw_record,
+)
 from archkeel.ir.protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
-    CollectionResponse,
     ProtocolVersion,
     PythonCollectionPhase,
     PythonProviderSource,
@@ -126,17 +131,18 @@ _SECTION_NAMES: tuple[SourceSectionName, ...] = (
 )
 
 
-def _survey(
-    collector: ProcessCollector, request: CollectionRequest
-) -> CollectionResponse | CollectionError:
-    # The inner collect and decode stay unclocked, so the survey is one phase.
-    survey = replace(collector, clock=None)
-    with measured(collector.clock, Phase.PROVIDERS):
-        return survey.collect_response(request)
+ONE_PASS_FLAG = "--one-pass"
+
+
+def one_pass_requested(argv: Sequence[str]) -> bool:
+    """Whether the host started this collector for the survey and the collection together."""
+    return ONE_PASS_FLAG in argv
 
 
 @dataclass(frozen=True, slots=True)
 class PythonProviderCollector:
+    """Run the survey and the collection in one collector process (AD-358)."""
+
     collector: ProcessCollector
 
     def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
@@ -147,70 +153,55 @@ class PythonProviderCollector:
             and not request.resolver.provider_sources
         ):
             return self.collector.collect(request)
-        deadline = monotonic() + self.collector.timeout_seconds
-        timeout = CollectionError(
-            CollectionErrorKind.TIMEOUT,
-            self.collector.argv[0],
-            f"Collector exceeded {self.collector.timeout_seconds:g} seconds. "
-            "Raise collector_timeout_seconds in [scan].",
-        )
-        initial_response = _survey(
-            self.collector,
+        one_pass = replace(self.collector, argv=(*self.collector.argv, ONE_PASS_FLAG))
+        facts = one_pass.collect(
             replace(
                 request,
                 resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
-                protocol_version=wire_protocol(request, ProtocolVersion.V4),
-            ),
+                protocol_version=wire_protocol(request, ProtocolVersion.V8),
+            )
         )
-        if isinstance(initial_response, CollectionError):
-            return initial_response
-        initial = initial_response.facts
-        if monotonic() >= deadline:
-            return timeout
-        providers = initial_response.provider_sources
-        discovered = {
-            item.path: item.digest
-            for item in initial.inputs
-            if item.path.startswith(".archkeel-providers/")
-        }
-        if discovered != {item.path: item.digest for item in providers}:
+        if not isinstance(facts, CollectionError) and (
+            frozenset(facts.capabilities.sections) != frozenset(_SECTION_NAMES)
+        ):
             return CollectionError(
                 CollectionErrorKind.PROTOCOL_ERROR,
                 self.collector.argv[0],
-                "Provider source inputs changed after discovery.",
+                "Collector did not return complete Python source sections after the import survey.",
             )
-        remaining = deadline - monotonic()
-        if remaining <= 0:
-            return timeout
-        final_request = (
-            replace(
-                request,
-                resolver=replace(request.resolver, provider_sources=providers),
-                protocol_version=wire_protocol(request, ProtocolVersion.V8),
-            )
-            if providers
-            else replace(request, protocol_version=wire_protocol(request, ProtocolVersion.V8))
-        )
-        remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
-        enriched = remaining_collector.collect(final_request)
-        if isinstance(enriched, CollectionError):
-            return enriched
-        if monotonic() >= deadline:
-            return timeout
-        problem = _provider_pass_problem(initial, enriched, providers)
-        if problem is not None:
-            return CollectionError(
-                CollectionErrorKind.PROTOCOL_ERROR, self.collector.argv[0], problem
-            )
-        return enriched
+        return facts
+
+
+def complete_collection(request: CollectionRequest) -> SourceFacts:
+    """Survey, capture the provider sources and collect with them, all in this process."""
+    if not isinstance(request.resolver, PythonSettings):
+        raise ValueError("Python collector requires the Python resolver")
+    survey = collect(request)
+    providers = provider_sources(request, survey)
+    discovered = {
+        item.path: item.digest
+        for item in survey.inputs
+        if item.path.startswith(".archkeel-providers/")
+    }
+    if discovered != {item.path: item.digest for item in providers}:
+        raise ProtocolError("Provider source inputs changed after discovery.")
+    final = replace(
+        request,
+        resolver=replace(
+            request.resolver, provider_sources=providers, phase=PythonCollectionPhase.COLLECT
+        ),
+    )
+    enriched = collect(final)
+    problem = _provider_pass_problem(survey, enriched, providers)
+    if problem is not None:
+        raise ProtocolError(problem)
+    return enriched
 
 
 def _provider_pass_problem(
     initial: SourceFacts, enriched: SourceFacts, providers: tuple[PythonProviderSource, ...]
 ) -> str | None:
     """The reason why the final pass disagrees with the import survey, if it does."""
-    if frozenset(enriched.capabilities.sections) != frozenset(_SECTION_NAMES):
-        return "Collector did not return complete Python source sections after the import survey."
     if not _registry_aliases_proven(enriched, providers):
         return "Collector registry alias disagrees with its initializer source."
     provider_paths = {item.path for item in providers}

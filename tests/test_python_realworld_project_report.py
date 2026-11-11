@@ -9,14 +9,16 @@ import hashlib
 import json
 import re
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from archkeel.analyzer.process import ProcessCollector
+from archkeel.analyzer.python.collect import collect, provider_sources
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.graph_codec import parse_report
-from archkeel.ir.protocol import PythonSettings
+from archkeel.ir.protocol import ProtocolVersion, PythonCollectionPhase, PythonSettings
 from fixtures.architecture_demo import CATALOG, REPORT_CASES, UML_DEMO_COMPARISONS, replay
 from fixtures.demo_catalog_python_realworld import (
     PYTHON_REALWORLD_FIXTURE_DIR,
@@ -184,7 +186,12 @@ def test_python_realworld_variants_are_source_only_and_keep_all_upstream_inputs(
 def _check_native_source_digest(request, facts, fixture_digest):
     assert isinstance(facts, SourceFacts)
     assert isinstance(request.resolver, PythonSettings)
-    providers = request.resolver.provider_sources
+    survey = replace(
+        request,
+        resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
+        protocol_version=ProtocolVersion.V8,
+    )
+    providers = provider_sources(survey, collect(survey))
     assert providers
     snapshot = json.loads((PYTHON_REALWORLD_FIXTURE_DIR / "SNAPSHOT.json").read_bytes())
     selected = {
