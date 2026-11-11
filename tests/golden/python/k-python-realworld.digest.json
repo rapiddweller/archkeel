@@ -109,12 +109,13 @@
         "sha256": "95a5a48b5b7eccf872bc2747f4010882e0fed2dff51ebc2e2d5676a1d8c08a1f"
       }
     },
-    "sha256": "af8e2daa2d89144f283dd6ef6146259fadf501338f6b7f9a8737e6beac484d37"
+    "sha256": "af8e2daa2d89144f283dd6ef6146259fadf501338f6b7f9a8737e6beac484d37",
+    "sha256_at_3": "af8e2daa2d89144f283dd6ef6146259fadf501338f6b7f9a8737e6beac484d37"
   },
   "rest": {
     "counts": {
       "candidate_evidence": 803,
-      "evidence": 2390,
+      "evidence": 2391,
       "files": 72,
       "imports": 388,
       "inputs": 81,
@@ -122,7 +123,7 @@
       "type_shapes": 258,
       "uncertain_reexports": 0
     },
-    "sha256": "3c615b5761d9a602793965e2db2277ecef3cf4439386c8d5006e7c8ae7005244"
+    "sha256": "f62922aa92704cce76a575955c0e6983b778592e748ff16a18c3853b9e949445"
   },
   "sections": {
     "bindings": {
@@ -133,11 +134,11 @@
     "calls": {
       "kinds": {
         "partially_resolved_call": 42,
-        "resolved_call": 427,
+        "resolved_call": 428,
         "unresolved_call": 94
       },
-      "records": 563,
-      "sha256": "87237739854dc4ba9c6b18d8a83e70a091ef57c5289534fce5fda25aba3dc769"
+      "records": 564,
+      "sha256": "d142781fefa7309108ebb265eb6abbf30537f71e2bd3e6dfe289cd8d772afa34"
     },
     "constructs": {
       "kinds": {
@@ -190,5 +191,6 @@
       "sha256": "95a5a48b5b7eccf872bc2747f4010882e0fed2dff51ebc2e2d5676a1d8c08a1f"
     }
   },
-  "sha256": "ec1ac271f50844e263d9d04d5b0a61d75f2d56e557ee781e39e08e983eab2113"
+  "sha256": "6be9f4c91031487d76e35c30bfc2f8dfcec175e25ef6a8e36ce4ee37f3e5beef",
+  "sha256_at_3": "f46f0f65b10ecf5e547ce229ec8046637ff0907ea4419f2e2b1bbb9c79a45e43"
 }
