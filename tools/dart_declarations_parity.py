@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare the declaration boundary using typed syntax and real Python resolver inputs (AD-390).
+"""Compare the declaration boundary using typed syntax and real Python resolver inputs (AD-392).
 
 Corpus runs use the native syntax as the common layer input, not as an oracle for parsing.
 The separate syntax parity tools check parsing. Hostile tests use the real Python parse.
@@ -171,6 +171,8 @@ class Result:
     equal: int = 0
     stricter: int = 0
     different: int = 0
+    max_ratio: float = 0
+    max_work: int = 0
 
 
 def compare(binary: Path, corpus: Corpus, row: Result) -> None:
@@ -208,13 +210,17 @@ def compare(binary: Path, corpus: Corpus, row: Result) -> None:
             reference.parsed = prepared.parsed & {source.rel_path}
             reference.modules = prepared.modules
             references.append(reference)
-        rows = native(binary, [layer_input(reference) for reference in references])
-        for reference, actual in zip(references, rows, strict=True):
+        inputs = [layer_input(reference) for reference in references]
+        rows = native(binary, inputs)
+        for reference, actual, item in zip(references, rows, inputs, strict=True):
+            row.max_ratio = max(row.max_ratio, actual["work"] / len(canonical(item).encode()))
+            row.max_work = max(row.max_work, actual["work"])
             row.files += 1
             if row.files % 500 == 0:
                 print(f"{row.name}: checked {row.files} layer inputs", file=sys.stderr, flush=True)
             if any("DeclarationWorkLimit:" in gap["data"]["message"] for gap in actual["gaps"]):
                 assert not actual["symbols"] and len(actual["gaps"]) == 1
+                print(f"{row.name}: work limit at input {row.files}", file=sys.stderr)
                 row.stricter += 1
             elif canonical(payload(actual)) == canonical(python(reference)):
                 row.equal += 1
@@ -251,7 +257,10 @@ def main() -> int:
             )
     print("set | files | equal | stricter (DeclarationWorkLimit) | different")
     for row in rows.values():
-        print(f"{row.name} | {row.files} | {row.equal} | {row.stricter} | {row.different}")
+        print(
+            f"{row.name} | {row.files} | {row.equal} | {row.stricter} | {row.different} "
+            f"| max work {row.max_work}, work/byte {row.max_ratio:.2f}"
+        )
     return int(any(row.different for row in rows.values()))
 
 

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-390: compare the real Python declaration boundary, not a copy."""
+"""AD-392: compare the real Python declaration boundary, not a copy."""
 
 from __future__ import annotations
 
@@ -212,9 +212,8 @@ def test_inconsistent_input_has_one_named_gap_and_no_partial_records(
 
 
 def test_generated_input_stops_within_ten_seconds(binary: Path, tmp_path: Path) -> None:
-    value, _ = prepared(tmp_path, "int f() => 1;")
-    definition = value["files"][0]["syntax"]["definitions"][0]
-    value["files"][0]["syntax"]["definitions"] = [definition] * 30_000
+    value, _ = prepared(tmp_path, "class A {}")
+    value["files"][0]["syntax"]["definitions"][0]["name"] = "x" * (4 * 1024 * 1024)
     start = time.monotonic()
     actual = dump(binary, value)
     assert time.monotonic() - start < 10
@@ -230,7 +229,7 @@ def test_each_work_scan_and_copy_has_an_exact_charge(binary: Path, tmp_path: Pat
         tmp_path, "class A<T> { int x = 1; A(this.x); int f(int y) => y; } int g() => 1;"
     )
     actual = dump(binary, value)
-    assert actual["work"] == 335070
+    assert actual["work"] == 25929
 
 
 def test_files_sort_but_symbols_keep_publication_order(binary: Path, tmp_path: Path) -> None:
@@ -350,3 +349,37 @@ def test_hostile_filesystem_keeps_every_selected_declaration(
 def test_unknown_dump_fields_stop_instead_of_disappearing(binary: Path) -> None:
     with pytest.raises(subprocess.CalledProcessError):
         dump(binary, {"files": [], "ignored": True})
+
+
+def shader_shape() -> str:
+    classes = []
+    for index in range(10):
+        methods = [
+            f"double method{member}(double x, double y) {{ "
+            f"/* {'source padding ' * 5} */ return x + y; }}"
+            for member in range(11 if index == 0 else 10)
+        ]
+        classes.append(f"class Shader{index} {{ {' '.join(methods)} }}")
+    return "\n".join(classes)
+
+
+def test_real_file_shape_keeps_all_declarations(binary: Path, tmp_path: Path) -> None:
+    value, collection = prepared(tmp_path, shader_shape())
+    actual = dump(binary, value)
+    assert not actual["gaps"]
+    assert len(actual["symbols"]) == 111
+    assert parity.canonical(parity.payload(actual)) == parity.canonical(parity.python(collection))
+
+
+def test_a_project_of_28_files_is_one_complete_input(binary: Path, tmp_path: Path) -> None:
+    value, _ = prepared(tmp_path, shader_shape())
+    original = value["files"][0]
+    value["files"] = []
+    for index in range(28):
+        file = copy.deepcopy(original)
+        file["rel"] = f"lib/shader{index}.dart"
+        file["module"] = f"shop.shader{index}"
+        value["files"].append(file)
+    actual = dump(binary, value)
+    assert not actual["gaps"]
+    assert len(actual["symbols"]) == 28 * 111

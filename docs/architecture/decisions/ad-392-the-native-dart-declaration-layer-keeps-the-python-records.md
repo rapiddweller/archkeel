@@ -1,7 +1,7 @@
-# AD-390 The native Dart declaration layer keeps the Python records
+# AD-392 The native Dart declaration layer keeps the Python records
 
 **Status.** Accepted. Epic #880, Dart slice 4b. It follows AD-387.
-Decision 388 in open PR #1090 is the highest number at the start. Reserve highest plus two.
+The review reserves number 392 because open PR #1094 owns number 390.
 
 **Decision.** Port declaration assembly, not discovery again. Compare the real
 `_Collection._declarations` boundary with the same prepared files and constructor resolutions.
@@ -36,17 +36,18 @@ Total: 529 function lines, 34.4% of 1 538 lines. Shared evidence and gap helpers
     A method scope uses the first matching owner's whole span.
 
 **Stricter cases, a closed list.** `DeclarationWorkLimit` stops the whole layer above
-16 777 216 work units. No partial symbols or indices escape. Charge input bytes, scans,
-copies and sort comparisons before the work. `DeclarationInputGap` stops duplicate paths,
+`min(2^34, 2^20 + 128 * N)` units, where N is the serialized typed input size in bytes.
+No partial symbols or indices escape. Charge scans, copies and comparisons before the work.
+Each copied byte costs one unit, not 64 duplicate charges. `DeclarationInputGap` stops duplicate paths,
 inconsistent spans or enum arrays, missing, extra or repeated constructor resolutions, changed
 parameter names or counts, and parameter problems at another file. Never guess a formal.
 Each stop gives a named gap. These are internal layer limits, not new resolver behavior.
 
 **Remaining work, at most three slices.**
-1. 4c ports `resolve.py` (2 013 lines): URI and part ownership, name and site binding,
-   constructors and inherited formals. It supplies the prepared files and parameter resolutions.
-2. 4d ports the remaining collection: imports, bases, sites, duplicate checks, language
-   overrides, inventory completion, coverage and the final reply. It connects this layer.
+1. 4c ports the remaining collection with typed resolver inputs: imports, bases, sites,
+   duplicate checks, language overrides, inventory completion, coverage and final facts.
+2. 4d ports `resolve.py` (2 013 lines): URI and part ownership, name and site binding,
+   constructors and inherited formals. It connects the collector and reviews project work limits.
 3. 5 compares the complete reply, closes the Windows snapshot race of AD-369, then enables Dart.
 
 **Rejected.** Port discovery and pubspec reads again: AD-365 already owns them. Guess constructor
@@ -58,7 +59,11 @@ outputs. `tests/test_collector_native_dart_declarations.py` checks hostile input
 bounded generated input and named stops. Filesystem parity checks exercise discovery separately.
 Fault injection runs only in a throwaway worktree. Tests do not claim full Dart reply parity.
 
-**Measured.** Fixtures: 150 equal; demos: 289 equal. Private: 24 equal, four work gaps;
-dart-http: 340 equal, four work gaps; Flutter: 6 400 equal, 223 work gaps. Zero differences.
-The pinned mixed class and function input costs 335 070 units. The shared counter also serves SDK checks.
+**Measured.** Work per input byte: private 5.21, dart-http 15.50, Flutter 95.90 maximum.
+Maximum file work: 1 949 944 048 units. Factor 128 exceeds the measured ratio by 33%.
+The ceiling is over eight times that file's work. Equal: private 28, dart-http 344, Flutter 6 623.
+All three corpora have zero work-limit gaps and zero differences. The mixed input costs 25 929 units.
+The 10-definition, 101-member synthetic shader shape and a whole 28-file project keep all symbols.
+The proportional budget removes the earlier whole-project limit for that project; no xfail remains.
+The budget stops a hostile 4 MiB identifier within ten seconds. SDK checks keep their original bound.
 The self-check pins one method-pair gap for the call to `Assembly::class` in `members`.

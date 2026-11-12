@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Typed inputs and records at the declaration seam. This is not the reply protocol (AD-390).
+//! Typed inputs and records at the declaration seam. This is not the reply protocol (AD-392).
 
 use crate::syntax::{DefinitionKind, Modifier, Span, Syntax, Visibility};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};

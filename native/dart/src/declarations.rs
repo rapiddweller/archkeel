@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Declaration assembly after preparation and parameter resolution (AD-390).
+//! Declaration assembly after preparation and parameter resolution (AD-392).
 
 mod members;
 pub(crate) mod types;
@@ -81,7 +81,7 @@ pub(crate) fn build(input: &Input) -> Output {
 
 impl Assembly {
     fn run(&mut self, input: &Input) -> Result<(), Stop> {
-        self.work.value(input)?;
+        self.work.input(input)?;
         let mut files: Vec<_> = input.files.iter().collect();
         for file in &files {
             self.work.charge(1)?;

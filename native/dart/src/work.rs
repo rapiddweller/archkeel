@@ -6,16 +6,27 @@
 
 use std::cell::Cell;
 
-#[derive(Default)]
-pub(crate) struct Counter<const LIMIT: usize>(Cell<usize>);
+pub(crate) struct Counter<const LIMIT: usize> {
+    spent: Cell<usize>,
+    limit: Cell<usize>,
+}
+
+impl<const LIMIT: usize> Default for Counter<LIMIT> {
+    fn default() -> Self {
+        Self {
+            spent: Cell::new(0),
+            limit: Cell::new(LIMIT),
+        }
+    }
+}
 
 pub(crate) struct WorkLimit;
 
 impl<const LIMIT: usize> Counter<LIMIT> {
     pub(crate) fn charge(&self, amount: usize) -> Result<(), WorkLimit> {
-        let spent = self.0.get().saturating_add(amount);
-        self.0.set(spent);
-        if spent > LIMIT {
+        let spent = self.spent.get().saturating_add(amount);
+        self.spent.set(spent);
+        if spent > self.limit.get() {
             Err(WorkLimit)
         } else {
             Ok(())
@@ -23,6 +34,11 @@ impl<const LIMIT: usize> Counter<LIMIT> {
     }
 
     pub(crate) fn spent(&self) -> usize {
-        self.0.get()
+        self.spent.get()
+    }
+
+    pub(crate) fn limit_to(&self, limit: usize) -> Result<(), WorkLimit> {
+        self.limit.set(limit.min(LIMIT));
+        self.charge(0)
     }
 }

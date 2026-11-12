@@ -8,7 +8,7 @@ use crate::work::Counter as WorkCounter;
 use serde::Serialize;
 use std::io::{self, Write};
 
-const LIMIT: usize = 1 << 24;
+const LIMIT: usize = 1 << 34;
 
 pub(super) enum Stop {
     Work,
@@ -36,28 +36,30 @@ impl From<crate::work::WorkLimit> for Stop {
 
 impl WorkCounter<LIMIT> {
     /// Reserve 64 scans for all copies and ordered-index comparisons of this text.
-    /// The work limit holds fewer than 2^24 entries, so a key needs at most 24 comparisons.
+    /// The fixed ceiling bounds the number of ordered-index comparisons.
     pub(super) fn text(&self, text: &str) -> Result<(), Stop> {
         self.charge(text.len().saturating_mul(64))
             .map_err(Stop::from)
     }
 
     /// Charge each serialized byte before the writer consumes it; never allocate a copy.
-    pub(super) fn value(&self, value: &impl Serialize) -> Result<(), Stop> {
-        serde_json::to_writer(Counter(self, 1), value).map_err(|_| Stop::Work)
+    pub(super) fn input(&self, value: &impl Serialize) -> Result<(), Stop> {
+        self.copies(value)?;
+        self.limit_to((1usize << 20).saturating_add(self.spent().saturating_mul(128)))?;
+        Ok(())
     }
 
     pub(super) fn copies(&self, value: &impl Serialize) -> Result<(), Stop> {
-        serde_json::to_writer(Counter(self, 64), value).map_err(|_| Stop::Work)
+        serde_json::to_writer(Counter(self), value).map_err(|_| Stop::Work)
     }
 }
 
-struct Counter<'a>(&'a Work, usize);
+struct Counter<'a>(&'a Work);
 
 impl Write for Counter<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.0
-            .charge(bytes.len().saturating_mul(self.1))
+            .charge(bytes.len())
             .map_err(|_| io::Error::other("DeclarationWorkLimit"))?;
         Ok(bytes.len())
     }
