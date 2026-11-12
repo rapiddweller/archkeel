@@ -167,18 +167,21 @@ def _reply(language: str) -> tuple[Reply, bool]:
     from archkeel.ir.protocol import CollectionResponse
 
     payload = sys.stdin.buffer.read()
-    if language == "rust":
+    if language in {"rust", "typescript"}:
         # The Rust collector is a binary: the test names its path (`RUST_COLLECTOR`).
-        answer = subprocess.run(
-            [os.environ[RUST_COLLECTOR]], input=payload, capture_output=True, check=True
-        ).stdout
+        from archkeel.cli.observe import TYPESCRIPT_COLLECTOR, bundled_collector
+
+        program = (
+            os.environ[RUST_COLLECTOR]
+            if language == "rust"
+            else bundled_collector(TYPESCRIPT_COLLECTOR)
+        )
+        answer = subprocess.run([program], input=payload, capture_output=True, check=True).stdout
         compressed = answer[:1] == ZLIB_HEADER
         return json.loads(zlib.decompress(answer) if compressed else answer), compressed
     request = decode_request(payload)
-    if language == "typescript":
-        from archkeel.analyzer.typescript.collect import collect
-    else:
-        from archkeel.analyzer.python.collect import collect
+    from archkeel.analyzer.python.collect import collect
+
     payload = encode_response(CollectionResponse(collect(request), request.protocol_version))
     compressed = payload[:1] == ZLIB_HEADER
     return json.loads(zlib.decompress(payload) if compressed else payload), compressed

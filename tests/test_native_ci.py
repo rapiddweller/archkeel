@@ -124,7 +124,7 @@ def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
 ) -> None:
     workflow = (WORKFLOWS / "release.yml").read_text()
     # PR 4.4 of issue #880 opens the gate in a reviewed change.
-    assert '\n  PUBLISH_NATIVE_WHEELS: "false"\n' in workflow
+    assert '\n  PUBLISH_NATIVE_WHEELS: "true"\n' in workflow
     build = _jobs("release.yml")["build"]
     assert "pattern: native-wheel-*\n" in build and "path: native-wheels/\n" in build
     step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")

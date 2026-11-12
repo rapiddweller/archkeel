@@ -14,10 +14,11 @@ damaged reply.
 from __future__ import annotations
 
 import dataclasses
+import os
 import subprocess
 import sys
+from pathlib import Path
 
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.ir.facts import FactSection, SourceSectionName
 from archkeel.ir.facts_codec import decode_request, decode_response, encode_response
 from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
@@ -25,7 +26,13 @@ from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
 
 def _reply(inner: str, payload: bytes) -> bytes:
     request = decode_request(payload)
-    if inner == "python":
+    if inner.startswith("recorded:"):
+        sys.path.insert(0, str(Path(__file__).parent))
+        sys.path.insert(0, str(Path(__file__).parents[1]))
+        from recorded_typescript import collect
+
+        test = os.environ["PYTEST_CURRENT_TEST"].rsplit(" (", 1)[0]
+        os.environ["PYTEST_CURRENT_TEST"] = test + "::" + inner + " (call)"
         return encode_response(CollectionResponse(collect(request), request.protocol_version))
     return subprocess.run([inner], input=payload, capture_output=True, check=True).stdout
 

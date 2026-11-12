@@ -23,11 +23,9 @@ class _MetadataField(StrEnum):
 _ANALYZERS: dict[Language, SourceProfile] = {
     Language.PYTHON: SourceProfile.PYTHON,
     Language.DART: SourceProfile.DART,
-    Language.TYPESCRIPT: SourceProfile.TYPESCRIPT,
 }
 # A parser change can change facts without changing a line of this package.
 _PARSERS: dict[Language, tuple[str, ...]] = {
-    Language.TYPESCRIPT: ("tree-sitter", "tree-sitter-typescript"),
     Language.DART: ("tree-sitter", "tree-sitter-dart"),
 }
 

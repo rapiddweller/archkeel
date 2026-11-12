@@ -300,6 +300,9 @@
             "archkeel.ir.model:Command",
             "archkeel.ir.phases",
             "archkeel.ir.protocol:ProtocolVersion",
+            "archkeel.ir.protocol:CollectionError",
+            "archkeel.ir.protocol:CollectionErrorKind",
+            "archkeel.ir.protocol:CollectionRequest",
             "archkeel.ir.story",
             "archkeel.ir.view_spec",
             "archkeel.ir.diagnostics:Diagnostic",
@@ -954,26 +957,12 @@
       "kind": "external_dependency_scope",
       "dependency": "tree_sitter",
       "exact_sources": [
-        "archkeel.analyzer.typescript.parse",
         "archkeel.analyzer.dart.parse"
       ],
       "rationale": "Only the language parse modules touch Tree-sitter; parser nodes stay behind the syntax boundary.",
       "provenance": [
         "docs/architecture/decisions/ad-210-typescript-frontend-ships-in-the-package.md",
         "docs/architecture/dart-python-target.md"
-      ],
-      "decided_by": "agent"
-    },
-    {
-      "id": "EXTERNAL-TREE-SITTER-TYPESCRIPT-GRAMMAR",
-      "kind": "external_dependency_scope",
-      "dependency": "tree_sitter_typescript",
-      "exact_sources": [
-        "archkeel.analyzer.typescript.parse"
-      ],
-      "rationale": "Only the TypeScript parse module loads the grammar, so a grammar change cannot reach resolution or collection.",
-      "provenance": [
-        "docs/architecture/decisions/ad-210-typescript-frontend-ships-in-the-package.md"
       ],
       "decided_by": "agent"
     },
@@ -1073,9 +1062,6 @@
         "archkeel.ir.dependency",
         "archkeel.ir.state_facts",
         "archkeel.ir.state_codec",
-        "archkeel.analyzer.typescript.config",
-        "archkeel.analyzer.typescript.standard_libs",
-        "archkeel.analyzer.typescript.resolve",
         "archkeel.ir.protocol",
         "archkeel.ir.facts_codec",
         "archkeel.ir.codec_observation",
@@ -1088,9 +1074,6 @@
         "archkeel.cli.skill",
         "archkeel.analyzer.python.binding_types",
         "archkeel.analyzer.python.receiver_types",
-        "archkeel.analyzer.typescript.parse",
-        "archkeel.analyzer.typescript.syntax",
-        "archkeel.analyzer.typescript.collect",
         "archkeel.analyzer.dart.syntax",
         "archkeel.analyzer.dart.parse",
         "archkeel.analyzer.dart.resolve",
@@ -1102,7 +1085,6 @@
         "archkeel.render.summary_badges",
         "archkeel.ir.measurements",
         "archkeel.analyzer.python.constructs",
-        "archkeel.analyzer.typescript.source_input",
         "archkeel.check.evaluation.boundary_types",
         "archkeel.render.atlas_deviations",
         "archkeel.analyzer.python.source",
@@ -1529,19 +1511,6 @@
       "id": "BOOTSTRAP-TYPED-DART-ENTRY",
       "kind": "forbidden_construct",
       "source": "archkeel.analyzer.dart.entry",
-      "constructs": [
-        "string_literal_compare"
-      ],
-      "rationale": "The shared bootstrap owns nominal direct-start classification; language entries use its explicit decision port.",
-      "provenance": [
-        "docs/architecture/shared-runtime-bootstrap.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "BOOTSTRAP-TYPED-TYPESCRIPT-ENTRY",
-      "kind": "forbidden_construct",
-      "source": "archkeel.analyzer.typescript.entry",
       "constructs": [
         "string_literal_compare"
       ],

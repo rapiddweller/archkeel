@@ -4,7 +4,7 @@
 """AD-340 (PR 4.3a-4): the closed UMD envelope of the native port equals `umd_publication`.
 
 Consumer: `native/typescript/src/umd.rs` and `umd_publication.rs`, through the test-only
-`--dump-umd`. The oracle is `parse.umd_publication()`, unmodified: the name that the envelope
+`--dump-umd`. The oracle records the unchanged Python parser: the name that the envelope
 publishes, where, and the names that its factory writes on the global object.
 """
 
@@ -15,10 +15,9 @@ import random
 import subprocess
 from pathlib import Path
 
+from recorded_typescript import read as recorded
 from test_collector_native_script_syntax import _mutate
 from test_collector_native_syntax import ROOT, _delta, dump_binary  # noqa: F401
-
-from archkeel.analyzer.typescript import parse
 
 ENVELOPE = (
     '(function({f}){{if(typeof exports==="object"&&typeof module!=="undefined")'
@@ -75,20 +74,7 @@ GRID: dict[str, str] = {
 
 
 def _python(name: str, content: bytes) -> object:
-    found = parse.umd_publication(name, content)
-    if found is None:
-        return None
-    publication, span, writes = found
-    return {
-        "name": publication,
-        "span": {
-            "line": span.line,
-            "end_line": span.end_line,
-            "column": span.column,
-            "excerpt": span.excerpt,
-        },
-        "writes": None if writes is None else sorted(writes),
-    }
+    return recorded("umd", name, content)
 
 
 def _native(binary: Path, files: list[tuple[str, Path]]) -> list[object]:

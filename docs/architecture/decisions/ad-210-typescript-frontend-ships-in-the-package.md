@@ -1,5 +1,7 @@
 # AD-210: The TypeScript frontend ships in the Python package
 
+**Historical.** AD-394 deletes this Python analyzer. `native/typescript` is now the only bundled TypeScript collector.
+
 Use tree-sitter inside `archkeel.analyzer.typescript`, replacing AD-150's npm collector.
 One Python installation covers all three languages; analysis needs no Node runtime and
 executes no project code. The existing process boundary retains timeout and output limits.

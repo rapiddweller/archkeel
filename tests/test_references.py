@@ -72,7 +72,6 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
         in {
             "archkeel.analyzer.python.source._PropertyBinding",
             "archkeel.render.summary.State",
-            "archkeel.analyzer.typescript.config.Role",
             "archkeel.check.report.run_report",
         }
     }
@@ -87,17 +86,8 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
             "public_name",
             "archkeel.render.summary",
         ),
-        "archkeel.analyzer.typescript.config.Role": (
-            "type_alias",
-            "public_name",
-            "archkeel.analyzer.typescript.config",
-        ),
         "archkeel.check.report.run_report": ("function", "public_name", "archkeel.check.report"),
     }
-    from archkeel.analyzer.typescript.config import Role
-    from archkeel.ir.facts import ResolutionRole
-
-    assert Role is ResolutionRole
     # Other review candidates keep the existing limit, including three used Dart
     # resolver methods whose injected receiver remains outside the reference proof.
     # COUNTER_LABELS is read only by tools/report_timing.py, outside the scanned package.

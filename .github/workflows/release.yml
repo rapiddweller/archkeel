@@ -15,9 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # AD-317: a release publishes the platform wheels with the native collector only when this is
-  # "true". It stays "false" until PR 4.4 of issue #880 makes the host use the binary.
-  PUBLISH_NATIVE_WHEELS: "false"
+  # AD-394: native-only TypeScript needs the six verified platform wheels at the next owner release.
+  PUBLISH_NATIVE_WHEELS: "true"
 
 jobs:
   verify:

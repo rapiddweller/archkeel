@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340: the verdicts of the host with the native collector equal those with the Python one.
+"""AD-394: complete host verdict maps equal those from the recorded Python facts.
 
 Consumer: the host (`run_report`). The native collector gives every section of the Python default
 collector, script globals included (PR 4.3a-5). So every verdict, cycle, dependency edge, count and
@@ -15,20 +15,24 @@ import json
 import shutil
 import subprocess
 import sys
+from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from unittest import mock
 
 import pytest
 from collector_pin import pin_of
+from recorded_typescript import collect
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.runtime import package_version
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.check.report import run_report
+from archkeel.check.report import run_report_with_observation
 from archkeel.cli import observe as bundled
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
+from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+from archkeel.ir.state_facts import ProducerKind
 from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 
@@ -50,6 +54,12 @@ PRODUCER = (
     "string_table",
     "scope_observations",
 )
+REPLAYS: Counter[str] = Counter()
+
+
+class _RecordedCollector:
+    def collect(self, request):  # type: ignore[no-untyped-def]
+        return collect(request)
 
 
 def _commit(root: Path) -> None:
@@ -98,10 +108,14 @@ def _verdict(
         # AD-352: the launcher of the native collector of an install.
         native_directory=native_directory,
     )
+    if argv is None and native_directory is None:
+        observer = replace(observer, collector=_RecordedCollector(), producer=ProducerKind.PYTHON)
     # The debug binary has no build version; a wheel sets it to the version of the host (AD-317).
     version = "0+unknown" if native_directory is not None else package_version()
     with mock.patch.object(process_owner, "package_version", lambda: version):
-        result, artifact = run_report(root, config=config, analyzer=observer)
+        result, artifact, model = run_report_with_observation(
+            root, config=config, analyzer=observer
+        )
     sections: dict[str, object] = json.loads(artifact) if artifact else {}
     kept = {key: value for key, value in sections.items() if key not in PRODUCER}
     return {
@@ -109,7 +123,14 @@ def _verdict(
         "complete": str(result.observation_complete.value),
         "exit": result.exit_code,
         "diagnostics": sorted(str(item.kind.value) for item in result.diagnostics),
-        "rules": {item.id: str(item.status.value) for item in result.rule_assessments or ()},
+        "rules": {
+            item.id: (item.kind, str(item.status.value))
+            for item in (
+                ()
+                if model is None
+                else rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+            )
+        },
         "artifact": kept,
         "scope_kinds": _scope_kinds(sections),
     }
@@ -151,6 +172,13 @@ INNER_SECTIONS = ("symbols", "calls", "references", "bindings", "constructs", "i
 
 
 def _replayed(root: Path, inner: str, *mode: str) -> dict[str, object]:
+    if inner == "python":
+        import os
+
+        test = os.environ["PYTEST_CURRENT_TEST"]
+        index = REPLAYS[test]
+        REPLAYS[test] += 1
+        inner = f"recorded:{index}"
     return _verdict(root, (sys.executable, "-I", "-B", REPLAY, inner, *mode))
 
 

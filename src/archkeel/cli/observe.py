@@ -13,14 +13,22 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, Literal
 
+from archkeel.analyzer.pin import PinError, pinned_path
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ObservationResult, ProducerKind, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.phases import PhaseClock
-from archkeel.ir.protocol import ProtocolVersion
+from archkeel.ir.protocol import (
+    CollectionError,
+    CollectionErrorKind,
+    CollectionRequest,
+    ProtocolVersion,
+)
+from archkeel.ir.state_facts import VerifiedBinary
 
 _CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 RUST_COLLECTOR = "archkeel-rust-collector"
@@ -32,6 +40,11 @@ _NATIVE_DIRECTORY: Final = Path(__file__).resolve().parents[1] / "_native"
 _EXECUTABLE_SUFFIX: Final = sysconfig.get_config_var("EXE") or ""
 DIGEST_SUFFIX: Final = ".sha256"
 TYPESCRIPT_COLLECTOR: Final = "archkeel-typescript-collector"
+_NATIVE_REMEDY = (
+    "Install a native platform wheel: "
+    "python -m pip install --only-binary=:all: --upgrade archkeel. "
+    "In a source checkout, run make typescript-collector. See docs/known-limits.md for platforms."
+)
 
 
 def collect_cycles_less_often() -> None:
@@ -65,19 +78,60 @@ def _is_digest(text: str) -> bool:
     return len(text) == 64 and set(text) <= set("0123456789abcdef")
 
 
-def locate(name: str, directory: Path | None = None) -> Bundled | None:
-    """The binary and its recorded digest, or `None` when the install has no such pair.
+def verified_binary(binary: Bundled, root: str) -> VerifiedBinary:
+    """Attest only after checking this bundled executable's actual bytes (AD-394)."""
+    pinned_path(binary.path, root, os.environ.get("PATH", ""), binary.digest, inside_root=True)
+    return VerifiedBinary(binary.digest)
 
-    A digest file of another shape is no digest: the binary is then not trusted and the host falls
-    back to the Python collector, as for an install without the binary (AD-352).
-    """
+
+class _VerifiedCollector(ProcessCollector):
+    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
+        if self.pinned_digest is None:
+            return CollectionError(
+                CollectionErrorKind.EXECUTION_ERROR, self.argv[0], "Missing binary digest"
+            )
+        try:
+            verified = verified_binary(
+                Bundled(self.argv[0], self.pinned_digest), request.snapshot.root
+            )
+        except PinError as error:
+            code = "digest_mismatch" if "does not match" in str(error) else "unreadable_binary"
+            return _native_error(self.argv[0], code, str(error))
+        facts = super().collect(request)
+        return (
+            facts
+            if isinstance(facts, CollectionError)
+            else replace(facts, verified_binary=verified)
+        )
+
+
+def _native_error(path: str, reason: str, detail: str = "") -> CollectionError:
+    return CollectionError(
+        CollectionErrorKind.MISSING_TOOL,
+        path,
+        f"typescript_collector_{reason}: {detail} {_NATIVE_REMEDY}",
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _UnavailableCollector:
+    error: CollectionError
+
+    def collect(self, _request: CollectionRequest) -> CollectionError:
+        return self.error
+
+
+def locate(name: str, directory: Path | None = None) -> Bundled | CollectionError:
+    """Require the bundled executable and its recorded digest; never select another collector."""
     binary = str(executable(name, directory))
+    if not os.path.isfile(binary):
+        return _native_error(binary, "missing_binary", binary)
     try:
         text = Path(binary + DIGEST_SUFFIX).read_text(encoding="ascii")
-    except (OSError, UnicodeError):
-        return None
-    if not os.path.isfile(binary) or not _is_digest(text):
-        return None
+    except (OSError, UnicodeError) as error:
+        return _native_error(binary, "missing_digest", str(error))
+    if not _is_digest(text):
+        return _native_error(binary, "invalid_digest")
     return Bundled(binary, f"sha256:{text}")
 
 
@@ -141,10 +195,10 @@ def observer_for(
     bundled = collector_argv is None
     native_python = bundled and language == Language.PYTHON
     native_typescript = bundled and language == Language.TYPESCRIPT
-    # AD-352: the launcher. A platform wheel carries the native TypeScript collector and the
-    # digest of its file; the host starts the binary only with that digest. An install without
-    # the pair keeps the Python collector. `native_directory` is for the tests of the launcher.
+    # AD-394: TypeScript needs this install's binary and digest, with no Python fallback.
     launched = locate(TYPESCRIPT_COLLECTOR, native_directory) if native_typescript else None
+    if isinstance(launched, CollectionError):
+        return Observer(_UnavailableCollector(launched), producer=ProducerKind.BUNDLED)
     producer = (
         ProducerKind.BUNDLED
         if launched is not None
@@ -167,7 +221,7 @@ def observer_for(
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
     store = os.environ.get(NATIVE_STORE) if language in STORE_LANGUAGES else None
-    collector = ProcessCollector(
+    collector = (_VerifiedCollector if launched is not None else ProcessCollector)(
         collector_argv,
         clock=clock,
         # The store reads the compressed reply of protocol 8 from any collector (AD-346).

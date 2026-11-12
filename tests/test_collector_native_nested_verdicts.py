@@ -14,7 +14,7 @@ from test_collector_native_typescript import _request
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.cli import observe as bundled
 from archkeel.ir.facts import SourceFacts
-from tools import dual_run, dual_run_python
+from tools import dual_run, dual_run_oracle, dual_run_python
 from tools.dual_run_oracle import Selection
 
 SCOPES = (
@@ -42,11 +42,9 @@ def mounted_verdicts(
     Path(str(binary) + bundled.DIGEST_SUFFIX).write_text(
         hashlib.sha256(binary.read_bytes()).hexdigest(), encoding="ascii"
     )
-    absent = directory / "absent"
     case = next(case for case in dual_run.corpus_cases() if case.id == request.param)
     with dual_run.materialized(case) as root:
-        with mock.patch.object(bundled, "_NATIVE_DIRECTORY", absent):
-            python = dual_run.run_engine(case, root, None, Selection())
+        python = dual_run_oracle.read_oracle(dual_run.oracle_path(case))
         facts = ProcessCollector((str(binary),)).collect(_request(root))
         assert isinstance(facts, SourceFacts), facts
         # The debug binary has no wheel version. Normalize only its identity, as the harness does.
@@ -55,19 +53,15 @@ def mounted_verdicts(
             mock.patch.object(dual_run_python, "package_version", lambda: facts.adapter.version),
         ):
             native = dual_run.run_engine(case, root, None, Selection())
-    assert python["architecture"] is not None and native["architecture"] is not None
+    assert native["architecture"] is not None
     for scope in SCOPES:
         assert python["rules"][f"{scope}:REQUIRES-COMPLETE"] == ["complete_requires", "PASS"]
     return python["rules"], native["rules"]
 
 
 @pytest.mark.parametrize("scope", SCOPES)
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="AD-394: dependency-scope receipt replay accepts only Python; deletion stops",
-)
 def test_native_collection_preserves_each_mounted_requires_verdict(mounted_verdicts, scope):
     python, native = mounted_verdicts
     rule = f"{scope}:REQUIRES-COMPLETE"
     assert native[rule] == python[rule]
+    assert native == python

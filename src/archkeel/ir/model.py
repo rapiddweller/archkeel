@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from .amendment import AmendmentStatus as AmendmentStatus
+from .amendment import WideningFinding as WideningFinding
 from .architecture_graph import ArchitectureRuleGrammar, TargetDefinition
 from .architecture_graph import ArchitectureRuleKind as ArchitectureRuleKind
 from .architecture_graph import AssessmentStatus as AssessmentStatus
@@ -45,7 +46,6 @@ from .diagnostics import DiagnosticKind as DiagnosticKind
 from .diagnostics import ReportLocation as ReportLocation
 from .facts import EVIDENCE_FIELDS as EVIDENCE_FIELDS
 from .facts import RECORD_FIELDS as RECORD_FIELDS
-from .facts import AnalyzerInfo as AnalyzerInfo
 from .facts import ConditionSelector as ConditionSelector
 from .facts import ConditionSelectorKind as ConditionSelectorKind
 from .facts import Evidence as Evidence
@@ -70,7 +70,9 @@ from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
 from .ownership import sole
 from .source_records import source_name_visibility as _source_name_visibility
+from .state_facts import AnalyzerInfo as AnalyzerInfo
 from .state_facts import ProducerKind as ProducerKind
+from .state_facts import VerifiedBinary
 
 if TYPE_CHECKING:
     from .architecture_projection import ArchitectureProjection
@@ -1445,16 +1447,10 @@ class Observation:
     producer: AnalyzerInfo | None = None
     # Recorded by the host from how it started the collector (AD-344); schema 2.10.0 and later.
     producer_kind: ProducerKind | None = None
+    verified_binary: VerifiedBinary | None = None
 
     def records(self, section: str) -> tuple[Record, ...] | None:
         return next((item.records for item in self.sections if item.name == section), None)
-
-
-@dataclass(frozen=True, slots=True)
-class WideningFinding:
-    code: Literal["ir.widening"]
-    subject: str
-    field: str
 
 
 class ContractChangeDirection(StrEnum):

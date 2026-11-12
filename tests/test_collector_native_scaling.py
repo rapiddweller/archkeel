@@ -55,7 +55,6 @@ from scaling_shapes import (
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
-from archkeel.analyzer.typescript.syntax import Definition
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionRequest,
@@ -445,7 +444,9 @@ def test_every_kind_of_the_port_is_in_one_construct_class_with_shapes() -> None:
 
 
 def test_every_fact_and_every_definition_field_has_shapes() -> None:
-    fields = {field.name for field in dataclasses.fields(Definition)}
+    source = (Path(__file__).parents[1] / "native/typescript/src/dump.rs").read_text()
+    definition = source.split("fn definition(", 1)[1].split("\nfn ", 1)[0]
+    fields = set(re.findall(r'^        "(\w+)":', definition, re.MULTILINE))
     covered = FIELD_COVERAGE.keys() | SCRIPT_FIELD_COVERAGE.keys()
     assert sorted((set(FIELDS) | fields) - covered) == []
     assert sorted(covered - (set(FIELDS) | fields)) == []

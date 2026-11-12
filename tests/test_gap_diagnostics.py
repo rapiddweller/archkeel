@@ -49,7 +49,7 @@ def _gap(kind: str, title: str, area: str = "source") -> Record:
 RES, COLLECT, COV = "source_resolution_gap", "collection_gap", "analysis_coverage"
 
 # Every gap title template that a producer emits, shaped as the producer emits it.
-# TypeScript collector (analyzer/typescript/collect.py) and native collector (imports.rs):
+# The native TypeScript collector (imports.rs):
 _TYPESCRIPT = [
     (TS, RES, f"{GapTitle.NO_MODULE}react", "source", UNRESOLVED),
     (TS, RES, f"{GapTitle.UNIDENTIFIED_PACKAGE}lodash", "source", UNRESOLVED),

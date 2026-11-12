@@ -9,6 +9,7 @@ Install [uv](https://docs.astral.sh/uv/), then:
 ```bash
 uv python install 3.11.12 3.12.10
 uv sync --locked
+make typescript-collector
 ```
 
 `.python-version` pins 3.11.12: CI runs the gate on it, and the fresh self-observation records it.
@@ -16,10 +17,15 @@ The runtime test in `make check` also starts `python3.12`, so 3.12 must be on yo
 Browser publication, Mermaid rendering and the UML TypeScript compiler check require
 Node.js 22 and npm; CI installs them. `make typescript-compiler-check` runs pinned
 TypeScript 5.9.3 against `fixtures/H-uml-typescript/tsconfig.json` with `--noEmit`.
-This development check is separate from the Python-hosted `make typescript-native`
-collector tests and the installed CLI, which do not require Node.
+This development check is separate from `make typescript-native` and the installed CLI, which do not require Node.
+TypeScript uses only the native collector. `make typescript-collector` installs the checkout binary
+and its digest beside the package. It requires the Rust toolchain pinned in `native/`.
+`make native-tools native-wheel` builds an installable platform wheel under `dist/native/`.
+An editable install, a default wheel and an sdist install contain no native binary.
+They stop TypeScript collection with `missing_tool` and exit code 2 until a verified collector is available.
+The release workflow builds six platform wheels but leaves their publication disabled.
 Dart analysis runs in Python. `make dart-test` checks it without installing a Dart SDK.
-`make test` also checks the TypeScript collector's Python architecture and browser module boundaries.
+`make test` checks the native TypeScript collector and browser module boundaries.
 Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutter and Dart.
 
 ## Before you push
@@ -61,8 +67,8 @@ in `tests/areas.py`: each test marked `requires_python` and the listed files. A 
 `sys.version_info`. Mark it `@pytest.mark.requires_python(<minor>)` or `requires_python(below=<minor>)`.
 If it expects one result before a version and another from that version, parametrize it with
 `by_python(<minor>)` from `tests/conftest.py`. `<minor>` must be a version that Full tests.
-TypeScript's Python architecture and browser module
-boundaries stay in the full suite. Manual dispatch uses the same checks.
+The full suite checks TypeScript collection against the recorded Python oracle and checks browser module boundaries.
+Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `macos-15`,

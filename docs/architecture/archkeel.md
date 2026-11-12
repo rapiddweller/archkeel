@@ -76,9 +76,10 @@ Component `layer` values are contract intent; `layer_order` checks declared perm
 does not prove structural Protocol conformance.
 Validation can list observed undecided crossings with an exact open-pair total;
 omitted pairs retain their undecided status ([AD-225](decisions/ad-225-compact-validation-decisions.md)).
-The TypeScript frontend is packaged in Python at
-[`archkeel.analyzer.typescript`](../../src/archkeel/analyzer/typescript/); it remains a
-process collector and does not execute project code. Missing source evidence remains UNKNOWN.
+The TypeScript collector is the Rust binary in [`native/typescript`](../../native/typescript/).
+It does not execute project code. A missing or unverified binary stops the run with exit code 2.
+There is no Python fallback ([AD-394](decisions/ad-394-typescript-collection-requires-the-verified-native-binary.md)).
+Missing source evidence remains UNKNOWN.
 Module-level TypeScript array declarations retain constant identities without evaluating
 their elements or claiming complete inventories
 ([AD-232](decisions/ad-232-module-array-constant-identities.md)).

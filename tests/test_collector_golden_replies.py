@@ -57,7 +57,9 @@ def _reply(sections: dict[str, list[dict[str, Any]]], claimed: list[str] | None 
 def test_the_producer_equals_the_golden_reply(
     language: str, case: str, tmp_path: Path, request: pytest.FixtureRequest
 ) -> None:
-    name = os.environ.get(golden_producers.PRODUCER_VARIABLE, "python")
+    name = os.environ.get(
+        golden_producers.PRODUCER_VARIABLE, "native" if language == "typescript" else "python"
+    )
     if name == "native" and language != "typescript":
         pytest.skip("the native producer reads TypeScript only")
     binary = request.getfixturevalue("native_binary") if name == "native" else None
@@ -389,37 +391,46 @@ def _covered() -> tuple[dict[str, set[str]], set[str], dict[str, int]]:
 
 
 def test_every_kind_and_feature_that_the_typescript_collector_emits_has_golden_coverage() -> None:
-    from archkeel.analyzer.typescript import collect, syntax
-    from archkeel.ir.facts import SOURCE_SCRIPT_GLOBAL_KIND, ForbiddenConstructKind
+    from archkeel.ir.facts import (
+        SOURCE_SCRIPT_GLOBAL_KIND,
+        ForbiddenConstructKind,
+    )
 
-    classes = {
-        syntax.DefinitionKind.CLASS,
-        syntax.DefinitionKind.INTERFACE,
-        syntax.DefinitionKind.ENUM,
-    }
     emitted = {
-        "imports": {form.value for form in syntax.ReferenceForm} | {SOURCE_SCRIPT_GLOBAL_KIND},
-        "unknowns": {kind.value for kind in collect._GapKind},
-        "symbols": {"class" if d in classes else d.value for d in syntax.DefinitionKind},
+        "imports": {
+            "import",
+            "reexport",
+            "import_equals",
+            "dynamic_import",
+            "import_type",
+            "require",
+            SOURCE_SCRIPT_GLOBAL_KIND,
+        },
+        "unknowns": {"collection_gap", "source_resolution_gap"},
+        "symbols": {"class", "method", "function", "type_alias", "constant"},
         "calls": {"calls"},
         # The collector writes this kind as a literal; collect.py is at its line ratchet (AD-314).
         "references": {"references", "script_namespace_effect"},
         "bindings": {"bindings"},
         "constructs": {ForbiddenConstructKind.STRING_LITERAL_COMPARE.value},
     }
-    assert set(emitted) == {section.value for section in collect._SECTIONS}
     kinds, features, _ = _covered()
+    assert set(emitted) == set(kinds)
     missing = {name: sorted(want - kinds.get(name, set())) for name, want in emitted.items()}
     assert {name: kind for name, kind in missing.items() if kind} == {}
-    optional = {"script-globals-v1", collect._BUNDLER_FEATURE}
-    assert set(collect._FEATURES) | optional <= features
+    assert {
+        "literal-imports",
+        "relative-specifiers",
+        "node-builtins",
+        "local-runtime-closure",
+        "inner-uml-v1",
+        "script-globals-v1",
+        "bundler-mode-v1",
+    } <= features
 
 
 def test_the_fields_that_the_typescript_collector_never_fills_stay_empty() -> None:
-    folder = Path(__file__).parents[1] / "src/archkeel/analyzer/typescript"
     names = ("type_shapes", "uncertain_reexports", "candidate_evidence")
-    users = [f.name for f in folder.glob("*.py") if any(name in f.read_text() for name in names)]
-    assert users == [], f"{users} now fill a field with no golden coverage: add a case"
     counts = _covered()[2]
     assert [name for name in names if counts[name]] == []
 

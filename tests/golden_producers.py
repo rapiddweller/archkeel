@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """The producers of a golden reply (AD-343): the Python collectors and the native binary.
 
-`producer("python")` runs the Python TypeScript collector, not the legacy oracle mode.
+The TypeScript Python producer is retired. Its goldens remain read-only.
 `producer("python", language="python", phase=...)` runs the Python collector of Python
 sources as the host does. `imports` is the import survey of phase `imports`. `providers` is the
 survey of phase `providers`, with the provider sources. `full` is the host sequence: `providers`,
@@ -27,7 +27,6 @@ from typing import Any
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.analyzer.python.explore_scope import wire_protocol
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.cli.config import load_config
 from archkeel.ir.facts import GATED_RESOLUTION_FEATURES
 from archkeel.ir.facts_codec import encode_request, encode_response
@@ -64,12 +63,6 @@ def _request(root: Path) -> CollectionRequest:
         SourceScope(config.roots, config.namespace),
         TypeScriptSettings(config.tsconfig or "tsconfig.json", bundler=config.bundler),
     )
-
-
-def _python(root: Path) -> dict[str, Any]:
-    request = _request(root)
-    reply = encode_response(CollectionResponse(collect(request), request.protocol_version))
-    return json.loads(reply)
 
 
 def _decode(reply: bytes) -> dict[str, Any]:
@@ -145,7 +138,7 @@ def producer(
     if language == "python":
         raise ValueError("there is no native producer of Python sources yet")
     if name == "python":
-        return _python
+        raise ValueError("typescript_oracle_retired: the Python TypeScript producer was deleted")
     if name == "native" and binary is not None:
         return native(binary)
     raise ValueError(f"unknown golden producer {name!r}, or a native producer without a binary")

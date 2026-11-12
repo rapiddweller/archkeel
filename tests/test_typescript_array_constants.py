@@ -12,7 +12,6 @@ from collector_pin import assembled
 from test_source_graph import _graph_from_source_facts
 from test_typescript_inner import _collected, _collected_files
 
-from archkeel.analyzer.typescript.parse import parse
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Coverage, Entity, Visibility
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
@@ -44,33 +43,6 @@ def test_module_array_constants_retain_native_definition_identity(tmp_path: Path
     assert record.evidence_ids
     evidence = next(item for item in facts.evidence if item.id == record.evidence_ids[0])
     assert (evidence.file, evidence.line) == ("src/main.ts", 1)
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        "export const registry = [make()];",
-        "export const registry = [() => Entry];",
-        "export const registry = [...entries] as const;",
-        "export const registry = [entries.key];",
-        "export const registry = [[Entry]];",
-        "export const registry = [Entry] as readonly unknown[];",
-        "export const registry = make() as const;",
-        "export const registry = [Entry] as const satisfies readonly unknown[];",
-        "export const registry = [Entry, ;",
-        "export const [registry] = [Entry] as const;",
-        "export let registry = [Entry] as const;",
-        "if (enabled) { const registry = [Entry] as const; }",
-        "function local() { const registry = [Entry] as const; }",
-        "class Owner { constructor() { const registry = [Entry] as const; } }",
-        "const callback = () => { const registry = [Entry] as const; };",
-        "namespace Internal { export const registry = [Entry] as const; }",
-    ],
-)
-def test_unsupported_array_declarations_do_not_invent_module_constants(source: str):
-    assert not any(
-        item.name == "registry" for item in parse("src/main.ts", source.encode()).definitions
-    )
 
 
 @pytest.mark.parametrize("competitor", ["() => Entry", "make()", "[...entries]"])
@@ -227,46 +199,6 @@ def test_module_import_binding_closes_array_identity_in_value_namespace(
         ),
     )
     assert compare_graphs(observed, target).status == ("PASS" if retained else "UNKNOWN")
-
-
-@pytest.mark.parametrize("type_only", [True, False])
-def test_namespace_import_type_flag_cannot_prove_runtime_dispatch(tmp_path: Path, type_only: bool):
-    qualifier = "type " if type_only else ""
-    source = f"import {qualifier}* as dependency from './dependency';\ndependency.run();\n"
-    syntax = parse("src/main.ts", source.encode())
-    assert len(syntax.import_bindings) == 1
-    assert syntax.import_bindings[0].type_only is type_only
-    facts = _collected_files(
-        tmp_path,
-        {"src/main.ts": source, "src/dependency.ts": "export function run() {}\n"},
-    )
-    calls = [
-        record
-        for section in facts.sections
-        if section.name == "calls"
-        for record in section.records
-    ]
-    assert len(calls) == 1
-    assert calls[0].data.get("status") == "unresolved"
-
-
-@pytest.mark.parametrize(
-    "competitor",
-    [
-        "export const other = make();",
-        "if (enabled) { const registry = make(); }",
-        "function local() { const registry = () => Entry; }",
-        "namespace Internal { export const registry = [...entries]; }",
-        "if (enabled) { const {registry} = make(); }",
-        r"function local() { const r\u0065gistry = () => Entry; }",
-        "namespace Internal { export const {...registry} = make(); }",
-        "class Owner { constructor() { const [registry] = entries; } }",
-    ],
-)
-def test_unrelated_or_local_variable_peer_preserves_module_array_identity(competitor: str):
-    source = f"export const registry = [Entry] as const;\n{competitor}\n"
-    definitions = parse("src/main.ts", source.encode()).definitions
-    assert len([item for item in definitions if item.name == "registry"]) == 1
 
 
 def test_pinned_nest_registry_matches_independent_target_live_and_saved(tmp_path: Path):

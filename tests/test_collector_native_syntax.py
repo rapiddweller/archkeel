@@ -4,7 +4,7 @@
 """AD-323: the native walk reads the same syntax facts as `parse.parse()`.
 
 Consumer: the later phases of the native collector, which build records on these facts. The oracle
-is the unmodified Python `parse.parse()`. The `dump` feature of the native collector prints the
+is the recorded output of the unchanged Python parser. The native `dump` feature prints the
 facts of each file as JSON, and this test compares them field by field with the fields of
 `Syntax`: definitions, import bindings, module exports, rebound names, ambient names, the module
 flags, the names bound at the top of the file, and the sites with the string comparisons (calls,
@@ -15,8 +15,6 @@ and escape flags of a script). The release binary has no `dump` feature.
 from __future__ import annotations
 
 import contextlib
-import dataclasses
-import enum
 import json
 import locale
 import os
@@ -29,6 +27,7 @@ from pathlib import Path
 
 import pytest
 from conftest import build_native_copy
+from recorded_typescript import read as recorded
 from script_fields import SCRIPT_FIELDS
 from test_collector_native_imports import (
     COMMONJS,
@@ -42,8 +41,6 @@ from test_collector_native_imports import (
     _random_source,
     _write,
 )
-
-from archkeel.analyzer.typescript import parse
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
@@ -101,17 +98,6 @@ def _c_locale() -> Iterator[None]:
         locale.setlocale(locale.LC_CTYPE, saved)
 
 
-def _plain(value: object) -> object:
-    """Turn a fact of `Syntax` into JSON data, so that a difference prints as text."""
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {f.name: _plain(getattr(value, f.name)) for f in dataclasses.fields(value)}
-    if isinstance(value, enum.Enum):
-        return value.value
-    if isinstance(value, (list, tuple)):
-        return [_plain(item) for item in value]
-    return value
-
-
 def _in_document_order(bindings: object) -> object:
     """The import bindings with their statements in document order.
 
@@ -124,14 +110,7 @@ def _in_document_order(bindings: object) -> object:
 
 
 def _python(rel: str, data: bytes) -> dict[str, object] | None:
-    """The facts of the oracle; `None` where it fails on the depth of the tree."""
-    try:
-        syntax = parse.parse(rel, data)
-    except RecursionError:
-        return None
-    facts = {name: _plain(getattr(syntax, name)) for name in FIELDS}
-    facts["import_bindings"] = _in_document_order(facts["import_bindings"])
-    return facts
+    return recorded("syntax", rel, data)  # type: ignore[no-any-return]
 
 
 def _native(binary: Path, files: list[File]) -> list[dict[str, object]]:

@@ -1,9 +1,9 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340: the native reply equals the reply of the Python TypeScript collector, decoded.
+"""AD-394: the native reply equals the recorded Python TypeScript reply, decoded.
 
-Consumer: the host process port. The oracle is the Python collector, unmodified: the decoded
+Consumer: the host process port. The oracle records the unchanged Python collector: the decoded
 files, inputs, evidence, targets, capabilities, every section (imports, unknowns, symbols, calls,
 references, bindings, constructs), gaps and coverage must be equal, with no filter; only the
 provenance of the adapter and the runtime differs. The comparison is on decoded content: the key
@@ -20,9 +20,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from recorded_typescript import collect as python_collect
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.typescript.collect import collect as python_collect
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
