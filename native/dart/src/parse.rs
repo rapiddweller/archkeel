@@ -45,9 +45,12 @@ impl DartParser {
         let source = Source::new(content);
         self.work_permille = 0;
         // Tree-sitter keeps about a kilobyte for each open bracket: a source of 2.5 million `(`
-        // takes 3 GB before one rule runs, so a source this deep is not parsed (AD-376).
-        if let Some(at) = crate::nesting::brackets_overflow(content) {
-            let message = format!("Dart source nests deeper than {MAX_DEPTH} levels.");
+        // takes 3 GB before one rule runs, so a source with too many openers is not parsed (AD-376).
+        if let Some(at) = crate::nesting::openers_overflow(content) {
+            let message = format!(
+                "Dart source holds more than {} opening brackets; it is not parsed.",
+                crate::nesting::MAX_OPENERS
+            );
             let concern = syntax_concern(&source, at, at.saturating_add(1), &message);
             return finish(Vec::new(), Vec::new(), Vec::new(), vec![concern], None);
         }

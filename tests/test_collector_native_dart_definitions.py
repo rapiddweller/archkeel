@@ -43,6 +43,7 @@ DEFINITION_GAP = (
     "the work passes the limit of the definition walks."
 )
 DEPTH = "Dart source nests deeper than 900 levels."
+OPENERS = "Dart source holds more than 100000 opening brackets; it is not parsed."
 
 
 @pytest.fixture(scope="module")
@@ -155,11 +156,11 @@ def test_one_declaration_with_many_items_gives_the_named_gap(binary: Path, tmp_p
         assert syntax["first_error"]["start_byte"] == 0  # type: ignore[index]
 
 
-def test_nested_parentheses_are_not_parsed_past_the_bracket_bound(
+def test_nested_parentheses_are_not_parsed_past_the_opener_bound(
     binary: Path, tmp_path: Path
 ) -> None:
     """5 MB of `(` took 33 to 45 seconds and 4.3 GB: Tree-sitter keeps about 1.2 KB for each open
-    bracket. The bound of ten times the depth limit stops the parse before it starts."""
+    bracket. The bound of 100 000 openers stops the parse before it starts."""
     depth = 2_500_000
     path = tmp_path / "nest.dart"
     path.write_text("var x = " + "(" * depth + "1" + ")" * depth + ";\n", encoding="utf-8")
@@ -168,25 +169,56 @@ def test_nested_parentheses_are_not_parsed_past_the_bracket_bound(
     assert peak < 200_000_000, peak
     [row] = parity.native_rows(binary, [path])  # type: ignore[attr-defined]
     syntax = row["syntax"]
-    assert [item["message"] for item in syntax["concerns"]] == [DEPTH]
+    assert [item["message"] for item in syntax["concerns"]] == [OPENERS]
     assert syntax["definitions"] == []
-    assert syntax["first_error"]["start_byte"] == 8 + 9_000
+    assert syntax["first_error"]["start_byte"] == 8 + 100_000
 
 
-def test_a_nest_at_the_bracket_bound_still_gets_its_tree_concern(
+@pytest.mark.parametrize("filler", ["/*)*/", "// )))\n", "')]}'", "/* ]]] */"])
+def test_a_closing_bracket_in_a_comment_or_string_does_not_hide_a_deep_nest(
+    binary: Path, tmp_path: Path, filler: str
+) -> None:
+    """Review of #1088: a count that falls on a closer passes `(/*)*/(/*)*/...`, which
+    Tree-sitter reads as a real nest of 150 000 levels. The guard counts openers only."""
+    depth = 150_000
+    content = "var x = " + f"({filler}" * depth + "1" + ")" * depth + ";\n"
+    row = _run(binary, tmp_path, content)
+    assert _messages(row) == [OPENERS]
+    assert row["syntax"]["definitions"] == []  # type: ignore[index]
+
+
+def test_a_nest_at_the_opener_bound_is_parsed_and_one_more_is_not(
     binary: Path, tmp_path: Path
 ) -> None:
-    """9 000 open brackets are parsed (and the tree passes the depth limit); 9 001 are not."""
-    for depth, at_bound in ((9_000, False), (9_001, True)):
+    for depth, at_bound in ((100_000, False), (100_001, True)):
         content = "var x = " + "(" * depth + "1" + ")" * depth + ";\n"
-        [row] = parity.native_rows(  # type: ignore[attr-defined]
-            binary, [_write(tmp_path, content)]
-        )
+        row = _run(binary, tmp_path, content)
         syntax = row["syntax"]
-        assert [item["message"] for item in syntax["concerns"]] == [DEPTH]
-        assert (syntax["definitions"] == []) is at_bound
-        start = syntax["first_error"]["start_byte"]
-        assert (start == 8 + 9_000) is at_bound, start
+        messages = [item["message"] for item in syntax["concerns"]]  # type: ignore[index]
+        assert messages == [OPENERS if at_bound else DEPTH]
+        assert (syntax["definitions"] == []) is at_bound  # type: ignore[index]
+
+
+def test_the_parity_tool_lists_the_named_stricter_cases_apart_from_different(
+    binary: Path, tmp_path: Path
+) -> None:
+    """Python reads a string or a comment of 100 001 `(`; native names the file and does not
+    parse it. A declaration of 20 000 items is the second case. Neither is `different`."""
+    (tmp_path / "string.dart").write_text("var s = '" + "(" * 100_001 + "';\nvoid f() {}\n")
+    (tmp_path / "comment.dart").write_text("// " + "[" * 100_001 + "\nvoid g() {}\n")
+    items = ", ".join(f"v{i} = {i}" for i in range(20_000))
+    (tmp_path / "items.dart").write_text(f"int {items};\n")
+    (tmp_path / "plain.dart").write_text("void h() {}\n")
+    result = parity.Result("x")  # type: ignore[attr-defined]
+    parity.compare(binary, tmp_path, result, 20)  # type: ignore[attr-defined]
+    assert result.problems == []
+    assert result.equal == 1
+    assert result.stricter_openers == 2
+    assert result.stricter_definitions == 1
+    line = parity.report(result)  # type: ignore[attr-defined]
+    assert "2 stricter, named: more than 100000 opening brackets" in line
+    assert "1 stricter, named: definition work limit" in line
+    assert "0 different" in line
 
 
 def _write(tmp_path: Path, content: str) -> Path:

@@ -52,11 +52,12 @@ AD-369 stays open.
 **Amendment (#1079): the definitions use the same limit.** The definition walks read the named
 children of each parent once from the cache, and count each child, scanned sibling, column byte
 and copied head of a declaration item. Past the limit the file gets "The definition analysis of
-this Dart source stops: ..." and no definitions or sites. A declaration of 20 000 items stops:
-each item copies the head, as in Python. 20 000 members took 27 to 108 s and now take under 1 s.
-The 4.3 GB of 5 MB of `(` is the stack of Tree-sitter. A source with over 9 000 open brackets
-(also in strings: the stricter choice) is not parsed and gets the depth concern. Open: 5 MB of
-`!` or of `a ? ` hold 4.4 and 2.3 GB; no bracket bound reaches them.
+this Dart source stops: ..." and no definitions or sites (a site gap keeps the definitions). The
+walks of own children (`enum_literals`, `type_children`) stay uncounted: they are linear.
+The 4.3 GB of 5 MB of `(` is Tree-sitter's stack. Rule: a source with over 100 000 opening
+brackets is not parsed ("... more than 100000 opening brackets ..."). Only openers count: a
+closer in a comment or string never lowers it. Corpora: 0 of 7 146 files, largest 15 504. Open:
+5 MB of `!` or `a ? ` hold 4.4 and 2.3 GB. The parity tool lists both named cases as stricter.
 
 **Measured (2026-11-12, oracle Python 3.11.12, release build).** Files byte-equal, sites
 included: fixtures 151 of 151, demo variants 295 of 295, the private app 28 of 28. Bench samples

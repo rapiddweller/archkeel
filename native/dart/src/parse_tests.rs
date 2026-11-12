@@ -194,9 +194,3 @@ fn the_depth_limit_flags_depth_900_and_not_899() {
         .count();
     assert_eq!(deep, 1);
 }
-
-#[test]
-fn the_bracket_bound_is_ten_times_the_depth_limit() {
-    // `nesting` cannot import `parse` (a module cycle), so the relation is held here.
-    assert_eq!(crate::nesting::MAX_BRACKETS, MAX_DEPTH * 10);
-}
