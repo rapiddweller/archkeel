@@ -76,3 +76,19 @@ fn a_kind_whose_receipt_the_model_does_not_know_gets_no_proof() {
         assert_eq!(reason, expected);
     }
 }
+
+#[test]
+fn a_layout_root_that_only_a_planned_module_matches_gives_no_receipt() {
+    // The planned module passes the subject check; no module of the reply lies below the root,
+    // so the rule has no receipt (review of #1066, finding 4).
+    let outcomes = crate::tests::run(
+        |c| {
+            set_component(c, "COMP-DATA", "planned", json!(["shop.later.thing"]));
+            set_rule(c, "LAYOUT", "root", json!("shop.later"));
+            set_rule(c, "LAYOUT", "allowed_children", json!([]));
+        },
+        unchanged,
+    );
+    let expected = Decision::unknown(Reason::NoSubjects);
+    assert_eq!(decision(&outcomes, "LAYOUT"), Some(expected));
+}

@@ -423,9 +423,11 @@ def selection_of(sections: str | None, families: str | None) -> Selection:
 def unexplained(frame: Mapping[str, Any]) -> str | None:
     """AD-378: the `status` of a frame follows from its rows, and each rule that is not PASS has
     its explaining row: a FAIL rule its violations (L-23), an UNKNOWN rule its reason (AD-361
-    points 4 and 5). A frame without `status` (the Python engine) has nothing to check."""
+    points 4 and 5). PASS needs the complete scope of the run (`scope`, lead decision L-35b). A
+    frame of the core must have a status; another frame without `status` has nothing to check."""
     if "status" not in frame:
-        return None
+        core = str(frame.get("engine", "")).startswith("archkeel-core")
+        return "the core frame has no status" if core else None
     rules = frame.get("rules") or {}
     explained, violations = frame.get("explained") or {}, frame.get("violations") or {}
     for rule, (_, status) in rules.items():
@@ -445,11 +447,12 @@ def unexplained(frame: Mapping[str, Any]) -> str | None:
     )
     named = refused or bool((frame.get("unsupported") or {}).get("rules"))
     statuses = [status for _, status in rules.values()]
+    complete = frame.get("scope") == "complete"
     expected = (
         "FAIL"
         if "FAIL" in statuses
         else "UNKNOWN"
-        if named or any(status != "PASS" for status in statuses)
+        if named or not complete or any(status != "PASS" for status in statuses)
         else "PASS"
     )
     if frame["status"] != expected:

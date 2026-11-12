@@ -90,6 +90,12 @@ def test_a_frame_status_follows_from_its_rows_and_each_status_has_its_row(
     assert dual_run.unexplained(frame) == problem
     assert dual_run.unexplained({"rules": {}}) is None
     passed = {**frame, "status": "PASS", "rules": {"A": ["root_layout", "PASS"]}}
-    passed.update({"explained": {}, "violations": {}})
+    passed.update({"explained": {}, "violations": {}, "scope": "complete"})
     assert dual_run.unexplained(passed) is None
+    # L-35b: PASS needs a complete scope, also with zero rules.
+    assert dual_run.unexplained({**passed, "scope": "incomplete scope: x"}) is not None
+    assert dual_run.unexplained({**passed, "rules": {}, "scope": "incomplete scope: x"}) is not None
+    assert dual_run.unexplained({**passed, "rules": {}}) is None
+    # A core frame without a status is refused; another engine has nothing to check.
+    assert dual_run.unexplained({"engine": "archkeel-core x", "rules": {}}) is not None
     assert dual_run.unexplained({**passed, "unsupported": {"rules": {"X": "why"}}}) is not None

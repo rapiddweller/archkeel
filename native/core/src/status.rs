@@ -5,8 +5,11 @@
 //! The status of an engine frame and its explaining rows (AD-361 points 4 and 5, AD-378).
 //!
 //! The status follows from the rows of the frame only: a rule with violations gives FAIL; else a
-//! rule that is UNKNOWN, a rule with a named reason or a named part of the run gives UNKNOWN;
-//! else PASS. Each status other than PASS has a row that explains it: a FAIL rule has its
+//! rule that is UNKNOWN, a rule with a named reason, a named part of the run or a scope that is
+//! not complete gives UNKNOWN; else PASS (lead decision L-35b). PASS needs the complete scope of
+//! the model (`Scope::run`) and a PASS for every rule, so a frame with zero decided rules is PASS
+//! only when the contract has no rule and the scope is complete, as in the reference engine
+//! (`check/run.py:76` `inspect_observation`, `check/report.py:296`). Each status other than PASS has a row that explains it: a FAIL rule has its
 //! violations (L-23), and an UNKNOWN rule has its reason. A frame that breaks this is not
 //! written: the core exits 2.
 
@@ -19,12 +22,17 @@ pub(crate) const PASS: &str = "PASS";
 pub(crate) const FAIL: &str = "FAIL";
 pub(crate) const UNKNOWN: &str = "UNKNOWN";
 
-/// The status of a frame: its decided rules, and whether it names a reason or a part.
-pub(crate) fn status(decided: &BTreeMap<String, [String; 2]>, named: bool) -> &'static str {
+/// The status of a frame: its decided rules, whether it names a reason or a part, and whether
+/// the scope of the run is complete.
+pub(crate) fn status(
+    decided: &BTreeMap<String, [String; 2]>,
+    named: bool,
+    complete: bool,
+) -> &'static str {
     let statuses = || decided.values().map(|[_, status]| status.as_str());
     if statuses().any(|status| status == FAIL) {
         FAIL
-    } else if named || statuses().any(|status| status != PASS) {
+    } else if named || !complete || statuses().any(|status| status != PASS) {
         UNKNOWN
     } else {
         PASS

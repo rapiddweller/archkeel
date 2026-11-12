@@ -88,7 +88,11 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             GapFact::DynamicImportLimit(data) => {
                 Some(data.source_module.as_ref().map(|m| m.as_str().to_owned()))
             }
-            _ => None,
+            // `dynamic_dependency_limits` reads no other kind of the `unknowns` section.
+            GapFact::CollectionGap(_)
+            | GapFact::SourceResolutionGap(_)
+            | GapFact::PrivateAttributeAccessLimit(_)
+            | GapFact::ExceptionGap { .. } => None,
         })
         .collect();
     Observed {

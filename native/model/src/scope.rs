@@ -114,6 +114,18 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
     }
 
+    /// The scope state of the whole run: `Ok` only when the model has no cause and no unread
+    /// part. The status of a frame reads it (lead decision L-35b): a run whose scope is not
+    /// complete is never PASS, also with zero rules. It reads the one state that
+    /// `complete` reads.
+    pub fn run(&self) -> Result<(), Reason> {
+        match self.model.scope_state() {
+            State::Complete => Ok(()),
+            State::Incomplete(reason) => Err(reason.clone()),
+            State::Unread(part) => Err(part.clone().into()),
+        }
+    }
+
     /// PASS, with a proof of this scope.
     pub fn pass(&self, proof: ScopeComplete<'id>) -> Decision {
         let ScopeComplete { brand: _ } = proof;
@@ -133,7 +145,27 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             .iter()
             .any(|(_, module)| in_scope(module.name(), rule.root().as_text())),
         Rule::ExternalDependencyScope(_) => !modules.is_empty(),
-        other => return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other)))),
+        // Each kind that no slice decides: its slice states its receipt here (AD-378).
+        other @ (Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
+        | Rule::CatalogArgument(_)
+        | Rule::CatalogUse(_)
+        | Rule::ForbiddenEffectUnderCondition(_)
+        | Rule::ForbiddenDependency(_)
+        | Rule::AllowedDependency(_)
+        | Rule::ForbiddenConstruct(_)
+        | Rule::SourceOwnership(_)
+        | Rule::CompleteRequires(_)
+        | Rule::LayerOrder(_)
+        | Rule::NoComponentCycles(_)
+        | Rule::InterfaceBoundary(_)
+        | Rule::SiblingIsolation(_)
+        | Rule::SymbolPlacement(_)
+        | Rule::BoundaryTypes(_)
+        | Rule::BoundedNumericOperand(_)
+        | Rule::ProtocolDeclarations(_)) => {
+            return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other))))
+        }
     };
     if selected {
         Ok(())
@@ -158,7 +190,28 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
                     .any(|allowed| in_scope(source, allowed.as_text())))
         }
         Rule::CompleteExternalScope(rule) => in_scope(source, rule.source().as_text()),
-        _ => false,
+        // `dynamic_dependency_limits` does not read these kinds.
+        Rule::CompleteAssignment(_) | Rule::RootLayout(_) => false,
+        // A kind that no slice decides has no receipt; its slice states its limits here. Until
+        // then a dynamic import reaches it (fail closed).
+        Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
+        | Rule::CatalogArgument(_)
+        | Rule::CatalogUse(_)
+        | Rule::ForbiddenEffectUnderCondition(_)
+        | Rule::ForbiddenDependency(_)
+        | Rule::AllowedDependency(_)
+        | Rule::ForbiddenConstruct(_)
+        | Rule::SourceOwnership(_)
+        | Rule::CompleteRequires(_)
+        | Rule::LayerOrder(_)
+        | Rule::NoComponentCycles(_)
+        | Rule::InterfaceBoundary(_)
+        | Rule::SiblingIsolation(_)
+        | Rule::SymbolPlacement(_)
+        | Rule::BoundaryTypes(_)
+        | Rule::BoundedNumericOperand(_)
+        | Rule::ProtocolDeclarations(_) => true,
     };
     model
         .graph()

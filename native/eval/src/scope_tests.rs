@@ -15,7 +15,6 @@ use serde_json::{json, Value};
 use crate::evaluate;
 use crate::tests::{contract, reply, shop_profile, shop_settings};
 
-
 /// The four decided rules of the H-typescript contract.
 const DECIDED: [&str; 4] = ["ASSIGNMENT", "LAYOUT", "EXTERNAL-COMPLETE", "EXTERNAL-SHOP"];
 
@@ -317,7 +316,9 @@ fn a_capability_set_that_is_not_registered_reaches_no_pass() {
     // (`evaluate.py:1006-1056`). The store refuses them today; this test also holds if a later
     // store change accepts one, because then no decided rule may pass.
     let features = |r: &mut Value| -> Option<Vec<Value>> {
-        r["facts"]["capabilities"]["resolution_features"].as_array().cloned()
+        r["facts"]["capabilities"]["resolution_features"]
+            .as_array()
+            .cloned()
     };
     let probes: Vec<Box<dyn FnOnce(&mut Value)>> = vec![
         Box::new(|r| {

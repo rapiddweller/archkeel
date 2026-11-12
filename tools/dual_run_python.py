@@ -120,8 +120,11 @@ def run_python_engine(
             analyzer=observer,
             baseline=None if baseline is None else Path(baseline),
         )
-    assessments = json.loads(render_result(result))["rule_assessments"] or []
+    rendered = json.loads(render_result(result))
+    assessments = rendered["rule_assessments"] or []
     return {
         "rules": {row["id"]: [row["kind"], row["status"]] for row in assessments},
+        # The run status of the reference engine; the core status is checked against it (AD-378).
+        "declared_rules": rendered.get("declared_rules"),
         "architecture": None if architecture is None else json.loads(architecture),
     }

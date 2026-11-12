@@ -29,13 +29,18 @@ fn answer(rows: &[(&str, &str, usize, &str)]) -> RuleAnswer {
 #[test]
 fn the_status_follows_from_the_rows() {
     let pass = answer(&[("A", PASS, 0, ""), ("B", PASS, 0, "")]);
-    assert_eq!(status(&pass.decided, false), PASS);
-    assert_eq!(status(&pass.decided, true), UNKNOWN);
+    assert_eq!(status(&pass.decided, false, true), PASS);
+    assert_eq!(status(&pass.decided, true, true), UNKNOWN);
+    // L-35b: PASS needs the complete scope of the run, also when each rule passes.
+    assert_eq!(status(&pass.decided, false, false), UNKNOWN);
     let unknown = answer(&[("A", PASS, 0, ""), ("B", UNKNOWN, 0, "why")]);
-    assert_eq!(status(&unknown.decided, false), UNKNOWN);
+    assert_eq!(status(&unknown.decided, false, true), UNKNOWN);
     let fail = answer(&[("A", FAIL, 1, ""), ("B", UNKNOWN, 0, "why")]);
-    assert_eq!(status(&fail.decided, true), FAIL);
-    assert_eq!(status(&BTreeMap::new(), false), PASS);
+    assert_eq!(status(&fail.decided, true, false), FAIL);
+    // Zero decided rules: PASS only with a complete scope and nothing named.
+    assert_eq!(status(&BTreeMap::new(), false, true), PASS);
+    assert_eq!(status(&BTreeMap::new(), false, false), UNKNOWN);
+    assert_eq!(status(&BTreeMap::new(), true, true), UNKNOWN);
 }
 
 #[test]

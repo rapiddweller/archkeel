@@ -62,48 +62,10 @@ pub(crate) fn undecided_kind(kind: RuleKind) -> bool {
 
 /// The profile limits of a contract, in the order of `profile_failures`.
 pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
-    let symbols = |subject: &str| {
-        if observed.symbol_feature {
-            Limit::Unread(subject.to_owned())
-        } else {
-            Limit::Certain(subject.to_owned())
-        }
-    };
+    let symbols = |subject: &str| symbol_limit(observed, subject);
     let mut found = Vec::new();
     for rule in contract.rules() {
-        let id = archkeel_contract::head_of(rule).id().as_text();
-        match rule {
-            Rule::InterfaceBoundary(rule) => {
-                if rule
-                    .module_object_grants()
-                    .iter()
-                    .flatten()
-                    .next()
-                    .is_some()
-                {
-                    found.push(Limit::Certain(id.to_owned()));
-                }
-                found.push(Limit::Unread(id.to_owned()));
-            }
-            Rule::ForbiddenConstruct(rule) => {
-                let examined: HashSet<&str> =
-                    observed.constructs.iter().map(String::as_str).collect();
-                let unexamined = rule
-                    .constructs()
-                    .iter()
-                    .any(|kind| !examined.contains(word(kind).as_str()));
-                if unexamined || rule.selector().is_some() {
-                    found.push(Limit::Certain(id.to_owned()));
-                }
-            }
-            Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => {
-                found.push(symbols(id));
-            }
-            other if undecided_kind(archkeel_contract::kind_of(other)) => {
-                found.push(Limit::Certain(id.to_owned()));
-            }
-            _ => {}
-        }
+        rule_limits(rule, observed, &mut found);
     }
     for component in contract.components() {
         let id = component.id().as_text();
@@ -155,6 +117,69 @@ pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
         }
     }
     found
+}
+
+/// A limit of a store-accepted profile for one rule.
+fn symbol_limit(observed: &Observed, subject: &str) -> Limit {
+    if observed.symbol_feature {
+        Limit::Unread(subject.to_owned())
+    } else {
+        Limit::Certain(subject.to_owned())
+    }
+}
+
+/// The limits of one rule, in the order of `profile_failures`.
+fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
+    let symbols = |subject: &str| symbol_limit(observed, subject);
+    let id = archkeel_contract::head_of(rule).id().as_text();
+    match rule {
+        Rule::InterfaceBoundary(rule) => {
+            if rule
+                .module_object_grants()
+                .iter()
+                .flatten()
+                .next()
+                .is_some()
+            {
+                found.push(Limit::Certain(id.to_owned()));
+            }
+            found.push(Limit::Unread(id.to_owned()));
+        }
+        Rule::ForbiddenConstruct(rule) => {
+            let examined: HashSet<&str> = observed.constructs.iter().map(String::as_str).collect();
+            let unexamined = rule
+                .constructs()
+                .iter()
+                .any(|kind| !examined.contains(word(kind).as_str()));
+            if unexamined || rule.selector().is_some() {
+                found.push(Limit::Certain(id.to_owned()));
+            }
+        }
+        Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => {
+            found.push(symbols(id));
+        }
+        Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
+        | Rule::CatalogArgument(_)
+        | Rule::CatalogUse(_)
+        | Rule::ForbiddenEffectUnderCondition(_)
+        | Rule::SourceOwnership(_)
+        | Rule::SymbolPlacement(_)
+        | Rule::BoundaryTypes(_)
+        | Rule::BoundedNumericOperand(_)
+        | Rule::ProtocolDeclarations(_) => found.push(Limit::Certain(id.to_owned())),
+        // No store-accepted profile limits these kinds (`profile_failures`).
+        Rule::ForbiddenDependency(_)
+        | Rule::AllowedDependency(_)
+        | Rule::ExternalDependencyScope(_)
+        | Rule::CompleteAssignment(_)
+        | Rule::RootLayout(_)
+        | Rule::CompleteExternalScope(_)
+        | Rule::CompleteRequires(_)
+        | Rule::LayerOrder(_)
+        | Rule::NoComponentCycles(_)
+        | Rule::SiblingIsolation(_) => {}
+    }
 }
 
 /// The components of a `layer_order` rule whose layer is absent or outside its order.

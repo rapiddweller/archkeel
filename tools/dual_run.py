@@ -370,6 +370,11 @@ def compare_one(
         frame, reference = engine_and_reference(case, root, command, selection, timeout)
     owned = owned_rules(oracle["rules"], selection.kinds)
     differences = compare_case(oracle, frame, selection)
+    # AD-378, L-35b: a core status PASS or FAIL must be the run status of the Python engine.
+    if reference is not None and frame.get("status") in ("PASS", "FAIL"):
+        if frame["status"] != reference.get("declared_rules"):
+            found = f"core {frame['status']}, Python {reference.get('declared_rules')}"
+            differences.append(Difference(case.id, "status", "-", found))
     # AD-372, AD-374: the full edge rows are compared with the Python engine on every case.
     if reference is not None and "dependency_edges" in selection.sections:
         differences += edge_differences(case.id, reference_edges(reference), frame)

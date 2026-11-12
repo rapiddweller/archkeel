@@ -82,8 +82,23 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
                 Subjects::Unread
             };
         }
-        // `rule_scopes` gives these kinds no side; the profile-limited kinds are not checked.
-        _ => Vec::new(),
+        // `rule_scopes` gives these kinds no side.
+        Rule::CompleteRequires(_)
+        | Rule::LayerOrder(_)
+        | Rule::NoComponentCycles(_)
+        | Rule::InterfaceBoundary(_)
+        | Rule::CallOwner(_) => Vec::new(),
+        // The profile-limited kinds: the scope state stops at their limit before this check
+        // (`limits.rs`); a kind here never reaches a PASS.
+        Rule::ForbiddenCallArgument(_)
+        | Rule::CatalogArgument(_)
+        | Rule::CatalogUse(_)
+        | Rule::ForbiddenEffectUnderCondition(_)
+        | Rule::SourceOwnership(_)
+        | Rule::SymbolPlacement(_)
+        | Rule::BoundaryTypes(_)
+        | Rule::BoundedNumericOperand(_)
+        | Rule::ProtocolDeclarations(_) => return Subjects::Unread,
     };
     if sides.iter().all(|side| count(side)) {
         Subjects::Found

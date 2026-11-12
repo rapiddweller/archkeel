@@ -88,6 +88,31 @@ fn a_reply_of_an_unpinned_external_collector_gives_no_pass() {
 }
 
 #[test]
+fn a_frame_without_rules_passes_only_with_a_complete_scope() {
+    // L-35b: zero decided rules give PASS only for a contract without rules and a complete
+    // scope, as `inspect_observation` gives (`check/run.py:76`).
+    let reply = golden_reply();
+    let mut empty = request(Some(&reply), &[]);
+    let contract = r#"{"schema_version": "2.2.0", "components": [], "rules": []}"#;
+    empty["contracts"] = json!({"architecture-contract.json": contract});
+    let got = frame(&empty);
+    assert_eq!(
+        (got["status"].clone(), got["scope"].clone()),
+        (json!("PASS"), json!("complete"))
+    );
+    empty["collector_argv"] = json!(["collector"]);
+    let got = frame(&empty);
+    assert_eq!(got["status"], "UNKNOWN");
+    assert_eq!(
+        got["scope"],
+        "incomplete scope: the reply comes from an external collector without a pin"
+    );
+    let mut absent = request(None, &[]);
+    absent["contracts"] = json!({"architecture-contract.json": contract});
+    assert_eq!(frame(&absent)["status"], "UNKNOWN");
+}
+
+#[test]
 fn a_request_without_a_reply_says_so() {
     let got = frame(&request(None, &[]));
     assert!(got["self_test"]["reply"]["absent"].is_string());

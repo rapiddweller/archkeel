@@ -80,6 +80,8 @@ struct Frame {
     /// and the number of violations of a FAIL rule (AD-361 point 5).
     explained: BTreeMap<String, String>,
     violations: BTreeMap<String, usize>,
+    /// Why the scope of the run is not complete, or `complete` (L-35b).
+    scope: String,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
@@ -198,7 +200,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         || !matches!(contract, ContractState::Parsed(_));
     let frame = Frame {
         engine: ENGINE,
-        status: crate::status::status(&decided.decided, named),
+        status: crate::status::status(&decided.decided, named, decided.scope.is_none()),
+        scope: decided
+            .scope
+            .clone()
+            .unwrap_or_else(|| "complete".to_owned()),
         explained: decided.explained,
         violations: decided.violations,
         rules: decided.decided,
@@ -243,7 +249,11 @@ fn rule_reasons(
     decided: &mut RuleAnswer,
 ) -> RuleReasons {
     if baseline {
-        *decided = RuleAnswer::default();
+        let scope = decided.scope.take();
+        *decided = RuleAnswer {
+            scope,
+            ..RuleAnswer::default()
+        };
         return RuleReasons::All(Reason::Unsupported(Unsupported::Baseline).to_string());
     }
     match contract {

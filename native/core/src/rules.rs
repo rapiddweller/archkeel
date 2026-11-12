@@ -33,6 +33,8 @@ pub(crate) struct RuleAnswer {
     pub(crate) explained: BTreeMap<String, String>,
     /// The number of violations of each decided rule that has one.
     pub(crate) violations: BTreeMap<String, usize>,
+    /// Why the scope of the run is not complete, or `None` when it is (`Scope::run`).
+    pub(crate) scope: Option<String>,
 }
 
 /// The outcome of each rule, or the reason that the run has no model.
@@ -44,8 +46,19 @@ pub(crate) fn outcomes(contract: &Contract, model: Result<&Model, Reason>) -> Ve
 }
 
 pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>) -> RuleAnswer {
-    let mut answer = RuleAnswer::default();
+    let mut answer = RuleAnswer {
+        scope: Some(match &model {
+            Ok(model) => match model.scope(|scope| scope.run()) {
+                Ok(()) => String::new(),
+                Err(reason) => reason.to_string(),
+            },
+            Err(reason) => reason.to_string(),
+        })
+        .filter(|why| !why.is_empty()),
+        ..RuleAnswer::default()
+    };
     let Some(contract) = contract else {
+        answer.scope = Some(Reason::MissingInput(archkeel_model::Input::Contract).to_string());
         return answer;
     };
     if let Err(reason) = &model {
