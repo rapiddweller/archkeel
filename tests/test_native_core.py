@@ -351,16 +351,9 @@ def test_the_model_the_evaluator_and_the_core_name_no_language() -> None:
     """The no-language rule of design WP6-0 section B; the Rust profile has no rule kind that
     reads an identifier, so the check is here and not in the native contract.
 
-    AD-382: the rule also reads `report` and each subdirectory. The doc comments of `report`
-    name the Python checker that it equals and the Rust core; the pin holds them exactly."""
-    assert language_names(ROOT / "native") == Counter(
-        {
-            "report/src/check.rs: python": 3,
-            "report/src/check_order.rs: python": 1,
-            "report/src/lib.rs: python": 1,
-            "report/src/lib.rs: rust": 1,
-        }
-    )
+    AD-382: the rule also reads `report` and each subdirectory. AD-381 renamed the last
+    language names of the `report` doc comments, so the pin is empty."""
+    assert language_names(ROOT / "native") == Counter()
 
 
 def test_each_native_component_is_a_node_of_the_component_graph() -> None:

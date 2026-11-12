@@ -10,7 +10,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::codes::{Code, Level, UnknownReason, UnknownSource};
+use crate::codes::{Code, NodeLevel, UnknownReason, UnknownSource};
 use crate::input::{
     EdgeRow, FindingRow, MeasureRow, NodeRow, PermissionRow, UnitRow, ViolationRow,
 };
@@ -91,14 +91,14 @@ pub(crate) fn node_of(names: &[&str], nodes: &[NodeRow]) -> u32 {
     let module = names.iter().find_map(|name| {
         nodes
             .iter()
-            .position(|n| n.level == Level::Module && n.name == *name)
+            .position(|n| n.level == NodeLevel::Module && n.name == *name)
     });
     let place = names.iter().find_map(|name| {
         let file = nodes.iter().position(|n| n.path.as_deref() == Some(*name));
         file.or_else(|| {
             nodes
                 .iter()
-                .position(|n| n.level == Level::Package && n.name == *name)
+                .position(|n| n.level == NodeLevel::Package && n.name == *name)
         })
     });
     module
@@ -177,7 +177,7 @@ pub(crate) fn edges(rows: &[EdgeRow], s: &Strings) -> (Edges, Vec<u32>, Crossing
         t.omitted
             .push(count(r.crossings.len().saturating_sub(CROSSING_CAP)));
         t.via_end.push(count(via.len()));
-        if r.level != Level::Module {
+        if r.level != NodeLevel::Module {
             continue;
         }
         for x in r.crossings.iter().take(CROSSING_CAP) {

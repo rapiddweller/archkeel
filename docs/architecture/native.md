@@ -30,9 +30,9 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses the bytes of one contract into typed values, as the Python parser does (AD-359). It reads no file. | no crate of the workspace |
 | `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, the imports and the module and package edges of slice S2, what the reply proves not seen, the cycles and ranks of slice S3, and the scope proof that a PASS needs: slice S4 checks each cause that makes the scope incomplete one time per model, and the import matchers of the direction kinds of slice S5 that the evaluator and the scope proof share (AD-363, AD-370, AD-372, AD-374, AD-378, AD-380). | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
-| `archkeel-model-barrier` | A test crate without code: each document test tries to build a PASS without the scope proof of the same model, from outside the model, and has a twin that compiles (AD-378). | `archkeel-model`, `archkeel-contract` |
+| `archkeel-model-barrier` | A test crate without code: each document test tries to build a PASS without the scope proof of the same model, from outside the model, and has a twin that compiles (AD-378). It also tries a run PASS without the run proof and a report PASS without the model (AD-381). | `archkeel-model`, `archkeel-contract`, `archkeel-eval`, `archkeel-report` |
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`, slice S5 the direction kinds (`forbidden_dependency`, `allowed_dependency` as a declaration, `sibling_isolation`, `layer_order`, `complete_requires`); each other kind names its slice (AD-370, AD-372, AD-380). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
-| `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). The core does not call it yet. | `archkeel-model` |
+| `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). A rule row comes from an outcome of the evaluator; a PASS row, a PASS observation and a PASS status each need the model (AD-381). The core does not call it yet. | `archkeel-eval`, `archkeel-model` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run; the host uses it for no verdict (AD-363). | `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-pytext` | The text rules of Python `str` that more than one collector repeats, such as `str.splitlines` (AD-327). | no crate of the workspace |
@@ -111,6 +111,7 @@ flowchart LR
     n_42["dart-parse"]
     n_43["pytext"]
     n_41 --> n_5
+    n_41 --> n_31
     n_0["build"]
     n_1["contract"]
     n_2["core"]
@@ -293,6 +294,8 @@ flowchart LR
     n_40 --> n_30
     n_48 --> n_5
     n_48 --> n_1
+    n_48 --> n_31
+    n_48 --> n_41
     n_40 --> n_0
     n_40 --> n_39
     n_32 --> n_43

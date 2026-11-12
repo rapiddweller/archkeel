@@ -112,7 +112,9 @@ name = "archkeel-model-barrier"
 version = "0.0.0"
 dependencies = [
  "archkeel-contract",
+ "archkeel-eval",
  "archkeel-model",
+ "archkeel-report",
 ]
 
 [[package]]
@@ -140,7 +142,11 @@ dependencies = [
 name = "archkeel-report"
 version = "0.0.0"
 dependencies = [
+ "archkeel-contract",
+ "archkeel-eval",
  "archkeel-model",
+ "archkeel-store",
+ "flate2",
  "serde",
  "serde_json",
 ]

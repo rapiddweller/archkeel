@@ -12,16 +12,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_model::{Decision, Verdict as ModelVerdict};
+use archkeel_model::{Model, RunGap, RunPass};
 
 use crate::build_error::BuildError;
 use crate::build_tables::{self as layout, node_of, Strings, UnknownCell, CROSSING_CAP};
 use crate::check_rows::counted;
 use crate::codes::{
-    Code, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Relation, UnknownSource,
+    Code, Disposition, EdgeTarget, FindingKind, Gap, Kind, NodeLevel, Relation, UnknownSource,
     NOT_CARRIED,
 };
-use crate::frame_rules::{rule_rows, status};
+use crate::frame_rules::rule_rows;
 use crate::head::{
     Counts, GapRow, NotRanked, PayloadBudget, RuleResult, Run, Source, Status, Summary,
 };
@@ -97,7 +97,7 @@ fn gap_rows(payload: &Payload) -> Vec<GapRow> {
         .level
         .iter()
         .zip(&e.target)
-        .filter(|(l, t)| l.is(Level::Component) && !t.is(EdgeTarget::NoTarget));
+        .filter(|(l, t)| l.is(NodeLevel::Component) && !t.is(EdgeTarget::NoTarget));
     let lines = u64::try_from(lines.count()).unwrap_or(u64::MAX);
     let contract_lines = blocks
         .entry(Code::of(Gap::ContractLines).value())
@@ -198,7 +198,7 @@ fn payload_of(
     let module_crossings = body
         .edges
         .iter()
-        .filter(|e| e.level == Level::Module)
+        .filter(|e| e.level == NodeLevel::Module)
         .flat_map(|e| &e.crossings);
     let unbound = u64::try_from(module_crossings.filter(|c| c.kind == Kind::Unknown).count())
         .unwrap_or(u64::MAX);
@@ -251,7 +251,7 @@ fn component(c: &crate::input::ComponentText) -> crate::head::Component {
     }
 }
 
-fn run_of(outcome: &RunOutcome, records: &Records, graph: bool) -> Run {
+fn run_of(outcome: &RunOutcome, records: &Records, graph: bool, observation: Status) -> Run {
     let facts = &records.run;
     let mut not_carried: Vec<Relation> = NOT_CARRIED.to_vec();
     if !graph {
@@ -270,7 +270,7 @@ fn run_of(outcome: &RunOutcome, records: &Records, graph: bool) -> Run {
         contract: if target { facts.contract.clone() } else { None },
         coverage: facts.coverage,
         target,
-        observation: status(&outcome.observation),
+        observation,
         not_ranked: Vec::new(),
         not_carried,
         payload_budget: PayloadBudget {
@@ -281,16 +281,24 @@ fn run_of(outcome: &RunOutcome, records: &Records, graph: bool) -> Run {
 
 /// Build the `Report` frame of one run.
 ///
-/// The status is the status rule over the rows (`status_of`). Only when it is PASS does the
-/// builder call `pass`, which must give a PASS `Decision` of the model (the scope proof of
-/// AD-363); else the build fails with `BuildError::PassWithoutProof`.
+/// The status is the status rule over the rows (`status_of`). The observation is PASS only when
+/// the scope of `model` is complete (`Scope::run`). A rule row is PASS only with a PASS of its
+/// own rule of `model`. Only when the status is PASS does the builder ask the model for the run
+/// proof (`Scope::run_complete`, L-35b); without it the build fails with
+/// `BuildError::PassWithoutProof`. A run without a model has no PASS (AD-381).
 pub fn build(
     outcome: RunOutcome,
     records: Records,
-    pass: impl FnOnce() -> Option<Decision>,
+    model: Option<&Model>,
 ) -> Result<Report<Decided>, BuildError> {
     let graph = matches!(records.graph, Produced::Rows(_));
-    let run = run_of(&outcome, &records, graph);
+    let complete = model.is_some_and(|model| model.scope(|scope| scope.run()).is_ok());
+    let observation = if complete {
+        Status::Pass
+    } else {
+        Status::Unknown
+    };
+    let run = run_of(&outcome, &records, graph, observation);
     let tree = rows("nodes", records.tree)?;
     let measures = rows("measures", records.measures)?;
     let units = rows("units", records.units)?;
@@ -302,7 +310,7 @@ pub fn build(
         Produced::Rows(graph) => graph.edges,
         Produced::NotProduced(_) => Vec::new(),
     };
-    let rules = rule_rows(&outcome.rules, &violations)?;
+    let rules = rule_rows(&outcome.rules, &violations, model)?;
     let cells = unknown_cells(&outcome, unknowns, &tree);
     let body = Body {
         tree: &tree,
@@ -314,7 +322,7 @@ pub fn build(
         findings: &findings,
     };
     let payload = payload_of(run, rules, &body, &cells, tree.unowned_modules);
-    finish(payload, &findings, outcome, pass)
+    finish(payload, &findings, outcome, model)
 }
 
 /// The derived head, the status from the rows, the PASS proof, the check and the budget.
@@ -322,7 +330,7 @@ fn finish(
     mut payload: Payload,
     findings: &[crate::input::FindingRow],
     outcome: RunOutcome,
-    pass: impl FnOnce() -> Option<Decision>,
+    model: Option<&Model>,
 ) -> Result<Report<Decided>, BuildError> {
     let rollup = findings
         .iter()
@@ -337,12 +345,10 @@ fn finish(
     let status = status_of(&payload);
     payload.summary.status = status;
     let proof = match status {
-        Status::Pass => match pass() {
-            Some(d) if matches!(d.verdict(), ModelVerdict::Pass(_)) => Some(d),
-            _ => return Err(BuildError::PassWithoutProof),
-        },
+        Status::Pass => Some(run_pass(&outcome, model).map_err(BuildError::PassWithoutProof)?),
         Status::Fail | Status::Unknown => None,
     };
+    let observation = payload.run.observation;
     let rules = outcome.rules.into_iter().map(|r| {
         let decision = match r.decision {
             RuleDecision::Decided(d) => Some(d),
@@ -353,7 +359,7 @@ fn finish(
     let decided = Decided {
         status,
         pass: proof,
-        observation: outcome.observation,
+        observation,
         rules: rules.collect(),
     };
     let report = Report::checked(payload, decided).map_err(refusal)?;
@@ -365,6 +371,24 @@ fn finish(
         return Err(BuildError::TooLarge { bytes: size });
     }
     Ok(report)
+}
+
+/// The run proof of the model over the decided rules (L-35b): `None` without a model.
+fn run_pass(outcome: &RunOutcome, model: Option<&Model>) -> Result<RunPass, Option<RunGap>> {
+    let decisions = outcome
+        .rules
+        .iter()
+        .filter_map(|rule| match &rule.decision {
+            RuleDecision::Decided(decision) => Some(decision),
+            RuleDecision::Declaration => None,
+        });
+    let model = model.ok_or(None)?;
+    model.scope(|scope| {
+        scope
+            .run_complete(decisions)
+            .map(|proof| scope.pass_run(proof))
+            .map_err(Some)
+    })
 }
 
 fn refusal(found: Vec<Problem>) -> BuildError {

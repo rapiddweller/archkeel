@@ -5,7 +5,9 @@
 //! The payload as data and its canonical bytes (AD-361 point 9).
 //!
 //! A `Payload` is what the bytes say; it is not checked. Only `Report` (built or checked) carries
-//! the promise of the status rule. The field order is the canonical key order: the `required`
+//! the promise of the status rule, so the type and `encode` are private to the crate (its `pub`
+//! fields reach no other crate): bytes leave only through `Report::encode` (#1073 item 6,
+//! AD-381). The field order is the canonical key order: the `required`
 //! list of the schema, then the optional `fields` and `params` after `carriers`.
 //!
 //! The writer is the compact writer of `serde_json`: no whitespace, UTF-8, and a string escapes
@@ -28,7 +30,7 @@ pub const MAX_BYTES: u64 = 8_000_000;
 /// The report v2 payload, as the bytes say.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Payload {
+pub(crate) struct Payload {
     pub schema_version: String,
     pub run: Run,
     pub summary: Summary,
@@ -81,7 +83,7 @@ impl std::fmt::Display for DecodeError {
 
 impl Payload {
     /// The canonical bytes: compact JSON in schema key order and one trailing newline.
-    pub fn encode(&self) -> Result<Vec<u8>, serde_json::Error> {
+    pub(crate) fn encode(&self) -> Result<Vec<u8>, serde_json::Error> {
         let mut bytes = serde_json::to_vec(self)?;
         bytes.push(b'\n');
         Ok(bytes)
@@ -89,7 +91,7 @@ impl Payload {
 
     /// Read canonical bytes. Bytes that decode but differ from their own encoding are refused:
     /// another key order, whitespace, another escape, or a missing nullable key.
-    pub fn decode(bytes: &[u8]) -> Result<Payload, DecodeError> {
+    pub(crate) fn decode(bytes: &[u8]) -> Result<Payload, DecodeError> {
         let payload: Payload = serde_json::from_slice(bytes).map_err(DecodeError::Shape)?;
         match payload.encode() {
             Ok(again) if again == bytes => Ok(payload),

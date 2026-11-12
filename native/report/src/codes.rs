@@ -121,14 +121,19 @@ impl<'de, L> Deserialize<'de> for Code<L> {
 }
 
 macro_rules! code_list {
-    ($(#[$doc:meta])* $name:ident { $($variant:ident = $text:literal),+ $(,)? }) => {
+    // `NAME` is the schema name (`$defs`): the type name, or the name after `as` when they differ.
+    (@name $name:ident $schema:literal) => { $schema };
+    (@name $name:ident) => { stringify!($name) };
+    ($(#[$doc:meta])* $name:ident $(as $schema:literal)? {
+        $($variant:ident = $text:literal),+ $(,)?
+    }) => {
         $(#[$doc])*
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[allow(missing_docs)]
         pub enum $name { $($variant),+ }
 
         impl CodeList for $name {
-            const NAME: &'static str = stringify!($name);
+            const NAME: &'static str = code_list!(@name $name $($schema)?);
             const VALUES: &'static [Self] = &[$($name::$variant),+];
             const TEXTS: &'static [&'static str] = &[$($text),+];
             fn code(self) -> u32 {
@@ -140,7 +145,7 @@ macro_rules! code_list {
 
 code_list!(
     /// The level of a node or an edge.
-    Level { System = "system", Package = "package", Component = "component", Module = "module" }
+    NodeLevel as "Level" { System = "system", Package = "package", Component = "component", Module = "module" }
 );
 code_list!(
     /// The kind of a unit or a crossing name.
@@ -164,7 +169,7 @@ code_list!(
 );
 code_list!(
     /// The budget verdict of a measure row.
-    Verdict { None = "none", Within = "within", Over = "over" }
+    BudgetVerdict as "Verdict" { None = "none", Within = "within", Over = "over" }
 );
 code_list!(
     /// The permission of the component pair of an edge.
@@ -187,7 +192,7 @@ code_list!(
 );
 code_list!(
     /// Why a finding has its disposition.
-    Reason {
+    FindingReason as "Reason" {
         OpenQuestion = "open_question", Kernel = "kernel", Orchestrator = "orchestrator",
         CrateFacade = "crate_facade", TestOnly = "test_only", RulePasses = "rule_passes",
         LeftDeclaration = "left_declaration",
@@ -195,7 +200,7 @@ code_list!(
 );
 code_list!(
     /// A measure definition.
-    Measure {
+    MeasureDef as "Measure" {
         RClear = "R.clear", ROwned = "R.owned", RStated = "R.stated", RSize = "R.size",
         IDeclared = "I.declared", IApi = "I.api", ISurface = "I.surface",
         DResolved = "D.resolved", DTypes = "D.types", DSignatures = "D.signatures",

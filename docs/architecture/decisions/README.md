@@ -376,4 +376,5 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-378 | [A rule passes only with the scope proof of its own model](ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md) |
 | AD-379 | [The core asks the shell for the inside contracts and decides the root rules of a tree](ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md) |
 | AD-380 | [The core decides the direction rule kinds](ad-380-the-core-decides-the-direction-rule-kinds.md) |
+| AD-381 | [The report takes the evaluator outcome, and a run PASS needs the run proof](ad-381-the-report-takes-the-evaluator-outcome-and-a-run-pass-needs-the-run-proof.md) |
 | AD-382 | [The self-contract pins the crate chain and the external homes](ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md) |

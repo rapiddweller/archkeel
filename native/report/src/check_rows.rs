@@ -9,8 +9,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::codes::{
-    Code, CodeList, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, MeasureState,
-    Permission, Relation, UnknownSource, Verdict,
+    BudgetVerdict, Code, CodeList, Disposition, EdgeTarget, FindingKind, Gap, Kind, MeasureState,
+    NodeLevel, Permission, Relation, UnknownSource,
 };
 use crate::head::{Counts, RuleReason, RuleVerdict};
 use crate::payload::Payload;
@@ -89,12 +89,12 @@ fn measures(p: &Payload, found: &mut Vec<Problem>) {
         };
         let wanted = if *budget >= 0 {
             Some(if value >= budget {
-                Verdict::Within
+                BudgetVerdict::Within
             } else {
-                Verdict::Over
+                BudgetVerdict::Over
             })
         } else if *baseline < 0 {
-            Some(Verdict::None)
+            Some(BudgetVerdict::None)
         } else {
             None
         };
@@ -152,8 +152,8 @@ fn findings_of(p: &Payload, kind: Option<FindingKind>, disposition: Disposition)
 pub(crate) fn counted(p: &Payload) -> (Counts, Vec<&'static str>) {
     let mut overflow = Vec::new();
     let e = &p.edges;
-    let at = |level: Level| count_of(&e.level, |l| l.is(level));
-    let component = |row: usize| e.level.get(row).is_some_and(|l| l.is(Level::Component));
+    let at = |level: NodeLevel| count_of(&e.level, |l| l.is(level));
+    let component = |row: usize| e.level.get(row).is_some_and(|l| l.is(NodeLevel::Component));
     let sites = |row: usize| e.sites.get(row).copied().unwrap_or(0);
     let observed_target = |target: EdgeTarget| {
         size(
@@ -165,7 +165,7 @@ pub(crate) fn counted(p: &Payload) -> (Counts, Vec<&'static str>) {
     };
     let omitted = checked_sum(
         (0..e.level.len())
-            .filter(|row| e.level.get(*row).is_some_and(|l| l.is(Level::Module)))
+            .filter(|row| e.level.get(*row).is_some_and(|l| l.is(NodeLevel::Module)))
             .map(|row| e.omitted.get(row).copied().unwrap_or(0)),
     )
     .unwrap_or_else(|| {
@@ -176,13 +176,13 @@ pub(crate) fn counted(p: &Payload) -> (Counts, Vec<&'static str>) {
     let stated = p.summary.counts;
     let verdicts = |wanted: RuleVerdict| count_of(&p.rules, |rule| rule.verdict == wanted);
     let counts = Counts {
-        packages: count_of(&p.nodes.level, |l| l.is(Level::Package)),
-        components: count_of(&p.nodes.level, |l| l.is(Level::Component)),
-        modules: count_of(&p.nodes.level, |l| l.is(Level::Module)),
+        packages: count_of(&p.nodes.level, |l| l.is(NodeLevel::Package)),
+        components: count_of(&p.nodes.level, |l| l.is(NodeLevel::Component)),
+        modules: count_of(&p.nodes.level, |l| l.is(NodeLevel::Module)),
         units: size(p.units.module.len()),
-        module_edges: at(Level::Module),
-        component_edges: at(Level::Component),
-        package_edges: at(Level::Package),
+        module_edges: at(NodeLevel::Module),
+        component_edges: at(NodeLevel::Component),
+        package_edges: at(NodeLevel::Package),
         crossing_names: crossings.saturating_add(omitted),
         crossing_names_unbound: if omitted == 0 {
             count_of(&p.crossings.kind, |k| k.is(Kind::Unknown))
@@ -358,13 +358,14 @@ fn edge_targets(
     for (edge, ((level, target), (from, to))) in rows.enumerate() {
         let pair = pairs
             .get(&(*from, *to))
-            .filter(|_| level.is(Level::Component));
+            .filter(|_| level.is(NodeLevel::Component));
         if let Some((row, _)) = pair {
             edged.insert(*row);
         }
         let wanted = match (level.known(), pair) {
-            (Some(Level::Module), _) => continue,
-            (Some(Level::Component), Some((_, status))) if p.run.target => match status.known() {
+            (Some(NodeLevel::Module), _) => continue,
+            (Some(NodeLevel::Component), Some((_, status))) if p.run.target => match status.known()
+            {
                 Some(Permission::Allowed) => EdgeTarget::Declared,
                 Some(Permission::Forbidden) => EdgeTarget::Forbidden,
                 Some(Permission::Undecided) | None => EdgeTarget::Undeclared,

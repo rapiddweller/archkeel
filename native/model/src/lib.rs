@@ -83,3 +83,8 @@ mod selection;
 
 pub use direction::{crossings, forbidden, peers, Crossing, Judged};
 pub use selection::{dependency_sides, layer_components, Selection};
+
+// The run proof (lead decision L-35b, AD-381).
+mod run;
+
+pub use run::{RunComplete, RunGap, RunPass};

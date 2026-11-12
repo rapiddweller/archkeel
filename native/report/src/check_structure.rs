@@ -4,7 +4,7 @@
 
 //! The structure part of the check: column lengths, ids, offsets, the node tree, flags and codes.
 
-use crate::codes::{Code, CodeList, Gap, Level};
+use crate::codes::{Code, CodeList, Gap, NodeLevel};
 use crate::payload::Payload;
 use crate::problem::Problem;
 use crate::tables::OptGap;
@@ -154,7 +154,12 @@ macro_rules! opt_ids {
 fn references(p: &Payload, found: &mut Vec<Problem>) {
     let nodes = p.nodes.level.len();
     let units = p.units.module.len();
-    let edges = p.edges.level.iter().filter(|l| l.is(Level::Module)).count();
+    let edges = p
+        .edges
+        .level
+        .iter()
+        .filter(|l| l.is(NodeLevel::Module))
+        .count();
     ids!(found, nodes; p.measures.node, p.units.module, p.edges.from, p.edges.to);
     ids!(found, nodes; p.permissions.component, p.permissions.target);
     ids!(found, nodes; p.unknowns.node, p.findings.subject);

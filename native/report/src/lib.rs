@@ -4,18 +4,23 @@
 
 //! archkeel-report, slice 0d of WP6 (AD-361, AD-371, epic #880).
 //!
-//! The report v2 payload is the `Report` frame of the Rust core. This crate owns:
+//! The report v2 payload is the `Report` frame of the core. This crate owns:
 //!
-//! - the typed payload (`Payload`, the head and the columnar tables) and its code lists;
-//! - the canonical bytes of AD-361 point 9 (`Payload::encode`, `Payload::decode`);
+//! - the typed payload (the head and the columnar tables) and its code lists; the payload type
+//!   and its bytes are private to the crate, so bytes leave only through `Report` (AD-381);
+//! - the canonical bytes of AD-361 point 9 (`Report::encode`, `Report::read`);
 //! - the status rule of AD-361 point 4 (`status_of`) and the rule that each status other than
 //!   PASS has an explaining row (`unexplained`);
-//! - the check (`problems`), with every rule of the Python checker and more;
+//! - the check (`problems`), with every rule of the oracle checker and more;
 //! - `Report`: a payload that passed the check. `build` makes a `Report<Decided>` from the
-//!   outcome of the evaluator and the rows of the model; `Report::read` a `Report<Recorded>`.
+//!   outcomes of the evaluator, the rows and the model; `Report::read` a `Report<Recorded>`;
+//! - the reason code of an UNKNOWN rule from the reason of the model (`WhyUnknown::of`).
+//!
+//! A PASS needs the model (AD-381): a rule row only with a PASS of its own rule of the model, the
+//! observation only with a complete scope, the status only with the run proof (L-35b).
 //!
 //! The crate is not wired yet: the core binary does not call it. The input types of `build`
-//! (`RunOutcome`, `Records`) are the seam that the eval crate and the model slices fill.
+//! (`RunOutcome`, `Records`) are the seam that the evaluator and the model slices fill.
 
 #![deny(unreachable_pub)]
 
@@ -34,27 +39,34 @@ mod payload;
 mod problem;
 mod report;
 mod status;
+mod why;
 
 pub use build_error::BuildError;
-pub use check::problems;
 pub use codes::{
-    Code, CodeList, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Measure, MeasureState,
-    Permission, Reason, Relation, UnknownReason, UnknownSource, Verdict, Vis, NOT_CARRIED,
+    BudgetVerdict, Code, CodeList, Disposition, EdgeTarget, FindingKind, FindingReason, Gap, Kind,
+    MeasureDef, MeasureState, NodeLevel, Permission, Relation, UnknownReason, UnknownSource, Vis,
+    NOT_CARRIED,
 };
 pub use frame::build;
 pub use head::{
     Component, Counts, Coverage, GapRow, NotRanked, PayloadBudget, RuleReason, RuleResult,
     RuleVerdict, Run, RunContract, Source, Status, Summary, TrendPoint,
 };
+#[cfg(test)]
+pub(crate) use input::RuleDecision;
 pub use input::{
-    ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, Graph, MeasureRow, NodeRow,
-    PermissionRow, Produced, Records, RuleDecision, RuleOutcome, RunFacts, RunOutcome, Target,
-    Tree, Undecided, UnitRow, UnknownRecord, ViolationRow, WhyUnknown,
+    ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, GraphRows, MeasureRow, NodeRow,
+    PermissionRow, Produced, Records, RuleOutcome, RuleText, RunFacts, RunOutcome, Target, Tree,
+    Undecided, UnitRow, UnknownRecord, ViolationRow, WhyUnknown,
 };
-pub use payload::{DecodeError, Payload, MAX_BYTES, SCHEMA_VERSION};
+#[cfg(test)]
+pub(crate) use payload::Payload;
+pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
-pub use status::{status_of, unexplained, Unexplained, PASS_NEEDS};
+#[cfg(test)]
+pub(crate) use status::{status_of, unexplained};
+pub use status::{Unexplained, PASS_NEEDS};
 pub use tables::{
     opt_gap, Carriers, Crossings, Edges, Fields, Findings, Flag, Id, Measures, Nodes, OptGap,
     OptId, OptStr, Params, Permissions, StrId, Units, Unknowns, Variants, Violations,
@@ -72,6 +84,8 @@ mod corpus_tests;
 mod fault_tests;
 #[cfg(test)]
 mod review_tests;
+#[cfg(test)]
+mod run_tests;
 #[cfg(test)]
 mod schema_tests;
 #[cfg(test)]

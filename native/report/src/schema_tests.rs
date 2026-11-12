@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use crate::codes::{
-    CodeList, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Measure, MeasureState,
-    Permission, Reason, Relation, UnknownReason, UnknownSource, Verdict, Vis,
+    BudgetVerdict, CodeList, Disposition, EdgeTarget, FindingKind, FindingReason, Gap, Kind,
+    MeasureDef, MeasureState, NodeLevel, Permission, Relation, UnknownReason, UnknownSource, Vis,
 };
 use crate::corpus_tests::bytes;
 
@@ -29,16 +29,16 @@ fn texts<L: CodeList>() -> (&'static str, Vec<String>) {
 fn each_code_list_equals_its_x_codes() {
     let schema = schema();
     let lists = [
-        texts::<Level>(),
+        texts::<NodeLevel>(),
         texts::<Kind>(),
         texts::<Vis>(),
         texts::<MeasureState>(),
-        texts::<Verdict>(),
+        texts::<BudgetVerdict>(),
         texts::<EdgeTarget>(),
         texts::<FindingKind>(),
         texts::<Disposition>(),
-        texts::<Reason>(),
-        texts::<Measure>(),
+        texts::<FindingReason>(),
+        texts::<MeasureDef>(),
         texts::<Gap>(),
         texts::<Relation>(),
         texts::<Permission>(),

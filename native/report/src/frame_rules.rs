@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_model::{Decision, Verdict as ModelVerdict};
+use archkeel_model::{Decision, Model, Verdict as ModelVerdict};
 
 use crate::build_error::BuildError;
 use crate::head::{RuleReason, RuleResult, RuleVerdict, Status};
@@ -50,9 +50,12 @@ fn rule_reason(verdict: RuleVerdict, why: Option<WhyUnknown>) -> Option<RuleReas
 }
 
 /// The rule rows, by id; the violation count of each is the number of violation rows citing it.
+/// A PASS row needs a PASS of its own rule of `model` (AD-378, AD-381): a type cannot stop a
+/// `Decision` from moving, so the identity is checked. A run without a model has no PASS row.
 pub(crate) fn rule_rows(
     rules: &[RuleOutcome],
     violations: &[ViolationRow],
+    model: Option<&Model>,
 ) -> Result<Vec<RuleResult>, BuildError> {
     let mut cited: BTreeMap<&str, u64> = BTreeMap::new();
     for row in violations {
@@ -65,6 +68,14 @@ pub(crate) fn rule_rows(
     let mut out = Vec::with_capacity(rules.len());
     for rule in rules {
         let verdict = rule_verdict(&rule.decision);
+        if let RuleDecision::Decided(decision) = &rule.decision {
+            let own = model.is_some_and(|model| decision.passes(model, &rule.id));
+            if verdict == RuleVerdict::Pass && !own {
+                return Err(BuildError::ForeignPass {
+                    rule: rule.id.clone(),
+                });
+            }
+        }
         if verdict == RuleVerdict::Pass && !rule.evaluated {
             return Err(BuildError::PassWithoutReceipt {
                 rule: rule.id.clone(),

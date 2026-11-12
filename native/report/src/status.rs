@@ -17,7 +17,7 @@ use crate::payload::Payload;
 /// 1. No Target: UNKNOWN. 2. A violation row: FAIL, unless the observation is incomplete and a
 ///    diagnostic row revokes the proofs. 3. An incomplete observation: UNKNOWN. 4. A rule with an
 ///    undecided position or an UNKNOWN verdict: UNKNOWN. 5. Else PASS.
-pub fn status_of(payload: &Payload) -> Status {
+pub(crate) fn status_of(payload: &Payload) -> Status {
     let run = &payload.run;
     let complete = run.observation == Status::Pass;
     let unknowns = &payload.unknowns;
@@ -90,7 +90,7 @@ impl fmt::Display for Unexplained {
 }
 
 /// Each break of AD-361 point 5 for the stated status of the payload.
-pub fn unexplained(payload: &Payload, status: Status) -> Vec<Unexplained> {
+pub(crate) fn unexplained(payload: &Payload, status: Status) -> Vec<Unexplained> {
     let sources = &payload.unknowns.source;
     let has = |wanted: UnknownSource| sources.iter().any(|source| source.is(wanted));
     let mut found = Vec::new();
