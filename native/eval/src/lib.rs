@@ -113,3 +113,7 @@ mod tests;
 #[cfg(test)]
 #[path = "external_tests.rs"]
 mod external_tests;
+
+#[cfg(test)]
+#[path = "graph_tests.rs"]
+mod graph_tests;
