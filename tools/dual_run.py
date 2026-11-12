@@ -59,10 +59,12 @@ from tools.dual_run_oracle import (
     unexplained,
     write_oracle,
 )
+from tools.dual_run_tree import tree_frame
 
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
 # Version 2 adds the settings of the shell: `namespace`, `profile` and `standard_library` (AD-372).
-PROTOCOL = "archkeel-dual-run-2"
+# Version 3 adds `insides`: the inside contracts that the shell read for the core (AD-379).
+PROTOCOL = "archkeel-dual-run-3"
 ENGINE_TIMEOUT_SECONDS = 600
 # The exit code of an engine frame that names an unsupported or refused part (AD-363).
 NAMES_A_GAP = 3
@@ -115,6 +117,7 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
         "namespace": scan["namespace"],
         "profile": "",
         "standard_library": [],
+        "insides": [],
     }
 
 
@@ -182,7 +185,9 @@ def engine_and_reference(
     request["profile"], request["standard_library"] = (
         reply_profile(replies[-1]) if replies else ("", [])
     )
-    return command_frame(command, request, timeout), reference
+    # AD-379: the core asks for the inside contracts that it needs; the shell reads them.
+    frame = tree_frame(lambda sent: command_frame(command, sent, timeout), request, root)
+    return frame, reference
 
 
 def command_frame(command: str, request: Mapping[str, Any], timeout: float) -> dict[str, Any]:

@@ -116,11 +116,18 @@ fn a_table_gives_ids_in_order_and_an_id_reads_its_row() {
 }
 
 #[test]
-fn a_contract_with_mounts_names_the_missing_tree_assembly() {
+fn a_contract_with_mounts_names_what_the_core_does_not_decide() {
     let reason = Reason::Unsupported(Unsupported::InsideTree);
     assert_eq!(
         reason.to_string(),
-        "unsupported: the contract mounts inside contracts; the tree assembly is not in the core yet"
+        "unsupported: the contract mounts inside contracts that the shell has not sent"
+    );
+    let rule = Reason::Unsupported(Unsupported::InsideRule).to_string();
+    assert!(rule.contains("a rule of an inside contract"), "{rule}");
+    let scope = Reason::Unsupported(Unsupported::TreeScope).to_string();
+    assert!(
+        scope.contains("the scope proof of a contract tree"),
+        "{scope}"
     );
 }
 

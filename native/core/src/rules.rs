@@ -16,6 +16,8 @@ use archkeel_contract::{head_of, kind_of, Contract, RuleKind};
 use archkeel_eval::Outcome;
 use archkeel_model::{Model, Part, Reason, Unsupported, Verdict};
 
+use crate::contract::Usable;
+
 /// The rule kinds that `archkeel-eval` decides.
 const DECIDED: &[RuleKind] = &[
     RuleKind::CompleteAssignment,
@@ -37,6 +39,30 @@ pub(crate) struct RuleAnswer {
     pub(crate) scope: Option<String>,
 }
 
+/// What an inside-contract tree adds to the root rules (AD-379): the rules of its mounts, each a
+/// named gap, and whether the root mounts any contract. A root rule of a tree never passes: the
+/// scope proof does not read the coverage of the mounts yet.
+#[derive(Debug, Default)]
+pub(crate) struct Tree {
+    inside: Vec<(String, RuleKind)>,
+    mounted: bool,
+}
+
+impl Tree {
+    /// A tree of the given inside rules and mount state (a test builds the second line alone).
+    #[cfg(test)]
+    pub(crate) fn new(inside: Vec<(String, RuleKind)>, mounted: bool) -> Tree {
+        Tree { inside, mounted }
+    }
+
+    pub(crate) fn of(usable: &Usable) -> Tree {
+        Tree {
+            inside: usable.inside.clone(),
+            mounted: usable.mounted,
+        }
+    }
+}
+
 /// The outcome of each rule, or the reason that the run has no model.
 pub(crate) fn outcomes(contract: &Contract, model: Result<&Model, Reason>) -> Vec<Outcome> {
     match model {
@@ -45,7 +71,11 @@ pub(crate) fn outcomes(contract: &Contract, model: Result<&Model, Reason>) -> Ve
     }
 }
 
-pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>) -> RuleAnswer {
+pub(crate) fn answer(
+    contract: Option<&Contract>,
+    model: Result<&Model, Reason>,
+    tree: Option<Tree>,
+) -> RuleAnswer {
     let mut answer = RuleAnswer {
         scope: Some(match &model {
             Ok(model) => match model.scope(|scope| scope.run()) {
@@ -61,6 +91,11 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
         answer.scope = Some(Reason::MissingInput(archkeel_model::Input::Contract).to_string());
         return answer;
     };
+    let tree = tree.unwrap_or_default();
+    for (id, _) in &tree.inside {
+        let reason = Reason::Unsupported(Unsupported::InsideRule);
+        answer.reasons.insert(id.clone(), reason);
+    }
     if let Err(reason) = &model {
         for rule in contract.rules() {
             let kind = kind_of(rule);
@@ -84,6 +119,12 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
                 answer
                     .reasons
                     .insert(outcome.rule().to_owned(), reason.clone());
+                continue;
+            }
+            // AD-379: the second line after the proof. A root rule of a mounted tree never passes.
+            (Verdict::Pass(_), _) if tree.mounted => {
+                let reason = Reason::Unsupported(Unsupported::TreeScope);
+                answer.reasons.insert(outcome.rule().to_owned(), reason);
                 continue;
             }
             (Verdict::Pass(_), _) if decision.passes(model_of, outcome.rule()) => "PASS",

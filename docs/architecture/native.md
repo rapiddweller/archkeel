@@ -53,7 +53,8 @@ make dual-run DUAL_RUN_ARGS="--sections modules,packages --families direction \
 
 The engine command reads one JSON request on standard input: `protocol`, `case`, `root`,
 `config`, `baseline`, `contracts`, `collector_argv`, `pinned`, `reply`, `sections`, and, from
-`archkeel-dual-run-2`, `namespace` and `standard_library` (the shell reads both; AD-372). It writes
+`archkeel-dual-run-2`, `namespace` and `standard_library` (the shell reads both; AD-372), and, from
+`archkeel-dual-run-3`, `insides` (AD-379). It writes
 one frame on standard output: `rules` (rule id to kind and status) and the columnar
 `architecture` or the canonical `sections`. A failed or slow engine is a difference
 (`--engine-timeout`, default 600 s). The sections and rule families are in
@@ -83,6 +84,12 @@ make dual-run DUAL_RUN_ARGS="--sections violations,dependency_edges \
   --families external_dependency_scope,complete_external_scope \
   --engine-command 'native/target/debug/archkeel-core dual-run'"
 ```
+
+A root that mounts inside contracts names the paths that it needs in `self_test.contract.missing`.
+The harness reads them (`tools/dual_run_tree.py`) and sends the request again with the files,
+until the tree assembles or a named error stays. The core decides the root rules of the tree; each
+rule of a mount and each PASS of a root rule of a tree is a named gap
+([AD-379](decisions/ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md)).
 
 `--self-test` compares what the core read: the rule ids and
 kinds of the contract bytes against the verdict map, and the reply that the store accepts. A

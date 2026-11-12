@@ -23,12 +23,16 @@ pub enum Unsupported {
     Rule(RuleKind),
     /// The report v2 payload (slice 0d).
     Report,
-    /// A contract that mounts inside contracts: the core does not assemble the tree yet.
+    /// A contract that mounts inside contracts that the shell has not sent yet (AD-379).
     InsideTree,
     /// The UML target row of a contract with `declarations.uml`.
     UmlTarget,
     /// The baseline of a request: no slice reads it yet.
     Baseline,
+    /// A rule of an inside contract: the core does not clip the scope of a mount yet (AD-379).
+    InsideRule,
+    /// A PASS of a root rule of a tree: the core does not read the coverage of the mounts yet.
+    TreeScope,
 }
 
 /// An input of a run that the core needs.
@@ -110,15 +114,20 @@ impl fmt::Display for Unsupported {
                 )
             }
             Unsupported::Report => formatter.write_str("the report payload: slice 0d ports it"),
-            Unsupported::InsideTree => formatter.write_str(
-                "the contract mounts inside contracts; the tree assembly is not in the core yet",
-            ),
+            Unsupported::InsideTree => formatter
+                .write_str("the contract mounts inside contracts that the shell has not sent"),
             Unsupported::UmlTarget => {
                 formatter.write_str("the UML target of the contract: no slice ports it yet")
             }
             Unsupported::Baseline => {
                 formatter.write_str("the baseline of the request: no slice reads it yet")
             }
+            Unsupported::InsideRule => formatter.write_str(
+                "a rule of an inside contract: the core does not clip a mount scope yet",
+            ),
+            Unsupported::TreeScope => formatter.write_str(
+                "the scope proof of a contract tree: the core does not read the mount coverage yet",
+            ),
         }
     }
 }

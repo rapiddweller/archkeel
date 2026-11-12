@@ -10,7 +10,7 @@ use archkeel_contract::Contract;
 use archkeel_model::{Graph, Input, Model, Reason, Settings};
 use archkeel_store::Ingested;
 
-use crate::contract::ContractState;
+use crate::contract::{ContractInput, ContractState, Usable};
 use crate::ingest::ReplyState;
 use crate::request::Request;
 use crate::rules::RuleAnswer;
@@ -30,7 +30,8 @@ pub(crate) enum Answer {
 /// One run: the parsed contract, the validated reply, the settings and what they derive.
 #[derive(Default)]
 pub(crate) struct Engine {
-    contract: Option<Contract>,
+    /// The root contract and the rules of its inside contracts (AD-379).
+    contract: Option<Usable>,
     reply: Option<Ingested>,
     settings: Option<Settings>,
     /// The derivation of the inputs above, made at the first request that needs it and dropped
@@ -70,12 +71,7 @@ impl Derived {
 impl Engine {
     pub(crate) fn answer(&mut self, request: Request) -> Answer {
         match request {
-            Request::Contract(bytes) => {
-                let (state, contract) = crate::contract::answer(&bytes);
-                self.contract = contract;
-                self.derived = None;
-                Answer::Contract(state)
-            }
+            Request::Contract(input) => self.take_contract(input),
             Request::Ingest {
                 reply,
                 inflate_limit,
@@ -100,28 +96,37 @@ impl Engine {
                 Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
             Request::Rules => {
+                let tree = self.contract.as_ref().map(crate::rules::Tree::of);
                 let (contract, derived) = self.derived();
-                Answer::Rules(crate::rules::answer(contract, derived.model()))
+                Answer::Rules(crate::rules::answer(contract, derived.model(), tree))
             }
             Request::Report => Answer::Report(crate::report::answer()),
         }
     }
 
-    /// The parsed contract.
-    pub(crate) fn contract(&self) -> Option<&Contract> {
+    fn take_contract(&mut self, input: ContractInput) -> Answer {
+        let (state, contract) = crate::contract::answer(input);
+        self.contract = contract;
+        self.derived = None;
+        Answer::Contract(state)
+    }
+
+    /// The usable contract: the root and the rules of its inside contracts.
+    pub(crate) fn usable(&self) -> Option<&Usable> {
         self.contract.as_ref()
     }
 
     /// The contract and the derivation of the inputs. The derivation is made one time and kept
     /// until an input changes.
     pub(crate) fn derived(&mut self) -> (Option<&Contract>, &Derived) {
-        let (contract, reply, settings) = (&self.contract, &self.reply, &self.settings);
+        let contract = self.contract.as_ref().map(|usable| &usable.root);
+        let (reply, settings) = (&self.reply, &self.settings);
         let derivations = &mut self.derivations;
         let derived = self.derived.get_or_insert_with(|| {
             *derivations += 1;
-            derive(contract.as_ref(), reply.as_ref(), settings.as_ref())
+            derive(contract, reply.as_ref(), settings.as_ref())
         });
-        (contract.as_ref(), derived)
+        (contract, derived)
     }
 
     /// The number of derivations of this run.

@@ -39,6 +39,9 @@
 **Amendment (2026-11-11, AD-372).** The request of point 7 is `archkeel-dual-run-2`: it also
 carries `namespace` and `standard_library`, which the shell reads, so the core reads no file.
 
+**Amendment (2026-11-12, AD-379).** The request is `archkeel-dual-run-3`: it also carries
+`insides`, the inside contracts that the shell read for the paths that the last frame named.
+
 **Reason.** The Rust model and evaluator replace `ir/` and `check/` one family at a time. Each
 slice needs a proof that it gives the verdicts and rows of Python, and the proof must stay after
 the Python code is deleted. A typo or a filter must never turn the proof into an empty PASS.

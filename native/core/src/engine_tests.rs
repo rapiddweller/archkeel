@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use archkeel_model::{Input, Reason, Section, Settings, Unsupported};
 
 use super::{Answer, Engine};
-use crate::contract::ContractState;
+use crate::contract::{ContractInput, ContractState};
 use crate::ingest::ReplyState;
 use crate::request::Request;
 
@@ -67,7 +67,9 @@ fn ingest(engine: &mut Engine) -> Answer {
 #[test]
 fn the_engine_reads_the_rules_of_a_structural_contract() {
     let mut engine = Engine::default();
-    let answer = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let answer = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     let rules = match answer {
         Answer::Contract(ContractState::Parsed(rules)) => rules,
         other => {
@@ -115,7 +117,7 @@ fn unowned_contract() -> Vec<u8> {
 #[test]
 fn the_engine_decides_the_s1_kinds_and_writes_their_violation_rows() {
     let mut engine = Engine::default();
-    let _ = engine.answer(Request::Contract(unowned_contract()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(unowned_contract())));
     let _ = ingest(&mut engine);
     let Answer::Rules(answer) = engine.answer(Request::Rules) else {
         fail("a rules answer");
@@ -154,11 +156,11 @@ fn the_engine_decides_the_s1_kinds_and_writes_their_violation_rows() {
 #[test]
 fn a_contract_with_declarations_parses_in_the_core() {
     let mut engine = Engine::default();
-    let answer = engine.answer(Request::Contract(
+    let answer = engine.answer(Request::Contract(ContractInput::root(
         br#"{"schema_version": "3.14.0",
         "components": [], "rules": [], "declarations": {}}"#
             .to_vec(),
-    ));
+    )));
     assert!(
         matches!(answer, Answer::Contract(ContractState::Parsed(_))),
         "{answer:?}"
@@ -166,31 +168,28 @@ fn a_contract_with_declarations_parses_in_the_core() {
 }
 
 #[test]
-fn a_contract_that_mounts_an_inside_contract_is_refused_by_name_and_never_used() {
+fn a_contract_that_mounts_an_inside_contract_names_the_missing_paths_and_is_never_used() {
     let mut engine = Engine::default();
-    let answer = engine.answer(Request::Contract(
+    let answer = engine.answer(Request::Contract(ContractInput::root(
         br#"{"schema_version": "2.1.0", "rules": [], "components": [{"id": "C-A",
         "label": "a", "role": "component", "packages": ["p.a"], "responsibilities": ["A."],
         "forbidden_responsibilities": [], "provenance": ["d.md"], "inside": "inner.json"}]}"#
             .to_vec(),
-    ));
+    )));
     let text = format!("{answer:?}");
     assert!(
-        matches!(
-            answer,
-            Answer::Contract(ContractState::Unsupported(Reason::Unsupported(
-                Unsupported::InsideTree
-            )))
-        ),
+        matches!(answer, Answer::Contract(ContractState::Missing(paths)) if paths == ["inner.json"]),
         "{text}"
     );
-    assert!(engine.contract().is_none());
+    assert!(engine.usable().is_none());
 }
 
 #[test]
 fn the_engine_ingests_a_reply_and_each_section_has_rows_or_names_its_slice() {
     let mut engine = Engine::default();
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     assert!(matches!(ingest(&mut engine), Answer::Reply(ReplyState::Ingested(files)) if files > 0));
     let rows = match engine.answer(Request::Sections(Section::ALL.to_vec())) {
         Answer::Sections(rows) => rows,
@@ -225,7 +224,9 @@ fn the_engine_ingests_a_reply_and_each_section_has_rows_or_names_its_slice() {
 #[test]
 fn a_run_derives_its_model_one_time_until_an_input_changes() {
     let mut engine = Engine::default();
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     let _ = ingest(&mut engine);
     assert_eq!(engine.derivations(), 0);
     let _ = engine.answer(Request::Sections(vec![
@@ -236,7 +237,9 @@ fn a_run_derives_its_model_one_time_until_an_input_changes() {
     let _ = engine.answer(Request::Sections(vec![Section::DependencyEdges]));
     assert_eq!(engine.derivations(), 1);
     // A new contract drops the derivation, so the next request derives again.
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     let _ = engine.answer(Request::Rules);
     assert_eq!(engine.derivations(), 2);
 }
@@ -279,7 +282,9 @@ fn a_module_outside_the_namespace_refuses_the_four_sections_of_slice_s3() {
 #[test]
 fn new_settings_or_a_new_reply_drop_the_cached_model() {
     let mut engine = Engine::default();
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     let _ = ingest(&mut engine);
     let _ = engine.answer(Request::Rules);
     assert_eq!(engine.derivations(), 1);
@@ -301,7 +306,9 @@ fn new_settings_or_a_new_reply_drop_the_cached_model() {
 #[test]
 fn a_section_named_twice_has_its_rows_built_once() {
     let mut engine = Engine::default();
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     let _ = ingest(&mut engine);
     let repeated = vec![Section::Cycles, Section::Modules, Section::Cycles];
     let Answer::Sections(rows) = engine.answer(Request::Sections(repeated)) else {
@@ -342,7 +349,9 @@ fn a_section_without_a_contract_or_a_reply_names_the_missing_input() {
     let rows = engine.answer(Request::Sections(vec![Section::Modules]));
     let text = format!("{rows:?}");
     assert!(text.contains("MissingInput(Reply)"), "{text}");
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Contract(ContractInput::root(
+        NATIVE_CONTRACT.as_bytes().to_vec(),
+    )));
     let rows = engine.answer(Request::Sections(vec![Section::Metrics]));
     let text = format!("{rows:?}");
     assert!(text.contains("MissingInput(Reply)"), "{text}");
@@ -355,12 +364,12 @@ fn a_section_without_a_contract_or_a_reply_names_the_missing_input() {
 #[test]
 fn the_uml_target_of_a_contract_is_an_unsupported_rule_by_name() {
     let mut engine = Engine::default();
-    let _ = engine.answer(Request::Contract(
+    let _ = engine.answer(Request::Contract(ContractInput::root(
         br#"{"schema_version": "2.2.0", "components": [], "rules": [],
         "declarations": {"uml": {"schema_version": "1.1.0"}}}"#
             .to_vec(),
-    ));
-    let reason = crate::contract::uml_reason(engine.contract(), "architecture-contract.json");
+    )));
+    let reason = crate::contract::uml_reason(engine.usable(), "architecture-contract.json");
     let reason = reason.map(|(id, reason)| format!("{id}: {reason}"));
     assert_eq!(
         reason.as_deref(),
