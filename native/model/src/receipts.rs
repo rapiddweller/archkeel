@@ -230,3 +230,7 @@ impl From<Cause> for Reason {
         Reason::NotComplete(cause)
     }
 }
+
+#[cfg(test)]
+#[path = "receipts_tests.rs"]
+mod tests;

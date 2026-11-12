@@ -103,6 +103,6 @@ mod receipts;
 mod roots;
 
 pub use causes::{Held, HELD_SHOWN};
-pub use component_cycles::ComponentCycle;
+pub use component_cycles::{cycles_of_components, ComponentCycle};
 pub use pair_gaps::{reads, Reads};
 pub use receipts::{GapScope, ScanProof};

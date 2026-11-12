@@ -23,7 +23,8 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{
-    ConstructSupport, Dirty, Facts, Layout, RequirementState, Role, Runtime as RuntimeFact,
+    ConstructSupport, Dirty, Facts, Layout, PairGapDrop, RequirementState, Role,
+    Runtime as RuntimeFact,
 };
 use archkeel_facts::sections::{GapFact, Section};
 
@@ -66,6 +67,8 @@ pub(crate) struct Observed {
     pub(crate) inventory_complete: bool,
     /// How the modules of the profile lie in the scan roots (slice S7).
     pub(crate) layout: Layout,
+    /// Whether the host drops an allowed pair gap of the profile (slice S7).
+    pub(crate) pair_gap_drop: PairGapDrop,
 }
 
 /// One dynamic import limit of the `unknowns` section (`dynamic_dependency_limits`).
@@ -140,6 +143,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .any(|feature| feature == SYMBOL_FEATURE),
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
+        pair_gap_drop: facts.profile.pair_gap_drop(),
     }
 }
 

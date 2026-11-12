@@ -386,7 +386,7 @@ methods of `Path` by name), a macro such as `eprintln!` or `include_str!`, or an
 
 The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) runs only in the dual run; no command uses it. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
 
-- A gap between two modules that the contract allows: Python drops it for the Rust profile only. Since [AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md) it holds no rule, and the run status names it.
+- A gap between two modules that the contract allows: Python drops it for the Rust profile only. The core names each rule and the run for it. For another profile both engines keep the gap ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md)).
 - `interface_boundary` in a TypeScript contract: a limit of the Rust profile only. 8 rules (PASS in Python).
 - A symbol-level selector in a reply with `script-globals-v1`: one profile reads such selectors. 4 rules (PASS in Python).
 - A runtime requirement that is not `>=X`, and a `forbidden_construct` rule that selects no module: no corpus case.
@@ -399,7 +399,7 @@ The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-pa
 The core decides one rule kind set where Python does not ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md), "core decides, Python does not"). Python makes every rule UNKNOWN for a pair gap that it keeps. The core holds only the rules whose reading the gap can change, and it passes the others. The run stays UNKNOWN and names each kept gap. The frame lists each such rule in `beyond`, and the harness shows it as a named difference. The corpus has 22 such rules in 17 cases (`BEYOND_CASES` in `tests/test_native_core.py`). Two limits apply:
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
-- A gap that the drop rule drops holds no rule in the core for any profile. Only the Rust collector writes pair gaps today.
+- The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
 
 The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 

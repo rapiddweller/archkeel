@@ -25,8 +25,7 @@ pub(crate) fn check(id: &str, rule: &NoComponentCycles, model: &Model) -> Vec<Vi
             .is_none_or(|labels| labels.iter().any(|l| l.as_text() == label))
     };
     let mut found: Vec<Violation> = match rule.level() {
-        CycleLevel::Component => model
-            .component_cycles()
+        CycleLevel::Component => archkeel_model::cycles_of_components(model)
             .iter()
             .filter(|cycle| cycle.members().iter().any(|label| in_scope(label)))
             .map(|cycle| cyclic(id, cycle.members(), &cycle.imports(model), None))

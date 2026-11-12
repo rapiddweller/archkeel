@@ -40,59 +40,59 @@ impl ComponentCycle {
     }
 }
 
-impl Model {
-    /// The component cycles, in the order of their first member label.
-    pub fn component_cycles(&self) -> Vec<ComponentCycle> {
-        let owner = |module: &str| crate::ownership::owner_of(self.components(), module);
-        let owned: Vec<Option<(ComponentId, ComponentId)>> = self
-            .graph()
-            .imports()
-            .iter()
-            .map(|import| {
-                let pair = (
-                    owner(import.source_module())?,
-                    owner(import.target_module())?,
-                );
-                (pair.0 != pair.1).then_some(pair)
-            })
-            .collect();
-        let edges: BTreeSet<(usize, usize)> = owned
-            .iter()
-            .flatten()
-            .map(|(source, target)| (source.index(), target.index()))
-            .collect();
-        let edges: Vec<(usize, usize)> = edges.into_iter().collect();
-        let condensation = condense(self.components().len(), &edges);
-        let label = |index: usize| {
-            self.components()
-                .iter()
-                .find(|(id, _)| id.index() == index)
-                .map(|(_, component)| component.label().as_text().to_owned())
-        };
-        let mut found: Vec<ComponentCycle> = condensation
+/// The component cycles of a model, in the order of their first member label. A free function,
+/// not a method in this file: the Rust collector cannot place a method of an `impl` block of
+/// another file, so a call of it from another crate would be a pair gap (AD-357).
+pub fn cycles_of_components(model: &Model) -> Vec<ComponentCycle> {
+    let owner = |module: &str| crate::ownership::owner_of(model.components(), module);
+    let owned: Vec<Option<(ComponentId, ComponentId)>> = model
+        .graph()
+        .imports()
+        .iter()
+        .map(|import| {
+            let pair = (
+                owner(import.source_module())?,
+                owner(import.target_module())?,
+            );
+            (pair.0 != pair.1).then_some(pair)
+        })
+        .collect();
+    let edges: BTreeSet<(usize, usize)> = owned
+        .iter()
+        .flatten()
+        .map(|(source, target)| (source.index(), target.index()))
+        .collect();
+    let edges: Vec<(usize, usize)> = edges.into_iter().collect();
+    let condensation = condense(model.components().len(), &edges);
+    let label = |index: usize| {
+        model
             .components()
             .iter()
-            .filter(|component| component.len() > 1)
-            .map(|component| {
-                let inside: BTreeSet<usize> = component.iter().copied().collect();
-                let mut members: Vec<String> = component.iter().filter_map(|&i| label(i)).collect();
-                members.sort();
-                let imports = owned
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, pair)| {
-                        let (source, target) = (*pair)?;
-                        let both =
-                            inside.contains(&source.index()) && inside.contains(&target.index());
-                        both.then_some(index)
-                    })
-                    .collect();
-                ComponentCycle { members, imports }
-            })
-            .collect();
-        found.sort_by(|a, b| a.members.cmp(&b.members));
-        found
-    }
+            .find(|(id, _)| id.index() == index)
+            .map(|(_, component)| component.label().as_text().to_owned())
+    };
+    let mut found: Vec<ComponentCycle> = condensation
+        .components()
+        .iter()
+        .filter(|component| component.len() > 1)
+        .map(|component| {
+            let inside: BTreeSet<usize> = component.iter().copied().collect();
+            let mut members: Vec<String> = component.iter().filter_map(|&i| label(i)).collect();
+            members.sort();
+            let imports = owned
+                .iter()
+                .enumerate()
+                .filter_map(|(index, pair)| {
+                    let (source, target) = (*pair)?;
+                    let both = inside.contains(&source.index()) && inside.contains(&target.index());
+                    both.then_some(index)
+                })
+                .collect();
+            ComponentCycle { members, imports }
+        })
+        .collect();
+    found.sort_by(|a, b| a.members.cmp(&b.members));
+    found
 }
 
 #[cfg(test)]

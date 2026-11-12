@@ -17,6 +17,8 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
+use archkeel_facts::envelope::PairGapDrop;
+
 use archkeel_contract::{kind_of, Component, Contract, CycleLevel, Rule, RuleKind};
 
 use crate::graph::Graph;
@@ -42,7 +44,9 @@ pub(crate) struct Kept {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Pairs {
     pub(crate) kept: Vec<Kept>,
-    /// One gap is a gap that the drop rule drops: the host drops it for one profile.
+    /// One gap is a gap that the drop rule drops for a profile whose host drops it. Such a gap
+    /// names each rule and the run (`Part::AllowedPairGap`): the core does not prove that the
+    /// drop rule sees every selection of a rule (AD-384 point 4).
     pub(crate) allowed: bool,
 }
 
@@ -143,11 +147,13 @@ pub(crate) fn pairs(
         .collect();
     let owner = |module: &str| owner_of(components, module);
     let cyclic = Cyclic::of(contract, components, graph, gaps);
+    // `drop_allowed_pair_gaps` drops only for a profile whose host drops (`pair_gaps.py:66`).
+    let drops = graph.observed().pair_gap_drop == PairGapDrop::Allowed;
     let mut found = Pairs::default();
     for (source, target) in gaps {
         let ends = [owner(source), owner(target)];
         let dropped = match ends {
-            [Some(from), Some(to)] => {
+            [Some(from), Some(to)] if drops => {
                 let (from_row, to_row) = (components.get(from), components.get(to));
                 let crossing = from_row
                     .zip(to_row)

@@ -65,7 +65,25 @@ pub enum Layout {
     Other,
 }
 
+/// What the host does with a gap between two modules that the contract allows
+/// (`check/pair_gaps.py:66` `drop_allowed_pair_gaps`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PairGapDrop {
+    /// The host drops such a gap before the evaluation.
+    Allowed,
+    /// The host keeps every pair gap.
+    Never,
+}
+
 impl Profile {
+    /// What the host does with an allowed pair gap of this profile.
+    pub fn pair_gap_drop(self) -> PairGapDrop {
+        match self {
+            Profile::Rust => PairGapDrop::Allowed,
+            Profile::TypeScript | Profile::Python | Profile::Dart => PairGapDrop::Never,
+        }
+    }
+
     /// How the modules of this profile lie in the scan roots.
     pub fn layout(self) -> Layout {
         match self {

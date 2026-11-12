@@ -70,12 +70,12 @@ pub(crate) fn failed() -> Run {
     (BTreeMap::new(), Err(Reason::NoSubjects))
 }
 
-const PAGE: &str = "shop.src.presentation.page_x2e_ts";
-const ORDER: &str = "shop.src.domain.order_x2e_ts";
-const INDEX: &str = "shop.src.domain.index_x2e_ts";
-const LOCAL: &str = "shop.src.data.local_x2e_ts";
+pub(crate) const PAGE: &str = "shop.src.presentation.page_x2e_ts";
+pub(crate) const ORDER: &str = "shop.src.domain.order_x2e_ts";
+pub(crate) const INDEX: &str = "shop.src.domain.index_x2e_ts";
+pub(crate) const LOCAL: &str = "shop.src.data.local_x2e_ts";
 
-fn word(found: &Run, rule: &str) -> String {
+pub(crate) fn word(found: &Run, rule: &str) -> String {
     found
         .0
         .get(rule)
@@ -84,7 +84,7 @@ fn word(found: &Run, rule: &str) -> String {
 }
 
 /// True when the rule is UNKNOWN because the gaps `shown` hold it.
-fn held(found: &Run, rule: &str, shown: &[&str]) -> bool {
+pub(crate) fn held(found: &Run, rule: &str, shown: &[&str]) -> bool {
     match found.0.get(rule) {
         Some((word, Some(Reason::NotComplete(Cause::PairGaps(gaps))))) => {
             word == "UNKNOWN" && gaps.shown() == shown && gaps.count() == shown.len()
@@ -94,13 +94,13 @@ fn held(found: &Run, rule: &str, shown: &[&str]) -> bool {
 }
 
 /// The run names the kept gaps.
-fn run_held(found: &Run, shown: &[&str]) -> bool {
+pub(crate) fn run_held(found: &Run, shown: &[&str]) -> bool {
     matches!(&found.1, Err(Reason::NotComplete(Cause::PairGaps(gaps))) if gaps.shown() == shown)
 }
 
 /// `complete_requires` accepts a coverage gap with its dependency scope proof in the host, so a
 /// gap that holds it is a named part (AD-380 point 3).
-fn scoped(found: &Run) -> bool {
+pub(crate) fn scoped(found: &Run) -> bool {
     found.0.get("REQUIRES").and_then(|(_, why)| why.clone())
         == Some(Reason::Unsupported(Unsupported::ScopeProof(
             Part::ScopedRequires,
@@ -197,75 +197,6 @@ fn a_gap_to_an_unowned_module_holds_the_forbidden_rule() {
 }
 
 #[test]
-fn a_gap_that_the_drop_rule_drops_holds_no_rule_and_the_run_names_it() {
-    // app requires presentation without `through`, no rule names either end, and no cycle
-    // closes: the host drops the gap for one profile.
-    let found = run(unchanged, gap(MAIN.0, PAGE), rooted()).unwrap_or_else(failed);
-    for (rule, (word, why)) in &found.0 {
-        assert_eq!((word.as_str(), why), ("PASS", &None), "{rule}");
-    }
-    assert_eq!(
-        found.1,
-        Err(Reason::Unsupported(Unsupported::ScopeProof(
-            Part::AllowedPairGap
-        )))
-    );
-}
-
-/// The contract without the two rules that name modules, so the drop rule reaches its cycle part.
-fn unnamed(contract: &mut Value) {
-    if let Some(rules) = contract["rules"].as_array_mut() {
-        rules.retain(|rule| rule["id"] != "DOMAIN-NO-DATA" && rule["id"] != "DATA-PEERS");
-    }
-}
-
-#[test]
-fn a_gap_inside_one_component_that_closes_a_module_cycle_is_kept() {
-    // `domain.index -> domain.order` exists, so `order -> index` closes a module cycle.
-    let shown = [format!("{ORDER} -> {INDEX}")];
-    let shown: Vec<&str> = shown.iter().map(String::as_str).collect();
-    let found = run(unnamed, gap(ORDER, INDEX), rooted()).unwrap_or_else(failed);
-    assert!(held(&found, "MODULE-CYCLES", &shown));
-    assert_eq!(word(&found, "LAYOUT"), "PASS");
-    assert!(run_held(&found, &shown));
-    // Without a module cycle rule the drop rule drops the gap: no rule is held.
-    let without = both(unnamed, |contract: &mut Value| {
-        if let Some(rules) = contract["rules"].as_array_mut() {
-            rules.retain(|rule| rule["id"] != "MODULE-CYCLES");
-        }
-    });
-    let dropped = run(without, gap(ORDER, INDEX), rooted()).unwrap_or_else(failed);
-    assert!(
-        dropped.0.values().all(|(word, _)| word == "PASS"),
-        "{:?}",
-        dropped.0
-    );
-}
-
-#[test]
-fn a_gap_along_a_requires_that_closes_a_component_cycle_is_kept() {
-    // domain requires presentation, and presentation reaches domain: `order -> page` closes a
-    // component cycle, so the drop rule keeps it.
-    // Without the module cycle rule only the component cycle part of the drop rule keeps it.
-    let requires = both(unnamed, |contract: &mut Value| {
-        contract["components"][3]["requires"] =
-            json!([{"component": "presentation", "rationale": "A test."}]);
-        if let Some(rules) = contract["rules"].as_array_mut() {
-            rules.retain(|rule| rule["id"] != "MODULE-CYCLES");
-        }
-    });
-    let shown = [format!("{ORDER} -> {PAGE}")];
-    let shown: Vec<&str> = shown.iter().map(String::as_str).collect();
-    let found = run(requires, gap(ORDER, PAGE), rooted()).unwrap_or_else(failed);
-    assert!(
-        held(&found, "COMPONENT-CYCLES", &shown),
-        "{:?}",
-        found.0.get("COMPONENT-CYCLES")
-    );
-    assert!(run_held(&found, &shown));
-}
-
-#[test]
 fn a_cycle_through_a_retargeted_import_fails_both_levels_over_a_kept_gap() {
     // `presentation.page -> main` closes `main -> page`: a FAIL is a fact also with a gap.
     let found = run(
@@ -276,4 +207,32 @@ fn a_cycle_through_a_retargeted_import_fails_both_levels_over_a_kept_gap() {
     .unwrap_or_else(failed);
     assert_eq!(word(&found, "COMPONENT-CYCLES"), "FAIL");
     assert_eq!(word(&found, "MODULE-CYCLES"), "FAIL");
+}
+/// The profile of the replies of the Rust collector, as the facts crate names it.
+const RUST_PROFILE: &str = "archkeel-rust-imports";
+
+/// The H-typescript reply as a reply of the profile whose host drops an allowed pair gap: the
+/// two sections of that profile, no feature and no construct. The modules stay the same.
+pub(crate) fn dropping(reply: &mut Value) {
+    let keep = |name: &Value| name == "imports" || name == "unknowns";
+    if let Some(sections) = reply["facts"]["sections"].as_array_mut() {
+        sections.retain(|section| keep(&section["name"]));
+        // The records of the dropped sections are gone, so no record cites them.
+        for record in sections
+            .iter_mut()
+            .flat_map(|s| s["records"].as_array_mut().into_iter().flatten())
+        {
+            record["fact_ids"] = json!([]);
+        }
+    }
+    reply["facts"]["capabilities"] = json!({"constructs": [], "resolution_features": [],
+                                             "sections": ["imports", "unknowns"]});
+    reply["facts"]["profile"] = json!(RUST_PROFILE);
+}
+
+/// The rooted settings of a dropping reply.
+pub(crate) fn dropping_settings() -> Settings {
+    Settings::new("shop".to_owned(), RUST_PROFILE.to_owned(), Vec::new())
+        .with_producer(archkeel_model::Producer::Trusted)
+        .with_roots(vec!["src".to_owned()])
 }

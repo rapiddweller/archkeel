@@ -198,3 +198,7 @@ mod gap_scope_tests;
 #[cfg(test)]
 #[path = "cycle_receipt_tests.rs"]
 mod cycle_receipt_tests;
+
+#[cfg(test)]
+#[path = "drop_rule_tests.rs"]
+mod drop_rule_tests;

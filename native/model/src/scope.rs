@@ -109,6 +109,8 @@ impl<'id, 'm> Scope<'id, 'm> {
         let unread = match self.model.scope_state() {
             State::Incomplete(reason) => return Err(rescued(rule, reason)),
             State::Unread(part) => Some(part.clone()),
+            // A gap that the host drops for its profile names each rule (AD-384 point 4).
+            State::Complete if self.model.pairs().allowed => Some(Part::AllowedPairGap),
             State::Complete => None,
         };
         // Slice S7 (AD-384): a kept pair gap holds only the rules whose reading it can change.

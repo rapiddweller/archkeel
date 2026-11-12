@@ -155,9 +155,9 @@ fn a_kept_pair_gap_holds_no_rule_of_the_four_kinds() {
 }
 
 #[test]
-fn a_pair_gap_that_the_contract_allows_holds_no_rule() {
-    // `app` requires `presentation` without `through`, and no rule names either end: the host
-    // drops the gap for one profile; the run names it (`gap_scope_tests.rs`).
+fn a_pair_gap_that_the_contract_allows_is_kept_for_this_profile_and_holds_no_rule_of_four() {
+    // The host of this profile keeps every pair gap (`PairGapDrop::Never`), so the gap is kept
+    // and the four kinds read no edge of it (`drop_rule_tests.rs`, review B1 of #1084).
     let gap = pair_gap("shop.src.main_x2e_ts", "shop.src.presentation.page_x2e_ts");
     all_pass(decided(unchanged, gap, shop_settings()));
 }
