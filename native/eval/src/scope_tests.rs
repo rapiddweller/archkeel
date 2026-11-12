@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use crate::evaluate;
 use crate::tests::{contract, reply, shop_profile, shop_settings};
 
+
 /// The four decided rules of the H-typescript contract.
 const DECIDED: [&str; 4] = ["ASSIGNMENT", "LAYOUT", "EXTERNAL-COMPLETE", "EXTERNAL-SHOP"];
 
@@ -302,21 +303,44 @@ fn a_construct_that_the_collector_does_not_examine_is_a_fact() {
     );
 }
 
+/// No decided rule passes: the store refuses the reply, or each rule is not PASS.
+fn no_pass(reply_change: impl FnOnce(&mut Value)) -> bool {
+    match decided(unchanged, reply_change, shop_settings()) {
+        None => true,
+        Some(found) => found.iter().all(|(word, _)| word != "PASS"),
+    }
+}
+
 #[test]
-fn a_construct_that_the_collector_names_unsupported_is_a_fact() {
-    let unsupported = |r: &mut Value| {
-        r["facts"]["capabilities"]["constructs"] =
-            json!([{"name": "string_literal_compare", "status": "unsupported"}]);
+fn a_capability_set_that_is_not_registered_reaches_no_pass() {
+    // Lead decision L-35a: `evaluate_source` refuses each of these replies
+    // (`evaluate.py:1006-1056`). The store refuses them today; this test also holds if a later
+    // store change accepts one, because then no decided rule may pass.
+    let features = |r: &mut Value| -> Option<Vec<Value>> {
+        r["facts"]["capabilities"]["resolution_features"].as_array().cloned()
     };
-    let found = decided(
-        construct_rule("shop", json!(["string_literal_compare"])),
-        unsupported,
-        shop_settings(),
-    );
-    all_unknown(
-        found,
-        &not_complete(Cause::ProfileLimit("CONSTRUCT".to_owned())),
-    );
+    let probes: Vec<Box<dyn FnOnce(&mut Value)>> = vec![
+        Box::new(|r| {
+            r["facts"]["capabilities"]["constructs"] =
+                json!([{"name": "string_literal_compare", "status": "unsupported"}]);
+        }),
+        Box::new(|r| r["facts"]["capabilities"]["constructs"] = json!([])),
+        Box::new(move |r| {
+            let kept: Vec<Value> = features(r)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|f| f != "literal-imports")
+                .collect();
+            r["facts"]["capabilities"]["resolution_features"] = json!(kept);
+        }),
+        Box::new(|r| {
+            r["facts"]["capabilities"]["resolution_features"] = json!(["static-imports"]);
+        }),
+    ];
+    for probe in probes {
+        assert!(no_pass(probe));
+    }
+    assert!(reply(|r| r["facts"]["capabilities"]["constructs"] = json!([])).is_none());
 }
 
 #[test]

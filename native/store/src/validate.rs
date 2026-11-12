@@ -132,7 +132,7 @@ fn checkable(facts: &Facts) -> Result<(), String> {
             ));
         }
     }
-    Ok(())
+    crate::registered::registered(facts)
 }
 
 fn coverage_checks(facts: &Facts) -> Result<HashSet<&str>, String> {
