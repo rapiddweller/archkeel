@@ -86,3 +86,21 @@ fn a_rust_section_set_outside_the_registry_is_refused() {
     });
     assert_eq!(without_unknowns, wrong);
 }
+
+#[test]
+fn the_legacy_typescript_set_needs_a_legacy_feature_set() {
+    let legacy = |features: Value| {
+        move |v: &mut Value| {
+            for name in ["symbols", "calls", "references", "bindings", "constructs"] {
+                drop_section(v, name);
+            }
+            v["facts"]["capabilities"]["constructs"] = json!([]);
+            v["facts"]["capabilities"]["resolution_features"] = features;
+        }
+    };
+    assert_eq!(error_after(legacy(json!(["inner-uml-v1"]))), NOT_REGISTERED);
+    assert_ne!(
+        error_after(legacy(json!(["static-imports"]))),
+        NOT_REGISTERED
+    );
+}
