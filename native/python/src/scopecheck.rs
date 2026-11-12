@@ -64,6 +64,18 @@ struct Bindings<'a> {
 }
 
 impl Bindings<'_> {
+    fn enter(&mut self) -> bool {
+        if !self.work.charge(1) {
+            return false;
+        }
+        if self.depth >= 200 {
+            self.work.charge(usize::MAX);
+            return false;
+        }
+        self.depth += 1;
+        true
+    }
+
     fn imports(&mut self, aliases: &[ruff_python_ast::Alias]) {
         for alias in aliases {
             if !self.work.charge(1) {
@@ -87,14 +99,9 @@ impl Bindings<'_> {
 
 impl<'a> Visitor<'a> for Bindings<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        if !self.work.charge(1) {
+        if !self.enter() {
             return;
         }
-        if self.depth >= 200 {
-            self.work.charge(usize::MAX);
-            return;
-        }
-        self.depth += 1;
         match stmt {
             Stmt::FunctionDef(node) => {
                 self.names.insert(node.name.to_string());
@@ -115,14 +122,9 @@ impl<'a> Visitor<'a> for Bindings<'_> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
-        if !self.work.charge(1) {
+        if !self.enter() {
             return;
         }
-        if self.depth >= 200 {
-            self.work.charge(usize::MAX);
-            return;
-        }
-        self.depth += 1;
         match expr {
             Expr::Name(node) if matches!(node.ctx, ExprContext::Store | ExprContext::Del) => {
                 self.names.insert(node.id.to_string());
@@ -134,6 +136,27 @@ impl<'a> Visitor<'a> for Bindings<'_> {
             }
             _ => visitor::walk_expr(self, expr),
         }
+        self.depth -= 1;
+    }
+
+    fn visit_except_handler(&mut self, handler: &'a ruff_python_ast::ExceptHandler) {
+        if !self.enter() {
+            return;
+        }
+        let ruff_python_ast::ExceptHandler::ExceptHandler(node) = handler;
+        self.names
+            .extend(node.name.as_ref().map(ToString::to_string));
+        visitor::walk_except_handler(self, handler);
+        self.depth -= 1;
+    }
+
+    fn visit_pattern(&mut self, pattern: &'a ruff_python_ast::Pattern) {
+        if !self.enter() {
+            return;
+        }
+        self.names
+            .extend(super::patterncheck::capture(pattern).map(str::to_owned));
+        visitor::walk_pattern(self, pattern);
         self.depth -= 1;
     }
 }

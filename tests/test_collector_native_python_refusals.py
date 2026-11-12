@@ -35,8 +35,22 @@ def test_an_issue_probe_is_a_tree_only_if_cpython_accepts(
     found = _native(python_dump_binary, tmp_path, [rel])[rel]
     accepted = _compiles(source)
     assert accepted or found is not None, (name, _minor(), "CPython refuses; native has facts")
+    if accepted and name not in {"attribute-depth", "call-depth"}:
+        assert found is None, (name, _minor(), "native refuses a valid issue source")
     if found is not None:
-        assert found["message"]
+        reasons = {
+            "unicode15": "named Unicode escape is not assigned in this CPython version",
+            "unicode16": "named Unicode escape is not assigned in this CPython version",
+            "hangul-lower": (
+                "lowercase Hangul syllable name is not accepted by this CPython version"
+            ),
+            "spec-depth": "f-string: expressions nested too deeply",
+            "star-yield": "starred expression cannot contain an unparenthesized boolean expression",
+            "raw-spec-name": "CPython 3.12 cannot decode this raw format spec escape",
+            "attribute-depth": "CPython validation depth limit exceeded",
+            "call-depth": "CPython validation depth limit exceeded",
+        }
+        assert found["message"] == reasons[name]
     if not accepted:
         result = survey(python_dump_binary, _request(tmp_path, (".",), "probe", False))
         assert result["coverage"]["full_scope"] is False
@@ -73,7 +87,9 @@ def test_post_parse_edges_never_accept_a_cpython_refusal(
         for name, source in probes.items()
         if _compiles(source) and native[f"{name}.py"] is not None
     }
-    assert all(stricter.values())
+    expected_stricter = {"attribute-depth", "call-depth"} if _minor() in {12, 13, 14} else set()
+    assert set(stricter) == expected_stricter
+    assert set(stricter.values()) <= {"CPython validation depth limit exceeded"}
     print(
         json.dumps(
             {

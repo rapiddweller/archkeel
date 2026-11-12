@@ -53,6 +53,8 @@ adapters above this spine. Scope, input, source and work helpers are below it; t
 both consumers. The request carries a checked `PyMinor`; an unknown minor never selects a table.
 The parse checks compiler refusals before the survey can write facts. Each refusal is a named
 file gap with incomplete scope. The host codec and store still refuse the native Python reply.
+**Python reply acceptance — entry condition:** the store must not accept the native Python reply
+before #1072 is closed. These checks are partial: 17 known classes still accepted, issue #1072 stays open.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
 `tree-sitter-language` (rule `NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE`).
 Clippy, `cargo deny` and the file size rule stay outside the contract

@@ -108,7 +108,7 @@ pub fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
         return Err(failure(ExceptionName::SyntaxError, 1, "invalid syntax"));
     };
     let module = parsed.into_syntax();
-    if let Some(failure) = future(&module, &lines) {
+    if let Some(failure) = future(&module, &lines, minor) {
         return Err(failure);
     }
     let levels = depth(&module);
@@ -174,7 +174,7 @@ const FEATURES: [&str; 10] = [
 
 /// `future_parse` of CPython 3.14, which `ast.parse` runs: each name of a `from __future__`
 /// import at the start of the module (after the docstring) must be a known feature.
-fn future(module: &ModModule, lines: &Lines) -> Option<ParseFailure> {
+fn future(module: &ModModule, lines: &Lines, minor: PyMinor) -> Option<ParseFailure> {
     let mut body = module.body.as_slice();
     if let [Stmt::Expr(docstring), rest @ ..] = body {
         if docstring.value.is_string_literal_expr() {
@@ -187,13 +187,19 @@ fn future(module: &ModModule, lines: &Lines) -> Option<ParseFailure> {
             permitted = false;
             continue;
         };
-        if import.level != 0
-            || import
-                .module
-                .as_ref()
-                .is_none_or(|name| name != "__future__")
+        if import
+            .module
+            .as_ref()
+            .is_none_or(|name| name != "__future__")
         {
             permitted = false;
+            continue;
+        }
+        if import.level != 0 {
+            permitted &= match minor {
+                PyMinor::Py311 | PyMinor::Py312 => true,
+                PyMinor::Py313 | PyMinor::Py314 => false,
+            };
             continue;
         }
         if !permitted {

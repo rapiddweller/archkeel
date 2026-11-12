@@ -5,6 +5,7 @@
 //! Compiler checks for lambda parameters and comprehension expressions.
 
 use super::work::Work;
+use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{
     visitor::{self, Visitor},
     Comprehension, Expr, ExprContext, Parameters,
@@ -28,18 +29,34 @@ pub fn parameters(parameters: Option<&Parameters>, work: &mut Work) -> Option<&'
     None
 }
 
-pub fn check(expr: &Expr, in_class: bool, work: &mut Work) -> Option<&'static str> {
+pub fn check(
+    expr: &Expr,
+    in_class: bool,
+    debug_attribute: bool,
+    minor: PyMinor,
+    work: &mut Work,
+) -> Option<&'static str> {
+    let debug_attribute = match minor {
+        PyMinor::Py311 | PyMinor::Py312 | PyMinor::Py313 => debug_attribute,
+        PyMinor::Py314 => false,
+    };
     if matches!(expr, Expr::Name(node) if node.id == "__debug__" && node.ctx != ExprContext::Load) {
         return Some("cannot bind __debug__");
     }
-    if matches!(expr, Expr::Attribute(node) if node.attr.as_str() == "__debug__" && node.ctx != ExprContext::Load)
+    if !debug_attribute
+        && matches!(expr, Expr::Attribute(node) if node.attr.as_str() == "__debug__" && node.ctx != ExprContext::Load)
     {
         return Some("cannot bind __debug__");
     }
     if let Expr::Lambda(node) = expr {
         return parameters(node.parameters.as_deref(), work);
     }
-    let (generators, values): (&[Comprehension], Vec<&Expr>) = match expr {
+    let (generators, values) = comprehension_parts(expr)?;
+    comprehension(generators, &values, in_class, work)
+}
+
+pub fn comprehension_parts(expr: &Expr) -> Option<(&[Comprehension], Vec<&Expr>)> {
+    Some(match expr {
         Expr::ListComp(node) => (&node.generators, vec![node.elt.as_ref()]),
         Expr::SetComp(node) => (&node.generators, vec![node.elt.as_ref()]),
         Expr::DictComp(node) => (
@@ -52,8 +69,49 @@ pub fn check(expr: &Expr, in_class: bool, work: &mut Work) -> Option<&'static st
         ),
         Expr::Generator(node) => (&node.generators, vec![node.elt.as_ref()]),
         _ => return None,
-    };
-    comprehension(generators, &values, in_class, work)
+    })
+}
+
+pub fn target(expr: &Expr, sequence: bool, work: &mut Work, depth: usize) -> Option<&'static str> {
+    if !work.charge(1) {
+        return Some("CPython validation work limit exceeded");
+    }
+    if depth >= 1000 {
+        return Some("CPython validation depth limit exceeded");
+    }
+    match expr {
+        Expr::Starred(node) if sequence => target(&node.value, false, work, depth + 1),
+        Expr::Starred(_) => Some("starred assignment target must be in a list or tuple"),
+        Expr::Tuple(node) => targets(&node.elts, work, depth + 1),
+        Expr::List(node) => targets(&node.elts, work, depth + 1),
+        _ => None,
+    }
+}
+
+pub fn assignment(items: &[Expr], work: &mut Work) -> Option<&'static str> {
+    for item in items {
+        if !work.charge(1) {
+            return Some("CPython validation work limit exceeded");
+        }
+        if let Some(reason) = target(item, false, work, 0) {
+            return Some(reason);
+        }
+    }
+    None
+}
+
+fn targets(items: &[Expr], work: &mut Work, depth: usize) -> Option<&'static str> {
+    let mut stars = 0;
+    for item in items {
+        if !work.charge(1) {
+            return Some("CPython validation work limit exceeded");
+        }
+        stars += usize::from(matches!(item, Expr::Starred(_)));
+        if let Some(reason) = target(item, true, work, depth) {
+            return Some(reason);
+        }
+    }
+    (stars > 1).then_some("multiple starred assignment targets")
 }
 
 fn comprehension(
@@ -193,3 +251,7 @@ pub fn grouped_star(source: &str, work: &mut Work) -> bool {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "expressioncheck_tests.rs"]
+mod tests;

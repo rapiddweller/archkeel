@@ -14,7 +14,7 @@ from archkeel.analyzer.python.collect import collect
 
 def compiler_refuses(source: str | bytes) -> bool:
     try:
-        compile(source, "probe.py", "exec")
+        compile(source, "probe.py", "exec", dont_inherit=True)
     except (SyntaxError, UnicodeError, ValueError, RecursionError):
         return True
     return False
