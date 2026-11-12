@@ -59,6 +59,16 @@
       "A method call may reach the method check of an impl block in native.archkeel_facts.request_rules"
     ],
     [
+      "native.archkeel_python_collector.unparse",
+      "native.archkeel_python_collector.unparse.ftext",
+      "A method call may reach the method ftext of an impl block in native.archkeel_python_collector.unparse.ftext"
+    ],
+    [
+      "native.archkeel_python_collector.unparse",
+      "native.archkeel_python_collector.unparse.operators",
+      "A method call may reach the method compound of an impl block in native.archkeel_python_collector.unparse.operators"
+    ],
+    [
       "native.archkeel_report.frame",
       "native.archkeel_model.run",
       "A method call may reach the method run_complete of an impl block in native.archkeel_model.run"
