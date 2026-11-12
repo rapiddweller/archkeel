@@ -124,9 +124,7 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     differences = [line for line in lines if ": rules: " in line]
     assert not [line for line in differences if ", found " in line], differences
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
-    assert all(
-        line.endswith(S4_NAMES) or limit.search(line) for line in differences
-    ), differences
+    assert all(line.endswith(S4_NAMES) or limit.search(line) for line in differences), differences
     assert code == (1 if differences else 0)
     # The s4 cases: each gap that the reply of a store-accepted profile can hold gives the
     # verdict of Python. The reply of the honest external collector is not compressed, so the

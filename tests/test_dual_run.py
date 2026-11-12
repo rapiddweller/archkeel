@@ -491,4 +491,3 @@ def test_exit_3_goes_only_with_a_frame_that_names_a_gap(
     with dual_run.materialized(case) as root:
         got = dual_run.run_engine(case, root, f"{sys.executable} {script}", Selection())
     assert ("error" not in got) is accepted, got
-
