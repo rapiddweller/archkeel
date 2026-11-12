@@ -222,7 +222,9 @@ jobs:
   native:
     name: "Native: Rust checks and dependency policy"
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Measured on 2026-11-12: 12.9 to 14.9 minutes, mostly the Python tests of native-check
+    # (up to 10 minutes). A 15 minute limit cancelled main. The limit only stops a hung job.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
