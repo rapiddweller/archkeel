@@ -15,7 +15,7 @@ use archkeel_facts::{Record, SymbolFact};
 
 use crate::cited::Cited;
 use crate::class_data::{
-    callable_data, class_data, classifier, decorators, value_data, visibility, Core, Methods,
+    callable_data, class_data, classifier, decorators, value_data, Core, Methods,
 };
 use crate::definitions::DefinitionKind;
 use crate::symbol_table::{Entry, SymbolTable};
@@ -105,7 +105,7 @@ fn metadata(table: &SymbolTable, cited: &mut Cited, entry: &Entry) -> Core {
     };
     let unknown = definition.top_level && definition.visibility.is_none();
     let kind = match definition.visibility {
-        Some(item) => visibility(item),
+        Some(item) => item.as_str(),
         None if definition.top_level => "unknown",
         None => "public",
     };

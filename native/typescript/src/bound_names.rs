@@ -31,14 +31,11 @@ pub(crate) fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, record
         let Some(item) = by_id.get(target.import_id().as_str()) else {
             continue;
         };
-        let bindings = pending
-            .sites
-            .get(item.id.as_str())
-            .and_then(|(rel, line, column)| {
-                let kept = pending.kept.get(rel)?;
-                let own: &[ImportBinding] = kept.bindings.get(&(*line, *column))?;
-                Some((kept, own))
-            });
+        let bindings = pending.sites.get(item.id.as_str()).and_then(|site| {
+            let kept = pending.kept.get(&site.rel)?;
+            let own: &[ImportBinding] = kept.bindings.get(&(site.line, site.column))?;
+            Some((kept, own))
+        });
         let Some((kept, own)) = bindings else {
             records.imports.push((*item).clone());
             records.targets.push(target.clone());

@@ -20,6 +20,13 @@ use crate::tree::nodes::{children, named_children};
 /// Names with the span of each.
 pub type Named = Vec<(String, Span)>;
 
+/// One unique local name with its declaration and its export witness.
+pub(crate) struct ExportBinding {
+    pub(crate) name: String,
+    pub(crate) declaration: Span,
+    pub(crate) export: Span,
+}
+
 /// `_module_exports`: the runtime and visible local exports, and whether they are certain.
 pub struct ModuleExports {
     pub module_syntax: bool,
@@ -109,11 +116,11 @@ pub fn module_exports(cx: &Cx, top: &[Node]) -> ModuleExports {
     clippy::excessive_nesting,
     reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
 )]
-pub fn export_bindings(
+pub(crate) fn export_bindings(
     cx: &Cx,
     (root, top): (Node, &[Node]),
     frames: &Frames,
-) -> Vec<(String, Span, Span)> {
+) -> Vec<ExportBinding> {
     if root.has_error()
         || frames.is_ambiguous(ROOT)
         || top.iter().any(|statement| {
@@ -203,7 +210,11 @@ pub fn export_bindings(
                 && declarations.get(name).map(Vec::len) == Some(1)
                 && frames.count(ROOT, name) == 1
         })
-        .map(|(name, span)| (name.clone(), declarations[name][0].clone(), span.clone()))
+        .map(|(name, span)| ExportBinding {
+            name: name.clone(),
+            declaration: declarations[name][0].clone(),
+            export: span.clone(),
+        })
         .collect()
 }
 

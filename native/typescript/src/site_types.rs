@@ -16,6 +16,16 @@ pub enum SiteKind {
     Reference,
 }
 
+impl SiteKind {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            SiteKind::Call => "call",
+            SiteKind::New => "new",
+            SiteKind::Reference => "reference",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SiteUse {
     Type,

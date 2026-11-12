@@ -11,6 +11,13 @@ use crate::site_syntax::ReceiverKind;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 
+#[test]
+fn site_kind_names_are_stable() {
+    assert_eq!(SiteKind::Call.as_str(), "call");
+    assert_eq!(SiteKind::New.as_str(), "new");
+    assert_eq!(SiteKind::Reference.as_str(), "reference");
+}
+
 fn facts(rel: &str, source: &str) -> Syntax {
     parse(&mut Parsers::new(), rel, source.as_bytes()).syntax
 }

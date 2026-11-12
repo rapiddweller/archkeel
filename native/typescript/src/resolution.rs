@@ -20,6 +20,7 @@ use crate::definitions::DefinitionKind;
 use crate::kept::{Kept, Pending};
 use crate::site_syntax::ReceiverKind;
 use crate::sites::{Site, SiteKind, SiteUse};
+use crate::source::FileSiteKey;
 use crate::symbol_table::{Entry, SymbolTable};
 
 /// What a local import binds: `(target module, imported name, namespace, type only)`.
@@ -30,10 +31,10 @@ pub type Imports = HashMap<(String, String), Vec<Bound>>;
 
 /// `_local_import_bindings`: a binding is found by the position of its statement.
 pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
-    let by_site: HashMap<(&str, i64, i64), &str> = pending
+    let by_site: HashMap<FileSiteKey<'_>, &str> = pending
         .sites
         .iter()
-        .map(|(id, (rel, line, column))| ((rel.as_str(), *line, *column), id.as_str()))
+        .map(|(id, site)| (site.key(), id.as_str()))
         .collect();
     let targets: HashMap<&str, &Target> = facts
         .imports
@@ -46,7 +47,7 @@ pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
             continue;
         };
         for (&(line, column), bindings) in &kept.bindings {
-            let edge = by_site.get(&(rel.as_str(), line, column));
+            let edge = by_site.get(&FileSiteKey { rel, line, column });
             let Some(Target::Local { module, .. }) = edge.and_then(|id| targets.get(id).copied())
             else {
                 continue;

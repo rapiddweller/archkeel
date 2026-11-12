@@ -6,6 +6,17 @@
 //!
 //! One table owns the file suffixes: discovery, resolution and parsing all read it.
 
+/// The classic script host names, also reserved for UMD factory and root parameters.
+pub(crate) const HOST_NAMES: [&str; 6] =
+    ["exports", "module", "define", "window", "global", "self"];
+
+/// `syntax.WALK_ROOTS`: roots that the file walk can publish through.
+pub(crate) const WALK_ROOTS: [&str; 4] = ["window", "globalThis", "self", "frames"];
+
+pub(crate) fn is_script_root(text: &[u8]) -> bool {
+    WALK_ROOTS.iter().any(|root| root.as_bytes() == text)
+}
+
 /// The source category that one resolution pass enables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourceKind {

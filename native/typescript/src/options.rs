@@ -14,7 +14,7 @@ use crate::layer::Layer;
 use crate::options_target::{detection_kind, target_kind};
 pub use crate::options_target::{Detection, Target};
 
-const CONFIG_DIRECTORY: &str = "${configDir}";
+use crate::layer::CONFIG_DIRECTORY;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ModuleKind {

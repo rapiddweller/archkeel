@@ -61,10 +61,7 @@ pub struct Paths {
     memo: HashMap<usize, Option<u32>>,
 }
 
-/// Whether the text names a root of the browser globals (`_SCRIPT_ROOTS`).
-pub fn is_script_root(text: &[u8]) -> bool {
-    text == b"window" || text == b"globalThis" || text == b"self" || text == b"frames"
-}
+pub(crate) use crate::source_input::is_script_root;
 
 impl Paths {
     fn push(&mut self, parent: Option<u32>, name: Text) -> u32 {

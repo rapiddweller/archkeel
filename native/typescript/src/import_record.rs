@@ -94,7 +94,11 @@ impl Collection<'_> {
             module_level_import: reference.module_level,
             ..ImportData::statement()
         };
-        let site = (rel.to_owned(), reference.span.line, reference.span.column);
+        let site = crate::source::FileSite {
+            rel: rel.to_owned(),
+            line: reference.span.line,
+            column: reference.span.column,
+        };
         self.sites.insert(identity.clone(), site);
         self.targets.push(target);
         self.imports.push(Record {

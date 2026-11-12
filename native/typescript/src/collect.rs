@@ -71,7 +71,7 @@ struct Collection<'a> {
     read: usize,
     kept: BTreeMap<String, Kept>,
     order: Vec<String>,
-    sites: HashMap<String, (String, i64, i64)>,
+    sites: HashMap<String, crate::source::FileSite>,
     /// The script host and the vendored libraries of the project.
     script: crate::script_environment::ScriptEnvironment,
     /// `script_pending_effects` of the files: writes that no publication bounds.

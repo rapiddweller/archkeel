@@ -11,6 +11,9 @@ use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};
 
+/// The compiler placeholder for the directory of the root TSConfig.
+pub(crate) const CONFIG_DIRECTORY: &str = "${configDir}";
+
 /// The settings of one TSConfig with what it inherits, its paths relative to the snapshot.
 #[derive(Clone, Debug, Default)]
 pub struct Layer {

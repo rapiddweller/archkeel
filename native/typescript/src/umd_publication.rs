@@ -17,7 +17,7 @@ use crate::references::literal;
 use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
 use crate::source::{Source, Span};
-use crate::source_input::{classify_file, SourceKind};
+use crate::source_input::{classify_file, SourceKind, HOST_NAMES};
 use crate::syntax::Parsers;
 use crate::tree::cx::Cx;
 use crate::tree::nodes::named_children;
@@ -33,9 +33,6 @@ pub struct Publication {
 
 /// A scope and a name, with the nodes that declare or write the name in the scope.
 type Declared<'t> = HashMap<(usize, String), Vec<Node<'t>>>;
-
-/// The names that an envelope may not use for its factory or its root.
-const RESERVED: [&str; 6] = ["exports", "module", "define", "window", "global", "self"];
 
 /// `umd_publication(rel, content)`.
 pub fn publication(parsers: &mut Parsers, rel: &str, content: &[u8]) -> Option<Publication> {
@@ -83,7 +80,7 @@ pub fn publication(parsers: &mut Parsers, rel: &str, content: &[u8]) -> Option<P
         .into_iter()
         .all(|node| cx.valid_unicode_member_name(node));
     let (factory_name, root_name) = (cx.text(factory_slot), cx.text(root_slot));
-    let reserved = |name: &str| RESERVED.contains(&name);
+    let reserved = |name: &str| HOST_NAMES.contains(&name);
     if !valid || factory_name == root_name || reserved(&factory_name) || reserved(&root_name) {
         return None;
     }

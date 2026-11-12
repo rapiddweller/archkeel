@@ -7,13 +7,14 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::definitions::{Definition, Scopes};
+use crate::exports::ExportBinding;
 use crate::import_bindings::ImportBinding;
 use crate::kept_script::ScriptFile;
 use crate::parse::Parsed;
 use crate::script_records::ScriptFacts;
 use crate::site_names::NameIndex;
 use crate::sites::Sites;
-use crate::source::Span;
+use crate::source::{FileSite, Span};
 
 /// What one parsed file keeps for the cross-file passes. The walk fills it only when a caller asks
 /// for the records, so a plain collection pays nothing.
@@ -77,13 +78,13 @@ impl Kept {
         kept
     }
 
-    pub fn new(
+    pub(crate) fn new(
         module: String,
         has_error: bool,
         definitions: Vec<(Definition, Option<String>)>,
         comparisons: Vec<(Span, Option<String>)>,
         import_bindings: &[ImportBinding],
-        module_exports: &[(String, Span, Span)],
+        module_exports: &[ExportBinding],
     ) -> Self {
         let mut bindings: HashMap<(i64, i64), Vec<ImportBinding>> = HashMap::new();
         for binding in import_bindings {
@@ -91,7 +92,12 @@ impl Kept {
             bindings.entry(at).or_default().push(binding.clone());
         }
         let mut exports: HashMap<String, Vec<(Span, Span)>> = HashMap::new();
-        for (name, declaration, export) in module_exports {
+        for ExportBinding {
+            name,
+            declaration,
+            export,
+        } in module_exports
+        {
             exports
                 .entry(name.clone())
                 .or_default()
@@ -121,7 +127,7 @@ pub struct Pending {
     /// The files in the order that the walk parsed them (`self.syntax` of Python).
     pub order: Vec<String>,
     /// Where each import record was written: the file, the line and the column of its statement.
-    pub sites: HashMap<String, (String, i64, i64)>,
+    pub(crate) sites: HashMap<String, FileSite>,
     /// The settings of the project could not be read in full (`config.partial`).
     pub partial: bool,
     /// What the script analysis found (`script_deps.rs`).
