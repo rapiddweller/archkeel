@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 from pathlib import Path
@@ -226,4 +227,47 @@ def repository_cases() -> list[tuple[str, bytes]]:
         for path, text in variant.files.items():
             if text is not None and ("baseline" in path or "known-violations" in path):
                 cases.append((f"demo {variant.id}/{path}", text.encode()))
+    cases.extend(_literal_test_cases(root))
+    return cases
+
+
+class _Constants(ast.NodeTransformer):
+    def __init__(self, values: dict[str, Any]) -> None:
+        self.values = values
+
+    def visit_Name(self, name: ast.Name) -> ast.AST:
+        return ast.Constant(self.values[name.id]) if name.id in self.values else name
+
+
+def _literal_test_cases(root: Path) -> list[tuple[str, bytes]]:
+    """Read literal baseline inputs without running test functions or changing Python."""
+    cases = []
+    for path in sorted((root / "tests").glob("test_*.py")):
+        tree = ast.parse(path.read_text())
+        constants = {"BASELINE_SCHEMA_VERSION": "1.3.0", "GETATTR_RULE": "CONSTRUCT-NO-DYNAMIC"}
+        constants.update(
+            {
+                node.targets[0].id: node.value.value
+                for node in tree.body
+                if isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Constant)
+            }
+        )
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            keys = {key.value for key in node.keys if isinstance(key, ast.Constant)}
+            if not {"schema_version", "violations"} <= keys:
+                continue
+            text = ast.unparse(node)
+
+            # Replace known constant names through the AST, never through eval.
+            try:
+                value = ast.literal_eval(_Constants(constants).visit(ast.parse(text, mode="eval")))
+            except (ValueError, TypeError):
+                # A computed input is not a file; the generated parity sets cover that grammar.
+                continue
+            cases.append((f"test {path.name}:{node.lineno}", encode(value)))
     return cases

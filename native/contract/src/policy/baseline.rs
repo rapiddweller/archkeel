@@ -5,12 +5,12 @@
 //! Read the four Python baseline schemas without applying debt to a verdict (AD-386).
 
 use crate::json::{self, field, Json};
+use crate::policy::amendment::schema_repr;
 use crate::policy::baseline_entries::{budgets, violation};
 use crate::policy::baseline_value::{
     exact, object, required, BaselineError, BaselineViolation, ValidationBaseline,
     MAX_BASELINE_BYTES,
 };
-use crate::policy::reference::python_repr;
 
 /// Read a baseline with the validation order of Python `parse_validation_baseline`.
 ///
@@ -89,17 +89,4 @@ fn reject_repeated(violations: &[BaselineViolation]) -> Result<(), BaselineError
         first.insert(key, index);
     }
     Ok(())
-}
-
-fn schema_repr(value: Option<&Json>) -> String {
-    match value {
-        None | Some(Json::Null) => "None".into(),
-        Some(Json::Text(text)) => python_repr(text),
-        Some(Json::Bool(true)) => "True".into(),
-        Some(Json::Bool(false)) => "False".into(),
-        Some(Json::Int(value)) => value.to_string(),
-        Some(Json::Float) => "<float>".into(),
-        Some(Json::Array(_)) => "<list>".into(),
-        Some(Json::Object(_)) => "<dict>".into(),
-    }
 }
