@@ -194,3 +194,7 @@ mod direction_scope_tests;
 #[cfg(test)]
 #[path = "gap_scope_tests.rs"]
 mod gap_scope_tests;
+
+#[cfg(test)]
+#[path = "cycle_receipt_tests.rs"]
+mod cycle_receipt_tests;

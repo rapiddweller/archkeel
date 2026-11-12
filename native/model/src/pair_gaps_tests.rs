@@ -73,3 +73,20 @@ fn a_side_reading_is_held_when_each_end_matches_its_side_or_has_no_one_owner() {
     assert!(kept("app.domain.a", "app.ui.b", true, [true, false], false).holds(&sides()));
     assert!(kept("app.ui.a", "app.data.b", true, [false, true], false).holds(&sides()));
 }
+
+#[test]
+fn the_walk_of_the_cycle_part_reaches_a_node_over_many_steps() {
+    use std::collections::BTreeSet;
+    let edges: BTreeSet<(&str, &str)> = [("b", "c"), ("c", "d"), ("d", "a"), ("x", "b")].into();
+    let found = super::reach(&edges, &["b"].into());
+    assert!(found.contains(&("a", "b")), "b reaches a over three steps");
+    assert!(!found.contains(&("x", "b")), "b does not reach x");
+    // A chain of many nodes needs no recursion.
+    let names: Vec<String> = (0..100_000).map(|n| format!("m{n}")).collect();
+    let chain: BTreeSet<(&str, &str)> = names
+        .windows(2)
+        .map(|pair| (pair[0].as_str(), pair[1].as_str()))
+        .collect();
+    let last = names[names.len() - 1].as_str();
+    assert!(super::reach(&chain, &["m0"].into()).contains(&(last, "m0")));
+}

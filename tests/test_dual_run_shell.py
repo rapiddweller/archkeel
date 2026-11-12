@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from tools import dual_run, dual_run_tree
-from tools.dual_run_oracle import Selection
+from tools.dual_run_oracle import BEYOND, Selection, compare_case
 
 
 def _edge(identifier: str, count: int, rank: int) -> dict[str, Any]:
@@ -101,6 +101,38 @@ def test_a_frame_status_follows_from_its_rows_and_each_status_has_its_row(
     # A core frame without a status is refused; another engine has nothing to check.
     assert dual_run.unexplained({"engine": "archkeel-core x", "rules": {}}) is not None
     assert dual_run.unexplained({**passed, "unsupported": {"rules": {"X": "why"}}}) is not None
+
+
+def test_a_pass_beyond_the_python_engine_is_named_only_over_a_kept_gap() -> None:
+    """AD-384 point 7: the harness names a core PASS over a Python UNKNOWN only when the frame
+    lists the rule in `beyond`, and a rule in `beyond` must be a PASS of a run that gaps hold."""
+    held = "incomplete scope: 1 gaps between two modules that the contract does not allow: a -> b"
+    frame: dict[str, Any] = {
+        "status": "UNKNOWN",
+        "rules": {"A": ["complete_assignment", "PASS"]},
+        "explained": {},
+        "violations": {},
+        "beyond": {"A": "no one of the 1 kept pair gaps can change the rule"},
+        "scope": held,
+        "unsupported": {"rules": {}},
+        "self_test": {"contract": {"rules": {}}, "reply": {"files": 1}},
+    }
+    assert dual_run.unexplained(frame) is None
+    oracle = {"case": {"id": "c"}, "rules": {"A": ["complete_assignment", "UNKNOWN"]}}
+    selection = Selection((), frozenset({"complete_assignment"}))
+    found = compare_case(oracle, frame, selection)
+    assert [d.detail for d in found] == [BEYOND + frame["beyond"]["A"]]
+    # Without `beyond` the same PASS is a plain difference.
+    plain = compare_case(oracle, {**frame, "beyond": {}}, selection)
+    assert [d.detail for d in plain] == [
+        "expected ['complete_assignment', 'UNKNOWN'], found ['complete_assignment', 'PASS']"
+    ]
+    # A Python FAIL is never beyond; a rule in `beyond` must pass over a scope that gaps hold.
+    failed = {"case": {"id": "c"}, "rules": {"A": ["complete_assignment", "FAIL"]}}
+    assert not compare_case(failed, frame, selection)[0].detail.startswith(BEYOND)
+    assert dual_run.unexplained({**frame, "scope": "complete", "status": "PASS"}) is not None
+    unknown = {**frame, "rules": {"A": ["complete_assignment", "UNKNOWN"]}, "explained": {"A": "x"}}
+    assert dual_run.unexplained(unknown) is not None
 
 
 def _mounting(path: str) -> dict[str, Any]:

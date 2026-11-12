@@ -118,7 +118,9 @@ S4_NAMES = (
 
 # AD-384 point 4: the one direction change. Python gives a rule UNKNOWN for any kept pair gap;
 # the core passes a rule that no kept gap can change. Only these cases have such a rule.
-BEYOND = re.compile(r": rules: \S+: core decides, Python does not: no one of the \d+ kept pair gaps ")
+BEYOND = re.compile(
+    r": rules: \S+: core decides, Python does not: no one of the \d+ kept pair gaps "
+)
 BEYOND_CASES = {
     "rust/native",
     "s7/rust-a-forbidden-and-a-sibling-rule-across-the-gap-hold-and-away-pass",
