@@ -92,7 +92,7 @@ def edge_probes() -> dict[str, str]:
         "function": "def f():\n{}\n",
         "async": "async def f():\n{}\n",
         "loop": "while True:\n{}\n",
-        "class": "class C:\n{}\n",
+        "class": "class Container:\n{}\n",
         "nested": "def outer():\n    x = 1\n    def inner():\n{}\n",
     }
     for context, template in contexts.items():
