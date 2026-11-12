@@ -6,9 +6,8 @@
 //!
 //! Reference engine: `check/evaluation/evaluate.py` `scan_source_facts` (the `parsed` files, `packages =
 //! sorted({module.package ...})`, `module_evidence`, `blank_modules`) and the ids of
-//! `check/evaluation/topology.py` `module_records`. The rows of the
-//! `modules` and `packages` sections also need the edges of S2 and the ranks of S3, so this file
-//! holds only what the reply gives.
+//! `check/evaluation/topology.py` `module_records`. The fan counts and ranks of the rows of the
+//! `modules` and `packages` sections are in `topology.rs` (slice S3).
 
 use std::collections::BTreeMap;
 
@@ -27,6 +26,9 @@ pub struct Module {
     evidence: String,
     blank: bool,
     fact_id: String,
+    exports: Vec<String>,
+    exports_literal: bool,
+    compatibility_logic_free: bool,
 }
 
 impl Module {
@@ -59,6 +61,21 @@ impl Module {
     pub fn fact_id(&self) -> &str {
         &self.fact_id
     }
+
+    /// The names that the module states as its exports, sorted.
+    pub fn exports(&self) -> &[String] {
+        &self.exports
+    }
+
+    /// True when the export list of the module is a literal.
+    pub fn exports_literal(&self) -> bool {
+        self.exports_literal
+    }
+
+    /// True when the collector proves that the module holds no compatibility logic.
+    pub fn compatibility_logic_free(&self) -> bool {
+        self.compatibility_logic_free
+    }
 }
 
 /// One package of the reply: the modules that name it, in the order of the reply.
@@ -66,6 +83,7 @@ impl Module {
 pub struct Package {
     name: String,
     modules: Vec<ModuleId>,
+    fact_id: String,
 }
 
 impl Package {
@@ -77,6 +95,11 @@ impl Package {
     /// The modules of the package, in the order of the reply.
     pub fn modules(&self) -> &[ModuleId] {
         &self.modules
+    }
+
+    /// The id of the package record: `stable_id("PKG", name)`.
+    pub fn fact_id(&self) -> &str {
+        &self.fact_id
     }
 }
 
@@ -112,6 +135,7 @@ pub(crate) fn tables(files: &[FileFact]) -> Result<Tables, Reason> {
             .map(|(name, modules)| Package {
                 name: (*name).to_owned(),
                 modules: modules.into_iter().map(module_id).collect(),
+                fact_id: stable_id("PKG", &[Part::Text(name)]),
             })
             .collect(),
     )
@@ -126,11 +150,20 @@ pub(crate) fn tables(files: &[FileFact]) -> Result<Tables, Reason> {
                 evidence: file.evidence_id.as_str().to_owned(),
                 blank: file.blank,
                 fact_id: stable_id("MOD", &[Part::Text(file.module.as_str())]),
+                exports: sorted(&file.all_exports),
+                exports_literal: file.all_literal,
+                compatibility_logic_free: file.compatibility_logic_free,
             })
             .collect(),
     )
     .ok_or(Reason::TooManyRows("modules"))?;
     Ok((modules, packages))
+}
+
+fn sorted(names: &[String]) -> Vec<String> {
+    let mut names = names.to_vec();
+    names.sort();
+    names
 }
 
 /// The id of a row index that `Table::of_rows` checked.

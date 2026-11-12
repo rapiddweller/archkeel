@@ -7,7 +7,7 @@
 //! `sections`, `report`), so that the slices change different files.
 
 use archkeel_contract::Contract;
-use archkeel_model::{Input, Model, Reason, Settings};
+use archkeel_model::{Graph, Input, Model, Reason, Settings};
 use archkeel_store::Ingested;
 
 use crate::contract::ContractState;
@@ -27,12 +27,44 @@ pub(crate) enum Answer {
     Settings,
 }
 
-/// One run: the parsed contract and the validated reply.
+/// One run: the parsed contract, the validated reply, the settings and what they derive.
 #[derive(Default)]
 pub(crate) struct Engine {
     contract: Option<Contract>,
     reply: Option<Ingested>,
     settings: Option<Settings>,
+    /// The derivation of the inputs above, made at the first request that needs it and dropped
+    /// when an input changes. So a run derives its model one time (#1059).
+    derived: Option<Derived>,
+    /// The number of derivations of this run; a test reads it.
+    derivations: usize,
+}
+
+/// What the inputs of a run derive: the model, or only its reply part, or neither, with the
+/// reason of each missing part.
+pub(crate) enum Derived {
+    Model(Model),
+    Graph(Graph, Reason),
+    Neither { graph: Reason, model: Reason },
+}
+
+impl Derived {
+    /// The reply part of the model, or the reason that the run has none.
+    pub(crate) fn graph(&self) -> Result<&Graph, Reason> {
+        match self {
+            Derived::Model(model) => Ok(model.graph()),
+            Derived::Graph(graph, _) => Ok(graph),
+            Derived::Neither { graph, .. } => Err(graph.clone()),
+        }
+    }
+
+    /// The model, or the reason that the run has none: a missing contract, reply or settings.
+    pub(crate) fn model(&self) -> Result<&Model, Reason> {
+        match self {
+            Derived::Model(model) => Ok(model),
+            Derived::Graph(_, model) | Derived::Neither { model, .. } => Err(model.clone()),
+        }
+    }
 }
 
 impl Engine {
@@ -41,6 +73,7 @@ impl Engine {
             Request::Contract(bytes) => {
                 let (state, contract) = crate::contract::answer(&bytes);
                 self.contract = contract;
+                self.derived = None;
                 Answer::Contract(state)
             }
             Request::Ingest {
@@ -49,30 +82,29 @@ impl Engine {
             } => {
                 let (state, ingested) = crate::ingest::answer(&reply, inflate_limit);
                 self.reply = ingested;
+                self.derived = None;
                 Answer::Reply(state)
             }
             Request::Settings(settings) => {
                 self.settings = Some(settings);
+                self.derived = None;
                 Answer::Settings
             }
             Request::Sections(sections) => {
-                let model = self.model();
-                let outcomes = match self.contract.as_ref() {
-                    Some(contract) => crate::rules::outcomes(contract, &model),
+                let (contract, derived) = self.derived();
+                let outcomes = match contract {
+                    Some(contract) => crate::rules::outcomes(contract, derived.model()),
                     None => Vec::new(),
                 };
-                Answer::Sections(crate::sections::answer(&model, &outcomes, &sections))
+                let derivation = (derived.graph(), derived.model());
+                Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
             Request::Rules => {
-                Answer::Rules(crate::rules::answer(self.contract.as_ref(), &self.model()))
+                let (contract, derived) = self.derived();
+                Answer::Rules(crate::rules::answer(contract, derived.model()))
             }
             Request::Report => Answer::Report(crate::report::answer()),
         }
-    }
-
-    /// The validated reply and the settings of the shell, when the run has both.
-    pub(crate) fn reply_and_settings(&self) -> Option<(&Ingested, &Settings)> {
-        self.reply.as_ref().zip(self.settings.as_ref())
     }
 
     /// The parsed contract.
@@ -80,15 +112,50 @@ impl Engine {
         self.contract.as_ref()
     }
 
-    /// The model, or the reason that the run has none: a missing contract, reply or settings.
-    pub(crate) fn model(&self) -> Result<Model, Reason> {
-        let contract = self.contract.as_ref();
-        let contract = contract.ok_or(Reason::MissingInput(Input::Contract))?;
-        let reply = self.reply.as_ref();
-        let reply = reply.ok_or(Reason::MissingInput(Input::Reply))?;
-        let settings = self.settings.clone();
-        let settings = settings.ok_or(Reason::MissingInput(Input::Settings))?;
-        Model::derive(contract, reply, settings)
+    /// The contract and the derivation of the inputs. The derivation is made one time and kept
+    /// until an input changes.
+    pub(crate) fn derived(&mut self) -> (Option<&Contract>, &Derived) {
+        let (contract, reply, settings) = (&self.contract, &self.reply, &self.settings);
+        let derivations = &mut self.derivations;
+        let derived = self.derived.get_or_insert_with(|| {
+            *derivations += 1;
+            derive(contract.as_ref(), reply.as_ref(), settings.as_ref())
+        });
+        (contract.as_ref(), derived)
+    }
+
+    /// The number of derivations of this run.
+    #[cfg(test)]
+    pub(crate) fn derivations(&self) -> usize {
+        self.derivations
+    }
+}
+
+/// Derive the reply part, then the model when the run has a contract.
+fn derive(
+    contract: Option<&Contract>,
+    reply: Option<&Ingested>,
+    settings: Option<&Settings>,
+) -> Derived {
+    let graph = match (reply, settings) {
+        (Some(reply), Some(settings)) => Graph::derive(reply, settings.clone()),
+        (None, _) => Err(Reason::MissingInput(Input::Reply)),
+        (_, None) => Err(Reason::MissingInput(Input::Settings)),
+    };
+    let Some(contract) = contract else {
+        let model = Reason::MissingInput(Input::Contract);
+        return match graph {
+            Ok(graph) => Derived::Graph(graph, model),
+            Err(graph) => Derived::Neither { graph, model },
+        };
+    };
+    match (graph, Model::components_of(contract)) {
+        (Ok(graph), Ok(components)) => Derived::Model(Model::of(components, graph)),
+        (Ok(graph), Err(model)) => Derived::Graph(graph, model),
+        (Err(graph), _) => Derived::Neither {
+            model: graph.clone(),
+            graph,
+        },
     }
 }
 

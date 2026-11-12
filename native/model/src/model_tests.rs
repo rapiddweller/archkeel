@@ -43,7 +43,7 @@ fn the_sections_are_the_sections_of_the_dual_run_schema() {
 }
 
 #[test]
-fn the_rows_of_modules_and_packages_wait_for_the_ranks_of_s3() {
+fn slice_s3_owns_the_four_topology_sections() {
     let s3: Vec<Section> = Section::ALL
         .iter()
         .copied()
@@ -62,10 +62,10 @@ fn the_rows_of_modules_and_packages_wait_for_the_ranks_of_s3() {
 
 #[test]
 fn an_unported_section_names_the_slice_that_ports_it() {
-    let reason = Reason::Unsupported(Unsupported::Section(Section::Modules));
+    let reason = Reason::Unsupported(Unsupported::Section(Section::Metrics));
     assert_eq!(
         reason.to_string(),
-        "unsupported: section modules: slice S3 ports it"
+        "unsupported: section metrics: slice S10 ports it"
     );
     let store = Reason::Unsupported(Unsupported::Section(Section::Evidence));
     assert!(store.to_string().contains("the store writes it"));
@@ -157,6 +157,26 @@ fn modules_keep_the_reply_order_and_packages_sort_by_name() {
     let first = modules.get(ModuleId::from_index(0));
     // `stable_id("MOD", "b.z")` of `ir/facts.py`.
     assert_eq!(first.map(Module::fact_id), Some("MOD-d55b1134d40767ff"));
+}
+
+#[test]
+fn a_module_keeps_its_exports_sorted_by_code_point_and_its_two_flags() {
+    let mut exported = file("a.y", "a", "a/y.ts");
+    exported.all_exports = vec![
+        "b".to_owned(),
+        "B".to_owned(),
+        "\u{e9}".to_owned(),
+        "a".to_owned(),
+    ];
+    exported.all_literal = true;
+    exported.compatibility_logic_free = true;
+    let (modules, packages) = crate::modules::tables(&[exported]).unwrap();
+    let module = modules.get(ModuleId::from_index(0)).unwrap();
+    assert_eq!(module.exports(), ["B", "a", "b", "\u{e9}"]);
+    assert!(module.exports_literal() && module.compatibility_logic_free());
+    // `stable_id("PKG", "a")` of `ir/facts.py`.
+    let package = packages.iter().next().map(|(_, p)| p.fact_id().to_owned());
+    assert_eq!(package.as_deref(), Some("PKG-ca978112ca1bbdca"));
 }
 
 fn components(json: &str) -> Option<Table<ComponentId, Component>> {

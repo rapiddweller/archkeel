@@ -7,18 +7,19 @@
 //! Reference engine: `check/evaluation/topology.py` `aggregate_edges`. A module edge needs a
 //! target that is a module of the reply; a package edge needs a target package in the scope of
 //! the namespace. Neither keeps a self edge. The edges are in the order of their (source, target)
-//! pairs. The ranks of the `dependency_edges` rows come from the condensation of slice S3, so an
-//! edge here holds no rank.
+//! pairs. The ranks of an edge come from the condensation of the edges of its level (slice S3):
+//! the nodes are the ends of the edges, as `aggregate_edges` ranks them.
 //!
 //! An edge holds one source and one target. A later record of transitive paths (one record per
 //! package with its targets) is a different type, so this type does not need to change for it.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 
 use archkeel_facts::envelope::FileFact;
 use archkeel_facts::identity::{stable_id, Part};
 
+use crate::condensation::condense;
 use crate::imports::Import;
 use crate::ownership::in_scope;
 
@@ -57,6 +58,8 @@ pub struct Edge {
     imports: Vec<String>,
     type_checking: usize,
     bidirectional: bool,
+    source_rank: usize,
+    target_rank: usize,
 }
 
 impl Edge {
@@ -99,6 +102,16 @@ impl Edge {
     pub fn bidirectional(&self) -> bool {
         self.bidirectional
     }
+
+    /// The condensation rank of the source in the graph of the edges of this level.
+    pub fn source_rank(&self) -> usize {
+        self.source_rank
+    }
+
+    /// The condensation rank of the target in the graph of the edges of this level.
+    pub fn target_rank(&self) -> usize {
+        self.target_rank
+    }
 }
 
 /// The module edges and the package edges of the files and resolved imports of a reply.
@@ -114,7 +127,7 @@ pub(crate) fn both(
     )
 }
 
-/// The edges of one level, in the order of their (source, target) pairs.
+/// The edges of one level, in the order of their (source, target) pairs, with their ranks.
 fn edges(imports: &[Import], level: Level, modules: &HashSet<&str>, namespace: &str) -> Vec<Edge> {
     let mut buckets: BTreeMap<(&str, &str), (Vec<&str>, usize)> = BTreeMap::new();
     for import in imports {
@@ -133,7 +146,7 @@ fn edges(imports: &[Import], level: Level, modules: &HashSet<&str>, namespace: &
         bucket.0.push(import.id());
         bucket.1 += usize::from(import.under_type_checking());
     }
-    buckets
+    let mut edges: Vec<Edge> = buckets
         .iter()
         .map(|(&(source, target), (ids, type_checking))| {
             let mut ids: Vec<String> = ids.iter().map(|id| (*id).to_owned()).collect();
@@ -153,9 +166,33 @@ fn edges(imports: &[Import], level: Level, modules: &HashSet<&str>, namespace: &
                 imports: ids,
                 type_checking: *type_checking,
                 bidirectional: buckets.contains_key(&(target, source)),
+                source_rank: 0,
+                target_rank: 0,
             }
         })
-        .collect()
+        .collect();
+    rank(&mut edges);
+    edges
+}
+
+/// Set the ranks of the edges of one level: the condensation of the graph whose nodes are the
+/// ends of the edges (`condensation_ranks` in `aggregate_edges`).
+fn rank(edges: &mut [Edge]) {
+    let names: BTreeSet<&str> = edges
+        .iter()
+        .flat_map(|edge| [edge.source.as_str(), edge.target.as_str()])
+        .collect();
+    let index: HashMap<&str, usize> = names.iter().enumerate().map(|(at, n)| (*n, at)).collect();
+    let at = |name: &str| index.get(name).copied().unwrap_or(usize::MAX);
+    let pairs: Vec<(usize, usize)> = edges
+        .iter()
+        .map(|edge| (at(&edge.source), at(&edge.target)))
+        .collect();
+    let condensation = condense(names.len(), &pairs);
+    for (edge, (source, target)) in edges.iter_mut().zip(pairs) {
+        edge.source_rank = condensation.rank(source);
+        edge.target_rank = condensation.rank(target);
+    }
 }
 
 #[cfg(test)]

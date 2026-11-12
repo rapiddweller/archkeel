@@ -23,8 +23,8 @@
 4. The core has a `Rules` request (`core/src/rules.rs`). The dual-run frame has the status of
    each decided rule in `rules`, and the `violations` rows of the decided kinds in `sections`.
    A rule of a decided kind without a model names the missing input.
-5. The rows of `modules` and `packages` hold fan-in and fan-out (S2) and the condensation rank
-   (S3). They move to slice S3; the model of S1 is their input.
+5. The rows of `modules` and `packages` hold fan-in, fan-out and the rank; the model of S1 is
+   their input. Slice S3 writes them ([AD-374](ad-374-the-core-ranks-the-edges-and-derives-the-modules-packages-and-cycles.md)).
 6. A gap with a `source_module` and a different `module` is not an `Incomplete`:
    `drop_allowed_pair_gaps` can drop it for some contracts. The check names no language, so it
    treats such a gap as not proven for every profile.

@@ -8,3 +8,5 @@
 | 2026-11-11 | 1 | bdafa9308 | AD-370: S1 case with a partial-segment allowed child (review of #1054) |
 | 2026-11-11 | 15 | ada99dd93 | WP6 S2: add the s2 cases of the edges and the external rule kinds |
 | 2026-11-11 | 1 | 3f8f5f9b5 | AD-372 review of #1058: an s2 case of an allowed source that shares a text prefix |
+| 2026-11-11 | 8 | c3d324f47 | WP6 S3: add the s3 cases of ranks, cycles and macro bodies |
+| 2026-11-12 | 1 | 6f5ec3b88 | WP6 S3 review: add the s3 case of a module cycle beside a roll-up package cycle |

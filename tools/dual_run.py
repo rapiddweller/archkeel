@@ -72,8 +72,6 @@ RUST_COLLECTOR_VARIABLE = "ARCHKEEL_DUAL_RUN_RUST_COLLECTOR"
 PROBE_RUST_COLLECTOR = "ARCHKEEL_PROBE_RUST_COLLECTOR"
 # The first byte of a zlib stream; a plain JSON reply never starts with it.
 ZLIB_HEADER = b"x"
-# The fields of a `dependency_edges` row that the condensation of slice S3 gives (AD-372).
-RANK_FIELDS = ("source_rank", "target_rank")
 
 
 # --- Engines ---------------------------------------------------------------------------------
@@ -222,20 +220,17 @@ def reference_edges(reference: Mapping[str, Any]) -> list[dict[str, Any]] | None
 def edge_differences(
     case: str, rows: list[dict[str, Any]] | None, frame: Mapping[str, Any]
 ) -> list[Difference]:
-    """The first difference of the edge rows of the engine (`edges`, without ranks) to the
-    `dependency_edges` rows of the Python engine on the same reply, without their ranks.
-    An engine that refuses the reply has no edges: its refusal is already a named difference."""
-    actual = frame.get("edges")
+    """The first difference of the full `dependency_edges` rows of the engine, ranks included,
+    to the rows of the Python engine on the same reply (AD-372, AD-374). The oracle keeps only
+    the key fields of a large section, so this compares each field of each row. An engine that
+    refuses the reply has no edges: its refusal is already a named difference."""
+    actual = (frame.get("sections") or {}).get("dependency_edges")
     if actual is None:
         refused = "files" not in ((frame.get("self_test") or {}).get("reply") or {})
         if frame.get("error") or rows is None or refused:
             return []
         return [Difference(case, "edges", "-", "the engine writes no edge rows")]
-    expected = [
-        {**row, "data": {k: v for k, v in row["data"].items() if k not in RANK_FIELDS}}
-        for row in rows or []
-    ]
-    found = first_difference(case, "edges", to_rows(expected), to_rows(actual))
+    found = first_difference(case, "edges", to_rows(rows or []), to_rows(actual))
     return [] if found is None else [found]
 
 
@@ -372,7 +367,7 @@ def compare_one(
         frame, reference = engine_and_reference(case, root, command, selection, timeout)
     owned = owned_rules(oracle["rules"], selection.kinds)
     differences = compare_case(oracle, frame, selection)
-    # AD-372: the edge lists are compared on every case, also while the ranks are not ported.
+    # AD-372, AD-374: the full edge rows are compared with the Python engine on every case.
     if reference is not None and "dependency_edges" in selection.sections:
         differences += edge_differences(case.id, reference_edges(reference), frame)
     return case, len(owned), differences

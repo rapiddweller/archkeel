@@ -183,7 +183,7 @@ fn a_contract_that_mounts_an_inside_contract_is_refused_by_name_and_never_used()
 }
 
 #[test]
-fn the_engine_ingests_a_reply_and_every_section_names_its_slice() {
+fn the_engine_ingests_a_reply_and_each_section_has_rows_or_names_its_slice() {
     let mut engine = Engine::default();
     let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
     assert!(matches!(ingest(&mut engine), Answer::Reply(ReplyState::Ingested(files)) if files > 0));
@@ -201,11 +201,109 @@ fn the_engine_ingests_a_reply_and_every_section_names_its_slice() {
             assert!(rows.is_ok_and(|rows| rows.is_empty()));
             continue;
         }
+        if crate::topology::owns(section) {
+            // The rows of slice S3; the golden reply has no cycle.
+            let empty = section == Section::Cycles;
+            assert!(
+                rows.is_ok_and(|rows| rows.is_empty() == empty),
+                "{section:?}"
+            );
+            continue;
+        }
         assert_eq!(
             rows.err(),
             Some(Reason::Unsupported(Unsupported::Section(section)))
         );
     }
+}
+
+#[test]
+fn a_run_derives_its_model_one_time_until_an_input_changes() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = ingest(&mut engine);
+    assert_eq!(engine.derivations(), 0);
+    let _ = engine.answer(Request::Sections(vec![
+        Section::Modules,
+        Section::Violations,
+    ]));
+    let _ = engine.answer(Request::Rules);
+    let _ = engine.answer(Request::Sections(vec![Section::DependencyEdges]));
+    assert_eq!(engine.derivations(), 1);
+    // A new contract drops the derivation, so the next request derives again.
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = engine.answer(Request::Rules);
+    assert_eq!(engine.derivations(), 2);
+}
+
+#[test]
+fn a_module_outside_the_namespace_refuses_the_four_sections_of_slice_s3() {
+    let mut engine = Engine::default();
+    let _ = ingest(&mut engine);
+    let _ = engine.answer(Request::Settings(Settings::new(
+        "elsewhere".to_owned(),
+        golden_profile(),
+        Vec::new(),
+    )));
+    let owned = vec![
+        Section::DependencyEdges,
+        Section::Modules,
+        Section::Packages,
+        Section::Cycles,
+    ];
+    let Answer::Sections(rows) = engine.answer(Request::Sections(owned)) else {
+        return fail("a sections answer");
+    };
+    assert_eq!(rows.len(), 4);
+    for (section, rows) in rows {
+        let text = rows
+            .err()
+            .map(|reason| reason.to_string())
+            .unwrap_or_default();
+        assert!(
+            text.starts_with("refused settings: "),
+            "{section:?}: {text}"
+        );
+        assert!(
+            text.contains("outside the namespace"),
+            "{section:?}: {text}"
+        );
+    }
+}
+
+#[test]
+fn new_settings_or_a_new_reply_drop_the_cached_model() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = ingest(&mut engine);
+    let _ = engine.answer(Request::Rules);
+    assert_eq!(engine.derivations(), 1);
+    let _ = engine.answer(Request::Settings(Settings::new(
+        "shop".to_owned(),
+        golden_profile(),
+        Vec::new(),
+    )));
+    let _ = engine.answer(Request::Rules);
+    assert_eq!(engine.derivations(), 2);
+    let _ = engine.answer(Request::Ingest {
+        reply: golden_reply(),
+        inflate_limit: LIMIT,
+    });
+    let _ = engine.answer(Request::Sections(vec![Section::Modules]));
+    assert_eq!(engine.derivations(), 3);
+}
+
+#[test]
+fn a_section_named_twice_has_its_rows_built_once() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = ingest(&mut engine);
+    let repeated = vec![Section::Cycles, Section::Modules, Section::Cycles];
+    let Answer::Sections(rows) = engine.answer(Request::Sections(repeated)) else {
+        return fail("a sections answer");
+    };
+    let sections: Vec<Section> = rows.iter().map(|(section, _)| *section).collect();
+    assert_eq!(sections, [Section::Cycles, Section::Modules]);
 }
 
 #[test]
@@ -232,11 +330,15 @@ fn the_report_is_unsupported_until_slice_0d() {
 #[test]
 fn a_section_without_a_contract_or_a_reply_names_the_missing_input() {
     let mut engine = Engine::default();
-    let rows = engine.answer(Request::Sections(vec![Section::Modules]));
+    let rows = engine.answer(Request::Sections(vec![Section::Metrics]));
     let text = format!("{rows:?}");
     assert!(text.contains("MissingInput(Contract)"), "{text}");
-    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    // A section of slice S3 needs only the reply part of the model: it names the reply.
     let rows = engine.answer(Request::Sections(vec![Section::Modules]));
+    let text = format!("{rows:?}");
+    assert!(text.contains("MissingInput(Reply)"), "{text}");
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let rows = engine.answer(Request::Sections(vec![Section::Metrics]));
     let text = format!("{rows:?}");
     assert!(text.contains("MissingInput(Reply)"), "{text}");
     assert_eq!(

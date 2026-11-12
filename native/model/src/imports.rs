@@ -11,6 +11,9 @@
 //!
 //! The store accepts a reply only when each import has exactly one typed target, so each
 //! import record has its target here.
+//!
+//! A macro body is not an import of the edges, the cycles or the ranks (AD-349). It stays as a
+//! row of its own (`MacroBody`): the fan counts of the modules read it (`count_macro_bodies`).
 
 use std::collections::{HashMap, HashSet};
 
@@ -91,9 +94,40 @@ impl Import {
     }
 }
 
-/// The resolved imports in the order of the reply, and the number of unresolved imports that
-/// no collector gap names (each is a coverage failure of the reference engine).
-pub(crate) fn split(facts: &Facts) -> (Vec<Import>, usize) {
+/// The source and target module of a resolved macro body (`split_imports` templates).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MacroBody {
+    pub(crate) source_module: String,
+    pub(crate) target_module: String,
+}
+
+impl MacroBody {
+    /// The module that holds the macro body.
+    pub(crate) fn source_module(&self) -> &str {
+        &self.source_module
+    }
+
+    /// The module that the macro body names.
+    pub(crate) fn target_module(&self) -> &str {
+        &self.target_module
+    }
+}
+
+/// The imports of a reply, split.
+#[derive(Debug, Default)]
+pub(crate) struct Split {
+    /// The resolved imports that are not macro bodies, in the order of the reply.
+    pub(crate) imports: Vec<Import>,
+    /// The resolved macro bodies, in the order of the reply.
+    pub(crate) macro_bodies: Vec<MacroBody>,
+    /// The number of unresolved imports that no collector gap names (each is a coverage
+    /// failure of the reference engine).
+    pub(crate) unknown: usize,
+}
+
+/// Split the imports of a reply. An unresolved import leaves first, then a macro body, as
+/// `split_imports` checks them.
+pub(crate) fn split(facts: &Facts) -> Split {
     let targets: HashMap<&str, &Target> = facts
         .imports
         .iter()
@@ -109,22 +143,27 @@ pub(crate) fn split(facts: &Facts) -> (Vec<Import>, usize) {
                 .then(|| (data.module.as_ref().map(|m| m.as_str()), evidence(gap)))
         })
         .collect();
-    let mut imports = Vec::new();
-    let mut unknown = 0;
+    let mut found = Split::default();
     for record in facts.sections.iter().flat_map(records) {
         let data = record.data.data();
         let resolved = match targets.get(record.id.as_str()) {
             Some(Target::Unresolved { .. }) => {
                 let site = (Some(data.source_module.as_str()), evidence(record));
-                unknown += usize::from(!named.contains(&site));
+                found.unknown += usize::from(!named.contains(&site));
                 continue;
             }
-            _ if matches!(record.data, ImportFact::MacroBody(_)) => continue,
+            _ if matches!(record.data, ImportFact::MacroBody(_)) => {
+                found.macro_bodies.push(MacroBody {
+                    source_module: data.source_module.as_str().to_owned(),
+                    target_module: data.target_module.as_str().to_owned(),
+                });
+                continue;
+            }
             Some(Target::External { package, .. }) => Resolved::External(package.as_str().into()),
             Some(Target::Builtin { .. }) => Resolved::Builtin,
             Some(Target::Local { .. }) | None => Resolved::Local,
         };
-        imports.push(Import {
+        found.imports.push(Import {
             id: record.id.as_str().to_owned(),
             source_module: data.source_module.as_str().to_owned(),
             target_module: data.target_module.as_str().to_owned(),
@@ -136,7 +175,7 @@ pub(crate) fn split(facts: &Facts) -> (Vec<Import>, usize) {
             evidence: sorted(evidence(record)),
         });
     }
-    (imports, unknown)
+    found
 }
 
 fn records(section: &Section) -> &[Record<ImportFact>] {

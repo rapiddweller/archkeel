@@ -24,16 +24,23 @@ pub(crate) fn check(
     let root = rule.root().as_text();
     let depth = root.split('.').count() + 1;
     let names = model
+        .graph()
         .packages()
         .iter()
         .map(|(_, package)| package.name())
-        .chain(model.modules().iter().map(|(_, module)| module.name()));
+        .chain(
+            model
+                .graph()
+                .modules()
+                .iter()
+                .map(|(_, module)| module.name()),
+        );
     // The reference engine sorts the children as `str`: by code point, as `BTreeSet` does.
     let children: BTreeSet<&str> = names
         .filter(|name| *name != root && in_scope(name, root) && name.split('.').count() == depth)
         .collect();
-    let records = child_records(model.modules().iter().map(|(id, module)| {
-        let package = model.packages().get(module.package());
+    let records = child_records(model.graph().modules().iter().map(|(id, module)| {
+        let package = model.graph().packages().get(module.package());
         (
             id,
             module.name(),
@@ -53,6 +60,7 @@ pub(crate) fn check(
     {
         let record = cite(child, &records)?;
         let row = model
+            .graph()
             .modules()
             .get(record)
             .ok_or_else(|| Reason::UncitedChild(child.to_owned()))?;
@@ -62,6 +70,7 @@ pub(crate) fn check(
     }
     violations.sort_by(|a, b| a.id().cmp(b.id()));
     let selected = model
+        .graph()
         .modules()
         .iter()
         .any(|(_, module)| in_scope(module.name(), root));

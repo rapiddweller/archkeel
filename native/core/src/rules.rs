@@ -30,19 +30,19 @@ pub(crate) struct RuleAnswer {
 }
 
 /// The outcome of each rule, or the reason that the run has no model.
-pub(crate) fn outcomes(contract: &Contract, model: &Result<Model, Reason>) -> Vec<Outcome> {
+pub(crate) fn outcomes(contract: &Contract, model: Result<&Model, Reason>) -> Vec<Outcome> {
     match model {
         Ok(model) => archkeel_eval::evaluate(contract, model),
         Err(_) => Vec::new(),
     }
 }
 
-pub(crate) fn answer(contract: Option<&Contract>, model: &Result<Model, Reason>) -> RuleAnswer {
+pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>) -> RuleAnswer {
     let mut answer = RuleAnswer::default();
     let Some(contract) = contract else {
         return answer;
     };
-    if let Err(reason) = model {
+    if let Err(reason) = &model {
         for rule in contract.rules() {
             let kind = kind_of(rule);
             let reason = if DECIDED.contains(&kind) {

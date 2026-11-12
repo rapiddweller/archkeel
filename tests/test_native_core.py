@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -59,12 +60,14 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     code, lines = _run(["compare", "--case", "rust/native", "--engine-command", core], capsys)
     assert code == 1
     differences = [line for line in lines if line.startswith("rust/native: ")]
-    # The violations of the S1 kinds are equal; each other section and rule names its part.
-    assert len(differences) == 1 + 19
+    # The violations of the S1 kinds and the four sections of S3 are equal; each other section
+    # and rule names its part.
+    assert len(differences) == 1 + 15
     assert differences[0].startswith("rust/native: rules: ")
     assert "8 owned rules are unsupported" in differences[0]
-    assert "rust/native: modules: -: unsupported: section modules: slice S3 ports it" in lines
-    assert not [line for line in differences if ": violations: " in line]
+    assert "rust/native: metrics: -: unsupported: section metrics: slice S10 ports it" in lines
+    owned = ("violations", "dependency_edges", "modules", "packages", "cycles", "edges")
+    assert not [line for line in differences if line.split(": ")[1] in owned]
 
 
 def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
@@ -88,30 +91,48 @@ def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
 def test_the_s2_kinds_and_the_edges_equal_python_or_name_their_slice(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-372: on the hand-made S2 cases each decided rule, each violation row and each edge
-    equals the Python engine; a PASS names the scope proof, and the ranked rows name slice S3."""
+    """AD-372, AD-374: on the hand-made S2 cases each decided rule, each violation row and each
+    full edge row equals the Python engine; a PASS names the scope proof."""
     families = "external_dependency_scope,complete_external_scope"
     arguments = ["compare", "--case", "s2/*", "--sections", "violations,dependency_edges"]
     code, lines = _run([*arguments, "--families", families, "--engine-command", core], capsys)
     differences = [line for line in lines if line.startswith("s2/")]
     assert code == 1
-    named = (
-        "unsupported: the scope proof: slice S4 ports it",
-        "unsupported: section dependency_edges: slice S3 ports it",
-    )
+    assert differences
+    named = "unsupported: the scope proof: slice S4 ports it"
     assert all(line.endswith(named) for line in differences), differences
-    assert sum(line.endswith(named[1]) for line in differences) == 16
     assert lines[-1].startswith(
         f"dual run: family {','.join(sorted(families.split(',')))}; 2 sections; 16 projects; "
         "32 rules;"
     )
 
 
+def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-374: the full rows of `dependency_edges` (ranks included), `modules` (fan counts with
+    the macro bodies), `packages` and `cycles` equal the Python engine. A case whose reply the
+    store refuses names that refusal; no other difference is allowed."""
+    arguments = ["compare", "--sections", "dependency_edges,modules,packages,cycles"]
+    code, lines = _run([*arguments, "--families", "none", "--engine-command", core], capsys)
+    differences = [
+        line for line in lines if ": " in line and not line.startswith(("engine", "dual"))
+    ]
+    assert all(
+        line.endswith(": -: missing input: no valid collector reply") for line in differences
+    )
+    refused = {line.split(": ")[0] for line in differences}
+    assert not [case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/"))]
+    assert code == (1 if differences else 0)
+    assert lines[-1].startswith("dual run: family none; 4 sections; 568 projects; 0 rules;")
+
+
 def test_a_part_without_its_input_names_the_missing_input(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The contract of J-compass mounts inside contracts: the core does not assemble the tree, so
-    the rules name it, and each section names the missing contract, not a slice."""
+    the rules name it, and each section names the missing contract, not a slice. A section of
+    slice S3 needs no contract, so it names the reply that the store refuses."""
     code, lines = _run(["compare", "--case", "fixture/J-compass", "--engine-command", core], capsys)
     assert code == 1
     differences = [line for line in lines if line.startswith("fixture/J-compass: ")]
@@ -119,7 +140,17 @@ def test_a_part_without_its_input_names_the_missing_input(
         "the contract mounts inside contracts; the tree assembly is not in the core yet"
         in (differences[0])
     )
-    assert all(line.endswith(": -: missing input: no valid contract") for line in differences[1:])
+    s3 = {"dependency_edges", "modules", "packages", "cycles"}
+    by_section = {line.split(": ")[1]: line for line in differences[1:]}
+    assert all(
+        line.endswith(": -: missing input: no valid contract")
+        for section, line in by_section.items()
+        if section not in s3
+    )
+    assert all(
+        by_section[section].endswith(": -: missing input: no valid collector reply")
+        for section in s3
+    )
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
@@ -146,6 +177,33 @@ def test_on_the_fixtures_each_self_test_difference_is_named(
     # The TypeScript replies are compressed, so the store accepts them.
     refused = {line.split(":")[0] for line in differences if ": reply: " in line}
     assert "fixture/H-typescript" not in refused
+
+
+def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -> None:
+    """AD-374 review: a request that names one section many times made the core build its rows
+    once for each name (9.56 GB for 200 names of `dependency_edges`). The binary refuses it."""
+    binary = core.split(" ")[0]
+    request = {
+        "protocol": "archkeel-dual-run-2",
+        "case": "c",
+        "root": "/r",
+        "config": "archkeel.toml",
+        "baseline": None,
+        "collector_argv": None,
+        "pinned": False,
+        "contracts": {"architecture-contract.json": "{}"},
+        "reply": None,
+        "sections": ["cycles", "modules", "cycles"],
+        "namespace": "shop",
+        "profile": "",
+        "standard_library": [],
+    }
+    done = subprocess.run(
+        [binary, "dual-run"], input=json.dumps(request), capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 2
+    assert done.stdout == ""
+    assert "repeated section cycles" in done.stderr
 
 
 def test_the_host_uses_the_core_for_no_verdict() -> None:
