@@ -12,6 +12,13 @@ use crate::symbol_table::kind_value;
 use crate::syntax::Parsers;
 use crate::walk::Syntax;
 
+#[test]
+fn visibility_names_are_stable() {
+    assert_eq!(Visibility::Public.as_str(), "public");
+    assert_eq!(Visibility::Protected.as_str(), "protected");
+    assert_eq!(Visibility::Private.as_str(), "private");
+}
+
 fn word<T: std::fmt::Display>(value: Option<T>) -> String {
     value.map_or_else(|| "None".to_owned(), |item| item.to_string())
 }
