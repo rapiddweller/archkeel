@@ -7,14 +7,22 @@
 pub const MAX_WORK: usize = 2_000_000;
 
 pub struct Work {
+    #[cfg(any(test, feature = "dump"))]
+    limit: usize,
     left: usize,
     exceeded: bool,
 }
 
 impl Work {
     pub fn new() -> Self {
+        Self::with_limit(MAX_WORK)
+    }
+
+    pub fn with_limit(limit: usize) -> Self {
         Self {
-            left: MAX_WORK,
+            #[cfg(any(test, feature = "dump"))]
+            limit,
+            left: limit,
             exceeded: false,
         }
     }
@@ -37,6 +45,11 @@ impl Work {
         self.exceeded
             .then_some("CPython validation work limit exceeded")
     }
+
+    #[cfg(any(test, feature = "dump"))]
+    pub fn used(&self) -> usize {
+        self.limit.saturating_sub(self.left)
+    }
 }
 
 #[cfg(test)]
@@ -47,5 +60,15 @@ mod tests {
         assert!(work.charge(super::MAX_WORK));
         assert!(!work.charge(1));
         assert!(!work.charge(usize::MAX));
+    }
+
+    #[test]
+    fn a_configured_limit_keeps_its_own_used_count() {
+        let mut work = super::Work::with_limit(9);
+        assert!(work.charge(4));
+        assert_eq!(work.used(), 4);
+        assert!(work.charge(5));
+        assert_eq!(work.used(), 9);
+        assert!(!work.charge(1));
     }
 }

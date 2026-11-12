@@ -17,6 +17,8 @@ mod survey;
 // AD-377: the definition table and its bases have no caller in the reply yet; the test dump reads
 // them. The slice that writes the section `symbols` builds them into the release binary.
 #[cfg(any(test, feature = "dump"))]
+mod bindings;
+#[cfg(any(test, feature = "dump"))]
 mod symbols;
 #[cfg(any(test, feature = "dump"))]
 mod unparse;
@@ -65,6 +67,10 @@ fn run() -> Result<(), String> {
             if flag == "--dump-texts" {
                 let (minor, root) = (minor.clone(), root.clone());
                 return on_big_stack(move || dump::texts(&minor, &root));
+            }
+            if flag == "--dump-bindings" {
+                let (minor, root) = (minor.clone(), root.clone());
+                return on_big_stack(move || dump::bindings(&minor, &root));
             }
         }
     }

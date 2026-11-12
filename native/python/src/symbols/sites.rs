@@ -10,65 +10,10 @@
 
 use std::rc::Rc;
 
-use ruff_python_ast::{
-    ElifElseClause, ExceptHandler, MatchCase, Stmt, StmtClassDef, StmtFunctionDef,
-};
+use ruff_python_ast::{ElifElseClause, ExceptHandler, MatchCase, Stmt};
 use ruff_text_size::{Ranged, TextRange, TextSize};
 
-/// A class or a function definition.
-#[derive(Clone, Copy)]
-pub enum Def<'a> {
-    Function(&'a StmtFunctionDef),
-    Class(&'a StmtClassDef),
-}
-
-impl<'a> Def<'a> {
-    pub fn name(&self) -> &'a str {
-        match self {
-            Def::Function(node) => node.name.as_str(),
-            Def::Class(node) => node.name.as_str(),
-        }
-    }
-
-    pub fn body(&self) -> &'a [Stmt] {
-        match self {
-            Def::Function(node) => &node.body,
-            Def::Class(node) => &node.body,
-        }
-    }
-
-    /// The range of the CPython node: from the keyword `def`, `async` or `class`, after the
-    /// decorators, to the end of the body.
-    pub fn range(&self, source: &str) -> TextRange {
-        let (range, decorators) = match self {
-            Def::Function(node) => (node.range, node.decorator_list.last()),
-            Def::Class(node) => (node.range, node.decorator_list.last()),
-        };
-        let start = decorators.map_or(range.start(), |last| keyword(source, last.end()));
-        TextRange::new(start.min(range.end()), range.end())
-    }
-}
-
-/// The offset of the first token after `from`: white space, comments and line joins are skipped.
-fn keyword(source: &str, from: TextSize) -> TextSize {
-    let bytes = source.as_bytes();
-    let mut at = from.to_usize();
-    while let Some(&byte) = bytes.get(at) {
-        match byte {
-            b' ' | b'\t' | b'\n' | b'\r' | b'\x0c' | b'\\' => at += 1,
-            b'#' => {
-                while bytes
-                    .get(at)
-                    .is_some_and(|byte| *byte != b'\n' && *byte != b'\r')
-                {
-                    at += 1;
-                }
-            }
-            _ => break,
-        }
-    }
-    TextSize::try_from(at).unwrap_or(from)
-}
+pub use crate::module::definition::Def;
 
 /// One control-flow context of a definition (`DefinitionFrame`).
 #[derive(Clone)]

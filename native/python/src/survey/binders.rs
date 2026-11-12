@@ -75,31 +75,7 @@ impl Binders {
     }
 }
 
-/// `source._import_bindings`: the names that one import statement binds.
-pub fn import_bindings(statement: &Stmt) -> Vec<String> {
-    let (names, dotted) = match statement {
-        Stmt::Import(node) => (&node.names, true),
-        Stmt::ImportFrom(node) => (&node.names, false),
-        _ => return Vec::new(),
-    };
-    names
-        .iter()
-        .filter(|alias| alias.name.as_str() != "*")
-        .map(|alias| alias_binding(alias, dotted))
-        .collect()
-}
-
-fn alias_binding(alias: &Alias, dotted: bool) -> String {
-    match &alias.asname {
-        Some(asname) => asname.id.to_string(),
-        None if dotted => first_part(alias.name.as_str()).to_owned(),
-        None => alias.name.id.to_string(),
-    }
-}
-
-pub fn first_part(dotted: &str) -> &str {
-    dotted.split('.').next().unwrap_or(dotted)
-}
+pub use crate::module::{first_part, import_bindings};
 
 #[derive(Default)]
 struct Walk {

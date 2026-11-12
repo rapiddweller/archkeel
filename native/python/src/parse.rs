@@ -39,7 +39,7 @@ mod stack;
 #[path = "stringcheck.rs"]
 mod stringcheck;
 #[path = "work.rs"]
-mod work;
+pub(crate) mod work;
 
 /// Why a file has no tree: the class name of the Python exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]
