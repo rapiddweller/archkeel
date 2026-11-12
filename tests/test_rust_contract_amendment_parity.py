@@ -279,7 +279,7 @@ def _gate_cases(
         cases.append(
             (f"{name} invalid", old, path, against, new, valid[index].replace(b"Jordan", b"  "))
         )
-    for index, (name, old, new) in enumerate(sides[:40]):
+    for index, (name, _old, new) in enumerate(sides[:40]):
         for path in PATHS:
             for against in AGAINST:
                 introduced = _python_amend(None, path, against, new[0], "J", "R")

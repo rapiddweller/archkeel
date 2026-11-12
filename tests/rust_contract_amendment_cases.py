@@ -137,10 +137,7 @@ def _raw(text: str) -> bytes:
 
 
 VALID = encode(document())
-PREFIX = '{"schema_version": "2.0.0", "before_digest": "%s", "after_digest": "%s", ' % (
-    DIGEST,
-    OTHER,
-)
+PREFIX = f'{{"schema_version": "2.0.0", "before_digest": "{DIGEST}", "after_digest": "{OTHER}", '
 SUFFIX = ', "before_baseline_digest": null, "after_baseline_digest": null}'
 
 
