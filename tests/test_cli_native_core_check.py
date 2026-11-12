@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+import zlib
 from collections.abc import Callable
 from contextlib import redirect_stdout
 from dataclasses import replace
@@ -47,6 +48,7 @@ from archkeel.cli.config import parse_config
 from archkeel.cli.core_frame import GapKind, gap_kind
 from archkeel.ir.model import RunResult
 from fixtures import demo_catalog_check
+from fixtures.demo_catalog_support import CheckScenario
 
 __all__ = ["built", "install"]  # the fixtures of the core and the Rust collector of one build
 
@@ -55,16 +57,22 @@ _NO_REQUIRES = (rr.component("base", "base_crate"), rr.component("app", "app"))
 
 
 def protocol(
-    tmp_path: Path, install: Path, monkeypatch: pytest.MonkeyPatch, **changes: Any
+    tmp_path: Path,
+    install: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scenario: CheckScenario = "empty_declaration",
+    files: dict[str, str] = _COMMENT,
+    **changes: Any,
 ) -> tuple[Path, list[str]]:
-    """The root and the `check` arguments of one protocol run with a comment-only candidate."""
+    """The root and the `check` arguments of one protocol run; the default candidate only adds a
+    comment and declares no change."""
     source = repository(tmp_path / "source", install, **changes)
     shutil.rmtree(source / ".git")
     config = parse_config((source / "archkeel.toml").read_bytes())
     monkeypatch.setattr(demo_catalog_check, "FIXTURE_DIR", source)
     monkeypatch.setattr(demo_catalog_check, "CONFIG", config)
     work = tmp_path / "protocol"
-    prepared = demo_catalog_check.build_and_run_check(work, _COMMENT, "empty_declaration")
+    prepared = demo_catalog_check.build_and_run_check(work, files, scenario)
     provenance = prepared.provenance
     assert provenance is not None, prepared.diagnostics
     root = work / "root"
@@ -90,6 +98,12 @@ def without_rows_and_notes(result: dict[str, Any]) -> dict[str, Any]:
 
 def _git(root: Path, *arguments: str) -> bytes:
     return subprocess.check_output(["git", *arguments], cwd=root)
+
+
+def _head_of(reply: dict[str, str]) -> str:
+    """The commit that a collector reply of the request names."""
+    facts = json.loads(zlib.decompress(bytes.fromhex(reply["hex"])))["facts"]
+    return str(facts["source"]["git_head"])
 
 
 # --- The switch -------------------------------------------------------------------------------
@@ -153,6 +167,38 @@ def test_the_core_decides_a_fail_check_with_exit_1(
     assert off[0] == 1
 
 
+def test_an_expectation_failure_keeps_exit_1_and_the_core_decides_the_rules(
+    install: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The host published the expectation after the candidate: Python fails the run (exit 1)
+    with each rule PASS. The exit code reads the failures of Python, never only the core."""
+    _, arguments = protocol(tmp_path, install, monkeypatch, "published_after_candidate")
+    off = check(arguments)
+    code, result = check(arguments, "--native-core")
+    assert (code, off[0], result["declared_rules"]) == (1, 1, "PASS")
+    assert result["host_order"] == "FAIL"
+    assert core_notes(result)[0].startswith("The core decides every rule")
+    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+
+
+def test_the_core_decides_a_candidate_that_adds_a_violation(
+    install: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rows are the rows of the candidate, not of the accepted commit: the candidate makes
+    the base crate import the app crate."""
+    cycle = {
+        "crates/base/Cargo.toml": rr.BASE + '[dependencies]\napp = { path = "../app" }\n',
+        "crates/base/src/lib.rs": "pub fn make() { app::run(); }\n",
+    }
+    _, arguments = protocol(tmp_path, install, monkeypatch, "ordered", cycle)
+    off = check(arguments)
+    code, result = check(arguments, "--native-core")
+    assert (code, off[0], result["declared_rules"]) == (1, 1, "FAIL"), diagnostics(result)
+    assert statuses(result)["REQUIRES"] == "FAIL"
+    assert core_notes(result)[0].startswith("The core decides every rule")
+    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+
+
 @posix
 def test_the_request_carries_the_base_reply_and_the_contract_of_the_baseline_commit(
     install: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -166,8 +212,10 @@ def test_the_request_carries_the_base_reply_and_the_contract_of_the_baseline_com
     baseline = arguments[arguments.index("--baseline") + 1]
     contract = _git(root, "show", f"{baseline}:architecture-contract.json")
     assert bytes.fromhex(sent["contract"]["hex"]) == contract
-    assert sent["base"]["reply"]["hex"] and sent["reply"]["hex"]
-    assert sent["base"]["reply"]["hex"] != sent["reply"]["hex"]
+    # The base is the reply of the accepted commit, the reply is the reply of the candidate.
+    head = arguments[arguments.index("--head") + 1]
+    accepted = _git(root, "rev-parse", f"{baseline}^").decode().strip()
+    assert (_head_of(sent["base"]["reply"]), _head_of(sent["reply"])) == (accepted, head)
 
 
 def test_the_contract_of_the_working_tree_changes_nothing(
