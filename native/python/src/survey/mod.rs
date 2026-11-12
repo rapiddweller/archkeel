@@ -21,17 +21,17 @@ use archkeel_snapshot::Snapshot;
 use crate::discover::{self, Unseen};
 use crate::names;
 use crate::parse::{parse, Failure};
-use crate::source::decode;
+use crate::source::{decode, newlines};
 use binders::Binders;
 use excluded::Excluded;
 use failures::{early, NOT_FOUND};
 use module::{EvidenceMap, Module};
 
-mod binders;
+pub mod binders;
 mod excluded;
 mod failures;
 mod imports;
-mod module;
+pub mod module;
 mod namespace;
 mod stable;
 mod walks;
@@ -52,6 +52,26 @@ pub fn minor(version: &str) -> Result<u32, String> {
         .nth(1)
         .and_then(|minor| minor.parse().ok())
         .ok_or_else(|| format!("the interpreter version {version} has no minor version"))
+}
+
+/// The parsed modules of a request and their binders, as the survey reads them (the dump of
+/// the definition table, AD-377).
+#[cfg(feature = "dump")]
+pub fn modules(request: &PythonRequest) -> Result<(u32, Vec<Module>, Vec<Binders>), String> {
+    let minor = minor(&request.resolver.interpreter.version)?;
+    let mut snapshot = Snapshot::new(&request.snapshot.root);
+    let scope = discover::scope(
+        &mut snapshot,
+        &request.scope.roots,
+        request.excludes_test_sources(),
+    );
+    let parsed = parse_unshadowed(&mut snapshot, &scope, &request.scope.namespace, minor);
+    let binders = parsed
+        .modules
+        .iter()
+        .map(|module| Binders::of(&module.tree))
+        .collect();
+    Ok((minor, parsed.modules, binders))
 }
 
 pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
@@ -188,11 +208,11 @@ fn unread(snapshot: &mut Snapshot, rel: &str) -> Result<Failure, Unseen> {
 /// Decode, parse and name one file, in the order of `parse_sources`.
 fn parsed_module(rel: &str, raw: &[u8], namespace: &str, minor: u32) -> Result<Module, Failure> {
     let decode_error = || early(ExceptionName::UnicodeDecodeError, "UnicodeDecodeError");
-    let text = decode(raw).ok_or_else(decode_error)?;
-    let tree = parse(text, minor)?;
+    let text = newlines(decode(raw).ok_or_else(decode_error)?);
+    let tree = parse(&text, minor)?;
     let name = names::module_for(rel, namespace, minor)
         .ok_or_else(|| early(ExceptionName::ValueError, "ValueError"))?;
-    Ok(Module::new(rel.to_owned(), name, text.to_owned(), tree))
+    Ok(Module::new(rel.to_owned(), name, text.into_owned(), tree))
 }
 
 /// `collect._file_facts`.

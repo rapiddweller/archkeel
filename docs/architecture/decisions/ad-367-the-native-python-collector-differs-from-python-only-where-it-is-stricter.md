@@ -1,6 +1,6 @@
 # AD-367 The native Python collector differs from Python only where it is stricter
 
-**Status.** Accepted. PR 5 of issue #880; it holds the closed list of differences of AD-334.
+**Status.** Accepted. PR 5 of #880; the closed list of differences of AD-334 (AD-377 adds 13 to 16).
 
 **Rule (owner).** A documented limit must never hide a silent false PASS. What the collector does
 not see soundly gives a named gap (UNKNOWN). A difference is allowed only when the native verdict

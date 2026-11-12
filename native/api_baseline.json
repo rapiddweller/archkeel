@@ -598,6 +598,7 @@
     "fn protocol::has_test_scope(self)->bool",
     "fn protocol::is_python(self)->bool",
     "fn protocol::reply_version(request:Version)->Version",
+    "fn pyrepr::escapes(point:u32)->bool",
     "fn pyrepr::string(text:&str,out:&mut String)",
     "fn readset::allowed(reads:Reads,name:&str)->bool",
     "fn readset::to_vec<T:ReadSet+?Sized>(value:&T)->serde_json::Result<Vec<u8>>",

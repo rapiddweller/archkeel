@@ -11,6 +11,16 @@ pub fn decode(raw: &[u8]) -> Option<&str> {
     Some(text.strip_prefix('\u{feff}').unwrap_or(text))
 }
 
+/// The text that the tokenizer of CPython reads: `ast.parse` of a `str` turns each `\r\n` and
+/// each lone `\r` into `\n` before it reads a token (`translate_newlines`), also inside a string
+/// literal. A line keeps its number and each column keeps its offset (AD-377).
+pub fn newlines(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.contains('\r') {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    std::borrow::Cow::Owned(text.replace("\r\n", "\n").replace('\r', "\n"))
+}
+
 /// The start offset of each line, as `re.split(r"\r\n?|\n", source)` splits the text.
 pub struct Lines {
     starts: Vec<usize>,

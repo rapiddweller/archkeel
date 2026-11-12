@@ -159,6 +159,9 @@ flowchart LR
     n_46["py-survey"]
     n_47["py-reply"]
     n_48["model-barrier"]
+    n_49["py-tree"]
+    n_50["py-unparse"]
+    n_51["py-symbols"]
     n_10 --> n_12
     n_10 --> n_13
     n_10 --> n_14
@@ -327,4 +330,13 @@ flowchart LR
     n_47 --> n_46
     n_40 --> n_46
     n_40 --> n_47
+    n_50 --> n_4
+    n_50 --> n_49
+    n_51 --> n_4
+    n_51 --> n_49
+    n_51 --> n_50
+    n_51 --> n_46
+    n_39 --> n_49
+    n_39 --> n_50
+    n_39 --> n_51
 ```
