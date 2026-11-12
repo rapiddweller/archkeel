@@ -66,13 +66,12 @@ fn first_repeated_key(value: &Json) -> Option<&str> {
     match value {
         Json::Array(items) => items.iter().find_map(first_repeated_key),
         Json::Object(Object(entries)) => {
-            let repeated = entries.iter().enumerate().find_map(|(index, (name, _))| {
-                entries
-                    .iter()
-                    .take(index)
-                    .any(|(seen, _)| seen == name)
-                    .then_some(name.as_str())
-            });
+            // A set, not a scan of the earlier keys: an object with a million keys is read in
+            // O(n log n), not O(n^2) (AD-375). The first key that repeats is the same.
+            let mut seen = std::collections::BTreeSet::new();
+            let repeated = entries
+                .iter()
+                .find_map(|(name, _)| (!seen.insert(name.as_str())).then_some(name.as_str()));
             repeated.or_else(|| {
                 entries
                     .iter()

@@ -360,6 +360,14 @@ A contract that mounts inside contracts parses as `NeedsTree`, not as a complete
 
 The crate also compares two trees as `validate --against` does (`policy::compare_trees`, [AD-373](architecture/decisions/ad-373-the-contract-crate-compares-two-contract-trees-for-against.md)). No command calls it yet. It does not recognise a rename (AD-105), so a moved package shows as widenings. Its messages equal those of Python 3.11; on Python 3.12 or later a code point assigned after Unicode 14 gives other message bytes in the Python engine (L-28). No decision depends on a message.
 
+The crate reads, writes and binds an amendment (`policy::parse_amendment`, `policy::bind`, [AD-375](architecture/decisions/ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md)). No command calls it yet. It binds only a run without `--baseline`, because the baseline codec is not in the crate yet. It is stricter than Python in these cases:
+
+- Schema 1.0.0 is an error (`Version1`). Python reads it and accepts it for a run without `--baseline`.
+- A JSON object with one key two times is an error. Python keeps the last value.
+- A lone surrogate escape is invalid JSON. Python reads it and then cannot write it.
+- `Binding::amend` refuses a blank `decided_by` or `rationale`. Python writes a file that its reader refuses.
+- Nesting deeper than 128 levels is invalid JSON. Python stops with `RecursionError`.
+
 The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its template. The
 contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
 counts of `native/api_baseline.json`.

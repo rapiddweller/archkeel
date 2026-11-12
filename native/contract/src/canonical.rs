@@ -125,7 +125,7 @@ fn rule(rule: &Rule) -> Value {
 }
 
 /// A JSON string as Python `json.dumps` writes it with `ensure_ascii=False`.
-fn write_text(out: &mut String, value: &str) {
+pub(crate) fn write_text(out: &mut String, value: &str) {
     out.push('"');
     for character in value.chars() {
         match character {
