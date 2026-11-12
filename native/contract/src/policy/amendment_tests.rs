@@ -360,3 +360,31 @@ fn a_blank_author_or_reason_is_not_written() {
         Err(AmendmentError::Empty(AmendmentField::Rationale))
     );
 }
+
+#[test]
+fn each_of_the_four_digests_is_bound() {
+    let (before, after) = widened();
+    let binding = bind(
+        OldContract::Tree(&before),
+        &after,
+        Baselines::bound(&digest('c'), &digest('d')),
+    );
+    let written = amendment_bytes(&binding.amend("J", "R").unwrap());
+    assert_eq!(
+        *binding
+            .check(Some(&parse_amendment(&written).unwrap()))
+            .status(),
+        GateStatus::Covered
+    );
+    for key in [
+        "before_digest",
+        "after_digest",
+        "before_baseline_digest",
+        "after_baseline_digest",
+    ] {
+        let mut value: Value = serde_json::from_slice(&written).unwrap();
+        value[key] = json!(digest('e'));
+        let verdict = binding.check(Some(&parsed(&value).unwrap()));
+        assert_eq!(*verdict.status(), GateStatus::Stale, "{key}");
+    }
+}
