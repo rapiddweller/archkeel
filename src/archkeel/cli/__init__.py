@@ -1126,14 +1126,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     analyzer=observer,
                 )
                 result = core.decide_check(result, root, config, args.baseline)
-                result = replace(result, scan_roots=config.roots)
-                result = replace(
-                    result,
-                    notes=(
-                        *result.notes,
-                        *config.scope_notes(observer.excluded_for(args.head)),
-                    ),
-                )
+                notes = config.scope_notes(observer.excluded_for(args.head))
+                result = replace(result, scan_roots=config.roots, notes=(*result.notes, *notes))
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))

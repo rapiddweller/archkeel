@@ -30,7 +30,6 @@ from test_cli_native_core import (
     PASSING,
     SUFFIX,
     _captured,
-    _script,
     built,
     core_notes,
     diagnostics,
@@ -41,6 +40,7 @@ from test_cli_native_core import (
     repository,
     statuses,
 )
+from test_cli_native_core_trust import _script
 
 import archkeel.cli
 from archkeel.cli import main, native_core

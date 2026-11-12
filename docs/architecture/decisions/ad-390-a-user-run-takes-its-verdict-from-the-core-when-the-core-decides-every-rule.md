@@ -66,5 +66,5 @@ to Python for a missing or changed binary. A file read by the core (the pin of A
 evidence (`architecture.json`, HTML) is the Python evidence. The fall-back note classifies a
 reason by its first words; it decides nothing.
 
-**Tests.** `tests/test_cli_native_core.py`, `tests/test_cli_native_core_frame.py`,
+**Tests.** `tests/test_cli_native_core.py`, `tests/test_cli_native_core_trust.py`, `tests/test_cli_native_core_frame.py`,
 `native/core/src/check_tests.rs`, `tests/test_native_core.py`, `tests/test_dual_run_shell.py`.

@@ -1,7 +1,7 @@
 # AD-399 archkeel check takes its rule verdicts from the core with the base reply
 
 **Status.** Accepted. Epic #880, lead decision L-73 step 1. It follows AD-390 (next step,
-review part E of #1094). AD-398 was taken by #1101 when this record was written.
+review part E of #1094). The open PR #1101 holds number 398.
 
 **What a baseline is for a verdict** (read from the Python code; `run.py` is `check/run.py`).
 
