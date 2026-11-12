@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! `parse` of `analyzer/dart/parse.py` without the sites (slice 3a of #880): the definitions,
-//! the directives, the concerns, the first error and the language version of one source.
+//! `parse` of `analyzer/dart/parse.py` (slices 3a and 3b of #880): the definitions, the
+//! directives, the sites, the concerns, the first error and the language version of one source.
 
 use tree_sitter::{Node, Parser};
 
@@ -11,8 +11,9 @@ use crate::dartstr::unclosed_block_comment;
 use crate::definitions::definitions;
 use crate::directives::directives;
 use crate::pytext::{is_assigned, is_space_byte};
-use crate::syntax::{Concern, ConcernKind, Syntax};
-use crate::tree::{children, walk, Source};
+use crate::sites::{sites, work_limit};
+use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Syntax};
+use crate::tree::{children, walk, Source, Work};
 
 /// The deepest node that the parse reads. Python stops the whole scan with `RecursionError`
 /// near a depth of 987; native gives a syntax concern and so a gap for the file (AD-369).
@@ -23,6 +24,8 @@ const INCOMPLETE: &str = "Tree-sitter could not parse this Dart syntax completel
 /// One Tree-sitter parser with the Dart grammar, used for each source of a run.
 pub(crate) struct DartParser {
     parser: Parser,
+    /// The share of the work limit that the sites of the last source used, in thousandths.
+    pub(crate) work_permille: u64,
 }
 
 impl DartParser {
@@ -31,7 +34,10 @@ impl DartParser {
         parser
             .set_language(&archkeel_dart_grammar::LANGUAGE.into())
             .map_err(|error| format!("cannot load the Dart grammar: {error}"))?;
-        Ok(Self { parser })
+        Ok(Self {
+            parser,
+            work_permille: 0,
+        })
     }
 
     /// `parse(content)`: the syntax of one source.
@@ -41,10 +47,10 @@ impl DartParser {
             // Tree-sitter returns no tree only after a cancel or a timeout, and this parser sets
             // neither. The concern keeps the file out of the facts if that changes.
             let concern = syntax_concern(&source, 0, content.len(), INCOMPLETE);
-            return finish(Vec::new(), Vec::new(), vec![concern], None);
+            return finish(Vec::new(), Vec::new(), Vec::new(), vec![concern], None);
         };
         let root = tree.root_node();
-        let mut concerns = tree_concerns(root, &source);
+        let (mut concerns, deep) = tree_concerns(root, &source);
         if let Some(start) = unclosed_block_comment(content) {
             let message = "Dart source ends inside a nested block comment.";
             concerns.push(syntax_concern(&source, start, content.len(), message));
@@ -54,13 +60,31 @@ impl DartParser {
         let directives = directives(root, &source, &mut concerns);
         concerns.extend(unsupported_concerns(root, &source));
         let definitions = definitions(root, &source);
-        finish(definitions, directives, concerns, language_version)
+        // Python stops with `RecursionError` on a deep tree, so its sites are not known. The
+        // depth concern already gives the file a gap; native gives it no sites (AD-376).
+        let mut found = Vec::new();
+        self.work_permille = 0;
+        if !deep {
+            let work = Work::new(work_limit(content.len()));
+            let result = sites(root, &source, &definitions, &directives, &work);
+            self.work_permille = work.permille();
+            match result {
+                Ok(items) => found = items,
+                Err(gap) => {
+                    let message =
+                        format!("The site analysis of this Dart source stops: {}.", gap.0);
+                    concerns.push(syntax_concern(&source, 0, content.len(), &message));
+                }
+            }
+        }
+        finish(definitions, directives, found, concerns, language_version)
     }
 }
 
 fn finish(
-    definitions: Vec<crate::syntax::Definition>,
-    directives: Vec<crate::syntax::Directive>,
+    definitions: Vec<Definition>,
+    directives: Vec<Directive>,
+    sites: Vec<Site>,
     mut concerns: Vec<Concern>,
     language_version: Option<String>,
 ) -> Syntax {
@@ -74,6 +98,7 @@ fn finish(
     Syntax {
         definitions,
         directives,
+        sites,
         complete: concerns.is_empty(),
         concerns,
         first_error,
@@ -114,8 +139,9 @@ fn syntax_concern(source: &Source<'_>, start: usize, end: usize, message: &str) 
     }
 }
 
-/// Each error and missing node, and the first node below `MAX_DEPTH`, in document order.
-fn tree_concerns(root: Node<'_>, source: &Source<'_>) -> Vec<Concern> {
+/// Each error and missing node, and the first node below `MAX_DEPTH`, in document order, and
+/// whether the tree reaches `MAX_DEPTH`.
+fn tree_concerns(root: Node<'_>, source: &Source<'_>) -> (Vec<Concern>, bool) {
     let mut concerns = Vec::new();
     let mut deep = false;
     let mut nodes = walk(root);
@@ -138,7 +164,7 @@ fn tree_concerns(root: Node<'_>, source: &Source<'_>) -> Vec<Concern> {
             ));
         }
     }
-    concerns
+    (concerns, deep)
 }
 
 /// `_unsupported_concerns`: a mixin with an `on` clause.

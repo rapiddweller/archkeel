@@ -7,11 +7,12 @@
 
 use std::sync::OnceLock;
 
-use crate::unicode_tables::{ASSIGNED, SPACE, WORD};
+use crate::unicode_tables::{ALNUM, ASSIGNED, SPACE, WORD};
 
 static WORD_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
 static SPACE_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
 static ASSIGNED_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
+static ALNUM_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
 
 /// The ranges of a generated table text: `START-END` in hex, separated by white space. The
 /// generator writes only valid cells; `each_table_equals_the_dump_of_the_oracle` checks them.
@@ -40,6 +41,13 @@ pub(crate) fn is_word(c: char) -> bool {
 /// The code point is assigned in Unicode 14, the Unicode version of the oracle Python 3.11.
 pub(crate) fn is_assigned(c: char) -> bool {
     in_table(ASSIGNED_RANGES.get_or_init(|| ranges(ASSIGNED)), c)
+}
+
+/// `str.isalnum` for one code point, as Python 3.11 with Unicode 14 decides it (L-27). In Python
+/// 3.11 it equals `\w` without `_`; it differs from `char::is_alphanumeric`, for example at
+/// U+0345, which Rust reads as alphabetic.
+pub(crate) fn is_alnum(c: char) -> bool {
+    in_table(ALNUM_RANGES.get_or_init(|| ranges(ALNUM)), c)
 }
 
 /// The code point is in one of the sorted inclusive ranges of `table`.

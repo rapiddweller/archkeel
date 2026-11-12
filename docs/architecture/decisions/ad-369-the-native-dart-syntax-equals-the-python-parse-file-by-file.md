@@ -1,6 +1,7 @@
 # AD-369 The native Dart syntax equals the Python parse file by file
 
-**Status.** Accepted. Epic #880, PR 8 slice 3a. It follows AD-365 and AD-368.
+**Status.** Accepted. Epic #880, PR 8 slice 3a. It follows AD-365 and AD-368. AD-376 adds the
+sites and measures the depth of the site walks again.
 
 **Decision.**
 1. `archkeel-pytext` holds `str.splitlines` for the Dart and the TypeScript collector. A

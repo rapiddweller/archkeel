@@ -2,9 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The per-file syntax of a Dart source, as `analyzer/dart/syntax.py` defines it. Slice 3a of
-//! #880 holds the definitions, the directives, the concerns and the first error; slice 3b adds
-//! the sites. The field order is the order of the Python dataclasses, so that the dump of the
+//! The per-file syntax of a Dart source, as `analyzer/dart/syntax.py` defines it: the
+//! definitions, the directives, the sites, the concerns and the first error. The field order is the order of the Python dataclasses, so that the dump of the
 //! parity test is the JSON of `dataclasses.asdict`.
 
 #[cfg(feature = "dump")]
@@ -320,6 +319,108 @@ impl Directive {
     }
 }
 
+vocabulary! {
+    pub(crate) SiteKind {
+        Reference,
+        Call,
+        Creation,
+        Type,
+        Extends,
+        Implements,
+        With,
+        FieldFormal,
+        SuperFormal,
+        Binding,
+        Assignment,
+    }
+}
+
+impl SiteKind {
+    /// The value of the Python `StrEnum`: the sites sort by it after the start byte.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Reference => "reference",
+            Self::Call => "call",
+            Self::Creation => "creation",
+            Self::Type => "type",
+            Self::Extends => "extends",
+            Self::Implements => "implements",
+            Self::With => "with",
+            Self::FieldFormal => "field_formal",
+            Self::SuperFormal => "super_formal",
+            Self::Binding => "binding",
+            Self::Assignment => "assignment",
+        }
+    }
+}
+
+vocabulary! {
+    pub(crate) SiteUse {
+        Type,
+        Read,
+        Write,
+        ReadWrite,
+        Value,
+    }
+}
+
+/// The scope of a site: `(scope, scope_span, scope_depth)` of `_sites`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Context {
+    pub(crate) scope: Option<String>,
+    pub(crate) span: Option<Span>,
+    pub(crate) depth: usize,
+}
+
+value! {
+    pub(crate) Site {
+        kind: SiteKind,
+        expression: String,
+        span: Span,
+        name: Option<String>,
+        receiver: Option<String>,
+        scope: Option<String>,
+        scope_span: Option<Span>,
+        scope_depth: usize,
+        arguments: Vec<String>,
+        assigned_name: Option<String>,
+        assignment_annotation: Option<String>,
+        initializer: Option<String>,
+        r#use: SiteUse,
+        computed: bool,
+        shadowed_names: Vec<String>,
+        closure_scope: bool,
+        expression_source: Option<String>,
+        initializer_source: Option<String>,
+    }
+}
+
+impl Site {
+    /// A site with the defaults of the Python dataclass and the scope of `context`.
+    pub(crate) fn new(kind: SiteKind, expression: String, span: Span, context: &Context) -> Self {
+        Self {
+            kind,
+            expression,
+            span,
+            name: None,
+            receiver: None,
+            scope: context.scope.clone(),
+            scope_span: context.span.clone(),
+            scope_depth: context.depth,
+            arguments: Vec::new(),
+            assigned_name: None,
+            assignment_annotation: None,
+            initializer: None,
+            r#use: SiteUse::Value,
+            computed: false,
+            shadowed_names: Vec::new(),
+            closure_scope: false,
+            expression_source: None,
+            initializer_source: None,
+        }
+    }
+}
+
 value! {
     pub(crate) Concern {
         kind: ConcernKind,
@@ -329,10 +430,11 @@ value! {
 }
 
 value! {
-    /// The syntax of one source. `sites` comes with slice 3b of #880.
+    /// The syntax of one source.
     pub(crate) Syntax {
         definitions: Vec<Definition>,
         directives: Vec<Directive>,
+        sites: Vec<Site>,
         concerns: Vec<Concern>,
         first_error: Option<Span>,
         complete: bool,

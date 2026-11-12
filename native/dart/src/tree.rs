@@ -6,6 +6,10 @@
 //! `analyzer/dart/parse.py`. The walk uses no recursion, so a deep tree cannot overflow the
 //! stack (AD-369).
 
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use tree_sitter::{Node, TreeCursor};
 
 use crate::pytext::first_chars;
@@ -20,6 +24,12 @@ const EXCERPT_BYTES: usize = EXCERPT_CHARS * 4 + 4;
 pub(crate) struct Source<'a> {
     pub(crate) data: &'a [u8],
     starts: Vec<usize>,
+    /// The source is valid UTF-8: then a column can continue from an earlier one on its line.
+    text: bool,
+    /// The last column: its line start, its byte and its UTF-16 column.
+    last: Cell<(usize, usize, usize)>,
+    /// The bytes decoded for columns so far: the site walk counts them as work.
+    decoded: Cell<usize>,
 }
 
 impl<'a> Source<'a> {
@@ -43,7 +53,45 @@ impl<'a> Source<'a> {
                 starts.push(index);
             }
         }
-        Self { data, starts }
+        Self {
+            data,
+            starts,
+            text: std::str::from_utf8(data).is_ok(),
+            last: Cell::new((0, 0, 0)),
+            decoded: Cell::new(0),
+        }
+    }
+
+    /// The bytes decoded for columns since the last call.
+    pub(crate) fn take_decoded(&self) -> usize {
+        self.decoded.replace(0)
+    }
+
+    /// `len(prefix.encode("utf-16-le")) // 2` for the prefix of the line before `start`. In
+    /// valid UTF-8 the column continues from the last column of the same line when `start` is
+    /// not before it, so a long line with many sites is read once (AD-376).
+    fn column(&self, line_start: usize, start: usize) -> usize {
+        let (last_line, last_byte, last_column) = self.last.get();
+        // Two decodes equal one only when they split the text at a character boundary.
+        let boundary = self
+            .data
+            .get(last_byte)
+            .is_none_or(|byte| (byte & 0xc0) != 0x80);
+        let from_last = self.text && boundary && last_line == line_start && last_byte <= start;
+        let (from, base) = if from_last {
+            (last_byte, last_column)
+        } else {
+            (line_start, 0)
+        };
+        let part = self.decode(from, start);
+        self.decoded.set(
+            self.decoded
+                .get()
+                .saturating_add(start.saturating_sub(from)),
+        );
+        let column = base.saturating_add(part.chars().map(char::len_utf16).sum::<usize>());
+        self.last.set((line_start, start, column));
+        column
     }
 
     /// `bytes[start:end].decode("utf-8", "replace")`.
@@ -73,12 +121,12 @@ impl<'a> Source<'a> {
             .get(line.saturating_sub(1))
             .copied()
             .unwrap_or(0);
-        let prefix = self.decode(line_start, start);
+        let column = self.column(line_start, start);
         let head = self.decode(start, end.min(start.saturating_add(EXCERPT_BYTES)));
         Span {
             line,
             end_line: self.line(end),
-            column: prefix.chars().map(char::len_utf16).sum(),
+            column,
             excerpt: first_chars(&head, EXCERPT_CHARS).to_owned(),
             start_byte: start,
             end_byte: end,
@@ -215,3 +263,181 @@ pub(crate) fn prefix(node: Node<'_>, source: &Source<'_>) -> String {
     };
     source.decode(start, node.start_byte())
 }
+
+/// `_walk` with the ancestors of each node, root first, without recursion. The ancestors replace
+/// `_ancestors`, which Tree-sitter can only give with a walk down from the root for each parent.
+/// `visit` returns false to stop the walk.
+pub(crate) fn walk_with_path<'t>(
+    root: Node<'t>,
+    mut visit: impl FnMut(Node<'t>, &[Node<'t>]) -> bool,
+) {
+    let mut cursor = root.walk();
+    let mut path: Vec<Node<'t>> = Vec::new();
+    loop {
+        let node = cursor.node();
+        if !visit(node, &path) {
+            return;
+        }
+        if cursor.goto_first_child() {
+            path.push(node);
+            continue;
+        }
+        loop {
+            if path.is_empty() {
+                return;
+            }
+            if cursor.goto_next_sibling() {
+                break;
+            }
+            if !cursor.goto_parent() {
+                return;
+            }
+            path.pop();
+        }
+    }
+}
+
+/// The named children of one parent and the position of each, read once for each parent.
+pub(crate) struct Family<'t> {
+    pub(crate) nodes: Vec<Node<'t>>,
+    index: HashMap<usize, usize>,
+    /// `later[i]`: the selectors of `nodes[i..]`. A rule that asks it for each node reads one
+    /// value, where Python scans the rest of the list again.
+    later: Vec<Later>,
+}
+
+/// The selectors in a run of siblings: one with a member access (`_is_member_receiver`), one
+/// with arguments (`_is_call_callee`, `_is_call_selector`) and one with an index
+/// (`_selector_has_index`).
+#[derive(Clone, Copy, Default)]
+pub(crate) struct Later {
+    pub(crate) member: bool,
+    pub(crate) call: bool,
+    pub(crate) index: bool,
+}
+
+impl Later {
+    /// The facts of one sibling, and the number of children that it reads.
+    fn of(node: Node<'_>) -> (Self, usize) {
+        if node.kind() != "selector" {
+            return (Self::default(), 0);
+        }
+        let children = named_children(node);
+        let assignable = children
+            .iter()
+            .find(|child| child.kind() == "unconditional_assignable_selector");
+        let found = Self {
+            member: assignable.is_some(),
+            call: named(node, "argument_part").is_some(),
+            index: assignable.is_some_and(|item| named(*item, "index_selector").is_some()),
+        };
+        (found, children.len())
+    }
+
+    fn or(self, other: Self) -> Self {
+        Self {
+            member: self.member || other.member,
+            call: self.call || other.call,
+            index: self.index || other.index,
+        }
+    }
+}
+
+impl<'t> Family<'t> {
+    /// The position of `node` among the named children: `next(i for i, item in ... if item ==
+    /// node)` of Python.
+    pub(crate) fn position(&self, node: Node<'t>) -> Option<usize> {
+        self.index.get(&node.id()).copied()
+    }
+
+    /// The named children after `node`, or `None` when `node` is not one of them.
+    pub(crate) fn after(&self, node: Node<'t>) -> Option<&[Node<'t>]> {
+        let at = self.position(node)?;
+        Some(self.nodes.get(at.saturating_add(1)..).unwrap_or_default())
+    }
+
+    /// The selectors of the named children from position `from` on.
+    pub(crate) fn later(&self, from: usize) -> Later {
+        self.later.get(from).copied().unwrap_or_default()
+    }
+}
+
+/// The work of the site walks, counted in visited nodes and scanned siblings. Python has no
+/// limit and takes hours on some hostile sources; native stops at the limit and names the file
+/// with a concern (AD-376). It also holds the named children of each parent that a site rule
+/// reads: Python reads them again for each node, which grows with the square of a long list.
+pub(crate) struct Work<'t> {
+    spent: Cell<u64>,
+    limit: u64,
+    families: RefCell<HashMap<usize, Rc<Family<'t>>>>,
+}
+
+impl<'t> Work<'t> {
+    pub(crate) fn new(limit: u64) -> Self {
+        Self {
+            spent: Cell::new(0),
+            limit,
+            families: RefCell::new(HashMap::new()),
+        }
+    }
+
+    pub(crate) fn charge(&self, units: usize) {
+        let units = u64::try_from(units).unwrap_or(u64::MAX);
+        self.spent.set(self.spent.get().saturating_add(units));
+    }
+
+    pub(crate) fn exceeded(&self) -> bool {
+        self.spent.get() > self.limit
+    }
+
+    #[cfg(test)]
+    pub(crate) fn spent(&self) -> u64 {
+        self.spent.get()
+    }
+
+    /// The share of the limit spent so far, in thousandths, for the dump.
+    pub(crate) fn permille(&self) -> u64 {
+        self.spent
+            .get()
+            .saturating_mul(1000)
+            .checked_div(self.limit)
+            .unwrap_or(u64::MAX)
+    }
+
+    /// The named children of `parent`, read once.
+    pub(crate) fn family(&self, parent: Node<'t>) -> Rc<Family<'t>> {
+        if let Some(found) = self.families.borrow().get(&parent.id()) {
+            return Rc::clone(found);
+        }
+        let nodes = named_children(parent);
+        self.charge(nodes.len());
+        let index = nodes
+            .iter()
+            .enumerate()
+            .map(|(at, node)| (node.id(), at))
+            .collect();
+        let mut later = vec![Later::default(); nodes.len().saturating_add(1)];
+        for (at, node) in nodes.iter().enumerate().rev() {
+            let (found, read) = Later::of(*node);
+            self.charge(read);
+            let next = later.get(at.saturating_add(1)).copied().unwrap_or_default();
+            if let Some(slot) = later.get_mut(at) {
+                *slot = found.or(next);
+            }
+        }
+        let family = Rc::new(Family {
+            nodes,
+            index,
+            later,
+        });
+        self.families
+            .borrow_mut()
+            .insert(parent.id(), Rc::clone(&family));
+        family
+    }
+}
+
+/// A state that the site walks cannot reach on a Tree-sitter tree. The file gets a concern, so
+/// a wrong assumption gives a gap and never a wrong site.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Gap(pub(crate) &'static str);

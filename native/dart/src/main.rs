@@ -34,6 +34,7 @@ mod parse;
 mod pubspec;
 mod pytext;
 mod records;
+mod sites;
 mod syntax;
 mod tree;
 mod unicode_tables;

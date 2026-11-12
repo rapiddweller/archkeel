@@ -3,16 +3,19 @@
 # SPDX-License-Identifier: MIT
 """Compare the per-file Dart syntax of the native collector with Python `parse` (#880).
 
-Slice 3a of PR 8: `archkeel-dart-collector --dump-syntax` prints the syntax of each file:
-the definitions, the directives, the concerns, the first error, `complete` and the language
-version. The tool compares it with `dataclasses.asdict(parse(content))` without `sites`
-(slice 3b), as canonical JSON, byte for byte.
+Slice 3 of PR 8: `archkeel-dart-collector --dump-syntax` prints the syntax of each file:
+the definitions, the directives, the sites, the concerns, the first error, `complete` and the
+language version. The tool compares it with `dataclasses.asdict(parse(content))`, as canonical
+JSON, byte for byte.
 
 The Python parse is slow, so `--budget` stops a corpus after that many seconds of Python time.
 The files of a corpus are compared in a fixed shuffled order, so a partial run is a sample.
 A file where Python stops with `RecursionError` is the closed exception of AD-369: native must
 give the deep-nesting concern. A file with a code point that Unicode 14 does not assign is the
 stricter difference of L-27: native gives a named gap, so the file is counted, not compared.
+A file where the native site walks pass their work limit is the stricter difference of AD-376:
+native gives a named gap, so the file is counted, not compared. The report gives the highest
+share of the work limit that a file used.
 
 The oracle is Python 3.11 with Unicode 14.0.0 (L-27): the tool refuses another interpreter.
 
@@ -36,6 +39,7 @@ import unicodedata
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from archkeel.analyzer.dart.parse import parse
 
@@ -50,6 +54,7 @@ from dart_discovery_parity import (  # noqa: E402
 EXCLUDED = frozenset({".dart_tool", "pubcache", ".pub-cache", ".git"})
 DEEP = "Dart source nests deeper than"
 UNASSIGNED = "Dart source holds a code point that Unicode 14 does not assign."
+STOPPED = "The site analysis of this Dart source stops: "
 ORACLE = ((3, 11), "14.0.0")
 
 
@@ -63,6 +68,8 @@ class Result:
     total: int = 0
     deep: int = 0
     unassigned: int = 0
+    stopped: int = 0
+    work_permille: int = 0
     rust_nanos: int = 0
     python_nanos: int = 0
     problems: list[str] = field(default_factory=list)
@@ -73,22 +80,26 @@ def canonical(value: object) -> str:
 
 
 def python_syntax(content: bytes) -> tuple[str | None, int]:
-    """The canonical JSON of the Python syntax without sites, or None on `RecursionError`."""
+    """The canonical JSON of the Python syntax, or None on `RecursionError`."""
     started = time.perf_counter_ns()
     try:
         value = dataclasses.asdict(parse(content))
     except RecursionError:
         return None, time.perf_counter_ns() - started
-    value.pop("sites")
     return canonical(value), time.perf_counter_ns() - started
 
 
-def native_syntax(binary: Path, paths: Sequence[Path]) -> list[tuple[str, int, object]]:
+def native_rows(binary: Path, paths: Sequence[Path]) -> list[dict[str, Any]]:
+    """One JSON object for each path: the syntax, the parse time and the share of work."""
     command = [str(binary), "--dump-syntax"]
     text = "".join(f"{path}\n" for path in paths)
     run = subprocess.run(command, input=text, capture_output=True, text=True, check=True)
     # `str.splitlines` also splits at U+2028, which a JSON string can hold.
-    lines = [json.loads(line) for line in run.stdout.split("\n") if line]
+    return [json.loads(line) for line in run.stdout.split("\n") if line]
+
+
+def native_syntax(binary: Path, paths: Sequence[Path]) -> list[tuple[str, int, object]]:
+    lines = native_rows(binary, paths)
     return [(canonical(line["syntax"]), int(line["nanos"]), line["syntax"]) for line in lines]
 
 
@@ -114,8 +125,11 @@ def compare(binary: Path, root: Path, result: Result, budget: float | None) -> N
         if budget is not None and spent / 1e9 >= budget:
             return
         chunk = files[start : start + batch]
-        rust = native_syntax(binary, chunk)
-        for path, (text, nanos, value) in zip(chunk, rust, strict=True):
+        rows = native_rows(binary, chunk)
+        for path, row in zip(chunk, rows, strict=True):
+            value = row["syntax"]
+            text, nanos = canonical(value), int(row["nanos"])
+            result.work_permille = max(result.work_permille, int(row["work_permille"]))
             if budget is not None and spent / 1e9 >= budget:
                 return
             expected, python_nanos = python_syntax(path.read_bytes())
@@ -123,9 +137,11 @@ def compare(binary: Path, root: Path, result: Result, budget: float | None) -> N
             result.python_nanos += python_nanos
             result.rust_nanos += nanos
             result.files += 1
-            concerns = value["concerns"]  # type: ignore[index]
+            concerns = value["concerns"]
             if any(item["message"] == UNASSIGNED for item in concerns):
                 result.unassigned += 1
+            elif any(item["message"].startswith(STOPPED) for item in concerns):
+                result.stopped += 1
             elif expected is None:
                 result.deep += 1
                 if any(DEEP in item["message"] for item in concerns):
@@ -179,7 +195,8 @@ def report(result: Result) -> str:
     return (
         f"{result.name}: {result.equal}/{result.files} files equal "
         f"(of {result.total}; {result.deep} with RecursionError in Python, "
-        f"{result.unassigned} named by L-27); "
+        f"{result.unassigned} named by L-27, {result.stopped} stopped by the site work limit; "
+        f"site work at most {result.work_permille / 10:.1f} % of the limit); "
         f"parse Rust {result.rust_nanos / 1e6:.1f} ms, Python {result.python_nanos / 1e6:.1f} ms"
         + "".join(f"\n  problem: {problem}" for problem in sorted(set(result.problems)))
     )

@@ -8,7 +8,8 @@
 //! not the JSON output.
 //!
 //! `--dump-syntax` reads one file path on each line of stdin and prints one JSON line for each:
-//! the syntax of the file and the time of its parse, for `tools/dart_syntax_parity.py`.
+//! the syntax of the file, the time of its parse and the share of the site work limit that it
+//! used, for `tools/dart_syntax_parity.py`.
 
 use std::time::Instant;
 
@@ -72,7 +73,11 @@ pub(crate) fn syntax(paths: &str) -> Result<String, String> {
         let started = Instant::now();
         let parsed = parser.parse(&content);
         let nanos = started.elapsed().as_nanos();
-        let value = json!({"syntax": parsed, "nanos": nanos.to_string()});
+        let value = json!({
+            "syntax": parsed,
+            "nanos": nanos.to_string(),
+            "work_permille": parser.work_permille,
+        });
         lines.push_str(&serde_json::to_string(&value).map_err(|error| error.to_string())?);
         lines.push('\n');
     }

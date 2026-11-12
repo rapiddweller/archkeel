@@ -116,7 +116,7 @@ fn opens_with(node: Node<'_>, bracket: char, source: &Source<'_>) -> bool {
 }
 
 /// `_parameter`.
-fn parameter(node: Node<'_>, kind: ParameterKind, source: &Source<'_>) -> Parameter {
+pub(crate) fn parameter(node: Node<'_>, kind: ParameterKind, source: &Source<'_>) -> Parameter {
     let field = first_in_walk(node, &["constructor_param", "field_formal_parameter"]);
     let super_formal =
         first_in_walk(node, &["super_formal_parameter", "super_parameter"]).is_some();
