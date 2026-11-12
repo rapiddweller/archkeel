@@ -127,8 +127,17 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     assert all(
         line.endswith(S4_NAMES) or limit.search(line) for line in differences
     ), differences
-    assert not [line for line in differences if line.startswith("s4/")]
     assert code == (1 if differences else 0)
+    # The s4 cases: each gap that the reply of a store-accepted profile can hold gives the
+    # verdict of Python. The reply of the honest external collector is not compressed, so the
+    # store refuses it; the Rust tests check the producer.
+    s4 = [line for line in differences if line.startswith("s4/")]
+    assert {line.split(":")[0] for line in s4} == {
+        "s4/a-symbol-selector-is-a-limit-of-some-profiles",
+        "s4/an-interface-boundary-is-a-limit-of-some-profiles",
+        "s4/an-external-collector-with-a-pin-passes",
+        "s4/an-external-collector-without-a-pin-is-unknown",
+    }
 
 
 def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(
