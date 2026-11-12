@@ -20,8 +20,12 @@
     "members": 565
   },
   "archkeel-model": {
-    "items": 144,
-    "members": 59
+    "items": 153,
+    "members": 75
+  },
+  "archkeel-model-barrier": {
+    "items": 0,
+    "members": 0
   },
   "archkeel-pytext": {
     "items": 1,

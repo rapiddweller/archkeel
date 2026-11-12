@@ -185,3 +185,5 @@
 //!     archkeel_model::Model { graph }
 //! }
 //! ```
+
+#![deny(unreachable_pub)]
