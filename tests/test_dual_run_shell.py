@@ -13,9 +13,28 @@ from typing import Any
 
 import pytest
 
-from tools import dual_run, dual_run_tree
+from tools import dual_run, dual_run_oracle, dual_run_tree
 from tools.dual_run_oracle import BEYOND, Selection, compare_case
 from tools.dual_run_python import reply_profile
+
+
+def test_native_receipt_metadata_keeps_the_old_row_and_all_verdicts() -> None:
+    """Only producer runtime metadata changes; receipt content and verdicts still compare."""
+    case = next(c for c in dual_run.corpus_cases() if c.id == "fixture/L-nest-realworld")
+    with dual_run.materialized(case) as root:
+        frame = dual_run.run_engine(case, root, None, Selection())
+    oracle = dual_run_oracle.read_oracle(dual_run.oracle_path(case))
+    sections = dual_run_oracle.decode_sections(frame["architecture"])
+    assert frame["rules"] == oracle["rules"]
+    assert compare_case(oracle, {"rules": frame["rules"], "sections": sections}, Selection()) == []
+    receipt = next(
+        r for r in sections["scope_observations"] if "dependency_scope_proof" in r["data"]
+    )
+    receipt["data"]["dependency_scope_proof"]["binding_id"] = "planted"
+    assert any(
+        d.scope == "scope_observations"
+        for d in compare_case(oracle, {"rules": frame["rules"], "sections": sections}, Selection())
+    )
 
 
 def _edge(identifier: str, count: int, rank: int) -> dict[str, Any]:

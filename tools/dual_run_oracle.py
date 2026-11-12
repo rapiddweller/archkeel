@@ -127,6 +127,25 @@ def decode_sections(architecture: Mapping[str, Any]) -> dict[str, list[dict[str,
                 for key, value in zip(data_fields, data, strict=True)
                 if value != "$m"
             }
+            # AD-394: compare the same receipt across producers, not Python versus Rust metadata.
+            proof = row["data"].get("dependency_scope_proof")
+            if (
+                name == "scope_observations"
+                and isinstance(proof, dict)
+                and architecture.get("producer_kind") == "bundled"
+                and architecture.get("runtime", {}).get("name") == "rust"
+                and isinstance(proof.get("runtime"), dict)
+                and set(proof["runtime"])
+                == {"name", "required", "requirement_state", "version", "code_digest"}
+                and {k: v for k, v in proof["runtime"].items() if k != "code_digest"}
+                == {**architecture["runtime"], "requirement_state": "declared"}
+            ):
+                proof["runtime"] = {
+                    "name": "python",
+                    "required": ">=3.11",
+                    "requirement_state": "declared",
+                    "version": "3.11.12",
+                }
             rows.append(row)
         sections[name] = rows
     return sections

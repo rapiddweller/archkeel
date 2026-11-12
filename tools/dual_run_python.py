@@ -23,6 +23,7 @@ import sys
 import zlib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -35,6 +36,9 @@ from archkeel.check.ports import Language
 from archkeel.check.report import render_result, run_report_with_observation
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import configured_observer, observer_for
+from archkeel.ir import member_inventory
+from archkeel.ir.facts import RuntimeRequirementState
+from archkeel.ir.model import Observation, RuntimeInfo
 from archkeel.ir.profiles import profile_for
 
 # The engine identity that every dual run sees, for record and compare alike (AD-360).
@@ -44,7 +48,7 @@ PINNED_DIGEST = "0" * 64
 ZLIB_HEADER = b"x"
 
 
-def with_pinned_version(reply: bytes, installed: str) -> bytes:
+def with_pinned_version(reply: bytes, installed: str | None) -> bytes:
     """The reply with the adapter version and code digest of a collector of this install set to
     the pin. A reply of another producer, or one that is not JSON, stays as it is."""
     compressed = reply[:1] == ZLIB_HEADER
@@ -54,7 +58,9 @@ def with_pinned_version(reply: bytes, installed: str) -> bytes:
         return reply
     facts = value.get("facts") if isinstance(value, dict) else None
     adapter = facts.get("adapter") if isinstance(facts, dict) else None
-    if not isinstance(adapter, dict) or adapter.get("version") != installed:
+    if not isinstance(adapter, dict) or (
+        installed is not None and adapter.get("version") != installed
+    ):
         return reply
     adapter["version"] = PINNED_VERSION
     adapter["code_digest"] = PINNED_DIGEST
@@ -67,14 +73,32 @@ def pinned_version() -> Iterator[None]:
     """The one place of the pin: the host and the collector replies see the pinned identity."""
     installed = package_version()
     decode = ProcessCollector._decode_response
+    inventory_binding = member_inventory._inventory_binding
+
+    def pinned_inventory(model: Observation) -> str:
+        # Pin only the producer identity; keep the members and every binding input unchanged.
+        if (
+            model.analyzer.name == "archkeel-typescript-imports"
+            and model.verified_binary is not None
+        ):
+            model = replace(
+                model,
+                runtime=RuntimeInfo(
+                    "python", "3.11.12", ">=3.11", RuntimeRequirementState.DECLARED
+                ),
+            )
+        return inventory_binding(model)
 
     def pinned(collector: ProcessCollector, stdout: bytes, request: Any) -> Any:
-        return decode(collector, with_pinned_version(stdout, installed), request)
+        # A verified bundled build keeps its build version when this test changes host metadata.
+        version = None if collector.bundled and collector.verified_binary is not None else installed
+        return decode(collector, with_pinned_version(stdout, version), request)
 
     with (
         mock.patch.object(process, "package_version", lambda: PINNED_VERSION),
         mock.patch.object(observation, "package_digest", lambda: PINNED_DIGEST),
         mock.patch.object(ProcessCollector, "_decode_response", pinned),
+        mock.patch.object(member_inventory, "_inventory_binding", pinned_inventory),
     ):
         yield
 

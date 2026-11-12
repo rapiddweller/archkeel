@@ -173,7 +173,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	tools/dual_run_capture.py tools/dual_run_tree.py \
 	native/hatch_build.py
 
-LINT_PATHS += tools/record_typescript_oracle.py
+LINT_PATHS += tools/record_typescript_oracle.py tools/record_typescript_calls.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
 demos:
