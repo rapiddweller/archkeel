@@ -434,10 +434,32 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -
     assert "repeated section cycles" in done.stderr
 
 
-def test_the_host_uses_the_core_for_no_verdict() -> None:
-    sources = [path.read_text() for path in (ROOT / "src/archkeel").rglob("*.py")]
-    assert not [text for text in sources if "archkeel-core" in text or "archkeel_core" in text]
+def test_the_host_uses_the_core_only_behind_its_switch() -> None:
+    """AD-390: only the switch module of the shell and its frame reader name the core, and no
+    wheel carries the core yet (stage 3)."""
+    names = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "src/archkeel").rglob("*.py")
+        if "archkeel-core" in path.read_text() or "archkeel_core" in path.read_text()
+    }
+    assert names == {"src/archkeel/cli/native_core.py", "src/archkeel/cli/core_frame.py"}
     assert "archkeel-core" not in (ROOT / "native/hatch_build.py").read_text()
+
+
+def test_the_core_reaches_a_trusted_producer_in_two_named_functions_only() -> None:
+    """AD-390 point 2: the check request reaches trust only in `stage_one_shell_trust`, and the
+    dual run only in its `producer` (AD-388). No other production code of the core names it."""
+    found = []
+    for path in sorted((ROOT / "native/core/src").glob("*.rs")):
+        if path.name.endswith("_tests.rs"):
+            continue
+        function = ""
+        for line in path.read_text().splitlines():
+            if match := re.match(r"\s*(?:pub\(crate\) )?fn (\w+)", line):
+                function = match[1]
+            if "Producer::Trusted" in line and not line.lstrip().startswith("//"):
+                found.append(f"{path.name}::{function}")
+    assert found == ["check.rs::stage_one_shell_trust", "dual_run.rs::producer"]
 
 
 def test_the_model_the_evaluator_and_the_core_name_no_language() -> None:

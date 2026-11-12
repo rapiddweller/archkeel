@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "45870354f6b34255b5deebc4d17a671bfeb86dd7b6b7f6a38d0269453c561749",
+  "after_digest": "7d87e2a8c5d73df2ca8bf1122dd0c76749867b633fc2c8289e0a081141ba6676",
+  "before_baseline_digest": "18e1e040e9bd738c65ff5cbc594638713a92a088939fc1abc34004a933f052a9",
+  "before_digest": "b7e744f9359adf8bf64a139be2933dd07d6b4822612a15a54b0aeb68f60c4495",
+  "decided_by": "Agent session for Alexander Kell (epic #880, lead decision L-63); review in the pull request decides",
+  "rationale": "AD-390: archkeel report --native-core takes its verdict from the Rust core when the core decides every rule. Four contract changes follow from it and from nothing else. First, the new modules archkeel.cli.native_core (the switch, the request and the stage 1 rule) and archkeel.cli.core_frame (the typed frame reader) join the exact modules of the composition component. Second, cli requires three more names of ir: Diagnostic and DiagnosticKind for the one note of the run, and RunResult, the result that the shell changes. Third, archkeel.cli.core_frame joins the owners of enums: it owns the closed words of the frame of the core and of the switch, which CLI-TYPED-CONTROL needs as enums. Fourth, the reply sink of ProcessCollector moves two allowed type ignores of is_process_alive by five lines (433 to 438 and 445 to 450); the statements do not change. The digest check of the core and of the bundled collectors is a SHA-256 compare in cli/observe.py, so no analyzer name is added. The calls_unresolved budget goes from 1002 to 1025: 23 new calls are method calls on local Path, bytes, str and dict values and one wrapped factory call in the two new modules, which the collector does not resolve. The typing_positions budget goes from 62 to 71: the frame reader takes JSON values as object before it checks them.",
+  "schema_version": "2.0.0"
+}

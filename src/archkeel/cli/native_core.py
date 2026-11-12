@@ -1,0 +1,327 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-390: take the verdict of `archkeel report` from the Rust core, stage 1.
+
+The switch is `--native-core` or `ARCHKEEL_NATIVE_CORE=1`; it is off by default. With the switch,
+the shell starts the verified `archkeel-core` binary of this install with the check request: the
+contract and its inside contracts, the collector reply of the run, the scan roots and the
+namespace. The request states no trust; the core derives it from the reply.
+
+Stage 1: the Python engine still runs. When the frame of the core decides every rule, the shown
+run status and rule statuses are the statuses of the core, and each must be the status of the
+Python engine; a difference is a `CoreError` (exit 2). A PASS of the core for a rule that the
+Python engine gives UNKNOWN is shown as such when the core names it beyond the reference (AD-384).
+When the core names any part, the run is the run of the Python engine with one note that names
+the reasons of the core.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from functools import partial
+from pathlib import Path
+from typing import Final, TypeVar
+
+from archkeel.check.ports import ScanConfig
+from archkeel.ir.diagnostics import Diagnostic, DiagnosticKind
+from archkeel.ir.model import RunResult
+
+from .core_frame import (
+    CoreError,
+    CoreFrame,
+    Gap,
+    GapKind,
+    RuleStatus,
+    Status,
+    Switch,
+    read_frame,
+)
+from .observe import NATIVE_STORE, verified_binary
+
+CORE_BINARY: Final = "archkeel-core"
+SWITCH_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
+PROTOCOL: Final = "archkeel-core-check-1"
+CORE_TIMEOUT_SECONDS: Final = 600
+# The exit code of a request that the core cannot read: it writes no frame.
+_REFUSED_EXIT: Final = 2
+# AD-379: the bounds of the inside contracts that the shell reads for the core
+# (`native/core/src/contract.rs`). A chain of 900 mounts needs 900 rounds and a last one.
+MAX_ROUNDS: Final = 901
+MAX_FILES: Final = 1024
+MAX_BYTES: Final = 64 << 20
+_SUBJECT: Final = "native_core"
+_Observer = TypeVar("_Observer")
+
+
+class OverBudget(Exception):
+    """The inside contracts hold more bytes than the shell reads."""
+
+
+def read_inside(root: Path, path: str, budget: int) -> tuple[str, bytes] | None:
+    """The resolved identity and the bytes of one inside contract, or `None` when the path is
+    missing, not a file or outside the repository. A file larger than `budget` is refused."""
+    repository = root.resolve()
+    target = (repository / path).resolve()
+    if not target.is_relative_to(repository) or not target.is_file():
+        return None
+    if target.stat().st_size > budget:
+        raise OverBudget(path)
+    data = target.read_bytes()
+    if len(data) > budget:
+        raise OverBudget(path)
+    return target.relative_to(repository).as_posix(), data
+
+
+def switched_on(flag: bool, environ: Mapping[str, str]) -> bool:
+    """The switch: the flag, or the variable set to 1. Another value of the variable is refused
+    by name, so a typing error never reads as off."""
+    value = environ.get(SWITCH_VARIABLE, "")
+    try:
+        switch = Switch(value)
+    except ValueError as error:
+        raise CoreError(f"{SWITCH_VARIABLE} must be 0 or 1, not {value!r}") from error
+    return flag or switch is Switch.ON
+
+
+@dataclass(frozen=True, slots=True)
+class PythonRule:
+    """One rule row of the Python engine, as the shell compares it."""
+
+    rule: str
+    status: RuleStatus
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class Decided:
+    """The core decides every rule, and the Python engine agrees on each one."""
+
+    frame: CoreFrame
+    beyond: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FellBack:
+    """The core names a part: the run is the run of the Python engine."""
+
+    gaps: tuple[Gap, ...]
+
+
+def stage_one(frame: CoreFrame, rules: Sequence[PythonRule], status: Status) -> Decided | FellBack:
+    """The stage 1 rule of AD-390. A difference on any rule or on the run status raises."""
+    if not frame.decided:
+        return FellBack(frame.gaps)
+    python = {row.rule: row for row in rules}
+    differences: list[str] = []
+    if only := sorted(python.keys() ^ frame.rules.keys()):
+        differences.append(f"the rules {', '.join(only)} are in one engine only")
+    beyond: list[str] = []
+    for rule, verdict in sorted(frame.rules.items()):
+        row = python.get(rule)
+        if row is None:
+            continue
+        if rule in frame.beyond:
+            # The frame reader holds each beyond rule to PASS; the reference must give UNKNOWN.
+            if row.status is RuleStatus.UNKNOWN:
+                beyond.append(rule)
+            else:
+                differences.append(f"{rule}: core beyond the reference, Python {row.status}")
+        elif verdict.status is not row.status:
+            differences.append(f"{rule}: core {verdict.status}, Python {row.status}")
+        elif verdict.status is RuleStatus.FAIL and frame.violations.get(rule) != row.count:
+            found = frame.violations.get(rule)
+            differences.append(f"{rule}: core {found} violations, Python {row.count}")
+    beyond_pass = frame.status is Status.PASS and status is Status.UNKNOWN and bool(beyond)
+    if frame.status is not status and not beyond_pass:
+        differences.append(f"the run: core {frame.status}, Python {status}")
+    if differences:
+        raise CoreError(
+            "the core and the Python engine differ: " + "; ".join(differences) + ". "
+            "Report this difference; the run has no verdict."
+        )
+    return Decided(frame, tuple(beyond))
+
+
+@dataclass(slots=True)
+class NativeCore:
+    """The core of one run: the verified binary, or `None` with the switch off, and the raw
+    collector replies of the run."""
+
+    binary: str | None
+    replies: list[bytes] = field(default_factory=list)
+
+    @staticmethod
+    def requested(flag: bool, environ: Mapping[str, str]) -> NativeCore:
+        """The core of the switch. With the switch on, a missing or changed binary is a
+        `CoreError` before the scan starts; there is no fallback to the Python engine."""
+        if not switched_on(flag, environ):
+            return NativeCore(None)
+        if environ.get(NATIVE_STORE):
+            # The variable names a binary that decodes the reply for the Python engine; stage 1
+            # compares with that engine, so no variable may redirect it (AD-390).
+            raise CoreError(f"{NATIVE_STORE} redirects the decode of the reply; unset it")
+        try:
+            return NativeCore(verified_binary(CORE_BINARY).path)
+        except LookupError as error:
+            raise CoreError(f"the core binary is missing: {error}") from error
+        except ValueError as error:
+            raise CoreError(f"the core binary is not verified: {error}") from error
+
+    def observer(self, factory: Callable[..., _Observer]) -> Callable[..., _Observer]:
+        """The observer factory, with a sink for each raw collector reply when the switch is on.
+        It verifies each bundled collector binary that the run starts (AD-390): a missing or stale
+        digest file is a `CoreError`. With the switch off, the factory is the same object."""
+        if self.binary is None:
+            return factory
+        verifying = partial(factory, reply_sink=self.replies.append, verify_bundled=True)
+
+        def verified(*arguments: object, **options: object) -> _Observer:
+            try:
+                return verifying(*arguments, **options)
+            except LookupError as error:
+                raise CoreError(f"a bundled collector is missing: {error}") from error
+            except ValueError as error:
+                raise CoreError(f"a bundled collector is not verified: {error}") from error
+
+        return verified
+
+    def run(self, binary: str, root: Path, config: ScanConfig, baseline: bool) -> CoreFrame:
+        """The frame of the last round: the core asks for each inside contract (AD-379)."""
+        [reply] = self.replies
+        contract = (root / config.contract).read_bytes()
+        request: dict[str, object] = {
+            "protocol": PROTOCOL,
+            "contract": {"path": config.contract, "hex": contract.hex()},
+            "insides": [],
+            "reply": {"hex": reply.hex()},
+            "roots": list(config.roots),
+            "namespace": config.namespace,
+            "baseline": baseline,
+        }
+        sent: dict[str, dict[str, str]] = {}
+        total = 0
+        for _ in range(MAX_ROUNDS):
+            frame = _send(binary, request)
+            added = False
+            for path in frame.missing:
+                if path in sent:
+                    continue
+                if len(sent) >= MAX_FILES:
+                    raise CoreError(f"the tree needs more than {MAX_FILES} inside contracts")
+                try:
+                    read = read_inside(root, path, MAX_BYTES - total)
+                except OverBudget as error:
+                    raise CoreError(
+                        f"the inside contracts hold more than {MAX_BYTES} bytes"
+                    ) from error
+                if read is not None:
+                    identity, data = read
+                    total += len(data)
+                    sent[path] = {"reference": path, "identity": identity, "hex": data.hex()}
+                    added = True
+            if not added:
+                # The frame names each path that the shell cannot read: a named gap.
+                return frame
+            request = {**request, "insides": list(sent.values())}
+        raise CoreError(f"the tree needs more than {MAX_ROUNDS} rounds")
+
+    def decide(
+        self, result: RunResult, root: Path, config: ScanConfig, baseline: bool
+    ) -> RunResult:
+        """The result that the user gets under the stage 1 rule; with the switch off, `result`."""
+        if self.binary is None:
+            return result
+        if config.collector_argv is not None:
+            # A configured command can write any adapter and digest: the shell sends its reply to
+            # no core, so the core never trusts it (AD-390).
+            reason = f"the run uses the configured collector {config.collector_argv[0]}"
+            return _fell_back(result, (Gap(GapKind.EXTERNAL_COLLECTOR, "collector", reason),))
+        if result.exit_code != 0 or result.rule_assessments is None:
+            reason = f"the Python run did not complete (exit {result.exit_code})"
+            return _fell_back(result, (Gap(GapKind.PYTHON_INCOMPLETE, "run", reason),))
+        if len(self.replies) != 1:
+            reason = f"the run has {len(self.replies)} collector replies, and the core reads one"
+            return _fell_back(result, (Gap(GapKind.REPLIES, "run", reason),))
+        frame = self.run(self.binary, root, config, baseline)
+        rows = tuple(
+            PythonRule(row.id, RuleStatus(row.status), row.count) for row in result.rule_assessments
+        )
+        outcome = stage_one(frame, rows, Status(result.declared_rules))
+        if isinstance(outcome, FellBack):
+            return _fell_back(result, outcome.gaps)
+        return _decided(result, outcome)
+
+
+def _send(binary: str, request: Mapping[str, object]) -> CoreFrame:
+    try:
+        done = subprocess.run(
+            [binary, "check"],
+            input=json.dumps(request).encode(),
+            capture_output=True,
+            check=False,
+            timeout=CORE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise CoreError(f"the core did not answer in {CORE_TIMEOUT_SECONDS} s") from error
+    except OSError as error:
+        raise CoreError(f"the core could not execute: {error}") from error
+    if done.returncode == _REFUSED_EXIT:
+        stderr = done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
+        raise CoreError(f"the core refused the request (exit 2): {stderr}")
+    return read_frame(done.stdout, done.returncode)
+
+
+def _note(claim: str, remedy: str) -> Diagnostic:
+    return Diagnostic(DiagnosticKind.NOT_EXAMINED, _SUBJECT, claim, remedy)
+
+
+def _fell_back(result: RunResult, gaps: tuple[Gap, ...]) -> RunResult:
+    reasons = "; ".join(f"{gap.subject}: {gap.reason}" for gap in gaps)
+    note = _note(
+        f"The core did not decide this run, so the verdict is the verdict of the Python engine. "
+        f"The core names {len(gaps)} parts: {reasons}",
+        "Run without --native-core, or wait for the slice that ports the named part (#880).",
+    )
+    return replace(result, notes=(*result.notes, note))
+
+
+def _decided(result: RunResult, decided: Decided) -> RunResult:
+    frame = decided.frame
+    rows = tuple(
+        replace(
+            row,
+            status=type(row.status)(frame.rules[row.id].status),
+            reason=f"core decides, Python does not: {frame.beyond[row.id]}"
+            if row.id in decided.beyond
+            else row.reason,
+        )
+        for row in result.rule_assessments or ()
+    )
+    names = ", ".join(decided.beyond)
+    beyond = f" The core decides {names} beyond the Python engine (AD-384)." if names else ""
+    note = _note(
+        f"The core decides every rule of this run ({frame.engine}), and the Python engine gives "
+        f"the same verdict on each other rule.{beyond}",
+        "Run without --native-core to see the verdict of the Python engine alone.",
+    )
+    return replace(
+        result,
+        declared_rules=type(result.declared_rules)(frame.status),
+        rule_assessments=rows,
+        notes=(*result.notes, note),
+    )
+
+
+def add_switch(parser: argparse.ArgumentParser) -> None:
+    """Add `--native-core` to a command parser."""
+    parser.add_argument(
+        "--native-core",
+        action="store_true",
+        help=f"Take the rule verdicts from the Rust core when it decides every rule (stage 1, "
+        f"AD-390). Also {SWITCH_VARIABLE}=1. A difference to the Python engine exits 2.",
+    )

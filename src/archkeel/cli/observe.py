@@ -4,6 +4,7 @@
 """Compose configured language processes with the Core observer."""
 
 import gc
+import hashlib
 import os
 import sys
 import sysconfig
@@ -80,6 +81,40 @@ def locate(name: str, directory: Path | None = None) -> Bundled | None:
     return Bundled(binary, f"sha256:{text}")
 
 
+def verified_binary(name: str, directory: Path | None = None) -> Bundled:
+    """The native binary `name` of this install, after its file has the digest that the wheel
+    recorded beside it (AD-352). The core and each bundled collector use this check with the
+    switch of the core (AD-390). The directory is the one of the package, never a path that the
+    scanned repository or an environment variable names.
+
+    `LookupError` without the binary or its digest file; `ValueError` for another digest.
+    """
+    located = locate(name, directory)
+    if located is None:
+        raise LookupError(f"{executable(name, directory)} and its {DIGEST_SUFFIX} file")
+    actual = "sha256:" + hashlib.sha256(Path(located.path).read_bytes()).hexdigest()
+    if actual != located.digest:
+        raise ValueError(
+            f"{located.path} has {actual}, and its {DIGEST_SUFFIX} file records {located.digest}"
+        )
+    return located
+
+
+def _verified_bundled(language: Language, directory: Path | None) -> Bundled | None:
+    """AD-390: with the switch of the core, the bundled binary of the language after its digest
+    check, or `None` for a language without one. The Rust collector always needs its digest; a
+    TypeScript binary that is present needs it too, so a missing or stale digest file is an error
+    and never a silent change to the Python collector. The process checks the file again just
+    before the start."""
+    if language == Language.RUST:
+        return verified_binary(RUST_COLLECTOR, directory)
+    if language == Language.TYPESCRIPT and os.path.exists(
+        executable(TYPESCRIPT_COLLECTOR, directory)
+    ):
+        return verified_binary(TYPESCRIPT_COLLECTOR, directory)
+    return None
+
+
 # AD-346: the path of an `archkeel-store` binary. When it is set, the reply of a TypeScript or
 # Rust collector goes through the Rust store. An opt-in for the proof of stage 1, not a default.
 NATIVE_STORE = "ARCHKEEL_NATIVE_STORE"
@@ -100,6 +135,8 @@ def observer_for(
     clock: PhaseClock | None = None,
     pinned_digest: str | None = None,
     native_directory: Path | None = None,
+    reply_sink: Callable[[bytes], None] | None = None,
+    verify_bundled: bool = False,
 ) -> Observer:
     bundled = collector_argv is None
     native_python = bundled and language == Language.PYTHON
@@ -118,6 +155,8 @@ def observer_for(
         else ProducerKind.PINNED
     )
     native_rust = bundled and language == Language.RUST
+    if verify_bundled and bundled:
+        launched = _verified_bundled(language, native_directory) or launched
     if native_rust:
         # AD-335: the native binary is the only producer for Rust. Without it the run is a
         # `missing_tool` error that names the path, and no Python collector stands in.
@@ -138,6 +177,7 @@ def observer_for(
         store=store or None,
         pinned_digest=pinned_digest if launched is not None or not bundled else None,
         bundled=launched is not None,
+        reply_sink=reply_sink,
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)

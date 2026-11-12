@@ -539,6 +539,14 @@ is optional. Subgraphs, labels and styles require manual editing.
 
 ## Phase timings
 
+`archkeel report --native-core` (or `ARCHKEEL_NATIVE_CORE=1`) also runs the Rust core
+`archkeel-core` of the install (AD-390). The switch is off by default. When the core decides
+every rule, the run status and the rule statuses come from the core, and a note says so. A
+difference to the Python engine, a missing core or bundled collector, or one with another
+digest gives exit 2 and no verdict. The switch refuses `ARCHKEEL_NATIVE_STORE`. When the core
+names a part that it does not decide, the result is the Python result, and a note names each
+reason.
+
 `archkeel report --timings PATH` writes one JSON file after a successful live report.
 Without the flag, nothing is measured and nothing is written. The report, the HTML
 pages and the `--json` result do not change. `--input` refuses the flag.

@@ -125,6 +125,11 @@ impl Engine {
         Answer::Contract(state)
     }
 
+    /// The validated reply of the run, when the store accepted one.
+    pub(crate) fn reply(&self) -> Option<&Ingested> {
+        self.reply.as_ref()
+    }
+
     /// The usable contract: the root and the rules of its inside contracts.
     pub(crate) fn usable(&self) -> Option<&Usable> {
         self.contract.as_ref()

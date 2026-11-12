@@ -301,9 +301,12 @@
             "archkeel.ir.phases",
             "archkeel.ir.protocol:ProtocolVersion",
             "archkeel.ir.story",
-            "archkeel.ir.view_spec"
+            "archkeel.ir.view_spec",
+            "archkeel.ir.diagnostics:Diagnostic",
+            "archkeel.ir.diagnostics:DiagnosticKind",
+            "archkeel.ir.model:RunResult"
           ],
-          "rationale": "Serialize typed observations, select the native TypeScript wire version (AD-309), use the codec-owned collector default and safe ceiling for CLI limits and Studio scopes, check saved view specs (AD-284) and trace story candidates (AD-291)."
+          "rationale": "Serialize typed observations, select the native TypeScript wire version (AD-309), use the codec-owned collector default and safe ceiling for CLI limits and Studio scopes, check saved view specs (AD-284) and trace story candidates (AD-291). Read the run result and add one note when the Rust core runs behind its switch (AD-390)."
         },
         {
           "component": "render",
@@ -800,13 +803,13 @@
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 433,
+          "line": 438,
           "statement": "kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)",
           "tag": "[attr-defined]"
         },
         {
           "qualified_name": "archkeel.analyzer.process.is_process_alive",
-          "line": 445,
+          "line": 450,
           "statement": "error: int = ctypes.get_last_error()",
           "tag": "[attr-defined]"
         }
@@ -1111,9 +1114,10 @@
         "archkeel.ir.phases",
         "archkeel.ir.view_spec",
         "archkeel.ir.flow_graph",
-        "archkeel.studio.api"
+        "archkeel.studio.api",
+        "archkeel.cli.core_frame"
       ],
-      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback. The phase clock module owns its closed phase and work counter names. The view spec owns its format version and reference statuses (AD-284). The flow graph owns its seam kinds, external systems and directions (AD-291). The Studio API owns its route, asset and state vocabulary (AD-290).",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback. The phase clock module owns its closed phase and work counter names. The view spec owns its format version and reference statuses (AD-284). The flow graph owns its seam kinds, external systems and directions (AD-291). The Studio API owns its route, asset and state vocabulary (AD-290). The frame reader of the Rust core owns the closed words of that frame and of its switch (AD-390).",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md",

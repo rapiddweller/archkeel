@@ -8,7 +8,8 @@ inside contracts. The shell reads each one with the duties of AD-366: the path s
 repository, and the identity is the resolved repository-relative path, so the core sees a link.
 It sends the request again with every file read so far, until the frame names no path, a round
 reads no new file, or a bound stops the loop by name. The rounds, the files and the bytes are
-bounded, so a hostile tree cannot make the shell read without end.
+bounded, so a hostile tree cannot make the shell read without end. The file reader and the bounds
+are the ones of the shell (`archkeel.cli.native_core`, AD-390).
 """
 
 from __future__ import annotations
@@ -17,11 +18,9 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-# A chain of 900 mounts (the depth bound of the core, AD-366) needs 900 rounds and a last one.
-MAX_ROUNDS = 901
-# The bounds of the core (`native/core/src/contract.rs`); the shell reads no more.
-MAX_FILES = 1024
-MAX_BYTES = 64 << 20
+from archkeel.cli.native_core import MAX_BYTES, MAX_FILES, MAX_ROUNDS, OverBudget, read_inside
+
+__all__ = ["MAX_BYTES", "MAX_FILES", "MAX_ROUNDS", "OverBudget", "read_inside", "tree_frame"]
 
 Frame = dict[str, Any]
 
@@ -31,25 +30,6 @@ def missing_paths(frame: Mapping[str, Any]) -> list[str] | None:
     contract = (frame.get("self_test") or {}).get("contract") or {}
     paths = contract.get("missing")
     return paths if isinstance(paths, list) and paths else None
-
-
-class OverBudget(Exception):
-    """The inside contracts hold more bytes than the shell reads."""
-
-
-def read_inside(root: Path, path: str, budget: int) -> tuple[str, bytes] | None:
-    """The resolved identity and the bytes of one inside contract, or `None` when the path is
-    missing, not a file or outside the repository. A file larger than `budget` is refused."""
-    repository = root.resolve()
-    target = (repository / path).resolve()
-    if not target.is_relative_to(repository) or not target.is_file():
-        return None
-    if target.stat().st_size > budget:
-        raise OverBudget(path)
-    data = target.read_bytes()
-    if len(data) > budget:
-        raise OverBudget(path)
-    return target.relative_to(repository).as_posix(), data
 
 
 def tree_frame(
