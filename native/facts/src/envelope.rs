@@ -54,6 +54,45 @@ closed! {
     }
 }
 
+/// How the modules of a profile lie in the scan roots (`ir/profiles.py`
+/// `project_import_closure` and `source_suffix`, `ir/coverage.py` `_package_paths`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Layout {
+    /// The collector proves the import closure of the project, and the directory of a package
+    /// is the parent directory of a file of a direct module (the parent rule).
+    ProjectFiles,
+    /// The reference engine maps the files of the profile by another rule, or proves no closure.
+    Other,
+}
+
+/// What the host does with a gap between two modules that the contract allows
+/// (`check/pair_gaps.py:66` `drop_allowed_pair_gaps`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PairGapDrop {
+    /// The host drops such a gap before the evaluation.
+    Allowed,
+    /// The host keeps every pair gap.
+    Never,
+}
+
+impl Profile {
+    /// What the host does with an allowed pair gap of this profile.
+    pub fn pair_gap_drop(self) -> PairGapDrop {
+        match self {
+            Profile::Rust => PairGapDrop::Allowed,
+            Profile::TypeScript | Profile::Python | Profile::Dart => PairGapDrop::Never,
+        }
+    }
+
+    /// How the modules of this profile lie in the scan roots.
+    pub fn layout(self) -> Layout {
+        match self {
+            Profile::TypeScript | Profile::Rust => Layout::ProjectFiles,
+            Profile::Python | Profile::Dart => Layout::Other,
+        }
+    }
+}
+
 closed! {
     /// The name of a source section.
     pub enum SectionName {

@@ -21,6 +21,8 @@
 //! declaration: the reference engine gives it no verdict (`ir/decisions.py` `_rule_status`), so
 //! its outcome holds no decision.
 //!
+//! Slice S7 decides `no_component_cycles` at component and module level (AD-384).
+//!
 //! # The barrier of the evaluator (AD-381)
 //!
 //! The twin that compiles:
@@ -45,6 +47,7 @@
 #![deny(unreachable_pub)]
 
 mod assignment;
+mod cycles;
 mod decide;
 mod direction;
 mod external;
@@ -54,7 +57,7 @@ mod violation;
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, Part, Reason, Unsupported, Verdict};
 
-pub use violation::{Cited, Layered, Violation};
+pub use violation::{Cited, Cyclic, Layered, Violation};
 
 /// The result of one rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,7 +117,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::LayerOrder(rule) => direction::layers(id, rule, model),
         Rule::AllowedDependency(_) => return outcome_of(id, kind, None, Vec::new()),
         // Each kind that no slice decides names its kind; a new kind needs an arm here.
-        Rule::NoComponentCycles(_) => unported(kind), // S7
+        Rule::NoComponentCycles(rule) => Ok(cycles::check(id, rule, model)),
         Rule::InterfaceBoundary(_) => unported(kind), // S8
         Rule::ForbiddenConstruct(_) => unported(kind), // S11
         Rule::SymbolPlacement(_) => unported(kind),   // S12, Cut B
@@ -187,3 +190,15 @@ mod direction_tests;
 #[cfg(test)]
 #[path = "direction_scope_tests.rs"]
 mod direction_scope_tests;
+
+#[cfg(test)]
+#[path = "gap_scope_tests.rs"]
+mod gap_scope_tests;
+
+#[cfg(test)]
+#[path = "cycle_receipt_tests.rs"]
+mod cycle_receipt_tests;
+
+#[cfg(test)]
+#[path = "drop_rule_tests.rs"]
+mod drop_rule_tests;

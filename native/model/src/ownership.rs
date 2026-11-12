@@ -25,7 +25,7 @@ pub fn in_scope(name: &str, scope: &str) -> bool {
 }
 
 /// True when a component claims a module: one of its exact modules, or below one of its packages.
-pub(crate) fn claims(component: &Component, module: &str) -> bool {
+pub fn claims(component: &Component, module: &str) -> bool {
     component
         .exact_modules()
         .iter()

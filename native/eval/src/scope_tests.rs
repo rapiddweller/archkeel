@@ -109,47 +109,57 @@ fn the_clean_run_passes_each_decided_rule() {
         .all(|(word, why)| word == "PASS" && why.is_none()));
 }
 
+/// Each decided rule is UNKNOWN because one kept pair gap holds it (slice S7, AD-384).
+fn all_held(found: Option<Vec<(String, Option<Reason>)>>) {
+    let found = found.unwrap_or_default();
+    assert_eq!(found.len(), 4, "the four decided rules load");
+    for (word, why) in found {
+        let held = matches!(why, Some(Reason::NotComplete(Cause::PairGaps(ref gaps))) if gaps.count() == 1);
+        assert!(word == "UNKNOWN" && held, "{word} {why:?}");
+    }
+}
+
+/// Each decided rule passes: no kept pair gap can change what it reads (slice S7, AD-384).
+fn all_pass(found: Option<Vec<(String, Option<Reason>)>>) {
+    let found = found.unwrap_or_default();
+    assert_eq!(found.len(), 4, "the four decided rules load");
+    assert!(
+        found
+            .iter()
+            .all(|(word, why)| word == "PASS" && why.is_none()),
+        "{found:?}"
+    );
+}
+
 #[test]
-fn a_pair_gap_that_an_unowned_end_keeps_is_a_fact() {
+fn a_pair_gap_to_a_module_outside_the_reply_holds_each_rule() {
     let found = decided(
         unchanged,
         pair_gap("shop.src.main_x2e_ts", "shop.nowhere"),
         shop_settings(),
     );
-    all_unknown(found, &not_complete(Cause::PairGaps(1)));
+    all_held(found);
 }
 
 #[test]
-fn a_pair_gap_that_a_rule_names_is_kept() {
-    // DOMAIN-NO-DATA names `shop.src.domain`, so the host keeps the gap of the pair.
-    let gap = pair_gap(
+fn a_kept_pair_gap_holds_no_rule_of_the_four_kinds() {
+    // DOMAIN-NO-DATA names `shop.src.domain`, and presentation does not require app: the host
+    // keeps both gaps. The four kinds read no edge between two modules of the reply (AD-384).
+    let named = pair_gap(
         "shop.src.domain.order_x2e_ts",
         "shop.src.domain.repository_x2e_ts",
     );
-    all_unknown(
-        decided(unchanged, gap, shop_settings()),
-        &not_complete(Cause::PairGaps(1)),
-    );
+    all_pass(decided(unchanged, named, shop_settings()));
+    let crossing = pair_gap("shop.src.presentation.page_x2e_ts", "shop.src.main_x2e_ts");
+    all_pass(decided(unchanged, crossing, shop_settings()));
 }
 
 #[test]
-fn a_pair_gap_across_components_without_a_requires_is_kept() {
-    let gap = pair_gap("shop.src.presentation.page_x2e_ts", "shop.src.main_x2e_ts");
-    all_unknown(
-        decided(unchanged, gap, shop_settings()),
-        &not_complete(Cause::PairGaps(1)),
-    );
-}
-
-#[test]
-fn a_pair_gap_that_the_contract_allows_is_a_named_gap() {
-    // `app` requires `presentation` without `through`, and no rule names either end: the host
-    // drops the gap for one profile only, so the core cannot read it.
+fn a_pair_gap_that_the_contract_allows_is_kept_for_this_profile_and_holds_no_rule_of_four() {
+    // The host of this profile keeps every pair gap (`PairGapDrop::Never`), so the gap is kept
+    // and the four kinds read no edge of it (`drop_rule_tests.rs`, review B1 of #1084).
     let gap = pair_gap("shop.src.main_x2e_ts", "shop.src.presentation.page_x2e_ts");
-    all_unknown(
-        decided(unchanged, gap, shop_settings()),
-        &unread(Part::AllowedPairGap),
-    );
+    all_pass(decided(unchanged, gap, shop_settings()));
 }
 
 #[test]

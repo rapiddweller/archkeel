@@ -265,6 +265,23 @@ def first_difference(
     return None
 
 
+# AD-384 point 4: the one allowed direction change. The reference engine gives a rule UNKNOWN for
+# any kept pair gap; the core passes a rule that it proves no kept gap can change.
+BEYOND = "core decides, Python does not: "
+
+
+def _rule_difference(
+    case: str, rule: str, expected: Any, actual: Any, frame: Mapping[str, Any]
+) -> Difference:
+    """A named difference for a PASS that the frame lists in `beyond` over a Python UNKNOWN of
+    the same kind; any other difference shows both verdicts."""
+    beyond = (frame.get("beyond") or {}).get(rule)
+    if beyond and expected and actual and expected[0] == actual[0]:
+        if (expected[1], actual[1]) == ("UNKNOWN", "PASS"):
+            return Difference(case, "rules", rule, BEYOND + beyond)
+    return Difference(case, "rules", rule, f"expected {expected}, found {actual}")
+
+
 def owned_rules(rules: Mapping[str, list[str]], kinds: frozenset[str] | None) -> set[str]:
     return {rule for rule, (kind, _) in rules.items() if kinds is None or kind in kinds}
 
@@ -293,12 +310,7 @@ def compare_case(
     owned, named = _unsupported_rules(case, owned, unsupported.get("rules"))
     differences += named
     differences += [
-        Difference(
-            case,
-            "rules",
-            rule,
-            f"expected {expected_rules.get(rule)}, found {actual_rules.get(rule)}",
-        )
+        _rule_difference(case, rule, expected_rules.get(rule), actual_rules.get(rule), frame)
         for rule in sorted(owned)
         if expected_rules.get(rule) != actual_rules.get(rule)
     ]
@@ -448,6 +460,12 @@ def unexplained(frame: Mapping[str, Any]) -> str | None:
             return f"the rule {rule} is {status} with {count} violations and reason {reason}"
     if extra := sorted((set(explained) | set(violations)) - set(rules)):
         return f"the rule {extra[0]} has an explaining row but no status"
+    # AD-384: a rule beyond the reference engine is a PASS of a run that kept pair gaps hold.
+    for rule in frame.get("beyond") or {}:
+        if (rules.get(rule) or [None, None])[1] != "PASS" or "gaps between two modules" not in str(
+            frame.get("scope")
+        ):
+            return f"the rule {rule} is beyond the reference engine without a PASS over a gap"
     found = frame.get("self_test") or {}
     refused = bool(found) and (
         "rules" not in found.get("contract", {}) or "files" not in found.get("reply", {})

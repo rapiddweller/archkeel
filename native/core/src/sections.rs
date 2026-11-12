@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_eval::{Cited, Layered, Outcome, Violation};
+use archkeel_eval::{Cited, Cyclic, Layered, Outcome, Violation};
 use archkeel_model::{Graph, Model, Reason, Section};
 use serde_json::{json, Value};
 
@@ -153,7 +153,53 @@ fn row(violation: &Violation) -> Value {
             direction_record(violation)
         }
         Violation::OuterLayer(layered) => layer_record(layered),
+        Violation::Cycle(cyclic) => cycle_record(cyclic),
     }
+}
+
+/// A `no_component_cycles` record (slice S7, AD-384): a component cycle has the kind of its rule
+/// and the members; a module cycle has the kind `module_cycle` and its edges.
+fn cycle_record(cyclic: &Cyclic) -> Value {
+    let Cyclic {
+        id,
+        rule,
+        members,
+        facts,
+        evidence,
+        edges,
+    } = cyclic;
+    let joined = members.join(" \u{2194} ");
+    let (kind, title, data) = match edges {
+        None => (
+            "no_component_cycles",
+            format!("Component cycle: {joined}"),
+            json!({"members": members}),
+        ),
+        Some(edges) => (
+            "module_cycle",
+            format!("Module cycle: {joined}"),
+            json!({"members": members, "edges": edges}),
+        ),
+    };
+    let mut subjects: Vec<&str> = members
+        .iter()
+        .map(String::as_str)
+        .filter(|m| !m.is_empty())
+        .collect();
+    subjects.sort_unstable();
+    json!({
+        "id": id,
+        "evidence_class": "VIOLATION",
+        "area": "cycles",
+        "kind": kind,
+        "title": title,
+        "subjects": subjects,
+        "evidence_ids": evidence,
+        "rule_ids": [rule],
+        "fact_ids": facts,
+        "provenance": [],
+        "data": data,
+    })
 }
 
 /// The record of a direction violation that cites one import (slice S5, AD-380).
@@ -220,7 +266,8 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::NotAllowedChild { .. }
         | Violation::OutsideScope { .. }
         | Violation::Undeclared { .. }
-        | Violation::OuterLayer(_) => row(violation),
+        | Violation::OuterLayer(_)
+        | Violation::Cycle(_) => row(violation),
     }
 }
 

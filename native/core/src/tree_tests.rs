@@ -52,11 +52,11 @@ fn request(mount: bool) -> Value {
         json!([])
     };
     json!({
-        "protocol": "archkeel-dual-run-3", "case": "c", "root": "/r", "config": "archkeel.toml",
+        "protocol": "archkeel-dual-run-4", "case": "c", "root": "/r", "config": "archkeel.toml",
         "baseline": null, "collector_argv": null, "pinned": false,
         "contracts": {"architecture-contract.json": contract(mount)},
         "reply": {"hex": hex_of(&golden_reply())}, "sections": [], "namespace": "shop",
-        "profile": golden_profile(), "standard_library": [], "insides": insides,
+        "profile": golden_profile(), "standard_library": [], "insides": insides, "roots": [],
     })
 }
 

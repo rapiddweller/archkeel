@@ -56,3 +56,33 @@ fn a_module_outside_the_namespace_is_refused_as_the_reference_engine_refuses_it(
     assert!(!admits("sho", "shop.src.a", "shop.src"));
     assert!(!admits("shop", "shop.src.a", "shop.other"));
 }
+
+fn labels(items: &[&str]) -> Vec<String> {
+    items.iter().map(|item| (*item).to_owned()).collect()
+}
+
+#[test]
+fn the_scan_roots_must_be_the_scope_labels_of_the_reply_in_their_order() {
+    let rooted = |roots: &[&str]| settings("shop", &[]).with_roots(labels(roots));
+    let scope = labels(&["src/**", "lib.rs"]);
+    assert_eq!(rooted(&["src", "lib.rs"]).bind_roots(&scope), Ok(()));
+    // A caller cannot widen a root, add one, drop one, reorder them or send an empty one.
+    for wrong in [
+        &["."][..],
+        &[""][..],
+        &["src"][..],
+        &["src", "lib.rs", "extra"][..],
+        &["lib.rs", "src"][..],
+        &["src/**", "lib.rs"][..],
+        &["sr", "lib.rs"][..],
+    ] {
+        assert_eq!(
+            rooted(wrong).bind_roots(&scope),
+            Err(Refusal::ScanRoots),
+            "{wrong:?}"
+        );
+    }
+    // Settings without roots bind nothing; a receipt that needs them names the part.
+    assert_eq!(settings("shop", &[]).bind_roots(&scope), Ok(()));
+    assert_eq!(settings("shop", &[]).roots(), None);
+}

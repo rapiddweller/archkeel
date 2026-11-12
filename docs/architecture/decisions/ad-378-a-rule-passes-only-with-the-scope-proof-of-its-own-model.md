@@ -11,6 +11,8 @@
 6. L-35a: the store refuses a reply whose sections, resolution features or construct capabilities are not a registered set of its profile (`native/store/src/registered.rs`, from `evaluate.py:1006-1056`). A PASS names its rule and the serial of its model; `Decision::passes` checks both, because a type cannot stop a value from moving. `Proven` and `Verdict` are not `Copy`. Each match of the proof path lists every rule kind; an undecided kind fails closed. Seam with #1065: `proof.rs` reads only the root `contract.rules()` (`named`, `limits`, `rule_failures`); an inside rule is a `ForeignRule`; a `TreeScope` arm must stay before the PASS arm.
 7. The three sections of the S4 design row stay unported and name what they need (`Porting::Unowned`).
 
+**Amendment (2026-11-12, [AD-384](ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md)).** A kept pair gap is no longer a cause of the whole state: it holds only the rules that it can change, and the run. An allowed pair gap holds no rule. S7 ports the cycle part of the drop rule.
+
 **Reason.** A false PASS is the largest risk of the core (AD-363). Each cause of the reference engine is a check of its own, so a test can drop it one at a time.
 
 **Rejected.** A profile table from the shell: the core cannot bind it to the reply, and a wrong table gives a false PASS. A proof per model only: the receipt and the dynamic imports belong to one rule. A port of the cycle part of the drop rule: a gap that it can drop stays a gap of one profile.

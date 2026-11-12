@@ -25,7 +25,9 @@ use crate::frame_rules::rule_rows;
 use crate::head::{
     Counts, GapRow, NotRanked, PayloadBudget, RuleResult, Run, Source, Status, Summary,
 };
-use crate::input::{EdgeRow, Produced, Records, RuleDecision, RunOutcome, Target, Tree};
+use crate::input::{
+    EdgeRow, Produced, Records, RuleDecision, RunOutcome, Target, Tree, UnknownRecord,
+};
 use crate::payload::{Payload, MAX_BYTES, SCHEMA_VERSION};
 use crate::problem::Problem;
 use crate::report::{Decided, Report};
@@ -39,6 +41,38 @@ fn rows<T>(table: &'static str, produced: Produced<T>) -> Result<T, BuildError> 
 }
 
 /// The unknowns rows: each record, each diagnostic, and a missing Target.
+/// The kind of an unknown row that names a PASS beyond the reference engine (AD-384 point 7).
+pub(crate) const BEYOND_KIND: &str = "core_decides_beyond_the_reference";
+
+/// One unknown row for each PASS rule of a model with kept pair gaps: the reference engine gives
+/// the rule UNKNOWN for each such gap, and the core passes it because no kept gap can change what
+/// it reads (AD-384). The row names the rule, so a reader sees the difference.
+fn beyond(rules: &[crate::input::RuleOutcome], model: Option<&Model>) -> Vec<UnknownRecord> {
+    let Some(model) = model else {
+        return Vec::new();
+    };
+    let kept = model.kept_pair_gaps();
+    if kept == 0 {
+        return Vec::new();
+    }
+    rules
+        .iter()
+        .filter(|rule| match &rule.decision {
+            RuleDecision::Decided(decision) => {
+                matches!(decision.verdict(), archkeel_model::Verdict::Pass(_))
+            }
+            RuleDecision::Declaration => false,
+        })
+        .map(|rule| UnknownRecord {
+            kind: BEYOND_KIND.to_owned(),
+            module: None,
+            subjects: Vec::new(),
+            rules: vec![rule.id.clone()],
+            title: format!("no one of the {kept} kept pair gaps can change the rule"),
+        })
+        .collect()
+}
+
 fn unknown_cells(
     outcome: &RunOutcome,
     records: Vec<crate::input::UnknownRecord>,
@@ -304,7 +338,8 @@ pub fn build(
     let units = rows("units", records.units)?;
     let permissions = rows("permissions", records.permissions)?;
     let violations = rows("violations", records.violations)?;
-    let unknowns = rows("unknowns", records.unknowns)?;
+    let mut unknowns = rows("unknowns", records.unknowns)?;
+    unknowns.extend(beyond(&outcome.rules, model));
     let findings = rows("findings", records.findings)?;
     let edges = match records.graph {
         Produced::Rows(graph) => graph.edges,

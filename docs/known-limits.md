@@ -386,14 +386,20 @@ methods of `Path` by name), a macro such as `eprintln!` or `include_str!`, or an
 
 The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) runs only in the dual run; no command uses it. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
 
-- A gap between two modules that the contract allows: Python drops it for the Rust profile only. 7 rules of the corpus (2 PASS and 5 UNKNOWN in Python).
+- A gap between two modules that the contract allows: Python drops it for the Rust profile only. The core names each rule and the run for it. For another profile both engines keep the gap ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md)).
 - `interface_boundary` in a TypeScript contract: a limit of the Rust profile only. 8 rules (PASS in Python).
 - A symbol-level selector in a reply with `script-globals-v1`: one profile reads such selectors. 4 rules (PASS in Python).
 - A runtime requirement that is not `>=X`, and a `forbidden_construct` rule that selects no module: no corpus case.
-- `complete_requires` ([AD-380](architecture/decisions/ad-380-the-core-decides-the-direction-rule-kinds.md)): the receipt needs the scan roots, which the request does not carry. The core gives FAIL with the rows of Python, and else a named gap, never a PASS. A coverage gap that the dependency scope proof of the host can accept is a named gap for this kind.
+- `complete_requires` ([AD-380](architecture/decisions/ad-380-the-core-decides-the-direction-rule-kinds.md)): a coverage gap that the dependency scope proof of the host can accept is a named gap for this kind. The receipt reads the scan roots of the request ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md)); a contract with a selector rule (its source is a receipt scope) is a named gap.
+- The cycle receipts and the receipt of `complete_requires` map a module file to its directory only for a profile with a proven import closure (`Layout::ProjectFiles`); any other profile is a named gap.
 - A `layer_order` rule without the source of the contract bytes in the request: a named gap. The core does not read the contract file again after the shell read it.
 - A `requires` symbol port in a reply without the symbol feature: the import is left out, as in the store-accepted profiles.
 - The contract path in the dual-run request is the word of the caller. It sets only the evidence id of the `layer_order` rows, never a verdict: the model binds the bytes to the parsed contract by their digest, not the path.
+
+The core decides one rule kind set where Python does not ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md), "core decides, Python does not"). Python makes every rule UNKNOWN for a pair gap that it keeps. The core holds only the rules whose reading the gap can change, and it passes the others. The run stays UNKNOWN and names each kept gap. The frame lists each such rule in `beyond`, and the harness shows it as a named difference. The corpus has 21 such rules in 16 cases (`BEYOND_CASES` in `tests/test_native_core.py`). Two limits apply:
+
+- The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
+- The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
 
 The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 

@@ -18,6 +18,8 @@
 
 **Reason.** The direction kinds are the most used rules of the corpus (4 440 `forbidden_dependency` rules). Their FAIL rows and UNKNOWN causes are facts of the reply and the contract; only the receipt of `complete_requires` needs an input that the request does not carry.
 
+**Amendment (2026-11-12, [AD-384](ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md)).** The request carries the scan roots, bound to the reply: `Part::ScanRoots` names only a request without roots, and the receipt of `complete_requires` can pass.
+
 **Rejected.** A scan-root setting in the request: the cycle receipts of S7 need the same roots and the same physical domain check (`ir/coverage.py:123`), so S7 adds it for both. A matcher per consumer: the undecided count and the violations would drift. A bare `Verdict::Declaration`: the report crate already keeps a declaration outside `Decision`.
 
 **Stricter than Python (all named).** `complete_requires` that Python passes: 81 rules name the scan roots. A profile limit of AD-378 (a symbol selector, an interface boundary, a symbol port) in the same contract: 6 `forbidden_dependency` and 5 `sibling_isolation` rules that Python passes. A rule of a mounted tree keeps the `TreeScope` check of AD-379 before PASS. A reply that the store refuses and a baseline: named as before.

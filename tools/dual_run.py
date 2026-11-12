@@ -29,7 +29,7 @@ from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from tools.dual_run_corpus import (
@@ -64,7 +64,9 @@ from tools.dual_run_tree import tree_frame
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
 # Version 2 adds the settings of the shell: `namespace`, `profile` and `standard_library` (AD-372).
 # Version 3 adds `insides`: the inside contracts that the shell read for the core (AD-379).
-PROTOCOL = "archkeel-dual-run-3"
+# Version 4 adds `roots`: the scan roots of the configuration; the core binds them to the reply
+# (AD-384).
+PROTOCOL = "archkeel-dual-run-4"
 ENGINE_TIMEOUT_SECONDS = 600
 # The exit code of an engine frame that names an unsupported or refused part (AD-363).
 NAMES_A_GAP = 3
@@ -99,7 +101,8 @@ def collector_argv(case: Case) -> tuple[str, ...] | None:
 def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, Any]:
     """The request of a command engine (AD-360). `reply` stays `null` until the core ingests a
     collector reply; until then the engine reads the sources below `root`. The shell reads the
-    namespace from the configuration (AD-372): the core parses no configuration file."""
+    namespace and the roots from the configuration (AD-372, AD-384): the core parses no
+    configuration file."""
     scan = tomllib.loads((root / case.config).read_text())["scan"]
     contract = scan.get("contract")
     contracts = {} if contract is None else {contract: (root / contract).read_text()}
@@ -118,6 +121,7 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
         "profile": "",
         "standard_library": [],
         "insides": [],
+        "roots": [PurePosixPath(root).as_posix() for root in scan["roots"]],
     }
 
 

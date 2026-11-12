@@ -17,3 +17,4 @@
 | 2026-11-12 | 24 | 84c19ac9c | WP6 S5: the direction kinds (AD-380) |
 | 2026-11-12 | 2 | b988070ff | WP6 S5: two layer order FAIL cases (AD-380) |
 | 2026-11-12 | 2 | c644d0bed | WP6 S5 review: external, builtin and exact-source probes (AD-380) |
+| 2026-11-12 | 10 | 7c7db79f0 | WP6 S7: the s7 cases of the cycle rules, the scan roots and the pair-gap scope (AD-384) |

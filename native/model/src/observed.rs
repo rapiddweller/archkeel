@@ -20,8 +20,11 @@
 
 use std::cmp::Ordering;
 
+use std::collections::BTreeSet;
+
 use archkeel_facts::envelope::{
-    ConstructSupport, Dirty, Facts, RequirementState, Runtime as RuntimeFact,
+    ConstructSupport, Dirty, Facts, Layout, PairGapDrop, RequirementState, Role,
+    Runtime as RuntimeFact,
 };
 use archkeel_facts::sections::{GapFact, Section};
 
@@ -59,6 +62,13 @@ pub(crate) struct Observed {
     pub(crate) constructs: Vec<String>,
     /// The reply has the feature after which one profile reads symbol-level selectors.
     pub(crate) symbol_feature: bool,
+    /// The collector read and parsed each selected file, and the selected inputs are the
+    /// selected files (`evaluate.py` `_source_inventory_complete`; slice S7).
+    pub(crate) inventory_complete: bool,
+    /// How the modules of the profile lie in the scan roots (slice S7).
+    pub(crate) layout: Layout,
+    /// Whether the host drops an allowed pair gap of the profile (slice S7).
+    pub(crate) pair_gap_drop: PairGapDrop,
 }
 
 /// One dynamic import limit of the `unknowns` section (`dynamic_dependency_limits`).
@@ -131,7 +141,28 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .resolution_features
             .iter()
             .any(|feature| feature == SYMBOL_FEATURE),
+        inventory_complete: inventory_complete(facts),
+        layout: facts.profile.layout(),
+        pair_gap_drop: facts.profile.pair_gap_drop(),
     }
+}
+
+/// `_source_inventory_complete`: the selected files are not empty, they are the paths of the
+/// selected inputs, and the collector read and parsed each of them.
+fn inventory_complete(facts: &Facts) -> bool {
+    let coverage = &facts.coverage;
+    let selected: BTreeSet<&str> = coverage.selected_files.iter().map(String::as_str).collect();
+    let inputs: BTreeSet<&str> = facts
+        .inputs
+        .iter()
+        .filter(|input| input.role == Role::Selected)
+        .map(|input| input.path.as_str())
+        .collect();
+    let count = selected.len() as u64;
+    !selected.is_empty()
+        && selected == inputs
+        && coverage.files_read == count
+        && coverage.files_parsed == count
 }
 
 /// The runtime check of `runtime_diagnostic` for the one form that the core reads: a declared

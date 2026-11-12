@@ -70,10 +70,10 @@ fn a_kind_whose_receipt_the_model_does_not_know_gets_no_proof() {
             | K::CompleteExternalScope
             | K::ForbiddenDependency
             | K::SiblingIsolation => None,
-            // S5: the receipt of `complete_requires` reads the scan roots (AD-380).
-            K::CompleteRequires => Some(Reason::Unsupported(Unsupported::ScopeProof(
-                archkeel_model::Part::ScanRoots,
-            ))),
+            // S5 and S7: these receipts read the scan roots (AD-380, AD-384).
+            K::CompleteRequires | K::NoComponentCycles => Some(Reason::Unsupported(
+                Unsupported::ScopeProof(archkeel_model::Part::ScanRoots),
+            )),
             other => Some(Reason::Unsupported(Unsupported::Rule(other))),
         };
         assert_eq!(reason, expected);
