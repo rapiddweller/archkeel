@@ -27,6 +27,8 @@ pub enum Cause {
     NoRuleSubjects(String),
     /// A dynamic import that the collector could not resolve reaches the rule.
     DynamicImport,
+    /// Imports that the rule names whose used names the reply does not prove (their number).
+    Undecided(usize),
 }
 
 /// A part of the scope proof that the core cannot read. The rule is a named gap.
@@ -45,6 +47,14 @@ pub enum Part {
     /// The contract mounts inside contracts. The reference engine reads the mounts for the root
     /// verdicts (a mount failure makes a root rule UNKNOWN); the core does not (AD-379).
     MountedTree,
+    /// `complete_requires`: the receipt needs the scan roots of the configuration, which the
+    /// request does not carry (`scope_receipts_complete`).
+    ScanRoots,
+    /// `complete_requires`: a coverage gap that the dependency scope proof of the host can
+    /// accept (`ir/decisions.py` `_scoped_dependency_receipt`).
+    ScopedRequires,
+    /// `layer_order`: the request carries no source of the contract with the parsed bytes.
+    ContractSource,
 }
 
 impl fmt::Display for Cause {
@@ -70,6 +80,9 @@ impl fmt::Display for Cause {
             Cause::NoRuleSubjects(rule) => write!(formatter, "the rule {rule} selects no module"),
             Cause::DynamicImport => {
                 formatter.write_str("an unresolved dynamic import reaches the rule")
+            }
+            Cause::Undecided(count) => {
+                write!(formatter, "the rule left {count} imports undecided")
             }
         }
     }
@@ -97,6 +110,15 @@ impl fmt::Display for Part {
             Part::MountedTree => formatter.write_str(
                 "the contract mounts inside contracts; the core does not read their coverage",
             ),
+            Part::ScanRoots => formatter.write_str(
+                "the receipt of complete_requires needs the scan roots; the request has none",
+            ),
+            Part::ScopedRequires => formatter.write_str(
+                "a coverage gap that the dependency scope proof of complete_requires can accept",
+            ),
+            Part::ContractSource => {
+                formatter.write_str("the request has no source of the contract bytes")
+            }
         }
     }
 }

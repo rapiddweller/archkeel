@@ -173,7 +173,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let producer = producer(request.collector_argv.as_ref(), request.pinned);
     engine.answer(Request::Settings(
         Settings::new(request.namespace, request.profile, request.standard_library)
-            .with_producer(producer),
+            .with_producer(producer)
+            .with_contract_source(&path, contract.as_bytes()),
     ));
     let input = ContractInput {
         path,

@@ -52,12 +52,29 @@ pub(crate) struct Observed {
     pub(crate) git_unknown: bool,
     /// The runtime check.
     pub(crate) runtime: Runtime,
-    /// The source module of each dynamic import limit, or `None` when the record names none.
-    pub(crate) dynamic_imports: Vec<Option<String>>,
+    /// Each dynamic import limit: its source module (`None` when the record names none) and its
+    /// `under_type_checking` flag (`None` when the record has none).
+    pub(crate) dynamic_imports: Vec<Dynamic>,
     /// The construct kinds that the collector examines (any status but `unsupported`).
     pub(crate) constructs: Vec<String>,
     /// The reply has the feature after which one profile reads symbol-level selectors.
     pub(crate) symbol_feature: bool,
+}
+
+/// One dynamic import limit of the `unknowns` section (`dynamic_dependency_limits`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Dynamic {
+    pub(crate) source: Option<String>,
+    pub(crate) type_checking: Option<bool>,
+}
+
+impl Dynamic {
+    /// True when a rule that leaves out type-only imports does not see this limit. The
+    /// reference engine reads the flag of the record; a record without it stops that engine,
+    /// so the limit reaches every rule (fail closed).
+    pub(crate) fn type_only(&self) -> bool {
+        self.type_checking == Some(true)
+    }
 }
 
 /// The scope facts of the facts of a reply.
@@ -85,9 +102,10 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         })
         .flatten()
         .filter_map(|record| match &record.data {
-            GapFact::DynamicImportLimit(data) => {
-                Some(data.source_module.as_ref().map(|m| m.as_str().to_owned()))
-            }
+            GapFact::DynamicImportLimit(data) => Some(Dynamic {
+                source: data.source_module.as_ref().map(|m| m.as_str().to_owned()),
+                type_checking: data.under_type_checking,
+            }),
             // `dynamic_dependency_limits` reads no other kind of the `unknowns` section.
             GapFact::CollectionGap(_)
             | GapFact::SourceResolutionGap(_)

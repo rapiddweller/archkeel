@@ -76,6 +76,10 @@ fn a_root_rule_that_passes_without_a_mount_is_named_with_one_mount_and_the_statu
     let plain = frame(&request(false));
     let passed = passes(&plain);
     assert!(passed.contains(&"ASSIGNMENT".to_owned()), "{plain}");
+    // AD-380: the direction kinds pass without a mount and are named with one.
+    for rule in ["DOMAIN-NO-DATA", "DATA-PEERS"] {
+        assert!(passed.contains(&rule.to_owned()), "{rule}: {plain}");
+    }
     let mounted = frame(&request(true));
     assert!(passes(&mounted).is_empty(), "{mounted}");
     assert_ne!(mounted["status"], "PASS");

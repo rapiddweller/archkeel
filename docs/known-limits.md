@@ -383,6 +383,10 @@ The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-pa
 - `interface_boundary` in a TypeScript contract: a limit of the Rust profile only. 8 rules (PASS in Python).
 - A symbol-level selector in a reply with `script-globals-v1`: one profile reads such selectors. 4 rules (PASS in Python).
 - A runtime requirement that is not `>=X`, and a `forbidden_construct` rule that selects no module: no corpus case.
+- `complete_requires` ([AD-380](architecture/decisions/ad-380-the-core-decides-the-direction-rule-kinds.md)): the receipt needs the scan roots, which the request does not carry. The core gives FAIL with the rows of Python, and else a named gap, never a PASS. A coverage gap that the dependency scope proof of the host can accept is a named gap for this kind.
+- A `layer_order` rule without the source of the contract bytes in the request: a named gap. The core does not read the contract file again after the shell read it.
+- A `requires` symbol port in a reply without the symbol feature: the import is left out, as in the store-accepted profiles.
+- The contract path in the dual-run request is the word of the caller. It sets only the evidence id of the `layer_order` rows, never a verdict: the model binds the bytes to the parsed contract by their digest, not the path.
 
 The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 

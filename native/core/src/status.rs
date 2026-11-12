@@ -21,6 +21,7 @@ use crate::rules::RuleAnswer;
 pub(crate) const PASS: &str = "PASS";
 pub(crate) const FAIL: &str = "FAIL";
 pub(crate) const UNKNOWN: &str = "UNKNOWN";
+pub(crate) use crate::rules::DECLARATION;
 
 /// The status of a frame: its decided rules, whether it names a reason or a part, and whether
 /// the scope of the run is complete.
@@ -32,7 +33,8 @@ pub(crate) fn status(
     let statuses = || decided.values().map(|[_, status]| status.as_str());
     if statuses().any(|status| status == FAIL) {
         FAIL
-    } else if named || !complete || statuses().any(|status| status != PASS) {
+    } else if named || !complete || statuses().any(|status| status != PASS && status != DECLARATION)
+    {
         UNKNOWN
     } else {
         PASS
@@ -50,7 +52,7 @@ pub(crate) fn unexplained(answer: &RuleAnswer) -> Option<String> {
         let fits = match status.as_str() {
             FAIL => violations > 0 && !reason,
             UNKNOWN => violations == 0 && reason,
-            PASS => violations == 0 && !reason,
+            PASS | DECLARATION => violations == 0 && !reason,
             _ => false,
         };
         if !fits {

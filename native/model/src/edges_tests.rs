@@ -25,6 +25,8 @@ fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -
         source_package: from.1.to_owned(),
         target_package: to.1.to_owned(),
         under_type_checking: type_checking,
+        symbol: None,
+        symbols_known: true,
         relative: false,
         resolved: Resolved::Local,
         evidence: Vec::new(),

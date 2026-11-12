@@ -62,14 +62,20 @@ fn a_kind_whose_receipt_the_model_does_not_know_gets_no_proof() {
     for rule in own.rules() {
         let kind = archkeel_contract::kind_of(rule);
         let reason = model.scope(|scope| scope.complete(rule).err());
-        let decided = matches!(
-            kind,
-            archkeel_contract::RuleKind::CompleteAssignment
-                | archkeel_contract::RuleKind::RootLayout
-                | archkeel_contract::RuleKind::ExternalDependencyScope
-                | archkeel_contract::RuleKind::CompleteExternalScope
-        );
-        let expected = (!decided).then_some(Reason::Unsupported(Unsupported::Rule(kind)));
+        use archkeel_contract::RuleKind as K;
+        let expected = match kind {
+            K::CompleteAssignment
+            | K::RootLayout
+            | K::ExternalDependencyScope
+            | K::CompleteExternalScope
+            | K::ForbiddenDependency
+            | K::SiblingIsolation => None,
+            // S5: the receipt of `complete_requires` reads the scan roots (AD-380).
+            K::CompleteRequires => Some(Reason::Unsupported(Unsupported::ScopeProof(
+                archkeel_model::Part::ScanRoots,
+            ))),
+            other => Some(Reason::Unsupported(Unsupported::Rule(other))),
+        };
         assert_eq!(reason, expected);
     }
 }

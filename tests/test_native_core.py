@@ -146,6 +146,59 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     }
 
 
+S5_NAMES = (
+    *S4_NAMES,
+    "unsupported: the scope proof: the receipt of complete_requires needs the scan roots; the "
+    "request has none",
+    "unsupported: the scope proof: a coverage gap that the dependency scope proof of "
+    "complete_requires can accept",
+)
+S5_FAMILIES = (
+    "forbidden_dependency,allowed_dependency,sibling_isolation,layer_order,complete_requires"
+)
+
+
+def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_every_case(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-380: each rule of the five direction kinds has the verdict of the Python engine (an
+    `allowed_dependency` rule its DECLARATION), or a name of S5_NAMES, or a limit of one
+    profile. The violation rows of the decided rules equal the rows of Python. No decided
+    verdict and no PASS or FAIL status of a run differs."""
+    arguments = ["compare", "--sections", "violations", "--families", S5_FAMILIES]
+    code, lines = _run([*arguments, "--engine-command", core], capsys)
+    differences = [line for line in lines if ": rules: " in line or ": status: " in line]
+    assert not [line for line in differences if ", found " in line or ": status: " in line]
+    limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
+    tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
+    left = [
+        line
+        for line in differences
+        if not (line.endswith(S5_NAMES) or limit.search(line) or tree.search(line))
+    ]
+    assert left == [], left
+    rows = [line for line in lines if ": violations: " in line]
+    # A section without its input names it: a refused reply, or a contract with a tree.
+    missing = (
+        ": -: missing input: no valid collector reply",
+        ": -: missing input: no valid contract",
+    )
+    assert all(line.endswith(missing) for line in rows), rows
+    assert not [line for line in rows if line.startswith("s5/")]
+    assert code == (1 if differences or rows else 0)
+    # The s5 cases: a difference is only the named receipt of `complete_requires` or a limit
+    # of some profiles.
+    s5 = {line.split(":")[0] for line in differences if line.startswith("s5/")}
+    named = {
+        line.split(":")[0] for line in differences if "s5/" in line and "scan roots" not in line
+    }
+    assert named <= {
+        "s5/forbidden-symbol-rule-leaves-a-position-undecided",
+        "s5/requires-symbol-port-is-judged-with-the-symbol-feature",
+    }
+    assert "s5/layer-order-fails-with-four-violations" in s5
+
+
 def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -165,7 +218,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 607 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 635 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(

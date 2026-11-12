@@ -57,9 +57,7 @@
     "catalog_argument",
     "catalog_use",
     "forbidden_call_argument",
-    "layer_order",
     "protocol_declarations",
-    "sibling_isolation",
     "source_ownership"
   ],
   "families": {

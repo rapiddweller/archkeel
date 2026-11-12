@@ -54,10 +54,13 @@ use std::marker::PhantomData;
 use archkeel_contract::{head_of, kind_of, Rule};
 
 use crate::causes::{Cause, Part};
+use crate::coverage::Incomplete;
+use crate::direction;
 use crate::model::Model;
-use crate::ownership::in_scope;
+use crate::ownership::{in_scope, owner_of};
 use crate::proof::State;
 use crate::reason::{Reason, Unsupported};
+use crate::selection;
 use crate::verdict::Decision;
 
 /// An invariant lifetime: two calls of `Model::scope` never have the same one.
@@ -101,7 +104,7 @@ impl<'id, 'm> Scope<'id, 'm> {
             return Err(Part::ForeignRule.into());
         }
         let unread = match self.model.scope_state() {
-            State::Incomplete(reason) => return Err(reason.clone()),
+            State::Incomplete(reason) => return Err(rescued(rule, reason)),
             State::Unread(part) => Some(part.clone()),
             State::Complete => None,
         };
@@ -151,21 +154,52 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             .iter()
             .any(|(_, module)| in_scope(module.name(), rule.root().as_text())),
         Rule::ExternalDependencyScope(_) => !modules.is_empty(),
-        // Each kind that no slice decides: its slice states its receipt here (AD-378).
+        // Slice S5 (AD-380), `_rule_evaluation_facts_for_rule`.
+        // An undecided position (`symbol_limits`) withholds the receipt as well.
+        Rule::ForbiddenDependency(rule) => {
+            let judged = direction::forbidden(model, rule)
+                .into_iter()
+                .map(|(_, j)| j);
+            undecided(direction::undecided(judged))?;
+            let [sources, _] = selection::dependency_sides(rule, model.contract().components());
+            modules
+                .iter()
+                .any(|(_, module)| sources.matches(module.name()))
+        }
+        Rule::SiblingIsolation(rule) => modules.iter().any(|(_, module)| {
+            rule.members()
+                .iter()
+                .any(|member| in_scope(module.name(), member.as_text()))
+        }),
+        // `_layer_order_evaluation_facts`: the selected components; the receipt cites the
+        // contract file (`_layer_order_evidence`). The layer gaps are a cause of the state.
+        Rule::LayerOrder(rule) => {
+            let digest = model.contract().digest().as_text();
+            if model.graph().settings().contract_evidence(digest).is_none() {
+                return Err(Part::ContractSource.into());
+            }
+            !selection::layer_components(model.contract(), rule).is_empty()
+        }
+        // `scope_receipts_complete` reads the scan roots of the configuration.
+        Rule::CompleteRequires(rule) => {
+            let judged = direction::crossings(model, rule)
+                .into_iter()
+                .map(|c| c.judged);
+            undecided(direction::undecided(judged))?;
+            return Err(Part::ScanRoots.into());
+        }
+        // Each kind that no slice decides: its slice states its receipt here (AD-378). A
+        // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
         other @ (Rule::CallOwner(_)
         | Rule::ForbiddenCallArgument(_)
         | Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ForbiddenConstruct(_)
         | Rule::SourceOwnership(_)
-        | Rule::CompleteRequires(_)
-        | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
         | Rule::InterfaceBoundary(_)
-        | Rule::SiblingIsolation(_)
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
@@ -180,24 +214,57 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
     }
 }
 
+/// An undecided position is a fact: the reference engine gives UNKNOWN (`_rule_status`).
+fn undecided(count: usize) -> Result<(), Reason> {
+    if count > 0 {
+        Err(Reason::NotComplete(Cause::Undecided(count)))
+    } else {
+        Ok(())
+    }
+}
+
 /// True when an unresolved dynamic import reaches the rule (`dynamic_dependency_limits`): the
 /// reference engine leaves the rule without its receipt. A limit without a source module stops
 /// the reference engine, so it reaches each rule.
 fn dynamic_import(model: &Model, rule: &Rule) -> bool {
-    let reaches = |source: &str| match rule {
+    let reaches = |source: Source<'_>| match rule {
         Rule::ExternalDependencyScope(rule) => {
             !(rule
                 .exact_sources()
                 .iter()
-                .any(|exact| exact.as_text() == source)
+                .any(|exact| exact.as_text() == source.module)
                 || rule
                     .allowed_sources()
                     .iter()
-                    .any(|allowed| in_scope(source, allowed.as_text())))
+                    .any(|allowed| in_scope(source.module, allowed.as_text())))
         }
-        Rule::CompleteExternalScope(rule) => in_scope(source, rule.source().as_text()),
+        Rule::CompleteExternalScope(rule) => in_scope(source.module, rule.source().as_text()),
+        // Slice S5 (AD-380): a rule that leaves out type-only imports does not see a type-only
+        // limit (`rule_support.py:200`).
+        Rule::ForbiddenDependency(rule) => {
+            let [sources, _] = selection::dependency_sides(rule, model.contract().components());
+            sources.matches(source.module)
+                && !rule
+                    .allowed_sources()
+                    .iter()
+                    .any(|allowed| allowed.as_text() == source.module)
+                && !(source.type_only && !rule.include_type_checking())
+        }
+        Rule::SiblingIsolation(rule) => {
+            rule.members()
+                .iter()
+                .any(|member| in_scope(source.module, member.as_text()))
+                && !(source.type_only && !rule.include_type_checking())
+        }
+        Rule::CompleteRequires(rule) => {
+            owner_of(model.components(), source.module).is_some()
+                && !(source.type_only && !rule.include_type_checking())
+        }
         // `dynamic_dependency_limits` does not read these kinds.
-        Rule::CompleteAssignment(_) | Rule::RootLayout(_) => false,
+        Rule::CompleteAssignment(_)
+        | Rule::RootLayout(_)
+        | Rule::LayerOrder(_)
+        | Rule::AllowedDependency(_) => false,
         // A kind that no slice decides has no receipt; its slice states its limits here. Until
         // then a dynamic import reaches it (fail closed).
         Rule::CallOwner(_)
@@ -205,15 +272,10 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         | Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::ForbiddenDependency(_)
-        | Rule::AllowedDependency(_)
         | Rule::ForbiddenConstruct(_)
         | Rule::SourceOwnership(_)
-        | Rule::CompleteRequires(_)
-        | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
         | Rule::InterfaceBoundary(_)
-        | Rule::SiblingIsolation(_)
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
@@ -224,5 +286,35 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         .observed()
         .dynamic_imports
         .iter()
-        .any(|source| source.as_deref().is_none_or(reaches))
+        .any(|limit| {
+            limit.source.as_deref().is_none_or(|module| {
+                reaches(Source {
+                    module,
+                    type_only: limit.type_only(),
+                })
+            })
+        })
+}
+
+/// The source module of a dynamic import limit and its type-only flag.
+#[derive(Clone, Copy)]
+struct Source<'a> {
+    module: &'a str,
+    type_only: bool,
+}
+
+/// The reason of an incomplete state for one rule. The host can accept a coverage gap for a
+/// `complete_requires` rule with its dependency scope proof (`_scoped_dependency_receipt`), so
+/// for that kind such a gap is a part that the core cannot read, not a fact.
+fn rescued(rule: &Rule, reason: &Reason) -> Reason {
+    let accepted = matches!(
+        reason,
+        Reason::Incomplete(Incomplete::CoverageGaps(_) | Incomplete::UnknownImports(_))
+            | Reason::NotComplete(Cause::PairGaps(_))
+    );
+    if accepted && matches!(rule, Rule::CompleteRequires(_)) {
+        Part::ScopedRequires.into()
+    } else {
+        reason.clone()
+    }
 }

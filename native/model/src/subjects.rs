@@ -15,11 +15,7 @@
 //! reference engine adds the classes and functions of the symbols to the subjects. A count above
 //! zero is final without them; a count of zero is not read, so the rule gives no PASS.
 
-use std::collections::HashMap;
-
-use archkeel_contract::{
-    Component, ForbiddenDependency, Rule, Selector, SelectorMatch, TargetKind,
-};
+use archkeel_contract::{Component, ForbiddenDependency, Rule, Selector, TargetKind};
 
 use crate::ownership::in_scope;
 
@@ -111,101 +107,22 @@ fn texts(selectors: &[Selector]) -> Vec<&str> {
     selectors.iter().map(Selector::as_text).collect()
 }
 
-/// The module selection of one side: packages and exact modules (`ModuleSelection`).
-struct Selection<'a> {
-    packages: Vec<&'a str>,
-    exact: Vec<&'a str>,
-}
-
-impl Selection<'_> {
-    fn matches(&self, module: &str) -> bool {
-        self.exact.contains(&module) || self.packages.iter().any(|p| in_scope(module, p))
-    }
-}
-
 /// `forbidden_dependency`: the sides of `DependencySelector.select`. A target that names a
 /// builtin target or an import namespace has no target side.
 fn forbidden(rule: &ForbiddenDependency, components: &[Component], names: &Names<'_>) -> Subjects {
-    let (source, target) = selections(rule, components);
+    let [source, target] = crate::selection::dependency_sides(rule, components);
     let target_side = !(*rule.target_kind() == TargetKind::ImportNamespace
         || names
             .builtins
             .iter()
             .any(|name| name == rule.target().as_text()));
-    let found = |selection: &Selection<'_>| names.subjects.iter().any(|m| selection.matches(m));
+    let found = |selection: &crate::selection::Selection<'_>| {
+        names.subjects.iter().any(|m| selection.matches(m))
+    };
     if found(&source) && (!target_side || found(&target)) {
         Subjects::Found
     } else {
         Subjects::Missing
-    }
-}
-
-/// The source and target selections of a `forbidden_dependency` rule.
-fn selections<'a>(
-    rule: &'a ForbiddenDependency,
-    components: &'a [Component],
-) -> (Selection<'a>, Selection<'a>) {
-    let source = rule.source().as_text();
-    let target = rule.target().as_text();
-    let whole = rule.target_symbol().is_none()
-        && *rule.source_match() == SelectorMatch::Prefix
-        && *rule.target_match() == SelectorMatch::Prefix
-        && *rule.target_kind() == TargetKind::Module;
-    if whole {
-        // `component_pair`: one owner label each, by an exact package; the last component of a
-        // label gives its modules.
-        let owners_of = |name: &str| {
-            let mut labels: Vec<&str> = components
-                .iter()
-                .filter(|component| component.packages().iter().any(|p| p.as_text() == name))
-                .map(|component| component.label().as_text())
-                .collect();
-            labels.dedup();
-            labels.sort_unstable();
-            labels.dedup();
-            labels
-        };
-        if let ([source_label], [target_label]) =
-            (owners_of(source).as_slice(), owners_of(target).as_slice())
-        {
-            let by_label: HashMap<&str, &Component> = components
-                .iter()
-                .map(|component| (component.label().as_text(), component))
-                .collect();
-            if let (Some(source), Some(target)) =
-                (by_label.get(source_label), by_label.get(target_label))
-            {
-                return (owned(source), owned(target));
-            }
-        }
-    }
-    (
-        literal(source, *rule.source_match()),
-        literal(target, *rule.target_match()),
-    )
-}
-
-fn owned(component: &Component) -> Selection<'_> {
-    Selection {
-        packages: component.packages().iter().map(|p| p.as_text()).collect(),
-        exact: component
-            .exact_modules()
-            .iter()
-            .map(|p| p.as_text())
-            .collect(),
-    }
-}
-
-fn literal(name: &str, mode: SelectorMatch) -> Selection<'_> {
-    match mode {
-        SelectorMatch::Exact => Selection {
-            packages: Vec::new(),
-            exact: vec![name],
-        },
-        SelectorMatch::Prefix => Selection {
-            packages: vec![name],
-            exact: Vec::new(),
-        },
     }
 }
 

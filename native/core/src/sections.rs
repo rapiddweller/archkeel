@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_eval::{Cited, Outcome, Violation};
+use archkeel_eval::{Cited, Layered, Outcome, Violation};
 use archkeel_model::{Graph, Model, Reason, Section};
 use serde_json::{json, Value};
 
@@ -149,7 +149,113 @@ fn row(violation: &Violation) -> Value {
             json!({"source": source, "source_module": cited.source_module,
                    "target_module": cited.target_module, "dependency": dependency}),
         ),
+        Violation::Forbidden { .. } | Violation::Peer { .. } | Violation::Unrequired { .. } => {
+            direction_record(violation)
+        }
+        Violation::OuterLayer(layered) => layer_record(layered),
     }
+}
+
+/// The record of a direction violation that cites one import (slice S5, AD-380).
+fn direction_record(violation: &Violation) -> Value {
+    match violation {
+        Violation::Forbidden {
+            id,
+            rule,
+            cited,
+            symbol,
+            under_type_checking,
+        } => {
+            // `".".join(filter(None, (target_module, symbol)))`
+            let target = [
+                cited.target_module.as_str(),
+                symbol.as_deref().unwrap_or(""),
+            ]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(".");
+            record(
+                [id, rule, &cited.import],
+                &cited.evidence,
+                ["dependency_violations", "forbidden_dependency"],
+                &[&cited.source_module, &target],
+                format!("{} imports forbidden {target}", cited.source_module),
+                json!({"source_module": cited.source_module, "target_module": cited.target_module,
+                       "symbol": symbol, "under_type_checking": under_type_checking}),
+            )
+        }
+        Violation::Peer {
+            id,
+            rule,
+            cited,
+            source,
+        } => import_record(
+            [id, rule],
+            cited,
+            "sibling_isolation",
+            format!(
+                "{} imports its peer {}",
+                cited.source_module, cited.target_module
+            ),
+            json!({"source_module": cited.source_module, "target_module": cited.target_module,
+                   "source": source}),
+        ),
+        Violation::Unrequired {
+            id,
+            rule,
+            cited,
+            source_component,
+            target_component,
+        } => import_record(
+            [id, rule],
+            cited,
+            "complete_requires",
+            format!("{source_component} imports {target_component} without requiring it"),
+            json!({"source_module": cited.source_module, "target_module": cited.target_module,
+                   "source_component": source_component, "target_component": target_component}),
+        ),
+        // `row` writes the other kinds; it calls this function only for the three above.
+        Violation::Unassigned { .. }
+        | Violation::NotAllowedChild { .. }
+        | Violation::OutsideScope { .. }
+        | Violation::Undeclared { .. }
+        | Violation::OuterLayer(_) => row(violation),
+    }
+}
+
+/// A `layer_order` record: it cites the receipt of its rule, the contract file and the
+/// provenance of its source component.
+fn layer_record(layered: &Layered) -> Value {
+    let Layered {
+        id,
+        rule,
+        receipt,
+        evidence,
+        provenance,
+        source_component,
+        target_component,
+        source_layer,
+        target_layer,
+        rationale,
+    } = layered;
+    json!({
+        "id": id,
+        "evidence_class": "VIOLATION",
+        "area": "components",
+        "kind": "layer_order",
+        "title": format!(
+            "{source_component} ({source_layer}) requires outer {target_component} ({target_layer})"
+        ),
+        "subjects": sorted_subjects(&[source_component, target_component]),
+        "evidence_ids": [evidence],
+        "rule_ids": [rule],
+        "fact_ids": [receipt],
+        "provenance": provenance,
+        "data": {"source_component": source_component, "target_component": target_component,
+                 "source_layer": source_layer, "target_layer": target_layer,
+                 "rationale": rationale},
+    })
 }
 
 /// A violation record that cites one import: its subjects are the two modules of the import.

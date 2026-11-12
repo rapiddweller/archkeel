@@ -184,29 +184,8 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
 
 /// The components of a `layer_order` rule whose layer is absent or outside its order.
 pub(crate) fn layer_gaps<'a>(contract: &'a Contract, rule: &LayerOrder) -> Vec<&'a Component> {
-    let selected: Option<Vec<&str>> = rule
-        .components()
-        .as_ref()
-        .map(|labels| labels.iter().map(|label| label.as_text()).collect());
-    let sources: Vec<&Component> = contract
-        .components()
-        .iter()
-        .filter(|c| {
-            selected
-                .as_ref()
-                .is_none_or(|s| s.contains(&c.label().as_text()))
-        })
-        .collect();
-    let targets: HashSet<&str> = sources
-        .iter()
-        .flat_map(|component| component.requires().iter().flatten())
-        .map(|required| required.component().as_text())
-        .collect();
-    let ids: HashSet<&str> = sources.iter().map(|c| c.id().as_text()).collect();
-    contract
-        .components()
-        .iter()
-        .filter(|c| ids.contains(c.id().as_text()) || targets.contains(c.label().as_text()))
+    crate::selection::layer_components(contract, rule)
+        .into_iter()
         .filter(|c| {
             !c.layer()
                 .as_ref()

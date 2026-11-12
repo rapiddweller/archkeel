@@ -90,7 +90,7 @@ fn outcome<'a>(outcomes: &'a [Outcome], rule: &str) -> Option<&'a Outcome> {
 }
 
 pub(crate) fn decision(outcomes: &[Outcome], rule: &str) -> Option<Decision> {
-    outcome(outcomes, rule).map(|outcome| outcome.decision().clone())
+    outcome(outcomes, rule).and_then(|outcome| outcome.decision().cloned())
 }
 
 fn names(outcomes: &[Outcome], rule: &str) -> Vec<String> {
@@ -103,8 +103,18 @@ fn name(violation: &Violation) -> String {
     match violation {
         Violation::Unassigned { name, .. } => name.clone(),
         Violation::NotAllowedChild { child, .. } => child.clone(),
-        Violation::OutsideScope { cited, .. } | Violation::Undeclared { cited, .. } => {
+        Violation::OutsideScope { cited, .. }
+        | Violation::Undeclared { cited, .. }
+        | Violation::Forbidden { cited, .. }
+        | Violation::Peer { cited, .. }
+        | Violation::Unrequired { cited, .. } => {
             format!("{} -> {}", cited.source_module, cited.target_module)
+        }
+        Violation::OuterLayer(layered) => {
+            format!(
+                "{} -> {}",
+                layered.source_component, layered.target_component
+            )
         }
     }
 }
@@ -143,8 +153,9 @@ fn a_clean_run_passes_with_the_scope_proof() {
     let outcomes = run(unchanged, unchanged);
     assert_eq!(outcomes.len(), 2);
     for outcome in &outcomes {
-        assert!(matches!(outcome.decision().verdict(), Verdict::Pass(_)));
-        assert_eq!(outcome.decision().reason(), None);
+        let decision = outcome.decision().unwrap();
+        assert!(matches!(decision.verdict(), Verdict::Pass(_)));
+        assert_eq!(decision.reason(), None);
         assert!(outcome.violations().is_empty());
     }
 }
@@ -376,7 +387,7 @@ fn a_rule_kind_without_a_slice_names_its_kind() {
     let cycles = outcomes
         .iter()
         .find(|outcome| outcome.rule() == "MODULE-CYCLES");
-    let reason = cycles.and_then(|outcome| outcome.decision().reason().cloned());
+    let reason = cycles.and_then(|outcome| outcome.decision()?.reason().cloned());
     assert!(matches!(
         reason,
         Some(Reason::Unsupported(Unsupported::Rule(_)))

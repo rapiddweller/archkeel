@@ -18,13 +18,38 @@ use archkeel_model::{Model, Part, Reason, Unsupported, Verdict};
 
 use crate::contract::Usable;
 
-/// The rule kinds that `archkeel-eval` decides.
-const DECIDED: &[RuleKind] = &[
-    RuleKind::CompleteAssignment,
-    RuleKind::RootLayout,
-    RuleKind::ExternalDependencyScope,
-    RuleKind::CompleteExternalScope,
-];
+/// A permission declaration (`allowed_dependency`): no verdict, and it does not hold back a PASS
+/// of the run (`check/run.py` `inspect_observation` reads only FAIL and UNKNOWN).
+pub(crate) const DECLARATION: &str = "DECLARATION";
+
+/// True for a rule kind that `archkeel-eval` decides (slices S1, S2 and S5).
+fn decided(kind: RuleKind) -> bool {
+    // Each kind has an arm: a new kind does not compile without a decision here.
+    match kind {
+        RuleKind::CompleteAssignment
+        | RuleKind::RootLayout
+        | RuleKind::ExternalDependencyScope
+        | RuleKind::CompleteExternalScope
+        | RuleKind::ForbiddenDependency
+        | RuleKind::AllowedDependency
+        | RuleKind::SiblingIsolation
+        | RuleKind::LayerOrder
+        | RuleKind::CompleteRequires => true,
+        RuleKind::NoComponentCycles => false,
+        RuleKind::InterfaceBoundary => false,
+        RuleKind::ForbiddenConstruct => false,
+        RuleKind::SymbolPlacement => false,
+        RuleKind::SourceOwnership => false,
+        RuleKind::BoundedNumericOperand => false,
+        RuleKind::CallOwner => false,
+        RuleKind::ForbiddenCallArgument => false,
+        RuleKind::CatalogArgument => false,
+        RuleKind::CatalogUse => false,
+        RuleKind::ForbiddenEffectUnderCondition => false,
+        RuleKind::ProtocolDeclarations => false,
+        RuleKind::BoundaryTypes => false,
+    }
+}
 
 /// The decided rules (id to kind and status) and the reason of each rule without a decision.
 #[derive(Debug, Default)]
@@ -99,7 +124,7 @@ pub(crate) fn answer(
     if let Err(reason) = &model {
         for rule in contract.rules() {
             let kind = kind_of(rule);
-            let reason = if DECIDED.contains(&kind) {
+            let reason = if decided(kind) {
                 reason.clone()
             } else {
                 Reason::Unsupported(Unsupported::Rule(kind))
@@ -113,7 +138,14 @@ pub(crate) fn answer(
         return answer;
     };
     for outcome in outcomes(contract, Ok(model_of)) {
-        let decision = outcome.decision();
+        let Some(decision) = outcome.decision() else {
+            // A permission declaration has no verdict (`_rule_status` `declared_only`).
+            answer.decided.insert(
+                outcome.rule().to_owned(),
+                [word(outcome.kind()), DECLARATION.to_owned()],
+            );
+            continue;
+        };
         let status = match (decision.verdict(), decision.reason()) {
             (_, Some(reason @ Reason::Unsupported(_))) => {
                 answer

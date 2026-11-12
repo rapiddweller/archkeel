@@ -87,7 +87,10 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     assert_eq!(answer.reasons.len(), 10);
     // A rule of a decided kind needs the model; a rule of another kind names its kind.
     for (id, reason) in &answer.reasons {
-        if id == "NATIVE-ASSIGNMENT-COMPLETE" || id.starts_with("NATIVE-EXTERNAL-") {
+        if id == "NATIVE-ASSIGNMENT-COMPLETE"
+            || id == "NATIVE-REQUIRES-COMPLETE"
+            || id.starts_with("NATIVE-EXTERNAL-")
+        {
             assert_eq!(reason, &Reason::MissingInput(Input::Reply), "{id}");
         } else {
             assert!(

@@ -27,6 +27,10 @@
 //!   profile limits, the subject check of every rule), made one time per model, and the receipt
 //!   and the undecided positions of each rule (`Scope::complete`).
 //!
+//! - Slice S5: the import matchers of the direction kinds (`direction.rs`, AD-380): one matcher
+//!   per kind serves the violations of the evaluator and the undecided positions of the scope
+//!   proof, and the receipt and the dynamic import reach of each direction kind.
+//!
 //! The model names no language: a rule of the native contract and a test check that.
 
 #![deny(unreachable_pub)]
@@ -72,3 +76,10 @@ mod proof;
 mod subjects;
 
 pub use causes::{Cause, Part};
+
+// Slice S5: the import matchers of the direction kinds and the sides they share (AD-380).
+mod direction;
+mod selection;
+
+pub use direction::{crossings, forbidden, peers, Crossing, Judged};
+pub use selection::{dependency_sides, layer_components, Selection};

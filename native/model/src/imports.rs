@@ -42,6 +42,8 @@ pub struct Import {
     pub(crate) source_package: String,
     pub(crate) target_package: String,
     pub(crate) under_type_checking: bool,
+    pub(crate) symbol: Option<String>,
+    pub(crate) symbols_known: bool,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
     pub(crate) evidence: Vec<String>,
@@ -79,6 +81,16 @@ impl Import {
     }
 
     /// True for a relative import: it resolves inside the scanned tree.
+    /// The imported name, or `None` for a whole-module import.
+    pub fn symbol(&self) -> Option<&str> {
+        self.symbol.as_deref()
+    }
+
+    /// True when the collector knows each name that the import uses.
+    pub fn symbols_known(&self) -> bool {
+        self.symbols_known
+    }
+
     pub fn relative(&self) -> bool {
         self.relative
     }
@@ -170,6 +182,8 @@ pub(crate) fn split(facts: &Facts) -> Split {
             source_package: data.source_package.as_str().to_owned(),
             target_package: data.target_package.as_str().to_owned(),
             under_type_checking: data.under_type_checking,
+            symbol: data.symbol.clone(),
+            symbols_known: data.symbols_known,
             relative: data.relative_level != 0,
             resolved,
             evidence: sorted(evidence(record)),

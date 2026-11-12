@@ -33,7 +33,7 @@ fn decided(
         .iter()
         .filter_map(|rule| outcomes.iter().find(|o| o.rule() == *rule))
         .map(|outcome| {
-            let decision = outcome.decision();
+            let decision = outcome.decision().unwrap();
             let word = match decision.verdict() {
                 Verdict::Pass(_) => "PASS",
                 Verdict::Fail => "FAIL",

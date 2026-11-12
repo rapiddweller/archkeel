@@ -441,6 +441,8 @@ def unexplained(frame: Mapping[str, Any]) -> str | None:
             "FAIL": count > 0 and not reason,
             "UNKNOWN": count == 0 and reason,
             "PASS": count == 0 and not reason,
+            # AD-380: a permission declaration has no verdict and no explaining row.
+            "DECLARATION": count == 0 and not reason,
         }
         if not fits.get(status, False):
             return f"the rule {rule} is {status} with {count} violations and reason {reason}"
@@ -457,7 +459,9 @@ def unexplained(frame: Mapping[str, Any]) -> str | None:
         "FAIL"
         if "FAIL" in statuses
         else "UNKNOWN"
-        if named or not complete or any(status != "PASS" for status in statuses)
+        if named
+        or not complete
+        or any(status not in ("PASS", "DECLARATION") for status in statuses)
         else "PASS"
     )
     if frame["status"] != expected:
