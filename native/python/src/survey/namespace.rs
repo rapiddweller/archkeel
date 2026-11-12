@@ -14,26 +14,7 @@ use ruff_python_ast::{AnyNodeRef, CmpOp, Expr, ExprAttribute, ExprContext};
 use super::binders::Binders;
 use super::imports::Aliases;
 
-/// The names that expose the namespace of the module wherever they occur.
-const GLOBAL: [&str; 9] = [
-    "globals",
-    "builtins.globals",
-    "exec",
-    "builtins.exec",
-    "eval",
-    "builtins.eval",
-    "__builtins__",
-    "__import__",
-    "builtins.__import__",
-];
-
-/// The names that expose the namespace only at module scope, and only when they read it.
-const LOCAL: [&str; 4] = ["locals", "vars", "builtins.locals", "builtins.vars"];
-
-const GLOBALS: [&str; 2] = ["globals", "builtins.globals"];
-
-/// `_NAME_CONTAINERS`: the builtins that consume the keys of a dict as names.
-const CONTAINERS: [&str; 6] = ["set", "frozenset", "sorted", "list", "tuple", "len"];
+use crate::module::namespace_tables::{CONTAINERS, GLOBAL, GLOBALS, LOCAL};
 
 /// `resolve_static_name` of a name or a name-rooted attribute. Any other node has the text of
 /// `ast.unparse`, which never equals one of the names above, so it is `None`.

@@ -67,6 +67,28 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
     })
 }
 
+/// The binding inputs of a file before import convergence, or a named incomplete-file gap.
+pub fn bindings(minor: &str, root: &str) -> Result<(), String> {
+    each_file(minor, root, |raw, rel, minor| {
+        let found = (|| {
+            let text = raw.as_deref().and_then(decode).ok_or("source unreadable")?;
+            let text = crate::source::newlines(text).into_owned();
+            let tree = parse(&text, minor).map_err(|failure| failure.message)?;
+            let first = rel.split('/').next().unwrap_or(rel);
+            let namespace = first.strip_suffix(".py").unwrap_or(first);
+            let name = names::module_for(rel, namespace, minor).ok_or("module name unseen")?;
+            let module = crate::module::Module::new(rel.to_owned(), name, text, tree);
+            crate::bindings::table(&module, minor)
+        })();
+        Some(match found {
+            Ok((data, work)) => {
+                json!({"file": rel, "full_scope": true, "data": data, "work": work})
+            }
+            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason}),
+        })
+    })
+}
+
 /// `--dump-texts <minor> <root>`: for each file on stdin, the class names of `ast.walk` of each
 /// statement and `ast.unparse` of each expression in that order (AD-377). A failure is a marker.
 pub fn texts(minor: &str, root: &str) -> Result<(), String> {

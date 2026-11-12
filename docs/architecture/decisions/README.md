@@ -387,4 +387,5 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-388 | [The core writes its status and verdicts only through the report](ad-388-the-core-writes-its-status-and-verdicts-only-through-the-report.md) |
 | AD-389 | [The native Python collector checks compiler refusals before facts](ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md) |
 | AD-390 | [A user run takes its verdict from the core when the core decides every rule](ad-390-a-user-run-takes-its-verdict-from-the-core-when-the-core-decides-every-rule.md) |
+| AD-391 | [The native Python binding dump stops before import convergence](ad-391-the-native-python-binding-dump-stops-before-import-convergence.md) |
 | AD-392 | [The native Dart declaration layer keeps the Python records](ad-392-the-native-dart-declaration-layer-keeps-the-python-records.md) |

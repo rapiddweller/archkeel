@@ -1809,10 +1809,11 @@
       "label": "py-symbols",
       "role": "component",
       "packages": [
-        "native.archkeel_python_collector.symbols"
+        "native.archkeel_python_collector.symbols",
+        "native.archkeel_python_collector.bindings"
       ],
       "responsibilities": [
-        "The definition table of one Python module: a record for each class, function and method with the fields that the module itself decides, or a named gap (AD-377)."
+        "The definition table, its lexical binding inputs and unused-binding records, or a named gap (AD-377, AD-391)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving another module and writing the reply."
@@ -1836,6 +1837,10 @@
         {
           "component": "py-module",
           "rationale": "Read the parsed module and file its evidence."
+        },
+        {
+          "component": "py-parse",
+          "rationale": "Charge binding scans against the shared work budget."
         }
       ],
       "decided_by": "architect"
@@ -2334,6 +2339,16 @@
       "kind": "external_dependency_scope",
       "dependency": "ruff_python_ast",
       "allowed_sources": [
+        "native.archkeel_python_collector.bindings",
+        "native.archkeel_python_collector.bindings.scan",
+        "native.archkeel_python_collector.bindings.scopes",
+        "native.archkeel_python_collector.bindings.names",
+        "native.archkeel_python_collector.bindings.namespace",
+        "native.archkeel_python_collector.bindings.class",
+        "native.archkeel_python_collector.bindings.closure",
+        "native.archkeel_python_collector.bindings.statements",
+        "native.archkeel_python_collector.bindings.records",
+        "native.archkeel_python_collector.module.definition",
         "native.archkeel_python_collector.parse.expressioncheck",
         "native.archkeel_python_collector.parse.postparse",
         "native.archkeel_python_collector.parse.patterncheck",
@@ -2409,6 +2424,9 @@
       "kind": "external_dependency_scope",
       "dependency": "ruff_text_size",
       "allowed_sources": [
+        "native.archkeel_python_collector.bindings.class",
+        "native.archkeel_python_collector.bindings.names",
+        "native.archkeel_python_collector.module.definition",
         "native.archkeel_python_collector.parse.patterncheck",
         "native.archkeel_python_collector.parse",
         "native.archkeel_python_collector.parse.postparse",

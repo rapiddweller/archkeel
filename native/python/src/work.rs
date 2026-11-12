@@ -37,6 +37,11 @@ impl Work {
         self.exceeded
             .then_some("CPython validation work limit exceeded")
     }
+
+    #[cfg(any(test, feature = "dump"))]
+    pub fn used(&self) -> usize {
+        MAX_WORK.saturating_sub(self.left)
+    }
 }
 
 #[cfg(test)]
