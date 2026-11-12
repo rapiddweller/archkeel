@@ -57,7 +57,7 @@ pub(crate) use input::RuleDecision;
 pub use input::{
     ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, GraphRows, MeasureRow, NodeRow,
     PermissionRow, Produced, Records, RuleOutcome, RuleText, RunFacts, RunOutcome, Target, Tree,
-    Undecided, UnitRow, UnknownRecord, ViolationRow, WhyUnknown,
+    Undecided, UnitRow, UnknownRecord, ViolationRow,
 };
 #[cfg(test)]
 pub(crate) use payload::Payload;
@@ -71,6 +71,7 @@ pub use tables::{
     opt_gap, Carriers, Crossings, Edges, Fields, Findings, Flag, Id, Measures, Nodes, OptGap,
     OptId, OptStr, Params, Permissions, StrId, Units, Unknowns, Variants, Violations,
 };
+pub use why::WhyUnknown;
 
 mod tables;
 

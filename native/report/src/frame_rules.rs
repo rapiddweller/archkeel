@@ -11,7 +11,8 @@ use archkeel_model::{Decision, Model, Verdict as ModelVerdict};
 
 use crate::build_error::BuildError;
 use crate::head::{RuleReason, RuleResult, RuleVerdict, Status};
-use crate::input::{RuleDecision, RuleOutcome, ViolationRow, WhyUnknown};
+use crate::input::{RuleDecision, RuleOutcome, ViolationRow};
+use crate::why::WhyUnknown;
 
 /// The status of a `Decision`.
 pub(crate) fn status(decision: &Decision) -> Status {

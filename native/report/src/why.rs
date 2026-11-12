@@ -15,7 +15,15 @@
 
 use archkeel_model::{Cause, Reason, Unsupported};
 
-use crate::input::WhyUnknown;
+/// Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict
+/// from the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WhyUnknown {
+    ScopeIncomplete,
+    NoReceipt,
+    Undecided,
+    OwnershipBlocker,
+}
 
 impl WhyUnknown {
     /// The reason code of an UNKNOWN rule with this reason of the model.

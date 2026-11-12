@@ -18,6 +18,7 @@ use crate::codes::{
     MeasureState, NodeLevel, Permission, Vis,
 };
 use crate::head::{Coverage, RunContract};
+use crate::why::WhyUnknown;
 
 /// Rows of one table, or the named part that does not produce them yet.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,17 +40,6 @@ pub enum Target {
 pub(crate) enum RuleDecision {
     Decided(Decision),
     Declaration,
-}
-
-/// Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict
-/// from the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`.
-/// `WhyUnknown::of` maps the reason of the model (`why.rs`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WhyUnknown {
-    ScopeIncomplete,
-    NoReceipt,
-    Undecided,
-    OwnershipBlocker,
 }
 
 /// One position that the evaluator left undecided for a rule (AD-92).
