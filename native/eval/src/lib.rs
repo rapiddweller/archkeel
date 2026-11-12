@@ -16,6 +16,9 @@
 //! Slice S2 decides `external_dependency_scope` and `complete_external_scope`: they read only the
 //! resolved imports with their typed targets, the modules and the owners (AD-372).
 //!
+//! An inside-contract tree (AD-385): each contract of the tree has its own model with the source
+//! domain of its mount, and each rule reads the model of its own contract (`evaluate_tree`).
+//!
 //! Slice S5 decides the direction kinds (AD-380): `forbidden_dependency`, `sibling_isolation`,
 //! `complete_requires` and `layer_order`. An `allowed_dependency` rule is a permission
 //! declaration: the reference engine gives it no verdict (`ir/decisions.py` `_rule_status`), so
@@ -55,7 +58,7 @@ mod layout;
 mod violation;
 
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
-use archkeel_model::{Decision, Model, Part, Reason, Unsupported, Verdict};
+use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
 pub use violation::{Cited, Cyclic, Layered, Violation};
 
@@ -101,6 +104,12 @@ pub fn evaluate(model: &Model) -> Vec<Outcome> {
         .iter()
         .map(|rule| outcome(rule, rules, model))
         .collect()
+}
+
+/// The outcome of each rule of each contract of a tree: the root rules first, then the rules of
+/// each mount in the order of the walk. Each rule reads the model of its own contract (AD-385).
+pub fn evaluate_tree(tree: &ModelTree) -> Vec<Outcome> {
+    tree.models().flat_map(evaluate).collect()
 }
 
 fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
@@ -202,3 +211,15 @@ mod cycle_receipt_tests;
 #[cfg(test)]
 #[path = "drop_rule_tests.rs"]
 mod drop_rule_tests;
+
+#[cfg(test)]
+#[path = "tree_tests.rs"]
+mod tree_tests;
+
+#[cfg(test)]
+#[path = "tree_scope_tests.rs"]
+mod tree_scope_tests;
+
+#[cfg(test)]
+#[path = "tree_edge_tests.rs"]
+mod tree_edge_tests;

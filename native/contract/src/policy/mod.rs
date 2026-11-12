@@ -20,6 +20,7 @@ mod baseline_value;
 mod baseline_write;
 mod binding;
 mod change;
+mod clip;
 mod compare;
 mod heads;
 mod issue;
@@ -56,6 +57,7 @@ pub use baseline_value::{
 pub use baseline_write::{baseline_bytes, baseline_digest};
 pub use binding::{bind, Baselines, BindError, Binding, GateStatus, OldContract, Verdict};
 pub use change::{ChangeDirection, ChangeKind, ContractChange};
+pub use clip::{clip_inside, Clipped};
 pub use compare::{compare_trees, Comparison};
 pub use issue::{IssueKind, SourceProblem, TreeError, TreeIssue};
 pub use tree::{assemble_tree, ContractTree, InsideMount, MAX_DEPTH};

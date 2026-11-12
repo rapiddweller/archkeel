@@ -146,3 +146,5 @@ mod schema_tests;
 mod status_tests;
 #[cfg(test)]
 mod test_support;
+#[cfg(test)]
+mod tree_run_tests;

@@ -14,7 +14,13 @@ use crate::{evaluate, Outcome, Violation};
 const DOMAIN: usize = 3;
 
 /// Point import `index` of the reply at a typed target; the record agrees with it.
-fn retarget(value: &mut Value, index: usize, module: &str, package: &str, target: Value) {
+pub(crate) fn retarget(
+    value: &mut Value,
+    index: usize,
+    module: &str,
+    package: &str,
+    target: Value,
+) {
     let id = value["facts"]["imports"][index]["import_id"].clone();
     let mut typed = target;
     typed["import_id"] = id.clone();
@@ -40,7 +46,7 @@ fn retarget(value: &mut Value, index: usize, module: &str, package: &str, target
     }
 }
 
-fn external(index: usize, package: &str) -> impl FnOnce(&mut Value) + '_ {
+pub(crate) fn external(index: usize, package: &str) -> impl FnOnce(&mut Value) + '_ {
     move |value| {
         let target = json!({"kind": "external", "package": package});
         // The module name is not below the package name: only the package can match.

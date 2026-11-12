@@ -67,6 +67,19 @@
 //! fn rooted() -> archkeel_model::Settings {
 //!     archkeel_model::Settings::default().with_roots(vec!["src".to_owned()])
 //! }
+//! // 30, 31: the models of a tree come from the tree (AD-385).
+//! fn models(
+//!     tree: &archkeel_contract::policy::ContractTree,
+//!     graph: archkeel_model::Graph,
+//! ) -> Option<ModelTree> {
+//!     ModelTree::tree(tree, graph).ok()
+//! }
+//! use archkeel_model::ModelTree;
+//! // 32: the proof of a mount passes a rule of that mount in its own scope.
+//! fn mounted(models: &ModelTree, rule: &Rule) -> Option<Decision> {
+//!     let mount = models.mounts().first()?;
+//!     mount.scope(|m| m.complete(rule).ok().map(|proof| m.pass(proof)))
+//! }
 //! ```
 //!
 //! # The attempts
@@ -346,13 +359,57 @@
 //! }
 //! ```
 //!
-//! 24. A run PASS literal: the serial of `RunPass` is private (E0451).
+//! 24. A run PASS literal: the serials of `RunPass` are private (E0451).
 //!
 //! ```compile_fail,E0451
-//! fn forge() -> archkeel_model::RunPass { archkeel_model::RunPass { serial: 0 } }
+//! fn forge() -> archkeel_model::RunPass { archkeel_model::RunPass { serials: Vec::new() } }
 //! ```
 //!
 
+//! # The models of a tree (AD-385)
+//!
+//! The twins of 30 to 32 are in the first section. Each attempt names its error code.
+//!
+//! 30. A tree literal: the models of a tree have private fields, so no crate puts a model of
+//!     its choice in place of the model of a mount (AD-385).
+//!
+//! ```compile_fail,E0451
+//! fn forge(root: archkeel_model::Model) -> archkeel_model::ModelTree {
+//!     archkeel_model::ModelTree { root, mounts: Vec::new() }
+//! }
+//! ```
+//!
+//! 31. The model of a mount with a domain of the caller: `Model::made` is private to the model.
+//!
+//! ```compile_fail,E0624
+//! fn forge() {
+//!     let _made = archkeel_model::Model::made;
+//! }
+//! ```
+//!
+//! 32. The proof of the root model used in the scope of a mount: the brands differ.
+//!
+//! ```compile_fail,E0521
+//! use archkeel_contract::Rule;
+//! use archkeel_model::{Decision, ModelTree};
+//! fn mixed(models: &ModelTree, rule: &Rule) -> Option<Decision> {
+//!     let mount = models.mounts().first()?;
+//!     models.root().scope(|root| mount.scope(|m| root.complete(rule).ok().map(|p| m.pass(p))))
+//! }
+//! ```
+//!
+//! 33. An inside contract with its mark cleared: the mark is private, so no crate turns an
+//!     inside contract into one that `Model::of` accepts without the domain of its mount. The
+//!     crate order (the contract crate is below the model) does not let a type stop the call of
+//!     `Model::of` with an inside contract: the model refuses it at run time, and the eval test
+//!     `an_inside_contract_has_a_model_only_through_its_tree` checks it (AD-385).
+//!
+//! ```compile_fail,E0451
+//! fn clear(contract: &archkeel_contract::Contract) -> archkeel_contract::Contract {
+//!     archkeel_contract::Contract { mount: None, ..contract.clone() }
+//! }
+//! ```
+//!
 //! # Closed by a checked identity, not by type
 //!
 //! A PASS of one model given as the decision of another model, and a PASS of rule A given as

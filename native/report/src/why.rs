@@ -76,6 +76,8 @@ fn not_complete(cause: &Cause) -> WhyUnknown {
         | Cause::Producer
         | Cause::ProfileLimit(_)
         | Cause::LayerMetadata(_)
-        | Cause::NoRuleSubjects(_) => WhyUnknown::ScopeIncomplete,
+        | Cause::NoRuleSubjects(_)
+        // A claim of a mount outside its parent is a coverage failure of the run (AD-385).
+        | Cause::InsideSourceDomain(_) => WhyUnknown::ScopeIncomplete,
     }
 }

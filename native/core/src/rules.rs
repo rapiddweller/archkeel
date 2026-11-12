@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::{head_of, kind_of, Contract, RuleKind};
 use archkeel_eval::Outcome;
-use archkeel_model::{Model, Part, Reason, Unsupported, Verdict};
+use archkeel_model::{Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
 use crate::contract::Usable;
 
@@ -67,46 +67,46 @@ pub(crate) struct RuleAnswer {
     pub(crate) beyond: BTreeMap<String, String>,
 }
 
-/// What an inside-contract tree adds to the root rules (AD-379): the rules of its mounts, each a
-/// named gap, and whether the root mounts any contract. A root rule of a tree never passes: the
-/// scope proof does not read the coverage of the mounts yet.
+/// What an inside-contract tree adds to the root rules: the scoped id and kind of each rule of
+/// its mounts, and the number of mounts. Each contract of the tree has its own model (AD-385);
+/// a PASS needs the scope proof of the model whose contract holds the rule.
 #[derive(Debug, Default)]
 pub(crate) struct Tree {
     inside: Vec<(String, RuleKind)>,
-    mounted: bool,
+    mounts: usize,
 }
 
 impl Tree {
-    /// A tree of the given inside rules and mount state (a test builds the second line alone).
+    /// A tree of the given inside rules and number of mounts (a test builds the second line).
     #[cfg(test)]
-    pub(crate) fn new(inside: Vec<(String, RuleKind)>, mounted: bool) -> Tree {
-        Tree { inside, mounted }
+    pub(crate) fn new(inside: Vec<(String, RuleKind)>, mounts: usize) -> Tree {
+        Tree { inside, mounts }
     }
 
     pub(crate) fn of(usable: &Usable) -> Tree {
         Tree {
             inside: usable.inside.clone(),
-            mounted: usable.mounted,
+            mounts: usable.tree.as_ref().map_or(0, |tree| tree.mounts().len()),
         }
     }
 }
 
-/// The outcome of each rule, or the reason that the run has no model.
-pub(crate) fn outcomes(model: Result<&Model, Reason>) -> Vec<Outcome> {
-    match model {
-        Ok(model) => archkeel_eval::evaluate(model),
+/// The outcome of each rule of each contract of the tree, or none when the run has no model.
+pub(crate) fn outcomes(models: Result<&ModelTree, Reason>) -> Vec<Outcome> {
+    match models {
+        Ok(models) => archkeel_eval::evaluate_tree(models),
         Err(_) => Vec::new(),
     }
 }
 
 pub(crate) fn answer(
     contract: Option<&Contract>,
-    model: Result<&Model, Reason>,
+    models: Result<&ModelTree, Reason>,
     tree: Option<Tree>,
 ) -> RuleAnswer {
     let mut answer = RuleAnswer {
-        scope: Some(match &model {
-            Ok(model) => match model.scope(|scope| scope.run()) {
+        scope: Some(match &models {
+            Ok(models) => match models.root().scope(|scope| scope.run()) {
                 Ok(()) => String::new(),
                 Err(reason) => reason.to_string(),
             },
@@ -120,79 +120,85 @@ pub(crate) fn answer(
         return answer;
     };
     let tree = tree.unwrap_or_default();
-    for (id, _) in &tree.inside {
-        let reason = Reason::Unsupported(Unsupported::InsideRule);
-        answer.reasons.insert(id.clone(), reason);
-    }
-    if let Err(reason) = &model {
-        for rule in contract.rules() {
-            let kind = kind_of(rule);
-            let reason = if decided(kind) {
-                reason.clone()
-            } else {
-                Reason::Unsupported(Unsupported::Rule(kind))
-            };
-            let id = head_of(rule).id().as_text().to_owned();
-            answer.reasons.insert(id, reason);
+    let models = match models {
+        Ok(models) => models,
+        Err(reason) => {
+            let root = contract.rules().iter().map(|rule| {
+                let id = head_of(rule).id().as_text().to_owned();
+                (id, kind_of(rule))
+            });
+            for (id, kind) in root.chain(tree.inside.iter().cloned()) {
+                let reason = if decided(kind) {
+                    reason.clone()
+                } else {
+                    Reason::Unsupported(Unsupported::Rule(kind))
+                };
+                answer.reasons.insert(id, reason);
+            }
+            return answer;
         }
-        return answer;
-    }
-    let Ok(model_of) = model else {
-        return answer;
     };
-    for outcome in outcomes(Ok(model_of)) {
-        let Some(decision) = outcome.decision() else {
-            // A permission declaration has no verdict (`_rule_status` `declared_only`).
-            answer.decided.insert(
-                outcome.rule().to_owned(),
-                [word(outcome.kind()), DECLARATION.to_owned()],
-            );
-            continue;
-        };
-        let status = match (decision.verdict(), decision.reason()) {
-            (_, Some(reason @ Reason::Unsupported(_))) => {
-                answer
-                    .reasons
-                    .insert(outcome.rule().to_owned(), reason.clone());
-                continue;
-            }
-            // AD-379: the second line after the proof. A root rule of a mounted tree never passes.
-            (Verdict::Pass(_), _) if tree.mounted => {
-                let reason = Reason::Unsupported(Unsupported::TreeScope);
-                answer.reasons.insert(outcome.rule().to_owned(), reason);
-                continue;
-            }
-            (Verdict::Pass(_), _) if decision.passes(model_of, outcome.rule()) => {
-                let kept = model_of.kept_pair_gaps();
-                if kept > 0 {
-                    let why = format!("no one of the {kept} kept pair gaps can change the rule");
-                    answer.beyond.insert(outcome.rule().to_owned(), why);
-                }
-                "PASS"
-            }
-            (Verdict::Pass(_), _) => {
-                // AD-378: a PASS of another rule or model is a named gap, never a PASS.
-                let foreign = Reason::Unsupported(Unsupported::ScopeProof(Part::ForeignRule));
-                answer.reasons.insert(outcome.rule().to_owned(), foreign);
-                continue;
-            }
-            (Verdict::Fail, _) => "FAIL",
-            (Verdict::Unknown, reason) => {
-                let why = reason.map_or_else(String::new, ToString::to_string);
-                answer.explained.insert(outcome.rule().to_owned(), why);
-                "UNKNOWN"
-            }
-        };
-        if !outcome.violations().is_empty() {
-            let count = outcome.violations().len();
-            answer.violations.insert(outcome.rule().to_owned(), count);
+    // The second line after the proof: a tree whose mounts the models do not all hold never
+    // passes a rule (AD-379, AD-385).
+    let whole = models.mounts().len() == tree.mounts;
+    for model in models.models() {
+        for outcome in archkeel_eval::evaluate(model) {
+            decide(&mut answer, &outcome, model, whole);
         }
-        answer.decided.insert(
-            outcome.rule().to_owned(),
-            [word(outcome.kind()), status.to_owned()],
-        );
     }
     answer
+}
+
+/// Write the status, the reason or the declaration of one outcome of the rules of `model`.
+fn decide(answer: &mut RuleAnswer, outcome: &Outcome, model: &Model, whole: bool) {
+    let rule = outcome.rule().to_owned();
+    let Some(decision) = outcome.decision() else {
+        // A permission declaration has no verdict (`_rule_status` `declared_only`).
+        answer
+            .decided
+            .insert(rule, [word(outcome.kind()), DECLARATION.to_owned()]);
+        return;
+    };
+    let status = match (decision.verdict(), decision.reason()) {
+        (_, Some(reason @ Reason::Unsupported(_))) => {
+            answer.reasons.insert(rule, reason.clone());
+            return;
+        }
+        (Verdict::Pass(_), _) if !whole => {
+            let reason = Reason::Unsupported(Unsupported::TreeScope);
+            answer.reasons.insert(rule, reason);
+            return;
+        }
+        (Verdict::Pass(_), _) if decision.passes(model, outcome.rule()) => {
+            // AD-384: a PASS that a kept pair gap does not hold is beyond the reference engine.
+            // In a tree each gap is a cause of the shared state, so no rule of a tree is here.
+            let kept = model.kept_pair_gaps();
+            if kept > 0 {
+                let why = format!("no one of the {kept} kept pair gaps can change the rule");
+                answer.beyond.insert(rule.clone(), why);
+            }
+            "PASS"
+        }
+        (Verdict::Pass(_), _) => {
+            // AD-378: a PASS of another rule or model is a named gap, never a PASS.
+            let foreign = Reason::Unsupported(Unsupported::ScopeProof(Part::ForeignRule));
+            answer.reasons.insert(rule, foreign);
+            return;
+        }
+        (Verdict::Fail, _) => "FAIL",
+        (Verdict::Unknown, reason) => {
+            let why = reason.map_or_else(String::new, ToString::to_string);
+            answer.explained.insert(rule.clone(), why);
+            "UNKNOWN"
+        }
+    };
+    if !outcome.violations().is_empty() {
+        let count = outcome.violations().len();
+        answer.violations.insert(rule.clone(), count);
+    }
+    answer
+        .decided
+        .insert(rule, [word(outcome.kind()), status.to_owned()]);
 }
 
 /// The word of a rule kind in the verdict map (`complete_assignment`).

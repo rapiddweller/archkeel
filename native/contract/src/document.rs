@@ -19,6 +19,11 @@ record!(
         rules: Vec<Rule>,
         declarations: Option<Declarations>,
         digest: ContractDigest,
+        /// The parent key of an inside contract that the tree assembly scoped, else `None`. Only
+        /// the assembly sets it and no crate clears it, so a model can refuse an inside contract
+        /// without the domain of its mount (AD-385). Not part of the canonical bytes.
+        #[serde(skip)]
+        mount: Option<String>,
     }
 );
 

@@ -21,7 +21,6 @@ from conftest import build_native_copy
 from native_rules_support import language_names
 
 from tools import dual_run
-from tools.dual_run_oracle import Selection
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -109,14 +108,11 @@ def test_the_s2_kinds_and_the_edges_equal_python_with_the_scope_proof(
     )
 
 
-# AD-378: the only names that a rule of a decided kind can have instead of a verdict.
+# AD-378: the only names that a rule of a decided kind can have instead of a verdict. AD-385: a
+# rule of a tree has its verdict; a tree names only a file that the shell did not send or its
+# refusal (the `tree` pattern of each test).
 S4_NAMES = (
     "missing input: no valid collector reply",
-    # AD-379: a tree names its scope, its inside rules, a file that the shell did not send, or
-    # its refusal; the first named rule of a case decides which name the row carries.
-    "unsupported: the scope proof: the contract mounts inside contracts; the core does not read "
-    "their coverage",
-    "unsupported: a rule of an inside contract: the core does not clip a mount scope yet",
     "unsupported: the baseline of the request: no slice reads it yet",
     # AD-384: a pair gap that the drop rule drops for its profile names each rule.
     "unsupported: the scope proof: a gap between two modules that the contract allows; the host "
@@ -193,6 +189,9 @@ S5_NAMES = (
     *S4_NAMES,
     "unsupported: the scope proof: a coverage gap that the dependency scope proof of "
     "complete_requires can accept",
+    # AD-385: a layer_order rule of an inside contract cites the inside contract file.
+    "unsupported: the scope proof: a layer_order rule of an inside contract cites the inside "
+    "contract file; the core does not bind it",
 )
 # AD-384: slice S7 adds `no_component_cycles` to this run; its rows are compared too.
 S5_FAMILIES = (
@@ -262,42 +261,42 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 645 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 647 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-379: the contract of J-compass mounts inside contracts. The harness sends them, so the
-    core assembles the tree and names each inside rule; each section names the reply that the
-    store refuses, not the contract."""
+    """AD-379, AD-385: the contract of J-compass mounts inside contracts. The harness sends them,
+    so the core assembles the tree; each rule of the tree and each section names the reply that
+    the store refuses, not the contract."""
     code, lines = _run(["compare", "--case", "fixture/J-compass", "--engine-command", core], capsys)
     assert code == 1
     differences = [line for line in lines if line.startswith("fixture/J-compass: ")]
-    assert "unsupported: a rule of an inside contract" in differences[0]
+    assert differences[0].endswith("missing input: no valid collector reply")
     assert all(
         line.endswith(": -: missing input: no valid collector reply") for line in differences[1:]
     )
     assert len(differences) == 1 + 20
 
 
-# The reasons that a tree case may name: each is a named gap, never an equal verdict (AD-379).
+# The reasons that a tree case may name: a file that the shell did not send, or a refused tree
+# (AD-379). Each other rule of a tree has the verdict of Python (AD-385).
 TREE_REASONS = (
-    "unsupported: the scope proof: the contract mounts inside contracts; the core does not read "
-    "their coverage",
-    "unsupported: a rule of an inside contract: the core does not clip a mount scope yet",
     "unsupported: the contract mounts inside contracts that the shell has not sent: ",
     "refused: inside-contract tree: ",
     "missing input: no valid contract",
 )
+ALL_DECIDED = f"{S5_FAMILIES},complete_assignment,root_layout,external_dependency_scope,"
+ALL_DECIDED += "complete_external_scope"
 
 
 def test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-379: on the `tree/*` cases each root rule of a decided kind, each violation row and the
-    S3 rows equal the Python engine. A rule of an inside contract, a PASS and a refused tree are
-    named; no difference is unnamed."""
+    """AD-379, AD-385: on the `tree/*` cases each rule of a decided kind (root and inside), each
+    violation row and the S3 rows equal the Python engine. Only a missing file and a refused tree
+    are named."""
     families = "complete_assignment,root_layout,external_dependency_scope,complete_external_scope"
     sections = "violations,dependency_edges,modules,packages,cycles"
     arguments = ["compare", "--case", "tree/*", "--sections", sections, "--families", families]
@@ -305,29 +304,36 @@ def test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap(
     differences = [line for line in lines if line.startswith("tree/")]
     assert code == 1
     assert all(any(reason in line for reason in TREE_REASONS) for line in differences), differences
-    assert not [line for line in differences if ": expected " in line or "drops this row" in line]
-    named = {line.split(": ")[0] for line in differences if "a rule of an inside contract" in line}
-    assert "tree/an-unresolved-import-is-unknown-beside-an-inside-contract" in named
+    named = {line.split(": ")[0] for line in differences}
+    assert named == {
+        "tree/a-cycle-of-inside-references-is-refused",
+        "tree/a-missing-inside-contract-is-refused",
+        "tree/an-inside-path-outside-the-repository-is-refused",
+    }
     assert lines[-1].startswith("dual run: family complete_assignment,complete_external_scope,")
-    assert "; 13 projects; 86 rules;" in lines[-1]
-    v01 = "tree/an-inside-claim-outside-its-parent-makes-passing-root-rules-unknown: rules: "
-    assert [line for line in differences if line.startswith(v01)] == [
-        f"{v01}ASSIGNMENT: 7 owned rules are unsupported, first: {TREE_REASONS[0]}"
-    ]
+    assert "; 13 projects; 86 rules; 6 differences;" in lines[-1]
 
 
-@pytest.mark.parametrize(
-    "name",
-    [case.id for case in dual_run.corpus_cases() if case.id.startswith("tree/")],
-)
-def test_the_run_status_of_a_tree_is_never_pass(core: str, name: str) -> None:
-    """AD-379: a tree has named inside rules and a scope that the proof does not complete, so
-    its run status is never PASS, and no root rule of a mounted tree is PASS."""
-    case = next(item for item in dual_run.corpus_cases() if item.id == name)
-    with dual_run.materialized(case) as root:
-        frame, _ = dual_run.engine_and_reference(case, root, core, Selection())
-    assert frame["status"] != "PASS", frame
-    assert "PASS" not in [status for _, status in frame["rules"].values()]
+def test_the_inside_cases_equal_python_on_every_decided_kind_with_their_rows(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-385: on the `inside/*` cases each rule of the nine decided kinds of a tree (each
+    direction kind inside a mount, a tree two levels deep, an inside contract without rules, a
+    mount with a doubt, the same rule id in two inside contracts, a rule that must read only its
+    own domain, an edge that leaves a mount or enters another one, a cut exact-module claim) has
+    the verdict and the violation rows of Python. The core names only the scan
+    roots of `complete_requires` and the file of an inside `layer_order` rule; no PASS or FAIL
+    status differs."""
+    arguments = ["compare", "--case", "inside/*", "--sections", "violations"]
+    code, lines = _run([*arguments, "--families", ALL_DECIDED, "--engine-command", core], capsys)
+    differences = [line for line in lines if line.startswith("inside/")]
+    assert not [line for line in differences if ", found " in line or ": status: " in line]
+    assert not [line for line in differences if ": violations: " in line]
+    scan_roots = "the receipt of complete_requires needs the scan roots; the request has none"
+    layer = "a layer_order rule of an inside contract cites the inside contract file"
+    assert all(scan_roots in line or layer in line for line in differences), differences
+    assert code == 1
+    assert "; 9 projects; 88 rules; 6 differences;" in lines[-1]
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(

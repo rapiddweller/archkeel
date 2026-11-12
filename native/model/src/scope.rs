@@ -208,15 +208,22 @@ impl<'id, 'm> Scope<'id, 'm> {
 /// The receipt of a rule (`rules.py` `_rule_evaluation_facts_for_rule`): the rule selects a
 /// module of the reply. Only the kinds that the evaluator decides have one here.
 fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
-    let modules = model.graph().modules();
+    // `_observed_rule_modules`: the modules of the source domain of the model (AD-385).
+    let observed = || {
+        model
+            .graph()
+            .modules()
+            .iter()
+            .filter(|(id, _)| model.holds(*id))
+    };
     let selected = match rule {
         Rule::CompleteAssignment(rule) | Rule::CompleteExternalScope(rule) => {
             !model.source_modules(rule.source().as_text()).is_empty()
         }
-        Rule::RootLayout(rule) => modules
-            .iter()
-            .any(|(_, module)| in_scope(module.name(), rule.root().as_text())),
-        Rule::ExternalDependencyScope(_) => !modules.is_empty(),
+        Rule::RootLayout(rule) => {
+            observed().any(|(_, module)| in_scope(module.name(), rule.root().as_text()))
+        }
+        Rule::ExternalDependencyScope(_) => observed().next().is_some(),
         // Slice S5 (AD-380), `_rule_evaluation_facts_for_rule`.
         // An undecided position (`symbol_limits`) withholds the receipt as well.
         Rule::ForbiddenDependency(rule) => {
@@ -225,11 +232,9 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
                 .map(|(_, j)| j);
             undecided(direction::undecided(judged))?;
             let [sources, _] = selection::dependency_sides(rule, model.contract().components());
-            modules
-                .iter()
-                .any(|(_, module)| sources.matches(module.name()))
+            observed().any(|(_, module)| sources.matches(module.name()))
         }
-        Rule::SiblingIsolation(rule) => modules.iter().any(|(_, module)| {
+        Rule::SiblingIsolation(rule) => observed().any(|(_, module)| {
             rule.members()
                 .iter()
                 .any(|member| in_scope(module.name(), member.as_text()))
@@ -237,6 +242,10 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         // `_layer_order_evaluation_facts`: the selected components; the receipt cites the
         // contract file (`_layer_order_evidence`). The layer gaps are a cause of the state.
         Rule::LayerOrder(rule) => {
+            // AD-385: the receipt of an inside rule cites the file of the inside contract.
+            if model.is_mount() {
+                return Err(Part::MountedLayerOrder.into());
+            }
             let digest = model.contract().digest().as_text();
             if model.graph().settings().contract_evidence(digest).is_none() {
                 return Err(Part::ContractSource.into());
@@ -356,11 +365,14 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         .dynamic_imports
         .iter()
         .any(|limit| {
+            // `dynamic_dependency_limits(source_modules=...)`: a mount reads only the limits of
+            // its domain. A limit without a source module stops the reference engine.
             limit.source.as_deref().is_none_or(|module| {
-                reaches(Source {
-                    module,
-                    type_only: limit.type_only(),
-                })
+                model.selects(module)
+                    && reaches(Source {
+                        module,
+                        type_only: limit.type_only(),
+                    })
             })
         })
 }

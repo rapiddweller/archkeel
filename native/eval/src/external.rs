@@ -46,7 +46,11 @@ pub(crate) fn dependency_scope(
         .graph()
         .imports()
         .iter()
-        .filter(|import| names(import, dependency) && !allowed(import.source_module()))
+        .filter(|import| {
+            model.selects(import.source_module())
+                && names(import, dependency)
+                && !allowed(import.source_module())
+        })
         .map(|import| Violation::outside_scope(id, dependency, import))
         .collect();
     violations.sort_by(|a, b| a.id().cmp(b.id()));
@@ -76,7 +80,11 @@ pub(crate) fn complete_scope(
         .collect();
     let mut violations: Vec<Violation> = Vec::new();
     for import in model.graph().imports() {
-        if import.relative() || !in_scope(import.source_module(), source) {
+        // A mount reads the imports of its domain; the internal roots stay those of every module.
+        if import.relative()
+            || !in_scope(import.source_module(), source)
+            || !model.selects(import.source_module())
+        {
             continue;
         }
         let root = match import.resolved() {

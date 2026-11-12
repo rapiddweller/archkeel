@@ -6,8 +6,9 @@
 //! module that answers it. Each request has a file of its own (`contract`, `ingest`, `rules`,
 //! `sections`, `report`), so that the slices change different files.
 
+use archkeel_contract::policy::ContractTree;
 use archkeel_contract::Contract;
-use archkeel_model::{Graph, Input, Model, Reason, Settings};
+use archkeel_model::{Graph, Input, Model, ModelTree, Reason, Settings};
 use archkeel_store::Ingested;
 
 use crate::contract::{ContractInput, ContractState, Usable};
@@ -44,7 +45,7 @@ pub(crate) struct Engine {
 /// What the inputs of a run derive: the model, or only its reply part, or neither, with the
 /// reason of each missing part.
 pub(crate) enum Derived {
-    Model(Box<Model>),
+    Model(Box<ModelTree>),
     Graph(Box<Graph>, Reason),
     Neither { graph: Reason, model: Reason },
 }
@@ -53,16 +54,22 @@ impl Derived {
     /// The reply part of the model, or the reason that the run has none.
     pub(crate) fn graph(&self) -> Result<&Graph, Reason> {
         match self {
-            Derived::Model(model) => Ok(model.graph()),
+            Derived::Model(models) => Ok(models.root().graph()),
             Derived::Graph(graph, _) => Ok(graph.as_ref()),
             Derived::Neither { graph, .. } => Err(graph.clone()),
         }
     }
 
-    /// The model, or the reason that the run has none: a missing contract, reply or settings.
+    /// The model of the root contract, or the reason that the run has none: a missing contract,
+    /// reply or settings.
     pub(crate) fn model(&self) -> Result<&Model, Reason> {
+        self.models().map(ModelTree::root)
+    }
+
+    /// The model of each contract of the tree (AD-385), or the reason that the run has none.
+    pub(crate) fn models(&self) -> Result<&ModelTree, Reason> {
         match self {
-            Derived::Model(model) => Ok(model),
+            Derived::Model(models) => Ok(models),
             Derived::Graph(_, model) | Derived::Neither { model, .. } => Err(model.clone()),
         }
     }
@@ -87,18 +94,15 @@ impl Engine {
                 Answer::Settings
             }
             Request::Sections(sections) => {
-                let (contract, derived) = self.derived();
-                let outcomes = match contract {
-                    Some(_) => crate::rules::outcomes(derived.model()),
-                    None => Vec::new(),
-                };
+                let (_, derived) = self.derived();
+                let outcomes = crate::rules::outcomes(derived.models());
                 let derivation = (derived.graph(), derived.model());
                 Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
             Request::Rules => {
                 let tree = self.contract.as_ref().map(crate::rules::Tree::of);
                 let (contract, derived) = self.derived();
-                Answer::Rules(crate::rules::answer(contract, derived.model(), tree))
+                Answer::Rules(crate::rules::answer(contract, derived.models(), tree))
             }
             Request::Report => Answer::Report(crate::report::answer()),
         }
@@ -120,11 +124,15 @@ impl Engine {
     /// until an input changes.
     pub(crate) fn derived(&mut self) -> (Option<&Contract>, &Derived) {
         let contract = self.contract.as_ref().map(|usable| &usable.root);
+        let tree = self
+            .contract
+            .as_ref()
+            .and_then(|usable| usable.tree.as_ref());
         let (reply, settings) = (&self.reply, &self.settings);
         let derivations = &mut self.derivations;
         let derived = self.derived.get_or_insert_with(|| {
             *derivations += 1;
-            derive(contract, reply.as_ref(), settings.as_ref())
+            derive(contract, tree, reply.as_ref(), settings.as_ref())
         });
         (contract, derived)
     }
@@ -136,9 +144,11 @@ impl Engine {
     }
 }
 
-/// Derive the reply part, then the model when the run has a contract.
+/// Derive the reply part, then the models when the run has a contract: one model for each
+/// contract of a tree (AD-385).
 fn derive(
     contract: Option<&Contract>,
+    tree: Option<&ContractTree>,
     reply: Option<&Ingested>,
     settings: Option<&Settings>,
 ) -> Derived {
@@ -154,8 +164,12 @@ fn derive(
             Err(graph) => Derived::Neither { graph, model },
         };
     };
-    match graph.map(|graph| Model::of(contract, graph)) {
-        Ok(Ok(model)) => Derived::Model(Box::new(model)),
+    let models = |graph| match tree {
+        Some(tree) => ModelTree::tree(tree, graph),
+        None => ModelTree::of(contract, graph),
+    };
+    match graph.map(models) {
+        Ok(Ok(models)) => Derived::Model(Box::new(models)),
         Ok(Err(refused)) => {
             let (graph, model) = *refused;
             Derived::Graph(Box::new(graph), model)

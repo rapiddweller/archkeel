@@ -85,6 +85,7 @@ pub(crate) fn parse_file(bytes: &[u8]) -> Result<Contract, ParseError> {
         rules,
         declarations,
         digest: digest_of(bytes),
+        mount: None,
     })
 }
 

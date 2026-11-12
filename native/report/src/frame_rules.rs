@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_model::{Decision, Model, Verdict as ModelVerdict};
+use archkeel_model::{Decision, ModelTree, Verdict as ModelVerdict};
 
 use crate::build_error::BuildError;
 use crate::head::{RuleReason, RuleResult, RuleVerdict, Status};
@@ -51,13 +51,14 @@ fn rule_reason(verdict: RuleVerdict, why: Option<WhyUnknown>) -> Option<RuleReas
 }
 
 /// The rule rows, by id; the violation count of each is the number of violation rows citing it.
-/// A PASS row needs a PASS of its own rule of `model` (AD-378, AD-381): a type cannot stop a
-/// `Decision` from moving, so the identity is checked. A run without a model has no PASS row.
-/// A DECLARATION row needs a declaration rule of the contract of `model`.
+/// A PASS row needs a PASS of its own rule of the model whose contract holds the rule (AD-378,
+/// AD-381, AD-385): the root or the mount of the rule, never another model of the tree. A type
+/// cannot stop a `Decision` from moving, so the rule and the serial are checked. A run without
+/// models has no PASS row. A DECLARATION row needs a declaration rule of that contract.
 pub(crate) fn rule_rows(
     rules: &[RuleOutcome],
     violations: &[ViolationRow],
-    model: Option<&Model>,
+    models: Option<&ModelTree>,
 ) -> Result<Vec<RuleResult>, BuildError> {
     let mut cited: BTreeMap<&str, u64> = BTreeMap::new();
     for row in violations {
@@ -70,6 +71,7 @@ pub(crate) fn rule_rows(
     let mut out = Vec::with_capacity(rules.len());
     for rule in rules {
         let verdict = rule_verdict(&rule.decision);
+        let model = models.and_then(|models| models.model_of(&rule.id));
         match &rule.decision {
             RuleDecision::Decided(decision) => {
                 let own = model.is_some_and(|model| decision.passes(model, &rule.id));
@@ -82,7 +84,7 @@ pub(crate) fn rule_rows(
             // With a model, a DECLARATION row needs a declaration rule of its contract. A run
             // without a model has no PASS, so a row there cannot hide a rule of a PASS run.
             RuleDecision::Declaration => {
-                if model.is_some_and(|model| !model.declares(&rule.id)) {
+                if models.is_some() && !model.is_some_and(|model| model.declares(&rule.id)) {
                     return Err(BuildError::ForeignDeclaration {
                         rule: rule.id.clone(),
                     });

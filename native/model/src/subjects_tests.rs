@@ -45,12 +45,14 @@ fn subjects_with(
     builtins: &[String],
 ) -> Option<Subjects> {
     let contract = contract(rule, extra_a)?;
+    let subjects: Vec<&str> = modules
+        .iter()
+        .copied()
+        .chain(planned(contract.components()))
+        .collect();
     let names = Names {
-        subjects: modules
-            .iter()
-            .copied()
-            .chain(planned(contract.components()))
-            .collect(),
+        targets: subjects.clone(),
+        subjects,
         builtins,
     };
     Some(check(&contract.rules()[0], contract.components(), &names))
@@ -150,4 +152,37 @@ fn a_rule_without_a_side_always_finds_its_subjects() {
         r#"{{"id": "R", "kind": "complete_requires", "include_type_checking": false, {HEAD}}}"#
     );
     assert_eq!(subjects(&requires, &[], &[]), Some(Subjects::Found));
+}
+
+/// AD-385: in a mount the source side reads the domain of the mount and the target side every
+/// module (`rule_subject_failures` with `target_module_names`).
+#[test]
+fn a_target_side_reads_every_module_and_a_source_side_only_the_domain() {
+    let rule = forbidden(
+        r#""source": "x.a", "target": "x.b", "include_type_checking": false, "allowed_sources": []"#,
+    );
+    let Some(contract) = contract(&rule, "") else {
+        assert_eq!("the contract must parse", "loaded");
+        return;
+    };
+    let check_with = |subjects: Vec<&str>, targets: Vec<&str>| {
+        let names = Names {
+            subjects,
+            targets,
+            builtins: &[],
+        };
+        check(&contract.rules()[0], contract.components(), &names)
+    };
+    assert_eq!(
+        check_with(vec!["x.a.m"], vec!["x.a.m", "x.b.m"]),
+        Subjects::Found
+    );
+    assert_eq!(
+        check_with(vec!["x.a.m", "x.b.m"], vec!["x.a.m"]),
+        Subjects::Missing
+    );
+    assert_eq!(
+        check_with(vec!["x.b.m"], vec!["x.a.m", "x.b.m"]),
+        Subjects::Missing
+    );
 }

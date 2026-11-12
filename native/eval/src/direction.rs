@@ -73,6 +73,10 @@ pub(crate) fn layers(id: &str, rule: &LayerOrder, model: &Model) -> Result<Vec<V
         .iter()
         .map(|component| (component.label().as_text(), component))
         .collect();
+    // AD-385: the receipt and each row of an inside rule cite the inside contract file.
+    if model.is_mount() {
+        return Err(Part::MountedLayerOrder.into());
+    }
     let receipt = stable_id("RULE-EVALUATION", &[IdPart::Text("root"), IdPart::Text(id)]);
     let mut found = Vec::new();
     for source in contract.components() {

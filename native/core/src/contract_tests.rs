@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
 
-use archkeel_model::{Input, Reason, Unsupported};
+use archkeel_model::{Input, Reason};
 
 use crate::engine::{Answer, Engine};
 use crate::request::Request;
@@ -115,7 +115,7 @@ fn a_nested_tree_assembles_in_rounds_and_names_each_inside_rule() {
     ];
     let (_, usable) = answer(input(&root, sent));
     let usable = usable.expect("a usable tree");
-    assert!(usable.mounted);
+    assert!(usable.tree.is_some());
     assert_eq!(usable.root.rules().len(), 1);
     let inside: Vec<&str> = usable.inside.iter().map(|(id, _)| id.as_str()).collect();
     assert_eq!(inside, ["a:M", "a:b:L"]);
@@ -126,7 +126,7 @@ fn a_root_without_mounts_is_used_as_it_is_and_files_that_it_does_not_mount_are_r
     let root = contract(vec![component("a", None)], vec![]);
     let (state, usable) = answer(input(&root, vec![]));
     assert!(matches!(state, ContractState::Parsed(_)));
-    assert!(usable.is_some_and(|usable| !usable.mounted));
+    assert!(usable.is_some_and(|usable| usable.tree.is_none()));
     let extra = vec![file("x.json", "x.json", &root)];
     let (state, usable) = answer(input(&root, extra));
     assert!(refused(&state).contains("Unmounted"), "{state:?}");
@@ -310,7 +310,7 @@ fn a_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
 }
 
 #[test]
-fn the_rules_of_a_tree_name_each_inside_rule_and_give_the_root_rules_their_input() {
+fn the_rules_of_a_tree_without_a_reply_name_the_missing_reply_for_each_rule_of_the_tree() {
     let root = contract(
         vec![component("a", Some("a.json"))],
         vec![assignment("R", "a")],
@@ -325,12 +325,10 @@ fn the_rules_of_a_tree_name_each_inside_rule_and_give_the_root_rules_their_input
         assert_eq!("no rules answer", "a rules answer");
         return;
     };
-    let inside = Reason::Unsupported(Unsupported::InsideRule);
-    assert_eq!(answer.reasons.get("a:M"), Some(&inside));
-    assert_eq!(
-        answer.reasons.get("R"),
-        Some(&Reason::MissingInput(Input::Reply))
-    );
+    // AD-385: an inside rule reads the model of its mount, so it names the input of the run.
+    let missing = Reason::MissingInput(Input::Reply);
+    assert_eq!(answer.reasons.get("a:M"), Some(&missing));
+    assert_eq!(answer.reasons.get("R"), Some(&missing));
     assert!(answer.decided.is_empty());
 }
 
@@ -410,5 +408,23 @@ fn a_tree_with_exactly_one_mount_is_mounted() {
     let root = contract(vec![component("a", Some("a.json"))], vec![]);
     let leaf = contract(vec![], vec![]);
     let (_, usable) = answer(input(&root, vec![file("a.json", "a.json", &leaf)]));
-    assert!(usable.is_some_and(|usable| usable.mounted));
+    assert!(usable.is_some_and(|usable| usable.tree.is_some()));
+}
+
+/// Review of #1086, N2: a root rule `a:M` and the rule `M` of the mount `a` have one scoped id.
+/// Python merges them into one rule; the core refuses the tree by name (stricter, AD-385).
+#[test]
+fn a_root_rule_with_the_scoped_id_of_a_mount_rule_refuses_the_tree() {
+    let root = contract(
+        vec![component("a", Some("a.json"))],
+        vec![assignment("a:M", "a")],
+    );
+    let leaf = contract(vec![component("b", None)], vec![assignment("M", "b")]);
+    let (state, usable) = answer(input(&root, vec![file("a.json", "a.json", &leaf)]));
+    let message = refused(&state);
+    assert!(
+        message.contains("collision") && message.contains("a:M"),
+        "{state:?}"
+    );
+    assert!(usable.is_none());
 }

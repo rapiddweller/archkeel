@@ -12,7 +12,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_model::{Model, RunGap, RunPass};
+use archkeel_model::{ModelTree, RunGap, RunPass};
 
 use crate::build_error::BuildError;
 use crate::build_tables::{self as layout, node_of, Strings, UnknownCell, CROSSING_CAP};
@@ -47,14 +47,11 @@ pub(crate) const BEYOND_KIND: &str = "core_decides_beyond_the_reference";
 /// One unknown row for each PASS rule of a model with kept pair gaps: the reference engine gives
 /// the rule UNKNOWN for each such gap, and the core passes it because no kept gap can change what
 /// it reads (AD-384). The row names the rule, so a reader sees the difference.
-fn beyond(rules: &[crate::input::RuleOutcome], model: Option<&Model>) -> Vec<UnknownRecord> {
-    let Some(model) = model else {
+fn beyond(rules: &[crate::input::RuleOutcome], models: Option<&ModelTree>) -> Vec<UnknownRecord> {
+    let Some(models) = models else {
         return Vec::new();
     };
-    let kept = model.kept_pair_gaps();
-    if kept == 0 {
-        return Vec::new();
-    }
+    // Each PASS row reads the kept gaps of the model whose contract holds its rule (AD-385).
     rules
         .iter()
         .filter(|rule| match &rule.decision {
@@ -63,12 +60,15 @@ fn beyond(rules: &[crate::input::RuleOutcome], model: Option<&Model>) -> Vec<Unk
             }
             RuleDecision::Declaration => false,
         })
-        .map(|rule| UnknownRecord {
-            kind: BEYOND_KIND.to_owned(),
-            module: None,
-            subjects: Vec::new(),
-            rules: vec![rule.id.clone()],
-            title: format!("no one of the {kept} kept pair gaps can change the rule"),
+        .filter_map(|rule| {
+            let kept = models.model_of(&rule.id)?.kept_pair_gaps();
+            (kept > 0).then(|| UnknownRecord {
+                kind: BEYOND_KIND.to_owned(),
+                module: None,
+                subjects: Vec::new(),
+                rules: vec![rule.id.clone()],
+                title: format!("no one of the {kept} kept pair gaps can change the rule"),
+            })
         })
         .collect()
 }
@@ -316,17 +316,23 @@ fn run_of(outcome: &RunOutcome, records: &Records, graph: bool, observation: Sta
 /// Build the `Report` frame of one run.
 ///
 /// The status is the status rule over the rows (`status_of`). The observation is PASS only when
-/// the scope of `model` is complete (`Scope::run`). A rule row is PASS only with a PASS of its
-/// own rule of `model`. Only when the status is PASS does the builder ask the model for the run
-/// proof (`Scope::run_complete`, L-35b); without it the build fails with
-/// `BuildError::PassWithoutProof`. A run without a model has no PASS (AD-381).
+/// the scope of each model of `models` is complete (`Scope::run`). A rule row is PASS only with
+/// a PASS of its own rule of the model whose contract holds the rule: the root, or the mount of
+/// an inside rule (AD-385). Only when the status is PASS does the builder ask the models for the
+/// run proof (`ModelTree::pass_run`, one `Scope::run_complete` for each model, L-35b); without
+/// it the build fails with `BuildError::PassWithoutProof`. A run without models has no PASS
+/// (AD-381).
 pub fn build(
     outcome: RunOutcome,
     records: Records,
-    model: Option<&Model>,
+    models: Option<&ModelTree>,
 ) -> Result<Report<Decided>, BuildError> {
     let graph = matches!(records.graph, Produced::Rows(_));
-    let complete = model.is_some_and(|model| model.scope(|scope| scope.run()).is_ok());
+    let complete = models.is_some_and(|models| {
+        models
+            .models()
+            .all(|model| model.scope(|scope| scope.run()).is_ok())
+    });
     let observation = if complete {
         Status::Pass
     } else {
@@ -339,13 +345,13 @@ pub fn build(
     let permissions = rows("permissions", records.permissions)?;
     let violations = rows("violations", records.violations)?;
     let mut unknowns = rows("unknowns", records.unknowns)?;
-    unknowns.extend(beyond(&outcome.rules, model));
+    unknowns.extend(beyond(&outcome.rules, models));
     let findings = rows("findings", records.findings)?;
     let edges = match records.graph {
         Produced::Rows(graph) => graph.edges,
         Produced::NotProduced(_) => Vec::new(),
     };
-    let rules = rule_rows(&outcome.rules, &violations, model)?;
+    let rules = rule_rows(&outcome.rules, &violations, models)?;
     let cells = unknown_cells(&outcome, unknowns, &tree);
     let body = Body {
         tree: &tree,
@@ -357,7 +363,7 @@ pub fn build(
         findings: &findings,
     };
     let payload = payload_of(run, rules, &body, &cells, tree.unowned_modules);
-    finish(payload, &findings, outcome, model)
+    finish(payload, &findings, outcome, models)
 }
 
 /// The derived head, the status from the rows, the PASS proof, the check and the budget.
@@ -365,7 +371,7 @@ fn finish(
     mut payload: Payload,
     findings: &[crate::input::FindingRow],
     outcome: RunOutcome,
-    model: Option<&Model>,
+    models: Option<&ModelTree>,
 ) -> Result<Report<Decided>, BuildError> {
     let rollup = findings
         .iter()
@@ -380,7 +386,7 @@ fn finish(
     let status = status_of(&payload);
     payload.summary.status = status;
     let proof = match status {
-        Status::Pass => Some(run_pass(&outcome, model).map_err(BuildError::PassWithoutProof)?),
+        Status::Pass => Some(run_pass(&outcome, models).map_err(BuildError::PassWithoutProof)?),
         Status::Fail | Status::Unknown => None,
     };
     let observation = payload.run.observation;
@@ -408,8 +414,8 @@ fn finish(
     Ok(report)
 }
 
-/// The run proof of the model over the decided rules (L-35b): `None` without a model.
-fn run_pass(outcome: &RunOutcome, model: Option<&Model>) -> Result<RunPass, Option<RunGap>> {
+/// The run proof of every model over the decided rules (L-35b, AD-385): `None` without models.
+fn run_pass(outcome: &RunOutcome, models: Option<&ModelTree>) -> Result<RunPass, Option<RunGap>> {
     let decisions = outcome
         .rules
         .iter()
@@ -417,13 +423,7 @@ fn run_pass(outcome: &RunOutcome, model: Option<&Model>) -> Result<RunPass, Opti
             RuleDecision::Decided(decision) => Some(decision),
             RuleDecision::Declaration => None,
         });
-    let model = model.ok_or(None)?;
-    model.scope(|scope| {
-        scope
-            .run_complete(decisions)
-            .map(|proof| scope.pass_run(proof))
-            .map_err(Some)
-    })
+    models.ok_or(None)?.pass_run(decisions).map_err(Some)
 }
 
 fn refusal(found: Vec<Problem>) -> BuildError {
