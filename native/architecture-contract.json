@@ -453,10 +453,12 @@
       "role": "component",
       "packages": [
         "native.archkeel_dart_collector.records",
+        "native.archkeel_dart_collector.declarations",
+        "native.archkeel_dart_collector.work",
         "native.archkeel_dart_collector.sdk"
       ],
       "responsibilities": [
-        "Build the reply sections that the discovery and the parse decide: the inputs, the source listing, the file facts, the gaps of the problems and of the parse, and their evidence. Check SDK support before record assembly (AD-387)."
+        "Build the discovery, parse and declaration records. Check SDK support (AD-387). Assemble declarations from prepared syntax and typed parameter resolutions (AD-392)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot and parsing source."
@@ -464,7 +466,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-365-the-native-dart-discovery-equals-the-python-one-and-waits-for-a-dart-request.md",
         "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md",
-        "docs/architecture/decisions/ad-387-the-native-dart-collector-checks-sdk-support-before-record-assembly.md"
+        "docs/architecture/decisions/ad-387-the-native-dart-collector-checks-sdk-support-before-record-assembly.md",
+        "docs/architecture/decisions/ad-392-the-native-dart-declaration-layer-keeps-the-python-records.md"
       ],
       "requires": [
         {

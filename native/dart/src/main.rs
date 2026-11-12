@@ -22,6 +22,7 @@
 )]
 
 mod dartstr;
+mod declarations;
 mod definitions;
 mod directives;
 mod discover;
@@ -40,6 +41,7 @@ mod sites;
 mod syntax;
 mod tree;
 mod unicode_tables;
+mod work;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -56,9 +58,16 @@ fn main() -> ExitCode {
             Err(error) => (ExitCode::from(1), String::new(), error),
         },
         #[cfg(feature = "dump")]
-        Some((flag, _)) if matches!(flag.as_str(), "--dump-sdk" | "--dump-syntax") => {
+        Some((flag, _))
+            if matches!(
+                flag.as_str(),
+                "--dump-sdk" | "--dump-syntax" | "--dump-declarations"
+            ) =>
+        {
             let dump = if flag == "--dump-sdk" {
                 dump::sdk
+            } else if flag == "--dump-declarations" {
+                dump::declarations
             } else {
                 dump::syntax
             };

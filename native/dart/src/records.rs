@@ -205,7 +205,7 @@ fn file_evidence(evidence: &mut BTreeMap<String, Evidence>, rel: &str, content: 
 }
 
 /// The UNKNOWN record of one gap at `line` of `rel`, as `_Collection._gap` writes it.
-fn gap(
+pub(crate) fn gap(
     rel: &str,
     line: usize,
     kind: ExceptionName,
