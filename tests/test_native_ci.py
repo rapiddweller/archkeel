@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -38,8 +39,59 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     native = jobs["native"]
     assert "runs-on: ubuntu-24.04\n" in native
     assert native.index("run: make cargo-deny-install") < native.index("run: make native-check")
-    rust = [job for job, body in jobs.items() if re.search(r"native-|cargo|macos", body)]
-    assert rust == ["native"]
+    rust = [job for job, body in jobs.items() if re.search(r"make native-|cargo|macos", body)]
+    assert rust == ["native", "native-corpus"]
+    assert "runs-on: ubuntu-24.04\n" in jobs["native-corpus"]
+
+
+def _dry_run(*arguments: str) -> str:
+    return subprocess.run(
+        ["make", "-n", *arguments, "UV=uv"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def _corpus_tests() -> list[str]:
+    printed = _dry_run("-p", "native-corpus", "LEG=1")
+    found = re.search(r"^NATIVE_CORPUS_TESTS := (.+)$", printed, re.MULTILINE)
+    assert found is not None
+    return found[1].split()
+
+
+def test_ci_runs_each_native_check_test_once_in_the_native_job_or_a_corpus_leg() -> None:
+    """Issue #880: the corpus tests run in parallel legs; the jobs run all of native-check."""
+    jobs = _jobs("ci.yml")
+    corpus = _corpus_tests()
+    assert len(corpus) == 2
+    assert "run: make native-check NATIVE_SPLIT=1\n" in jobs["native"]
+    legs = re.search(r"\n        leg: \[(.+)\]\n", jobs["native-corpus"])
+    assert legs is not None
+    assert legs[1].split(", ") == [str(n) for n in range(1, len(corpus) + 1)]
+    assert "run: make native-corpus LEG=${{ matrix.leg }}\n" in jobs["native-corpus"]
+    for leg, test in enumerate(corpus, start=1):
+        assert _dry_run("native-corpus", f"LEG={leg}").split()[-1] == test
+        # A corpus test must come from the test list of native-check, so that the split drops it.
+        assert test.split("::")[0] in _dry_run("native-check").split()
+    printed = _dry_run("-p", "native-check", "NATIVE_SPLIT=1")
+    options = re.findall(r"^PYTEST_ADDOPTS = (.+)$", printed, re.MULTILINE)
+    assert options == [f"-n 4 --max-worker-restart=0 --deselect {' --deselect '.join(corpus)}"]
+
+
+def test_each_corpus_test_names_one_collected_test() -> None:
+    collected = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", *_corpus_tests()],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert collected.returncode == 0, collected.stdout + collected.stderr
+    assert re.search(r"^2 tests collected", collected.stdout, re.MULTILINE), collected.stdout
 
 
 def test_full_builds_each_platform_wheel_on_its_own_target() -> None:

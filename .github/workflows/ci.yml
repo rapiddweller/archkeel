@@ -222,8 +222,8 @@ jobs:
   native:
     name: "Native: Rust checks and dependency policy"
     runs-on: ubuntu-24.04
-    # Measured on 2026-11-12: 12.9 to 14.9 minutes, mostly the Python tests of native-check
-    # (up to 10 minutes). A 15 minute limit cancelled main. The limit only stops a hung job.
+    # Measured on 2026-11-12: up to 21 minutes, mostly the Python tests of native-check. The two
+    # corpus tests now run in native-corpus (issue #880). The limit only stops a hung job.
     timeout-minutes: 30
     permissions:
       contents: read
@@ -248,11 +248,43 @@ jobs:
         run: make cargo-deny-install
 
       - name: Check format, lint, dependency policy, tests and build of native/
-        run: make native-check
+        run: make native-check NATIVE_SPLIT=1
+
+  native-corpus:
+    name: "Native: dual-run corpus test ${{ matrix.leg }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        # One leg for each test of NATIVE_CORPUS_TESTS in the Makefile.
+        leg: [1, 2]
+    runs-on: ubuntu-24.04
+    # Each corpus test runs the Python engine on all dual-run cases. The limit only stops a hung job.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Run one corpus test of the dual run
+        run: make native-corpus LEG=${{ matrix.leg }}
 
   check:
     name: All checks passed
-    needs: [lint, tests, pr-report-check, mermaid, demos, native]
+    needs: [lint, tests, pr-report-check, mermaid, demos, native, native-corpus]
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04
