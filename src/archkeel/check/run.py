@@ -274,6 +274,7 @@ def run_check(
     environ: Mapping[str, str],
     host: Host,
     analyzer: Analyzer,
+    rule_rows: bool = False,
 ) -> RunResult:
     lock, lock_bytes, expectation = _authenticate_inputs(
         root,
@@ -381,5 +382,5 @@ def run_check(
         ),
         unresolved_call_changes=call_changes,
         unresolved_call_note=call_note,
-        rule_assessments=rows,
+        rule_assessments=rows if rule_rows else None,
     )

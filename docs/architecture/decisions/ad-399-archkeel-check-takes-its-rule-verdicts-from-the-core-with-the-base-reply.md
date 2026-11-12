@@ -20,16 +20,16 @@ No rule kind of `check` reads a changed contract (a changed policy input stops t
 diff. No Cut A rule kind reads the base or the expectation.
 
 **Decision.**
-1. Shared rows. `run_check` gives the rule rows of the candidate (`rule_assessments`, the call of
-   `inspect_observation` and `report`). Without the switch the shell removes them, so no byte of
-   the output changes and the core does not start.
+1. Shared rows. `run_check(rule_rows=True)` gives the rule rows of the candidate (the call of
+   `inspect_observation` and `report`). The command result schema of `check` has no rows, so the
+   default gives none, and the shell compares the rows and shows none. Without the switch no byte
+   of the output changes and the core does not start.
 2. Shell. `check` gets `--native-core`. The core runs only when `check` has exactly 2 replies:
    the first is the base, the second the candidate. The contract reader reads Git at the baseline
    commit (`read_committed`: a regular blob at a safe path, else the path stays missing), never
    the working tree. The shell compares the run status, the rows and the exit code
    (`1 if failures or FAIL`). A difference is an error with exit 2. A Python exit 2, a configured
-   collector or a frame that names a part gives the Python result with one note. The rows are
-   shown only when the core decides.
+   collector or a frame that names a part gives the Python result with one note.
 3. Core. Protocol `archkeel-core-check-2` replaces `baseline` with `base` (the reply bytes). The
    core reads the base in `core/src/base.rs`: the store must accept it, the trust function of the
    request kind (`stage_one_shell_trust`, the only one) must trust it, its profile must be the
@@ -47,7 +47,8 @@ diff. No Cut A rule kind reads the base or the expectation.
 `check` can go. The candidate is decided under the contract at the baseline, so the working-tree
 contract must not reach the core.
 
-**Rejected.** The base verdicts from the caller. A second trust path for the base. The working
+**Rejected.** Rule rows in the `check` result: a new version of the command result schema. The base
+verdicts from the caller. A second trust path for the base. The working
 tree as the contract of `check`. A frame part for each expectation part (point 4). A base without
 the model check: a base that the core cannot read would not be seen.
 

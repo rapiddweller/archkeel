@@ -17,8 +17,8 @@ When the core names any part, the run is the run of the Python engine with one n
 the reasons of the core.
 
 `check` (AD-399) sends the candidate reply, the base reply and the contract at the baseline commit,
-which the shell reads from Git. The shell also compares the exit code. The rule rows of `check` are
-shown only when the core decides the run, so the switch off changes no byte.
+which the shell reads from Git. The shell also compares the exit code. The result of `check` shows
+no rule rows: the command result schema of `check` has none, so the rows are only compared.
 """
 
 from __future__ import annotations
@@ -305,8 +305,8 @@ class NativeCore:
         self, result: RunResult, root: Path, config: ScanConfig, baseline: str
     ) -> RunResult:
         """The `check` result under the stage 1 rule (AD-399). The core reads the candidate reply,
-        the base reply and the contract at `baseline`. The rule rows are shown only when the core
-        decides the run; with the switch off the result has no rows, as before."""
+        the base reply and the contract at `baseline`. `result` has the rule rows of Python
+        (`run_check(rule_rows=True)`); the shell compares them and shows none, as before."""
         shown = replace(result, rule_assessments=None)
         if self.binary is None:
             return shown
@@ -325,7 +325,7 @@ class NativeCore:
                 f"the core and the Python engine differ: the exit code: core {exit_code}, "
                 f"Python {result.exit_code}. Report this difference; the run has no verdict."
             )
-        return _decided(result, outcome, _CHECK_PARTS)
+        return replace(_decided(result, outcome, _CHECK_PARTS), rule_assessments=None)
 
 
 def _python_rows(result: RunResult) -> tuple[PythonRule, ...]:

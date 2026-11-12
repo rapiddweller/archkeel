@@ -38,7 +38,6 @@ from test_cli_native_core import (
     install,
     posix,
     repository,
-    statuses,
 )
 from test_cli_native_core_trust import _script
 
@@ -90,8 +89,8 @@ def check(arguments: list[str], *flags: str) -> tuple[int, dict[str, Any]]:
     return code, json.loads(output.getvalue())
 
 
-def without_rows_and_notes(result: dict[str, Any]) -> dict[str, Any]:
-    kept = {key: value for key, value in result.items() if key not in ("notes", "rule_assessments")}
+def without_notes(result: dict[str, Any]) -> dict[str, Any]:
+    kept = {key: value for key, value in result.items() if key != "notes"}
     notes = [note for note in result.get("notes") or () if note["subject"] != "native_core"]
     return {**kept, "notes": notes} if notes else kept
 
@@ -146,11 +145,11 @@ def test_the_core_decides_a_pass_check(
     off = check(arguments)
     code, result = check(arguments, "--native-core")
     assert (code, result["declared_rules"]) == (0, "PASS")
-    assert statuses(result) == PASSING
+    assert result["rule_assessments"] is None  # the result of check has no rule rows
     [note] = core_notes(result)
     assert note.startswith("The core decides every rule of this run (archkeel-core ")
     assert "the Git order and the host order are the verdicts of the Python engine" in note
-    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+    assert without_notes(result) == without_notes(off[1])
     assert off[0] == code
 
 
@@ -161,9 +160,9 @@ def test_the_core_decides_a_fail_check_with_exit_1(
     off = check(arguments)
     code, result = check(arguments, "--native-core")
     assert (code, result["declared_rules"]) == (1, "FAIL")
-    assert statuses(result) == {**PASSING, "REQUIRES": "FAIL"}
+    assert result["rule_assessments"] is None
     assert core_notes(result)[0].startswith("The core decides every rule")
-    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+    assert without_notes(result) == without_notes(off[1])
     assert off[0] == 1
 
 
@@ -178,7 +177,7 @@ def test_an_expectation_failure_keeps_exit_1_and_the_core_decides_the_rules(
     assert (code, off[0], result["declared_rules"]) == (1, 1, "PASS")
     assert result["host_order"] == "FAIL"
     assert core_notes(result)[0].startswith("The core decides every rule")
-    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+    assert without_notes(result) == without_notes(off[1])
 
 
 def test_the_core_decides_a_candidate_that_adds_a_violation(
@@ -194,9 +193,9 @@ def test_the_core_decides_a_candidate_that_adds_a_violation(
     off = check(arguments)
     code, result = check(arguments, "--native-core")
     assert (code, off[0], result["declared_rules"]) == (1, 1, "FAIL"), diagnostics(result)
-    assert statuses(result)["REQUIRES"] == "FAIL"
+    assert result["rule_assessments"] is None
     assert core_notes(result)[0].startswith("The core decides every rule")
-    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+    assert without_notes(result) == without_notes(off[1])
 
 
 @posix
@@ -229,7 +228,7 @@ def test_the_contract_of_the_working_tree_changes_nothing(
     (root / "architecture-contract.json").write_text(json.dumps(contract))
     code, result = check(arguments, "--native-core")
     assert (code, result["declared_rules"]) == (0, "PASS"), diagnostics(result)
-    assert statuses(result) == PASSING
+    assert result["rule_assessments"] is None  # the result of check has no rule rows
     assert core_notes(result)[0].startswith("The core decides every rule")
 
 
@@ -274,7 +273,7 @@ def test_the_core_reads_exactly_two_replies(
     [note] = core_notes(result)
     assert f"the run has {count} collector replies, and the core reads 2" in note
     assert result.get("rule_assessments") is None
-    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+    assert without_notes(result) == without_notes(off[1])
 
 
 def test_a_difference_in_the_exit_code_alone_is_a_named_error(
@@ -319,7 +318,7 @@ def test_a_frame_that_names_a_part_falls_back_without_rule_rows(
     [note] = core_notes(result)
     assert note.startswith("The core did not decide this run") and reason in note
     assert result.get("rule_assessments") is None
-    assert without_rows_and_notes(result) == without_rows_and_notes(off[1])
+    assert without_notes(result) == without_notes(off[1])
     assert gap_kind(reason) is GapKind.BASE
 
 

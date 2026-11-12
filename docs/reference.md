@@ -552,7 +552,7 @@ too; the comparison rows are those of the Python engine.
 same way (AD-399). The core reads the candidate reply, the reply of the accepted commit and the
 contract at the baseline commit, which the shell reads from Git. The shell also compares the exit
 code. The expectation, the Git order and the host order stay the verdicts of the Python engine.
-When the core decides, the result also shows the rule rows; the switch off shows none, as before.
+The result of `check` shows no rule rows, as before; the shell only compares them.
 
 `archkeel report --timings PATH` writes one JSON file after a successful live report.
 Without the flag, nothing is measured and nothing is written. The report, the HTML

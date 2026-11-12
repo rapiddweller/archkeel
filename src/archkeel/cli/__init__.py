@@ -1124,6 +1124,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     environ=os.environ,
                     host=load_gitlab_records,
                     analyzer=observer,
+                    rule_rows=core.binary is not None,
                 )
                 result = core.decide_check(result, root, config, args.baseline)
                 notes = config.scope_notes(observer.excluded_for(args.head))
