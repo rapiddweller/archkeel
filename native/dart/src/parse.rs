@@ -10,7 +10,6 @@ use tree_sitter::{Node, Parser};
 use crate::dartstr::unclosed_block_comment;
 use crate::definitions::definitions;
 use crate::directives::directives;
-use crate::nesting::brackets_overflow;
 use crate::pytext::{is_assigned, is_space_byte};
 use crate::sites::{sites, work_limit};
 use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Syntax};
@@ -47,7 +46,7 @@ impl DartParser {
         self.work_permille = 0;
         // Tree-sitter keeps about a kilobyte for each open bracket: a source of 2.5 million `(`
         // takes 3 GB before one rule runs, so a source this deep is not parsed (AD-376).
-        if let Some(at) = brackets_overflow(content) {
+        if let Some(at) = crate::nesting::brackets_overflow(content) {
             let message = format!("Dart source nests deeper than {MAX_DEPTH} levels.");
             let concern = syntax_concern(&source, at, at.saturating_add(1), &message);
             return finish(Vec::new(), Vec::new(), Vec::new(), vec![concern], None);
