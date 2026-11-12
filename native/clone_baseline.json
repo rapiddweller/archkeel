@@ -389,6 +389,53 @@
     "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
     "tokens": 71
   },
+  "model/src/limits.rs|model/src/limits.rs|644e3ad373": {
+    "files": [
+      "model/src/limits.rs"
+    ],
+    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
+    "tokens": 71
+  },
+  "model/src/limits.rs|model/src/scope.rs|4106bb7efc": {
+    "files": [
+      "model/src/limits.rs",
+      "model/src/scope.rs"
+    ],
+    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
+    "tokens": 70
+  },
+  "model/src/limits.rs|model/src/scope.rs|644e3ad373": {
+    "files": [
+      "model/src/limits.rs",
+      "model/src/scope.rs"
+    ],
+    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
+    "tokens": 71
+  },
+  "model/src/limits.rs|model/src/subjects.rs|4fdbc1be9a": {
+    "files": [
+      "model/src/limits.rs",
+      "model/src/subjects.rs"
+    ],
+    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
+    "tokens": 70
+  },
+  "model/src/scope.rs|model/src/subjects.rs|00b17b8443": {
+    "files": [
+      "model/src/scope.rs",
+      "model/src/subjects.rs"
+    ],
+    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
+    "tokens": 73
+  },
+  "model/src/scope.rs|model/src/subjects.rs|4106bb7efc": {
+    "files": [
+      "model/src/scope.rs",
+      "model/src/subjects.rs"
+    ],
+    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
+    "tokens": 70
+  },
   "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
     "files": [
       "report/src/build_tables.rs"
