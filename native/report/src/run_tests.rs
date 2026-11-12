@@ -211,8 +211,9 @@ fn the_run_proof_needs_the_scope_and_a_pass_of_each_rule() {
     let outcomes = evaluate(&contract, &complete);
     let decisions: Vec<Decision> = outcomes.iter().map(|o| o.decision().clone()).collect();
     let proof = |m: &Model, d: &[Decision]| m.scope(|s| s.run_complete(d).map(|p| s.pass_run(p)));
-    assert!(proof(&complete, &decisions).is_ok_and(|pass| pass.of(&complete)));
     let other = model(&contract, true);
+    let pass = proof(&complete, &decisions);
+    assert!(pass.is_ok_and(|pass| pass.of(&complete) && !pass.of(&other)));
     assert_eq!(proof(&other, &decisions), Err(RunGap::NotPass(0)));
     let with_fail = [decisions[0].clone(), decisions[1].clone(), Decision::fail()];
     assert_eq!(proof(&complete, &with_fail), Err(RunGap::NotPass(2)));
@@ -291,4 +292,22 @@ fn each_reason_of_the_model_has_its_row_reason() {
     for (reason, wanted) in table {
         assert_eq!(crate::WhyUnknown::of(&reason), wanted, "{reason}");
     }
+}
+
+#[test]
+fn a_pass_row_without_its_receipt_is_refused() {
+    let contract = contract(&BOTH);
+    let model = model(&contract, true);
+    let outcomes = evaluate(&contract, &model);
+    let no_receipt = RuleText {
+        evaluated: false,
+        ..text()
+    };
+    let mut rules = rows(&outcomes);
+    rules[0] = RuleOutcome::evaluated(&outcomes[0], no_receipt);
+    let (outcome, records) = frame(rules);
+    let wanted = BuildError::PassWithoutReceipt {
+        rule: "ASSIGNMENT".to_owned(),
+    };
+    assert_eq!(build(outcome, records, Some(&model)), Err(wanted));
 }
