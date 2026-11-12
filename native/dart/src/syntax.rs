@@ -12,9 +12,8 @@ use serde::Serialize;
 macro_rules! vocabulary {
     ($(#[$meta:meta])* $vis:vis $name:ident { $($variant:ident),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
         #[serde(rename_all = "snake_case")]
-        #[cfg_attr(feature = "dump", derive(serde::Deserialize))]
         $vis enum $name {
             $($variant),+
         }
@@ -25,8 +24,8 @@ macro_rules! vocabulary {
 macro_rules! value {
     ($(#[$meta:meta])* $vis:vis $name:ident { $($field:ident: $kind:ty),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-        #[cfg_attr(feature = "dump", derive(serde::Deserialize), serde(deny_unknown_fields))]
+        #[derive(Clone, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
         $vis struct $name {
             $($vis $field: $kind),+
         }
@@ -138,8 +137,7 @@ impl Modifier {
     ];
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "dump", derive(serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 pub(crate) enum ConcernKind {
     #[serde(rename = "syntax_error")]
     SyntaxError,

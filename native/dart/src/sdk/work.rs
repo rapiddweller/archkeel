@@ -4,7 +4,7 @@
 
 //! The bounded work account and stop reasons of the SDK check (AD-387).
 
-use std::cell::Cell;
+use crate::work::Counter;
 
 const WORK_LIMIT: usize = 1 << 20;
 
@@ -29,22 +29,10 @@ impl Stop {
     }
 }
 
-/// Each scan and copy is charged before it runs. No partial bound proves support.
-#[derive(Default)]
-pub(super) struct Work(Cell<usize>);
+pub(super) type Work = Counter<WORK_LIMIT>;
 
-impl Work {
-    pub(super) fn charge(&self, amount: usize) -> Result<(), Stop> {
-        let spent = self.0.get().saturating_add(amount);
-        self.0.set(spent);
-        if spent > WORK_LIMIT {
-            Err(Stop::Work)
-        } else {
-            Ok(())
-        }
-    }
-
-    pub(super) fn spent(&self) -> usize {
-        self.0.get()
+impl From<crate::work::WorkLimit> for Stop {
+    fn from(_: crate::work::WorkLimit) -> Self {
+        Self::Work
     }
 }

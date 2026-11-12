@@ -31,13 +31,15 @@ Total: 529 function lines, 34.4% of 1 538 lines. Shared evidence and gap helpers
 9. Enum attributes are static constants with null values. Fields use initializers, not literals.
 10. Keep empty inventories as complete. Unsupported extensions give a gap and no symbol.
 11. The last symbol of a qualified name wins the name index. Keep every symbol in the list.
+    Duplicate gaps keep the first evidence only. Do not cite later parameter problems of that gap.
 12. A function scope ends at the next definition start, or the source byte length.
     A method scope uses the first matching owner's whole span.
 
 **Stricter cases, a closed list.** `DeclarationWorkLimit` stops the whole layer above
 16 777 216 work units. No partial symbols or indices escape. Charge input bytes, scans,
 copies and sort comparisons before the work. `DeclarationInputGap` stops duplicate paths,
-inconsistent enum arrays and missing or repeated constructor resolutions. Never guess a formal.
+inconsistent spans or enum arrays, missing, extra or repeated constructor resolutions, changed
+parameter names or counts, and parameter problems at another file. Never guess a formal.
 Each stop gives a named gap. These are internal layer limits, not new resolver behavior.
 
 **Remaining work, at most three slices.**
@@ -55,3 +57,8 @@ missing records could give a false PASS. Copy Python logic into the parity tool:
 outputs. `tests/test_collector_native_dart_declarations.py` checks hostile inputs, exact work,
 bounded generated input and named stops. Filesystem parity checks exercise discovery separately.
 Fault injection runs only in a throwaway worktree. Tests do not claim full Dart reply parity.
+
+**Measured.** Fixtures: 150 equal; demos: 289 equal. Private: 24 equal, four work gaps;
+dart-http: 340 equal, four work gaps; Flutter: 6 400 equal, 223 work gaps. Zero differences.
+The pinned mixed class and function input costs 335 070 units. The shared counter also serves SDK checks.
+The self-check pins one method-pair gap for the call to `Assembly::class` in `members`.

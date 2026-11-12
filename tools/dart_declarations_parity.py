@@ -62,7 +62,7 @@ def decode(kind: Any, value: Any) -> Any:
         return tuple(decode(item_kind, item) for item_kind, item in zip(args, value, strict=True))
     if origin in (types.UnionType, typing.Union):
         return decode(next(item for item in args if item is not type(None)), value)
-    if dataclasses.is_dataclass(kind):
+    if isinstance(kind, type) and dataclasses.is_dataclass(kind):
         return kind(
             **{name: decode(field_kind, value[name]) for name, field_kind in hints(kind).items()}
         )
@@ -196,24 +196,31 @@ def compare(binary: Path, corpus: Corpus, row: Result) -> None:
     }
     prepared = collection(corpus, snapshot, syntax)
     # Keep the full resolver while comparing each file's declaration assembly separately.
-    for source in snapshot.sources:
-        reference = _Collection(
-            request(corpus), snapshot, {source.rel_path: syntax[source.rel_path]}, prepared.resolver
-        )
-        reference.parsed = prepared.parsed & {source.rel_path}
-        reference.modules = prepared.modules
-        actual = native(binary, [layer_input(reference)])[0]
-        row.files += 1
-        if row.files % 500 == 0:
-            print(f"{row.name}: checked {row.files} layer inputs", file=sys.stderr, flush=True)
-        if any("DeclarationWorkLimit:" in gap["data"]["message"] for gap in actual["gaps"]):
-            assert not actual["symbols"] and len(actual["gaps"]) == 1
-            row.stricter += 1
-        elif canonical(payload(actual)) == canonical(python(reference)):
-            row.equal += 1
-        else:
-            row.different += 1
-            print(f"{row.name}: declaration difference at input {row.files}", file=sys.stderr)
+    for start in range(0, len(snapshot.sources), 64):
+        references = []
+        for source in snapshot.sources[start : start + 64]:
+            reference = _Collection(
+                request(corpus),
+                snapshot,
+                {source.rel_path: syntax[source.rel_path]},
+                prepared.resolver,
+            )
+            reference.parsed = prepared.parsed & {source.rel_path}
+            reference.modules = prepared.modules
+            references.append(reference)
+        rows = native(binary, [layer_input(reference) for reference in references])
+        for reference, actual in zip(references, rows, strict=True):
+            row.files += 1
+            if row.files % 500 == 0:
+                print(f"{row.name}: checked {row.files} layer inputs", file=sys.stderr, flush=True)
+            if any("DeclarationWorkLimit:" in gap["data"]["message"] for gap in actual["gaps"]):
+                assert not actual["symbols"] and len(actual["gaps"]) == 1
+                row.stricter += 1
+            elif canonical(payload(actual)) == canonical(python(reference)):
+                row.equal += 1
+            else:
+                row.different += 1
+                print(f"{row.name}: declaration difference at input {row.files}", file=sys.stderr)
 
 
 def main() -> int:
@@ -224,7 +231,7 @@ def main() -> int:
     binary = build()
     rows: dict[str, Result] = {}
     with tempfile.TemporaryDirectory() as scratch:
-        corpora = []
+        corpora: list[Corpus] = []
         if args.demos:
             corpora.extend(configured(name, ROOT / "fixtures" / name) for name in FIXTURES)
             corpora.extend(demo_variants(Path(scratch)))

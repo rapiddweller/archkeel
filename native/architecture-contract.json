@@ -454,6 +454,7 @@
       "packages": [
         "native.archkeel_dart_collector.records",
         "native.archkeel_dart_collector.declarations",
+        "native.archkeel_dart_collector.work",
         "native.archkeel_dart_collector.sdk"
       ],
       "responsibilities": [

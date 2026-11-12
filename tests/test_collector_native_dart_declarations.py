@@ -342,6 +342,7 @@ def test_hostile_filesystem_keeps_every_selected_declaration(
         result = discovery.Result("hostile")
         discovery.compare(corpus, binary, result, full=False)
         assert not result.problems
+        assert result.equal_files == result.files
     actual, expected = parity.from_source(binary, tmp_path)
     assert parity.canonical(parity.payload(actual)) == parity.canonical(expected)
 

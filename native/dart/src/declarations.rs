@@ -8,6 +8,7 @@ mod members;
 pub(crate) mod types;
 mod work;
 
+use crate::syntax::DefinitionKind as D;
 use crate::syntax::{Definition, DefinitionKind, ParameterKind as SyntaxParameterKind, Span};
 use archkeel_facts::envelope::Evidence;
 use archkeel_facts::identity::{stable_id, Part};
@@ -121,7 +122,6 @@ impl Assembly {
     }
 
     fn constructor_starts(&self, file: &File) -> Result<BTreeSet<usize>, Stop> {
-        use DefinitionKind as D;
         let mut starts = BTreeSet::new();
         for definition in &file.syntax.definitions {
             self.work.charge(1)?;
@@ -167,7 +167,6 @@ impl Assembly {
         definition: &Definition,
         resolutions: &BTreeMap<usize, &Constructor>,
     ) -> Result<(), Stop> {
-        use DefinitionKind as D;
         self.work.copies(definition)?;
         let qualified = format!("{}.{}", file.module, definition.name);
         self.work.text(&qualified)?;
@@ -177,7 +176,7 @@ impl Assembly {
             D::Typedef => Kind::Alias,
             D::Variable => Kind::Attribute,
             D::Extension | D::ExtensionType => {
-                self.unsupported(file, definition, &qualified);
+                self.unsupported(file, definition, &qualified)?;
                 return Ok(());
             }
         };
@@ -268,7 +267,13 @@ impl Assembly {
         Ok(())
     }
 
-    fn unsupported(&mut self, file: &File, definition: &Definition, qualified: &str) {
+    fn unsupported(
+        &mut self,
+        file: &File,
+        definition: &Definition,
+        qualified: &str,
+    ) -> Result<(), Stop> {
+        self.work.text(file.first_line.as_deref().unwrap_or(""))?;
         let word = if definition.kind == DefinitionKind::Extension {
             "extension"
         } else {
@@ -283,6 +288,7 @@ impl Assembly {
             ExceptionName::UnsupportedDeclaration,
             &message,
         );
+        Ok(())
     }
 
     fn scope_end(&self, file: &File, definition: &Definition) -> Result<usize, Stop> {
@@ -297,7 +303,6 @@ impl Assembly {
     }
 
     fn top_callable(&mut self, definition: &Definition, data: &mut Data) -> Result<String, Stop> {
-        use DefinitionKind as D;
         let parameters = self.parameters(&definition.parameters)?;
         let accessor = match definition.kind {
             D::Getter => Some("getter"),
@@ -352,16 +357,18 @@ impl Assembly {
         }
         Ok(Data {
             qualified_name: qualified.to_owned(),
-            module: file.module.clone(),
-            source_file: file.rel.clone(),
-            package: file
-                .module
-                .rsplit_once('.')
-                .map_or("", |(package, _)| package)
-                .to_owned(),
+            location: Location {
+                module: archkeel_facts::ids::ModuleName::new(&file.module),
+                source_file: file.rel.clone(),
+                package: archkeel_facts::ids::PackageName::new(
+                    file.module
+                        .rsplit_once('.')
+                        .map_or("", |(package, _)| package),
+                ),
+            },
             name: name.to_owned(),
             parent: parent.map(|(name, _)| name.to_owned()),
-            lexical_parent_id: parent.map(|(_, id)| id.to_owned()),
+            lexical_parent_id: parent.map(|(_, id)| archkeel_facts::ids::FactId::new(id)),
             visibility_detail: VisibilityDetail {
                 kind: visibility,
                 basis: "language",
@@ -454,16 +461,16 @@ impl Assembly {
         let cited = self.cite(file, span);
         self.symbols.insert(qualified.clone(), id.clone());
         self.output.symbols.push(Symbol {
-            id,
-            evidence_class: "FACT",
-            area: "source",
+            id: archkeel_facts::ids::FactId::new(id),
+            evidence_class: archkeel_facts::vocab::EvidenceClass::Fact,
+            area: archkeel_facts::vocab::Area::Source,
             kind,
             title: format!("{qualified} declaration"),
             subjects: vec![qualified],
-            evidence_ids: vec![cited],
-            fact_ids: Vec::new(),
-            rule_ids: Vec::new(),
-            provenance: Vec::new(),
+            evidence_ids: vec![archkeel_facts::ids::EvidenceId::new(cited)],
+            fact_ids: [],
+            rule_ids: [],
+            provenance: [],
             data,
         });
     }

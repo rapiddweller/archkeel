@@ -9,6 +9,7 @@ use super::work::Stop;
 use super::{identity, number, parameter_kind, Assembly};
 use crate::syntax::{Definition, DefinitionKind, Member, MemberKind, Modifier, Span, Visibility};
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::ids::FactId;
 use archkeel_facts::vocab::{ExceptionName, MethodKind};
 use std::collections::BTreeMap;
 
@@ -102,7 +103,10 @@ impl Assembly {
             attribute_declarations: attributes,
             member_inventories: vec![
                 Inventory::new(InventoryKind::Attribute, fields),
-                Inventory::new(InventoryKind::Method, methods),
+                Inventory::new(
+                    InventoryKind::Method,
+                    methods.into_iter().map(FactId::new).collect(),
+                ),
             ],
             mixin_capable: match definition.kind {
                 D::Class | D::Mixin => Some(
@@ -255,7 +259,8 @@ impl Assembly {
                 default: parameter.default.clone(),
                 default_known: parameter.default_known,
                 super_formal: span.map(|_| true),
-                evidence_ids: span.map(|span| vec![self.cite(file, span)]),
+                evidence_ids: span
+                    .map(|span| vec![archkeel_facts::ids::EvidenceId::new(self.cite(file, span))]),
             });
         }
         Ok(result)
@@ -307,6 +312,7 @@ impl Assembly {
         if self.gaps.contains_key(&coverage_id) {
             return Ok(());
         }
+        self.work.text(file.first_line.as_deref().unwrap_or(""))?;
         let cited = self.gap_cite(file, span);
         let (mut id, mut gap) = crate::records::gap(
             &problem.path,
@@ -374,8 +380,8 @@ impl Assembly {
                 basis: "language",
                 spelling: name.to_owned(),
             },
-            definition_id: id,
-            evidence_ids: vec![self.cite(file, span)],
+            definition_id: archkeel_facts::ids::FactId::new(id),
+            evidence_ids: vec![archkeel_facts::ids::EvidenceId::new(self.cite(file, span))],
             r#static,
             constant,
         })

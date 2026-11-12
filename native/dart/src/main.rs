@@ -41,6 +41,7 @@ mod sites;
 mod syntax;
 mod tree;
 mod unicode_tables;
+mod work;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;

@@ -5,21 +5,22 @@
 //! Typed inputs and records at the declaration seam. This is not the reply protocol (AD-390).
 
 use crate::syntax::{DefinitionKind, Modifier, Span, Syntax, Visibility};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use serde::Serialize;
 
 macro_rules! words {
-    ($name:ident { $($variant:ident => $word:literal),+ $(,)? }) => {
+    ($vis:vis $name:ident { $($variant:ident => $word:literal),+ $(,)? }) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-        pub(crate) enum $name { $(#[serde(rename = $word)] $variant),+ }
+        $vis enum $name { $(#[serde(rename = $word)] $variant),+ }
     };
 }
 
-words!(Kind { Class => "class", Function => "function", Method => "method",
+words!(pub(crate) Kind { Class => "class", Function => "function", Method => "method",
     Alias => "alias", Attribute => "attribute", Constant => "constant" });
-words!(ClassKind { Class => "class", Protocol => "protocol", Mixin => "mixin", Enum => "enum" });
-words!(ParameterKind { Positional => "positional", KeywordOnly => "keyword_only" });
-words!(InventoryKind { Attribute => "attribute", Method => "method" });
-words!(Category { Class => "class", Function => "function", Method => "method",
+words!(pub(crate) ClassKind { Class => "class", Protocol => "protocol", Mixin => "mixin", Enum => "enum" });
+words!(pub(crate) ParameterKind { Positional => "positional", KeywordOnly => "keyword_only" });
+words!(pub(crate) InventoryKind { Attribute => "attribute", Method => "method" });
+words!(pub(crate) Category { Class => "class", Function => "function", Method => "method",
     TypeAlias => "type_alias", Attribute => "attribute", Constant => "constant" });
 
 impl Kind {
@@ -35,22 +36,14 @@ impl Kind {
     }
 }
 
-#[derive(Serialize)]
-#[cfg_attr(
-    feature = "dump",
-    derive(serde::Deserialize),
-    serde(deny_unknown_fields)
-)]
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Input {
     pub(crate) files: Vec<File>,
 }
 
-#[derive(Serialize)]
-#[cfg_attr(
-    feature = "dump",
-    derive(serde::Deserialize),
-    serde(deny_unknown_fields)
-)]
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct File {
     pub(crate) rel: String,
     pub(crate) module: String,
@@ -60,24 +53,16 @@ pub(crate) struct File {
     pub(crate) constructors: Vec<Constructor>,
 }
 
-#[derive(Serialize)]
-#[cfg_attr(
-    feature = "dump",
-    derive(serde::Deserialize),
-    serde(deny_unknown_fields)
-)]
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Constructor {
     pub(crate) start: usize,
     pub(crate) parameters: Vec<ResolvedParameter>,
     pub(crate) problems: Vec<Problem>,
 }
 
-#[derive(Serialize)]
-#[cfg_attr(
-    feature = "dump",
-    derive(serde::Deserialize),
-    serde(deny_unknown_fields)
-)]
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct ResolvedParameter {
     pub(crate) name: String,
     pub(crate) annotation: Option<String>,
@@ -88,8 +73,7 @@ pub(crate) struct ResolvedParameter {
     pub(crate) field_formal: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "dump", derive(serde::Deserialize))]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 pub(crate) enum ProblemKind {
     #[serde(rename = "UnsupportedParameter")]
     UnsupportedParameter,
@@ -97,12 +81,8 @@ pub(crate) enum ProblemKind {
     SourceResolutionGap,
 }
 
-#[derive(Serialize)]
-#[cfg_attr(
-    feature = "dump",
-    derive(serde::Deserialize),
-    serde(deny_unknown_fields)
-)]
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Problem {
     pub(crate) path: String,
     pub(crate) kind: ProblemKind,
@@ -112,16 +92,16 @@ pub(crate) struct Problem {
 
 #[derive(Serialize)]
 pub(crate) struct Symbol {
-    pub(crate) id: String,
-    pub(crate) evidence_class: &'static str,
-    pub(crate) area: &'static str,
+    pub(crate) id: FactId,
+    pub(crate) evidence_class: archkeel_facts::vocab::EvidenceClass,
+    pub(crate) area: archkeel_facts::vocab::Area,
     pub(crate) kind: Kind,
     pub(crate) title: String,
     pub(crate) subjects: Vec<String>,
-    pub(crate) evidence_ids: Vec<String>,
-    pub(crate) fact_ids: Vec<String>,
-    pub(crate) rule_ids: Vec<String>,
-    pub(crate) provenance: Vec<String>,
+    pub(crate) evidence_ids: Vec<EvidenceId>,
+    pub(crate) fact_ids: [FactId; 0],
+    pub(crate) rule_ids: [String; 0],
+    pub(crate) provenance: [String; 0],
     pub(crate) data: Data,
 }
 
@@ -135,12 +115,13 @@ pub(crate) struct VisibilityDetail {
 #[derive(Serialize)]
 pub(crate) struct Data {
     pub(crate) qualified_name: String,
-    pub(crate) module: String,
-    pub(crate) source_file: String,
-    pub(crate) package: String,
+    #[serde(flatten)]
+    pub(crate) location: Location,
     pub(crate) name: String,
     pub(crate) parent: Option<String>,
-    pub(crate) lexical_parent_id: Option<String>,
+    pub(crate) lexical_parent_id: Option<FactId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) modifiers: Option<Vec<Modifier>>,
     pub(crate) visibility_detail: VisibilityDetail,
     pub(crate) symbol_category: Category,
     pub(crate) source_binding_unique: bool,
@@ -149,10 +130,15 @@ pub(crate) struct Data {
     pub(crate) decorators: Vec<String>,
     pub(crate) signature_complete: bool,
     pub(crate) overload_signature: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) modifiers: Option<Vec<Modifier>>,
     #[serde(flatten)]
     pub(crate) detail: Detail,
+}
+
+#[derive(Serialize)]
+pub(crate) struct Location {
+    pub(crate) module: ModuleName,
+    pub(crate) source_file: String,
+    pub(crate) package: PackageName,
 }
 
 #[derive(Serialize)]
@@ -191,7 +177,7 @@ pub(crate) struct Parameter {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) super_formal: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) evidence_ids: Option<Vec<String>>,
+    pub(crate) evidence_ids: Option<Vec<EvidenceId>>,
 }
 
 #[derive(Serialize)]
@@ -199,8 +185,8 @@ pub(crate) struct Attribute {
     pub(crate) name: String,
     pub(crate) annotation: Option<String>,
     pub(crate) visibility: VisibilityDetail,
-    pub(crate) definition_id: String,
-    pub(crate) evidence_ids: Vec<String>,
+    pub(crate) definition_id: FactId,
+    pub(crate) evidence_ids: Vec<EvidenceId>,
     pub(crate) r#static: bool,
     pub(crate) constant: Option<String>,
 }
@@ -210,12 +196,12 @@ pub(crate) struct Inventory {
     pub(crate) schema_version: &'static str,
     pub(crate) kind: InventoryKind,
     pub(crate) status: &'static str,
-    pub(crate) definition_ids: Vec<String>,
+    pub(crate) definition_ids: Vec<FactId>,
     pub(crate) reason: Option<String>,
 }
 
 impl Inventory {
-    pub(crate) fn new(kind: InventoryKind, definition_ids: Vec<String>) -> Self {
+    pub(crate) fn new(kind: InventoryKind, definition_ids: Vec<FactId>) -> Self {
         Self {
             schema_version: "1.0.0",
             kind,

@@ -34,6 +34,11 @@
   },
   "gaps": [
     [
+      "native.archkeel_dart_collector.declarations",
+      "native.archkeel_dart_collector.declarations.members",
+      "A method call may reach the method class of an impl block in native.archkeel_dart_collector.declarations.members"
+    ],
+    [
       "native.archkeel_eval",
       "native.archkeel_facts.gap",
       "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
