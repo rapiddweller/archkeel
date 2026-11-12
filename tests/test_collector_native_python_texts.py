@@ -242,7 +242,7 @@ PROBES: dict[str, str] = {
     # field has a backslash and `ast.unparse` raises `ValueError`; 3.12 writes the escape.
     "fstring-raw-invisible": "x = f'{\"\u200b\"}', f'{\"\x01\"}', f'{\"\t\"}'\n",
     # A lone surrogate escape: ruff reads U+FFFD, so native names it (AD-377 point 14).
-    "surrogate-fstring": "x = f'\\ud800{a}', f'{a:\\ud800}', 'b' f'\\udfff', '\\ud800'\n",
+    "surrogate-fstring": "x = f'\\ud800{a}', f'{ab:\\ud800}', 'b' f'\\udfff', '\\ud800'\n",
     # A raw CR inside a string of each kind: CPython reads a newline (AD-377 point 3).
     "cr-inside-strings": (
         "x = '''a\r\nb'''\r\ny = r'''c\\\r\nd'''\r\nz = b'''e\rf'''\r\n"
@@ -250,8 +250,8 @@ PROBES: dict[str, str] = {
     ),
     "xor-and": "x = a ^ b & c, (a ^ b) & c, a & (b ^ c), (a | b) ^ c\n",
     # 3.12 keeps `\N{...}` in a spec as a `Constant` and decodes a raw spec: a gap on 3.12.
-    "spec-named-escape": "x = f'{a:\\N{BULLET}}'\n",
-    "spec-raw": "x = rf'{a:\\n}', rf'{a:\\\\}', rf'{a:x\\ty}', Rf'{a:>3}'\n",
+    "spec-named-escape": "x = f'{ab:\\N{BULLET}}'\n",
+    "spec-raw": "x = rf'{ab:\\n}', rf'{ab:\\\\}', rf'{a:x\\ty}', Rf'{a:>3}'\n",
     "fstring-lambda": "x = f'{(lambda: 1)()}', f'{a if b else c}', f'{(a, b)}'\n",
     "ellipsis-none": "x = ..., None, True, False, [...]\n",
     "slices": "x = a[::], a[1:], a[:2:], a[::-1], a[b:c, d:e]\n",

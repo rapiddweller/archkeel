@@ -117,9 +117,9 @@ fn gap_of(source: &str, minor: u32) -> Option<String> {
 fn a_string_that_native_cannot_write_gives_a_gap_with_its_own_reason() {
     let surrogate = gap_of("def f(d=f'\\ud800{x}'): pass\n", 12);
     assert!(surrogate.is_some_and(|gap| gap.contains("surrogate")));
-    let spec = gap_of("def f(d=f'{x:\\N{BULLET}}'): pass\n", 12);
+    let spec = gap_of("def f(d=f'{xy:\\N{BULLET}}'): pass\n", 12);
     assert!(spec.is_some_and(|gap| gap.contains("3.12")));
-    assert_eq!(gap_of("def f(d=f'{x:\\N{BULLET}}'): pass\n", 13), None);
+    assert_eq!(gap_of("def f(d=f'{xy:\\N{BULLET}}'): pass\n", 13), None);
     let unused = gap_of("x = f'{a:{b:{c:{d}}}}'\nclass C: pass\n", 13);
     assert!(unused.is_some_and(|gap| gap.contains("two levels")));
 }

@@ -107,7 +107,7 @@ fn the_fstrings_follow_the_rules_of_each_version() {
 fn a_surrogate_escape_in_an_fstring_part_or_spec_is_unseen() {
     for minor in 11..=14 {
         assert_eq!(text("f'\\ud800{a}'\n", minor), Err(Failure::Unseen));
-        assert_eq!(text("f'{a:\\ud800}'\n", minor), Err(Failure::Unseen));
+        assert_eq!(text("f'{ab:\\ud800}'\n", minor), Err(Failure::Unseen));
         assert_eq!(text("'a' f'\\udfff{a}'\n", minor), Err(Failure::Unseen));
     }
     assert_eq!(text("t'\\ud800{a}'\n", 14), Err(Failure::Unseen));
@@ -124,14 +124,14 @@ fn a_cr_inside_a_string_is_a_newline_as_in_cpython() {
 
 #[test]
 fn a_spec_that_python_3_12_reads_in_its_own_way_is_a_gap_on_3_12_only() {
-    assert_eq!(text("f'{a:\\N{BULLET}}'\n", 12), Err(Failure::Spec312));
-    assert_eq!(text("rf'{a:\\n}'\n", 12), Err(Failure::Spec312));
+    assert_eq!(text("f'{ab:\\N{BULLET}}'\n", 12), Err(Failure::Spec312));
+    assert_eq!(text("rf'{ab:\\n}'\n", 12), Err(Failure::Spec312));
     assert_eq!(
-        text("f'{a:\\N{BULLET}}'\n", 13).as_deref(),
-        Ok("f'{a:\u{2022}}'")
+        text("f'{ab:\\N{BULLET}}'\n", 13).as_deref(),
+        Ok("f'{ab:\u{2022}}'")
     );
-    assert_eq!(text("rf'{a:\\n}'\n", 11).as_deref(), Ok("f'{a:\\\\n}'"));
-    assert_eq!(text("rf'{a:\\n}'\n", 14).as_deref(), Ok("f'{a:\\\\n}'"));
+    assert_eq!(text("rf'{ab:\\n}'\n", 11).as_deref(), Ok("f'{ab:\\\\n}'"));
+    assert_eq!(text("rf'{ab:\\n}'\n", 14).as_deref(), Ok("f'{ab:\\\\n}'"));
 }
 
 #[test]

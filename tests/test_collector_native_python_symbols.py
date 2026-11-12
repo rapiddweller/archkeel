@@ -428,7 +428,7 @@ def test_a_surrogate_escape_in_an_fstring_is_a_named_gap(
 ) -> None:
     """AD-377 point 14: the part, the spec and a default of an f-string."""
     for index, source in enumerate(
-        ("def f(d=f'\\ud800{x}'): pass\n", "class C:\n    x: int = f'{a:\\ud800}'\n")
+        ("def f(d=f'\\ud800{x}'): pass\n", "class C:\n    x: int = f'{ab:\\ud800}'\n")
     ):
         reason = _gap_reason(python_dump_binary, tmp_path / str(index), source)
         assert "surrogate" in reason
@@ -448,7 +448,7 @@ def test_a_spec_that_python_3_12_reads_its_own_way_is_a_gap_on_3_12_only(
     on_3_12: bool, tmp_path: Path, python_dump_binary: Path
 ) -> None:
     """L-37a: a named escape in a spec or a backslash in a raw spec is a gap on 3.12 only."""
-    sources = ("def f(d=f'{x:\\N{BULLET}}'): pass\n", "def f(d=rf'{x:\\n}'): pass\n")
+    sources = ("def f(d=f'{xy:\\N{BULLET}}'): pass\n", "def f(d=rf'{xy:\\n}'): pass\n")
     for index, source in enumerate(sources):
         root = _tree(tmp_path / str(index), {"src/app/__init__.py": "", "src/app/probe.py": source})
         found = _native(python_dump_binary, _request(root, ("src",), "app", False, True), True)
