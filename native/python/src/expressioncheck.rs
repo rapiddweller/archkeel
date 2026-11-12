@@ -133,6 +133,9 @@ fn comprehension(
         if !check.work.charge(1) {
             return Some("CPython validation work limit exceeded");
         }
+        if let Some(reason) = target(&generator.target, false, check.work, 0) {
+            return Some(reason);
+        }
         let mut pending = vec![&generator.target];
         while let Some(target) = pending.pop() {
             if !check.work.charge(1) {
@@ -209,7 +212,7 @@ impl<'a> Visitor<'a> for ComprehensionCheck<'_> {
             Expr::Name(node) if node.id == "__debug__" && node.ctx != ExprContext::Load => {
                 self.reason = Some("cannot bind __debug__")
             }
-            Expr::Lambda(_) => {}
+            Expr::Lambda(_) if !self.iteration => {}
             _ => visitor::walk_expr(self, expr),
         }
         self.depth -= 1;

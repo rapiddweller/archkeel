@@ -139,6 +139,17 @@ impl<'a> Visitor<'a> for Bindings<'_> {
         self.depth -= 1;
     }
 
+    fn visit_comprehension(&mut self, node: &'a ruff_python_ast::Comprehension) {
+        // Targets bind in the implicit scope; assignment expressions bind outside it.
+        self.visit_expr(&node.iter);
+        for condition in &node.ifs {
+            if !self.work.charge(1) {
+                break;
+            }
+            self.visit_expr(condition);
+        }
+    }
+
     fn visit_except_handler(&mut self, handler: &'a ruff_python_ast::ExceptHandler) {
         if !self.enter() {
             return;

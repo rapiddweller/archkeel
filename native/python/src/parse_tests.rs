@@ -207,8 +207,9 @@ fn an_f_string_has_the_limits_of_its_python() {
             ExceptionName::SyntaxError,
             "{refused}"
         );
-        assert!(outcome(refused, 12).is_ok(), "{refused}");
     }
+    assert!(outcome("x = f'{a:{b:{c}}}'\n", 12).is_ok());
+    assert!(outcome("x = f'{*a}'\n", 12).is_err());
     for allowed in ["x = f'{a:{b}}'\n", "x = f'{*a,}'\n", "x = f'{a, *b}'\n"] {
         assert!(outcome(allowed, 11).is_ok(), "{allowed}");
     }

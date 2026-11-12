@@ -20,6 +20,8 @@ use self::limits::{scan, Problem, MAX_AST_DEPTH};
 use self::stack::MAX_STACK;
 use crate::source::Lines;
 
+#[path = "compilercheck.rs"]
+mod compilercheck;
 #[path = "depth.rs"]
 mod depth;
 #[path = "expressioncheck.rs"]
@@ -118,7 +120,9 @@ pub fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
         let message = format!("expression nesting of {levels} levels exceeds {MAX_AST_DEPTH}");
         return Err(failure(ExceptionName::TooDeepError, 1, &message));
     }
-    if let Some((offset, reason)) = postparse::check(&module, text, minor) {
+    if let Some((offset, reason)) = compilercheck::check(&module, text, minor)
+        .or_else(|| postparse::check(&module, text, minor))
+    {
         let exception = if reason.starts_with("CPython 3.12 cannot decode") {
             ExceptionName::UnicodeDecodeError
         } else {
@@ -196,11 +200,13 @@ fn future(module: &ModModule, lines: &Lines, minor: PyMinor) -> Option<ParseFail
             continue;
         }
         if import.level != 0 {
-            permitted &= match minor {
-                PyMinor::Py311 | PyMinor::Py312 => true,
-                PyMinor::Py313 | PyMinor::Py314 => false,
-            };
-            continue;
+            match minor {
+                PyMinor::Py311 | PyMinor::Py312 => {}
+                PyMinor::Py313 | PyMinor::Py314 => {
+                    permitted = false;
+                    continue;
+                }
+            }
         }
         if !permitted {
             return Some(failure(

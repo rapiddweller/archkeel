@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 //! Partial CPython checks after the grammar. Known unchecked classes keep #1072 open.
-
 use super::work::Work;
 use ruff_python_ast::{
     visitor::{self, Visitor},
@@ -13,9 +12,7 @@ use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
 const MAX_DEPTH: usize = 1000;
-
 use super::scopecheck::LexicalScope as Scope;
-
 struct Check {
     work: Work,
     depth: usize,
@@ -142,6 +139,9 @@ impl Check {
             if !self.work.charge(1) {
                 break;
             }
+            if generator.is_async && self.scope != Scope::Async {
+                self.fail("asynchronous comprehension outside an async function");
+            }
             self.visit_expr(&generator.target);
             if index > 0 {
                 self.visit_expr(&generator.iter);
@@ -250,6 +250,7 @@ impl Check {
             self.fail(reason);
         }
         self.visit_expr(&node.iter);
+        self.visit_expr(&node.target);
         self.loops += 1;
         self.visit_body(&node.body);
         self.loops -= 1;

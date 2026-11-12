@@ -111,6 +111,11 @@ fn pattern(
             }
             None
         }
+        Pattern::MatchValue(node)
+            if matches!(&*node.value, Expr::FString(_) | Expr::TString(_)) =>
+        {
+            Some("patterns may only match literals and attribute lookups")
+        }
         Pattern::MatchValue(_) | Pattern::MatchSingleton(_) => None,
     }
 }
