@@ -40,9 +40,9 @@ impl ComponentCycle {
     }
 }
 
-/// The component cycles of a model, in the order of their first member label. A free function,
-/// not a method in this file: the Rust collector cannot place a method of an `impl` block of
-/// another file, so a call of it from another crate would be a pair gap (AD-357).
+/// The component cycles of a model, in the order of their first member label. It is a free
+/// function, not a method: the collector cannot place a method of an `impl` block of another
+/// file, so a call of it from another crate would be a pair gap of the self-check (AD-357).
 pub fn cycles_of_components(model: &Model) -> Vec<ComponentCycle> {
     let owner = |module: &str| crate::ownership::owner_of(model.components(), module);
     let owned: Vec<Option<(ComponentId, ComponentId)>> = model
