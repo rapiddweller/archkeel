@@ -110,7 +110,7 @@ impl<'t> Binder<'_, 't> {
 
     fn formal_parameter(&self, node: Node<'t>, context: &Context) -> Vec<Site> {
         let source = self.source;
-        let parameter = parameter(node, ParameterKind::Positional, source);
+        let parameter = parameter(node, ParameterKind::Positional, source, self.work);
         let mut binding = Site::new(
             SiteKind::Binding,
             source.text(node),
@@ -188,7 +188,7 @@ pub(crate) fn typed_receiver_names<'t>(
                 names.extend(local_annotated_name(node, path, source));
             }
             "formal_parameter" => {
-                let parameter = parameter(node, ParameterKind::Positional, source);
+                let parameter = parameter(node, ParameterKind::Positional, source, work);
                 if parameter.annotation.is_some() {
                     names.insert(parameter.name);
                 }

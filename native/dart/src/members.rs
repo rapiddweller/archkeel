@@ -11,8 +11,11 @@ use crate::parameters::{annotation_before, parameter_list, parameters, return_ty
 use crate::pytext::{has_word, strip};
 use crate::syntax::{Definition, DefinitionKind, Member, MemberKind};
 use crate::tree::{
-    children, first_identifier, first_named_of, named, named_children, position, prefix, Source,
+    children, first_identifier, first_named_of, named, named_children, prefix, Gap, Source, Work,
 };
+
+/// The gap of the definition walks: they count their work as the site walks do (AD-376).
+pub(crate) const WORK_GAP: Gap = Gap("the work passes the limit of the definition walks");
 
 const CONSTRUCTORS: [&str; 3] = [
     "constructor_signature",
@@ -20,19 +23,32 @@ const CONSTRUCTORS: [&str; 3] = [
     "redirecting_factory_constructor_signature",
 ];
 
-/// `_member_declaration`: a constructor, a method or the fields of one declaration.
-pub(crate) fn member_declaration(node: Node<'_>, source: &Source<'_>) -> Vec<Member> {
+/// `_member_declaration`: a constructor, a method or the fields of one declaration. `parent` is
+/// the class body that holds `node`.
+pub(crate) fn member_declaration<'t>(
+    node: Node<'t>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Result<Vec<Member>, Gap> {
     if let Some(constructor) = first_named_of(node, &CONSTRUCTORS) {
-        return vec![constructor_member(node, constructor, source)];
+        let member = constructor_member(node, constructor, parent, source, work);
+        return Ok(vec![member]);
     }
     let signatures = ["function_signature", "getter_signature", "setter_signature"];
     if first_named_of(node, &signatures).is_some() {
-        return vec![member_method(node, None, source)];
+        return Ok(vec![member_method(node, None, parent, source, work)]);
     }
-    field_members(node, &variable_items(node), source)
+    field_members(node, &variable_items(node), source, work)
 }
 
-fn constructor_member(node: Node<'_>, constructor: Node<'_>, source: &Source<'_>) -> Member {
+fn constructor_member<'t>(
+    node: Node<'t>,
+    constructor: Node<'t>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Member {
     let joined = identifiers(constructor, source).join(".");
     let name = if joined.is_empty() {
         first_identifier(Some(constructor), source).unwrap_or_default()
@@ -42,9 +58,9 @@ fn constructor_member(node: Node<'_>, constructor: Node<'_>, source: &Source<'_>
     let mut member = Member::new(
         name,
         MemberKind::Constructor,
-        member_span(node, None, source),
+        member_span(node, None, parent, work, source),
     );
-    member.parameters = parameters(parameter_list(constructor), source);
+    member.parameters = parameters(parameter_list(constructor), source, work);
     member.constructor_initializers = named(node, "initializers")
         .map(|initializers| {
             named_children(initializers)
@@ -72,7 +88,13 @@ fn identifiers(node: Node<'_>, source: &Source<'_>) -> Vec<String> {
 }
 
 /// `_member_method`: a method, an accessor, an operator or a constructor signature.
-pub(crate) fn member_method(node: Node<'_>, body: Option<Node<'_>>, source: &Source<'_>) -> Member {
+pub(crate) fn member_method<'t>(
+    node: Node<'t>,
+    body: Option<Node<'t>>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Member {
     let inner = named_children(node).first().copied().unwrap_or(node);
     let signature = named(inner, "function_signature").unwrap_or(inner);
     let factory = inner.kind() == "factory_constructor_signature";
@@ -91,22 +113,34 @@ pub(crate) fn member_method(node: Node<'_>, body: Option<Node<'_>>, source: &Sou
         _ => MemberKind::Method,
     };
     let mut modifiers = source.decode(node.start_byte(), signature.start_byte());
-    modifiers.push_str(&prefix(node, source));
-    let mut member = Member::new(name, kind, member_span(node, body, source));
+    modifiers.push_str(&prefix(node, parent, source, work));
+    let span = member_span(node, body, parent, work, source);
+    let mut member = Member::new(name, kind, span);
     member.return_type = return_type(signature, name_node, source);
     member.r#static = has_word(&modifiers, "static");
     member.r#abstract = body.is_none() || has_word(&modifiers, "abstract");
-    member.parameters = parameters(parameter_list(signature), source);
+    member.parameters = parameters(parameter_list(signature), source, work);
     member.factory = factory;
     member.redirect = redirect(node, source);
     member
 }
 
 /// `_member_span`: from the first annotation or doc comment before the node to its body.
-fn member_span(node: Node<'_>, body: Option<Node<'_>>, source: &Source<'_>) -> crate::syntax::Span {
+fn member_span<'t>(
+    node: Node<'t>,
+    body: Option<Node<'t>>,
+    parent: Node<'t>,
+    work: &Work<'t>,
+    source: &Source<'_>,
+) -> crate::syntax::Span {
     let mut start = node.start_byte();
-    if let Some((siblings, Some(mut at))) = position(node) {
-        while let Some(previous) = at.checked_sub(1).and_then(|before| siblings.get(before)) {
+    let family = work.family(parent);
+    if let Some(mut at) = family.position(node) {
+        while let Some(previous) = at
+            .checked_sub(1)
+            .and_then(|before| family.nodes.get(before))
+        {
+            work.charge(1);
             if !matches!(
                 previous.kind(),
                 "annotation" | "documentation_comment" | "metadata"
@@ -174,13 +208,25 @@ fn item_name(item: Node<'_>) -> Option<Node<'_>> {
 }
 
 /// `_field_members`.
-fn field_members(node: Node<'_>, items: &[Node<'_>], source: &Source<'_>) -> Vec<Member> {
+fn field_members<'t>(
+    node: Node<'t>,
+    items: &[Node<'t>],
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Result<Vec<Member>, Gap> {
     let declaration = source.text(node);
+    let words = Words::of(&declaration);
     let mut members = Vec::new();
     for item in items {
+        work.charge(1);
         let Some(name_node) = item_name(*item) else {
             continue;
         };
+        // The annotation of each item starts at the declaration: a long list copies its head again
+        // for each item. Python does the same, so the copy is counted, and it stops at the limit.
+        work.charge(name_node.start_byte().saturating_sub(node.start_byte()));
+        work.charge(source.take_decoded());
+        work.within(WORK_GAP)?;
         let value = initializer(*item, source);
         let mut member = Member::new(
             source.text(name_node),
@@ -188,25 +234,54 @@ fn field_members(node: Node<'_>, items: &[Node<'_>], source: &Source<'_>) -> Vec
             source.span(*item),
         );
         member.annotation = annotation_before(node, name_node, source);
-        member.r#static = has_word(&declaration, "static");
+        member.r#static = words.r#static;
         member.literal.clone_from(&value);
         member.initializer = value;
-        member.constant = has_word(&declaration, "const");
-        member.r#final = has_word(&declaration, "final");
-        member.late = has_word(&declaration, "late");
+        member.constant = words.constant;
+        member.r#final = words.r#final;
+        member.late = words.late;
         members.push(member);
     }
-    members
+    Ok(members)
+}
+
+/// The modifier words of a declaration text, read once for all its items.
+struct Words {
+    r#static: bool,
+    constant: bool,
+    r#final: bool,
+    late: bool,
+}
+
+impl Words {
+    fn of(declaration: &str) -> Self {
+        Self {
+            r#static: has_word(declaration, "static"),
+            constant: has_word(declaration, "const"),
+            r#final: has_word(declaration, "final"),
+            late: has_word(declaration, "late"),
+        }
+    }
 }
 
 /// `_variables` for top-level variables.
-pub(crate) fn top_level_variables(node: Node<'_>, source: &Source<'_>) -> Vec<Definition> {
-    let declaration = declaration_text(node, source);
+pub(crate) fn top_level_variables<'t>(
+    node: Node<'t>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Result<Vec<Definition>, Gap> {
+    let declaration = declaration_text(node, parent, source, work);
+    let words = Words::of(&declaration);
     let mut definitions = Vec::new();
     for item in variable_items(node) {
+        work.charge(1);
         let Some(name_node) = item_name(item) else {
             continue;
         };
+        work.charge(name_node.start_byte().saturating_sub(node.start_byte()));
+        work.charge(source.take_decoded());
+        work.within(WORK_GAP)?;
         let value = initializer(item, source);
         let mut definition = Definition::new(
             source.text(name_node),
@@ -216,12 +291,12 @@ pub(crate) fn top_level_variables(node: Node<'_>, source: &Source<'_>) -> Vec<De
         definition.return_type = annotation_before(node, name_node, source);
         definition.literal.clone_from(&value);
         definition.initializer = value;
-        definition.constant = has_word(&declaration, "const");
-        definition.r#final = has_word(&declaration, "final");
-        definition.late = has_word(&declaration, "late");
+        definition.constant = words.constant;
+        definition.r#final = words.r#final;
+        definition.late = words.late;
         definitions.push(definition);
     }
-    definitions
+    Ok(definitions)
 }
 
 /// `_initializer`: the node after the first `=` child.
@@ -233,12 +308,16 @@ fn initializer(node: Node<'_>, source: &Source<'_>) -> Option<String> {
 }
 
 /// `_declaration_text`: the modifier siblings before a declaration, or its own text.
-fn declaration_text(node: Node<'_>, source: &Source<'_>) -> String {
-    let Some((siblings, at)) = position(node) else {
-        return source.text(node);
-    };
+fn declaration_text<'t>(
+    node: Node<'t>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> String {
+    let family = work.family(parent);
+    let siblings = &family.nodes;
     // Python slices `siblings[:-1]` when the node is not found; a named node is always found.
-    let before = match at {
+    let before = match family.position(node) {
         Some(at) => siblings.get(..at).unwrap_or(&[]),
         None => siblings
             .get(..siblings.len().saturating_sub(1))
@@ -246,6 +325,7 @@ fn declaration_text(node: Node<'_>, source: &Source<'_>) -> String {
     };
     let mut modifiers = Vec::new();
     for sibling in before.iter().rev() {
+        work.charge(1);
         match sibling.kind() {
             "const_builtin" | "final_builtin" | "late_builtin" | "static_builtin" => {
                 modifiers.push(source.text(*sibling));

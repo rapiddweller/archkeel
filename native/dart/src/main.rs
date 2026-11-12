@@ -29,6 +29,7 @@ mod discover;
 mod dump;
 mod members;
 mod module;
+mod nesting;
 mod parameters;
 mod parse;
 mod pubspec;

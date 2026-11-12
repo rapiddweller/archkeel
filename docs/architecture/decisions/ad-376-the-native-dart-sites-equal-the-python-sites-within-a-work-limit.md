@@ -49,6 +49,15 @@ costs the depth for each step. (d) A recursive token walk, as `_source_tokens`: 
 **Limit.** The parity tools import Python internals; slice 5 replaces that. The Windows gap of
 AD-369 stays open.
 
+**Amendment (#1079): the definitions use the same limit.** The definition walks read the named
+children of each parent once from the cache, and count each child, scanned sibling, column byte
+and copied head of a declaration item. Past the limit the file gets "The definition analysis of
+this Dart source stops: ..." and no definitions or sites (a site gap keeps the definitions). Own-child
+walks (`type_children`) stay uncounted: linear. The 4.3 GB of 5 MB of `(` is Tree-sitter's
+stack. Rule: a source with over 100 000 opening brackets is not parsed ("... more than 100000 opening brackets ..."). Only openers count: a
+closer in a comment or string never lowers it. Corpora: 0 of 7 146 files, largest 15 504. Open:
+5 MB of `!` or `a ? ` hold 4.4 and 2.3 GB. The parity tool lists both named cases as stricter.
+
 **Measured (2026-11-12, oracle Python 3.11.12, release build).** Files byte-equal, sites
 included: fixtures 151 of 151, demo variants 295 of 295, the private app 28 of 28. Bench samples
 with 400 s of Python time each: `dart-http` 287 of 344, `flutter` 917 of 6 623 and 1 file named
@@ -56,5 +65,6 @@ by L-27. Native site work on all bench files: at most 14.4 % of the limit, 0 fil
 
 **Tests.** `tests/test_collector_native_dart_sites.py` (60 hostile sources, the depth of each
 walk, the work limit, five shapes that Python scans again for each node), `tests/test_collector_native_dart_syntax.py`,
-`native/dart/src/sites_tests.rs`, the tests in `sites/contain.rs`, `sites/canonical.rs`,
+`native/dart/src/sites_tests.rs`, `tests/test_collector_native_dart_definitions.py`,
+`native/dart/src/definitions_tests.rs`, `native/dart/src/nesting.rs`, the tests in `sites/contain.rs`, `sites/canonical.rs`,
 `sites/calls.rs` and `pytext_tests.rs`, `tools/dart_unicode_tables.py --check`.

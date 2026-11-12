@@ -9,7 +9,7 @@ use tree_sitter::Node;
 use crate::pytext::{has_ascii_word, is_space, lstrip, strip};
 use crate::syntax::{Parameter, ParameterKind};
 use crate::tree::{
-    children, first_in_walk, first_named_of, named, named_all, named_children, position, Source,
+    children, first_in_walk, first_named_of, named, named_all, named_children, Source, Work,
 };
 
 /// The words that `_annotation_before` removes from the start of an annotation.
@@ -82,15 +82,20 @@ pub(crate) fn parameter_list(node: Node<'_>) -> Option<Node<'_>> {
 }
 
 /// `_parameters`: the formal parameters of a list, with the named and the optional groups.
-pub(crate) fn parameters(node: Option<Node<'_>>, source: &Source<'_>) -> Vec<Parameter> {
+pub(crate) fn parameters<'t>(
+    node: Option<Node<'t>>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Vec<Parameter> {
     let Some(node) = node else {
         return Vec::new();
     };
     let mut result = Vec::new();
-    for group in named_children(node) {
+    for group in work.family(node).nodes.iter().copied() {
         match group.kind() {
             "formal_parameter" => {
-                result.push(parameter(group, ParameterKind::Positional, source));
+                let kind = ParameterKind::Positional;
+                result.push(parameter_in(group, kind, Some(node), source, work));
             }
             "optional_formal_parameters" => {
                 let kind = if opens_with(group, '{', source) {
@@ -101,7 +106,7 @@ pub(crate) fn parameters(node: Option<Node<'_>>, source: &Source<'_>) -> Vec<Par
                 result.extend(
                     named_all(Some(group), "formal_parameter")
                         .into_iter()
-                        .map(|item| parameter(item, kind, source)),
+                        .map(|item| parameter_in(item, kind, Some(group), source, work)),
                 );
             }
             _ => {}
@@ -110,13 +115,39 @@ pub(crate) fn parameters(node: Option<Node<'_>>, source: &Source<'_>) -> Vec<Par
     result
 }
 
-/// `_lexeme(source.text(node).lstrip()[:1]) is <bracket>`.
+/// `_lexeme(source.text(node).lstrip()[:1]) is <bracket>`. The text is read in growing parts until
+/// it holds two characters after the white space, so a long group is not copied for its first
+/// character: the first of two characters is never the cut end of a character.
 fn opens_with(node: Node<'_>, bracket: char, source: &Source<'_>) -> bool {
-    lstrip(&source.text(node)).starts_with(bracket)
+    let mut end = node.start_byte().saturating_add(64);
+    loop {
+        let part = source.decode(node.start_byte(), end.min(node.end_byte()));
+        let head = lstrip(&part);
+        if head.chars().nth(1).is_some() || end >= node.end_byte() {
+            return head.starts_with(bracket);
+        }
+        end = end.saturating_add(end.saturating_sub(node.start_byte()).saturating_mul(3));
+    }
 }
 
-/// `_parameter`.
-pub(crate) fn parameter(node: Node<'_>, kind: ParameterKind, source: &Source<'_>) -> Parameter {
+/// `_parameter` of a node that has its parent in the walk.
+pub(crate) fn parameter<'t>(
+    node: Node<'t>,
+    kind: ParameterKind,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Parameter {
+    parameter_in(node, kind, node.parent(), source, work)
+}
+
+/// `_parameter`: `parent` is the list or the group that holds `node`.
+pub(crate) fn parameter_in<'t>(
+    node: Node<'t>,
+    kind: ParameterKind,
+    parent: Option<Node<'t>>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Parameter {
     let field = first_in_walk(node, &["constructor_param", "field_formal_parameter"]);
     let super_formal =
         first_in_walk(node, &["super_formal_parameter", "super_parameter"]).is_some();
@@ -133,10 +164,11 @@ pub(crate) fn parameter(node: Node<'_>, kind: ParameterKind, source: &Source<'_>
         _ => None,
     };
     if let (Some(text), Some(nested)) = (&annotation, parameter_list(node)) {
-        annotation = Some(format!("{text} Function{}", source.text(nested)));
+        let list = source.text(nested);
+        work.charge(list.len());
+        annotation = Some(format!("{text} Function{list}"));
     }
-    let mut default = parameter_default(node, source);
-    let parent = node.parent();
+    let mut default = parameter_default(node, parent, source, work);
     let before = parent.map_or(&b""[..], |parent| {
         source
             .data
@@ -170,7 +202,12 @@ pub(crate) fn parameter(node: Node<'_>, kind: ParameterKind, source: &Source<'_>
 }
 
 /// `_parameter_default`.
-fn parameter_default(node: Node<'_>, source: &Source<'_>) -> Option<String> {
+fn parameter_default<'t>(
+    node: Node<'t>,
+    parent: Option<Node<'t>>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Option<String> {
     let all = children(node);
     let marked = all
         .iter()
@@ -179,8 +216,8 @@ fn parameter_default(node: Node<'_>, source: &Source<'_>) -> Option<String> {
     if let Some(next) = marked.and_then(|at| all.get(at.saturating_add(1))) {
         return Some(source.text(*next));
     }
-    if let Some((siblings, Some(at))) = position(node) {
-        if let Some(following) = siblings.get(at.saturating_add(1)) {
+    if let Some(family) = parent.map(|parent| work.family(parent)) {
+        if let Some(following) = family.after(node).and_then(<[Node<'t>]>::first) {
             let between = source
                 .data
                 .get(node.end_byte()..following.start_byte())

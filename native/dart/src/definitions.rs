@@ -7,12 +7,12 @@
 
 use tree_sitter::Node;
 
-use crate::members::{member_declaration, member_method, top_level_variables};
+use crate::members::{member_declaration, member_method, top_level_variables, WORK_GAP};
 use crate::parameters::{parameter_list, parameters, return_type};
 use crate::pytext::has_word;
 use crate::syntax::{Definition, DefinitionKind, Member, Modifier};
 use crate::tree::{
-    children, first_named_of, named, named_all, named_children, named_in, prefix, Source,
+    children, first_named_of, named, named_all, named_children, named_in, prefix, Gap, Source, Work,
 };
 
 /// `_DECLARATIONS`: the kinds that `_classifier` reads.
@@ -26,30 +26,50 @@ const DECLARATIONS: [&str; 7] = [
     "function_type_alias",
 ];
 
-/// `_definitions`.
-pub(crate) fn definitions(root: Node<'_>, source: &Source<'_>) -> Vec<Definition> {
+/// `_definitions`, or a gap when the work passes the limit (AD-376). The named children of the
+/// root and of each body are read once, and each visited child and each copied text is counted.
+pub(crate) fn definitions<'t>(
+    root: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Result<Vec<Definition>, Gap> {
     let mut result = Vec::new();
-    for node in named_children(root) {
+    for node in work.family(root).nodes.iter().copied() {
+        work.charge(1);
+        work.charge(source.take_decoded());
+        work.within(WORK_GAP)?;
         match node.kind() {
-            kind if DECLARATIONS.contains(&kind) => result.push(classifier(node, source)),
-            "function_signature" => result.push(function(node, source)),
-            "getter_signature" | "setter_signature" => result.push(accessor(node, source)),
+            kind if DECLARATIONS.contains(&kind) => {
+                result.push(classifier(node, root, source, work)?)
+            }
+            "function_signature" => result.push(function(node, source, work)),
+            "getter_signature" | "setter_signature" => {
+                result.push(accessor(node, source, work));
+            }
             "top_level_variable_declaration" => {
-                let declaration = first_named_of(node, &["declaration"]).unwrap_or(node);
-                result.extend(top_level_variables(declaration, source));
+                let found = first_named_of(node, &["declaration"]);
+                let (declaration, parent) = found.map_or((node, root), |found| (found, node));
+                result.extend(top_level_variables(declaration, parent, source, work)?);
             }
             "static_final_declaration_list" | "initialized_identifier_list" | "declaration" => {
-                result.extend(top_level_variables(node, source));
+                result.extend(top_level_variables(node, root, source, work)?);
             }
             _ => {}
         }
     }
+    work.charge(source.take_decoded());
+    work.within(WORK_GAP)?;
     result.sort_by_key(|item| item.span.start_byte);
-    result
+    Ok(result)
 }
 
-/// `_classifier`.
-fn classifier(node: Node<'_>, source: &Source<'_>) -> Definition {
+/// `_classifier`; `parent` is the root that holds `node`.
+fn classifier<'t>(
+    node: Node<'t>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> Result<Definition, Gap> {
     let name_node =
         named(node, "name").or_else(|| first_named_of(node, &["identifier", "type_identifier"]));
     let name = name_node.map(|item| source.text(item)).unwrap_or_default();
@@ -61,21 +81,21 @@ fn classifier(node: Node<'_>, source: &Source<'_>) -> Definition {
         if node.kind() == "enum_declaration" {
             enum_literals(body, source, &mut definition);
         }
-        definition.members = members(body, source);
+        definition.members = members(body, source, work)?;
     }
     if kind == DefinitionKind::Typedef {
         definition.alias = alias(node, name_node, source);
     }
     let text = match name_node {
         Some(name_node) => source.decode(node.start_byte(), name_node.start_byte()),
-        None => prefix(node, source),
+        None => prefix(node, parent, source, work),
     };
     definition.modifiers = Modifier::ALL
         .into_iter()
         .filter(|(_, word)| has_word(&text, word))
         .map(|(modifier, _)| modifier)
         .collect();
-    definition
+    Ok(definition)
 }
 
 /// The enum literals of `_classifier_members`: the name and the span of each constant.
@@ -153,21 +173,26 @@ fn type_children(node: Option<Node<'_>>, source: &Source<'_>) -> Vec<String> {
 }
 
 /// `_classifier_members` without the enum literals.
-fn members(body: Node<'_>, source: &Source<'_>) -> Vec<Member> {
-    let all = named_children(body);
+fn members<'t>(body: Node<'t>, source: &Source<'_>, work: &Work<'t>) -> Result<Vec<Member>, Gap> {
+    let all = &work.family(body).nodes;
     let mut members = Vec::new();
     for (index, child) in all.iter().enumerate() {
+        work.charge(1);
+        work.charge(source.take_decoded());
+        work.within(WORK_GAP)?;
         let following = all
             .get(index.saturating_add(1))
             .copied()
             .filter(|item| matches!(item.kind(), "function_body" | "function_expression_body"));
         match child.kind() {
-            "declaration" => members.extend(member_declaration(*child, source)),
-            "method_signature" => members.push(member_method(*child, following, source)),
+            "declaration" => members.extend(member_declaration(*child, body, source, work)?),
+            "method_signature" => {
+                members.push(member_method(*child, following, body, source, work));
+            }
             _ => {}
         }
     }
-    members
+    Ok(members)
 }
 
 /// `_classifier_alias`: the aliased type after the name of a typedef.
@@ -188,7 +213,7 @@ fn alias(node: Node<'_>, name_node: Option<Node<'_>>, source: &Source<'_>) -> Op
 }
 
 /// `_top_level_accessor`.
-fn accessor(node: Node<'_>, source: &Source<'_>) -> Definition {
+fn accessor<'t>(node: Node<'t>, source: &Source<'_>, work: &Work<'t>) -> Definition {
     let name_node = named(node, "name");
     let name = name_node.map(|item| source.text(item)).unwrap_or_default();
     let kind = if node.kind() == "getter_signature" {
@@ -198,17 +223,21 @@ fn accessor(node: Node<'_>, source: &Source<'_>) -> Definition {
     };
     let mut definition = Definition::new(name, kind, source.span(node));
     definition.return_type = return_type(node, name_node, source);
-    definition.parameters = parameters(parameter_list(node), source);
+    definition.parameters = parameters(parameter_list(node), source, work);
     definition
 }
 
 /// `_function`.
-fn function(node: Node<'_>, source: &Source<'_>) -> Definition {
+fn function<'t>(node: Node<'t>, source: &Source<'_>, work: &Work<'t>) -> Definition {
     let signature = named(node, "function_signature").unwrap_or(node);
     let name_node = named(signature, "name");
     let name = name_node.map(|item| source.text(item)).unwrap_or_default();
     let mut definition = Definition::new(name, DefinitionKind::Function, source.span(node));
-    definition.parameters = parameters(parameter_list(signature), source);
+    definition.parameters = parameters(parameter_list(signature), source, work);
     definition.return_type = return_type(signature, name_node, source);
     definition
 }
+
+#[cfg(test)]
+#[path = "definitions_tests.rs"]
+mod tests;

@@ -55,6 +55,8 @@ EXCLUDED = frozenset({".dart_tool", "pubcache", ".pub-cache", ".git"})
 DEEP = "Dart source nests deeper than"
 UNASSIGNED = "Dart source holds a code point that Unicode 14 does not assign."
 STOPPED = "The site analysis of this Dart source stops: "
+DEFINITIONS_STOPPED = "The definition analysis of this Dart source stops: "
+OPENERS = "Dart source holds more than 100000 opening brackets; it is not parsed."
 ORACLE = ((3, 11), "14.0.0")
 
 
@@ -69,6 +71,8 @@ class Result:
     deep: int = 0
     unassigned: int = 0
     stopped: int = 0
+    stricter_openers: int = 0
+    stricter_definitions: int = 0
     work_permille: int = 0
     rust_nanos: int = 0
     python_nanos: int = 0
@@ -132,12 +136,23 @@ def compare(binary: Path, root: Path, result: Result, budget: float | None) -> N
             result.work_permille = max(result.work_permille, int(row["work_permille"]))
             if budget is not None and spent / 1e9 >= budget:
                 return
+            concerns = value["concerns"]
+            named = [item["message"] for item in concerns]
+            if OPENERS in named or any(m.startswith(DEFINITIONS_STOPPED) for m in named):
+                # AD-376: stricter than Python and named. Python may read the source for hours or
+                # not at all (a declaration of 20 000 items), so it is not run; never equal.
+                result.rust_nanos += nanos
+                result.files += 1
+                if OPENERS in named:
+                    result.stricter_openers += 1
+                else:
+                    result.stricter_definitions += 1
+                continue
             expected, python_nanos = python_syntax(path.read_bytes())
             spent += python_nanos
             result.python_nanos += python_nanos
             result.rust_nanos += nanos
             result.files += 1
-            concerns = value["concerns"]
             if any(item["message"] == UNASSIGNED for item in concerns):
                 result.unassigned += 1
             elif any(item["message"].startswith(STOPPED) for item in concerns):
@@ -195,7 +210,10 @@ def report(result: Result) -> str:
     return (
         f"{result.name}: {result.equal}/{result.files} files equal "
         f"(of {result.total}; {result.deep} with RecursionError in Python, "
-        f"{result.unassigned} named by L-27, {result.stopped} stopped by the site work limit; "
+        f"{result.unassigned} named by L-27, {result.stopped} stopped by the site work limit, "
+        f"{result.stricter_openers} stricter, named: more than 100000 opening brackets, "
+        f"{result.stricter_definitions} stricter, named: definition work limit, "
+        f"{len(set(result.problems))} different; "
         f"site work at most {result.work_permille / 10:.1f} % of the limit); "
         f"parse Rust {result.rust_nanos / 1e6:.1f} ms, Python {result.python_nanos / 1e6:.1f} ms"
         + "".join(f"\n  problem: {problem}" for problem in sorted(set(result.problems)))
