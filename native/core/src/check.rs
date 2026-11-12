@@ -30,7 +30,7 @@ use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
 use crate::base::Base;
-use crate::dual_run::{self, Answered, InsideJson, ReplyBytes, Run, Trust};
+use crate::dual_run::{self, Answered, BaseOf, InsideJson, ReplyBytes, Run, Trust};
 
 /// The protocol of the check request.
 /// Version 2 removes `baseline` and adds `base` (AD-399).
@@ -80,9 +80,12 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         .base
         .map(|base| dual_run::hex(&base.reply.hex))
         .transpose()?
-        .map(|reply| Base {
-            reply,
-            trust: Box::new(stage_one_shell_trust),
+        .map(|reply| -> BaseOf {
+            let base = Base {
+                reply,
+                trust: Box::new(stage_one_shell_trust),
+            };
+            Box::new(move |candidate, shared| crate::base::gap(base, candidate, shared))
         });
     dual_run::run(Run {
         case: "check".to_owned(),

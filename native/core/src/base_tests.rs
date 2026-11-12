@@ -62,7 +62,11 @@ fn assert_base_gap(value: &Value, words: &str) {
 #[test]
 fn a_base_of_this_build_keeps_the_frame_of_the_candidate() {
     let (alone, gap, _) = frame(&request(None));
-    assert_eq!((alone["status"].clone(), gap), (json!("PASS"), false), "{alone}");
+    assert_eq!(
+        (alone["status"].clone(), gap),
+        (json!("PASS"), false),
+        "{alone}"
+    );
     let (with_base, gap, _) = frame(&request(Some(&reply(|_| {}))));
     assert_eq!(with_base, alone);
     assert!(!gap);
@@ -90,7 +94,10 @@ fn a_base_that_the_store_refuses_names_the_whole_contract() {
 fn a_base_of_another_profile_is_a_gap() {
     let (one, other) = (Some("profile-a"), Some("profile-b"));
     let gap = super::same_profile(one, other).err().unwrap_or_default();
-    assert_eq!(gap, "its profile profile-a is not the profile profile-b of the candidate");
+    assert_eq!(
+        gap,
+        "its profile profile-a is not the profile profile-b of the candidate"
+    );
     assert_eq!(super::same_profile(one, one), Ok(()));
     assert_eq!(super::same_profile(one, None), Ok(()));
 }

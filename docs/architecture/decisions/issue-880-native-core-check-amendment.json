@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "after_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "before_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "before_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "decided_by": "Agent session for Alexander Kell (epic #880, lead decision L-73 step 1); review in the pull request decides",
+  "rationale": "AD-399: archkeel check --native-core takes its rule verdicts from the Rust core, and the shell reads the contract of check from Git at the baseline commit. The calls_unresolved budget goes from 1025 to 1028. The contract reader is a callback parameter of NativeCore.run (the working tree for report, the baseline commit for check), so its two calls have no proven callable value. The other new calls are PurePosixPath(path).as_posix in read_committed, base.hex on the optional base reply, and the JSON decoder with the hook that refuses a repeated key (#1099); three old calls of the same kinds are gone. No contract rule, component or requires entry changes: the shell uses only read_blob of archkeel.check.git, which the contract already declares.",
+  "schema_version": "2.0.0"
+}

@@ -202,11 +202,22 @@ pub(crate) struct Run {
     pub(crate) baseline: bool,
     /// True when the frame names the report payload part (the dual run).
     pub(crate) report: bool,
-    /// The base reply of a check request (AD-399); the dual run has none.
-    pub(crate) base: Option<crate::base::Base>,
+    /// The reading of the base reply of a check request (AD-399); the dual run has none.
+    pub(crate) base: Option<BaseOf>,
     /// The settings of the namespace for the validated reply (or none), and a reason that names
     /// the whole contract when the request kind does not trust the reply.
     pub(crate) trust: TrustOf,
+}
+
+/// How a check request reads its base reply: from the validated candidate reply and the inputs
+/// that the base shares, the reason that names the whole contract, or `None` (`base.rs`).
+pub(crate) type BaseOf = Box<dyn FnOnce(Option<&Ingested>, Shared) -> Option<String>>;
+
+/// The inputs of the candidate that the base shares: the namespace, the contract and the roots.
+pub(crate) struct Shared {
+    pub(crate) namespace: String,
+    pub(crate) input: ContractInput,
+    pub(crate) roots: Vec<String>,
 }
 
 /// How a request kind derives its settings from the namespace and the validated reply.
@@ -231,15 +242,19 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     // The base shares the contract of the request: `check` reads both commits under the contract
     // at the baseline commit (AD-399).
     let base = run.base.and_then(|base| {
-        let shared = crate::base::Shared {
+        let shared = Shared {
             namespace: run.namespace.clone(),
             input: input.clone(),
             roots: run.roots.clone(),
         };
-        crate::base::gap(base, engine.reply(), shared)
+        base(engine.reply(), shared)
     });
     let trust = (run.trust)(run.namespace, engine.reply());
-    engine.answer(Request::Settings(settings_of(trust.settings, &input, run.roots)));
+    engine.answer(Request::Settings(settings_of(
+        trust.settings,
+        &input,
+        run.roots,
+    )));
     let path = input.path.clone();
     let contract = match engine.answer(Request::Contract(input)) {
         Answer::Contract(state) => state,
@@ -293,7 +308,11 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
 
 /// The settings of a run: the trusted settings, bound to the root contract and to the scan roots.
 /// No roots narrow the run: a receipt that needs them names `Part::ScanRoots`.
-pub(crate) fn settings_of(settings: Settings, input: &ContractInput, roots: Vec<String>) -> Settings {
+pub(crate) fn settings_of(
+    settings: Settings,
+    input: &ContractInput,
+    roots: Vec<String>,
+) -> Settings {
     let settings = settings.with_contract_source(&input.path, &input.bytes);
     if roots.is_empty() {
         settings

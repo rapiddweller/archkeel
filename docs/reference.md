@@ -545,7 +545,14 @@ every rule, the run status and the rule statuses come from the core, and a note 
 difference to the Python engine, a missing core or bundled collector, or one with another
 digest gives exit 2 and no verdict. The switch refuses `ARCHKEEL_NATIVE_STORE`. When the core
 names a part that it does not decide, the result is the Python result, and a note names each
-reason.
+reason. A validation baseline (`--baseline`) changes no verdict, so the core decides such a run
+too; the comparison rows are those of the Python engine.
+
+`archkeel check --native-core` takes the rule verdicts of the candidate from the core in the
+same way (AD-399). The core reads the candidate reply, the reply of the accepted commit and the
+contract at the baseline commit, which the shell reads from Git. The shell also compares the exit
+code. The expectation, the Git order and the host order stay the verdicts of the Python engine.
+When the core decides, the result also shows the rule rows; the switch off shows none, as before.
 
 `archkeel report --timings PATH` writes one JSON file after a successful live report.
 Without the flag, nothing is measured and nothing is written. The report, the HTML

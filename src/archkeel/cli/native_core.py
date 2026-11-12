@@ -29,10 +29,10 @@ import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import partial
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final, TypeVar
 
-from archkeel.check.git import GitError, read_blob, relative_path
+from archkeel.check.git import read_blob
 from archkeel.check.ports import ScanConfig
 from archkeel.ir.diagnostics import Diagnostic, DiagnosticKind
 from archkeel.ir.model import RunResult
@@ -87,13 +87,14 @@ def read_committed(root: Path, commit: str, path: str, budget: int) -> tuple[str
     """The identity and the bytes of one contract at `commit`, as `check` reads it (AD-399), or
     `None` when Git has no regular file at the path. A file larger than `budget` is refused."""
     try:
-        identity = relative_path(path)
-        data = read_blob(root, commit, identity)
-    except GitError:
+        # `read_blob` refuses an unsafe path, a missing path and a blob that is not a regular file
+        # with `GitError`, a `ValueError`.
+        data = read_blob(root, commit, path)
+    except ValueError:
         return None
     if len(data) > budget:
         raise OverBudget(path)
-    return identity, data
+    return PurePosixPath(path).as_posix(), data
 
 
 # The identity and the bytes of a contract path within a byte budget, or `None` (AD-399).

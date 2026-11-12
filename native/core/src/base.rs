@@ -15,8 +15,8 @@
 
 use archkeel_store::Ingested;
 
-use crate::contract::{ContractInput, ContractState};
-use crate::dual_run::{self, TrustOf};
+use crate::contract::ContractState;
+use crate::dual_run::{self, Shared, TrustOf};
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::Request;
@@ -28,13 +28,6 @@ pub(crate) const BASE: &str = "the base reply";
 pub(crate) struct Base {
     pub(crate) reply: Vec<u8>,
     pub(crate) trust: TrustOf,
-}
-
-/// The inputs of the candidate that the base shares: the namespace, the contract and the roots.
-pub(crate) struct Shared {
-    pub(crate) namespace: String,
-    pub(crate) input: ContractInput,
-    pub(crate) roots: Vec<String>,
 }
 
 /// The reason that the core cannot read the base soundly, or `None`.
