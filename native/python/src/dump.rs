@@ -12,17 +12,18 @@
 
 use std::io::{BufRead, Write};
 
+use archkeel_facts::pyminor::PyMinor;
 use archkeel_snapshot::Snapshot;
 use serde_json::{json, Value};
 
-use crate::limits::scan;
+use crate::parse::limits::scan;
 use crate::parse::parse;
 use crate::pyast::{walk, Node};
 use crate::source::{decode, Lines};
 use crate::{discover, inputs, names, requirement};
 
 /// The outcome of one file: `null` for a tree, else the exception, the line and the message.
-fn outcome(raw: Option<Vec<u8>>, minor: u32) -> Value {
+fn outcome(raw: Option<Vec<u8>>, minor: PyMinor) -> Value {
     let Some(raw) = raw else {
         return json!({"exception": "OSError", "line": 1, "message": "unreadable"});
     };
@@ -43,11 +44,9 @@ fn outcome(raw: Option<Vec<u8>>, minor: u32) -> Value {
 fn each_file(
     minor: &str,
     root: &str,
-    mut row: impl FnMut(Option<Vec<u8>>, &str, u32) -> Option<Value>,
+    mut row: impl FnMut(Option<Vec<u8>>, &str, PyMinor) -> Option<Value>,
 ) -> Result<(), String> {
-    let minor: u32 = minor
-        .parse()
-        .map_err(|_| "the dump needs a minor version")?;
+    let minor = PyMinor::decode(minor)?;
     let mut snapshot = Snapshot::new(root);
     let mut out = std::io::stdout().lock();
     for line in std::io::stdin().lock().lines() {
@@ -72,10 +71,19 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 /// statement and `ast.unparse` of each expression in that order (AD-377). A failure is a marker.
 pub fn texts(minor: &str, root: &str) -> Result<(), String> {
     each_file(minor, root, |raw, rel, minor| {
-        let raw = raw?;
-        let text = crate::source::newlines(decode(&raw)?);
+        let Some(source) = raw.as_deref().and_then(decode) else {
+            return Some(json!({"file": rel, "gap": outcome(raw, minor)}));
+        };
+        let text = crate::source::newlines(source);
         let text = text.as_ref();
-        let module = parse(text, minor).ok()?;
+        let module = match parse(text, minor) {
+            Ok(module) => module,
+            Err(failure) => {
+                return Some(json!({"file": rel, "gap": {
+                    "exception": failure.exception.as_str(), "line": failure.line, "message": failure.message,
+                }}))
+            }
+        };
         let mut kinds = Vec::new();
         let mut texts = Vec::new();
         let nodes = module
@@ -97,9 +105,7 @@ pub fn texts(minor: &str, root: &str) -> Result<(), String> {
 
 /// `--dump-printable <minor>`: the ranges of the code points that `str.isprintable` refuses.
 pub fn printable(minor: &str) -> Result<(), String> {
-    let minor: u32 = minor
-        .parse()
-        .map_err(|_| "--dump-printable needs a minor version")?;
+    let minor = PyMinor::decode(minor)?;
     let mut ranges = Vec::new();
     let mut start: Option<u32> = None;
     for point in 0..=0x11_0000_u32 {
@@ -138,8 +144,13 @@ pub fn symbols(
     request: &archkeel_facts::request::PythonRequest,
     witnesses: bool,
 ) -> Result<Value, String> {
-    let (minor, modules, binders) = crate::survey::modules(request)?;
-    let mut evidence = crate::survey::module::EvidenceMap::new();
+    let crate::survey::Modules {
+        minor,
+        modules,
+        binders,
+        gaps: parse_gaps,
+    } = crate::survey::modules(request)?;
+    let mut evidence = crate::module::EvidenceMap::new();
     let mut records = Vec::new();
     let mut gaps = Vec::new();
     for (module, binders) in modules.iter().zip(&binders) {
@@ -162,17 +173,13 @@ pub fn symbols(
         "symbols": records,
         "evidence": serde_json::to_value(evidence).map_err(|error| error.to_string())?,
         "gaps": gaps,
+        "parse_gaps": serde_json::to_value(parse_gaps).map_err(|error| error.to_string())?,
     }))
 }
 
 /// `--dump-scope`: the scope of one 10.0.0 request as one JSON object (slice 1c-1).
 pub fn scope(request: &archkeel_facts::request::PythonRequest) -> Result<Value, String> {
-    let version = &request.resolver.interpreter.version;
-    let minor: u32 = version
-        .split('.')
-        .nth(1)
-        .and_then(|minor| minor.parse().ok())
-        .ok_or_else(|| format!("the interpreter version {version} has no minor version"))?;
+    let minor = request.resolver.interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let roots = &request.scope.roots;
     let found = discover::scope(&mut snapshot, roots, request.excludes_test_sources());

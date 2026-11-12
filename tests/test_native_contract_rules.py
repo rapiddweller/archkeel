@@ -10,6 +10,18 @@ from pathlib import Path
 
 CONTRACT = Path(__file__).parents[1] / "native/architecture-contract.json"
 EXPECTED_RULES = [
+    ("NATIVE-PY-SYMBOLS-NO-SURVEY", "forbidden_dependency"),
+    ("NATIVE-PY-UNPARSE-NO-SURVEY", "forbidden_dependency"),
+    ("NATIVE-PY-UNPARSE-NO-SYMBOLS", "forbidden_dependency"),
+    ("NATIVE-PY-MODULE-NO-SURVEY", "forbidden_dependency"),
+    ("NATIVE-PY-MODULE-NO-SYMBOLS", "forbidden_dependency"),
+    ("NATIVE-PY-MODULE-NO-UNPARSE", "forbidden_dependency"),
+    ("NATIVE-PY-TREE-NO-SURVEY", "forbidden_dependency"),
+    ("NATIVE-PY-TREE-NO-SYMBOLS", "forbidden_dependency"),
+    ("NATIVE-PY-TREE-NO-UNPARSE", "forbidden_dependency"),
+    ("NATIVE-PY-PARSE-NO-SURVEY", "forbidden_dependency"),
+    ("NATIVE-PY-PARSE-NO-SYMBOLS", "forbidden_dependency"),
+    ("NATIVE-PY-PARSE-NO-UNPARSE", "forbidden_dependency"),
     ("NATIVE-ASSIGNMENT-COMPLETE", "complete_assignment"),
     ("NATIVE-REQUIRES-COMPLETE", "complete_requires"),
     ("NATIVE-NO-COMPONENT-CYCLES", "no_component_cycles"),

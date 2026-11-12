@@ -9,24 +9,47 @@
 //! its tokens. The message of a parser error is the text of `ruff_python_parser`; the message of
 //! a tokenizer limit and of the depth rule is the text of CPython (AD-334).
 
+use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::vocab::ExceptionName;
 use ruff_python_ast::{ModModule, PythonVersion, Stmt};
 use ruff_python_parser::{parse_unchecked, Mode, ParseErrorType, ParseOptions};
+use ruff_text_size::Ranged;
 
-use crate::depth::depth;
-use crate::limits::{scan, Problem, MAX_AST_DEPTH};
+use self::depth::depth;
+use self::limits::{scan, Problem, MAX_AST_DEPTH};
+use self::stack::MAX_STACK;
 use crate::source::Lines;
-use crate::stack::MAX_STACK;
+
+#[path = "depth.rs"]
+mod depth;
+#[path = "expressioncheck.rs"]
+mod expressioncheck;
+#[path = "identifier.rs"]
+mod identifier;
+#[path = "limits.rs"]
+pub(crate) mod limits;
+#[path = "patterncheck.rs"]
+mod patterncheck;
+#[path = "postparse.rs"]
+mod postparse;
+#[path = "scopecheck.rs"]
+mod scopecheck;
+#[path = "stack.rs"]
+mod stack;
+#[path = "stringcheck.rs"]
+mod stringcheck;
+#[path = "work.rs"]
+mod work;
 
 /// Why a file has no tree: the class name of the Python exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Failure {
+pub struct ParseFailure {
     pub exception: ExceptionName,
     pub line: usize,
     pub message: String,
 }
 
-impl From<Problem> for Failure {
+impl From<Problem> for ParseFailure {
     fn from(problem: Problem) -> Self {
         Self {
             exception: problem.exception,
@@ -39,12 +62,19 @@ impl From<Problem> for Failure {
 const NULL_BYTES: &str = "source code string cannot contain null bytes";
 
 /// The tree of `text` for Python 3.`minor`, or the failure that the Python collector reports.
-pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
+pub fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
     if text.contains('\0') {
         return Err(failure(ExceptionName::SyntaxError, 1, NULL_BYTES));
     }
     let lines = Lines::new(text);
     let scan = scan(text, &lines, minor);
+    if text.len() > work::MAX_WORK {
+        return Err(failure(
+            ExceptionName::SyntaxError,
+            1,
+            "CPython token scan work limit exceeded",
+        ));
+    }
     if scan.stack > MAX_STACK {
         // An upper bound of the CPython parser stack: CPython can stop here, so the file has no
         // tree (AD-323 point 6, AD-334). The bound also keeps ruff inside its own stack. The
@@ -58,7 +88,7 @@ pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
     }
     let version = PythonVersion {
         major: 3,
-        minor: u8::try_from(minor).unwrap_or(u8::MAX),
+        minor: minor.number(),
     };
     let options = ParseOptions::from(Mode::Module).with_target_version(version);
     let parsed = parse_unchecked(text, options);
@@ -78,10 +108,8 @@ pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
         return Err(failure(ExceptionName::SyntaxError, 1, "invalid syntax"));
     };
     let module = parsed.into_syntax();
-    if minor >= 14 {
-        if let Some(failure) = future(&module, &lines) {
-            return Err(failure);
-        }
+    if let Some(failure) = future(&module, &lines) {
+        return Err(failure);
     }
     let levels = depth(&module);
     if levels > MAX_AST_DEPTH {
@@ -90,19 +118,27 @@ pub fn parse(text: &str, minor: u32) -> Result<ModModule, Failure> {
         let message = format!("expression nesting of {levels} levels exceeds {MAX_AST_DEPTH}");
         return Err(failure(ExceptionName::TooDeepError, 1, &message));
     }
+    if let Some((offset, reason)) = postparse::check(&module, text, minor) {
+        let exception = if reason.starts_with("CPython 3.12 cannot decode") {
+            ExceptionName::UnicodeDecodeError
+        } else {
+            ExceptionName::SyntaxError
+        };
+        return Err(failure(exception, lines.line(offset), reason));
+    }
     Ok(module)
 }
 
 /// Whether a parser error is at the end of the file or after a bracket that stays open there.
-fn in_open_bracket(error: &Failure, open: Option<(char, usize)>) -> bool {
+fn in_open_bracket(error: &ParseFailure, open: Option<(char, usize)>) -> bool {
     open.is_some_and(|(_, line)| error.message == EOF_MESSAGE || error.line >= line)
 }
 
 /// CPython names the innermost open bracket when the file ends inside it: the parser error at
 /// the end, or an error inside the bracket, which a scan of the rest of the file replaces.
-fn unclosed(error: Failure, open: Option<(char, usize)>) -> Failure {
+fn unclosed(error: ParseFailure, open: Option<(char, usize)>) -> ParseFailure {
     match open {
-        Some((bracket, line)) if in_open_bracket(&error, open) => Failure {
+        Some((bracket, line)) if in_open_bracket(&error, open) => ParseFailure {
             exception: ExceptionName::SyntaxError,
             line,
             message: format!("'{bracket}' was never closed"),
@@ -114,8 +150,8 @@ fn unclosed(error: Failure, open: Option<(char, usize)>) -> Failure {
 /// The text of `LexicalErrorType::Eof`.
 const EOF_MESSAGE: &str = "unexpected EOF while parsing";
 
-fn failure(exception: ExceptionName, line: usize, message: &str) -> Failure {
-    Failure {
+fn failure(exception: ExceptionName, line: usize, message: &str) -> ParseFailure {
+    ParseFailure {
         exception,
         line,
         message: message.to_owned(),
@@ -138,16 +174,18 @@ const FEATURES: [&str; 10] = [
 
 /// `future_parse` of CPython 3.14, which `ast.parse` runs: each name of a `from __future__`
 /// import at the start of the module (after the docstring) must be a known feature.
-fn future(module: &ModModule, lines: &Lines) -> Option<Failure> {
+fn future(module: &ModModule, lines: &Lines) -> Option<ParseFailure> {
     let mut body = module.body.as_slice();
     if let [Stmt::Expr(docstring), rest @ ..] = body {
         if docstring.value.is_string_literal_expr() {
             body = rest;
         }
     }
+    let mut permitted = true;
     for statement in body {
         let Stmt::ImportFrom(import) = statement else {
-            break;
+            permitted = false;
+            continue;
         };
         if import.level != 0
             || import
@@ -155,7 +193,15 @@ fn future(module: &ModModule, lines: &Lines) -> Option<Failure> {
                 .as_ref()
                 .is_none_or(|name| name != "__future__")
         {
-            break;
+            permitted = false;
+            continue;
+        }
+        if !permitted {
+            return Some(failure(
+                ExceptionName::SyntaxError,
+                lines.line(import.start().to_usize()),
+                "future import is not at the start of the module",
+            ));
         }
         for alias in &import.names {
             let name = alias.name.as_str();
@@ -179,7 +225,7 @@ fn first_parser_error<T>(
     parsed: &ruff_python_parser::Parsed<T>,
     lines: &Lines,
     scanned: Option<Problem>,
-) -> Option<(usize, Failure)> {
+) -> Option<(usize, ParseFailure)> {
     let errors = parsed.errors().iter().map(|error| {
         (
             usize::from(error.location.start()),
@@ -202,7 +248,7 @@ fn first_parser_error<T>(
             let line = lines.line(at);
             (
                 at,
-                Failure {
+                ParseFailure {
                     exception,
                     line,
                     message,

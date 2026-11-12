@@ -11,8 +11,8 @@
 use crate::pyast::{fstring, Piece};
 
 use super::literal::{self, ALL_QUOTES, MULTI_QUOTES};
-use super::outcome::{Failure, Prec};
-use super::Writer;
+use super::outcome::{Prec, TextFailure as Failure};
+use super::{legacy, Writer};
 
 /// The quotes that a field part leaves: a newline needs triple quotes, and a quote that the field
 /// uses is out unless no quote is left.
@@ -41,7 +41,7 @@ impl Writer<'_> {
             self.inner_piece(piece, false, &mut buffer)?;
             parts.push((buffer, matches!(piece, Piece::Text(_))));
         }
-        if self.minor < 12 && self.avoid_backslashes {
+        if legacy(self.minor) && self.avoid_backslashes {
             let joined: String = parts.into_iter().map(|(text, _)| text).collect();
             let text = literal::avoiding_backslashes(&joined, &ALL_QUOTES, self.minor);
             self.write(&text);
@@ -73,15 +73,21 @@ impl Writer<'_> {
                         writer.out
                     }
                 };
-                if self.minor < 12 && text.contains('\\') {
+                if legacy(self.minor) && text.contains('\\') {
                     return Err(Failure::Invalid);
                 }
                 out.push('{');
                 out.push_str(if text.starts_with('{') { " " } else { "" });
                 out.push_str(&text);
-                if let Some(code) = u8::try_from(*conversion).ok().filter(|code| *code > 0) {
+                let code = match conversion {
+                    ruff_python_ast::ConversionFlag::None => None,
+                    ruff_python_ast::ConversionFlag::Str => Some('s'),
+                    ruff_python_ast::ConversionFlag::Repr => Some('r'),
+                    ruff_python_ast::ConversionFlag::Ascii => Some('a'),
+                };
+                if let Some(code) = code {
                     out.push('!');
-                    out.push(char::from(code));
+                    out.push(code);
                 }
                 if let Some(format_spec) = format_spec {
                     out.push(':');
@@ -103,7 +109,7 @@ impl Writer<'_> {
     /// A text part: braces doubled, and from 3.12 on the escapes of a format spec.
     fn text_piece(&self, text: &str, spec: bool) -> String {
         let text = text.replace('{', "{{").replace('}', "}}");
-        if spec && self.minor >= 12 {
+        if spec && !legacy(self.minor) {
             text.replace('\\', "\\\\")
                 .replace('\'', "\\'")
                 .replace('"', "\\\"")
@@ -116,7 +122,7 @@ impl Writer<'_> {
     /// `_ftstring_helper` of 3.12 to 3.14, and the loop of 3.11, where each part (a field too)
     /// goes through `_str_literal_helper`.
     fn quoted(&self, parts: &[(String, bool)]) -> String {
-        let modern = self.minor >= 12;
+        let modern = !legacy(self.minor);
         let mut quotes: Vec<&'static str> = ALL_QUOTES.to_vec();
         let mut written: Vec<String> = Vec::with_capacity(parts.len());
         for (value, constant) in parts {
@@ -142,7 +148,7 @@ impl Writer<'_> {
         quotes: &[&'static str],
         escape_special_whitespace: bool,
     ) -> Option<(String, Vec<&'static str>)> {
-        let (text, new) =
+        let literal::Quotes { text, quotes: new } =
             literal::literal_helper(value, quotes, escape_special_whitespace, self.minor);
         let fits = new.iter().any(|quote| quotes.contains(quote));
         fits.then_some((text, new))

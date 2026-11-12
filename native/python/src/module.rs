@@ -30,6 +30,12 @@ pub struct Module {
 /// The evidence of a scan by its id, sorted as the Python collector sorts it.
 pub type EvidenceMap = BTreeMap<String, Evidence>;
 
+pub struct Location {
+    pub line: i64,
+    pub end_line: i64,
+    pub column: i64,
+}
+
 impl Module {
     pub fn new(rel: String, name: String, text: String, tree: ModModule) -> Self {
         let lines = Lines::new(&text);
@@ -68,17 +74,25 @@ impl Module {
     }
 
     /// The line, the end line and the column of a statement.
-    pub fn location(&self, node: &impl Ranged) -> (i64, i64, i64) {
+    pub fn location(&self, node: &impl Ranged) -> Location {
         let start = node.start().to_usize();
         let line = self.lines.line(start).max(1);
         let end_line = self.lines.line(node.end().to_usize());
         let column = start - self.lines.start_of(start);
-        (to_i64(line), to_i64(end_line), to_i64(column))
+        Location {
+            line: to_i64(line),
+            end_line: to_i64(end_line),
+            column: to_i64(column),
+        }
     }
 
     /// `add_evidence`: file the location of a statement and return its id.
     pub fn evidence(&self, evidence: &mut EvidenceMap, node: &impl Ranged) -> String {
-        let (line, end_line, column) = self.location(node);
+        let Location {
+            line,
+            end_line,
+            column,
+        } = self.location(node);
         let excerpt = usize::try_from(line)
             .ok()
             .and_then(|line| self.lines.text(&self.text, line))
@@ -117,10 +131,8 @@ fn to_i64(value: usize) -> i64 {
 
 /// `str.rstrip()`: Python strips its `isspace` characters, which are the Unicode white space and
 /// the four separators U+001C to U+001F.
-pub fn rstrip(text: &str) -> &str {
-    text.trim_end_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
-}
+pub use archkeel_pytext::rstrip;
 
 #[cfg(test)]
-#[path = "module_tests.rs"]
+#[path = "survey/module_tests.rs"]
 mod tests;

@@ -30,6 +30,18 @@
     "NATIVE-NO-MODEL-TO-REPORT": "UNKNOWN",
     "NATIVE-NO-MODULE-CYCLES": "FAIL",
     "NATIVE-NO-REPORT-TO-CORE": "UNKNOWN",
+    "NATIVE-PY-MODULE-NO-SURVEY": "UNKNOWN",
+    "NATIVE-PY-MODULE-NO-SYMBOLS": "UNKNOWN",
+    "NATIVE-PY-MODULE-NO-UNPARSE": "UNKNOWN",
+    "NATIVE-PY-PARSE-NO-SURVEY": "UNKNOWN",
+    "NATIVE-PY-PARSE-NO-SYMBOLS": "UNKNOWN",
+    "NATIVE-PY-PARSE-NO-UNPARSE": "UNKNOWN",
+    "NATIVE-PY-SYMBOLS-NO-SURVEY": "UNKNOWN",
+    "NATIVE-PY-TREE-NO-SURVEY": "UNKNOWN",
+    "NATIVE-PY-TREE-NO-SYMBOLS": "UNKNOWN",
+    "NATIVE-PY-TREE-NO-UNPARSE": "UNKNOWN",
+    "NATIVE-PY-UNPARSE-NO-SURVEY": "UNKNOWN",
+    "NATIVE-PY-UNPARSE-NO-SYMBOLS": "UNKNOWN",
     "NATIVE-REQUIRES-COMPLETE": "UNKNOWN"
   },
   "gaps": [
@@ -52,6 +64,41 @@
       "native.archkeel_facts.request",
       "native.archkeel_facts.request_rules",
       "A method call may reach the method check of an impl block in native.archkeel_facts.request_rules"
+    ],
+    [
+      "native.archkeel_python_collector.module",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_python_collector.module",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_python_collector.survey.excluded",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_python_collector.survey.excluded",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_python_collector.survey.excluded",
+      "native.archkeel_snapshot.snapshot.listing",
+      "A method call may reach the method is_link of an impl block in native.archkeel_snapshot.snapshot.listing"
+    ],
+    [
+      "native.archkeel_python_collector.survey.failures",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_python_collector.survey.failures",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
     [
       "native.archkeel_python_collector.unparse",

@@ -43,6 +43,16 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1c-2d: the reply of the import survey, which the host does not read yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
+
+The Python collection spine has four layers ([AD-389](decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)):
+`py-survey` -> `py-symbols` -> `py-unparse` -> `py-module`, `py-tree` and `py-parse`.
+The arrows state the allowed direction, not a required call. Twelve `NATIVE-PY-*-NO-*` rules
+forbid each upward pair, even with a matching `requires` entry. The entry, dump and reply are
+adapters above this spine. Scope, input, source and work helpers are below it; their declared
+`requires` stay in the complete-requires gate. `Module` and `EvidenceMap` have one home below
+both consumers. The request carries a checked `PyMinor`; an unknown minor never selects a table.
+The parse checks compiler refusals before the survey can write facts. Each refusal is a named
+file gap with incomplete scope. The host codec and store still refuse the native Python reply.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
 `tree-sitter-language` (rule `NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE`).
 Clippy, `cargo deny` and the file size rule stay outside the contract
@@ -357,7 +367,16 @@ flowchart LR
     n_51 --> n_4
     n_51 --> n_49
     n_51 --> n_50
-    n_51 --> n_46
+    n_51 --> n_52
+    n_52["py-module"]
+    n_52 --> n_4
+    n_52 --> n_37
+    n_52 --> n_44
+    n_52 --> n_43
+    n_46 --> n_52
+    n_39 --> n_52
+    n_49 --> n_4
+    n_40 --> n_43
     n_39 --> n_49
     n_39 --> n_50
     n_39 --> n_51

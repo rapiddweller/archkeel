@@ -15,7 +15,7 @@ use archkeel_facts::vocab::{Area, EvidenceClass, ExceptionName};
 use archkeel_facts::{GapFact, Record};
 
 use crate::names::Shadowed;
-use crate::parse::Failure;
+use crate::parse::ParseFailure as Failure;
 
 /// `GapTitle.FILE_FAILURE`.
 const FILE_FAILURE: &str = " could not be analyzed";

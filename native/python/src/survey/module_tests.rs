@@ -6,7 +6,7 @@ use super::*;
 use crate::parse::parse;
 
 fn module(rel: &str, text: &str) -> Module {
-    let tree = parse(text, 13).expect("valid source");
+    let tree = parse(text, crate::test_minor(13)).expect("valid source");
     Module::new(rel.to_owned(), "app.x.y".to_owned(), text.to_owned(), tree)
 }
 

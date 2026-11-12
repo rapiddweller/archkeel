@@ -43,6 +43,11 @@ pub fn splitlines(text: &str) -> Vec<&str> {
     lines
 }
 
+/// `str.rstrip()`: Unicode white space plus the four Python separators.
+pub fn rstrip(text: &str) -> &str {
+    text.trim_end_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+}
+
 #[cfg(test)]
 mod tests {
     use super::splitlines;

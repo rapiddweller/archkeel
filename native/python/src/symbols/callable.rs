@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 
 use super::scan::Scan;
 use crate::pyast::{walk, Node};
-use crate::unparse::Failure;
+use crate::unparse::TextFailure as Failure;
 
 /// `_function_signature`: the parameters, the receiver, the return annotation and `async`.
 pub fn signature(
@@ -83,7 +83,10 @@ fn address(expr: &Expr) -> usize {
 
 /// `_parameters_contained`: each read of a parameter in the body (nested scopes included) is an
 /// operand of a comparison or the index of a subscript, and no subscript is a target.
-pub fn parameters_contained(node: &StmtFunctionDef, minor: u32) -> bool {
+pub fn parameters_contained(
+    node: &StmtFunctionDef,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> bool {
     let params = &node.parameters;
     let names: HashSet<&str> = params
         .iter()
@@ -163,7 +166,7 @@ pub fn stored_field_writes(scan: &mut Scan<'_>, node: &StmtFunctionDef) -> Value
 }
 
 /// `_shape`: the class names of the body (without a leading docstring) in walk order, digested.
-pub fn shape(node: &StmtFunctionDef, minor: u32) -> (String, usize) {
+pub fn shape(node: &StmtFunctionDef, minor: archkeel_facts::pyminor::PyMinor) -> (String, usize) {
     let mut body: &[Stmt] = &node.body;
     if let Some(Stmt::Expr(first)) = body.first() {
         if is_constant(&first.value) {

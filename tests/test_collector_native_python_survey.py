@@ -159,7 +159,7 @@ _EDGES = {
     "src/app/guard.py": (
         "import typing\nif typing.TYPE_CHECKING:\n    from app import sub\n"
         "elif x:\n    import a.b\n"
-        "else:\n    from .. import far\ndef f():\n    from m import *\nclass C:\n    import c\n"
+        "else:\n    from .. import far\ndef f():\n    from m import item\nclass C:\n    import c\n"
     ),
     "src/app/guard_elif.py": (
         "import typing\nif x:\n    import a\nelif typing.TYPE_CHECKING:\n    import b\n"

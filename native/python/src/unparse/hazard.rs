@@ -10,7 +10,8 @@ use ruff_python_ast::{
 };
 use ruff_text_size::{Ranged, TextRange};
 
-use super::outcome::Failure;
+use super::outcome::TextFailure as Failure;
+use archkeel_facts::pyminor::PyMinor;
 
 /// The parser replaced a lone surrogate escape with U+FFFD: the value has U+FFFD and the source
 /// of the literal has a backslash. A U+FFFD that the source spells gives the failure too.
@@ -18,12 +19,11 @@ pub fn replaced(value: &str, source: &str) -> bool {
     value.contains('\u{fffd}') && source.contains('\\')
 }
 
-/// A format spec nests at most this deep in the tree that CPython keeps.
-const MAX_SPEC_DEPTH: u8 = 2;
+use crate::pyast::fstring::MAX_SPEC_DEPTH;
 
 struct Check<'s> {
     source: &'s str,
-    minor: u32,
+    minor: PyMinor,
 }
 
 impl Check<'_> {
@@ -62,7 +62,10 @@ impl Check<'_> {
         // CPython 3.12 keeps `\N{...}` in a spec as a `Constant`, and it decodes the escapes of
         // the spec of a raw f-string (L-37a: a gap, not a port of the bug).
         let text = self.slice(spec.range());
-        if self.minor == 12 && (text.contains("\\N{") || (raw && text.contains('\\'))) {
+        if match self.minor {
+            PyMinor::Py311 | PyMinor::Py313 | PyMinor::Py314 => false,
+            PyMinor::Py312 => text.contains("\\N{") || (raw && text.contains('\\')),
+        } {
             return Some(Failure::Spec312);
         }
         self.elements(&spec.elements, raw, depth + 1)
@@ -71,7 +74,7 @@ impl Check<'_> {
 
 /// The failure of a string literal, an f-string or a t-string, or `None`. The fields of an
 /// f-string are expressions of their own: a walk reaches them.
-pub fn string_failure(expr: &Expr, source: &str, minor: u32) -> Option<Failure> {
+pub fn string_failure(expr: &Expr, source: &str, minor: PyMinor) -> Option<Failure> {
     let check = Check { source, minor };
     match expr {
         Expr::StringLiteral(node) => {

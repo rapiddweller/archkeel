@@ -14,13 +14,13 @@ first: the CPython view of the tree, the text of an expression, and the definiti
    node, and an f-string has the joined `Constant` values of CPython. `walk` has no recursion.
 2. **Text** (`unparse/`). `_Unparser` of 3.11 (fields avoid backslashes) and of 3.12 to 3.14,
    with `_Precedence`. `repr` of a `str` uses the Unicode 14 table of `archkeel-facts`
-   (`pyrepr::escapes`, a new public function) and `printable.txt`, the code points that each
-   later Python prints. An `int` over 4 300 digits is `ValueError` (`annotation_text` is `None`).
+    and its per-minor printable table (moved to facts by AD-389). An `int` over 4 300 digits is
+    `ValueError` (`annotation_text` is `None`).
    A t-string field writes `Interpolation.str`, its source text (a line join keeps its `\`).
 3. **Which Python** (L-37b). The text and the tree equal the Python of the minor of
    `resolver.interpreter.version`; the oracle ran 3.11.12, 3.12.10, 3.12.13 (3.12 specs only),
-   3.13.15 and 3.14.7. The request refuses another version; each text of a minor outside 3.11
-   to 3.14 is `Failure::Version`, a named gap. The text is read after `translate_newlines`:
+    3.13.15 and 3.14.7. AD-389 decodes a `PyMinor` once and refuses an unknown minor before text.
+    No unsupported minor can reach a table. The text is read after `translate_newlines`:
    each `\r\n` and lone `\r` is `\n`, also inside a string, as in `ast.parse`.
 4. **Definition table** (`symbols/`). One record for each class, function and method of
    `definition_sites`, with the fields that the module itself decides (`DECIDED` in the test):
@@ -48,7 +48,7 @@ first: the CPython view of the tree, the text of an expression, and the definiti
 15. **3.12 spec** (L-37a). 3.12 keeps `\N{...}` in a spec as a `Constant` and decodes the escapes
     of a raw spec (3.12.10 and 3.12.13 alike). On 3.12 such a spec gives a gap, not the bug.
 16. **Spec depth.** A spec deeper than two levels gives a gap, never a cut text. CPython refuses
-    the file; the native parse accepting it is a known issue of the parse.
+    the file; AD-389 makes the parse refuse it before a tree reader can truncate the spec.
 
 **Rejected.** (a) All of `symbols.py` in one slice: 3 400 lines of proofs and two cross-module
 inputs are not one review. (b) The code generator of ruff: its quotes and parentheses differ

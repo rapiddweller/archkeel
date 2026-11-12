@@ -7,23 +7,26 @@ use super::*;
 #[test]
 fn a_test_path_outside_the_namespace_is_named_under_its_source_root() {
     assert_eq!(
-        module_name("src", "src/app/tests/a.py", "app", 12).as_deref(),
+        module_name("src", "src/app/tests/a.py", "app", crate::test_minor(12)).as_deref(),
         Some("app.tests.a")
     );
     assert_eq!(
-        module_name("src", "src/tests/__init__.py", "app", 12).as_deref(),
+        module_name("src", "src/tests/__init__.py", "app", crate::test_minor(12)).as_deref(),
         Some("tests")
     );
     assert_eq!(
-        module_name("src", "src/tests/.py", "app", 12).as_deref(),
+        module_name("src", "src/tests/.py", "app", crate::test_minor(12)).as_deref(),
         Some("tests..py")
     );
-    assert_eq!(module_name("src", "lib/tests/a.py", "app", 12), None);
+    assert_eq!(
+        module_name("src", "lib/tests/a.py", "app", crate::test_minor(12)),
+        None
+    );
 }
 
 #[test]
 fn an_excluded_package_matches_its_modules_and_not_a_longer_name() {
-    let mut found = Excluded::default();
+    let mut found = Excluded::find(&mut Snapshot::new("/"), &[], "app", crate::test_minor(12));
     found.prefixes.insert("app.tests".to_owned());
     found.modules.insert("app.test_x".to_owned());
     let names = |items: &[&str]| {
@@ -56,7 +59,12 @@ fn a_dangling_link_under_the_test_exclusion_is_a_gap_that_names_it() {
     std::os::unix::fs::symlink("ghost.py", app.join("test_link.py")).unwrap();
     std::os::unix::fs::symlink("tests/gone.py", app.join("helper.py")).unwrap();
     let mut snapshot = Snapshot::new(&tree.path());
-    let found = Excluded::find(&mut snapshot, &["src".to_owned()], "app", 12);
+    let found = Excluded::find(
+        &mut snapshot,
+        &["src".to_owned()],
+        "app",
+        crate::test_minor(12),
+    );
     let gaps = found.gaps(&[], &HashMap::new(), false);
     let titles: Vec<&str> = gaps.iter().map(|gap| gap.title.as_str()).collect();
     assert_eq!(

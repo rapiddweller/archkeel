@@ -6,7 +6,7 @@
 
 /// Why an expression has no text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Failure {
+pub enum TextFailure {
     /// CPython raises `ValueError`: `annotation_text` is `None`.
     Invalid,
     /// Over `MAX_DEPTH` levels: CPython can stop with `RecursionError`.
@@ -19,8 +19,6 @@ pub enum Failure {
     Spec312,
     /// A format spec nests deeper than CPython keeps it.
     SpecDepth,
-    /// The interpreter of the request is outside 3.11 to 3.14: no text rules (L-37b).
-    Version,
 }
 
 /// `_Precedence`: `BOR` is `EXPR`.

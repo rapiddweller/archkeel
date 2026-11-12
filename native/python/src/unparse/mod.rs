@@ -9,6 +9,7 @@
 //! from about 158 levels (a dict), and the Python collector does not catch it. This writer stops
 //! at `MAX_DEPTH` levels with `Failure::Deep`, so it never needs more stack than the parse.
 
+use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{Expr, Number, Parameters};
 
 mod ftext;
@@ -18,22 +19,17 @@ mod operators;
 mod outcome;
 
 pub use hazard::{replaced, string_failure};
-pub use outcome::Failure;
 use outcome::Prec;
+pub use outcome::TextFailure;
+use outcome::TextFailure as Failure;
 
 /// The deepest expression that this writer writes: at most 7 Python frames for each level stay
 /// well under the recursion limit of 1 000.
 pub const MAX_DEPTH: u32 = 100;
 
-/// The minor versions whose text rules this writer has (L-37b).
-pub const MINORS: std::ops::RangeInclusive<u32> = 11..=14;
-
 /// `ast.unparse(expr)` in the Python of `minor`. `source` is the text of the module after
 /// `source::newlines`.
-pub fn unparse(expr: &Expr, minor: u32, source: &str) -> Result<String, Failure> {
-    if !MINORS.contains(&minor) {
-        return Err(Failure::Version);
-    }
+pub fn unparse(expr: &Expr, minor: PyMinor, source: &str) -> Result<String, Failure> {
     let mut writer = Writer::new(minor, source, false);
     writer.expr(expr, Prec::Test)?;
     Ok(writer.out)
@@ -42,15 +38,12 @@ pub fn unparse(expr: &Expr, minor: u32, source: &str) -> Result<String, Failure>
 /// `annotation_text`: the name of a `Name`, `None` without an expression or for `ValueError`.
 pub fn annotation_text(
     expr: Option<&Expr>,
-    minor: u32,
+    minor: PyMinor,
     source: &str,
 ) -> Result<Option<String>, Failure> {
     let Some(expr) = expr else {
         return Ok(None);
     };
-    if !MINORS.contains(&minor) {
-        return Err(Failure::Version);
-    }
     if let Expr::Name(name) = expr {
         return Ok(Some(name.id.to_string()));
     }
@@ -63,7 +56,7 @@ pub fn annotation_text(
 
 struct Writer<'s> {
     out: String,
-    minor: u32,
+    minor: PyMinor,
     source: &'s str,
     /// 3.11 only: the unparser of a field of an f-string avoids backslashes.
     avoid_backslashes: bool,
@@ -71,7 +64,7 @@ struct Writer<'s> {
 }
 
 impl<'s> Writer<'s> {
-    fn new(minor: u32, source: &'s str, avoid_backslashes: bool) -> Self {
+    fn new(minor: PyMinor, source: &'s str, avoid_backslashes: bool) -> Self {
         Writer {
             out: String::new(),
             minor,
@@ -83,7 +76,7 @@ impl<'s> Writer<'s> {
 
     /// A writer for a field of an f-string, one level deeper than this one.
     fn inner(&self) -> Writer<'s> {
-        let mut writer = Writer::new(self.minor, self.source, self.minor < 12);
+        let mut writer = Writer::new(self.minor, self.source, legacy(self.minor));
         writer.depth = self.depth;
         writer
     }
@@ -232,6 +225,13 @@ impl<'s> Writer<'s> {
             self.expr(annotation, Prec::Test)?;
         }
         Ok(())
+    }
+}
+
+fn legacy(minor: PyMinor) -> bool {
+    match minor {
+        PyMinor::Py311 => true,
+        PyMinor::Py312 | PyMinor::Py313 | PyMinor::Py314 => false,
     }
 }
 

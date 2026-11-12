@@ -216,7 +216,7 @@ PROBES: dict[str, str] = {
     "try-star": "try:\n    pass\nexcept* A:\n    def f(): pass\n",
     "match": (
         "match x:\n    case [a, *rest] if a:\n        def f(): pass\n"
-        "    case {'k': v, **kw}:\n        class C: pass\n    case P(a, b=c) | None:\n"
+        "    case {'k': v, **kw}:\n        class C: pass\n    case P(a, b=c):\n"
         "        def g(): pass\n    case _:\n        def h(): pass\n"
     ),
     "with": "with a as b, c:\n    def f(): pass\n    with d:\n        class C: pass\n",
@@ -287,7 +287,7 @@ PROBES: dict[str, str] = {
     "shape": (
         "def a():\n    '''doc'''\n    return 1 + 2\ndef b():\n    return x * y\n"
         "def c():\n    1\n    return f'{a!r:>{b}}'\ndef d():\n    b'doc'\n"
-        "def e():\n    ...\ndef g():\n    match x:\n        case [1, *r] | {'a': 1}: pass\n"
+        "def e():\n    ...\ndef g():\n    match x:\n        case [1, *_] | {'a': 1}: pass\n"
     ),
     "unicode-nfkc": (
         "def ﬁle(): pass\nclass Ｃ: pass\ndef \u00e9t\u00e9(): pass\nclass _Ünder: pass\n"
@@ -491,6 +491,7 @@ def test_a_version_outside_3_11_to_3_14_is_refused_before_any_text(
             input="src/app/__init__.py\n",
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
         )
-        assert set(json.loads(completed.stdout)["texts"]) == {"<Version>"}
+        assert completed.returncode != 0
+        assert "Python minor" in completed.stderr

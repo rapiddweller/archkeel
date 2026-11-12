@@ -50,11 +50,11 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
     // with its reason (AD-378).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
-    assert_eq!(decided.len(), 31);
+    assert_eq!(decided.len(), 43);
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],
-        "incomplete scope: the rule NATIVE-ASSIGNMENT-COMPLETE selects no module"
+        "incomplete scope: the rule NATIVE-PY-SYMBOLS-NO-SURVEY selects no module"
     );
     assert_eq!(got["status"], "UNKNOWN");
     assert_eq!(got["violations"], json!({}));

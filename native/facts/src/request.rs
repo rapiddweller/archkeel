@@ -14,6 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::envelope::Dirty;
 use crate::protocol::Version;
+use crate::pyminor::PythonVersion;
 
 /// One collection request. `R` is the settings of the language: the whole `Resolver` as the wire
 /// has it, or the settings of one language after the collector has chosen it.
@@ -124,7 +125,8 @@ closed! {
 #[serde(deny_unknown_fields)]
 pub struct Interpreter {
     /// `platform.python_version()`, for example `3.11.12`: the version that the facts claim.
-    pub version: String,
+    #[schemars(with = "String")]
+    pub version: PythonVersion,
     /// `sys.stdlib_module_names`, sorted.
     pub stdlib_module_names: Vec<String>,
     /// `sys.builtin_module_names`, sorted. The set depends on the build, not on the version.

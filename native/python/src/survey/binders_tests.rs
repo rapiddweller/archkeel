@@ -6,7 +6,7 @@ use super::*;
 use crate::parse::parse;
 
 fn facts(text: &str) -> Binders {
-    Binders::of(&parse(text, 13).expect("valid source"))
+    Binders::of(&parse(text, crate::test_minor(13)).expect("valid source"))
 }
 
 fn unique(text: &str) -> Vec<String> {

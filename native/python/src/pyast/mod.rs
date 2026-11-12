@@ -22,7 +22,7 @@ pub use fstring::Piece;
 pub use node::{bool_op, cmp_op, operator, unary_op, Node};
 
 /// `ast.walk`: the nodes in breadth-first order, the root first.
-pub fn walk<'a>(root: Node<'a>, minor: u32) -> Walk<'a> {
+pub fn walk<'a>(root: Node<'a>, minor: archkeel_facts::pyminor::PyMinor) -> Walk<'a> {
     Walk {
         pending: VecDeque::from([root]),
         minor,
@@ -31,7 +31,7 @@ pub fn walk<'a>(root: Node<'a>, minor: u32) -> Walk<'a> {
 
 pub struct Walk<'a> {
     pending: VecDeque<Node<'a>>,
-    minor: u32,
+    minor: archkeel_facts::pyminor::PyMinor,
 }
 
 impl<'a> Iterator for Walk<'a> {

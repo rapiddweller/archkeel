@@ -16,11 +16,17 @@
 
 /// One range a line: `<version> <start|continue> <first> <last>` (see `identifier.txt`).
 const TABLE: &str = include_str!("identifier.txt");
+use archkeel_facts::pyminor::PyMinor;
 
 /// Whether CPython 3.`minor` refuses `c` in an identifier that ruff accepts: `first` for the first
 /// character of the name. Only a name with a character outside ASCII comes here.
-pub fn refused(minor: u32, first: bool, c: char) -> bool {
-    let version = format!("3.{}", minor.clamp(11, 14));
+pub fn refused(minor: PyMinor, first: bool, c: char) -> bool {
+    let version = match minor {
+        PyMinor::Py311 => "3.11",
+        PyMinor::Py312 => "3.12",
+        PyMinor::Py313 => "3.13",
+        PyMinor::Py314 => "3.14",
+    };
     let kind = if first { "start" } else { "continue" };
     let code = u32::from(c);
     TABLE.lines().any(|line| {

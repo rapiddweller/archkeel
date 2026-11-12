@@ -16,9 +16,9 @@ use archkeel_facts::identity::{stable_id, Part};
 use ruff_python_ast::Expr;
 use serde_json::{json, Map, Value};
 
+use crate::module::{EvidenceMap, Location, Module};
 use crate::pyast::{walk, Node};
-use crate::survey::module::{EvidenceMap, Module};
-use crate::unparse::{self, Failure};
+use crate::unparse::{self, TextFailure as Failure};
 use sites::{Def, Site};
 
 mod callable;
@@ -39,7 +39,7 @@ pub enum Table {
 pub fn table(
     module: &Module,
     all_exports: &HashSet<String>,
-    minor: u32,
+    minor: archkeel_facts::pyminor::PyMinor,
     witnesses: bool,
     evidence: &mut EvidenceMap,
 ) -> Table {
@@ -107,7 +107,6 @@ fn gap(module: &Module, failure: Failure) -> Table {
                 .to_owned()
         }
         Failure::SpecDepth => "a format spec nests deeper than two levels".to_owned(),
-        Failure::Version => "the interpreter is outside Python 3.11 to 3.14".to_owned(),
         Failure::Invalid => "an expression has no text (ValueError)".to_owned(),
     };
     Table::Gap {
@@ -117,10 +116,7 @@ fn gap(module: &Module, failure: Failure) -> Table {
 }
 
 /// The first string of the module whose CPython value or tree native cannot write.
-fn first_failure(module: &Module, minor: u32) -> Option<Failure> {
-    if !unparse::MINORS.contains(&minor) {
-        return Some(Failure::Version);
-    }
+fn first_failure(module: &Module, minor: archkeel_facts::pyminor::PyMinor) -> Option<Failure> {
     module
         .tree
         .body
@@ -141,7 +137,7 @@ struct Header<'h> {
 
 /// `definition_id`: the qualified name and the location of the `def` or `class` keyword.
 fn definition_id(module: &Module, def: Def<'_>, qualname: &str) -> String {
-    let (line, _, column) = module.location(&def.range(module.text()));
+    let Location { line, column, .. } = module.location(&def.range(module.text()));
     stable_id(
         "SYM",
         &[

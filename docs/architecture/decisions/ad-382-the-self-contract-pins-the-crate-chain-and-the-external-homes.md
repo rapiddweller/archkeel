@@ -57,8 +57,8 @@ is #1075 item 6. (d) `dependency: "std"`: every crate uses `std`.
 method on a value whose type it does not name (except the listed `Path` methods), a macro
 (`eprintln!`, `include_str!`) or an io trait method; an own method with a listed name is a hit
 that a pin must name. The API list cannot tell two `pub fn` of one name in two `impl` blocks of
-one file apart. The sideways import `symbols` -> `survey::module` of `native/python` is not on
-main yet (#1068). A trait impl in a third module stays a silent miss (AD-357). The facade
+one file apart. AD-389 moves `Module` below `survey` and holds the Python collection spine with
+forbidden-direction rules. A trait impl in a third module stays a silent miss (AD-357). The facade
 semantics of an import-level check: a user depends on the module that it names, not on the type
 flow. So a method on a value that a factory of an allowed module returns gives no edge and no
 gap, and a `pub use` through an allowed module is not followed to its origin (ts-dump can name

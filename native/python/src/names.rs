@@ -8,12 +8,13 @@
 use std::collections::HashSet;
 
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::pyrepr::string;
 
 /// The dotted module of a snapshot path: the path from the first part where the namespace
 /// starts, without its last suffix and without a last `__init__`. `None` when the path does not
 /// hold the namespace (`module_for` raises `ValueError`).
-pub fn module_for(rel: &str, namespace: &str, minor: u32) -> Option<String> {
+pub fn module_for(rel: &str, namespace: &str, minor: PyMinor) -> Option<String> {
     let mut parts: Vec<&str> = rel.split('/').filter(|part| !part.is_empty()).collect();
     let last = parts.pop()?;
     parts.push(without_suffix(last, minor)?);
@@ -31,8 +32,11 @@ pub fn module_for(rel: &str, namespace: &str, minor: u32) -> Option<String> {
 /// `None` for its `ValueError`. Up to 3.13 the suffix starts at the last dot that is neither the
 /// first nor the last character, and 3.13 refuses the stem `.`; 3.14 splits as
 /// `os.path.splitext`, where leading dots never start the suffix.
-fn without_suffix(name: &str, minor: u32) -> Option<&str> {
-    if minor >= 14 {
+fn without_suffix(name: &str, minor: PyMinor) -> Option<&str> {
+    if match minor {
+        PyMinor::Py311 | PyMinor::Py312 | PyMinor::Py313 => false,
+        PyMinor::Py314 => true,
+    } {
         let dots = name.len() - name.trim_start_matches('.').len();
         return Some(
             name[dots..]
@@ -44,7 +48,10 @@ fn without_suffix(name: &str, minor: u32) -> Option<&str> {
         Some(at) if at > 0 && at + 1 < name.len() => &name[..at],
         _ => name,
     };
-    (minor != 13 || stem != ".").then_some(stem)
+    match minor {
+        PyMinor::Py311 | PyMinor::Py312 | PyMinor::Py314 => Some(stem),
+        PyMinor::Py313 => (stem != ".").then_some(stem),
+    }
 }
 
 /// `source.package_for`: the first two parts of a module.
@@ -97,7 +104,7 @@ fn repr(text: &str) -> String {
 pub const SHADOWED_KIND: &str = "ShadowedModule";
 
 /// The selected modules that a package of the same name shadows, in the order of `selected`.
-pub fn shadowed(selected: &[String], namespace: &str, minor: u32) -> Vec<Shadowed> {
+pub fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Shadowed> {
     let named: Vec<(&String, String)> = selected
         .iter()
         .filter_map(|rel| module_for(rel, namespace, minor).map(|module| (rel, module)))

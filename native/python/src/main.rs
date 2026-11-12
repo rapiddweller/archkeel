@@ -9,28 +9,29 @@
 
 #![forbid(unsafe_code)]
 
-mod depth;
-mod discover;
 #[cfg(feature = "dump")]
 mod dump;
-mod identifier;
-mod inputs;
-mod limits;
-mod names;
-mod parse;
+mod reply;
+
+mod survey;
 // AD-377: the definition table and its bases have no caller in the reply yet; the test dump reads
 // them. The slice that writes the section `symbols` builds them into the release binary.
-#[cfg(any(test, feature = "dump"))]
-mod pyast;
-mod reply;
-mod requirement;
-mod source;
-mod stack;
-mod survey;
 #[cfg(any(test, feature = "dump"))]
 mod symbols;
 #[cfg(any(test, feature = "dump"))]
 mod unparse;
+
+mod module;
+#[cfg(any(test, feature = "dump"))]
+mod pyast;
+
+mod discover;
+mod inputs;
+mod names;
+mod parse;
+mod requirement;
+
+mod source;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -119,4 +120,30 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+#[cfg(test)]
+fn test_minor(number: u32) -> archkeel_facts::pyminor::PyMinor {
+    archkeel_facts::pyminor::PyMinor::decode(&number.to_string()).expect("supported test minor")
+}
+
+/// Isolated tree-reader tests also use compiler-invalid ASTs. The request path never calls this.
+#[cfg(test)]
+fn test_tree(text: &str, minor: u32) -> Result<ruff_python_ast::ModModule, String> {
+    use ruff_python_parser::{parse_unchecked, Mode, ParseOptions};
+    let version = ruff_python_ast::PythonVersion {
+        major: 3,
+        minor: test_minor(minor).number(),
+    };
+    let parsed = parse_unchecked(
+        text,
+        ParseOptions::from(Mode::Module).with_target_version(version),
+    );
+    if !parsed.errors().is_empty() || !parsed.unsupported_syntax_errors().is_empty() {
+        return Err("invalid probe syntax".to_owned());
+    }
+    parsed
+        .try_into_module()
+        .map(|module| module.into_syntax())
+        .ok_or_else(|| "not a module".to_owned())
 }

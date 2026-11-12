@@ -1526,6 +1526,42 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PY-MODULE",
+      "label": "py-module",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.module"
+      ],
+      "responsibilities": [
+        "Keep one parsed module and its source evidence below both consumers."
+      ],
+      "forbidden_responsibilities": [
+        "Running a survey or writing a symbol record."
+      ],
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Build typed source evidence."
+        },
+        {
+          "component": "py-text",
+          "rationale": "Read source positions."
+        },
+        {
+          "component": "py-scope",
+          "rationale": "Name the package of a module."
+        },
+        {
+          "component": "pytext",
+          "rationale": "Strip Python white space with its one implementation."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-PY-TEXT",
       "label": "py-text",
       "role": "component",
@@ -1548,11 +1584,7 @@
       "label": "py-parse",
       "role": "component",
       "packages": [
-        "native.archkeel_python_collector.parse",
-        "native.archkeel_python_collector.limits",
-        "native.archkeel_python_collector.identifier",
-        "native.archkeel_python_collector.stack",
-        "native.archkeel_python_collector.depth"
+        "native.archkeel_python_collector.parse"
       ],
       "responsibilities": [
         "Parse one Python module with the grammar of one Python version and the limits of CPython: the tokenizer limits, the depth bound before the parse and MAX_AST_DEPTH (AD-334)."
@@ -1651,6 +1683,10 @@
       ],
       "requires": [
         {
+          "component": "py-module",
+          "rationale": "Read the parsed module and file its evidence."
+        },
+        {
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345)."
         },
@@ -1729,6 +1765,12 @@
       "provenance": [
         "docs/architecture/decisions/ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md"
       ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Read the decoded CPython minor."
+        }
+      ],
       "decided_by": "architect"
     },
     {
@@ -1789,7 +1831,7 @@
           "rationale": "Write the text of an annotation, a default, a base and a decorator."
         },
         {
-          "component": "py-survey",
+          "component": "py-module",
           "rationale": "Read the parsed module and file its evidence."
         }
       ],
@@ -1812,6 +1854,10 @@
         "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
       ],
       "requires": [
+        {
+          "component": "py-module",
+          "rationale": "Keep the cited evidence by id."
+        },
         {
           "component": "snapshot",
           "rationale": "Read the files through the one owner of snapshot reads."
@@ -1876,6 +1922,10 @@
       ],
       "requires": [
         {
+          "component": "pytext",
+          "rationale": "Declare the shared Python text dependency of the crate."
+        },
+        {
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345)."
         },
@@ -1908,6 +1958,150 @@
     }
   ],
   "rules": [
+    {
+      "id": "NATIVE-PY-SYMBOLS-NO-SURVEY",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.symbols",
+      "target": "native.archkeel_python_collector.survey",
+      "include_type_checking": true,
+      "rationale": "The symbol table reads shared module data, not the survey (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-UNPARSE-NO-SURVEY",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.unparse",
+      "target": "native.archkeel_python_collector.survey",
+      "include_type_checking": true,
+      "rationale": "Expression text is below the survey (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-UNPARSE-NO-SYMBOLS",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.unparse",
+      "target": "native.archkeel_python_collector.symbols",
+      "include_type_checking": true,
+      "rationale": "Expression text is below the symbol table (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-MODULE-NO-SURVEY",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.module",
+      "target": "native.archkeel_python_collector.survey",
+      "include_type_checking": true,
+      "rationale": "Shared module data is below the survey (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-MODULE-NO-SYMBOLS",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.module",
+      "target": "native.archkeel_python_collector.symbols",
+      "include_type_checking": true,
+      "rationale": "Shared module data is below the symbol table (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-MODULE-NO-UNPARSE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.module",
+      "target": "native.archkeel_python_collector.unparse",
+      "include_type_checking": true,
+      "rationale": "Shared module data does not write expression text (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-TREE-NO-SURVEY",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.pyast",
+      "target": "native.archkeel_python_collector.survey",
+      "include_type_checking": true,
+      "rationale": "The tree view is below the survey (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-TREE-NO-SYMBOLS",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.pyast",
+      "target": "native.archkeel_python_collector.symbols",
+      "include_type_checking": true,
+      "rationale": "The tree view is below the symbol table (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-TREE-NO-UNPARSE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.pyast",
+      "target": "native.archkeel_python_collector.unparse",
+      "include_type_checking": true,
+      "rationale": "The tree view does not write expression text (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-PARSE-NO-SURVEY",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.parse",
+      "target": "native.archkeel_python_collector.survey",
+      "include_type_checking": true,
+      "rationale": "The parse is below the survey (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-PARSE-NO-SYMBOLS",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.parse",
+      "target": "native.archkeel_python_collector.symbols",
+      "include_type_checking": true,
+      "rationale": "The parse is below the symbol table (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PY-PARSE-NO-UNPARSE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector.parse",
+      "target": "native.archkeel_python_collector.unparse",
+      "include_type_checking": true,
+      "rationale": "The parse does not write expression text (AD-389).",
+      "provenance": [
+        "docs/architecture/native.md"
+      ],
+      "decided_by": "architect"
+    },
     {
       "id": "NATIVE-ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
@@ -2118,10 +2312,12 @@
       "kind": "external_dependency_scope",
       "dependency": "ruff_python_parser",
       "allowed_sources": [
+        "native.archkeel_python_collector.parse.expressioncheck",
+        "native.archkeel_python_collector.parse.postparse",
         "native.archkeel_python_collector.parse",
-        "native.archkeel_python_collector.limits",
-        "native.archkeel_python_collector.stack",
-        "native.archkeel_python_collector.depth",
+        "native.archkeel_python_collector.parse.limits",
+        "native.archkeel_python_collector.parse.stack",
+        "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.cargo_toml"
       ],
       "rationale": "Only the parse modules of the Python collector use the Python parser, so a parser update cannot reach discovery, naming or records.",
@@ -2135,13 +2331,19 @@
       "kind": "external_dependency_scope",
       "dependency": "ruff_python_ast",
       "allowed_sources": [
+        "native.archkeel_python_collector.parse.expressioncheck",
+        "native.archkeel_python_collector.parse.postparse",
+        "native.archkeel_python_collector.parse.patterncheck",
+        "native.archkeel_python_collector.parse.scopecheck",
+        "native.archkeel_python_collector.parse.stringcheck",
+        "native.archkeel_python_collector.unparse.ftext",
         "native.archkeel_python_collector.parse",
-        "native.archkeel_python_collector.limits",
-        "native.archkeel_python_collector.stack",
-        "native.archkeel_python_collector.depth",
+        "native.archkeel_python_collector.parse.limits",
+        "native.archkeel_python_collector.parse.stack",
+        "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.survey.binders",
         "native.archkeel_python_collector.survey.imports",
-        "native.archkeel_python_collector.survey.module",
+        "native.archkeel_python_collector.module",
         "native.archkeel_python_collector.survey.namespace",
         "native.archkeel_python_collector.survey.stable",
         "native.archkeel_python_collector.survey.walks",
@@ -2204,7 +2406,11 @@
       "kind": "external_dependency_scope",
       "dependency": "ruff_text_size",
       "allowed_sources": [
-        "native.archkeel_python_collector.survey.module",
+        "native.archkeel_python_collector.parse.patterncheck",
+        "native.archkeel_python_collector.parse",
+        "native.archkeel_python_collector.parse.postparse",
+        "native.archkeel_python_collector.parse.stringcheck",
+        "native.archkeel_python_collector.module",
         "native.archkeel_python_collector.cargo_toml",
         "native.archkeel_python_collector.pyast.fstring",
         "native.archkeel_python_collector.unparse.hazard",
