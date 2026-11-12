@@ -62,13 +62,20 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     code, lines = _run(["compare", "--case", "rust/native", "--engine-command", core], capsys)
     assert code == 1
     differences = [line for line in lines if line.startswith("rust/native: ")]
-    # The violations of the S1 kinds and the four sections of S3 are equal; each other section
-    # and rule names its part.
-    assert len(differences) == 1 + 15
+    # The violations of the decided kinds and the four sections of S3 are equal; each other
+    # section and rule names its part.
+    assert len(differences) == 2 + 15
     assert differences[0].startswith("rust/native: rules: ")
-    # AD-378: the five rules of the S1 and S2 kinds are a decided UNKNOWN equal to Python (the
-    # reply has pair gaps that the contract does not allow); the three others name their kind.
-    assert "3 owned rules are unsupported, first: unsupported: rule kind" in differences[0]
+    # AD-384: every kind of the native contract is decided. The kept pair gaps hold each rule
+    # but NATIVE-ASSIGNMENT-COMPLETE, which passes beyond Python; NATIVE-REQUIRES-COMPLETE names
+    # the dependency scope proof of the host.
+    assert "1 owned rules are unsupported, first: unsupported: the scope proof: a coverage" in (
+        differences[0]
+    )
+    assert [line for line in differences if BEYOND.search(line)] == [
+        "rust/native: rules: NATIVE-ASSIGNMENT-COMPLETE: core decides, Python does not: no one "
+        "of the 40 kept pair gaps can change the rule"
+    ]
     assert "rust/native: metrics: -: unsupported: section metrics: slice S10 ports it" in lines
     owned = ("violations", "dependency_edges", "modules", "packages", "cycles", "edges")
     assert not [line for line in differences if line.split(": ")[1] in owned]
@@ -256,7 +263,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 635 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 645 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
@@ -355,7 +362,7 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -
     once for each name (9.56 GB for 200 names of `dependency_edges`). The binary refuses it."""
     binary = core.split(" ")[0]
     request = {
-        "protocol": "archkeel-dual-run-3",
+        "protocol": "archkeel-dual-run-4",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
@@ -369,6 +376,7 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -
         "profile": "",
         "standard_library": [],
         "insides": [],
+        "roots": [],
     }
     done = subprocess.run(
         [binary, "dual-run"], input=json.dumps(request), capture_output=True, text=True, check=False

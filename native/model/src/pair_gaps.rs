@@ -17,7 +17,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
-use archkeel_contract::{Component, Contract, CycleLevel, Rule, RuleKind};
+use archkeel_contract::{kind_of, Component, Contract, CycleLevel, Rule, RuleKind};
 
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Table};
@@ -70,29 +70,36 @@ pub enum Reads<'r> {
 /// reads every edge.
 pub fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r> {
     match rule {
-        Rule::RootLayout(_)
-        | Rule::LayerOrder(_)
-        | Rule::SymbolPlacement(_)
-        | Rule::AllowedDependency(_) => Reads::NoEdge,
-        Rule::CompleteAssignment(_) => Reads::Modules,
-        Rule::ExternalDependencyScope(_) | Rule::CompleteExternalScope(_) => Reads::ExternalImports,
         Rule::ForbiddenDependency(rule) => Reads::Sides(dependency_sides(rule, components)),
         Rule::SiblingIsolation(rule) => {
             Reads::Members(rule.members().iter().map(|m| m.as_text()).collect())
         }
-        Rule::CompleteRequires(_)
-        | Rule::NoComponentCycles(_)
-        | Rule::InterfaceBoundary(_)
-        | Rule::ForbiddenConstruct(_)
-        | Rule::SourceOwnership(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::CallOwner(_)
-        | Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
-        | Rule::CatalogUse(_)
-        | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::ProtocolDeclarations(_)
-        | Rule::BoundaryTypes(_) => Reads::Every,
+        other => by_kind(kind_of(other)),
+    }
+}
+
+/// The reading of a kind that needs no field of its rule.
+fn by_kind(kind: RuleKind) -> Reads<'static> {
+    use RuleKind as K;
+    match kind {
+        K::RootLayout | K::LayerOrder | K::SymbolPlacement | K::AllowedDependency => Reads::NoEdge,
+        K::CompleteAssignment => Reads::Modules,
+        K::ExternalDependencyScope | K::CompleteExternalScope => Reads::ExternalImports,
+        // `reads` gives these two their own reading; here they read every edge (fail closed).
+        K::ForbiddenDependency | K::SiblingIsolation => Reads::Every,
+        K::CompleteRequires
+        | K::NoComponentCycles
+        | K::InterfaceBoundary
+        | K::ForbiddenConstruct
+        | K::SourceOwnership
+        | K::BoundedNumericOperand
+        | K::CallOwner
+        | K::ForbiddenCallArgument
+        | K::CatalogArgument
+        | K::CatalogUse
+        | K::ForbiddenEffectUnderCondition
+        | K::ProtocolDeclarations
+        | K::BoundaryTypes => Reads::Every,
     }
 }
 

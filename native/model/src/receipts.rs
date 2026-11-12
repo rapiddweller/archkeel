@@ -15,7 +15,7 @@
 //! the coverage has no gap and no failure (`evaluate.py:1229`): that is the scope state and the
 //! gap scope, which `Scope::complete` checks first.
 
-use archkeel_contract::{CycleLevel, Lifecycle, NoComponentCycles, Rule};
+use archkeel_contract::{CycleLevel, Lifecycle, NoComponentCycles, Rule, RuleKind};
 
 use crate::brand::Brand;
 use crate::causes::{Cause, Part};
@@ -192,33 +192,38 @@ pub(crate) fn requires(
     Ok(())
 }
 
-/// A rule whose source `scope_receipts_complete` adds to the receipt scopes.
+/// The kinds of the edges whose rules add no receipt scope (`scope_receipts_complete`).
+const EDGE_KINDS: [RuleKind; 7] = [
+    RuleKind::AllowedDependency,
+    RuleKind::CompleteRequires,
+    RuleKind::ForbiddenDependency,
+    RuleKind::InterfaceBoundary,
+    RuleKind::LayerOrder,
+    RuleKind::NoComponentCycles,
+    RuleKind::SiblingIsolation,
+];
+
+/// A rule whose source `scope_receipts_complete` adds to the receipt scopes. A kind outside the
+/// two lists adds one (fail closed); `forbidden_construct` adds one with a selector.
 fn selector_source(rule: &Rule) -> bool {
+    let kind = archkeel_contract::kind_of(rule);
     match rule {
         Rule::ForbiddenConstruct(rule) => rule.selector().is_some(),
-        Rule::ProtocolDeclarations(_)
-        | Rule::SourceOwnership(_)
-        | Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
-        | Rule::CatalogUse(_)
-        | Rule::ForbiddenEffectUnderCondition(_) => true,
-        Rule::ForbiddenDependency(_)
-        | Rule::AllowedDependency(_)
-        | Rule::SiblingIsolation(_)
-        | Rule::LayerOrder(_)
-        | Rule::CompleteRequires(_)
-        | Rule::CompleteAssignment(_)
-        | Rule::RootLayout(_)
-        | Rule::ExternalDependencyScope(_)
-        | Rule::CompleteExternalScope(_)
-        | Rule::NoComponentCycles(_)
-        | Rule::InterfaceBoundary(_)
-        | Rule::SymbolPlacement(_)
-        | Rule::BoundaryTypes(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::CallOwner(_) => false,
+        _ => !(EDGE_KINDS.contains(&kind) || MODULE_KINDS.contains(&kind)),
     }
 }
+
+/// The kinds of the modules, symbols and imports whose rules add no receipt scope.
+const MODULE_KINDS: [RuleKind; 8] = [
+    RuleKind::BoundaryTypes,
+    RuleKind::BoundedNumericOperand,
+    RuleKind::CallOwner,
+    RuleKind::CompleteAssignment,
+    RuleKind::CompleteExternalScope,
+    RuleKind::ExternalDependencyScope,
+    RuleKind::RootLayout,
+    RuleKind::SymbolPlacement,
+];
 
 impl From<Cause> for Reason {
     fn from(cause: Cause) -> Reason {
