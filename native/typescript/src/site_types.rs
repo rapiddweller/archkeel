@@ -18,11 +18,7 @@ pub enum SiteKind {
 
 impl SiteKind {
     pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Call => "call",
-            Self::New => "new",
-            Self::Reference => "reference",
-        }
+        ["call", "new", "reference"][self as usize]
     }
 }
 
