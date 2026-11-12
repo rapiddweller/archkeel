@@ -192,14 +192,13 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     assert left == [], left
     assert code == (1 if differences else 0)
     # The s4 cases: each gap that the reply of a store-accepted profile can hold gives the
-    # verdict of Python. The reply of the honest external collector is not compressed, so the
-    # store refuses it; the Rust tests check the producer.
+    # verdict of Python. The native-backed external reply is compressed; an unpinned producer
+    # stays UNKNOWN in both engines and no longer produces a store-refusal difference.
     s4 = [line for line in differences if line.startswith("s4/")]
     assert {line.split(":")[0] for line in s4} == {
         "s4/a-symbol-selector-is-a-limit-of-some-profiles",
         "s4/an-interface-boundary-is-a-limit-of-some-profiles",
         "s4/an-external-collector-with-a-pin-passes",
-        "s4/an-external-collector-without-a-pin-is-unknown",
     }
 
 
@@ -360,14 +359,21 @@ def test_the_inside_cases_equal_python_on_every_decided_kind_with_their_rows(
     assert "; 9 projects; 106 rules; 1 differences;" in lines[-1]
 
 
-def test_a_pinned_external_collector_is_not_trusted_by_the_core(core: str) -> None:
-    """AD-388, L-35c (review S2 of #1090): Python trusts the pinned external collector of this
-    case and passes its rules; the core cannot verify the pin, so each of these rules is UNKNOWN
-    with the reason that names the pin, and the run is not PASS."""
-    case = next(c for c in dual_run.corpus_cases() if c.id == PIN_CASE)
+PIN_CASE = "pin/a-pinned-external-collector-is-not-trusted-by-the-core"
+
+
+@pytest.mark.parametrize(
+    "case_id,expected",
+    [(PIN_CASE, "PASS"), ("s4/an-external-collector-without-a-pin-is-unknown", "UNKNOWN")],
+)
+def test_a_pinned_external_collector_is_not_trusted_by_the_core(
+    core: str, case_id, expected
+) -> None:
+    """The host trusts only the pin. The core trusts neither configured producer."""
+    case = next(c for c in dual_run.corpus_cases() if c.id == case_id)
     with dual_run.materialized(case) as root:
         frame, reference = dual_run.engine_and_reference(case, root, core, Selection())
-    assert reference is not None and reference["declared_rules"] == "PASS"
+    assert reference is not None and reference["declared_rules"] == expected
     assert frame["status"] == "UNKNOWN", frame
     statuses = [status for _, status in frame["rules"].values()]
     assert statuses and set(statuses) == {"UNKNOWN"}, frame
@@ -375,9 +381,6 @@ def test_a_pinned_external_collector_is_not_trusted_by_the_core(core: str) -> No
         "incomplete scope: the reply does not come from the bundled collector, and the "
         "collector pin is not verified by the core"
     }
-
-
-PIN_CASE = "pin/a-pinned-external-collector-is-not-trusted-by-the-core"
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(

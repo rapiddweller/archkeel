@@ -446,7 +446,8 @@ def test_the_rust_parser_decides_each_contract_as_python_does() -> None:
             assert rust == python, name
         tally[f"{group} {'accepted' if python['kind'] == 'accept' else 'rejected'}"] += 1
     print(dict(tally))
-    assert tally["repository accepted"] >= 90
+    # AD-394 removes the Python TypeScript collector's nested contract.
+    assert tally["repository accepted"] >= 89
     assert tally["repository rejected"] >= 20
     assert tally["generated rejected"] >= 10000
     assert tally["generated accepted"] >= 2000
