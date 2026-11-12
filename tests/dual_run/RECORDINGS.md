@@ -16,3 +16,4 @@
 | 2026-11-12 | 1 | 766fd3db2 | AD-379 review: the tree V01, an inside claim outside its parent |
 | 2026-11-12 | 24 | 84c19ac9c | WP6 S5: the direction kinds (AD-380) |
 | 2026-11-12 | 2 | b988070ff | WP6 S5: two layer order FAIL cases (AD-380) |
+| 2026-11-12 | 2 | c644d0bed | WP6 S5 review: external, builtin and exact-source probes (AD-380) |
