@@ -52,10 +52,9 @@ AD-369 stays open.
 **Amendment (#1079): the definitions use the same limit.** The definition walks read the named
 children of each parent once from the cache, and count each child, scanned sibling, column byte
 and copied head of a declaration item. Past the limit the file gets "The definition analysis of
-this Dart source stops: ..." and no definitions or sites (a site gap keeps the definitions). The
-walks of own children (`enum_literals`, `type_children`) stay uncounted: they are linear.
-The 4.3 GB of 5 MB of `(` is Tree-sitter's stack. Rule: a source with over 100 000 opening
-brackets is not parsed ("... more than 100000 opening brackets ..."). Only openers count: a
+this Dart source stops: ..." and no definitions or sites (a site gap keeps the definitions). Own-child
+walks (`type_children`) stay uncounted: linear. The 4.3 GB of 5 MB of `(` is Tree-sitter's
+stack. Rule: a source with over 100 000 opening brackets is not parsed ("... more than 100000 opening brackets ..."). Only openers count: a
 closer in a comment or string never lowers it. Corpora: 0 of 7 146 files, largest 15 504. Open:
 5 MB of `!` or `a ? ` hold 4.4 and 2.3 GB. The parity tool lists both named cases as stricter.
 
