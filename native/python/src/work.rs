@@ -61,4 +61,14 @@ mod tests {
         assert!(!work.charge(1));
         assert!(!work.charge(usize::MAX));
     }
+
+    #[test]
+    fn a_configured_limit_keeps_its_own_used_count() {
+        let mut work = super::Work::with_limit(9);
+        assert!(work.charge(4));
+        assert_eq!(work.used(), 4);
+        assert!(work.charge(5));
+        assert_eq!(work.used(), 9);
+        assert!(!work.charge(1));
+    }
 }

@@ -13,9 +13,10 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
 from first_difference import same
@@ -253,13 +254,14 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
     )
     assert paths, "binding corpus has no Python files"
     counts = [len(paths), 0, 0, 0]
+    minor = _minor()
     shared_refusals = 0
     gaps: Counter[str] = Counter()
     for row in _native_rows(binary, root, paths):
         if report := os.environ.get("ARCHKEEL_BINDING_WORK_REPORT"):
             private = root.name.startswith("priv")
             record = {
-                "minor": _minor(),
+                "minor": minor,
                 "corpus": "private aggregate" if private else root.name,
                 "file": "private aggregate" if private else row["file"],
                 "work": row["work"],
@@ -403,3 +405,20 @@ def test_binding_work_exhaustion_is_a_named_gap(tmp_path: Path, python_dump_bina
     assert not row["full_scope"]
     assert row["gap"] == "binding work limit exceeded"
     assert "data" not in row
+
+
+@pytest.mark.parametrize("functions", (False, True))
+def test_large_ordinary_files_keep_a_fourfold_work_margin(
+    functions: bool,
+    tmp_path: Path,
+    python_dump_binary: Path,
+) -> None:
+    text = (
+        "".join(f"def f{i}(p):\n    return p\n" for i in range(5000))
+        if functions
+        else "".join(f"v{i} = {i}\n" for i in range(10000))
+    )
+    (tmp_path / "probe.py").write_text(text)
+    row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
+    assert row["full_scope"], row.get("gap")
+    assert row["work"] * 4 <= 64_000_000

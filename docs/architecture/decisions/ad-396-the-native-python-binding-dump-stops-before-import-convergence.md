@@ -1,7 +1,6 @@
 # AD-396 The native Python binding dump stops before import convergence
 
 **Status.** Accepted. Part of #880. Stacked on #1091.
-
 **Number.** The lead reserves 396 after the open-PR number check. PR #1098 uses 394.
 This record takes the highest observed number plus two: AD-396.
 
@@ -13,8 +12,16 @@ The unused-binding collector needs the same own-body boundary. It has no import 
 88 in `symbols.py`, and the 138-line `bindings.py` module. Some source helpers already have
 restricted native forms in the import survey. This slice makes their ordered results directly
 comparable at the pre-import boundary. It does not count these spans as deletable Python.
-The PR lists all analyzer modules and their measured sizes. There is no prior exact ledger
-of partly ported lines. Use 810 as a conservative lower bound, not a guessed cumulative total.
+The PR lists modules, function spans and sizes. Use 810 as a lower bound, not a guessed total.
+
+**Budget.** All 4,885 corpus files on 3.11: maximum 2,846,247 units, a 22.48-fold margin.
+| Top five files (external paths relative to their corpus) | Units |
+|---|---:|
+| pydantic: `tests/benchmarks/corpus/google-genai/google/genai/types.py` | 2,846,247 |
+| `src/archkeel/ir/facts_validation.py` | 2,520,034 |
+| `src/archkeel/check/evaluation/boundary_types.py` | 2,163,788 |
+| pydantic: `tests/test_json_schema.py` | 1,747,494 |
+| `src/archkeel/analyzer/typescript/parse.py` | 1,484,327 |
 
 **Decision.**
 1. Add `--dump-bindings <minor> <root>` under the existing `dump` feature. Each input line names
@@ -29,7 +36,7 @@ of partly ported lines. Use 810 as a conservative lower bound, not a guessed cum
 4. Keep member-binding closure as a work list. Assignment aliases give edges in both directions.
    Containment gives a directed edge. A namespace expands once. Explicit local references
    do not give alias edges. The dump checks default and explicit proof inputs.
-5. Keep the parser budget at 2,000,000 units. Give the binding pass 64,000,000 units.
+5. Keep the parser budget at 2,000,000 units. Allow 64,000,000 for binding output and owner copies.
    Charge node loops, expression text bytes and copied owner-path bytes. Share owner paths
    through `Rc<str>` in both ownership walks. Charge two copies when a new path is built.
    Bound serialized output at 33,554,432 bytes, including JSON escapes and the final newline.
