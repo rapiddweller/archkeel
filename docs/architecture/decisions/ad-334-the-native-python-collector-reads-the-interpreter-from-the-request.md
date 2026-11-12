@@ -42,6 +42,14 @@
    `selected_paths` (rglob: a directory named `*.py` is selected, a symlinked directory is not
    entered), the test rule, `module_for`, the shadowed module (#797), `_inputs` (digest of
    `path\0bytes\0`) and `python_requirement` (`toml` 0.8.23 reads TOML 1.0, as `tomllib`).
+8. **The reply (slice 1c-2d).** `reply.rs` writes the 10.0.0 reply of the survey. It equals the
+   reply of the Python collector in the phase `imports`, and only `adapter` differs. The runtime
+   echoes `version` of the block. The reply declares only `imports` and `unknowns`, no feature
+   and no construct: these capabilities of the import survey are the "not collected" marker of
+   the protocol for `symbols`, `calls`, `references`, `bindings`, `typing_signals`, `constructs`
+   and the lists of the collection phase. The codec and the store refuse 10.0.0. Without that,
+   the evaluation refuses a Python reply with these capabilities. The host keeps the Python
+   collector for Python, also when the native binary and its digest are present.
 
 **Rejected.** (a) A JSON table for each version: it cannot hold the set of each build. (b) The
 tables of the host process: the host `sys.path` and site differ from the isolated child. (c) 10.0.0
@@ -57,4 +65,5 @@ host starts the native collector (slice 9). Search roots come with the provider 
 child sees; the Python collector refuses 10.0.0), `test_native_versions.py`, `request_tests.rs`,
 `schema_tests.rs`, `test_collector_native_python_parse.py` (`ARCHKEEL_PYTHON_PARSE_CORPUS` names a
 corpus), `test_collector_native_python_hostile.py` (320 hostile sources and the identifier table
-against the running CPython), `limits_tests.rs`, `depth_tests.rs`, `parse_tests.rs`.
+against the running CPython), `limits_tests.rs`, `depth_tests.rs`, `parse_tests.rs`, `reply_tests.rs`,
+`test_collector_native_python_reply.py` (point 8).

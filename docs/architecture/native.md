@@ -30,7 +30,7 @@ Cargo dependency that no module uses is a crate edge, and the contract rejects i
 | `archkeel-dart-collector` | Reads Dart source. It holds the discovery (AD-365), decodes the Dart request (AD-368) and parses each file without the sites (AD-369); it writes no reply before slice 5 of #880. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
 | `archkeel-typescript-collector` | Reads TypeScript source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-build-support` |
 | `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
-| `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1b: the parse only. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
+| `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1c-2d: the reply of the import survey, which the host does not read yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
@@ -137,6 +137,8 @@ flowchart LR
     n_40["py-entry"]
     n_44["py-scope"]
     n_45["py-inputs"]
+    n_46["py-survey"]
+    n_47["py-reply"]
     n_10 --> n_12
     n_10 --> n_13
     n_10 --> n_14
@@ -290,4 +292,17 @@ flowchart LR
     n_39 --> n_4
     n_39 --> n_44
     n_39 --> n_45
+    n_46 --> n_4
+    n_46 --> n_14
+    n_46 --> n_37
+    n_46 --> n_38
+    n_46 --> n_44
+    n_39 --> n_46
+    n_47 --> n_4
+    n_47 --> n_14
+    n_47 --> n_30
+    n_47 --> n_45
+    n_47 --> n_46
+    n_40 --> n_46
+    n_40 --> n_47
 ```

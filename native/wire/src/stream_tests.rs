@@ -39,6 +39,7 @@ fn head() -> Head {
         features: vec!["literal-imports"],
         constructs: vec![],
         inputs: vec![input("tsconfig.json", 'b', Role::Resolution)],
+        source_digest: None,
         files: vec![],
         imports: vec![],
     }
@@ -277,4 +278,17 @@ fn the_streamed_reply_decodes_through_the_envelope_and_encodes_to_the_same_value
             serde_json::from_str::<Value>(&text).unwrap()
         );
     }
+}
+
+#[test]
+fn a_given_source_digest_replaces_the_digest_of_the_listing() {
+    let mut given = head();
+    given.source_digest = Some("e".repeat(64));
+    let decoded: Reply = serde_json::from_str(&plain(Version::V10, given, tail())).unwrap();
+    assert_eq!(decoded.facts.source.source_digest, "e".repeat(64));
+    let listed: Reply = serde_json::from_str(&plain(Version::V10, head(), tail())).unwrap();
+    assert_eq!(
+        listed.facts.source.source_digest,
+        source_digest(&head().inputs)
+    );
 }

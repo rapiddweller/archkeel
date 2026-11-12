@@ -364,6 +364,12 @@ The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its t
 contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
 counts of `native/api_baseline.json`.
 
+## The native Python collector
+
+The native Python collector (not yet the default) cannot read the target of a dangling `*.py`
+link. When the scan leaves tests out, each dangling link is a named gap and the scope is not
+complete, also where Python would judge the target as production code (AD-367 point 5).
+
 ## Scope and nested contracts
 
 A run covers only configured roots and namespace. Adjacent tests need another
