@@ -57,6 +57,7 @@ head, as in Python, so a declaration of 20 000 items stops. 20 000 members or to
 definitions took 27 to 108 s and now take under 1 s. The memory of 5 MB of `(` (4.3 GB) is
 Tree-sitter's stack, not a rule. A source with over 9 000 open brackets (`(`, `[`, `{`, strings
 too, the stricter choice) is not parsed and gets the depth concern. Rejected: a cap on bytes.
+Open: 5 MB of `!` or of `a ? ` hold 4.4 and 2.3 GB; no bracket bound reaches them.
 
 **Measured (2026-11-12, oracle Python 3.11.12, release build).** Files byte-equal, sites
 included: fixtures 151 of 151, demo variants 295 of 295, the private app 28 of 28. Bench samples
