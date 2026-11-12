@@ -30,13 +30,27 @@ struct SdkInput {
 
 /// One result for each JSON input line; this is not a collector reply.
 pub(crate) fn sdk(text: &str) -> Result<String, String> {
-    let mut output = String::new();
-    for line in text.lines() {
-        let input: SdkInput = serde_json::from_str(line).map_err(|error| error.to_string())?;
+    rows(text, |input: SdkInput| {
         let (supported, gaps, work) =
             crate::records::sdk_support(input.state, input.constraint.as_deref());
-        let value = json!({"sdk_supported": supported, "gaps": gaps, "work": work});
-        output.push_str(&serde_json::to_string(&value).map_err(|error| error.to_string())?);
+        json!({"sdk_supported": supported, "gaps": gaps, "work": work})
+    })
+}
+
+pub(crate) fn declarations(text: &str) -> Result<String, String> {
+    rows(text, |input: crate::declarations::types::Input| {
+        crate::declarations::build(&input)
+    })
+}
+
+fn rows<T: serde::de::DeserializeOwned, R: serde::Serialize>(
+    text: &str,
+    build: impl Fn(T) -> R,
+) -> Result<String, String> {
+    let mut output = String::new();
+    for line in text.lines() {
+        let input = serde_json::from_str(line).map_err(|error| error.to_string())?;
+        output.push_str(&serde_json::to_string(&build(input)).map_err(|error| error.to_string())?);
         output.push('\n');
     }
     Ok(output)

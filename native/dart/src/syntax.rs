@@ -6,15 +6,15 @@
 //! definitions, the directives, the sites, the concerns and the first error. The field order is the order of the Python dataclasses, so that the dump of the
 //! parity test is the JSON of `dataclasses.asdict`.
 
-#[cfg(feature = "dump")]
 use serde::Serialize;
 
 /// A closed vocabulary: the dump writes each variant in snake case, as the Python `StrEnum`.
 macro_rules! vocabulary {
     ($(#[$meta:meta])* $vis:vis $name:ident { $($variant:ident),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        #[cfg_attr(feature = "dump", derive(Serialize), serde(rename_all = "snake_case"))]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+        #[serde(rename_all = "snake_case")]
+        #[cfg_attr(feature = "dump", derive(serde::Deserialize))]
         $vis enum $name {
             $($variant),+
         }
@@ -25,8 +25,8 @@ macro_rules! vocabulary {
 macro_rules! value {
     ($(#[$meta:meta])* $vis:vis $name:ident { $($field:ident: $kind:ty),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, Eq)]
-        #[cfg_attr(feature = "dump", derive(Serialize))]
+        #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+        #[cfg_attr(feature = "dump", derive(serde::Deserialize), serde(deny_unknown_fields))]
         $vis struct $name {
             $($vis $field: $kind),+
         }
@@ -138,18 +138,18 @@ impl Modifier {
     ];
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "dump", derive(Serialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "dump", derive(serde::Deserialize))]
 pub(crate) enum ConcernKind {
-    #[cfg_attr(feature = "dump", serde(rename = "syntax_error"))]
+    #[serde(rename = "syntax_error")]
     SyntaxError,
-    #[cfg_attr(feature = "dump", serde(rename = "invalid_encoding"))]
+    #[serde(rename = "invalid_encoding")]
     InvalidEncoding,
-    #[cfg_attr(feature = "dump", serde(rename = "LanguageVersionError"))]
+    #[serde(rename = "LanguageVersionError")]
     LanguageVersionError,
-    #[cfg_attr(feature = "dump", serde(rename = "unsupported_directive"))]
+    #[serde(rename = "unsupported_directive")]
     UnsupportedDirective,
-    #[cfg_attr(feature = "dump", serde(rename = "unsupported_declaration"))]
+    #[serde(rename = "unsupported_declaration")]
     UnsupportedDeclaration,
 }
 

@@ -22,6 +22,7 @@
 )]
 
 mod dartstr;
+mod declarations;
 mod definitions;
 mod directives;
 mod discover;
@@ -56,9 +57,16 @@ fn main() -> ExitCode {
             Err(error) => (ExitCode::from(1), String::new(), error),
         },
         #[cfg(feature = "dump")]
-        Some((flag, _)) if matches!(flag.as_str(), "--dump-sdk" | "--dump-syntax") => {
+        Some((flag, _))
+            if matches!(
+                flag.as_str(),
+                "--dump-sdk" | "--dump-syntax" | "--dump-declarations"
+            ) =>
+        {
             let dump = if flag == "--dump-sdk" {
                 dump::sdk
+            } else if flag == "--dump-declarations" {
+                dump::declarations
             } else {
                 dump::syntax
             };
