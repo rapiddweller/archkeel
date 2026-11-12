@@ -151,7 +151,7 @@ fn indent(out: &mut String, level: usize) {
 }
 
 /// The `indent=2` layout: an empty list is `[]`, an item has its own line.
-fn write(out: &mut String, value: &Value, level: usize) {
+pub(crate) fn write(out: &mut String, value: &Value, level: usize) {
     match value {
         Value::Null => out.push_str("null"),
         Value::Bool(flag) => out.push_str(if *flag { "true" } else { "false" }),

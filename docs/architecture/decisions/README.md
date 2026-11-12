@@ -377,3 +377,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-379 | [The core asks the shell for the inside contracts and decides the root rules of a tree](ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md) |
 | AD-380 | [The core decides the direction rule kinds](ad-380-the-core-decides-the-direction-rule-kinds.md) |
 | AD-382 | [The self-contract pins the crate chain and the external homes](ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md) |
+| AD-386 | [The contract crate reads and writes baselines](ad-386-the-contract-crate-reads-and-writes-baselines.md) |
