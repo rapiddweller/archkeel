@@ -303,6 +303,53 @@ fn a_construct_that_the_collector_does_not_examine_is_a_fact() {
 }
 
 #[test]
+fn a_construct_that_the_collector_names_unsupported_is_a_fact() {
+    let unsupported = |r: &mut Value| {
+        r["facts"]["capabilities"]["constructs"] =
+            json!([{"name": "string_literal_compare", "status": "unsupported"}]);
+    };
+    let found = decided(
+        construct_rule("shop", json!(["string_literal_compare"])),
+        unsupported,
+        shop_settings(),
+    );
+    all_unknown(
+        found,
+        &not_complete(Cause::ProfileLimit("CONSTRUCT".to_owned())),
+    );
+}
+
+#[test]
+fn a_construct_selector_is_a_fact_for_every_store_profile() {
+    let rule = with(
+        head("SELECTOR", "forbidden_construct"),
+        json!({"source": "shop", "constructs": ["string_literal_compare"],
+               "allowed_sources": [], "exact_sources": [],
+               "selector": {"receiver": "Order", "member": "id", "role": "read"}}),
+    );
+    let change = |c: &mut Value| {
+        c["schema_version"] = json!("3.11.0");
+        add_rule(c, rule);
+    };
+    let found = decided(change, unchanged, shop_settings());
+    all_unknown(
+        found,
+        &not_complete(Cause::ProfileLimit("SELECTOR".to_owned())),
+    );
+}
+
+#[test]
+fn the_settings_name_an_external_producer_until_the_shell_names_another() {
+    let fresh = Settings::new("shop".to_owned(), shop_profile(), Vec::new());
+    assert_eq!(fresh.producer(), Producer::External);
+    assert_eq!(Settings::default().producer(), Producer::External);
+    assert_eq!(
+        fresh.with_producer(Producer::Trusted).producer(),
+        Producer::Trusted
+    );
+}
+
+#[test]
 fn a_construct_rule_without_a_module_subject_is_a_named_gap() {
     let found = decided(
         construct_rule("shop.absent", json!(["string_literal_compare"])),

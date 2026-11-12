@@ -74,6 +74,20 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
 }
 
 #[test]
+fn a_reply_of_an_unpinned_external_collector_gives_no_pass() {
+    let reply = golden_reply();
+    let mut external = request(Some(&reply), &[]);
+    external["collector_argv"] = json!(["collector"]);
+    let got = frame(&external);
+    let why = "incomplete scope: the reply comes from an external collector without a pin";
+    // The native rules also select no module; the producer comes first in the proof.
+    assert_eq!(got["explained"]["NATIVE-EXTERNAL-SYN"], why);
+    external["pinned"] = json!(true);
+    let pinned = frame(&external);
+    assert_ne!(pinned["explained"]["NATIVE-EXTERNAL-SYN"], why);
+}
+
+#[test]
 fn a_request_without_a_reply_says_so() {
     let got = frame(&request(None, &[]));
     assert!(got["self_test"]["reply"]["absent"].is_string());
