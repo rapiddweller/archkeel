@@ -41,7 +41,7 @@ The 15 Nest mounted-rule regressions are ordinary tests, not expected failures.
 
 **Rejected.** Runtime-name exceptions, configured-collector trust, wire attestation fields,
 changed verdict oracles, a silent empty scan and a retained Python fallback.
-**Ratchet exception.** D1 uses the lead's named allowance: `ir` plus `check` grow by 27 lines.
+**Ratchet exception.** D1 uses the lead's named allowance: `ir` plus `check` grow by 28 lines.
 The bound amendment records exact new verification ports and the moved metadata types.
 The Python self-scan has zero violations. After the conflict-required rebase onto #1094,
 its measured unresolved-call pin changes from 1,025 to 1,048. No other budget changes.

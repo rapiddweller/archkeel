@@ -82,6 +82,7 @@ def test_bundled_receipt_uses_the_verified_executable_digest(native_receipt):
         ("wrong_digest", "dependency_scope_runtime_digest_mismatch"),
         ("missing_digest", "dependency_scope_runtime_digest_missing"),
         ("saved", "dependency_scope_runtime_unverified"),
+        ("runtime_name", "dependency_scope_runtime_unverified"),
     ],
 )
 def test_native_receipt_rejects_unverified_or_other_binary(native_receipt, mutation, reason):
@@ -94,6 +95,13 @@ def test_native_receipt_rejects_unverified_or_other_binary(native_receipt, mutat
         model = _proof(model, code_digest="sha256:" + "0" * 64)
     elif mutation == "missing_digest":
         model = _proof(model, code_digest=None)
+    elif mutation == "runtime_name":
+        model = replace(
+            model,
+            verified_binary=None,
+            runtime=replace(model.runtime, name="python", version="3.11.12", required=">=3.11"),
+        )
+        model = _proof(model, name="python", version="3.11.12", required=">=3.11", code_digest=None)
     else:
         model = parse_observation(observation_payload(model))
     row = _rows(model)["a:requires"]

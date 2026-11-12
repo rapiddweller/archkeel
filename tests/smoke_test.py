@@ -197,7 +197,9 @@ def main() -> None:
 
 
 def typescript() -> None:
-    """A TypeScript scan needs only the installed distribution: no Node, no adapter package."""
+    """A native wheel scans TypeScript; a pure install gives a named environment error."""
+    from archkeel.cli.observe import TYPESCRIPT_COLLECTOR, executable
+
     with TemporaryDirectory(prefix="archkeel-smoke-ts-") as temporary:
         root = Path(temporary)
         (root / "src").mkdir()
@@ -230,12 +232,18 @@ def typescript() -> None:
             text=True,
             encoding="utf-8",
         )
+        if not executable(TYPESCRIPT_COLLECTOR).is_file():
+            assert run.returncode == 2, (run.stdout, run.stderr)
+            assert "typescript_collector_missing_binary" in run.stdout
+            assert "--only-binary=:all:" in run.stdout
+            assert not json.loads(run.stdout)["rule_assessments"]
+            assert not output.exists()
+            return
         assert run.returncode == 0, (run.stdout, run.stderr)
         assert json.loads(run.stdout)["observation_complete"] == "PASS"
         report = json.loads(output.read_text(encoding="utf-8"))
         assert len(report["dependency_edges"]) == 1, report["dependency_edges"]
-        # The collector that ran is the installed Python one, not an npm adapter on Node.
-        assert report["runtime"]["name"] == "python", report["runtime"]
+        assert report["runtime"]["name"] == "rust", report["runtime"]
         assert report["producer"]["name"] == "archkeel-typescript-imports", report["producer"]
 
 

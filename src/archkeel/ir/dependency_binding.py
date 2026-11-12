@@ -41,9 +41,10 @@ def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
 
 
 def dependency_runtime_rejection(observation: Observation, proof: RecordData) -> str | None:
-    if observation.runtime is not None and _native_scope_runtime_valid(observation.runtime):
-        return None
     verified = observation.verified_binary
+    if verified is None and observation.producer_kind != ProducerKind.BUNDLED:
+        if observation.runtime is not None and _native_scope_runtime_valid(observation.runtime):
+            return None
     if verified is None or observation.producer_kind != ProducerKind.BUNDLED:
         return "dependency_scope_runtime_unverified"
     runtime = proof.get("runtime")
