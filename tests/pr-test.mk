@@ -160,6 +160,7 @@ PR_TEST_FILES := \
 	'tests/test_collector_native_store.py::test_check_with_the_store_set_gives_the_verdict_of_check_without_it' \
 	tests/test_collector_native_store_rust.py \
 	tests/test_collector_native_store_frame.py \
+	tests/test_collector_native_store_guard.py \
 	tests/test_collector_golden_replies.py \
 	tests/test_collector_golden_python.py \
 	tests/test_source_trust_boundary.py \

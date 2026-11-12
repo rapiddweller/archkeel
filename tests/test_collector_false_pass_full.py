@@ -15,6 +15,7 @@ on the Python decode and on the Rust store (AD-346).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import false_pass_support as support
@@ -22,6 +23,7 @@ import pytest
 from rust_repository import APP, CRATE_RULES, component, repository, rule, statuses, validate
 
 from archkeel.cli.observe import NATIVE_STORE
+from archkeel.ir.store_seam import close_store
 from fixtures.demo_catalog_typescript import UNSUPPORTED_RULES, VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
@@ -87,12 +89,14 @@ RUST_PROBES = {**SHADOWED, **MACRO_BODY, **ATTRIBUTE}
 @pytest.fixture(params=["python path", "store path"])
 def decode_path(
     request: pytest.FixtureRequest, store_binary: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+) -> Iterator[None]:
     """Each Rust probe runs on the Python decode and on the Rust store (AD-346)."""
     if request.param == "store path":
         monkeypatch.setenv(NATIVE_STORE, str(store_binary))
     else:
         monkeypatch.delenv(NATIVE_STORE, raising=False)
+    yield
+    close_store()
 
 
 @pytest.mark.parametrize("source", RUST_PROBES.values(), ids=RUST_PROBES.keys())
