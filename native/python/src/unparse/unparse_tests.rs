@@ -171,6 +171,13 @@ fn a_field_of_3_11_avoids_backslashes_and_3_12_escapes() {
         text("f'{\"\u{200b}\"}'\n", 12).as_deref(),
         Ok("f\"{'\\u200b'}\"")
     );
+    // From 3.12 on a field is written with `repr`: the newline stays an escape.
+    for minor in 12..=14 {
+        assert_eq!(
+            text("f'{\"a\\nb\"}'\n", minor).as_deref(),
+            Ok("f\"{'a\\nb'}\"")
+        );
+    }
 }
 
 #[test]
