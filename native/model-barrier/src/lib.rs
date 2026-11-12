@@ -39,8 +39,9 @@
 //!     model.scope(|scope| kept = scope.complete(rule).ok().map(|proof| scope.pass(proof)));
 //!     kept
 //! }
-//! // 10: the verdict of a decision is a copy.
-//! fn read(decision: &Decision) -> Verdict { decision.verdict() }
+//! // 10, 16, 17: the verdict of a decision is read by reference.
+//! fn read(decision: &Decision) -> &Verdict { decision.verdict() }
+//! fn passed(decision: &Decision) -> bool { matches!(decision.verdict(), Verdict::Pass(_)) }
 //! ```
 //!
 //! # The attempts
@@ -183,6 +184,44 @@
 //! ```compile_fail
 //! fn forge(graph: archkeel_model::Graph) -> archkeel_model::Model {
 //!     archkeel_model::Model { graph }
+//! }
+//! ```
+//!
+//! 16. The mark of a PASS is copied into a new verdict: `Proven` is not `Copy` (E0507).
+//!
+//! ```compile_fail,E0507
+//! use archkeel_model::{Decision, Verdict};
+//! fn copy(decision: &Decision) -> Option<Verdict> {
+//!     match decision.verdict() {
+//!         Verdict::Pass(mark) => Some(Verdict::Pass(*mark)),
+//!         _ => None,
+//!     }
+//! }
+//! ```
+//!
+//! 17. A verdict is cloned out of its decision: `Verdict` is not `Clone` (E0599).
+//!
+//! ```compile_fail,E0599
+//! fn copy(decision: &archkeel_model::Decision) -> archkeel_model::Verdict {
+//!     decision.verdict().clone()
+//! }
+//! ```
+//!
+//! # Closed by a checked identity, not by type
+//!
+//! A PASS of one model given as the decision of another model, and a PASS of rule A given as
+//! the decision of rule B, compile: a value can move. Each PASS names its rule and the serial of
+//! its model, and `Decision::passes` checks both; the evaluator and the core turn a PASS that
+//! fails the check into a named gap (AD-378).
+//!
+//! ```
+//! use archkeel_contract::{head_of, Rule};
+//! use archkeel_model::{Decision, Model};
+//! fn moved(a: &Model, b: &Model, rule: &Rule, other: &Rule) -> Option<(bool, bool)> {
+//!     let decision: Decision = a.scope(|s| s.complete(rule).ok().map(|proof| s.pass(proof)))?;
+//!     let for_b = decision.passes(b, head_of(rule).id().as_text());
+//!     let for_other = decision.passes(a, head_of(other).id().as_text());
+//!     Some((for_b, for_other))
 //! }
 //! ```
 

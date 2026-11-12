@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::{head_of, kind_of, Contract, RuleKind};
 use archkeel_eval::Outcome;
-use archkeel_model::{Model, Reason, Unsupported, Verdict};
+use archkeel_model::{Model, Part, Reason, Unsupported, Verdict};
 
 /// The rule kinds that `archkeel-eval` decides.
 const DECIDED: &[RuleKind] = &[
@@ -74,7 +74,10 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
         }
         return answer;
     }
-    for outcome in outcomes(contract, model) {
+    let Ok(model_of) = model else {
+        return answer;
+    };
+    for outcome in outcomes(contract, Ok(model_of)) {
         let decision = outcome.decision();
         let status = match (decision.verdict(), decision.reason()) {
             (_, Some(reason @ Reason::Unsupported(_))) => {
@@ -83,7 +86,13 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
                     .insert(outcome.rule().to_owned(), reason.clone());
                 continue;
             }
-            (Verdict::Pass(_), _) => "PASS",
+            (Verdict::Pass(_), _) if decision.passes(model_of, outcome.rule()) => "PASS",
+            (Verdict::Pass(_), _) => {
+                // AD-378: a PASS of another rule or model is a named gap, never a PASS.
+                let foreign = Reason::Unsupported(Unsupported::ScopeProof(Part::ForeignRule));
+                answer.reasons.insert(outcome.rule().to_owned(), foreign);
+                continue;
+            }
             (Verdict::Fail, _) => "FAIL",
             (Verdict::Unknown, reason) => {
                 let why = reason.map_or_else(String::new, ToString::to_string);

@@ -302,6 +302,9 @@ fn a_construct_that_the_collector_does_not_examine_is_a_fact() {
     );
 }
 
+/// One change of a reply.
+type Probe = Box<dyn FnOnce(&mut Value)>;
+
 /// No decided rule passes: the store refuses the reply, or each rule is not PASS.
 fn no_pass(reply_change: impl FnOnce(&mut Value)) -> bool {
     match decided(unchanged, reply_change, shop_settings()) {
@@ -320,7 +323,7 @@ fn a_capability_set_that_is_not_registered_reaches_no_pass() {
             .as_array()
             .cloned()
     };
-    let probes: Vec<Box<dyn FnOnce(&mut Value)>> = vec![
+    let probes: Vec<Probe> = vec![
         Box::new(|r| {
             r["facts"]["capabilities"]["constructs"] =
                 json!([{"name": "string_literal_compare", "status": "unsupported"}]);

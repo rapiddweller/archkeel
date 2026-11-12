@@ -88,6 +88,19 @@ fn a_reply_of_an_unpinned_external_collector_gives_no_pass() {
 }
 
 #[test]
+fn a_collector_argv_above_its_limit_is_refused_by_name() {
+    let mut long = request(None, &[]);
+    long["collector_argv"] = json!(vec!["x"; 65]);
+    long["pinned"] = json!(true);
+    let error = answer(long.to_string().as_bytes())
+        .err()
+        .unwrap_or_default();
+    assert_eq!(error, "c: collector_argv has more than 64 entries");
+    long["collector_argv"] = json!(vec!["x"; 64]);
+    assert!(answer(long.to_string().as_bytes()).is_ok());
+}
+
+#[test]
 fn a_frame_without_rules_passes_only_with_a_complete_scope() {
     // L-35b: zero decided rules give PASS only for a contract without rules and a complete
     // scope, as `inspect_observation` gives (`check/run.py:76`).

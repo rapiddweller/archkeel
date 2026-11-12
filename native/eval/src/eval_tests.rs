@@ -225,10 +225,9 @@ fn a_module_outside_the_rule_source_is_not_counted() {
         unchanged,
     );
     assert!(names(&outcomes, "ASSIGNMENT").is_empty());
-    assert!(matches!(
-        decision(&outcomes, "ASSIGNMENT").map(|d| d.verdict()),
-        Some(Verdict::Pass(_))
-    ));
+    assert!(
+        decision(&outcomes, "ASSIGNMENT").is_some_and(|d| matches!(d.verdict(), Verdict::Pass(_)))
+    );
 }
 
 #[test]

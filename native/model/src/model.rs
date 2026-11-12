@@ -30,7 +30,11 @@ pub struct Model {
     owners: Vec<Option<ComponentId>>,
     graph: Graph,
     scope: State,
+    serial: u64,
 }
+
+/// The serial of the next model: a PASS decision names the model that made it (AD-378).
+static SERIALS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 impl Model {
     /// Derive the model of a contract, a validated reply and the settings of the shell.
@@ -64,7 +68,13 @@ impl Model {
             owners,
             graph,
             scope,
+            serial: SERIALS.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         })
+    }
+
+    /// The serial of this model, distinct for each model of the process.
+    pub(crate) fn serial(&self) -> u64 {
+        self.serial
     }
 
     /// The contract of the model.

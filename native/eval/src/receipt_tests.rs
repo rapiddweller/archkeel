@@ -29,10 +29,7 @@ fn a_planned_module_passes_the_subject_check_but_gives_no_receipt() {
     );
     let expected = Decision::unknown(Reason::NoSubjects);
     assert_eq!(decision(&outcomes, "ASSIGNMENT"), Some(expected));
-    assert!(matches!(
-        decision(&outcomes, "LAYOUT").map(|d| d.verdict()),
-        Some(Verdict::Pass(_))
-    ));
+    assert!(decision(&outcomes, "LAYOUT").is_some_and(|d| matches!(d.verdict(), Verdict::Pass(_))));
 }
 
 #[test]
@@ -91,4 +88,30 @@ fn a_layout_root_that_only_a_planned_module_matches_gives_no_receipt() {
     );
     let expected = Decision::unknown(Reason::NoSubjects);
     assert_eq!(decision(&outcomes, "LAYOUT"), Some(expected));
+}
+
+#[test]
+fn a_pass_names_its_rule_and_its_model() {
+    // Review of #1066, finding 6: a value can move, so the identity of a PASS is checked.
+    let (Some(own), Some(first), Some(second)) =
+        (contract(unchanged), reply(unchanged), reply(unchanged))
+    else {
+        return assert_eq!("the inputs load", "");
+    };
+    let (Ok(a), Ok(b)) = (
+        Model::derive(&own, &first, shop_settings()),
+        Model::derive(&own, &second, shop_settings()),
+    ) else {
+        return assert_eq!("the models derive", "");
+    };
+    let rule = &own.rules()[1];
+    let pass = a.scope(|scope| scope.complete(rule).ok().map(|proof| scope.pass(proof)));
+    let Some(pass) = pass else {
+        return assert_eq!("the rule passes", "");
+    };
+    assert!(pass.passes(&a, "ASSIGNMENT"));
+    assert!(!pass.passes(&b, "ASSIGNMENT"));
+    assert!(!pass.passes(&a, "LAYOUT"));
+    assert!(!Decision::fail().passes(&a, "ASSIGNMENT"));
+    assert!(!pass.clone().passes(&b, "ASSIGNMENT"));
 }

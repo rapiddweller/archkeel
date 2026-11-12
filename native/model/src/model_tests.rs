@@ -83,11 +83,14 @@ fn an_unported_section_names_the_slice_that_ports_it() {
 fn an_unknown_carries_its_reason_and_no_pass_exists_without_the_proof() {
     let reason = Reason::Unsupported(Unsupported::ScopeProof(crate::causes::Part::ForeignRule));
     let decision = Decision::unknown(reason.clone());
-    assert_eq!(decision.verdict(), Verdict::Unknown);
+    assert_eq!(decision.verdict(), &Verdict::Unknown);
     assert_eq!(decision.reason(), Some(&reason));
     assert_eq!(Decision::fail().reason(), None);
-    assert_eq!(Decision::fail().verdict(), Verdict::Fail);
-    assert!(matches!(Decision::passed().verdict(), Verdict::Pass(_)));
+    assert_eq!(Decision::fail().verdict(), &Verdict::Fail);
+    assert!(matches!(
+        Decision::passed("R".to_owned(), 0).verdict(),
+        Verdict::Pass(_)
+    ));
 }
 
 #[test]

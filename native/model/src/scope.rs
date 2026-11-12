@@ -51,7 +51,7 @@
 
 use std::marker::PhantomData;
 
-use archkeel_contract::{kind_of, Rule};
+use archkeel_contract::{head_of, kind_of, Rule};
 
 use crate::causes::{Cause, Part};
 use crate::model::Model;
@@ -67,6 +67,7 @@ type Brand<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
 #[derive(Debug)]
 pub struct ScopeComplete<'id> {
     brand: Brand<'id>,
+    rule: String,
 }
 
 /// The model of one `Model::scope` call, with its brand.
@@ -110,7 +111,10 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
         match unread {
             Some(part) => Err(part.into()),
-            None => Ok(ScopeComplete { brand: PhantomData }),
+            None => Ok(ScopeComplete {
+                brand: PhantomData,
+                rule: head_of(rule).id().as_text().to_owned(),
+            }),
         }
     }
 
@@ -127,9 +131,10 @@ impl<'id, 'm> Scope<'id, 'm> {
     }
 
     /// PASS, with a proof of this scope.
+    /// The PASS names the rule of the proof and the serial of the model.
     pub fn pass(&self, proof: ScopeComplete<'id>) -> Decision {
-        let ScopeComplete { brand: _ } = proof;
-        Decision::passed()
+        let ScopeComplete { brand: _, rule } = proof;
+        Decision::passed(rule, self.model.serial())
     }
 }
 

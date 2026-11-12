@@ -25,7 +25,7 @@ mod layout;
 mod violation;
 
 use archkeel_contract::{head_of, kind_of, Contract, Rule, RuleKind};
-use archkeel_model::{Decision, Model, Reason, Unsupported};
+use archkeel_model::{Decision, Model, Part, Reason, Unsupported, Verdict};
 
 pub use violation::{Cited, Violation};
 
@@ -97,10 +97,16 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
             };
         }
     };
+    let mut decision = decide::decide(model, rule, &violations);
+    // AD-378: a PASS must name this rule of this model; a type cannot stop a value of another
+    // rule or model from moving here, so the identity is checked.
+    if matches!(decision.verdict(), Verdict::Pass(_)) && !decision.passes(model, id) {
+        decision = Decision::unknown(Part::ForeignRule.into());
+    }
     Outcome {
         rule: id.to_owned(),
         kind: kind_of(rule),
-        decision: decide::decide(model, rule, &violations),
+        decision,
         violations,
     }
 }

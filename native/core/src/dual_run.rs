@@ -27,6 +27,9 @@ use archkeel_model::{Reason, Unsupported};
 const PROTOCOL: &str = "archkeel-dual-run-2";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
+/// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
+/// dual-run request is the word of a test caller, not evidence).
+const ARGV_LIMIT: usize = 64;
 /// The decompressed size limit of a reply in the dual run.
 const INFLATE_LIMIT: u64 = 1 << 32;
 
@@ -141,6 +144,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     }
     let request: DualRunRequest =
         serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
+    bounded(&request)?;
     let [(path, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
             .map_err(|found| {
@@ -229,8 +233,22 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     Ok(Answered { frame, names_a_gap })
 }
 
+/// The request refused by name when its `collector_argv` is longer than the limit.
+fn bounded(request: &DualRunRequest) -> Result<(), String> {
+    match &request.collector_argv {
+        Some(argv) if argv.len() > ARGV_LIMIT => Err(format!(
+            "{}: collector_argv has more than {ARGV_LIMIT} entries",
+            request.case
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// The producer of the reply: the bundled collector, or an external command that the host pins,
-/// is trusted (`cli/observe.py` `observer_for`).
+/// is trusted (`cli/observe.py` `observer_for`). The dual-run request is a test protocol: these
+/// fields are the word of the caller, not evidence. The request of M1 must not take them from a
+/// caller: the shell starts the pinned collector, checks its digest and fills the producer and
+/// the standard library from its own profile table (AD-378 point 4).
 fn producer(collector_argv: Option<&Vec<String>>, pinned: bool) -> Producer {
     if collector_argv.is_none() || pinned {
         Producer::Trusted
