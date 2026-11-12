@@ -1,7 +1,7 @@
 # AD-390 The native Dart declaration layer keeps the Python records
 
 **Status.** Accepted. Epic #880, Dart slice 4b. It follows AD-387.
-AD-388 is the highest number on Main and open PRs at the start. Reserve highest plus two.
+Decision 388 in open PR #1090 is the highest number at the start. Reserve highest plus two.
 
 **Decision.** Port declaration assembly, not discovery again. Compare the real
 `_Collection._declarations` boundary with the same prepared files and constructor resolutions.
