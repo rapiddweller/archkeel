@@ -49,6 +49,11 @@ pub(crate) fn keys(object: &Object) -> impl Iterator<Item = &str> {
     object.0.iter().map(|(name, _)| name.as_str())
 }
 
+/// The entries of an object, without a repeated linear lookup by key.
+pub(crate) fn entries(object: &Object) -> impl Iterator<Item = (&str, &Json)> {
+    object.0.iter().map(|(name, value)| (name.as_str(), value))
+}
+
 /// Read contract bytes. Invalid UTF-8, invalid JSON and a repeated key are errors.
 pub(crate) fn read(bytes: &[u8]) -> Parsed<Json> {
     let value: Json =

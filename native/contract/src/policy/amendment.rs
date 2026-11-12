@@ -192,7 +192,7 @@ pub fn parse_amendment(bytes: &[u8]) -> Result<Amendment, AmendmentError> {
 }
 
 /// The Python `repr` of a schema version that is not known; `None` when the key is absent.
-fn schema_repr(value: Option<&Json>) -> String {
+pub(super) fn schema_repr(value: Option<&Json>) -> String {
     match value {
         None | Some(Json::Null) => "None".to_owned(),
         Some(Json::Text(text)) => python_repr(text),

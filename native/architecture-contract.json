@@ -104,7 +104,8 @@
         "Parse the bytes of one architecture contract into typed and closed values, with the error kinds and the canonical bytes of the Python parser (AD-359).",
         "Assemble and check the tree of a root contract and its inside contracts from bytes that the shell sends, with the issues and the digests of the Python tree (AD-366).",
         "Compare two contract trees as validate --against does, with the widenings, narrowings and messages of the Python comparison (AD-373).",
-        "Read and write an amendment of schema 2.0.0 and decide whether it covers one --against comparison, with the bytes, the digests and the statuses of the Python gate (AD-375)."
+        "Read and write an amendment of schema 2.0.0 and decide whether it covers one --against comparison, with the bytes, the digests and the statuses of the Python gate (AD-375).",
+        "Read baseline schemas 1.0.0 through 1.3.0 and write canonical schema 1.3.0 bytes without applying debt to a verdict (AD-386)."
       ],
       "forbidden_responsibilities": [
         "Reading a file, evaluating a rule, and using a source fact or a source id."
@@ -114,7 +115,8 @@
         "docs/architecture/decisions/ad-364-the-rust-contract-parser-reads-the-whole-grammar.md",
         "docs/architecture/decisions/ad-366-the-inside-contract-tree-is-assembled-and-checked-in-the-contract-crate.md",
         "docs/architecture/decisions/ad-373-the-contract-crate-compares-two-contract-trees-for-against.md",
-        "docs/architecture/decisions/ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md"
+        "docs/architecture/decisions/ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md",
+        "docs/architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md"
       ],
       "decided_by": "architect"
     },
