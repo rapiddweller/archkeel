@@ -1,10 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#880 PR 8 slice 3a: the native Dart syntax of each file equals Python `parse` without sites.
+"""#880 PR 8 slice 3a: the native Dart syntax of each file equals Python `parse`.
 
 Consumer: the record code of the Dart collector, which reads the definitions, the directives,
-the concerns and the first error of each file. The gate compares the `--dump-syntax` JSON of the
+the concerns and the first error of each file. `test_collector_native_dart_sites.py` tests the
+sites. The gate compares the `--dump-syntax` JSON of the
 native collector with `dataclasses.asdict(parse(content))`, byte for byte, on hostile sources
 and on the fixtures and demos. The differences of AD-369 are tested one by one.
 """
@@ -211,6 +212,7 @@ def test_the_dump_lines_are_json_with_a_time(binary: Path, tmp_path: Path) -> No
     assert set(json.loads(text)) == {
         "definitions",
         "directives",
+        "sites",
         "concerns",
         "first_error",
         "complete",

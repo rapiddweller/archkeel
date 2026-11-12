@@ -401,16 +401,24 @@
         "native.archkeel_dart_collector.members",
         "native.archkeel_dart_collector.definitions",
         "native.archkeel_dart_collector.directives",
-        "native.archkeel_dart_collector.parse"
+        "native.archkeel_dart_collector.parse",
+        "native.archkeel_dart_collector.sites",
+        "native.archkeel_dart_collector.sites.scopes",
+        "native.archkeel_dart_collector.sites.bindings",
+        "native.archkeel_dart_collector.sites.calls",
+        "native.archkeel_dart_collector.sites.references",
+        "native.archkeel_dart_collector.sites.canonical",
+        "native.archkeel_dart_collector.sites.contain"
       ],
       "responsibilities": [
-        "Parse one Dart source with the vendored grammar into its syntax, as analyzer/dart/parse.py does: the definitions, the directives, the concerns, the first error and the language version (AD-369)."
+        "Parse one Dart source with the vendored grammar into its syntax, as analyzer/dart/parse.py does: the definitions, the directives, the sites with their scopes, the concerns, the first error and the language version (AD-369, AD-376)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving a name or a URI, and building facts."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md"
+        "docs/architecture/decisions/ad-369-the-native-dart-syntax-equals-the-python-parse-file-by-file.md",
+        "docs/architecture/decisions/ad-376-the-native-dart-sites-equal-the-python-sites-within-a-work-limit.md"
       ],
       "requires": [
         {

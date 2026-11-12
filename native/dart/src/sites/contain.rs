@@ -87,7 +87,7 @@ impl<T: Copy> Sweep<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::Sweep;
+    use super::*;
 
     fn count(a: usize, b: usize) -> usize {
         a.saturating_add(b)

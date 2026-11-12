@@ -10,7 +10,7 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
-use crate::calls::{assignment_use, member_parts, member_reference, ASSIGNMENTS};
+use super::calls::{assignment_use, member_parts, member_reference, ASSIGNMENTS};
 use crate::syntax::{Context, Site, SiteKind, SiteUse};
 use crate::tree::{named, named_children, Source, Work};
 

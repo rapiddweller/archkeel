@@ -9,9 +9,9 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
-use crate::canonical::canonical_range;
+use super::canonical::canonical_range;
+use super::scopes::callable_decl_name;
 use crate::parameters::{annotation_before, parameter};
-use crate::scopes::callable_decl_name;
 use crate::syntax::{
     Context, Definition, DefinitionKind, MemberKind, ParameterKind, Site, SiteKind, SiteUse,
 };

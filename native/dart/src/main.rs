@@ -21,10 +21,6 @@
     )
 )]
 
-mod bindings;
-mod calls;
-mod canonical;
-mod contain;
 mod dartstr;
 mod definitions;
 mod directives;
@@ -38,8 +34,6 @@ mod parse;
 mod pubspec;
 mod pytext;
 mod records;
-mod references;
-mod scopes;
 mod sites;
 mod syntax;
 mod tree;

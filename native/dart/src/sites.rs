@@ -6,16 +6,23 @@
 //! walk keeps the ancestors of each node; it holds for each ancestor the facts that Python reads
 //! with `_ancestors` for each node, so the work does not grow with the depth for each node.
 
+mod bindings;
+mod calls;
+mod canonical;
+mod contain;
+mod references;
+mod scopes;
+
 use std::collections::HashSet;
 
 use tree_sitter::Node;
 
-use crate::bindings::{typed_receiver_names, Binder};
-use crate::calls::expression_site;
-use crate::references::{reference_sites, Names};
-use crate::scopes::{Scopes, CONSTRUCTORS};
 use crate::syntax::{Context, Definition, Directive, Site};
 use crate::tree::{named_children, walk_with_path, Gap, Source, Work};
+use bindings::{typed_receiver_names, Binder};
+use calls::expression_site;
+use references::{reference_sites, Names};
+use scopes::{Scopes, CONSTRUCTORS};
 
 const DIRECTIVES: [&str; 4] = [
     "import_or_export",
@@ -301,3 +308,7 @@ impl<'t> Step<'_, 't> {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+#[path = "sites_tests.rs"]
+mod tests;

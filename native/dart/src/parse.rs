@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! `parse` of `analyzer/dart/parse.py` without the sites (slice 3a of #880): the definitions,
-//! the directives, the concerns, the first error and the language version of one source.
+//! `parse` of `analyzer/dart/parse.py` (slices 3a and 3b of #880): the definitions, the
+//! directives, the sites, the concerns, the first error and the language version of one source.
 
 use tree_sitter::{Node, Parser};
 

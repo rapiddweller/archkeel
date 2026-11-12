@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use tree_sitter::Node;
 
-use crate::contain::Sweep;
+use super::contain::Sweep;
 use crate::syntax::Context;
 use crate::tree::{children, named, named_children, walk_with_path, Gap, Source, Work};
 

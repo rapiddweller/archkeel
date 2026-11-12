@@ -7,7 +7,7 @@
 
 use tree_sitter::Node;
 
-use crate::canonical::canonical_range;
+use super::canonical::canonical_range;
 use crate::pytext::{is_blank, is_space_byte, rstrip, strip};
 use crate::syntax::{Context, Site, SiteKind, SiteUse};
 use crate::tree::{named, named_all, named_children, Source, Work};
