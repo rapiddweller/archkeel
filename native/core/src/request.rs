@@ -6,6 +6,7 @@
 //! system: it sends bytes, and the core reads no file.
 
 use archkeel_model::{Section, Settings};
+use archkeel_report::Named;
 
 use crate::contract::ContractInput;
 
@@ -20,8 +21,8 @@ pub(crate) enum Request {
     Settings(Settings),
     /// The rows of these sections (the dual run and the 2.9 writer).
     Sections(Vec<Section>),
-    /// The decision of each rule of the contract.
-    Rules,
+    /// The ruling of the report over the model, with the gaps that the request names.
+    Rules(Named),
     /// The report v2 payload.
     Report,
 }

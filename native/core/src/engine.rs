@@ -14,8 +14,8 @@ use archkeel_store::Ingested;
 use crate::contract::{ContractInput, ContractState, Usable};
 use crate::ingest::ReplyState;
 use crate::request::Request;
-use crate::rules::RuleAnswer;
 use crate::sections::SectionAnswer;
+use archkeel_report::{Named, Ruling};
 
 /// The answer to one request.
 #[derive(Debug)]
@@ -23,7 +23,8 @@ pub(crate) enum Answer {
     Contract(ContractState),
     Reply(ReplyState),
     Sections(Vec<SectionAnswer>),
-    Rules(RuleAnswer),
+    /// The ruling of the report, or why the frame breaks a rule of the report (no frame).
+    Rules(Result<Ruling, String>),
     Report(Reason),
     Settings,
 }
@@ -99,13 +100,22 @@ impl Engine {
                 let derivation = (derived.graph(), derived.model());
                 Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
-            Request::Rules => {
-                let tree = self.contract.as_ref().map(crate::rules::Tree::of);
-                let (contract, derived) = self.derived();
-                Answer::Rules(crate::rules::answer(contract, derived.models(), tree))
-            }
+            Request::Rules(named) => Answer::Rules(self.rule(named)),
             Request::Report => Answer::Report(crate::report::answer()),
         }
+    }
+
+    /// The ruling of the report over the model and the gaps of the request and of the core.
+    fn rule(&mut self, mut named: Named) -> Result<Ruling, String> {
+        let tree = self.contract.as_ref().map(crate::rules::Tree::of);
+        let (contract, derived) = self.derived();
+        let models = derived.models();
+        let core = crate::rules::named(contract, models.clone(), tree);
+        named.rules.extend(core.rules);
+        named.hold = named.hold.or(core.hold);
+        named.contract = named.contract.or(core.contract);
+        archkeel_report::rule(models.as_ref().map(|models| *models), named)
+            .map_err(|error| error.to_string())
     }
 
     fn take_contract(&mut self, input: ContractInput) -> Answer {

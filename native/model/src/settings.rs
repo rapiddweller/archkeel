@@ -12,7 +12,11 @@
 //!
 //! Slice S4 adds the producer of the reply (AD-344, AD-378): only the host starts the collector,
 //! so only the shell knows it. The default is the sound one: a reply of an external collector,
-//! which gives no PASS.
+//! which gives no PASS. The producer of the shell is a claim, not evidence (AD-388): the graph
+//! trusts a reply only when the shell claims a trusted producer and the reply names the collector
+//! of its own profile as its adapter (`bound`). So a caller cannot make the reply of another
+//! adapter trusted. The standard library of the shell must lie in the pinned list of the profile
+//! of the reply (`archkeel_store::standard_library`): a caller cannot widen it by word.
 //!
 //! Slice S5 adds the source of the root contract (AD-380): the reference engine cites the
 //! contract file in each `layer_order` row (`check/observation.py` `_layer_order_evidence`). The
@@ -136,14 +140,26 @@ impl Settings {
             .map(|source| source.evidence.as_str())
     }
 
-    /// The same settings with the producer of the reply.
+    /// The same settings with the producer that the shell claims. The graph trusts it only with
+    /// the evidence of the reply (`bound`).
     pub fn with_producer(self, producer: Producer) -> Self {
         Settings { producer, ..self }
     }
 
-    /// The producer of the reply.
+    /// The producer: the claim of the shell, and in the settings of a graph the producer bound to
+    /// the reply (`Graph::derive`).
     pub fn producer(&self) -> Producer {
         self.producer
+    }
+
+    /// The settings bound to a reply: a trusted claim holds only when the adapter of the reply is
+    /// the collector of its profile. Any other adapter is an external producer.
+    pub(crate) fn bound(self, adapter: &str, profile: &str) -> Self {
+        let producer = match self.producer {
+            Producer::Trusted if adapter == profile => Producer::Trusted,
+            Producer::Trusted | Producer::External => Producer::External,
+        };
+        Settings { producer, ..self }
     }
 
     /// The dotted namespace of the configuration.
@@ -156,12 +172,18 @@ impl Settings {
         self.standard_library.iter().any(|name| name == root)
     }
 
-    /// The settings refused by name, unless they hold for a reply of `profile`.
-    pub(crate) fn check(&self, profile: &str) -> Result<(), Refusal> {
+    /// The settings refused by name, unless they hold for a reply of `profile`, whose pinned
+    /// standard library is `pinned`.
+    pub(crate) fn check(&self, profile: &str, pinned: &[&str]) -> Result<(), Refusal> {
         if self.profile != profile {
             return Err(Refusal::ProfileMismatch);
         }
         let names = &self.standard_library;
+        if names.iter().any(|name| !pinned.contains(&name.as_str())) {
+            return Err(Refusal::StandardLibrary(
+                "a name outside the pinned standard library of the profile",
+            ));
+        }
         if names.len() > STANDARD_LIBRARY_LIMIT {
             return Err(Refusal::StandardLibrary("more names than the limit"));
         }

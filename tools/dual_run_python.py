@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import zlib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -34,6 +35,7 @@ from archkeel.check.ports import Language
 from archkeel.check.report import render_result, run_report_with_observation
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import configured_observer, observer_for
+from archkeel.ir.profiles import profile_for
 
 # The engine identity that every dual run sees, for record and compare alike (AD-360).
 PINNED_VERSION = "0.0.0"
@@ -128,3 +130,24 @@ def run_python_engine(
         "declared_rules": rendered.get("declared_rules"),
         "architecture": None if architecture is None else json.loads(architecture),
     }
+
+
+def reply_profile(reply: bytes) -> tuple[str, list[str]]:
+    """The profile of a reply and the top-level standard library names of that profile (AD-372).
+    The shell owns the table of profiles; the core names no language and checks that the
+    profile is the profile of the reply. A reply that is not JSON gives no profile."""
+    try:
+        value = json.loads(zlib.decompress(reply) if reply[:1] == ZLIB_HEADER else reply)
+        profile = value["facts"]["profile"]
+        return profile, core_standard_library(profile_for(profile).standard_library)
+    except (ValueError, KeyError, TypeError, zlib.error):
+        return "", []
+
+
+def core_standard_library(names: frozenset[str]) -> list[str]:
+    """The standard library that the shell sends to the core (AD-388). The core pins
+    `sys.stdlib_module_names`, which CPython defines the same on each platform. A built-in module
+    of this build that is not in that set (a test module of a standalone build) is left out: an
+    import of it is then external for the core, which is only stricter."""
+    builds = frozenset(sys.builtin_module_names) - frozenset(sys.stdlib_module_names)
+    return sorted(names - builds)

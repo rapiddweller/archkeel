@@ -11,8 +11,8 @@
 //! `complete_external_scope`; AD-372) and writes their `violations` rows; each part
 //! that no slice has ported answers with its name. The host uses the core for no verdict.
 //!
-//! The frame has the status of the run (PASS, FAIL or UNKNOWN), computed from its rows, and an
-//! explaining row for each rule that is not PASS (AD-361, AD-378). The status is in the frame,
+//! The frame has the status of the run (PASS, FAIL or UNKNOWN) and an explaining row for each
+//! rule that is not PASS (AD-361, AD-378). Both come only from the ruling of the report (AD-388). The status is in the frame,
 //! not in the exit code. Exit codes: 0 for a frame without a gap, 3 for a frame that names an
 //! unsupported or refused part, 2 for a request that the core cannot read or a frame whose
 //! status has no explaining row (no frame is written), 1 for an I/O error.
@@ -25,7 +25,6 @@ mod report;
 mod request;
 mod rules;
 mod sections;
-mod status;
 mod topology;
 
 /// The exit code of a frame that names an unsupported or refused part.
@@ -45,18 +44,26 @@ fn main() -> ExitCode {
         eprintln!("archkeel-core: {error}");
         return ExitCode::FAILURE;
     }
-    match dual_run::answer(&input) {
-        Ok(answered) => match io::stdout().lock().write_all(&answered.frame) {
-            Ok(()) if answered.names_a_gap => ExitCode::from(NAMES_A_GAP),
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("archkeel-core: {error}");
-                ExitCode::FAILURE
-            }
+    let (code, message) = respond(&input, &mut io::stdout().lock());
+    if let Some(message) = message {
+        eprintln!("archkeel-core: {message}");
+    }
+    ExitCode::from(code)
+}
+
+/// Answer one request: the frame is written one time to `out`, or no frame and a message. The
+/// first value is the exit code.
+fn respond(input: &[u8], out: &mut impl Write) -> (u8, Option<String>) {
+    match dual_run::answer(input) {
+        Ok(answered) => match out.write_all(&answered.frame) {
+            Ok(()) if answered.names_a_gap => (NAMES_A_GAP, None),
+            Ok(()) => (0, None),
+            Err(error) => (1, Some(error.to_string())),
         },
-        Err(message) => {
-            eprintln!("archkeel-core: {message}");
-            ExitCode::from(2)
-        }
+        Err(message) => (2, Some(message)),
     }
 }
+
+#[cfg(test)]
+#[path = "main_tests.rs"]
+mod tests;

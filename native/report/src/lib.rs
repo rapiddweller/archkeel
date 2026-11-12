@@ -19,8 +19,9 @@
 //! A PASS needs the model (AD-381): a rule row only with a PASS of its own rule of the model, the
 //! observation only with a complete scope, the status only with the run proof (L-35b).
 //!
-//! The crate is not wired yet: the core binary does not call it. The input types of `build`
-//! (`RunOutcome`, `Records`) are the seam that the evaluator and the model slices fill.
+//! The core binary writes the status of its engine frame and the verdict of each rule only
+//! through `rule`, which gives a `Ruling` with the same `Decided` mark (AD-388). The input types
+//! of `build` (`RunOutcome`, `Records`) are the seam that the evaluator and the model slices fill.
 //!
 //! # The barrier of the report (AD-381)
 //!
@@ -71,6 +72,92 @@
 //! use archkeel_report::{Recorded, Report};
 //! fn bytes(report: &Report<Recorded>) -> Option<Vec<u8>> { report.encode().ok() }
 //! ```
+//!
+//! # The barrier of the engine frame (AD-388)
+//!
+//! The core cannot write a status or a rule verdict without a `Ruling`, and only `rule` makes
+//! one, from the model. The twin that compiles:
+//!
+//! ```
+//! use archkeel_model::{ModelTree, Reason};
+//! use archkeel_report::{rule, Named, Ruling};
+//! fn ruling(models: Result<&ModelTree, &Reason>) -> Option<Ruling> {
+//!     rule(models, Named::default()).ok()
+//! }
+//! ```
+//!
+//! R5. A ruling from a bare verdict: `rule` takes the model, not a `Verdict` (E0308).
+//!
+//! ```compile_fail,E0308
+//! use archkeel_model::Verdict;
+//! use archkeel_report::{rule, Named, Ruling};
+//! fn ruling(pass: Verdict) -> Option<Ruling> { rule(pass, Named::default()).ok() }
+//! ```
+//!
+//! R6. A ruling from the outcomes of another model: `rule` evaluates its models itself and takes
+//! no outcome (E0061).
+//!
+//! ```compile_fail,E0061
+//! use archkeel_eval::Outcome;
+//! use archkeel_model::{ModelTree, Reason};
+//! use archkeel_report::{rule, Named, Ruling};
+//! fn ruling(other: Vec<Outcome>, models: &ModelTree) -> Option<Ruling> {
+//!     rule(other, Ok(models), Named::default()).ok()
+//! }
+//! ```
+//!
+//! R7. A hand-made status: the fields of a ruling are private (E0451).
+//!
+//! ```compile_fail,E0451
+//! use archkeel_report::{Decided, RuleReasons, Ruling, Status};
+//! fn ruling(decided: Decided) -> Ruling {
+//!     Ruling { decided, status: Status::Pass, rules: Default::default(),
+//!         explained: Default::default(), violations: Default::default(),
+//!         beyond: Default::default(), scope: "complete".into(),
+//!         unsupported: RuleReasons::All(String::new()) }
+//! }
+//! ```
+//!
+//! R8. A decided mark without the run proof: its fields are private to the report (E0451).
+//!
+//! ```compile_fail,E0451
+//! use archkeel_report::{Decided, Status};
+//! fn decided() -> Decided {
+//!     Decided { status: Status::Pass, pass: None, observation: Status::Pass, rules: Vec::new() }
+//! }
+//! ```
+//!
+//! R9. A gap of the core that holds a verdict: `Named` has no verdict field (E0560).
+//!
+//! ```compile_fail,E0560
+//! use archkeel_report::{Named, Status};
+//! fn named() -> Named { Named { status: Status::Pass, ..Named::default() } }
+//! ```
+//!
+//! R10. A status changed after `rule`: a ruling has no setter (E0599).
+//!
+//! ```compile_fail,E0599
+//! use archkeel_report::{Ruling, Status};
+//! fn pass(ruling: Ruling) -> Ruling { ruling.with_status(Status::Pass) }
+//! ```
+//!
+//! R12. A ruling from one model of a tree: `rule` takes the whole `ModelTree`, so the run proof
+//! of a tree has one maker, `ModelTree::pass_run` (AD-385) (E0308).
+//!
+//! ```compile_fail,E0308
+//! use archkeel_model::{Model, Reason};
+//! use archkeel_report::{rule, Named, Ruling};
+//! fn ruling(mount: &Model) -> Option<Ruling> { rule(Ok(mount), Named::default()).ok() }
+//! ```
+//!
+//! R11. Frame bytes with a hand-made status: only `Ruling::frame` makes an `EngineFrame`, and
+//! a part with a key of the ruling is refused when it runs (E0451).
+//!
+//! ```compile_fail,E0451
+//! fn frame() -> archkeel_report::EngineFrame {
+//!     archkeel_report::EngineFrame { bytes: br#"{"status": "PASS"}"#.to_vec() }
+//! }
+//! ```
 
 #![deny(unreachable_pub)]
 
@@ -81,6 +168,7 @@ mod check_order;
 mod check_rows;
 mod check_structure;
 mod codes;
+mod engine_frame;
 mod frame;
 mod frame_rules;
 mod head;
@@ -89,6 +177,7 @@ mod kind;
 mod payload;
 mod problem;
 mod report;
+mod ruling;
 mod status;
 mod why;
 
@@ -98,6 +187,7 @@ pub use codes::{
     MeasureDef, MeasureState, NodeLevel, Permission, Relation, UnknownReason, UnknownSource, Vis,
     NOT_CARRIED,
 };
+pub use engine_frame::{EngineFrame, FrameError};
 pub use frame::build;
 pub use head::{
     Component, Counts, Coverage, GapRow, NotRanked, PayloadBudget, RuleReason, RuleResult,
@@ -115,6 +205,7 @@ pub(crate) use payload::Payload;
 pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
+pub use ruling::{rule, Named, RuleReasons, Ruling};
 #[cfg(test)]
 pub(crate) use status::{status_of, unexplained};
 pub use status::{Unexplained, PASS_NEEDS};

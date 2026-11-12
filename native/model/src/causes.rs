@@ -18,7 +18,8 @@ pub enum Cause {
     WorkTree,
     /// The collector runtime does not satisfy its declared requirement.
     Runtime,
-    /// The reply comes from an external collector without a pinned digest (AD-344).
+    /// The reply does not come from the bundled collector. The core verifies no pin of an
+    /// external collector, so a pinned one is untrusted too (AD-344, AD-388).
     Producer,
     /// A profile limit of the contract: the subject that it names.
     ProfileLimit(String),
@@ -131,9 +132,10 @@ impl fmt::Display for Cause {
             Cause::Runtime => {
                 formatter.write_str("the collector runtime does not satisfy its requirement")
             }
-            Cause::Producer => {
-                formatter.write_str("the reply comes from an external collector without a pin")
-            }
+            Cause::Producer => formatter.write_str(
+                "the reply does not come from the bundled collector, and the collector pin \
+                     is not verified by the core",
+            ),
             Cause::ProfileLimit(subject) => {
                 write!(formatter, "the profile cannot decide {subject}")
             }

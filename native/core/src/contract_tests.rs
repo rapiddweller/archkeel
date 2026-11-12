@@ -11,8 +11,9 @@ use serde_json::{json, Value};
 
 use archkeel_model::{Input, Reason};
 
-use crate::engine::{Answer, Engine};
+use crate::engine::Engine;
 use crate::request::Request;
+use archkeel_report::Named;
 
 use super::{answer, ContractInput, ContractState, InsideFile, MAX_INSIDE_BYTES, MAX_INSIDE_FILES};
 
@@ -321,15 +322,12 @@ fn the_rules_of_a_tree_without_a_reply_name_the_missing_reply_for_each_rule_of_t
         &root,
         vec![file("a.json", "a.json", &leaf)],
     )));
-    let Answer::Rules(answer) = engine.answer(Request::Rules) else {
-        assert_eq!("no rules answer", "a rules answer");
-        return;
-    };
+    let (frame, reasons) = crate::engine::tests::ruled(&mut engine, Named::default());
     // AD-385: an inside rule reads the model of its mount, so it names the input of the run.
-    let missing = Reason::MissingInput(Input::Reply);
-    assert_eq!(answer.reasons.get("a:M"), Some(&missing));
-    assert_eq!(answer.reasons.get("R"), Some(&missing));
-    assert!(answer.decided.is_empty());
+    let missing = Reason::MissingInput(Input::Reply).to_string();
+    assert_eq!(reasons.get("a:M"), Some(&missing));
+    assert_eq!(reasons.get("R"), Some(&missing));
+    assert_eq!(frame["rules"], json!({}));
 }
 
 /// A root that mounts `count` leaves, with the files of each leaf.

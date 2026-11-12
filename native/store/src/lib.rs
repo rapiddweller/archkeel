@@ -28,6 +28,7 @@ mod registered;
 mod seam;
 pub mod session;
 mod shell;
+mod standard;
 mod stored;
 mod texts;
 mod validate;
@@ -36,6 +37,7 @@ mod view;
 use archkeel_facts::Section;
 use serde::Deserialize;
 
+pub use crate::standard::standard_library;
 use crate::stored::Store;
 
 /// A reply that the store decoded and validated once, for a library of the core (WP6, AD-363).
