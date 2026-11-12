@@ -15,13 +15,60 @@ use super::{check_output, closure, names, namespace, scopes, Table};
 use crate::module::Module;
 use crate::pyast::Node;
 
+mod classes;
+mod methods;
+mod types;
+pub(super) mod values;
+
+struct Env<'a> {
+    module: &'a Module,
+    stable: BTreeSet<String>,
+    unique: BTreeSet<String>,
+    bound: HashSet<String>,
+    opaque: bool,
+}
+
+impl Env<'_> {
+    fn may_exist(
+        &self,
+        scan: &mut Scan,
+        body: &[Stmt],
+        stop: Option<&Stmt>,
+        name: &str,
+    ) -> Result<bool> {
+        if !self.opaque && !self.bound.contains(name) {
+            return Ok(false);
+        }
+        names::may_exist(scan, body, stop, name)
+    }
+}
+
+fn resolve(scan: &mut Scan, module: &Module, expr: &Expr) -> Result<String> {
+    if let Some(text) = namespace::dotted(scan, expr)? {
+        return Ok(text);
+    }
+    let text = super::class::text(scan, expr, module.text())?.unwrap_or_default();
+    let (root, tail) = text
+        .split_once('.')
+        .map_or((text.as_str(), None), |(a, b)| (a, Some(b)));
+    if let Some((target, _)) = scan.aliases.get(root) {
+        let text = tail.map_or_else(|| target.to_owned(), |tail| format!("{target}.{tail}"));
+        scan.tick(text.len())?;
+        return Ok(text);
+    }
+    Ok(text)
+}
+
 pub fn table(module: &Module, minor: PyMinor) -> Table {
     let mut scan = Scan::new(minor);
     let data = collect(module, &mut scan).and_then(|data| {
         check_output(&data)?;
         Ok(data)
     });
-    Table { data, work: scan.work.used() }
+    Table {
+        data,
+        work: scan.work.used(),
+    }
 }
 
 fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
@@ -35,8 +82,42 @@ fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
     }
     let scope = scopes::module_scope(scan, &module.tree.body)?;
     aliases(scan, module, &scope)?;
+    let stable_without_imports = stable(scan, module, &nodes, &scope, false)?;
     let stable = stable(scan, module, &nodes, &scope, true)?;
-    Ok(json!({"stable": stable}))
+    let bound_values = names::bound(scan, &nodes)?;
+    let bound_counts = counts(scan, bound_values)?;
+    let mut opaque = false;
+    for node in &nodes {
+        scan.tick(1)?;
+        opaque |= names::star(node) || matches!(node, Node::TypeParam(_));
+    }
+    let mut unique = BTreeSet::new();
+    for stmt in &module.tree.body {
+        scan.tick(1)?;
+        let mut direct = crate::module::import_bindings(stmt);
+        direct.extend(name(&Node::Stmt(stmt)).map(str::to_owned));
+        for name in direct {
+            scan.tick(1)?;
+            if !opaque && bound_counts.get(&name) == Some(&1) {
+                unique.insert(name);
+            }
+        }
+    }
+    scan.tick(bound_counts.len())?;
+    let env = Env {
+        module,
+        stable,
+        unique,
+        bound: bound_counts.into_keys().collect(),
+        opaque,
+    };
+    let methods = methods::table(scan, &env, &nodes)?;
+    let classes = classes::table(scan, &env, &nodes)?;
+    let types = types::table(scan, &env, &nodes)?;
+    Ok(
+        json!({"stable": env.stable, "stable_without_imports":stable_without_imports,
+        "unique": env.unique, "methods": methods, "classes": classes, "types": types}),
+    )
 }
 
 fn aliases(scan: &mut Scan, module: &Module, scope: &[Node<'_>]) -> Result<()> {
@@ -44,33 +125,59 @@ fn aliases(scan: &mut Scan, module: &Module, scope: &[Node<'_>]) -> Result<()> {
         scan.tick(1)?;
         let (items, from, level, head) = match node {
             Node::Stmt(Stmt::Import(n)) => (&n.names, false, 0, ""),
-            Node::Stmt(Stmt::ImportFrom(n)) => (&n.names, true, n.level,
-                n.module.as_ref().map_or("", |n| n.as_str())),
+            Node::Stmt(Stmt::ImportFrom(n)) => (
+                &n.names,
+                true,
+                n.level,
+                n.module.as_ref().map_or("", |n| n.as_str()),
+            ),
             _ => continue,
         };
         let mut anchor = head.to_owned();
         if from && level > 0 {
-            let mut base = if module.is_init() { module.name.as_str() }
-                else { module.name.rsplit_once('.').map_or("", |(p, _)| p) };
+            let mut base = if module.is_init() {
+                module.name.as_str()
+            } else {
+                module.name.rsplit_once('.').map_or("", |(p, _)| p)
+            };
             for _ in 1..level {
                 scan.tick(1)?;
                 base = base.rsplit_once('.').map_or("", |(p, _)| p);
             }
             anchor = if base.is_empty() {
                 scan.tick(level as usize)?;
-                format!("<unresolved:{}{head}:ImportError>", ".".repeat(level as usize))
-            } else if head.is_empty() { base.to_owned() } else { format!("{base}.{head}") };
+                format!(
+                    "<unresolved:{}{head}:ImportError>",
+                    ".".repeat(level as usize)
+                )
+            } else if head.is_empty() {
+                base.to_owned()
+            } else {
+                format!("{base}.{head}")
+            };
         }
         for alias in items {
             scan.tick(1)?;
             let imported = alias.name.as_str();
-            if imported == "*" { continue; }
+            if imported == "*" {
+                continue;
+            }
             let root = crate::module::first_part(imported);
-            let binding = alias.asname.as_ref().map_or(if from { imported } else { root }, |n| n.as_str());
-            let target = if from { format!("{anchor}.{imported}") }
-                else if alias.asname.is_some() { imported.to_owned() } else { root.to_owned() };
+            let binding = alias
+                .asname
+                .as_ref()
+                .map_or(if from { imported } else { root }, |n| n.as_str());
+            let target = if from {
+                format!("{anchor}.{imported}")
+            } else if alias.asname.is_some() {
+                imported.to_owned()
+            } else {
+                root.to_owned()
+            };
             scan.tick(binding.len().saturating_add(target.len()))?;
-            scan.aliases.insert(binding.to_owned(), (target, !from));
+            let module_binding = !from || target == module.name;
+            scan.aliases
+                .insert(binding.to_owned(), (target, module_binding));
         }
     }
     Ok(())
@@ -85,7 +192,13 @@ fn counts(scan: &mut Scan, values: Vec<String>) -> Result<HashMap<String, usize>
     Ok(out)
 }
 
-fn stable(scan: &mut Scan, module: &Module, nodes: &[Node<'_>], scope: &[Node<'_>], imports: bool) -> Result<BTreeSet<String>> {
+fn stable(
+    scan: &mut Scan,
+    module: &Module,
+    nodes: &[Node<'_>],
+    scope: &[Node<'_>],
+    imports: bool,
+) -> Result<BTreeSet<String>> {
     let bound = names::bound(scan, nodes)?;
     let mut parents = HashMap::new();
     let mut globals = HashSet::new();
@@ -99,25 +212,43 @@ fn stable(scan: &mut Scan, module: &Module, nodes: &[Node<'_>], scope: &[Node<'_
         }
         for child in scan.children(node)? {
             scan.tick(1)?;
-            if let Node::Expr(expr) = child { parents.insert(std::ptr::from_ref(expr), node.clone()); }
+            if let Node::Expr(expr) = child {
+                parents.insert(std::ptr::from_ref(expr), node.clone());
+            }
         }
     }
     scan.tick(bound.len())?;
-    let env = namespace::Env { blocked: bound.iter().map(String::as_str).collect(), opaque, parents: &parents };
-    if namespace::rebind(scan, nodes, scope, &env, imports)? { return Ok(BTreeSet::new()); }
+    let env = namespace::Env {
+        blocked: bound.iter().map(String::as_str).collect(),
+        opaque,
+        parents: &parents,
+    };
+    if namespace::rebind(scan, nodes, scope, &env, imports)? {
+        return Ok(BTreeSet::new());
+    }
     for node in scope {
         scan.tick(1)?;
-        if names::star(node) { return Ok(BTreeSet::new()); }
+        if names::star(node) {
+            return Ok(BTreeSet::new());
+        }
     }
     let scope_values = names::bound(scan, scope)?;
     let scope_counts = counts(scan, scope_values)?;
     let mut direct = Vec::new();
     for stmt in &module.tree.body {
         scan.tick(1)?;
-        if let Some(name) = name(&Node::Stmt(stmt)) { direct.push(name.to_owned()); }
+        if let Some(name) = name(&Node::Stmt(stmt)) {
+            direct.push(name.to_owned());
+        }
         match stmt {
-            Stmt::TypeAlias(n) if n.type_params.as_ref().is_none_or(|p| p.type_params.is_empty()) => {
-                if let Expr::Name(n) = &*n.name { direct.push(n.id.to_string()); }
+            Stmt::TypeAlias(n)
+                if n.type_params
+                    .as_ref()
+                    .is_none_or(|p| p.type_params.is_empty()) =>
+            {
+                if let Expr::Name(n) = &*n.name {
+                    direct.push(n.id.to_string());
+                }
             }
             Stmt::Import(_) | Stmt::ImportFrom(_) => {
                 let bindings = crate::module::import_bindings(stmt);
@@ -139,7 +270,11 @@ fn stable(scan: &mut Scan, module: &Module, nodes: &[Node<'_>], scope: &[Node<'_
     let mut out = BTreeSet::new();
     for (name, count) in direct {
         scan.tick(1)?;
-        if count == 1 && scope_counts.get(&name) == Some(&1) && !globals.contains(name.as_str()) && !changed.contains(&name) {
+        if count == 1
+            && scope_counts.get(&name) == Some(&1)
+            && !globals.contains(name.as_str())
+            && !changed.contains(&name)
+        {
             out.insert(name);
         }
     }
@@ -150,13 +285,19 @@ fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<HashSet<String>> {
     let mut roots = HashSet::new();
     for node in nodes {
         scan.tick(1)?;
-        let Node::Expr(Expr::Attribute(n)) = node else { continue; };
-        if n.ctx == ExprContext::Load { continue; }
+        let Node::Expr(Expr::Attribute(n)) = node else {
+            continue;
+        };
+        if n.ctx == ExprContext::Load {
+            continue;
+        }
         let mut pending = vec![Node::Expr(&n.value)];
         while let Some(node) = pending.pop() {
             scan.tick(1)?;
             match node {
-                Node::Expr(Expr::Name(n)) => { roots.insert(n.id.to_string()); }
+                Node::Expr(Expr::Name(n)) => {
+                    roots.insert(n.id.to_string());
+                }
                 Node::Expr(Expr::Attribute(n)) => pending.push(Node::Expr(&n.value)),
                 Node::Expr(Expr::Call(_)) => {}
                 _ => pending.extend(scan.children(&node)?),
@@ -165,30 +306,66 @@ fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<HashSet<String>> {
     }
     scan.tick(roots.len())?;
     let refs: Vec<_> = roots.iter().map(String::as_str).collect();
-    let changed = closure::closure(scan, nodes, &closure::Inputs {
-        roots: &refs, members: false, contained: &[], local_references: &HashSet::new(),
-        namespace_owners: &[], namespace_bindings: &[],
-    })?;
+    let changed = closure::closure(
+        scan,
+        nodes,
+        &closure::Inputs {
+            roots: &refs,
+            members: false,
+            contained: &[],
+            local_references: &HashSet::new(),
+            namespace_owners: &[],
+            namespace_bindings: &[],
+        },
+    )?;
     scan.tick(changed.len())?;
     let mut changed: HashSet<_> = changed.into_iter().collect();
     let mut origins = HashSet::new();
     for node in nodes {
         scan.tick(1)?;
-        if let Node::Stmt(Stmt::Import(n)) = node {
-            for alias in &n.names {
-                scan.tick(1)?;
-                let root = crate::module::first_part(alias.name.as_str());
-                let binding = alias.asname.as_ref().map_or(root, |n| n.as_str());
-                if changed.contains(binding) {
-                    origins.insert(if alias.asname.is_some() { alias.name.as_str() } else { root });
-                }
+        let Node::Stmt(Stmt::Import(n)) = node else {
+            continue;
+        };
+        for alias in &n.names {
+            scan.tick(1)?;
+            let root = crate::module::first_part(alias.name.as_str());
+            let binding = alias.asname.as_ref().map_or(root, |n| n.as_str());
+            if changed.contains(binding) {
+                origins.insert(alias.asname.as_ref().map_or(root, |_| alias.name.as_str()));
             }
         }
     }
     scan.tick(scan.aliases.len())?;
     for (name, (target, module)) in &scan.aliases {
-        let origin = if *module { target.as_str() } else { target.rsplit_once('.').map_or("", |(p, _)| p) };
-        if origins.contains(origin) { changed.insert(name.to_owned()); }
+        let origin = if *module {
+            target.as_str()
+        } else {
+            target.rsplit_once('.').map_or("", |(p, _)| p)
+        };
+        if origins.contains(origin) {
+            changed.insert(name.to_owned());
+        }
     }
     Ok(changed)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn an_exhausted_scan_keeps_no_partial_proof_table() {
+        let text = "class C:\n    @staticmethod\n    def f(): pass\n";
+        let module = crate::module::Module::new(
+            "probe.py".into(),
+            "probe".into(),
+            text.into(),
+            crate::test_tree(text, 11).expect("fixture"),
+        );
+        let mut scan = super::Scan::new(crate::test_minor(11));
+        scan.work = crate::parse::work::Work::with_limit(1);
+        assert_eq!(
+            super::collect(&module, &mut scan),
+            Err("binding work limit exceeded".into())
+        );
+        assert_eq!(scan.work.used(), 1);
+    }
 }

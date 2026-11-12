@@ -1813,7 +1813,7 @@
         "native.archkeel_python_collector.bindings"
       ],
       "responsibilities": [
-        "The definition table, its lexical binding inputs and unused-binding records, or a named gap (AD-377, AD-396)."
+        "The definition table, its lexical binding inputs, unused-binding records and import-local proofs, or a named gap (AD-377, AD-396, AD-404)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving another module and writing the reply."

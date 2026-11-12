@@ -12,6 +12,16 @@ use super::{class, names};
 use crate::pyast::Node;
 
 pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<Value> {
+    binding_with(scan, node, source, false, true)
+}
+
+pub(super) fn binding_with(
+    scan: &mut Scan,
+    node: &Node<'_>,
+    source: &str,
+    inert: bool,
+    members: bool,
+) -> Result<Value> {
     let (targets, value) = match node {
         Node::Stmt(Stmt::Assign(n)) => (n.targets.iter().collect::<Vec<_>>(), Some(&*n.value)),
         Node::Stmt(Stmt::AnnAssign(n)) => (vec![&*n.target], n.value.as_deref()),
@@ -25,14 +35,14 @@ pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<
                 value,
                 Expr::List(_) | Expr::Tuple(_) | Expr::Set(_) | Expr::Dict(_)
             );
-        if !admitted {
+        if !admitted && !(inert && super::proofs::values::inert(scan, value, 0)?) {
             let lambda = matches!(value, Expr::Lambda(_));
             let stored = names::stored_names(scan, targets.clone())?;
             scan.tick(stored.len())?;
             let public = stored
                 .iter()
                 .any(|n| !n.starts_with('_') || n.starts_with("__") && n.ends_with("__"));
-            if !lambda || public {
+            if !lambda || members && public {
                 return Ok(Value::Null);
             }
         }

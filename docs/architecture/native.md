@@ -59,6 +59,9 @@ The `py-symbols` component also owns the pre-import binding inventory and comple
 records (AD-396). `--dump-bindings` compares them with the unchanged Python functions. It keeps
 the alias map empty until the import-proof slice. Work exhaustion gives a named incomplete-file
 gap, not a partial inventory. No new section enters the production reply.
+`--dump-proofs` compares the import-local binding, decorator, property, class-body and type-alias
+proofs that member convergence needs (AD-404). It reads one module after static import binding.
+Provider proof sets are empty at this boundary. It does not claim cross-module convergence.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
 `tree-sitter-language` (rule `NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE`).
 Clippy, `cargo deny` and the file size rule stay outside the contract
