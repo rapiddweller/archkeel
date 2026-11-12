@@ -249,6 +249,7 @@ PROBES: dict[str, str] = {
         "class C:\n    def __init__(self, a: int, b, /, c: 'T', *d, e, **f):\n"
         "        self.a = a\n        self.b: int = b\n        other.c = c\n        self.d = d\n"
         "        self.e = e\n        x = self.y = a\n        if a:\n            self.z = a\n"
+        "        self.me = self\n"
         "def __init__(self, a):\n    self.a = a\n"
     ),
     "member-writes": (

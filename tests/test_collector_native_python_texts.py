@@ -169,6 +169,9 @@ PROBES: dict[str, str] = {
     "fstring-quotes": "x = f\"{a!r}'\", f'{a}\"', f'''{a}'\"''', f'\\n{a}\\t'\n",
     "fstring-spec-escapes": "x = f'{ab:\\n}', f'{ab:\\\\}', f\"{ab:'}\", f'{ab:\\\"}'\n",
     "fstring-nested-strings": "x = f'{\"a\"}', f\"{'b'}\", f'{a[\"k\"]}', f'{\"\\t\"}'\n",
+    # A raw invisible character in a string of a field: 3.11 escapes it, so the text of the
+    # field has a backslash and `ast.unparse` raises `ValueError`; 3.12 writes the escape.
+    "fstring-raw-invisible": "x = f'{\"\u200b\"}', f'{\"\x01\"}', f'{\"\t\"}'\n",
     "fstring-lambda": "x = f'{(lambda: 1)()}', f'{a if b else c}', f'{(a, b)}'\n",
     "ellipsis-none": "x = ..., None, True, False, [...]\n",
     "slices": "x = a[::], a[1:], a[:2:], a[::-1], a[b:c, d:e]\n",
