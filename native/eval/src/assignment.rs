@@ -12,8 +12,8 @@ use archkeel_model::{in_scope, Model};
 
 use crate::violation::Violation;
 
-/// The violations of the rule, and whether it selects a module (its receipt).
-pub(crate) fn check(id: &str, rule: &SourceRule, model: &Model) -> (Vec<Violation>, bool) {
+/// The violations of the rule. Its receipt is a part of the scope proof (`Scope::complete`).
+pub(crate) fn check(id: &str, rule: &SourceRule, model: &Model) -> Vec<Violation> {
     let source = rule.source().as_text();
     let mut violations: Vec<Violation> = model
         .graph()
@@ -25,5 +25,5 @@ pub(crate) fn check(id: &str, rule: &SourceRule, model: &Model) -> (Vec<Violatio
         .map(|(module, row)| Violation::unassigned(id, source, module, row))
         .collect();
     violations.sort_by(|a, b| a.id().cmp(b.id()));
-    (violations, !model.source_modules(source).is_empty())
+    violations
 }

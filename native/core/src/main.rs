@@ -11,8 +11,11 @@
 //! `complete_external_scope`; AD-372) and writes their `violations` rows; each part
 //! that no slice has ported answers with its name. The host uses the core for no verdict.
 //!
-//! Exit codes: 0 for a frame without a gap, 3 for a frame that names an unsupported or refused
-//! part, 2 for a request that the core cannot read, 1 for an I/O error.
+//! The frame has the status of the run (PASS, FAIL or UNKNOWN), computed from its rows, and an
+//! explaining row for each rule that is not PASS (AD-361, AD-378). The status is in the frame,
+//! not in the exit code. Exit codes: 0 for a frame without a gap, 3 for a frame that names an
+//! unsupported or refused part, 2 for a request that the core cannot read or a frame whose
+//! status has no explaining row (no frame is written), 1 for an I/O error.
 
 mod contract;
 mod dual_run;
@@ -22,6 +25,7 @@ mod report;
 mod request;
 mod rules;
 mod sections;
+mod status;
 mod topology;
 
 /// The exit code of a frame that names an unsupported or refused part.

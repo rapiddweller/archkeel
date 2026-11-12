@@ -9,8 +9,8 @@
 //! the ids, the tables, the components and the vocabulary of a decision:
 //!
 //! - `Verdict` and `Decision`: a PASS needs a `ScopeComplete` proof of the same model, and only
-//!   the scope of this crate makes one (`Model::scope`, `Scope::complete`). Until slice S4 it
-//!   makes none. `Verdict::Pass` holds a mark that only this crate makes.
+//!   the scope of this crate makes one (`Model::scope`, `Scope::complete`). `Verdict::Pass`
+//!   holds a mark that only this crate makes.
 //! - `Reason` and `Unsupported`: a part that no slice has ported answers with its name, never
 //!   with an empty result.
 //! - `Section`: the 20 compared sections of `architecture.json` and the slice that ports each.
@@ -21,6 +21,11 @@
 //! - Slice S3: the condensation ranks of the edges, modules and packages, the fan counts with the
 //!   macro bodies (`Measure`) and the module and package cycles (`Cycle`). The part
 //!   that needs no contract is the `Graph`; a run derives it one time and moves it into the model.
+//!
+//! - Slice S4: the scope proof (`proof.rs`, AD-378): the causes that make the scope of a run
+//!   incomplete in the reference engine (pair gaps, the work tree, the runtime, the producer, the
+//!   profile limits, the subject check of every rule), made one time per model, and the receipt
+//!   and the undecided positions of each rule (`Scope::complete`).
 //!
 //! The model names no language: a rule of the native contract and a test check that.
 
@@ -33,13 +38,17 @@ mod edges;
 mod graph;
 mod ids;
 mod imports;
+mod limits;
 mod model;
 mod modules;
+mod observed;
 mod ownership;
+mod proof;
 mod reason;
 mod scope;
 mod section;
 mod settings;
+mod subjects;
 mod topology;
 mod verdict;
 
@@ -52,9 +61,10 @@ pub use imports::{Import, Resolved};
 pub use model::{Model, Rows};
 pub use modules::{Module, Package};
 pub use ownership::in_scope;
+pub use proof::{Cause, Part};
 pub use reason::{Input, Reason, Refusal, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
-pub use settings::{Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 pub use topology::Measure;
 pub use verdict::{Decision, Proven, Verdict};

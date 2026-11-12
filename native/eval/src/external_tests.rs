@@ -93,14 +93,14 @@ fn dependencies(violations: &[&Violation]) -> Vec<String> {
 }
 
 #[test]
-fn the_clean_reply_has_no_external_violation_and_never_passes() {
+fn the_clean_reply_has_no_external_violation_and_passes_with_the_scope_proof() {
     let outcomes = run(|_| {}, |_| {}, shop_settings());
     assert_eq!(outcomes.len(), 2);
     // Each local import has an internal root, so no import is external.
     assert!(outcomes.iter().all(|o| o.violations().is_empty()));
     assert!(outcomes
         .iter()
-        .all(|o| matches!(o.decision().verdict(), Verdict::Unknown)));
+        .all(|o| matches!(o.decision().verdict(), Verdict::Pass(_))));
 }
 
 #[test]

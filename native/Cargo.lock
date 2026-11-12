@@ -103,6 +103,7 @@ dependencies = [
  "archkeel-facts",
  "archkeel-store",
  "flate2",
+ "serde",
  "serde_json",
 ]
 

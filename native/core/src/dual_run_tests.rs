@@ -41,9 +41,18 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
         Some(&reply),
         &["metrics", "evidence", "violations"],
     ));
-    // The native rule selects no module of the H-typescript reply: no receipt, so UNKNOWN.
-    let unknown = json!({"NATIVE-ASSIGNMENT-COMPLETE": ["complete_assignment", "UNKNOWN"]});
-    assert_eq!(got["rules"], unknown);
+    // The native rules select no module of the H-typescript reply: the subject check of the
+    // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
+    // with its reason (AD-378).
+    let decided = got["rules"].as_object().cloned().unwrap_or_default();
+    assert_eq!(decided.len(), 7);
+    assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
+    assert_eq!(
+        got["explained"]["NATIVE-EXTERNAL-SYN"],
+        "incomplete scope: the rule NATIVE-ASSIGNMENT-COMPLETE selects no module"
+    );
+    assert_eq!(got["status"], "UNKNOWN");
+    assert_eq!(got["violations"], json!({}));
     assert_eq!(got["sections"], json!({"violations": []}));
     assert_eq!(
         got["unsupported"]["report"],
@@ -61,7 +70,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 9);
+    assert_eq!(rules, 3);
 }
 
 #[test]

@@ -5,8 +5,10 @@
 //! The `Rules` request: the decision of each rule of the contract (`archkeel-eval`).
 //!
 //! A decided rule has its status. A rule whose decision names an unsupported part (its kind, or
-//! the scope proof of S4) and a rule of a ported kind without a model have their reason: the
-//! harness counts a named reason as a difference, never as equal (AD-363).
+//! a part of the scope proof that the core cannot read) and a rule of a ported kind without a
+//! model have their reason: the harness counts a named reason as a difference, never as equal
+//! (AD-363). A decided UNKNOWN keeps its reason and a FAIL its number of violations, so each
+//! status other than PASS has its explaining row (AD-361 point 5, AD-378).
 
 use std::collections::BTreeMap;
 
@@ -27,6 +29,10 @@ const DECIDED: &[RuleKind] = &[
 pub(crate) struct RuleAnswer {
     pub(crate) decided: BTreeMap<String, [String; 2]>,
     pub(crate) reasons: BTreeMap<String, Reason>,
+    /// The reason of each decided UNKNOWN rule.
+    pub(crate) explained: BTreeMap<String, String>,
+    /// The number of violations of each decided rule that has one.
+    pub(crate) violations: BTreeMap<String, usize>,
 }
 
 /// The outcome of each rule, or the reason that the run has no model.
@@ -66,8 +72,16 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
             }
             (Verdict::Pass(_), _) => "PASS",
             (Verdict::Fail, _) => "FAIL",
-            (Verdict::Unknown, _) => "UNKNOWN",
+            (Verdict::Unknown, reason) => {
+                let why = reason.map_or_else(String::new, ToString::to_string);
+                answer.explained.insert(outcome.rule().to_owned(), why);
+                "UNKNOWN"
+            }
         };
+        if !outcome.violations().is_empty() {
+            let count = outcome.violations().len();
+            answer.violations.insert(outcome.rule().to_owned(), count);
+        }
         answer.decided.insert(
             outcome.rule().to_owned(),
             [word(outcome.kind()), status.to_owned()],

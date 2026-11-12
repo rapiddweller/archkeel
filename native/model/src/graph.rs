@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::envelope::Facts;
+use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::record::FactData;
 use archkeel_facts::sections::Section;
 use archkeel_store::Ingested;
@@ -21,6 +21,7 @@ use crate::edges::{self, Edge, Level};
 use crate::ids::{Id, ModuleId, PackageId, Table};
 use crate::imports::{self, Import};
 use crate::modules::{self, Module, Package};
+use crate::observed::{self, Observed};
 use crate::reason::Reason;
 use crate::settings::Settings;
 use crate::topology::{self, Measure};
@@ -39,6 +40,8 @@ pub struct Graph {
     package_measures: Vec<Measure>,
     symbol_counts: Option<Vec<usize>>,
     cycles: Vec<Cycle>,
+    observed: Observed,
+    builtins: Vec<String>,
 }
 
 impl Graph {
@@ -69,6 +72,8 @@ impl Graph {
             module_measures: module_measured.measures,
             package_measures: package_measured.measures,
             cycles,
+            observed: observed::observed(facts),
+            builtins: builtins(facts),
         })
     }
 
@@ -125,6 +130,28 @@ impl Graph {
     pub fn cycles(&self) -> &[Cycle] {
         &self.cycles
     }
+
+    /// What the reply says about its own scope (slice S4).
+    pub(crate) fn observed(&self) -> &Observed {
+        &self.observed
+    }
+
+    /// The names of the builtin import targets of the reply.
+    pub(crate) fn builtins(&self) -> &[String] {
+        &self.builtins
+    }
+}
+
+/// The names of the builtin import targets (`BuiltinTarget.name`).
+fn builtins(facts: &Facts) -> Vec<String> {
+    facts
+        .imports
+        .iter()
+        .filter_map(|target| match target {
+            Target::Builtin { name, .. } => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// The symbols of each module, when the reply has a symbols section (`symbols_measured`).

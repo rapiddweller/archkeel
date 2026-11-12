@@ -10,9 +10,8 @@
 //!
 //! Slice S1 decides `complete_assignment` and `root_layout`: they read only the modules, the
 //! packages and the owners of the model. A violation is a fact also in an incomplete scope, so
-//! FAIL needs no proof. UNKNOWN comes from a fact that the reply proves not seen, or from a rule
-//! that selects no module (no evaluator receipt). Any other case needs the scope proof of slice
-//! S4; until then it is UNKNOWN with the reason `Unsupported::ScopeProof`, a named gap.
+//! FAIL needs no proof. Each other verdict comes from the scope proof of the model (slice S4,
+//! AD-378): PASS with the proof, else UNKNOWN with its reason.
 //!
 //! Slice S2 decides `external_dependency_scope` and `complete_external_scope`: they read only the
 //! resolved imports with their typed targets, the modules and the owners (AD-372).
@@ -72,7 +71,7 @@ pub fn evaluate(contract: &Contract, model: &Model) -> Vec<Outcome> {
 
 fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
     let id = head_of(rule).id().as_text();
-    let (violations, selected) = match rule {
+    let violations = match rule {
         Rule::CompleteAssignment(rule) => assignment::check(id, rule, model),
         Rule::RootLayout(rule) => match layout::check(id, rule, model) {
             Ok(found) => found,
@@ -101,7 +100,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
     Outcome {
         rule: id.to_owned(),
         kind: kind_of(rule),
-        decision: decide::decide(model, &violations, selected),
+        decision: decide::decide(model, rule, &violations),
         violations,
     }
 }

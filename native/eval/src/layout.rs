@@ -14,13 +14,8 @@ use archkeel_model::{in_scope, Model, Reason};
 
 use crate::violation::Violation;
 
-/// The violations of the rule and whether it selects a module (its receipt), or the reason that
-/// a child has no record to cite.
-pub(crate) fn check(
-    id: &str,
-    rule: &RootLayout,
-    model: &Model,
-) -> Result<(Vec<Violation>, bool), Reason> {
+/// The violations of the rule, or the reason that a child has no record to cite.
+pub(crate) fn check(id: &str, rule: &RootLayout, model: &Model) -> Result<Vec<Violation>, Reason> {
     let root = rule.root().as_text();
     let depth = root.split('.').count() + 1;
     let names = model
@@ -69,12 +64,7 @@ pub(crate) fn check(
         ));
     }
     violations.sort_by(|a, b| a.id().cmp(b.id()));
-    let selected = model
-        .graph()
-        .modules()
-        .iter()
-        .any(|(_, module)| in_scope(module.name(), root));
-    Ok((violations, selected))
+    Ok(violations)
 }
 
 /// The record that cites a child. The reference engine stops (`KeyError`) for a child without

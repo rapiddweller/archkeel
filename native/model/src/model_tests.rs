@@ -73,7 +73,7 @@ fn an_unported_section_names_the_slice_that_ports_it() {
 
 #[test]
 fn an_unknown_carries_its_reason_and_no_pass_exists_without_the_proof() {
-    let reason = Reason::Unsupported(Unsupported::ScopeProof);
+    let reason = Reason::Unsupported(Unsupported::ScopeProof(crate::proof::Part::ForeignRule));
     let decision = Decision::unknown(reason.clone());
     assert_eq!(decision.verdict(), Verdict::Unknown);
     assert_eq!(decision.reason(), Some(&reason));

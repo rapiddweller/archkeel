@@ -32,7 +32,7 @@ pub(crate) fn golden_reply() -> Vec<u8> {
     let mut value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
     value["facts"]["adapter"]["version"] = json!("0");
     value["facts"]["adapter"]["code_digest"] = json!("0".repeat(64));
-    value["facts"]["runtime"] = json!({"name": "rust", "version": "1.88.0", "required": null,
+    value["facts"]["runtime"] = json!({"name": "rust", "version": "1.88.0", "required": ">=1.88",
                                        "requirement_state": "declared"});
     value["facts"]["source"]["git_head"] = json!("a");
     value["facts"]["source"]["dirty"] = json!(false);
@@ -123,10 +123,15 @@ fn the_engine_decides_the_s1_kinds_and_writes_their_violation_rows() {
     };
     let failed = ["complete_assignment".to_owned(), "FAIL".to_owned()];
     assert_eq!(answer.decided.get("ASSIGNMENT"), Some(&failed));
+    // The settings name no producer, so the reply counts as one of an external collector: the
+    // scope is not complete, and the rule is a decided UNKNOWN with its reason (AD-378).
+    let unknown = ["root_layout".to_owned(), "UNKNOWN".to_owned()];
+    assert_eq!(answer.decided.get("LAYOUT"), Some(&unknown));
     assert_eq!(
-        answer.reasons.get("LAYOUT"),
-        Some(&Reason::Unsupported(Unsupported::ScopeProof))
+        answer.explained.get("LAYOUT").map(String::as_str),
+        Some("incomplete scope: the reply comes from an external collector without a pin")
     );
+    assert_eq!(answer.violations.get("ASSIGNMENT"), Some(&2));
     let Answer::Sections(rows) = engine.answer(Request::Sections(vec![Section::Violations])) else {
         fail("a sections answer");
         return;
