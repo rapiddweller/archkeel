@@ -11,3 +11,4 @@
 | 2026-11-11 | 8 | c3d324f47 | WP6 S3: add the s3 cases of ranks, cycles and macro bodies |
 | 2026-11-12 | 1 | 6f5ec3b88 | WP6 S3 review: add the s3 case of a module cycle beside a roll-up package cycle |
 | 2026-11-12 | 19 | e70e6bb6e | WP6 S4: add the s4 cases of the scope proof (AD-378) |
+| 2026-11-12 | 7 | cdb8e661d | WP6 S4 review: the s4 cases of findings 1, 2 and 4 (AD-378) |
