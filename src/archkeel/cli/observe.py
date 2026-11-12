@@ -94,11 +94,8 @@ class _VerifiedCollector(ProcessCollector):
             return _native_error(self.argv[0], "digest_mismatch", str(error))
         if verified.digest != self.pinned_digest or verified.path != self.argv[0]:
             return _native_error(self.argv[0], "digest_mismatch", "The located binary changed.")
-        facts = super().collect(request)
-        return (
-            facts
-            if isinstance(facts, CollectionError)
-            else replace(facts, verified_binary=VerifiedBinary(verified.digest))
+        return ProcessCollector.collect(
+            replace(self, verified_binary=VerifiedBinary(verified.digest)), request
         )
 
 

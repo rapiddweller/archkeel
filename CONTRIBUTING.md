@@ -23,7 +23,7 @@ and its digest beside the package. It requires the Rust toolchain pinned in `nat
 `make native-tools native-wheel` builds an installable platform wheel under `dist/native/`.
 An editable install, a default wheel and an sdist install contain no native binary.
 They stop TypeScript collection with `missing_tool` and exit code 2 until a verified collector is available.
-The release workflow builds six platform wheels but leaves their publication disabled.
+The next owner-started release publishes the six native platform wheels listed in the install instructions.
 Dart analysis runs in Python. `make dart-test` checks it without installing a Dart SDK.
 `make test` checks the native TypeScript collector and browser module boundaries.
 Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutter and Dart.

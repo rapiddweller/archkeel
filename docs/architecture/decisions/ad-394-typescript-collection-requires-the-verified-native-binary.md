@@ -16,6 +16,8 @@ The bundled collector is a compiled program. Its executable bytes identify its r
 The shell's `observe.verified_binary` checks these bytes against the installed SHA-256 file
 in each collection. Only a successful check creates the typed, host-only `VerifiedBinary` fact.
 The process checks the digest again before launch. Failed collection produces no trusted facts.
+The decoder attaches this host metadata before it registers validation and store ownership.
+Copying the registered object lost both identities and made the store read-set fail full-payload validation.
 A configured `collector_argv` never receives this fact, even when pinned or named Rust/Python.
 The receipt records `runtime.code_digest`. Replay compares it with the verified executable digest.
 Unverified producers, missing digests and other digests give named UNKNOWN reasons.
