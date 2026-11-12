@@ -119,6 +119,10 @@ fn the_fields_are_exact_and_checked_in_the_python_order() {
         parsed(&with("extra", json!(1))),
         Err(AmendmentError::FieldsMismatch)
     );
+    // One key swapped for an unknown key: the count is the same, the set is not.
+    let mut swapped = with("extra", json!("x"));
+    swapped.as_object_mut().unwrap().remove("rationale");
+    assert_eq!(parsed(&swapped), Err(AmendmentError::FieldsMismatch));
     let mut missing = document();
     missing
         .as_object_mut()
