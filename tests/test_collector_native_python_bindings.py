@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare the definition binding inputs before import convergence (AD-392)."""
+"""Compare the definition binding inputs before import convergence (AD-396)."""
 
 from __future__ import annotations
 

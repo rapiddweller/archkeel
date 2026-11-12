@@ -1,9 +1,9 @@
-# AD-392 The native Python binding dump stops before import convergence
+# AD-396 The native Python binding dump stops before import convergence
 
 **Status.** Accepted. Part of #880. Stacked on #1091.
 
-**Number.** Main ends at decision 387. Open PR #1090 uses 388. PR #1091 uses 389.
-PR #1093 uses 390. This record takes the highest observed number plus two: AD-392.
+**Number.** The lead reserves 396 after the open-PR number check. PR #1098 uses 394.
+This record takes the highest observed number plus two: AD-396.
 
 **Reason.** The definition table still lacks binding proofs. Those proofs need the lexical
 inventory, ordered lookups, namespace exposure checks and member-binding closure first.

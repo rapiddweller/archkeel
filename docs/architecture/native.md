@@ -56,7 +56,7 @@ file gap with incomplete scope. The host codec and store still refuse the native
 **Python reply acceptance — entry condition:** the store must not accept the native Python reply
 before #1072 is closed. These checks are partial: 17 known classes still accepted, issue #1072 stays open.
 The `py-symbols` component also owns the pre-import binding inventory and complete unused-binding
-records (AD-392). `--dump-bindings` compares them with the unchanged Python functions. It keeps
+records (AD-396). `--dump-bindings` compares them with the unchanged Python functions. It keeps
 the alias map empty until the import-proof slice. Work exhaustion gives a named incomplete-file
 gap, not a partial inventory. No new section enters the production reply.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
