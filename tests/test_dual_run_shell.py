@@ -46,12 +46,14 @@ def test_the_full_edge_rows_compare_with_their_ranks_and_name_each_difference() 
 
 
 def test_the_shell_sends_the_namespace_and_the_standard_library_of_the_reply_profile() -> None:
-    """AD-372: the shell reads the configuration and owns the profile table, not the core."""
+    """AD-372, AD-384: the shell reads the configuration (namespace and scan roots) and owns the
+    profile table, not the core."""
     name = "s2/complete-a-builtin-import-is-exempt"
     case = next(c for c in dual_run.corpus_cases() if c.id == name)
     with dual_run.materialized(case) as root:
         request = dual_run.engine_request(case, root, Selection())
-    assert request["protocol"] == "archkeel-dual-run-3"
+    assert request["protocol"] == "archkeel-dual-run-4"
+    assert request["roots"] == ["src"]
     assert (request["namespace"], request["profile"], request["standard_library"]) == (
         "shop",
         "",
