@@ -11,7 +11,8 @@
 //! diagnostic. The model checks each cause of a failure here, one time per model:
 //!
 //! 1. what the reply proves not seen (`coverage.rs`, slices S1 and S2);
-//! 2. a gap between two modules that the contract does not allow (`pair_gaps.py`);
+//! 2. a gap between two modules that the contract does not allow (`pair_gaps.rs`): since slice
+//!    S7 it holds only the rules that it can change, so it is not part of this state;
 //! 3. a work tree that the host could not read, a runtime outside its requirement, a reply of an
 //!    external collector (`observation_diagnostics`, AD-344);
 //! 4. the profile limits of the contract and the layer metadata of `layer_order` (`limits.rs`);
@@ -21,14 +22,12 @@
 //! cause that the core cannot read is `Part` (a named gap: the reference engine can give PASS).
 //! A fact comes first: with one, the verdict is UNKNOWN in both engines.
 
-use archkeel_contract::{Component, Contract, Rule, RuleKind};
+use archkeel_contract::{Contract, Rule};
 
 use crate::causes::{Cause, Part};
 use crate::graph::Graph;
-use crate::ids::{ComponentId, Table};
 use crate::limits::{self, Limit};
 use crate::observed::Runtime;
-use crate::ownership::{in_scope, owner_of};
 use crate::reason::Reason;
 use crate::subjects::{self, Names, Subjects};
 
@@ -43,14 +42,9 @@ pub(crate) enum State {
     Unread(Part),
 }
 
-/// The scope state of a contract, its components and the reply part of its run. `trusted` is
+/// The scope state of a contract and the reply part of its run. `trusted` is
 /// false for a reply of an external collector (AD-344).
-pub(crate) fn state(
-    contract: &Contract,
-    components: &Table<ComponentId, Component>,
-    graph: &Graph,
-    trusted: bool,
-) -> State {
+pub(crate) fn state(contract: &Contract, graph: &Graph, trusted: bool) -> State {
     let mut unread: Option<Part> = None;
     // AD-379: a root that mounts inside contracts is never complete. The reference engine reads
     // the mounts for the root verdicts; the core decides only the root rules.
@@ -64,14 +58,9 @@ pub(crate) fn state(
     if let Some(incomplete) = graph.incomplete() {
         return State::Incomplete(Reason::Incomplete(incomplete));
     }
+    // Slice S7 (AD-384): a pair gap is not a cause of the state; `pair_gaps.rs` gives the rules
+    // that each kept gap holds, and the run names every gap.
     let observed = graph.observed();
-    let (kept, allowed) = pair_gaps(contract, components, &observed.pair_gaps);
-    if kept > 0 {
-        return cause(Cause::PairGaps(kept));
-    }
-    if allowed {
-        note(&mut unread, Part::AllowedPairGap);
-    }
     if observed.git_unknown {
         return cause(Cause::WorkTree);
     }
@@ -138,72 +127,3 @@ fn rule_failures(contract: &Contract, graph: &Graph, unread: &mut Option<Part>) 
     }
     None
 }
-
-/// The pair gaps that the drop rule of the host keeps for certain (their number), and whether
-/// one gap is a gap that the rule can drop.
-///
-/// `drop_allowed_pair_gaps` keeps a gap when an end has no owner or a rule names an end; else it
-/// drops a gap inside one component and a gap of a `requires` without `through`, unless a cycle
-/// rule sees a cycle through it. It drops gaps only for one profile. So a gap that it keeps is a
-/// fact for every profile, and a gap that it can drop is a part that the core cannot read.
-fn pair_gaps(
-    contract: &Contract,
-    components: &Table<ComponentId, Component>,
-    gaps: &[(String, String)],
-) -> (usize, bool) {
-    let owner = |module: &str| owner_of(components, module).and_then(|id| components.get(id));
-    let mut kept = 0;
-    let mut allowed = false;
-    for (source, target) in gaps {
-        let (Some(from), Some(to)) = (owner(source), owner(target)) else {
-            kept += 1;
-            continue;
-        };
-        if named(contract, [source, target]) || !(from.id() == to.id() || crossing(from, to)) {
-            kept += 1;
-        } else {
-            allowed = true;
-        }
-    }
-    (kept, allowed)
-}
-
-/// True when `from` requires `to` with an entry without `through`.
-fn crossing(from: &Component, to: &Component) -> bool {
-    from.requires()
-        .iter()
-        .flatten()
-        .any(|required| required.component() == to.label() && required.through().is_empty())
-}
-
-/// `_named`: a rule names an end by a selector field, or the rule is of a kind that the drop
-/// rule does not know.
-fn named(contract: &Contract, ends: [&String; 2]) -> bool {
-    contract.rules().iter().any(|rule| {
-        let names: Vec<&str> = match rule {
-            Rule::ForbiddenDependency(rule) => [rule.source(), rule.target()]
-                .into_iter()
-                .chain(rule.allowed_sources())
-                .map(|s| s.as_text())
-                .collect(),
-            Rule::AllowedDependency(rule) => vec![rule.source().as_text(), rule.target().as_text()],
-            Rule::SiblingIsolation(rule) => rule.members().iter().map(|s| s.as_text()).collect(),
-            other => return !EDGE_FREE.contains(&archkeel_contract::kind_of(other)),
-        };
-        names.iter().any(|name| {
-            ends.iter()
-                .any(|end| in_scope(end, name) || in_scope(name, end))
-        })
-    })
-}
-
-/// The kinds that the drop rule of the host knows as free of edges (`_EDGE_FREE`).
-const EDGE_FREE: &[RuleKind] = &[
-    RuleKind::CompleteAssignment,
-    RuleKind::CompleteExternalScope,
-    RuleKind::CompleteRequires,
-    RuleKind::ExternalDependencyScope,
-    RuleKind::ForbiddenConstruct,
-    RuleKind::RootLayout,
-    RuleKind::NoComponentCycles,
-];

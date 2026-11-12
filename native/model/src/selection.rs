@@ -24,7 +24,16 @@ pub struct Selection<'c> {
     exact: Vec<&'c str>,
 }
 
-impl Selection<'_> {
+impl<'c> Selection<'c> {
+    /// A side that selects the modules below each package (a test builds one alone).
+    #[cfg(test)]
+    pub(crate) fn of_packages(packages: Vec<&'c str>) -> Self {
+        Selection {
+            packages,
+            exact: Vec::new(),
+        }
+    }
+
     /// True when the side selects `module` (`module_in_ownership`).
     pub fn matches(&self, module: &str) -> bool {
         self.exact.contains(&module) || self.packages.iter().any(|p| in_scope(module, p))

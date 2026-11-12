@@ -14,6 +14,9 @@
 //! Slice S5 (AD-380): `_dependency_violations` (`rules.py:99`), `_sibling_violations`
 //! (`rules.py:1387`) and `requires_violations` (`rules.py:1877`) cite one import;
 //! `_layer_order_violations` (`rules.py:2008`) cites the receipt of the rule and the contract file.
+//!
+//! Slice S7 (AD-384): `_component_cycle_violations` and `_module_cycle_violations` cite the
+//! imports between two members of a cycle.
 
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_model::{Import, Module, ModuleId};
@@ -83,6 +86,24 @@ pub enum Violation {
     },
     /// `layer_order`: a `requires` entry from an inner to an outer layer.
     OuterLayer(Box<Layered>),
+    /// `no_component_cycles`: a component or a module cycle (slice S7, AD-384).
+    Cycle(Box<Cyclic>),
+}
+
+/// The record of a cycle violation: its members and the imports between two members.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Cyclic {
+    pub id: String,
+    pub rule: String,
+    /// The members, sorted: component labels or module names.
+    pub members: Vec<String>,
+    /// The ids of the imports between two members, sorted.
+    pub facts: Vec<String>,
+    /// The evidence of those imports, sorted, with each repeat.
+    pub evidence: Vec<String>,
+    /// The distinct `(source, target)` module pairs of a module cycle, sorted; `None` for a
+    /// component cycle.
+    pub edges: Option<Vec<[String; 2]>>,
 }
 
 /// The record of a `layer_order` violation: the components, their layers and the contract cites.
@@ -237,6 +258,7 @@ impl Violation {
             | Violation::Peer { id, rule, .. }
             | Violation::Unrequired { id, rule, .. } => [id, rule],
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
+            Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
         }
     }
 }

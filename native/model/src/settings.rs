@@ -18,6 +18,12 @@
 //! contract file in each `layer_order` row (`check/observation.py` `_layer_order_evidence`). The
 //! shell reads that file, so it sends its path and bytes; the model binds them to the parsed
 //! contract by the digest of the bytes.
+//!
+//! Slice S7 adds the scan roots of the configuration (AD-384): the cycle receipts and the
+//! receipt of `complete_requires` ask whether the roots hold each module file. The shell reads
+//! the roots; the core binds them to the reply: the collector writes each root that it scanned in
+//! `source.scope` (`root/**` for a directory, else the root), so the roots of the request must
+//! be exactly these labels in their order. A caller cannot widen a root by word.
 
 use crate::ownership::in_scope;
 use crate::reason::Refusal;
@@ -35,7 +41,11 @@ pub struct Settings {
     standard_library: Vec<String>,
     producer: Producer,
     contract_source: Option<ContractSource>,
+    roots: Option<Vec<String>>,
 }
+
+/// The largest number of scan roots that a request can carry.
+pub const ROOTS_LIMIT: usize = 1024;
 
 /// The evidence of the contract file and the digest of the bytes that it cites.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,7 +74,44 @@ impl Settings {
             standard_library,
             producer: Producer::External,
             contract_source: None,
+            roots: None,
         }
+    }
+
+    /// The same settings with the scan roots of the configuration, in their order.
+    pub fn with_roots(self, roots: Vec<String>) -> Self {
+        Settings {
+            roots: Some(roots),
+            ..self
+        }
+    }
+
+    /// The scan roots, when the shell sent them and they agree with the reply (`Graph::derive`
+    /// refuses the settings otherwise).
+    pub(crate) fn roots(&self) -> Option<&[String]> {
+        self.roots.as_deref()
+    }
+
+    /// The settings refused by name, unless the scan roots are the scope labels of the reply,
+    /// one label for each root and in the same order. Settings without roots bind nothing: a
+    /// receipt that needs the roots then names `Part::ScanRoots`.
+    pub(crate) fn bind_roots(&self, scope: &[String]) -> Result<(), Refusal> {
+        let Some(roots) = &self.roots else {
+            return Ok(());
+        };
+        let fits = |(root, label): (&String, &String)| {
+            // A root with `*` could read as a label of another root, so it is refused.
+            !root.is_empty()
+                && !root.contains(['\0', '*'])
+                && (label == root || label.strip_suffix("/**") == Some(root.as_str()))
+        };
+        if roots.len() > ROOTS_LIMIT
+            || roots.len() != scope.len()
+            || !roots.iter().zip(scope).all(fits)
+        {
+            return Err(Refusal::ScanRoots);
+        }
+        Ok(())
     }
 
     /// The same settings with the path and the bytes of the root contract file. The evidence is

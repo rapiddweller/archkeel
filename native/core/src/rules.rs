@@ -22,7 +22,7 @@ use crate::contract::Usable;
 /// of the run (`check/run.py` `inspect_observation` reads only FAIL and UNKNOWN).
 pub(crate) const DECLARATION: &str = "DECLARATION";
 
-/// True for a rule kind that `archkeel-eval` decides (slices S1, S2 and S5).
+/// True for a rule kind that `archkeel-eval` decides (slices S1, S2, S5 and S7).
 fn decided(kind: RuleKind) -> bool {
     // Each kind has an arm: a new kind does not compile without a decision here.
     match kind {
@@ -34,8 +34,8 @@ fn decided(kind: RuleKind) -> bool {
         | RuleKind::AllowedDependency
         | RuleKind::SiblingIsolation
         | RuleKind::LayerOrder
-        | RuleKind::CompleteRequires => true,
-        RuleKind::NoComponentCycles => false,
+        | RuleKind::CompleteRequires
+        | RuleKind::NoComponentCycles => true,
         RuleKind::InterfaceBoundary => false,
         RuleKind::ForbiddenConstruct => false,
         RuleKind::SymbolPlacement => false,
@@ -62,6 +62,9 @@ pub(crate) struct RuleAnswer {
     pub(crate) violations: BTreeMap<String, usize>,
     /// Why the scope of the run is not complete, or `None` when it is (`Scope::run`).
     pub(crate) scope: Option<String>,
+    /// Each PASS rule of a run with kept pair gaps: the reference engine gives it UNKNOWN, and
+    /// the core proves that no kept gap can change it (AD-384 point 4).
+    pub(crate) beyond: BTreeMap<String, String>,
 }
 
 /// What an inside-contract tree adds to the root rules (AD-379): the rules of its mounts, each a
@@ -159,7 +162,14 @@ pub(crate) fn answer(
                 answer.reasons.insert(outcome.rule().to_owned(), reason);
                 continue;
             }
-            (Verdict::Pass(_), _) if decision.passes(model_of, outcome.rule()) => "PASS",
+            (Verdict::Pass(_), _) if decision.passes(model_of, outcome.rule()) => {
+                let kept = model_of.kept_pair_gaps();
+                if kept > 0 {
+                    let why = format!("no one of the {kept} kept pair gaps can change the rule");
+                    answer.beyond.insert(outcome.rule().to_owned(), why);
+                }
+                "PASS"
+            }
             (Verdict::Pass(_), _) => {
                 // AD-378: a PASS of another rule or model is a named gap, never a PASS.
                 let foreign = Reason::Unsupported(Unsupported::ScopeProof(Part::ForeignRule));

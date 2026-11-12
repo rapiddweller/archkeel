@@ -51,20 +51,21 @@
 
 use std::marker::PhantomData;
 
-use archkeel_contract::{head_of, kind_of, Rule};
+use archkeel_contract::{head_of, kind_of, CycleLevel, Rule};
 
-use crate::causes::{Cause, Part};
+use crate::causes::{Cause, Held, Part};
 use crate::coverage::Incomplete;
 use crate::direction;
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
 use crate::proof::State;
 use crate::reason::{Reason, Unsupported};
+use crate::receipts;
 use crate::selection;
 use crate::verdict::Decision;
 
 /// An invariant lifetime: two calls of `Model::scope` never have the same one.
-type Brand<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
+pub(crate) type Brand<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
 
 /// The proof that the model of the brand `'id` saw the whole scope of one rule of its run.
 #[derive(Debug)]
@@ -108,11 +109,21 @@ impl<'id, 'm> Scope<'id, 'm> {
             State::Unread(part) => Some(part.clone()),
             State::Complete => None,
         };
+        // Slice S7 (AD-384): a kept pair gap holds only the rules whose reading it can change.
+        let gaps = self.gaps(rule).map_err(|reason| rescued(rule, &reason))?;
         // The doubt sources of the rule come before its receipt, so each kind states them.
         if dynamic_import(self.model, rule) {
             return Err(Reason::NotComplete(Cause::DynamicImport));
         }
-        receipt(self.model, rule)?;
+        match rule {
+            Rule::NoComponentCycles(cycle) => receipts::cycle(self.model, cycle, self.scan())?,
+            Rule::CompleteRequires(_) => {
+                receipt(self.model, rule)?;
+                receipts::requires(self.model, self.scan())?;
+            }
+            _ => receipt(self.model, rule)?,
+        }
+        gaps.spent();
         match unread {
             Some(part) => Err(part.into()),
             None => Ok(ScopeComplete {
@@ -126,11 +137,25 @@ impl<'id, 'm> Scope<'id, 'm> {
     /// part. The status of a frame reads it (lead decision L-35b): a run whose scope is not
     /// complete is never PASS, also with zero rules. It reads the one state that
     /// `complete` reads.
+    ///
+    /// Slice S7 (AD-384): each kept pair gap holds the run, and a gap that the drop rule drops
+    /// for one profile is a named part of the run.
     pub fn run(&self) -> Result<(), Reason> {
+        let pairs = self.model.pairs();
+        let kept = pairs
+            .kept
+            .iter()
+            .map(|gap| (gap.source.as_str(), gap.target.as_str()));
+        if let State::Incomplete(reason) = self.model.scope_state() {
+            return Err(reason.clone());
+        }
+        if let Some(held) = Held::of(kept) {
+            return Err(Reason::NotComplete(Cause::PairGaps(held)));
+        }
         match self.model.scope_state() {
-            State::Complete => Ok(()),
-            State::Incomplete(reason) => Err(reason.clone()),
             State::Unread(part) => Err(part.clone().into()),
+            _ if pairs.allowed => Err(Part::AllowedPairGap.into()),
+            _ => Ok(()),
         }
     }
 
@@ -180,13 +205,13 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             }
             !selection::layer_components(model.contract(), rule).is_empty()
         }
-        // `scope_receipts_complete` reads the scan roots of the configuration.
+        // `scope_receipts_complete` reads the scan roots: `receipts::requires` (slice S7).
         Rule::CompleteRequires(rule) => {
             let judged = direction::crossings(model, rule)
                 .into_iter()
                 .map(|c| c.judged);
             undecided(direction::undecided(judged))?;
-            return Err(Part::ScanRoots.into());
+            true
         }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
@@ -204,7 +229,8 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
         | Rule::ProtocolDeclarations(_)) => {
-            return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other))))
+            // `receipts::cycle` gives the receipt of `no_component_cycles` (slice S7).
+            return Err(Reason::Unsupported(Unsupported::Rule(kind_of(other))));
         }
     };
     if selected {
@@ -260,6 +286,12 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
             owner_of(model.components(), source.module).is_some()
                 && !(source.type_only && !rule.include_type_checking())
         }
+        // Slice S7: a module cycle can close through any module; a component cycle through an
+        // owned module. The type-only flag does not narrow a cycle rule.
+        Rule::NoComponentCycles(rule) => {
+            *rule.level() == CycleLevel::Module
+                || owner_of(model.components(), source.module).is_some()
+        }
         // `dynamic_dependency_limits` does not read these kinds.
         Rule::CompleteAssignment(_)
         | Rule::RootLayout(_)
@@ -274,7 +306,6 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::ForbiddenConstruct(_)
         | Rule::SourceOwnership(_)
-        | Rule::NoComponentCycles(_)
         | Rule::InterfaceBoundary(_)
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)

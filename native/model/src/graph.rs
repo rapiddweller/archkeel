@@ -181,6 +181,9 @@ fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, R
     settings
         .check(facts.profile.as_str())
         .map_err(Reason::Refused)?;
+    settings
+        .bind_roots(&facts.source.scope)
+        .map_err(Reason::Refused)?;
     for file in &facts.files {
         settings
             .admits(file.module.as_str(), file.package.as_str())

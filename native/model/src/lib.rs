@@ -31,6 +31,11 @@
 //!   per kind serves the violations of the evaluator and the undecided positions of the scope
 //!   proof, and the receipt and the dynamic import reach of each direction kind.
 //!
+//! - Slice S7: the scan roots that the shell sends, bound to the scope of the reply; the cycle
+//!   receipts and the receipt of `complete_requires` that read them (`receipts.rs`); the
+//!   component cycles (`component_cycles.rs`); and the rules that each kept pair gap can change
+//!   (`pair_gaps.rs`, AD-384).
+//!
 //! The model names no language: a rule of the native contract and a test check that.
 
 #![deny(unreachable_pub)]
@@ -60,11 +65,11 @@ pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
 pub use imports::{Import, Resolved};
 pub use model::{Model, Rows};
 pub use modules::{Module, Package};
-pub use ownership::in_scope;
+pub use ownership::{claims, in_scope};
 pub use reason::{Input, Reason, Refusal, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
-pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+pub use settings::{Producer, Settings, ROOTS_LIMIT, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 pub use topology::Measure;
 pub use verdict::{Decision, Proven, Verdict};
 
@@ -88,3 +93,15 @@ pub use selection::{dependency_sides, layer_components, Selection};
 mod run;
 
 pub use run::{RunComplete, RunGap, RunPass};
+
+// Slice S7: the scan roots, the cycle receipts, the component cycles and the rules that each
+// pair gap can change (AD-384).
+mod component_cycles;
+mod pair_gaps;
+mod receipts;
+mod roots;
+
+pub use causes::{Held, HELD_SHOWN};
+pub use component_cycles::ComponentCycle;
+pub use pair_gaps::{reads, Reads};
+pub use receipts::{GapScope, ScanProof};

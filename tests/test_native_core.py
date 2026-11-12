@@ -114,9 +114,42 @@ S4_NAMES = (
     "their coverage",
     "unsupported: a rule of an inside contract: the core does not clip a mount scope yet",
     "unsupported: the baseline of the request: no slice reads it yet",
-    "unsupported: the scope proof: a gap between two modules that the contract allows; the host "
-    "drops it for one profile, the core does not know the profile",
 )
+
+# AD-384 point 4: the one direction change. Python gives a rule UNKNOWN for any kept pair gap;
+# the core passes a rule that no kept gap can change. Only these cases have such a rule.
+BEYOND = re.compile(r": rules: \S+: core decides, Python does not: no one of the \d+ kept pair gaps ")
+BEYOND_CASES = {
+    "rust/native",
+    "s7/rust-a-forbidden-and-a-sibling-rule-across-the-gap-hold-and-away-pass",
+    "s7/rust-a-kept-pair-gap-holds-the-cycle-rules-and-not-the-module-set",
+    "s7/rust-an-external-import-away-from-the-gap-passes-the-external-rules",
+    "s7/rust-a-pair-gap-into-a-module-with-an-external-import-holds-the-external-rules",
+    *(
+        f"probe/rust_impls-test-{name}"
+        for name in (
+            "a-known-edge-from-another-module-of-the-component-close",
+            "a-method-of-another-module-gives-no-false-pass-fp-29-a--2",
+            "a-method-of-another-module-gives-no-false-pass-fp-30-a-",
+            "a-path-call-that-the-scan-cannot-resolve-exactly-gives-",
+            "a-path-call-that-the-scan-cannot-resolve-exactly-gives--3",
+            "a-path-call-that-the-scan-cannot-resolve-exactly-gives--4",
+            "pair-gaps-that-may-form-a-component-cycle-give-no-pass",
+            "pair-gaps-that-may-form-a-cycle-give-no-pass-for-a-cycl",
+            "pair-gaps-that-may-form-a-cycle-give-no-pass-for-a-cycl-2",
+            "the-gap-of-a-pair-is-dropped-only-when-the-contract-all",
+            "the-gap-of-a-pair-is-dropped-only-when-the-contract-all-3",
+            "the-gap-of-an-allowed-pair-stays-when-the-edge-closes-a",
+        )
+    ),
+}
+
+
+def _beyond(differences: list[str]) -> list[str]:
+    """The named lines of AD-384 point 4; each one is in a case of BEYOND_CASES."""
+    found = [line for line in differences if BEYOND.search(line)]
+    assert {line.split(":")[0] for line in found} <= BEYOND_CASES, found
+    return found
 
 
 def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_case(
@@ -132,6 +165,7 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
     tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
     named = [line for line in differences if line.endswith(S4_NAMES) or limit.search(line)]
+    named += _beyond(differences)
     left = [line for line in differences if line not in named and not tree.search(line)]
     assert left == [], left
     assert code == (1 if differences else 0)
@@ -149,13 +183,13 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
 
 S5_NAMES = (
     *S4_NAMES,
-    "unsupported: the scope proof: the receipt of complete_requires needs the scan roots; the "
-    "request has none",
     "unsupported: the scope proof: a coverage gap that the dependency scope proof of "
     "complete_requires can accept",
 )
+# AD-384: slice S7 adds `no_component_cycles` to this run; its rows are compared too.
 S5_FAMILIES = (
-    "forbidden_dependency,allowed_dependency,sibling_isolation,layer_order,complete_requires"
+    "forbidden_dependency,allowed_dependency,sibling_isolation,layer_order,complete_requires,"
+    "no_component_cycles"
 )
 
 
@@ -172,10 +206,12 @@ def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_ever
     assert not [line for line in differences if ", found " in line or ": status: " in line]
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
     tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
+    beyond = _beyond(differences)
     left = [
         line
         for line in differences
         if not (line.endswith(S5_NAMES) or limit.search(line) or tree.search(line))
+        and line not in beyond
     ]
     assert left == [], left
     rows = [line for line in lines if ": violations: " in line]
@@ -185,19 +221,18 @@ def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_ever
         ": -: missing input: no valid contract",
     )
     assert all(line.endswith(missing) for line in rows), rows
-    assert not [line for line in rows if line.startswith("s5/")]
+    assert not [line for line in rows if line.startswith(("s5/", "s7/"))]
     assert code == (1 if differences or rows else 0)
-    # The s5 cases: a difference is only the named receipt of `complete_requires` or a limit
-    # of some profiles.
-    s5 = {line.split(":")[0] for line in differences if line.startswith("s5/")}
-    named = {
-        line.split(":")[0] for line in differences if "s5/" in line and "scan roots" not in line
-    }
+    # The s5 cases: a difference is only a limit of some profiles (AD-384: the scan roots now
+    # give the receipt of `complete_requires`).
+    named = {line.split(":")[0] for line in differences if line.startswith("s5/")}
     assert named <= {
         "s5/forbidden-symbol-rule-leaves-a-position-undecided",
         "s5/requires-symbol-port-is-judged-with-the-symbol-feature",
     }
-    assert "s5/layer-order-fails-with-four-violations" in s5
+    # AD-384: the s7 cases differ only by a named PASS beyond the reference engine.
+    s7 = [line for line in differences if line.startswith("s7/")]
+    assert s7 == [line for line in s7 if BEYOND.search(line)], s7
 
 
 def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(

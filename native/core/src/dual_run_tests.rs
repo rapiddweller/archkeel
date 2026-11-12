@@ -13,7 +13,7 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
 
 fn request_with(contract: &str, reply: Option<&[u8]>, sections: &[&str]) -> Value {
     json!({
-        "protocol": "archkeel-dual-run-3",
+        "protocol": "archkeel-dual-run-4",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
@@ -27,6 +27,7 @@ fn request_with(contract: &str, reply: Option<&[u8]>, sections: &[&str]) -> Valu
         "profile": golden_profile(),
         "standard_library": [],
         "insides": [],
+        "roots": [],
     })
 }
 
@@ -50,7 +51,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
     // with its reason (AD-378).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
-    assert_eq!(decided.len(), 29);
+    assert_eq!(decided.len(), 31);
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],
@@ -75,7 +76,8 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 2);
+    // Slice S7 decides the two cycle rules too: no rule of the native contract is unsupported.
+    assert_eq!(rules, 0);
 }
 
 #[test]

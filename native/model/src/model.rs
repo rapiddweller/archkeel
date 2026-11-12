@@ -10,6 +10,7 @@ use archkeel_store::Ingested;
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Id, ModuleId, Table};
 use crate::ownership;
+use crate::pair_gaps::{self, Pairs};
 use crate::proof::{self, State};
 use crate::reason::{Reason, Unsupported};
 use crate::section::Section;
@@ -30,6 +31,7 @@ pub struct Model {
     owners: Vec<Option<ComponentId>>,
     graph: Graph,
     scope: State,
+    pairs: Pairs,
     serial: u64,
 }
 
@@ -61,13 +63,15 @@ impl Model {
         };
         let owners = ownership::owners(&components, graph.modules());
         let trusted = graph.settings().producer() == crate::settings::Producer::Trusted;
-        let scope = proof::state(contract, &components, &graph, trusted);
+        let scope = proof::state(contract, &graph, trusted);
+        let pairs = pair_gaps::pairs(contract, &components, &graph);
         Ok(Model {
             contract: contract.clone(),
             components,
             owners,
             graph,
             scope,
+            pairs,
             serial: SERIALS.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         })
     }
@@ -85,6 +89,17 @@ impl Model {
     /// The state of the scope of the model (`Scope::complete` reads it).
     pub(crate) fn scope_state(&self) -> &State {
         &self.scope
+    }
+
+    /// The pair gaps of the run, classified by the drop rule (slice S7, AD-384).
+    pub(crate) fn pairs(&self) -> &Pairs {
+        &self.pairs
+    }
+
+    /// The number of pair gaps that the drop rule keeps. The reference engine makes each rule
+    /// UNKNOWN for one; the core holds only the rules that a gap can change (AD-384).
+    pub fn kept_pair_gaps(&self) -> usize {
+        self.pairs.kept.len()
     }
 
     /// The reply part of the model.

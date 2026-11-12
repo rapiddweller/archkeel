@@ -116,6 +116,7 @@ fn name(violation: &Violation) -> String {
                 layered.source_component, layered.target_component
             )
         }
+        Violation::Cycle(cyclic) => cyclic.members.join(" <> "),
     }
 }
 
@@ -374,7 +375,7 @@ fn a_gap_of_the_reply_gives_unknown_and_a_violation_still_fails() {
 }
 
 #[test]
-fn a_rule_kind_without_a_slice_names_its_kind() {
+fn a_cycle_rule_without_the_scan_roots_names_them() {
     let (Some(contract), Some(reply)) = (contract(unchanged), reply(unchanged)) else {
         fail("the H-typescript contract and reply load");
         return;
@@ -388,10 +389,13 @@ fn a_rule_kind_without_a_slice_names_its_kind() {
         .iter()
         .find(|outcome| outcome.rule() == "MODULE-CYCLES");
     let reason = cycles.and_then(|outcome| outcome.decision()?.reason().cloned());
-    assert!(matches!(
+    // Slice S7 decides the kind; its receipt reads the roots, which these settings lack.
+    assert_eq!(
         reason,
-        Some(Reason::Unsupported(Unsupported::Rule(_)))
-    ));
+        Some(Reason::Unsupported(Unsupported::ScopeProof(
+            archkeel_model::Part::ScanRoots
+        )))
+    );
 }
 
 #[test]

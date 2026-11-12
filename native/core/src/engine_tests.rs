@@ -85,20 +85,9 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     };
     assert!(answer.decided.is_empty());
     assert_eq!(answer.reasons.len(), 31);
-    // A rule of a decided kind needs the model; a rule of another kind names its kind.
+    // Each kind of the native contract is decided since slice S7: each rule needs the model.
     for (id, reason) in &answer.reasons {
-        if id == "NATIVE-ASSIGNMENT-COMPLETE"
-            || id == "NATIVE-REQUIRES-COMPLETE"
-            || id.starts_with("NATIVE-EXTERNAL-")
-            || id.starts_with("NATIVE-NO-") && id.contains("-TO-")
-        {
-            assert_eq!(reason, &Reason::MissingInput(Input::Reply), "{id}");
-        } else {
-            assert!(
-                reason.to_string().starts_with("unsupported: rule kind"),
-                "{id}"
-            );
-        }
+        assert_eq!(reason, &Reason::MissingInput(Input::Reply), "{id}");
     }
 }
 

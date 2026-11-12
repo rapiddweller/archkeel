@@ -76,6 +76,8 @@ pub enum Refusal {
     OutsideNamespace(String),
     /// The standard library list breaks a rule: its limit, a name, or a duplicate.
     StandardLibrary(&'static str),
+    /// The scan roots are not the scope labels that the collector wrote (AD-384).
+    ScanRoots,
 }
 
 impl fmt::Display for Refusal {
@@ -89,6 +91,9 @@ impl fmt::Display for Refusal {
             }
             Refusal::StandardLibrary(rule) => {
                 write!(formatter, "the standard library of the settings has {rule}")
+            }
+            Refusal::ScanRoots => {
+                formatter.write_str("the scan roots of the settings are not the scope of the reply")
             }
         }
     }

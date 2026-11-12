@@ -25,7 +25,8 @@ use archkeel_model::{Reason, Unsupported};
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
-const PROTOCOL: &str = "archkeel-dual-run-3";
+/// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
+const PROTOCOL: &str = "archkeel-dual-run-4";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 /// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
@@ -62,6 +63,9 @@ struct DualRunRequest {
     standard_library: Vec<String>,
     /// The inside contracts that the shell read for the paths of an earlier frame (AD-379).
     insides: Vec<InsideJson>,
+    /// The scan roots of the configuration, which the shell reads (AD-384). The model binds
+    /// them to the scope of the reply, so they are not the word of the caller.
+    roots: Vec<String>,
 }
 
 /// One inside contract of a request: the reference of the mount, the repository-relative path
@@ -96,6 +100,9 @@ struct Frame {
     /// and the number of violations of a FAIL rule (AD-361 point 5).
     explained: BTreeMap<String, String>,
     violations: BTreeMap<String, usize>,
+    /// Each PASS rule that the reference engine gives UNKNOWN for a kept pair gap, with the
+    /// reason that the core decides it (AD-384 point 4).
+    beyond: BTreeMap<String, String>,
     /// Why the scope of the run is not complete, or `complete` (L-35b).
     scope: String,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
@@ -171,11 +178,16 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let sections = request::sections(&request.sections)?;
     let mut engine = Engine::default();
     let producer = producer(request.collector_argv.as_ref(), request.pinned);
-    engine.answer(Request::Settings(
-        Settings::new(request.namespace, request.profile, request.standard_library)
-            .with_producer(producer)
-            .with_contract_source(&path, contract.as_bytes()),
-    ));
+    let settings = Settings::new(request.namespace, request.profile, request.standard_library)
+        .with_producer(producer)
+        .with_contract_source(&path, contract.as_bytes());
+    // No roots narrow the run: a receipt that needs them names `Part::ScanRoots`.
+    let settings = if request.roots.is_empty() {
+        settings
+    } else {
+        settings.with_roots(request.roots)
+    };
+    engine.answer(Request::Settings(settings));
     let input = ContractInput {
         path,
         bytes: contract.into_bytes(),
@@ -230,6 +242,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             .unwrap_or_else(|| "complete".to_owned()),
         explained: decided.explained,
         violations: decided.violations,
+        beyond: decided.beyond,
         rules: decided.decided,
         sections: rows,
         unsupported: UnsupportedParts {
