@@ -85,6 +85,12 @@ fn a_wrong_protocol_an_unknown_field_or_an_unknown_section_is_refused() {
         refused.err().as_deref(),
         Some("unknown section transitive_paths")
     );
+    let repeated = request(None, &["modules", "violations", "modules"]);
+    let refused = answer(repeated.to_string().as_bytes()).err();
+    assert_eq!(
+        refused.as_deref(),
+        Some("repeated section modules: name each section one time")
+    );
 }
 
 #[test]

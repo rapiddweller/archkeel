@@ -19,7 +19,7 @@
 //! - Slice S2: the resolved imports with their typed targets, the module and package edges, the
 //!   unresolved imports that no gap names, and the settings that the shell sends (`Settings`).
 //! - Slice S3: the condensation ranks of the edges, modules and packages, the fan counts with the
-//!   macro bodies (`MacroBody`, `Measure`) and the module and package cycles (`Cycle`). The part
+//!   macro bodies (`Measure`) and the module and package cycles (`Cycle`). The part
 //!   that needs no contract is the `Graph`; a run derives it one time and moves it into the model.
 //!
 //! The model names no language: a rule of the native contract and a test check that.
@@ -48,7 +48,7 @@ pub use cycles::Cycle;
 pub use edges::{Edge, Level};
 pub use graph::Graph;
 pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
-pub use imports::{Import, MacroBody, Resolved};
+pub use imports::{Import, Resolved};
 pub use model::{Model, Rows};
 pub use modules::{Module, Package};
 pub use ownership::in_scope;

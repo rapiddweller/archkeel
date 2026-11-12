@@ -7,12 +7,8 @@
 use archkeel_contract::{Component, Contract};
 use archkeel_store::Ingested;
 
-use crate::coverage::Incomplete;
-use crate::edges::{Edge, Level};
 use crate::graph::Graph;
-use crate::ids::{ComponentId, Id, ModuleId, PackageId, Table};
-use crate::imports::Import;
-use crate::modules::{Module, Package};
+use crate::ids::{ComponentId, Id, ModuleId, Table};
 use crate::ownership;
 use crate::reason::{Reason, Unsupported};
 use crate::section::Section;
@@ -77,16 +73,6 @@ impl Model {
             .map(|(id, _)| id)
     }
 
-    /// The modules of the reply, in the order of the reply.
-    pub fn modules(&self) -> &Table<ModuleId, Module> {
-        self.graph.modules()
-    }
-
-    /// The packages of the reply, in name order.
-    pub fn packages(&self) -> &Table<PackageId, Package> {
-        self.graph.packages()
-    }
-
     /// The one component that owns a module, or `None` when zero or many claim it.
     pub fn owner(&self, module: ModuleId) -> Option<ComponentId> {
         self.owners.get(module.index()).copied().flatten()
@@ -95,26 +81,6 @@ impl Model {
     /// The modules that a rule `source` selects (`_modules_for_rule_source`).
     pub fn source_modules(&self, source: &str) -> Vec<ModuleId> {
         ownership::source_modules(&self.components, self.graph.modules(), source)
-    }
-
-    /// What the reply proves not seen, if anything. It can only give UNKNOWN, never PASS.
-    pub fn incomplete(&self) -> Option<Incomplete> {
-        self.graph.incomplete()
-    }
-
-    /// The settings of the shell: the namespace and the standard library of the profile.
-    pub fn settings(&self) -> &Settings {
-        self.graph.settings()
-    }
-
-    /// The resolved imports that are not macro bodies, in the order of the reply.
-    pub fn imports(&self) -> &[Import] {
-        self.graph.imports()
-    }
-
-    /// The edges of one level, in the order of their (source, target) pairs.
-    pub fn edges(&self, level: Level) -> &[Edge] {
-        self.graph.edges(level)
     }
 
     /// The rows of one section that the model holds. None is ported here: the rows of slice S3

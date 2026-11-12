@@ -43,13 +43,14 @@ pub(crate) fn dependency_scope(
                 .any(|exact| exact.as_text() == source)
     };
     let mut violations: Vec<Violation> = model
+        .graph()
         .imports()
         .iter()
         .filter(|import| names(import, dependency) && !allowed(import.source_module()))
         .map(|import| Violation::outside_scope(id, dependency, import))
         .collect();
     violations.sort_by(|a, b| a.id().cmp(b.id()));
-    (violations, !model.modules().is_empty())
+    (violations, !model.graph().modules().is_empty())
 }
 
 /// The violations of a `complete_external_scope` rule, and whether it has a receipt.
@@ -68,12 +69,13 @@ pub(crate) fn complete_scope(
         })
         .collect();
     let internal: HashSet<&str> = model
+        .graph()
         .modules()
         .iter()
         .map(|(_, module)| root_of(module.name()))
         .collect();
     let mut violations: Vec<Violation> = Vec::new();
-    for import in model.imports() {
+    for import in model.graph().imports() {
         if import.relative() || !in_scope(import.source_module(), source) {
             continue;
         }
@@ -82,7 +84,7 @@ pub(crate) fn complete_scope(
             Resolved::Builtin => continue,
             Resolved::Local => root_of(import.target_module()),
         };
-        if internal.contains(root) || model.settings().standard(root) {
+        if internal.contains(root) || model.graph().settings().standard(root) {
             continue;
         }
         if declared.iter().any(|dependency| names(import, dependency)) {

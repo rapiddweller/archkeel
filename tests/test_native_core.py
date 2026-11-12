@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -123,7 +124,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
     refused = {line.split(": ")[0] for line in differences}
     assert not [case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/"))]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 567 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 568 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
@@ -176,6 +177,33 @@ def test_on_the_fixtures_each_self_test_difference_is_named(
     # The TypeScript replies are compressed, so the store accepts them.
     refused = {line.split(":")[0] for line in differences if ": reply: " in line}
     assert "fixture/H-typescript" not in refused
+
+
+def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -> None:
+    """AD-374 review: a request that names one section many times made the core build its rows
+    once for each name (9.56 GB for 200 names of `dependency_edges`). The binary refuses it."""
+    binary = core.split(" ")[0]
+    request = {
+        "protocol": "archkeel-dual-run-2",
+        "case": "c",
+        "root": "/r",
+        "config": "archkeel.toml",
+        "baseline": None,
+        "collector_argv": None,
+        "pinned": False,
+        "contracts": {"architecture-contract.json": "{}"},
+        "reply": None,
+        "sections": ["cycles", "modules", "cycles"],
+        "namespace": "shop",
+        "profile": "",
+        "standard_library": [],
+    }
+    done = subprocess.run(
+        [binary, "dual-run"], input=json.dumps(request), capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 2
+    assert done.stdout == ""
+    assert "repeated section cycles" in done.stderr
 
 
 def test_the_host_uses_the_core_for_no_verdict() -> None:

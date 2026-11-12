@@ -36,7 +36,8 @@ pub(crate) fn rows(graph: &Graph, section: Section) -> Option<Vec<Value>> {
             .collect(),
         Section::Modules => module_rows(graph),
         Section::Packages => package_rows(graph),
-        Section::Cycles => graph.cycles().iter().map(cycle_row).collect(),
+        // `Graph::cycles` is sorted by id: the one sort of the cycles, which slice S7 reads too.
+        Section::Cycles => return Some(graph.cycles().iter().map(cycle_row).collect()),
         _ => return None,
     };
     // A stable sort by id, as `sorted(..., key=lambda item: item["id"])`.

@@ -229,15 +229,27 @@ fn a_macro_body_is_no_import_and_no_unknown() {
     if let Some(first) = records.first_mut() {
         first.data = ImportFact::MacroBody(first.data.data().clone());
     }
-    let macro_id = records.first().map(|record| record.id.as_str().to_owned());
+    let pair = records.first().map(|record| {
+        let data = record.data.data();
+        (
+            data.source_module.as_str().to_owned(),
+            data.target_module.as_str().to_owned(),
+        )
+    });
     let found = split(&reply.facts);
     assert_eq!((found.imports.len() + 1, found.unknown), (total, 0));
     // The macro body stays as a row of its own, for the fan counts of the modules.
-    let bodies: Vec<&str> = found.macro_bodies.iter().map(|body| body.id()).collect();
-    assert_eq!(
-        bodies,
-        macro_id.iter().map(String::as_str).collect::<Vec<_>>()
-    );
+    let bodies: Vec<(String, String)> = found
+        .macro_bodies
+        .iter()
+        .map(|body| {
+            (
+                body.source_module().to_owned(),
+                body.target_module().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(bodies, pair.into_iter().collect::<Vec<_>>());
 }
 
 #[test]

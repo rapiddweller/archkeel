@@ -237,6 +237,76 @@ fn a_run_derives_its_model_one_time_until_an_input_changes() {
 }
 
 #[test]
+fn a_module_outside_the_namespace_refuses_the_four_sections_of_slice_s3() {
+    let mut engine = Engine::default();
+    let _ = ingest(&mut engine);
+    let _ = engine.answer(Request::Settings(Settings::new(
+        "elsewhere".to_owned(),
+        golden_profile(),
+        Vec::new(),
+    )));
+    let owned = vec![
+        Section::DependencyEdges,
+        Section::Modules,
+        Section::Packages,
+        Section::Cycles,
+    ];
+    let Answer::Sections(rows) = engine.answer(Request::Sections(owned)) else {
+        return fail("a sections answer");
+    };
+    assert_eq!(rows.len(), 4);
+    for (section, rows) in rows {
+        let text = rows
+            .err()
+            .map(|reason| reason.to_string())
+            .unwrap_or_default();
+        assert!(
+            text.starts_with("refused settings: "),
+            "{section:?}: {text}"
+        );
+        assert!(
+            text.contains("outside the namespace"),
+            "{section:?}: {text}"
+        );
+    }
+}
+
+#[test]
+fn new_settings_or_a_new_reply_drop_the_cached_model() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = ingest(&mut engine);
+    let _ = engine.answer(Request::Rules);
+    assert_eq!(engine.derivations(), 1);
+    let _ = engine.answer(Request::Settings(Settings::new(
+        "shop".to_owned(),
+        golden_profile(),
+        Vec::new(),
+    )));
+    let _ = engine.answer(Request::Rules);
+    assert_eq!(engine.derivations(), 2);
+    let _ = engine.answer(Request::Ingest {
+        reply: golden_reply(),
+        inflate_limit: LIMIT,
+    });
+    let _ = engine.answer(Request::Sections(vec![Section::Modules]));
+    assert_eq!(engine.derivations(), 3);
+}
+
+#[test]
+fn a_section_named_twice_has_its_rows_built_once() {
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(NATIVE_CONTRACT.as_bytes().to_vec()));
+    let _ = ingest(&mut engine);
+    let repeated = vec![Section::Cycles, Section::Modules, Section::Cycles];
+    let Answer::Sections(rows) = engine.answer(Request::Sections(repeated)) else {
+        return fail("a sections answer");
+    };
+    let sections: Vec<Section> = rows.iter().map(|(section, _)| *section).collect();
+    assert_eq!(sections, [Section::Cycles, Section::Modules]);
+}
+
+#[test]
 fn a_reply_that_is_not_compressed_is_refused_by_the_store() {
     let mut engine = Engine::default();
     let answer = engine.answer(Request::Ingest {

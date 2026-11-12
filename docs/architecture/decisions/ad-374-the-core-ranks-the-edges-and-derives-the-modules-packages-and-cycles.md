@@ -14,20 +14,23 @@
    the edges of its level (`aggregate_edges`), so an edge to a package outside the reply has a
    target rank. A module or package row ranks over its table; an edge to a node outside the
    table changes no rank.
-4. A macro body is a typed row of its own (`MacroBody`), not an import. It adds one fan-in and
-   one fan-out only for a pair of two different modules of the reply that no edge has
+4. A macro body is a typed row of its own (`MacroBody`, inside the crate), not an import. It
+   adds one fan-in and one fan-out only for a pair of two modules of the reply that no edge has
    (`count_macro_bodies`). It never changes a rank or a cycle (AD-349).
 5. The part of the model that only the reply and the settings give is the `Graph`: modules,
    packages, imports, macro bodies, edges, measures and cycles. The core derives it one time per
    run, moves it into the `Model` when the contract is usable, and keeps it until an input
-   changes (#1059 item 1).
+   changes (#1059 item 1). The reply rows have one path: `Model::graph()`.
 6. The core writes the full rows of `dependency_edges`, `modules`, `packages` and `cycles` from
    the `Graph`. These sections need no contract, so a case with a contract that the core cannot
    use is compared too. The frame field `edges` (rows without ranks) is removed: the harness
    compares the `dependency_edges` rows of the frame field by field with the Python engine on
-   the same reply, because the oracle keeps only key fields of a large section.
+   the same reply, because the oracle keeps only key fields of a large section. A repeated
+   section name is refused (exit 2) before any row is built, so a request cannot multiply rows.
 7. Slice S3 decides no rule kind. The design gives `no_component_cycles` to S7 and
-   `layer_order` to S5 (lead decision L-17). Transitive paths are not part of S3 (L-13).
+   `layer_order` to S5 (lead decision L-17). Transitive paths are not part of S3 (L-13). The
+   component cycles of the design row of S3 move to S7: `condense` is private to `model`, so S7
+   adds a `Model` method that `archkeel-eval` calls. `Graph::cycles` is the one sort by id.
 
 **Reason.** Each direction and cycle slice reads the ranks and the cycles. A wrong rank or a
 missed cycle breaks them all. Rows are facts, not verdicts, so they change no PASS.
@@ -40,9 +43,12 @@ missed cycle breaks them all. Rows are facts, not verdicts, so they change no PA
 `check/evaluation/evaluate.py:1157-1161` (the macro count and the unmeasured symbol count).
 They go when the store path is the only path.
 
-**Differences to Python.** None. The four sections are equal on each of the 189 cases whose
-reply the store accepts: 2 211 edge rows with ranks, 1 422 module rows, 618 package rows and
-25 cycle rows. The other 378 cases name `missing input: no valid collector reply`.
+**Differences to Python.** The rows are equal on each of the 190 cases whose reply the store
+accepts. The other 378 cases name `missing input: no valid collector reply`. One difference:
+Python finds the components by recursion, so a chain or a cycle of about 1 000 modules stops it
+with `maximum recursion depth exceeded` (rules UNKNOWN). The core writes the rows there. Rows
+are facts and decide no verdict, so this is not a PASS. S7 must name this difference again,
+because there the core decides a cycle rule where Python gives UNKNOWN.
 
 **Rejected.**
 - Recursion as in the reference engine. A deep import chain overflows the stack.
@@ -51,10 +57,10 @@ reply the store accepts: 2 211 edge rows with ranks, 1 422 module rows, 618 pack
 - The rows inside `Model`. A run whose contract the core cannot use yet has no model, and the
   harness then compares no edge.
 
-**Limit.** The store accepts two profiles, so the parity holds on 189 of 567 cases. A module
+**Limit.** The store accepts two profiles, so the parity holds on 190 of 568 cases. A module
 name that repeats in a reply keeps the fan counts of that name; the store refuses it today.
-The 8 cases `s3/*` add a tie of ready nodes, a cycle across packages, a roll-up package
-cycle, disconnected cycles, a self import, an edge outside the reply and macro bodies.
+The 9 cases `s3/*` add a tie of ready nodes, a cycle across packages, a roll-up package
+cycle, a module cycle beside a roll-up cycle, disconnected cycles, a self import, an edge outside the reply and macro bodies.
 
 **Tests.** `native/model/src/condensation_tests.rs`, `topology_tests.rs`, `cycles_tests.rs`,
 `edges_tests.rs`; `native/core/src/engine_tests.rs`

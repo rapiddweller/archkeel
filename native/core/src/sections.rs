@@ -27,9 +27,16 @@ pub(crate) fn answer(
     outcomes: &[Outcome],
     sections: &[Section],
 ) -> Vec<SectionAnswer> {
-    sections
-        .iter()
-        .map(|&section| {
+    // Each section has its rows built one time, also when a caller names it again.
+    let mut unique: Vec<Section> = Vec::with_capacity(sections.len());
+    for &section in sections {
+        if !unique.contains(&section) {
+            unique.push(section);
+        }
+    }
+    unique
+        .into_iter()
+        .map(|section| {
             let graph_rows = graph
                 .clone()
                 .map(|graph| crate::topology::rows(graph, section));

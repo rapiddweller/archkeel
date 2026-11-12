@@ -16,6 +16,7 @@ use crate::violation::Violation;
 pub(crate) fn check(id: &str, rule: &SourceRule, model: &Model) -> (Vec<Violation>, bool) {
     let source = rule.source().as_text();
     let mut violations: Vec<Violation> = model
+        .graph()
         .modules()
         .iter()
         .filter(|(module, row)| {

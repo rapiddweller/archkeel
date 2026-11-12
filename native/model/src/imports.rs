@@ -96,25 +96,19 @@ impl Import {
 
 /// The source and target module of a resolved macro body (`split_imports` templates).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MacroBody {
-    pub(crate) id: String,
+pub(crate) struct MacroBody {
     pub(crate) source_module: String,
     pub(crate) target_module: String,
 }
 
 impl MacroBody {
-    /// The id of the import record.
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
     /// The module that holds the macro body.
-    pub fn source_module(&self) -> &str {
+    pub(crate) fn source_module(&self) -> &str {
         &self.source_module
     }
 
     /// The module that the macro body names.
-    pub fn target_module(&self) -> &str {
+    pub(crate) fn target_module(&self) -> &str {
         &self.target_module
     }
 }
@@ -160,7 +154,6 @@ pub(crate) fn split(facts: &Facts) -> Split {
             }
             _ if matches!(record.data, ImportFact::MacroBody(_)) => {
                 found.macro_bodies.push(MacroBody {
-                    id: record.id.as_str().to_owned(),
                     source_module: data.source_module.as_str().to_owned(),
                     target_module: data.target_module.as_str().to_owned(),
                 });

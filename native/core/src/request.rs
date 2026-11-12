@@ -24,10 +24,18 @@ pub(crate) enum Request {
     Report,
 }
 
-/// The sections of their names. A name outside the schema is refused by name.
+/// The sections of their names. A name outside the schema and a repeated name are refused by
+/// name before any row is built: a repeated name would build the same rows again (AD-374).
 pub(crate) fn sections(names: &[String]) -> Result<Vec<Section>, String> {
-    names
-        .iter()
-        .map(|name| Section::of_name(name).ok_or_else(|| format!("unknown section {name}")))
-        .collect()
+    let mut found: Vec<Section> = Vec::with_capacity(names.len());
+    for name in names {
+        let section = Section::of_name(name).ok_or_else(|| format!("unknown section {name}"))?;
+        if found.contains(&section) {
+            return Err(format!(
+                "repeated section {name}: name each section one time"
+            ));
+        }
+        found.push(section);
+    }
+    Ok(found)
 }

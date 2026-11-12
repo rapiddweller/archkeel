@@ -161,3 +161,39 @@ fn a_package_cycle_names_each_backing_module_cycle_sorted_by_id() {
     let package_cycle = found.iter().find(|c| c.level() == Level::Package).unwrap();
     assert_eq!(package_cycle.backed_by(), Some(&backers[..]));
 }
+
+#[test]
+fn a_module_cycle_backs_only_a_package_cycle_of_its_own_packages() {
+    // a.x <-> b.y is a module cycle across shop.a and shop.b. The packages shop.c and shop.d
+    // close a roll-up cycle (c.x -> d.y, d.z -> c.w) that no module cycle crosses: the module
+    // cycle of shop.a and shop.b must not back it.
+    let all: Vec<FileFact> = [
+        ("shop.a.x", "shop.a"),
+        ("shop.b.y", "shop.b"),
+        ("shop.c.x", "shop.c"),
+        ("shop.c.w", "shop.c"),
+        ("shop.d.y", "shop.d"),
+        ("shop.d.z", "shop.d"),
+    ]
+    .into_iter()
+    .map(|(module, package)| file(module, package))
+    .collect();
+    let imports = [
+        import("I1", "shop.a.x", "shop.b.y"),
+        import("I2", "shop.b.y", "shop.a.x"),
+        import("I3", "shop.c.x", "shop.d.y"),
+        import("I4", "shop.d.z", "shop.c.w"),
+    ];
+    let found = cycles_of(&all, &imports);
+    let backed = |members: &[&str]| {
+        let wanted = id("package", members);
+        found
+            .iter()
+            .find(|c| c.id() == wanted)
+            .and_then(Cycle::backed_by)
+            .map(<[String]>::to_vec)
+    };
+    let module = id("module", &["shop.a.x", "shop.b.y"]);
+    assert_eq!(backed(&["shop.a", "shop.b"]), Some(vec![module]));
+    assert_eq!(backed(&["shop.c", "shop.d"]), Some(Vec::new()));
+}

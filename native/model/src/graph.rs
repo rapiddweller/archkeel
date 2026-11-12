@@ -5,6 +5,8 @@
 //! The part of the model that only the reply and the settings give (slices S1 to S3): the
 //! modules, packages, imports, edges, measures and cycles. It needs no contract, so a run whose
 //! contract the core cannot use yet still has its rows. The core derives it one time per run.
+//! The macro bodies are typed rows of the split (`MacroBody`): the fan counts of the modules
+//! read them while the graph is derived, and nothing reads them after.
 
 use std::collections::HashMap;
 
@@ -17,7 +19,7 @@ use crate::coverage::{self, Incomplete};
 use crate::cycles::{self, Cycle};
 use crate::edges::{self, Edge, Level};
 use crate::ids::{Id, ModuleId, PackageId, Table};
-use crate::imports::{self, Import, MacroBody};
+use crate::imports::{self, Import};
 use crate::modules::{self, Module, Package};
 use crate::reason::Reason;
 use crate::settings::Settings;
@@ -31,7 +33,6 @@ pub struct Graph {
     incomplete: Option<Incomplete>,
     settings: Settings,
     imports: Vec<Import>,
-    macro_bodies: Vec<MacroBody>,
     module_edges: Vec<Edge>,
     package_edges: Vec<Edge>,
     module_measures: Vec<Measure>,
@@ -63,7 +64,6 @@ impl Graph {
             incomplete: coverage::incomplete(&facts.coverage, split.unknown),
             settings,
             imports: split.imports,
-            macro_bodies: split.macro_bodies,
             module_edges,
             package_edges,
             module_measures: module_measured.measures,
@@ -95,11 +95,6 @@ impl Graph {
     /// The resolved imports that are not macro bodies, in the order of the reply.
     pub fn imports(&self) -> &[Import] {
         &self.imports
-    }
-
-    /// The resolved macro bodies, in the order of the reply. Only the fan counts read them.
-    pub fn macro_bodies(&self) -> &[MacroBody] {
-        &self.macro_bodies
     }
 
     /// The edges of one level, in the order of their (source, target) pairs.

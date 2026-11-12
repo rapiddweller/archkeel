@@ -50,7 +50,6 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
 
 fn body(source: &str, target: &str) -> MacroBody {
     MacroBody {
-        id: format!("M-{source}-{target}"),
         source_module: source.to_owned(),
         target_module: target.to_owned(),
     }

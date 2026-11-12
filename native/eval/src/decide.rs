@@ -20,7 +20,7 @@ pub(crate) fn decide(model: &Model, violations: &[Violation], selected: bool) ->
     if !violations.is_empty() {
         return Decision::fail();
     }
-    if let Some(incomplete) = model.incomplete() {
+    if let Some(incomplete) = model.graph().incomplete() {
         return Decision::unknown(Reason::Incomplete(incomplete));
     }
     if !selected {
