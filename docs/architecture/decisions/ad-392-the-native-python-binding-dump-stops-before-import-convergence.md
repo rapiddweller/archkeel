@@ -2,8 +2,8 @@
 
 **Status.** Accepted. Part of #880. Stacked on #1091.
 
-**Number.** Main ends at AD-387. Open PRs include AD-388, AD-389 and AD-390.
-The final number check takes the highest observed number plus two: AD-392.
+**Number.** Main ends at decision 387. Open PR #1090 uses 388. PR #1091 uses 389.
+PR #1093 uses 390. This record takes the highest observed number plus two: AD-392.
 
 **Reason.** The definition table still lacks binding proofs. Those proofs need the lexical
 inventory, ordered lookups, namespace exposure checks and member-binding closure first.
