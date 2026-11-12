@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-357, AD-382, AD-383: the self-check of native/ equals its pinned gaps, violations and rule statuses.
+"""AD-357, AD-382, AD-383: the self-check of native/ equals its pins: gaps, violations, statuses.
 
 Consumer: `make self-validate-native` (`tools/native_expected.py`).
 """
