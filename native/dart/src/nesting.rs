@@ -7,12 +7,10 @@
 //! takes gigabytes before the first rule runs. A byte count of the open brackets is cheap and
 //! needs no tree.
 
-use crate::parse::MAX_DEPTH;
-
-/// The open brackets that a source may hold at one byte: ten times `MAX_DEPTH`. A tree that
-/// passes `MAX_DEPTH` has a gap already; this bound only stops the parse of a source far past it.
-/// It counts the brackets in strings and comments too, so it is stricter than the tree.
-pub(crate) const MAX_BRACKETS: usize = MAX_DEPTH * 10;
+/// The open brackets that a source may hold at one byte: ten times `MAX_DEPTH` (900) of the
+/// parse. A tree that passes `MAX_DEPTH` has a gap already; this bound only stops the parse of a
+/// source far past it. It counts the brackets in strings and comments too, so it is stricter than the tree.
+pub(crate) const MAX_BRACKETS: usize = 9_000;
 
 /// The byte where the open brackets of `data` first pass `MAX_BRACKETS`: `(`, `[` and `{` open,
 /// `)`, `]` and `}` close, and a close at zero stays at zero.

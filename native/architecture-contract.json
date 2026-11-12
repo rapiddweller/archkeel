@@ -412,6 +412,7 @@
         "native.archkeel_dart_collector.definitions",
         "native.archkeel_dart_collector.directives",
         "native.archkeel_dart_collector.parse",
+        "native.archkeel_dart_collector.nesting",
         "native.archkeel_dart_collector.sites",
         "native.archkeel_dart_collector.sites.scopes",
         "native.archkeel_dart_collector.sites.bindings",
