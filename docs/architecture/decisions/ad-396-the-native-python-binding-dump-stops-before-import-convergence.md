@@ -14,7 +14,7 @@ restricted native forms in the import survey. This slice makes their ordered res
 comparable at the pre-import boundary. It does not count these spans as deletable Python.
 The PR lists modules, function spans and sizes. Use 810 as a lower bound, not a guessed total.
 
-**Budget.** All 4,885 corpus files on 3.11: maximum 2,846,247 units, a 22.48-fold margin.
+**Budget.** All 4,887 corpus files on 3.11–3.14: maximum 2,846,247 units, a 22.48-fold margin.
 | Top five files (external paths relative to their corpus) | Units |
 |---|---:|
 | pydantic: `tests/benchmarks/corpus/google-genai/google/genai/types.py` | 2,846,247 |
@@ -65,5 +65,5 @@ remain outside this dump. No speed improvement or Python deletion is claimed.
 
 **Tests.** `test_collector_native_python_bindings.py` compares fixture and corpus files,
 160 generated probes per Python minor and direct edge probes. It checks named work exhaustion
-and scaling of both flat functions and namespace reads. The Rust binding self-check checks
-complete records and the work count. The PR records isolated fault injections and all gates.
+and owner time/RSS scaling, exact loop costs, output bounds and empty-corpus failure.
+Rust checks complete records, loop costs and byte counts. The PR records isolated faults and gates.
