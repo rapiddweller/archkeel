@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -40,21 +41,42 @@ def observed(report: dict[str, Any]) -> tuple[list[Gap], dict[str, str], list[st
     return gaps, statuses, violated
 
 
+def _where(report: dict[str, Any], rule: str, limit: int = 5) -> str:
+    """The title and the first file:line of the first findings of a rule (AD-382)."""
+    found = [f for f in report.get("findings") or () if rule in (f.get("rules") or ())]
+    lines = [
+        f"\n  {f['title']} at "
+        + ", ".join(f"{at['path']}:{at['line']}" for at in (f.get("locations") or ())[:3])
+        for f in found[:limit]
+    ]
+    return "".join(lines) + (f"\n  and {len(found) - limit} more" if len(found) > limit else "")
+
+
 def problems(report: dict[str, Any], expected: dict[str, Any]) -> list[str]:
     gaps, statuses, violated = observed(report)
     pinned = sorted(tuple(gap) for gap in expected["gaps"])
-    found = [f"new gap: {gap}" for gap in gaps if gap not in pinned]
-    found += [f"missing gap: {gap}" for gap in pinned if gap not in gaps]
+    found = [f"new gap: {gap}" for gap in sorted((Counter(gaps) - Counter(pinned)).elements())]
+    found += [f"missing gap: {gap}" for gap in sorted((Counter(pinned) - Counter(gaps)).elements())]
     wanted = expected["rules"] if pinned else dict.fromkeys(expected["rules"], "PASS")
     if statuses != wanted:
         found.append(f"rule statuses {statuses} differ from {wanted}")
-    found += [f"violation of {rule}" for rule in violated]
+    found += [f"violation of {rule}{_where(report, rule)}" for rule in violated]
     kinds = {str(item["kind"]) for item in report.get("diagnostics") or ()} - {"incomplete_scan"}
     found += [f"diagnostic {kind}" for kind in sorted(kinds)]
     exit_code = 2 if pinned else 0
     if report.get("exit_code") != exit_code:
         found.append(f"exit code {report.get('exit_code')} differs from {exit_code}")
     return found
+
+
+def summary(report: dict[str, Any]) -> str:
+    """The counts of the run, so that a green gate does not read as proven (AD-382)."""
+    gaps, statuses, violated = observed(report)
+    count = Counter(statuses.values())
+    return (
+        f"native self-check: {count['PASS']} rules PASS, {count['FAIL']} FAIL, "
+        f"{count['UNKNOWN']} UNKNOWN; {len(gaps)} pinned gaps, {len(violated)} violations"
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -68,6 +90,7 @@ def main(argv: list[str]) -> int:
     found = problems(report, json.loads(path.read_text(encoding="utf-8")))
     for line in found:
         print(line, file=sys.stderr)
+    print(summary(report))
     return 1 if found else 0
 
 

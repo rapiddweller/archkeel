@@ -115,50 +115,79 @@ def test_a_planted_pub_field_raises_members_only(tmp_path: Path) -> None:
     assert (after[0] - before[0], after[1] - before[1]) == (0, 1)
 
 
-def test_a_removed_item_lowers_items_and_fails_the_check_until_the_baseline_changes(
-    tmp_path: Path,
-) -> None:
+def test_a_removed_item_fails_by_name_until_the_baseline_changes(tmp_path: Path) -> None:
     native = scratch(tmp_path, "#![deny(unreachable_pub)]\npub fn a() {}\n")
-    baseline = {"lib-one": {"items": 2, "members": 0}}
-    found = api.problems(native, baseline)
-    assert found == [
-        "lib-one has 1 public items and shrank from 2. "
-        "Set lib-one items to 1 in native/api_baseline.json and name the change in the PR."
+    baseline = {"lib-one": ["fn a()", "fn b()"]}
+    assert api.problems(native, baseline) == [
+        "lib-one removes public fn b().",
+        "Run `python tools/rust_api.py --write` and name each change of the API in the PR.",
     ]
-    assert api.problems(native, {"lib-one": {"items": 1, "members": 0}}) == []
+    assert api.problems(native, {"lib-one": ["fn a()"]}) == []
 
 
 def test_a_missing_deny_fails(tmp_path: Path) -> None:
     native = scratch(tmp_path, "pub fn a() {}\n")
-    baseline = {"lib-one": {"items": 1, "members": 0}}
-    assert any("unreachable_pub" in line for line in api.problems(native, baseline))
+    assert any("unreachable_pub" in line for line in api.problems(native, {"lib-one": ["fn a()"]}))
 
 
-def test_a_grown_count_fails_per_kind_and_the_right_counts_pass(tmp_path: Path) -> None:
-    native = scratch(
-        tmp_path, "#![deny(unreachable_pub)]\npub struct S { pub a: u8 }\npub fn b() {}\n"
-    )
-    right = {"lib-one": {"items": 2, "members": 1}}
-    assert api.problems(native, right) == []
-    grown_members = api.problems(native, {"lib-one": {"items": 2, "members": 0}})
-    assert grown_members == [
-        "lib-one has 1 public members and grew from 0. "
-        "Set lib-one members to 1 in native/api_baseline.json and name the change in the PR."
+def test_a_swap_of_two_parts_with_the_same_counts_fails(tmp_path: Path) -> None:
+    """AD-382: the counts stay equal when one part replaces another, the names do not."""
+    native = scratch(tmp_path, "#![deny(unreachable_pub)]\npub struct S { pub planted: u8 }\n")
+    (native / "one/src/verdict.rs").write_text("pub fn planted_pass() {}\n", encoding="utf-8")
+    baseline = {"lib-one": ["field S.kept: u8", "fn verdict::fail()", "struct S"]}
+    assert api.count_public(native / "one/src") == (2, 1)
+    assert api.problems(native, baseline)[:4] == [
+        "lib-one adds public field S.planted: u8.",
+        "lib-one adds public fn verdict::planted_pass().",
+        "lib-one removes public field S.kept: u8.",
+        "lib-one removes public fn verdict::fail().",
     ]
-    assert (
-        "public items and grew" in api.problems(native, {"lib-one": {"items": 1, "members": 1}})[0]
+
+
+def test_a_changed_signature_or_field_type_with_the_same_name_fails(tmp_path: Path) -> None:
+    """AD-382: the list holds the signature of a `fn` and the type of a field."""
+    native = scratch(
+        tmp_path, "#![deny(unreachable_pub)]\npub struct S { pub a: u16 }\npub fn f(x: u16) {}\n"
     )
+    baseline = {"lib-one": ["field S.a: u8", "fn f(x:u8)", "struct S"]}
+    assert api.problems(native, baseline)[:4] == [
+        "lib-one adds public field S.a: u16.",
+        "lib-one adds public fn f(x:u16).",
+        "lib-one removes public field S.a: u8.",
+        "lib-one removes public fn f(x:u8).",
+    ]
+
+
+def test_each_part_has_its_kind_its_module_and_its_name(tmp_path: Path) -> None:
+    text = (
+        "#![deny(unreachable_pub)]\npub mod m;\npub use a::{b as c, d::*};\n"
+        "pub struct T(u8, pub Box<dyn Fn() -> u8>, pub u8);\npub static mut X: u8 = 0;\n"
+    )
+    native = scratch(tmp_path, text)
+    (native / "one/src/m").mkdir()
+    (native / "one/src/m/mod.rs").write_text("pub enum E { A, B }\n", encoding="utf-8")
+    assert api.public_api(native / "one/src") == sorted(
+        ["field T.1: Box<dyn Fn()->u8>", "field T.2: u8", "mod m", "static X", "struct T"]
+        + ["use *", "use c"]
+        + ["enum m::E", "variant m::E::A", "variant m::E::B"]
+    )
+
+
+def test_write_gives_a_baseline_that_passes(tmp_path: Path) -> None:
+    native = scratch(tmp_path, "#![deny(unreachable_pub)]\npub fn a() {}\n")
+    (native / "api_baseline.json").write_text("{}", encoding="utf-8")
+    assert api.main(["--native", str(native), "--write"]) == 0
+    assert json.loads((native / "api_baseline.json").read_text()) == {"lib-one": ["fn a()"]}
+    assert api.main(["--native", str(native), "--check"]) == 0
 
 
 def test_a_missing_or_old_format_entry_fails(tmp_path: Path) -> None:
     native = scratch(tmp_path, "#![deny(unreachable_pub)]\npub fn a() {}\n")
-    assert "no entry with items and members" in api.problems(native, {})[0]
-    assert "no entry with items and members" in api.problems(native, {"lib-one": 1})[0]
-    assert "no members count" in api.problems(native, {"lib-one": {"items": 1}})[0]
-    assert (
-        "no library"
-        in api.problems(native, {"lib-one": {"items": 1, "members": 0}, "ghost": {}})[0]
-    )
+    assert "no list of public parts" in api.problems(native, {})[0]
+    assert "no list of public parts" in api.problems(native, {"lib-one": 1})[0]
+    old = {"lib-one": {"items": 1, "members": 0}}
+    assert "no list of public parts" in api.problems(native, old)[0]
+    assert "no library" in api.problems(native, {"lib-one": ["fn a()"], "ghost": []})[0]
 
 
 def test_the_real_libraries_match_their_baseline() -> None:

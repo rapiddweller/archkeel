@@ -1,17 +1,58 @@
 {
   "rules": {
     "NATIVE-ASSIGNMENT-COMPLETE": "UNKNOWN",
+    "NATIVE-EXTERNAL-CC": "UNKNOWN",
+    "NATIVE-EXTERNAL-COMPLETE": "UNKNOWN",
+    "NATIVE-EXTERNAL-FLATE2": "UNKNOWN",
+    "NATIVE-EXTERNAL-PROC-MACRO2": "UNKNOWN",
     "NATIVE-EXTERNAL-RUFF-PYTHON-AST": "UNKNOWN",
     "NATIVE-EXTERNAL-RUFF-PYTHON-PARSER": "UNKNOWN",
+    "NATIVE-EXTERNAL-RUFF-TEXT-SIZE": "UNKNOWN",
+    "NATIVE-EXTERNAL-SCHEMARS": "UNKNOWN",
+    "NATIVE-EXTERNAL-SERDE": "UNKNOWN",
+    "NATIVE-EXTERNAL-SERDE-JSON": "UNKNOWN",
+    "NATIVE-EXTERNAL-SHA2": "UNKNOWN",
     "NATIVE-EXTERNAL-SYN": "UNKNOWN",
+    "NATIVE-EXTERNAL-TOML": "UNKNOWN",
     "NATIVE-EXTERNAL-TREE-SITTER": "UNKNOWN",
     "NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE": "UNKNOWN",
     "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT": "UNKNOWN",
+    "NATIVE-EXTERNAL-UNICODE-IDENT": "UNKNOWN",
     "NATIVE-NO-COMPONENT-CYCLES": "UNKNOWN",
+    "NATIVE-NO-CONTRACT-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-CONTRACT-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-CONTRACT-TO-MODEL": "UNKNOWN",
+    "NATIVE-NO-CONTRACT-TO-REPORT": "UNKNOWN",
+    "NATIVE-NO-EVAL-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-EVAL-TO-REPORT": "UNKNOWN",
+    "NATIVE-NO-MODEL-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-MODEL-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-MODEL-TO-REPORT": "UNKNOWN",
     "NATIVE-NO-MODULE-CYCLES": "UNKNOWN",
+    "NATIVE-NO-REPORT-TO-CORE": "UNKNOWN",
     "NATIVE-REQUIRES-COMPLETE": "UNKNOWN"
   },
   "gaps": [
+    [
+      "native.archkeel_core.rules",
+      "native.archkeel_model.scope",
+      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
+    ],
+    [
+      "native.archkeel_eval",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_eval.decide",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_eval.decide",
+      "native.archkeel_model.scope",
+      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
+    ],
     [
       "native.archkeel_facts.request",
       "native.archkeel_facts.request_rules",
