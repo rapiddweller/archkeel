@@ -5,7 +5,10 @@
 //! The contract word of a rule kind, as the rule row writes it (AD-381). The match lists every
 //! kind and has no wildcard, so a new kind does not compile here until it has its word.
 
-#![deny(clippy::wildcard_enum_match_arm, clippy::match_wildcard_for_single_variants)]
+#![deny(
+    clippy::wildcard_enum_match_arm,
+    clippy::match_wildcard_for_single_variants
+)]
 
 use archkeel_contract::RuleKind;
 

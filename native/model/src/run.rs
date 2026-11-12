@@ -21,7 +21,10 @@
 //! }
 //! ```
 
-#![deny(clippy::wildcard_enum_match_arm, clippy::match_wildcard_for_single_variants)]
+#![deny(
+    clippy::wildcard_enum_match_arm,
+    clippy::match_wildcard_for_single_variants
+)]
 
 use std::marker::PhantomData;
 

@@ -19,7 +19,10 @@
 //! no receipt in a complete scope) is `no_receipt`. A dynamic import leaves the rule without its
 //! receipt (AD-378), so it is `no_receipt`; `Cause::Undecided` is an undecided position.
 
-#![deny(clippy::wildcard_enum_match_arm, clippy::match_wildcard_for_single_variants)]
+#![deny(
+    clippy::wildcard_enum_match_arm,
+    clippy::match_wildcard_for_single_variants
+)]
 
 use archkeel_model::{Cause, Reason, Unsupported};
 
