@@ -25,8 +25,9 @@ def compiler_checked_collect(request):
     original = python_source._parse_bounded
 
     def checked(source: str, filename: str) -> ast.Module:
+        tree = original(source, filename)
         compile(source, filename, "exec", dont_inherit=True)
-        return original(source, filename)
+        return tree
 
     with patch.object(python_source, "_parse_bounded", checked):
         return collect(request)
