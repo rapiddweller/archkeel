@@ -114,20 +114,25 @@ fn sequence(
     work: &mut Work,
     depth: usize,
 ) -> Option<&'static str> {
-    let mut stars = 0;
+    let mut star_seen = false;
     for (index, item) in items.iter().enumerate() {
         if !work.charge(1) {
             return Some("CPython validation work limit exceeded");
         }
-        stars += usize::from(matches!(item, Pattern::MatchStar(_)));
-        if matches!(item, Pattern::MatchStar(_)) && index >= 256 {
-            return Some("too many expressions before a star pattern");
+        if matches!(item, Pattern::MatchStar(_)) {
+            if star_seen {
+                return Some("multiple star patterns");
+            }
+            if index >= 256 {
+                return Some("too many expressions before a star pattern");
+            }
+            star_seen = true;
         }
         if let Some(reason) = pattern(item, names, work, depth + 1) {
             return Some(reason);
         }
     }
-    (stars > 1).then_some("multiple star patterns")
+    None
 }
 
 fn alternatives(

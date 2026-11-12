@@ -1822,7 +1822,7 @@
       "reason": "too many expressions before a star pattern",
       "exception": "SyntaxError",
       "compiler_message": "too many expressions in star-unpacking sequence pattern",
-      "native_check": "native/python/src/patterncheck.rs:124"
+      "native_check": "native/python/src/patterncheck.rs:127"
     },
     {
       "site": "3.11:Python/compile.c:6429:20",
@@ -1912,7 +1912,7 @@
       "reason": "pattern alternatives bind different names",
       "exception": "SyntaxError",
       "compiler_message": "alternative patterns bind different names",
-      "native_check": "native/python/src/patterncheck.rs:157"
+      "native_check": "native/python/src/patterncheck.rs:162"
     },
     {
       "site": "3.11:Python/compile.c:6930:24",
@@ -4019,7 +4019,7 @@
       "reason": "too many expressions before a star pattern",
       "exception": "SyntaxError",
       "compiler_message": "too many expressions in star-unpacking sequence pattern",
-      "native_check": "native/python/src/patterncheck.rs:124"
+      "native_check": "native/python/src/patterncheck.rs:127"
     },
     {
       "site": "3.12:Python/compile.c:6704:20",
@@ -4109,7 +4109,7 @@
       "reason": "pattern alternatives bind different names",
       "exception": "SyntaxError",
       "compiler_message": "alternative patterns bind different names",
-      "native_check": "native/python/src/patterncheck.rs:157"
+      "native_check": "native/python/src/patterncheck.rs:162"
     },
     {
       "site": "3.12:Python/compile.c:7211:24",
@@ -6690,7 +6690,7 @@
       "reason": "too many expressions before a star pattern",
       "exception": "SyntaxError",
       "compiler_message": "too many expressions in star-unpacking sequence pattern",
-      "native_check": "native/python/src/patterncheck.rs:124"
+      "native_check": "native/python/src/patterncheck.rs:127"
     },
     {
       "site": "3.13:Python/compile.c:6856:20",
@@ -6780,7 +6780,7 @@
       "reason": "pattern alternatives bind different names",
       "exception": "SyntaxError",
       "compiler_message": "alternative patterns bind different names",
-      "native_check": "native/python/src/patterncheck.rs:157"
+      "native_check": "native/python/src/patterncheck.rs:162"
     },
     {
       "site": "3.13:Python/compile.c:7363:24",
@@ -9459,7 +9459,7 @@
       "reason": "too many expressions before a star pattern",
       "exception": "SyntaxError",
       "compiler_message": "too many expressions in star-unpacking sequence pattern",
-      "native_check": "native/python/src/patterncheck.rs:124"
+      "native_check": "native/python/src/patterncheck.rs:127"
     },
     {
       "site": "3.14:Python/codegen.c:5788:20",
@@ -9549,7 +9549,7 @@
       "reason": "pattern alternatives bind different names",
       "exception": "SyntaxError",
       "compiler_message": "alternative patterns bind different names",
-      "native_check": "native/python/src/patterncheck.rs:157"
+      "native_check": "native/python/src/patterncheck.rs:162"
     },
     {
       "site": "3.14:Python/codegen.c:6287:24",
