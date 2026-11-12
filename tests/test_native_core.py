@@ -261,7 +261,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 647 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 654 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
@@ -321,9 +321,8 @@ def test_the_inside_cases_equal_python_on_every_decided_kind_with_their_rows(
     direction kind inside a mount, a tree two levels deep, an inside contract without rules, a
     mount with a doubt, the same rule id in two inside contracts, a rule that must read only its
     own domain, an edge that leaves a mount or enters another one, a cut exact-module claim) has
-    the verdict and the violation rows of Python. The core names only the scan
-    roots of `complete_requires` and the file of an inside `layer_order` rule; no PASS or FAIL
-    status differs."""
+    the verdict and the violation rows of Python. The core names only the file of an inside
+    `layer_order` rule; no PASS or FAIL status differs."""
     arguments = ["compare", "--case", "inside/*", "--sections", "violations"]
     code, lines = _run([*arguments, "--families", ALL_DECIDED, "--engine-command", core], capsys)
     differences = [line for line in lines if line.startswith("inside/")]
@@ -333,7 +332,7 @@ def test_the_inside_cases_equal_python_on_every_decided_kind_with_their_rows(
     layer = "a layer_order rule of an inside contract cites the inside contract file"
     assert all(scan_roots in line or layer in line for line in differences), differences
     assert code == 1
-    assert "; 9 projects; 88 rules; 6 differences;" in lines[-1]
+    assert "; 9 projects; 106 rules; 1 differences;" in lines[-1]
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
