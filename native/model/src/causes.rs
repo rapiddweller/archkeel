@@ -45,8 +45,9 @@ pub struct Held {
 pub const HELD_SHOWN: usize = 5;
 
 impl Held {
-    /// The gaps `(source, target)` that hold a rule.
-    pub(crate) fn of<'a>(gaps: impl Iterator<Item = (&'a str, &'a str)>) -> Option<Held> {
+    /// The gaps `(source, target)` that hold a rule, or `None` for no gap. A `Held` is a reason,
+    /// not a proof: it can only make a rule UNKNOWN.
+    pub fn of<'a>(gaps: impl Iterator<Item = (&'a str, &'a str)>) -> Option<Held> {
         let mut shown = Vec::new();
         let mut count = 0;
         for (source, target) in gaps {

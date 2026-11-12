@@ -34,7 +34,7 @@ pub(crate) fn run(
     let contract = contract(contract_change)?;
     let reply = reply(reply_change)?;
     let model = Model::derive(&contract, &reply, settings).ok()?;
-    let rules = evaluate(&contract, &model)
+    let rules = evaluate(&model)
         .iter()
         .filter_map(|outcome| {
             let decision = outcome.decision()?;

@@ -38,7 +38,7 @@ fn read_json(path: &str) -> Value {
 }
 
 /// The H-typescript contract with only the rules `keep`.
-fn contract(keep: &[&str]) -> Contract {
+pub(crate) fn contract(keep: &[&str]) -> Contract {
     parsed(keep, Vec::new()).unwrap()
 }
 
@@ -67,7 +67,7 @@ fn reply() -> archkeel_store::Ingested {
 }
 
 /// The H-typescript reply after `change`.
-fn reply_with(change: impl FnOnce(&mut Value)) -> archkeel_store::Ingested {
+pub(crate) fn reply_with(change: impl FnOnce(&mut Value)) -> archkeel_store::Ingested {
     let mut value = read_json("tests/golden/typescript/h-typescript.json.gz");
     value["facts"]["adapter"]["version"] = json!("0");
     value["facts"]["adapter"]["code_digest"] = json!("0".repeat(64));
@@ -89,7 +89,11 @@ fn model(contract: &Contract, trusted: bool) -> Model {
     model_of(contract, &reply(), trusted)
 }
 
-fn model_of(contract: &Contract, reply: &archkeel_store::Ingested, trusted: bool) -> Model {
+pub(crate) fn model_of(
+    contract: &Contract,
+    reply: &archkeel_store::Ingested,
+    trusted: bool,
+) -> Model {
     let profile = reply.reply().facts.profile.as_str().to_owned();
     let settings = Settings::new("shop".to_owned(), profile, Vec::new());
     let settings = if trusted {
@@ -110,7 +114,7 @@ fn text() -> RuleText {
     }
 }
 
-fn rows(outcomes: &[Outcome]) -> Vec<RuleOutcome> {
+pub(crate) fn rows(outcomes: &[Outcome]) -> Vec<RuleOutcome> {
     outcomes
         .iter()
         .map(|o| RuleOutcome::evaluated(o, text()))
@@ -118,7 +122,7 @@ fn rows(outcomes: &[Outcome]) -> Vec<RuleOutcome> {
 }
 
 /// The rows of an oracle payload with no unknowns row and no diagnostic.
-fn frame(rules: Vec<RuleOutcome>) -> (RunOutcome, Records) {
+pub(crate) fn frame(rules: Vec<RuleOutcome>) -> (RunOutcome, Records) {
     let payload = Payload::decode(&bytes("E-runtime")).unwrap();
     let (mut outcome, mut records) = inputs(&payload).unwrap();
     outcome.diagnostics.clear();
@@ -272,10 +276,14 @@ fn an_evaluated_row_takes_its_id_kind_and_reason_from_the_outcome() {
 
 #[test]
 fn each_reason_of_the_model_has_its_row_reason() {
-    use archkeel_model::{Cause, Incomplete, Input, Part, Reason, Refusal, Section, Unsupported};
+    use archkeel_model::Unsupported;
+    use archkeel_model::{Cause, Held, Incomplete, Input, Part, Reason, Refusal, Section};
 
     use crate::WhyUnknown::{NoReceipt, ScopeIncomplete, Undecided};
     let kind = archkeel_contract::RuleKind::LayerOrder;
+    let Some(held) = Held::of(std::iter::once(("a", "b"))) else {
+        return assert_eq!("one held gap", "");
+    };
     let table = [
         (Reason::NotComplete(Cause::Undecided(1)), Undecided),
         (Reason::NotComplete(Cause::DynamicImport), NoReceipt),
@@ -289,7 +297,8 @@ fn each_reason_of_the_model_has_its_row_reason() {
             ScopeIncomplete,
         ),
         (Reason::Unsupported(Unsupported::TreeScope), ScopeIncomplete),
-        (Reason::NotComplete(Cause::PairGaps(1)), ScopeIncomplete),
+        (Reason::NotComplete(Cause::PairGaps(held)), ScopeIncomplete),
+        (Reason::NotComplete(Cause::Receipt("a")), NoReceipt),
         (Reason::NotComplete(Cause::Producer), ScopeIncomplete),
         (
             Reason::NotComplete(Cause::NoRuleSubjects("a".into())),

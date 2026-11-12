@@ -127,6 +127,8 @@ pub use why::WhyUnknown;
 mod tables;
 
 #[cfg(test)]
+mod beyond_tests;
+#[cfg(test)]
 mod build_tests;
 #[cfg(test)]
 mod codec_tests;

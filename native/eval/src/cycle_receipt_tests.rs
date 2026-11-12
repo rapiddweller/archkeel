@@ -141,7 +141,7 @@ fn a_component_cycle_cites_only_the_imports_between_two_members() {
     let Ok(model) = Model::derive(&contract, &reply, rooted()) else {
         return assert_eq!("the model derives", "");
     };
-    let outcomes = crate::evaluate(&contract, &model);
+    let outcomes = crate::evaluate(&model);
     let cited: Vec<(Vec<String>, usize)> = outcomes
         .iter()
         .filter(|outcome| outcome.rule() == "COMPONENT-CYCLES")

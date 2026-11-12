@@ -17,7 +17,9 @@
 //! (`ir/decisions.py:770-779`). So `Cause::NoRuleSubjects` (a rule side without subjects is a
 //! coverage failure of the run) is `scope_incomplete`, and `Reason::NoSubjects` (this rule has
 //! no receipt in a complete scope) is `no_receipt`. A dynamic import leaves the rule without its
-//! receipt (AD-378), so it is `no_receipt`; `Cause::Undecided` is an undecided position.
+//! receipt (AD-378), so it is `no_receipt`; `Cause::Undecided` is an undecided position. A receipt
+//! that is not complete (`Cause::Receipt`, AD-384) is `no_receipt`; a pair gap that holds the rule
+//! is `scope_incomplete`.
 
 #![deny(
     clippy::wildcard_enum_match_arm,
@@ -67,7 +69,7 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
 fn not_complete(cause: &Cause) -> WhyUnknown {
     match cause {
         Cause::Undecided(_) => WhyUnknown::Undecided,
-        Cause::DynamicImport => WhyUnknown::NoReceipt,
+        Cause::DynamicImport | Cause::Receipt(_) => WhyUnknown::NoReceipt,
         Cause::PairGaps(_)
         | Cause::WorkTree
         | Cause::Runtime
