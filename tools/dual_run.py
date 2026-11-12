@@ -24,7 +24,6 @@ import sys
 import tempfile
 import time
 import tomllib
-import zlib
 from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
@@ -64,9 +63,11 @@ from tools.dual_run_tree import tree_frame
 RECORDINGS = ORACLE_DIR / "RECORDINGS.md"
 # Version 2 adds the settings of the shell: `namespace`, `profile` and `standard_library` (AD-372).
 # Version 3 adds `insides`: the inside contracts that the shell read for the core (AD-379).
+# Version 5 removes `pinned`: the core takes no trust statement from a request (AD-388). The pin
+# of a case stays a fact of the Python engine run (`Case.pinned`).
 # Version 4 adds `roots`: the scan roots of the configuration; the core binds them to the reply
 # (AD-384).
-PROTOCOL = "archkeel-dual-run-4"
+PROTOCOL = "archkeel-dual-run-5"
 ENGINE_TIMEOUT_SECONDS = 600
 # The exit code of an engine frame that names an unsupported or refused part (AD-363).
 NAMES_A_GAP = 3
@@ -75,8 +76,6 @@ RECORDED_SOURCES = ("src", "fixtures", "native", "tests/golden", "tests/false_pa
 RUST_COLLECTOR_VARIABLE = "ARCHKEEL_DUAL_RUN_RUST_COLLECTOR"
 # The variable that names the Rust collector for a `rust` probe of `false_pass_support.py`.
 PROBE_RUST_COLLECTOR = "ARCHKEEL_PROBE_RUST_COLLECTOR"
-# The first byte of a zlib stream; a plain JSON reply never starts with it.
-ZLIB_HEADER = b"x"
 
 
 # --- Engines ---------------------------------------------------------------------------------
@@ -114,7 +113,6 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
         "baseline": case.baseline,
         "contracts": contracts,
         "collector_argv": collector_argv(case),
-        "pinned": case.pinned,
         "reply": None,
         "sections": list(selection.sections),
         "namespace": scan["namespace"],
@@ -125,24 +123,11 @@ def engine_request(case: Case, root: Path, selection: Selection) -> dict[str, An
     }
 
 
-def reply_profile(reply: bytes) -> tuple[str, list[str]]:
-    """The profile of a reply and the top-level standard library names of that profile (AD-372).
-    The shell owns the table of profiles; the core names no language and checks that the
-    profile is the profile of the reply. A reply that is not JSON gives no profile."""
-    from archkeel.ir.profiles import profile_for
-
-    try:
-        value = json.loads(zlib.decompress(reply) if reply[:1] == ZLIB_HEADER else reply)
-        profile = value["facts"]["profile"]
-        return profile, sorted(profile_for(profile).standard_library)
-    except (ValueError, KeyError, TypeError, zlib.error):
-        return "", []
-
-
 def python_frame(
-    root: Path, request: Mapping[str, Any], replies: list[bytes] | None = None
+    root: Path, request: Mapping[str, Any], pinned: bool, replies: list[bytes] | None = None
 ) -> dict[str, Any]:
-    """The frame of the Python engine; `replies` gets the raw collector replies of the run."""
+    """The frame of the Python engine; `replies` gets the raw collector replies of the run. The
+    Python engine trusts a pinned external collector (AD-344); the core never does (AD-388)."""
     from tools.dual_run_python import run_python_engine
 
     os.environ[PROBE_RUST_COLLECTOR] = rust_collector()
@@ -153,7 +138,7 @@ def python_frame(
         request["config"],
         baseline,
         argv and tuple(argv),
-        request["pinned"],
+        pinned,
         rust_collector(),
         replies,
     )
@@ -181,11 +166,13 @@ def engine_and_reference(
     command engine (`None` for the Python engine itself)."""
     request = engine_request(case, root, selection)
     if command is None:
-        return python_frame(root, request), None
+        return python_frame(root, request, case.pinned), None
     # The shell runs the collector and sends its reply: the engine reads no file (AD-363).
     replies: list[bytes] = []
-    reference = python_frame(root, request, replies)
+    reference = python_frame(root, request, case.pinned, replies)
     request["reply"] = {"hex": replies[-1].hex()} if replies else None
+    from tools.dual_run_python import reply_profile
+
     request["profile"], request["standard_library"] = (
         reply_profile(replies[-1]) if replies else ("", [])
     )
@@ -490,7 +477,8 @@ def serve_python() -> int:
     if request.get("protocol") != PROTOCOL:
         print(f"unknown protocol {request.get('protocol')}", file=sys.stderr)
         return 2
-    json.dump(python_frame(Path(request["root"]), request), sys.stdout)
+    pinned = any(case.pinned for case in corpus_cases() if case.id == request["case"])
+    json.dump(python_frame(Path(request["root"]), request, pinned), sys.stdout)
     return 0
 
 

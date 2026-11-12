@@ -42,6 +42,7 @@ dependencies = [
  "archkeel-contract",
  "archkeel-eval",
  "archkeel-model",
+ "archkeel-report",
  "archkeel-store",
  "flate2",
  "serde",

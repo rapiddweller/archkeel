@@ -228,6 +228,8 @@ pub(crate) fn dropping(reply: &mut Value) {
     reply["facts"]["capabilities"] = json!({"constructs": [], "resolution_features": [],
                                              "sections": ["imports", "unknowns"]});
     reply["facts"]["profile"] = json!(RUST_PROFILE);
+    // The collector of a profile names itself as the adapter (AD-388).
+    reply["facts"]["adapter"]["name"] = json!(RUST_PROFILE);
 }
 
 /// The rooted settings of a dropping reply.

@@ -21,6 +21,7 @@ from conftest import build_native_copy
 from native_rules_support import language_names
 
 from tools import dual_run
+from tools.dual_run_oracle import Selection
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -149,6 +150,23 @@ BEYOND_CASES = {
 }
 
 
+# AD-388, L-35c: the one stricter change of the producer. Python trusts a pinned external
+# collector; the core cannot verify a pin, so the rule is UNKNOWN and names the pin. Only the
+# cases with a pinned external collector have such a rule.
+STRICTER = re.compile(
+    r": rules: \S+: core stricter than Python: incomplete scope: the reply does not come from "
+    r"the bundled collector, and the collector pin is not verified by the core$"
+)
+
+
+def _stricter(differences: list[str]) -> list[str]:
+    """The named lines of AD-388 point 4; each one is in a case with a pinned collector."""
+    pinned = {case.id for case in dual_run.corpus_cases() if case.pinned and case.collector_argv}
+    found = [line for line in differences if STRICTER.search(line)]
+    assert {line.split(":")[0] for line in found} <= pinned, found
+    return found
+
+
 def _beyond(differences: list[str]) -> list[str]:
     """The named lines of AD-384 point 4; each one is in a case of BEYOND_CASES."""
     found = [line for line in differences if BEYOND.search(line)]
@@ -169,7 +187,7 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
     tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
     named = [line for line in differences if line.endswith(S4_NAMES) or limit.search(line)]
-    named += _beyond(differences)
+    named += _beyond(differences) + _stricter(differences)
     left = [line for line in differences if line not in named and not tree.search(line)]
     assert left == [], left
     assert code == (1 if differences else 0)
@@ -213,7 +231,7 @@ def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_ever
     assert not [line for line in differences if ", found " in line or ": status: " in line]
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
     tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
-    beyond = _beyond(differences)
+    beyond = _beyond(differences) + _stricter(differences)
     left = [
         line
         for line in differences
@@ -231,15 +249,22 @@ def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_ever
     assert not [line for line in rows if line.startswith(("s5/", "s7/"))]
     assert code == (1 if differences or rows else 0)
     # The s5 cases: a difference is only a limit of some profiles (AD-384: the scan roots now
-    # give the receipt of `complete_requires`).
-    named = {line.split(":")[0] for line in differences if line.startswith("s5/")}
+    # give the receipt of `complete_requires`) or the unverified pin of AD-388.
+    stricter = set(_stricter(differences))
+    named = {
+        line.split(":")[0]
+        for line in differences
+        if line.startswith("s5/") and line not in stricter
+    }
     assert named <= {
         "s5/forbidden-symbol-rule-leaves-a-position-undecided",
         "s5/requires-symbol-port-is-judged-with-the-symbol-feature",
     }
     # AD-384: the s7 cases differ only by a named PASS beyond the reference engine.
     s7 = [line for line in differences if line.startswith("s7/")]
-    assert s7 == [line for line in s7 if BEYOND.search(line) or line.endswith(S5_NAMES)], s7
+    assert s7 == [
+        line for line in s7 if BEYOND.search(line) or line.endswith(S5_NAMES) or line in stricter
+    ], s7
 
 
 def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(
@@ -261,7 +286,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 654 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 655 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
@@ -335,6 +360,26 @@ def test_the_inside_cases_equal_python_on_every_decided_kind_with_their_rows(
     assert "; 9 projects; 106 rules; 1 differences;" in lines[-1]
 
 
+def test_a_pinned_external_collector_is_not_trusted_by_the_core(core: str) -> None:
+    """AD-388, L-35c (review S2 of #1090): Python trusts the pinned external collector of this
+    case and passes its rules; the core cannot verify the pin, so each of these rules is UNKNOWN
+    with the reason that names the pin, and the run is not PASS."""
+    case = next(c for c in dual_run.corpus_cases() if c.id == PIN_CASE)
+    with dual_run.materialized(case) as root:
+        frame, reference = dual_run.engine_and_reference(case, root, core, Selection())
+    assert reference is not None and reference["declared_rules"] == "PASS"
+    assert frame["status"] == "UNKNOWN", frame
+    statuses = [status for _, status in frame["rules"].values()]
+    assert statuses and set(statuses) == {"UNKNOWN"}, frame
+    assert {why for why in frame["explained"].values()} == {
+        "incomplete scope: the reply does not come from the bundled collector, and the "
+        "collector pin is not verified by the core"
+    }
+
+
+PIN_CASE = "pin/a-pinned-external-collector-is-not-trusted-by-the-core"
+
+
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -366,13 +411,12 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -
     once for each name (9.56 GB for 200 names of `dependency_edges`). The binary refuses it."""
     binary = core.split(" ")[0]
     request = {
-        "protocol": "archkeel-dual-run-4",
+        "protocol": "archkeel-dual-run-5",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
         "baseline": None,
         "collector_argv": None,
-        "pinned": False,
         "contracts": {"architecture-contract.json": "{}"},
         "reply": None,
         "sections": ["cycles", "modules", "cycles"],

@@ -197,6 +197,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_expected_gaps.py",
         "test_native_self_rules.py",
         "test_native_self_contract.py",
+        "test_native_standard_library.py",
         "test_pr_test_node_ids.py",
         "test_native_versions.py",
         "test_rust_*.py",
@@ -233,6 +234,8 @@ SELECTIONS: dict[str, tuple[str, ...]] = {
         "test_python_source_evidence_lines.py",
         "test_typed_python_receivers.py",
         "test_validation.py",
+        # AD-388: the pinned standard library equals `sys.stdlib_module_names` of each minor.
+        "test_native_standard_library.py",
         "test_architecture_demo.py::test_variant_produces_the_catalogued_findings"
         "[class-a-boundary-types-stdlib-path-facade]",
     ),

@@ -34,11 +34,6 @@
   },
   "gaps": [
     [
-      "native.archkeel_core.rules",
-      "native.archkeel_model.scope",
-      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
-    ],
-    [
       "native.archkeel_eval",
       "native.archkeel_facts.gap",
       "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
@@ -87,6 +82,16 @@
       "native.archkeel_report.input",
       "native.archkeel_model.run",
       "A method call may reach the method declares of an impl block in native.archkeel_model.run"
+    ],
+    [
+      "native.archkeel_report.ruling",
+      "native.archkeel_model.run",
+      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
+    ],
+    [
+      "native.archkeel_report.ruling",
+      "native.archkeel_model.scope",
+      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
     ],
     [
       "native.archkeel_rust_collector.symbols",

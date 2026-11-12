@@ -271,6 +271,10 @@
           "rationale": "Decide the rules of the run and write the violation rows of the decided kinds (AD-370)."
         },
         {
+          "component": "report",
+          "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388)."
+        },
+        {
           "component": "contract",
           "rationale": "Parse the contract bytes that the shell sends (AD-359)."
         },

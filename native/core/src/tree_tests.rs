@@ -11,10 +11,11 @@ use std::collections::BTreeMap;
 use serde_json::{json, Value};
 
 use archkeel_model::{Producer, Reason, Settings, Unsupported};
+use archkeel_report::Named;
 
-use super::{answer, names_a_part, ContractState, ReplyCheck, RuleReasons};
-use crate::engine::tests::{golden_profile, golden_reply};
-use crate::engine::{Answer, Engine};
+use super::answer;
+use crate::engine::tests::{golden_profile, golden_reply, ruled};
+use crate::engine::Engine;
 use crate::request::Request;
 use crate::rules::Tree;
 
@@ -67,8 +68,8 @@ fn request(leaf: Option<&[u8]>) -> Value {
         None => json!([]),
     };
     json!({
-        "protocol": "archkeel-dual-run-4", "case": "c", "root": "/r", "config": "archkeel.toml",
-        "baseline": null, "collector_argv": null, "pinned": false,
+        "protocol": "archkeel-dual-run-5", "case": "c", "root": "/r", "config": "archkeel.toml",
+        "baseline": null, "collector_argv": null,
         "contracts": {"architecture-contract.json": contract(leaf.is_some())},
         "reply": {"hex": hex_of(&golden_reply())}, "sections": [], "namespace": "shop",
         "profile": golden_profile(), "standard_library": [], "insides": insides, "roots": [],
@@ -177,30 +178,31 @@ fn engine(leaf: &[u8]) -> Engine {
 #[test]
 fn the_second_line_names_a_pass_of_a_tree_whose_models_do_not_hold_every_mount() {
     let mut engine = engine(LEAF);
-    let Answer::Rules(whole) = engine.answer(Request::Rules) else {
-        assert_eq!("no rules answer", "a rules answer");
-        return;
-    };
-    assert_eq!(whole.decided["ASSIGNMENT"][1], "PASS");
+    let (whole, _) = ruled(&mut engine, Named::default());
+    assert_eq!(whole["rules"]["ASSIGNMENT"][1], "PASS");
     let (contract, derived) = engine.derived();
     // The tree has one mount; a count of two is a tree that the models do not hold.
-    let found = crate::rules::answer(contract, derived.models(), Some(Tree::new(Vec::new(), 2)));
+    let named = crate::rules::named(contract, derived.models(), Some(Tree::new(Vec::new(), 2)));
     let scope = Reason::Unsupported(Unsupported::TreeScope);
-    assert_eq!(found.reasons.get("ASSIGNMENT"), Some(&scope));
-    assert!(found.decided.values().all(|[_, status]| status != "PASS"));
+    assert_eq!(named.hold, Some(scope.clone()));
+    let (found, reasons) = ruled(&mut engine, named);
+    assert_eq!(reasons.get("ASSIGNMENT"), Some(&scope.to_string()));
+    assert_eq!(found["rules"], json!({}));
+    assert_eq!(found["status"], "UNKNOWN");
 }
 
 #[test]
 fn a_named_inside_rule_keeps_the_status_of_a_complete_run_from_pass() {
-    let only_inside = RuleReasons::Each(BTreeMap::from([(
-        "a:M".to_owned(),
-        Reason::Unsupported(Unsupported::InsideRule).to_string(),
-    )]));
-    let parsed = ContractState::Parsed(BTreeMap::new());
-    let named = names_a_part(&only_inside, &ReplyCheck::Files(1), &parsed);
-    assert!(named);
-    let decided = BTreeMap::from([("R".to_owned(), ["k".to_owned(), "PASS".to_owned()])]);
-    assert_eq!(crate::status::status(&decided, named, true), "UNKNOWN");
-    let none = RuleReasons::Each(BTreeMap::new());
-    assert!(!names_a_part(&none, &ReplyCheck::Files(1), &parsed));
+    let mut engine = engine(LEAF);
+    let inside = Named {
+        rules: BTreeMap::from([(
+            "a:M".to_owned(),
+            Reason::Unsupported(Unsupported::InsideRule),
+        )]),
+        ..Named::default()
+    };
+    let (found, reasons) = ruled(&mut engine, inside);
+    assert_eq!(found["rules"]["ASSIGNMENT"][1], "PASS");
+    assert!(reasons.contains_key("a:M"));
+    assert_eq!(found["status"], "UNKNOWN");
 }

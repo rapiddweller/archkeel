@@ -4,7 +4,7 @@
 
 //! The settings of the shell are bound to the reply by a check (AD-372, review of #1058).
 
-use super::{Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+use super::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 use crate::reason::Refusal;
 
 fn settings(namespace: &str, names: &[&str]) -> Settings {
@@ -14,19 +14,23 @@ fn settings(namespace: &str, names: &[&str]) -> Settings {
 
 #[test]
 fn a_profile_that_is_not_the_profile_of_the_reply_is_refused() {
-    assert_eq!(settings("shop", &[]).check("p"), Ok(()));
+    assert_eq!(settings("shop", &[]).check("p", &[]), Ok(()));
     assert_eq!(
-        settings("shop", &[]).check("q"),
+        settings("shop", &[]).check("q", &[]),
         Err(Refusal::ProfileMismatch)
     );
 }
 
 #[test]
 fn a_standard_library_with_a_duplicate_a_nul_or_too_many_names_is_refused() {
-    assert_eq!(settings("shop", &["alpha", "beta"]).check("p"), Ok(()));
+    assert_eq!(
+        settings("shop", &["alpha", "beta"]).check("p", &["alpha", "beta"]),
+        Ok(())
+    );
+    // Each name is in the pinned list here, so only the bounds refuse.
     let refused = |names: &[&str]| {
         matches!(
-            settings("shop", names).check("p"),
+            settings("shop", names).check("p", names),
             Err(Refusal::StandardLibrary(_))
         )
     };
@@ -85,4 +89,32 @@ fn the_scan_roots_must_be_the_scope_labels_of_the_reply_in_their_order() {
     // Settings without roots bind nothing; a receipt that needs them names the part.
     assert_eq!(settings("shop", &[]).bind_roots(&scope), Ok(()));
     assert_eq!(settings("shop", &[]).roots(), None);
+}
+
+/// #1073 item 5, AD-388: a hostile request cannot widen the standard library by word. A name
+/// outside the pinned list of the profile refuses the settings; a shorter list holds.
+#[test]
+fn a_standard_library_name_outside_the_pinned_list_is_refused() {
+    let pinned = ["os", "sys"];
+    assert_eq!(settings("shop", &["os"]).check("p", &pinned), Ok(()));
+    assert_eq!(settings("shop", &[]).check("p", &pinned), Ok(()));
+    assert!(matches!(
+        settings("shop", &["os", "requests"]).check("p", &pinned),
+        Err(Refusal::StandardLibrary(_))
+    ));
+}
+
+/// #1073 item 5, AD-388: a hostile request cannot make the reply of another adapter trusted. The
+/// claim of the shell holds only when the adapter of the reply is the collector of its profile;
+/// a claim of an external producer stays external.
+#[test]
+fn a_trusted_claim_holds_only_for_the_collector_of_the_profile() {
+    let claimed = settings("shop", &[]).with_producer(Producer::Trusted);
+    assert_eq!(
+        claimed.clone().bound("p", "p").producer(),
+        Producer::Trusted
+    );
+    assert_eq!(claimed.bound("evil", "p").producer(), Producer::External);
+    let external = settings("shop", &[]);
+    assert_eq!(external.bound("p", "p").producer(), Producer::External);
 }

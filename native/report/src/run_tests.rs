@@ -43,7 +43,7 @@ pub(crate) fn contract(keep: &[&str]) -> Contract {
 }
 
 /// The H-typescript contract with only the rules `keep`, then the rules `extra`.
-fn parsed(keep: &[&str], extra: Vec<Value>) -> Option<Contract> {
+pub(crate) fn parsed(keep: &[&str], extra: Vec<Value>) -> Option<Contract> {
     let mut value = read_json("fixtures/H-typescript/architecture-contract.json");
     let rules: Vec<Value> = value["rules"]
         .as_array()
@@ -85,7 +85,7 @@ pub(crate) fn reply_with(change: impl FnOnce(&mut Value)) -> archkeel_store::Ing
 }
 
 /// A model of the contract; `trusted` false gives the cause `Producer`, an incomplete scope.
-fn model(contract: &Contract, trusted: bool) -> ModelTree {
+pub(crate) fn model(contract: &Contract, trusted: bool) -> ModelTree {
     model_of(contract, &reply(), trusted)
 }
 
@@ -342,7 +342,7 @@ fn a_pass_row_without_its_receipt_is_refused() {
 
 /// Point the first import of `shop.src.domain` at the undeclared package `transport.client`
 /// (the `retarget` of `eval/src/external_tests.rs`).
-fn undeclared_import(value: &mut Value) {
+pub(crate) fn undeclared_import(value: &mut Value) {
     let id = value["facts"]["imports"][3]["import_id"].clone();
     value["facts"]["imports"][3] =
         json!({"kind": "external", "package": "transport.client", "import_id": id.clone()});
@@ -404,7 +404,7 @@ fn a_rule_of_another_contract_cannot_make_a_run_pass() {
     assert_eq!(build(rows.0, rows.1, Some(&model)), Err(wanted));
 }
 
-fn allow() -> Value {
+pub(crate) fn allow() -> Value {
     json!({"id": "ALLOW", "kind": "allowed_dependency", "source": "shop.src.data",
         "target": "shop.src.domain", "rationale": "data reads the domain values",
         "provenance": ["docs/architecture/shop.md"], "decided_by": "architect"})

@@ -48,6 +48,7 @@ impl Graph {
     /// Derive the reply part of a model from a validated reply and the settings of the shell.
     pub fn derive(reply: &Ingested, settings: Settings) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
+        let settings = settings.bound(&facts.adapter.name, facts.profile.as_str());
         let (modules, packages) = modules::tables(&facts.files)?;
         let split = imports::split(facts);
         let (module_edges, package_edges) =
@@ -178,8 +179,9 @@ fn symbol_counts(facts: &Facts, modules: &Table<ModuleId, Module>) -> Option<Vec
 /// the profile of the reply, and each module lies in the namespace.
 fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, Reason> {
     let facts = &reply.reply().facts;
+    let pinned = archkeel_store::standard_library(facts.profile);
     settings
-        .check(facts.profile.as_str())
+        .check(facts.profile.as_str(), &pinned)
         .map_err(Reason::Refused)?;
     settings
         .bind_roots(&facts.source.scope)

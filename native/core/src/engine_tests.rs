@@ -9,7 +9,10 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use serde_json::{json, Value};
 
+use std::collections::BTreeMap;
+
 use archkeel_model::{Input, Reason, Section, Settings, Unsupported};
+use archkeel_report::{Named, RuleReasons};
 
 use super::{Answer, Engine};
 use crate::contract::{ContractInput, ContractState};
@@ -18,11 +21,42 @@ use crate::request::Request;
 
 const LIMIT: u64 = 1 << 30;
 
+/// The frame of the ruling of the engine, and the reason of each rule without a decision (`*`
+/// for one reason of the whole contract).
+pub(crate) fn ruled(engine: &mut Engine, named: Named) -> (Value, BTreeMap<String, String>) {
+    let Answer::Rules(Ok(ruling)) = engine.answer(Request::Rules(named)) else {
+        assert_eq!("no ruling", "a ruling");
+        return (Value::Null, BTreeMap::new());
+    };
+    let reasons = match ruling.unsupported() {
+        RuleReasons::Each(each) => each.clone(),
+        RuleReasons::All(all) => BTreeMap::from([("*".to_owned(), all.clone())]),
+    };
+    (
+        serde_json::to_value(&ruling).unwrap_or(Value::Null),
+        reasons,
+    )
+}
+
 /// The contract of the native workspace: only structural rule kinds.
 pub(crate) const NATIVE_CONTRACT: &str = include_str!("../../architecture-contract.json");
 
 /// The frozen H-typescript reply (AD-343), with the provenance of a run, compressed.
 pub(crate) fn golden_reply() -> Vec<u8> {
+    golden_reply_by(None)
+}
+
+/// The frozen reply; with `adapter`, the reply names that adapter (another collector).
+pub(crate) fn golden_reply_by(adapter: Option<&str>) -> Vec<u8> {
+    golden_reply_with(|value| {
+        if let Some(adapter) = adapter {
+            value["facts"]["adapter"]["name"] = json!(adapter);
+        }
+    })
+}
+
+/// The frozen reply after `change` (a caller can write any reply bytes).
+pub(crate) fn golden_reply_with(change: impl FnOnce(&mut Value)) -> Vec<u8> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/golden/typescript/h-typescript.json.gz");
     let mut text = String::new();
@@ -39,6 +73,7 @@ pub(crate) fn golden_reply() -> Vec<u8> {
     value["facts"]["provider_bindings"] = json!([]);
     value["protocol_version"] = json!("9.0.0");
     value["provider_sources"] = json!([]);
+    change(&mut value);
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
     let _ = encoder.write_all(value.to_string().as_bytes());
     encoder.finish().unwrap_or_default()
@@ -79,15 +114,17 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
     };
     assert_eq!(rules.len(), 31);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
-    let Answer::Rules(answer) = engine.answer(Request::Rules) else {
-        fail("a rules answer");
-        return;
-    };
-    assert!(answer.decided.is_empty());
-    assert_eq!(answer.reasons.len(), 31);
+    let (frame, reasons) = ruled(&mut engine, Named::default());
+    assert_eq!(frame["rules"], json!({}));
+    assert_eq!(frame["status"], "UNKNOWN");
+    assert_eq!(reasons.len(), 31);
     // Each kind of the native contract is decided since slice S7: each rule needs the model.
-    for (id, reason) in &answer.reasons {
-        assert_eq!(reason, &Reason::MissingInput(Input::Reply), "{id}");
+    for (id, reason) in &reasons {
+        assert_eq!(
+            reason,
+            &Reason::MissingInput(Input::Reply).to_string(),
+            "{id}"
+        );
     }
 }
 
@@ -112,21 +149,20 @@ fn the_engine_decides_the_s1_kinds_and_writes_their_violation_rows() {
     let mut engine = Engine::default();
     let _ = engine.answer(Request::Contract(ContractInput::root(unowned_contract())));
     let _ = ingest(&mut engine);
-    let Answer::Rules(answer) = engine.answer(Request::Rules) else {
-        fail("a rules answer");
-        return;
-    };
-    let failed = ["complete_assignment".to_owned(), "FAIL".to_owned()];
-    assert_eq!(answer.decided.get("ASSIGNMENT"), Some(&failed));
+    let (frame, _) = ruled(&mut engine, Named::default());
+    assert_eq!(
+        frame["rules"]["ASSIGNMENT"],
+        json!(["complete_assignment", "FAIL"])
+    );
     // The settings name no producer, so the reply counts as one of an external collector: the
     // scope is not complete, and the rule is a decided UNKNOWN with its reason (AD-378).
-    let unknown = ["root_layout".to_owned(), "UNKNOWN".to_owned()];
-    assert_eq!(answer.decided.get("LAYOUT"), Some(&unknown));
+    assert_eq!(frame["rules"]["LAYOUT"], json!(["root_layout", "UNKNOWN"]));
     assert_eq!(
-        answer.explained.get("LAYOUT").map(String::as_str),
-        Some("incomplete scope: the reply comes from an external collector without a pin")
+        frame["explained"]["LAYOUT"],
+        "incomplete scope: the reply does not come from the bundled collector, and the collector pin is not verified by the core"
     );
-    assert_eq!(answer.violations.get("ASSIGNMENT"), Some(&2));
+    assert_eq!(frame["violations"]["ASSIGNMENT"], 2);
+    assert_eq!(frame["status"], "FAIL");
     let Answer::Sections(rows) = engine.answer(Request::Sections(vec![Section::Violations])) else {
         fail("a sections answer");
         return;
@@ -226,14 +262,14 @@ fn a_run_derives_its_model_one_time_until_an_input_changes() {
         Section::Modules,
         Section::Violations,
     ]));
-    let _ = engine.answer(Request::Rules);
+    let _ = engine.answer(Request::Rules(Named::default()));
     let _ = engine.answer(Request::Sections(vec![Section::DependencyEdges]));
     assert_eq!(engine.derivations(), 1);
     // A new contract drops the derivation, so the next request derives again.
     let _ = engine.answer(Request::Contract(ContractInput::root(
         NATIVE_CONTRACT.as_bytes().to_vec(),
     )));
-    let _ = engine.answer(Request::Rules);
+    let _ = engine.answer(Request::Rules(Named::default()));
     assert_eq!(engine.derivations(), 2);
 }
 
@@ -279,14 +315,14 @@ fn new_settings_or_a_new_reply_drop_the_cached_model() {
         NATIVE_CONTRACT.as_bytes().to_vec(),
     )));
     let _ = ingest(&mut engine);
-    let _ = engine.answer(Request::Rules);
+    let _ = engine.answer(Request::Rules(Named::default()));
     assert_eq!(engine.derivations(), 1);
     let _ = engine.answer(Request::Settings(Settings::new(
         "shop".to_owned(),
         golden_profile(),
         Vec::new(),
     )));
-    let _ = engine.answer(Request::Rules);
+    let _ = engine.answer(Request::Rules(Named::default()));
     assert_eq!(engine.derivations(), 2);
     let _ = engine.answer(Request::Ingest {
         reply: golden_reply(),

@@ -12,6 +12,7 @@ license.workspace = true
 publish.workspace = true
 
 # AD-359: the core is the only binary of the WP6 crates. The host uses it for no verdict yet.
+# AD-388: the core writes its status and rule verdicts only through the ruling of the report.
 [[bin]]
 name = "archkeel-core"
 path = "src/main.rs"
@@ -20,6 +21,7 @@ path = "src/main.rs"
 archkeel-contract = { path = "../contract" }
 archkeel-eval = { path = "../eval" }
 archkeel-model = { path = "../model" }
+archkeel-report = { path = "../report" }
 archkeel-store = { path = "../store" }
 serde.workspace = true
 serde_json.workspace = true

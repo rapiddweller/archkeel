@@ -15,6 +15,7 @@ import pytest
 
 from tools import dual_run, dual_run_tree
 from tools.dual_run_oracle import BEYOND, Selection, compare_case
+from tools.dual_run_python import reply_profile
 
 
 def _edge(identifier: str, count: int, rank: int) -> dict[str, Any]:
@@ -52,7 +53,9 @@ def test_the_shell_sends_the_namespace_and_the_standard_library_of_the_reply_pro
     case = next(c for c in dual_run.corpus_cases() if c.id == name)
     with dual_run.materialized(case) as root:
         request = dual_run.engine_request(case, root, Selection())
-    assert request["protocol"] == "archkeel-dual-run-4"
+    assert request["protocol"] == "archkeel-dual-run-5"
+    # AD-388: the core takes no trust statement from a request.
+    assert "pinned" not in request
     assert request["roots"] == ["src"]
     assert (request["namespace"], request["profile"], request["standard_library"]) == (
         "shop",
@@ -61,10 +64,10 @@ def test_the_shell_sends_the_namespace_and_the_standard_library_of_the_reply_pro
     )
     rust = b'{"facts": {"profile": "archkeel-rust-imports"}}'
     expected = ("archkeel-rust-imports", ["alloc", "core", "std"])
-    assert dual_run.reply_profile(rust) == expected
-    assert dual_run.reply_profile(zlib.compress(rust)) == expected
-    assert dual_run.reply_profile(b"not json") == ("", [])
-    assert dual_run.reply_profile(b'{"facts": {"profile": "unknown"}}') == ("", [])
+    assert reply_profile(rust) == expected
+    assert reply_profile(zlib.compress(rust)) == expected
+    assert reply_profile(b"not json") == ("", [])
+    assert reply_profile(b'{"facts": {"profile": "unknown"}}') == ("", [])
 
 
 @pytest.mark.parametrize(

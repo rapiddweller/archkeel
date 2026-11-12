@@ -102,3 +102,8 @@ impl Decision {
         self.reason.as_ref()
     }
 }
+
+/// The one home of two rules that the ruling of the report also checks (review M6, M9 of #1090).
+#[cfg(test)]
+#[path = "verdict_tests.rs"]
+mod tests;

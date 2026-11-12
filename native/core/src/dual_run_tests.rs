@@ -13,13 +13,12 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
 
 fn request_with(contract: &str, reply: Option<&[u8]>, sections: &[&str]) -> Value {
     json!({
-        "protocol": "archkeel-dual-run-4",
+        "protocol": "archkeel-dual-run-5",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
         "baseline": null,
         "collector_argv": null,
-        "pinned": false,
         "contracts": {"architecture-contract.json": contract},
         "reply": reply.map(|bytes| json!({"hex": bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()})),
         "sections": sections,
@@ -86,19 +85,16 @@ fn a_reply_of_an_unpinned_external_collector_gives_no_pass() {
     let mut external = request(Some(&reply), &[]);
     external["collector_argv"] = json!(["collector"]);
     let got = frame(&external);
-    let why = "incomplete scope: the reply comes from an external collector without a pin";
+    let why = "incomplete scope: the reply does not come from the bundled collector, and the \
+               collector pin is not verified by the core";
     // The native rules also select no module; the producer comes first in the proof.
     assert_eq!(got["explained"]["NATIVE-EXTERNAL-SYN"], why);
-    external["pinned"] = json!(true);
-    let pinned = frame(&external);
-    assert_ne!(pinned["explained"]["NATIVE-EXTERNAL-SYN"], why);
 }
 
 #[test]
 fn a_collector_argv_above_its_limit_is_refused_by_name() {
     let mut long = request(None, &[]);
     long["collector_argv"] = json!(vec!["x"; 65]);
-    long["pinned"] = json!(true);
     let error = answer(long.to_string().as_bytes())
         .err()
         .unwrap_or_default();
@@ -125,7 +121,7 @@ fn a_frame_without_rules_passes_only_with_a_complete_scope() {
     assert_eq!(got["status"], "UNKNOWN");
     assert_eq!(
         got["scope"],
-        "incomplete scope: the reply comes from an external collector without a pin"
+        "incomplete scope: the reply does not come from the bundled collector, and the collector pin is not verified by the core"
     );
     let mut absent = request(None, &[]);
     absent["contracts"] = json!({"architecture-contract.json": contract});

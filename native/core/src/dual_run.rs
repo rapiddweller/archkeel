@@ -20,13 +20,14 @@ use crate::contract::{ContractInput, ContractState, InsideFile};
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::{self, Request};
-use crate::rules::RuleAnswer;
 use archkeel_model::{Reason, Unsupported};
+use archkeel_report::Named;
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
 /// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
-const PROTOCOL: &str = "archkeel-dual-run-4";
+/// Version 5 removes `pinned`: the core takes no trust statement from a request (AD-388).
+const PROTOCOL: &str = "archkeel-dual-run-5";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 /// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
@@ -49,10 +50,10 @@ struct DualRunRequest {
     _config: String,
     /// A baseline changes what a run reports; no slice reads it yet, so it is refused by name.
     baseline: Option<String>,
-    /// The command of an external collector; `None` for the bundled collector. With `pinned`,
-    /// the host trusts the reply of an external collector (AD-344, AD-378).
+    /// The command of an external collector; `None` for the bundled collector. The core cannot
+    /// verify a pin of an external collector, so it never trusts one (AD-388). A request with a
+    /// `pinned` field is refused as an unknown field.
     collector_argv: Option<Vec<String>>,
-    pinned: bool,
     contracts: BTreeMap<String, String>,
     reply: Option<ReplyBytes>,
     sections: Vec<String>,
@@ -90,21 +91,13 @@ struct ReplyBytes {
     hex: String,
 }
 
+/// The parts that the core adds to the engine frame. The status, the rule verdicts, their
+/// explaining rows, `beyond`, the scope and `unsupported.rules` come only from the `Ruling` of
+/// the report, which writes the frame and refuses a part with one of its keys (AD-388, AD-384
+/// point 4).
 #[derive(Serialize)]
-struct Frame {
+struct Parts {
     engine: &'static str,
-    /// The status that the rows give (AD-361 point 4, `status.rs`).
-    status: &'static str,
-    rules: BTreeMap<String, [String; 2]>,
-    /// The explaining row of each decided rule that is not PASS: the reason of an UNKNOWN rule
-    /// and the number of violations of a FAIL rule (AD-361 point 5).
-    explained: BTreeMap<String, String>,
-    violations: BTreeMap<String, usize>,
-    /// Each PASS rule that the reference engine gives UNKNOWN for a kept pair gap, with the
-    /// reason that the core decides it (AD-384 point 4).
-    beyond: BTreeMap<String, String>,
-    /// Why the scope of the run is not complete, or `complete` (L-35b).
-    scope: String,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
@@ -112,18 +105,9 @@ struct Frame {
 
 #[derive(Serialize)]
 struct UnsupportedParts {
-    /// The reason of each rule, or one reason for the whole contract.
-    rules: RuleReasons,
     sections: BTreeMap<&'static str, String>,
     /// The reason that the core has no report v2 payload (slice 0d).
     report: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(untagged)]
-enum RuleReasons {
-    Each(BTreeMap<String, String>),
-    All(String),
 }
 
 #[derive(Serialize)]
@@ -177,7 +161,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             })?;
     let sections = request::sections(&request.sections)?;
     let mut engine = Engine::default();
-    let producer = producer(request.collector_argv.as_ref(), request.pinned);
+    let producer = producer(request.collector_argv.as_ref());
     let settings = Settings::new(request.namespace, request.profile, request.standard_library)
         .with_producer(producer)
         .with_contract_source(&path, contract.as_bytes());
@@ -208,45 +192,22 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
-    let mut decided = match engine.answer(Request::Rules) {
-        Answer::Rules(answer) => answer,
-        _ => RuleAnswer::default(),
-    };
-    let rules = rule_reasons(
-        &contract,
-        request.baseline.is_some(),
-        &engine,
-        &path,
-        &mut decided,
-    );
+    let named = named(&contract, request.baseline.is_some(), &engine, &path);
+    let ruling = match engine.answer(Request::Rules(named)) {
+        Answer::Rules(ruling) => ruling,
+        other => Err(format!("unexpected answer {other:?}")),
+    }
+    .map_err(|problem| format!("{}: an inconsistent frame: {problem}", request.case))?;
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
-        || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
+        || !ruling.unsupported().is_empty()
         || !sections.is_empty()
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
-    if let Some(problem) = crate::status::unexplained(&decided) {
-        return Err(format!(
-            "{}: an inconsistent frame: {problem}",
-            request.case
-        ));
-    }
-    // A section without rows is a gap of the sections, not of the rules: it changes no status.
-    let named = names_a_part(&rules, &reply, &contract);
-    let frame = Frame {
+    let parts = Parts {
         engine: ENGINE,
-        status: crate::status::status(&decided.decided, named, decided.scope.is_none()),
-        scope: decided
-            .scope
-            .clone()
-            .unwrap_or_else(|| "complete".to_owned()),
-        explained: decided.explained,
-        violations: decided.violations,
-        beyond: decided.beyond,
-        rules: decided.decided,
         sections: rows,
         unsupported: UnsupportedParts {
-            rules,
             sections,
             report: report.err(),
         },
@@ -259,7 +220,10 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             reply,
         },
     };
-    let frame = serde_json::to_vec(&frame).map_err(|error| error.to_string())?;
+    let frame = ruling
+        .frame(&parts)
+        .map_err(|error| format!("{}: an inconsistent frame: {error}", request.case))?
+        .into_bytes();
     Ok(Answered { frame, names_a_gap })
 }
 
@@ -274,55 +238,35 @@ fn bounded(request: &DualRunRequest) -> Result<(), String> {
     }
 }
 
-/// The producer of the reply: the bundled collector, or an external command that the host pins,
-/// is trusted (`cli/observe.py` `observer_for`). The dual-run request is a test protocol: these
-/// fields are the word of the caller, not evidence. The request of M1 must not take them from a
-/// caller: the shell starts the pinned collector, checks its digest and fills the producer and
-/// the standard library from its own profile table (AD-378 point 4).
-fn producer(collector_argv: Option<&Vec<String>>, pinned: bool) -> Producer {
-    if collector_argv.is_none() || pinned {
+/// The producer of the reply: only the bundled collector, which the shell runs itself. The core
+/// cannot verify the pin of an external collector from anything that the caller cannot write, so
+/// an external collector is never trusted, pinned or not (AD-388, L-35c). The model also needs
+/// the reply to name the collector of its own profile (`Settings::bound`).
+fn producer(collector_argv: Option<&Vec<String>>) -> Producer {
+    if collector_argv.is_none() {
         Producer::Trusted
     } else {
         Producer::External
     }
 }
 
-/// The reasons of the rules without a decision. A baseline names the whole contract and keeps no
-/// decision; a contract that the core cannot use names itself.
-fn rule_reasons(
-    contract: &ContractState,
-    baseline: bool,
-    engine: &Engine,
-    path: &str,
-    decided: &mut RuleAnswer,
-) -> RuleReasons {
-    if baseline {
-        let scope = decided.scope.take();
-        *decided = RuleAnswer {
-            scope,
-            ..RuleAnswer::default()
-        };
-        return RuleReasons::All(Reason::Unsupported(Unsupported::Baseline).to_string());
+/// The gaps of the request: a baseline or a contract that the core cannot use names the whole
+/// contract, and a UML target names its row. A refused or absent reply gives no model, so the
+/// report writes no PASS. The report adds the gaps of the model and writes the status (AD-388).
+fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) -> Named {
+    let whole = match contract {
+        _ if baseline => Some(Reason::Unsupported(Unsupported::Baseline).to_string()),
+        ContractState::Parsed(_) => None,
+        ContractState::Missing(paths) => Some(crate::contract::missing_reason(paths)),
+        ContractState::Refused(message) => Some(format!("refused: {message}")),
+    };
+    Named {
+        rules: crate::contract::uml_reason(engine.usable(), path)
+            .into_iter()
+            .collect(),
+        contract: whole,
+        hold: None,
     }
-    match contract {
-        ContractState::Parsed(_) => RuleReasons::Each(
-            crate::contract::uml_reason(engine.usable(), path)
-                .into_iter()
-                .chain(std::mem::take(&mut decided.reasons))
-                .map(|(id, reason)| (id, reason.to_string()))
-                .collect(),
-        ),
-        ContractState::Missing(paths) => RuleReasons::All(crate::contract::missing_reason(paths)),
-        ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
-    }
-}
-
-/// True when the frame names a rule reason (an inside rule of a tree among them, AD-379), a
-/// refused reply or a contract that the core cannot use: then the status is never PASS.
-fn names_a_part(rules: &RuleReasons, reply: &ReplyCheck, contract: &ContractState) -> bool {
-    !matches!(rules, RuleReasons::Each(each) if each.is_empty())
-        || !matches!(reply, ReplyCheck::Files(_))
-        || !matches!(contract, ContractState::Parsed(_))
 }
 
 /// What the engine knows of the reply of the request, after it ingests the reply.
@@ -386,3 +330,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tree_tests.rs"]
 mod tree_tests;
+
+#[cfg(test)]
+#[path = "hostile_tests.rs"]
+mod hostile_tests;

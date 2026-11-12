@@ -29,19 +29,23 @@ pub(crate) fn status_of(payload: &Payload) -> Status {
             .any(|(source, reason)| {
                 source.is(UnknownSource::Diagnostic) && reason.known().is_some_and(|r| r.revokes())
             });
-    if !run.target {
-        return Status::Unknown;
+    let failed = !payload.violations.kind.is_empty() && !revoked;
+    let open = payload.rules.iter().any(rule_open);
+    run_status(run.target, failed, complete, open)
+}
+
+/// The status rule of AD-361 point 4 over its four inputs. `status_of` and the engine frame
+/// (`ruling::rule`) both use it, so the report has one status rule (#1073 item 4, AD-388).
+pub(crate) fn run_status(target: bool, failed: bool, complete: bool, open: bool) -> Status {
+    if !target {
+        Status::Unknown
+    } else if failed {
+        Status::Fail
+    } else if !complete || open {
+        Status::Unknown
+    } else {
+        Status::Pass
     }
-    if !payload.violations.kind.is_empty() && !revoked {
-        return Status::Fail;
-    }
-    if !complete {
-        return Status::Unknown;
-    }
-    if payload.rules.iter().any(rule_open) {
-        return Status::Unknown;
-    }
-    Status::Pass
 }
 
 fn rule_open(rule: &crate::head::RuleResult) -> bool {
