@@ -155,7 +155,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
     refused = {line.split(": ")[0] for line in differences}
     assert not [case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/"))]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 587 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 594 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
