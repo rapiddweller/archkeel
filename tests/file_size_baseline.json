@@ -36,7 +36,7 @@
   "src/archkeel/check/uml_compare.py": 671,
   "src/archkeel/check/validation/__init__.py": 1330,
   "src/archkeel/check/validation/public_api.py": 787,
-  "src/archkeel/cli/__init__.py": 1220,
+  "src/archkeel/cli/__init__.py": 1218,
   "src/archkeel/ir/architecture_graph.py": 1198,
   "src/archkeel/ir/codec_contract.py": 1838,
   "src/archkeel/ir/codec_observation.py": 1008,

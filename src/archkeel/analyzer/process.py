@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
@@ -103,6 +104,8 @@ class ProcessCollector:
     pinned_digest: str | None = None
     # Set for the native collector of this package: its file may lie in the scanned root.
     bundled: bool = False
+    # AD-390: gets each raw reply before the decode, for the Rust core behind its switch.
+    reply_sink: Callable[[bytes], None] | None = None
 
     def __post_init__(self) -> None:
         if self.pinned_digest is not None and not is_pin(self.pinned_digest):
@@ -229,6 +232,8 @@ class ProcessCollector:
         return (path, *self.argv[1:])
 
     def _decode_response(self, stdout: bytes, request: CollectionRequest) -> CollectionResponse:
+        if self.reply_sink is not None:
+            self.reply_sink(stdout)
         adapter_version = package_version() if self.pin_adapter_version else None
         if self.store is not None and store_enabled():
             with measured(self.clock, Phase.DECODE):

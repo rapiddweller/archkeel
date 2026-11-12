@@ -385,3 +385,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-386 | [The contract crate reads and writes baselines](ad-386-the-contract-crate-reads-and-writes-baselines.md) |
 | AD-387 | [The native Dart collector checks SDK support before record assembly](ad-387-the-native-dart-collector-checks-sdk-support-before-record-assembly.md) |
 | AD-388 | [The core writes its status and verdicts only through the report](ad-388-the-core-writes-its-status-and-verdicts-only-through-the-report.md) |
+| AD-390 | [A user run takes its verdict from the core when the core decides every rule](ad-390-a-user-run-takes-its-verdict-from-the-core-when-the-core-decides-every-rule.md) |

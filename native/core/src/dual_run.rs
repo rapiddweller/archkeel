@@ -14,6 +14,8 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::RuleKind;
 use archkeel_model::{Producer, Settings};
+use archkeel_store::Ingested;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::contract::{ContractInput, ContractState, InsideFile};
@@ -48,7 +50,7 @@ struct DualRunRequest {
     _root: String,
     #[serde(rename = "config")]
     _config: String,
-    /// A baseline changes what a run reports; no slice reads it yet, so it is refused by name.
+    /// A baseline changes what a run reports: `Run::baseline`.
     baseline: Option<String>,
     /// The command of an external collector; `None` for the bundled collector. The core cannot
     /// verify a pin of an external collector, so it never trusts one (AD-388). A request with a
@@ -73,7 +75,7 @@ struct DualRunRequest {
 /// that the shell resolved it to, and the bytes in hex.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct InsideJson {
+pub(crate) struct InsideJson {
     reference: String,
     identity: String,
     hex: String,
@@ -87,8 +89,8 @@ struct Head {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ReplyBytes {
-    hex: String,
+pub(crate) struct ReplyBytes {
+    pub(crate) hex: String,
 }
 
 /// The parts that the core adds to the engine frame. The status, the rule verdicts, their
@@ -140,15 +142,20 @@ pub(crate) struct Answered {
     pub(crate) names_a_gap: bool,
 }
 
-/// The frame of one request. An error is a request that the core cannot read.
-pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
+/// A request of one protocol: the protocol is read before the fields that it defines. An error
+/// is a request that the core cannot read.
+pub(crate) fn decode<T: DeserializeOwned>(input: &[u8], protocol: &str) -> Result<T, String> {
     let head: Head =
         serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
-    if head.protocol != PROTOCOL {
+    if head.protocol != protocol {
         return Err(format!("unknown protocol {}", head.protocol));
     }
-    let request: DualRunRequest =
-        serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))
+}
+
+/// The frame of one request. An error is a request that the core cannot read.
+pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
+    let request: DualRunRequest = decode(input, PROTOCOL)?;
     bounded(&request)?;
     let [(path, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
@@ -159,45 +166,98 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
                     request.case
                 )
             })?;
-    let sections = request::sections(&request.sections)?;
-    let mut engine = Engine::default();
     let producer = producer(request.collector_argv.as_ref());
-    let settings = Settings::new(request.namespace, request.profile, request.standard_library)
-        .with_producer(producer)
-        .with_contract_source(&path, contract.as_bytes());
+    let (profile, standard_library) = (request.profile, request.standard_library);
+    run(Run {
+        case: request.case,
+        path,
+        contract: contract.into_bytes(),
+        insides: insides(request.insides)?,
+        reply: request.reply.map(|bytes| hex(&bytes.hex)).transpose()?,
+        sections: request::sections(&request.sections)?,
+        namespace: request.namespace,
+        roots: request.roots,
+        baseline: request.baseline.is_some(),
+        report: true,
+        trust: Box::new(move |namespace, _| Trust {
+            settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
+            gap: None,
+        }),
+    })
+}
+
+/// What a request kind gives to the one engine path (`run`): the dual run of the harness
+/// (`answer`) or the check request of the shell (`check.rs`). The two kinds differ only here.
+pub(crate) struct Run {
+    pub(crate) case: String,
+    pub(crate) path: String,
+    pub(crate) contract: Vec<u8>,
+    pub(crate) insides: Vec<InsideFile>,
+    pub(crate) reply: Option<Vec<u8>>,
+    pub(crate) sections: Vec<archkeel_model::Section>,
+    pub(crate) namespace: String,
+    pub(crate) roots: Vec<String>,
+    /// A baseline changes what a run reports; no slice reads it yet, so it is refused by name.
+    pub(crate) baseline: bool,
+    /// True when the frame names the report payload part (the dual run).
+    pub(crate) report: bool,
+    /// The settings of the namespace for the validated reply (or none), and a reason that names
+    /// the whole contract when the request kind does not trust the reply.
+    pub(crate) trust: TrustOf,
+}
+
+/// How a request kind derives its settings from the namespace and the validated reply.
+pub(crate) type TrustOf = Box<dyn FnOnce(String, Option<&Ingested>) -> Trust>;
+
+/// The settings that a request kind gives the engine, and a gap of the whole contract.
+pub(crate) struct Trust {
+    pub(crate) settings: Settings,
+    pub(crate) gap: Option<String>,
+}
+
+/// The one engine path of each request kind: the reply, the settings, the contract, the rows and
+/// the ruling, in this order, and the frame.
+pub(crate) fn run(run: Run) -> Result<Answered, String> {
+    let mut engine = Engine::default();
+    let reply = ingest(&mut engine, run.reply)?;
+    let trust = (run.trust)(run.namespace, engine.reply());
+    let settings = trust
+        .settings
+        .with_contract_source(&run.path, &run.contract);
     // No roots narrow the run: a receipt that needs them names `Part::ScanRoots`.
-    let settings = if request.roots.is_empty() {
+    let settings = if run.roots.is_empty() {
         settings
     } else {
-        settings.with_roots(request.roots)
+        settings.with_roots(run.roots)
     };
     engine.answer(Request::Settings(settings));
     let input = ContractInput {
-        path,
-        bytes: contract.into_bytes(),
-        insides: insides(request.insides)?,
+        path: run.path,
+        bytes: run.contract,
+        insides: run.insides,
     };
     let path = input.path.clone();
     let contract = match engine.answer(Request::Contract(input)) {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
     };
-    let reply = ingest(&mut engine, request.reply)?;
-    let rows = match engine.answer(Request::Sections(sections)) {
+    let rows = match engine.answer(Request::Sections(run.sections)) {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
     };
     // The report holds a reason until slice 0d writes the payload, so it is a named gap.
     let report: Result<(), String> = match engine.answer(Request::Report) {
+        _ if !run.report => Ok(()),
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
-    let named = named(&contract, request.baseline.is_some(), &engine, &path);
+    let mut named = named(&contract, run.baseline, &engine, &path);
+    named.contract = named.contract.or(trust.gap);
     let ruling = match engine.answer(Request::Rules(named)) {
         Answer::Rules(ruling) => ruling,
         other => Err(format!("unexpected answer {other:?}")),
     }
-    .map_err(|problem| format!("{}: an inconsistent frame: {problem}", request.case))?;
+    .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()
@@ -222,7 +282,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     };
     let frame = ruling
         .frame(&parts)
-        .map_err(|error| format!("{}: an inconsistent frame: {error}", request.case))?
+        .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
     Ok(Answered { frame, names_a_gap })
 }
@@ -270,14 +330,14 @@ fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) 
 }
 
 /// What the engine knows of the reply of the request, after it ingests the reply.
-fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, String> {
+fn ingest(engine: &mut Engine, reply: Option<Vec<u8>>) -> Result<ReplyCheck, String> {
     let Some(bytes) = reply else {
         let absent = "the request carries no collector reply".to_owned();
         return Ok(ReplyCheck::Absent(absent));
     };
     Ok(
         match engine.answer(Request::Ingest {
-            reply: hex(&bytes.hex)?,
+            reply: bytes,
             inflate_limit: INFLATE_LIMIT,
         }) {
             Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
@@ -290,7 +350,7 @@ fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, 
 /// The inside contracts of the request, decoded. The whole request is already read, so the
 /// bounds of the count and the size are checked in `contract::answer` and give a named refusal
 /// (exit 3), not an unreadable request (AD-379).
-fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
+pub(crate) fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
     files
         .into_iter()
         .map(|file| {
@@ -304,7 +364,7 @@ fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
 }
 
 /// The bytes of a hex text.
-fn hex(text: &str) -> Result<Vec<u8>, String> {
+pub(crate) fn hex(text: &str) -> Result<Vec<u8>, String> {
     let digits = text.as_bytes();
     if !digits.len().is_multiple_of(2) {
         return Err("the reply hex has an odd length".to_owned());

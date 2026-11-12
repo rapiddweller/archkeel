@@ -72,6 +72,7 @@ from .config import (
     project_name,
 )
 from .guide import GUIDE_PATH, run_guide
+from .native_core import NativeCore, add_switch
 from .observe import collect_cycles_less_often, configured_observer, observer_for
 from .skill import InstallationAgent, install_skill
 
@@ -325,6 +326,7 @@ def build_parser() -> _Parser:
         f"Default: {_SNAPSHOT_PATH}.",
     )
     report.set_defaults(root=None, config=None, timings=None)
+    add_switch(report)
     report.add_argument(
         "--input",
         type=Path,
@@ -1001,7 +1003,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
                 clock = PhaseClock() if args.timings is not None else None
-                observer = configured_observer(config, observer_for, clock)
+                core = NativeCore.requested(args.native_core, os.environ)
+                observer = configured_observer(config, core.observer(observer_for), clock)
                 result, architecture, observation = run_report_with_observation(
                     root,
                     config=config,
@@ -1015,10 +1018,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     baseline=args.baseline,
                     clock=clock,
                 )
-                result = replace(result, scan_roots=config.roots)
-                result = replace(
-                    result, notes=(*result.notes, *config.scope_notes(observer.excluded_for()))
-                )
+                notes = config.scope_notes(observer.excluded_for())
+                result = replace(result, scan_roots=config.roots, notes=(*result.notes, *notes))
+                result = core.decide(result, root, config, args.baseline is not None)
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.
@@ -1100,12 +1102,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     rationale=args.rationale,
                 )
                 files = requested_files.entries
-                result = replace(result, scan_roots=config.roots)
-                notes = (
-                    *result.notes,
-                    *config.scope_notes(observer.excluded_for(), against_config, against),
-                )
-                result = replace(result, notes=notes)
+                notes = config.scope_notes(observer.excluded_for(), against_config, against)
+                result = replace(result, scan_roots=config.roots, notes=(*result.notes, *notes))
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
