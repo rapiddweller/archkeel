@@ -278,7 +278,7 @@ pub fn classifier(
 
 /// `_attribute_declaration`.
 fn attribute(cited: &mut Cited, entry: &Entry, member: &Member) -> AttributeDeclaration {
-    let kind = member.visibility.map_or("public", visibility);
+    let kind = member.visibility.unwrap_or(Visibility::Public).as_str();
     let id = stable_id(
         "TSATTR",
         &[
@@ -358,14 +358,6 @@ fn base_record(
         },
         status,
         targets,
-    }
-}
-
-pub fn visibility(item: Visibility) -> &'static str {
-    match item {
-        Visibility::Public => "public",
-        Visibility::Protected => "protected",
-        Visibility::Private => "private",
     }
 }
 

@@ -131,8 +131,7 @@ impl Owners {
 /// The names of the module loaders: a script may not write them under a vendor's name.
 pub const LOADER_NAMES: [&str; 3] = ["exports", "module", "define"];
 
-/// The names that a classic script host gives itself.
-pub const HOST_NAMES: [&str; 6] = ["exports", "module", "define", "window", "global", "self"];
+pub(crate) use crate::source_input::HOST_NAMES;
 
 /// The first project `declare` of a name, and whether a global script of another file binds the
 /// name (`_script_declared_global`: a `declare const` also binds its own file; only another

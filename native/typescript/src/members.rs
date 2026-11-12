@@ -22,6 +22,16 @@ pub enum Visibility {
     Private,
 }
 
+impl Visibility {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::Protected => "protected",
+            Self::Private => "private",
+        }
+    }
+}
+
 /// Where a node stands: what `node.parent` and `node.prev_named_sibling` give in Python, known from
 /// the walk or from the list of the siblings, so that no question climbs the tree. A climb costs the
 /// depth of the node, and a nest 8 000 deep would make the walk quadratic.

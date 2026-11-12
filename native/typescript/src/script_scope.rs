@@ -25,7 +25,7 @@ use crate::tree::nodes::children;
 
 /// `_SCRIPT_ROOTS`: the names of the browser global object.
 pub fn is_root(name: &str) -> bool {
-    matches!(name, "window" | "globalThis" | "self" | "frames")
+    crate::source_input::is_script_root(name.as_bytes())
 }
 
 /// `_SCRIPT_FUNCTIONS`.

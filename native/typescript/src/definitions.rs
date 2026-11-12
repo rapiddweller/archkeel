@@ -74,6 +74,13 @@ pub struct Scope {
 #[derive(Default)]
 pub struct Scopes(Vec<Scope>);
 
+/// The definition that holds a site, with its qualified name and start position.
+pub(crate) struct ScopeDescription {
+    pub(crate) qualified_name: String,
+    pub(crate) line: i64,
+    pub(crate) column: i64,
+}
+
 impl Scopes {
     /// `parent_name` of Python: `parent.name` joined with a dot, from the outermost scope in.
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
@@ -94,9 +101,13 @@ impl Scopes {
     /// The qualified name, the line and the column of a scope: what a site records about the
     /// definition that holds it.
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-    pub fn describe(&self, at: u32) -> Option<(String, i64, i64)> {
+    pub(crate) fn describe(&self, at: u32) -> Option<ScopeDescription> {
         let scope = self.0.get(at as usize)?;
-        Some((self.qualified(at), scope.line, scope.column))
+        Some(ScopeDescription {
+            qualified_name: self.qualified(at),
+            line: scope.line,
+            column: scope.column,
+        })
     }
 }
 

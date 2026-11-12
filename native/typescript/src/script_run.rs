@@ -49,10 +49,10 @@ impl Collection<'_> {
             source_set: seen,
             sink: Default::default(),
         };
-        let import_sites: HashSet<(&str, i64, i64)> = self
+        let import_sites: HashSet<_> = self
             .sites
             .values()
-            .map(|(rel, line, column)| (rel.as_str(), *line, *column))
+            .map(crate::source::FileSite::key)
             .collect();
         run.analyze(&import_sites);
         let pending = std::mem::take(&mut self.pending_effects);

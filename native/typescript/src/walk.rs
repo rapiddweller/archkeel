@@ -18,14 +18,13 @@ use crate::ancestors::{
     IN_UNMODELED_BLOCK,
 };
 use crate::definitions::{Definition, Defs, Scopes};
-use crate::exports::{ambient, export_bindings, module_exports, Named};
+use crate::exports::{ambient, export_bindings, module_exports, ExportBinding, Named};
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::layout::Layout;
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
 use crate::script_types::Script;
 use crate::sites::{Sites, Visit};
-use crate::source::Span;
 use crate::source_input::{SourceKind, Suffix};
 use crate::tree::cx::Cx;
 use crate::tree::nodes::named_children;
@@ -38,7 +37,7 @@ pub struct Syntax {
     /// The parents of the definitions: `parent_name` gives the qualified name of a definition.
     pub scopes: Scopes,
     pub import_bindings: Vec<ImportBinding>,
-    pub module_exports: Vec<(String, Span, Span)>,
+    pub(crate) module_exports: Vec<ExportBinding>,
     pub rebound_names: Vec<String>,
     pub ambient_globals: Named,
     pub ambient_top_level: Named,

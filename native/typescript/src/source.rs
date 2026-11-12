@@ -22,6 +22,31 @@ pub struct Span {
     pub excerpt: String,
 }
 
+/// The file and start position of an import statement.
+pub(crate) struct FileSite {
+    pub(crate) rel: String,
+    pub(crate) line: i64,
+    pub(crate) column: i64,
+}
+
+impl FileSite {
+    pub(crate) fn key(&self) -> FileSiteKey<'_> {
+        FileSiteKey {
+            rel: &self.rel,
+            line: self.line,
+            column: self.column,
+        }
+    }
+}
+
+/// A borrowed file position for matching an import statement to a loader call.
+#[derive(PartialEq, Eq, Hash)]
+pub(crate) struct FileSiteKey<'a> {
+    pub(crate) rel: &'a str,
+    pub(crate) line: i64,
+    pub(crate) column: i64,
+}
+
 /// The text of one file with its line starts.
 pub struct Source<'a> {
     pub data: &'a [u8],

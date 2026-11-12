@@ -21,7 +21,7 @@ use crate::source_input::{classify_file, Suffix};
 use archkeel_snapshot::paths::{dirname, is_outside, join, within};
 use archkeel_snapshot::Snapshot;
 
-const CONFIG_DIRECTORY: &str = "${configDir}";
+use crate::layer::CONFIG_DIRECTORY;
 
 /// What the resolver and the collector need from one TSConfig.
 pub struct Config {

@@ -164,11 +164,13 @@ impl<'a> Place<'a> {
         let described = site.scope.and_then(|at| kept.scopes.describe(at));
         let module = kept.module.as_str();
         let scope = match &described {
-            Some((name, _, _)) if !name.is_empty() => format!("{module}.{name}"),
+            Some(description) if !description.qualified_name.is_empty() => {
+                format!("{module}.{}", description.qualified_name)
+            }
             _ => module.to_owned(),
         };
         let source_id = described
-            .and_then(|(_, line, column)| table.scope(&scope, line, column))
+            .and_then(|description| table.scope(&scope, description.line, description.column))
             .map(|entry| entry.id.clone());
         Self {
             rel,

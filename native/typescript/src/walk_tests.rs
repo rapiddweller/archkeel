@@ -37,6 +37,10 @@ fn at(span: &crate::source::Span) -> String {
     format!("{}:{}", span.line, span.column)
 }
 
+fn export_summary(b: &crate::exports::ExportBinding) -> String {
+    format!("X {} {} {}", b.name, at(&b.declaration), at(&b.export))
+}
+
 fn summary(syntax: &Syntax) -> Vec<String> {
     let mut out = Vec::new();
     for d in &syntax.definitions {
@@ -116,9 +120,7 @@ fn summary(syntax: &Syntax) -> Vec<String> {
             at(&b.span)
         ));
     }
-    for (name, declaration, export) in &syntax.module_exports {
-        out.push(format!("X {name} {} {}", at(declaration), at(export)));
-    }
+    out.extend(syntax.module_exports.iter().map(export_summary));
     out.push(format!("R {}", syntax.rebound_names.join(",")));
     let named = |items: &[(String, crate::source::Span)]| {
         items
@@ -142,6 +144,24 @@ fn summary(syntax: &Syntax) -> Vec<String> {
 fn facts(rel: &str, text: &str) -> Vec<String> {
     let mut parsers = Parsers::new();
     summary(&parse(&mut parsers, rel, text.as_bytes()).syntax)
+}
+
+#[test]
+fn a_scope_description_keeps_its_name_line_and_column() {
+    let mut parsers = Parsers::new();
+    let syntax = parse(
+        &mut parsers,
+        "scope.ts",
+        b"\n    function outer() { target(); }\n",
+    )
+    .syntax;
+    let scope = syntax.sites.sites.iter().find_map(|site| site.scope);
+    let description = scope.and_then(|at| syntax.scopes.describe(at));
+    assert_eq!(
+        description.map(|d| (d.qualified_name, d.line, d.column)),
+        Some(("outer".to_owned(), 2, 5))
+    );
+    assert!(syntax.scopes.describe(u32::MAX).is_none());
 }
 
 #[test]

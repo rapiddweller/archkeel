@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::kept::Kept;
 use crate::script_project::{stable_publication, Project, Publisher, Write, WriteIndex};
+use crate::source::FileSiteKey;
 use archkeel_facts::identity::{evidence_id, stable_id, Part};
 
 use crate::script_records::{Effect, Sink, SiteKey};
@@ -25,11 +26,11 @@ use crate::source::Span;
 /// window outside a frame. The analysis of a use reads them as roots; the walk of a file does not,
 /// so a write through them publishes nothing, and a local variable named `parent` is no root.
 pub fn is_root(name: &str) -> bool {
-    matches!(
-        name,
-        "window" | "globalThis" | "self" | "frames" | "top" | "parent"
-    )
+    crate::source_input::is_script_root(name.as_bytes()) || FRAME_ROOTS.contains(&name)
 }
+
+/// `ScriptRoot.TOP` and `ScriptRoot.PARENT`: dependency roots, not publication roots.
+const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
 
 /// `ScriptRoot.unrooted`: how many leading names of a path name the global object, so that
 /// `window.self.x` is `x` (#1007).
@@ -139,7 +140,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_dependencies`: every use of a global in the files that can use one.
-    pub fn analyze(&mut self, import_sites: &HashSet<(&str, i64, i64)>) {
+    pub fn analyze(&mut self, import_sites: &HashSet<FileSiteKey<'_>>) {
         let loaders = self.loader_sites(import_sites);
         let project = self.project;
         for (rel, file) in &project.files {
@@ -150,11 +151,15 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// The uses of globals in one file; a call that an import record stands for is skipped.
-    fn file_sites(&mut self, rel: &str, file: &Kept, loaders: &HashSet<(&str, i64, i64)>) {
+    fn file_sites(&mut self, rel: &str, file: &Kept, loaders: &HashSet<FileSiteKey<'_>>) {
         let script = &file.script.script;
         let index = AliasIndex::new(&script.aliases, &script.destructures);
         for site in &file.sites.sites {
-            let at = (rel, site.span.line, site.span.column);
+            let at = FileSiteKey {
+                rel,
+                line: site.span.line,
+                column: site.span.column,
+            };
             if site.kind != SiteKind::Call || !loaders.contains(&at) {
                 self.site(rel, file, site, &index);
             }
@@ -162,17 +167,18 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// The `require` calls that an import record stands for.
-    fn loader_sites<'s>(
-        &self,
-        import_sites: &HashSet<(&str, i64, i64)>,
-    ) -> HashSet<(&'s str, i64, i64)>
+    fn loader_sites<'s>(&self, import_sites: &HashSet<FileSiteKey<'_>>) -> HashSet<FileSiteKey<'s>>
     where
         'a: 's,
     {
         let files = self.project.files.iter();
         let requires = files.flat_map(|(rel, file)| {
             let listed = file.script.requires.iter();
-            listed.map(move |(line, column)| (*rel, *line, *column))
+            listed.map(move |(line, column)| FileSiteKey {
+                rel,
+                line: *line,
+                column: *column,
+            })
         });
         requires.filter(|at| import_sites.contains(at)).collect()
     }

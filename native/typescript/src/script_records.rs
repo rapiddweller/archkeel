@@ -203,11 +203,7 @@ pub struct Use<'a> {
 
 /// The id of the global record of a site (`stable_id("TSGLOBAL", ...)`).
 pub fn global_id(module: &str, kind: SiteKind, span: &Span) -> String {
-    let kind = match kind {
-        SiteKind::Call => "call",
-        SiteKind::New => "new",
-        SiteKind::Reference => "reference",
-    };
+    let kind = kind.as_str();
     let parts = [
         Part::Text(module),
         Part::Number(span.line),

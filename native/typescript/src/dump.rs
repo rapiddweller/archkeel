@@ -18,7 +18,7 @@ use crate::members::{Base, Member, Parameter, Visibility};
 use crate::parse::parse;
 use crate::site_paths::Text;
 use crate::site_syntax::ReceiverKind;
-use crate::sites::{Comparison, Expression, Site, SiteKind, SiteUse};
+use crate::sites::{Comparison, Expression, Site, SiteUse};
 use crate::source::Span;
 use crate::source_input::classify_file;
 use crate::symbol_table::kind_value;
@@ -74,11 +74,7 @@ fn base(item: &Base) -> Value {
 }
 
 fn visibility(item: Option<Visibility>) -> Value {
-    json!(item.map(|item| match item {
-        Visibility::Public => "public",
-        Visibility::Protected => "protected",
-        Visibility::Private => "private",
-    }))
+    json!(item.map(Visibility::as_str))
 }
 
 fn definition(item: &Definition, parent: Option<String>) -> Value {
@@ -112,14 +108,6 @@ fn text(item: Option<Text>, data: &[u8]) -> Value {
     json!(item.map(|item| item.decode(data)))
 }
 
-fn site_kind(item: SiteKind) -> &'static str {
-    match item {
-        SiteKind::Call => "call",
-        SiteKind::New => "new",
-        SiteKind::Reference => "reference",
-    }
-}
-
 fn receiver_kind(item: ReceiverKind) -> &'static str {
     match item {
         ReceiverKind::None => "none",
@@ -144,11 +132,11 @@ fn site(item: &Site, found: &Syntax, data: &[u8], shadowed: &mut Shadowed) -> Va
         }
     };
     json!({
-        "kind": site_kind(item.kind),
+        "kind": item.kind.as_str(),
         "expression": expression,
         "span": span(&item.span),
-        "scope": place.as_ref().map(|(name, _, _)| name),
-        "scope_line": place.as_ref().map(|(_, line, _)| line),
+        "scope": place.as_ref().map(|description| &description.qualified_name),
+        "scope_line": place.as_ref().map(|description| description.line),
         "assigned_name": text(item.assigned_name, data),
         "name": text(item.name, data),
         "receiver": text(item.receiver, data),
@@ -163,7 +151,7 @@ fn site(item: &Site, found: &Syntax, data: &[u8], shadowed: &mut Shadowed) -> Va
             SiteUse::Member => "member",
         },
         "scope_ambiguous": item.scope_ambiguous,
-        "scope_column": place.as_ref().map(|(_, _, column)| column),
+        "scope_column": place.as_ref().map(|description| description.column),
         "receiver_kind": receiver_kind(item.receiver_kind),
         "path": item.path.map(|path| found.sites.paths.names(path, data)).unwrap_or_default(),
         "script_free": item.script_free,
@@ -195,7 +183,7 @@ pub fn syntax(found: &Syntax, data: &[u8]) -> Value {
             "source_unique": item.source_unique,
         })).collect::<Vec<_>>(),
         "module_exports": found.module_exports.iter()
-            .map(|(name, declaration, export)| json!([name, span(declaration), span(export)]))
+            .map(|binding| json!([binding.name, span(&binding.declaration), span(&binding.export)]))
             .collect::<Vec<_>>(),
         "rebound_names": found.rebound_names,
         "ambient_globals": named_spans(&found.ambient_globals),
