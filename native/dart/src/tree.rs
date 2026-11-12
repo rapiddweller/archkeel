@@ -243,20 +243,19 @@ pub(crate) fn text_children(node: Node<'_>, source: &Source<'_>) -> String {
         .join(".")
 }
 
-/// The position of `node` among the named children of its parent, with those children.
-pub(crate) fn position<'t>(node: Node<'t>) -> Option<(Vec<Node<'t>>, Option<usize>)> {
-    let siblings = named_children(node.parent()?);
-    let at = siblings.iter().position(|item| *item == node);
-    Some((siblings, at))
-}
-
 /// `_prefix`: the text between the previous named sibling (or the parent start) and the node.
-pub(crate) fn prefix(node: Node<'_>, source: &Source<'_>) -> String {
-    let Some(parent) = node.parent() else {
-        return String::new();
-    };
-    let start = match position(node) {
-        Some((siblings, Some(at))) if at > 0 => siblings
+/// `parent` is the parent of `node`; the caller has it, and `Node::parent` walks down from the
+/// root, which costs the position of the node in a long list.
+pub(crate) fn prefix<'t>(
+    node: Node<'t>,
+    parent: Node<'t>,
+    source: &Source<'_>,
+    work: &Work<'t>,
+) -> String {
+    let family = work.family(parent);
+    let start = match family.position(node) {
+        Some(at) if at > 0 => family
+            .nodes
             .get(at.saturating_sub(1))
             .map_or(parent.start_byte(), Node::end_byte),
         _ => parent.start_byte(),
@@ -388,6 +387,16 @@ impl<'t> Work<'t> {
 
     pub(crate) fn exceeded(&self) -> bool {
         self.spent.get() > self.limit
+    }
+
+    /// The gap when the work passes the limit: a walk that charges its work asks it for each
+    /// node, so no walk runs on after the limit.
+    pub(crate) fn within(&self, gap: Gap) -> Result<(), Gap> {
+        if self.exceeded() {
+            Err(gap)
+        } else {
+            Ok(())
+        }
     }
 
     #[cfg(test)]

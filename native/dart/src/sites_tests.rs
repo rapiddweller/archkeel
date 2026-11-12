@@ -9,7 +9,7 @@ use super::*;
 use crate::parse::DartParser;
 use crate::syntax::{SiteKind, SiteUse, Syntax};
 
-const PINNED_WORK: u64 = 824;
+const PINNED_WORK: u64 = 825;
 
 fn parse(text: &str) -> Syntax {
     DartParser::new().unwrap().parse(text.as_bytes())

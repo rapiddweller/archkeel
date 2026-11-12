@@ -49,6 +49,15 @@ costs the depth for each step. (d) A recursive token walk, as `_source_tokens`: 
 **Limit.** The parity tools import Python internals; slice 5 replaces that. The Windows gap of
 AD-369 stays open.
 
+**Amendment (#1079): the definitions use the same limit.** The definition walks read the named
+children of each parent once from the cache, and count each child, scanned sibling, column byte
+and copied head of a declaration item. Past the limit the file gets "The definition analysis of
+this Dart source stops: ..." and no definitions or sites. One list item copies the declaration
+head, as in Python, so a declaration of 20 000 items stops. 20 000 members or top-level
+definitions took 27 to 108 s and now take under 1 s. The memory of 5 MB of `(` (4.3 GB) is
+Tree-sitter's stack, not a rule. A source with over 9 000 open brackets (`(`, `[`, `{`, strings
+too, the stricter choice) is not parsed and gets the depth concern. Rejected: a cap on bytes.
+
 **Measured (2026-11-12, oracle Python 3.11.12, release build).** Files byte-equal, sites
 included: fixtures 151 of 151, demo variants 295 of 295, the private app 28 of 28. Bench samples
 with 400 s of Python time each: `dart-http` 287 of 344, `flutter` 917 of 6 623 and 1 file named
@@ -56,5 +65,6 @@ by L-27. Native site work on all bench files: at most 14.4 % of the limit, 0 fil
 
 **Tests.** `tests/test_collector_native_dart_sites.py` (60 hostile sources, the depth of each
 walk, the work limit, five shapes that Python scans again for each node), `tests/test_collector_native_dart_syntax.py`,
-`native/dart/src/sites_tests.rs`, the tests in `sites/contain.rs`, `sites/canonical.rs`,
+`native/dart/src/sites_tests.rs`, `tests/test_collector_native_dart_definitions.py`,
+`native/dart/src/definitions_tests.rs`, `native/dart/src/nesting.rs`, the tests in `sites/contain.rs`, `sites/canonical.rs`,
 `sites/calls.rs` and `pytext_tests.rs`, `tools/dart_unicode_tables.py --check`.

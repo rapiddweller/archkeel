@@ -10,6 +10,7 @@ use tree_sitter::{Node, Parser};
 use crate::dartstr::unclosed_block_comment;
 use crate::definitions::definitions;
 use crate::directives::directives;
+use crate::nesting::brackets_overflow;
 use crate::pytext::{is_assigned, is_space_byte};
 use crate::sites::{sites, work_limit};
 use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Syntax};
@@ -43,6 +44,14 @@ impl DartParser {
     /// `parse(content)`: the syntax of one source.
     pub(crate) fn parse(&mut self, content: &[u8]) -> Syntax {
         let source = Source::new(content);
+        self.work_permille = 0;
+        // Tree-sitter keeps about a kilobyte for each open bracket: a source of 2.5 million `(`
+        // takes 3 GB before one rule runs, so a source this deep is not parsed (AD-376).
+        if let Some(at) = brackets_overflow(content) {
+            let message = format!("Dart source nests deeper than {MAX_DEPTH} levels.");
+            let concern = syntax_concern(&source, at, at.saturating_add(1), &message);
+            return finish(Vec::new(), Vec::new(), Vec::new(), vec![concern], None);
+        }
         let Some(tree) = self.parser.parse(content, None) else {
             // Tree-sitter returns no tree only after a cancel or a timeout, and this parser sets
             // neither. The concern keeps the file out of the facts if that changes.
@@ -59,15 +68,31 @@ impl DartParser {
         let language_version = language_version(&source, &mut concerns);
         let directives = directives(root, &source, &mut concerns);
         concerns.extend(unsupported_concerns(root, &source));
-        let definitions = definitions(root, &source);
+        // One work counter and one limit for the definitions and the sites of a source (AD-376).
+        let work = Work::new(work_limit(content.len()));
+        let definitions = match definitions(root, &source, &work) {
+            Ok(items) => items,
+            Err(gap) => {
+                let message = format!(
+                    "The definition analysis of this Dart source stops: {}.",
+                    gap.0
+                );
+                concerns.push(syntax_concern(&source, 0, content.len(), &message));
+                self.work_permille = work.permille();
+                return finish(
+                    Vec::new(),
+                    directives,
+                    Vec::new(),
+                    concerns,
+                    language_version,
+                );
+            }
+        };
         // Python stops with `RecursionError` on a deep tree, so its sites are not known. The
         // depth concern already gives the file a gap; native gives it no sites (AD-376).
         let mut found = Vec::new();
-        self.work_permille = 0;
         if !deep {
-            let work = Work::new(work_limit(content.len()));
             let result = sites(root, &source, &definitions, &directives, &work);
-            self.work_permille = work.permille();
             match result {
                 Ok(items) => found = items,
                 Err(gap) => {
@@ -77,6 +102,7 @@ impl DartParser {
                 }
             }
         }
+        self.work_permille = work.permille();
         finish(definitions, directives, found, concerns, language_version)
     }
 }
