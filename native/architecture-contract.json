@@ -183,6 +183,34 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-MODEL-BARRIER",
+      "label": "model-barrier",
+      "role": "component",
+      "packages": [
+        "native.archkeel_model_barrier"
+      ],
+      "responsibilities": [
+        "Try, from a crate outside the model, each way to build a PASS without the scope proof of the same model; each try is a compile_fail test with a twin that compiles (AD-378)."
+      ],
+      "forbidden_responsibilities": [
+        "Holding code that a binary or a library of the core calls."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Try to build a PASS Decision, a proof or a scope of the model from outside it (AD-378)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Name the rule that a proof is for (AD-378)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-REPORT",
       "label": "report",
       "role": "component",

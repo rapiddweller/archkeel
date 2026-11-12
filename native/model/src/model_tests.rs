@@ -69,6 +69,14 @@ fn an_unported_section_names_the_slice_that_ports_it() {
     );
     let store = Reason::Unsupported(Unsupported::Section(Section::Evidence));
     assert!(store.to_string().contains("the store writes it"));
+    // Slice S4 makes the scope proof and no section; each section that it does not write names
+    // what its rows need (AD-378).
+    let paths = Reason::Unsupported(Unsupported::Section(Section::PathObservations));
+    assert_eq!(
+        paths.to_string(),
+        "unsupported: section path_observations: no slice owns it yet; it holds the declared \
+         paths of the contract over the package edges"
+    );
 }
 
 #[test]

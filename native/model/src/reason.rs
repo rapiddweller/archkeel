@@ -99,6 +99,7 @@ impl fmt::Display for Unsupported {
                     Porting::Slice(slice) => format!("slice {slice:?} ports it"),
                     Porting::Store => "the store writes it; the core does not yet".to_owned(),
                     Porting::RuleFamilies => "the slice of each rule family ports it".to_owned(),
+                    Porting::Unowned(needs) => format!("no slice owns it yet; {needs}"),
                 };
                 write!(formatter, "section {}: {by}", section.name())
             }

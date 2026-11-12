@@ -12,8 +12,6 @@ pub enum Slice {
     S2,
     /// Cycles.
     S3,
-    /// Scope and coverage proof.
-    S4,
     /// Metrics.
     S10,
     /// Guarded effects with state replay.
@@ -29,6 +27,8 @@ pub enum Porting {
     Store,
     /// The rule families: each family slice brings the rows of its rules.
     RuleFamilies,
+    /// No slice owns the section yet: what its rows need (AD-378).
+    Unowned(&'static str),
 }
 
 /// One compared section of `architecture.json`.
@@ -131,9 +131,17 @@ impl Section {
     pub fn porting(self) -> Porting {
         match self {
             Section::Metrics => Porting::Slice(Slice::S10),
-            Section::Declarations | Section::ScopeObservations | Section::PathObservations => {
-                Porting::Slice(Slice::S4)
-            }
+            // Slice S4 makes the scope proof but none of these rows (AD-378).
+            Section::Declarations => Porting::Unowned(
+                "its module targets need the language of the shell and its public API types the \
+                 symbols",
+            ),
+            Section::ScopeObservations => Porting::Unowned(
+                "it holds the component scopes and the receipt of each rule of every family",
+            ),
+            Section::PathObservations => Porting::Unowned(
+                "it holds the declared paths of the contract over the package edges",
+            ),
             // The rows hold fan-in, fan-out (S2) and the condensation rank (S3); the modules,
             // packages and owners of slice S1 are in the model.
             Section::Packages | Section::Modules => Porting::Slice(Slice::S3),

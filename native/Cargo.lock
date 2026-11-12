@@ -108,6 +108,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-model-barrier"
+version = "0.0.0"
+dependencies = [
+ "archkeel-contract",
+ "archkeel-model",
+]
+
+[[package]]
 name = "archkeel-pytext"
 version = "0.0.0"
 
