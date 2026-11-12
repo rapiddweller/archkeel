@@ -185,3 +185,36 @@ def test_a_frame_with_an_error_or_without_missing_paths_ends_the_loop(tmp_path: 
     assert dual_run_tree.tree_frame(send, {"insides": []}, tmp_path) == error
     assert len(calls) == 1
     assert dual_run_tree.missing_paths({"self_test": {"contract": {"missing": []}}}) is None
+
+
+def _chain_core(depth: int) -> Any:
+    """A fake core for a chain of `depth` mounts: it asks for the next file until it has all."""
+
+    def send(request: Mapping[str, Any]) -> dict[str, Any]:
+        count = len(request["insides"])
+        return _parsed() if count == depth else _mounting(f"{count}.json")
+
+    return send
+
+
+def test_exactly_the_file_bound_finishes_and_one_file_more_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AD-379: the shell bound is inclusive: `MAX_FILES` files finish (injected bound 3)."""
+    for index in range(4):
+        (tmp_path / f"{index}.json").write_bytes(b"x")
+    monkeypatch.setattr(dual_run_tree, "MAX_FILES", 3)
+    assert dual_run_tree.tree_frame(_chain_core(3), {"insides": []}, tmp_path) == _parsed()
+    frame = dual_run_tree.tree_frame(_chain_core(4), {"insides": []}, tmp_path)
+    assert frame == {"error": "the tree needs more than 3 inside contracts"}
+
+
+def test_a_chain_at_the_depth_bound_finishes_through_the_shell(tmp_path: Path) -> None:
+    """AD-379: a chain of 900 mounts needs 900 reading rounds and a last one: the real bound of
+    901 rounds lets it finish, and a chain of 901 mounts stops at the round bound."""
+    for index in range(901):
+        (tmp_path / f"{index}.json").write_bytes(b"{}")
+    assert dual_run_tree.MAX_ROUNDS == 901
+    assert dual_run_tree.tree_frame(_chain_core(900), {"insides": []}, tmp_path) == _parsed()
+    frame = dual_run_tree.tree_frame(_chain_core(901), {"insides": []}, tmp_path)
+    assert frame == {"error": "the tree needs more than 901 rounds"}

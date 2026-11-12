@@ -357,7 +357,7 @@ A contract that mounts inside contracts parses as `NeedsTree`, not as a complete
 - A JSON object with one key two times is an error (AD-364).
 - A mount deeper than 900 levels is an issue (`TooDeep`). Python stops near depth 984 with a `RecursionError` and gives no verdict.
 - An inside whose resolved path (the identity that the shell sends) differs from its reference is an issue (`Linked`). Python refuses a link to a mounted file as a duplicate mount and accepts a link to an unmounted file inside the repository.
-- The core uses no tree with an issue: it names the refusal. Python evaluates the root and the valid mounts.
+- The core uses no tree with an issue: it names the refusal. Python evaluates the root and the valid mounts. After Cut A, a tree with a missing or cyclic mount gets no root verdict: the run names the refused tree and exits 3. Today Python gives the root verdicts and UNKNOWN for the broken mount.
 - The core reads at most 1 024 inside contracts and 64 MiB of inside bytes in one request.
 - The core decides only the root rules of a tree. Each rule of a mount, and each PASS of a root rule of a tree, is a named gap.
 

@@ -12,9 +12,10 @@
    the tree of the last bytes or a named error.
 3. A tree with any issue is refused by name (`refused: inside-contract tree: ...`). A refused or
    missing tree gives no rule and no model; the frame names it and exits 3.
-4. Bounds: at most 1 024 inside files and 64 MiB of inside bytes in one request, checked before
-   any decode or parse. The shell has the same bounds and at most 901 rounds (the depth bound of
-   900 and a last round). Each bound is a named error.
+4. Bounds: at most 1 024 inside files and 64 MiB of inside bytes in one request, inclusive,
+   checked in `contract::answer` before any parse. A breach is a named refusal of the contract
+   (exit 3); the dual run has read the request already, so it has no second check. The shell has
+   the same bounds and at most 901 rounds (the depth bound of 900 and a last round).
 5. After assembly the model is the model of the root contract. The core decides the root rules as
    S1 to S3 do. Each rule of a mount is named (`Unsupported::InsideRule`): the clipped scope of a
    mount (`_inside_source_domain`) is not in the core. A PASS of a root rule of a tree is named
@@ -26,8 +27,12 @@
    The harness (`tools/dual_run_tree.py`) is the shell of the dual run.
 
 **Reason.** 248 of 2 298 differences of the S1 to S3 run named the missing tree, and 298 cases
-had no usable contract. The root rules of a tree read the same modules and owners as a root
-without mounts: Python evaluates them with the root contract only.
+had no usable contract. A root rule reads the modules and owners of the root contract, so its
+violations, and thus its FAIL, do not depend on the mounts. Its other verdicts do: Python reads
+the mounts, and a failure of a mount (an inside claim outside its parent) makes root
+`complete_assignment`, `root_layout` and both external rules UNKNOWN where they pass without it
+(`tree/an-inside-claim-outside-its-parent-makes-passing-root-rules-unknown`). So a root rule of a
+tree gives FAIL or a named gap, never PASS (point 5).
 
 **Rejected.**
 - The core reads the inside files. The core has no file access (AD-359).
@@ -45,5 +50,5 @@ Python and Dart replies, so 288 of the 293 tree cases of the corpus still name t
 **Tests.** `native/core/src/contract_tests.rs` (rounds, wrong identity, duplicate reference, a
 file not asked for, a file missing after it was asked, changed bytes, a cycle, depth 900 and 901,
 3 000 mounts, more than 64 MiB); `native/core/src/dual_run_tests.rs`;
-`tests/test_dual_run_shell.py` (the loop and its bounds, a link, a path outside);
+`tests/test_dual_run_shell.py` (the loop and its bounds at the boundary, a chain of 900 rounds, a link, a path outside);
 `tests/test_native_core.py` (`test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap`).

@@ -9,6 +9,11 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
 
+use archkeel_model::{Input, Reason, Unsupported};
+
+use crate::engine::{Answer, Engine};
+use crate::request::Request;
+
 use super::{answer, ContractInput, ContractState, InsideFile, MAX_INSIDE_BYTES, MAX_INSIDE_FILES};
 
 const ROOT: &str = "architecture-contract.json";
@@ -306,9 +311,6 @@ fn a_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
 
 #[test]
 fn the_rules_of_a_tree_name_each_inside_rule_and_give_the_root_rules_their_input() {
-    use crate::engine::{Answer, Engine};
-    use crate::request::Request;
-    use archkeel_model::{Input, Reason, Unsupported};
     let root = contract(
         vec![component("a", Some("a.json"))],
         vec![assignment("R", "a")],
@@ -330,4 +332,75 @@ fn the_rules_of_a_tree_name_each_inside_rule_and_give_the_root_rules_their_input
         Some(&Reason::MissingInput(Input::Reply))
     );
     assert!(answer.decided.is_empty());
+}
+
+/// A root that mounts `count` leaves, with the files of each leaf.
+fn wide(count: usize) -> (Vec<u8>, Vec<InsideFile>) {
+    let names: Vec<String> = (0..count).map(|index| format!("w/{index}.json")).collect();
+    let components = names
+        .iter()
+        .enumerate()
+        .map(|(index, name)| component(&format!("c{index}"), Some(name)))
+        .collect();
+    let leaf = contract(vec![], vec![]);
+    let files = names.iter().map(|name| file(name, name, &leaf)).collect();
+    (contract(components, vec![]), files)
+}
+
+#[test]
+fn exactly_the_file_bound_assembles_and_one_file_more_is_refused_by_its_count() {
+    let (root, files) = wide(MAX_INSIDE_FILES);
+    let (state, usable) = answer(input(&root, files));
+    assert!(matches!(state, ContractState::Parsed(_)), "{state:?}");
+    assert!(usable.is_some());
+    let (root, files) = wide(MAX_INSIDE_FILES + 1);
+    let state = answer(input(&root, files)).0;
+    let expected = format!("1025 inside contracts; the core reads at most {MAX_INSIDE_FILES}");
+    assert!(refused(&state).contains(&expected), "{state:?}");
+}
+
+#[test]
+fn the_byte_bound_holds_for_the_whole_request_and_not_for_each_file() {
+    let root = contract(
+        vec![
+            component("a", Some("a.json")),
+            component("b", Some("b.json")),
+        ],
+        vec![],
+    );
+    let half = vec![b' '; MAX_INSIDE_BYTES / 2 + 1];
+    let sent = vec![
+        file("a.json", "a.json", &half),
+        file("b.json", "b.json", &half),
+    ];
+    let (state, usable) = answer(input(&root, sent));
+    let expected = format!("bytes; the core reads at most {MAX_INSIDE_BYTES}");
+    assert!(refused(&state).contains(&expected), "{state:?}");
+    assert!(usable.is_none());
+}
+
+#[test]
+fn a_refused_contract_after_a_good_tree_leaves_no_contract_in_the_engine() {
+    let root = contract(
+        vec![component("a", Some("a.json"))],
+        vec![assignment("R", "a")],
+    );
+    let leaf = contract(vec![], vec![]);
+    let mut engine = Engine::default();
+    let _ = engine.answer(Request::Contract(input(
+        &root,
+        vec![file("a.json", "a.json", &leaf)],
+    )));
+    assert!(engine.usable().is_some());
+    let _ = engine.answer(Request::Contract(input(b"{", vec![])));
+    assert!(engine.usable().is_none());
+    let _ = engine.answer(Request::Contract(input(
+        &root,
+        vec![file("a.json", "a.json", &leaf)],
+    )));
+    let _ = engine.answer(Request::Contract(input(&root, vec![])));
+    assert!(
+        engine.usable().is_none(),
+        "a tree with a missing file replaces the old one"
+    );
 }

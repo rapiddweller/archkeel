@@ -286,28 +286,37 @@ fn a_tree_names_its_missing_paths_and_assembles_from_the_inside_files_of_the_req
 }
 
 #[test]
-fn an_inside_file_with_bad_hex_too_many_files_or_too_many_bytes_is_refused() {
+fn bad_hex_is_unreadable_and_too_many_files_or_bytes_are_a_named_refusal() {
     let mut bad = request(None, &[]);
     bad["insides"] = json!([{"reference": "a.json", "identity": "a.json", "hex": "zz"}]);
     assert!(answer(bad.to_string().as_bytes()).is_err());
     let mut extra = request(None, &[]);
     extra["insides"] = json!([{"reference": "a", "identity": "a", "hex": "", "more": 1}]);
     assert!(answer(extra.to_string().as_bytes()).is_err());
+    // A bound breach is a named refusal of the contract (exit 3), not an unreadable request.
     let mut many = request(None, &[]);
     let one = json!({"reference": "a.json", "identity": "a.json", "hex": ""});
     many["insides"] = Value::Array(vec![one; crate::contract::MAX_INSIDE_FILES + 1]);
-    let error = answer(many.to_string().as_bytes())
-        .err()
-        .unwrap_or_default();
+    let refused = frame(&many)["self_test"]["contract"]["refused"].clone();
+    let text = refused.as_str().unwrap_or_default();
     assert!(
-        error.contains("inside contracts; the core reads at most"),
-        "{error}"
+        text.contains("inside contracts; the core reads at most"),
+        "{refused}"
     );
+    assert!(names_a_gap(&many));
     let mut large = request(None, &[]);
     let digits = "20".repeat(crate::contract::MAX_INSIDE_BYTES + 1);
     large["insides"] = json!([{"reference": "a.json", "identity": "a.json", "hex": digits}]);
-    let error = answer(large.to_string().as_bytes())
-        .err()
-        .unwrap_or_default();
-    assert!(error.contains("bytes; the core reads no more"), "{error}");
+    let refused = frame(&large)["self_test"]["contract"]["refused"].clone();
+    let text = refused.as_str().unwrap_or_default();
+    assert!(text.contains("bytes; the core reads at most"), "{refused}");
+    assert!(names_a_gap(&large));
+}
+
+#[test]
+fn the_protocol_of_version_2_is_refused_by_name() {
+    let mut old = request(None, &[]);
+    old["protocol"] = json!("archkeel-dual-run-2");
+    let error = answer(old.to_string().as_bytes()).err().unwrap_or_default();
+    assert_eq!(error, "unknown protocol archkeel-dual-run-2");
 }

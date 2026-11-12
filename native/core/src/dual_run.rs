@@ -16,7 +16,7 @@ use archkeel_contract::RuleKind;
 use archkeel_model::{Producer, Settings};
 use serde::{Deserialize, Serialize};
 
-use crate::contract::{ContractInput, ContractState, InsideFile, MAX_INSIDE_BYTES, MAX_INSIDE_FILES};
+use crate::contract::{ContractInput, ContractState, InsideFile};
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::{self, Request};
@@ -323,23 +323,10 @@ fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, 
     )
 }
 
-/// The inside contracts of the request, decoded. The count and the size are bounded before any
-/// decode, so a large request is refused by name and no file of it is held twice.
+/// The inside contracts of the request, decoded. The whole request is already read, so the
+/// bounds of the count and the size are checked in `contract::answer` and give a named refusal
+/// (exit 3), not an unreadable request (AD-379).
 fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
-    if files.len() > MAX_INSIDE_FILES {
-        return Err(format!(
-            "the request carries {} inside contracts; the core reads at most {MAX_INSIDE_FILES}",
-            files.len()
-        ));
-    }
-    let digits = files
-        .iter()
-        .fold(0usize, |sum, file| sum.saturating_add(file.hex.len()));
-    if digits / 2 > MAX_INSIDE_BYTES {
-        return Err(format!(
-            "the inside contracts hold more than {MAX_INSIDE_BYTES} bytes; the core reads no more"
-        ));
-    }
     files
         .into_iter()
         .map(|file| {

@@ -157,7 +157,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 606 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 607 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
@@ -203,7 +203,7 @@ def test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap(
     named = {line.split(": ")[0] for line in differences if "a rule of an inside contract" in line}
     assert "tree/an-unresolved-import-is-unknown-beside-an-inside-contract" in named
     assert lines[-1].startswith("dual run: family complete_assignment,complete_external_scope,")
-    assert "; 12 projects; 79 rules;" in lines[-1]
+    assert "; 13 projects; 86 rules;" in lines[-1]
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
