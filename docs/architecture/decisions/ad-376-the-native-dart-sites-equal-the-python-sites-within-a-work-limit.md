@@ -48,7 +48,7 @@ included: fixtures 151 of 151, demo variants 295 of 295, the private app 28 of 2
 with 400 s of Python time each: `dart-http` 287 of 344, `flutter` 917 of 6 623 and 1 file named
 by L-27. Native site work on all bench files: at most 12.1 % of the limit, 0 files stopped.
 
-**Tests.** `tests/test_collector_native_dart_sites.py` (50 hostile sources, the depth of each
+**Tests.** `tests/test_collector_native_dart_sites.py` (59 hostile sources, the depth of each
 walk, the work limit), `tests/test_collector_native_dart_syntax.py`,
 `native/dart/src/sites_tests.rs`, the tests in `sites/contain.rs`, `sites/canonical.rs`,
 `sites/calls.rs` and `pytext_tests.rs`, `tools/dart_unicode_tables.py --check`.
