@@ -371,3 +371,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-372 | [The core projects the edges and decides the external rule kinds](ad-372-the-core-projects-the-edges-and-decides-the-external-rule-kinds.md) |
 | AD-373 | [The contract crate compares two contract trees for --against](ad-373-the-contract-crate-compares-two-contract-trees-for-against.md) |
 | AD-374 | [The core ranks the edges and derives the modules, packages and cycles](ad-374-the-core-ranks-the-edges-and-derives-the-modules-packages-and-cycles.md) |
+| AD-375 | [The contract crate reads amendments and binds them to a comparison](ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md) |

@@ -9,7 +9,12 @@
 //! no tree. The comparison digest of the tree is the digest that an amendment binds.
 //!
 //! `compare_trees` compares an old and a new tree as `validate --against` does (AD-373).
+//!
+//! `parse_amendment` and `amendment_bytes` read and write an amendment of schema 2.0.0, and
+//! `bind` decides whether an amendment covers one comparison (AD-375).
 
+mod amendment;
+mod binding;
 mod change;
 mod compare;
 mod heads;
@@ -24,6 +29,8 @@ mod widen_rule_parts;
 mod widen_rules;
 
 #[cfg(test)]
+mod amendment_tests;
+#[cfg(test)]
 mod compare_tests;
 #[cfg(test)]
 mod printable_tests;
@@ -32,6 +39,10 @@ mod tree_limit_tests;
 #[cfg(test)]
 mod tree_tests;
 
+pub use amendment::{
+    amendment_bytes, parse_amendment, Amendment, AmendmentDigest, AmendmentError, AmendmentField,
+};
+pub use binding::{bind, Baselines, BindError, Binding, GateStatus, OldContract, Verdict};
 pub use change::{ChangeDirection, ChangeKind, ContractChange};
 pub use compare::{compare_trees, Comparison};
 pub use issue::{IssueKind, SourceProblem, TreeError, TreeIssue};

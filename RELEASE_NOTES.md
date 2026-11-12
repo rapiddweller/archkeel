@@ -70,6 +70,10 @@ native source evidence and conservative UNKNOWNs.
 
 ## Upgrade from 4.0.1
 
+When the Rust core runs `validate --against` (epic #880), an amendment of schema 1.0.0 gives
+exit 2 (AD-375). Write it again as schema 2.0.0 with `archkeel validate --against <ref>
+--amendment <path> --write-amendment --decided-by <who> --rationale <why>`.
+
 `report` on a contract that declares nothing to check (no rule, UML target or component
 intent) now gives `declared_rules: UNKNOWN` and `target: unavailable`; before, it gave PASS
 (AD-285). `validate` on the same contract still gives PASS.
