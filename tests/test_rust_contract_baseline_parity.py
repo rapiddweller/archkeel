@@ -20,7 +20,13 @@ from typing import Any
 
 import pytest
 from filelock import FileLock
-from rust_contract_baseline_cases import hostile_cases, repository_cases, valid_cases
+from rust_contract_baseline_cases import (
+    hostile_cases,
+    integer_token_cases,
+    repository_cases,
+    schema_cases,
+    valid_cases,
+)
 
 from archkeel.ir.codec_governance import baseline_bytes, parse_validation_baseline
 from archkeel.ir.codec_wire import decode_json
@@ -134,11 +140,15 @@ def _stricter(data: bytes, expected: dict[str, Any], actual: dict[str, Any]) -> 
 
 
 @pytest.mark.requires_python(below=12)
-@pytest.mark.parametrize("source", ["repository", "valid", "hostile"])
+@pytest.mark.parametrize("source", ["repository", "valid", "hostile", "integer_tokens", "schemas"])
 def test_baseline_codec_parity(source: str) -> None:
-    cases = {"repository": repository_cases, "valid": valid_cases, "hostile": hostile_cases}[
-        source
-    ]()
+    cases = {
+        "repository": repository_cases,
+        "valid": valid_cases,
+        "hostile": hostile_cases,
+        "integer_tokens": integer_token_cases,
+        "schemas": schema_cases,
+    }[source]()
     assert cases
     if source == "hostile":
         assert len(cases) >= 60

@@ -29,6 +29,13 @@ Errors keep the Python validation order and messages for supported value represe
 7. Use Python white space, including U+001C through U+001F, for a blank key.
 8. Do not check rule existence or staleness in the codec. Keep every valid entry.
    Python later reports stale entries as resolved debt; the codec does not discard them.
+9. Read the integer token `-0` as zero, but refuse `-0.0`, `0.0`, `1.0` and `1e0`.
+   The baseline reader replaces only an unquoted, delimited `-0` sign with JSON white space.
+   It changes no string or float token. The shared JSON reader keeps its existing behavior.
+
+**Bounded work.** Sort borrowed object entries once for scalar and keyed budgets.
+Never find each value again with a linear key lookup. A test reads 100,000 keys within 5 seconds.
+The root, violation and role lookups have fixed field counts. Duplicate fingerprints use a map.
 
 **Named refusals, stricter than Python.**
 - `DuplicateKey`: refuse a repeated JSON key at every level. Python keeps the last value.
@@ -50,9 +57,9 @@ apply baselines in this slice; take a digest from the caller; copy the JSON writ
 No filesystem loader, containment check, verdict application, widening or amendment binding.
 The existing `Baselines::configured_unsupported()` refusal stays in place.
 No command uses this codec yet. The shell must map a read error to a named refusal.
-The API tool on this base has no writer. Add `--write` to record its measured counts.
-This does not change the API counting rules; the open API-list slice can replace it later.
+Use the API-list writer of AD-382 to record signatures and field types after integration.
 
 **Tests.** `native/contract/src/policy/baseline_tests.rs` checks the grammar and bounds.
 `tests/test_rust_contract_baseline_parity.py` compares repository, demo and hostile bytes
 with the unchanged Python reader and writer. The PR records isolated injected faults.
+Tests cover integer tokens at every count field and 92 versions outside the four-version list.

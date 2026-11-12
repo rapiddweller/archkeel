@@ -202,3 +202,121 @@ fn baseline_bounds_and_hostile_json_are_named_refusals() {
         Err(BaselineError::Json(_))
     ));
 }
+
+#[test]
+fn baseline_reads_100_000_name_keys_within_five_seconds() {
+    let names: serde_json::Map<String, Value> = (0..100_000)
+        .rev()
+        .map(|index| (format!("key-{index:06}"), json!(["a"])))
+        .collect();
+    let bytes = serde_json::to_vec(&json!({
+        "schema_version": "1.3.0", "violations": [], "budgets": {"facade_names": names}
+    }))
+    .unwrap();
+    let started = std::time::Instant::now();
+    let baseline = parse_baseline(&bytes).unwrap();
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed.as_secs_f64() < 5.0,
+        "100000 name keys took {elapsed:?}; limit is 5 seconds"
+    );
+    assert_eq!(baseline.budgets().len(), 100_000);
+    for (index, budget) in baseline.budgets().iter().enumerate() {
+        assert!(
+            matches!(budget, crate::policy::BaselineBudget::Names { key, names, .. }
+            if *key == format!("key-{index:06}") && names == &["a"])
+        );
+    }
+    assert_eq!(
+        parse_baseline(&baseline_bytes(&baseline)).unwrap(),
+        baseline
+    );
+    println!("100000 name keys decoded in {elapsed:?}");
+}
+
+#[test]
+fn baseline_integer_tokens_keep_python_negative_zero_and_refuse_floats() {
+    for token in ["-0", "-0.0", "0.0", "1.0", "1e0"] {
+        let budget = format!(
+            r#"{{"schema_version":"1.3.0","violations":[],"budgets":{{"cycle_edges":{token}}}}}"#
+        );
+        let parsed = parse_baseline(budget.as_bytes());
+        if token == "-0" {
+            assert!(
+                matches!(&parsed, Ok(value) if matches!(&value.budgets()[0],
+                crate::policy::BaselineBudget::Scalar { value: 0, .. })),
+                "budget token {token}: {parsed:?}"
+            );
+            let written = String::from_utf8(baseline_bytes(&parsed.unwrap())).unwrap();
+            assert!(written.contains("\"cycle_edges\": 0"));
+        } else {
+            assert_eq!(
+                parsed.unwrap_err().to_string(),
+                "baseline.budgets.cycle_edges must be a non-negative integer"
+            );
+        }
+        let entry = format!(
+            r#"{{"schema_version":"1.3.0","violations":[{{"rules":[],"subjects":[],"count":{token}}}],"budgets":{{}}}}"#
+        );
+        let expected = if token == "-0" {
+            "baseline.violations[0].count must be at least 1"
+        } else {
+            "baseline.violations[0].count must be a non-negative integer"
+        };
+        assert_eq!(
+            parse_baseline(entry.as_bytes()).unwrap_err().to_string(),
+            expected,
+            "count token {token}"
+        );
+    }
+}
+
+#[test]
+fn baseline_rejects_every_unlisted_schema() {
+    let versions = (0..=3).flat_map(|major| {
+        (0..=5).flat_map(move |minor| (0..=3).map(move |patch| format!("{major}.{minor}.{patch}")))
+    });
+    for version in versions {
+        if ["1.0.0", "1.1.0", "1.2.0", "1.3.0"].contains(&version.as_str()) {
+            continue;
+        }
+        let value = json!({"schema_version":version,"violations":[],"budgets":{}});
+        assert!(
+            matches!(parse(&value), Err(BaselineError::UnsupportedSchema(_))),
+            "unlisted baseline schema {version} was not refused as UnsupportedSchema"
+        );
+    }
+}
+
+#[test]
+fn baseline_negative_zero_normalization_keeps_text_and_number_syntax() {
+    let bytes = br#"{"schema_version":"1.3.0","budgets":{"cycle_edges":-0},"violations":[{"rules":["-0","\\\"-0","\\\\-0"],"subjects":["x"],"count":1}]}"#;
+    let value: Value = serde_json::from_slice(bytes).unwrap();
+    let mut expected = value;
+    expected["budgets"]["cycle_edges"] = json!(0);
+    assert_eq!(parse_baseline(bytes).unwrap(), parse(&expected).unwrap());
+    for token in ["0e-0", "1e-0", "-0e0", "-0.0", "\"-0\""] {
+        let bytes = format!(
+            r#"{{"schema_version":"1.3.0","violations":[],"budgets":{{"cycle_edges":{token}}}}}"#
+        );
+        assert!(
+            matches!(
+                parse_baseline(bytes.as_bytes()),
+                Err(BaselineError::NotCount(_))
+            ),
+            "token {token}"
+        );
+    }
+    for token in ["--0", "-00", "1-0", "-0x", "-0\u{b}"] {
+        let bytes = format!(
+            r#"{{"schema_version":"1.3.0","violations":[],"budgets":{{"cycle_edges":{token}}}}}"#
+        );
+        assert!(
+            matches!(
+                parse_baseline(bytes.as_bytes()),
+                Err(BaselineError::Json(_))
+            ),
+            "token {token}"
+        );
+    }
+}

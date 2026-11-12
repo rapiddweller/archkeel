@@ -139,6 +139,58 @@ def hostile_cases() -> list[tuple[str, bytes]]:
     return cases
 
 
+def integer_token_cases() -> list[tuple[str, bytes]]:
+    cases = []
+    for field in (
+        "count",
+        "cycle_edges",
+        "private_crossings",
+        "typing_positions",
+        "calls_unresolved",
+        "untyped_private_accesses",
+        "unknown_positions",
+    ):
+        for token in (
+            b"-0",
+            b"-0.0",
+            b"0.0",
+            b"1.0",
+            b"1e0",
+            b"0e-0",
+            b"1e-0",
+            b"-0e0",
+            b'"-0"',
+            b"--0",
+            b"-00",
+            b"1-0",
+            b"-0x",
+            b"-0\x0b",
+        ):
+            value = (
+                document(violations=[entry(count=17)])
+                if field == "count"
+                else document(budgets={field: 17})
+            )
+            data = encode(value).replace(
+                b'"' + field.encode() + b'": 17', b'"' + field.encode() + b'": ' + token
+            )
+            cases.append((f"integer token {field} {token.decode()}", data))
+    return cases
+
+
+def schema_cases() -> list[tuple[str, bytes]]:
+    return [
+        (
+            f"unlisted schema {major}.{minor}.{patch}",
+            encode(document(schema_version=f"{major}.{minor}.{patch}")),
+        )
+        for major in range(4)
+        for minor in range(6)
+        for patch in range(4)
+        if f"{major}.{minor}.{patch}" not in ("1.0.0", "1.1.0", "1.2.0", "1.3.0")
+    ]
+
+
 def valid_cases() -> list[tuple[str, bytes]]:
     cases = []
     for schema in ("1.0.0", "1.1.0", "1.2.0", "1.3.0"):

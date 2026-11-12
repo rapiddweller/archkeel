@@ -23,7 +23,7 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
     if bytes.len() > MAX_BASELINE_BYTES {
         return Err(BaselineError::TooLarge);
     }
-    let value = json::read(bytes).map_err(|error| match error.kind {
+    let value = json::read(&integer_zeros(bytes)).map_err(|error| match error.kind {
         crate::ErrorKind::DuplicateKey => BaselineError::DuplicateKey(error.message),
         _ => BaselineError::Json(error.message),
     })?;
@@ -67,6 +67,39 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
         violations,
         budgets,
     })
+}
+
+/// Python reads the integer token `-0` as zero; serde reads it as a float (AD-386).
+fn integer_zeros(bytes: &[u8]) -> std::borrow::Cow<'_, [u8]> {
+    let mut normalized = std::borrow::Cow::Borrowed(bytes);
+    let mut quoted = false;
+    let mut escaped = false;
+    for (position, byte) in bytes.iter().enumerate() {
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if *byte == b'\\' {
+                escaped = true;
+            } else if *byte == b'"' {
+                quoted = false;
+            }
+        } else if *byte == b'"' {
+            quoted = true;
+        } else if *byte == b'-'
+            && bytes.get(position + 1) == Some(&b'0')
+            && bytes.get(position.wrapping_sub(1)).is_none_or(|previous| {
+                matches!(previous, b'[' | b',' | b':' | b' ' | b'\t' | b'\r' | b'\n')
+            })
+            && bytes.get(position + 2).is_none_or(|next| {
+                matches!(next, b',' | b']' | b'}' | b' ' | b'\t' | b'\r' | b'\n')
+            })
+        {
+            if let Some(sign) = normalized.to_mut().get_mut(position) {
+                *sign = b' ';
+            }
+        }
+    }
+    normalized
 }
 
 fn reject_repeated(violations: &[BaselineViolation]) -> Result<(), BaselineError> {

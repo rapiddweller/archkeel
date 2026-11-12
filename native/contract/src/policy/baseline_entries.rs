@@ -4,7 +4,7 @@
 
 //! Validation of baseline entries and measurement budgets (AD-386).
 
-use crate::json::{field, has, keys, Json};
+use crate::json::{entries, field, has, Json};
 use crate::model_declarations::BudgetName;
 use crate::policy::amendment::blank;
 use crate::policy::baseline_value::{
@@ -73,12 +73,11 @@ fn roles(raw: &Json, label: &str) -> Result<Vec<BaselineRole>, BaselineError> {
 
 pub(super) fn budgets(raw: &Json, with_names: bool) -> Result<Vec<BaselineBudget>, BaselineError> {
     let value = object(raw, "baseline.budgets")?;
-    let mut names: Vec<&str> = keys(value).collect();
-    names.sort_unstable();
+    let mut names: Vec<(&str, &Json)> = entries(value).collect();
+    names.sort_unstable_by_key(|(name, _)| *name);
     let mut budgets = Vec::new();
-    for name in names {
+    for (name, raw) in names {
         let label = format!("baseline.budgets.{name}");
-        let raw = required(value, name);
         match (with_names, name) {
             (true, "facade_names") => {
                 budgets.extend(name_budgets(NameBudgetKind::FacadeNames, raw, &label)?)
@@ -117,12 +116,12 @@ fn name_budgets(
     label: &str,
 ) -> Result<Vec<BaselineBudget>, BaselineError> {
     let value = object(raw, label)?;
-    let mut keys: Vec<&str> = keys(value).collect();
-    keys.sort_unstable();
+    let mut keys: Vec<(&str, &Json)> = entries(value).collect();
+    keys.sort_unstable_by_key(|(key, _)| *key);
     let mut budgets = Vec::new();
-    for key in keys {
+    for (key, raw) in keys {
         let names_label = format!("{label}.{key}");
-        let names = strings(required(value, key), &names_label)?;
+        let names = strings(raw, &names_label)?;
         if names.windows(2).any(|pair| pair.first() >= pair.get(1)) {
             return Err(BaselineError::UnsortedNames(names_label));
         }
