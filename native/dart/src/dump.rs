@@ -43,6 +43,14 @@ pub(crate) fn declarations(text: &str) -> Result<String, String> {
     })
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Empty {}
+
+pub(crate) fn collection(text: &str) -> Result<String, String> {
+    rows(text, |_: Empty| crate::collection::build())
+}
+
 fn rows<T: serde::de::DeserializeOwned, R: serde::Serialize>(
     text: &str,
     build: impl Fn(T) -> R,

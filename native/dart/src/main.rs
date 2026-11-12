@@ -21,6 +21,7 @@
     )
 )]
 
+mod collection;
 mod dartstr;
 mod declarations;
 mod definitions;
@@ -61,13 +62,15 @@ fn main() -> ExitCode {
         Some((flag, _))
             if matches!(
                 flag.as_str(),
-                "--dump-sdk" | "--dump-syntax" | "--dump-declarations"
+                "--dump-sdk" | "--dump-syntax" | "--dump-declarations" | "--dump-collection"
             ) =>
         {
             let dump = if flag == "--dump-sdk" {
                 dump::sdk
             } else if flag == "--dump-declarations" {
                 dump::declarations
+            } else if flag == "--dump-collection" {
+                dump::collection
             } else {
                 dump::syntax
             };
