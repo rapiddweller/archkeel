@@ -69,7 +69,7 @@ pub(crate) fn reply_or_refusal(
 }
 
 /// The outcomes of the rules `ASSIGNMENT` and `LAYOUT`.
-fn run(
+pub(crate) fn run(
     contract_change: impl FnOnce(&mut Value),
     reply_change: impl FnOnce(&mut Value),
 ) -> Vec<Outcome> {
@@ -89,7 +89,7 @@ fn outcome<'a>(outcomes: &'a [Outcome], rule: &str) -> Option<&'a Outcome> {
     outcomes.iter().find(|outcome| outcome.rule() == rule)
 }
 
-fn decision(outcomes: &[Outcome], rule: &str) -> Option<Decision> {
+pub(crate) fn decision(outcomes: &[Outcome], rule: &str) -> Option<Decision> {
     outcome(outcomes, rule).map(|outcome| outcome.decision().clone())
 }
 
@@ -116,13 +116,13 @@ fn component(value: &mut Value, id: &str) -> Option<usize> {
         .position(|item| item["id"] == id)
 }
 
-fn set_component(value: &mut Value, id: &str, key: &str, field: Value) {
+pub(crate) fn set_component(value: &mut Value, id: &str, key: &str, field: Value) {
     if let Some(index) = component(value, id) {
         value["components"][index][key] = field;
     }
 }
 
-fn set_rule(value: &mut Value, id: &str, key: &str, field: Value) {
+pub(crate) fn set_rule(value: &mut Value, id: &str, key: &str, field: Value) {
     let index = value["rules"]
         .as_array()
         .and_then(|rules| rules.iter().position(|rule| rule["id"] == id));
@@ -256,25 +256,6 @@ fn a_source_without_modules_fails_the_subject_check_and_is_unknown() {
     );
     let expected = Decision::unknown(no_subjects("ASSIGNMENT"));
     assert_eq!(decision(&outcomes, "ASSIGNMENT"), Some(expected));
-}
-
-#[test]
-fn a_planned_module_passes_the_subject_check_but_gives_no_receipt() {
-    // The planned module matches the source, so the observation stays complete; no module of
-    // the reply lies below the source, so the rule has no receipt (`NoSubjects`).
-    let outcomes = run(
-        |c| {
-            set_component(c, "COMP-DATA", "planned", json!(["shop.absent.later"]));
-            set_rule(c, "ASSIGNMENT", "source", json!("shop.absent"));
-        },
-        unchanged,
-    );
-    let expected = Decision::unknown(Reason::NoSubjects);
-    assert_eq!(decision(&outcomes, "ASSIGNMENT"), Some(expected));
-    assert!(matches!(
-        decision(&outcomes, "LAYOUT").map(|d| d.verdict()),
-        Some(Verdict::Pass(_))
-    ));
 }
 
 #[test]

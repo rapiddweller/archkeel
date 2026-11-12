@@ -8,8 +8,8 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
+use crate::causes::{Cause, Part};
 use crate::coverage::Incomplete;
-use crate::proof::{Cause, Part};
 use crate::section::{Porting, Section};
 
 /// A part of the core that no slice has ported yet. It is a named answer, never an empty one.
@@ -157,5 +157,11 @@ impl fmt::Display for Reason {
                 "the layout child {child} has no module record to cite"
             ),
         }
+    }
+}
+
+impl From<Part> for Reason {
+    fn from(part: Part) -> Reason {
+        Reason::Unsupported(Unsupported::ScopeProof(part))
     }
 }

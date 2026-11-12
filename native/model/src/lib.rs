@@ -31,6 +31,7 @@
 
 #![deny(unreachable_pub)]
 
+mod causes;
 mod condensation;
 mod coverage;
 mod cycles;
@@ -52,6 +53,7 @@ mod subjects;
 mod topology;
 mod verdict;
 
+pub use causes::{Cause, Part};
 pub use coverage::Incomplete;
 pub use cycles::Cycle;
 pub use edges::{Edge, Level};
@@ -61,7 +63,6 @@ pub use imports::{Import, Resolved};
 pub use model::{Model, Rows};
 pub use modules::{Module, Package};
 pub use ownership::in_scope;
-pub use proof::{Cause, Part};
 pub use reason::{Input, Reason, Refusal, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};

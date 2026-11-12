@@ -120,3 +120,7 @@ mod graph_tests;
 #[cfg(test)]
 #[path = "scope_tests.rs"]
 mod scope_tests;
+
+#[cfg(test)]
+#[path = "receipt_tests.rs"]
+mod receipt_tests;

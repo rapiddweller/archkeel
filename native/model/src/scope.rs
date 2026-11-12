@@ -53,9 +53,10 @@ use std::marker::PhantomData;
 
 use archkeel_contract::{kind_of, Rule};
 
+use crate::causes::{Cause, Part};
 use crate::model::Model;
 use crate::ownership::in_scope;
-use crate::proof::{Cause, Part, State};
+use crate::proof::State;
 use crate::reason::{Reason, Unsupported};
 use crate::verdict::Decision;
 
