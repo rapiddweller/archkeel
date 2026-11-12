@@ -18,23 +18,27 @@ use crate::violation::Violation;
 pub(crate) fn check(id: &str, rule: &RootLayout, model: &Model) -> Result<Vec<Violation>, Reason> {
     let root = rule.root().as_text();
     let depth = root.split('.').count() + 1;
+    // A mount reads the packages below the packages of its parent (`package_facts`) and the
+    // modules of its domain (`module_facts`, AD-385).
+    let modules = || {
+        model
+            .graph()
+            .modules()
+            .iter()
+            .filter(|(id, _)| model.holds(*id))
+    };
     let names = model
         .graph()
         .packages()
         .iter()
         .map(|(_, package)| package.name())
-        .chain(
-            model
-                .graph()
-                .modules()
-                .iter()
-                .map(|(_, module)| module.name()),
-        );
+        .filter(|name| model.below_roots(name))
+        .chain(modules().map(|(_, module)| module.name()));
     // The reference engine sorts the children as `str`: by code point, as `BTreeSet` does.
     let children: BTreeSet<&str> = names
         .filter(|name| *name != root && in_scope(name, root) && name.split('.').count() == depth)
         .collect();
-    let records = child_records(model.graph().modules().iter().map(|(id, module)| {
+    let records = child_records(modules().map(|(id, module)| {
         let package = model.graph().packages().get(module.package());
         (
             id,

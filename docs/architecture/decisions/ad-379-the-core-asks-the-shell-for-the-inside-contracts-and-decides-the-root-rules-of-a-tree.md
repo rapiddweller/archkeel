@@ -33,6 +33,8 @@
    check of each scoped rule, and `named`, `limits` and `rule_failures` of `proof.rs`, which read
    only the root `contract.rules()` today. Only then can `Part::MountedTree` go.
 
+**Amendment (2026-11-12, [AD-385](ad-385-the-core-decides-the-rules-of-a-contract-tree-with-one-model-per-mount.md)).** Points 5 and 8 no longer hold for the nine decided kinds: each contract of the tree has its own model with the domain of its mount, the models share one scope state, and a rule of a tree has its verdict.
+
 **Reason.** 248 of 2 298 differences of the S1 to S3 run named the missing tree, and 298 cases
 had no usable contract. A root rule reads the modules and owners of the root contract, so its
 violations, and thus its FAIL, do not depend on the mounts. Its other verdicts do: Python reads

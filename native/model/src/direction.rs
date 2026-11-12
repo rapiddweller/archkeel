@@ -34,7 +34,8 @@ pub enum Judged {
     Undecided,
 }
 
-/// The judgement of each import that a `forbidden_dependency` rule names, in reply order.
+/// The judgement of each import that a `forbidden_dependency` rule names, in reply order. A mount
+/// judges only the imports whose source lies in its domain (AD-385).
 pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'m Import, Judged)> {
     let [sources, targets] = dependency_sides(rule, model.contract().components());
     let allowed = |module: &str| rule.allowed_sources().iter().any(|a| a.as_text() == module);
@@ -43,7 +44,8 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
         .imports()
         .iter()
         .filter(|import| {
-            sources.matches(import.source_module())
+            model.selects(import.source_module())
+                && sources.matches(import.source_module())
                 && targets.matches(import.target_module())
                 && !allowed(import.source_module())
                 && !(import.under_type_checking() && !rule.include_type_checking())
@@ -73,6 +75,7 @@ pub fn peers<'m>(model: &'m Model, rule: &'m SiblingIsolation) -> Vec<(&'m Impor
         .graph()
         .imports()
         .iter()
+        .filter(|import| model.selects(import.source_module()))
         .filter_map(|import| {
             let source = member(import.source_module())?;
             let target = member(import.target_module())?;
@@ -108,7 +111,9 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
             .or_insert_with(|| owner_of(components, module))
     };
     let mut found = Vec::new();
-    for import in model.graph().imports() {
+    // A mount judges only the imports of its domain (`source_modules`, AD-385).
+    let imports = model.graph().imports().iter();
+    for import in imports.filter(|import| model.selects(import.source_module())) {
         let (Some(from), Some(to)) = (owner(import.source_module()), owner(import.target_module()))
         else {
             continue;

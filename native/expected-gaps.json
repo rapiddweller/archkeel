@@ -71,7 +71,7 @@
     [
       "native.archkeel_report.frame",
       "native.archkeel_model.run",
-      "A method call may reach the method run_complete of an impl block in native.archkeel_model.run"
+      "A method call may reach the method model_of of an impl block in native.archkeel_model.run"
     ],
     [
       "native.archkeel_report.frame",
@@ -81,7 +81,7 @@
     [
       "native.archkeel_report.frame_rules",
       "native.archkeel_model.run",
-      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
+      "A method call may reach the method model_of of an impl block in native.archkeel_model.run"
     ],
     [
       "native.archkeel_report.input",

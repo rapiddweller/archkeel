@@ -12,7 +12,8 @@ use archkeel_model::{in_scope, Model};
 
 use crate::violation::Violation;
 
-/// The violations of the rule. Its receipt is a part of the scope proof (`Scope::complete`).
+/// The violations of the rule. Its receipt is a part of the scope proof (`Scope::complete`). A
+/// mount reads only the modules of its domain (`module_facts`, AD-385).
 pub(crate) fn check(id: &str, rule: &SourceRule, model: &Model) -> Vec<Violation> {
     let source = rule.source().as_text();
     let mut violations: Vec<Violation> = model
@@ -20,7 +21,10 @@ pub(crate) fn check(id: &str, rule: &SourceRule, model: &Model) -> Vec<Violation
         .modules()
         .iter()
         .filter(|(module, row)| {
-            !row.blank() && in_scope(row.name(), source) && model.owner(*module).is_none()
+            model.holds(*module)
+                && !row.blank()
+                && in_scope(row.name(), source)
+                && model.owner(*module).is_none()
         })
         .map(|(module, row)| Violation::unassigned(id, source, module, row))
         .collect();

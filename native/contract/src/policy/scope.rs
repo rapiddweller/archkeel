@@ -160,6 +160,7 @@ fn scoped_target(target: &Target, prefix: &str) -> Target {
 /// of the parent. The digest stays the digest of the bytes.
 pub(crate) fn scoped_contract(parent_id: &str, contract: &Contract) -> Contract {
     let mut scoped = contract.clone();
+    scoped.mount = Some(parent_id.to_owned());
     for component in &mut scoped.components {
         component.id = scoped_id(parent_id, &component.id);
     }

@@ -10,10 +10,10 @@ use crate::{
     build, BuildError, Payload, Permission, Problem, Produced, Relation, Report, RuleDecision,
     Status, Target, Unexplained, UnknownSource, WhyUnknown,
 };
-use archkeel_model::{Decision, Model, Section, Unsupported};
+use archkeel_model::{Decision, ModelTree, Section, Unsupported};
 
 /// A run without a model: no rule, observation or status can be PASS (AD-381).
-const NO_MODEL: Option<&Model> = None;
+const NO_MODEL: Option<&ModelTree> = None;
 
 fn payload(name: &str) -> Payload {
     Payload::decode(&bytes(name)).unwrap()

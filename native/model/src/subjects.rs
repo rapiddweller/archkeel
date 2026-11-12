@@ -32,8 +32,11 @@ pub(crate) enum Subjects {
 
 /// The names that a rule side can match, and the names of the builtin targets of the reply.
 pub(crate) struct Names<'a> {
-    /// The modules of the reply and the planned modules of the components.
+    /// The source subjects: the modules of the reply (of the domain of a mount) and the planned
+    /// modules of the components.
     pub(crate) subjects: Vec<&'a str>,
+    /// The target subjects: every module of the reply and the planned modules of the components.
+    pub(crate) targets: Vec<&'a str>,
     /// The names of the builtin import targets: a `forbidden_dependency` target of this name is
     /// a subject that no scan lists as a module.
     pub(crate) builtins: &'a [String],
@@ -50,16 +53,19 @@ pub(crate) fn planned(components: &[Component]) -> impl Iterator<Item = &str> {
 
 /// The subject check of one rule.
 pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) -> Subjects {
-    let count = |selectors: &[&str]| {
-        names
-            .subjects
-            .iter()
-            .any(|module| selectors.iter().any(|scope| in_scope(module, scope)))
-    };
+    let count = |selectors: &[&str]| any_in(&names.subjects, selectors);
     let sides: Vec<Vec<&str>> = match rule {
         Rule::ForbiddenDependency(rule) => return forbidden(rule, components, names),
+        // `_rule_subject_matches`: a target side reads every module, each other side the source
+        // subjects.
         Rule::AllowedDependency(rule) => {
-            vec![vec![rule.source().as_text()], vec![rule.target().as_text()]]
+            let found = count(&[rule.source().as_text()])
+                && any_in(&names.targets, &[rule.target().as_text()]);
+            return if found {
+                Subjects::Found
+            } else {
+                Subjects::Missing
+            };
         }
         Rule::ExternalDependencyScope(rule) => [rule.allowed_sources(), rule.exact_sources()]
             .into_iter()
@@ -103,6 +109,13 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
     }
 }
 
+/// True when a name lies in the scope of a selector.
+fn any_in(names: &[&str], selectors: &[&str]) -> bool {
+    names
+        .iter()
+        .any(|module| selectors.iter().any(|scope| in_scope(module, scope)))
+}
+
 fn texts(selectors: &[Selector]) -> Vec<&str> {
     selectors.iter().map(Selector::as_text).collect()
 }
@@ -116,10 +129,10 @@ fn forbidden(rule: &ForbiddenDependency, components: &[Component], names: &Names
             .builtins
             .iter()
             .any(|name| name == rule.target().as_text()));
-    let found = |selection: &crate::selection::Selection<'_>| {
-        names.subjects.iter().any(|m| selection.matches(m))
+    let found = |selection: &crate::selection::Selection<'_>, among: &[&str]| {
+        among.iter().any(|m| selection.matches(m))
     };
-    if found(&source) && (!target_side || found(&target)) {
+    if found(&source, &names.subjects) && (!target_side || found(&target, &names.targets)) {
         Subjects::Found
     } else {
         Subjects::Missing

@@ -63,15 +63,15 @@ pub(crate) enum ContractState {
     Refused(String),
 }
 
-/// A contract that the core can use: the root, and the rules of its inside contracts. The core
-/// decides only the root rules; each inside rule is a named gap (AD-379).
+/// A contract that the core can use: the root, the rules of its inside contracts and the
+/// assembled tree, from which the model makes one model for each contract (AD-385).
 #[derive(Debug)]
 pub(crate) struct Usable {
     pub(crate) root: Contract,
+    /// The assembled tree of a root that mounts inside contracts.
+    pub(crate) tree: Option<ContractTree>,
     /// The scoped id and kind of each rule of each mount, in the order of the mounts.
     pub(crate) inside: Vec<(String, RuleKind)>,
-    /// True when the root mounts at least one inside contract.
-    pub(crate) mounted: bool,
     /// True when a contract of the tree has `declarations.uml`.
     pub(crate) uml: bool,
 }
@@ -90,8 +90,8 @@ pub(crate) fn answer(input: ContractInput) -> (ContractState, Option<Usable>) {
             let uml = has_uml(&contract);
             Usable {
                 root: contract,
+                tree: None,
                 inside: Vec::new(),
-                mounted: false,
                 uml,
             }
         }
@@ -144,7 +144,7 @@ fn tree(input: &ContractInput, parsed: ParsedContract) -> Result<Usable, Contrac
         })
         .collect();
     match assemble_tree(&input.path, parsed, &files) {
-        Ok(tree) => Ok(usable(&tree)),
+        Ok(tree) => Ok(usable(tree)),
         Err(error) => Err(match error.missing_paths() {
             Some(paths) if !paths.is_empty() => ContractState::Missing(paths),
             _ => ContractState::Refused(format!("inside-contract tree: {error}")),
@@ -152,7 +152,7 @@ fn tree(input: &ContractInput, parsed: ParsedContract) -> Result<Usable, Contrac
     }
 }
 
-fn usable(tree: &ContractTree) -> Usable {
+fn usable(tree: ContractTree) -> Usable {
     let inside = tree
         .mounts()
         .iter()
@@ -163,8 +163,8 @@ fn usable(tree: &ContractTree) -> Usable {
     Usable {
         root: tree.root().clone(),
         inside,
-        mounted: !tree.mounts().is_empty(),
         uml,
+        tree: Some(tree),
     }
 }
 

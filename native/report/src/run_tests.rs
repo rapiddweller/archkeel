@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 
 use archkeel_contract::{Contract, ParsedContract};
 use archkeel_eval::{evaluate, Outcome};
-use archkeel_model::{Decision, Model, Producer, RunGap, Settings};
+use archkeel_model::{Decision, Graph, ModelTree, Producer, RunGap, Settings};
 use flate2::read::GzDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -24,7 +24,7 @@ use crate::{
 
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
-fn read_json(path: &str) -> Value {
+pub(crate) fn read_json(path: &str) -> Value {
     let mut text = String::new();
     let full = format!("{ROOT}/{path}");
     if path.ends_with(".gz") {
@@ -62,7 +62,7 @@ fn parsed(keep: &[&str], extra: Vec<Value>) -> Option<Contract> {
 }
 
 /// The H-typescript reply as the store accepts it.
-fn reply() -> archkeel_store::Ingested {
+pub(crate) fn reply() -> archkeel_store::Ingested {
     reply_with(|_| {})
 }
 
@@ -85,7 +85,7 @@ pub(crate) fn reply_with(change: impl FnOnce(&mut Value)) -> archkeel_store::Ing
 }
 
 /// A model of the contract; `trusted` false gives the cause `Producer`, an incomplete scope.
-fn model(contract: &Contract, trusted: bool) -> Model {
+fn model(contract: &Contract, trusted: bool) -> ModelTree {
     model_of(contract, &reply(), trusted)
 }
 
@@ -93,7 +93,7 @@ pub(crate) fn model_of(
     contract: &Contract,
     reply: &archkeel_store::Ingested,
     trusted: bool,
-) -> Model {
+) -> ModelTree {
     let profile = reply.reply().facts.profile.as_str().to_owned();
     let settings = Settings::new("shop".to_owned(), profile, Vec::new());
     let settings = if trusted {
@@ -101,10 +101,10 @@ pub(crate) fn model_of(
     } else {
         settings
     };
-    Model::derive(contract, reply, settings).unwrap()
+    ModelTree::of(contract, Graph::derive(reply, settings).unwrap()).unwrap()
 }
 
-fn text() -> RuleText {
+pub(crate) fn text() -> RuleText {
     RuleText {
         title: "a rule".to_owned(),
         rationale: "a reason".to_owned(),
@@ -137,11 +137,14 @@ const BOTH: [&str; 2] = ["ASSIGNMENT", "LAYOUT"];
 fn a_complete_run_whose_rules_pass_builds_a_pass_frame() {
     let contract = contract(&BOTH);
     let model = model(&contract, true);
-    let (outcome, records) = frame(rows(&evaluate(&model)));
+    let (outcome, records) = frame(rows(&evaluate(model.root())));
     let report = build(outcome, records, Some(&model)).unwrap();
     assert_eq!(report.source().status(), Status::Pass);
     assert_eq!(report.source().observation(), Status::Pass);
-    assert!(report.source().pass().is_some_and(|pass| pass.of(&model)));
+    assert!(report
+        .source()
+        .pass()
+        .is_some_and(|pass| pass.of(model.root())));
     assert!(Report::read(&report.encode().unwrap()).is_ok());
 }
 
@@ -167,7 +170,7 @@ fn a_pass_of_another_model_is_refused_in_the_rule_row() {
     let contract = contract(&BOTH);
     let first = model(&contract, true);
     let second = model(&contract, true);
-    let (outcome, records) = frame(rows(&evaluate(&first)));
+    let (outcome, records) = frame(rows(&evaluate(first.root())));
     let wanted = BuildError::ForeignPass {
         rule: "ASSIGNMENT".to_owned(),
     };
@@ -182,7 +185,7 @@ fn a_pass_of_another_model_is_refused_in_the_rule_row() {
 fn a_pass_of_rule_a_in_the_row_of_rule_b_is_refused() {
     let contract = contract(&BOTH);
     let model = model(&contract, true);
-    let outcomes = evaluate(&model);
+    let outcomes = evaluate(model.root());
     let mut rules = rows(&outcomes);
     let pass_of_a = RuleDecision::Decided(outcomes[0].decision().cloned().unwrap());
     let layout = RuleOutcome::of(
@@ -204,7 +207,7 @@ fn a_pass_of_rule_a_in_the_row_of_rule_b_is_refused() {
 fn a_run_with_a_rule_without_its_pass_has_no_run_proof() {
     let contract = contract(&BOTH);
     let model = model(&contract, true);
-    let outcomes = evaluate(&model);
+    let outcomes = evaluate(model.root());
     for rules in [
         rows(&outcomes[..1]),
         vec![
@@ -222,15 +225,17 @@ fn a_run_with_a_rule_without_its_pass_has_no_run_proof() {
 fn the_run_proof_needs_the_scope_and_a_pass_of_each_rule() {
     let contract = contract(&BOTH);
     let complete = model(&contract, true);
-    let outcomes = evaluate(&complete);
+    let outcomes = evaluate(complete.root());
     let decisions: Vec<Decision> = outcomes
         .iter()
         .filter_map(|o| o.decision().cloned())
         .collect();
-    let proof = |m: &Model, d: &[Decision]| m.scope(|s| s.run_complete(d).map(|p| s.pass_run(p)));
+    let proof = |m: &ModelTree, d: &[Decision]| {
+        m.root().scope(|s| s.run_complete(d).map(|p| s.pass_run(p)))
+    };
     let other = model(&contract, true);
     let pass = proof(&complete, &decisions);
-    assert!(pass.is_ok_and(|pass| pass.of(&complete) && !pass.of(&other)));
+    assert!(pass.is_ok_and(|pass| pass.of(complete.root()) && !pass.of(other.root())));
     assert_eq!(proof(&other, &decisions), Err(RunGap::NotPass(0)));
     let with_fail = [decisions[0].clone(), decisions[1].clone(), Decision::fail()];
     assert_eq!(proof(&complete, &with_fail), Err(RunGap::NotPass(2)));
@@ -242,7 +247,7 @@ fn the_run_proof_needs_the_scope_and_a_pass_of_each_rule() {
     assert_eq!(proof(&empty, &decisions[..1]), Err(RunGap::NotPass(0)));
 }
 
-fn contract_model(keep: &[&str]) -> Model {
+fn contract_model(keep: &[&str]) -> ModelTree {
     model(&contract(keep), true)
 }
 
@@ -250,7 +255,7 @@ fn contract_model(keep: &[&str]) -> Model {
 fn the_observation_is_pass_only_for_a_complete_scope_of_the_model() {
     let contract = contract(&BOTH);
     let incomplete = model(&contract, false);
-    let outcomes = evaluate(&incomplete);
+    let outcomes = evaluate(incomplete.root());
     let payload = Payload::decode(&bytes("E-runtime")).unwrap();
     let (mut outcome, records) = inputs(&payload).unwrap();
     outcome.rules = rows(&outcomes);
@@ -264,13 +269,13 @@ fn the_observation_is_pass_only_for_a_complete_scope_of_the_model() {
 fn an_evaluated_row_takes_its_id_kind_and_reason_from_the_outcome() {
     let contract = contract(&BOTH);
     let incomplete = model(&contract, false);
-    let outcomes = evaluate(&incomplete);
+    let outcomes = evaluate(incomplete.root());
     let row = RuleOutcome::evaluated(&outcomes[0], text());
     assert_eq!(row.id(), "ASSIGNMENT");
     assert_eq!(row.kind, "complete_assignment");
     assert_eq!(row.why_unknown, Some(crate::WhyUnknown::ScopeIncomplete));
     let complete = model(&contract, true);
-    let passed = RuleOutcome::evaluated(&evaluate(&complete)[1], text());
+    let passed = RuleOutcome::evaluated(&evaluate(complete.root())[1], text());
     assert_eq!((passed.id(), passed.why_unknown), ("LAYOUT", None));
 }
 
@@ -321,7 +326,7 @@ fn each_reason_of_the_model_has_its_row_reason() {
 fn a_pass_row_without_its_receipt_is_refused() {
     let contract = contract(&BOTH);
     let model = model(&contract, true);
-    let outcomes = evaluate(&model);
+    let outcomes = evaluate(model.root());
     let no_receipt = RuleText {
         evaluated: false,
         ..text()
@@ -371,7 +376,7 @@ fn a_rule_of_another_contract_cannot_make_a_run_pass() {
     let reply = reply_with(undeclared_import);
     let own = contract(&["EXTERNAL-COMPLETE"]);
     let model = model_of(&own, &reply, true);
-    let decisions: Vec<Decision> = evaluate(&model)
+    let decisions: Vec<Decision> = evaluate(model.root())
         .iter()
         .filter_map(|o| o.decision().cloned())
         .collect();
@@ -382,15 +387,17 @@ fn a_rule_of_another_contract_cannot_make_a_run_pass() {
         "decided_by": "architect"});
     let forged = parsed(&["EXTERNAL-COMPLETE"], vec![forge]).unwrap();
     let other = model_of(&forged, &reply, true);
-    let foreign: Vec<Decision> = evaluate(&other)
+    let foreign: Vec<Decision> = evaluate(other.root())
         .iter()
         .filter(|o| o.rule() == "EXTERNAL-COMPLETE")
         .filter_map(|o| o.decision().cloned())
         .collect();
-    assert!(foreign[0].passes(&other, "EXTERNAL-COMPLETE"));
-    let run = model.scope(|s| s.run_complete(&foreign).map(|p| s.pass_run(p)));
+    assert!(foreign[0].passes(other.root(), "EXTERNAL-COMPLETE"));
+    let run = model
+        .root()
+        .scope(|s| s.run_complete(&foreign).map(|p| s.pass_run(p)));
     assert_eq!(run, Err(RunGap::NotPass(0)));
-    let rows = frame(rows(&evaluate(&other)[..1]));
+    let rows = frame(rows(&evaluate(other.root())[..1]));
     let wanted = BuildError::ForeignPass {
         rule: "EXTERNAL-COMPLETE".to_owned(),
     };
@@ -409,7 +416,7 @@ fn allow() -> Value {
 fn a_contract_with_only_declaration_rules_passes() {
     let contract = parsed(&[], vec![allow()]).unwrap();
     let model = model(&contract, true);
-    let outcomes = evaluate(&model);
+    let outcomes = evaluate(model.root());
     assert!(outcomes.iter().all(|o| o.decision().is_none()));
     let (outcome, records) = frame(rows(&outcomes));
     let report = build(outcome, records, Some(&model)).unwrap();
@@ -422,9 +429,9 @@ fn a_contract_with_only_declaration_rules_passes() {
 fn a_fail_rule_shown_as_a_declaration_is_refused() {
     let contract = parsed(&BOTH, vec![allow()]).unwrap();
     let model = model(&contract, true);
-    assert!(RuleOutcome::declaration(&model, "ASSIGNMENT".into(), text()).is_none());
-    assert!(RuleOutcome::declaration(&model, "ALLOW".into(), text()).is_some());
-    let mut rules = rows(&evaluate(&model));
+    assert!(RuleOutcome::declaration(model.root(), "ASSIGNMENT".into(), text()).is_none());
+    assert!(RuleOutcome::declaration(model.root(), "ALLOW".into(), text()).is_some());
+    let mut rules = rows(&evaluate(model.root()));
     rules[0] = RuleOutcome::of(
         "ASSIGNMENT".into(),
         "complete_assignment".into(),
@@ -444,8 +451,8 @@ fn a_fail_rule_shown_as_a_declaration_is_refused() {
 fn a_declaration_row_cannot_stand_in_for_a_missing_pass() {
     let contract = parsed(&BOTH, vec![allow()]).unwrap();
     let model = model(&contract, true);
-    let outcomes = evaluate(&model);
-    let allow_row = RuleOutcome::declaration(&model, "ALLOW".into(), text()).unwrap();
+    let outcomes = evaluate(model.root());
+    let allow_row = RuleOutcome::declaration(model.root(), "ALLOW".into(), text()).unwrap();
     let (outcome, records) = frame(vec![rows(&outcomes)[0].clone(), allow_row]);
     let wanted = BuildError::PassWithoutProof(Some(RunGap::Rule("LAYOUT".to_owned())));
     assert_eq!(build(outcome, records, Some(&model)), Err(wanted));

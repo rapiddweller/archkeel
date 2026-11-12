@@ -32,13 +32,15 @@ fn kept_gap(reply: &mut Value) {
 fn a_kept_gap_that_holds_no_rule_still_holds_the_run_pass_of_the_report() {
     let contract = contract(&["ASSIGNMENT", "LAYOUT"]);
     let model = model_of(&contract, &reply_with(kept_gap), true);
-    assert_eq!(model.kept_pair_gaps(), 1);
-    let outcomes = evaluate(&model);
+    assert_eq!(model.root().kept_pair_gaps(), 1);
+    let outcomes = evaluate(model.root());
     let decisions: Vec<_> = outcomes.iter().filter_map(|o| o.decision()).collect();
     assert!(decisions
         .iter()
-        .all(|d| d.passes(&model, outcomes_rule(&outcomes, d))));
-    let gap = model.scope(|scope| scope.run_complete(decisions.iter().copied()).err());
+        .all(|d| d.passes(model.root(), outcomes_rule(&outcomes, d))));
+    let gap = model
+        .root()
+        .scope(|scope| scope.run_complete(decisions.iter().copied()).err());
     let held = matches!(
         gap,
         Some(RunGap::Scope(Reason::NotComplete(Cause::PairGaps(_))))
@@ -55,7 +57,7 @@ fn a_kept_gap_that_holds_no_rule_still_holds_the_run_pass_of_the_report() {
 fn each_pass_beyond_the_reference_engine_has_its_row_in_the_report_frame() {
     let contract = contract(&["ASSIGNMENT", "LAYOUT"]);
     let model = model_of(&contract, &reply_with(kept_gap), true);
-    let (outcome, records) = frame(rows(&evaluate(&model)));
+    let (outcome, records) = frame(rows(&evaluate(model.root())));
     let report = build(outcome, records, Some(&model)).unwrap();
     let unknowns = &report.payload().unknowns;
     assert_eq!(
@@ -69,7 +71,7 @@ fn each_pass_beyond_the_reference_engine_has_its_row_in_the_report_frame() {
     assert!(Report::read(&bytes).is_ok());
     // The same rules without a kept gap pass the run and have no such row.
     let clean = model_of(&contract, &reply_with(|_| {}), true);
-    let (outcome, records) = frame(rows(&evaluate(&clean)));
+    let (outcome, records) = frame(rows(&evaluate(clean.root())));
     let report = build(outcome, records, Some(&clean)).unwrap();
     assert_eq!(report.source().status(), Status::Pass);
     assert!(!String::from_utf8_lossy(&report.encode().unwrap()).contains(BEYOND_KIND));

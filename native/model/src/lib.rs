@@ -35,6 +35,8 @@
 //!   receipts and the receipt of `complete_requires` that read them (`receipts.rs`); the
 //!   component cycles (`component_cycles.rs`); and the rules that each kept pair gap can change
 //!   (`pair_gaps.rs`, AD-384).
+//! - The tree (`tree.rs`, AD-385): one model for each contract of an inside-contract tree, with
+//!   the source domain of its mount and the one scope state of the tree.
 //!
 //! The model names no language: a rule of the native contract and a test check that.
 
@@ -106,3 +108,9 @@ pub use causes::{Held, HELD_SHOWN};
 pub use component_cycles::{cycles_of_components, ComponentCycle};
 pub use pair_gaps::{reads, Reads};
 pub use receipts::{GapScope, ScanProof};
+
+// The models of an inside-contract tree (AD-385): one model for each contract of the tree.
+mod domain;
+mod tree;
+
+pub use tree::ModelTree;

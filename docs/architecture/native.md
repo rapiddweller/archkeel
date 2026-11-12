@@ -96,9 +96,11 @@ make dual-run DUAL_RUN_ARGS="--sections violations,dependency_edges \
 
 A root that mounts inside contracts names the paths that it needs in `self_test.contract.missing`.
 The harness reads them (`tools/dual_run_tree.py`) and sends the request again with the files,
-until the tree assembles or a named error stays. The core decides the root rules of the tree; each
-rule of a mount and each PASS of a root rule of a tree is a named gap
+until the tree assembles or a named error stays
 ([AD-379](decisions/ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md)).
+The model makes one model for each contract of the tree, with the source domain of its mount and
+one scope state for the whole tree, so each rule of the tree has its verdict
+([AD-385](decisions/ad-385-the-core-decides-the-rules-of-a-contract-tree-with-one-model-per-mount.md)).
 
 The core decides `no_component_cycles` at component and module level, and the receipts of the
 cycle rules and of `complete_requires` read the scan roots that the model binds to the reply. A

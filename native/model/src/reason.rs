@@ -29,9 +29,11 @@ pub enum Unsupported {
     UmlTarget,
     /// The baseline of a request: no slice reads it yet.
     Baseline,
-    /// A rule of an inside contract: the core does not clip the scope of a mount yet (AD-379).
+    /// A rule of an inside contract without the domain of its mount: `Model::of` refuses an
+    /// inside contract, and only `ModelTree::tree` makes its model (AD-385).
     InsideRule,
-    /// A PASS of a root rule of a tree: the core does not read the coverage of the mounts yet.
+    /// A PASS of a rule of a tree whose models do not hold every mount: the second line of the
+    /// core after the scope proof (AD-385).
     TreeScope,
 }
 
@@ -127,11 +129,11 @@ impl fmt::Display for Unsupported {
             Unsupported::Baseline => {
                 formatter.write_str("the baseline of the request: no slice reads it yet")
             }
-            Unsupported::InsideRule => formatter.write_str(
-                "a rule of an inside contract: the core does not clip a mount scope yet",
-            ),
+            Unsupported::InsideRule => {
+                formatter.write_str("a rule of an inside contract without the domain of its mount")
+            }
             Unsupported::TreeScope => formatter.write_str(
-                "the scope proof of a contract tree: the core does not read the mount coverage yet",
+                "the scope proof of a contract tree: the models do not hold every mount",
             ),
         }
     }

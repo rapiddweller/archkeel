@@ -32,6 +32,9 @@ pub enum Cause {
     Undecided(usize),
     /// The receipt of the rule is not complete: why (slice S7, AD-384).
     Receipt(&'static str),
+    /// A component of an inside contract claims a package or a module outside its parent: the
+    /// parent key of the mount (`inside_source_domain_incomplete`, AD-385).
+    InsideSourceDomain(String),
 }
 
 /// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
@@ -83,8 +86,9 @@ pub enum Part {
     ConstructSubjects(String),
     /// The rule is not a rule of the contract of this model.
     ForeignRule,
-    /// The contract mounts inside contracts. The reference engine reads the mounts for the root
-    /// verdicts (a mount failure makes a root rule UNKNOWN); the core does not (AD-379).
+    /// The contract mounts inside contracts, and the model reads no mount (`Model::of`, AD-379).
+    /// The reference engine reads the mounts for the root verdicts; `ModelTree::tree` reads them
+    /// (AD-385).
     MountedTree,
     /// The receipt needs the scan roots of the configuration, and the request has none
     /// (`scope_receipts_complete`, `_cycle_scan_coverage`).
@@ -100,6 +104,12 @@ pub enum Part {
     /// `complete_requires`: the receipt scope of a rule of a kind that no slice decides
     /// (`scope_receipts_complete` reads the sources of selector rules).
     ReceiptSources,
+    /// A `layer_order` rule of an inside contract: its row and receipt cite the file of the inside
+    /// contract, which the core does not bind (AD-385).
+    MountedLayerOrder,
+    /// A mount whose parent the core does not find in the clipped contract of its owner: the
+    /// parent key (AD-385). The assembly of the tree makes this case impossible today.
+    MountParent(String),
 }
 
 impl fmt::Display for Cause {
@@ -140,6 +150,10 @@ impl fmt::Display for Cause {
             Cause::Receipt(why) => {
                 write!(formatter, "the receipt of the rule is not complete: {why}")
             }
+            Cause::InsideSourceDomain(parent) => write!(
+                formatter,
+                "a component inside {parent} claims a module outside its parent"
+            ),
         }
     }
 }
@@ -163,9 +177,8 @@ impl fmt::Display for Part {
                 "{rule} selects no module; the core does not read the symbols of its source"
             ),
             Part::ForeignRule => formatter.write_str("the rule is not a rule of this model"),
-            Part::MountedTree => formatter.write_str(
-                "the contract mounts inside contracts; the core does not read their coverage",
-            ),
+            Part::MountedTree => formatter
+                .write_str("the contract mounts inside contracts; this model reads no mount"),
             Part::ScanRoots => {
                 formatter.write_str("the receipt needs the scan roots; the request has none")
             }
@@ -180,6 +193,14 @@ impl fmt::Display for Part {
             ),
             Part::ReceiptSources => formatter.write_str(
                 "the receipt reads the source of a rule of a kind that the core does not decide",
+            ),
+            Part::MountedLayerOrder => formatter.write_str(
+                "a layer_order rule of an inside contract cites the inside contract file; the \
+                 core does not bind it",
+            ),
+            Part::MountParent(parent) => write!(
+                formatter,
+                "the parent of the mount {parent} is not in the contract of its owner"
             ),
         }
     }

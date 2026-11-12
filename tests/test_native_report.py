@@ -93,10 +93,15 @@ def test_the_frame_without_graph_carries_no_edge_and_names_imports(built: Path) 
 
 # The attempts of AD-381: the run proof in the barrier crate, the report and the evaluator in
 # their own document tests (the barrier crate is below them in the crate order, AD-382).
+# AD-385 adds the attempts of the models of a tree to the barrier crate.
+BARRIER = NATIVE / "model-barrier/src/lib.rs"
 ATTEMPTS = {
-    "archkeel-model-barrier": (NATIVE / "model-barrier/src/lib.rs", "# The run proof (AD-381)", 4),
-    "archkeel-report": (NATIVE / "report/src/lib.rs", "# The barrier of the report (AD-381)", 4),
-    "archkeel-eval": (NATIVE / "eval/src/lib.rs", "# The barrier of the evaluator (AD-381)", 1),
+    "archkeel-model-barrier": [
+        (BARRIER, "# The run proof (AD-381)", 4),
+        (BARRIER, "# The models of a tree (AD-385)", 4),
+    ],
+    "archkeel-report": [(NATIVE / "report/src/lib.rs", "# The barrier of the report (AD-381)", 4)],
+    "archkeel-eval": [(NATIVE / "eval/src/lib.rs", "# The barrier of the evaluator (AD-381)", 1)],
 }
 
 
@@ -104,7 +109,7 @@ def test_each_barrier_attempt_of_ad_381_fails_with_its_error_code() -> None:
     """S2 of the review of #1080: a stable rustdoc does not check the error code of a
     `compile_fail` test. `RUSTC_BOOTSTRAP=1` makes it check: rustdoc compiles each attempt on
     its own and fails when the named code is not the error. Each attempt of AD-381 names one."""
-    for path, heading, count in ATTEMPTS.values():
+    for path, heading, count in [section for sections in ATTEMPTS.values() for section in sections]:
         section = path.read_text(encoding="utf-8").split(heading, 1)[1].split("\n//! # ", 1)[0]
         fences = re.findall(r"^//! ```(compile_fail\S*)$", section, re.M)
         assert len(fences) == count, path

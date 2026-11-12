@@ -42,14 +42,13 @@ fn sole<T: Copy>(mut claims: impl Iterator<Item = T>) -> Option<T> {
     claims.next().is_none().then_some(first)
 }
 
-/// The owner of each module, by module id.
-pub(crate) fn owners(
+/// The owner of each module of `held` that has exactly one owner. A mount reads only the
+/// modules of its domain, so its table grows with the domain, not with the reply (AD-385).
+pub(crate) fn owners<'m>(
     components: &Table<ComponentId, Component>,
-    modules: &Table<ModuleId, Module>,
-) -> Vec<Option<ComponentId>> {
-    modules
-        .iter()
-        .map(|(_, module)| owner_of(components, module.name()))
+    held: impl Iterator<Item = (ModuleId, &'m Module)>,
+) -> HashMap<ModuleId, ComponentId> {
+    held.filter_map(|(id, module)| owner_of(components, module.name()).map(|owner| (id, owner)))
         .collect()
 }
 
