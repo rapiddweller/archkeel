@@ -71,12 +71,19 @@ fn roles(raw: &Json, label: &str) -> Result<Vec<BaselineRole>, BaselineError> {
     Ok(parsed)
 }
 
+fn sorted_entries<'a>(
+    raw: &'a Json,
+    label: &str,
+) -> Result<Vec<(&'a str, &'a Json)>, BaselineError> {
+    let value = object(raw, label)?;
+    let mut entries: Vec<(&str, &Json)> = entries(value).collect();
+    entries.sort_unstable_by_key(|(key, _)| *key);
+    Ok(entries)
+}
+
 pub(super) fn budgets(raw: &Json, with_names: bool) -> Result<Vec<BaselineBudget>, BaselineError> {
-    let value = object(raw, "baseline.budgets")?;
-    let mut names: Vec<(&str, &Json)> = entries(value).collect();
-    names.sort_unstable_by_key(|(name, _)| *name);
     let mut budgets = Vec::new();
-    for (name, raw) in names {
+    for (name, raw) in sorted_entries(raw, "baseline.budgets")? {
         let label = format!("baseline.budgets.{name}");
         match (with_names, name) {
             (true, "facade_names") => {
@@ -115,11 +122,8 @@ fn name_budgets(
     raw: &Json,
     label: &str,
 ) -> Result<Vec<BaselineBudget>, BaselineError> {
-    let value = object(raw, label)?;
-    let mut keys: Vec<(&str, &Json)> = entries(value).collect();
-    keys.sort_unstable_by_key(|(key, _)| *key);
     let mut budgets = Vec::new();
-    for (key, raw) in keys {
+    for (key, raw) in sorted_entries(raw, label)? {
         let names_label = format!("{label}.{key}");
         let names = strings(raw, &names_label)?;
         if names.windows(2).any(|pair| pair.first() >= pair.get(1)) {
