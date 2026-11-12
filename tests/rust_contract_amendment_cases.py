@@ -82,6 +82,11 @@ def generated_cases() -> list[tuple[str, bytes]]:
         cases.append((f"missing {key}", encode(_without(key))))
         for wrong in WRONG:
             cases.append((f"wrong {key} {wrong!r}", encode(document(**{key: wrong}))))
+    # One key swapped for an unknown key: the count stays 7, the set differs.
+    for key in KEYS[1:]:
+        swapped = _without(key)
+        swapped["unknown"] = document()[key]
+        cases.append((f"swapped {key} for an unknown key", encode(swapped)))
     for extra in ("extra", "Decided_by", "", "schema"):
         cases.append((f"unknown field {extra!r}", encode({**document(), extra: "x"})))
     for key in DIGESTS:

@@ -41,9 +41,8 @@ mod tree_tests;
 
 pub use amendment::{
     amendment_bytes, parse_amendment, Amendment, AmendmentDigest, AmendmentError, AmendmentField,
-    AMENDMENT_VERSION,
 };
-pub use binding::{bind, compare_introduced, Baselines, Binding, GateStatus, OldContract, Verdict};
+pub use binding::{bind, Baselines, BindError, Binding, GateStatus, OldContract, Verdict};
 pub use change::{ChangeDirection, ChangeKind, ContractChange};
 pub use compare::{compare_trees, Comparison};
 pub use issue::{IssueKind, SourceProblem, TreeError, TreeIssue};

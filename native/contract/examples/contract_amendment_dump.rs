@@ -19,8 +19,8 @@ use std::io::{self, BufRead, Write};
 
 use archkeel_contract::parse;
 use archkeel_contract::policy::{
-    amendment_bytes, assemble_tree, bind, parse_amendment, AmendmentError, Baselines, Binding,
-    ChangeDirection, ContractTree, GateStatus, OldContract,
+    amendment_bytes, assemble_tree, bind, parse_amendment, AmendmentError, AmendmentField,
+    Baselines, BindError, Binding, ChangeDirection, ContractTree, GateStatus, OldContract,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -36,6 +36,8 @@ struct Line {
     amendment: Option<String>,
     decided_by: Option<String>,
     rationale: Option<String>,
+    #[serde(default)]
+    baseline: bool,
 }
 
 fn unhex(text: &str) -> Option<Vec<u8>> {
@@ -87,26 +89,36 @@ fn parsed(bytes: &[u8]) -> Value {
     }
 }
 
-/// The binding of a gate line, or `None` when a tree cannot be assembled.
-fn binding(line: &Line) -> Option<Binding> {
-    let after = tree(line.after.as_deref()?)?;
+/// The binding of a gate line, or the answer that refuses it: a tree that cannot be assembled,
+/// or a run with a baseline (L-34a).
+fn binding(line: &Line) -> Result<Binding, Value> {
+    let tree_refused = || json!({"kind": "refused"});
+    let after = tree(line.after.as_deref().ok_or_else(tree_refused)?).ok_or_else(tree_refused)?;
     let before = match &line.before {
-        Some(sources) => Some(tree(sources)?),
+        Some(sources) => Some(tree(sources).ok_or_else(tree_refused)?),
         None => None,
     };
     let old = match &before {
         Some(before) => OldContract::Tree(before),
         None => OldContract::Introduced {
-            path: line.path.as_deref()?,
-            against: line.against.as_deref()?,
+            path: line.path.as_deref().ok_or_else(tree_refused)?,
+            against: line.against.as_deref().ok_or_else(tree_refused)?,
         },
     };
-    Some(bind(old, &after, Baselines::not_configured()))
+    let baselines = if line.baseline {
+        Baselines::configured_unsupported()
+    } else {
+        Baselines::not_configured()
+    };
+    bind(old, &after, baselines).map_err(|error| match error {
+        BindError::BaselineNotSupported => json!({"kind": "refused", "reason": "baseline"}),
+    })
 }
 
 fn gate(line: &Line) -> Option<Value> {
-    let Some(binding) = binding(line) else {
-        return Some(json!({"kind": "refused"}));
+    let binding = match binding(line) {
+        Ok(binding) => binding,
+        Err(answer) => return Some(answer),
     };
     let amendment = match &line.amendment {
         Some(text) => match parse_amendment(&unhex(text)?) {
@@ -136,8 +148,9 @@ fn gate(line: &Line) -> Option<Value> {
 }
 
 fn amend(line: &Line) -> Option<Value> {
-    let Some(binding) = binding(line) else {
-        return Some(json!({"kind": "refused"}));
+    let binding = match binding(line) {
+        Ok(binding) => binding,
+        Err(answer) => return Some(answer),
     };
     let written = binding.amend(line.decided_by.as_deref()?, line.rationale.as_deref()?);
     Some(match written {
@@ -146,12 +159,32 @@ fn amend(line: &Line) -> Option<Value> {
     })
 }
 
+/// The code points that the reader refuses as a blank `decided_by`.
+fn blank_table() -> Value {
+    let digest = "0".repeat(64);
+    let blank: Vec<u32> = (0..=0x10_ffff_u32)
+        .filter_map(char::from_u32)
+        .filter(|item| {
+            let document = json!({
+                "schema_version": "2.0.0", "before_digest": digest, "after_digest": digest,
+                "decided_by": item.to_string(), "rationale": "r",
+                "before_baseline_digest": null, "after_baseline_digest": null,
+            });
+            let bytes = document.to_string().into_bytes();
+            parse_amendment(&bytes) == Err(AmendmentError::Empty(AmendmentField::DecidedBy))
+        })
+        .map(u32::from)
+        .collect();
+    json!({ "blank": blank })
+}
+
 fn answer(text: &str) -> Option<Value> {
     let line: Line = serde_json::from_str(text).ok()?;
     match line.op.as_str() {
         "parse" => Some(parsed(&unhex(line.bytes.as_deref()?)?)),
         "gate" => gate(&line),
         "amend" => amend(&line),
+        "blank_table" => Some(blank_table()),
         _ => None,
     }
 }

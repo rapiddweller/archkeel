@@ -11,7 +11,7 @@ use crate::policy::amendment::blank;
 use crate::policy::binding::absent_contract_digest;
 use crate::policy::{
     amendment_bytes, assemble_tree, bind, parse_amendment, AmendmentError, AmendmentField,
-    Baselines, ContractTree, GateStatus, OldContract,
+    Baselines, BindError, ContractTree, GateStatus, OldContract,
 };
 
 const ROOT: &str = "architecture-contract.json";
@@ -92,6 +92,10 @@ fn schema_one_and_unknown_schemas_are_named_errors() {
         "decided_by": "J", "rationale": "R",
     });
     assert_eq!(parsed(&v1), Err(AmendmentError::Version1));
+    let hint = AmendmentError::Version1.to_string();
+    let command = "archkeel validate --against <ref> --amendment <path> --write-amendment \
+                   --decided-by <who> --rationale <why>";
+    assert!(hint.ends_with(command), "{hint}");
     let unknown = parsed(&with("schema_version", json!("2.0.1")));
     assert_eq!(
         unknown.map_err(|e| e.to_string()),
@@ -176,11 +180,13 @@ fn blank_is_python_str_isspace() {
     for text in ['\u{200b}', '\u{180e}', '\u{feff}', 'x'] {
         assert!(!blank(&text.to_string()), "{text:?}");
     }
-    let python: Vec<u32> = (0..=0x10_ffff)
-        .filter_map(char::from_u32)
-        .filter(|c| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(c))
-        .map(u32::from)
-        .collect();
+    // The code points of Python `str.isspace`; `tests/test_rust_contract_amendment_parity.py`
+    // checks the same list against Python and against this crate.
+    let python: Vec<u32> = vec![
+        0x9, 0xa, 0xb, 0xc, 0xd, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001,
+        0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x2028, 0x2029,
+        0x202f, 0x205f, 0x3000,
+    ];
     let table: Vec<u32> = (0..=0x10_ffff)
         .filter_map(char::from_u32)
         .filter(|c| blank(&c.to_string()))
@@ -254,7 +260,8 @@ fn an_amendment_covers_only_the_comparison_that_it_binds() {
         OldContract::Tree(&before),
         &after,
         Baselines::not_configured(),
-    );
+    )
+    .unwrap();
     let missing = binding.check(None);
     assert_eq!(*missing.status(), GateStatus::Unamended);
     assert!(!missing.passes());
@@ -268,7 +275,8 @@ fn an_amendment_covers_only_the_comparison_that_it_binds() {
         OldContract::Tree(&after),
         &before,
         Baselines::not_configured(),
-    );
+    )
+    .unwrap();
     let stale = reverse.check(Some(&amendment));
     assert_eq!(*stale.status(), GateStatus::Stale);
     assert_eq!(
@@ -279,7 +287,8 @@ fn an_amendment_covers_only_the_comparison_that_it_binds() {
         OldContract::Tree(&before),
         &after,
         Baselines::bound(&digest('c'), &digest('d')),
-    );
+    )
+    .unwrap();
     let verdict = with_baseline.check(Some(&amendment));
     assert_eq!(*verdict.status(), GateStatus::Stale);
     assert!(!verdict.failures().is_empty());
@@ -293,7 +302,8 @@ fn an_amendment_covers_only_the_comparison_that_it_binds() {
         OldContract::Tree(&before),
         &after,
         Baselines::bound(&digest('d'), &digest('c')),
-    );
+    )
+    .unwrap();
     assert_eq!(*swapped.check(Some(&bound)).status(), GateStatus::Stale);
 }
 
@@ -304,7 +314,8 @@ fn an_unchanged_pair_passes_and_a_stale_amendment_fails_it() {
         OldContract::Tree(&before),
         &before,
         Baselines::not_configured(),
-    );
+    )
+    .unwrap();
     assert_eq!(*binding.check(None).status(), GateStatus::Unchanged);
     let amendment = parsed(&document()).unwrap();
     assert!(!binding.check(Some(&amendment)).passes());
@@ -317,7 +328,7 @@ fn an_introduced_contract_is_one_widening_bound_to_its_path() {
         path: ROOT,
         against: "HEAD~1",
     };
-    let binding = bind(old, &after, Baselines::not_configured());
+    let binding = bind(old, &after, Baselines::not_configured()).unwrap();
     let verdict = binding.check(None);
     let message = format!("contract introduced: {ROOT} does not exist at HEAD~1");
     assert_eq!(verdict.failures(), &[message]);
@@ -339,7 +350,8 @@ fn an_introduced_contract_is_one_widening_bound_to_its_path() {
         },
         &after,
         Baselines::not_configured(),
-    );
+    )
+    .unwrap();
     assert_eq!(*moved.check(Some(&amendment)).status(), GateStatus::Stale);
 }
 
@@ -350,7 +362,8 @@ fn a_blank_author_or_reason_is_not_written() {
         OldContract::Tree(&before),
         &after,
         Baselines::not_configured(),
-    );
+    )
+    .unwrap();
     assert_eq!(
         binding.amend(" ", "R"),
         Err(AmendmentError::Empty(AmendmentField::DecidedBy))
@@ -368,7 +381,8 @@ fn each_of_the_four_digests_is_bound() {
         OldContract::Tree(&before),
         &after,
         Baselines::bound(&digest('c'), &digest('d')),
-    );
+    )
+    .unwrap();
     let written = amendment_bytes(&binding.amend("J", "R").unwrap());
     assert_eq!(
         *binding
@@ -387,4 +401,43 @@ fn each_of_the_four_digests_is_bound() {
         let verdict = binding.check(Some(&parsed(&value).unwrap()));
         assert_eq!(*verdict.status(), GateStatus::Stale, "{key}");
     }
+}
+
+#[test]
+fn a_run_with_a_baseline_gets_no_binding() {
+    let (before, after) = widened();
+    let valid = bind(
+        OldContract::Tree(&before),
+        &after,
+        Baselines::not_configured(),
+    )
+    .unwrap()
+    .amend("J", "R")
+    .unwrap();
+    let refused = bind(
+        OldContract::Tree(&before),
+        &after,
+        Baselines::configured_unsupported(),
+    );
+    assert_eq!(refused.err(), Some(BindError::BaselineNotSupported));
+    // The amendment covers the run without a baseline; the run with one gets no verdict.
+    let plain = bind(
+        OldContract::Tree(&before),
+        &after,
+        Baselines::not_configured(),
+    )
+    .unwrap();
+    assert!(plain.check(Some(&valid)).passes());
+    let unchanged = bind(
+        OldContract::Tree(&before),
+        &before,
+        Baselines::configured_unsupported(),
+    );
+    assert_eq!(unchanged.err(), Some(BindError::BaselineNotSupported));
+    let introduced = OldContract::Introduced {
+        path: ROOT,
+        against: "HEAD~1",
+    };
+    let refused = bind(introduced, &after, Baselines::configured_unsupported());
+    assert_eq!(refused.err(), Some(BindError::BaselineNotSupported));
 }

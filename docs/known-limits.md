@@ -360,9 +360,9 @@ A contract that mounts inside contracts parses as `NeedsTree`, not as a complete
 
 The crate also compares two trees as `validate --against` does (`policy::compare_trees`, [AD-373](architecture/decisions/ad-373-the-contract-crate-compares-two-contract-trees-for-against.md)). No command calls it yet. It does not recognise a rename (AD-105), so a moved package shows as widenings. Its messages equal those of Python 3.11; on Python 3.12 or later a code point assigned after Unicode 14 gives other message bytes in the Python engine (L-28). No decision depends on a message.
 
-The crate reads, writes and binds an amendment (`policy::parse_amendment`, `policy::bind`, [AD-375](architecture/decisions/ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md)). No command calls it yet. It binds only a run without `--baseline`, because the baseline codec is not in the crate yet. It is stricter than Python in these cases:
+The crate reads, writes and binds an amendment (`policy::parse_amendment`, `policy::bind`, [AD-375](architecture/decisions/ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md)). No command calls it yet. It binds only a run without `--baseline`, because the baseline codec is not in the crate yet. The shell must state the baseline fact; for a run with `--baseline` (`Baselines::configured_unsupported()`) `bind` gives `BindError::BaselineNotSupported` and no verdict. It does not recognise a rename (AD-105), so Rust reports widenings where Python sees a rename. It is stricter than Python in these cases:
 
-- Schema 1.0.0 is an error (`Version1`). Python reads it and accepts it for a run without `--baseline`.
+- Schema 1.0.0 is an error (`Version1`). Python reads it and accepts it for a run without `--baseline`. Write the amendment again with `archkeel validate --against <ref> --amendment <path> --write-amendment --decided-by <who> --rationale <why>` (lead decision L-34b).
 - A JSON object with one key two times is an error. Python keeps the last value.
 - A lone surrogate escape is invalid JSON. Python reads it and then cannot write it.
 - `Binding::amend` refuses a blank `decided_by` or `rationale`. Python writes a file that its reader refuses.

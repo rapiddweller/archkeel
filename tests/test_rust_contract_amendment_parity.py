@@ -51,6 +51,12 @@ PATHS = ("architecture-contract.json", "other.json", "é/c.json", "a b/c.json")
 AGAINST = ("HEAD~1", "origin/main")
 POSITIONS = ("before_digest", "after_digest", "before_baseline_digest", "after_baseline_digest")
 Side = tuple[InsideContractTree | None, Any]
+# The code points of Python `str.isspace`, written out so that a change of either side shows.
+PYTHON_SPACE = (
+    *(0x9, 0xA, 0xB, 0xC, 0xD, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x85, 0xA0, 0x1680),
+    *range(0x2000, 0x200B),
+    *(0x2028, 0x2029, 0x202F, 0x205F, 0x3000),
+)
 
 
 def _probe() -> Path:
@@ -358,3 +364,44 @@ def test_the_rust_amendment_writer_is_the_python_writer() -> None:
     print(dict(tally))
     assert tally["written"] >= 900, tally
     assert tally["stricter blank"] >= 300, tally
+
+
+@pytest.mark.requires_python(below=12)
+def test_the_blank_texts_of_rust_are_the_blank_texts_of_python() -> None:
+    assert len(PYTHON_SPACE) == 29
+    assert PYTHON_SPACE == tuple(code for code in range(0x110000) if chr(code).isspace())
+    (answer,) = _rust(_probe(), [{"op": "blank_table"}])
+    assert tuple(answer["blank"]) == PYTHON_SPACE
+
+
+@pytest.mark.requires_python(below=12)
+def test_a_run_with_a_baseline_gets_no_rust_decision() -> None:
+    """L-34a: Python binds the baseline digests of a `--baseline` run, which this crate cannot
+    compute, so Rust refuses the run. Python gives a decision; Rust gives none, never a PASS."""
+    probe = _probe()
+    sides = _sides()[:40]
+    path, against = PATHS[0], AGAINST[0]
+    cases = []
+    for _, old, new in sides:
+        valid = _python_amend(old[0], path, against, new[0], "J", "R")
+        cases += [(old, new, valid), (old, new, None), (old, old, None), (None, new, None)]
+        cases.append((None, new, _python_amend(None, path, against, new[0], "J", "R")))
+    lines = [
+        _line(
+            "gate",
+            old,
+            path,
+            against,
+            new,
+            amendment=None if data is None else data.hex(),
+            baseline=True,
+        )
+        for old, new, data in cases
+    ]
+    lines += [
+        _line("amend", old, path, against, new, decided_by="J", rationale="R", baseline=True)
+        for old, new, _ in cases
+    ]
+    answers = _rust(probe, lines)
+    assert answers == [{"kind": "refused", "reason": "baseline"}] * len(lines)
+    assert len(lines) >= 400

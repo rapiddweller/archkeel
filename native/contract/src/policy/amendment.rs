@@ -17,7 +17,7 @@ use crate::json::{self, field, keys, Json, Object};
 use crate::policy::reference::python_repr;
 
 /// The only schema version that this module reads and writes.
-pub const AMENDMENT_VERSION: &str = "2.0.0";
+pub(crate) const AMENDMENT_VERSION: &str = "2.0.0";
 
 text_type!(
     pub(crate),
@@ -99,8 +99,11 @@ impl fmt::Display for AmendmentError {
             AmendmentError::UnsupportedSchema(text) => {
                 write!(formatter, "unsupported amendment schema {text}")
             }
-            AmendmentError::Version1 => formatter
-                .write_str("amendment schema '1.0.0' binds no baseline; write the amendment again"),
+            AmendmentError::Version1 => formatter.write_str(
+                "amendment schema '1.0.0' binds no baseline; write the amendment again with \
+                 archkeel validate --against <ref> --amendment <path> --write-amendment \
+                 --decided-by <who> --rationale <why>",
+            ),
             AmendmentError::FieldsMismatch => formatter.write_str("amendment fields mismatch"),
             AmendmentError::NotString(item) => {
                 write!(formatter, "amendment.{} must be a string", item.key())

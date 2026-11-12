@@ -32,19 +32,36 @@ pub enum OldContract<'a> {
     Introduced { path: &'a str, against: &'a str },
 }
 
-/// The baseline digests that an amendment binds. In this crate only a run without `--baseline`
-/// can make them: Python computes a baseline digest from the canonical baseline bytes, and the
-/// baseline codec is not in this crate yet (M6b row 2). A run with a baseline gets no binding,
-/// so it cannot pass on a digest that the caller wrote (AD-375).
+/// The baseline fact of the run, which the shell must state (lead decision L-34a). Python binds
+/// the digests of the old and the new baseline, and it computes them from the baseline content.
+/// The crate has no baseline codec yet (M6b row 2), so a run with `--baseline` gets no binding:
+/// `bind` refuses it. A digest text from the caller is never accepted (AD-375).
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Baselines {
-    pair: Option<(AmendmentDigest, AmendmentDigest)>,
+    state: BaselineState,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+enum BaselineState {
+    NotConfigured,
+    ConfiguredUnsupported,
+    #[cfg(test)]
+    Bound(AmendmentDigest, AmendmentDigest),
 }
 
 impl Baselines {
-    /// No `--baseline`: the amendment must hold `null` for both baseline digests.
+    /// The run has no `--baseline`: the amendment must hold `null` for both baseline digests.
     pub fn not_configured() -> Baselines {
-        Baselines { pair: None }
+        Baselines {
+            state: BaselineState::NotConfigured,
+        }
+    }
+
+    /// The run has a `--baseline`. `bind` refuses it with `BindError::BaselineNotSupported`.
+    pub fn configured_unsupported() -> Baselines {
+        Baselines {
+            state: BaselineState::ConfiguredUnsupported,
+        }
     }
 
     /// Two baseline digests, for the tests of the binding. The baseline codec replaces it with a
@@ -52,10 +69,37 @@ impl Baselines {
     #[cfg(test)]
     pub(crate) fn bound(before: &str, after: &str) -> Baselines {
         Baselines {
-            pair: Some((computed_digest(before), computed_digest(after))),
+            state: BaselineState::Bound(computed_digest(before), computed_digest(after)),
+        }
+    }
+
+    /// The two baseline digests that an amendment must hold; `None` for a run without baseline.
+    fn pair(&self) -> Option<(&AmendmentDigest, &AmendmentDigest)> {
+        match &self.state {
+            #[cfg(test)]
+            BaselineState::Bound(before, after) => Some((before, after)),
+            BaselineState::NotConfigured | BaselineState::ConfiguredUnsupported => None,
         }
     }
 }
+
+/// Why `bind` gives no binding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BindError {
+    /// The run has a `--baseline`, and the crate cannot compute its digests yet (L-34a).
+    BaselineNotSupported,
+}
+
+impl std::fmt::Display for BindError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BindError::BaselineNotSupported => formatter
+                .write_str("the Rust core cannot bind an amendment for a run with --baseline yet"),
+        }
+    }
+}
+
+impl std::error::Error for BindError {}
 
 /// What the amendment gate says about one comparison.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
@@ -109,7 +153,7 @@ pub(crate) fn absent_contract_digest(path: &str) -> String {
 
 /// The comparison when the old revision holds no contract at `path`: the whole contract is one
 /// widening (Python `_contract_widening_findings` with `_Introduced`). No narrowing is named.
-pub fn compare_introduced(path: &str, against: &str) -> Comparison {
+pub(crate) fn compare_introduced(path: &str, against: &str) -> Comparison {
     let message = format!("contract introduced: {path} does not exist at {against}");
     let subject = format!("contract {path}");
     let change = ContractChange::widened(ChangeKind::Presence, &subject, "presence", message);
@@ -124,10 +168,12 @@ pub fn compare_introduced(path: &str, against: &str) -> Comparison {
 /// use archkeel_contract::{parse, policy::{assemble_tree, bind, Baselines, OldContract}};
 /// let bytes = br#"{"schema_version": "3.14.0", "components": [], "rules": []}"#;
 /// let tree = assemble_tree("c.json", parse(bytes).unwrap(), &[]).unwrap();
-/// let binding = bind(OldContract::Tree(&tree), &tree, Baselines::not_configured());
+/// let binding = bind(OldContract::Tree(&tree), &tree, Baselines::not_configured()).unwrap();
 /// assert!(binding.check(None).passes());
 /// let amendment = binding.amend("Jordan", "Accepted.").unwrap();
 /// assert!(binding.check(Some(&amendment)).passes());
+/// let with_baseline = Baselines::configured_unsupported();
+/// assert!(bind(OldContract::Tree(&tree), &tree, with_baseline).is_err());
 /// ```
 ///
 /// A contract that is not an assembled tree cannot be bound:
@@ -151,7 +197,7 @@ pub fn compare_introduced(path: &str, against: &str) -> Comparison {
 /// use archkeel_contract::{parse, policy::{assemble_tree, bind, Baselines, Binding, OldContract}};
 /// let bytes = br#"{"schema_version": "3.14.0", "components": [], "rules": []}"#;
 /// let tree = assemble_tree("c.json", parse(bytes).unwrap(), &[]).unwrap();
-/// let real = bind(OldContract::Tree(&tree), &tree, Baselines::not_configured());
+/// let real = bind(OldContract::Tree(&tree), &tree, Baselines::not_configured()).unwrap();
 /// let forged = Binding { after_digest: real.before_digest().clone(), ..real };
 /// ```
 ///
@@ -168,7 +214,14 @@ pub fn compare_introduced(path: &str, against: &str) -> Comparison {
 /// use archkeel_contract::policy::AmendmentDigest;
 /// let digest = AmendmentDigest("0".repeat(64));
 /// ```
-pub fn bind(old: OldContract<'_>, after: &ContractTree, baselines: Baselines) -> Binding {
+pub fn bind(
+    old: OldContract<'_>,
+    after: &ContractTree,
+    baselines: Baselines,
+) -> Result<Binding, BindError> {
+    if baselines.state == BaselineState::ConfiguredUnsupported {
+        return Err(BindError::BaselineNotSupported);
+    }
     let (comparison, before) = match old {
         OldContract::Tree(before) => (
             compare_trees(before, after),
@@ -179,18 +232,18 @@ pub fn bind(old: OldContract<'_>, after: &ContractTree, baselines: Baselines) ->
             absent_contract_digest(path),
         ),
     };
-    Binding {
+    Ok(Binding {
         comparison,
         before_digest: computed_digest(&before),
         after_digest: computed_digest(after.comparison_digest().as_text()),
         baselines,
-    }
+    })
 }
 
 impl Binding {
     /// Python `verify_amendment` for schema 2.0.0: the four digests are equal.
     fn binds(&self, amendment: &Amendment) -> bool {
-        let (before_baseline, after_baseline) = match &self.baselines.pair {
+        let (before_baseline, after_baseline) = match self.baselines.pair() {
             Some((before, after)) => (Some(before), Some(after)),
             None => (None, None),
         };
@@ -222,7 +275,7 @@ impl Binding {
     /// The amendment that covers this comparison (Python `_artifact_files`). Rust refuses an
     /// empty or blank `decided_by` or `rationale`; Python writes it and then cannot read it.
     pub fn amend(&self, decided_by: &str, rationale: &str) -> Result<Amendment, AmendmentError> {
-        let (before_baseline, after_baseline) = match &self.baselines.pair {
+        let (before_baseline, after_baseline) = match self.baselines.pair() {
             Some((before, after)) => (Some(before.clone()), Some(after.clone())),
             None => (None, None),
         };
