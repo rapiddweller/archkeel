@@ -244,27 +244,21 @@
 //! }
 //! ```
 //!
-//! # The run proof and the report (AD-381)
+//! # The run proof (AD-381)
 //!
-//! A run PASS needs the run proof of its own scope (L-35b), and a report holds a PASS only from
-//! an `Outcome` of the evaluator. The twin of each attempt below:
+//! A run PASS needs the run proof of its own scope (L-35b). The attempts on the report and on the
+//! evaluator are document tests of `archkeel-report` and `archkeel-eval`, which compile as an
+//! outside crate too: this crate is below them in the crate order (AD-382) and uses neither. The
+//! twin of each attempt below:
 //!
 //! ```
-//! use archkeel_eval::Outcome;
 //! use archkeel_model::{Decision, Model, RunPass};
-//! use archkeel_report::{Decided, Report, RuleOutcome, RuleText};
 //! // 21, 22, 23: the run proof of one scope, used in the same scope.
 //! fn run(model: &Model, decisions: &[Decision]) -> Option<RunPass> {
 //!     model.scope(|scope| scope.run_complete(decisions).ok().map(|proof| scope.pass_run(proof)))
 //! }
 //! // 24: a run PASS is read and checked against its model.
 //! fn of(pass: &RunPass, model: &Model) -> bool { pass.of(model) }
-//! // 25, 26: a rule row from an outcome of the evaluator.
-//! fn row(outcome: &Outcome, text: RuleText) -> RuleOutcome { RuleOutcome::evaluated(outcome, text) }
-//! // 27, 28: bytes come from a decided report.
-//! fn bytes(report: &Report<Decided>) -> Option<Vec<u8>> { report.encode().ok() }
-//! // 29: the evaluator reads the contract of the model.
-//! fn outcomes(model: &Model) -> Vec<Outcome> { archkeel_eval::evaluate(model) }
 //! ```
 //!
 //! 21. A run proof literal: the brand of `RunComplete` is private (E0451).
@@ -302,52 +296,7 @@
 //! fn forge() -> archkeel_model::RunPass { archkeel_model::RunPass { serial: 0 } }
 //! ```
 //!
-//! 25. A report rule row from a bare PASS `Decision`: `evaluated` takes an `Outcome` (E0308).
-//!
-//! ```compile_fail,E0308
-//! use archkeel_model::Decision;
-//! use archkeel_report::{RuleOutcome, RuleText};
-//! fn row(pass: &Decision, text: RuleText) -> RuleOutcome { RuleOutcome::evaluated(pass, text) }
-//! ```
-//!
-//! 26. A report rule row literal: its id and decision are private (E0451).
-//!
-//! ```compile_fail,E0451
-//! fn row(kind: String, text: archkeel_report::RuleText) -> archkeel_report::RuleOutcome {
-//!     archkeel_report::RuleOutcome {
-//!         id: "B".into(), kind, title: text.title, decision: todo!(), evaluated: true,
-//!         why_unknown: None, undecided: text.undecided, rationale: text.rationale,
-//!         decided_by: text.decided_by,
-//!     }
-//! }
-//! ```
-//!
-//! 27. Payload bytes without `Report`: the payload type is private to the report (E0433).
-//!
-//! ```compile_fail,E0433
-//! fn bytes(text: &[u8]) -> Vec<u8> {
-//!     archkeel_report::Payload::decode(text).ok().and_then(|p| p.encode().ok()).unwrap_or_default()
-//! }
-//! ```
-//!
-//! 28. The bytes of a recorded report: only a decided report has `encode` (E0599).
-//!
-//! ```compile_fail,E0599
-//! use archkeel_report::{Recorded, Report};
-//! fn bytes(report: &Report<Recorded>) -> Option<Vec<u8>> { report.encode().ok() }
-//! ```
-//!
-//! 29. The rules of another contract next to a model: `evaluate` reads only the contract of
-//!     the model, so a sibling rule of the caller cannot change a verdict (E0061).
-//!
-//! ```compile_fail,E0061
-//! use archkeel_contract::Contract;
-//! use archkeel_model::Model;
-//! fn forge(other: &Contract, model: &Model) -> Vec<archkeel_eval::Outcome> {
-//!     archkeel_eval::evaluate(other, model)
-//! }
-//! ```
-//!
+
 //! # Closed by a checked identity, not by type
 //!
 //! A PASS of one model given as the decision of another model, and a PASS of rule A given as

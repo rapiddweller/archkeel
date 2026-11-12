@@ -21,6 +21,56 @@
 //!
 //! The crate is not wired yet: the core binary does not call it. The input types of `build`
 //! (`RunOutcome`, `Records`) are the seam that the evaluator and the model slices fill.
+//!
+//! # The barrier of the report (AD-381)
+//!
+//! A crate outside the report cannot put a PASS into a report input without the evaluator, and
+//! cannot write payload bytes without `Report`. Each attempt is a `compile_fail` test with its
+//! error code; the twin that compiles:
+//!
+//! ```
+//! use archkeel_eval::Outcome;
+//! use archkeel_report::{Decided, Report, RuleOutcome, RuleText};
+//! // R1, R2: a rule row from an outcome of the evaluator.
+//! fn row(outcome: &Outcome, text: RuleText) -> RuleOutcome { RuleOutcome::evaluated(outcome, text) }
+//! // R3, R4: bytes come from a decided report.
+//! fn bytes(report: &Report<Decided>) -> Option<Vec<u8>> { report.encode().ok() }
+//! ```
+//!
+//! R1. A report rule row from a bare PASS `Decision`: `evaluated` takes an `Outcome` (E0308).
+//!
+//! ```compile_fail,E0308
+//! use archkeel_model::Decision;
+//! use archkeel_report::{RuleOutcome, RuleText};
+//! fn row(pass: &Decision, text: RuleText) -> RuleOutcome { RuleOutcome::evaluated(pass, text) }
+//! ```
+//!
+//! R2. A report rule row literal: its id and decision are private (E0451).
+//!
+//! ```compile_fail,E0451
+//! fn row(kind: String, text: archkeel_report::RuleText) -> archkeel_report::RuleOutcome {
+//!     archkeel_report::RuleOutcome {
+//!         id: "B".into(), kind, title: text.title, decision: todo!(), evaluated: true,
+//!         why_unknown: None, undecided: text.undecided, rationale: text.rationale,
+//!         decided_by: text.decided_by,
+//!     }
+//! }
+//! ```
+//!
+//! R3. Payload bytes without `Report`: the payload type is private to the report (E0433).
+//!
+//! ```compile_fail,E0433
+//! fn bytes(text: &[u8]) -> Vec<u8> {
+//!     archkeel_report::Payload::decode(text).ok().and_then(|p| p.encode().ok()).unwrap_or_default()
+//! }
+//! ```
+//!
+//! R4. The bytes of a recorded report: only a decided report has `encode` (E0599).
+//!
+//! ```compile_fail,E0599
+//! use archkeel_report::{Recorded, Report};
+//! fn bytes(report: &Report<Recorded>) -> Option<Vec<u8>> { report.encode().ok() }
+//! ```
 
 #![deny(unreachable_pub)]
 

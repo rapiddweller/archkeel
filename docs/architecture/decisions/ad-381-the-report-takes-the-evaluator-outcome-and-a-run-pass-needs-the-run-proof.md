@@ -40,8 +40,12 @@
 10. Names (item 11, review F2). The report types `Level`, `Measure`, `Reason`, `Verdict`, `Graph`
     are `NodeLevel`, `MeasureDef`, `FindingReason`, `BudgetVerdict`, `GraphRows`; `code_list!`
     keeps the schema name, so the bytes do not change. A kind word comes from an exhaustive
-    match (`report -> contract`), not from a serde fallback.
+    match (`report -> contract`, down the crate order of AD-382), not from a serde fallback.
 11. The no-language test reads `report` and its subdirectories, except test files.
+12. The `compile_fail` attempts: the run proof in `native/model-barrier` (21 to 24), the report
+    in the document tests of `report/src/lib.rs` (R1 to R4), `evaluate` in `eval/src/lib.rs`
+    (E1). A document test compiles as an outside crate. The barrier crate is below `eval` and
+    `report` in the crate order of AD-382, so it does not use them, and no rule is changed.
 
 **Seam for the wiring slice (review F4).** `core/src/rules.rs` counts `allowed_dependency` as a
 decided kind; the run proof skips it. The run proof of the report wins: the wiring slice deletes
@@ -51,9 +55,8 @@ decided kind; the run proof skips it. The run proof of the report wins: the wiri
 model that made it and only its contract: a row its rule PASS, the observation its scope, the
 status its run proof.
 
-**Rejected.** `report -> model` only, with a public row constructor that takes a `Decision` and
-an id. A changed `Scope::run`. A run PASS as a `Decision`: a `Decision` PASS names a rule. A
-DECLARATION row taken from the caller: it could hide a FAIL rule.
+**Rejected.** `report -> model` only, with a row constructor that takes a `Decision` and an id.
+A changed `Scope::run`. A run PASS as a `Decision`. A DECLARATION row taken from the caller.
 
 **Limit.** `RunPass` is not branded after `pass_run`; `RunPass::of` checks the serial. A run
 without a model accepts a DECLARATION row unchecked; it has no PASS. `evaluated` of a row is the
@@ -62,6 +65,6 @@ code of a `compile_fail` test; `tests/test_native_report.py` runs the barrier wi
 `RUSTC_BOOTSTRAP=1` so that the codes are checked.
 
 **Tests.** `native/report/src/run_tests.rs`, `build_tests.rs`; `native/eval/src/external_tests.rs`
-(`a_sibling_rule_comes_only_from_the_contract_of_the_model`); the doctests 21 to 29 of
-`native/model-barrier` and of `native/model/src/run.rs`; `tests/test_native_report.py`;
+(`a_sibling_rule_comes_only_from_the_contract_of_the_model`); the doctests 21 to 24 of
+`native/model-barrier`, R1 to R4, E1 and of `model/src/run.rs`; `tests/test_native_report.py`;
 `tests/test_native_core.py` (`test_the_model_the_evaluator_and_the_core_name_no_language`).

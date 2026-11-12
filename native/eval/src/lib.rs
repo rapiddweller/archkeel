@@ -20,6 +20,27 @@
 //! `complete_requires` and `layer_order`. An `allowed_dependency` rule is a permission
 //! declaration: the reference engine gives it no verdict (`ir/decisions.py` `_rule_status`), so
 //! its outcome holds no decision.
+//!
+//! # The barrier of the evaluator (AD-381)
+//!
+//! The twin that compiles:
+//!
+//! ```
+//! fn outcomes(model: &archkeel_model::Model) -> Vec<archkeel_eval::Outcome> {
+//!     archkeel_eval::evaluate(model)
+//! }
+//! ```
+//!
+//! E1. The rules of another contract next to a model: `evaluate` reads only the contract of
+//!     the model, so a sibling rule of the caller cannot change a verdict (E0061).
+//!
+//! ```compile_fail,E0061
+//! use archkeel_contract::Contract;
+//! use archkeel_model::Model;
+//! fn forge(other: &Contract, model: &Model) -> Vec<archkeel_eval::Outcome> {
+//!     archkeel_eval::evaluate(other, model)
+//! }
+//! ```
 
 #![deny(unreachable_pub)]
 

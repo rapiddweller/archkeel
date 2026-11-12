@@ -91,24 +91,32 @@ def test_the_frame_without_graph_carries_no_edge_and_names_imports(built: Path) 
         assert 2 in payload["unknowns"]["source"]
 
 
-BARRIER = NATIVE / "model-barrier" / "src" / "lib.rs"
+# The attempts of AD-381: the run proof in the barrier crate, the report and the evaluator in
+# their own document tests (the barrier crate is below them in the crate order, AD-382).
+ATTEMPTS = {
+    "archkeel-model-barrier": (NATIVE / "model-barrier/src/lib.rs", "# The run proof (AD-381)", 4),
+    "archkeel-report": (NATIVE / "report/src/lib.rs", "# The barrier of the report (AD-381)", 4),
+    "archkeel-eval": (NATIVE / "eval/src/lib.rs", "# The barrier of the evaluator (AD-381)", 1),
+}
 
 
 def test_each_barrier_attempt_of_ad_381_fails_with_its_error_code() -> None:
     """S2 of the review of #1080: a stable rustdoc does not check the error code of a
     `compile_fail` test. `RUSTC_BOOTSTRAP=1` makes it check: rustdoc compiles each attempt on
     its own and fails when the named code is not the error. Each attempt of AD-381 names one."""
-    text = BARRIER.read_text(encoding="utf-8")
-    section = text.split("# The run proof and the report (AD-381)", 1)[1].split("\n//! # ", 1)[0]
-    fences = re.findall(r"^//! ```(compile_fail\S*)$", section, re.M)
-    assert len(fences) == 9
-    assert all(re.fullmatch(r"compile_fail,E\d{4}", fence) for fence in fences), fences
+    for path, heading, count in ATTEMPTS.values():
+        section = path.read_text(encoding="utf-8").split(heading, 1)[1].split("\n//! # ", 1)[0]
+        fences = re.findall(r"^//! ```(compile_fail\S*)$", section, re.M)
+        assert len(fences) == count, path
+        assert all(re.fullmatch(r"compile_fail,E\d{4}", fence) for fence in fences), fences
     cargo = shutil.which("cargo")
     if cargo is None and os.environ.get("CI"):
         pytest.fail("CI must provide cargo for the native report tests.")
     if cargo is None:
         pytest.skip("cargo is not installed; install Rust to test changes in native/.")
-    command = [cargo, "test", "--locked", "-q", "-p", "archkeel-model-barrier", "--doc"]
+    command = [cargo, "test", "--locked", "-q", "--doc"]
+    for crate in ATTEMPTS:
+        command += ["-p", crate]
     (NATIVE / "target").mkdir(exist_ok=True)
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
