@@ -31,7 +31,6 @@
 
 #![deny(unreachable_pub)]
 
-mod causes;
 mod condensation;
 mod coverage;
 mod cycles;
@@ -39,21 +38,16 @@ mod edges;
 mod graph;
 mod ids;
 mod imports;
-mod limits;
 mod model;
 mod modules;
-mod observed;
 mod ownership;
-mod proof;
 mod reason;
 mod scope;
 mod section;
 mod settings;
-mod subjects;
 mod topology;
 mod verdict;
 
-pub use causes::{Cause, Part};
 pub use coverage::Incomplete;
 pub use cycles::Cycle;
 pub use edges::{Edge, Level};
@@ -69,3 +63,12 @@ pub use section::{Porting, Section, Slice};
 pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 pub use topology::Measure;
 pub use verdict::{Decision, Proven, Verdict};
+
+// Slice S4: the scope proof (AD-378).
+mod causes;
+mod limits;
+mod observed;
+mod proof;
+mod subjects;
+
+pub use causes::{Cause, Part};
