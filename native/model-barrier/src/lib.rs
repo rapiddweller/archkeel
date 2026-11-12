@@ -42,6 +42,19 @@
 //! // 10, 16, 17: the verdict of a decision is read by reference.
 //! fn read(decision: &Decision) -> &Verdict { decision.verdict() }
 //! fn passed(decision: &Decision) -> bool { matches!(decision.verdict(), Verdict::Pass(_)) }
+//! // 18: the sides of a dependency rule come from the model (slice S5, AD-380).
+//! fn sides<'c>(
+//!     rule: &'c archkeel_contract::ForbiddenDependency,
+//!     components: &'c [archkeel_contract::Component],
+//! ) -> [archkeel_model::Selection<'c>; 2] {
+//!     archkeel_model::dependency_sides(rule, components)
+//! }
+//! // 19: a judgement of an import is compared, never used as a decision.
+//! fn judged(found: archkeel_model::Judged) -> bool { found == archkeel_model::Judged::Pass }
+//! // 20: the contract source comes from its bytes.
+//! fn sourced() -> archkeel_model::Settings {
+//!     archkeel_model::Settings::default().with_contract_source("a.json", b"{}")
+//! }
 //! ```
 //!
 //! # The attempts
@@ -204,6 +217,29 @@
 //! ```compile_fail,E0599
 //! fn copy(decision: &archkeel_model::Decision) -> archkeel_model::Verdict {
 //!     decision.verdict().clone()
+//! }
+//! ```
+//!
+//! 18. A selection literal: a side of a dependency rule comes only from `dependency_sides`.
+//!
+//! ```compile_fail
+//! fn forge<'c>() -> archkeel_model::Selection<'c> {
+//!     archkeel_model::Selection { packages: Vec::new(), exact: Vec::new() }
+//! }
+//! ```
+//!
+//! 19. A judgement as a decision: an import that a matcher accepts is no PASS of its rule.
+//!
+//! ```compile_fail
+//! fn forge() -> archkeel_model::Decision { archkeel_model::Judged::Pass }
+//! ```
+//!
+//! 20. A contract source without its bytes: the evidence and the digest are private, so a
+//!     caller cannot bind a `layer_order` row to bytes that the model did not parse.
+//!
+//! ```compile_fail
+//! fn forge() -> archkeel_model::Settings {
+//!     archkeel_model::Settings { contract_source: None, ..Default::default() }
 //! }
 //! ```
 //!

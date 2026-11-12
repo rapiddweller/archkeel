@@ -78,7 +78,7 @@ fn decision<'a>(outcomes: &'a [Outcome], rule: &str) -> Option<&'a Decision> {
     outcomes
         .iter()
         .find(|o| o.rule() == rule)
-        .map(Outcome::decision)
+        .and_then(Outcome::decision)
 }
 
 fn dependencies(violations: &[&Violation]) -> Vec<String> {
@@ -100,7 +100,7 @@ fn the_clean_reply_has_no_external_violation_and_passes_with_the_scope_proof() {
     assert!(outcomes.iter().all(|o| o.violations().is_empty()));
     assert!(outcomes
         .iter()
-        .all(|o| matches!(o.decision().verdict(), Verdict::Pass(_))));
+        .all(|o| matches!(o.decision().unwrap().verdict(), Verdict::Pass(_))));
 }
 
 #[test]

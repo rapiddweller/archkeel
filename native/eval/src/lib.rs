@@ -15,11 +15,17 @@
 //!
 //! Slice S2 decides `external_dependency_scope` and `complete_external_scope`: they read only the
 //! resolved imports with their typed targets, the modules and the owners (AD-372).
+//!
+//! Slice S5 decides the direction kinds (AD-380): `forbidden_dependency`, `sibling_isolation`,
+//! `complete_requires` and `layer_order`. An `allowed_dependency` rule is a permission
+//! declaration: the reference engine gives it no verdict (`ir/decisions.py` `_rule_status`), so
+//! its outcome holds no decision.
 
 #![deny(unreachable_pub)]
 
 mod assignment;
 mod decide;
+mod direction;
 mod external;
 mod layout;
 mod violation;
@@ -27,14 +33,15 @@ mod violation;
 use archkeel_contract::{head_of, kind_of, Contract, Rule, RuleKind};
 use archkeel_model::{Decision, Model, Part, Reason, Unsupported, Verdict};
 
-pub use violation::{Cited, Violation};
+pub use violation::{Cited, Layered, Violation};
 
 /// The result of one rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Outcome {
     rule: String,
     kind: RuleKind,
-    decision: Decision,
+    /// `None` for a permission declaration, which has no verdict.
+    decision: Option<Decision>,
     violations: Vec<Violation>,
 }
 
@@ -49,9 +56,10 @@ impl Outcome {
         self.kind
     }
 
-    /// The decision: the verdict, and the reason of an UNKNOWN.
-    pub fn decision(&self) -> &Decision {
-        &self.decision
+    /// The decision: the verdict, and the reason of an UNKNOWN. A permission declaration
+    /// (`allowed_dependency`) has none: it is neither PASS, FAIL nor UNKNOWN.
+    pub fn decision(&self) -> Option<&Decision> {
+        self.decision.as_ref()
     }
 
     /// The violations of the rule, in the order of their ids.
@@ -71,31 +79,35 @@ pub fn evaluate(contract: &Contract, model: &Model) -> Vec<Outcome> {
 
 fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
     let id = head_of(rule).id().as_text();
-    let violations = match rule {
-        Rule::CompleteAssignment(rule) => assignment::check(id, rule, model),
-        Rule::RootLayout(rule) => match layout::check(id, rule, model) {
-            Ok(found) => found,
-            Err(reason) => {
-                return Outcome {
-                    rule: id.to_owned(),
-                    kind: RuleKind::RootLayout,
-                    decision: Decision::unknown(reason),
-                    violations: Vec::new(),
-                };
-            }
-        },
-        Rule::ExternalDependencyScope(rule) => external::dependency_scope(id, rule, model),
-        Rule::CompleteExternalScope(rule) => external::complete_scope(id, rule, rules, model),
-        other => {
-            let kind = kind_of(other);
-            let reason = Reason::Unsupported(Unsupported::Rule(kind));
-            return Outcome {
-                rule: id.to_owned(),
-                kind,
-                decision: Decision::unknown(reason),
-                violations: Vec::new(),
-            };
-        }
+    let kind = kind_of(rule);
+    let found = match rule {
+        Rule::CompleteAssignment(rule) => Ok(assignment::check(id, rule, model)),
+        Rule::RootLayout(rule) => layout::check(id, rule, model),
+        Rule::ExternalDependencyScope(rule) => Ok(external::dependency_scope(id, rule, model)),
+        Rule::CompleteExternalScope(rule) => Ok(external::complete_scope(id, rule, rules, model)),
+        Rule::ForbiddenDependency(rule) => Ok(direction::forbidden(id, rule, model)),
+        Rule::SiblingIsolation(rule) => Ok(direction::siblings(id, rule, model)),
+        Rule::CompleteRequires(rule) => Ok(direction::requires(id, rule, model)),
+        Rule::LayerOrder(rule) => direction::layers(id, rule, model),
+        Rule::AllowedDependency(_) => return outcome_of(id, kind, None, Vec::new()),
+        // Each kind that no slice decides names its kind; a new kind needs an arm here.
+        Rule::NoComponentCycles(_) => unported(kind), // S7
+        Rule::InterfaceBoundary(_) => unported(kind), // S8
+        Rule::ForbiddenConstruct(_) => unported(kind), // S11
+        Rule::SymbolPlacement(_) => unported(kind),   // S12, Cut B
+        Rule::SourceOwnership(_) => unported(kind),
+        Rule::BoundedNumericOperand(_) => unported(kind),
+        Rule::CallOwner(_) => unported(kind),             // S13
+        Rule::ForbiddenCallArgument(_) => unported(kind), // S14
+        Rule::CatalogArgument(_) => unported(kind),
+        Rule::CatalogUse(_) => unported(kind),
+        Rule::ForbiddenEffectUnderCondition(_) => unported(kind), // S15
+        Rule::ProtocolDeclarations(_) => unported(kind),          // S16
+        Rule::BoundaryTypes(_) => unported(kind),                 // S17
+    };
+    let violations = match found {
+        Ok(found) => found,
+        Err(reason) => return outcome_of(id, kind, Some(Decision::unknown(reason)), Vec::new()),
     };
     let mut decision = decide::decide(model, rule, &violations);
     // AD-378: a PASS must name this rule of this model; a type cannot stop a value of another
@@ -103,9 +115,23 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
     if matches!(decision.verdict(), Verdict::Pass(_)) && !decision.passes(model, id) {
         decision = Decision::unknown(Part::ForeignRule.into());
     }
+    outcome_of(id, kind, Some(decision), violations)
+}
+
+/// The reason of a kind that no slice decides yet.
+fn unported(kind: RuleKind) -> Result<Vec<Violation>, Reason> {
+    Err(Reason::Unsupported(Unsupported::Rule(kind)))
+}
+
+fn outcome_of(
+    id: &str,
+    kind: RuleKind,
+    decision: Option<Decision>,
+    violations: Vec<Violation>,
+) -> Outcome {
     Outcome {
         rule: id.to_owned(),
-        kind: kind_of(rule),
+        kind,
         decision,
         violations,
     }
@@ -130,3 +156,11 @@ mod scope_tests;
 #[cfg(test)]
 #[path = "receipt_tests.rs"]
 mod receipt_tests;
+
+#[cfg(test)]
+#[path = "direction_tests.rs"]
+mod direction_tests;
+
+#[cfg(test)]
+#[path = "direction_scope_tests.rs"]
+mod direction_scope_tests;

@@ -10,6 +10,10 @@
 //! (`stable_id("VIO", rule.id, module record id)`) and `_root_layout_violations`
 //! (`stable_id("VIO", rule.id, child)`). The cited record is a module record: its id is
 //! `stable_id("MOD", name)` and its evidence is the evidence id of the file.
+//!
+//! Slice S5 (AD-380): `_dependency_violations` (`rules.py:99`), `_sibling_violations`
+//! (`rules.py:1387`) and `requires_violations` (`rules.py:1877`) cite one import;
+//! `_layer_order_violations` (`rules.py:2008`) cites the receipt of the rule and the contract file.
 
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_model::{Import, Module, ModuleId};
@@ -54,6 +58,48 @@ pub enum Violation {
         dependency: String,
         cited: Cited,
     },
+    /// `forbidden_dependency`: an import that the rule rejects.
+    Forbidden {
+        id: String,
+        rule: String,
+        cited: Cited,
+        symbol: Option<String>,
+        under_type_checking: bool,
+    },
+    /// `sibling_isolation`: an import from the member `source` to another member.
+    Peer {
+        id: String,
+        rule: String,
+        cited: Cited,
+        source: String,
+    },
+    /// `complete_requires`: an import between two components that no `requires` entry covers.
+    Unrequired {
+        id: String,
+        rule: String,
+        cited: Cited,
+        source_component: String,
+        target_component: String,
+    },
+    /// `layer_order`: a `requires` entry from an inner to an outer layer.
+    OuterLayer(Box<Layered>),
+}
+
+/// The record of a `layer_order` violation: the components, their layers and the contract cites.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Layered {
+    pub id: String,
+    pub rule: String,
+    /// The id of the receipt of the rule (`stable_id("RULE-EVALUATION", scope, rule)`).
+    pub receipt: String,
+    /// The evidence of the contract file.
+    pub evidence: String,
+    pub provenance: Vec<String>,
+    pub source_component: String,
+    pub target_component: String,
+    pub source_layer: String,
+    pub target_layer: String,
+    pub rationale: String,
 }
 
 /// The import record that a violation cites.
@@ -137,23 +183,60 @@ impl Violation {
         }
     }
 
+    pub(crate) fn forbidden(rule: &str, import: &Import) -> Self {
+        let (id, rule, cited) = Cited::of(rule, import);
+        Violation::Forbidden {
+            id,
+            rule,
+            cited,
+            symbol: import.symbol().map(str::to_owned),
+            under_type_checking: import.under_type_checking(),
+        }
+    }
+
+    pub(crate) fn peer(rule: &str, source: &str, import: &Import) -> Self {
+        let (id, rule, cited) = Cited::of(rule, import);
+        Violation::Peer {
+            id,
+            rule,
+            cited,
+            source: source.to_owned(),
+        }
+    }
+
+    pub(crate) fn unrequired(rule: &str, components: [&str; 2], import: &Import) -> Self {
+        let (id, rule, cited) = Cited::of(rule, import);
+        let [source_component, target_component] = components.map(str::to_owned);
+        Violation::Unrequired {
+            id,
+            rule,
+            cited,
+            source_component,
+            target_component,
+        }
+    }
+
     /// The id of the violation record.
     pub fn id(&self) -> &str {
-        match self {
-            Violation::Unassigned { id, .. }
-            | Violation::NotAllowedChild { id, .. }
-            | Violation::OutsideScope { id, .. }
-            | Violation::Undeclared { id, .. } => id,
-        }
+        self.head()[0]
     }
 
     /// The rule of the violation.
     pub fn rule(&self) -> &str {
+        self.head()[1]
+    }
+
+    /// The id and the rule.
+    fn head(&self) -> [&str; 2] {
         match self {
-            Violation::Unassigned { rule, .. }
-            | Violation::NotAllowedChild { rule, .. }
-            | Violation::OutsideScope { rule, .. }
-            | Violation::Undeclared { rule, .. } => rule,
+            Violation::Unassigned { id, rule, .. }
+            | Violation::NotAllowedChild { id, rule, .. }
+            | Violation::OutsideScope { id, rule, .. }
+            | Violation::Undeclared { id, rule, .. }
+            | Violation::Forbidden { id, rule, .. }
+            | Violation::Peer { id, rule, .. }
+            | Violation::Unrequired { id, rule, .. } => [id, rule],
+            Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
         }
     }
 }

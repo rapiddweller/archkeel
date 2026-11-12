@@ -13,6 +13,7 @@ Run as a script: `false_pass_support.py <language> <tamper> [<argument>]`.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import shutil
@@ -117,6 +118,28 @@ def drop_section(reply: Reply, argument: str) -> None:
     sections[:] = [name for name in sections if name != argument]
 
 
+def dynamic_limit(reply: Reply, argument: str) -> None:
+    """AD-380: add a dynamic import limit of `module[:type]` to the `unknowns` section; `:type`
+    marks it as a type-only import. The reply stays a registered set of its profile."""
+    module, _, flag = argument.partition(":")
+    data = {"reason": "dynamic target", "source_module": module, "under_type_checking": bool(flag)}
+    _section(reply, "unknowns").append(
+        {
+            "id": "UNKNOWN-" + hashlib.sha256(argument.encode()).hexdigest()[:16],
+            "evidence_class": "UNKNOWN",
+            "area": "dependencies",
+            "kind": "dynamic_import_limit",
+            "title": "A dynamic import has an unresolved target",
+            "subjects": [module],
+            "evidence_ids": [],
+            "fact_ids": [],
+            "rule_ids": [],
+            "provenance": [],
+            "data": data,
+        }
+    )
+
+
 def honest(_reply: Reply, _argument: str) -> None:
     """Change nothing: the reply of an external producer that is correct."""
 
@@ -134,6 +157,7 @@ TAMPERS: dict[str, Tamper] = {
     "no-constructs": no_constructs,
     "drop-feature": drop_feature,
     "drop-section": drop_section,
+    "dynamic-limit": dynamic_limit,
 }
 
 

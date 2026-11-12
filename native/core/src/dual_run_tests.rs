@@ -8,6 +8,10 @@ use super::{answer, hex};
 use crate::engine::tests::{golden_profile, golden_reply, NATIVE_CONTRACT};
 
 fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
+    request_with(NATIVE_CONTRACT, reply, sections)
+}
+
+fn request_with(contract: &str, reply: Option<&[u8]>, sections: &[&str]) -> Value {
     json!({
         "protocol": "archkeel-dual-run-3",
         "case": "c",
@@ -16,7 +20,7 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
         "baseline": null,
         "collector_argv": null,
         "pinned": false,
-        "contracts": {"architecture-contract.json": NATIVE_CONTRACT},
+        "contracts": {"architecture-contract.json": contract},
         "reply": reply.map(|bytes| json!({"hex": bytes.iter().map(|b| format!("{b:02x}")).collect::<String>()})),
         "sections": sections,
         "namespace": "shop",
@@ -46,7 +50,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
     // with its reason (AD-378).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
-    assert_eq!(decided.len(), 7);
+    assert_eq!(decided.len(), 8);
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],
@@ -71,7 +75,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 3);
+    assert_eq!(rules, 2);
 }
 
 #[test]
@@ -319,4 +323,67 @@ fn the_protocol_of_version_2_is_refused_by_name() {
     old["protocol"] = json!("archkeel-dual-run-2");
     let error = answer(old.to_string().as_bytes()).err().unwrap_or_default();
     assert_eq!(error, "unknown protocol archkeel-dual-run-2");
+}
+
+/// The H-typescript contract with layers in the order `layers` and an `allowed_dependency` rule.
+fn layered_contract(layers: &[&str]) -> String {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/H-typescript/architecture-contract.json");
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    let mut value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    value["schema_version"] = json!("2.3.0");
+    if let Some(components) = value["components"].as_array_mut() {
+        for component in components.iter_mut() {
+            component["layer"] = component["label"].clone();
+        }
+    }
+    if let Some(rules) = value["rules"].as_array_mut() {
+        rules.push(
+            json!({"id": "LAYERS", "kind": "layer_order", "rationale": "r",
+            "provenance": ["p"], "decided_by": "architect", "layers": layers}),
+        );
+        rules.push(
+            json!({"id": "ALLOW", "kind": "allowed_dependency", "rationale": "r",
+            "provenance": ["p"], "decided_by": "architect",
+            "source": "shop.src.main_x2e_ts", "target": "shop.src.data"}),
+        );
+    }
+    // A first line with text: the evidence cites line 1.
+    format!("{value}\n")
+}
+
+#[test]
+fn a_declaration_has_its_word_and_a_layer_row_cites_the_contract_file() {
+    let reply = golden_reply();
+    let contract = layered_contract(&["app", "presentation", "data", "domain"]);
+    let got = frame(&request_with(&contract, Some(&reply), &["violations"]));
+    assert_eq!(
+        got["rules"]["ALLOW"],
+        json!(["allowed_dependency", "DECLARATION"])
+    );
+    assert_eq!(got["rules"]["LAYERS"], json!(["layer_order", "FAIL"]));
+    assert_eq!(got["status"], "FAIL");
+    let rows = got["sections"]["violations"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let layer: Vec<&Value> = rows
+        .iter()
+        .filter(|row| row["kind"] == "layer_order")
+        .collect();
+    assert_eq!(layer.len(), 4);
+    // `evidence_id("architecture-contract.json", 1, 1, 0)` of `ir/source_records.py`.
+    let evidence = "EVD-6cfe32290010def4";
+    assert!(layer
+        .iter()
+        .all(|row| row["evidence_ids"] == json!([evidence])));
+    assert!(layer.iter().all(|row| row["area"] == "components"));
+    // An order that every `requires` entry follows passes; the declaration holds back nothing.
+    let contract = layered_contract(&["domain", "data", "presentation", "app"]);
+    let got = frame(&request_with(&contract, Some(&reply), &["violations"]));
+    assert_eq!(got["rules"]["LAYERS"], json!(["layer_order", "PASS"]));
+    assert_eq!(
+        got["rules"]["ALLOW"],
+        json!(["allowed_dependency", "DECLARATION"])
+    );
 }

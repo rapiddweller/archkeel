@@ -13,6 +13,11 @@
 //! Slice S4 adds the producer of the reply (AD-344, AD-378): only the host starts the collector,
 //! so only the shell knows it. The default is the sound one: a reply of an external collector,
 //! which gives no PASS.
+//!
+//! Slice S5 adds the source of the root contract (AD-380): the reference engine cites the
+//! contract file in each `layer_order` row (`check/observation.py` `_layer_order_evidence`). The
+//! shell reads that file, so it sends its path and bytes; the model binds them to the parsed
+//! contract by the digest of the bytes.
 
 use crate::ownership::in_scope;
 use crate::reason::Refusal;
@@ -29,6 +34,14 @@ pub struct Settings {
     profile: String,
     standard_library: Vec<String>,
     producer: Producer,
+    contract_source: Option<ContractSource>,
+}
+
+/// The evidence of the contract file and the digest of the bytes that it cites.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ContractSource {
+    evidence: String,
+    digest: String,
 }
 
 /// Who produced the reply, as the host decides it (`cli/observe.py` `observer_for`).
@@ -50,7 +63,35 @@ impl Settings {
             profile,
             standard_library,
             producer: Producer::External,
+            contract_source: None,
         }
+    }
+
+    /// The same settings with the path and the bytes of the root contract file. The evidence is
+    /// `file_evidence` of `ir/source_records.py:120`: line 1 when the first line holds text after
+    /// trailing spaces, else line 0.
+    pub fn with_contract_source(self, path: &str, bytes: &[u8]) -> Self {
+        let text = String::from_utf8_lossy(bytes);
+        let first = text.split(line_break).next().unwrap_or_default();
+        let blank = first.trim_end_matches(reference_space).is_empty();
+        let (line, end) = if blank { (0, 0) } else { (1, 1) };
+        let evidence = archkeel_facts::identity::evidence_id(path, line, end, 0);
+        let digest = archkeel_facts::identity::sha256_hex(bytes);
+        let contract_source = Some(ContractSource { evidence, digest });
+        Settings {
+            contract_source,
+            ..self
+        }
+    }
+
+    /// The evidence id of the contract file when its bytes have `digest`, the digest of the
+    /// parsed contract. Other bytes or no source give `None`: the reference engine then cites
+    /// no file and gives the rule no receipt.
+    pub fn contract_evidence(&self, digest: &str) -> Option<&str> {
+        self.contract_source
+            .as_ref()
+            .filter(|source| source.digest == digest)
+            .map(|source| source.evidence.as_str())
     }
 
     /// The same settings with the producer of the reply.
@@ -114,3 +155,24 @@ impl Settings {
 #[cfg(test)]
 #[path = "settings_tests.rs"]
 mod tests;
+
+/// A line break of `str.splitlines` in the reference engine.
+fn line_break(c: char) -> bool {
+    matches!(
+        c,
+        '\n' | '\r'
+            | '\u{0b}'
+            | '\u{0c}'
+            | '\u{1c}'
+            | '\u{1d}'
+            | '\u{1e}'
+            | '\u{85}'
+            | '\u{2028}'
+            | '\u{2029}'
+    )
+}
+
+/// A space of `str.rstrip` without an argument in the reference engine (`str.isspace`).
+fn reference_space(c: char) -> bool {
+    c.is_whitespace() || matches!(c, '\u{1c}'..='\u{1f}')
+}

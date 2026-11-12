@@ -14,3 +14,5 @@
 | 2026-11-12 | 7 | cdb8e661d | WP6 S4 review: the s4 cases of findings 1, 2 and 4 (AD-378) |
 | 2026-11-12 | 12 | 1cecd3a03 | AD-379: add the tree cases of the inside-contract tree in the core |
 | 2026-11-12 | 1 | 766fd3db2 | AD-379 review: the tree V01, an inside claim outside its parent |
+| 2026-11-12 | 24 | 84c19ac9c | WP6 S5: the direction kinds (AD-380) |
+| 2026-11-12 | 2 | b988070ff | WP6 S5: two layer order FAIL cases (AD-380) |

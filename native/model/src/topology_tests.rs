@@ -42,6 +42,8 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
         source_package: package(source),
         target_package: package(target),
         under_type_checking: false,
+        symbol: None,
+        symbols_known: true,
         relative: false,
         resolved: Resolved::Local,
         evidence: Vec::new(),

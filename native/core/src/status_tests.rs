@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use super::{status, unexplained, FAIL, PASS, UNKNOWN};
+use super::{status, unexplained, DECLARATION, FAIL, PASS, UNKNOWN};
 use crate::rules::RuleAnswer;
 
 fn answer(rows: &[(&str, &str, usize, &str)]) -> RuleAnswer {
@@ -41,6 +41,12 @@ fn the_status_follows_from_the_rows() {
     assert_eq!(status(&BTreeMap::new(), false, true), PASS);
     assert_eq!(status(&BTreeMap::new(), false, false), UNKNOWN);
     assert_eq!(status(&BTreeMap::new(), true, true), UNKNOWN);
+    // A permission declaration has no verdict and holds back no PASS (`inspect_observation`).
+    let declared = answer(&[("A", PASS, 0, ""), ("B", DECLARATION, 0, "")]);
+    assert_eq!(status(&declared.decided, false, true), PASS);
+    assert_eq!(unexplained(&declared), None);
+    assert!(unexplained(&answer(&[("B", DECLARATION, 1, "")])).is_some());
+    assert!(unexplained(&answer(&[("B", DECLARATION, 0, "why")])).is_some());
 }
 
 #[test]
