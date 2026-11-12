@@ -4,19 +4,22 @@
 
 //! The inputs of `build`: the seam that the eval crate and the model slices fill (AD-371).
 //!
-//! `RunOutcome` is the Decision of the evaluator (AD-361 point 3): the observation, each
-//! rule with its `Decision`, reason and undecided positions, the Target and the diagnostics. A
-//! PASS in it can only come from `Scope::pass` of the model (AD-363). `Records` holds the rows
+//! `RunOutcome` is the Decision of the evaluator (AD-361 point 3): each rule with its
+//! `Decision`, reason and undecided positions, the Target and the diagnostics. A PASS in it can
+//! only come from an `Outcome` of the evaluator (AD-363, AD-381). `Records` holds the rows
 //! that the model derives. A table that no slice produces yet is `Produced::NotProduced` with the
 //! part that ports it, never an empty list.
 
-use archkeel_model::{Decision, Unsupported};
+use archkeel_contract::RuleKind;
+use archkeel_eval::Outcome;
+use archkeel_model::{Decision, Model, Unsupported, Verdict as ModelVerdict};
 
 use crate::codes::{
-    Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Measure, MeasureState, Permission,
-    Reason, Verdict, Vis,
+    BudgetVerdict, Disposition, EdgeTarget, FindingKind, FindingReason, Gap, Kind, MeasureDef,
+    MeasureState, NodeLevel, Permission, Vis,
 };
 use crate::head::{Coverage, RunContract};
+use crate::why::WhyUnknown;
 
 /// Rows of one table, or the named part that does not produce them yet.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,22 +35,12 @@ pub enum Target {
     Absent,
 }
 
-/// The decision of one rule: a `Decision` of the model, or a permission declaration that does
-/// not evaluate conformance.
+/// The decision of one rule: a `Decision` of the evaluator, or a permission declaration that
+/// does not evaluate conformance. Only this crate makes one (AD-381).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RuleDecision {
+pub(crate) enum RuleDecision {
     Decided(Decision),
     Declaration,
-}
-
-/// Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict
-/// from the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WhyUnknown {
-    ScopeIncomplete,
-    NoReceipt,
-    Undecided,
-    OwnershipBlocker,
 }
 
 /// One position that the evaluator left undecided for a rule (AD-92).
@@ -56,20 +49,93 @@ pub struct Undecided {
     pub subject: String,
 }
 
-/// One rule of the outcome.
+/// The text of one rule row: what the contract says and what the evaluator saw. No field holds
+/// a verdict.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RuleOutcome {
-    pub id: String,
-    pub kind: String,
+pub struct RuleText {
     pub title: String,
-    pub decision: RuleDecision,
-    /// True when the evaluator wrote a complete receipt for the rule (AD-117).
-    pub evaluated: bool,
-    /// Set for an UNKNOWN rule only; any other verdict with it is `BuildError::ReasonMismatch`.
-    pub why_unknown: Option<WhyUnknown>,
-    pub undecided: Vec<Undecided>,
     pub rationale: String,
     pub decided_by: Option<String>,
+    /// True when the evaluator wrote a complete receipt for the rule (AD-117).
+    pub evaluated: bool,
+    pub undecided: Vec<Undecided>,
+}
+
+/// One rule of the outcome. The fields are private (AD-381): the id and the decision come
+/// together from an `Outcome` of the evaluator, and `build` checks each PASS against the model
+/// and the rule (`Decision::passes`). No caller can put a PASS of rule A into the row of rule B.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RuleOutcome {
+    pub(crate) id: String,
+    pub(crate) kind: String,
+    pub(crate) title: String,
+    pub(crate) decision: RuleDecision,
+    pub(crate) evaluated: bool,
+    /// Set for an UNKNOWN rule only; any other verdict with it is `BuildError::ReasonMismatch`.
+    pub(crate) why_unknown: Option<WhyUnknown>,
+    pub(crate) undecided: Vec<Undecided>,
+    pub(crate) rationale: String,
+    pub(crate) decided_by: Option<String>,
+}
+
+impl RuleOutcome {
+    /// The row of a rule that the evaluator decided: its id, kind and decision come from the
+    /// outcome, and an UNKNOWN takes its `WhyUnknown` from the reason of the decision.
+    pub fn evaluated(outcome: &Outcome, text: RuleText) -> RuleOutcome {
+        let (decision, why_unknown) = match outcome.decision() {
+            Some(decision) => {
+                let why = match decision.verdict() {
+                    ModelVerdict::Unknown => decision.reason().map(WhyUnknown::of),
+                    ModelVerdict::Pass(_) | ModelVerdict::Fail => None,
+                };
+                (RuleDecision::Decided(decision.clone()), why)
+            }
+            // A permission declaration: `build` checks that the model declares it (AD-381).
+            None => (RuleDecision::Declaration, None),
+        };
+        RuleOutcome::of(
+            outcome.rule().to_owned(),
+            crate::kind::word(outcome.kind()).to_owned(),
+            decision,
+            why_unknown,
+            text,
+        )
+    }
+
+    /// The row of a permission declaration: it does not evaluate conformance. `None` unless
+    /// `id` is a declaration rule of the contract of `model`, so a FAIL rule cannot be shown
+    /// as DECLARATION (AD-381).
+    pub fn declaration(model: &Model, id: String, text: RuleText) -> Option<RuleOutcome> {
+        let kind = crate::kind::word(RuleKind::AllowedDependency).to_owned();
+        model
+            .declares(&id)
+            .then(|| RuleOutcome::of(id, kind, RuleDecision::Declaration, None, text))
+    }
+
+    pub(crate) fn of(
+        id: String,
+        kind: String,
+        decision: RuleDecision,
+        why_unknown: Option<WhyUnknown>,
+        text: RuleText,
+    ) -> RuleOutcome {
+        RuleOutcome {
+            id,
+            kind,
+            title: text.title,
+            decision,
+            evaluated: text.evaluated,
+            why_unknown,
+            undecided: text.undecided,
+            rationale: text.rationale,
+            decided_by: text.decided_by,
+        }
+    }
+
+    /// The rule id.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
 }
 
 /// One diagnostic of the run: why a scan or a proof is incomplete.
@@ -81,13 +147,12 @@ pub struct Diagnostic {
     pub claim: String,
 }
 
-/// The Decision of the evaluator for one run. It has no status: `build` takes the status from
-/// the rows (`status_of`) and asks for a PASS `Decision` only when that status is PASS.
+/// The Decision of the evaluator for one run. It has no status and no observation verdict:
+/// `build` takes the status from the rows (`status_of`), the observation from the scope of the
+/// model (`Scope::run`), and asks the model for the run proof only when the status is PASS.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RunOutcome {
     pub target: Target,
-    /// The completeness verdict of the observation.
-    pub observation: Decision,
     pub rules: Vec<RuleOutcome>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -106,7 +171,7 @@ pub struct RunFacts {
 /// One node of the containment tree, in table order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeRow {
-    pub level: Level,
+    pub level: NodeLevel,
     pub parent: Option<u32>,
     pub key: String,
     pub name: String,
@@ -142,7 +207,7 @@ pub struct Tree {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MeasureRow {
     pub node: u32,
-    pub measure: Measure,
+    pub measure: MeasureDef,
     pub state: MeasureState,
     pub value: Option<u64>,
     pub of: Option<u64>,
@@ -151,7 +216,7 @@ pub struct MeasureRow {
     pub budget_source: Option<String>,
     pub baseline: Option<u64>,
     pub baseline_source: Option<String>,
-    pub verdict: Verdict,
+    pub verdict: BudgetVerdict,
 }
 
 /// One unit with its enum variants.
@@ -183,7 +248,7 @@ pub struct CrossingRow {
 /// One direct edge. `crossings` holds every crossing; the payload keeps the first 200.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EdgeRow {
-    pub level: Level,
+    pub level: NodeLevel,
     pub from: u32,
     pub to: u32,
     pub names: u64,
@@ -196,7 +261,7 @@ pub struct EdgeRow {
 
 /// The edges of the model (slices S2 and S3).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Graph {
+pub struct GraphRows {
     pub edges: Vec<EdgeRow>,
 }
 
@@ -246,7 +311,7 @@ pub struct FindingRow {
     pub absolute: Option<u64>,
     pub relative_permille: Option<u64>,
     pub disposition: Disposition,
-    pub reason: Reason,
+    pub reason: FindingReason,
     pub carrier_total: u64,
     pub gap: Option<Gap>,
     pub carriers: Vec<(String, u64, Option<u32>)>,
@@ -260,7 +325,7 @@ pub struct Records {
     pub measures: Produced<Vec<MeasureRow>>,
     pub units: Produced<Vec<UnitRow>>,
     /// Without a graph the payload names `imports` and `reexports` in `run.not_carried`.
-    pub graph: Produced<Graph>,
+    pub graph: Produced<GraphRows>,
     pub permissions: Produced<Vec<PermissionRow>>,
     pub violations: Produced<Vec<ViolationRow>>,
     pub unknowns: Produced<Vec<UnknownRecord>>,

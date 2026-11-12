@@ -6,7 +6,7 @@
 
 use std::fmt;
 
-use archkeel_model::Unsupported;
+use archkeel_model::{RunGap, Unsupported};
 
 use crate::payload::MAX_BYTES;
 use crate::problem::Problem;
@@ -24,8 +24,13 @@ pub enum BuildError {
     PassWithoutReceipt { rule: String },
     /// An UNKNOWN rule without `WhyUnknown`, or another verdict with one.
     ReasonMismatch { rule: String },
-    /// The rows give PASS, and the model gives no PASS `Decision` (no scope proof).
-    PassWithoutProof,
+    /// The rows give PASS, and the model gives no run proof (L-35b, AD-381): the gap, or `None`
+    /// for a run without a model.
+    PassWithoutProof(Option<RunGap>),
+    /// A rule row holds a PASS that is not a PASS of this rule of this model (AD-378, AD-381).
+    ForeignPass { rule: String },
+    /// A DECLARATION row whose rule is not a permission declaration of the model (AD-381).
+    ForeignDeclaration { rule: String },
     /// A status other than PASS has no row that explains it (AD-361 point 5).
     Unexplained(Vec<Unexplained>),
     /// The frame breaks other rules of the check, such as the status rule.
@@ -48,8 +53,23 @@ impl fmt::Display for BuildError {
                     "rule {rule} has a reason that its verdict cannot have"
                 )
             }
-            BuildError::PassWithoutProof => {
-                formatter.write_str("the rows give PASS and the model gives no PASS Decision")
+            BuildError::PassWithoutProof(gap) => {
+                write!(
+                    formatter,
+                    "the rows give PASS and the model gives no run proof: {gap:?}"
+                )
+            }
+            BuildError::ForeignDeclaration { rule } => {
+                write!(
+                    formatter,
+                    "rule {rule} is no permission declaration of the model"
+                )
+            }
+            BuildError::ForeignPass { rule } => {
+                write!(
+                    formatter,
+                    "rule {rule} holds a PASS of another rule or model"
+                )
             }
             BuildError::PassWithoutReceipt { rule } => {
                 write!(formatter, "rule {rule} decides PASS without a receipt")

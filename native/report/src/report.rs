@@ -7,8 +7,8 @@
 //! A `Report` exists only in two ways, and both run the check of this crate:
 //!
 //! - `Report<Decided>` from `build`: the outcome of the evaluator and the rows of the model. Its
-//!   status, observation and rule verdicts come from a `Decision` of the model, so no other crate
-//!   writes a PASS (AD-363 point 4).
+//!   rule verdicts come from a `Decision` of the model, its observation from the scope of the
+//!   model and a PASS status from the run proof, so no other crate writes a PASS (AD-363, AD-381).
 //! - `Report<Recorded>` from `Report::read`: canonical bytes that pass the check. Its verdicts are
 //!   read bytes; a recorded report never becomes a decided one.
 //!
@@ -32,7 +32,7 @@
 
 use std::fmt;
 
-use archkeel_model::Decision;
+use archkeel_model::{Decision, RunPass};
 
 use crate::check::problems;
 use crate::head::Status;
@@ -47,8 +47,8 @@ pub struct Recorded(());
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decided {
     pub(crate) status: Status,
-    pub(crate) pass: Option<Decision>,
-    pub(crate) observation: Decision,
+    pub(crate) pass: Option<RunPass>,
+    pub(crate) observation: Status,
     pub(crate) rules: Vec<(String, Option<Decision>)>,
 }
 
@@ -58,14 +58,14 @@ impl Decided {
         self.status
     }
 
-    /// The PASS `Decision` of the model; only a PASS status has one.
-    pub fn pass(&self) -> Option<&Decision> {
+    /// The run proof of the model (L-35b, AD-381); only a PASS status has one.
+    pub fn pass(&self) -> Option<&RunPass> {
         self.pass.as_ref()
     }
 
-    /// The completeness of the observation, as the evaluator decided it.
-    pub fn observation(&self) -> &Decision {
-        &self.observation
+    /// The completeness of the observation: PASS only for a complete scope of the model.
+    pub fn observation(&self) -> Status {
+        self.observation
     }
 
     /// The Decision of one rule by id; `None` inside for a permission declaration.
@@ -133,8 +133,9 @@ impl<S> Report<S> {
         }
     }
 
-    /// The payload.
-    pub fn payload(&self) -> &Payload {
+    /// The payload. It is private to the crate: bytes leave only through `Report` (AD-381).
+    #[cfg(test)]
+    pub(crate) fn payload(&self) -> &Payload {
         &self.payload
     }
 
@@ -145,8 +146,8 @@ impl<S> Report<S> {
 }
 
 impl Report<Decided> {
-    /// The canonical bytes of the frame: the encode path of the core. A recorded report has no
-    /// such path; a test reads its bytes through `payload().encode()`.
+    /// The canonical bytes of the frame: the only encode path outside this crate. A recorded
+    /// report has no such path.
     pub fn encode(&self) -> Result<Vec<u8>, serde_json::Error> {
         self.payload.encode()
     }

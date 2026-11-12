@@ -59,6 +59,26 @@
       "A method call may reach the method check of an impl block in native.archkeel_facts.request_rules"
     ],
     [
+      "native.archkeel_report.frame",
+      "native.archkeel_model.run",
+      "A method call may reach the method run_complete of an impl block in native.archkeel_model.run"
+    ],
+    [
+      "native.archkeel_report.frame",
+      "native.archkeel_model.scope",
+      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
+    ],
+    [
+      "native.archkeel_report.frame_rules",
+      "native.archkeel_model.run",
+      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
+    ],
+    [
+      "native.archkeel_report.input",
+      "native.archkeel_model.run",
+      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
+    ],
+    [
       "native.archkeel_rust_collector.declared",
       "native.archkeel_rust_collector.edges",
       "A method call may reach the method import of an impl block in native.archkeel_rust_collector.edges"

@@ -89,7 +89,7 @@ impl Engine {
             Request::Sections(sections) => {
                 let (contract, derived) = self.derived();
                 let outcomes = match contract {
-                    Some(contract) => crate::rules::outcomes(contract, derived.model()),
+                    Some(_) => crate::rules::outcomes(derived.model()),
                     None => Vec::new(),
                 };
                 let derivation = (derived.graph(), derived.model());

@@ -212,9 +212,9 @@
 //! }
 //! ```
 //!
-//! 17. A verdict is cloned out of its decision: `Verdict` is not `Clone` (E0599).
+//! 17. A verdict is cloned out of its decision: `Verdict` is not `Clone` (E0308).
 //!
-//! ```compile_fail,E0599
+//! ```compile_fail,E0308
 //! fn copy(decision: &archkeel_model::Decision) -> archkeel_model::Verdict {
 //!     decision.verdict().clone()
 //! }
@@ -244,6 +244,59 @@
 //! }
 //! ```
 //!
+//! # The run proof (AD-381)
+//!
+//! A run PASS needs the run proof of its own scope (L-35b). The attempts on the report and on the
+//! evaluator are document tests of `archkeel-report` and `archkeel-eval`, which compile as an
+//! outside crate too: this crate is below them in the crate order (AD-382) and uses neither. The
+//! twin of each attempt below:
+//!
+//! ```
+//! use archkeel_model::{Decision, Model, RunPass};
+//! // 21, 22, 23: the run proof of one scope, used in the same scope.
+//! fn run(model: &Model, decisions: &[Decision]) -> Option<RunPass> {
+//!     model.scope(|scope| scope.run_complete(decisions).ok().map(|proof| scope.pass_run(proof)))
+//! }
+//! // 24: a run PASS is read and checked against its model.
+//! fn of(pass: &RunPass, model: &Model) -> bool { pass.of(model) }
+//! ```
+//!
+//! 21. A run proof literal: the brand of `RunComplete` is private (E0451).
+//!
+//! ```compile_fail,E0451
+//! fn forge<'id>() -> archkeel_model::RunComplete<'id> {
+//!     archkeel_model::RunComplete { brand: std::marker::PhantomData }
+//! }
+//! ```
+//!
+//! 22. The scope proof of rule A as the run proof: `pass_run` takes only a `RunComplete` (E0308).
+//!
+//! ```compile_fail,E0308
+//! use archkeel_contract::Rule;
+//! use archkeel_model::{Model, RunPass};
+//! fn run(model: &Model, rule: &Rule) -> Option<RunPass> {
+//!     model.scope(|scope| scope.complete(rule).ok().map(|proof| scope.pass_run(proof)))
+//! }
+//! ```
+//!
+//! 23. The run proof of one model passes the run of another model: `pass_run` takes only a
+//!     `RunComplete` with the `Scope` brand of its own scope, and each `Model::scope` call has
+//!     its own brand (E0521).
+//!
+//! ```compile_fail,E0521
+//! use archkeel_model::{Decision, Model, RunPass};
+//! fn two(a: &Model, b: &Model, decisions: &[Decision]) -> Option<RunPass> {
+//!     a.scope(|a| b.scope(|b| a.run_complete(decisions).ok().map(|proof| b.pass_run(proof))))
+//! }
+//! ```
+//!
+//! 24. A run PASS literal: the serial of `RunPass` is private (E0451).
+//!
+//! ```compile_fail,E0451
+//! fn forge() -> archkeel_model::RunPass { archkeel_model::RunPass { serial: 0 } }
+//! ```
+//!
+
 //! # Closed by a checked identity, not by type
 //!
 //! A PASS of one model given as the decision of another model, and a PASS of rule A given as

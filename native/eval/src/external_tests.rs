@@ -4,7 +4,7 @@
 
 //! The external rule kinds of S2 over the frozen H-typescript reply with retargeted imports.
 
-use archkeel_model::{Decision, Incomplete, Model, Reason, Refusal, Settings, Verdict};
+use archkeel_model::{Decision, Incomplete, Model, Reason, Refusal, RunGap, Settings, Verdict};
 use serde_json::{json, Value};
 
 use crate::tests::{contract, reply, shop_profile, shop_settings};
@@ -60,7 +60,7 @@ fn run(
     let Ok(model) = Model::derive(&contract, &reply, settings) else {
         return Vec::new();
     };
-    evaluate(&contract, &model)
+    evaluate(&model)
         .into_iter()
         .filter(|outcome| outcome.rule().starts_with("EXTERNAL-"))
         .collect()
@@ -295,4 +295,31 @@ fn settings_that_do_not_hold_for_the_reply_give_no_model() {
             Some(Reason::Refused(Refusal::OutsideNamespace(_)))
         ));
     }
+}
+
+/// B1 of the review of #1080: the sibling rules of `complete_external_scope` come only from the
+/// contract of the model. Before the fix, `evaluate(&forged, &model)` read the FORGE rule of the
+/// caller and gave a PASS of EXTERNAL-COMPLETE bound to `model`; the run proof took it.
+#[test]
+fn a_sibling_rule_comes_only_from_the_contract_of_the_model() {
+    let forge = |value: &mut Value| {
+        if let Some(rules) = value["rules"].as_array_mut() {
+            rules.push(json!({"id": "FORGE", "kind": "external_dependency_scope",
+                "dependency": "transport.client", "allowed_sources": ["shop"],
+                "rationale": "a forged declaration", "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect"}));
+        }
+    };
+    let own = contract(|_| {}).unwrap();
+    let forged = contract(forge).unwrap();
+    let reply = reply(external(DOMAIN, "transport.client")).unwrap();
+    let model = Model::derive(&own, &reply, shop_settings()).unwrap();
+    let complete = |outcomes: &[Outcome]| decision(outcomes, "EXTERNAL-COMPLETE").cloned();
+    assert_eq!(complete(&evaluate(&model)), Some(Decision::fail()));
+    let other = Model::derive(&forged, &reply, shop_settings()).unwrap();
+    let pass = complete(&evaluate(&other)).unwrap();
+    assert!(pass.passes(&other, "EXTERNAL-COMPLETE"));
+    assert!(!pass.passes(&model, "EXTERNAL-COMPLETE"));
+    let run = model.scope(|s| s.run_complete([&pass]).map(|p| s.pass_run(p)));
+    assert_eq!(run.err(), Some(RunGap::NotPass(0)));
 }

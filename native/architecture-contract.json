@@ -190,7 +190,7 @@
         "native.archkeel_model_barrier"
       ],
       "responsibilities": [
-        "Try, from a crate outside the model, each way to build a PASS without the scope proof of the same model; each try is a compile_fail test with a twin that compiles (AD-378)."
+        "Try, from a crate outside the model, each way to build a PASS without the scope proof of the same model, and a run PASS without the run proof; each try is a compile_fail test with a twin that compiles (AD-378, AD-381)."
       ],
       "forbidden_responsibilities": [
         "Holding code that a binary or a library of the core calls."
@@ -231,6 +231,14 @@
         {
           "component": "model",
           "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363)."
+        },
+        {
+          "component": "eval",
+          "rationale": "Take each rule row from an outcome of the evaluator, so that the rule id and its decision come together (AD-359, AD-381)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381)."
         }
       ],
       "decided_by": "architect"

@@ -8,7 +8,7 @@
 
 use crate::corpus_tests::bytes;
 use crate::{
-    Code, EdgeTarget, Gap, Level, Payload, Problem, ReadError, Relation, Report, RuleReason,
+    Code, EdgeTarget, Gap, NodeLevel, Payload, Problem, ReadError, Relation, Report, RuleReason,
     RuleVerdict, Status, Unexplained, MAX_BYTES,
 };
 
@@ -44,7 +44,7 @@ fn an_undecided_sum_above_u64_is_a_named_count_and_no_abort() {
 fn an_omitted_sum_above_u64_is_a_named_count_and_no_abort() {
     let mut p = payload("variant-forbidden-dependency-pair");
     let modules: Vec<usize> = (0..p.edges.level.len())
-        .filter(|row| p.edges.level[*row].is(Level::Module))
+        .filter(|row| p.edges.level[*row].is(NodeLevel::Module))
         .collect();
     p.edges.omitted[modules[0]] = u64::MAX;
     p.edges.omitted[modules[1]] = 1;
@@ -196,7 +196,7 @@ fn a_package_edge_with_a_target_is_refused() {
         .edges
         .level
         .iter()
-        .position(|l| l.is(Level::Package))
+        .position(|l| l.is(NodeLevel::Package))
         .unwrap();
     p.edges.target[edge] = Code::of(EdgeTarget::Declared);
     assert!(refused(&p).contains(&Problem::EdgeTarget { edge }));

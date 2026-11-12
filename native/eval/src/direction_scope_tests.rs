@@ -228,7 +228,7 @@ fn a_layer_row_cites_the_receipt_and_the_first_line_of_the_contract() {
     let Ok(model) = archkeel_model::Model::derive(&contract, &reply, settings) else {
         return assert_eq!("the model derives", "");
     };
-    let outcomes = crate::evaluate(&contract, &model);
+    let outcomes = crate::evaluate(&model);
     let Some(crate::Violation::OuterLayer(row)) = outcomes
         .iter()
         .find(|o| o.rule() == "LAYERS")
@@ -261,7 +261,7 @@ fn a_contract_source_of_other_bytes_is_no_source() {
     let Ok(model) = archkeel_model::Model::derive(&contract, &reply, other) else {
         return assert_eq!("the model derives", "");
     };
-    let outcomes = crate::evaluate(&contract, &model);
+    let outcomes = crate::evaluate(&model);
     let reason = outcomes
         .iter()
         .find(|o| o.rule() == "LAYERS")

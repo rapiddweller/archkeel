@@ -12,12 +12,12 @@
 use std::path::PathBuf;
 
 use crate::{
-    Code, CodeList, ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, Graph, Level,
-    MeasureRow, NodeRow, OptId, Payload, PermissionRow, Produced, Records, RuleDecision,
-    RuleOutcome, RuleReason, RuleVerdict, RunFacts, RunOutcome, Status, Target, Tree, Undecided,
-    UnitRow, UnknownRecord, UnknownSource, ViolationRow, WhyUnknown,
+    Code, CodeList, ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, GraphRows,
+    MeasureRow, NodeLevel, NodeRow, OptId, Payload, PermissionRow, Produced, Records, RuleDecision,
+    RuleOutcome, RuleReason, RuleText, RuleVerdict, RunFacts, RunOutcome, Status, Target, Tree,
+    Undecided, UnitRow, UnknownRecord, UnknownSource, ViolationRow, WhyUnknown,
 };
-use archkeel_model::{Decision, Part, Reason, Unsupported};
+use archkeel_model::{Decision, Part, Reason as ModelReason, Unsupported};
 
 pub(crate) const BUILDABLE: [&str; 4] = [
     "E-runtime",
@@ -61,7 +61,7 @@ fn decision(status: Status) -> Option<Decision> {
     match status {
         Status::Pass => None,
         Status::Fail => Some(Decision::fail()),
-        Status::Unknown => Some(Decision::unknown(Reason::Unsupported(
+        Status::Unknown => Some(Decision::unknown(ModelReason::Unsupported(
             Unsupported::ScopeProof(Part::RuntimeRequirement),
         ))),
     }
@@ -143,16 +143,16 @@ fn units(p: &Payload) -> Vec<UnitRow> {
         .collect()
 }
 
-fn graph(p: &Payload) -> Graph {
+fn graph(p: &Payload) -> GraphRows {
     let e = &p.edges;
     let mut module_edge = 0u32;
     let mut start = 0usize;
     let mut edges = Vec::new();
     for i in 0..e.level.len() {
         let end = usize::try_from(e.via_end[i]).unwrap();
-        let level: Level = known(e.level[i]);
+        let level: NodeLevel = known(e.level[i]);
         let c = &p.crossings;
-        let crossings: Vec<CrossingRow> = if level == Level::Module {
+        let crossings: Vec<CrossingRow> = if level == NodeLevel::Module {
             (0..c.edge.len())
                 .filter(|x| c.edge[*x] == module_edge)
                 .map(|x| CrossingRow {
@@ -171,7 +171,7 @@ fn graph(p: &Payload) -> Graph {
             e.omitted[i], 0,
             "the support reads no edge above the crossing cap"
         );
-        if level == Level::Module {
+        if level == NodeLevel::Module {
             module_edge += 1;
         }
         edges.push(EdgeRow {
@@ -187,7 +187,7 @@ fn graph(p: &Payload) -> Graph {
         });
         start = end;
     }
-    Graph { edges }
+    GraphRows { edges }
 }
 
 fn flat(p: &Payload, list: &[u32], ends: &[u64], row: usize) -> Vec<String> {
@@ -288,38 +288,40 @@ pub(crate) fn inputs(p: &Payload) -> Option<(RunOutcome, Records)> {
             RuleVerdict::Declaration => RuleDecision::Declaration,
         };
         let undecided = usize::try_from(r.undecided).unwrap();
-        rules.push(RuleOutcome {
-            id: r.id.clone(),
-            kind: r.kind.clone(),
+        let why_unknown = match r.reason {
+            RuleReason::ScopeIncomplete => Some(WhyUnknown::ScopeIncomplete),
+            RuleReason::NoReceipt => Some(WhyUnknown::NoReceipt),
+            RuleReason::Undecided => Some(WhyUnknown::Undecided),
+            RuleReason::OwnershipBlocker => Some(WhyUnknown::OwnershipBlocker),
+            _ => None,
+        };
+        let text = RuleText {
             title: r.title.clone(),
-            decision,
+            rationale: r.rationale.clone(),
+            decided_by: r.decided_by.clone(),
             evaluated: r.evaluated,
-            why_unknown: match r.reason {
-                RuleReason::ScopeIncomplete => Some(WhyUnknown::ScopeIncomplete),
-                RuleReason::NoReceipt => Some(WhyUnknown::NoReceipt),
-                RuleReason::Undecided => Some(WhyUnknown::Undecided),
-                RuleReason::OwnershipBlocker => Some(WhyUnknown::OwnershipBlocker),
-                _ => None,
-            },
             undecided: vec![
                 Undecided {
                     subject: String::new()
                 };
                 undecided
             ],
-            rationale: r.rationale.clone(),
-            decided_by: r.decided_by.clone(),
-        });
+        };
+        let (id, kind) = (r.id.clone(), r.kind.clone());
+        rules.push(RuleOutcome::of(id, kind, decision, why_unknown, text));
     }
     let (unknown_records, diagnostics) = unknowns(p);
     decision(p.summary.status)?;
+    // The observation comes from the scope of the model: without a model it is UNKNOWN.
+    if p.run.observation == Status::Pass {
+        return None;
+    }
     let outcome = RunOutcome {
         target: if p.run.target {
             Target::Present
         } else {
             Target::Absent
         },
-        observation: decision(p.run.observation)?,
         rules,
         diagnostics,
     };

@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::codes::{Code, Gap, Measure, Relation};
+use crate::codes::{Code, Gap, MeasureDef, Relation};
 
 /// The status of a run or of its observation: the three verdicts of the Decision.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -188,7 +188,7 @@ pub struct Component {
 pub struct TrendPoint {
     pub commit: String,
     pub date: String,
-    pub measure: Vec<Code<Measure>>,
+    pub measure: Vec<Code<MeasureDef>>,
     pub value: Vec<i64>,
     pub of: Vec<i64>,
 }

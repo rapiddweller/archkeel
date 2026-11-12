@@ -79,7 +79,7 @@ pub(crate) fn run(
     let Ok(model) = Model::derive(&contract, &reply, shop_settings()) else {
         return Vec::new();
     };
-    evaluate(&contract, &model)
+    evaluate(&model)
         .into_iter()
         .filter(|outcome| matches!(outcome.rule(), "ASSIGNMENT" | "LAYOUT"))
         .collect()
@@ -383,7 +383,7 @@ fn a_rule_kind_without_a_slice_names_its_kind() {
         fail("the model derives");
         return;
     };
-    let outcomes = evaluate(&contract, &model);
+    let outcomes = evaluate(&model);
     let cycles = outcomes
         .iter()
         .find(|outcome| outcome.rule() == "MODULE-CYCLES");

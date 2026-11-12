@@ -50,7 +50,7 @@ pub(crate) fn seen(
     let contract = contract(contract_change)?;
     let reply = reply(reply_change)?;
     let model = Model::derive(&contract, &reply, settings).ok()?;
-    let outcomes = evaluate(&contract, &model);
+    let outcomes = evaluate(&model);
     let outcome = outcomes.iter().find(|o| o.rule() == rule)?;
     Some(word_of(outcome))
 }

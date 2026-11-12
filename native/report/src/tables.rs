@@ -12,8 +12,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::codes::{
-    Code, Disposition, EdgeTarget, FindingKind, Gap, Kind, Level, Measure, MeasureState,
-    Permission, Reason, UnknownReason, UnknownSource, Verdict, Vis,
+    BudgetVerdict, Code, Disposition, EdgeTarget, FindingKind, FindingReason, Gap, Kind,
+    MeasureDef, MeasureState, NodeLevel, Permission, UnknownReason, UnknownSource, Vis,
 };
 
 /// A row index into the table that the column names.
@@ -56,7 +56,7 @@ macro_rules! table {
 table!(
     /// The containment tree.
     Nodes {
-        level: Code<Level>,
+        level: Code<NodeLevel>,
         parent: OptId,
         key: StrId,
         name: StrId,
@@ -73,7 +73,7 @@ table!(
     /// One row per node and measure that applies.
     Measures {
         node: Id,
-        def: Code<Measure>,
+        def: Code<MeasureDef>,
         state: Code<MeasureState>,
         value: i64,
         of: i64,
@@ -82,7 +82,7 @@ table!(
         budget_source: OptStr,
         baseline: i64,
         baseline_source: OptStr,
-        verdict: Code<Verdict>,
+        verdict: Code<BudgetVerdict>,
     }
 );
 
@@ -112,7 +112,7 @@ table!(
 table!(
     /// Direct edges: module edges first, then component, then package.
     Edges {
-        level: Code<Level>,
+        level: Code<NodeLevel>,
         from: Id,
         to: Id,
         names: u64,
@@ -187,7 +187,7 @@ table!(
         absolute: i64,
         relative_permille: i64,
         disposition: Code<Disposition>,
-        reason: Code<Reason>,
+        reason: Code<FindingReason>,
         carrier_total: u64,
         gap: OptGap,
     }

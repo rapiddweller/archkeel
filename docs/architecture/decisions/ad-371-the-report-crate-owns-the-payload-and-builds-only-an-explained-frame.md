@@ -61,3 +61,5 @@ status rule), `fault_tests.rs` (planted payload faults), `build_tests.rs` (the f
 payloads byte-equal to the Python producer, the named build errors), `codec_tests.rs`,
 `schema_tests.rs`, `status_tests.rs`, `review_tests.rs`; `tests/test_native_report.py`,
 `tests/test_report_checker.py` (each payload and frame against the schema).
+
+**Amendment (2026-11-12, [AD-381](ad-381-the-report-takes-the-evaluator-outcome-and-a-run-pass-needs-the-run-proof.md)).** Point 3 no longer holds: `build` takes the model, not a `pass` closure. A rule row comes from an `Outcome` of `eval`; the observation comes from the scope of the model. The payload type and its bytes are private to the crate.

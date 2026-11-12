@@ -9,7 +9,7 @@
 
 use std::cmp::Reverse;
 
-use crate::codes::Level;
+use crate::codes::NodeLevel;
 use crate::payload::Payload;
 use crate::problem::Problem;
 
@@ -39,12 +39,12 @@ fn check<K: Ord>(
 }
 
 /// Edges: module edges first, then component, then package.
-fn edge_rank(level: crate::codes::Code<Level>) -> u8 {
+fn edge_rank(level: crate::codes::Code<NodeLevel>) -> u8 {
     match level.known() {
-        Some(Level::Module) => 0,
-        Some(Level::Component) => 1,
-        Some(Level::Package) => 2,
-        Some(Level::System) | None => 3,
+        Some(NodeLevel::Module) => 0,
+        Some(NodeLevel::Component) => 1,
+        Some(NodeLevel::Package) => 2,
+        Some(NodeLevel::System) | None => 3,
     }
 }
 
@@ -115,7 +115,7 @@ pub(crate) fn order(p: &Payload, found: &mut Vec<Problem>) {
 
 /// Nodes: level, then depth, then key. The structure check proved that each parent is earlier.
 /// The depth of a package or a component is its depth in its tree. A module has depth 0, as the
-/// Python producer writes it: its parent is a component, and modules sort by key only.
+/// oracle producer writes it: its parent is a component, and modules sort by key only.
 fn nodes(p: &Payload, found: &mut Vec<Problem>) {
     let n = &p.nodes;
     let mut depth: Vec<usize> = Vec::with_capacity(n.parent.len());
@@ -125,8 +125,8 @@ fn nodes(p: &Payload, found: &mut Vec<Problem>) {
             .and_then(|parent| depth.get(parent).copied());
         depth.push(above.map_or(0, |d| d.saturating_add(1)));
     }
-    let module_depth = |(level, depth): (&crate::codes::Code<Level>, &usize)| {
-        if level.is(Level::Module) {
+    let module_depth = |(level, depth): (&crate::codes::Code<NodeLevel>, &usize)| {
+        if level.is(NodeLevel::Module) {
             0
         } else {
             *depth
