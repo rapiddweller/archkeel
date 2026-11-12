@@ -53,6 +53,10 @@ def binary() -> Path:
         "<=3.12",
         "=3.12",
         ">=3.12 <=3.12",
+        ">=3.12 >3.12 <=3.12",
+        ">3.12 >=3.12 <=3.12",
+        ">=3.12 <=3.12 <3.12",
+        ">=3.12 <3.12 <=3.12",
         ">3.12 <=3.12",
         ">=3.12 <3.12",
         ">=3 <2",
@@ -159,7 +163,10 @@ def test_sdk_gap_reaches_the_existing_section_builder(binary: Path, tmp_path: Pa
         check=True,
         timeout=10,
     )
-    gaps = json.loads(run.stdout)["gaps"]
+    value = json.loads(run.stdout)
+    assert len(value["files"]) == 1
+    assert value["files"][0]["rel_path"] == "a.dart"
+    gaps = value["gaps"]
     assert [gap["kind"] for gap in gaps] == ["SdkConstraintError"]
     assert gaps[0] == parity.python({"state": "declared", "constraint": ">=4"})["gaps"][0]
 
