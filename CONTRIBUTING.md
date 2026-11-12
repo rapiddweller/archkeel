@@ -85,7 +85,8 @@ aggregate would count as passed.
 | CI: Report and renderer tests | each push to `main` | `make ci-pr-report-check` |
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Demos | each push to `main` | `make demos` |
-| CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
+| CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check NATIVE_SPLIT=1`; locally, `make native-check` also runs the two corpus tests |
+| CI: Native: dual-run corpus test `<n>` (two legs) | each push to `main` | `make native-corpus LEG=<n>` |
 | CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
 | Full: Architecture, build and report checks | nightly, dispatch, release | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |

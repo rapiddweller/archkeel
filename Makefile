@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record dual-run dual-run-record dual-run-collector
+.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-corpus self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record dual-run dual-run-record dual-run-collector
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
@@ -76,6 +76,19 @@ CARGO_DENY_VERSION := 0.20.2
 # SHA-256 of the x86_64-unknown-linux-musl release archive of cargo-deny that CI installs.
 CARGO_DENY_SHA256 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
 CARGO_AUDITABLE_VERSION := 0.7.7
+
+# Issue #880: these two tests run the whole dual-run corpus and use about 75 % of the CPU time of
+# the native-check tests. CI runs each in a leg of the native-corpus job, parallel to the native
+# job, and that job runs native-check with NATIVE_SPLIT=1. Locally, native-check runs all tests.
+NATIVE_CORPUS_TESTS := \
+	tests/test_native_core.py::test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_case \
+	tests/test_native_core.py::test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts
+# pytest reads its options from PYTEST_ADDOPTS, so the test list below stays one line.
+native-check: export PYTEST_ADDOPTS = -n 4 --max-worker-restart=0 $(if $(NATIVE_SPLIT),$(addprefix --deselect ,$(NATIVE_CORPUS_TESTS)))
+
+# One leg of the native-corpus job: make native-corpus LEG=<n> runs test n of NATIVE_CORPUS_TESTS.
+native-corpus:
+	$(UV) run --locked python -m pytest -q $(or $(word $(LEG),$(NATIVE_CORPUS_TESTS)),$(error LEG must be a number from 1 to $(words $(NATIVE_CORPUS_TESTS))))
 
 # Rust code in native/ (AD-316). Run from native/ so that rust-toolchain.toml selects the toolchain.
 native-check:
