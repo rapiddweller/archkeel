@@ -15,7 +15,6 @@
 
 use archkeel_store::Ingested;
 
-use crate::contract::ContractState;
 use crate::dual_run::{self, Shared, TrustOf};
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
@@ -55,19 +54,11 @@ fn read(base: Base, candidate: Option<&Ingested>, shared: Shared) -> Result<(), 
     }
     let profile = |reply: &Ingested| reply.reply().facts.profile.as_str();
     same_profile(engine.reply().map(profile), candidate.map(profile))?;
-    let input = shared.input;
-    let settings = dual_run::settings_of(trust.settings, &input, shared.roots);
+    let settings = dual_run::settings_of(trust.settings, &shared.input, shared.roots);
     engine.answer(Request::Settings(settings));
-    match engine.answer(Request::Contract(input)) {
-        Answer::Contract(ContractState::Parsed(_)) => {}
-        Answer::Contract(ContractState::Missing(paths)) => {
-            return Err(crate::contract::missing_reason(&paths));
-        }
-        Answer::Contract(ContractState::Refused(message)) => {
-            return Err(format!("the contract is refused: {message}"));
-        }
-        other => return Err(format!("unexpected answer {other:?}")),
-    }
+    // The base has the contract bytes of the candidate, so the frame already names a contract
+    // that the core cannot use; without it, the base has no model.
+    engine.answer(Request::Contract(shared.input));
     let (_, derived) = engine.derived();
     derived
         .models()
