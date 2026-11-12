@@ -69,8 +69,9 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     # AD-384: every kind of the native contract is decided. The kept pair gaps hold each rule
     # but NATIVE-ASSIGNMENT-COMPLETE, which passes beyond Python; NATIVE-REQUIRES-COMPLETE names
     # the dependency scope proof of the host.
-    assert "1 owned rules are unsupported, first: unsupported: the scope proof: a coverage" in (
-        differences[0]
+    assert (
+        "1 owned rules are unsupported, first: unsupported: the scope proof: a coverage"
+        in (differences[0])
     )
     assert [line for line in differences if BEYOND.search(line)] == [
         "rust/native: rules: NATIVE-ASSIGNMENT-COMPLETE: core decides, Python does not: no one "
