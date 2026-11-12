@@ -48,7 +48,19 @@ pub(super) fn dotted(scan: &mut Scan, expr: &Expr) -> Result<Option<String>> {
         parts.push(n.id.as_str());
         scan.tick(parts.len())?;
         parts.reverse();
-        Ok(Some(parts.join(".")))
+        let text = parts.join(".");
+        if let Some((root, tail)) = text.split_once('.') {
+            if let Some((target, _)) = scan.aliases.get(root) {
+                let text = format!("{target}.{tail}");
+                scan.tick(text.len())?;
+                return Ok(Some(text));
+            }
+        } else if let Some((target, _)) = scan.aliases.get(&text) {
+            let text = target.to_owned();
+            scan.tick(text.len())?;
+            return Ok(Some(text));
+        }
+        Ok(Some(text))
     } else {
         Ok(None)
     }

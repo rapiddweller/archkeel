@@ -18,12 +18,14 @@ mod closure;
 mod names;
 mod namespace;
 mod output;
+mod proofs;
 mod records;
 mod scan;
 mod scopes;
 mod statements;
 
 pub use output::check as check_output;
+pub use proofs::table as proofs;
 use scan::{Result, Scan};
 
 pub struct Table {

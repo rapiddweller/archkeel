@@ -70,7 +70,11 @@ fn run() -> Result<(), String> {
             }
             if flag == "--dump-bindings" {
                 let (minor, root) = (minor.clone(), root.clone());
-                return on_big_stack(move || dump::bindings(&minor, &root));
+                return on_big_stack(move || dump::bindings(&minor, &root, false));
+            }
+            if flag == "--dump-proofs" {
+                let (minor, root) = (minor.clone(), root.clone());
+                return on_big_stack(move || dump::bindings(&minor, &root, true));
             }
         }
     }

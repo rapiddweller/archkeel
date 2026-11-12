@@ -4,7 +4,7 @@
 
 //! The shared bounded walk, below each binding consumer.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
 use archkeel_facts::pyminor::PyMinor;
@@ -22,6 +22,7 @@ pub(super) struct Scan {
     pub minor: PyMinor,
     pub work: Work,
     pub output: Output,
+    pub aliases: HashMap<String, (String, bool)>,
 }
 
 impl Scan {
@@ -30,6 +31,7 @@ impl Scan {
             minor,
             work: Work::with_limit(MAX_BINDING_WORK),
             output: Output::new(),
+            aliases: HashMap::new(),
         }
     }
 
