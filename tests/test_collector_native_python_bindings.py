@@ -27,8 +27,6 @@ from archkeel.analyzer.python.symbols import (
     _static_enum_members,
 )
 
-pytestmark = pytest.mark.requires_python(11)
-
 
 def _same(found: Any, expected: Any, label: object) -> None:
     same(
