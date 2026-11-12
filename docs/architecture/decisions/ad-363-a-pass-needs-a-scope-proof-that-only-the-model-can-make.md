@@ -36,6 +36,8 @@
 directly: `model` depends on `contract`, `store` and `facts` (AD-359 point 2 is corrected). The
 store gives one accessor, `Ingested::reply()`. It gives no re-export and no accessor per slice.
 
+**Amendment (2026-11-12, [AD-378](ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)).** Slice S4 writes the proof: `Scope::complete(rule)` gives it for one rule of the contract of the model. Point 2 no longer holds.
+
 **Reason.** The largest risk of the Rust evaluator is a false PASS: a rule passes because a fact
 or a file was not seen. A proof that only the scope of its own model makes turns that risk into
 a compile error. A named reason and exit 3 keep the dual run honest while the slices land.

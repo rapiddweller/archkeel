@@ -48,8 +48,7 @@ one crate, no producer can write a status that its rows do not explain.
 - A PASS status or a PASS observation needs `imports`, `reexports` and `variants`: when
   `run.not_carried` names one, the frame is refused (`Unexplained::PassWithoutPart`, also in
   `checker.py`). The other relations are display parts that every 2.0 payload leaves out.
-- Until slice S4 makes the scope proof, no `Decision` holds PASS, so `build` cannot write a
-  complete observation, a PASS rule or a PASS status.
+- Slice S4 makes the scope proof ([AD-378](ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)); the core does not call `build` yet.
 - The schema says "level, then depth, then key" for nodes; the Python producer gives every
   module depth 0, so modules sort by key. The check follows the producer.
 - The summary counts have no "not produced" state: without the graph the edge counts are 0, and
