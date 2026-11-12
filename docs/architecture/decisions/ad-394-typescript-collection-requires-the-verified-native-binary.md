@@ -43,7 +43,8 @@ The 15 Nest mounted-rule regressions are ordinary tests, not expected failures.
 changed verdict oracles, a silent empty scan and a retained Python fallback.
 **Ratchet exception.** D1 uses the lead's named allowance: `ir` plus `check` grow by 27 lines.
 The bound amendment records exact new verification ports and the moved metadata types.
-The Python self-scan has zero violations. Its measured unresolved-call pin changes from 1,002 to 1,021.
+The Python self-scan has zero violations. After the conflict-required rebase onto #1094,
+its measured unresolved-call pin changes from 1,025 to 1,048. No other budget changes.
 **Checks.** `test_collector_native_receipts.py`, `test_collector_bundled_launcher.py`,
 `test_collector_native_nested_verdicts.py`, the six collector parity files and recorded parser probes.
 The PR records final corpus, deletion, fault-injection and gate results. Keep it draft until all pass.

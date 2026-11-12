@@ -69,8 +69,7 @@ def test_a_rust_collector_without_its_digest_file_is_a_named_error(
 def test_a_typescript_collector_without_its_digest_file_is_a_named_error(
     install: Path, tmp_path: Path
 ) -> None:
-    """Without the switch the host takes the Python collector here (AD-352); with it, the binary
-    that is present must have its digest."""
+    """AD-394: a missing digest stops TypeScript with or without the core switch."""
     root = tmp_path / "ts"
     (root / "src").mkdir(parents=True)
     (root / "src/a.ts").write_text("export const a = 1;\n")
@@ -85,7 +84,7 @@ def test_a_typescript_collector_without_its_digest_file_is_a_named_error(
     _script(install / f"archkeel-typescript-collector{SUFFIX}", FORGED)
     code, result, written = report(root, "--native-core")
     assert code == 2
-    assert "a bundled collector is missing" in diagnostics(result)
+    assert "typescript_collector_missing_digest" in diagnostics(result)
     assert written == b""
 
 

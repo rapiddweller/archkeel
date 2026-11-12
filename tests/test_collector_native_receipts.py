@@ -16,7 +16,6 @@ from archkeel.analyzer import process
 from archkeel.cli import observe as shell
 from archkeel.ir.codec import observation_payload, parse_observation
 from archkeel.ir.model import RecordData
-from archkeel.ir.protocol import CollectionError
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +112,7 @@ def test_verification_checks_binary_bytes_not_only_the_digest_file(tmp_path: Pat
     binary = tmp_path / "collector"
     binary.write_bytes(b"one executable")
     expected = pin_of(str(binary))
+    Path(str(binary) + shell.DIGEST_SUFFIX).write_text(expected.removeprefix("sha256:"))
     binary.write_bytes(b"another executable")
-    result = shell.verified_binary(shell.Bundled(str(binary), expected))
-    assert isinstance(result, CollectionError)
-    assert "typescript_collector_digest_mismatch" in result.message
+    with pytest.raises(ValueError, match="records"):
+        shell.verified_binary(binary.name, tmp_path)

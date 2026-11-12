@@ -77,31 +77,28 @@ def _is_digest(text: str) -> bool:
     return len(text) == 64 and set(text) <= set("0123456789abcdef")
 
 
-def verified_binary(binary: Bundled) -> VerifiedBinary | CollectionError:
-    """Attest only after checking this bundled executable's actual bytes (AD-394)."""
-    try:
-        actual = "sha256:" + hashlib.sha256(Path(binary.path).read_bytes()).hexdigest()
-    except OSError as error:
-        return _native_error(binary.path, "unreadable_binary", str(error))
-    if actual != binary.digest:
-        return _native_error(binary.path, "digest_mismatch", f"{actual} != {binary.digest}")
-    return VerifiedBinary(binary.digest)
-
-
 class _VerifiedCollector(ProcessCollector):
     def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
         if self.pinned_digest is None:
             return CollectionError(
                 CollectionErrorKind.EXECUTION_ERROR, self.argv[0], "Missing binary digest"
             )
-        verified = verified_binary(Bundled(self.argv[0], self.pinned_digest))
-        if isinstance(verified, CollectionError):
-            return verified
+        binary = Path(self.argv[0])
+        try:
+            verified = verified_binary(binary.name.removesuffix(_EXECUTABLE_SUFFIX), binary.parent)
+        except OSError as error:
+            return _native_error(self.argv[0], "unreadable_binary", str(error))
+        except LookupError as error:
+            return _native_error(self.argv[0], "missing_digest", str(error))
+        except ValueError as error:
+            return _native_error(self.argv[0], "digest_mismatch", str(error))
+        if verified.digest != self.pinned_digest or verified.path != self.argv[0]:
+            return _native_error(self.argv[0], "digest_mismatch", "The located binary changed.")
         facts = super().collect(request)
         return (
             facts
             if isinstance(facts, CollectionError)
-            else replace(facts, verified_binary=verified)
+            else replace(facts, verified_binary=VerifiedBinary(verified.digest))
         )
 
 
@@ -144,7 +141,7 @@ def verified_binary(name: str, directory: Path | None = None) -> Bundled:
     `LookupError` without the binary or its digest file; `ValueError` for another digest.
     """
     located = locate(name, directory)
-    if located is None:
+    if isinstance(located, CollectionError):
         raise LookupError(f"{executable(name, directory)} and its {DIGEST_SUFFIX} file")
     actual = "sha256:" + hashlib.sha256(Path(located.path).read_bytes()).hexdigest()
     if actual != located.digest:

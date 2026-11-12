@@ -146,7 +146,7 @@ typescript-collector:
 	@mkdir -p src/archkeel/_native
 	$(UV) run --locked python -c 'import hashlib, pathlib, shutil, sysconfig; n="archkeel-typescript-collector"+(sysconfig.get_config_var("EXE") or ""); p=pathlib.Path("src/archkeel/_native")/n; shutil.copy2(pathlib.Path("native/target/bundled/debug")/n,p); pathlib.Path(str(p)+".sha256").write_text(hashlib.sha256(p.read_bytes()).hexdigest(), encoding="ascii")'
 
-test full-test demos dual-run: typescript-collector
+test full-test demos dual-run native-check native-corpus: typescript-collector
 
 native-tools:
 	cargo install --locked cargo-deny@$(CARGO_DENY_VERSION) cargo-auditable@$(CARGO_AUDITABLE_VERSION)
