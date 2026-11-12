@@ -371,9 +371,14 @@ The crate reads, writes and binds an amendment (`policy::parse_amendment`, `poli
 - `Binding::amend` refuses a blank `decided_by` or `rationale`. Python writes a file that its reader refuses.
 - Nesting deeper than 128 levels is invalid JSON. Python stops with `RecursionError`.
 
-The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its template. The
+The API list of `tools/rust_api.py` reads a declaration macro once, in its template. The
 contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
-counts of `native/api_baseline.json`.
+lists of `native/api_baseline.json`. Two `pub fn` of the same name in two `impl` blocks of one
+file are two equal lines, so a move between the two blocks does not show (AD-382).
+
+The system-access test of the core side (AD-382) is a text scan. It does not see an access
+through another crate, a method on a value of a type that it does not name (except the file
+methods of `Path` by name), a macro such as `eprintln!` or `include_str!`, or an io trait method.
 
 ## The Rust core (dual run only)
 

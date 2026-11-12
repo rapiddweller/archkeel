@@ -1,33 +1,37 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Count the public API of each Rust library crate and ratchet the counts (AD-327).
+"""List the public API of each Rust library crate by name and ratchet the list (AD-327, AD-382).
 
 A library crate of `native/` has `src/lib.rs`. Each one must deny
-`unreachable_pub`, so a `pub` item is a part of the crate API. Each crate has two counts:
+`unreachable_pub`, so a `pub` item is a part of the crate API. Each public part is one line
+`<kind> <module path>::<name>`, with the signature of a `fn` and the type of a field:
 
-- `items`: a `pub` item (`fn`, `struct`, `enum`, `trait`, `const`, `static`, `type`, `mod`,
+- an item: a `pub` item (`fn`, `struct`, `enum`, `trait`, `const`, `static`, `type`, `mod`,
   `union`, `extern crate`, `extern fn`) and each name of a `pub use` list (`pub use a::{b, c}`
-  is two). A `pub fn` or `pub const` inside an `impl` block is an item too, whatever the type
-  of the `impl` is.
-- `members`: a `pub` field of a `pub struct` or `pub union`, and a variant of a `pub enum`.
+  is two lines). A `pub fn` or `pub const` inside an `impl` block is an item of its file,
+  whatever the type of the `impl` is.
+- a member: `field <path>::Type.name` for a `pub` field of a `pub struct` or `pub union`
+  (`Type.0` in a tuple struct), and `variant <path>::Enum::Name` for a variant of a `pub enum`.
 
-`native/api_baseline.json` holds both counts for each library. A count that grows or shrinks
-fails until the number changes in the same pull request, so each change of an API shows in
-the review.
+`native/api_baseline.json` holds the sorted list of each library. A part that is added or
+removed fails until the list changes in the same pull request, so each change of an API shows
+in the review by name, also when one part replaces another or a signature changes. Run
+`python tools/rust_api.py --write` to write the list, then review the diff.
 
-What the counts do not hold: `pub(crate)` and other restricted items, fields of a type that is
-not `pub`, items of a trait, and the files of the tests (`rust_source.test_files`).
+What the list does not hold: `pub(crate)` and other restricted items, fields of a type that is
+not `pub`, items of a trait, and the files of the tests (`rust_source.test_files`). Two `pub fn`
+of the same name in two `impl` blocks of one file are two equal lines, so a move between the
+two blocks does not show.
 
 Macros: the text of a `macro_rules!` body is read as written. A `pub` item in a template counts
 once, and its expansions do not count. A `pub` item in the text of a macro call counts, and a
 visibility token that the call passes on does not.
 
 Limit: a declaration macro whose template builds the items (`record!`, `text_type!`,
-`closed_enum!` and `rules!` of `archkeel-contract`) counts once in its template, not once for
-each call. So the counts of `archkeel-contract` miss about 90 public types, their accessors and
-their enum variants. The baseline still ratchets the hand-written items; a change of a macro
-call does not show. See `docs/known-limits.md`.
+`closed_enum!` and `rules!` of `archkeel-contract`) shows once in its template, not once for
+each call. So the list of `archkeel-contract` misses about 90 public types, their accessors and
+their enum variants. A change of a macro call does not show. See `docs/known-limits.md`.
 """
 
 from __future__ import annotations
@@ -36,6 +40,7 @@ import argparse
 import json
 import sys
 import tomllib
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -50,7 +55,8 @@ from rust_source import (
 
 ITEMS = frozenset("fn struct enum trait static type mod union use crate".split())
 MODIFIERS = frozenset({"unsafe", "async", "extern"})
-KINDS = ("items", "members")
+MEMBERS = frozenset({"field", "variant"})
+WRITE = "python tools/rust_api.py --write"
 
 
 def libraries(native: Path) -> dict[str, Path]:
@@ -64,48 +70,52 @@ def libraries(native: Path) -> dict[str, Path]:
     return found
 
 
-def _use_members(tokens: Sequence[Token], at: int) -> int:
-    """Count the names that the `use` tree after `at` brings in, up to its `;`."""
-    count, pending = 0, False
+def _use_names(tokens: Sequence[Token], at: int) -> list[str]:
+    """Return the names that the `use` tree after `at` brings in, up to its `;`."""
+    names: list[str] = []
+    last: str | None = None
     for token in tokens[at:]:
         if token.text in {",", "}", ";"}:
-            count, pending = count + pending, False
+            names += [last] if last is not None else []
+            last = None
             if token.text == ";":
                 break
         elif token.text == "{":
-            pending = False
-        elif token.kind == "name" or token.text == "*":
-            pending = True
-    return count
+            last = None
+        elif token.kind == "name" and token.text != "as" or token.text == "*":
+            last = token.text
+    return names
 
 
-def _variants(tokens: Sequence[Token], at: int) -> int:
-    """Count the variants of the enum whose name is at `at`."""
+def _variants(tokens: Sequence[Token], at: int) -> list[str]:
+    """Return the variants of the enum whose name is at `at`."""
     start = next((i for i in range(at, len(tokens)) if tokens[i].text == "{"), len(tokens))
-    count, position, expect = 0, start + 1, True
+    names: list[str] = []
+    position, expect = start + 1, True
     while position < len(tokens) and tokens[position].text != "}":
         text = tokens[position].text
         if text == "#" and tokens[position + 1].text == "[":
             position = group_end(tokens, position + 1)
         elif expect and tokens[position].kind == "name":
-            count, expect = count + 1, False
+            names.append(text)
+            expect = False
             position += 1
         elif text in {"(", "{", "["}:
             position = group_end(tokens, position)
         else:
             expect = expect or text == ","
             position += 1
-    return count
+    return names
 
 
-def _pub_type_bodies(tokens: Sequence[Token]) -> list[tuple[int, int]]:
-    """Return the token ranges of the bodies of the `pub struct` and `pub union` items.
+def _pub_type_bodies(tokens: Sequence[Token]) -> list[tuple[int, int, str]]:
+    """Return the token ranges and the names of the bodies of the `pub struct` and `pub union`.
 
     The body is the first `(` or `{` after the name that is outside the generic list `<...>`
     and, for a tuple struct, before any `where` clause. A `(` or `{` inside the generics or the
     `where` clause, as in `Fn(u8)`, is skipped by its bracket depth. A unit struct has no body.
     """
-    bodies: list[tuple[int, int]] = []
+    bodies: list[tuple[int, int, str]] = []
     for at in range(1, len(tokens)):
         if tokens[at].text not in {"struct", "union"} or tokens[at - 1].text != "pub":
             continue
@@ -121,7 +131,7 @@ def _pub_type_bodies(tokens: Sequence[Token]) -> list[tuple[int, int]]:
             elif text == ";" and angle == 0:
                 break
             elif text == "{" and angle == 0 or text == "(" and angle == 0 and not where:
-                bodies.append((position, group_end(tokens, position)))
+                bodies.append((position, group_end(tokens, position), tokens[at + 1].text))
                 break
             elif text in {"(", "[", "{"}:
                 position = group_end(tokens, position)
@@ -130,9 +140,46 @@ def _pub_type_bodies(tokens: Sequence[Token]) -> list[tuple[int, int]]:
     return bodies
 
 
-def count_tokens(tokens: Sequence[Token]) -> tuple[int, int]:
-    """Return the (items, members) of the public API of one file, given as tokens."""
-    items = members = 0
+def _field(tokens: Sequence[Token], start: int, at: int) -> str:
+    """The name of the field whose `pub` is at `at`, or its index in a tuple struct."""
+    if tokens[at + 1].kind == "name" and tokens[at + 2].text == ":" != tokens[at + 3].text:
+        return tokens[at + 1].text
+    depth = index = 0
+    for position in range(start + 1, at):
+        text = tokens[position].text
+        depth += text in {"(", "[", "{", "<"}
+        depth -= text in {")", "]", "}"} or text == ">" and tokens[position - 1].text != "-"
+        index += text == "," and depth == 0
+    return str(index)
+
+
+def _text(tokens: Sequence[Token], start: int, stops: frozenset[str]) -> str:
+    """The tokens from `start` to the first stop at bracket depth 0, as compact text."""
+    parts: list[str] = []
+    depth, position = 0, start
+    while position < len(tokens):
+        token = tokens[position]
+        if depth == 0 and token.text in stops:
+            break
+        depth += token.text in {"(", "[", "<"}
+        depth -= token.text in {")", "]"} or token.text == ">" and parts[-1:] != ["-"]
+        spaced = parts and parts[-1][-1:].isalnum() and token.kind != "punct"
+        parts.append((" " if spaced else "") + token.text)
+        position += 1
+    return "".join(parts)
+
+
+SIGNATURE_END = frozenset({"{", ";", "where"})
+FIELD_END = frozenset({",", "}", ")"})
+
+
+def public_names(tokens: Sequence[Token]) -> list[tuple[str, str]]:
+    """Return the (kind, name) of each part of the public API of one file, given as tokens.
+
+    A kind is an item keyword (`fn`, `struct`, `use`, ...), `field` or `variant`. A field is
+    `Type.name` (`Type.0` in a tuple struct) and a variant is `Enum::Name`.
+    """
+    names: list[tuple[str, str]] = []
     bodies = _pub_type_bodies(tokens)
     for at, token in enumerate(tokens):
         if token.text != "pub" or token.kind != "name":
@@ -150,13 +197,29 @@ def count_tokens(tokens: Sequence[Token]) -> tuple[int, int]:
         }:
             position += 1
         text = tokens[position].text
-        if text in ITEMS or text == "const":
-            items += _use_members(tokens, position + 1) if text == "use" else 1
+        after = [t.text for t in tokens[position + 1 : position + 3]] + ["", ""]
+        if text == "use":
+            names += [("use", name) for name in _use_names(tokens, position + 1)]
+        elif text in ITEMS or text == "const":
+            name = after[1] if after[0] == "mut" else after[0]
+            signature = _text(tokens, position + 2, SIGNATURE_END) if text == "fn" else ""
+            names.append((text, name + signature))
             if text == "enum":
-                members += _variants(tokens, position + 1)
-        elif any(start <= at < stop for start, stop in bodies):
-            members += 1  # a field of a pub struct or pub union, named or of a tuple struct
-    return items, members
+                names += [("variant", f"{name}::{v}") for v in _variants(tokens, position + 1)]
+        else:
+            body = next(((s, n) for s, e, n in bodies if s <= at < e), None)
+            if body is not None:  # a field of a pub struct or pub union, with its type
+                field = _field(tokens, body[0], at)
+                start = at + 3 if field.isidentifier() else at + 1
+                names.append(("field", f"{body[1]}.{field}: {_text(tokens, start, FIELD_END)}"))
+    return names
+
+
+def count_tokens(tokens: Sequence[Token]) -> tuple[int, int]:
+    """Return the (items, members) of the public API of one file, given as tokens."""
+    names = public_names(tokens)
+    members = sum(kind in MEMBERS for kind, _ in names)
+    return len(names) - members, members
 
 
 def production_tokens(text: str) -> list[Token]:
@@ -167,16 +230,29 @@ def production_tokens(text: str) -> list[Token]:
     ]
 
 
-def count_public(source: Path) -> tuple[int, int]:
-    """Return the (items, members) of the public API of the production files of one crate."""
+def _module(name: str) -> str:
+    """The module path of a source file of a crate: `a/mod.rs` and `a.rs` are `a`."""
+    parts = name.removesuffix(".rs").split("/")
+    return "::".join(parts[:-1] if parts[-1] in {"lib", "main", "mod"} else parts)
+
+
+def public_api(source: Path) -> list[str]:
+    """Return the sorted public API of the production files of one crate, one line a part."""
     sources = read_sources(source)
     marked = test_files(sources)
-    items = members = 0
-    for name, text in sources.items():
-        if name not in marked:
-            file_items, file_members = count_tokens(production_tokens(text))
-            items, members = items + file_items, members + file_members
-    return items, members
+    return sorted(
+        f"{kind} {'::'.join(filter(None, (_module(name), part)))}"
+        for name, text in sources.items()
+        if name not in marked
+        for kind, part in public_names(production_tokens(text))
+    )
+
+
+def count_public(source: Path) -> tuple[int, int]:
+    """Return the (items, members) of the public API of the production files of one crate."""
+    api = public_api(source)
+    members = sum(line.split(" ", 1)[0] in MEMBERS for line in api)
+    return len(api) - members, members
 
 
 def problems(native: Path, baseline: Mapping[str, object]) -> list[str]:
@@ -189,26 +265,18 @@ def problems(native: Path, baseline: Mapping[str, object]) -> list[str]:
         ):
             result.append(f"{name} must have #![deny(unreachable_pub)] in lib.rs.")
         expected = baseline.get(name)
-        if not isinstance(expected, Mapping):
-            result.append(
-                f"{name} has no entry with items and members in native/api_baseline.json."
-            )
+        if not isinstance(expected, list) or not all(isinstance(x, str) for x in expected):
+            result.append(f"{name} has no list of public parts in native/api_baseline.json.")
             continue
-        for kind, count in zip(KINDS, count_public(source), strict=True):
-            allowed = expected.get(kind)
-            if not isinstance(allowed, int):
-                result.append(f"{name} has no {kind} count in native/api_baseline.json.")
-            elif count != allowed:
-                direction = "grew" if count > allowed else "shrank"
-                result.append(
-                    f"{name} has {count} public {kind} and {direction} from {allowed}. "
-                    f"Set {name} {kind} to {count} in native/api_baseline.json "
-                    "and name the change in the PR."
-                )
+        now, before = Counter(public_api(source)), Counter(expected)
+        result += [f"{name} adds public {line}." for line in sorted((now - before).elements())]
+        result += [f"{name} removes public {line}." for line in sorted((before - now).elements())]
     result.extend(
         f"{name} is in native/api_baseline.json and is no library with code."
         for name in sorted(set(baseline) - set(found))
     )
+    if any(" public " in line for line in result):
+        result.append(f"Run `{WRITE}` and name each change of the API in the PR.")
     return result
 
 
@@ -216,9 +284,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--native", type=Path, default=Path("native"))
     parser.add_argument(
-        "--check", action="store_true", help="fail on a rule or a count that differs"
+        "--check", action="store_true", help="fail on a rule or a part that differs"
     )
+    parser.add_argument("--write", action="store_true", help="write the lists of the baseline")
     args = parser.parse_args(argv)
+    if args.write:
+        lists = {name: public_api(source) for name, source in libraries(args.native).items()}
+        text = json.dumps(lists, indent=2, sort_keys=True) + "\n"
+        (args.native / "api_baseline.json").write_text(text, encoding="utf-8")
     for name, source in libraries(args.native).items():
         items, members = count_public(source)
         print(f"pub items {name}: {items}")

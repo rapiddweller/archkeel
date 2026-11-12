@@ -2041,6 +2041,305 @@
         "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-TOML",
+      "kind": "external_dependency_scope",
+      "dependency": "toml",
+      "allowed_sources": [
+        "native.archkeel_python_collector.requirement",
+        "native.archkeel_python_collector.cargo_toml"
+      ],
+      "rationale": "Only the Python collector reads pyproject.toml; the core side (model, eval, report, core) reads no TOML, because the shell sends it typed bytes.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-PROC-MACRO2",
+      "kind": "external_dependency_scope",
+      "dependency": "proc_macro2",
+      "allowed_sources": [
+        "native.archkeel_rust_collector.tokens",
+        "native.archkeel_rust_collector.net",
+        "native.archkeel_rust_collector.scan",
+        "native.archkeel_rust_collector.scan.attributes",
+        "native.archkeel_rust_collector.scan.macros",
+        "native.archkeel_rust_collector.cargo_toml"
+      ],
+      "rationale": "Only the lexical modules of the Rust collector read token spans, next to syn.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-RUFF-TEXT-SIZE",
+      "kind": "external_dependency_scope",
+      "dependency": "ruff_text_size",
+      "allowed_sources": [
+        "native.archkeel_python_collector.survey.module",
+        "native.archkeel_python_collector.cargo_toml"
+      ],
+      "rationale": "Only the survey module of the Python collector reads the text ranges of the Python parser.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-CC",
+      "kind": "external_dependency_scope",
+      "dependency": "cc",
+      "allowed_sources": [
+        "native.archkeel_dart_grammar"
+      ],
+      "rationale": "Only a grammar crate compiles a vendored C parser.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-FLATE2",
+      "kind": "external_dependency_scope",
+      "dependency": "flate2",
+      "allowed_sources": [
+        "native.archkeel_store",
+        "native.archkeel_wire"
+      ],
+      "rationale": "Only the store and the wire decompress a reply or a request.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SCHEMARS",
+      "kind": "external_dependency_scope",
+      "dependency": "schemars",
+      "allowed_sources": [
+        "native.archkeel_facts"
+      ],
+      "rationale": "Only the facts crate generates the JSON schema of the facts (AD-345).",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-UNICODE-IDENT",
+      "kind": "external_dependency_scope",
+      "dependency": "unicode_ident",
+      "allowed_sources": [
+        "native.archkeel_contract"
+      ],
+      "rationale": "Only the contract parser checks a Python identifier with the XID tables.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SHA2",
+      "kind": "external_dependency_scope",
+      "dependency": "sha2",
+      "allowed_sources": [
+        "native.archkeel_build_support",
+        "native.archkeel_contract",
+        "native.archkeel_facts",
+        "native.archkeel_python_collector",
+        "native.archkeel_store"
+      ],
+      "rationale": "Only these crates compute a digest; the model, the evaluator, the report and the core copy digests and compute none.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SERDE",
+      "kind": "external_dependency_scope",
+      "dependency": "serde",
+      "allowed_sources": [
+        "native.archkeel_contract",
+        "native.archkeel_core",
+        "native.archkeel_dart_collector",
+        "native.archkeel_facts",
+        "native.archkeel_model",
+        "native.archkeel_report",
+        "native.archkeel_store",
+        "native.archkeel_wire"
+      ],
+      "rationale": "These crates encode or decode typed values; the evaluator and the collectors that write through the facts crate do not.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SERDE-JSON",
+      "kind": "external_dependency_scope",
+      "dependency": "serde_json",
+      "allowed_sources": [
+        "native.archkeel_contract",
+        "native.archkeel_core",
+        "native.archkeel_dart_collector",
+        "native.archkeel_facts",
+        "native.archkeel_model",
+        "native.archkeel_python_collector",
+        "native.archkeel_report",
+        "native.archkeel_rust_collector",
+        "native.archkeel_store",
+        "native.archkeel_typescript_collector",
+        "native.archkeel_wire"
+      ],
+      "rationale": "These crates read or write JSON; the evaluator reads typed values only.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "native",
+      "rationale": "Each external crate has a stated home: an import of a crate that no rule names fails.",
+      "provenance": [
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-EVAL-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "The core chain is core -> report -> eval -> model -> contract, store and facts; eval is below report, so eval must not use report even when a requires entry allows it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODEL-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "The core chain is core -> report -> eval -> model -> contract, store and facts; model is below eval, so model must not use eval even when a requires entry allows it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODEL-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "The core chain is core -> report -> eval -> model -> contract, store and facts; model is below report, so model must not use report even when a requires entry allows it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CONTRACT-TO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_contract",
+      "target": "native.archkeel_model",
+      "include_type_checking": true,
+      "rationale": "The contract crate parses contract bytes and uses no crate of the workspace, so model must not enter it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CONTRACT-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_contract",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "The contract crate parses contract bytes and uses no crate of the workspace, so eval must not enter it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CONTRACT-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_contract",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "The contract crate parses contract bytes and uses no crate of the workspace, so report must not enter it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CONTRACT-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_contract",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "The contract crate parses contract bytes and uses no crate of the workspace, so core must not enter it (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODEL-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "Only the core binary runs the core chain; model must not use core (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-EVAL-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "Only the core binary runs the core chain; eval must not use core (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-REPORT-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_report",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "Only the core binary runs the core chain; report must not use core (AD-359).",
+      "provenance": [
+        "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
     }
   ]
 }

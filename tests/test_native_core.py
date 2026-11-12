@@ -13,16 +13,17 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 import pytest
 from conftest import build_native_copy
+from native_rules_support import language_names
 
 from tools import dual_run
 from tools.dual_run_oracle import Selection
 
 ROOT = Path(__file__).resolve().parents[1]
-LANGUAGES = re.compile(r"python|typescript|dart|\brust\b", re.IGNORECASE)
 
 
 @pytest.fixture(scope="module")
@@ -348,15 +349,18 @@ def test_the_host_uses_the_core_for_no_verdict() -> None:
 
 def test_the_model_the_evaluator_and_the_core_name_no_language() -> None:
     """The no-language rule of design WP6-0 section B; the Rust profile has no rule kind that
-    reads an identifier, so the check is here and not in the native contract."""
-    found = [
-        f"{path.relative_to(ROOT)}: {match.group(0)}"
-        for crate in ("model", "eval", "core")
-        for path in (ROOT / "native" / crate / "src").glob("*.rs")
-        if not path.name.endswith("_tests.rs")
-        for match in LANGUAGES.finditer(path.read_text())
-    ]
-    assert found == []
+    reads an identifier, so the check is here and not in the native contract.
+
+    AD-382: the rule also reads `report` and each subdirectory. The doc comments of `report`
+    name the Python checker that it equals and the Rust core; the pin holds them exactly."""
+    assert language_names(ROOT / "native") == Counter(
+        {
+            "report/src/check.rs: python": 3,
+            "report/src/check_order.rs: python": 1,
+            "report/src/lib.rs: python": 1,
+            "report/src/lib.rs: rust": 1,
+        }
+    )
 
 
 def test_each_native_component_is_a_node_of_the_component_graph() -> None:

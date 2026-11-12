@@ -13,6 +13,15 @@ arrows in the contract, and rule `NATIVE-NO-MODULE-CYCLES` forbids a module cycl
 The old layer file and its test are removed (AD-327): a declared
 Cargo dependency that no module uses is a crate edge, and the contract rejects it.
 
+The core chain is core -> report -> eval -> model -> contract, store and facts
+([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
+The `NATIVE-NO-*-TO-*` rules forbid each upward direction also when a `requires` entry allows it.
+`NATIVE-EXTERNAL-COMPLETE` gives each external crate a stated home. Four rules stay tests until
+a Rust rule kind can say them (`tests/test_native_self_rules.py`, `tests/test_native_core.py`,
+`tests/test_rust_api.py`): no system access of the text scan of AD-382 on the core side beyond
+the core binary, no language name on the core side, `requires` that follow one crate order, and
+the public API of each library by name and signature. #1075 lists what the scan of a Rust workspace misses.
+
 | Crate | Role | Uses |
 |---|---|---|
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
