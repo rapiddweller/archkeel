@@ -224,7 +224,9 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
 
 def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert "test full-test demos dual-run native-check native-corpus: typescript-collector" in makefile
+    assert (
+        "test full-test demos dual-run native-check native-corpus: typescript-collector" in makefile
+    )
     check = makefile.split("\nnative-check:\n")[1].split("\n# AD-335")[0]
     assert "tests/test_rust_clones.py tests/test_rust_api.py" in check
     assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
