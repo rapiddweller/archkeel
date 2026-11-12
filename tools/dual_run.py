@@ -56,6 +56,7 @@ from tools.dual_run_oracle import (
     section_rows,
     selection_of,
     to_rows,
+    unexplained,
     write_oracle,
 )
 
@@ -208,6 +209,8 @@ def command_frame(command: str, request: Mapping[str, Any], timeout: float) -> d
     # an empty frame is never a plain success (AD-363).
     if (done.returncode == NAMES_A_GAP) != names_a_gap(frame):
         return {"error": f"the engine exits with {done.returncode} for this frame"}
+    if (problem := unexplained(frame)) is not None:
+        return {"error": f"the engine frame is inconsistent: {problem}"}
     return frame
 
 

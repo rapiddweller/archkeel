@@ -64,47 +64,71 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     # and rule names its part.
     assert len(differences) == 1 + 15
     assert differences[0].startswith("rust/native: rules: ")
-    assert "8 owned rules are unsupported" in differences[0]
+    # AD-378: the five rules of the S1 and S2 kinds are a decided UNKNOWN equal to Python (the
+    # reply has pair gaps that the contract does not allow); the three others name their kind.
+    assert "3 owned rules are unsupported, first: unsupported: rule kind" in differences[0]
     assert "rust/native: metrics: -: unsupported: section metrics: slice S10 ports it" in lines
     owned = ("violations", "dependency_edges", "modules", "packages", "cycles", "edges")
     assert not [line for line in differences if line.split(": ")[1] in owned]
 
 
-def test_the_s1_kinds_equal_python_or_name_the_scope_proof(
+def test_the_s1_kinds_equal_python_with_the_scope_proof(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-370: on the hand-made S1 cases each decided rule and each violation row equals the
-    Python engine; a rule that only the scope proof of S4 can pass names it."""
+    """AD-370, AD-378: on the hand-made S1 cases each rule and each violation row equals the
+    Python engine: PASS with the scope proof, FAIL, and UNKNOWN with its reason."""
     arguments = ["compare", "--case", "s1/*", "--sections", "violations", "--engine-command", core]
     code, lines = _run([*arguments, "--families", "complete_assignment,root_layout"], capsys)
-    differences = [line for line in lines if line.startswith("s1/")]
-    assert code == 1
-    assert differences
-    assert all(
-        line.endswith("unsupported: the scope proof: slice S4 ports it") for line in differences
-    )
+    assert [line for line in lines if line.startswith("s1/")] == []
+    assert code == 0, lines
     assert lines[-1].startswith(
-        "dual run: family complete_assignment,root_layout; 1 sections; 13 projects; 26 rules;"
+        "dual run: family complete_assignment,root_layout; 1 sections; 13 projects; 26 rules; "
+        "0 differences;"
     )
 
 
-def test_the_s2_kinds_and_the_edges_equal_python_or_name_their_slice(
+def test_the_s2_kinds_and_the_edges_equal_python_with_the_scope_proof(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-372, AD-374: on the hand-made S2 cases each decided rule, each violation row and each
-    full edge row equals the Python engine; a PASS names the scope proof."""
+    """AD-372, AD-374, AD-378: on the hand-made S2 cases each rule, each violation row and each
+    full edge row equals the Python engine."""
     families = "external_dependency_scope,complete_external_scope"
     arguments = ["compare", "--case", "s2/*", "--sections", "violations,dependency_edges"]
     code, lines = _run([*arguments, "--families", families, "--engine-command", core], capsys)
-    differences = [line for line in lines if line.startswith("s2/")]
-    assert code == 1
-    assert differences
-    named = "unsupported: the scope proof: slice S4 ports it"
-    assert all(line.endswith(named) for line in differences), differences
+    assert [line for line in lines if line.startswith("s2/")] == []
+    assert code == 0, lines
     assert lines[-1].startswith(
         f"dual run: family {','.join(sorted(families.split(',')))}; 2 sections; 16 projects; "
-        "32 rules;"
+        "32 rules; 0 differences;"
     )
+
+
+# AD-378: the only names that a rule of a decided kind can have instead of a verdict.
+S4_NAMES = (
+    "missing input: no valid collector reply",
+    "unsupported: the contract mounts inside contracts; the tree assembly is not in the core yet",
+    "unsupported: the baseline of the request: no slice reads it yet",
+    "unsupported: the scope proof: a gap between two modules that the contract allows; the host "
+    "drops it for one profile, the core does not know the profile",
+)
+
+
+def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_case(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-378: over the whole corpus each rule of the four decided kinds has the verdict of the
+    Python engine, or a name of S4_NAMES, or a limit of one profile. No decided verdict differs."""
+    families = "complete_assignment,root_layout,external_dependency_scope,complete_external_scope"
+    arguments = ["compare", "--sections", "none", "--families", families]
+    code, lines = _run([*arguments, "--engine-command", core], capsys)
+    differences = [line for line in lines if ": rules: " in line]
+    assert not [line for line in differences if ", found " in line], differences
+    limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
+    assert all(
+        line.endswith(S4_NAMES) or limit.search(line) for line in differences
+    ), differences
+    assert not [line for line in differences if line.startswith("s4/")]
+    assert code == (1 if differences else 0)
 
 
 def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(

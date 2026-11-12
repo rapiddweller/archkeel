@@ -418,3 +418,40 @@ def selection_of(sections: str | None, families: str | None) -> Selection:
     if unknown := sorted(name for name in names if name not in FAMILIES and name not in RULE_KINDS):
         raise ValueError(f"unknown families or rule kinds: {', '.join(unknown)}")
     return Selection(chosen, frozenset(k for name in names for k in FAMILIES.get(name, (name,))))
+
+
+def unexplained(frame: Mapping[str, Any]) -> str | None:
+    """AD-378: the `status` of a frame follows from its rows, and each rule that is not PASS has
+    its explaining row: a FAIL rule its violations (L-23), an UNKNOWN rule its reason (AD-361
+    points 4 and 5). A frame without `status` (the Python engine) has nothing to check."""
+    if "status" not in frame:
+        return None
+    rules = frame.get("rules") or {}
+    explained, violations = frame.get("explained") or {}, frame.get("violations") or {}
+    for rule, (_, status) in rules.items():
+        count, reason = violations.get(rule, 0), bool(explained.get(rule))
+        fits = {
+            "FAIL": count > 0 and not reason,
+            "UNKNOWN": count == 0 and reason,
+            "PASS": count == 0 and not reason,
+        }
+        if not fits.get(status, False):
+            return f"the rule {rule} is {status} with {count} violations and reason {reason}"
+    if extra := sorted((set(explained) | set(violations)) - set(rules)):
+        return f"the rule {extra[0]} has an explaining row but no status"
+    found = frame.get("self_test") or {}
+    refused = bool(found) and (
+        "rules" not in found.get("contract", {}) or "files" not in found.get("reply", {})
+    )
+    named = refused or bool((frame.get("unsupported") or {}).get("rules"))
+    statuses = [status for _, status in rules.values()]
+    expected = (
+        "FAIL"
+        if "FAIL" in statuses
+        else "UNKNOWN"
+        if named or any(status != "PASS" for status in statuses)
+        else "PASS"
+    )
+    if frame["status"] != expected:
+        return f"the status is {frame['status']}, the rows give {expected}"
+    return None
