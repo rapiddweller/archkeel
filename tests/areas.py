@@ -16,7 +16,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_dual_run.py",
         "test_dual_run_shell.py",
     ),
-    "TypeScript collector target": ("test_typescript_control_target.py",),
     "boundary types": (
         "test_boundary_*.py",
         "test_typed_dict_bound_aliases.py",

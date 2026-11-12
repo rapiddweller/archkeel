@@ -32,7 +32,8 @@ There is no Python fallback. An explicit `collector_argv` keeps its existing beh
 This change does not start a release, publish a package or merge a PR.
 
 **Oracle.** Source `2a3b6eca07d87b23bea4ac2176c22a7a12ceac05`, Python 3.11.12.
-The manifest binds 5,276 recorded calls to their test IDs and exact archived byte digests.
+The manifest binds 5,378 recorded calls to their test IDs and exact archived byte digests.
+The additional 102 calls use unchanged Python source in the owned reference worktree.
 The retired recorder documents the original procedure and refuses new capture.
 Retained Core tests compare native facts first, then use recorded Python provenance.
 The permanent host parity helper compares every mounted rule, not only root assessments.
@@ -40,7 +41,9 @@ The 15 Nest mounted-rule regressions are ordinary tests, not expected failures.
 
 **Rejected.** Runtime-name exceptions, configured-collector trust, wire attestation fields,
 changed verdict oracles, a silent empty scan and a retained Python fallback.
-**Ratchet exception.** D1 uses the lead's named allowance: `ir` plus `check` grow by 30 lines.
+**Ratchet exception.** D1 uses the lead's named allowance: `ir` plus `check` grow by 27 lines.
+The bound amendment records exact new verification ports and the moved metadata types.
+The Python self-scan has zero violations. Its measured unresolved-call pin changes from 1,002 to 1,021.
 **Checks.** `test_collector_native_receipts.py`, `test_collector_bundled_launcher.py`,
 `test_collector_native_nested_verdicts.py`, the six collector parity files and recorded parser probes.
 The PR records final corpus, deletion, fault-injection and gate results. Keep it draft until all pass.

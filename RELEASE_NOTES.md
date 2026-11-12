@@ -5,6 +5,14 @@ native source evidence and conservative UNKNOWNs.
 
 ## Highlights
 
+- **Native-only TypeScript collection (unreleased).** Remove the Python TypeScript analyzer,
+  its grammar dependency and its standard-library assets. There is no Python fallback.
+  The next owner-started release publishes native wheels for Linux glibc x86_64/aarch64,
+  Linux musl x86_64, macOS x86_64/arm64 and Windows x86_64.
+  A pure wheel, sdist or editable install has no binary. TypeScript scans then stop with
+  `typescript_collector_missing_binary` and exit code 2. Install a supported native wheel
+  or run `make typescript-collector` from a source checkout.
+  Native partial dependency receipts require this run's verified bundled executable digest.
 - **Detailed architecture contracts.** ArchKeel's own Target defines lower-level
   owners, ports and responsibilities across Core, language collectors and reports.
   Observation, policy evaluation and rendering have separate owners.

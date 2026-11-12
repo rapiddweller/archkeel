@@ -48,7 +48,8 @@ def test_real_cli_without_native_directory_gives_an_environment_error(tmp_path: 
     root = _project(tmp_path / "repo")
     site = tmp_path / "site"
     package = shutil.copytree(ROOT / "src/archkeel", site / "archkeel")
-    shutil.rmtree(package / "_native")
+    if (package / "_native").exists():
+        shutil.rmtree(package / "_native")
     completed = subprocess.run(
         [sys.executable, "-m", "archkeel.cli", "report", "--root", str(root), "--json"],
         cwd=root,

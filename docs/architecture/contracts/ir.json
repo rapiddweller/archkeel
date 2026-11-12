@@ -4515,6 +4515,25 @@
           ]
         },
         {
+          "id": "source-facts.verified_binary",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.SourceFacts.verified_binary",
+          "language": "python",
+          "parent_id": "source-facts",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "VerifiedBinary | None",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry host-only verification of the bundled executable in this run; never decode it from collector wire data."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-394-typescript-collection-requires-the-verified-native-binary.md"
+          ]
+        },
+        {
           "id": "coverage",
           "kind": "class",
           "qualified_name": "archkeel.ir.facts.CollectionCoverage",

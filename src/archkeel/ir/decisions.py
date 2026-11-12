@@ -1593,14 +1593,11 @@ def rule_assessments(
         if declaration.kind == "layer_order" and status == RuleAssessmentStatus.PASS:
             reason = "Declared requires permissions follow the selected layer order."
         if status == RuleAssessmentStatus.UNKNOWN and scope_complete and not receipt_complete:
-            ownership_reason = _ownership_blocker_reason(observation, identifier)
-            if ownership_reason is not None:
+            if (ownership_reason := _ownership_blocker_reason(observation, identifier)) is not None:
                 reason = ownership_reason
         parent_id = declaration.data.get("parent_id")
         scope = str(parent_id) if isinstance(parent_id, str) else "root"
-        parent = records.get(scope)
-        if parent is not None:
-            scope = parent.title
+        scope = records[scope].title if scope in records else scope
         rule_components = {
             component.title
             for component in components

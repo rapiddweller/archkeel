@@ -13,7 +13,9 @@ Before deletion, the recorder ran the migrated tests with ARCHKEEL_RECORD_TYPESC
 ARCHKEEL_PRIVATE_UI selected the public Excalidraw corpus. ARCHKEEL_RECORDS_CORPORA selected
 x35 (scope ui) and Excalidraw (scope .). The six parity files, script syntax and dependencies,
 small scaling cases, locale tests, existing golden tests and retained TypeScript tests ran.
-The last Python parser tests also supplied 421 source cases through record_parser_probe.
+The last Python parser tests also supplied 434 source cases through record_parser_probe.
+The supplement holds 102 Core calls from the owned reference worktree at db96c2a88.
+Its TypeScript source has no diff from 2a3b6eca0; Python 3.11.12 produced each wire reply.
 Every call used the unchanged Python analyzer, not native output. The tests ran again with
 recording disabled before deletion. Ten separate golden faults failed a migrated test.
 

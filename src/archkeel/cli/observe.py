@@ -13,7 +13,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, Literal
 
-from archkeel.analyzer.pin import PinError, pinned_path
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
@@ -78,9 +77,14 @@ def _is_digest(text: str) -> bool:
     return len(text) == 64 and set(text) <= set("0123456789abcdef")
 
 
-def verified_binary(binary: Bundled, root: str) -> VerifiedBinary:
+def verified_binary(binary: Bundled) -> VerifiedBinary | CollectionError:
     """Attest only after checking this bundled executable's actual bytes (AD-394)."""
-    pinned_path(binary.path, root, os.environ.get("PATH", ""), binary.digest, inside_root=True)
+    try:
+        actual = "sha256:" + hashlib.sha256(Path(binary.path).read_bytes()).hexdigest()
+    except OSError as error:
+        return _native_error(binary.path, "unreadable_binary", str(error))
+    if actual != binary.digest:
+        return _native_error(binary.path, "digest_mismatch", f"{actual} != {binary.digest}")
     return VerifiedBinary(binary.digest)
 
 
@@ -90,13 +94,9 @@ class _VerifiedCollector(ProcessCollector):
             return CollectionError(
                 CollectionErrorKind.EXECUTION_ERROR, self.argv[0], "Missing binary digest"
             )
-        try:
-            verified = verified_binary(
-                Bundled(self.argv[0], self.pinned_digest), request.snapshot.root
-            )
-        except PinError as error:
-            code = "digest_mismatch" if "does not match" in str(error) else "unreadable_binary"
-            return _native_error(self.argv[0], code, str(error))
+        verified = verified_binary(Bundled(self.argv[0], self.pinned_digest))
+        if isinstance(verified, CollectionError):
+            return verified
         facts = super().collect(request)
         return (
             facts

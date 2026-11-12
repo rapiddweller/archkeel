@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "after_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "before_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "before_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "decided_by": "architect",
+  "rationale": "AD-394 and the lead's L-75 decisions remove the Python TypeScript implementation and its exclusive nested owners, entry guard, enum placements and grammar rule. D1 adds only the exact SourceFacts and VerifiedBinary shell ports, the shared dependency runtime identity function, and the existing WideningFinding type at its amendment owner. The SourceFacts Target includes the host-only verification field, not a new wire field. The measured Python self-scan has zero violations and 1021 unresolved calls after deletion, versus the pinned 1002: the removed implementation and the verified-runtime composition change the static call inventory. Pin that measured count; keep every other budget, Any restriction, receipt check and rule unchanged.",
+  "schema_version": "2.0.0"
+}
