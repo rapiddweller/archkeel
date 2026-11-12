@@ -54,8 +54,8 @@ A source accepted by CPython can reach a work or depth bound. The gap states tha
 Named-escape checks can also refuse a literal that joins a valid named escape with an unassigned
 literal character. This class stays a named gap until the escape-to-character map is needed.
 The 3.12 format-spec text gaps and surrogate gaps of AD-377 stay unchanged.
-After the rebase, main has 0 PASS, 1 FAIL, 30 UNKNOWN, 30 gaps and 7 known cycle violations (#1082).
-This slice has 0 PASS, 1 FAIL, 42 UNKNOWN, 37 gaps and the same 7 cycle violations.
+After the rebase, main has 0 PASS, 1 FAIL, 30 UNKNOWN, 31 gaps and 7 known cycle violations (#1082).
+This slice has 0 PASS, 1 FAIL, 42 UNKNOWN, 38 gaps and the same 7 cycle violations.
 The 12 added layer rules stay UNKNOWN. The seven new gaps are conservative `at` and `is_link`
 method candidates from the module move and changed survey. They are not proved upward edges.
 
