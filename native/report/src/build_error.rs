@@ -29,6 +29,8 @@ pub enum BuildError {
     PassWithoutProof(Option<RunGap>),
     /// A rule row holds a PASS that is not a PASS of this rule of this model (AD-378, AD-381).
     ForeignPass { rule: String },
+    /// A DECLARATION row whose rule is not a permission declaration of the model (AD-381).
+    ForeignDeclaration { rule: String },
     /// A status other than PASS has no row that explains it (AD-361 point 5).
     Unexplained(Vec<Unexplained>),
     /// The frame breaks other rules of the check, such as the status rule.
@@ -55,6 +57,12 @@ impl fmt::Display for BuildError {
                 write!(
                     formatter,
                     "the rows give PASS and the model gives no run proof: {gap:?}"
+                )
+            }
+            BuildError::ForeignDeclaration { rule } => {
+                write!(
+                    formatter,
+                    "rule {rule} is no permission declaration of the model"
                 )
             }
             BuildError::ForeignPass { rule } => {

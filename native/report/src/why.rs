@@ -7,11 +7,19 @@
 //! Each match lists every variant and has no wildcard: a new reason of the model does not
 //! compile here until its row reason is decided.
 //!
-//! - `undecided`: a dynamic import reaches the rule, an undecided position of AD-92.
+//! - `undecided`: the rule left imports undecided, an undecided position of AD-92.
 //! - `no_receipt`: the evaluator has no receipt for the rule: its kind is not ported, it selects
-//!   no module, or a cited child has no module record.
+//!   no module, a dynamic import reaches it, or a cited child has no module record.
 //! - `scope_incomplete`: each other reason. The scope of the run is not complete or not read.
 //! - `ownership_blocker`: no reason of the model maps to it yet.
+//!
+//! The reference engine checks an incomplete observation before the receipt
+//! (`ir/decisions.py:770-779`). So `Cause::NoRuleSubjects` (a rule side without subjects is a
+//! coverage failure of the run) is `scope_incomplete`, and `Reason::NoSubjects` (this rule has
+//! no receipt in a complete scope) is `no_receipt`. A dynamic import leaves the rule without its
+//! receipt (AD-378), so it is `no_receipt`; `Cause::Undecided` is an undecided position.
+
+#![deny(clippy::wildcard_enum_match_arm, clippy::match_wildcard_for_single_variants)]
 
 use archkeel_model::{Cause, Reason, Unsupported};
 
@@ -55,7 +63,8 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
 
 fn not_complete(cause: &Cause) -> WhyUnknown {
     match cause {
-        Cause::DynamicImport => WhyUnknown::Undecided,
+        Cause::Undecided(_) => WhyUnknown::Undecided,
+        Cause::DynamicImport => WhyUnknown::NoReceipt,
         Cause::PairGaps(_)
         | Cause::WorkTree
         | Cause::Runtime

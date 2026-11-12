@@ -53,6 +53,7 @@ fn rule_reason(verdict: RuleVerdict, why: Option<WhyUnknown>) -> Option<RuleReas
 /// The rule rows, by id; the violation count of each is the number of violation rows citing it.
 /// A PASS row needs a PASS of its own rule of `model` (AD-378, AD-381): a type cannot stop a
 /// `Decision` from moving, so the identity is checked. A run without a model has no PASS row.
+/// A DECLARATION row needs a declaration rule of the contract of `model`.
 pub(crate) fn rule_rows(
     rules: &[RuleOutcome],
     violations: &[ViolationRow],
@@ -69,12 +70,23 @@ pub(crate) fn rule_rows(
     let mut out = Vec::with_capacity(rules.len());
     for rule in rules {
         let verdict = rule_verdict(&rule.decision);
-        if let RuleDecision::Decided(decision) = &rule.decision {
-            let own = model.is_some_and(|model| decision.passes(model, &rule.id));
-            if verdict == RuleVerdict::Pass && !own {
-                return Err(BuildError::ForeignPass {
-                    rule: rule.id.clone(),
-                });
+        match &rule.decision {
+            RuleDecision::Decided(decision) => {
+                let own = model.is_some_and(|model| decision.passes(model, &rule.id));
+                if verdict == RuleVerdict::Pass && !own {
+                    return Err(BuildError::ForeignPass {
+                        rule: rule.id.clone(),
+                    });
+                }
+            }
+            // With a model, a DECLARATION row needs a declaration rule of its contract. A run
+            // without a model has no PASS, so a row there cannot hide a rule of a PASS run.
+            RuleDecision::Declaration => {
+                if model.is_some_and(|model| !model.declares(&rule.id)) {
+                    return Err(BuildError::ForeignDeclaration {
+                        rule: rule.id.clone(),
+                    });
+                }
             }
         }
         if verdict == RuleVerdict::Pass && !rule.evaluated {

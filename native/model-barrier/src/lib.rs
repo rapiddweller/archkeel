@@ -263,6 +263,8 @@
 //! fn row(outcome: &Outcome, text: RuleText) -> RuleOutcome { RuleOutcome::evaluated(outcome, text) }
 //! // 27, 28: bytes come from a decided report.
 //! fn bytes(report: &Report<Decided>) -> Option<Vec<u8>> { report.encode().ok() }
+//! // 29: the evaluator reads the contract of the model.
+//! fn outcomes(model: &Model) -> Vec<Outcome> { archkeel_eval::evaluate(model) }
 //! ```
 //!
 //! 21. A run proof literal: the brand of `RunComplete` is private (E0451).
@@ -283,9 +285,11 @@
 //! }
 //! ```
 //!
-//! 23. The run proof of one model passes the run of another model (a brand mismatch).
+//! 23. The run proof of one model passes the run of another model: `pass_run` takes only a
+//!     `RunComplete` with the `Scope` brand of its own scope, and each `Model::scope` call has
+//!     its own brand (E0521).
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! use archkeel_model::{Decision, Model, RunPass};
 //! fn two(a: &Model, b: &Model, decisions: &[Decision]) -> Option<RunPass> {
 //!     a.scope(|a| b.scope(|b| a.run_complete(decisions).ok().map(|proof| b.pass_run(proof))))
@@ -331,6 +335,17 @@
 //! ```compile_fail,E0599
 //! use archkeel_report::{Recorded, Report};
 //! fn bytes(report: &Report<Recorded>) -> Option<Vec<u8>> { report.encode().ok() }
+//! ```
+//!
+//! 29. The rules of another contract next to a model: `evaluate` reads only the contract of
+//!     the model, so a sibling rule of the caller cannot change a verdict (E0061).
+//!
+//! ```compile_fail,E0061
+//! use archkeel_contract::Contract;
+//! use archkeel_model::Model;
+//! fn forge(other: &Contract, model: &Model) -> Vec<archkeel_eval::Outcome> {
+//!     archkeel_eval::evaluate(other, model)
+//! }
 //! ```
 //!
 //! # Closed by a checked identity, not by type

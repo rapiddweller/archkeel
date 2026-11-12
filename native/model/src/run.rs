@@ -5,7 +5,8 @@
 //! The proof that a whole run passes (lead decision L-35b, AD-378, AD-381).
 //!
 //! A run passes only when the scope of its model is complete (`Scope::run`) and each rule of the
-//! contract of the model has a PASS of this model. A contract without rules passes with a
+//! contract of the model has a PASS of this model. A permission declaration has no verdict and
+//! needs none. A contract without rules passes with a
 //! complete scope, as the reference engine does (`check/run.py:76-95`, `inspect_observation`).
 //!
 //! `Scope::run_complete` is the only maker of the proof `RunComplete<'id>`. The proof has the
@@ -20,9 +21,11 @@
 //! }
 //! ```
 
+#![deny(clippy::wildcard_enum_match_arm, clippy::match_wildcard_for_single_variants)]
+
 use std::marker::PhantomData;
 
-use archkeel_contract::head_of;
+use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 
 use crate::model::Model;
 use crate::reason::Reason;
@@ -64,15 +67,23 @@ pub enum RunGap {
 
 impl<'id> Scope<'id, '_> {
     /// The run proof: the scope is complete, each decision is a PASS of a rule of the contract
-    /// of this model, and each rule of the contract has one. The decisions name their rules.
+    /// of this model, and each rule of the contract that is not a permission declaration has
+    /// one. The decisions name their rules.
     pub fn run_complete<'d>(
         &self,
         decisions: impl IntoIterator<Item = &'d Decision>,
     ) -> Result<RunComplete<'id>, RunGap> {
         self.run().map_err(RunGap::Scope)?;
         let model = self.model();
+        // A permission declaration (`allowed_dependency`) has no verdict, so it needs no PASS
+        // (`ir/decisions.py:763`). The kind comes from the contract of the model, never from a
+        // row of the caller.
         let rules = model.contract().rules();
-        let ids: Vec<&str> = rules.iter().map(|r| head_of(r).id().as_text()).collect();
+        let ids: Vec<&str> = rules
+            .iter()
+            .filter(|rule| !declaration(rule))
+            .map(|r| head_of(r).id().as_text())
+            .collect();
         let decisions: Vec<&Decision> = decisions.into_iter().collect();
         let passes_one = |d: &Decision| ids.iter().any(|id| d.passes(model, id));
         if let Some(index) = decisions.iter().position(|d| !passes_one(d)) {
@@ -93,5 +104,21 @@ impl<'id> Scope<'id, '_> {
         RunPass {
             serial: self.model().serial(),
         }
+    }
+}
+
+/// True for a permission declaration: a rule without a verdict (`ir/decisions.py:763`).
+pub(crate) fn declaration(rule: &Rule) -> bool {
+    kind_of(rule) == RuleKind::AllowedDependency
+}
+
+impl Model {
+    /// True when `rule` is a permission declaration of the contract of this model: the report
+    /// shows it as DECLARATION only then (AD-381).
+    pub fn declares(&self, rule: &str) -> bool {
+        self.contract()
+            .rules()
+            .iter()
+            .any(|r| declaration(r) && head_of(r).id().as_text() == rule)
     }
 }

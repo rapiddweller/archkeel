@@ -10,8 +10,9 @@
 //! that the model derives. A table that no slice produces yet is `Produced::NotProduced` with the
 //! part that ports it, never an empty list.
 
+use archkeel_contract::RuleKind;
 use archkeel_eval::Outcome;
-use archkeel_model::{Decision, Unsupported, Verdict as ModelVerdict};
+use archkeel_model::{Decision, Model, Unsupported, Verdict as ModelVerdict};
 
 use crate::codes::{
     BudgetVerdict, Disposition, EdgeTarget, FindingKind, FindingReason, Gap, Kind, MeasureDef,
@@ -81,23 +82,34 @@ impl RuleOutcome {
     /// The row of a rule that the evaluator decided: its id, kind and decision come from the
     /// outcome, and an UNKNOWN takes its `WhyUnknown` from the reason of the decision.
     pub fn evaluated(outcome: &Outcome, text: RuleText) -> RuleOutcome {
-        let decision = outcome.decision().clone();
-        let why_unknown = match decision.verdict() {
-            ModelVerdict::Unknown => decision.reason().map(WhyUnknown::of),
-            ModelVerdict::Pass(_) | ModelVerdict::Fail => None,
+        let (decision, why_unknown) = match outcome.decision() {
+            Some(decision) => {
+                let why = match decision.verdict() {
+                    ModelVerdict::Unknown => decision.reason().map(WhyUnknown::of),
+                    ModelVerdict::Pass(_) | ModelVerdict::Fail => None,
+                };
+                (RuleDecision::Decided(decision.clone()), why)
+            }
+            // A permission declaration: `build` checks that the model declares it (AD-381).
+            None => (RuleDecision::Declaration, None),
         };
         RuleOutcome::of(
             outcome.rule().to_owned(),
-            kind_word(outcome.kind()),
-            RuleDecision::Decided(decision),
+            crate::kind::word(outcome.kind()).to_owned(),
+            decision,
             why_unknown,
             text,
         )
     }
 
-    /// The row of a permission declaration: it does not evaluate conformance.
-    pub fn declaration(id: String, kind: String, text: RuleText) -> RuleOutcome {
-        RuleOutcome::of(id, kind, RuleDecision::Declaration, None, text)
+    /// The row of a permission declaration: it does not evaluate conformance. `None` unless
+    /// `id` is a declaration rule of the contract of `model`, so a FAIL rule cannot be shown
+    /// as DECLARATION (AD-381).
+    pub fn declaration(model: &Model, id: String, text: RuleText) -> Option<RuleOutcome> {
+        let kind = crate::kind::word(RuleKind::AllowedDependency).to_owned();
+        model
+            .declares(&id)
+            .then(|| RuleOutcome::of(id, kind, RuleDecision::Declaration, None, text))
     }
 
     pub(crate) fn of(
@@ -124,14 +136,6 @@ impl RuleOutcome {
     pub fn id(&self) -> &str {
         &self.id
     }
-}
-
-/// The contract word of a rule kind (its serde name).
-fn kind_word<K: serde::Serialize + std::fmt::Debug>(kind: K) -> String {
-    serde_json::to_value(&kind)
-        .ok()
-        .and_then(|value| value.as_str().map(str::to_owned))
-        .unwrap_or_else(|| format!("{kind:?}"))
 }
 
 /// One diagnostic of the run: why a scan or a proof is incomplete.

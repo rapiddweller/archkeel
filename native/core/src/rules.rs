@@ -89,9 +89,9 @@ impl Tree {
 }
 
 /// The outcome of each rule, or the reason that the run has no model.
-pub(crate) fn outcomes(contract: &Contract, model: Result<&Model, Reason>) -> Vec<Outcome> {
+pub(crate) fn outcomes(model: Result<&Model, Reason>) -> Vec<Outcome> {
     match model {
-        Ok(model) => archkeel_eval::evaluate(contract, model),
+        Ok(model) => archkeel_eval::evaluate(model),
         Err(_) => Vec::new(),
     }
 }
@@ -137,7 +137,7 @@ pub(crate) fn answer(
     let Ok(model_of) = model else {
         return answer;
     };
-    for outcome in outcomes(contract, Ok(model_of)) {
+    for outcome in outcomes(Ok(model_of)) {
         let Some(decision) = outcome.decision() else {
             // A permission declaration has no verdict (`_rule_status` `declared_only`).
             answer.decided.insert(

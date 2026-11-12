@@ -35,6 +35,7 @@ mod frame;
 mod frame_rules;
 mod head;
 mod input;
+mod kind;
 mod payload;
 mod problem;
 mod report;

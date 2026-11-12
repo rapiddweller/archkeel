@@ -428,6 +428,22 @@
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 70
   },
+  "model/src/section.rs|report/src/kind.rs|79d7dd25d5": {
+    "files": [
+      "model/src/section.rs",
+      "report/src/kind.rs"
+    ],
+    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381).",
+    "tokens": 71
+  },
+  "model/src/section.rs|report/src/kind.rs|f99333b1c6": {
+    "files": [
+      "model/src/section.rs",
+      "report/src/kind.rs"
+    ],
+    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381).",
+    "tokens": 70
+  },
   "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
     "files": [
       "report/src/build_tables.rs"
@@ -484,6 +500,14 @@
     ],
     "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
     "tokens": 70
+  },
+  "report/src/kind.rs|typescript/src/symbol_table.rs|e1200c3f37": {
+    "files": [
+      "report/src/kind.rs",
+      "typescript/src/symbol_table.rs"
+    ],
+    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381).",
+    "tokens": 72
   },
   "report/src/payload.rs|typescript/src/definitions.rs|b53e2fe389": {
     "files": [

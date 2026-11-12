@@ -30,7 +30,7 @@ mod external;
 mod layout;
 mod violation;
 
-use archkeel_contract::{head_of, kind_of, Contract, Rule, RuleKind};
+use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, Part, Reason, Unsupported, Verdict};
 
 pub use violation::{Cited, Layered, Violation};
@@ -68,12 +68,14 @@ impl Outcome {
     }
 }
 
-/// The outcome of each rule of the contract, in contract order.
-pub fn evaluate(contract: &Contract, model: &Model) -> Vec<Outcome> {
-    contract
-        .rules()
+/// The outcome of each rule of the contract of the model, in contract order. The rules and the
+/// sibling rules come only from `model.contract()`: a caller cannot pass another contract, so a
+/// rule of another contract cannot change a verdict (AD-381, B1 of the review of #1080).
+pub fn evaluate(model: &Model) -> Vec<Outcome> {
+    let rules = model.contract().rules();
+    rules
         .iter()
-        .map(|rule| outcome(rule, contract.rules(), model))
+        .map(|rule| outcome(rule, rules, model))
         .collect()
 }
 

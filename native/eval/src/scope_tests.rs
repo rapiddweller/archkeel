@@ -28,7 +28,7 @@ fn decided(
     let contract = contract(contract_change)?;
     let reply = reply(reply_change)?;
     let model = Model::derive(&contract, &reply, settings).ok()?;
-    let outcomes = evaluate(&contract, &model);
+    let outcomes = evaluate(&model);
     let found = DECIDED
         .iter()
         .filter_map(|rule| outcomes.iter().find(|o| o.rule() == *rule))

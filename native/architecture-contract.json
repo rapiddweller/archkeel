@@ -243,6 +243,10 @@
         {
           "component": "eval",
           "rationale": "Take each rule row from an outcome of the evaluator, so that the rule id and its decision come together (AD-359, AD-381)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381)."
         }
       ],
       "decided_by": "architect"
