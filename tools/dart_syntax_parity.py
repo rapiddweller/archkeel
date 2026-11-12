@@ -39,6 +39,7 @@ import unicodedata
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from archkeel.analyzer.dart.parse import parse
 
@@ -88,7 +89,8 @@ def python_syntax(content: bytes) -> tuple[str | None, int]:
     return canonical(value), time.perf_counter_ns() - started
 
 
-def native_rows(binary: Path, paths: Sequence[Path]) -> list[dict[str, object]]:
+def native_rows(binary: Path, paths: Sequence[Path]) -> list[dict[str, Any]]:
+    """One JSON object for each path: the syntax, the parse time and the share of work."""
     command = [str(binary), "--dump-syntax"]
     text = "".join(f"{path}\n" for path in paths)
     run = subprocess.run(command, input=text, capture_output=True, text=True, check=True)
@@ -98,7 +100,7 @@ def native_rows(binary: Path, paths: Sequence[Path]) -> list[dict[str, object]]:
 
 def native_syntax(binary: Path, paths: Sequence[Path]) -> list[tuple[str, int, object]]:
     lines = native_rows(binary, paths)
-    return [(canonical(line["syntax"]), int(line["nanos"]), line["syntax"]) for line in lines]  # type: ignore[arg-type]
+    return [(canonical(line["syntax"]), int(line["nanos"]), line["syntax"]) for line in lines]
 
 
 def dart_files(root: Path) -> list[Path]:
@@ -126,8 +128,8 @@ def compare(binary: Path, root: Path, result: Result, budget: float | None) -> N
         rows = native_rows(binary, chunk)
         for path, row in zip(chunk, rows, strict=True):
             value = row["syntax"]
-            text, nanos = canonical(value), int(row["nanos"])  # type: ignore[call-overload]
-            result.work_permille = max(result.work_permille, int(row["work_permille"]))  # type: ignore[call-overload]
+            text, nanos = canonical(value), int(row["nanos"])
+            result.work_permille = max(result.work_permille, int(row["work_permille"]))
             if budget is not None and spent / 1e9 >= budget:
                 return
             expected, python_nanos = python_syntax(path.read_bytes())
@@ -135,7 +137,7 @@ def compare(binary: Path, root: Path, result: Result, budget: float | None) -> N
             result.python_nanos += python_nanos
             result.rust_nanos += nanos
             result.files += 1
-            concerns = value["concerns"]  # type: ignore[index]
+            concerns = value["concerns"]
             if any(item["message"] == UNASSIGNED for item in concerns):
                 result.unassigned += 1
             elif any(item["message"].startswith(STOPPED) for item in concerns):

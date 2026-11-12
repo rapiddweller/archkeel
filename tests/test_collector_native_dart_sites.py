@@ -12,7 +12,6 @@ are tested one by one: the depth of each recursive Python walk and the work limi
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 import shutil
 import subprocess
@@ -102,31 +101,45 @@ CASES: dict[str, str | bytes] = {
     "broken_call.dart": "void f() { g(a, ; h.i( }\n",
     "broken_body.dart": "class A { void m() { var x = y(\n",
     "async_block.dart": "f() async { { var a = b(); } } g() { { } { c(); } }\n",
-    "multi_variable.dart": "void f() { int a = 1, b, c = d.e; late final x = y; var (p, q) = r; }\n",
+    "multi_variable.dart": (
+        "void f() { int a = 1, b, c = d.e; late final x = y; var (p, q) = r; }\n"
+    ),
     "loops.dart": (
         "void f(List<int> l) { for (var i = 0; i < l.length; i++) { l[i]; }\n"
         "for (final e in l) { e.g(); } while (h()) {} do { j(); } while (k); }\n"
     ),
     "catch.dart": "void f() { try { g(); } on E catch (e, s) { e.x; s.y(); } finally { h(); } }\n",
-    "this_super.dart": "class A extends B { int a = 0; void m() { this.a = b; super.c(); this.d(); } }\n",
+    "this_super.dart": (
+        "class A extends B { int a = 0; void m() { this.a = b; super.c(); this.d(); } }\n"
+    ),
     "conditional_member.dart": "void f() { a?.b = c; d?.e ??= f; g?[0] = h; }\n",
     "typed_index.dart": "class A { List<B> d = []; void m() { d[0].x; d.first.y(); } }\n",
     "literal_receivers.dart": "void f() { 'a'.b(); 1.c; [2].d(); {3}.e; true.f; null?.g; }\n",
-    "collections.dart": "void f() { var x = [...a, if (b) c() else d, for (var e in g) e.h, ...?i]; }\n",
+    "collections.dart": (
+        "void f() { var x = [...a, if (b) c() else d, for (var e in g) e.h, ...?i]; }\n"
+    ),
     "invocation.dart": "void f() { (){ g(); }(); (() => h())(); }\n",
     "tear_offs.dart": "void f() { var a = A.new; var b = A<int>.named; var c = d.e; var g = h; }\n",
     "carriage_returns.dart": "void f() {\r  var a = b();\r\n  c.d = e;\r}\r",
     "astral.dart": "void f() { var s = '\U0001f600\U0001f600'; t.u(s); }\n",
     "invalid_utf8.dart": b"void f() { var s = '\xff\xfe'; t.u(s); v(\xe9); }\n",
-    "method_then_field.dart": "class A { void m() {} int x = y(); final z = w.v; A(); int q = r(); }\n",
-    "getter_then_field.dart": "class A { int get g => 1; static final h = i(); set j(int k) {} var l = m; }\n",
-    "function_then_variable.dart": "void f() {} var x = g(); int h(int a) => a; final y = h(1).z;\n",
+    "method_then_field.dart": (
+        "class A { void m() {} int x = y(); final z = w.v; A(); int q = r(); }\n"
+    ),
+    "getter_then_field.dart": (
+        "class A { int get g => 1; static final h = i(); set j(int k) {} var l = m; }\n"
+    ),
+    "function_then_variable.dart": (
+        "void f() {} var x = g(); int h(int a) => a; final y = h(1).z;\n"
+    ),
     "mixin_on.dart": "mixin M on A { void m() { a.b(); } }\n",
     "directives.dart": (
         "library a.b;\nimport 'a.dart' show B, C hide D;\nexport 'e.dart';\npart 'f.dart';\n"
         "void g() { B(); C.d(); }\n"
     ),
-    "operators.dart": "void f() { var a = b + c * d / e ~/ g % h ?? i || j && k == l != m <= n >= o; }\n",
+    "operators.dart": (
+        "void f() { var a = b + c * d / e ~/ g % h ?? i || j && k == l != m <= n >= o; }\n"
+    ),
     "constructor_initializers.dart": (
         "class A { final int a; final B b; A(int x) : a = x.abs(), b = B(x), assert(x > 0); }\n"
     ),
@@ -289,7 +302,9 @@ def test_the_copied_text_of_the_sites_counts_as_work(binary: Path, tmp_path: Pat
 
 def test_a_large_flat_source_stays_far_below_the_work_limit(binary: Path, tmp_path: Path) -> None:
     """The cache of siblings and the sweeps keep a long list linear; Python takes minutes."""
-    content = "class A {\n  void m() {}\n" + "".join(f"  int f{i} = g{i}();\n" for i in range(20000))
+    content = "class A {\n  void m() {}\n" + "".join(
+        f"  int f{i} = g{i}();\n" for i in range(20000)
+    )
     content += "  var l = [" + ", ".join(f"v{i}" for i in range(20000)) + "];\n}\n"
     path = _write(tmp_path, "flat.dart", content)
     [row] = parity.native_rows(binary, [path])  # type: ignore[attr-defined]
