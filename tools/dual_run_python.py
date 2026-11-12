@@ -21,7 +21,7 @@ import hashlib
 import json
 import sys
 import zlib
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -46,6 +46,28 @@ PINNED_VERSION = "0.0.0"
 PINNED_DIGEST = "0" * 64
 # The first byte of a zlib stream; a plain JSON reply never starts with it.
 ZLIB_HEADER = b"x"
+
+
+def pin_receipt_runtime(architecture: Mapping[str, Any], section: str, row: dict[str, Any]) -> None:
+    """AD-394: pin only producer metadata for comparison, never a receipt binding or a verdict."""
+    proof = row["data"].get("dependency_scope_proof")
+    if (
+        section == "scope_observations"
+        and isinstance(proof, dict)
+        and architecture.get("producer_kind") == "bundled"
+        and architecture.get("runtime", {}).get("name") == "rust"
+        and isinstance(proof.get("runtime"), dict)
+        and set(proof["runtime"])
+        == {"name", "required", "requirement_state", "version", "code_digest"}
+        and {k: v for k, v in proof["runtime"].items() if k != "code_digest"}
+        == {**architecture["runtime"], "requirement_state": "declared"}
+    ):
+        proof["runtime"] = {
+            "name": "python",
+            "required": ">=3.11",
+            "requirement_state": "declared",
+            "version": "3.11.12",
+        }
 
 
 def with_pinned_version(reply: bytes, installed: str | None) -> bytes:
