@@ -34,6 +34,7 @@ mod parse;
 mod pubspec;
 mod pytext;
 mod records;
+mod sdk;
 mod sites;
 mod syntax;
 mod tree;
@@ -53,6 +54,13 @@ fn main() -> ExitCode {
             Ok(text) => (ExitCode::SUCCESS, text, String::new()),
             Err(error) => (ExitCode::from(1), String::new(), error),
         },
+        #[cfg(feature = "dump")]
+        Some((flag, _)) if flag == "--dump-sdk" => {
+            match read_stdin().and_then(|text| dump::sdk(&text)) {
+                Ok(text) => (ExitCode::SUCCESS, text, String::new()),
+                Err(error) => (ExitCode::from(1), String::new(), error),
+            }
+        }
         #[cfg(feature = "dump")]
         Some((flag, _)) if flag == "--dump-syntax" => {
             match read_stdin().and_then(|paths| dump::syntax(&paths)) {

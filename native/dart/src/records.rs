@@ -23,6 +23,7 @@ use archkeel_facts::Record;
 use serde_json::json;
 
 use crate::discover::{Discovery, Source};
+use crate::pubspec::SdkState;
 use crate::syntax::{ConcernKind, Span, Syntax};
 use archkeel_pytext::splitlines;
 
@@ -85,6 +86,10 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax
         let (id, record) = gap(&found.path, 1, found.kind, &found.message, cited);
         gaps.entry(id).or_insert(record);
     }
+    let (_, sdk_gaps, _) = sdk_support(discovery.sdk_state, discovery.sdk.as_deref());
+    for record in sdk_gaps {
+        gaps.entry(record.id.as_str().to_owned()).or_insert(record);
+    }
     // A source with a syntax error has no file fact (`_prepare_sources` leaves it unparsed).
     let files = discovery
         .sources
@@ -113,6 +118,29 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax
             .map(|source| source.rel_path.clone())
             .collect(),
     }
+}
+
+/// `_sdk_constraints` writes one file-level gap without evidence: pubspec is not a source.
+pub(crate) fn sdk_support(
+    state: SdkState,
+    value: Option<&str>,
+) -> (bool, Vec<Record<GapFact>>, usize) {
+    let support = crate::sdk::check(state, value);
+    let gaps = support
+        .message
+        .map(|message| {
+            gap(
+                "pubspec.yaml",
+                1,
+                ExceptionName::SdkConstraintError,
+                message,
+                None,
+            )
+            .1
+        })
+        .into_iter()
+        .collect();
+    (support.message.is_none(), gaps, support.work)
 }
 
 /// The gaps of one parse, as `_prepare_sources` writes them: the first error as `SyntaxError`,

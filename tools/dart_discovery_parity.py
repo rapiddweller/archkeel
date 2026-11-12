@@ -69,6 +69,7 @@ PARSE_KINDS = frozenset(
     {"SyntaxError", "DirectiveError", "UnsupportedDeclaration"}
     | {kind.value for kind in ConcernKind}
 )
+SDK_KINDS = frozenset({"SdkConstraintError"})
 JsonObject = dict[str, object]
 
 
@@ -165,7 +166,9 @@ def python(
         "sdk_state": snapshot.sdk_constraint_state.value,
     }
     parts: set[str] = set()
-    parse_ids: set[str] = set()
+    support = _Collection(request(corpus), snapshot, {}, Resolver(snapshot, {}))
+    support._sdk_constraints()
+    parse_ids: set[str] = set(support.gaps)
     if full:
         for source in snapshot.sources:
             syntax = parse(source.content)
@@ -179,6 +182,7 @@ def python(
         collection.modules = {source.rel_path: source.module for source in snapshot.sources}
         for problem in snapshot.problems:
             collection._gap(problem.path, _file_span(), problem.kind, problem.message)
+        collection._sdk_constraints()
         facts_value = collection._source_facts()
     payload = json.loads(encode_response(CollectionResponse(facts_value)))
     facts: JsonObject = payload["facts"]
@@ -247,7 +251,7 @@ def compare_files(
         result.problems.append("the set of parse gaps differs")
     if not full:
         result.per_file += len(extra)
-        if any(gap["kind"] not in PARSE_KINDS for gap in extra.values()):
+        if any(gap["kind"] not in PARSE_KINDS | SDK_KINDS for gap in extra.values()):
             result.problems.append("a native gap is neither a snapshot nor a parse gap")
     if not set(snapshot_gaps) <= set(rust_gaps):
         result.problems.append("a snapshot gap is missing")

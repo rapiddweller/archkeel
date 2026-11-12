@@ -12,9 +12,13 @@ use crate::pytext::{is_space, lstrip, strip};
 
 /// The state of the SDK requirement, as `RuntimeRequirementState` names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "dump", derive(serde::Deserialize))]
 pub(crate) enum SdkState {
+    #[cfg_attr(feature = "dump", serde(rename = "declared"))]
     Declared,
+    #[cfg_attr(feature = "dump", serde(rename = "requirement_missing"))]
     Missing,
+    #[cfg_attr(feature = "dump", serde(rename = "requirement_invalid"))]
     Invalid,
 }
 

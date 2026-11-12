@@ -39,11 +39,11 @@ fn each_table_equals_the_dump_of_the_oracle() {
     // (Unicode 14.0.0); `tests/test_collector_native_dart_syntax.py` runs the script with
     // `--check`. A hand edit of a table fails here.
     use crate::unicode_tables::{
-        ALNUM, ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, LINE_BREAK, SPACE, WORD,
+        ALNUM, ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, DECIMAL, LINE_BREAK, SPACE, WORD,
     };
     let source = include_str!("unicode_tables.rs");
     for text in [
-        WORD, SPACE, LINE_BREAK, ASSIGNED, ALNUM, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT,
+        WORD, SPACE, LINE_BREAK, ASSIGNED, ALNUM, DECIMAL, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT,
     ] {
         let table = ranges(text);
         assert_eq!(table.len(), text.split_whitespace().count());
