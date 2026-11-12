@@ -39,11 +39,11 @@ fn each_table_equals_the_dump_of_the_oracle() {
     // (Unicode 14.0.0); `tests/test_collector_native_dart_syntax.py` runs the script with
     // `--check`. A hand edit of a table fails here.
     use crate::unicode_tables::{
-        ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, LINE_BREAK, SPACE, WORD,
+        ALNUM, ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, LINE_BREAK, SPACE, WORD,
     };
     let source = include_str!("unicode_tables.rs");
     for text in [
-        WORD, SPACE, LINE_BREAK, ASSIGNED, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT,
+        WORD, SPACE, LINE_BREAK, ASSIGNED, ALNUM, BYTE_WORD, BYTE_SPACE, BYTE_DIGIT,
     ] {
         let table = ranges(text);
         assert_eq!(table.len(), text.split_whitespace().count());
@@ -75,6 +75,24 @@ fn python_word_characters_are_the_python_311_set() {
     assert!(has_word("x = 'late\u{93e}'", "late"));
     assert!(!has_word("x = '_late'", "late"));
     assert!(!has_word("x_static", "static"));
+}
+
+#[test]
+fn python_alphanumeric_characters_are_the_python_311_set() {
+    // `str.isalnum` differs from `\w` at `_` and at each combining mark, and from
+    // `char::is_alphanumeric` at U+0345 and at the code points that Unicode 14 does not assign.
+    for c in ['_', '$', '\u{345}', '\u{93e}', '\u{10d40}', '\u{fffd}', ' '] {
+        assert!(
+            !is_alnum(c),
+            "U+{:04X} is not isalnum in 3.11",
+            u32::from(c)
+        );
+    }
+    for c in [
+        'a', 'Z', '0', '\u{b2}', '\u{bd}', '\u{663}', '\u{2160}', '\u{e9}',
+    ] {
+        assert!(is_alnum(c), "U+{:04X} is isalnum in 3.11", u32::from(c));
+    }
 }
 
 #[test]
