@@ -234,8 +234,9 @@
 //! fn forge() -> archkeel_model::Decision { archkeel_model::Judged::Pass }
 //! ```
 //!
-//! 20. A contract source without its bytes: the evidence and the digest are private, so a
-//!     caller cannot bind a `layer_order` row to bytes that the model did not parse.
+//! 20. A contract source without its bytes: the evidence and the digest are private. The bytes
+//!     are bound to the parsed contract by their digest; the path is not bound, it sets only
+//!     the evidence id of a `layer_order` row.
 //!
 //! ```compile_fail
 //! fn forge() -> archkeel_model::Settings {
