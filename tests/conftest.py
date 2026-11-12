@@ -19,6 +19,7 @@ from filelock import FileLock
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.model import Observation
+from archkeel.ir.store_seam import active_store, close_store
 
 ROOT = Path(__file__).parents[1]
 SELF_RULE_UNKNOWN = frozenset(
@@ -35,6 +36,20 @@ SELF_RULE_UNKNOWN = frozenset(
 def no_step_summary(monkeypatch: pytest.MonkeyPatch) -> None:
     """A test must never append to the CI job summary; CI test jobs showed such rows."""
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_store_left() -> Iterator[None]:
+    """A test that ends with an open Rust store fails (AD-346).
+
+    The store stays active until the next observation or `close_store`. A test that leaves it
+    open makes the Python writer refuse each later observation in the same worker, so a test far
+    away fails. The guard closes the store and fails the test that left it open.
+    """
+    yield
+    if active_store() is not None:
+        close_store()
+        pytest.fail("the test left the Rust store open (AD-346): call close_store in teardown")
 
 
 @dataclass(frozen=True, slots=True)

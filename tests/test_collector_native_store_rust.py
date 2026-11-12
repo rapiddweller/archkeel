@@ -12,6 +12,7 @@ keep the store of the first.
 from __future__ import annotations
 
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,13 @@ FORBIDDEN = rule(
     target="native.app.c",
     include_type_checking=True,
 )
+
+
+@pytest.fixture(autouse=True)
+def no_session_left() -> Iterator[None]:
+    # A probe reply that the store accepts keeps the store open after the test (AD-346).
+    yield
+    close_store()
 
 
 def _count_sessions(monkeypatch: pytest.MonkeyPatch) -> list[str]:
