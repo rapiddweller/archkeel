@@ -1894,6 +1894,12 @@
         "native.archkeel_dart_collector.definitions",
         "native.archkeel_dart_collector.directives",
         "native.archkeel_dart_collector.parse",
+        "native.archkeel_dart_collector.sites",
+        "native.archkeel_dart_collector.sites.scopes",
+        "native.archkeel_dart_collector.sites.bindings",
+        "native.archkeel_dart_collector.sites.calls",
+        "native.archkeel_dart_collector.sites.references",
+        "native.archkeel_dart_collector.sites.canonical",
         "native.archkeel_dart_collector.cargo_toml"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
