@@ -364,7 +364,7 @@ fn a_construct_rule_without_a_module_subject_is_a_named_gap() {
 
 #[test]
 fn a_layer_order_with_a_component_without_its_layer_is_a_fact() {
-    let rule = with(head("LAYERS", "layer_order"), json!({"layers": ["core"]}));
+    let rule = with(head("LAYERS", "layer_order"), json!({"layers": ["base"]}));
     let change = |c: &mut Value| {
         c["schema_version"] = json!("2.3.0");
         add_rule(c, rule);

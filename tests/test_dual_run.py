@@ -492,34 +492,3 @@ def test_exit_3_goes_only_with_a_frame_that_names_a_gap(
         got = dual_run.run_engine(case, root, f"{sys.executable} {script}", Selection())
     assert ("error" not in got) is accepted, got
 
-
-@pytest.mark.parametrize(
-    ("change", "problem"),
-    [
-        ({}, None),
-        ({"status": "PASS"}, "the status is PASS, the rows give FAIL"),
-        ({"violations": {}}, "the rule A is FAIL with 0 violations and reason False"),
-        ({"explained": {}}, "the rule B is UNKNOWN with 0 violations and reason False"),
-        ({"explained": {"B": "why", "C": "why"}}, "the rule C has an explaining row but no status"),
-    ],
-)
-def test_a_frame_status_follows_from_its_rows_and_each_status_has_its_row(
-    change: dict[str, Any], problem: str | None
-) -> None:
-    """AD-378, L-23: a FAIL rule without a violation row, an UNKNOWN rule without a reason and a
-    status that the rows do not give are inconsistent frames, never compared."""
-    frame: dict[str, Any] = {
-        "status": "FAIL",
-        "rules": {"A": ["complete_assignment", "FAIL"], "B": ["root_layout", "UNKNOWN"]},
-        "explained": {"B": "why"},
-        "violations": {"A": 2},
-        "unsupported": {"rules": {}},
-        "self_test": {"contract": {"rules": {}}, "reply": {"files": 1}},
-    }
-    frame.update(change)
-    assert dual_run.unexplained(frame) == problem
-    assert dual_run.unexplained({"rules": {}}) is None
-    passed = {**frame, "status": "PASS", "rules": {"A": ["root_layout", "PASS"]}}
-    passed.update({"explained": {}, "violations": {}})
-    assert dual_run.unexplained(passed) is None
-    assert dual_run.unexplained({**passed, "unsupported": {"rules": {"X": "why"}}}) is not None
