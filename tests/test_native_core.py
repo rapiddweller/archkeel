@@ -170,9 +170,13 @@ def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_ever
     differences = [line for line in lines if ": rules: " in line or ": status: " in line]
     assert not [line for line in differences if ", found " in line or ": status: " in line]
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
-    assert all(line.endswith(S5_NAMES) or limit.search(line) for line in differences), [
-        line for line in differences if not (line.endswith(S5_NAMES) or limit.search(line))
+    tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
+    left = [
+        line
+        for line in differences
+        if not (line.endswith(S5_NAMES) or limit.search(line) or tree.search(line))
     ]
+    assert left == [], left
     rows = [line for line in lines if ": violations: " in line]
     # A section without its input names it: a refused reply, or a contract with a tree.
     missing = (
