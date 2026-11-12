@@ -132,7 +132,7 @@ fn checkable(facts: &Facts) -> Result<(), String> {
             ));
         }
     }
-    crate::registered::registered(facts)
+    Ok(())
 }
 
 fn coverage_checks(facts: &Facts) -> Result<HashSet<&str>, String> {
@@ -234,7 +234,9 @@ pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
         "evidence id",
     )?;
     evidence_checks(facts, &inputs)?;
-    capability_checks(facts, names)
+    capability_checks(facts, names)?;
+    // `evaluate_source` checks the registered sets after the generic checks (L-35a).
+    crate::registered::registered(facts)
 }
 
 fn evidence_checks(facts: &Facts, inputs: &HashSet<&str>) -> Result<(), String> {

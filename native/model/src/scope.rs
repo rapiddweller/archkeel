@@ -105,10 +105,11 @@ impl<'id, 'm> Scope<'id, 'm> {
             State::Unread(part) => Some(part.clone()),
             State::Complete => None,
         };
-        receipt(self.model, rule)?;
+        // The doubt sources of the rule come before its receipt, so each kind states them.
         if dynamic_import(self.model, rule) {
             return Err(Reason::NotComplete(Cause::DynamicImport));
         }
+        receipt(self.model, rule)?;
         match unread {
             Some(part) => Err(part.into()),
             None => Ok(ScopeComplete {

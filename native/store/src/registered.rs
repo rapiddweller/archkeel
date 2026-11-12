@@ -96,3 +96,7 @@ fn typescript(facts: &Facts, sections: &BTreeSet<&str>) -> Result<(), String> {
         Err(NOT_REGISTERED.to_owned())
     }
 }
+
+#[cfg(test)]
+#[path = "registered_tests.rs"]
+mod tests;

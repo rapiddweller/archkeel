@@ -465,6 +465,25 @@ fn a_dynamic_import_holds_back_only_the_rules_that_it_reaches() {
 }
 
 #[test]
+fn a_dynamic_import_holds_back_each_kind_that_no_slice_decides() {
+    // Review of #1066, finding 5: a kind without its stated doubt sources fails closed.
+    let (Some(own), Some(limited)) = (
+        contract(unchanged),
+        reply(dynamic_import(Some("shop.src.domain.order_x2e_ts"))),
+    ) else {
+        return assert_eq!("the inputs load", "");
+    };
+    let Ok(model) = Model::derive(&own, &limited, shop_settings()) else {
+        return assert_eq!("the model derives", "");
+    };
+    let cycles = own.rules().iter().find(|rule| {
+        archkeel_contract::kind_of(rule) == archkeel_contract::RuleKind::NoComponentCycles
+    });
+    let reason = cycles.and_then(|rule| model.scope(|scope| scope.complete(rule).err()));
+    assert_eq!(reason, Some(not_complete(Cause::DynamicImport)));
+}
+
+#[test]
 fn a_dynamic_import_without_a_source_module_holds_back_each_rule() {
     let found = decided(unchanged, dynamic_import(None), shop_settings());
     all_unknown(found, &not_complete(Cause::DynamicImport));
