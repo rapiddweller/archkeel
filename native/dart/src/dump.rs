@@ -20,6 +20,28 @@ use crate::discover::{discover, scan_roots};
 use crate::parse::DartParser;
 use crate::records::sections;
 
+/// The input of the test-only SDK boundary dump. Unknown fields stop the dump.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SdkInput {
+    state: crate::pubspec::SdkState,
+    constraint: Option<String>,
+}
+
+/// One result for each JSON input line; this is not a collector reply.
+pub(crate) fn sdk(text: &str) -> Result<String, String> {
+    let mut output = String::new();
+    for line in text.lines() {
+        let input: SdkInput = serde_json::from_str(line).map_err(|error| error.to_string())?;
+        let (supported, gaps, work) =
+            crate::records::sdk_support(input.state, input.constraint.as_deref());
+        let value = json!({"sdk_supported": supported, "gaps": gaps, "work": work});
+        output.push_str(&serde_json::to_string(&value).map_err(|error| error.to_string())?);
+        output.push('\n');
+    }
+    Ok(output)
+}
+
 /// The JSON text of the sections, from `<snapshot-root> <namespace> <root>...`.
 pub(crate) fn run(arguments: &[String]) -> Result<String, String> {
     let [root, namespace, roots @ ..] = arguments else {

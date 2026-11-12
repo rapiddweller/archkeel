@@ -99,7 +99,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py tests/test_collector_native_dart_syntax.py tests/test_collector_native_dart_sites.py tests/test_rust_contract_tree_parity.py tests/test_rust_contract_against_parity.py tests/test_rust_contract_amendment_parity.py tests/test_rust_contract_baseline_parity.py
+	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py tests/test_collector_native_dart_syntax.py tests/test_collector_native_dart_sites.py tests/test_collector_native_dart_sdk.py tests/test_rust_contract_tree_parity.py tests/test_rust_contract_against_parity.py tests/test_rust_contract_amendment_parity.py tests/test_rust_contract_baseline_parity.py
 	$(UV) run --locked python -m pytest -q -n 0 tests/test_native_self_rules.py tests/test_native_self_contract.py
 	$(MAKE) self-validate-native
 
@@ -160,7 +160,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dart_unicode_tables.py \
-	tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
+	tools/dart_sdk_parity.py tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
 	tools/dual_run_capture.py tools/dual_run_tree.py \
 	native/hatch_build.py
 
@@ -188,7 +188,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dart_unicode_tables.py tools/dual_run.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dart_sdk_parity.py tools/dart_unicode_tables.py tools/dual_run.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:

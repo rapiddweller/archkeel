@@ -13,6 +13,7 @@ interpreter for each code point and writes `native/dart/src/unicode_tables.rs`:
 - `LINE_BREAK`: the code points where `str.splitlines` breaks.
 - `ASSIGNED`: `unicodedata.category(chr(c)) != "Cn"`.
 - `ALNUM`: `chr(c).isalnum()`, which `_canonical_range` reads for the first character of a token.
+- `DECIMAL`: `chr(c).isdecimal()`, the digits of a Python SDK version component.
 - `BYTE_WORD`, `BYTE_SPACE`, `BYTE_DIGIT`: `\\w`, `\\s` and `\\d` of a `bytes` pattern.
 
 Each table is a sorted list of inclusive ranges. The surrogates (U+D800 to U+DFFF) are left out:
@@ -39,7 +40,7 @@ TARGET = ROOT / "native" / "dart" / "src" / "unicode_tables.rs"
 ORACLE = ((3, 11), "14.0.0")
 SURROGATES = range(0xD800, 0xE000)
 # The tables that the collector reads; the others only check a Rust predicate in a test.
-RUNTIME = frozenset({"WORD", "SPACE", "ASSIGNED", "ALNUM"})
+RUNTIME = frozenset({"WORD", "SPACE", "ASSIGNED", "ALNUM", "DECIMAL"})
 
 
 def code_points() -> Iterable[int]:
@@ -72,6 +73,7 @@ def tables() -> dict[str, list[tuple[int, int]]]:
         "LINE_BREAK": breaks,
         "ASSIGNED": lambda c: unicodedata.category(chr(c)) != "Cn",
         "ALNUM": lambda c: chr(c).isalnum(),
+        "DECIMAL": lambda c: chr(c).isdecimal(),
     }
     raw: dict[str, Callable[[int], bool]] = {
         "BYTE_WORD": lambda b: re.match(rb"\w", bytes([b])) is not None,

@@ -7,12 +7,25 @@
 
 use std::sync::OnceLock;
 
-use crate::unicode_tables::{ALNUM, ASSIGNED, SPACE, WORD};
+use crate::unicode_tables::{ALNUM, ASSIGNED, DECIMAL, SPACE, WORD};
 
 static WORD_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
 static SPACE_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
 static ASSIGNED_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
 static ALNUM_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
+static DECIMAL_RANGES: OnceLock<Vec<(u32, u32)>> = OnceLock::new();
+
+/// Python `int` reads each Unicode decimal digit; each generated range starts with zero.
+pub(crate) fn decimal(c: char) -> Option<u8> {
+    let table = DECIMAL_RANGES.get_or_init(|| ranges(DECIMAL));
+    let code = u32::from(c);
+    let after = table.partition_point(|(start, _)| *start <= code);
+    let (start, end) = table.get(after.checked_sub(1)?)?;
+    if code > *end {
+        return None;
+    }
+    u8::try_from(code.saturating_sub(*start) % 10).ok()
+}
 
 /// The ranges of a generated table text: `START-END` in hex, separated by white space. The
 /// generator writes only valid cells; `each_table_equals_the_dump_of_the_oracle` checks them.

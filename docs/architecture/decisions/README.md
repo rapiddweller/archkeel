@@ -380,3 +380,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-381 | [The report takes the evaluator outcome, and a run PASS needs the run proof](ad-381-the-report-takes-the-evaluator-outcome-and-a-run-pass-needs-the-run-proof.md) |
 | AD-382 | [The self-contract pins the crate chain and the external homes](ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md) |
 | AD-386 | [The contract crate reads and writes baselines](ad-386-the-contract-crate-reads-and-writes-baselines.md) |
+| AD-387 | [The native Dart collector checks SDK support before record assembly](ad-387-the-native-dart-collector-checks-sdk-support-before-record-assembly.md) |
