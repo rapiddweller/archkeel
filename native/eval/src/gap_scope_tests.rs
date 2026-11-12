@@ -246,9 +246,13 @@ fn a_gap_inside_one_component_that_closes_a_module_cycle_is_kept() {
 fn a_gap_along_a_requires_that_closes_a_component_cycle_is_kept() {
     // domain requires presentation, and presentation reaches domain: `order -> page` closes a
     // component cycle, so the drop rule keeps it.
+    // Without the module cycle rule only the component cycle part of the drop rule keeps it.
     let requires = both(unnamed, |contract: &mut Value| {
         contract["components"][3]["requires"] =
             json!([{"component": "presentation", "rationale": "A test."}]);
+        if let Some(rules) = contract["rules"].as_array_mut() {
+            rules.retain(|rule| rule["id"] != "MODULE-CYCLES");
+        }
     });
     let shown = [format!("{ORDER} -> {PAGE}")];
     let shown: Vec<&str> = shown.iter().map(String::as_str).collect();

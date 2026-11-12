@@ -44,9 +44,6 @@ pub struct Settings {
     roots: Option<Vec<String>>,
 }
 
-/// The largest number of scan roots that a request can carry.
-pub const ROOTS_LIMIT: usize = 1024;
-
 /// The evidence of the contract file and the digest of the bytes that it cites.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ContractSource {
@@ -105,10 +102,8 @@ impl Settings {
                 && !root.contains(['\0', '*'])
                 && (label == root || label.strip_suffix("/**") == Some(root.as_str()))
         };
-        if roots.len() > ROOTS_LIMIT
-            || roots.len() != scope.len()
-            || !roots.iter().zip(scope).all(fits)
-        {
+        // One root for each label: the reply bounds the number of roots.
+        if roots.len() != scope.len() || !roots.iter().zip(scope).all(fits) {
             return Err(Refusal::ScanRoots);
         }
         Ok(())

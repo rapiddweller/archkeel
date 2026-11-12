@@ -69,7 +69,7 @@ pub use ownership::{claims, in_scope};
 pub use reason::{Input, Reason, Refusal, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
-pub use settings::{Producer, Settings, ROOTS_LIMIT, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 pub use topology::Measure;
 pub use verdict::{Decision, Proven, Verdict};
 

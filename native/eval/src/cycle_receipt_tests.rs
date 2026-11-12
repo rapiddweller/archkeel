@@ -123,3 +123,36 @@ fn a_dynamic_import_reaches_a_module_cycle_rule_from_any_module() {
         .map(|(word, _)| word.as_str());
     assert_eq!(word, Some("PASS"));
 }
+
+#[test]
+fn a_component_cycle_cites_only_the_imports_between_two_members() {
+    use crate::direction_tests::point;
+    // `domain.index -> presentation.page` closes `page -> domain.index`: domain and presentation
+    // form a cycle. The imports inside domain are not between two members.
+    let retarget = point(
+        2,
+        "shop.src.presentation.page_x2e_ts",
+        "src/presentation/page.ts",
+        false,
+    );
+    let (Some(contract), Some(reply)) = (contract(unchanged), reply(retarget)) else {
+        return assert_eq!("the H-typescript contract and reply load", "");
+    };
+    let Ok(model) = Model::derive(&contract, &reply, rooted()) else {
+        return assert_eq!("the model derives", "");
+    };
+    let outcomes = crate::evaluate(&contract, &model);
+    let cited: Vec<(Vec<String>, usize)> = outcomes
+        .iter()
+        .filter(|outcome| outcome.rule() == "COMPONENT-CYCLES")
+        .flat_map(|outcome| outcome.violations())
+        .filter_map(|violation| match violation {
+            crate::Violation::Cycle(cyclic) => Some((cyclic.members.clone(), cyclic.facts.len())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        cited,
+        vec![(vec!["domain".to_owned(), "presentation".to_owned()], 2)]
+    );
+}
