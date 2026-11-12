@@ -388,5 +388,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-389 | [The native Python collector checks compiler refusals before facts](ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md) |
 | AD-390 | [A user run takes its verdict from the core when the core decides every rule](ad-390-a-user-run-takes-its-verdict-from-the-core-when-the-core-decides-every-rule.md) |
 | AD-392 | [The native Dart declaration layer keeps the Python records](ad-392-the-native-dart-declaration-layer-keeps-the-python-records.md) |
+| AD-394 | [Stop the TypeScript deletion on nested verdict differences](ad-394-stop-the-typescript-deletion-on-nested-verdict-differences.md) |
 | AD-396 | [The native Python binding dump stops before import convergence](ad-396-the-native-python-binding-dump-stops-before-import-convergence.md) |
 | AD-399 | [archkeel check takes its rule verdicts from the core with the base reply](ad-399-archkeel-check-takes-its-rule-verdicts-from-the-core-with-the-base-reply.md) |

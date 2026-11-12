@@ -157,6 +157,7 @@ PR_TEST_FILES := \
 	tests/test_collector_bundled_launcher.py \
 	tests/test_collector_native_syntax_scaling.py \
 	tests/test_collector_native_verdicts.py \
+	tests/test_collector_native_nested_verdicts.py \
 	'tests/test_collector_native_store.py::test_the_store_path_writes_the_bytes_and_verdicts_of_the_python_path' \
 	'tests/test_collector_native_store.py::test_the_python_writer_refuses_an_observation_that_the_store_holds' \
 	'tests/test_collector_native_store.py::test_a_changed_typescript_reply_gives_no_pass_on_the_store_path' \
