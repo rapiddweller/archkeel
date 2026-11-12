@@ -42,7 +42,7 @@ fn rows<T>(table: &'static str, produced: Produced<T>) -> Result<T, BuildError> 
 
 /// The unknowns rows: each record, each diagnostic, and a missing Target.
 /// The kind of an unknown row that names a PASS beyond the reference engine (AD-384 point 7).
-pub(crate) const BEYOND_KIND: &str = "core_decides_beyond_python";
+pub(crate) const BEYOND_KIND: &str = "core_decides_beyond_the_reference";
 
 /// One unknown row for each PASS rule of a model with kept pair gaps: the reference engine gives
 /// the rule UNKNOWN for each such gap, and the core passes it because no kept gap can change what
