@@ -6,13 +6,13 @@ use super::*;
 
 fn problem(text: &str, minor: u32) -> Option<(ExceptionName, usize, String)> {
     let lines = Lines::new(text);
-    scan(text, &lines, minor)
+    scan(text, &lines, crate::test_minor(minor))
         .problem
         .map(|problem| (problem.exception, problem.line, problem.message))
 }
 
 fn depth(text: &str) -> usize {
-    scan(text, &Lines::new(text), 12).stack
+    scan(text, &Lines::new(text), crate::test_minor(12)).stack
 }
 
 #[test]
@@ -80,7 +80,10 @@ fn a_closing_bracket_must_match_the_innermost_open_one() {
     );
     assert_eq!(problem("x = 1)\n", 12).unwrap().2, "unmatched ')'");
     let lines = Lines::new("f(a,\n  [b,\n");
-    assert_eq!(scan("f(a,\n  [b,\n", &lines, 12).unclosed, Some(('[', 2)));
+    assert_eq!(
+        scan("f(a,\n  [b,\n", &lines, crate::test_minor(12)).unclosed,
+        Some(('[', 2))
+    );
 }
 
 #[test]

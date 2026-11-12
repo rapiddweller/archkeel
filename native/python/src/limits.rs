@@ -10,14 +10,15 @@
 //! f-string limits of Python 3.11, the integer digit limit and `barry_as_FLUFL`. It also sums the
 //! bound of the CPython parser stack of `stack.rs` for each token.
 
+use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::vocab::ExceptionName;
 use ruff_python_ast::token::TokenKind as T;
 use ruff_python_parser::lexer::lex;
 use ruff_python_parser::Mode;
 
-use crate::identifier::refused;
+use super::identifier::refused;
+use super::stack::{Frame, STACK_BASE, STACK_BLOCK, STACK_BRACKET};
 use crate::source::Lines;
-use crate::stack::{Frame, STACK_BASE, STACK_BLOCK, STACK_BRACKET};
 
 /// `MAXLEVEL` of the CPython tokenizer.
 const MAX_BRACKETS: usize = 200;
@@ -65,7 +66,22 @@ enum Context {
 }
 
 /// Scan `text` for the minor version `minor` of Python 3.
-pub fn scan(text: &str, lines: &Lines, minor: u32) -> Scan {
+pub fn scan(text: &str, lines: &Lines, minor: PyMinor) -> Scan {
+    let mut work = super::work::Work::new();
+    // Charge the byte scans once and then each token. Stack pops are bounded by token pushes.
+    if !work.charge(text.len()) {
+        return Scan {
+            problem: Some(Problem {
+                exception: ExceptionName::SyntaxError,
+                line: 1,
+                message: "CPython token scan work limit exceeded".to_owned(),
+                offset: 0,
+            }),
+            parser: None,
+            stack: 0,
+            unclosed: None,
+        };
+    }
     let mut state = State {
         text,
         lines,
@@ -93,6 +109,14 @@ pub fn scan(text: &str, lines: &Lines, minor: u32) -> Scan {
     let mut lexer = lex(text, Mode::Module);
     let mut line_start = true;
     loop {
+        if !work.charge(1) {
+            state.fail(
+                ExceptionName::SyntaxError,
+                0,
+                "CPython token scan work limit exceeded",
+            );
+            break;
+        }
         let kind = lexer.next_token();
         if kind == T::EndOfFile {
             break;
@@ -119,7 +143,7 @@ pub fn scan(text: &str, lines: &Lines, minor: u32) -> Scan {
 struct State<'a> {
     text: &'a str,
     lines: &'a Lines,
-    minor: u32,
+    minor: PyMinor,
     problem: Option<Problem>,
     parser: Option<Problem>,
     /// The CPython indentation stack: the column with tab size 8 and with tab size 1.
@@ -285,7 +309,7 @@ impl State<'_> {
                     self.parser_error(start, &message);
                 }
             }
-            T::NotEqual if self.barry && self.minor >= 12 => {
+            T::NotEqual if self.barry && modern(self.minor) => {
                 let message = "with Barry as BDFL, use '<>' instead of '!='";
                 self.parser_error(start, message);
             }
@@ -307,11 +331,10 @@ impl State<'_> {
     fn open_string(&mut self, start: usize) {
         self.strings += 1;
         self.contexts.push(Context::String);
-        if self.minor >= 12 && self.strings >= MAX_STRINGS {
-            let message = if self.minor >= 14 {
-                "too many nested f-strings or t-strings"
-            } else {
-                "too many nested f-strings"
+        if modern(self.minor) && self.strings >= MAX_STRINGS {
+            let message = match self.minor {
+                PyMinor::Py311 | PyMinor::Py312 | PyMinor::Py313 => "too many nested f-strings",
+                PyMinor::Py314 => "too many nested f-strings or t-strings",
             };
             self.fail(ExceptionName::SyntaxError, start, message);
         }
@@ -339,7 +362,7 @@ impl State<'_> {
 
     fn open(&mut self, start: usize, bracket: char) {
         // Python 3.11 reads an f-string as one token, so its braces are no brackets there.
-        if self.minor >= 12 || self.strings == 0 {
+        if modern(self.minor) || self.strings == 0 {
             if self.brackets.len() >= MAX_BRACKETS {
                 self.fail(
                     ExceptionName::SyntaxError,
@@ -366,7 +389,11 @@ impl State<'_> {
             _ => None,
         };
         if let Some(level) = context {
-            if self.minor == 11 && level >= 2 {
+            let max_level = match self.minor {
+                PyMinor::Py311 => 2,
+                PyMinor::Py312 | PyMinor::Py313 | PyMinor::Py314 => 3,
+            };
+            if level >= max_level {
                 self.parser_error(start, "f-string: expressions nested too deeply");
             }
             self.field_start = true;
@@ -382,7 +409,7 @@ impl State<'_> {
             Some(Context::Bracket(inner)) if *inner > 0 => inner + 1,
             _ => 0,
         };
-        if self.minor == 11 && inner >= MAX_BRACKETS {
+        if !modern(self.minor) && inner >= MAX_BRACKETS {
             self.parser_error(start, "f-string: too many nested parenthesis");
         }
         self.contexts.push(Context::Bracket(inner));
@@ -390,7 +417,7 @@ impl State<'_> {
 
     /// The closing check of `tok_get`: a closing bracket must match the innermost open one.
     fn close(&mut self, start: usize, bracket: char) {
-        if self.minor >= 12 || self.strings == 0 {
+        if modern(self.minor) || self.strings == 0 {
             let line = self.lines.line(start);
             let message = match self.brackets.pop() {
                 None => Some(format!("unmatched '{bracket}'")),
@@ -414,7 +441,7 @@ impl State<'_> {
         match self.contexts.last() {
             Some(Context::String) | None => {}
             Some(Context::Field { star, .. }) => {
-                if let (Some(star), 11) = (*star, self.minor) {
+                if let (Some(star), false) = (*star, modern(self.minor)) {
                     self.parser_error(star, "f-string: cannot use starred expression here");
                 }
                 self.contexts.pop();
@@ -431,6 +458,13 @@ impl State<'_> {
 }
 
 const TAB_MESSAGE: &str = "inconsistent use of tabs and spaces in indentation";
+
+fn modern(minor: PyMinor) -> bool {
+    match minor {
+        PyMinor::Py311 => false,
+        PyMinor::Py312 | PyMinor::Py313 | PyMinor::Py314 => true,
+    }
+}
 
 #[cfg(test)]
 #[path = "limits_tests.rs"]

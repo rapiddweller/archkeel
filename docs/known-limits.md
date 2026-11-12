@@ -414,6 +414,12 @@ record for: an expression deeper than 100 levels (Python writes its text up to i
 RecursionError at about 158 levels), a lone surrogate escape in a string, a 3.12 format spec
 with `\N{...}` or a backslash in a raw spec, and a spec deeper than two levels.
 
+The native Python collector also refuses compiler-invalid ASTs and sources beyond its validation
+work or depth bounds. Each refusal names the file and gives incomplete scope
+([AD-389](architecture/decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)).
+**Python reply acceptance — entry condition:** the store must not accept the native Python reply
+before #1072 is closed. The refusal checks are partial: 17 known classes still accepted, issue #1072 stays open.
+
 ## Scope and nested contracts
 
 A run covers only configured roots and namespace. Adjacent tests need another

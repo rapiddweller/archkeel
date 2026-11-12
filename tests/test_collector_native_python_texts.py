@@ -16,8 +16,11 @@ from __future__ import annotations
 
 import ast
 import json
+import math
 import os
+import random
 import re
+import struct
 import subprocess
 import threading
 from pathlib import Path
@@ -40,7 +43,10 @@ def _native(binary: Path, root: Path, rels: list[str]) -> dict[str, dict[str, li
         check=True,
     )
     rows = [json.loads(line) for line in completed.stdout.split("\n") if line]
-    return {row["file"]: row for row in rows}
+    for row in rows:
+        if "gap" in row:
+            assert row["gap"]["message"] and "kinds" not in row and "texts" not in row
+    return {row["file"]: row for row in rows if "gap" not in row}
 
 
 def _fields_of_fstrings(tree: ast.AST) -> set[int]:
@@ -211,7 +217,7 @@ PROBES: dict[str, str] = {
     "lambda": "f = lambda a, /, b=1, *c, d, e=(1, 2), **g: (yield)\n",
     "lambda-empty": "f = (lambda: 0), lambda *, a: a, lambda *a: a\n",
     "walrus": "if (n := len(a)) > (m := 2): x = [y := f(z) for z in w]\n",
-    "await-yield": "async def f():\n    x = await (yield a)\n    y = (yield from b)\n",
+    "await-yield": "async def f():\n    x = await (yield a)\ndef g():\n    y = (yield from b)\n",
     "starred": "a, *b = c\nf(*a, *[1], **{'x': 1}, **b)\nx = [*a, *b], {*a}, (*a,)\n",
     "subscript": "x = a[1:2, ::3], a[()], a[(1, 2)], a[1:2], a[:], a[b,], a[*b]\n",
     "attribute-int": "x = 1 .real, 1.0.real, True.real, (1).bit_length, 1j.imag\n",
@@ -222,6 +228,7 @@ PROBES: dict[str, str] = {
     "call-generator": "f(a for a in b)\nf(x, (a for a in b))\n",
     "floats": "x = 1e16, 1e15, 0.00001, 0.0001, 1e400, 1.5e-310, 0.1 + 0.2, 1_000.000_1\n",
     "complex": "x = 2j, 1e400j, 0j, 1.5e16j, 3.14J\n",
+    "float-ties": "x = 2.98023223876953125e-8, 161852602146008.125, -2.98023223876953125e-8\n",
     "ints": "x = 0x_ff, 0o777, 0b1010, 0xFFFFFFFFFFFFFFFFFFFFFFFF, 1_000, 00\n",
     "big-hex": f"x = 0x{'f' * 3570}\n",
     "big-hex-over": f"x = 0x{'f' * 3600}\n",
@@ -350,3 +357,14 @@ def test_the_printable_table_equals_the_running_cpython(python_dump_binary: Path
         check=True,
     )
     same(completed.stdout.strip(), " ".join(ranges), "isprintable")
+
+
+def test_float_rounding_ties_and_generated_values_have_the_cpython_text(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    rng = random.Random(389)
+    values = [2.0**exponent for exponent in range(-1074, 1024)]
+    values += [struct.unpack("!d", rng.getrandbits(64).to_bytes(8, "big"))[0] for _ in range(2000)]
+    source = "\n".join(f"x = {value!r}" for value in values if math.isfinite(value))
+    (tmp_path / "floats.py").write_text(source)
+    assert _tree_equal(python_dump_binary, tmp_path) > 8000

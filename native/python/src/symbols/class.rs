@@ -18,7 +18,7 @@ use serde_json::{json, Map, Value};
 use super::scan::Scan;
 use super::writes::{self, store_names};
 use crate::pyast::{walk, Node};
-use crate::unparse::Failure;
+use crate::unparse::TextFailure as Failure;
 
 /// `MAX_NUMERIC_EVIDENCE_CHARS`: a longer class has no member write scope evidence.
 const MAX_EXCERPT_CHARS: usize = 16_384;
@@ -120,7 +120,11 @@ fn attribute_declarations(scan: &mut Scan<'_>, node: &StmtClassDef) -> Result<Va
             Some(Expr::StringLiteral(text)) => Some(scan.string(text)?),
             _ => None,
         };
-        let (line, end_line, column) = scan.module.location(child);
+        let crate::module::Location {
+            line,
+            end_line,
+            column,
+        } = scan.module.location(child);
         for name in targets {
             let id = stable_id(
                 "ATTR",
@@ -151,7 +155,7 @@ fn attribute_declarations(scan: &mut Scan<'_>, node: &StmtClassDef) -> Result<Va
     Ok(Value::Array(found))
 }
 
-fn member_names(node: &StmtClassDef, minor: u32) -> Vec<String> {
+fn member_names(node: &StmtClassDef, minor: archkeel_facts::pyminor::PyMinor) -> Vec<String> {
     let mut names = BTreeSet::new();
     let mut deleted = HashSet::new();
     for child in &node.body {
@@ -290,7 +294,11 @@ fn method_guards(
 /// `_member_write_scope_evidence`: the whole class text as one evidence entry.
 fn scope_evidence(scan: &mut Scan<'_>, node: &StmtClassDef) -> Option<String> {
     let range = super::sites::Def::Class(node).range(scan.module.text());
-    let (line, end_line, column) = scan.module.location(&range);
+    let crate::module::Location {
+        line,
+        end_line,
+        column,
+    } = scan.module.location(&range);
     // Each line adds at least one character, so a longer class is over the limit.
     if end_line.saturating_sub(line) > i64::try_from(MAX_EXCERPT_CHARS).unwrap_or(i64::MAX) {
         return None;

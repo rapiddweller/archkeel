@@ -36,6 +36,7 @@ pub mod nested;
 pub mod nullable;
 mod printable;
 pub mod protocol;
+pub mod pyminor;
 pub mod pyrepr;
 pub mod readset;
 mod readset_fields;

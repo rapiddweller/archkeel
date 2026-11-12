@@ -13,25 +13,25 @@ use std::collections::{HashMap, HashSet};
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Target};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::vocab::ExceptionName;
 use archkeel_facts::{GapFact, ImportFact, Record};
 use archkeel_snapshot::Snapshot;
 
 use crate::discover::{self, Unseen};
+use crate::module::{EvidenceMap, Module};
 use crate::names;
-use crate::parse::{parse, Failure};
+use crate::parse::{parse, ParseFailure as Failure};
 use crate::source::{decode, newlines};
 use binders::Binders;
 use excluded::Excluded;
 use failures::{early, NOT_FOUND};
-use module::{EvidenceMap, Module};
 
 pub mod binders;
 mod excluded;
 mod failures;
 mod imports;
-pub mod module;
 mod namespace;
 mod stable;
 mod walks;
@@ -45,20 +45,19 @@ pub struct Survey {
     pub evidence: Vec<Evidence>,
 }
 
-/// The minor version of `platform.python_version()`, for example 12 of `3.12.10`.
-pub fn minor(version: &str) -> Result<u32, String> {
-    version
-        .split('.')
-        .nth(1)
-        .and_then(|minor| minor.parse().ok())
-        .ok_or_else(|| format!("the interpreter version {version} has no minor version"))
-}
-
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
 /// the definition table, AD-377).
 #[cfg(feature = "dump")]
-pub fn modules(request: &PythonRequest) -> Result<(u32, Vec<Module>, Vec<Binders>), String> {
-    let minor = minor(&request.resolver.interpreter.version)?;
+pub struct Modules {
+    pub minor: PyMinor,
+    pub modules: Vec<Module>,
+    pub binders: Vec<Binders>,
+    pub gaps: Vec<Record<GapFact>>,
+}
+
+#[cfg(feature = "dump")]
+pub fn modules(request: &PythonRequest) -> Result<Modules, String> {
+    let minor = request.resolver.interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let scope = discover::scope(
         &mut snapshot,
@@ -71,12 +70,17 @@ pub fn modules(request: &PythonRequest) -> Result<(u32, Vec<Module>, Vec<Binders
         .iter()
         .map(|module| Binders::of(&module.tree))
         .collect();
-    Ok((minor, parsed.modules, binders))
+    Ok(Modules {
+        minor,
+        modules: parsed.modules,
+        binders,
+        gaps: parsed.gaps,
+    })
 }
 
 pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let interpreter = &request.resolver.interpreter;
-    let minor = minor(&interpreter.version)?;
+    let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let namespace = &request.scope.namespace;
     let roots = &request.scope.roots;
@@ -140,7 +144,7 @@ fn parse_unshadowed(
     snapshot: &mut Snapshot,
     scope: &discover::Scope,
     namespace: &str,
-    minor: u32,
+    minor: PyMinor,
 ) -> Parsed {
     let shadowed = names::shadowed(&scope.selected, namespace, minor);
     let skipped: HashSet<&str> = shadowed.iter().map(|item| item.file.as_str()).collect();
@@ -206,7 +210,12 @@ fn unread(snapshot: &mut Snapshot, rel: &str) -> Result<Failure, Unseen> {
 }
 
 /// Decode, parse and name one file, in the order of `parse_sources`.
-fn parsed_module(rel: &str, raw: &[u8], namespace: &str, minor: u32) -> Result<Module, Failure> {
+fn parsed_module(
+    rel: &str,
+    raw: &[u8],
+    namespace: &str,
+    minor: PyMinor,
+) -> Result<Module, Failure> {
     let decode_error = || early(ExceptionName::UnicodeDecodeError, "UnicodeDecodeError");
     let text = newlines(decode(raw).ok_or_else(decode_error)?);
     let tree = parse(&text, minor)?;

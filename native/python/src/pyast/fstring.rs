@@ -24,8 +24,7 @@ pub enum Piece<'a> {
     /// A `FormattedValue` (or an `Interpolation` of a t-string).
     Value {
         expr: &'a Expr,
-        /// `-1`, or the code point of `s`, `r` or `a`.
-        conversion: i32,
+        conversion: ConversionFlag,
         spec: Option<Rc<[Piece<'a>]>>,
         /// The field of an `Interpolation` of a t-string: its `str` is source text.
         template: Option<&'a InterpolatedElement>,
@@ -75,8 +74,8 @@ fn elements<'a>(
     }
 }
 
-/// A deeper spec is not kept: `unparse::string_failure` gives `SpecDepth`, a named gap, for it.
-const MAX_SPEC_DEPTH: u8 = 2;
+/// The parse refuses a deeper spec before this view reads it. Ruff itself keeps deeper specs.
+pub const MAX_SPEC_DEPTH: u8 = 2;
 
 fn element_into<'a>(
     out: &mut Vec<Piece<'a>>,
@@ -103,9 +102,12 @@ fn element_into<'a>(
             }
             Rc::from(pieces)
         });
-    let mut conversion = code(field.conversion);
-    if field.debug_text.is_some() && conversion == -1 && field.format_spec.is_none() {
-        conversion = i32::from(b'r');
+    let mut conversion = field.conversion;
+    if field.debug_text.is_some()
+        && conversion == ConversionFlag::None
+        && field.format_spec.is_none()
+    {
+        conversion = ConversionFlag::Repr;
     }
     out.push(Piece::Value {
         expr: &field.expression,
@@ -143,15 +145,6 @@ pub fn interpolation_text<'s>(field: &InterpolatedElement, source: &'s str) -> &
         }
     }
     source.get(start..end).unwrap_or("")
-}
-
-fn code(flag: ConversionFlag) -> i32 {
-    match flag {
-        ConversionFlag::None => -1,
-        ConversionFlag::Str => i32::from(b's'),
-        ConversionFlag::Ascii => i32::from(b'a'),
-        ConversionFlag::Repr => i32::from(b'r'),
-    }
 }
 
 fn push_text(out: &mut Vec<Piece<'_>>, text: &str) {

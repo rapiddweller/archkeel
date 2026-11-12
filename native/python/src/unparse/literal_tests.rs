@@ -5,24 +5,43 @@
 use super::*;
 
 #[test]
+fn float_ties_use_cpython_even_digits() {
+    assert_eq!(
+        repr_float(2.0f64.powi(-1017), true),
+        "7.120236347223045e-307"
+    );
+    assert_eq!(repr_float(2.0f64.powi(-25), true), "2.9802322387695312e-08");
+    assert_eq!(
+        repr_float(f64::from_bits(0x42e26687db6b9b04), true),
+        "161852602146008.12"
+    );
+}
+
+#[test]
 fn a_character_of_a_newer_unicode_is_printable_only_from_its_version() {
     // U+0CF3 KANNADA SIGN COMBINING ANUSVARA ABOVE RIGHT: Unicode 15.0 (Python 3.12).
-    assert!(!printable('\u{cf3}', 11));
-    assert!(printable('\u{cf3}', 12));
-    assert_eq!(repr_str("\u{cf3}", 11), "'\\u0cf3'");
-    assert_eq!(repr_str("\u{cf3}", 12), "'\u{cf3}'");
-    assert!(!printable('\u{1}', 14));
-    assert!(!printable('\u{7f}', 14));
+    assert!(!printable('\u{cf3}', crate::test_minor(11)));
+    assert!(printable('\u{cf3}', crate::test_minor(12)));
+    assert_eq!(repr_str("\u{cf3}", crate::test_minor(11)), "'\\u0cf3'");
+    assert_eq!(repr_str("\u{cf3}", crate::test_minor(12)), "'\u{cf3}'");
+    assert!(!printable('\u{1}', crate::test_minor(14)));
+    assert!(!printable('\u{7f}', crate::test_minor(14)));
 }
 
 #[test]
 fn the_quotes_avoid_backslashes_as_cpython_does() {
-    assert_eq!(avoiding_backslashes("a'b", &ALL_QUOTES, 11), "\"a'b\"");
     assert_eq!(
-        avoiding_backslashes("a'\"b", &ALL_QUOTES, 11),
+        avoiding_backslashes("a'b", &ALL_QUOTES, crate::test_minor(11)),
+        "\"a'b\""
+    );
+    assert_eq!(
+        avoiding_backslashes("a'\"b", &ALL_QUOTES, crate::test_minor(11)),
         "\"\"\"a'\"b\"\"\""
     );
-    assert_eq!(avoiding_backslashes("'\"", &ALL_QUOTES, 11), "''''\"'''");
+    assert_eq!(
+        avoiding_backslashes("'\"", &ALL_QUOTES, crate::test_minor(11)),
+        "''''\"'''"
+    );
 }
 
 #[test]

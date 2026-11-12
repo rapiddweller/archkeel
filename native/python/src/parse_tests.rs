@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
+use super::ParseFailure as Failure;
 use super::*;
 
 /// The parse on a thread with the stack of the binary (`main::STACK_BYTES`).
@@ -9,7 +10,7 @@ fn outcome(text: &str, minor: u32) -> Result<(), Failure> {
     let text = text.to_owned();
     std::thread::Builder::new()
         .stack_size(256 * 1024 * 1024)
-        .spawn(move || parse(&text, minor).map(|_| ()))
+        .spawn(move || parse(&text, crate::test_minor(minor)).map(|_| ()))
         .unwrap()
         .join()
         .unwrap()
@@ -62,7 +63,9 @@ fn a_tree_deeper_than_5000_levels_is_refused_with_its_depth() {
     let found = failure(&deep, 12);
     assert_eq!(found.0, ExceptionName::TooDeepError);
     assert_eq!(found.2, "expression nesting of 5003 levels exceeds 5000");
-    assert!(outcome(&format!("x = {}\n", vec!["a"; 4990].join("+")), 12).is_ok());
+    assert!(failure(&format!("x = {}\n", vec!["a"; 4990].join("+")), 12)
+        .2
+        .contains("validation depth limit"));
 }
 
 #[test]
@@ -224,18 +227,14 @@ fn a_future_import_has_the_rules_of_its_python() {
         failure(unknown, 14),
         (ExceptionName::SyntaxError, 1, expected.to_owned())
     );
-    for late in [
-        "x = 1\nfrom __future__ import braces\n",
-        "from .__future__ import braces\n",
-    ] {
-        assert!(outcome(late, 14).is_ok(), "{late}");
-    }
+    assert!(outcome("x = 1\nfrom __future__ import braces\n", 14).is_err());
+    assert!(outcome("from .__future__ import braces\n", 14).is_ok());
     for minor in [11, 12, 13] {
-        assert!(outcome(braces, minor).is_ok());
-        assert!(outcome(unknown, minor).is_ok());
+        assert!(outcome(braces, minor).is_err());
+        assert!(outcome(unknown, minor).is_err());
     }
     let barry = "if 0:\n    from __future__ import barry_as_FLUFL\nx = 1 != 2\n";
-    assert!(outcome(barry, 11).is_ok());
+    assert!(outcome(barry, 11).is_err());
     for minor in [12, 13, 14] {
         assert_eq!(failure(barry, minor).1, 3);
     }

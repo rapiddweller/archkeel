@@ -15,7 +15,7 @@ use ruff_python_ast::{
 
 use crate::pyast::{bool_op, cmp_op, operator, unary_op};
 
-use super::outcome::{Failure, Prec};
+use super::outcome::{Prec, TextFailure as Failure};
 use super::Writer;
 
 /// `binop_precedence`, keyed by the text of the operator as in CPython.

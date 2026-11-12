@@ -100,7 +100,7 @@ fn provenance(request: &PythonRequest, snapshot: &mut Snapshot, build: &Build<'_
             name: "python".to_owned(),
             required,
             requirement_state,
-            version: request.resolver.interpreter.version.clone(),
+            version: request.resolver.interpreter.version.as_str().to_owned(),
         },
     }
 }

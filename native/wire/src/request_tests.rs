@@ -250,7 +250,7 @@ fn a_python_request_is_version_10_and_carries_the_interpreter_block() {
     let typed = decoded_python(&value).unwrap();
     assert_eq!(typed.protocol_version, Version::V10);
     assert_eq!(typed.resolver.phase, PythonPhase::Imports);
-    assert_eq!(typed.resolver.interpreter.version, "3.11.12");
+    assert_eq!(typed.resolver.interpreter.version.as_str(), "3.11.12");
     let whole: Request = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(serde_json::to_value(&whole).unwrap(), value);
     assert_eq!(

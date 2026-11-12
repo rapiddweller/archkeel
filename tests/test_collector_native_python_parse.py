@@ -128,11 +128,21 @@ def _agrees(expected: Any, found: Any, copied: tuple[str, ...] = _COPIED) -> boo
 def _differences(
     binary: Path, root: Path, rels: list[str], copied: tuple[str, ...] = _COPIED
 ) -> list[tuple[str, Any, Any]]:
+    from python_refusal_probes import compiler_refuses, validation_depth_gap
+
     python, native = _python(root, rels), _native(binary, root, rels)
     return [
         (rel, python[rel], native[rel])
         for rel in rels
         if not _agrees(python[rel], native[rel], copied)
+        and not (
+            python[rel] is None
+            and native[rel] is not None
+            and (
+                validation_depth_gap((root / rel).read_bytes(), native[rel]["message"])
+                or compiler_refuses((root / rel).read_bytes())
+            )
+        )
     ]
 
 

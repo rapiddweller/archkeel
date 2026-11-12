@@ -5,11 +5,11 @@
 use super::*;
 
 fn kinds(source: &str, minor: u32) -> Vec<&'static str> {
-    let module = crate::parse::parse(source, minor).expect("the probe parses");
+    let module = crate::parse::parse(source, crate::test_minor(minor)).expect("the probe parses");
     module
         .body
         .iter()
-        .flat_map(|stmt| walk(Node::Stmt(stmt), minor).map(|node| node.kind()))
+        .flat_map(|stmt| walk(Node::Stmt(stmt), crate::test_minor(minor)).map(|node| node.kind()))
         .collect()
 }
 

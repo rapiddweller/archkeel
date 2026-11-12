@@ -15,7 +15,10 @@ use ruff_python_ast::{Expr, ExprContext, Stmt, StmtClassDef, StmtFunctionDef};
 use crate::pyast::{child_nodes, walk, Node};
 
 /// The sorted member names of `class_instance_member_write_names`.
-pub fn instance_member_writes(node: &StmtClassDef, minor: u32) -> Vec<String> {
+pub fn instance_member_writes(
+    node: &StmtClassDef,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> Vec<String> {
     let mut names = BTreeSet::new();
     for child in &node.body {
         if let Stmt::FunctionDef(method) = child {
@@ -25,18 +28,30 @@ pub fn instance_member_writes(node: &StmtClassDef, minor: u32) -> Vec<String> {
     names.into_iter().collect()
 }
 
-fn contains_alias(node: &Node<'_>, aliases: &HashSet<String>, minor: u32) -> bool {
+fn contains_alias(
+    node: &Node<'_>,
+    aliases: &HashSet<String>,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> bool {
     walk(node.clone(), minor).any(|child| {
         matches!(child.expr(), Some(Expr::Name(name)) if aliases.contains(name.id.as_str()))
     })
 }
 
-fn expr_contains(expr: &Expr, aliases: &HashSet<String>, minor: u32) -> bool {
+fn expr_contains(
+    expr: &Expr,
+    aliases: &HashSet<String>,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> bool {
     contains_alias(&Node::Expr(expr), aliases, minor)
 }
 
 /// `_receiver_escapes_in_value`, with its recursion over a display bounded by the parse depth.
-fn escapes(value: &Expr, aliases: &HashSet<String>, minor: u32) -> bool {
+fn escapes(
+    value: &Expr,
+    aliases: &HashSet<String>,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> bool {
     let mut pending = vec![value];
     while let Some(value) = pending.pop() {
         let found = match value {
@@ -85,7 +100,7 @@ fn escapes(value: &Expr, aliases: &HashSet<String>, minor: u32) -> bool {
 }
 
 /// The names of `Name` nodes with a `Store` context, in walk order.
-pub fn store_names(targets: &[Expr], minor: u32) -> Vec<String> {
+pub fn store_names(targets: &[Expr], minor: archkeel_facts::pyminor::PyMinor) -> Vec<String> {
     targets
         .iter()
         .flat_map(|target| walk(Node::Expr(target), minor))
@@ -103,7 +118,10 @@ fn is_scope(node: &Node<'_>) -> bool {
     )
 }
 
-fn method_writes(node: &StmtFunctionDef, minor: u32) -> BTreeSet<String> {
+fn method_writes(
+    node: &StmtFunctionDef,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> BTreeSet<String> {
     let params = &node.parameters;
     let Some(first) = params.posonlyargs.iter().chain(&params.args).next() else {
         return BTreeSet::new();
@@ -132,7 +150,7 @@ fn statement(
     stmt: &Stmt,
     aliases: &mut HashSet<String>,
     writes: &mut BTreeSet<String>,
-    minor: u32,
+    minor: archkeel_facts::pyminor::PyMinor,
 ) {
     match stmt {
         Stmt::Assign(node) => {
@@ -166,7 +184,12 @@ fn statement(
     }
 }
 
-fn expression(expr: &Expr, aliases: &HashSet<String>, writes: &mut BTreeSet<String>, minor: u32) {
+fn expression(
+    expr: &Expr,
+    aliases: &HashSet<String>,
+    writes: &mut BTreeSet<String>,
+    minor: archkeel_facts::pyminor::PyMinor,
+) {
     match expr {
         Expr::Attribute(node) if node.ctx != ExprContext::Load => {
             if matches!(&*node.value, Expr::Name(name) if aliases.contains(name.id.as_str())) {
@@ -203,7 +226,7 @@ fn call(
     node: &ruff_python_ast::ExprCall,
     aliases: &HashSet<String>,
     writes: &mut BTreeSet<String>,
-    minor: u32,
+    minor: archkeel_facts::pyminor::PyMinor,
 ) {
     let args = &node.arguments.args;
     let reflective =

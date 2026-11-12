@@ -17,11 +17,17 @@ use ruff_python_ast::{Expr, ExprContext, Stmt};
 
 use super::binders::{import_bindings, Binders};
 use super::imports::Aliases;
-use super::module::Module;
 use super::walks::{Scope, Whole};
+use crate::module::Module;
+use archkeel_facts::pyminor::PyMinor;
 
 /// The stable bindings of one module, sorted. `minor` is the minor version of the interpreter.
-pub fn bindings(module: &Module, binders: &Binders, aliases: &Aliases, minor: u32) -> Vec<String> {
+pub fn bindings(
+    module: &Module,
+    binders: &Binders,
+    aliases: &Aliases,
+    minor: PyMinor,
+) -> Vec<String> {
     let direct = direct(&module.tree.body, minor);
     let whole = Whole::of(&module.tree, aliases, binders);
     if whole.rebinds {
@@ -47,14 +53,19 @@ pub fn bindings(module: &Module, binders: &Binders, aliases: &Aliases, minor: u3
 }
 
 /// How often each top-level definition, type alias, import or assignment binds a name.
-fn direct(body: &[Stmt], minor: u32) -> HashMap<String, usize> {
+fn direct(body: &[Stmt], minor: PyMinor) -> HashMap<String, usize> {
     let mut direct: HashMap<String, usize> = HashMap::new();
     let mut add = |name: String| *direct.entry(name).or_default() += 1;
     for statement in body {
         match statement {
             Stmt::FunctionDef(node) => add(node.name.id.to_string()),
             Stmt::ClassDef(node) => add(node.name.id.to_string()),
-            Stmt::TypeAlias(node) if minor >= 12 && !has_parameters(node) => {
+            Stmt::TypeAlias(node)
+                if match minor {
+                    PyMinor::Py311 => false,
+                    PyMinor::Py312 | PyMinor::Py313 | PyMinor::Py314 => !has_parameters(node),
+                } =>
+            {
                 if let Expr::Name(name) = &*node.name {
                     add(name.id.to_string());
                 }

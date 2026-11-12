@@ -18,9 +18,11 @@ import pytest
 from native_rules_support import (
     CORE_SIDE,
     language_names,
+    production_sources,
     requires_problems,
     system_uses,
 )
+from rust_source import inline_test_mask, tokenize
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
@@ -176,3 +178,38 @@ def test_a_crate_without_a_place_in_the_order_fails() -> None:
     contract = json.loads(CONTRACT.read_text())
     contract["components"].append({"label": "x", "packages": ["native.archkeel_planted"]})
     assert requires_problems(contract) == ["crate planted has no place in the crate order"]
+
+
+def test_the_python_future_feature_list_has_one_production_home() -> None:
+    features = {
+        json.dumps(name)
+        for name in (
+            "nested_scopes",
+            "generators",
+            "division",
+            "absolute_import",
+            "with_statement",
+            "print_function",
+            "unicode_literals",
+            "barry_as_FLUFL",
+            "generator_stop",
+            "annotations",
+        )
+    }
+    found: Counter[str] = Counter()
+    for crate in NATIVE.iterdir():
+        if not (crate / "src").is_dir():
+            continue
+        for path, text in production_sources(NATIVE, crate.name).items():
+            tokens = tokenize(text)
+            arrays: list[set[str]] = []
+            for token, test in zip(tokens, inline_test_mask(tokens), strict=True):
+                if test:
+                    continue
+                if token.text == "[":
+                    arrays.append(set())
+                elif token.text == "]" and arrays:
+                    found[path] += int(features <= arrays.pop())
+                elif arrays:
+                    arrays[-1].add(token.text)
+    assert +found == Counter({"python/src/parse.rs": 1})

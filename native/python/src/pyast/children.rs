@@ -13,7 +13,7 @@ use super::fstring::{self, Piece};
 use super::node::{bool_op, cmp_op, context, operator, type_params, unary_op, Node};
 
 /// `ast.iter_child_nodes`: the child nodes in the order of `_fields`.
-pub fn child_nodes<'a>(node: &Node<'a>, minor: u32) -> Vec<Node<'a>> {
+pub fn child_nodes<'a>(node: &Node<'a>, minor: archkeel_facts::pyminor::PyMinor) -> Vec<Node<'a>> {
     let mut out = Vec::new();
     match node {
         Node::Stmt(stmt) => stmt_children(stmt, minor, &mut out),
@@ -71,8 +71,17 @@ fn stmts<'a>(out: &mut Vec<Node<'a>>, items: &'a [Stmt]) {
     out.extend(items.iter().map(Node::Stmt));
 }
 
-fn params<'a>(out: &mut Vec<Node<'a>>, minor: u32, items: &'a [TypeParam]) {
-    if minor >= 12 {
+fn params<'a>(
+    out: &mut Vec<Node<'a>>,
+    minor: archkeel_facts::pyminor::PyMinor,
+    items: &'a [TypeParam],
+) {
+    if match minor {
+        archkeel_facts::pyminor::PyMinor::Py311 => false,
+        archkeel_facts::pyminor::PyMinor::Py312
+        | archkeel_facts::pyminor::PyMinor::Py313
+        | archkeel_facts::pyminor::PyMinor::Py314 => true,
+    } {
         out.extend(items.iter().map(Node::TypeParam));
     }
 }
@@ -81,7 +90,11 @@ fn pieces_of<'a>(pieces: &Rc<[Piece<'a>]>, out: &mut Vec<Node<'a>>) {
     out.extend((0..pieces.len()).map(|index| Node::Piece(Rc::clone(pieces), index)));
 }
 
-fn stmt_children<'a>(stmt: &'a Stmt, minor: u32, out: &mut Vec<Node<'a>>) {
+fn stmt_children<'a>(
+    stmt: &'a Stmt,
+    minor: archkeel_facts::pyminor::PyMinor,
+    out: &mut Vec<Node<'a>>,
+) {
     match stmt {
         Stmt::FunctionDef(node) => {
             out.push(Node::Arguments(Some(&node.parameters)));
@@ -333,7 +346,11 @@ fn pattern_children<'a>(pattern: &'a Pattern, out: &mut Vec<Node<'a>>) {
 
 /// `TypeVar` (`name`, `bound`, `default_value`), `ParamSpec` and `TypeVarTuple` (`name`,
 /// `default_value`). The default exists from 3.13 on.
-fn type_param_children<'a>(param: &'a TypeParam, minor: u32, out: &mut Vec<Node<'a>>) {
+fn type_param_children<'a>(
+    param: &'a TypeParam,
+    minor: archkeel_facts::pyminor::PyMinor,
+    out: &mut Vec<Node<'a>>,
+) {
     let default = match param {
         TypeParam::TypeVar(node) => {
             exprs(out, node.bound.as_deref());
@@ -342,7 +359,10 @@ fn type_param_children<'a>(param: &'a TypeParam, minor: u32, out: &mut Vec<Node<
         TypeParam::ParamSpec(node) => node.default.as_deref(),
         TypeParam::TypeVarTuple(node) => node.default.as_deref(),
     };
-    if minor >= 13 {
+    if match minor {
+        archkeel_facts::pyminor::PyMinor::Py311 | archkeel_facts::pyminor::PyMinor::Py312 => false,
+        archkeel_facts::pyminor::PyMinor::Py313 | archkeel_facts::pyminor::PyMinor::Py314 => true,
+    } {
         exprs(out, default);
     }
 }

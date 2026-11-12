@@ -9,10 +9,16 @@ use ruff_text_size::TextSize;
 use super::*;
 
 fn records(source: &str, minor: u32) -> Vec<Value> {
-    let tree = crate::parse::parse(source, minor).expect("the probe parses");
+    let tree = crate::test_tree(source, minor).expect("the probe parses");
     let module = Module::new("src/app/m.py".into(), "app.m".into(), source.into(), tree);
     let exports = HashSet::from(["f".to_owned()]);
-    match table(&module, &exports, minor, true, &mut EvidenceMap::new()) {
+    match table(
+        &module,
+        &exports,
+        crate::test_minor(minor),
+        true,
+        &mut EvidenceMap::new(),
+    ) {
         Table::Records(records) => records,
         Table::Gap { file, reason } => vec![json!({"gap": reason, "file": file})],
     }
@@ -34,7 +40,7 @@ fn a_definition_has_the_location_of_its_keyword_after_the_decorators() {
         "src/app/m.py".into(),
         "app.m".into(),
         source.into(),
-        crate::parse::parse(source, 12).expect("the probe parses"),
+        crate::parse::parse(source, crate::test_minor(12)).expect("the probe parses"),
     );
     let mut evidence = EvidenceMap::new();
     let start = TextSize::from(11);
@@ -126,24 +132,8 @@ fn a_string_that_native_cannot_write_gives_a_gap_with_its_own_reason() {
 
 #[test]
 fn a_version_outside_3_11_to_3_14_gives_a_gap() {
-    for minor in [10, 15] {
-        let found = records_unparsed("class C: pass\n", minor);
-        assert!(found.is_some_and(|gap| gap.contains("3.11 to 3.14")));
-    }
-}
-
-/// The table of a module parsed as 3.14, read with the rules of `minor`.
-fn records_unparsed(source: &str, minor: u32) -> Option<String> {
-    let tree = crate::parse::parse(source, 14).expect("the probe parses");
-    let module = Module::new("src/app/m.py".into(), "app.m".into(), source.into(), tree);
-    match table(
-        &module,
-        &HashSet::new(),
-        minor,
-        true,
-        &mut EvidenceMap::new(),
-    ) {
-        Table::Gap { reason, .. } => Some(reason),
-        Table::Records(_) => None,
+    for minor in ["10", "15"] {
+        let failure = archkeel_facts::pyminor::PyMinor::decode(minor).unwrap_err();
+        assert!(failure.contains("3.11 to 3.14"));
     }
 }

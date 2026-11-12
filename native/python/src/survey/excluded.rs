@@ -25,7 +25,6 @@ use crate::names::module_for;
 /// `NO_PRODUCTION_SOURCE`.
 const NO_PRODUCTION_SOURCE: &str = "No production source files in scope after the test exclusion";
 
-#[derive(Default)]
 pub struct Excluded {
     modules: HashSet<String>,
     prefixes: HashSet<String>,
@@ -34,15 +33,23 @@ pub struct Excluded {
     /// (`resolve()` without a check); the native walk cannot read it, so each is a gap (L-30).
     dangling: Vec<String>,
     /// The minor version of the interpreter, for the module names (`names::module_for`).
-    minor: u32,
+    minor: PyMinor,
 }
 
 impl Excluded {
     /// `ExcludedTests.find`.
-    pub fn find(snapshot: &mut Snapshot, roots: &[String], namespace: &str, minor: u32) -> Self {
+    pub fn find(
+        snapshot: &mut Snapshot,
+        roots: &[String],
+        namespace: &str,
+        minor: PyMinor,
+    ) -> Self {
         let mut found = Self {
             minor,
-            ..Self::default()
+            modules: HashSet::new(),
+            prefixes: HashSet::new(),
+            files: 0,
+            dangling: Vec::new(),
         };
         for root in roots {
             if !snapshot.is_dir(root) {
@@ -162,7 +169,7 @@ impl Excluded {
 }
 
 /// `_module_names`: the module name of a path, or its name under the source root.
-fn module_name(source_root: &str, path: &str, namespace: &str, minor: u32) -> Option<String> {
+fn module_name(source_root: &str, path: &str, namespace: &str, minor: PyMinor) -> Option<String> {
     if let Some(name) = module_for(path, namespace, minor) {
         return Some(name);
     }
@@ -229,3 +236,4 @@ fn empty_scope_gap() -> Record<GapFact> {
 #[cfg(test)]
 #[path = "excluded_tests.rs"]
 mod tests;
+use archkeel_facts::pyminor::PyMinor;

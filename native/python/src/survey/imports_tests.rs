@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: MIT
 
 use super::*;
-use crate::parse::parse;
 
 fn modules(files: &[(&str, &str, &str)]) -> Vec<Module> {
     files
         .iter()
         .map(|(rel, name, text)| {
-            let tree = parse(text, 13).expect("valid source");
+            let tree = crate::test_tree(text, 13).expect("valid source");
             Module::new(
                 (*rel).to_owned(),
                 (*name).to_owned(),

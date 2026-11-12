@@ -10,11 +10,11 @@ use super::*;
 fn text(source: &str, minor: u32) -> Result<String, Failure> {
     let source = crate::source::newlines(source);
     let source = source.as_ref();
-    let module = crate::parse::parse(source, minor).expect("the probe parses");
+    let module = crate::test_tree(source, minor).expect("the probe parses");
     let Some(Stmt::Expr(statement)) = module.body.first() else {
         return Err(Failure::Invalid);
     };
-    unparse(&statement.value, minor, source)
+    unparse(&statement.value, crate::test_minor(minor), source)
 }
 
 fn same(source: &str, expected: &str) {
@@ -141,19 +141,8 @@ fn a_spec_deeper_than_cpython_keeps_is_a_gap_and_not_cut() {
 
 #[test]
 fn a_version_outside_3_11_to_3_14_has_no_text() {
-    let module = crate::parse::parse("x\n", 14).expect("the probe parses");
-    let Some(Stmt::Expr(statement)) = module.body.first() else {
-        return;
-    };
-    for minor in [10, 15] {
-        assert_eq!(
-            unparse(&statement.value, minor, "x\n"),
-            Err(Failure::Version)
-        );
-        assert_eq!(
-            annotation_text(Some(&statement.value), minor, "x\n"),
-            Err(Failure::Version)
-        );
+    for minor in ["10", "15"] {
+        assert!(archkeel_facts::pyminor::PyMinor::decode(minor).is_err());
     }
 }
 

@@ -16,6 +16,7 @@ publish.workspace = true
 dump = []
 
 [dependencies]
+archkeel-pytext.workspace = true
 archkeel-facts.workspace = true
 archkeel-snapshot.workspace = true
 archkeel-wire.workspace = true

@@ -18,7 +18,7 @@ use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::{Expr, Stmt, StmtImportFrom};
 
 use super::binders::{first_part, import_bindings, Binders};
-use super::module::{EvidenceMap, Module};
+use crate::module::{EvidenceMap, Location, Module};
 use crate::names::package_for;
 
 /// What a module-level import binds a name to (`source.AliasBinding`): the target module, or
@@ -323,7 +323,7 @@ impl Collector<'_, '_> {
     fn record(&mut self, (statement, module_level, guarded): (&Stmt, bool, bool), b: &Binding) {
         let module = self.module;
         let evidence_id = module.evidence(self.evidence, statement);
-        let (line, _, column) = module.location(statement);
+        let Location { line, column, .. } = module.location(statement);
         let in_scope = b.target == self.namespace
             || b.target
                 .strip_prefix(self.namespace)

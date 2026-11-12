@@ -8,13 +8,13 @@
 use ruff_python_ast::{Expr, ExprStringLiteral};
 use ruff_text_size::Ranged;
 
-use crate::survey::module::{EvidenceMap, Module};
-use crate::unparse::{self, Failure};
+use crate::module::{EvidenceMap, Module};
+use crate::unparse::{self, TextFailure as Failure};
 
 /// The reading of one module: its text, the interpreter and the evidence of the run.
 pub struct Scan<'m> {
     pub module: &'m Module,
-    pub minor: u32,
+    pub minor: archkeel_facts::pyminor::PyMinor,
     pub evidence_map: &'m mut EvidenceMap,
 }
 

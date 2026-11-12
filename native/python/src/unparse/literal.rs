@@ -5,7 +5,8 @@
 //! The literal texts of `ast.unparse`: `repr` of a `str`, `bytes`, `int`, `float` and `complex`,
 //! and `_str_literal_helper`, which picks the quotes of a string with the fewest escapes.
 
-use std::sync::OnceLock;
+use archkeel_facts::pyminor::PyMinor;
+pub use archkeel_facts::pyrepr::printable;
 
 /// `sys.get_int_max_str_digits()` of an isolated interpreter: `repr` of a longer `int` raises.
 const MAX_STR_DIGITS: usize = 4300;
@@ -14,62 +15,6 @@ const MAX_INT_BITS: usize = 14_300;
 
 pub const MULTI_QUOTES: [&str; 2] = ["\"\"\"", "'''"];
 pub const ALL_QUOTES: [&str; 4] = ["'", "\"", "\"\"\"", "'''"];
-
-/// The ranges of the code points that `str.isprintable` accepts in a later Python and refuses in
-/// 3.11 (Unicode 14), one line for each minor version: `<minor> <low>-<high> ...`.
-const NEWLY_PRINTABLE: &str = include_str!("printable.txt");
-
-/// Inclusive ranges of code points.
-type Ranges = Vec<(u32, u32)>;
-
-fn newly_printable(minor: u32) -> &'static [(u32, u32)] {
-    static TABLES: OnceLock<Vec<(u32, Ranges)>> = OnceLock::new();
-    let tables = TABLES.get_or_init(|| {
-        NEWLY_PRINTABLE
-            .lines()
-            .filter_map(|line| {
-                let mut words = line.split_whitespace();
-                let minor: u32 = words.next()?.parse().ok()?;
-                let ranges = words
-                    .filter_map(|range| {
-                        let (low, high) = range.split_once('-')?;
-                        Some((
-                            u32::from_str_radix(low, 16).ok()?,
-                            u32::from_str_radix(high, 16).ok()?,
-                        ))
-                    })
-                    .collect();
-                Some((minor, ranges))
-            })
-            .collect()
-    });
-    tables
-        .iter()
-        .find(|(line, _)| *line == minor)
-        .map_or(&[], |(_, ranges)| ranges.as_slice())
-}
-
-/// `str.isprintable()` of one character in the Python of `minor`.
-pub fn printable(c: char, minor: u32) -> bool {
-    let point = u32::from(c);
-    if point < 0x20 || point == 0x7f {
-        return false;
-    }
-    if !archkeel_facts::pyrepr::escapes(point) {
-        return true;
-    }
-    newly_printable(minor)
-        .binary_search_by(|&(low, high)| {
-            if high < point {
-                std::cmp::Ordering::Less
-            } else if low > point {
-                std::cmp::Ordering::Greater
-            } else {
-                std::cmp::Ordering::Equal
-            }
-        })
-        .is_ok()
-}
 
 /// `c.encode("unicode_escape").decode("ascii")` of one character.
 fn unicode_escape(c: char, out: &mut String) {
@@ -89,28 +34,9 @@ fn unicode_escape(c: char, out: &mut String) {
 }
 
 /// `repr()` of a `str` in the Python of `minor` (`unicode_repr`).
-pub fn repr_str(text: &str, minor: u32) -> String {
-    let quote = if text.contains('\'') && !text.contains('"') {
-        '"'
-    } else {
-        '\''
-    };
+pub fn repr_str(text: &str, minor: PyMinor) -> String {
     let mut out = String::with_capacity(text.len() + 2);
-    out.push(quote);
-    for c in text.chars() {
-        let point = u32::from(c);
-        match c {
-            _ if c == quote || c == '\\' => {
-                out.push('\\');
-                out.push(c);
-            }
-            '\t' | '\n' | '\r' => unicode_escape(c, &mut out),
-            _ if point < 0x20 || point == 0x7f => out.push_str(&format!("\\x{point:02x}")),
-            _ if point < 0x7f || printable(c, minor) => out.push(c),
-            _ => unicode_escape(c, &mut out),
-        }
-    }
-    out.push(quote);
+    archkeel_facts::pyrepr::string_with(text, &mut out, minor);
     out
 }
 
@@ -211,7 +137,22 @@ pub fn repr_float(value: f64, add_dot_zero: bool) -> String {
         return "1e309".to_owned();
     }
     // `{:e}` gives the shortest digits that read back: `1.5e-5`, `1e16`.
-    let scientific = format!("{:e}", value.abs());
+    let shortest = format!("{:e}", value.abs());
+    let precision = shortest
+        .split('e')
+        .next()
+        .unwrap_or("")
+        .bytes()
+        .filter(u8::is_ascii_digit)
+        .count()
+        .saturating_sub(1);
+    // Explicit precision rounds ties to even; shortest formatting can choose the odd neighbour.
+    let scientific = format!("{:.*e}", precision, value.abs());
+    let scientific = if scientific.parse::<f64>().ok() == Some(value.abs()) {
+        scientific
+    } else {
+        shortest
+    };
     let (mantissa, exponent) = scientific.split_once('e').unwrap_or((&scientific, "0"));
     let exponent: i32 = exponent.parse().unwrap_or(0);
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
@@ -257,12 +198,17 @@ pub fn repr_complex(imag: f64) -> String {
 }
 
 /// `_str_literal_helper`: the escaped text and the quotes that can hold it, best first.
+pub struct Quotes {
+    pub text: String,
+    pub quotes: Vec<&'static str>,
+}
+
 pub fn literal_helper(
     text: &str,
     quote_types: &[&'static str],
     escape_special_whitespace: bool,
-    minor: u32,
-) -> (String, Vec<&'static str>) {
+    minor: PyMinor,
+) -> Quotes {
     let mut escaped = String::with_capacity(text.len());
     for c in text.chars() {
         if !escape_special_whitespace && (c == '\n' || c == '\t') {
@@ -289,7 +235,10 @@ pub fn literal_helper(
         let inner = repr
             .get(1..repr.len().saturating_sub(1))
             .unwrap_or_default();
-        return (inner.to_owned(), vec![quote]);
+        return Quotes {
+            text: inner.to_owned(),
+            quotes: vec![quote],
+        };
     }
     if let Some(last) = escaped.chars().last() {
         // A stable sort: the quotes that do not start with the last character come first.
@@ -303,12 +252,15 @@ pub fn literal_helper(
             escaped.push(last);
         }
     }
-    (escaped, possible)
+    Quotes {
+        text: escaped,
+        quotes: possible,
+    }
 }
 
 /// `_write_str_avoiding_backslashes`.
-pub fn avoiding_backslashes(text: &str, quote_types: &[&'static str], minor: u32) -> String {
-    let (text, quotes) = literal_helper(text, quote_types, false, minor);
+pub fn avoiding_backslashes(text: &str, quote_types: &[&'static str], minor: PyMinor) -> String {
+    let Quotes { text, quotes } = literal_helper(text, quote_types, false, minor);
     let quote = quotes.first().copied().unwrap_or("'");
     format!("{quote}{text}{quote}")
 }

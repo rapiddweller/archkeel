@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 use super::*;
-use crate::parse::parse;
+use crate::module::EvidenceMap;
 use crate::survey::imports;
-use crate::survey::module::EvidenceMap;
 
 /// The stable bindings of `app/__init__.py` beside the empty modules `app.sib` and `app.sub`.
 fn stable(text: &str, minor: u32) -> Vec<String> {
@@ -17,7 +16,7 @@ fn stable(text: &str, minor: u32) -> Vec<String> {
     let modules: Vec<Module> = files
         .iter()
         .map(|(rel, name, text)| {
-            let tree = parse(text, minor).expect("valid source");
+            let tree = crate::test_tree(text, minor).expect("valid source");
             Module::new(
                 (*rel).to_owned(),
                 (*name).to_owned(),
@@ -32,7 +31,12 @@ fn stable(text: &str, minor: u32) -> Vec<String> {
         .collect();
     let mut evidence = EvidenceMap::new();
     let (_, aliases) = imports::collect(&modules, &binders, "app", &mut evidence);
-    bindings(&modules[0], &binders[0], &aliases[0], minor)
+    bindings(
+        &modules[0],
+        &binders[0],
+        &aliases[0],
+        crate::test_minor(minor),
+    )
 }
 
 /// Each source with the `stable_direct_module_bindings` of the Python collector after

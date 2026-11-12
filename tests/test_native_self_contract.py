@@ -74,6 +74,54 @@ OTHER = [
 ]
 Plant = tuple[str, str]  # (rule, planted file below the copy root)
 
+# The guarded collection spine: survey -> symbols -> unparse -> module, tree and parse.
+PYTHON_LAYERS = [("survey",), ("symbols",), ("unparse",), ("module", "tree", "parse")]
+PYTHON_MODULE = {"tree": "pyast"}
+PYTHON_ITEM = {"survey": "Survey", "symbols": "Table", "unparse": "TextFailure"}
+
+
+def _python_plants(native: Path, matching_requires: bool) -> list[Plant]:
+    path = native / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    parts = {part["label"]: part for part in contract["components"]}
+    plants = []
+    for layer, sources in enumerate(PYTHON_LAYERS):
+        for source in sources:
+            module = PYTHON_MODULE.get(source, source)
+            file = (
+                native
+                / "python/src"
+                / (
+                    f"{module}/mod.rs"
+                    if source in {"tree", "unparse", "symbols", "survey"}
+                    else f"{module}.rs"
+                )
+            )
+            for targets in PYTHON_LAYERS[:layer]:
+                for target in targets:
+                    rule = f"NATIVE-PY-{source.upper()}-NO-{target.upper()}"
+                    if matching_requires:
+                        parts[f"py-{source}"]["requires"].append(
+                            {"component": f"py-{target}", "rationale": "planted"}
+                        )
+                    item = f"crate::{target}::{PYTHON_ITEM[target]}"
+                    for form in ["use"] if matching_requires else ["use", "path"]:
+                        name = f"planted_{target}_{form}"
+                        text = (
+                            f"pub use {item} as {name};"
+                            if form == "use"
+                            else f"pub fn {name}() {{ let _ = std::mem::size_of::<{item}>(); }}"
+                        )
+                        file.write_text(file.read_text() + "\n" + text + "\n")
+                        plants.append(
+                            (
+                                rule,
+                                f"native/{file.relative_to(native).as_posix()}",
+                            )
+                        )
+    path.write_text(json.dumps(contract, indent=2) + "\n")
+    return plants
+
 
 def _rule(source: str, target: str) -> str:
     return f"NATIVE-NO-{source.upper()}-TO-{target.upper()}"
@@ -94,7 +142,7 @@ def _plant(native: Path, crate: str, cargo: str, name: str, text: str) -> str:
 
 
 def _code_forms(native: Path) -> list[Plant]:
-    plants = []
+    plants = _python_plants(native, False)
     for number, (source, target) in enumerate(CHAIN_RULES):
         use = f"pub use {ITEM[target]} as planted;\n"
         path = f"pub fn planted() {{\n    let _ = {ITEM[target]};\n}}\n"
@@ -115,6 +163,7 @@ def _code_forms(native: Path) -> list[Plant]:
 
 
 def _with_requires(native: Path) -> list[Plant]:
+    python = _python_plants(native, True)
     path = native / "architecture-contract.json"
     contract = json.loads(path.read_text())
     parts = {part["label"]: part for part in contract["components"]}
@@ -124,7 +173,7 @@ def _with_requires(native: Path) -> list[Plant]:
         text = f"pub use {ITEM[target]} as planted;\n"
         plants.append((_rule(source, target), _plant(native, source, target, f"p_{number}", text)))
     path.write_text(json.dumps(contract, indent=2))
-    return plants
+    return plants + python
 
 
 def _run(root: Path, binary: Path) -> dict[str, Any]:
@@ -181,3 +230,19 @@ def test_the_code_forms_cover_each_chain_rule_twice(runs: dict[str, Any]) -> Non
     rules = [rule for rule, _ in plants if rule.startswith("NATIVE-NO-")]
     assert sorted(set(rules)) == sorted(_rule(s, t) for s, t in CHAIN_RULES)
     assert len(rules) == 2 * len(CHAIN_RULES)
+
+
+def test_each_python_upward_pair_has_a_rule_and_a_plant(runs: dict[str, Any]) -> None:
+    plants, _ = runs["code"]
+    expected = {
+        f"NATIVE-PY-{source.upper()}-NO-{target.upper()}"
+        for layer, sources in enumerate(PYTHON_LAYERS)
+        for source in sources
+        for targets in PYTHON_LAYERS[:layer]
+        for target in targets
+    }
+    contract = json.loads((ROOT / "native/architecture-contract.json").read_text())
+    assert expected == {
+        rule["id"] for rule in contract["rules"] if rule["id"].startswith("NATIVE-PY-")
+    }
+    assert expected == {rule for rule, _ in plants if rule.startswith("NATIVE-PY-")}

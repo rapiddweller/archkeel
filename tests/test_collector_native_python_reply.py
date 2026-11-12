@@ -27,6 +27,7 @@ from collector_pin import pin_of
 from conftest import build_native_copy, by_python
 from false_pass_support import copy_repository
 from first_difference import same
+from python_refusal_probes import compiler_checked_collect
 from test_collector_native_python_scope import _FIXTURES
 from test_collector_native_python_survey import (
     _EDGES,
@@ -76,7 +77,7 @@ def _native(binary: Path, request: CollectionRequest) -> bytes:
 
 
 def _python(request: CollectionRequest) -> dict[str, Any]:
-    response = CollectionResponse(collect(request), ProtocolVersion.V9)
+    response = CollectionResponse(compiler_checked_collect(request), ProtocolVersion.V9)
     found: dict[str, Any] = json.loads(zlib.decompress(facts_codec.encode_response(response)))
     return found
 

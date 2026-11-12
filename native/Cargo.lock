@@ -126,6 +126,7 @@ version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
  "archkeel-facts",
+ "archkeel-pytext",
  "archkeel-snapshot",
  "archkeel-wire",
  "flate2",
