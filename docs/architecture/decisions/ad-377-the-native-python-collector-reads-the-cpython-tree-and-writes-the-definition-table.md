@@ -1,6 +1,6 @@
 # AD-377 The native Python collector reads the CPython tree and writes the definition table
 
-**Status.** Accepted. PR 5 slice 2a of issue #880. It extends the closed list of AD-367.
+**Status.** Accepted. PR 5 slice 2a of #880. It extends the closed list of AD-367 (13 to 16).
 
 **Measurement.** `symbols.py` (1 397 lines) needs 2 113 lines of `source.py` and two inputs from
 other modules (`resolve_reexports`, `explicit_factory_unsafe_providers`). Its order follows
@@ -16,16 +16,21 @@ first: the CPython view of the tree, the text of an expression, and the definiti
    with `_Precedence`. `repr` of a `str` uses the Unicode 14 table of `archkeel-facts`
    (`pyrepr::escapes`, a new public function) and `printable.txt`, the code points that each
    later Python prints. An `int` over 4 300 digits is `ValueError` (`annotation_text` is `None`).
-   A t-string field writes `Interpolation.str`, its source text.
-3. **Definition table** (`symbols/`). One record for each class, function and method of
+   A t-string field writes `Interpolation.str`, its source text (a line join keeps its `\`).
+3. **Which Python** (L-37b). The text and the tree equal the Python of the minor of
+   `resolver.interpreter.version`; the oracle ran 3.11.12, 3.12.10, 3.12.13 (3.12 specs only),
+   3.13.15 and 3.14.7. The request refuses another version; each text of a minor outside 3.11
+   to 3.14 is `Failure::Version`, a named gap. The text is read after `translate_newlines`:
+   each `\r\n` and lone `\r` is `\n`, also inside a string, as in `ast.parse`.
+4. **Definition table** (`symbols/`). One record for each class, function and method of
    `definition_sites`, with the fields that the module itself decides (`DECIDED` in the test):
    the header, the contexts, the signature, `parameters_contained`, `stored_field_writes`,
    `shape`, the class bases as text, the fields, the attribute declarations, the members, the
    member writes and their scope evidence, `generic_bases` and `guard_boolean_members`.
-4. **Not in the reply.** Only the test dump writes the table (`--dump-symbols`, `--dump-texts`),
+5. **Not in the reply.** Only the test dump writes the table (`--dump-symbols`, `--dump-texts`),
    and the modules build only in tests and with the feature `dump`. The reply keeps `imports`
    and `unknowns`; the codec and the store refuse 10.0.0 (AD-334 point 8).
-5. **Left for the next slices.** The binding proofs (`source_binding_*`,
+6. **Left for the next slices.** The binding proofs (`source_binding_*`,
    `source_member_*`, `signature_decorators_proven`, the overloads), the method decorator data,
    the class kinds and headers (`class_kind`, `class_header_static`, `class_body_control_flow`,
    `base_roots`, `base_declarations`, `member_inventories`, `enum_members`, `frozen_object`,
@@ -34,13 +39,16 @@ first: the CPython view of the tree, the text of an expression, and the definiti
    `dynamic_binding`, `type_alias`): their admission reads provider-proven expressions.
 
 **Stricter (AD-367, closed list).**
-13. **Depth.** Over `MAX_DEPTH` = 100 nested expression levels the text is `Deep`. The module
-    gets a gap "Symbols unseen: <file>: an expression nests deeper than 100 levels" and no record.
-    CPython raises `RecursionError` from 158 levels (a dict) to 317 (a `+` chain), measured on
-    3.11 to 3.14; the Python collector does not catch it and stops without a verdict (L-20).
+13. **Depth.** From 101 nested expression levels (`MAX_DEPTH` = 100) the module gets a gap
+    and no record. Python writes the text up to its `RecursionError`, from 158 levels (a dict)
+    to 317 (a `+` chain) on 3.11 to 3.14; there the Python collector stops without a verdict.
     Real code: at most 59 levels (pydantic), 22 (`src/`).
-14. **Surrogate.** Ruff reads a lone surrogate escape (`'\ud800'`) as U+FFFD, so native cannot
-    write the CPython value. The module gets a gap that names it; Python writes a record.
+14. **Surrogate.** Ruff reads a lone surrogate escape as U+FFFD in a string, an f-string or
+    t-string part and a spec. One check (`unparse::replaced`) gives the module a gap.
+15. **3.12 spec** (L-37a). 3.12 keeps `\N{...}` in a spec as a `Constant` and decodes the escapes
+    of a raw spec (3.12.10 and 3.12.13 alike). On 3.12 such a spec gives a gap, not the bug.
+16. **Spec depth.** A spec deeper than two levels gives a gap, never a cut text. CPython refuses
+    the file; the native parse accepting it is a known issue of the parse.
 
 **Rejected.** (a) All of `symbols.py` in one slice: 3 400 lines of proofs and two cross-module
 inputs are not one review. (b) The code generator of ruff: its quotes and parentheses differ

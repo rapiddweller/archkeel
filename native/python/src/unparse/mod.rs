@@ -10,13 +10,14 @@
 //! at `MAX_DEPTH` levels with `Failure::Deep`, so it never needs more stack than the parse.
 
 use ruff_python_ast::{Expr, Number, Parameters};
-use ruff_text_size::Ranged;
 
 mod ftext;
+mod hazard;
 pub mod literal;
 mod operators;
 mod outcome;
 
+pub use hazard::{hazard, replaced};
 pub use outcome::Failure;
 use outcome::Prec;
 
@@ -24,8 +25,15 @@ use outcome::Prec;
 /// well under the recursion limit of 1 000.
 pub const MAX_DEPTH: u32 = 100;
 
-/// `ast.unparse(expr)` in the Python of `minor`. `source` is the text of the module.
+/// The minor versions whose text rules this writer has (L-37b).
+pub const MINORS: std::ops::RangeInclusive<u32> = 11..=14;
+
+/// `ast.unparse(expr)` in the Python of `minor`. `source` is the text of the module after
+/// `source::newlines`.
 pub fn unparse(expr: &Expr, minor: u32, source: &str) -> Result<String, Failure> {
+    if !MINORS.contains(&minor) {
+        return Err(Failure::Version);
+    }
     let mut writer = Writer::new(minor, source, false);
     writer.expr(expr, Prec::Test)?;
     Ok(writer.out)
@@ -40,6 +48,9 @@ pub fn annotation_text(
     let Some(expr) = expr else {
         return Ok(None);
     };
+    if !MINORS.contains(&minor) {
+        return Err(Failure::Version);
+    }
     if let Expr::Name(name) = expr {
         return Ok(Some(name.id.to_string()));
     }
@@ -93,6 +104,9 @@ impl<'s> Writer<'s> {
     }
 
     fn dispatch(&mut self, expr: &Expr, prec: Prec) -> Result<(), Failure> {
+        if let Some(failure) = hazard(expr, self.source, self.minor) {
+            return Err(failure);
+        }
         match expr {
             Expr::Name(node) => self.write(node.id.as_str()),
             Expr::StringLiteral(node) => self.string(node)?,
@@ -120,9 +134,6 @@ impl<'s> Writer<'s> {
 
     fn string(&mut self, node: &ruff_python_ast::ExprStringLiteral) -> Result<(), Failure> {
         let value = node.value.to_str();
-        if value.contains('\u{fffd}') && self.slice(node).contains('\\') {
-            return Err(Failure::Unseen);
-        }
         if node.value.is_unicode() {
             self.write("u");
         }
@@ -133,10 +144,6 @@ impl<'s> Writer<'s> {
         };
         self.write(&text);
         Ok(())
-    }
-
-    fn slice(&self, node: &impl Ranged) -> &'s str {
-        self.source.get(node.range().to_std_range()).unwrap_or("")
     }
 
     fn number(&mut self, number: &Number) -> Result<(), Failure> {

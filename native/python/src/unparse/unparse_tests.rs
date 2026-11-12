@@ -8,6 +8,8 @@ use super::*;
 
 /// The text of the expression of the one statement `source`.
 fn text(source: &str, minor: u32) -> Result<String, Failure> {
+    let source = crate::source::newlines(source);
+    let source = source.as_ref();
     let module = crate::parse::parse(source, minor).expect("the probe parses");
     let Some(Stmt::Expr(statement)) = module.body.first() else {
         return Err(Failure::Invalid);
@@ -99,4 +101,81 @@ fn the_fstrings_follow_the_rules_of_each_version() {
     assert_eq!(text("f'{xs:\\n}'\n", 12).as_deref(), Ok("f'{xs:\\n}'"));
     assert_eq!(text("t'{ x + 1 }'\n", 14).as_deref(), Ok("t'{ x + 1}'"));
     assert_eq!(text("t'{ x = !r}'\n", 14).as_deref(), Ok("t' x = { x!r}'"));
+}
+
+#[test]
+fn a_surrogate_escape_in_an_fstring_part_or_spec_is_unseen() {
+    for minor in 11..=14 {
+        assert_eq!(text("f'\\ud800{a}'\n", minor), Err(Failure::Unseen));
+        assert_eq!(text("f'{a:\\ud800}'\n", minor), Err(Failure::Unseen));
+        assert_eq!(text("'a' f'\\udfff{a}'\n", minor), Err(Failure::Unseen));
+    }
+    assert_eq!(text("t'\\ud800{a}'\n", 14), Err(Failure::Unseen));
+}
+
+#[test]
+fn a_cr_inside_a_string_is_a_newline_as_in_cpython() {
+    same("'''a\r\nb'''\r\n", "'a\\nb'");
+    same("b'''a\rb'''\r", "b'a\\nb'");
+    same("r'''a\\\r\nb'''\r\n", "'a\\\\\\nb'");
+    same("'''a\\\r\nb'''\r\n", "'ab'");
+    same("f'''a\r\n{b}'''\r\n", "f'a\\n{b}'");
+}
+
+#[test]
+fn a_spec_that_python_3_12_reads_in_its_own_way_is_a_gap_on_3_12_only() {
+    assert_eq!(text("f'{a:\\N{BULLET}}'\n", 12), Err(Failure::Spec312));
+    assert_eq!(text("rf'{a:\\n}'\n", 12), Err(Failure::Spec312));
+    assert_eq!(
+        text("f'{a:\\N{BULLET}}'\n", 13).as_deref(),
+        Ok("f'{a:\u{2022}}'")
+    );
+    assert_eq!(text("rf'{a:\\n}'\n", 11).as_deref(), Ok("f'{a:\\\\n}'"));
+    assert_eq!(text("rf'{a:\\n}'\n", 14).as_deref(), Ok("f'{a:\\\\n}'"));
+}
+
+#[test]
+fn a_spec_deeper_than_cpython_keeps_is_a_gap_and_not_cut() {
+    assert_eq!(text("f'{a:{b:{c:{d}}}}'\n", 13), Err(Failure::SpecDepth));
+}
+
+#[test]
+fn a_version_outside_3_11_to_3_14_has_no_text() {
+    let module = crate::parse::parse("x\n", 14).expect("the probe parses");
+    let Some(Stmt::Expr(statement)) = module.body.first() else {
+        return;
+    };
+    for minor in [10, 15] {
+        assert_eq!(
+            unparse(&statement.value, minor, "x\n"),
+            Err(Failure::Version)
+        );
+        assert_eq!(
+            annotation_text(Some(&statement.value), minor, "x\n"),
+            Err(Failure::Version)
+        );
+    }
+}
+
+#[test]
+fn xor_and_and_keep_their_parentheses() {
+    same("a ^ b & c\n", "a ^ b & c");
+    same("(a ^ b) & c\n", "(a ^ b) & c");
+    same("a & (b ^ c)\n", "a & (b ^ c)");
+}
+
+#[test]
+fn a_field_of_3_11_avoids_backslashes_and_3_12_escapes() {
+    assert_eq!(text("f'{\"\u{200b}\"}'\n", 11), Err(Failure::Invalid));
+    assert_eq!(
+        text("f'{\"\u{200b}\"}'\n", 12).as_deref(),
+        Ok("f\"{'\\u200b'}\"")
+    );
+}
+
+#[test]
+fn a_tstring_field_keeps_its_line_join_and_drops_its_comment() {
+    assert_eq!(text("t'{a\\\n}'\n", 14).as_deref(), Ok("t'{a\\}'"));
+    assert_eq!(text("t'{ a \\\n }'\n", 14).as_deref(), Ok("t'{ a \\}'"));
+    assert_eq!(text("t'''{ a # c\n}'''\n", 14).as_deref(), Ok("t'{ a}'"));
 }

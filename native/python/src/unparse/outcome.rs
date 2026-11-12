@@ -14,6 +14,13 @@ pub enum Failure {
     /// Ruff changed the value of a string (a lone surrogate escape is U+FFFD), so the text of
     /// CPython is unknown.
     Unseen,
+    /// CPython 3.12 reads a format spec in its own way: `\N{...}`, or a raw spec with a
+    /// backslash (L-37a).
+    Spec312,
+    /// A format spec nests deeper than CPython keeps it.
+    SpecDepth,
+    /// The interpreter of the request is outside 3.11 to 3.14: no text rules (L-37b).
+    Version,
 }
 
 /// `_Precedence`: `BOR` is `EXPR`.

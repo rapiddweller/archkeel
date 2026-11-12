@@ -15,11 +15,14 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import by_python
 from first_difference import same
+from test_collector_native_python_parse import _minor
 from test_collector_native_python_scope import _FIXTURES
 
 from archkeel.analyzer.interpreter import interpreter, python_request
@@ -316,6 +319,12 @@ PROBES: dict[str, str] = {
     "semicolons-and-continuations": (
         "def f(): pass; x = 1\nclass C: a = 1; b = 2\ndef \\\n  g(): pass\n"
     ),
+    # A raw CR inside a string of each kind: CPython reads a newline (AD-377 point 3).
+    "cr-inside-strings": (
+        "class Cs:\r\n    a = '''x\r\ny'''\r\n    b = r'''p\\\r\nq'''\r\n"
+        "    c: str = '''u\rv'''\r\n"
+        "def f(p='''p\rq''', b=b'''u\rv''', g=f'''h\r\n{i}''', j='''k\\\r\nl'''): pass\r\n"
+    ),
     "crlf": "class Cr:\r\n    def m(self):\r\n        self.x = 1\r\n",
 }
 
@@ -386,3 +395,102 @@ def test_a_surrogate_escape_is_a_named_gap_of_the_module(
     # The other modules keep their records: the gap is for the module only.
     python = _python(_request(root, ("src",), "app", False, True))
     assert any(record["title"] == "C" for record in python["symbols"])
+
+
+def _converted(root: Path, target: Path, newline: bytes) -> Path:
+    for path in root.rglob("*.py"):
+        if path.is_file() and not path.is_symlink():
+            copy = target / path.relative_to(root)
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            copy.write_bytes(path.read_bytes().replace(b"\n", newline))
+    return target
+
+
+@pytest.mark.parametrize("newline", [b"\r\n", b"\r"], ids=["crlf", "cr"])
+def test_the_source_with_other_line_ends_has_the_python_definition_table(
+    newline: bytes, tmp_path: Path, python_dump_binary: Path
+) -> None:
+    """A Windows checkout: each line end, also inside a triple-quoted string, is a CR LF."""
+    root = _converted(ROOT / "src", tmp_path / "src", newline)
+    assert _equal(python_dump_binary, tmp_path, ("src",), "archkeel", both=False) > 4000
+    assert root.is_dir()
+
+
+def _gap_reason(binary: Path, tmp_path: Path, source: str) -> str:
+    root = _tree(tmp_path, {"src/app/__init__.py": "", "src/app/probe.py": source})
+    gaps = _gaps(binary, root)
+    assert [gap["file"] for gap in gaps] == ["src/app/probe.py"]
+    return gaps[0]["reason"]
+
+
+def test_a_surrogate_escape_in_an_fstring_is_a_named_gap(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    """AD-377 point 14: the part, the spec and a default of an f-string."""
+    for index, source in enumerate(
+        ("def f(d=f'\\ud800{x}'): pass\n", "class C:\n    x: int = f'{a:\\ud800}'\n")
+    ):
+        reason = _gap_reason(python_dump_binary, tmp_path / str(index), source)
+        assert "surrogate" in reason
+
+
+@pytest.mark.requires_python(14)
+def test_a_surrogate_escape_in_a_tstring_is_a_named_gap(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    assert "surrogate" in _gap_reason(
+        python_dump_binary, tmp_path, "def f(d=t'\\ud800{x}'): pass\n"
+    )
+
+
+@pytest.mark.parametrize("on_3_12", by_python(12))
+def test_a_spec_that_python_3_12_reads_its_own_way_is_a_gap_on_3_12_only(
+    on_3_12: bool, tmp_path: Path, python_dump_binary: Path
+) -> None:
+    """L-37a: a named escape in a spec or a backslash in a raw spec is a gap on 3.12 only."""
+    sources = ("def f(d=f'{x:\\N{BULLET}}'): pass\n", "def f(d=rf'{x:\\n}'): pass\n")
+    for index, source in enumerate(sources):
+        root = _tree(tmp_path / str(index), {"src/app/__init__.py": "", "src/app/probe.py": source})
+        found = _native(python_dump_binary, _request(root, ("src",), "app", False, True), True)
+        reasons = [gap["reason"] for gap in found["gaps"]]
+        if on_3_12 and _minor() == 12:
+            assert len(reasons) == 1 and "3.12" in reasons[0], reasons
+        else:
+            assert reasons == []
+            _equal(python_dump_binary, root, ("src",), "app", both=False)
+
+
+def test_a_version_outside_3_11_to_3_14_is_refused_before_any_text(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    """L-37b: the request refuses 3.10, 3.15 and a malformed version; the dump of the texts
+    names each text of an outside version as a gap (`<Version>`)."""
+    root = _tree(tmp_path, {"src/app/__init__.py": "x = a + 1\n"})
+    block = interpreter()
+    assert not isinstance(block, CollectionError), block
+    request = _request(root, ("src",), "app", False, True)
+    survey = CollectionRequest(
+        request.snapshot,
+        request.scope,
+        PythonSettings(phase=PythonCollectionPhase.IMPORTS),
+        request.protocol_version,
+    )
+    for version in ("3.10.14", "3.15.0", "3.x"):
+        payload = json.loads(python_request(survey, replace(block, version=version)))
+        completed = subprocess.run(
+            [str(python_dump_binary), "--dump-symbols", "1"],
+            input=json.dumps(payload).encode(),
+            capture_output=True,
+            check=False,
+        )
+        assert completed.returncode != 0
+        assert b"resolver.interpreter.version" in completed.stderr
+    for minor in ("10", "15"):
+        completed = subprocess.run(
+            [str(python_dump_binary), "--dump-texts", minor, str(root)],
+            input="src/app/__init__.py\n",
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert set(json.loads(completed.stdout)["texts"]) == {"<Version>"}

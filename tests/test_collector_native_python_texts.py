@@ -7,8 +7,9 @@ For each file the native dump writes the class name of each node of `ast.walk` o
 and `ast.unparse` of each expression in that order. The oracle is `ast` of the running interpreter
 (run it on 3.11 to 3.14). The fields of an f-string (`FormattedValue`, its text `Constant` values
 and its format spec) are no expression of their own for `annotation_text`, so neither side writes
-their text. A native text that is `<Deep>` (over `unparse::MAX_DEPTH` levels) or `<Unseen>` (a lone
-surrogate escape) is allowed: AD-377 lists both as stricter.
+their text. A native gap marker is allowed only where the oracle shows its named cause:
+`<Deep>` for a node deeper than `unparse::MAX_DEPTH`, `<Unseen>` for a text with a lone
+surrogate, `<Spec312>` on 3.12 for a named escape or a raw spec (AD-377 points 13 to 16).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import subprocess
 import threading
 from pathlib import Path
@@ -64,36 +66,85 @@ def _text(node: ast.expr) -> str:
         return "<RecursionError>"
 
 
-def _python(tree: ast.Module) -> dict[str, list[str]]:
-    skipped = _fields_of_fstrings(tree)
-    kinds: list[str] = []
-    texts: list[str] = []
-    for statement in tree.body:
-        for node in ast.walk(statement):
-            kinds.append(type(node).__name__)
-            if isinstance(node, ast.expr) and id(node) not in skipped:
-                texts.append(_text(node))
-    return {"kinds": kinds, "texts": texts}
+class _Oracle:
+    """The CPython walk of one module: the class names, the texts, and the node of each text."""
+
+    def __init__(self, tree: ast.Module, source: str) -> None:
+        skipped = _fields_of_fstrings(tree)
+        self.source = source
+        self.kinds: list[str] = []
+        self.texts: list[str] = []
+        self.nodes: list[ast.expr] = []
+        for statement in tree.body:
+            for node in ast.walk(statement):
+                self.kinds.append(type(node).__name__)
+                if isinstance(node, ast.expr) and id(node) not in skipped:
+                    self.texts.append(_text(node))
+                    self.nodes.append(node)
+        self.depths = _depths(tree, skipped)
+
+    def allowed(self, found: str, index: int) -> bool:
+        """A native gap marker is allowed only where the oracle shows its named cause."""
+        node = self.nodes[index]
+        if found == "<Deep>":
+            return self.depths[id(node)] > MAX_DEPTH
+        if found == "<Unseen>":
+            text = self.texts[index]
+            # The text spells the surrogate as an escape, or (in a 3.12+ spec) holds it raw.
+            raw = any("\ud800" <= character <= "\udfff" for character in text)
+            return raw or _SURROGATE.search(text) is not None
+        if found == "<Spec312>":
+            segment = ast.get_source_segment(self.source, node) or ""
+            return _minor() == 12 and _spec_cause(segment)
+        return False
 
 
-def _allowed(found: str, expected: str) -> bool:
-    return found == "<Deep>" or (found == "<Unseen>" and "\\ud" in expected.lower())
+_SURROGATE = re.compile(r"\\ud[89a-f][0-9a-f]{2}")
+_RAW_FSTRING = re.compile(r"(?i)(?:rf|fr)['\"]")
 
 
-def _compare(found: dict[str, list[str]], expected: dict[str, list[str]], label: object) -> int:
-    same("\n".join(found["kinds"]), "\n".join(expected["kinds"]), (label, "kinds"))
+def _spec_cause(segment: str) -> bool:
+    """A named escape in a spec, or a backslash in a raw f-string: what 3.12 reads its own way."""
+    return "\\N{" in segment or (_RAW_FSTRING.search(segment) is not None and "\\" in segment)
+
+
+def _depths(tree: ast.Module, skipped: set[int]) -> dict[int, int]:
+    """The expression levels of each node as the native writer counts them, without recursion."""
+    depths: dict[int, int] = {}
+    order: list[ast.AST] = []
+    pending: list[ast.AST] = [tree]
+    while pending:
+        node = pending.pop()
+        order.append(node)
+        pending.extend(ast.iter_child_nodes(node))
+    for node in reversed(order):
+        below = max((depths[id(child)] for child in ast.iter_child_nodes(node)), default=0)
+        counted = isinstance(node, ast.expr) and id(node) not in skipped
+        depths[id(node)] = below + (1 if counted else 0)
+    return depths
+
+
+def _compare(found: dict[str, list[str]], oracle: _Oracle, label: object) -> int:
+    shared = found["texts"][: len(oracle.texts)]
     texts = [
-        expected_text if _allowed(found_text, expected_text) else found_text
-        for found_text, expected_text in zip(found["texts"], expected["texts"], strict=False)
+        oracle.texts[index] if oracle.allowed(text, index) else text
+        for index, text in enumerate(shared)
     ]
     texts += found["texts"][len(texts) :]
-    same("\n".join(texts), "\n".join(expected["texts"]), (label, "texts"))
+    # A 3.12 spec gap names a node whose CPython kind differs (a `Constant` spec).
+    spec_gap = any(
+        text == "<Spec312>" and oracle.allowed(text, index) for index, text in enumerate(shared)
+    )
+    if not spec_gap:
+        same("\n".join(found["kinds"]), "\n".join(oracle.kinds), (label, "kinds"))
+    same("\n".join(texts), "\n".join(oracle.texts), (label, "texts"))
     return len(texts)
 
 
-def _parsed(path: Path) -> ast.Module | None:
+def _parsed(path: Path) -> _Oracle | None:
     try:
-        return ast.parse(path.read_bytes().decode("utf-8"))
+        source = path.read_bytes().decode("utf-8")
+        return _Oracle(ast.parse(source), source)
     except (SyntaxError, UnicodeDecodeError, ValueError, MemoryError, RecursionError):
         return None
 
@@ -107,11 +158,11 @@ def _tree_equal(binary: Path, root: Path) -> int:
     native = _native(binary, root, rels)
     count = 0
     for rel in rels:
-        tree = _parsed(root / rel)
-        if tree is None or rel not in native:
+        oracle = _parsed(root / rel)
+        if oracle is None or rel not in native:
             # A file that one side refuses is the matter of the parse tests (AD-367).
             continue
-        count += _compare(native[rel], _python(tree), rel)
+        count += _compare(native[rel], oracle, rel)
     return count
 
 
@@ -120,6 +171,24 @@ def test_each_expression_of_the_tree_has_the_cpython_text(
     tree: str, python_dump_binary: Path
 ) -> None:
     assert _tree_equal(python_dump_binary, ROOT / tree) > 10_000
+
+
+def _converted(root: Path, target: Path, newline: bytes) -> Path:
+    for path in root.rglob("*.py"):
+        if path.is_file() and not path.is_symlink():
+            copy = target / path.relative_to(root)
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            copy.write_bytes(path.read_bytes().replace(b"\n", newline))
+    return target
+
+
+@pytest.mark.parametrize("newline", [b"\r\n", b"\r"], ids=["crlf", "cr"])
+def test_the_source_with_other_line_ends_has_the_cpython_text(
+    newline: bytes, tmp_path: Path, python_dump_binary: Path
+) -> None:
+    """A Windows checkout: each line end, also inside a triple-quoted string, is a CR LF."""
+    root = _converted(ROOT / "src", tmp_path / "src", newline)
+    assert _tree_equal(python_dump_binary, root) > 10_000
 
 
 @pytest.mark.skipif(
@@ -172,6 +241,17 @@ PROBES: dict[str, str] = {
     # A raw invisible character in a string of a field: 3.11 escapes it, so the text of the
     # field has a backslash and `ast.unparse` raises `ValueError`; 3.12 writes the escape.
     "fstring-raw-invisible": "x = f'{\"\u200b\"}', f'{\"\x01\"}', f'{\"\t\"}'\n",
+    # A lone surrogate escape: ruff reads U+FFFD, so native names it (AD-377 point 14).
+    "surrogate-fstring": "x = f'\\ud800{a}', f'{a:\\ud800}', 'b' f'\\udfff', '\\ud800'\n",
+    # A raw CR inside a string of each kind: CPython reads a newline (AD-377 point 3).
+    "cr-inside-strings": (
+        "x = '''a\r\nb'''\r\ny = r'''c\\\r\nd'''\r\nz = b'''e\rf'''\r\n"
+        "w = f'''g\r\n{h:>\r\n}'''\r\nv = '''i\\\r\nj'''\r\nu = rb'''k\rl'''\r\n"
+    ),
+    "xor-and": "x = a ^ b & c, (a ^ b) & c, a & (b ^ c), (a | b) ^ c\n",
+    # 3.12 keeps `\N{...}` in a spec as a `Constant` and decodes a raw spec: a gap on 3.12.
+    "spec-named-escape": "x = f'{a:\\N{BULLET}}'\n",
+    "spec-raw": "x = rf'{a:\\n}', rf'{a:\\\\}', rf'{a:x\\ty}', Rf'{a:>3}'\n",
     "fstring-lambda": "x = f'{(lambda: 1)()}', f'{a if b else c}', f'{(a, b)}'\n",
     "ellipsis-none": "x = ..., None, True, False, [...]\n",
     "slices": "x = a[::], a[1:], a[:2:], a[::-1], a[b:c, d:e]\n",
@@ -192,12 +272,12 @@ def _probe(binary: Path, root: Path, name: str, source: str) -> int:
     root.mkdir(parents=True, exist_ok=True)
     rel = f"{name}.py"
     (root / rel).write_text(source, encoding="utf-8")
-    tree = _parsed(root / rel)
+    oracle = _parsed(root / rel)
     native = _native(binary, root, [rel])
-    if tree is None:
+    if oracle is None:
         assert rel not in native, f"{name}: CPython refuses the probe, native has a tree"
         return 0
-    return _compare(native[rel], _python(tree), name)
+    return _compare(native[rel], oracle, name)
 
 
 @pytest.mark.parametrize(("name", "source"), sorted(PROBES.items()))
@@ -219,6 +299,9 @@ def test_a_newer_construct_has_the_cpython_text_of_its_version(
         "tstring": "x = t'{a}', t'{ a + 1 }', t'{a=}', t'a{b!r:>{w}}c', t'{ (a) }'\n",
         "pep701": "x = f'{'a'}', f'{f'{a}'}', f'{\"\\n\".join(a)}'\n",
         "pep758": "try:\n    pass\nexcept A, B:\n    pass\n",
+        "tstring-surrogate": "x = t'\\ud800{a}'\n",
+        "tstring-comment": "x = t'''{ a # c\n}'''\n",
+        "tstring-line-join": "x = t'{a\\\n}', t'{ a \\\n }'\n",
     }
     for name, source in probes.items():
         _probe(python_dump_binary, tmp_path / name, name, source)

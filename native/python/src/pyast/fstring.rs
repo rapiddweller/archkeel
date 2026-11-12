@@ -75,7 +75,7 @@ fn elements<'a>(
     }
 }
 
-/// The parser refuses a format spec in the spec of a spec, so `depth` stays at most 2.
+/// A deeper spec is not kept: `unparse::hazard` gives `SpecDepth`, a named gap, for it.
 const MAX_SPEC_DEPTH: u8 = 2;
 
 fn element_into<'a>(
@@ -128,7 +128,12 @@ pub fn interpolation_text<'s>(field: &InterpolatedElement, source: &'s str) -> &
                 at += 1;
                 end = at;
             }
-            b' ' | b'\t' | b'\n' | b'\r' | b'\x0c' | b'\\' => at += 1,
+            // A line join ends the text: CPython keeps its backslash (`'a \\'`).
+            b'\\' => {
+                at += 1;
+                end = at;
+            }
+            b' ' | b'\t' | b'\n' | b'\r' | b'\x0c' => at += 1,
             b'#' => {
                 while bytes.get(at).is_some_and(|byte| *byte != b'\n') {
                     at += 1;

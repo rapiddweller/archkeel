@@ -21,7 +21,7 @@ use archkeel_snapshot::Snapshot;
 use crate::discover::{self, Unseen};
 use crate::names;
 use crate::parse::{parse, Failure};
-use crate::source::decode;
+use crate::source::{decode, newlines};
 use binders::Binders;
 use excluded::Excluded;
 use failures::{early, NOT_FOUND};
@@ -208,11 +208,11 @@ fn unread(snapshot: &mut Snapshot, rel: &str) -> Result<Failure, Unseen> {
 /// Decode, parse and name one file, in the order of `parse_sources`.
 fn parsed_module(rel: &str, raw: &[u8], namespace: &str, minor: u32) -> Result<Module, Failure> {
     let decode_error = || early(ExceptionName::UnicodeDecodeError, "UnicodeDecodeError");
-    let text = decode(raw).ok_or_else(decode_error)?;
-    let tree = parse(text, minor)?;
+    let text = newlines(decode(raw).ok_or_else(decode_error)?);
+    let tree = parse(&text, minor)?;
     let name = names::module_for(rel, namespace, minor)
         .ok_or_else(|| early(ExceptionName::ValueError, "ValueError"))?;
-    Ok(Module::new(rel.to_owned(), name, text.to_owned(), tree))
+    Ok(Module::new(rel.to_owned(), name, text.into_owned(), tree))
 }
 
 /// `collect._file_facts`.

@@ -2140,6 +2140,7 @@
         "native.archkeel_python_collector.pyast.children",
         "native.archkeel_python_collector.pyast.fstring",
         "native.archkeel_python_collector.unparse",
+        "native.archkeel_python_collector.unparse.hazard",
         "native.archkeel_python_collector.unparse.operators",
         "native.archkeel_python_collector.symbols",
         "native.archkeel_python_collector.symbols.sites",

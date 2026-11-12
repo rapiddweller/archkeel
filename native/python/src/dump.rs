@@ -73,7 +73,8 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 pub fn texts(minor: &str, root: &str) -> Result<(), String> {
     each_file(minor, root, |raw, rel, minor| {
         let raw = raw?;
-        let text = decode(&raw)?;
+        let text = crate::source::newlines(decode(&raw)?);
+        let text = text.as_ref();
         let module = parse(text, minor).ok()?;
         let mut kinds = Vec::new();
         let mut texts = Vec::new();

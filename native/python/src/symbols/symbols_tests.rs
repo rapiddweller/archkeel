@@ -105,3 +105,45 @@ fn the_visibility_of_a_special_name_is_public() {
     assert_eq!(class::visibility("____")["kind"], json!("private"));
     assert_eq!(class::visibility("_x")["kind"], json!("private"));
 }
+
+fn gap_of(source: &str, minor: u32) -> Option<String> {
+    let found = records(source, minor);
+    found
+        .first()
+        .and_then(|item| item["gap"].as_str().map(str::to_owned))
+}
+
+#[test]
+fn a_string_that_native_cannot_write_gives_a_gap_with_its_own_reason() {
+    let surrogate = gap_of("def f(d=f'\\ud800{x}'): pass\n", 12);
+    assert!(surrogate.is_some_and(|gap| gap.contains("surrogate")));
+    let spec = gap_of("def f(d=f'{x:\\N{BULLET}}'): pass\n", 12);
+    assert!(spec.is_some_and(|gap| gap.contains("3.12")));
+    assert_eq!(gap_of("def f(d=f'{x:\\N{BULLET}}'): pass\n", 13), None);
+    let unused = gap_of("x = f'{a:{b:{c:{d}}}}'\nclass C: pass\n", 13);
+    assert!(unused.is_some_and(|gap| gap.contains("two levels")));
+}
+
+#[test]
+fn a_version_outside_3_11_to_3_14_gives_a_gap() {
+    for minor in [10, 15] {
+        let found = records_unparsed("class C: pass\n", minor);
+        assert!(found.is_some_and(|gap| gap.contains("3.11 to 3.14")));
+    }
+}
+
+/// The table of a module parsed as 3.14, read with the rules of `minor`.
+fn records_unparsed(source: &str, minor: u32) -> Option<String> {
+    let tree = crate::parse::parse(source, 14).expect("the probe parses");
+    let module = Module::new("src/app/m.py".into(), "app.m".into(), source.into(), tree);
+    match table(
+        &module,
+        &HashSet::new(),
+        minor,
+        true,
+        &mut EvidenceMap::new(),
+    ) {
+        Table::Gap { reason, .. } => Some(reason),
+        Table::Records(_) => None,
+    }
+}

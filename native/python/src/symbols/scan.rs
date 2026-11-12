@@ -32,7 +32,7 @@ impl Scan<'_> {
             .text()
             .get(node.range().to_std_range())
             .unwrap_or("");
-        if value.contains('\u{fffd}') && source.contains('\\') {
+        if unparse::replaced(value, source) {
             return Err(Failure::Unseen);
         }
         Ok(value.to_owned())

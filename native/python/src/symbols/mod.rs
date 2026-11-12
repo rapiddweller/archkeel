@@ -16,6 +16,7 @@ use archkeel_facts::identity::{stable_id, Part};
 use ruff_python_ast::Expr;
 use serde_json::{json, Map, Value};
 
+use crate::pyast::{walk, Node};
 use crate::survey::module::{EvidenceMap, Module};
 use crate::unparse::{self, Failure};
 use sites::{Def, Site};
@@ -42,6 +43,9 @@ pub fn table(
     witnesses: bool,
     evidence: &mut EvidenceMap,
 ) -> Table {
+    if let Some(failure) = hazard(module, minor) {
+        return gap(module, failure);
+    }
     let mut scratch = EvidenceMap::new();
     let mut scan = Scan {
         module,
@@ -90,17 +94,40 @@ pub fn table(
 fn gap(module: &Module, failure: Failure) -> Table {
     let cause = match failure {
         Failure::Deep => format!(
-            "an expression nests deeper than {} levels, and Python can stop with RecursionError",
+            "an expression nests deeper than {} levels; Python writes its text up to its \
+             RecursionError (from about 158 levels)",
             unparse::MAX_DEPTH
         ),
-        Failure::Unseen | Failure::Invalid => {
+        Failure::Unseen => {
             "a string has a lone surrogate escape that the parser replaced".to_owned()
         }
+        Failure::Spec312 => {
+            "a format spec that Python 3.12 reads in its own way (\\N{...}, or a backslash in a \
+             raw spec)"
+                .to_owned()
+        }
+        Failure::SpecDepth => "a format spec nests deeper than two levels".to_owned(),
+        Failure::Version => "the interpreter is outside Python 3.11 to 3.14".to_owned(),
+        Failure::Invalid => "an expression has no text (ValueError)".to_owned(),
     };
     Table::Gap {
         file: module.rel.clone(),
         reason: format!("Symbols unseen: {}: {cause}", module.rel),
     }
+}
+
+/// The first string of the module whose CPython value or tree native cannot write.
+fn hazard(module: &Module, minor: u32) -> Option<Failure> {
+    if !unparse::MINORS.contains(&minor) {
+        return Some(Failure::Version);
+    }
+    module
+        .tree
+        .body
+        .iter()
+        .flat_map(|stmt| walk(Node::Stmt(stmt), minor))
+        .filter_map(|node| node.expr())
+        .find_map(|expr| unparse::hazard(expr, module.text(), minor))
 }
 
 struct Header<'h> {
