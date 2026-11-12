@@ -106,7 +106,9 @@ VARIABLES_THEN_FUNCTIONS = "".join(f"var v{i} = {i};\n" for i in range(10_000)) 
 )
 # A function with many parameters: each parameter read the siblings and the group again.
 MANY_PARAMETERS = "void f([" + ", ".join(f"int p{i} = {i}" for i in range(20_000)) + "]) {}\n"
-ANNOTATED_MEMBERS = "class A {\n" + "".join(f"  @o{i} void m{i}() {{}}\n" for i in range(10_000)) + "}\n"
+ANNOTATED_MEMBERS = (
+    "class A {\n" + "".join(f"  @o{i} void m{i}() {{}}\n" for i in range(10_000)) + "}\n"
+)
 
 SHAPES = {
     "fields_then_methods": (FIELDS_THEN_METHODS, lambda defs: len(defs[0]["members"]), 20_000),
