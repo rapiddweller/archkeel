@@ -43,11 +43,7 @@ mod tests {
     fn a_closing_bracket_in_a_comment_or_a_string_never_lowers_the_count() {
         for filler in ["/*)*/", "// )))\n", "')]}'", "]", "}"] {
             let text = format!("({filler}").repeat(MAX_OPENERS + 1);
-            assert_eq!(
-                openers_overflow(text.as_bytes()).is_some(),
-                true,
-                "{filler}"
-            );
+            assert!(openers_overflow(text.as_bytes()).is_some(), "{filler}");
         }
     }
 }
