@@ -75,7 +75,7 @@ fn elements<'a>(
     }
 }
 
-/// A deeper spec is not kept: `unparse::hazard` gives `SpecDepth`, a named gap, for it.
+/// A deeper spec is not kept: `unparse::string_failure` gives `SpecDepth`, a named gap, for it.
 const MAX_SPEC_DEPTH: u8 = 2;
 
 fn element_into<'a>(

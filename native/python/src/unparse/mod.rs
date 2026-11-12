@@ -17,7 +17,7 @@ pub mod literal;
 mod operators;
 mod outcome;
 
-pub use hazard::{hazard, replaced};
+pub use hazard::{replaced, string_failure};
 pub use outcome::Failure;
 use outcome::Prec;
 
@@ -104,7 +104,7 @@ impl<'s> Writer<'s> {
     }
 
     fn dispatch(&mut self, expr: &Expr, prec: Prec) -> Result<(), Failure> {
-        if let Some(failure) = hazard(expr, self.source, self.minor) {
+        if let Some(failure) = string_failure(expr, self.source, self.minor) {
             return Err(failure);
         }
         match expr {

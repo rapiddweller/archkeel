@@ -43,7 +43,7 @@ pub fn table(
     witnesses: bool,
     evidence: &mut EvidenceMap,
 ) -> Table {
-    if let Some(failure) = hazard(module, minor) {
+    if let Some(failure) = first_failure(module, minor) {
         return gap(module, failure);
     }
     let mut scratch = EvidenceMap::new();
@@ -117,7 +117,7 @@ fn gap(module: &Module, failure: Failure) -> Table {
 }
 
 /// The first string of the module whose CPython value or tree native cannot write.
-fn hazard(module: &Module, minor: u32) -> Option<Failure> {
+fn first_failure(module: &Module, minor: u32) -> Option<Failure> {
     if !unparse::MINORS.contains(&minor) {
         return Some(Failure::Version);
     }
@@ -127,7 +127,7 @@ fn hazard(module: &Module, minor: u32) -> Option<Failure> {
         .iter()
         .flat_map(|stmt| walk(Node::Stmt(stmt), minor))
         .filter_map(|node| node.expr())
-        .find_map(|expr| unparse::hazard(expr, module.text(), minor))
+        .find_map(|expr| unparse::string_failure(expr, module.text(), minor))
 }
 
 struct Header<'h> {

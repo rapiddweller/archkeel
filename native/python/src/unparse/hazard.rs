@@ -71,7 +71,7 @@ impl Check<'_> {
 
 /// The failure of a string literal, an f-string or a t-string, or `None`. The fields of an
 /// f-string are expressions of their own: a walk reaches them.
-pub fn hazard(expr: &Expr, source: &str, minor: u32) -> Option<Failure> {
+pub fn string_failure(expr: &Expr, source: &str, minor: u32) -> Option<Failure> {
     let check = Check { source, minor };
     match expr {
         Expr::StringLiteral(node) => {
