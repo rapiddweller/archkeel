@@ -92,6 +92,31 @@ def unsupported_claim(reply: Reply, argument: str) -> None:
     reply["facts"]["capabilities"]["sections"].append(argument)
 
 
+def construct_status(reply: Reply, argument: str) -> None:
+    """AD-378: give each construct capability another status (a set that is not registered)."""
+    for entry in reply["facts"]["capabilities"]["constructs"]:
+        entry["status"] = argument or "unsupported"
+
+
+def no_constructs(reply: Reply, _argument: str) -> None:
+    """AD-378: drop the construct capabilities and keep the `constructs` section."""
+    reply["facts"]["capabilities"]["constructs"] = []
+
+
+def drop_feature(reply: Reply, argument: str) -> None:
+    """AD-378: drop one resolution feature (a feature set that is not registered)."""
+    features = reply["facts"]["capabilities"]["resolution_features"]
+    features[:] = [feature for feature in features if feature != argument]
+
+
+def drop_section(reply: Reply, argument: str) -> None:
+    """AD-378: drop one section and its capability (a section set that is not registered)."""
+    facts = reply["facts"]
+    facts["sections"] = [section for section in facts["sections"] if section["name"] != argument]
+    sections = facts["capabilities"]["sections"]
+    sections[:] = [name for name in sections if name != argument]
+
+
 def honest(_reply: Reply, _argument: str) -> None:
     """Change nothing: the reply of an external producer that is correct."""
 
@@ -105,6 +130,10 @@ TAMPERS: dict[str, Tamper] = {
     "duplicate-id": duplicate_id,
     "unsupported-claim": unsupported_claim,
     "honest": honest,
+    "construct-status": construct_status,
+    "no-constructs": no_constructs,
+    "drop-feature": drop_feature,
+    "drop-section": drop_section,
 }
 
 

@@ -8,14 +8,15 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
+use crate::causes::{Cause, Part};
 use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 
 /// A part of the core that no slice has ported yet. It is a named answer, never an empty one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Unsupported {
-    /// The scope proof that makes `ScopeComplete` (slice S4).
-    ScopeProof,
+    /// A part of the scope proof that the core cannot read (slice S4, AD-378).
+    ScopeProof(Part),
     /// The rows of one section.
     Section(Section),
     /// The rules of one kind (the slice of its family).
@@ -58,6 +59,8 @@ pub enum Reason {
     UncitedChild(String),
     /// The settings of the shell do not hold for the reply (AD-372).
     Refused(Refusal),
+    /// A cause that makes the scope incomplete in the reference engine (slice S4, AD-378).
+    NotComplete(Cause),
 }
 
 /// Why the core refuses the settings that the shell sends with a reply (AD-372).
@@ -90,12 +93,13 @@ impl fmt::Display for Refusal {
 impl fmt::Display for Unsupported {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Unsupported::ScopeProof => formatter.write_str("the scope proof: slice S4 ports it"),
+            Unsupported::ScopeProof(part) => write!(formatter, "the scope proof: {part}"),
             Unsupported::Section(section) => {
                 let by = match section.porting() {
                     Porting::Slice(slice) => format!("slice {slice:?} ports it"),
                     Porting::Store => "the store writes it; the core does not yet".to_owned(),
                     Porting::RuleFamilies => "the slice of each rule family ports it".to_owned(),
+                    Porting::Unowned(needs) => format!("no slice owns it yet; {needs}"),
                 };
                 write!(formatter, "section {}: {by}", section.name())
             }
@@ -147,10 +151,17 @@ impl fmt::Display for Reason {
             Reason::NoSubjects => formatter
                 .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
             Reason::Refused(refusal) => write!(formatter, "refused settings: {refusal}"),
+            Reason::NotComplete(cause) => write!(formatter, "incomplete scope: {cause}"),
             Reason::UncitedChild(child) => write!(
                 formatter,
                 "the layout child {child} has no module record to cite"
             ),
         }
+    }
+}
+
+impl From<Part> for Reason {
+    fn from(part: Part) -> Reason {
+        Reason::Unsupported(Unsupported::ScopeProof(part))
     }
 }

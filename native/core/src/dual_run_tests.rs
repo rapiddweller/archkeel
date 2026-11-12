@@ -41,9 +41,18 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
         Some(&reply),
         &["metrics", "evidence", "violations"],
     ));
-    // The native rule selects no module of the H-typescript reply: no receipt, so UNKNOWN.
-    let unknown = json!({"NATIVE-ASSIGNMENT-COMPLETE": ["complete_assignment", "UNKNOWN"]});
-    assert_eq!(got["rules"], unknown);
+    // The native rules select no module of the H-typescript reply: the subject check of the
+    // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
+    // with its reason (AD-378).
+    let decided = got["rules"].as_object().cloned().unwrap_or_default();
+    assert_eq!(decided.len(), 7);
+    assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
+    assert_eq!(
+        got["explained"]["NATIVE-EXTERNAL-SYN"],
+        "incomplete scope: the rule NATIVE-ASSIGNMENT-COMPLETE selects no module"
+    );
+    assert_eq!(got["status"], "UNKNOWN");
+    assert_eq!(got["violations"], json!({}));
     assert_eq!(got["sections"], json!({"violations": []}));
     assert_eq!(
         got["unsupported"]["report"],
@@ -61,7 +70,59 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     let rules = got["unsupported"]["rules"]
         .as_object()
         .map_or(0, |rules| rules.len());
-    assert_eq!(rules, 9);
+    assert_eq!(rules, 3);
+}
+
+#[test]
+fn a_reply_of_an_unpinned_external_collector_gives_no_pass() {
+    let reply = golden_reply();
+    let mut external = request(Some(&reply), &[]);
+    external["collector_argv"] = json!(["collector"]);
+    let got = frame(&external);
+    let why = "incomplete scope: the reply comes from an external collector without a pin";
+    // The native rules also select no module; the producer comes first in the proof.
+    assert_eq!(got["explained"]["NATIVE-EXTERNAL-SYN"], why);
+    external["pinned"] = json!(true);
+    let pinned = frame(&external);
+    assert_ne!(pinned["explained"]["NATIVE-EXTERNAL-SYN"], why);
+}
+
+#[test]
+fn a_collector_argv_above_its_limit_is_refused_by_name() {
+    let mut long = request(None, &[]);
+    long["collector_argv"] = json!(vec!["x"; 65]);
+    long["pinned"] = json!(true);
+    let error = answer(long.to_string().as_bytes())
+        .err()
+        .unwrap_or_default();
+    assert_eq!(error, "c: collector_argv has more than 64 entries");
+    long["collector_argv"] = json!(vec!["x"; 64]);
+    assert!(answer(long.to_string().as_bytes()).is_ok());
+}
+
+#[test]
+fn a_frame_without_rules_passes_only_with_a_complete_scope() {
+    // L-35b: zero decided rules give PASS only for a contract without rules and a complete
+    // scope, as `inspect_observation` gives (`check/run.py:76`).
+    let reply = golden_reply();
+    let mut empty = request(Some(&reply), &[]);
+    let contract = r#"{"schema_version": "2.2.0", "components": [], "rules": []}"#;
+    empty["contracts"] = json!({"architecture-contract.json": contract});
+    let got = frame(&empty);
+    assert_eq!(
+        (got["status"].clone(), got["scope"].clone()),
+        (json!("PASS"), json!("complete"))
+    );
+    empty["collector_argv"] = json!(["collector"]);
+    let got = frame(&empty);
+    assert_eq!(got["status"], "UNKNOWN");
+    assert_eq!(
+        got["scope"],
+        "incomplete scope: the reply comes from an external collector without a pin"
+    );
+    let mut absent = request(None, &[]);
+    absent["contracts"] = json!({"architecture-contract.json": contract});
+    assert_eq!(frame(&absent)["status"], "UNKNOWN");
 }
 
 #[test]

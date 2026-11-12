@@ -5,14 +5,16 @@
 //! The `Rules` request: the decision of each rule of the contract (`archkeel-eval`).
 //!
 //! A decided rule has its status. A rule whose decision names an unsupported part (its kind, or
-//! the scope proof of S4) and a rule of a ported kind without a model have their reason: the
-//! harness counts a named reason as a difference, never as equal (AD-363).
+//! a part of the scope proof that the core cannot read) and a rule of a ported kind without a
+//! model have their reason: the harness counts a named reason as a difference, never as equal
+//! (AD-363). A decided UNKNOWN keeps its reason and a FAIL its number of violations, so each
+//! status other than PASS has its explaining row (AD-361 point 5, AD-378).
 
 use std::collections::BTreeMap;
 
 use archkeel_contract::{head_of, kind_of, Contract, RuleKind};
 use archkeel_eval::Outcome;
-use archkeel_model::{Model, Reason, Unsupported, Verdict};
+use archkeel_model::{Model, Part, Reason, Unsupported, Verdict};
 
 /// The rule kinds that `archkeel-eval` decides.
 const DECIDED: &[RuleKind] = &[
@@ -27,6 +29,12 @@ const DECIDED: &[RuleKind] = &[
 pub(crate) struct RuleAnswer {
     pub(crate) decided: BTreeMap<String, [String; 2]>,
     pub(crate) reasons: BTreeMap<String, Reason>,
+    /// The reason of each decided UNKNOWN rule.
+    pub(crate) explained: BTreeMap<String, String>,
+    /// The number of violations of each decided rule that has one.
+    pub(crate) violations: BTreeMap<String, usize>,
+    /// Why the scope of the run is not complete, or `None` when it is (`Scope::run`).
+    pub(crate) scope: Option<String>,
 }
 
 /// The outcome of each rule, or the reason that the run has no model.
@@ -38,8 +46,19 @@ pub(crate) fn outcomes(contract: &Contract, model: Result<&Model, Reason>) -> Ve
 }
 
 pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>) -> RuleAnswer {
-    let mut answer = RuleAnswer::default();
+    let mut answer = RuleAnswer {
+        scope: Some(match &model {
+            Ok(model) => match model.scope(|scope| scope.run()) {
+                Ok(()) => String::new(),
+                Err(reason) => reason.to_string(),
+            },
+            Err(reason) => reason.to_string(),
+        })
+        .filter(|why| !why.is_empty()),
+        ..RuleAnswer::default()
+    };
     let Some(contract) = contract else {
+        answer.scope = Some(Reason::MissingInput(archkeel_model::Input::Contract).to_string());
         return answer;
     };
     if let Err(reason) = &model {
@@ -55,7 +74,10 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
         }
         return answer;
     }
-    for outcome in outcomes(contract, model) {
+    let Ok(model_of) = model else {
+        return answer;
+    };
+    for outcome in outcomes(contract, Ok(model_of)) {
         let decision = outcome.decision();
         let status = match (decision.verdict(), decision.reason()) {
             (_, Some(reason @ Reason::Unsupported(_))) => {
@@ -64,10 +86,24 @@ pub(crate) fn answer(contract: Option<&Contract>, model: Result<&Model, Reason>)
                     .insert(outcome.rule().to_owned(), reason.clone());
                 continue;
             }
-            (Verdict::Pass(_), _) => "PASS",
+            (Verdict::Pass(_), _) if decision.passes(model_of, outcome.rule()) => "PASS",
+            (Verdict::Pass(_), _) => {
+                // AD-378: a PASS of another rule or model is a named gap, never a PASS.
+                let foreign = Reason::Unsupported(Unsupported::ScopeProof(Part::ForeignRule));
+                answer.reasons.insert(outcome.rule().to_owned(), foreign);
+                continue;
+            }
             (Verdict::Fail, _) => "FAIL",
-            (Verdict::Unknown, _) => "UNKNOWN",
+            (Verdict::Unknown, reason) => {
+                let why = reason.map_or_else(String::new, ToString::to_string);
+                answer.explained.insert(outcome.rule().to_owned(), why);
+                "UNKNOWN"
+            }
         };
+        if !outcome.violations().is_empty() {
+            let count = outcome.violations().len();
+            answer.violations.insert(outcome.rule().to_owned(), count);
+        }
         answer.decided.insert(
             outcome.rule().to_owned(),
             [word(outcome.kind()), status.to_owned()],

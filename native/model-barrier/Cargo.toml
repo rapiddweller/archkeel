@@ -1,0 +1,20 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-model-barrier"
+description = "The type barrier of the scope proof, tried from another crate (AD-378)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# AD-378: a test crate. Its document tests try to build a PASS without the scope proof.
+[dependencies]
+archkeel-contract = { path = "../contract" }
+archkeel-model = { path = "../model" }
+
+[lints]
+workspace = true

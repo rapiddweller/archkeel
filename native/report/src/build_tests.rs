@@ -71,17 +71,20 @@ fn a_table_without_rows_is_named_and_never_empty() {
     ] {
         let (outcome, mut records) = inputs(&payload("E-runtime")).unwrap();
         match table {
-            "nodes" => records.tree = Produced::NotProduced(part),
-            "measures" => records.measures = Produced::NotProduced(part),
-            "units" => records.units = Produced::NotProduced(part),
-            "permissions" => records.permissions = Produced::NotProduced(part),
-            "violations" => records.violations = Produced::NotProduced(part),
-            "unknowns" => records.unknowns = Produced::NotProduced(part),
-            _ => records.findings = Produced::NotProduced(part),
+            "nodes" => records.tree = Produced::NotProduced(part.clone()),
+            "measures" => records.measures = Produced::NotProduced(part.clone()),
+            "units" => records.units = Produced::NotProduced(part.clone()),
+            "permissions" => records.permissions = Produced::NotProduced(part.clone()),
+            "violations" => records.violations = Produced::NotProduced(part.clone()),
+            "unknowns" => records.unknowns = Produced::NotProduced(part.clone()),
+            _ => records.findings = Produced::NotProduced(part.clone()),
         }
         assert_eq!(
             build(outcome, records, no_pass),
-            Err(BuildError::NotProduced { table, part })
+            Err(BuildError::NotProduced {
+                table,
+                part: part.clone()
+            })
         );
     }
 }

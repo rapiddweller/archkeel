@@ -17,10 +17,11 @@ publish.workspace = true
 archkeel-contract = { path = "../contract" }
 archkeel-facts.workspace = true
 archkeel-store = { path = "../store" }
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
-serde_json.workspace = true
 
 [lints]
 workspace = true

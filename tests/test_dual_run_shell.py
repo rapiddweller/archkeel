@@ -1,13 +1,15 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The shell side of the dual run of slices S2 and S3 (AD-372, AD-374): the settings and the
-edge comparison."""
+"""The shell side of the dual run of slices S2 to S4 (AD-372, AD-374, AD-378): the settings, the
+edge comparison and the check of the frame status."""
 
 from __future__ import annotations
 
 import zlib
 from typing import Any
+
+import pytest
 
 from tools import dual_run
 from tools.dual_run_oracle import Selection
@@ -59,3 +61,41 @@ def test_the_shell_sends_the_namespace_and_the_standard_library_of_the_reply_pro
     assert dual_run.reply_profile(zlib.compress(rust)) == expected
     assert dual_run.reply_profile(b"not json") == ("", [])
     assert dual_run.reply_profile(b'{"facts": {"profile": "unknown"}}') == ("", [])
+
+
+@pytest.mark.parametrize(
+    ("change", "problem"),
+    [
+        ({}, None),
+        ({"status": "PASS"}, "the status is PASS, the rows give FAIL"),
+        ({"violations": {}}, "the rule A is FAIL with 0 violations and reason False"),
+        ({"explained": {}}, "the rule B is UNKNOWN with 0 violations and reason False"),
+        ({"explained": {"B": "why", "C": "why"}}, "the rule C has an explaining row but no status"),
+    ],
+)
+def test_a_frame_status_follows_from_its_rows_and_each_status_has_its_row(
+    change: dict[str, Any], problem: str | None
+) -> None:
+    """AD-378, L-23: a FAIL rule without a violation row, an UNKNOWN rule without a reason and a
+    status that the rows do not give are inconsistent frames, never compared."""
+    frame: dict[str, Any] = {
+        "status": "FAIL",
+        "rules": {"A": ["complete_assignment", "FAIL"], "B": ["root_layout", "UNKNOWN"]},
+        "explained": {"B": "why"},
+        "violations": {"A": 2},
+        "unsupported": {"rules": {}},
+        "self_test": {"contract": {"rules": {}}, "reply": {"files": 1}},
+    }
+    frame.update(change)
+    assert dual_run.unexplained(frame) == problem
+    assert dual_run.unexplained({"rules": {}}) is None
+    passed = {**frame, "status": "PASS", "rules": {"A": ["root_layout", "PASS"]}}
+    passed.update({"explained": {}, "violations": {}, "scope": "complete"})
+    assert dual_run.unexplained(passed) is None
+    # L-35b: PASS needs a complete scope, also with zero rules.
+    assert dual_run.unexplained({**passed, "scope": "incomplete scope: x"}) is not None
+    assert dual_run.unexplained({**passed, "rules": {}, "scope": "incomplete scope: x"}) is not None
+    assert dual_run.unexplained({**passed, "rules": {}}) is None
+    # A core frame without a status is refused; another engine has nothing to check.
+    assert dual_run.unexplained({"engine": "archkeel-core x", "rules": {}}) is not None
+    assert dual_run.unexplained({**passed, "unsupported": {"rules": {"X": "why"}}}) is not None

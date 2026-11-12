@@ -103,7 +103,16 @@ dependencies = [
  "archkeel-facts",
  "archkeel-store",
  "flate2",
+ "serde",
  "serde_json",
+]
+
+[[package]]
+name = "archkeel-model-barrier"
+version = "0.0.0"
+dependencies = [
+ "archkeel-contract",
+ "archkeel-model",
 ]
 
 [[package]]

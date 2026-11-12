@@ -7,7 +7,9 @@
 use std::io::{Read, Write};
 
 use archkeel_contract::{Contract, ParsedContract};
-use archkeel_model::{Decision, Incomplete, Model, Reason, Settings, Unsupported, Verdict};
+use archkeel_model::{
+    Cause, Decision, Incomplete, Model, Producer, Reason, Settings, Unsupported, Verdict,
+};
 use flate2::read::GzDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -52,7 +54,7 @@ pub(crate) fn reply_or_refusal(
     let mut value = read_json("tests/golden/typescript/h-typescript.json.gz");
     value["facts"]["adapter"]["version"] = json!("0");
     value["facts"]["adapter"]["code_digest"] = json!("0".repeat(64));
-    value["facts"]["runtime"] = json!({"name": "rust", "version": "1.88.0", "required": null,
+    value["facts"]["runtime"] = json!({"name": "rust", "version": "1.88.0", "required": ">=1.88",
                                        "requirement_state": "declared"});
     value["facts"]["source"]["git_head"] = json!("a");
     value["facts"]["source"]["dirty"] = json!(false);
@@ -67,7 +69,7 @@ pub(crate) fn reply_or_refusal(
 }
 
 /// The outcomes of the rules `ASSIGNMENT` and `LAYOUT`.
-fn run(
+pub(crate) fn run(
     contract_change: impl FnOnce(&mut Value),
     reply_change: impl FnOnce(&mut Value),
 ) -> Vec<Outcome> {
@@ -87,7 +89,7 @@ fn outcome<'a>(outcomes: &'a [Outcome], rule: &str) -> Option<&'a Outcome> {
     outcomes.iter().find(|outcome| outcome.rule() == rule)
 }
 
-fn decision(outcomes: &[Outcome], rule: &str) -> Option<Decision> {
+pub(crate) fn decision(outcomes: &[Outcome], rule: &str) -> Option<Decision> {
     outcome(outcomes, rule).map(|outcome| outcome.decision().clone())
 }
 
@@ -114,13 +116,13 @@ fn component(value: &mut Value, id: &str) -> Option<usize> {
         .position(|item| item["id"] == id)
 }
 
-fn set_component(value: &mut Value, id: &str, key: &str, field: Value) {
+pub(crate) fn set_component(value: &mut Value, id: &str, key: &str, field: Value) {
     if let Some(index) = component(value, id) {
         value["components"][index][key] = field;
     }
 }
 
-fn set_rule(value: &mut Value, id: &str, key: &str, field: Value) {
+pub(crate) fn set_rule(value: &mut Value, id: &str, key: &str, field: Value) {
     let index = value["rules"]
         .as_array()
         .and_then(|rules| rules.iter().position(|rule| rule["id"] == id));
@@ -131,15 +133,18 @@ fn set_rule(value: &mut Value, id: &str, key: &str, field: Value) {
 
 fn unchanged(_: &mut Value) {}
 
-const SCOPE_PROOF: Reason = Reason::Unsupported(Unsupported::ScopeProof);
+/// The reason of a run whose rule `rule` selects no module of the reply (AD-378).
+fn no_subjects(rule: &str) -> Reason {
+    Reason::NotComplete(Cause::NoRuleSubjects(rule.to_owned()))
+}
 
 #[test]
-fn a_clean_run_names_the_scope_proof_and_never_passes_before_s4() {
+fn a_clean_run_passes_with_the_scope_proof() {
     let outcomes = run(unchanged, unchanged);
     assert_eq!(outcomes.len(), 2);
     for outcome in &outcomes {
-        assert_eq!(outcome.decision().verdict(), Verdict::Unknown);
-        assert_eq!(outcome.decision().reason(), Some(&SCOPE_PROOF));
+        assert!(matches!(outcome.decision().verdict(), Verdict::Pass(_)));
+        assert_eq!(outcome.decision().reason(), None);
         assert!(outcome.violations().is_empty());
     }
 }
@@ -220,9 +225,8 @@ fn a_module_outside_the_rule_source_is_not_counted() {
         unchanged,
     );
     assert!(names(&outcomes, "ASSIGNMENT").is_empty());
-    assert_eq!(
-        decision(&outcomes, "ASSIGNMENT"),
-        Some(Decision::unknown(SCOPE_PROOF))
+    assert!(
+        decision(&outcomes, "ASSIGNMENT").is_some_and(|d| matches!(d.verdict(), Verdict::Pass(_)))
     );
 }
 
@@ -244,12 +248,12 @@ fn a_blank_module_without_an_owner_is_exempt() {
 }
 
 #[test]
-fn a_source_without_modules_has_no_receipt_and_is_unknown() {
+fn a_source_without_modules_fails_the_subject_check_and_is_unknown() {
     let outcomes = run(
         |c| set_rule(c, "ASSIGNMENT", "source", json!("shop.absent")),
         unchanged,
     );
-    let expected = Decision::unknown(Reason::NoSubjects);
+    let expected = Decision::unknown(no_subjects("ASSIGNMENT"));
     assert_eq!(decision(&outcomes, "ASSIGNMENT"), Some(expected));
 }
 
@@ -318,7 +322,7 @@ fn a_root_without_modules_is_unknown() {
         },
         unchanged,
     );
-    let expected = Decision::unknown(Reason::NoSubjects);
+    let expected = Decision::unknown(no_subjects("LAYOUT"));
     assert_eq!(decision(&outcomes, "LAYOUT"), Some(expected));
 }
 
@@ -437,7 +441,7 @@ fn the_receipt_comes_from_the_component_that_declares_the_source() {
     );
     assert_eq!(
         decision(&outcomes, "ASSIGNMENT"),
-        Some(Decision::unknown(SCOPE_PROOF))
+        Some(Decision::unknown(no_subjects("ASSIGNMENT")))
     );
 }
 
@@ -472,7 +476,7 @@ fn fail(message: &str) {
 
 /// The settings that the shell sends for H-typescript: its namespace, and no standard library.
 pub(crate) fn shop_settings() -> Settings {
-    Settings::new("shop".to_owned(), shop_profile(), Vec::new())
+    Settings::new("shop".to_owned(), shop_profile(), Vec::new()).with_producer(Producer::Trusted)
 }
 
 /// The profile of the frozen reply, read from the reply (the sources name no language).

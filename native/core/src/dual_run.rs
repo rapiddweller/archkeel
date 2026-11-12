@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_contract::RuleKind;
-use archkeel_model::Settings;
+use archkeel_model::{Producer, Settings};
 use serde::{Deserialize, Serialize};
 
 use crate::contract::ContractState;
@@ -27,6 +27,9 @@ use archkeel_model::{Reason, Unsupported};
 const PROTOCOL: &str = "archkeel-dual-run-2";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
+/// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
+/// dual-run request is the word of a test caller, not evidence).
+const ARGV_LIMIT: usize = 64;
 /// The decompressed size limit of a reply in the dual run.
 const INFLATE_LIMIT: u64 = 1 << 32;
 
@@ -44,10 +47,10 @@ struct DualRunRequest {
     _config: String,
     /// A baseline changes what a run reports; no slice reads it yet, so it is refused by name.
     baseline: Option<String>,
-    #[serde(rename = "collector_argv")]
-    _collector_argv: Option<Vec<String>>,
-    #[serde(rename = "pinned")]
-    _pinned: bool,
+    /// The command of an external collector; `None` for the bundled collector. With `pinned`,
+    /// the host trusts the reply of an external collector (AD-344, AD-378).
+    collector_argv: Option<Vec<String>>,
+    pinned: bool,
     contracts: BTreeMap<String, String>,
     reply: Option<ReplyBytes>,
     sections: Vec<String>,
@@ -73,7 +76,15 @@ struct ReplyBytes {
 #[derive(Serialize)]
 struct Frame {
     engine: &'static str,
+    /// The status that the rows give (AD-361 point 4, `status.rs`).
+    status: &'static str,
     rules: BTreeMap<String, [String; 2]>,
+    /// The explaining row of each decided rule that is not PASS: the reason of an UNKNOWN rule
+    /// and the number of violations of a FAIL rule (AD-361 point 5).
+    explained: BTreeMap<String, String>,
+    violations: BTreeMap<String, usize>,
+    /// Why the scope of the run is not complete, or `complete` (L-35b).
+    scope: String,
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
@@ -133,6 +144,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     }
     let request: DualRunRequest =
         serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
+    bounded(&request)?;
     let [(path, contract)] =
         <[(String, String); 1]>::try_from(request.contracts.into_iter().collect::<Vec<_>>())
             .map_err(|found| {
@@ -144,11 +156,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             })?;
     let sections = request::sections(&request.sections)?;
     let mut engine = Engine::default();
-    engine.answer(Request::Settings(Settings::new(
-        request.namespace,
-        request.profile,
-        request.standard_library,
-    )));
+    let producer = producer(request.collector_argv.as_ref(), request.pinned);
+    engine.answer(Request::Settings(
+        Settings::new(request.namespace, request.profile, request.standard_library)
+            .with_producer(producer),
+    ));
     let contract = match engine.answer(Request::Contract(contract.into_bytes())) {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
@@ -167,35 +179,38 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         Answer::Rules(answer) => answer,
         _ => RuleAnswer::default(),
     };
-    let baseline = request
-        .baseline
-        .is_some()
-        .then_some(Reason::Unsupported(Unsupported::Baseline));
-    let rules = match (&contract, baseline) {
-        (_, Some(reason)) => {
-            decided.decided.clear();
-            RuleReasons::All(reason.to_string())
-        }
-        (contract, None) => match contract {
-            ContractState::Parsed(_) => RuleReasons::Each(
-                crate::contract::uml_reason(engine.contract(), &path)
-                    .into_iter()
-                    .chain(decided.reasons)
-                    .map(|(id, reason)| (id, reason.to_string()))
-                    .collect(),
-            ),
-            ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
-            ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
-        },
-    };
+    let rules = rule_reasons(
+        &contract,
+        request.baseline.is_some(),
+        &engine,
+        &path,
+        &mut decided,
+    );
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
         || !sections.is_empty()
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
+    if let Some(problem) = crate::status::unexplained(&decided) {
+        return Err(format!(
+            "{}: an inconsistent frame: {problem}",
+            request.case
+        ));
+    }
+    // A section without rows is a gap of the sections, not of the rules: it changes no status.
+    let named = !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
+        || !matches!(reply, ReplyCheck::Files(_))
+        || !matches!(contract, ContractState::Parsed(_));
     let frame = Frame {
         engine: ENGINE,
+        status: crate::status::status(&decided.decided, named, decided.scope.is_none()),
+        scope: decided
+            .scope
+            .clone()
+            .unwrap_or_else(|| "complete".to_owned()),
+        explained: decided.explained,
+        violations: decided.violations,
         rules: decided.decided,
         sections: rows,
         unsupported: UnsupportedParts {
@@ -216,6 +231,60 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     };
     let frame = serde_json::to_vec(&frame).map_err(|error| error.to_string())?;
     Ok(Answered { frame, names_a_gap })
+}
+
+/// The request refused by name when its `collector_argv` is longer than the limit.
+fn bounded(request: &DualRunRequest) -> Result<(), String> {
+    match &request.collector_argv {
+        Some(argv) if argv.len() > ARGV_LIMIT => Err(format!(
+            "{}: collector_argv has more than {ARGV_LIMIT} entries",
+            request.case
+        )),
+        _ => Ok(()),
+    }
+}
+
+/// The producer of the reply: the bundled collector, or an external command that the host pins,
+/// is trusted (`cli/observe.py` `observer_for`). The dual-run request is a test protocol: these
+/// fields are the word of the caller, not evidence. The request of M1 must not take them from a
+/// caller: the shell starts the pinned collector, checks its digest and fills the producer and
+/// the standard library from its own profile table (AD-378 point 4).
+fn producer(collector_argv: Option<&Vec<String>>, pinned: bool) -> Producer {
+    if collector_argv.is_none() || pinned {
+        Producer::Trusted
+    } else {
+        Producer::External
+    }
+}
+
+/// The reasons of the rules without a decision. A baseline names the whole contract and keeps no
+/// decision; a contract that the core cannot use names itself.
+fn rule_reasons(
+    contract: &ContractState,
+    baseline: bool,
+    engine: &Engine,
+    path: &str,
+    decided: &mut RuleAnswer,
+) -> RuleReasons {
+    if baseline {
+        let scope = decided.scope.take();
+        *decided = RuleAnswer {
+            scope,
+            ..RuleAnswer::default()
+        };
+        return RuleReasons::All(Reason::Unsupported(Unsupported::Baseline).to_string());
+    }
+    match contract {
+        ContractState::Parsed(_) => RuleReasons::Each(
+            crate::contract::uml_reason(engine.contract(), path)
+                .into_iter()
+                .chain(std::mem::take(&mut decided.reasons))
+                .map(|(id, reason)| (id, reason.to_string()))
+                .collect(),
+        ),
+        ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
+        ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
+    }
 }
 
 /// What the engine knows of the reply of the request, after it ingests the reply.

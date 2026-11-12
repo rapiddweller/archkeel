@@ -17,7 +17,7 @@ use crate::{
     RuleOutcome, RuleReason, RuleVerdict, RunFacts, RunOutcome, Status, Target, Tree, Undecided,
     UnitRow, UnknownRecord, UnknownSource, ViolationRow, WhyUnknown,
 };
-use archkeel_model::{Decision, Reason, Unsupported};
+use archkeel_model::{Decision, Part, Reason, Unsupported};
 
 pub(crate) const BUILDABLE: [&str; 4] = [
     "E-runtime",
@@ -62,7 +62,7 @@ fn decision(status: Status) -> Option<Decision> {
         Status::Pass => None,
         Status::Fail => Some(Decision::fail()),
         Status::Unknown => Some(Decision::unknown(Reason::Unsupported(
-            Unsupported::ScopeProof,
+            Unsupported::ScopeProof(Part::RuntimeRequirement),
         ))),
     }
 }

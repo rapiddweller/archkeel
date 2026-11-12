@@ -43,8 +43,8 @@ pub(crate) struct Engine {
 /// What the inputs of a run derive: the model, or only its reply part, or neither, with the
 /// reason of each missing part.
 pub(crate) enum Derived {
-    Model(Model),
-    Graph(Graph, Reason),
+    Model(Box<Model>),
+    Graph(Box<Graph>, Reason),
     Neither { graph: Reason, model: Reason },
 }
 
@@ -53,7 +53,7 @@ impl Derived {
     pub(crate) fn graph(&self) -> Result<&Graph, Reason> {
         match self {
             Derived::Model(model) => Ok(model.graph()),
-            Derived::Graph(graph, _) => Ok(graph),
+            Derived::Graph(graph, _) => Ok(graph.as_ref()),
             Derived::Neither { graph, .. } => Err(graph.clone()),
         }
     }
@@ -145,14 +145,17 @@ fn derive(
     let Some(contract) = contract else {
         let model = Reason::MissingInput(Input::Contract);
         return match graph {
-            Ok(graph) => Derived::Graph(graph, model),
+            Ok(graph) => Derived::Graph(Box::new(graph), model),
             Err(graph) => Derived::Neither { graph, model },
         };
     };
-    match (graph, Model::components_of(contract)) {
-        (Ok(graph), Ok(components)) => Derived::Model(Model::of(components, graph)),
-        (Ok(graph), Err(model)) => Derived::Graph(graph, model),
-        (Err(graph), _) => Derived::Neither {
+    match graph.map(|graph| Model::of(contract, graph)) {
+        Ok(Ok(model)) => Derived::Model(Box::new(model)),
+        Ok(Err(refused)) => {
+            let (graph, model) = *refused;
+            Derived::Graph(Box::new(graph), model)
+        }
+        Err(graph) => Derived::Neither {
             model: graph.clone(),
             graph,
         },

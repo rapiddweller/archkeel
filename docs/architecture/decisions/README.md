@@ -372,3 +372,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-373 | [The contract crate compares two contract trees for --against](ad-373-the-contract-crate-compares-two-contract-trees-for-against.md) |
 | AD-374 | [The core ranks the edges and derives the modules, packages and cycles](ad-374-the-core-ranks-the-edges-and-derives-the-modules-packages-and-cycles.md) |
 | AD-375 | [The contract crate reads amendments and binds them to a comparison](ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md) |
+| AD-378 | [A rule passes only with the scope proof of its own model](ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md) |

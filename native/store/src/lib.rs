@@ -24,6 +24,7 @@ mod inventory;
 mod pyjson;
 mod pyrepr;
 mod records;
+mod registered;
 mod seam;
 pub mod session;
 mod shell;

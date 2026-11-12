@@ -26,12 +26,12 @@ fn names(import: &Import, dependency: &str) -> bool {
     }
 }
 
-/// The violations of an `external_dependency_scope` rule, and whether it has a receipt.
+/// The violations of an `external_dependency_scope` rule.
 pub(crate) fn dependency_scope(
     id: &str,
     rule: &ExternalDependencyScope,
     model: &Model,
-) -> (Vec<Violation>, bool) {
+) -> Vec<Violation> {
     let dependency = rule.dependency().as_text();
     let allowed = |source: &str| {
         rule.allowed_sources()
@@ -50,16 +50,16 @@ pub(crate) fn dependency_scope(
         .map(|import| Violation::outside_scope(id, dependency, import))
         .collect();
     violations.sort_by(|a, b| a.id().cmp(b.id()));
-    (violations, !model.graph().modules().is_empty())
+    violations
 }
 
-/// The violations of a `complete_external_scope` rule, and whether it has a receipt.
+/// The violations of a `complete_external_scope` rule.
 pub(crate) fn complete_scope(
     id: &str,
     rule: &SourceRule,
     rules: &[Rule],
     model: &Model,
-) -> (Vec<Violation>, bool) {
+) -> Vec<Violation> {
     let source = rule.source().as_text();
     let declared: Vec<&str> = rules
         .iter()
@@ -93,7 +93,7 @@ pub(crate) fn complete_scope(
         violations.push(Violation::undeclared(id, source, root, import));
     }
     violations.sort_by(|a, b| a.id().cmp(b.id()));
-    (violations, !model.source_modules(source).is_empty())
+    violations
 }
 
 /// The first segment of a dotted name.

@@ -10,6 +10,7 @@ use archkeel_store::Ingested;
 use crate::graph::Graph;
 use crate::ids::{ComponentId, Id, ModuleId, Table};
 use crate::ownership;
+use crate::proof::{self, State};
 use crate::reason::{Reason, Unsupported};
 use crate::section::Section;
 use crate::settings::Settings;
@@ -20,13 +21,20 @@ use crate::settings::Settings;
 #[derive(Debug)]
 pub enum Rows {}
 
-/// The model of one run: the reply part (`Graph`), the components and the owner of each module.
+/// The model of one run: the contract, the reply part (`Graph`), the components, the owner of
+/// each module and the state of the scope (made one time, slice S4).
 #[derive(Debug)]
 pub struct Model {
+    contract: Contract,
     components: Table<ComponentId, Component>,
     owners: Vec<Option<ComponentId>>,
     graph: Graph,
+    scope: State,
+    serial: u64,
 }
+
+/// The serial of the next model: a PASS decision names the model that made it (AD-378).
+static SERIALS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 impl Model {
     /// Derive the model of a contract, a validated reply and the settings of the shell.
@@ -36,7 +44,7 @@ impl Model {
         settings: Settings,
     ) -> Result<Model, Reason> {
         let graph = Graph::derive(reply, settings)?;
-        Ok(Model::of(Model::components_of(contract)?, graph))
+        Model::of(contract, graph).map_err(|refused| refused.1)
     }
 
     /// The components of a contract, in contract order: the first input of `Model::of`.
@@ -44,15 +52,39 @@ impl Model {
         Table::of_rows(contract.components().to_vec()).ok_or(Reason::TooManyRows("components"))
     }
 
-    /// The model of the components of a contract and the reply part of the run. The reply part
-    /// moves into the model, so a run derives it one time.
-    pub fn of(components: Table<ComponentId, Component>, graph: Graph) -> Model {
+    /// The model of a contract and the reply part of the run. The reply part moves into the
+    /// model, so a run derives it one time; a contract with too many components gives it back.
+    pub fn of(contract: &Contract, graph: Graph) -> Result<Model, Box<(Graph, Reason)>> {
+        let components = match Model::components_of(contract) {
+            Ok(components) => components,
+            Err(reason) => return Err(Box::new((graph, reason))),
+        };
         let owners = ownership::owners(&components, graph.modules());
-        Model {
+        let trusted = graph.settings().producer() == crate::settings::Producer::Trusted;
+        let scope = proof::state(contract, &components, &graph, trusted);
+        Ok(Model {
+            contract: contract.clone(),
             components,
             owners,
             graph,
-        }
+            scope,
+            serial: SERIALS.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        })
+    }
+
+    /// The serial of this model, distinct for each model of the process.
+    pub(crate) fn serial(&self) -> u64 {
+        self.serial
+    }
+
+    /// The contract of the model.
+    pub fn contract(&self) -> &Contract {
+        &self.contract
+    }
+
+    /// The state of the scope of the model (`Scope::complete` reads it).
+    pub(crate) fn scope_state(&self) -> &State {
+        &self.scope
     }
 
     /// The reply part of the model.

@@ -56,6 +56,7 @@ from tools.dual_run_oracle import (
     section_rows,
     selection_of,
     to_rows,
+    unexplained,
     write_oracle,
 )
 
@@ -208,6 +209,8 @@ def command_frame(command: str, request: Mapping[str, Any], timeout: float) -> d
     # an empty frame is never a plain success (AD-363).
     if (done.returncode == NAMES_A_GAP) != names_a_gap(frame):
         return {"error": f"the engine exits with {done.returncode} for this frame"}
+    if (problem := unexplained(frame)) is not None:
+        return {"error": f"the engine frame is inconsistent: {problem}"}
     return frame
 
 
@@ -367,6 +370,11 @@ def compare_one(
         frame, reference = engine_and_reference(case, root, command, selection, timeout)
     owned = owned_rules(oracle["rules"], selection.kinds)
     differences = compare_case(oracle, frame, selection)
+    # AD-378, L-35b: a core status PASS or FAIL must be the run status of the Python engine.
+    if reference is not None and frame.get("status") in ("PASS", "FAIL"):
+        if frame["status"] != reference.get("declared_rules"):
+            found = f"core {frame['status']}, Python {reference.get('declared_rules')}"
+            differences.append(Difference(case.id, "status", "-", found))
     # AD-372, AD-374: the full edge rows are compared with the Python engine on every case.
     if reference is not None and "dependency_edges" in selection.sections:
         differences += edge_differences(case.id, reference_edges(reference), frame)

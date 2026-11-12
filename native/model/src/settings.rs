@@ -9,6 +9,10 @@
 //! parses no configuration file and names no language, so it takes these as typed values. It
 //! binds them to the reply by a check (`check`, `Model::derive`): the profile must be the profile
 //! of the reply, and each module of the reply must lie in the namespace.
+//!
+//! Slice S4 adds the producer of the reply (AD-344, AD-378): only the host starts the collector,
+//! so only the shell knows it. The default is the sound one: a reply of an external collector,
+//! which gives no PASS.
 
 use crate::ownership::in_scope;
 use crate::reason::Refusal;
@@ -24,6 +28,18 @@ pub struct Settings {
     namespace: String,
     profile: String,
     standard_library: Vec<String>,
+    producer: Producer,
+}
+
+/// Who produced the reply, as the host decides it (`cli/observe.py` `observer_for`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Producer {
+    /// A collector that the host does not trust for a PASS: an external command without a
+    /// pinned digest, or a producer that the shell does not name.
+    #[default]
+    External,
+    /// The bundled collector, or an external command with a pinned digest.
+    Trusted,
 }
 
 impl Settings {
@@ -33,7 +49,18 @@ impl Settings {
             namespace,
             profile,
             standard_library,
+            producer: Producer::External,
         }
+    }
+
+    /// The same settings with the producer of the reply.
+    pub fn with_producer(self, producer: Producer) -> Self {
+        Settings { producer, ..self }
+    }
+
+    /// The producer of the reply.
+    pub fn producer(&self) -> Producer {
+        self.producer
     }
 
     /// The dotted namespace of the configuration.

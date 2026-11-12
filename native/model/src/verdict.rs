@@ -13,34 +13,65 @@
 
 use crate::reason::Reason;
 
-/// The mark of a PASS: only the scope proof of the model gives one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The mark of a PASS: only the scope proof of the model gives one. It is not `Clone` or `Copy`,
+/// so a caller cannot move it from one verdict into a new one (AD-378).
+#[derive(Debug, PartialEq, Eq)]
 pub struct Proven {
     _scope: (),
 }
 
-/// The verdict of one rule. A caller reads it from a `Decision`; it holds no bare `Verdict`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The verdict of one rule. A caller reads it from a `Decision` by reference; it holds no bare
+/// `Verdict`.
+#[derive(Debug, PartialEq, Eq)]
 pub enum Verdict {
     Pass(Proven),
     Fail,
     Unknown,
 }
 
-/// A decided rule. The fields are private: a PASS comes only from `Scope::pass`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// A decided rule. The fields are private: a PASS comes only from `Scope::pass`. A PASS names
+/// the rule of its proof and the serial of its model: a caller checks both
+/// (`Decision::passes`), because a type cannot stop a value of one model or rule from moving
+/// to another (AD-378).
+#[derive(Debug, PartialEq, Eq)]
 pub struct Decision {
     verdict: Verdict,
     reason: Option<Reason>,
+    bound: Option<(String, u64)>,
+}
+
+impl Clone for Decision {
+    fn clone(&self) -> Decision {
+        let verdict = match &self.verdict {
+            Verdict::Pass(_) => Verdict::Pass(Proven { _scope: () }),
+            Verdict::Fail => Verdict::Fail,
+            Verdict::Unknown => Verdict::Unknown,
+        };
+        Decision {
+            verdict,
+            reason: self.reason.clone(),
+            bound: self.bound.clone(),
+        }
+    }
 }
 
 impl Decision {
     /// PASS: only `Scope::pass` calls it, with the scope proof.
-    pub(crate) fn passed() -> Decision {
+    pub(crate) fn passed(rule: String, model: u64) -> Decision {
         Decision {
             verdict: Verdict::Pass(Proven { _scope: () }),
             reason: None,
+            bound: Some((rule, model)),
         }
+    }
+
+    /// True for a PASS of the rule `rule` of this model; false for any other decision.
+    pub fn passes(&self, model: &crate::model::Model, rule: &str) -> bool {
+        matches!(self.verdict, Verdict::Pass(_))
+            && self
+                .bound
+                .as_ref()
+                .is_some_and(|(id, serial)| id == rule && *serial == model.serial())
     }
 
     /// FAIL: a found violation is a fact also in an incomplete scope.
@@ -48,6 +79,7 @@ impl Decision {
         Decision {
             verdict: Verdict::Fail,
             reason: None,
+            bound: None,
         }
     }
 
@@ -56,12 +88,13 @@ impl Decision {
         Decision {
             verdict: Verdict::Unknown,
             reason: Some(reason),
+            bound: None,
         }
     }
 
     /// The verdict.
-    pub fn verdict(&self) -> Verdict {
-        self.verdict
+    pub fn verdict(&self) -> &Verdict {
+        &self.verdict
     }
 
     /// The reason of an UNKNOWN.
