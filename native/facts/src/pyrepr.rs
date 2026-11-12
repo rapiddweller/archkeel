@@ -43,6 +43,12 @@ fn hidden(point: u32) -> bool {
         .is_ok()
 }
 
+/// The code point from U+0080 on is not printable in Unicode 14.0 (Python 3.11): `repr` escapes
+/// it. The native Python collector adds the code points that a later Python prints (AD-377).
+pub fn escapes(point: u32) -> bool {
+    point >= 0x80 && hidden(point)
+}
+
 /// `repr(text)` of CPython: the quote, the escapes and the printable test of `unicode_repr`.
 pub fn string(text: &str, out: &mut String) {
     let quote = if text.contains('\'') && !text.contains('"') {

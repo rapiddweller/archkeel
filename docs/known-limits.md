@@ -401,6 +401,10 @@ The native Python collector (not yet the default) cannot read the target of a da
 link. When the scan leaves tests out, each dangling link is a named gap and the scope is not
 complete, also where Python would judge the target as production code (AD-367 point 5).
 
+Its definition table (AD-377, not in the reply yet) does not write the text of an expression that
+nests deeper than 100 levels, or of a string with a lone surrogate escape. The module gets a
+named gap and no symbol record. Python stops on the first case and writes the second.
+
 ## Scope and nested contracts
 
 A run covers only configured roots and namespace. Adjacent tests need another

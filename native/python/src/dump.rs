@@ -17,6 +17,7 @@ use serde_json::{json, Value};
 
 use crate::limits::scan;
 use crate::parse::parse;
+use crate::pyast::{walk, Node};
 use crate::source::{decode, Lines};
 use crate::{discover, inputs, names, requirement};
 
@@ -38,19 +39,81 @@ fn outcome(raw: Option<Vec<u8>>, minor: u32) -> Value {
     }
 }
 
-pub fn run(minor: &str, root: &str) -> Result<(), String> {
-    let minor: u32 = minor.parse().map_err(|_| "--dump needs a minor version")?;
+/// Write one JSON line for each snapshot path on stdin; `row` gives the line, or `None` for none.
+fn each_file(
+    minor: &str,
+    root: &str,
+    mut row: impl FnMut(Option<Vec<u8>>, &str, u32) -> Option<Value>,
+) -> Result<(), String> {
+    let minor: u32 = minor
+        .parse()
+        .map_err(|_| "the dump needs a minor version")?;
     let mut snapshot = Snapshot::new(root);
     let mut out = std::io::stdout().lock();
     for line in std::io::stdin().lock().lines() {
         let rel = line.map_err(|error| format!("cannot read stdin: {error}"))?;
-        let raw = snapshot.read(&rel);
+        if let Some(found) = row(snapshot.read(&rel), &rel, minor) {
+            writeln!(out, "{found}").map_err(|error| format!("cannot write: {error}"))?;
+        }
+    }
+    Ok(())
+}
+
+pub fn run(minor: &str, root: &str) -> Result<(), String> {
+    each_file(minor, root, |raw, rel, minor| {
         let text = raw.as_deref().and_then(decode);
         let stack = text.map(|text| scan(text, &Lines::new(text), minor).stack);
         let found = outcome(raw, minor);
-        let row = json!({"file": rel, "outcome": found, "stack": stack});
-        writeln!(out, "{row}").map_err(|error| format!("cannot write: {error}"))?;
+        Some(json!({"file": rel, "outcome": found, "stack": stack}))
+    })
+}
+
+/// `--dump-texts <minor> <root>`: for each file on stdin, the class names of `ast.walk` of each
+/// statement and `ast.unparse` of each expression in that order (AD-377). A failure is a marker.
+pub fn texts(minor: &str, root: &str) -> Result<(), String> {
+    each_file(minor, root, |raw, rel, minor| {
+        let raw = raw?;
+        let text = decode(&raw)?;
+        let module = parse(text, minor).ok()?;
+        let mut kinds = Vec::new();
+        let mut texts = Vec::new();
+        let nodes = module
+            .body
+            .iter()
+            .flat_map(|stmt| walk(Node::Stmt(stmt), minor));
+        for node in nodes {
+            kinds.push(node.kind());
+            if let Some(expr) = node.expr() {
+                texts.push(match crate::unparse::unparse(expr, minor, text) {
+                    Ok(found) => found,
+                    Err(failure) => format!("<{failure:?}>"),
+                });
+            }
+        }
+        Some(json!({"file": rel, "kinds": kinds, "texts": texts}))
+    })
+}
+
+/// `--dump-printable <minor>`: the ranges of the code points that `str.isprintable` refuses.
+pub fn printable(minor: &str) -> Result<(), String> {
+    let minor: u32 = minor
+        .parse()
+        .map_err(|_| "--dump-printable needs a minor version")?;
+    let mut ranges = Vec::new();
+    let mut start: Option<u32> = None;
+    for point in 0..=0x11_0000_u32 {
+        let hidden = point < 0x11_0000
+            && char::from_u32(point).is_none_or(|c| !crate::unparse::literal::printable(c, minor));
+        match (hidden, start) {
+            (true, None) => start = Some(point),
+            (false, Some(low)) => {
+                ranges.push(format!("{low:05X}-{:05X}", point - 1));
+                start = None;
+            }
+            _ => {}
+        }
     }
+    println!("{}", ranges.join(" "));
     Ok(())
 }
 
@@ -65,6 +128,39 @@ pub fn survey(request: &archkeel_facts::request::PythonRequest) -> Result<Value,
         "unknowns": serde_json::to_value(&found.unknowns).map_err(value)?,
         "coverage": serde_json::to_value(&found.coverage).map_err(value)?,
         "evidence": serde_json::to_value(&found.evidence).map_err(value)?,
+    }))
+}
+
+/// `--dump-symbols <witnesses>`: the definition table of each module and the evidence that it
+/// cites, or the gap of a module (AD-377). `witnesses` is `1` for the member write witnesses.
+pub fn symbols(
+    request: &archkeel_facts::request::PythonRequest,
+    witnesses: bool,
+) -> Result<Value, String> {
+    let (minor, modules, binders) = crate::survey::modules(request)?;
+    let mut evidence = crate::survey::module::EvidenceMap::new();
+    let mut records = Vec::new();
+    let mut gaps = Vec::new();
+    for (module, binders) in modules.iter().zip(&binders) {
+        match crate::symbols::table(
+            module,
+            &binders.all_exports,
+            minor,
+            witnesses,
+            &mut evidence,
+        ) {
+            crate::symbols::Table::Records(found) => records.extend(found),
+            crate::symbols::Table::Gap { file, reason } => {
+                gaps.push(json!({"file": file, "reason": reason}));
+            }
+        }
+    }
+    records.sort_by(|left, right| left["id"].as_str().cmp(&right["id"].as_str()));
+    let evidence: Vec<&archkeel_facts::envelope::Evidence> = evidence.values().collect();
+    Ok(json!({
+        "symbols": records,
+        "evidence": serde_json::to_value(evidence).map_err(|error| error.to_string())?,
+        "gaps": gaps,
     }))
 }
 

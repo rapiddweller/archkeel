@@ -18,11 +18,19 @@ mod inputs;
 mod limits;
 mod names;
 mod parse;
+// AD-377: the definition table and its bases have no caller in the reply yet; the test dump reads
+// them. The slice that writes the section `symbols` builds them into the release binary.
+#[cfg(any(test, feature = "dump"))]
+mod pyast;
 mod reply;
 mod requirement;
 mod source;
 mod stack;
 mod survey;
+#[cfg(any(test, feature = "dump"))]
+mod symbols;
+#[cfg(any(test, feature = "dump"))]
+mod unparse;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -43,10 +51,19 @@ fn run() -> Result<(), String> {
     #[cfg(feature = "dump")]
     {
         let arguments: Vec<String> = std::env::args().collect();
+        if let [_, flag, minor] = arguments.as_slice() {
+            if flag == "--dump-printable" {
+                return dump::printable(minor);
+            }
+        }
         if let [_, flag, minor, root] = arguments.as_slice() {
             if flag == "--dump" {
                 let (minor, root) = (minor.clone(), root.clone());
                 return on_big_stack(move || dump::run(&minor, &root));
+            }
+            if flag == "--dump-texts" {
+                let (minor, root) = (minor.clone(), root.clone());
+                return on_big_stack(move || dump::texts(&minor, &root));
             }
         }
     }
@@ -58,6 +75,13 @@ fn run() -> Result<(), String> {
     #[cfg(feature = "dump")]
     if std::env::args().nth(1).as_deref() == Some("--dump-scope") {
         println!("{}", dump::scope(&request)?);
+        return Ok(());
+    }
+    #[cfg(feature = "dump")]
+    if std::env::args().nth(1).as_deref() == Some("--dump-symbols") {
+        let witnesses = std::env::args().nth(2).as_deref() == Some("1");
+        let found = on_big_stack(move || dump::symbols(&request, witnesses))?;
+        println!("{found}");
         return Ok(());
     }
     #[cfg(feature = "dump")]

@@ -1705,6 +1705,88 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-PY-TREE",
+      "label": "py-tree",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.pyast"
+      ],
+      "responsibilities": [
+        "The CPython shape of the ruff tree: the class name of each node, ast.iter_child_nodes in the order of _fields of each Python version, ast.walk and the values of an f-string (AD-377)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, writing the text of an expression and building records."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-UNPARSE",
+      "label": "py-unparse",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.unparse"
+      ],
+      "responsibilities": [
+        "The text of one expression as ast.unparse of each Python version writes it, with a depth bound below the recursion limit of CPython (AD-377)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot and building records."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Read the characters that repr escapes in Unicode 14 (pyrepr)."
+        },
+        {
+          "component": "py-tree",
+          "rationale": "Read the values of an f-string as CPython joins them."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-SYMBOLS",
+      "label": "py-symbols",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.symbols"
+      ],
+      "responsibilities": [
+        "The definition table of one Python module: a record for each class, function and method with the fields that the module itself decides, or a named gap (AD-377)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, resolving another module and writing the reply."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write and read the typed facts that the reply holds (AD-345)."
+        },
+        {
+          "component": "py-tree",
+          "rationale": "Walk the tree in the order of ast.walk."
+        },
+        {
+          "component": "py-unparse",
+          "rationale": "Write the text of an annotation, a default, a base and a decorator."
+        },
+        {
+          "component": "py-survey",
+          "rationale": "Read the parsed module and file its evidence."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-PY-DUMP",
       "label": "py-dump",
       "role": "component",
@@ -1712,7 +1794,7 @@
         "native.archkeel_python_collector.dump"
       ],
       "responsibilities": [
-        "The development dump of the parse outcome of each file, of the scope and of the survey of a request (feature dump)."
+        "The development dump of the parse outcome of each file, of the scope, of the survey, of the walk and the expression texts and of the definition table of a request (feature dump)."
       ],
       "forbidden_responsibilities": [
         "Production collection."
@@ -1748,6 +1830,18 @@
         {
           "component": "py-survey",
           "rationale": "Print the survey of a request."
+        },
+        {
+          "component": "py-tree",
+          "rationale": "Print the walk of each file."
+        },
+        {
+          "component": "py-unparse",
+          "rationale": "Print the text of each expression."
+        },
+        {
+          "component": "py-symbols",
+          "rationale": "Print the definition table of each module."
         }
       ],
       "decided_by": "architect"
@@ -2042,11 +2136,24 @@
         "native.archkeel_python_collector.survey.namespace",
         "native.archkeel_python_collector.survey.stable",
         "native.archkeel_python_collector.survey.walks",
+        "native.archkeel_python_collector.pyast",
+        "native.archkeel_python_collector.pyast.children",
+        "native.archkeel_python_collector.pyast.fstring",
+        "native.archkeel_python_collector.unparse",
+        "native.archkeel_python_collector.unparse.operators",
+        "native.archkeel_python_collector.symbols",
+        "native.archkeel_python_collector.symbols.sites",
+        "native.archkeel_python_collector.symbols.callable",
+        "native.archkeel_python_collector.symbols.class",
+        "native.archkeel_python_collector.symbols.writes",
+        "native.archkeel_python_collector.pyast.node",
+        "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.cargo_toml"
       ],
-      "rationale": "Only the parse modules and the tree readers of the survey of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
+      "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
-        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md",
+        "docs/architecture/decisions/ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md"
       ],
       "decided_by": "architect"
     },

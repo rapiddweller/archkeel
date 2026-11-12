@@ -44,6 +44,24 @@ impl Module {
         }
     }
 
+    /// The source text of the module.
+    #[cfg(any(test, feature = "dump"))]
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// `"\n".join(module.lines[line - 1 : end_line])`, or `None` outside the file.
+    #[cfg(any(test, feature = "dump"))]
+    pub fn excerpt(&self, line: i64, end_line: i64) -> Option<String> {
+        let first = usize::try_from(line).ok().filter(|line| *line >= 1)?;
+        let last = usize::try_from(end_line).ok()?;
+        let mut parts = Vec::new();
+        for number in first..=last {
+            parts.push(self.lines.text(&self.text, number)?);
+        }
+        Some(parts.join("\n"))
+    }
+
     /// `module.path.name == "__init__.py"`.
     pub fn is_init(&self) -> bool {
         self.rel.rsplit('/').next() == Some("__init__.py")

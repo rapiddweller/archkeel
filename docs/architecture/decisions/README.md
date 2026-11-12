@@ -373,6 +373,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-374 | [The core ranks the edges and derives the modules, packages and cycles](ad-374-the-core-ranks-the-edges-and-derives-the-modules-packages-and-cycles.md) |
 | AD-375 | [The contract crate reads amendments and binds them to a comparison](ad-375-the-contract-crate-reads-amendments-and-binds-them-to-a-comparison.md) |
 | AD-376 | [The native Dart sites equal the Python sites within a work limit](ad-376-the-native-dart-sites-equal-the-python-sites-within-a-work-limit.md) |
+| AD-377 | [The native Python collector reads the CPython tree and writes the definition table](ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md) |
 | AD-378 | [A rule passes only with the scope proof of its own model](ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md) |
 | AD-379 | [The core asks the shell for the inside contracts and decides the root rules of a tree](ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md) |
 | AD-380 | [The core decides the direction rule kinds](ad-380-the-core-decides-the-direction-rule-kinds.md) |
