@@ -1,8 +1,8 @@
 {
-  "after_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "after_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "before_baseline_digest": "0000000000000000000000000000000000000000000000000000000000000000",
-  "before_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "after_baseline_digest": "2acf04d573d22c81c962def89f3c07576b22d58efc6c7b6b5a2d7b4b48ff00ae",
+  "after_digest": "864bb57d2f6109be682aeb7239a03c8bbae7c65560bc380d0c2e4b13103d3a56",
+  "before_baseline_digest": "45870354f6b34255b5deebc4d17a671bfeb86dd7b6b7f6a38d0269453c561749",
+  "before_digest": "7d87e2a8c5d73df2ca8bf1122dd0c76749867b633fc2c8289e0a081141ba6676",
   "decided_by": "architect",
   "rationale": "AD-394 and the lead's L-75 decisions remove the Python TypeScript implementation and its exclusive nested owners, entry guard, enum placements and grammar rule. D1 adds only the exact SourceFacts and VerifiedBinary shell ports, the shared dependency runtime identity function, and the existing WideningFinding type at its amendment owner. The SourceFacts Target includes the host-only verification field, not a new wire field. After the conflict-required rebase onto 4da1bcfc9, the measured Python self-scan has zero violations and 1048 unresolved calls after deletion, versus that base's pinned 1025: the removed implementation and the verified-runtime composition change the static call inventory. Pin that measured count; keep every other budget, Any restriction, receipt check and rule unchanged.",
   "schema_version": "2.0.0"
