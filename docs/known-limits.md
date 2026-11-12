@@ -349,7 +349,7 @@ The Rust contract parser (`native/contract`, [AD-359](architecture/decisions/ad-
 - An integer above 2^64 is read as a float, so a field that needs an integer refuses it. Python accepts it.
 - The XID tables of `unicode-ident` and of the Python release can differ for a new Unicode character.
 
-A contract that mounts inside contracts parses as `NeedsTree`, not as a complete contract. Only the tree assembly (`policy::assemble_tree`, [AD-366](architecture/decisions/ad-366-the-inside-contract-tree-is-assembled-and-checked-in-the-contract-crate.md)) makes it complete. No command calls it yet; the Python shell still assembles the tree. The tree is stricter than Python in these cases:
+A contract that mounts inside contracts parses as `NeedsTree`, not as a complete contract. Only the tree assembly (`policy::assemble_tree`, [AD-366](architecture/decisions/ad-366-the-inside-contract-tree-is-assembled-and-checked-in-the-contract-crate.md)) makes it complete. The dual-run core calls it with the files that the harness reads ([AD-379](architecture/decisions/ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md)); the Python host still assembles the tree. The tree is stricter than Python in these cases:
 
 - Bytes that no mount reads are an error (`Unmounted`). Python reads only what a mount names.
 - Two inputs with one repository path are an error (`Duplicate`).
@@ -357,6 +357,9 @@ A contract that mounts inside contracts parses as `NeedsTree`, not as a complete
 - A JSON object with one key two times is an error (AD-364).
 - A mount deeper than 900 levels is an issue (`TooDeep`). Python stops near depth 984 with a `RecursionError` and gives no verdict.
 - An inside whose resolved path (the identity that the shell sends) differs from its reference is an issue (`Linked`). Python refuses a link to a mounted file as a duplicate mount and accepts a link to an unmounted file inside the repository.
+- The core uses no tree with an issue: it names the refusal. Python evaluates the root and the valid mounts.
+- The core reads at most 1 024 inside contracts and 64 MiB of inside bytes in one request.
+- The core decides only the root rules of a tree. Each rule of a mount, and each PASS of a root rule of a tree, is a named gap.
 
 The crate also compares two trees as `validate --against` does (`policy::compare_trees`, [AD-373](architecture/decisions/ad-373-the-contract-crate-compares-two-contract-trees-for-against.md)). No command calls it yet. It does not recognise a rename (AD-105), so a moved package shows as widenings. Its messages equal those of Python 3.11; on Python 3.12 or later a code point assigned after Unicode 14 gives other message bytes in the Python engine (L-28). No decision depends on a message.
 

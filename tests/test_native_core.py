@@ -153,35 +153,57 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         line.endswith(": -: missing input: no valid collector reply") for line in differences
     )
     refused = {line.split(": ")[0] for line in differences}
-    assert not [case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/"))]
+    assert not [
+        case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
+    ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 594 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 606 projects; 0 rules;")
 
 
 def test_a_part_without_its_input_names_the_missing_input(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The contract of J-compass mounts inside contracts: the core does not assemble the tree, so
-    the rules name it, and each section names the missing contract, not a slice. A section of
-    slice S3 needs no contract, so it names the reply that the store refuses."""
+    """AD-379: the contract of J-compass mounts inside contracts. The harness sends them, so the
+    core assembles the tree and names each inside rule; each section names the reply that the
+    store refuses, not the contract."""
     code, lines = _run(["compare", "--case", "fixture/J-compass", "--engine-command", core], capsys)
     assert code == 1
     differences = [line for line in lines if line.startswith("fixture/J-compass: ")]
-    assert (
-        "the contract mounts inside contracts; the tree assembly is not in the core yet"
-        in (differences[0])
-    )
-    s3 = {"dependency_edges", "modules", "packages", "cycles"}
-    by_section = {line.split(": ")[1]: line for line in differences[1:]}
+    assert "unsupported: a rule of an inside contract" in differences[0]
     assert all(
-        line.endswith(": -: missing input: no valid contract")
-        for section, line in by_section.items()
-        if section not in s3
+        line.endswith(": -: missing input: no valid collector reply") for line in differences[1:]
     )
-    assert all(
-        by_section[section].endswith(": -: missing input: no valid collector reply")
-        for section in s3
-    )
+    assert len(differences) == 1 + 20
+
+
+# The reasons that a tree case may name: each is a named gap, never an equal verdict (AD-379).
+TREE_REASONS = (
+    "unsupported: the scope proof: slice S4 ports it",
+    "unsupported: a rule of an inside contract: the core does not clip a mount scope yet",
+    "unsupported: the contract mounts inside contracts that the shell has not sent: ",
+    "refused: inside-contract tree: ",
+    "missing input: no valid contract",
+)
+
+
+def test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap(
+    core: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-379: on the `tree/*` cases each root rule of a decided kind, each violation row and the
+    S3 rows equal the Python engine. A rule of an inside contract, a PASS and a refused tree are
+    named; no difference is unnamed."""
+    families = "complete_assignment,root_layout,external_dependency_scope,complete_external_scope"
+    sections = "violations,dependency_edges,modules,packages,cycles"
+    arguments = ["compare", "--case", "tree/*", "--sections", sections, "--families", families]
+    code, lines = _run([*arguments, "--engine-command", core], capsys)
+    differences = [line for line in lines if line.startswith("tree/")]
+    assert code == 1
+    assert all(any(reason in line for reason in TREE_REASONS) for line in differences), differences
+    assert not [line for line in differences if ": expected " in line or "drops this row" in line]
+    named = {line.split(": ")[0] for line in differences if "a rule of an inside contract" in line}
+    assert "tree/an-unresolved-import-is-unknown-beside-an-inside-contract" in named
+    assert lines[-1].startswith("dual run: family complete_assignment,complete_external_scope,")
+    assert "; 12 projects; 79 rules;" in lines[-1]
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(
@@ -215,7 +237,7 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -
     once for each name (9.56 GB for 200 names of `dependency_edges`). The binary refuses it."""
     binary = core.split(" ")[0]
     request = {
-        "protocol": "archkeel-dual-run-2",
+        "protocol": "archkeel-dual-run-3",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
@@ -228,6 +250,7 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(core: str) -
         "namespace": "shop",
         "profile": "",
         "standard_library": [],
+        "insides": [],
     }
     done = subprocess.run(
         [binary, "dual-run"], input=json.dumps(request), capture_output=True, text=True, check=False
