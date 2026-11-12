@@ -101,13 +101,13 @@ impl Assembly {
             class_kind,
             enum_members: definition.enum_members.clone(),
             attribute_declarations: attributes,
-            member_inventories: vec![
+            member_inventories: Some(vec![
                 Inventory::new(InventoryKind::Attribute, fields),
                 Inventory::new(
                     InventoryKind::Method,
                     methods.into_iter().map(FactId::new).collect(),
                 ),
-            ],
+            ]),
             mixin_capable: match definition.kind {
                 D::Class | D::Mixin => Some(
                     definition.kind == D::Mixin || definition.modifiers.contains(&Modifier::Mixin),

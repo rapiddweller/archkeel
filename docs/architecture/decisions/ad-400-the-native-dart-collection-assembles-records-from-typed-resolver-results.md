@@ -1,7 +1,7 @@
-# AD-398 The native Dart collection assembles records from typed resolver results
+# AD-400 The native Dart collection assembles records from typed resolver results
 
 **Status.** Accepted. Epic #880, Dart slice 4c. Stacked on #1093 and AD-392.
-Number 396 is the highest on Main and open PRs at the start. Reserve highest plus two.
+PR #1102 owns number 398. Reserve number 400 as the lead requests.
 
 **Decision.** Port all remaining functions of `analyzer/dart/collect.py` as one assembly layer.
 The Python file has 1 538 lines. Slices 4a and 4b port 116 and 529 function lines.

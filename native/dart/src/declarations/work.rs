@@ -10,7 +10,7 @@ use std::io::{self, Write};
 
 const LIMIT: usize = 1 << 34;
 
-pub(super) enum Stop {
+pub(crate) enum Stop {
     Work,
     Input,
 }
@@ -26,7 +26,7 @@ impl Stop {
     }
 }
 
-pub(super) type Work = WorkCounter<LIMIT>;
+pub(crate) type Work = WorkCounter<LIMIT>;
 
 impl From<crate::work::WorkLimit> for Stop {
     fn from(_: crate::work::WorkLimit) -> Self {
@@ -37,19 +37,19 @@ impl From<crate::work::WorkLimit> for Stop {
 impl WorkCounter<LIMIT> {
     /// Reserve 64 scans for all copies and ordered-index comparisons of this text.
     /// The fixed ceiling bounds the number of ordered-index comparisons.
-    pub(super) fn text(&self, text: &str) -> Result<(), Stop> {
+    pub(crate) fn text(&self, text: &str) -> Result<(), Stop> {
         self.charge(text.len().saturating_mul(64))
             .map_err(Stop::from)
     }
 
     /// Charge each serialized byte before the writer consumes it; never allocate a copy.
-    pub(super) fn input(&self, value: &impl Serialize) -> Result<(), Stop> {
+    pub(crate) fn input(&self, value: &impl Serialize) -> Result<(), Stop> {
         self.copies(value)?;
         self.limit_to((1usize << 20).saturating_add(self.spent().saturating_mul(128)))?;
         Ok(())
     }
 
-    pub(super) fn copies(&self, value: &impl Serialize) -> Result<(), Stop> {
+    pub(crate) fn copies(&self, value: &impl Serialize) -> Result<(), Stop> {
         serde_json::to_writer(Counter(self), value).map_err(|_| Stop::Work)
     }
 }

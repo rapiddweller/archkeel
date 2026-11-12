@@ -6,7 +6,7 @@
 
 mod members;
 pub(crate) mod types;
-mod work;
+pub(crate) mod work;
 
 use crate::syntax::DefinitionKind as D;
 use crate::syntax::{Definition, DefinitionKind, ParameterKind as SyntaxParameterKind, Span};
@@ -22,26 +22,26 @@ use work::{Stop, Work};
 
 #[derive(Default, Serialize)]
 pub(crate) struct Output {
-    symbols: Vec<Symbol>,
+    pub(crate) symbols: Vec<Symbol>,
     evidence: Vec<Evidence>,
     gaps: Vec<Record<GapFact>>,
     definition_ids: Vec<((String, usize, usize), String)>,
     definition_names: Vec<((String, usize), String)>,
-    scope_candidates: Vec<Scope>,
+    pub(crate) scope_candidates: Vec<Scope>,
     symbol_by_name: Vec<(String, String)>,
     incomplete_inventory_ids: Vec<String>,
     work: usize,
 }
 
 #[derive(Default)]
-struct Assembly {
-    output: Output,
-    evidence: BTreeMap<String, Evidence>,
-    gaps: BTreeMap<String, Record<GapFact>>,
-    ids: BTreeMap<(String, usize, usize), String>,
-    names: BTreeMap<(String, usize), String>,
-    symbols: BTreeMap<String, String>,
-    work: Work,
+pub(crate) struct Assembly {
+    pub(crate) output: Output,
+    pub(crate) evidence: BTreeMap<String, Evidence>,
+    pub(crate) gaps: BTreeMap<String, Record<GapFact>>,
+    pub(crate) ids: BTreeMap<(String, usize, usize), String>,
+    pub(crate) names: BTreeMap<(String, usize), String>,
+    pub(crate) symbols: BTreeMap<String, String>,
+    pub(crate) work: Work,
 }
 
 /// A failure discards all partial records and indices. A caller cannot mistake a prefix for facts.
@@ -80,7 +80,7 @@ pub(crate) fn build(input: &Input) -> Output {
 }
 
 impl Assembly {
-    fn run(&mut self, input: &Input) -> Result<(), Stop> {
+    pub(crate) fn run(&mut self, input: &Input) -> Result<(), Stop> {
         self.work.input(input)?;
         let mut files: Vec<_> = input.files.iter().collect();
         for file in &files {
@@ -194,6 +194,7 @@ impl Assembly {
             Kind::Attribute => Category::Attribute,
             Kind::Method => Category::Method,
             Kind::Constant => Category::Constant,
+            Kind::Binding => Category::DynamicBinding,
         };
         let mut data = self.meta(
             file,
@@ -338,7 +339,7 @@ impl Assembly {
         Ok(data.qualified_name.clone())
     }
 
-    fn meta(
+    pub(crate) fn meta(
         &mut self,
         file: &File,
         name: &str,
@@ -381,6 +382,7 @@ impl Assembly {
             decorators: Vec::new(),
             signature_complete: true,
             overload_signature: false,
+            base_declarations: None,
             modifiers: None,
             detail: Detail::Value {
                 annotation: None,
@@ -412,7 +414,7 @@ impl Assembly {
         Ok(result)
     }
 
-    fn index(&mut self, file: &File, span: &Span, id: &str, qualified: Option<&str>) {
+    pub(crate) fn index(&mut self, file: &File, span: &Span, id: &str, qualified: Option<&str>) {
         self.ids
             .insert((file.rel.clone(), span.line, span.column), id.to_owned());
         if let Some(qualified) = qualified {
@@ -421,7 +423,7 @@ impl Assembly {
         }
     }
 
-    fn cite(&mut self, file: &File, span: &Span) -> String {
+    pub(crate) fn cite(&mut self, file: &File, span: &Span) -> String {
         let evidence = Evidence::at(
             &file.rel,
             number(span.line),
@@ -444,7 +446,7 @@ impl Assembly {
         self.gaps.entry(id).or_insert(gap);
     }
 
-    fn gap_cite(&mut self, file: &File, span: &Span) -> String {
+    pub(crate) fn gap_cite(&mut self, file: &File, span: &Span) -> String {
         if !span.excerpt.is_empty() {
             return self.cite(file, span);
         }
@@ -456,23 +458,19 @@ impl Assembly {
         id
     }
 
-    fn publish(&mut self, file: &File, span: &Span, id: String, kind: Kind, data: Data) {
+    pub(crate) fn publish(&mut self, file: &File, span: &Span, id: String, kind: Kind, data: Data) {
         let qualified = data.qualified_name.clone();
         let cited = self.cite(file, span);
         self.symbols.insert(qualified.clone(), id.clone());
-        self.output.symbols.push(Symbol {
-            id: archkeel_facts::ids::FactId::new(id),
-            evidence_class: archkeel_facts::vocab::EvidenceClass::Fact,
-            area: archkeel_facts::vocab::Area::Source,
+        self.output.symbols.push(Symbol::new(
+            id,
             kind,
-            title: format!("{qualified} declaration"),
-            subjects: vec![qualified],
-            evidence_ids: vec![archkeel_facts::ids::EvidenceId::new(cited)],
-            fact_ids: [],
-            rule_ids: [],
-            provenance: [],
+            format!("{qualified} declaration"),
+            vec![qualified],
+            vec![archkeel_facts::ids::EvidenceId::new(cited)],
             data,
-        });
+            archkeel_facts::vocab::Area::Source,
+        ));
     }
 }
 
