@@ -123,6 +123,7 @@ impl<'ast> Visit<'ast> for Nodes {
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
         self.found += usize::from(node.qself.is_some() && !node.path.segments.is_empty());
+        self.found += usize::from(super::receivers::self_member(node).is_some());
         visit::visit_expr_path(self, node);
     }
 

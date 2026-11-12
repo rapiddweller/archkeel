@@ -10,11 +10,58 @@ use std::collections::BTreeSet;
 use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
-use super::{Local, MacroCall, MacroDef, Walker};
+use super::Walker;
 use crate::definitions::MethodCall;
 use crate::net;
 use crate::plant;
-use crate::tokens::{chains, macro_names, method_names, names_relative, plain, string_paths};
+use crate::site::Site;
+use crate::tokens::{
+    chains, fn_names, macro_names, method_names, names_relative, plain, string_paths,
+};
+
+/// A `macro_rules!` definition: the macros that its body calls, and the reasons why the scan
+/// cannot read all of its body. Each call of the macro takes these reasons as UNKNOWN.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MacroDef {
+    pub name: String,
+    /// The place of the definition in the macro list of its file.
+    pub id: usize,
+    pub calls: BTreeSet<String>,
+    /// The methods that the body calls: each call of the macro calls them too (#953).
+    pub methods: BTreeSet<String>,
+    /// The functions that the body defines: a call of the macro may add them as members of an
+    /// `impl` block that the scan does not see (AD-383).
+    pub members: BTreeSet<String>,
+    pub unknowns: Vec<String>,
+    /// A definition in a function body is visible only in the rest of that body.
+    pub local: Option<Local>,
+}
+
+/// The text where a `macro_rules!` of a block is visible: from its definition to the end of the
+/// block. A position is a line and a column.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Local {
+    pub from: (i64, i64),
+    pub until: (i64, i64),
+}
+
+impl Local {
+    /// Whether the call at `site` is in the text of the block after the definition.
+    pub fn sees(&self, site: &Site) -> bool {
+        let at = (site.line, site.column);
+        self.from < at && at <= self.until
+    }
+}
+
+/// A call of a macro. A call is placed when the scan reads it in code, and the macro is named by
+/// a plain or a `crate::`, `self::` or `super::` path. A call in the tokens of another macro, or
+/// by the path of a module, is not placed: the scan does not know which macro it names.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MacroCall {
+    pub name: String,
+    pub site: Site,
+    pub placed: bool,
+}
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
@@ -89,6 +136,8 @@ impl Walker<'_> {
         let (mut calls, mut methods) = (BTreeSet::new(), BTreeSet::new());
         macro_names(node.mac.tokens.clone(), 0, &mut calls);
         method_names(node.mac.tokens.clone(), 0, &mut methods);
+        let mut members = BTreeSet::new();
+        fn_names(node.mac.tokens.clone(), 0, &mut members);
         let mut found = Vec::new();
         let strings = string_paths(node.mac.tokens.clone(), 0, &mut found);
         match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
@@ -121,6 +170,7 @@ impl Walker<'_> {
             id: self.out.macro_defs.len(),
             calls,
             methods,
+            members,
             unknowns,
             local,
         });
@@ -170,6 +220,7 @@ impl Walker<'_> {
                 scope: scope.clone(),
                 path: false,
                 arity: None,
+                on_self: None,
             }));
         self.out.tally.hidden += self.out.macro_calls.len() - before;
         if !plant::lose("call") {

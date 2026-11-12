@@ -24,6 +24,7 @@ use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
+use receivers::Typed;
 
 /// A member of an inherent `impl` block that is not in the file of its type.
 struct Foreign<'a> {
@@ -40,6 +41,8 @@ struct Members<'a> {
     foreign: BTreeMap<&'a str, Vec<Foreign<'a>>>,
     /// The members of the blocks in the file of their type: its lexical module, its name, the member.
     own: BTreeSet<(String, String, &'a str)>,
+    /// The members of every block by placed type, for the calls on `self` (AD-383).
+    typed: Typed<'a>,
 }
 
 fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
@@ -74,6 +77,8 @@ impl<'a> Members<'a> {
             TypeOf::Other => return,
             _ => None,
         };
+        self.typed
+            .place(frame.lexical_at(&block.scope), module, block, &ty);
         for member in &block.members {
             let name = member.name.as_str();
             if let Some((lexical, ty)) = own {
@@ -98,6 +103,7 @@ fn path_call(reference: &crate::scan::Reference) -> MethodCall {
         scope: reference.scope.clone(),
         path: true,
         arity: None,
+        on_self: None,
     }
 }
 
@@ -264,6 +270,7 @@ impl Builder {
                     scope: reference.scope.clone(),
                     path: true,
                     arity: None,
+                    on_self: None,
                 });
             }
         }
@@ -286,6 +293,11 @@ impl Builder {
             if at_index < own && plant::method(&module.rel, at_index) {
                 continue;
             }
+            if at_index < own && self.self_call((reached.index, frame), module, call, &found.typed)
+            {
+                *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
+                continue;
+            }
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
             for block in blocks.filter(|block| visible(workspace, (module, &at), call, block)) {
@@ -302,6 +314,10 @@ impl Builder {
         }
     }
 }
+
+/// The resolution of a call on a plain `self` (AD-383).
+#[path = "impl_receivers.rs"]
+mod receivers;
 
 #[cfg(test)]
 #[path = "impl_edges_tests.rs"]

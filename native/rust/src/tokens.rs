@@ -97,6 +97,19 @@ fn each_name(
     }
 }
 
+/// The names that the stream defines as functions: `fn` and an identifier (AD-383).
+pub fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+    each_name(stream, depth, fn_name, found);
+}
+
+fn fn_name(token: &TokenTree, rest: &Rest) -> Option<String> {
+    let keyword = matches!(token, TokenTree::Ident(word) if word == "fn");
+    match rest.clone().next() {
+        Some(TokenTree::Ident(name)) if keyword => Some(plain(&name)),
+        _ => None,
+    }
+}
+
 /// The names that the stream calls as macros: an identifier, `!`, and a group.
 pub fn macro_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
     each_name(stream, depth, macro_name, found);

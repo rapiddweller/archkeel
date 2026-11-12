@@ -28,6 +28,9 @@ pub struct Module {
     pub first_line: String,
     pub blank: bool,
     pub scan: Scan,
+    /// A `cfg` or another attribute on the `mod` declaration of the file, of an enclosing inline
+    /// module, of an ancestor file or inside the file may remove the module (AD-383).
+    pub gated: bool,
 }
 
 pub struct Walked {
@@ -60,6 +63,8 @@ struct Pending {
     depth: usize,
     /// The file is test scope and the request excludes tests.
     test: bool,
+    /// The module may be removed in some configuration (AD-383).
+    gated: bool,
 }
 
 /// The deepest module that the walk reads. A name holds the whole path, so the reply grows with
@@ -108,6 +113,7 @@ impl Walked {
             owner: dirname(&root.rel).to_owned(),
             depth: 0,
             test: self.exclude_tests && (root.test || in_test_directory(&root.rel)),
+            gated: false,
         };
         self.crate_tree(source, index, krate, first);
     }
@@ -139,11 +145,12 @@ impl Walked {
 
     fn crate_tree(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, first: Pending) {
         let mut queue = VecDeque::from([first]);
-        while let Some(file) = queue.pop_front() {
+        while let Some(mut file) = queue.pop_front() {
             let Some(text) = self.read(source, &file) else {
                 continue;
             };
             let scanned = self.scanned(&file, &text, krate);
+            file.gated = file.gated || scanned.gated_file;
             for child in &scanned.children {
                 self.child(source, krate, &file, child, &mut queue);
             }
@@ -159,6 +166,7 @@ impl Walked {
                 first_line: first.trim_end().to_owned(),
                 blank: text.trim().is_empty(),
                 scan: scanned,
+                gated: file.gated,
             });
         }
     }
@@ -288,6 +296,7 @@ impl Walked {
             owner,
             depth,
             test,
+            gated: parent.gated || child.gated,
         });
     }
 }

@@ -18,11 +18,13 @@ use crate::attrs::{
     hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
     statement_attributes, trait_item_attributes,
 };
-use crate::definitions::{Definition, Holder, ImplBlock, MethodCall};
+use crate::definitions::{Definition, Holder, ImplBlock, MethodCall, OnSelf};
 use crate::net;
 use crate::plant;
 pub use crate::site::Site;
 use crate::tokens::{plain, Chain};
+use define::{foreign_name, item_name};
+use receivers::Selves;
 
 /// A qualified path, or a `use` leaf: its first segment and the path as written.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -41,47 +43,6 @@ pub struct Reference {
     pub in_macro: Option<String>,
     /// The `MacroDef::id` of that definition, in the file of the path.
     pub macro_id: usize,
-}
-
-/// A `macro_rules!` definition: the macros that its body calls, and the reasons why the scan
-/// cannot read all of its body. Each call of the macro takes these reasons as UNKNOWN.
-#[derive(Clone, Debug, PartialEq)]
-pub struct MacroDef {
-    pub name: String,
-    /// The place of the definition in the macro list of its file.
-    pub id: usize,
-    pub calls: BTreeSet<String>,
-    /// The methods that the body calls: each call of the macro calls them too (#953).
-    pub methods: BTreeSet<String>,
-    pub unknowns: Vec<String>,
-    /// A definition in a function body is visible only in the rest of that body.
-    pub local: Option<Local>,
-}
-
-/// The text where a `macro_rules!` of a block is visible: from its definition to the end of the
-/// block. A position is a line and a column.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Local {
-    pub from: (i64, i64),
-    pub until: (i64, i64),
-}
-
-impl Local {
-    /// Whether the call at `site` is in the text of the block after the definition.
-    pub fn sees(&self, site: &Site) -> bool {
-        let at = (site.line, site.column);
-        self.from < at && at <= self.until
-    }
-}
-
-/// A call of a macro. A call is placed when the scan reads it in code, and the macro is named by
-/// a plain or a `crate::`, `self::` or `super::` path. A call in the tokens of another macro, or
-/// by the path of a module, is not placed: the scan does not know which macro it names.
-#[derive(Clone, Debug, PartialEq)]
-pub struct MacroCall {
-    pub name: String,
-    pub site: Site,
-    pub placed: bool,
 }
 
 /// How a reference comes into the file.
@@ -116,6 +77,8 @@ pub struct Child {
     pub inline: Vec<String>,
     /// A `cfg(test)` on the declaration, or on an item that holds it, marks a test module.
     pub test: bool,
+    /// The declaration, or an inline module that holds it, may be removed by a `cfg` (AD-383).
+    pub gated: bool,
     pub site: Site,
 }
 
@@ -147,6 +110,10 @@ pub struct Scan {
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
     pub impls: Vec<ImplBlock>,
     pub method_calls: Vec<MethodCall>,
+    /// The structs and enums at module level that are in every configuration (AD-383).
+    pub exact_types: BTreeSet<String>,
+    /// An inner attribute of the file may remove the module in some configuration.
+    pub gated_file: bool,
     /// The second count of the tree, for the invariant of the extraction.
     pub tally: Tally,
 }
@@ -172,11 +139,13 @@ pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Res
         block_ends: Vec::new(),
         via: Via::Path,
         holder: Holder::default(),
+        selves: Selves::default(),
         out: Scan {
             tally: Tally::of(&file, exclude_tests),
             ..Scan::default()
         },
     };
+    walker.out.gated_file = !receivers::module_inert(&file.attrs);
     walker.visit_file(&file);
     Ok(walker.out)
 }
@@ -200,6 +169,8 @@ struct Walker<'a> {
     via: Via,
     /// What the walk is inside: it decides which members are definitions.
     holder: Holder,
+    /// What a plain `self` is at the walk (AD-383).
+    selves: Selves,
     out: Scan,
 }
 
@@ -223,6 +194,16 @@ impl Walker<'_> {
 
     /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
     fn method_call(&mut self, name: String, span: Span, (path, arity): (bool, Option<usize>)) {
+        self.method_call_on(name, span, (path, arity), None);
+    }
+
+    fn method_call_on(
+        &mut self,
+        name: String,
+        span: Span,
+        (path, arity): (bool, Option<usize>),
+        on_self: Option<OnSelf>,
+    ) {
         let (site, scope) = (self.site(span), self.inline.clone());
         if plant::lose("method") {
             return;
@@ -233,6 +214,7 @@ impl Walker<'_> {
             scope,
             path,
             arity,
+            on_self,
         });
     }
 
@@ -279,37 +261,6 @@ fn to_i64(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-/// The name that an item declares. Every kind counts, whatever its namespace.
-fn item_name(item: &Item) -> Option<String> {
-    let ident = match item {
-        Item::Fn(item) => &item.sig.ident,
-        Item::Struct(item) => &item.ident,
-        Item::Enum(item) => &item.ident,
-        Item::Union(item) => &item.ident,
-        Item::Trait(item) => &item.ident,
-        Item::TraitAlias(item) => &item.ident,
-        Item::Type(item) => &item.ident,
-        Item::Const(item) => &item.ident,
-        Item::Static(item) => &item.ident,
-        Item::Mod(item) => &item.ident,
-        Item::Macro(item) => item.ident.as_ref()?,
-        Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
-        _ => return None,
-    };
-    Some(plain(ident))
-}
-
-/// The name of an item of an `extern` block.
-fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
-    let ident = match item {
-        syn::ForeignItem::Fn(item) => &item.sig.ident,
-        syn::ForeignItem::Static(item) => &item.ident,
-        syn::ForeignItem::Type(item) => &item.ident,
-        _ => return None,
-    };
-    Some(plain(ident))
-}
-
 impl<'ast> Visit<'ast> for Walker<'_> {
     fn visit_item(&mut self, item: &'ast Item) {
         if self.exclude_tests && is_test_attributes(item_attributes(item)) {
@@ -330,7 +281,11 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         self.define(item);
         if let Item::Impl(found) = item {
             self.impl_block(found);
+            self.selves.enter_impl(found, &self.inline, self.blocks);
+        } else if let Item::Fn(_) = item {
+            self.selves.enter_opaque();
         }
+        self.exact_type(item);
         let outer = match item {
             Item::Impl(item) if self.blocks == 0 => Some(self.enter_impl(item)),
             Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
@@ -340,19 +295,30 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         if let Some(holder) = outer {
             self.holder = holder;
         }
+        if matches!(item, Item::Impl(_) | Item::Fn(_)) {
+            self.selves.leave();
+        }
     }
 
     fn visit_impl_item(&mut self, item: &'ast syn::ImplItem) {
         if !(self.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
             self.define_impl_item(item);
+            if let syn::ImplItem::Fn(method) = item {
+                self.selves.enter_method(&method.sig, &method.attrs);
+            }
             visit::visit_impl_item(self, item);
+            if let syn::ImplItem::Fn(_) = item {
+                self.selves.leave();
+            }
         }
     }
 
     fn visit_trait_item(&mut self, item: &'ast syn::TraitItem) {
         if !(self.exclude_tests && is_test_attributes(trait_item_attributes(item))) {
             self.define_trait_item(item);
+            self.selves.enter_opaque();
             visit::visit_trait_item(self, item);
+            self.selves.leave();
         }
     }
 
@@ -384,8 +350,9 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        let arity = Some(node.args.len());
-        self.method_call(plain(&node.method), node.method.span(), (false, arity));
+        let (arity, on_self) = (Some(node.args.len()), self.selves.of(&node.receiver));
+        let name = plain(&node.method);
+        self.method_call_on(name, node.method.span(), (false, arity), on_self);
         visit::visit_expr_method_call(self, node);
     }
 
@@ -393,6 +360,11 @@ impl<'ast> Visit<'ast> for Walker<'_> {
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
         if let (Some(_), Some(last)) = (&node.qself, node.path.segments.last()) {
             self.method_call(plain(&last.ident), last.ident.span(), (true, None));
+        }
+        // `Self::m` names a member of the type of the block (AD-383).
+        if let Some(last) = receivers::self_member(node) {
+            let on_self = self.selves.of_type();
+            self.method_call_on(plain(last), last.span(), (true, None), on_self);
         }
         visit::visit_expr_path(self, node);
     }
@@ -453,6 +425,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
                         path,
                         inline,
                         test: is_test_attributes(&node.attrs),
+                        gated: !receivers::module_inert(&node.attrs) || self.selves.gated(),
                         site,
                     });
                 }
@@ -465,7 +438,9 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         }
         self.inline.push(name);
         self.out.inlines.push(self.inline.clone());
+        self.selves.enter_module(&node.attrs);
         visit::visit_item_mod(self, node);
+        self.selves.leave_module();
         self.inline.pop();
     }
 }
@@ -477,6 +452,7 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
+pub use macros::{MacroCall, MacroDef};
 
 /// The second count of the nodes that must end as an outcome (`edges_extracted.rs`).
 #[path = "scan_extracted.rs"]
@@ -486,6 +462,10 @@ pub use extracted::Tally;
 /// The read of the items that a file defines: names, forms and visibility.
 #[path = "scan_definitions.rs"]
 mod define;
+
+/// What a plain `self` receiver is: the type of its `impl` block and its kind (AD-383).
+#[path = "scan_receivers.rs"]
+mod receivers;
 
 /// The read of a `use` item: its leaves, the names that they bind and the globs.
 #[path = "scan_use.rs"]
