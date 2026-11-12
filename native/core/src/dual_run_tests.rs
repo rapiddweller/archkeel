@@ -9,7 +9,7 @@ use crate::engine::tests::{golden_profile, golden_reply, NATIVE_CONTRACT};
 
 fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
     json!({
-        "protocol": "archkeel-dual-run-2",
+        "protocol": "archkeel-dual-run-3",
         "case": "c",
         "root": "/r",
         "config": "archkeel.toml",
@@ -22,6 +22,7 @@ fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
         "namespace": "shop",
         "profile": golden_profile(),
         "standard_library": [],
+        "insides": [],
     })
 }
 
@@ -257,4 +258,56 @@ fn the_sections_of_slice_s3_need_no_contract_that_the_core_can_use() {
         got["unsupported"]["sections"]["violations"],
         "missing input: no valid contract"
     );
+}
+
+fn hex_of(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+const MOUNTING: &str = r#"{"schema_version": "3.14.0", "rules": [], "components": [{"id": "C-a",
+  "label": "a", "role": "component", "packages": ["p.a"], "responsibilities": ["Own a."],
+  "forbidden_responsibilities": [], "provenance": ["d.md"], "inside": "a.json"}]}"#;
+const LEAF: &[u8] = br#"{"schema_version": "3.14.0", "components": [], "rules": []}"#;
+
+#[test]
+fn a_tree_names_its_missing_paths_and_assembles_from_the_inside_files_of_the_request() {
+    let mut first = request(None, &[]);
+    first["contracts"] = json!({"architecture-contract.json": MOUNTING});
+    let got = frame(&first);
+    assert_eq!(got["self_test"]["contract"], json!({"missing": ["a.json"]}));
+    assert!(got["unsupported"]["rules"]
+        .as_str()
+        .is_some_and(|text| text.ends_with("not sent: a.json")));
+    assert!(names_a_gap(&first));
+    let mut second = first.clone();
+    second["insides"] = json!([{"reference": "a.json", "identity": "a.json", "hex": hex_of(LEAF)}]);
+    let got = frame(&second);
+    assert_eq!(got["self_test"]["contract"], json!({"rules": {}}));
+}
+
+#[test]
+fn an_inside_file_with_bad_hex_too_many_files_or_too_many_bytes_is_refused() {
+    let mut bad = request(None, &[]);
+    bad["insides"] = json!([{"reference": "a.json", "identity": "a.json", "hex": "zz"}]);
+    assert!(answer(bad.to_string().as_bytes()).is_err());
+    let mut extra = request(None, &[]);
+    extra["insides"] = json!([{"reference": "a", "identity": "a", "hex": "", "more": 1}]);
+    assert!(answer(extra.to_string().as_bytes()).is_err());
+    let mut many = request(None, &[]);
+    let one = json!({"reference": "a.json", "identity": "a.json", "hex": ""});
+    many["insides"] = Value::Array(vec![one; crate::contract::MAX_INSIDE_FILES + 1]);
+    let error = answer(many.to_string().as_bytes())
+        .err()
+        .unwrap_or_default();
+    assert!(
+        error.contains("inside contracts; the core reads at most"),
+        "{error}"
+    );
+    let mut large = request(None, &[]);
+    let digits = "20".repeat(crate::contract::MAX_INSIDE_BYTES + 1);
+    large["insides"] = json!([{"reference": "a.json", "identity": "a.json", "hex": digits}]);
+    let error = answer(large.to_string().as_bytes())
+        .err()
+        .unwrap_or_default();
+    assert!(error.contains("bytes; the core reads no more"), "{error}");
 }

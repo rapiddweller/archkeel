@@ -7,11 +7,13 @@
 
 use archkeel_model::{Section, Settings};
 
+use crate::contract::ContractInput;
+
 /// One request to the core.
 #[derive(Debug)]
 pub(crate) enum Request {
-    /// The bytes of the root contract.
-    Contract(Vec<u8>),
+    /// The root contract at its path and the inside contracts that the shell read (AD-379).
+    Contract(ContractInput),
     /// The compressed collector reply (protocol 8 or 9), with the decompressed size limit.
     Ingest { reply: Vec<u8>, inflate_limit: u64 },
     /// What the shell read from the configuration and its profile table (AD-372).

@@ -16,7 +16,7 @@ use archkeel_contract::RuleKind;
 use archkeel_model::{Producer, Settings};
 use serde::{Deserialize, Serialize};
 
-use crate::contract::ContractState;
+use crate::contract::{ContractInput, ContractState, InsideFile, MAX_INSIDE_BYTES, MAX_INSIDE_FILES};
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::{self, Request};
@@ -24,7 +24,8 @@ use crate::rules::RuleAnswer;
 use archkeel_model::{Reason, Unsupported};
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
-const PROTOCOL: &str = "archkeel-dual-run-2";
+/// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
+const PROTOCOL: &str = "archkeel-dual-run-3";
 /// The provenance of this build (`archkeel-build-support`).
 const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 /// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
@@ -59,6 +60,18 @@ struct DualRunRequest {
     /// The profile of the reply as the shell read it, and its standard library (AD-372).
     profile: String,
     standard_library: Vec<String>,
+    /// The inside contracts that the shell read for the paths of an earlier frame (AD-379).
+    insides: Vec<InsideJson>,
+}
+
+/// One inside contract of a request: the reference of the mount, the repository-relative path
+/// that the shell resolved it to, and the bytes in hex.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InsideJson {
+    reference: String,
+    identity: String,
+    hex: String,
 }
 
 /// The protocol of a request, read before the fields that the protocol defines.
@@ -116,7 +129,8 @@ struct SelfTest {
 #[serde(rename_all = "snake_case")]
 enum ContractCheck {
     Rules(BTreeMap<String, RuleKind>),
-    Unsupported(String),
+    /// The repository paths of the inside contracts that the shell must still send.
+    Missing(Vec<String>),
     Refused(String),
 }
 
@@ -161,7 +175,13 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         Settings::new(request.namespace, request.profile, request.standard_library)
             .with_producer(producer),
     ));
-    let contract = match engine.answer(Request::Contract(contract.into_bytes())) {
+    let input = ContractInput {
+        path,
+        bytes: contract.into_bytes(),
+        insides: insides(request.insides)?,
+    };
+    let path = input.path.clone();
+    let contract = match engine.answer(Request::Contract(input)) {
         Answer::Contract(state) => state,
         other => ContractState::Refused(format!("unexpected answer {other:?}")),
     };
@@ -221,9 +241,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         self_test: SelfTest {
             contract: match contract {
                 ContractState::Parsed(rules) => ContractCheck::Rules(rules),
-                ContractState::Unsupported(reason) => {
-                    ContractCheck::Unsupported(reason.to_string())
-                }
+                ContractState::Missing(paths) => ContractCheck::Missing(paths),
                 ContractState::Refused(message) => ContractCheck::Refused(message),
             },
             reply,
@@ -276,13 +294,13 @@ fn rule_reasons(
     }
     match contract {
         ContractState::Parsed(_) => RuleReasons::Each(
-            crate::contract::uml_reason(engine.contract(), path)
+            crate::contract::uml_reason(engine.usable(), path)
                 .into_iter()
                 .chain(std::mem::take(&mut decided.reasons))
                 .map(|(id, reason)| (id, reason.to_string()))
                 .collect(),
         ),
-        ContractState::Unsupported(reason) => RuleReasons::All(reason.to_string()),
+        ContractState::Missing(paths) => RuleReasons::All(crate::contract::missing_reason(paths)),
         ContractState::Refused(message) => RuleReasons::All(format!("refused: {message}")),
     }
 }
@@ -303,6 +321,35 @@ fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, 
             other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
         },
     )
+}
+
+/// The inside contracts of the request, decoded. The count and the size are bounded before any
+/// decode, so a large request is refused by name and no file of it is held twice.
+fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
+    if files.len() > MAX_INSIDE_FILES {
+        return Err(format!(
+            "the request carries {} inside contracts; the core reads at most {MAX_INSIDE_FILES}",
+            files.len()
+        ));
+    }
+    let digits = files
+        .iter()
+        .fold(0usize, |sum, file| sum.saturating_add(file.hex.len()));
+    if digits / 2 > MAX_INSIDE_BYTES {
+        return Err(format!(
+            "the inside contracts hold more than {MAX_INSIDE_BYTES} bytes; the core reads no more"
+        ));
+    }
+    files
+        .into_iter()
+        .map(|file| {
+            Ok(InsideFile {
+                bytes: hex(&file.hex)?,
+                reference: file.reference,
+                identity: file.identity,
+            })
+        })
+        .collect()
 }
 
 /// The bytes of a hex text.
