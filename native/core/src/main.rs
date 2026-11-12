@@ -19,6 +19,7 @@
 //! unsupported or refused part, 2 for a request that the core cannot read or a frame whose
 //! status has no explaining row (no frame is written), 1 for an I/O error.
 
+mod base;
 mod check;
 mod contract;
 mod dual_run;

@@ -36,6 +36,8 @@ NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
 RULES = {"ASSIGNED": "complete_assignment", "NO-CYCLES": "no_component_cycles"}
 RULES["REQUIRES"] = "complete_requires"
+# The shebang scripts of the fake core and collector do not run on Windows (#1099).
+posix = pytest.mark.skipif(os.name == "nt", reason="the test writes a shebang script")
 FAKE = """#!{python}
 import json, pathlib, sys
 here = pathlib.Path(__file__).resolve().parent
@@ -246,17 +248,27 @@ def test_an_unknown_run_that_python_does_not_complete_is_named(
     assert "the Python run did not complete (exit 2)" in note
 
 
-def test_a_baseline_falls_back_with_the_reason_of_the_core(install: Path, tmp_path: Path) -> None:
+def test_a_validation_baseline_changes_no_verdict_and_the_core_decides(
+    install: Path, tmp_path: Path
+) -> None:
+    """AD-399: `report --baseline` adds the comparison rows and changes no verdict, row or exit
+    code, so the core decides the run. The baseline knows no violation; the run has a new one."""
     root = repository(tmp_path / "repo", install)
     with _captured():
         main(["validate", "--root", str(root), "--baseline", "baseline.json", "--write-baseline"])
+    contract = json.loads((root / "architecture-contract.json").read_text())
+    contract["components"] = [rr.component("base", "base_crate"), rr.component("app", "app")]
+    (root / "architecture-contract.json").write_text(json.dumps(contract))
+    alone = report(root)
     off = report(root, "--baseline", "baseline.json")
-    code, result, _ = report(root, "--baseline", "baseline.json", "--native-core")
-    assert code == off[0]
-    [note] = core_notes(result)
-    assert note.startswith("The core did not decide this run")
-    assert "the baseline of the request" in note
+    code, result, written = report(root, "--baseline", "baseline.json", "--native-core")
+    verdict = ("exit_code", "declared_rules", "rule_assessments")
+    assert [off[1][key] for key in verdict] == [alone[1][key] for key in verdict]
+    assert {new["status"] for new in off[1]["baseline_comparisons"]} == {"new"}
+    assert (code, result["declared_rules"]) == (off[0], "FAIL")
+    assert core_notes(result)[0].startswith("The core decides every rule")
     assert without_core_notes(result) == off[1]
+    assert written == off[2]
 
 
 def test_a_configured_collector_is_never_sent_to_the_core(install: Path, tmp_path: Path) -> None:
@@ -291,6 +303,7 @@ def test_a_core_binary_with_another_digest_is_a_named_error(install: Path, tmp_p
 # --- A fake core --------------------------------------------------------------------------------
 
 
+@posix
 def test_the_request_states_no_trust(install: Path, tmp_path: Path) -> None:
     root = repository(tmp_path / "repo", install)
     request = fake_core(install, frame(PASSING, "PASS"))
@@ -303,12 +316,13 @@ def test_the_request_states_no_trust(install: Path, tmp_path: Path) -> None:
         "reply",
         "roots",
         "namespace",
-        "baseline",
+        "base",
     }
-    assert sent["protocol"] == "archkeel-core-check-1"
-    assert (sent["roots"], sent["namespace"], sent["baseline"]) == (["crates"], "native", False)
+    assert sent["protocol"] == "archkeel-core-check-2"
+    assert (sent["roots"], sent["namespace"], sent["base"]) == (["crates"], "native", None)
 
 
+@posix
 @pytest.mark.parametrize(
     ("name", "core_frame"),
     [
@@ -333,6 +347,7 @@ def test_a_verdict_difference_is_a_named_error(
     assert (result["declared_rules"], written) == ("UNKNOWN", b"")
 
 
+@posix
 def test_a_rule_difference_under_the_same_run_status_is_a_named_error(
     install: Path, tmp_path: Path
 ) -> None:
@@ -347,6 +362,7 @@ def test_a_rule_difference_under_the_same_run_status_is_a_named_error(
     assert written == b""
 
 
+@posix
 def test_a_frame_that_names_a_rule_is_never_shown_as_the_verdict(
     install: Path, tmp_path: Path
 ) -> None:
@@ -365,6 +381,7 @@ def test_a_frame_that_names_a_rule_is_never_shown_as_the_verdict(
     assert without_core_notes(result) == off[1]
 
 
+@posix
 @pytest.mark.parametrize(
     ("name", "stdout", "exit_code"),
     [
@@ -403,6 +420,7 @@ def _script(path: Path, text: str) -> None:
     path.chmod(0o755)
 
 
+@posix
 def test_a_rust_collector_with_a_stale_digest_file_is_a_named_error(
     install: Path, tmp_path: Path
 ) -> None:
@@ -426,6 +444,7 @@ def test_a_rust_collector_without_its_digest_file_is_a_named_error(
     assert written == b""
 
 
+@posix
 def test_a_typescript_collector_without_its_digest_file_is_a_named_error(
     install: Path, tmp_path: Path
 ) -> None:
@@ -449,6 +468,7 @@ def test_a_typescript_collector_without_its_digest_file_is_a_named_error(
     assert written == b""
 
 
+@posix
 def test_the_repository_and_the_environment_cannot_redirect_the_binaries(
     install: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -483,6 +503,7 @@ def test_a_store_variable_is_refused_with_the_switch(
     assert written == b""
 
 
+@posix
 def test_a_run_pass_with_an_unknown_row_is_a_named_error(install: Path, tmp_path: Path) -> None:
     """Review S1, fault M1: a beyond rule must not carry a run PASS over an UNKNOWN row."""
     root = repository(tmp_path / "repo", install)

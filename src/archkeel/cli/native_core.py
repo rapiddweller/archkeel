@@ -1,7 +1,8 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-390: take the verdict of `archkeel report` from the Rust core, stage 1.
+"""AD-390, AD-399: take the verdict of `archkeel report` and `archkeel check` from the Rust core,
+stage 1.
 
 The switch is `--native-core` or `ARCHKEEL_NATIVE_CORE=1`; it is off by default. With the switch,
 the shell starts the verified `archkeel-core` binary of this install with the check request: the
@@ -14,6 +15,10 @@ Python engine; a difference is a `CoreError` (exit 2). A PASS of the core for a 
 Python engine gives UNKNOWN is shown as such when the core names it beyond the reference (AD-384).
 When the core names any part, the run is the run of the Python engine with one note that names
 the reasons of the core.
+
+`check` (AD-399) sends the candidate reply, the base reply and the contract at the baseline commit,
+which the shell reads from Git. The shell also compares the exit code. The rule rows of `check` are
+shown only when the core decides the run, so the switch off changes no byte.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Final, TypeVar
 
+from archkeel.check.git import GitError, read_blob, relative_path
 from archkeel.check.ports import ScanConfig
 from archkeel.ir.diagnostics import Diagnostic, DiagnosticKind
 from archkeel.ir.model import RunResult
@@ -45,7 +51,7 @@ from .observe import NATIVE_STORE, verified_binary
 
 CORE_BINARY: Final = "archkeel-core"
 SWITCH_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
-PROTOCOL: Final = "archkeel-core-check-1"
+PROTOCOL: Final = "archkeel-core-check-2"
 CORE_TIMEOUT_SECONDS: Final = 600
 # The exit code of a request that the core cannot read: it writes no frame.
 _REFUSED_EXIT: Final = 2
@@ -75,6 +81,23 @@ def read_inside(root: Path, path: str, budget: int) -> tuple[str, bytes] | None:
     if len(data) > budget:
         raise OverBudget(path)
     return target.relative_to(repository).as_posix(), data
+
+
+def read_committed(root: Path, commit: str, path: str, budget: int) -> tuple[str, bytes] | None:
+    """The identity and the bytes of one contract at `commit`, as `check` reads it (AD-399), or
+    `None` when Git has no regular file at the path. A file larger than `budget` is refused."""
+    try:
+        identity = relative_path(path)
+        data = read_blob(root, commit, identity)
+    except GitError:
+        return None
+    if len(data) > budget:
+        raise OverBudget(path)
+    return identity, data
+
+
+# The identity and the bytes of a contract path within a byte budget, or `None` (AD-399).
+ContractReader = Callable[[str, int], tuple[str, bytes] | None]
 
 
 def switched_on(flag: bool, environ: Mapping[str, str]) -> bool:
@@ -190,18 +213,31 @@ class NativeCore:
 
         return verified
 
-    def run(self, binary: str, root: Path, config: ScanConfig, baseline: bool) -> CoreFrame:
-        """The frame of the last round: the core asks for each inside contract (AD-379)."""
-        [reply] = self.replies
-        contract = (root / config.contract).read_bytes()
+    def run(
+        self,
+        binary: str,
+        config: ScanConfig,
+        read: ContractReader,
+        reply: bytes,
+        base: bytes | None,
+    ) -> CoreFrame:
+        """The frame of the last round: the core asks for each inside contract (AD-379). `read`
+        reads the contract and each inside contract: the working tree for `report`, the baseline
+        commit for `check` (AD-399)."""
+        try:
+            root_contract = read(config.contract, MAX_BYTES)
+        except OverBudget as error:
+            raise CoreError(f"the contract holds more than {MAX_BYTES} bytes") from error
+        if root_contract is None:
+            raise CoreError(f"the shell cannot read the contract {config.contract}")
         request: dict[str, object] = {
             "protocol": PROTOCOL,
-            "contract": {"path": config.contract, "hex": contract.hex()},
+            "contract": {"path": config.contract, "hex": root_contract[1].hex()},
             "insides": [],
             "reply": {"hex": reply.hex()},
             "roots": list(config.roots),
             "namespace": config.namespace,
-            "baseline": baseline,
+            "base": None if base is None else {"reply": {"hex": base.hex()}},
         }
         sent: dict[str, dict[str, str]] = {}
         total = 0
@@ -214,13 +250,13 @@ class NativeCore:
                 if len(sent) >= MAX_FILES:
                     raise CoreError(f"the tree needs more than {MAX_FILES} inside contracts")
                 try:
-                    read = read_inside(root, path, MAX_BYTES - total)
+                    found = read(path, MAX_BYTES - total)
                 except OverBudget as error:
                     raise CoreError(
                         f"the inside contracts hold more than {MAX_BYTES} bytes"
                     ) from error
-                if read is not None:
-                    identity, data = read
+                if found is not None:
+                    identity, data = found
                     total += len(data)
                     sent[path] = {"reference": path, "identity": identity, "hex": data.hex()}
                     added = True
@@ -230,31 +266,72 @@ class NativeCore:
             request = {**request, "insides": list(sent.values())}
         raise CoreError(f"the tree needs more than {MAX_ROUNDS} rounds")
 
-    def decide(
-        self, result: RunResult, root: Path, config: ScanConfig, baseline: bool
-    ) -> RunResult:
-        """The result that the user gets under the stage 1 rule; with the switch off, `result`."""
-        if self.binary is None:
-            return result
+    def _unsent(
+        self, result: RunResult, config: ScanConfig, replies: int, completed: frozenset[int]
+    ) -> Gap | None:
+        """The reason that the shell sends this run to no core, or `None`. `completed` holds the
+        exit codes of a Python run that completed: 0 for `report`, 0 and 1 for `check`."""
         if config.collector_argv is not None:
             # A configured command can write any adapter and digest: the shell sends its reply to
             # no core, so the core never trusts it (AD-390).
             reason = f"the run uses the configured collector {config.collector_argv[0]}"
-            return _fell_back(result, (Gap(GapKind.EXTERNAL_COLLECTOR, "collector", reason),))
-        if result.exit_code != 0 or result.rule_assessments is None:
+            return Gap(GapKind.EXTERNAL_COLLECTOR, "collector", reason)
+        if result.exit_code not in completed or result.rule_assessments is None:
             reason = f"the Python run did not complete (exit {result.exit_code})"
-            return _fell_back(result, (Gap(GapKind.PYTHON_INCOMPLETE, "run", reason),))
-        if len(self.replies) != 1:
-            reason = f"the run has {len(self.replies)} collector replies, and the core reads one"
-            return _fell_back(result, (Gap(GapKind.REPLIES, "run", reason),))
-        frame = self.run(self.binary, root, config, baseline)
-        rows = tuple(
-            PythonRule(row.id, RuleStatus(row.status), row.count) for row in result.rule_assessments
-        )
-        outcome = stage_one(frame, rows, Status(result.declared_rules))
+            return Gap(GapKind.PYTHON_INCOMPLETE, "run", reason)
+        if len(self.replies) != replies:
+            reason = (
+                f"the run has {len(self.replies)} collector replies, and the core reads {replies}"
+            )
+            return Gap(GapKind.REPLIES, "run", reason)
+        return None
+
+    def decide(self, result: RunResult, root: Path, config: ScanConfig) -> RunResult:
+        """The `report` result that the user gets under the stage 1 rule; with the switch off,
+        `result`. A validation baseline adds evidence rows and changes no verdict (AD-399)."""
+        if self.binary is None:
+            return result
+        if (gap := self._unsent(result, config, 1, frozenset({0}))) is not None:
+            return _fell_back(result, (gap,))
+        [reply] = self.replies
+        frame = self.run(self.binary, config, partial(read_inside, root), reply, None)
+        outcome = stage_one(frame, _python_rows(result), Status(result.declared_rules))
         if isinstance(outcome, FellBack):
             return _fell_back(result, outcome.gaps)
         return _decided(result, outcome)
+
+    def decide_check(
+        self, result: RunResult, root: Path, config: ScanConfig, baseline: str
+    ) -> RunResult:
+        """The `check` result under the stage 1 rule (AD-399). The core reads the candidate reply,
+        the base reply and the contract at `baseline`. The rule rows are shown only when the core
+        decides the run; with the switch off the result has no rows, as before."""
+        shown = replace(result, rule_assessments=None)
+        if self.binary is None:
+            return shown
+        if (gap := self._unsent(result, config, 2, frozenset({0, 1}))) is not None:
+            return _fell_back(shown, (gap,))
+        base, candidate = self.replies
+        read = partial(read_committed, root, baseline)
+        frame = self.run(self.binary, config, read, candidate, base)
+        outcome = stage_one(frame, _python_rows(result), Status(result.declared_rules))
+        if isinstance(outcome, FellBack):
+            return _fell_back(shown, outcome.gaps)
+        # The exit code reads the Git, host and expectation failures and the rule verdict.
+        exit_code = 1 if result.failures or outcome.frame.status is Status.FAIL else 0
+        if exit_code != result.exit_code:
+            raise CoreError(
+                f"the core and the Python engine differ: the exit code: core {exit_code}, "
+                f"Python {result.exit_code}. Report this difference; the run has no verdict."
+            )
+        return _decided(result, outcome, _CHECK_PARTS)
+
+
+def _python_rows(result: RunResult) -> tuple[PythonRule, ...]:
+    return tuple(
+        PythonRule(row.id, RuleStatus(row.status), row.count)
+        for row in result.rule_assessments or ()
+    )
 
 
 def _send(binary: str, request: Mapping[str, object]) -> CoreFrame:
@@ -290,7 +367,14 @@ def _fell_back(result: RunResult, gaps: tuple[Gap, ...]) -> RunResult:
     return replace(result, notes=(*result.notes, note))
 
 
-def _decided(result: RunResult, decided: Decided) -> RunResult:
+# AD-399: what of a `check` run the core does not decide in stage 1.
+_CHECK_PARTS: Final = (
+    " The expectation over the architecture delta, the Git order and the host order are the "
+    "verdicts of the Python engine."
+)
+
+
+def _decided(result: RunResult, decided: Decided, parts: str = "") -> RunResult:
     frame = decided.frame
     rows = tuple(
         replace(
@@ -306,7 +390,7 @@ def _decided(result: RunResult, decided: Decided) -> RunResult:
     beyond = f" The core decides {names} beyond the Python engine (AD-384)." if names else ""
     note = _note(
         f"The core decides every rule of this run ({frame.engine}), and the Python engine gives "
-        f"the same verdict on each other rule.{beyond}",
+        f"the same verdict on each other rule.{beyond}{parts}",
         "Run without --native-core to see the verdict of the Python engine alone.",
     )
     return replace(
@@ -323,5 +407,5 @@ def add_switch(parser: argparse.ArgumentParser) -> None:
         "--native-core",
         action="store_true",
         help=f"Take the rule verdicts from the Rust core when it decides every rule (stage 1, "
-        f"AD-390). Also {SWITCH_VARIABLE}=1. A difference to the Python engine exits 2.",
+        f"AD-390, AD-399). Also {SWITCH_VARIABLE}=1. A difference to the Python engine exits 2.",
     )

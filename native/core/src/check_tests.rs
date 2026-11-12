@@ -34,13 +34,13 @@ fn reply_with(name: Option<&str>, digest: &str) -> Vec<u8> {
 
 fn request(reply: Option<&[u8]>) -> Value {
     json!({
-        "protocol": "archkeel-core-check-1",
+        "protocol": "archkeel-core-check-2",
         "contract": {"path": "architecture-contract.json", "hex": hex(NATIVE_CONTRACT.as_bytes())},
         "insides": [],
         "reply": reply.map(|bytes| json!({"hex": hex(bytes)})),
         "roots": [],
         "namespace": "shop",
-        "baseline": false,
+        "base": null,
     })
 }
 
@@ -116,16 +116,11 @@ fn a_request_of_another_protocol_or_without_a_field_is_refused() {
 }
 
 #[test]
-fn a_request_without_a_reply_or_with_a_baseline_names_a_gap() {
+fn a_request_without_a_reply_names_a_gap() {
     let (got, names_a_gap) = frame(&request(None));
     assert!(got["self_test"]["reply"]["absent"].is_string(), "{got}");
     assert!(names_a_gap);
     assert_eq!(got["status"], "UNKNOWN");
-    let mut baseline = request(Some(&reply_with(None, CODE_DIGEST)));
-    baseline["baseline"] = json!(true);
-    let (got, names_a_gap) = frame(&baseline);
-    assert!(got["unsupported"]["rules"].as_str().is_some(), "{got}");
-    assert!(names_a_gap);
 }
 
 /// AD-390 point 2: the check request reaches `Producer::Trusted` only through
