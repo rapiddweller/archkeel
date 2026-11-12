@@ -147,7 +147,7 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dart_unicode_tables.py \
 	tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
-	tools/dual_run_capture.py \
+	tools/dual_run_capture.py tools/dual_run_tree.py \
 	native/hatch_build.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.

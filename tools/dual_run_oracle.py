@@ -384,7 +384,12 @@ def _self_test(case: str, oracle: Mapping[str, Any], frame: Mapping[str, Any]) -
             if expected.get(rule) != contract["rules"].get(rule)
         ]
     else:
-        detail = contract.get("unsupported") or f"refused: {contract.get('refused')}"
+        missing = contract.get("missing")
+        detail = (
+            f"unsupported: the shell did not send the inside contracts {', '.join(missing)}"
+            if missing
+            else contract.get("unsupported") or f"refused: {contract.get('refused')}"
+        )
         differences.append(Difference(case, "self_test", "contract", detail))
     if "files" not in reply:
         detail = f"refused: {reply['refused']}" if "refused" in reply else f"absent: {reply}"
