@@ -55,5 +55,5 @@ node, as in Python. A clone of the class-name tables is in `clone_baseline.json`
 **Tests.** `tests/test_collector_native_python_texts.py` (the walk and each expression of
 `src/`, `fixtures/` and the named corpora; 50 probes; the depth; the printable table) and
 `tests/test_collector_native_python_symbols.py` (the 12 fixtures, `src/`, the named corpora,
-40 probes, both gaps), on 3.11 to 3.14; `pyast_tests.rs`, `unparse_tests.rs`, `literal_tests.rs`,
+39 probes, both gaps), on 3.11 to 3.14; `pyast_tests.rs`, `unparse_tests.rs`, `literal_tests.rs`,
 `symbols_tests.rs`.
