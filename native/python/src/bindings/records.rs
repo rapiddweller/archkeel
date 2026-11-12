@@ -109,40 +109,23 @@ pub(super) fn definitions(
     Ok(out)
 }
 
-fn loaded(scan: &mut Scan, node: &StmtFunctionDef) -> Result<BTreeSet<String>> {
+fn loaded(scan: &mut Scan, node: &Stmt) -> Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
-    // Match ast.walk(function), including its arguments, defaults, decorators and nested scopes.
-    let mut nodes = vec![Node::Arguments(Some(&node.parameters))];
-    scan.tick(node.body.len().saturating_add(node.decorator_list.len()))?;
-    nodes.extend(node.body.iter().map(Node::Stmt));
-    nodes.extend(
-        node.decorator_list
-            .iter()
-            .map(|d| Node::Expr(&d.expression)),
-    );
-    nodes.extend(node.returns.as_deref().map(Node::Expr));
-    if let Some(params) = &node.type_params {
-        scan.tick(params.type_params.len())?;
-        nodes.extend(params.type_params.iter().map(Node::TypeParam));
-    }
-    for root in nodes {
+    for n in scan.walk(Node::Stmt(node))? {
         scan.tick(1)?;
-        for n in scan.walk(root)? {
-            scan.tick(1)?;
-            match n {
-                Node::Expr(Expr::Name(n)) if n.ctx != ExprContext::Store => {
-                    out.insert(n.id.to_string());
-                }
-                Node::Stmt(Stmt::Global(n)) => {
-                    scan.tick(n.names.len())?;
-                    out.extend(n.names.iter().map(ToString::to_string));
-                }
-                Node::Stmt(Stmt::Nonlocal(n)) => {
-                    scan.tick(n.names.len())?;
-                    out.extend(n.names.iter().map(ToString::to_string));
-                }
-                _ => {}
+        match n {
+            Node::Expr(Expr::Name(n)) if n.ctx != ExprContext::Store => {
+                out.insert(n.id.to_string());
             }
+            Node::Stmt(Stmt::Global(n)) => {
+                scan.tick(n.names.len())?;
+                out.extend(n.names.iter().map(ToString::to_string));
+            }
+            Node::Stmt(Stmt::Nonlocal(n)) => {
+                scan.tick(n.names.len())?;
+                out.extend(n.names.iter().map(ToString::to_string));
+            }
+            _ => {}
         }
     }
     Ok(out)
@@ -176,12 +159,12 @@ pub(super) fn unused(
                 owner = format!("{owner}.{}", n.name);
                 inherits = n.arguments.as_ref().is_some_and(|a| !a.args.is_empty());
             }
-            Node::Stmt(Stmt::FunctionDef(n)) => {
+            Node::Stmt(stmt @ Stmt::FunctionDef(n)) => {
                 owner = format!("{owner}.{}", n.name);
                 function(
                     scan,
                     module,
-                    n,
+                    stmt,
                     (&owner, inherits),
                     &mut records,
                     &mut evidence,
@@ -204,13 +187,16 @@ pub(super) fn unused(
 fn function(
     scan: &mut Scan,
     module: &Module,
-    node: &StmtFunctionDef,
+    stmt: &Stmt,
     context: (&str, bool),
     records: &mut BTreeMap<String, Value>,
     evidence: &mut EvidenceMap,
 ) -> Result<()> {
+    let Stmt::FunctionDef(node) = stmt else {
+        return Err("unused-binding owner is not a function".into());
+    };
     let (owner, inherits) = context;
-    let loaded = loaded(scan, node)?;
+    let loaded = loaded(scan, stmt)?;
     let mut groups = Vec::new();
     if !inherits && node.decorator_list.is_empty() && !empty(scan, node)? {
         groups.push(("parameter", params(scan, node)?));

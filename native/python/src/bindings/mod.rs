@@ -76,33 +76,7 @@ pub fn table(module: &Module, minor: PyMinor) -> Result<(Value, usize)> {
     ];
     let definitions = records::definitions(&mut scan, module, &nodes)?;
     let (bindings, evidence) = records::unused(&mut scan, module)?;
-    let mut queries = Vec::new();
-    for name in ["object", "alias", "property", "x"] {
-        scan.tick(1)?;
-        let mut row = vec![names::may_exist(&mut scan, &module.tree.body, None, name)?];
-        for stop in module
-            .tree
-            .body
-            .first()
-            .into_iter()
-            .chain(module.tree.body.last())
-        {
-            scan.tick(1)?;
-            row.push(names::once_before(
-                &mut scan,
-                &module.tree.body,
-                stop,
-                name,
-            )?);
-            row.push(names::may_exist(
-                &mut scan,
-                &module.tree.body,
-                Some(stop),
-                name,
-            )?);
-        }
-        queries.push(row);
-    }
+    let queries = names::ordered_checks(&mut scan, &module.tree.body)?;
     let events = names::events(&mut scan, module, &scope)?;
     let mut statement_bindings = Vec::new();
     for node in &nodes {

@@ -70,37 +70,7 @@ pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<
         Node::Stmt(Stmt::Assign(_)) | Node::Expr(Expr::Named(_)) => {
             Ok(json!([names::stored_names(scan, targets)?, false, false]))
         }
-        Node::Stmt(Stmt::Import(n)) => {
-            scan.tick(n.names.len())?;
-            if n.names
-                .iter()
-                .any(|n| n.asname.is_none() && n.name.contains('.'))
-            {
-                return Ok(Value::Null);
-            }
-            Ok(json!([
-                n.names
-                    .iter()
-                    .map(|a| a.asname.as_ref().unwrap_or(&a.name).as_str())
-                    .collect::<Vec<_>>(),
-                false,
-                false
-            ]))
-        }
-        Node::Stmt(Stmt::ImportFrom(n)) => {
-            scan.tick(n.names.len())?;
-            if n.names.iter().any(|n| n.name.as_str() == "*") {
-                return Ok(Value::Null);
-            }
-            Ok(json!([
-                n.names
-                    .iter()
-                    .map(|a| a.asname.as_ref().unwrap_or(&a.name).as_str())
-                    .collect::<Vec<_>>(),
-                false,
-                false
-            ]))
-        }
+        Node::Stmt(stmt @ (Stmt::Import(_) | Stmt::ImportFrom(_))) => imported(scan, stmt),
         Node::Stmt(Stmt::Delete(_)) => Ok(Value::Null),
         _ => {
             let nodes = scan.walk(node.clone())?;
@@ -111,4 +81,20 @@ pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<
             })
         }
     }
+}
+
+fn imported(scan: &mut Scan, stmt: &Stmt) -> Result<Value> {
+    let (aliases, dotted) = match stmt {
+        Stmt::Import(n) => (&n.names, true),
+        Stmt::ImportFrom(n) => (&n.names, false),
+        _ => return Err("class import statement unseen".into()),
+    };
+    scan.tick(aliases.len().saturating_mul(2))?;
+    if aliases
+        .iter()
+        .any(|n| n.name.as_str() == "*" || dotted && n.asname.is_none() && n.name.contains('.'))
+    {
+        return Ok(Value::Null);
+    }
+    Ok(json!([crate::module::import_bindings(stmt), false, false]))
 }

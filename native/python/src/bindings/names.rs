@@ -273,3 +273,18 @@ fn stores_name(scan: &mut Scan, stmt: &Stmt, wanted: &str) -> Result<bool> {
     }
     Ok(false)
 }
+
+pub(super) fn ordered_checks(scan: &mut Scan, body: &[Stmt]) -> Result<Vec<Vec<bool>>> {
+    let mut queries = Vec::new();
+    for name in ["object", "alias", "property", "x"] {
+        scan.tick(1)?;
+        let mut row = vec![may_exist(scan, body, None, name)?];
+        for stop in body.first().into_iter().chain(body.last()) {
+            scan.tick(1)?;
+            row.push(once_before(scan, body, stop, name)?);
+            row.push(may_exist(scan, body, Some(stop), name)?);
+        }
+        queries.push(row);
+    }
+    Ok(queries)
+}

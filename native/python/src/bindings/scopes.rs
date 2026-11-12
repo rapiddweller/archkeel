@@ -4,7 +4,7 @@
 
 //! The Python evaluated-module and own-body traversal boundaries.
 
-use ruff_python_ast::{Expr, Parameters, Stmt};
+use ruff_python_ast::{Expr, Parameters, Stmt, StmtClassDef};
 
 use super::scan::{Result, Scan};
 use crate::pyast::Node;
@@ -58,13 +58,7 @@ pub(super) fn evaluated<'a>(scan: &mut Scan, node: &Node<'a>) -> Result<Vec<Node
             children.extend(n.returns.as_deref().map(Node::Expr));
         }
         Node::Stmt(Stmt::ClassDef(n)) => {
-            scan.tick(n.decorator_list.len())?;
-            children.extend(n.decorator_list.iter().map(|d| Node::Expr(&d.expression)));
-            if let Some(args) = &n.arguments {
-                scan.tick(args.args.len().saturating_add(args.keywords.len()))?;
-                children.extend(args.args.iter().map(Node::Expr));
-                children.extend(args.keywords.iter().map(|k| Node::Expr(&k.value)));
-            }
+            children = class_header(scan, n)?;
         }
         Node::Expr(Expr::Lambda(n)) => {
             if let Some(params) = &n.parameters {
@@ -91,30 +85,45 @@ pub(super) fn evaluated<'a>(scan: &mut Scan, node: &Node<'a>) -> Result<Vec<Node
 }
 
 pub(super) fn module_scope<'a>(scan: &mut Scan, body: &'a [Stmt]) -> Result<Vec<Node<'a>>> {
+    traverse(scan, body, false)
+}
+
+pub(super) fn own<'a>(scan: &mut Scan, body: &'a [Stmt]) -> Result<Vec<Node<'a>>> {
+    traverse(scan, body, true)
+}
+
+fn traverse<'a>(scan: &mut Scan, body: &'a [Stmt], own_body: bool) -> Result<Vec<Node<'a>>> {
     scan.tick(body.len())?;
     let mut pending: Vec<_> = body.iter().rev().map(Node::Stmt).collect();
     let mut out = Vec::new();
     while let Some(node) = pending.pop() {
         scan.tick(1)?;
-        pending.extend(evaluated(scan, &node)?.into_iter().rev());
+        let nested = matches!(
+            node,
+            Node::Stmt(Stmt::FunctionDef(_) | Stmt::ClassDef(_)) | Node::Expr(Expr::Lambda(_))
+        );
+        let children = match (own_body, nested) {
+            (true, true) => Vec::new(),
+            (true, false) => scan.children(&node)?,
+            (false, _) => evaluated(scan, &node)?,
+        };
+        pending.extend(children.into_iter().rev());
         out.push(node);
     }
     Ok(out)
 }
 
-pub(super) fn own<'a>(scan: &mut Scan, body: &'a [Stmt]) -> Result<Vec<Node<'a>>> {
-    scan.tick(body.len())?;
-    let mut pending: Vec<_> = body.iter().rev().map(Node::Stmt).collect();
-    let mut out = Vec::new();
-    while let Some(node) = pending.pop() {
-        scan.tick(1)?;
-        if !matches!(
-            node,
-            Node::Stmt(Stmt::FunctionDef(_) | Stmt::ClassDef(_)) | Node::Expr(Expr::Lambda(_))
-        ) {
-            pending.extend(scan.children(&node)?.into_iter().rev());
-        }
-        out.push(node);
+pub(super) fn class_header<'a>(scan: &mut Scan, node: &'a StmtClassDef) -> Result<Vec<Node<'a>>> {
+    scan.tick(node.decorator_list.len())?;
+    let mut expressions: Vec<_> = node
+        .decorator_list
+        .iter()
+        .map(|d| Node::Expr(&d.expression))
+        .collect();
+    if let Some(args) = &node.arguments {
+        scan.tick(args.args.len().saturating_add(args.keywords.len()))?;
+        expressions.extend(args.args.iter().map(Node::Expr));
+        expressions.extend(args.keywords.iter().map(|k| Node::Expr(&k.value)));
     }
-    Ok(out)
+    Ok(expressions)
 }

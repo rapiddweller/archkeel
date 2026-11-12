@@ -27,18 +27,7 @@ pub(super) fn text(scan: &mut Scan, expr: &Expr, source: &str) -> Result<Option<
 }
 
 pub(super) fn expressions<'a>(scan: &mut Scan, node: &'a StmtClassDef) -> Result<Vec<Node<'a>>> {
-    let mut out = Vec::new();
-    scan.tick(node.decorator_list.len().saturating_add(node.body.len()))?;
-    out.extend(
-        node.decorator_list
-            .iter()
-            .map(|d| Node::Expr(&d.expression)),
-    );
-    if let Some(args) = &node.arguments {
-        scan.tick(args.args.len().saturating_add(args.keywords.len()))?;
-        out.extend(args.args.iter().map(Node::Expr));
-        out.extend(args.keywords.iter().map(|k| Node::Expr(&k.value)));
-    }
+    let mut out = scopes::class_header(scan, node)?;
     for child in &node.body {
         scan.tick(1)?;
         match child {
