@@ -20,7 +20,7 @@ use std::io::{self, BufRead, Write};
 use archkeel_contract::parse;
 use archkeel_contract::policy::{
     amendment_bytes, assemble_tree, bind, parse_amendment, AmendmentError, Baselines, Binding,
-    ContractTree, GateStatus, OldContract,
+    ChangeDirection, ContractTree, GateStatus, OldContract,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -115,6 +115,14 @@ fn gate(line: &Line) -> Option<Value> {
         },
         None => None,
     };
+    // The widened subject and field pairs, first seen first (Python `dict.fromkeys`).
+    let mut widenings: Vec<(String, String)> = Vec::new();
+    for change in binding.comparison().changes() {
+        let pair = (change.subject().clone(), change.field().clone());
+        if *change.direction() == ChangeDirection::Widened && !widenings.contains(&pair) {
+            widenings.push(pair);
+        }
+    }
     let verdict = binding.check(amendment.as_ref());
     let status = match verdict.status() {
         GateStatus::Unchanged => "unchanged",
@@ -122,7 +130,9 @@ fn gate(line: &Line) -> Option<Value> {
         GateStatus::Unamended => "unamended",
         GateStatus::Stale => "stale",
     };
-    Some(json!({"kind": "gate", "status": status, "failures": verdict.failures()}))
+    Some(json!({
+        "kind": "gate", "status": status, "failures": verdict.failures(), "widenings": widenings,
+    }))
 }
 
 fn amend(line: &Line) -> Option<Value> {

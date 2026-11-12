@@ -178,7 +178,7 @@ def _python_gate(
         except ValueError as error:
             return {"kind": "invalid", "class": "field", "error": str(error)}
     ctx = _context(old, path, against, parsed)
-    messages, _, status = _widening_failures(
+    messages, coded, status = _widening_failures(
         ctx,
         new.comparison_contract,
         None,
@@ -197,7 +197,8 @@ def _python_gate(
         name = "stale"
     else:
         name = "unamended" if messages else "unchanged"
-    return {"kind": "gate", "status": name, "failures": list(messages)}
+    widenings = [[item.subject, item.field] for item in coded]
+    return {"kind": "gate", "status": name, "failures": list(messages), "widenings": widenings}
 
 
 def _python_amend(
@@ -307,6 +308,10 @@ def test_the_rust_amendment_gate_is_the_python_gate() -> None:
         cases, _rust(probe, lines), strict=True
     ):
         expected = _python_gate(None if old is None else old[0], path, against, new[0], data)
+        # Python names the coded widenings only for a failing gate.
+        if actual.get("status") not in ("stale", "unamended"):
+            actual["widenings"] = [] if "widenings" in actual else None
+            expected.setdefault("widenings", None)
         assert actual == expected, name
         tally[expected.get("status", expected["kind"])] += 1
         if old is None:

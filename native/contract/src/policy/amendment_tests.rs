@@ -132,6 +132,12 @@ fn the_fields_are_exact_and_checked_in_the_python_order() {
         Err(AmendmentError::NotString(AmendmentField::DecidedBy))
     );
     assert_eq!(parsed(&json!([])), Err(AmendmentError::NotObject));
+    let mut texts = with("decided_by", json!(" "));
+    texts["rationale"] = json!("");
+    assert_eq!(
+        parsed(&texts),
+        Err(AmendmentError::Empty(AmendmentField::DecidedBy))
+    );
 }
 
 #[test]

@@ -106,6 +106,16 @@ def generated_cases() -> list[tuple[str, bytes]]:
             cases.append((f"not blank {key} {text!r}", encode(document(**{key: text}))))
         for text in TEXT_VALUES:
             cases.append((f"text {key} {text!r}", encode(document(**{key: text}))))
+    # Two bad fields: the error names the first field in the order of the Python checks.
+    for first, second in (("decided_by", "rationale"), ("before_digest", "after_digest")):
+        for bad in ("", " ", 1, None):
+            cases.append(
+                (f"two bad {first} {second} {bad!r}", encode(document(**{first: bad, second: bad})))
+            )
+    cases.append(
+        ("bad text and digest", encode(document(rationale=" ", after_baseline_digest="x")))
+    )
+    cases.append(("bad digest and text", encode(document(after_digest="x", decided_by=""))))
     for schema in SCHEMAS:
         cases.append((f"schema {schema!r}", encode(document(schema_version=schema))))
     v1 = {
