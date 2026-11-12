@@ -142,20 +142,16 @@ fn a_pair_gap_to_a_module_outside_the_reply_holds_each_rule() {
 }
 
 #[test]
-fn a_pair_gap_that_a_rule_names_is_kept_and_holds_no_rule_of_the_four_kinds() {
-    // DOMAIN-NO-DATA names `shop.src.domain`, so the host keeps the gap of the pair. The four
-    // kinds read no edge between two modules of the reply (AD-384 point 4).
-    let gap = pair_gap(
+fn a_kept_pair_gap_holds_no_rule_of_the_four_kinds() {
+    // DOMAIN-NO-DATA names `shop.src.domain`, and presentation does not require app: the host
+    // keeps both gaps. The four kinds read no edge between two modules of the reply (AD-384).
+    let named = pair_gap(
         "shop.src.domain.order_x2e_ts",
         "shop.src.domain.repository_x2e_ts",
     );
-    all_pass(decided(unchanged, gap, shop_settings()));
-}
-
-#[test]
-fn a_pair_gap_across_components_without_a_requires_is_kept_and_holds_no_rule_of_the_four_kinds() {
-    let gap = pair_gap("shop.src.presentation.page_x2e_ts", "shop.src.main_x2e_ts");
-    all_pass(decided(unchanged, gap, shop_settings()));
+    all_pass(decided(unchanged, named, shop_settings()));
+    let crossing = pair_gap("shop.src.presentation.page_x2e_ts", "shop.src.main_x2e_ts");
+    all_pass(decided(unchanged, crossing, shop_settings()));
 }
 
 #[test]

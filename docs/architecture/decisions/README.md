@@ -378,4 +378,5 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-380 | [The core decides the direction rule kinds](ad-380-the-core-decides-the-direction-rule-kinds.md) |
 | AD-381 | [The report takes the evaluator outcome, and a run PASS needs the run proof](ad-381-the-report-takes-the-evaluator-outcome-and-a-run-pass-needs-the-run-proof.md) |
 | AD-382 | [The self-contract pins the crate chain and the external homes](ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md) |
+| AD-384 | [The core decides the cycle rules and scopes each pair gap to the rules it can change](ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md) |
 | AD-386 | [The contract crate reads and writes baselines](ad-386-the-contract-crate-reads-and-writes-baselines.md) |

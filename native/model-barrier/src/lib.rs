@@ -55,6 +55,18 @@
 //! fn sourced() -> archkeel_model::Settings {
 //!     archkeel_model::Settings::default().with_contract_source("a.json", b"{}")
 //! }
+//! // 25, 26: the gap scope of a rule comes from its scope and is used there (slice S7, AD-384).
+//! fn gaps(model: &Model, rule: &Rule) -> bool {
+//!     model.scope(|scope| scope.gaps(rule).is_ok())
+//! }
+//! // 27, 28: the scan proof comes from the scope and is used there.
+//! fn scanned(model: &Model) -> bool {
+//!     model.scope(|scope| scope.scan().is_ok())
+//! }
+//! // 29: the scan roots come from the shell and the model binds them to the reply.
+//! fn rooted() -> archkeel_model::Settings {
+//!     archkeel_model::Settings::default().with_roots(vec!["src".to_owned()])
+//! }
 //! ```
 //!
 //! # The attempts
@@ -241,6 +253,50 @@
 //! ```compile_fail
 //! fn forge() -> archkeel_model::Settings {
 //!     archkeel_model::Settings { contract_source: None, ..Default::default() }
+//! }
+//! ```
+//!
+//! # The proofs of slice S7 (AD-384)
+//!
+//! 25. A gap scope without the model: the proof that no kept pair gap can change a rule has a
+//!     private brand (slice S7, AD-384).
+//!
+//! ```compile_fail
+//! fn forge<'id>() -> archkeel_model::GapScope<'id> {
+//!     archkeel_model::GapScope { brand: std::marker::PhantomData }
+//! }
+//! ```
+//!
+//! 26. A gap scope that leaves its scope: it carries the brand of one `Model::scope` call.
+//!
+//! ```compile_fail
+//! fn keep(model: &archkeel_model::Model, rule: &archkeel_contract::Rule) {
+//!     let _gaps = model.scope(|scope| scope.gaps(rule).ok());
+//! }
+//! ```
+//!
+//! 27. A scan proof without the model: its roots are the bound roots of the settings.
+//!
+//! ```compile_fail
+//! fn forge<'id, 'm>() -> archkeel_model::ScanProof<'id, 'm> {
+//!     archkeel_model::ScanProof { brand: std::marker::PhantomData, roots: todo!() }
+//! }
+//! ```
+//!
+//! 28. A scan proof that leaves its scope.
+//!
+//! ```compile_fail
+//! fn keep(model: &archkeel_model::Model) {
+//!     let _scan = model.scope(|scope| scope.scan().ok());
+//! }
+//! ```
+//!
+//! 29. Scan roots set by a field: the roots are private, and `Graph::derive` refuses roots that
+//!     are not the scope labels of the reply.
+//!
+//! ```compile_fail
+//! fn forge() -> archkeel_model::Settings {
+//!     archkeel_model::Settings { roots: Some(vec![".".to_owned()]), ..Default::default() }
 //! }
 //! ```
 //!

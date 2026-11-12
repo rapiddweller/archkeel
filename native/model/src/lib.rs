@@ -96,6 +96,7 @@ pub use run::{RunComplete, RunGap, RunPass};
 
 // Slice S7: the scan roots, the cycle receipts, the component cycles and the rules that each
 // pair gap can change (AD-384).
+mod brand;
 mod component_cycles;
 mod pair_gaps;
 mod receipts;

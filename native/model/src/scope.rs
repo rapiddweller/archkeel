@@ -58,14 +58,16 @@ use crate::coverage::Incomplete;
 use crate::direction;
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
+use crate::pair_gaps::reads;
 use crate::proof::State;
 use crate::reason::{Reason, Unsupported};
-use crate::receipts;
+use crate::receipts::{self, GapScope, ScanProof};
+use crate::roots::Roots;
 use crate::selection;
 use crate::verdict::Decision;
+use archkeel_facts::envelope::Layout;
 
-/// An invariant lifetime: two calls of `Model::scope` never have the same one.
-pub(crate) type Brand<'id> = PhantomData<fn(&'id ()) -> &'id ()>;
+use crate::brand::Brand;
 
 /// The proof that the model of the brand `'id` saw the whole scope of one rule of its run.
 #[derive(Debug)]
@@ -164,6 +166,40 @@ impl<'id, 'm> Scope<'id, 'm> {
     pub fn pass(&self, proof: ScopeComplete<'id>) -> Decision {
         let ScopeComplete { brand: _, rule } = proof;
         Decision::passed(rule, self.model.serial())
+    }
+}
+
+impl<'id, 'm> Scope<'id, 'm> {
+    /// The gap scope of one rule, or the kept gaps that can change what it reads.
+    pub fn gaps(&self, rule: &Rule) -> Result<GapScope<'id>, Reason> {
+        let model = self.model();
+        let reading = reads(rule, model.contract().components());
+        let held = model
+            .pairs()
+            .kept
+            .iter()
+            .filter(|gap| gap.holds(&reading))
+            .map(|gap| (gap.source.as_str(), gap.target.as_str()));
+        match Held::of(held) {
+            Some(held) => Err(Reason::NotComplete(Cause::PairGaps(held))),
+            None => Ok(GapScope::of()),
+        }
+    }
+
+    /// The scan proof of the model: the bound roots and the module files of the reply.
+    pub fn scan(&self) -> Result<ScanProof<'id, 'm>, Reason> {
+        let model = self.model();
+        let graph = model.graph();
+        let roots = graph.settings().roots().ok_or(Part::ScanRoots)?;
+        if graph.observed().layout != Layout::ProjectFiles {
+            return Err(Part::ScanLayout.into());
+        }
+        let files = graph
+            .modules()
+            .iter()
+            .map(|(_, module)| (module.name(), module.file()))
+            .collect();
+        Ok(ScanProof::of(Roots::new(roots, files)))
     }
 }
 

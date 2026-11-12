@@ -5,7 +5,7 @@
 //! The receipts of slice S7 and the two proofs that they read (AD-384).
 //!
 //! - `GapScope`: no kept pair gap can change what one rule reads (`pair_gaps.rs`). Only
-//!   `Scope::gaps` makes one, with the brand of its model.
+//!   `Scope::gaps` (`scope.rs`) makes one, with the brand of its model.
 //! - `ScanProof`: the scan roots of the settings, bound to the scope of the reply, and a profile
 //!   whose module files the core maps (`Layout::ProjectFiles`). Only `Scope::scan` makes one.
 //!
@@ -16,15 +16,13 @@
 //! gap scope, which `Scope::complete` checks first.
 
 use archkeel_contract::{CycleLevel, Lifecycle, NoComponentCycles, Rule};
-use archkeel_facts::envelope::Layout;
 
-use crate::causes::{Cause, Held, Part};
+use crate::brand::Brand;
+use crate::causes::{Cause, Part};
 use crate::model::Model;
 use crate::ownership::{claims, in_scope};
-use crate::pair_gaps::reads;
 use crate::reason::Reason;
 use crate::roots::Roots;
-use crate::scope::{Brand, Scope};
 
 /// The proof that no kept pair gap can change what one rule of the model of `'id` reads.
 #[derive(Debug)]
@@ -39,49 +37,27 @@ pub struct ScanProof<'id, 'm> {
     roots: Roots<'m>,
 }
 
-impl<'id, 'm> Scope<'id, 'm> {
-    /// The gap scope of one rule, or the kept gaps that can change what it reads.
-    pub fn gaps(&self, rule: &Rule) -> Result<GapScope<'id>, Reason> {
-        let model = self.model();
-        let reading = reads(rule, model.contract().components());
-        let held = model
-            .pairs()
-            .kept
-            .iter()
-            .filter(|gap| gap.holds(&reading))
-            .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-        match Held::of(held) {
-            Some(held) => Err(Reason::NotComplete(Cause::PairGaps(held))),
-            None => Ok(GapScope {
-                brand: std::marker::PhantomData,
-            }),
-        }
-    }
-
-    /// The scan proof of the model: the bound roots and the module files of the reply.
-    pub fn scan(&self) -> Result<ScanProof<'id, 'm>, Reason> {
-        let model = self.model();
-        let graph = model.graph();
-        let roots = graph.settings().roots().ok_or(Part::ScanRoots)?;
-        if graph.observed().layout != Layout::ProjectFiles {
-            return Err(Part::ScanLayout.into());
-        }
-        let files = graph
-            .modules()
-            .iter()
-            .map(|(_, module)| (module.name(), module.file()))
-            .collect();
-        Ok(ScanProof {
-            brand: std::marker::PhantomData,
-            roots: Roots::new(roots, files),
-        })
-    }
-}
-
 impl GapScope<'_> {
+    /// The proof of a rule that no kept gap holds (`Scope::gaps` checks it).
+    pub(crate) fn of() -> Self {
+        GapScope {
+            brand: std::marker::PhantomData,
+        }
+    }
+
     /// Use the proof up: one gap scope stands for one rule.
     pub(crate) fn spent(self) {
         let GapScope { brand: _ } = self;
+    }
+}
+
+impl<'id, 'm> ScanProof<'id, 'm> {
+    /// The proof of bound roots over the module files of the reply (`Scope::scan` checks it).
+    pub(crate) fn of(roots: Roots<'m>) -> Self {
+        ScanProof {
+            brand: std::marker::PhantomData,
+            roots,
+        }
     }
 }
 

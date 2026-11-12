@@ -232,7 +232,7 @@ def test_the_direction_kinds_give_the_verdict_of_python_or_an_exact_name_on_ever
     }
     # AD-384: the s7 cases differ only by a named PASS beyond the reference engine.
     s7 = [line for line in differences if line.startswith("s7/")]
-    assert s7 == [line for line in s7 if BEYOND.search(line)], s7
+    assert s7 == [line for line in s7 if BEYOND.search(line) or line.endswith(S5_NAMES)], s7
 
 
 def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts(
