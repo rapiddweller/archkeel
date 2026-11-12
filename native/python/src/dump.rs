@@ -77,14 +77,29 @@ pub fn bindings(minor: &str, root: &str) -> Result<(), String> {
             let first = rel.split('/').next().unwrap_or(rel);
             let namespace = first.strip_suffix(".py").unwrap_or(first);
             let name = names::module_for(rel, namespace, minor).ok_or("module name unseen")?;
-            let module = crate::module::Module::new(rel.to_owned(), name, text, tree);
-            crate::bindings::table(&module, minor)
+            Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
         })();
-        Some(match found {
-            Ok((data, work)) => {
-                json!({"file": rel, "full_scope": true, "data": data, "work": work})
+        let crate::bindings::Table { data, work } = match found {
+            Ok(module) => crate::bindings::table(&module, minor),
+            Err(reason) => crate::bindings::Table {
+                data: Err(reason),
+                work: 0,
+            },
+        };
+        let row = match data {
+            Ok(data) => json!({"file": rel, "full_scope": true, "data": data, "work": work}),
+            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
+        };
+        Some(match crate::bindings::check_output(&row) {
+            Ok(()) => row,
+            Err(reason) => {
+                let gap = json!({"file": rel, "full_scope": false, "gap": reason, "work": work});
+                if crate::bindings::check_output(&gap).is_ok() {
+                    gap
+                } else {
+                    json!({"file": null, "full_scope": false, "gap": reason, "work": work})
+                }
             }
-            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason}),
         })
     })
 }

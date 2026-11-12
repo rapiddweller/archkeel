@@ -5,21 +5,40 @@
 //! The shared bounded walk, below each binding consumer.
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{Expr, Stmt};
 
+use super::output::Output;
 use crate::parse::work::Work;
 use crate::pyast::{child_nodes, walk, Node};
+
+pub(super) const MAX_BINDING_WORK: usize = 64_000_000;
 
 pub(super) type Result<T> = std::result::Result<T, String>;
 
 pub(super) struct Scan {
     pub minor: PyMinor,
     pub work: Work,
+    pub output: Output,
 }
 
 impl Scan {
+    pub fn new(minor: PyMinor) -> Self {
+        Self {
+            minor,
+            work: Work::with_limit(MAX_BINDING_WORK),
+            output: Output::new(),
+        }
+    }
+
+    pub fn owner(&mut self, parent: &str, name: &str) -> Result<Rc<str>> {
+        let bytes = parent.len().saturating_add(name.len()).saturating_add(1);
+        self.tick(bytes.saturating_mul(2))?;
+        Ok(Rc::from(format!("{parent}.{name}")))
+    }
+
     pub fn tick(&mut self, count: usize) -> Result<()> {
         if self.work.charge(count) {
             Ok(())

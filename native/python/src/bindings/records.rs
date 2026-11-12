@@ -5,6 +5,7 @@
 //! Lexical definitions and the complete unused-binding records, with their source evidence.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::rc::Rc;
 
 use archkeel_facts::identity::{stable_id, Part};
 use ruff_python_ast::{Expr, ExprContext, Stmt, StmtFunctionDef};
@@ -30,26 +31,24 @@ fn params(scan: &mut Scan, n: &StmtFunctionDef) -> Result<Vec<String>> {
 fn class_owners(
     scan: &mut Scan,
     module: &Module,
-) -> Result<HashMap<*const StmtFunctionDef, String>> {
+) -> Result<HashMap<*const StmtFunctionDef, Rc<str>>> {
     let mut out = HashMap::new();
     scan.tick(module.tree.body.len())?;
     let mut pending: Vec<_> = module
         .tree
         .body
         .iter()
-        .map(|s| (Node::Stmt(s), None::<String>))
+        .map(|s| (Node::Stmt(s), None::<Rc<str>>))
         .collect();
     while let Some((node, owner)) = pending.pop() {
         scan.tick(1)?;
         let owner = match &node {
-            Node::Stmt(Stmt::ClassDef(n)) => Some(format!(
-                "{}.{}",
-                owner.as_deref().unwrap_or(&module.name),
-                n.name
-            )),
+            Node::Stmt(Stmt::ClassDef(n)) => {
+                Some(scan.owner(owner.as_deref().unwrap_or(&module.name), n.name.as_str())?)
+            }
             Node::Stmt(Stmt::FunctionDef(n)) => {
                 if let Some(owner) = &owner {
-                    out.insert(std::ptr::from_ref(n), owner.clone());
+                    out.insert(std::ptr::from_ref(n), Rc::clone(owner));
                 }
                 owner
             }
@@ -96,14 +95,19 @@ pub(super) fn definitions(
                 item.extend(fields.clone());
             }
             Def::Function(n) => {
+                let owner = owners
+                    .get(&std::ptr::from_ref(n))
+                    .map(|owner| owner.as_ref());
+                if let Some(owner) = owner {
+                    scan.output.room(owner.len())?;
+                    scan.tick(owner.len())?;
+                }
                 if let Some(item) = item.as_object_mut() {
-                    item.insert(
-                        "class_owner".into(),
-                        json!(owners.get(&std::ptr::from_ref(n))),
-                    );
+                    item.insert("class_owner".into(), json!(owner));
                 }
             }
         }
+        scan.output.value(&item)?;
         out.push(item);
     }
     Ok(out)
@@ -145,22 +149,24 @@ pub(super) fn unused(
     let mut records = BTreeMap::new();
     let mut evidence = EvidenceMap::new();
     scan.tick(module.tree.body.len())?;
+    scan.tick(module.name.len())?;
+    let initial: Rc<str> = Rc::from(module.name.as_str());
     let mut pending: Vec<_> = module
         .tree
         .body
         .iter()
         .rev()
-        .map(|s| (Node::Stmt(s), module.name.clone(), false))
+        .map(|s| (Node::Stmt(s), Rc::clone(&initial), false))
         .collect();
     while let Some((node, mut owner, mut inherits)) = pending.pop() {
         scan.tick(1)?;
         match &node {
             Node::Stmt(Stmt::ClassDef(n)) => {
-                owner = format!("{owner}.{}", n.name);
+                owner = scan.owner(&owner, n.name.as_str())?;
                 inherits = n.arguments.as_ref().is_some_and(|a| !a.args.is_empty());
             }
             Node::Stmt(stmt @ Stmt::FunctionDef(n)) => {
-                owner = format!("{owner}.{}", n.name);
+                owner = scan.owner(&owner, n.name.as_str())?;
                 function(
                     scan,
                     module,
@@ -235,13 +241,21 @@ fn function(
                 let mut subjects = vec![owner, &module.name];
                 subjects.sort();
                 subjects.dedup();
-                records.insert(id.clone(), json!({
+                let copies = owner
+                    .len()
+                    .saturating_mul(3)
+                    .saturating_add(name.len().saturating_mul(2));
+                scan.output.room(copies)?;
+                scan.tick(copies)?;
+                let record = json!({
                     "id": id, "evidence_class": "FACT", "area": "repository_topology",
                     "kind": format!("unused_{binding}"), "title": format!("{owner} never reads {name}"),
                     "subjects": subjects, "evidence_ids": [evidence_id],
                     "rule_ids": [], "fact_ids": [], "provenance": [],
                     "data": {"owner": owner, "module": module.name, "name": name, "binding": binding},
-                }));
+                });
+                scan.output.value(&record)?;
+                records.insert(id.clone(), record);
             }
         }
     }

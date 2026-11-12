@@ -212,3 +212,41 @@ pub(super) fn rebind(
     }
     Ok(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_namespace_consumer_step_costs_one_unit() {
+        let tree = crate::test_tree("list(globals().keys().keys())\n", 11).expect("fixture");
+        let minor = crate::test_minor(11);
+        let mut parents = HashMap::new();
+        let mut target = None;
+        let root = Node::Stmt(tree.body.first().expect("statement"));
+        for node in crate::pyast::walk(root, minor) {
+            parents.extend(
+                crate::pyast::child_nodes(&node, minor)
+                    .into_iter()
+                    .filter_map(|child| {
+                        child
+                            .expr()
+                            .map(|expr| (std::ptr::from_ref(expr), node.clone()))
+                    }),
+            );
+            if matches!(&node, Node::Expr(Expr::Call(call)) if matches!(&*call.func, Expr::Name(n) if n.id.as_str() == "globals"))
+            {
+                target = Some(node);
+            }
+        }
+        let env = Env {
+            blocked: HashSet::new(),
+            opaque: false,
+            parents: &parents,
+        };
+        let mut scan = Scan::new(minor);
+        let before = scan.work.used();
+        assert!(consumed(&mut scan, &target.expect("globals call"), &env).expect("in scope"));
+        assert_eq!(scan.work.used() - before, 3);
+    }
+}

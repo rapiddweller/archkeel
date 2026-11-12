@@ -11,25 +11,39 @@ use ruff_python_ast::Expr;
 use serde_json::{json, Value};
 
 use crate::module::Module;
-use crate::parse::work::Work;
 use crate::pyast::Node;
 
 mod class;
 mod closure;
 mod names;
 mod namespace;
+mod output;
 mod records;
 mod scan;
 mod scopes;
 mod statements;
 
+pub use output::check as check_output;
 use scan::{Result, Scan};
 
-pub fn table(module: &Module, minor: PyMinor) -> Result<(Value, usize)> {
-    let mut scan = Scan {
-        minor,
-        work: Work::new(),
-    };
+pub struct Table {
+    pub data: Result<Value>,
+    pub work: usize,
+}
+
+pub fn table(module: &Module, minor: PyMinor) -> Table {
+    let mut scan = Scan::new(minor);
+    let data = collect(module, &mut scan).and_then(|data| {
+        check_output(&data)?;
+        Ok(data)
+    });
+    Table {
+        data,
+        work: scan.work.used(),
+    }
+}
+
+fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
     let mut nodes = Vec::new();
     // A Module walk first yields all direct statements, then their children breadth first.
     let mut pending = std::collections::VecDeque::new();
@@ -40,9 +54,9 @@ pub fn table(module: &Module, minor: PyMinor) -> Result<(Value, usize)> {
         pending.extend(scan.children(&node)?);
         nodes.push(node);
     }
-    let scope = scopes::module_scope(&mut scan, &module.tree.body)?;
-    let bound = names::bound(&mut scan, &nodes)?;
-    let scope_bound = names::bound(&mut scan, &scope)?;
+    let scope = scopes::module_scope(scan, &module.tree.body)?;
+    let bound = names::bound(scan, &nodes)?;
+    let scope_bound = names::bound(scan, &scope)?;
     let mut parents = HashMap::new();
     for node in &nodes {
         scan.tick(1)?;
@@ -66,18 +80,18 @@ pub fn table(module: &Module, minor: PyMinor) -> Result<(Value, usize)> {
     let mut read_names = Vec::new();
     for node in &nodes {
         scan.tick(1)?;
-        flags.push(namespace::flags(&mut scan, node)?);
-        own_only.push(namespace::own_only(&mut scan, node)?);
-        read_names.push(namespace::read_names(&mut scan, node, &env)?);
+        flags.push(namespace::flags(scan, node)?);
+        own_only.push(namespace::own_only(scan, node)?);
+        read_names.push(namespace::read_names(scan, node, &env)?);
     }
     let rebind = [
-        namespace::rebind(&mut scan, &nodes, &scope, &env, false)?,
-        namespace::rebind(&mut scan, &nodes, &scope, &env, true)?,
+        namespace::rebind(scan, &nodes, &scope, &env, false)?,
+        namespace::rebind(scan, &nodes, &scope, &env, true)?,
     ];
-    let definitions = records::definitions(&mut scan, module, &nodes)?;
-    let (bindings, evidence) = records::unused(&mut scan, module)?;
-    let queries = names::ordered_checks(&mut scan, &module.tree.body)?;
-    let events = names::events(&mut scan, module, &scope)?;
+    let definitions = records::definitions(scan, module, &nodes)?;
+    let (bindings, evidence) = records::unused(scan, module)?;
+    let queries = names::ordered_checks(scan, &module.tree.body)?;
+    let events = names::events(scan, module, &scope)?;
     let mut statement_bindings = Vec::new();
     for node in &nodes {
         scan.tick(1)?;
@@ -85,23 +99,22 @@ pub fn table(module: &Module, minor: PyMinor) -> Result<(Value, usize)> {
             node,
             Node::Stmt(_) | Node::Elif(_) | Node::Expr(Expr::Named(_))
         ) {
-            statement_bindings.push(statements::binding(&mut scan, node, module.text())?);
+            let item = statements::binding(scan, node, module.text())?;
+            scan.output.value(&item)?;
+            statement_bindings.push(item);
         }
     }
-    let (closures, configured_closure) = closure::tables(&mut scan, &nodes, &scope_bound)?;
+    let (closures, configured_closure) = closure::tables(scan, &nodes, &scope_bound)?;
     let scope_kinds: Vec<_> = scope.iter().map(Node::kind).collect();
     scan.tick(scope.len())?;
-    Ok((
-        json!({
-            "bound": bound, "scope": scope_kinds, "scope_bound": scope_bound,
-            "events": events, "definitions": definitions, "queries": queries,
-            "flags": flags, "own_only": own_only, "read_names": read_names, "rebind": rebind,
-            "bindings": bindings, "evidence": evidence,
-            "statement_bindings": statement_bindings, "closures": closures,
-            "configured_closure": configured_closure,
-        }),
-        scan.work.used(),
-    ))
+    Ok(json!({
+        "bound": bound, "scope": scope_kinds, "scope_bound": scope_bound,
+        "events": events, "definitions": definitions, "queries": queries,
+        "flags": flags, "own_only": own_only, "read_names": read_names, "rebind": rebind,
+        "bindings": bindings, "evidence": evidence,
+        "statement_bindings": statement_bindings, "closures": closures,
+        "configured_closure": configured_closure,
+    }))
 }
 
 #[cfg(test)]
@@ -115,10 +128,10 @@ mod tests {
             text.into(),
             crate::test_tree(text, 11).expect("fixture parses"),
         );
-        let (table, work) =
-            super::table(&module, crate::test_minor(11)).expect("fixture is in scope");
+        let result = super::table(&module, crate::test_minor(11));
+        let table = result.data.expect("fixture is in scope");
         assert_eq!(table["bound"], serde_json::json!(["local", "x", "f"]));
         assert_eq!(table["bindings"].as_array().expect("records").len(), 2);
-        assert!(work > 0 && work < crate::parse::work::MAX_WORK);
+        assert!(result.work > 0 && result.work < super::scan::MAX_BINDING_WORK);
     }
 }

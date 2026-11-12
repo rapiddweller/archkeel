@@ -8,14 +8,18 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import subprocess
+import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 from first_difference import same
+from python_binding_costs import COSTS
 from test_collector_native_python_parse import _minor
 from test_collector_native_python_scope import _FIXTURES
 
@@ -130,21 +134,49 @@ def _python(root: Path, rel: str) -> dict[str, Any] | None:
     }
 
 
+def _native_rows(binary: Path, root: Path, paths: list[str]) -> Iterator[dict[str, Any]]:
+    with tempfile.TemporaryFile(mode="w+") as source, tempfile.TemporaryFile(mode="w+") as errors:
+        source.writelines(f"{path}\n" for path in paths)
+        source.seek(0)
+        process = subprocess.Popen(
+            [str(binary), "--dump-bindings", str(_minor()), str(root)],
+            stdin=source,
+            stdout=subprocess.PIPE,
+            stderr=errors,
+            text=True,
+        )
+        try:
+            assert process.stdout is not None
+            for line in process.stdout:
+                yield json.loads(line)
+            code = process.wait(timeout=45)
+            errors.seek(0)
+            assert code == 0, errors.read()
+        finally:
+            if process.returncode is None:
+                process.kill()
+                process.wait()
+            if process.stdout is not None:
+                process.stdout.close()
+
+
 def _native(binary: Path, root: Path, paths: list[str]) -> list[dict[str, Any]]:
-    result = subprocess.run(
-        [str(binary), "--dump-bindings", str(_minor()), str(root)],
-        input="\n".join(paths) + "\n",
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    return [json.loads(line) for line in result.stdout.split("\n") if line]
+    return list(_native_rows(binary, root, paths))
 
 
 def test_the_binding_dump_exists(tmp_path: Path, python_dump_binary: Path) -> None:
     (tmp_path / "probe.py").write_text("def f(x):\n    y = 1\n    return 2\n")
     found = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
     _same(found["data"], _python(tmp_path, "probe.py"), "binding primitives")
+
+
+@pytest.mark.parametrize("name", COSTS)
+def test_binding_loop_cost(name: str, tmp_path: Path, python_dump_binary: Path) -> None:
+    text, work = COSTS[name]
+    (tmp_path / "probe.py").write_text(text)
+    row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
+    assert row["full_scope"], row.get("gap")
+    assert row["work"] == work
 
 
 @pytest.mark.parametrize("index", range(160))
@@ -219,10 +251,23 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
         for p in root.rglob("*.py")
         if p.is_file() and not p.is_symlink() and ".venv" not in p.parts
     )
+    assert paths, "binding corpus has no Python files"
     counts = [len(paths), 0, 0, 0]
     shared_refusals = 0
     gaps: Counter[str] = Counter()
-    for row in _native(binary, root, paths):
+    for row in _native_rows(binary, root, paths):
+        if report := os.environ.get("ARCHKEEL_BINDING_WORK_REPORT"):
+            private = root.name.startswith("priv")
+            record = {
+                "minor": _minor(),
+                "corpus": "private aggregate" if private else root.name,
+                "file": "private aggregate" if private else row["file"],
+                "work": row["work"],
+                "gap": row.get("gap"),
+            }
+            with Path(report).open("a") as stream:
+                stream.write(json.dumps(record) + "\n")
+        assert row["work"] * 4 <= 64_000_000, "binding corpus work has less than a fourfold margin"
         expected = _python(root, row["file"])
         if expected is None:
             assert not row["full_scope"], row["file"]
@@ -240,6 +285,79 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
         print(f"binding refusals {_minor()}: shared={shared_refusals}, stricter={dict(gaps)}")
     files, equal, stricter, different = counts
     return files, equal, stricter, different
+
+
+def test_an_empty_corpus_has_a_named_failure(tmp_path: Path, python_dump_binary: Path) -> None:
+    with pytest.raises(AssertionError, match="binding corpus has no Python files"):
+        _compare(python_dump_binary, tmp_path)
+
+
+def _owner_source(definitions: int, width: int = 3000) -> str:
+    classes = "".join(
+        "    " * depth + f"class C{depth}" + "x" * width + ":\n" for depth in range(90)
+    )
+    return classes + ("    " * 90 + "def f(): pass\n") * definitions
+
+
+def _measured_dump(binary: Path, root: Path, output: Path) -> tuple[dict[str, Any], float, int]:
+    if sys.platform == "darwin":
+        flags, pattern, unit = ["-l"], r"(\d+)\s+maximum resident set size", 1
+    elif sys.platform.startswith("linux"):
+        flags, pattern, unit = ["-v"], r"Maximum resident set size \(kbytes\):\s*(\d+)", 1024
+    else:
+        pytest.skip("the owner memory check needs POSIX time")
+    start = perf_counter()
+    with output.open("w") as stream:
+        result = subprocess.run(
+            ["/usr/bin/time", *flags, str(binary), "--dump-bindings", str(_minor()), str(root)],
+            input="probe.py\n",
+            text=True,
+            stdout=stream,
+            stderr=subprocess.PIPE,
+            timeout=45,
+            check=True,
+        )
+    elapsed = perf_counter() - start
+    assert output.stat().st_size <= 32 * 1024 * 1024, "binding output exceeds its byte limit"
+    found = re.search(pattern, result.stderr)
+    assert found, result.stderr
+    return json.loads(output.read_text()), elapsed, int(found[1]) * unit
+
+
+def test_large_owner_output_is_a_named_gap(tmp_path: Path, python_dump_binary: Path) -> None:
+    (tmp_path / "probe.py").write_text(_owner_source(500, 1000))
+    row, elapsed, peak = _measured_dump(python_dump_binary, tmp_path, tmp_path / "output.json")
+    assert not row["full_scope"]
+    assert row["gap"] == "binding output limit exceeded (33554432 bytes)"
+    assert "data" not in row
+    assert peak < 512 * 1024 * 1024
+    print({"owner_gap_work": row["work"], "seconds": elapsed, "peak_bytes": peak})
+
+
+def test_nested_owner_work_time_and_memory_scale_with_input(
+    tmp_path: Path,
+    python_dump_binary: Path,
+) -> None:
+    sizes, times, peaks, works = [], [], [], []
+    for definitions in (1000, 3000):
+        text = _owner_source(definitions)
+        sizes.append(len(text.encode()))
+        (tmp_path / "probe.py").write_text(text)
+        row, elapsed, peak = _measured_dump(python_dump_binary, tmp_path, tmp_path / "output.json")
+        assert not row["full_scope"]
+        assert row["gap"] == "binding output limit exceeded (33554432 bytes)"
+        assert "data" not in row
+        times.append(elapsed)
+        peaks.append(peak)
+        works.append(row["work"])
+        print(
+            {"input_bytes": sizes[-1], "work": row["work"], "seconds": elapsed, "peak_bytes": peak}
+        )
+    ratio = sizes[1] / sizes[0]
+    assert times[1] / times[0] < ratio * 3
+    assert peaks[1] / peaks[0] < ratio * 2
+    assert max(peaks) < 512 * 1024 * 1024
+    assert works[1] / works[0] < ratio * 2
 
 
 @pytest.mark.parametrize("fixture", (*_FIXTURES, "fixtures"))
@@ -280,7 +398,7 @@ def test_binding_work_scales_linearly(
 
 
 def test_binding_work_exhaustion_is_a_named_gap(tmp_path: Path, python_dump_binary: Path) -> None:
-    (tmp_path / "probe.py").write_text("x = 1\n" * 24000)
+    (tmp_path / "probe.py").write_text(_owner_source(1, 8000))
     row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
     assert not row["full_scope"]
     assert row["gap"] == "binding work limit exceeded"

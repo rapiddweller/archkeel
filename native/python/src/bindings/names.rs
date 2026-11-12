@@ -116,13 +116,15 @@ pub(super) fn events(scan: &mut Scan, module: &Module, nodes: &[Node<'_>]) -> Re
         let location = module.location(&range);
         for value in values {
             scan.tick(1)?;
-            out.push(json!([
+            let item = json!([
                 node.kind(),
                 location.line,
                 location.end_line,
                 location.column,
                 value
-            ]));
+            ]);
+            scan.output.value(&item)?;
+            out.push(item);
         }
     }
     Ok(out)
@@ -287,4 +289,22 @@ pub(super) fn ordered_checks(scan: &mut Scan, body: &[Stmt]) -> Result<Vec<Vec<b
         queries.push(row);
     }
     Ok(queries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_global_declaration_step_is_charged_beside_the_walk() {
+        let tree =
+            crate::test_tree("class C:\n    def f():\n        global x\n", 11).expect("fixture");
+        let node = Node::Stmt(tree.body.first().expect("class"));
+        let minor = crate::test_minor(11);
+        let visits = crate::pyast::walk(node.clone(), minor).count();
+        let mut scan = Scan::new(minor);
+        let before = scan.work.used();
+        assert!(!declares_global(&mut scan, node, "missing").expect("in scope"));
+        assert_eq!(scan.work.used() - before, visits * 2 + 1);
+    }
 }

@@ -7,14 +7,22 @@
 pub const MAX_WORK: usize = 2_000_000;
 
 pub struct Work {
+    #[cfg(any(test, feature = "dump"))]
+    limit: usize,
     left: usize,
     exceeded: bool,
 }
 
 impl Work {
     pub fn new() -> Self {
+        Self::with_limit(MAX_WORK)
+    }
+
+    pub fn with_limit(limit: usize) -> Self {
         Self {
-            left: MAX_WORK,
+            #[cfg(any(test, feature = "dump"))]
+            limit,
+            left: limit,
             exceeded: false,
         }
     }
@@ -40,7 +48,7 @@ impl Work {
 
     #[cfg(any(test, feature = "dump"))]
     pub fn used(&self) -> usize {
-        MAX_WORK.saturating_sub(self.left)
+        self.limit.saturating_sub(self.left)
     }
 }
 

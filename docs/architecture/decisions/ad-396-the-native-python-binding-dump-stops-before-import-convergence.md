@@ -29,9 +29,14 @@ of partly ported lines. Use 810 as a conservative lower bound, not a guessed cum
 4. Keep member-binding closure as a work list. Assignment aliases give edges in both directions.
    Containment gives a directed edge. A namespace expands once. Explicit local references
    do not give alias edges. The dump checks default and explicit proof inputs.
-5. Charge the additional walks, text bytes and closure edges against the existing work budget.
-   Exhaustion gives `binding work limit exceeded`, never a partial inventory. New walks use
-   heap stacks. Expression text uses the existing depth bound and named text refusals.
+5. Keep the parser budget at 2,000,000 units. Give the binding pass 64,000,000 units.
+   Charge node loops, expression text bytes and copied owner-path bytes. Share owner paths
+   through `Rc<str>` in both ownership walks. Charge two copies when a new path is built.
+   Bound serialized output at 33,554,432 bytes, including JSON escapes and the final newline.
+   Count records before retention and owner bytes before copying. Check the complete frame too.
+   Exhaustion gives `binding work limit exceeded` or `binding output limit exceeded (33554432 bytes)`.
+   Each refusal has incomplete scope and no partial data. New walks use heap stacks.
+   Expression text keeps the existing depth bound and named text refusals.
 6. Assign the binding modules to `py-symbols`. Put the bounded scan below its consumers, as
    `symbols::scan` does. Keep shared definition locations and import names in `py-module`.
    Share the namespace name tables with the survey. Add no clone baseline entry.
