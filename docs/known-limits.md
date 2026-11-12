@@ -372,6 +372,17 @@ The API ratchet of `tools/rust_api.py` counts a declaration macro once, in its t
 contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
 counts of `native/api_baseline.json`.
 
+## The Rust core (dual run only)
+
+The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) runs only in the dual run; no command uses it. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
+
+- A gap between two modules that the contract allows: Python drops it for the Rust profile only. 7 rules of the corpus (2 PASS and 5 UNKNOWN in Python).
+- `interface_boundary` in a TypeScript contract: a limit of the Rust profile only. 8 rules (PASS in Python).
+- A symbol-level selector in a reply with `script-globals-v1`: one profile reads such selectors. 4 rules (PASS in Python).
+- A runtime requirement that is not `>=X`, and a `forbidden_construct` rule that selects no module: no corpus case.
+
+The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
+
 ## The native Python collector
 
 The native Python collector (not yet the default) cannot read the target of a dangling `*.py`
