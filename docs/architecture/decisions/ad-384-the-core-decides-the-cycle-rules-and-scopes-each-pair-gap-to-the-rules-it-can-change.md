@@ -24,7 +24,7 @@
 
 **Reason.** 81 `complete_requires` rules and every cycle rule were named gaps without the roots. A kept gap made every rule UNKNOWN; most of those rules read no edge.
 
-**Core decides, Python does not (point 5).** This is the one allowed direction change: Python gives UNKNOWN, the core PASS. 22 rules in 17 cases of the corpus (17 `complete_assignment`, 1 each of `root_layout`, `external_dependency_scope`, `complete_external_scope`, `forbidden_dependency`, `sibling_isolation`); listed in `docs/known-limits.md`.
+**Core decides, Python does not (point 5).** This is the one allowed direction change: Python gives UNKNOWN, the core PASS. 21 rules in 16 cases of the corpus (16 `complete_assignment`, 1 each of `root_layout`, `external_dependency_scope`, `complete_external_scope`, `forbidden_dependency`, `sibling_isolation`); listed in `docs/known-limits.md`.
 
 **Differences that stay named.** The AD-374 recursion difference: Python stops with `maximum recursion depth exceeded` on a cycle or a chain of about 1 000 modules; the core walks with an explicit stack and decides the cycle rule (a 100 000-node cycle test). This is a decision where Python gives UNKNOWN, also named here.
 
@@ -32,6 +32,6 @@
 
 **Limit.** Parity holds only for replies that the store accepts (TypeScript, Rust). Rules of a tree stay named gaps (AD-379).
 
-**Corpus (645 cases, the ten decided kinds).** Both agree: `no_component_cycles` 151 PASS, 26 FAIL, 86 UNKNOWN; `complete_requires` 73, 38, 34 (0 PASS before). Core decides where Python differs: 0. Run status PASS or FAIL where Python differs: 0.
+**Corpus (645 cases, the ten decided kinds).** Both agree: `no_component_cycles` 149 PASS, 26 FAIL, 86 UNKNOWN; `complete_requires` 71, 38, 34 (0 PASS before). Core decides where Python differs: 0. Run status PASS or FAIL where Python differs: 0.
 
-**Tests.** `native/model/src/roots_tests.rs`, `pair_gaps_tests.rs`, `settings_tests.rs`, `component_cycles_tests.rs`; `native/eval/src/gap_scope_tests.rs`, `scope_tests.rs`; the attempts 21 to 25 of `native/model-barrier`; `tests/test_native_core.py` (`BEYOND_CASES`); the 10 cases `s7/*`.
+**Tests.** `native/model/src/roots_tests.rs`, `pair_gaps_tests.rs`, `settings_tests.rs`, `component_cycles_tests.rs`; `native/eval/src/gap_scope_tests.rs`, `drop_rule_tests.rs`, `cycle_receipt_tests.rs`, `scope_tests.rs`; `native/model/src/receipts_tests.rs`; the attempts 21 to 25 of `native/model-barrier`; `tests/test_native_core.py` (`BEYOND_CASES`); the 10 cases `s7/*`.
