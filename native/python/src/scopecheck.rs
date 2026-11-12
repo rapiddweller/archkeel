@@ -171,3 +171,15 @@ impl<'a> Visitor<'a> for Bindings<'_> {
         self.depth -= 1;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn comprehension_conditions_have_an_exact_work_charge() {
+        let tree = crate::test_tree("[x for x in values if a if b]", 14).unwrap();
+        let mut work = super::Work::new();
+        let bindings = super::bindings(&tree.body, &mut work);
+        assert!(bindings.names.is_empty());
+        assert_eq!(work.used(), 8);
+    }
+}

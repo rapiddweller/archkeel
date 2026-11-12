@@ -70,19 +70,7 @@ fn pattern(
                 .and_then(|node| pattern(node, names, work, depth + 1))
         }
         Pattern::MatchStar(node) => node.name.as_ref().and_then(|name| bind(name.as_str())),
-        Pattern::MatchSequence(node) => {
-            let mut stars = 0;
-            for item in &node.patterns {
-                if !work.charge(1) {
-                    return Some("CPython validation work limit exceeded");
-                }
-                stars += usize::from(matches!(item, Pattern::MatchStar(_)));
-                if let Some(reason) = pattern(item, names, work, depth + 1) {
-                    return Some(reason);
-                }
-            }
-            (stars > 1).then_some("multiple star patterns")
-        }
+        Pattern::MatchSequence(node) => sequence(&node.patterns, names, work, depth),
         Pattern::MatchOr(node) => alternatives(&node.patterns, names, work, depth),
         Pattern::MatchMapping(node) => mapping(node, names, work, depth),
         Pattern::MatchClass(node) => {
@@ -118,6 +106,28 @@ fn pattern(
         }
         Pattern::MatchValue(_) | Pattern::MatchSingleton(_) => None,
     }
+}
+
+fn sequence(
+    items: &[Pattern],
+    names: &mut HashSet<String>,
+    work: &mut Work,
+    depth: usize,
+) -> Option<&'static str> {
+    let mut stars = 0;
+    for (index, item) in items.iter().enumerate() {
+        if !work.charge(1) {
+            return Some("CPython validation work limit exceeded");
+        }
+        stars += usize::from(matches!(item, Pattern::MatchStar(_)));
+        if matches!(item, Pattern::MatchStar(_)) && index >= 256 {
+            return Some("too many expressions before a star pattern");
+        }
+        if let Some(reason) = pattern(item, names, work, depth + 1) {
+            return Some(reason);
+        }
+    }
+    (stars > 1).then_some("multiple star patterns")
 }
 
 fn alternatives(
@@ -264,5 +274,19 @@ fn literal_key(expr: &Expr) -> Option<String> {
         }
         Expr::NoneLiteral(_) => Some("none".to_owned()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sequence_work_is_exact() {
+        let tree = crate::test_tree("match value:\n case [a, b, *rest]: pass", 14).unwrap();
+        let ruff_python_ast::Stmt::Match(node) = &tree.body[0] else {
+            return;
+        };
+        let mut work = super::Work::new();
+        assert_eq!(super::check(&node.cases, &mut work), None);
+        assert_eq!(work.used(), 9);
     }
 }

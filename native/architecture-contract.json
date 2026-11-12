@@ -1590,13 +1590,15 @@
         "native.archkeel_python_collector.parse"
       ],
       "responsibilities": [
-        "Parse one Python module with the grammar of one Python version and the limits of CPython: the tokenizer limits, the depth bound before the parse and MAX_AST_DEPTH (AD-334)."
+        "Parse one Python module with the grammar of one Python version and the limits of CPython: the tokenizer limits, the depth bound before the parse and MAX_AST_DEPTH (AD-334).",
+        "Own the compiler refusal checks and annotation scopes under parse.compilercheck (AD-402)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, naming modules and building records."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md"
+        "docs/architecture/decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md",
+        "docs/architecture/decisions/ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md"
       ],
       "requires": [
         {

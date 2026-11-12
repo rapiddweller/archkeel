@@ -198,6 +198,10 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_self_rules.py",
         "test_native_self_contract.py",
         "test_native_standard_library.py",
+        # AD-402: the real compiler of each minor checks the refusal witnesses.
+        "test_collector_native_python_compile_sites.py",
+        "test_collector_native_python_compiler.py",
+        "test_collector_native_python_review.py",
         "test_pr_test_node_ids.py",
         "test_native_versions.py",
         "test_rust_*.py",

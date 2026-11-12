@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-389: keep the review's open misses strict and check each false refusal."""
+"""AD-402: each review refusal must be a gap, not a native tree."""
 
 from __future__ import annotations
 
@@ -53,22 +53,7 @@ def reviewed_native(
     return _native(python_dump_binary, root, rels)
 
 
-@pytest.mark.parametrize(
-    "row",
-    [
-        pytest.param(
-            row,
-            marks=pytest.mark.xfail(
-                MINOR in row["known_miss_minors"],
-                strict=True,
-                raises=AssertionError,
-                reason=f"#1072: review source {row['id']} is still accepted on {MINOR}",
-            ),
-            id=row["id"],
-        )
-        for row in CASES
-    ],
-)
+@pytest.mark.parametrize("row", CASES, ids=[row["id"] for row in CASES])
 def test_a_reviewed_compiler_refusal_is_not_a_native_tree(
     row: dict[str, Any], reviewed_native: dict[str, Any]
 ) -> None:

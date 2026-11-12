@@ -418,7 +418,14 @@ The native Python collector also refuses compiler-invalid ASTs and sources beyon
 work or depth bounds. Each refusal names the file and gives incomplete scope
 ([AD-389](architecture/decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)).
 **Python reply acceptance — entry condition:** the store must not accept the native Python reply
-before #1072 is closed. The refusal checks are partial: 17 known classes still accepted, issue #1072 stays open.
+before #1072 is closed. [AD-402](architecture/decisions/ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md)
+fixes the 17 reviewed classes. The source inventory has 252 message witnesses and 1,082 unproved
+rows. A matching message does not prove every compiler path. Indirect errors, dynamic messages,
+AST-only failure reachability, memory exhaustion and interpreter settings still need proof.
+Issue #1072 stays open. The oracle uses the default recursion limit of 1,000, not the host's 20,000.
+Native checks every static-block branch and reserves an async cleanup block. CPython can remove
+some branches. Native also bounds 3.11 `elif` chains at depth plus clause count 900. These bounds
+can be stricter, with a named gap. Neither measured corpus has a new refusal on any supported minor.
 
 ## Scope and nested contracts
 

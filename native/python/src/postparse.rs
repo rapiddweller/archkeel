@@ -224,7 +224,9 @@ impl Check {
             if !self.work.charge(1) {
                 break;
             }
-            if self.seen.contains(name.as_str()) && !self.globals.contains(name.as_str()) {
+            if self.nonlocals.contains(name.as_str())
+                || (self.seen.contains(name.as_str()) && !self.globals.contains(name.as_str()))
+            {
                 self.fail("name used or assigned before global declaration");
             }
             self.globals.insert(name.to_string());
