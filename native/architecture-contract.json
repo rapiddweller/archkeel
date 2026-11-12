@@ -2196,11 +2196,17 @@
       "dependency": "ruff_text_size",
       "allowed_sources": [
         "native.archkeel_python_collector.survey.module",
-        "native.archkeel_python_collector.cargo_toml"
+        "native.archkeel_python_collector.cargo_toml",
+        "native.archkeel_python_collector.pyast.fstring",
+        "native.archkeel_python_collector.unparse.hazard",
+        "native.archkeel_python_collector.symbols.class",
+        "native.archkeel_python_collector.symbols.scan",
+        "native.archkeel_python_collector.symbols.sites"
       ],
-      "rationale": "Only the survey module of the Python collector reads the text ranges of the Python parser.",
+      "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [
-        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md",
+        "docs/architecture/decisions/ad-377-the-native-python-collector-reads-the-cpython-tree-and-writes-the-definition-table.md"
       ],
       "decided_by": "architect"
     },
