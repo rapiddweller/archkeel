@@ -13,6 +13,7 @@
 
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
+use super::receivers::{exact_path, inert, kind_of, type_inert};
 use super::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
 use crate::definitions::{Access, Definition, Form, Holder, ImplBlock, Member, Owner};
@@ -136,6 +137,7 @@ impl Walker<'_> {
                     name: plain(&f.sig.ident),
                     access: access(&f.vis),
                     receiver: f.sig.receiver().is_some(),
+                    kind: kind_of(&f.sig).filter(|_| inert(&f.attrs)),
                     arity: (f.sig.inputs.len())
                         .saturating_sub(usize::from(f.sig.receiver().is_some())),
                 }),
@@ -143,6 +145,7 @@ impl Walker<'_> {
                     name: plain(&c.ident),
                     access: access(&c.vis),
                     receiver: false,
+                    kind: None,
                     arity: 0,
                 }),
                 _ => None,
@@ -153,7 +156,20 @@ impl Walker<'_> {
             path,
             scope,
             members,
+            exact: exact_path(item).is_some() && self.blocks == 0 && !self.selves.gated(),
         });
+    }
+
+    /// Keep a struct or an enum at module level that every configuration has (AD-383).
+    pub(super) fn exact_type(&mut self, item: &Item) {
+        let (ident, attrs) = match item {
+            Item::Struct(found) => (&found.ident, &found.attrs),
+            Item::Enum(found) => (&found.ident, &found.attrs),
+            _ => return,
+        };
+        if self.blocks == 0 && !self.selves.gated() && type_inert(attrs) {
+            self.out.exact_types.insert(plain(ident));
+        }
     }
 
     pub(super) fn enter_trait(&mut self, item: &ItemTrait) -> Holder {
@@ -207,4 +223,35 @@ impl Walker<'_> {
         found.is_async = sig.asyncness.is_some();
         self.out.definitions.push(found);
     }
+}
+
+/// The name that an item declares. Every kind counts, whatever its namespace.
+pub(super) fn item_name(item: &Item) -> Option<String> {
+    let ident = match item {
+        Item::Fn(item) => &item.sig.ident,
+        Item::Struct(item) => &item.ident,
+        Item::Enum(item) => &item.ident,
+        Item::Union(item) => &item.ident,
+        Item::Trait(item) => &item.ident,
+        Item::TraitAlias(item) => &item.ident,
+        Item::Type(item) => &item.ident,
+        Item::Const(item) => &item.ident,
+        Item::Static(item) => &item.ident,
+        Item::Mod(item) => &item.ident,
+        Item::Macro(item) => item.ident.as_ref()?,
+        Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
+        _ => return None,
+    };
+    Some(plain(ident))
+}
+
+/// The name of an item of an `extern` block.
+pub(super) fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
+    let ident = match item {
+        syn::ForeignItem::Fn(item) => &item.sig.ident,
+        syn::ForeignItem::Static(item) => &item.ident,
+        syn::ForeignItem::Type(item) => &item.ident,
+        _ => return None,
+    };
+    Some(plain(ident))
 }

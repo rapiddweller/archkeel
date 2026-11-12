@@ -160,12 +160,17 @@ impl Builder {
 
     /// The methods that the body of a macro calls are calls of the module of the call (#953).
     fn expand_methods(&mut self, module: &Module, call: &MacroCall, def: &MacroDef) {
+        for name in &def.members {
+            let modules = self.macro_members.entry(name.clone()).or_default();
+            modules.insert(module.module.clone());
+        }
         let calls = def.methods.iter().map(|name| MethodCall {
             name: name.clone(),
             site: call.site.clone(),
             scope: Vec::new(),
             path: false,
             arity: None,
+            on_self: None,
         });
         let found = self.macro_methods.entry(module.module.clone()).or_default();
         found.extend(calls);

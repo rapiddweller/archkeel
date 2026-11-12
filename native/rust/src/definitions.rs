@@ -77,6 +77,28 @@ pub struct ImplBlock {
     pub scope: Vec<String>,
     /// Each `fn` and `const` of the block, with its visibility as written.
     pub members: Vec<Member>,
+    /// The block has no type or const parameter, its type has no type or const argument, and no
+    /// attribute that can change it: its members are the members of the one type that it names.
+    pub exact: bool,
+}
+
+/// The `self` parameter of a method as written: `self`, `&self` or `&mut self` (with any lifetime
+/// and `mut`). A typed `self: X` is no kind: the scan does not read types.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SelfKind {
+    Value,
+    Shared,
+    Unique,
+}
+
+/// A method call whose receiver is the plain `self` of a method of an `impl` block, or a path
+/// `Self::m` in such a block (AD-383): the path of the type of the block, the inline modules that
+/// enclose the block, and the kind of the `self` parameter of the method (`None` for a path).
+#[derive(Clone, Debug, PartialEq)]
+pub struct OnSelf {
+    pub path: Vec<String>,
+    pub scope: Vec<String>,
+    pub kind: Option<SelfKind>,
 }
 
 /// A member of an inherent `impl` block. Only a `fn` with a `self` parameter can be called as
@@ -86,6 +108,9 @@ pub struct Member {
     pub name: String,
     pub access: Access,
     pub receiver: bool,
+    /// The kind of the `self` parameter, or `None` when it is typed, absent, or an attribute
+    /// other than an inert one is on the member.
+    pub kind: Option<SelfKind>,
     /// The parameters besides `self`.
     pub arity: usize,
 }
@@ -100,4 +125,6 @@ pub struct MethodCall {
     pub path: bool,
     /// The arguments of `x.m(..)`, or `None` when the scan does not know them (a macro, a path).
     pub arity: Option<usize>,
+    /// The receiver is the plain `self` of a method of an `impl` block with an exact type.
+    pub on_self: Option<OnSelf>,
 }

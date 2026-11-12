@@ -59,3 +59,9 @@ not see. The cycles of a type file and its `impl` files are real under the curre
 makes every rule UNKNOWN, so the gate pins the exact 33 gaps and the status of each rule
 (`native/expected-gaps.json`, `tools/native_expected.py`): a new or a missing gap, another status or
 a violation fails it. A parent/child option of the cycle rule is a later, separate decision.
+
+**Amendment (2026-11-12, AD-383).** Point 3 has one exception: a call on a plain `self` in a method
+of `impl S` is an edge to the module of the inherent member `m` of `S` and gives no gap, when that
+member has the same `self` form and the block and the member are exact
+([AD-383](ad-383-a-method-call-on-a-plain-self-is-an-exact-edge-in-rust.md)). The pin of
+`native/expected-gaps.json` also lists each known violation with its follow-up issue.

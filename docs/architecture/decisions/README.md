@@ -382,4 +382,5 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-384 | [The core decides the cycle rules and scopes each pair gap to the rules it can change](ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md) |
 | AD-385 | [The core decides the rules of a contract tree with one model per mount](ad-385-the-core-decides-the-rules-of-a-contract-tree-with-one-model-per-mount.md) |
 | AD-386 | [The contract crate reads and writes baselines](ad-386-the-contract-crate-reads-and-writes-baselines.md) |
+| AD-383 | [A method call on a plain self is an exact edge in Rust](ad-383-a-method-call-on-a-plain-self-is-an-exact-edge-in-rust.md) |
 | AD-387 | [The native Dart collector checks SDK support before record assembly](ad-387-the-native-dart-collector-checks-sdk-support-before-record-assembly.md) |

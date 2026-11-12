@@ -76,6 +76,10 @@ pub(crate) struct Builder {
     pub(crate) macro_unknowns: BTreeMap<(String, usize), Vec<String>>,
     /// The methods that the macros called in each module call there, at the place of the call.
     pub(crate) macro_methods: BTreeMap<String, Vec<MethodCall>>,
+    /// Each function name that a macro body defines, and the modules that call the macro
+    /// (AD-383): a call on `self` of that name is not resolved, since the expansion may be a
+    /// member that the scan does not see.
+    pub(crate) macro_members: BTreeMap<String, BTreeSet<String>>,
     /// The pairs that have a pair gap: one gap is enough for each pair.
     pub(crate) gapped: BTreeSet<(String, String)>,
     /// The outcomes that the edges ended, for the invariant of the extraction

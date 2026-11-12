@@ -281,7 +281,7 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 `b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
-`5u8.m()` in the child), give a gap of the pair `a -> b`. The host drops that gap only when the
+`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
 trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
