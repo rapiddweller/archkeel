@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare the SDK support layer with Python on every pubspec of each Dart corpus (AD-385)."""
+"""Compare the SDK support layer with Python on every pubspec of each Dart corpus (AD-387)."""
 
 from __future__ import annotations
 
@@ -151,6 +151,8 @@ def hostile() -> list[bytes]:
         "=3.12\x00",
         "^" + "0" * 4301 + "3.12",
         ">=3 " * 200_000,
+        ">=3,<4 " * 20_000,
+        ">=" + "0" * 4301 + "3.12",
     ]
     raw = [f"name: shop\nenvironment:\n  sdk: '{value}'\n".encode() for value in constraints]
     raw += [

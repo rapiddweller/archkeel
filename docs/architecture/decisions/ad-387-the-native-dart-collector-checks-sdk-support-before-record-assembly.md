@@ -1,4 +1,4 @@
-# AD-385 The native Dart collector checks SDK support before record assembly
+# AD-387 The native Dart collector checks SDK support before record assembly
 
 **Status.** Accepted. Epic #880, PR 8 slice 4a. It follows AD-369 and AD-376.
 
@@ -26,8 +26,10 @@ The records component calls this layer after the snapshot problems, as Python do
 **Stricter cases, a closed list.**
 - *SdkConstraintWorkLimit:* each input scan, copied decimal and bound comparison costs work.
   More than 1 048 576 units gives an SDK gap and support false. No partial result is supported.
+  The review case `">=3,<4 " * 20000` gives this gap; Python proves support with no gap.
 - *SdkConstraintDigitLimit:* more than 4 300 digits in one component gives an SDK gap.
   Python raises `ValueError` at this limit. Leading zeros count. Native never truncates a number.
+  The review case `">=" + "0" * 4301 + "3.12"` checks the Python error and the named native gap.
 
 **Cut and remaining work.** Slice 4b must assemble the symbols, imports, bases, calls,
 references, bindings, inventories, duplicates, source coverage and final facts. It must use the
@@ -47,8 +49,8 @@ The Windows snapshot limit of AD-369 stays open. No Python production behavior c
 
 **Measured (2026-11-12, Python 3.11.12, Unicode 14).** Equal SDK checks: four fixtures,
 22 demo variants, private Dart 1 pubspec, dart-http 17 pubspecs and Flutter 142 pubspecs.
-Hostile metadata: 42 equal, two named SDK limits. Hostile filesystem snapshots: 41 equal,
-two named SDK limits and one named source size limit. Generated constraints: 3 000 equal.
+Hostile metadata: 42 equal, four named SDK limits. Hostile filesystem snapshots: 41 equal,
+four named SDK limits and one named source size limit. Generated constraints: 3 000 equal.
 
 **Tests.** `tests/test_collector_native_dart_sdk.py`, the Rust SDK tests and
 `tools/dart_sdk_parity.py` compare the flag and exact gap records. Generated long constraints

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The SDK support gate of `collect._Collection._sdk_constraints` (AD-385).
+//! The SDK support gate of `collect._Collection._sdk_constraints` (AD-387).
 
 mod constraint;
 mod version;

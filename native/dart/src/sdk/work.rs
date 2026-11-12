@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The bounded work account and stop reasons of the SDK check (AD-385).
+//! The bounded work account and stop reasons of the SDK check (AD-387).
 
 use std::cell::Cell;
 

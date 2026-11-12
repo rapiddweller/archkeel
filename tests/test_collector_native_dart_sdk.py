@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-385: the SDK support flag and gaps equal the Python collection boundary."""
+"""AD-387: the SDK support flag and gaps equal the Python collection boundary."""
 
 from __future__ import annotations
 
@@ -123,6 +123,29 @@ def test_long_constraints_stop_with_named_gaps_within_ten_seconds(binary: Path) 
         assert not row["sdk_supported"]
         assert len(row["gaps"]) == 1
         assert name in row["gaps"][0]["data"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("constraint", "name", "python_error"),
+    [
+        (">=3,<4 " * 20_000, "SdkConstraintWorkLimit", False),
+        (">=" + "0" * 4301 + "3.12", "SdkConstraintDigitLimit", True),
+    ],
+    ids=["comparison-list-work-limit", "version-component-digit-limit"],
+)
+def test_review_cases_prove_the_named_stricter_outcome(
+    binary: Path, constraint: str, name: str, python_error: bool
+) -> None:
+    item = {"state": "declared", "constraint": constraint}
+    if python_error:
+        with pytest.raises(ValueError, match="4300"):
+            parity.python(item)
+    else:
+        assert parity.python(item) == {"sdk_supported": True, "gaps": []}
+    actual = parity.native(binary, [item])[0]
+    assert actual["sdk_supported"] is False
+    assert len(actual["gaps"]) == 1
+    assert name in actual["gaps"][0]["data"]["message"]
 
 
 def test_exact_work_and_integer_digit_boundary(binary: Path) -> None:
