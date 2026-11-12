@@ -15,8 +15,8 @@
 4. Sweeps over the scope ranges and the callable bodies, one cache of the named children of each
    parent and a memo of `_callable_context_for` replace the pairwise loops of Python. They give
    the same values. Python does this work again for each node, so long lists grow with the square.
-5. `str.isalnum` of `_canonical_range` reads the `ALNUM` table of the oracle (L-27). It differs
-   from `\w` at `_` and at combining marks, and from `char::is_alphanumeric` at U+0345.
+5. `str.isalnum` of `_canonical_range` reads the `ALNUM` table of the oracle (L-27). In Python
+   3.11 it is `\w` without `_`; it differs from `char::is_alphanumeric`, for example at U+0345.
 
 **Problem.** The Dart resolver reads the sites: references, calls, creations, bindings and
 their scopes. Slice 5 switches the Dart default only when each file equals Python.

@@ -151,7 +151,8 @@ def test_a_hostile_source_gives_the_python_syntax(binary: Path, tmp_path: Path, 
     [(text, _, _)] = parity.native_syntax(binary, [path])  # type: ignore[attr-defined]
     expected, _ = parity.python_syntax(path.read_bytes())  # type: ignore[attr-defined]
     assert expected is not None
-    assert text == expected, parity.difference(expected, text)  # type: ignore[attr-defined]
+    same = text == expected
+    assert same, parity.difference(expected, text)  # type: ignore[attr-defined]
 
 
 def test_a_code_point_that_unicode_14_does_not_assign_is_a_native_gap(

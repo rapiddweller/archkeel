@@ -79,8 +79,8 @@ fn python_word_characters_are_the_python_311_set() {
 
 #[test]
 fn python_alphanumeric_characters_are_the_python_311_set() {
-    // `str.isalnum` differs from `\w` at `_` and at each combining mark, and from
-    // `char::is_alphanumeric` at U+0345 and at the code points that Unicode 14 does not assign.
+    // `str.isalnum` is `\w` without `_` in Python 3.11. It differs from `char::is_alphanumeric`
+    // at U+0345 and at the code points that Unicode 14 does not assign.
     for c in ['_', '$', '\u{345}', '\u{93e}', '\u{10d40}', '\u{fffd}', ' '] {
         assert!(
             !is_alnum(c),

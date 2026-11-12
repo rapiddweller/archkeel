@@ -132,6 +132,18 @@ CASES: dict[str, str | bytes] = {
     ),
     "function_types.dart": "void Function(int) f = (x) {}; typedef G = int Function(String);\n",
     "nested_classes_in_closure.dart": "var f = () { var g = () { var h = () => i.j(); }; };\n",
+    # Three levels of parameters: the outermost one gives the scope, not the innermost one.
+    "nested_parameters_deep.dart": "void f(void g(void h(int y))) {}\n",
+    # A closure parameter takes the name of the nearest signature before the body, not the first.
+    "closure_after_function.dart": "void a() {} void b() { var c = (int x) => x; }\n",
+    # A comma before a dot stays; only a closer removes it.
+    "dot_after_comma.dart": "void g() { var x = f(a, .b); }\n",
+    # A typed parameter with the name of an import prefix is no typed receiver.
+    "prefix_shadow.dart": "import 'a.dart' as p;\nvoid f(int p) { p.x; p.y(); }\n",
+    # A statement inside a closure on the left side ends the search for the assignment.
+    "use_boundary.dart": "void f() { a[() { b; return c; }()] = 1; }\n",
+    # An error tree holds a typed definition outside a local declaration: no typed receiver.
+    "definition_outside_declaration.dart": "void f() { A x = b } void g() { x.y(); }\n",
 }
 
 
@@ -169,7 +181,9 @@ def test_a_hostile_source_gives_the_python_sites(binary: Path, tmp_path: Path, n
     [(text, _, value)] = parity.native_syntax(binary, [path])  # type: ignore[attr-defined]
     expected, _ = parity.python_syntax(path.read_bytes())  # type: ignore[attr-defined]
     assert expected is not None
-    assert text == expected, parity.difference(expected, text)  # type: ignore[attr-defined]
+    # A bool first: pytest would compare two long texts with difflib, which takes minutes.
+    same = text == expected
+    assert same, parity.difference(expected, text)  # type: ignore[attr-defined]
     assert value["sites"], "each case must give sites"  # type: ignore[index]
 
 
@@ -241,7 +255,9 @@ def test_a_nest_just_below_the_native_depth_gives_the_python_sites(
     path = _write(tmp_path, "deep.dart", content)
     [(text, _, value)] = parity.native_syntax(binary, [path])  # type: ignore[attr-defined]
     assert value["first_error"] is None  # type: ignore[index]
-    assert text == _python_in_tool_stack(content), "the sites of a deep nest differ"
+    expected = _python_in_tool_stack(content)
+    same = text == expected
+    assert same, parity.difference(expected, text)  # type: ignore[attr-defined]
 
 
 def test_a_source_past_the_work_limit_gives_a_named_gap_and_no_sites(
@@ -258,6 +274,17 @@ def test_a_source_past_the_work_limit_gives_a_named_gap_and_no_sites(
     assert native["sites"] == []
     assert native["complete"] is False
     assert native["first_error"]["start_byte"] == 0  # type: ignore[index]
+
+
+def test_the_copied_text_of_the_sites_counts_as_work(binary: Path, tmp_path: Path) -> None:
+    """Each call of a nest copies the long string: the copies alone pass the limit."""
+    text = "x" * 120_000
+    content = "void g() { " + "f(" * 150 + f"'{text}'" + ")" * 150 + "; }\n"
+    native = _native(binary, _write(tmp_path, "copies.dart", content))
+    messages = [item["message"] for item in native["concerns"]]  # type: ignore[attr-defined]
+    assert messages == [
+        "The site analysis of this Dart source stops: the work passes the limit of the site walks."
+    ]
 
 
 def test_a_large_flat_source_stays_far_below_the_work_limit(binary: Path, tmp_path: Path) -> None:

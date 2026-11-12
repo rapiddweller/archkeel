@@ -43,8 +43,9 @@ pub(crate) fn is_assigned(c: char) -> bool {
     in_table(ASSIGNED_RANGES.get_or_init(|| ranges(ASSIGNED)), c)
 }
 
-/// `str.isalnum` for one code point, as Python 3.11 with Unicode 14 decides it (L-27). It is not
-/// `\w`: `_` is not alphanumeric, and a combining mark such as U+0345 is neither.
+/// `str.isalnum` for one code point, as Python 3.11 with Unicode 14 decides it (L-27). In Python
+/// 3.11 it equals `\w` without `_`; it differs from `char::is_alphanumeric`, for example at
+/// U+0345, which Rust reads as alphabetic.
 pub(crate) fn is_alnum(c: char) -> bool {
     in_table(ALNUM_RANGES.get_or_init(|| ranges(ALNUM)), c)
 }
