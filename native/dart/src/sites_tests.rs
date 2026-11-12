@@ -9,6 +9,8 @@ use super::*;
 use crate::parse::DartParser;
 use crate::syntax::{SiteKind, SiteUse, Syntax};
 
+const PINNED_WORK: u64 = 824;
+
 fn parse(text: &str) -> Syntax {
     DartParser::new().unwrap().parse(text.as_bytes())
 }
@@ -124,4 +126,46 @@ fn a_closure_marks_each_site_inside_it() {
         .map(|site| (site.name.clone().unwrap_or_default(), site.closure_scope))
         .collect();
     assert_eq!(closures, [("g".to_owned(), false), ("i".to_owned(), true)]);
+}
+
+/// The work of `text` with an open limit.
+fn work_of(text: &str) -> u64 {
+    let mut parser = tree_sitter::Parser::new();
+    parser
+        .set_language(&archkeel_dart_grammar::LANGUAGE.into())
+        .unwrap();
+    let tree = parser.parse(text, None).unwrap();
+    let source = Source::new(text.as_bytes());
+    let work = Work::new(u64::MAX);
+    sites(tree.root_node(), &source, &[], &[], &work).unwrap();
+    work.spent()
+}
+
+#[test]
+fn each_walk_and_each_scan_counts_its_work() {
+    // The value pins the account: a walk, a scan or a copy that stops counting changes it. The
+    // review of #1069 found a mutant that removed the charge of the walk and passed each test.
+    let text = "class A { int f = 1; void m(B b) { b.c(d, e)..g; } }\nvar x = [a.b, c()];\n";
+    assert_eq!(work_of(text), PINNED_WORK);
+}
+
+#[test]
+fn the_work_grows_linearly_with_a_list_of_calls() {
+    // Python scans the rest of the list for each element; the flags of `Family` read it once.
+    let small = work_of(&format!("var x = [{}];\n", "f(), ".repeat(1_000)));
+    let large = work_of(&format!("var x = [{}];\n", "f(), ".repeat(4_000)));
+    assert!(large < small * 5, "{small} {large}");
+}
+
+#[test]
+fn the_column_of_many_sites_on_one_line_is_read_once() {
+    let args = |count: usize| {
+        (0..count)
+            .map(|i| format!("a{i}.b"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let small = work_of(&format!("void h() {{ g({}); }}\n", args(1_000)));
+    let large = work_of(&format!("void h() {{ g({}); }}\n", args(4_000)));
+    assert!(large < small * 5, "{small} {large}");
 }

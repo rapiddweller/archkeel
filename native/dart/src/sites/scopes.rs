@@ -6,13 +6,14 @@
 //! `_scope_name`, `_callable_decl_name`, `_callable_body`, `_callable_name` and
 //! `_callable_context_for`.
 
+use std::cell::OnceCell;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 
 use tree_sitter::Node;
 
 use super::contain::Sweep;
-use crate::syntax::Context;
+use crate::syntax::{Context, Span};
 use crate::tree::{children, named, named_children, walk_with_path, Gap, Source, Work};
 
 pub(crate) const SCOPE_KINDS: [&str; 3] = ["function_body", "function_expression_body", "block"];
@@ -66,6 +67,14 @@ pub(crate) struct Scope<'t> {
     pub(crate) name: Option<String>,
     /// The number of scopes that contain this scope, itself included.
     depth: usize,
+    /// The span, read once: each node in the scope gives it to its sites.
+    span: OnceCell<Span>,
+}
+
+impl Scope<'_> {
+    pub(crate) fn span(&self, source: &Source<'_>) -> Span {
+        self.span.get_or_init(|| source.span(self.node)).clone()
+    }
 }
 
 /// The scopes of one tree, in walk order.
@@ -122,6 +131,7 @@ impl<'t> Scopes<'t> {
                 node: *node,
                 name: name.ok_or(Gap("a scope has no name result"))?,
                 depth: depth.ok_or(Gap("the scopes are not in the order of their start"))?,
+                span: OnceCell::new(),
             });
         }
         let index = list
@@ -278,6 +288,7 @@ pub(crate) fn callable_body<'t>(
     }
     let family = work.family(parent?);
     for sibling in family.after(owner)? {
+        work.charge(1);
         if BODIES.contains(&sibling.kind()) {
             return Some(*sibling);
         }
@@ -336,6 +347,7 @@ fn signature_name_before<'t>(
         .unwrap_or_default()
         .iter()
         .rev()
+        .inspect(|_| work.charge(1))
         .filter(|signature| DECLARED.contains(&signature.kind()))
         .find_map(|signature| named(*signature, "name"))
         .map(|name| source.text(name))

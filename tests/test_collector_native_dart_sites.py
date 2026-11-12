@@ -12,6 +12,7 @@ are tested one by one: the depth of each recursive Python walk and the work limi
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -156,6 +157,8 @@ CASES: dict[str, str | bytes] = {
     # A statement inside a closure on the left side ends the search for the assignment.
     "use_boundary.dart": "void f() { a[() { b; return c; }()] = 1; }\n",
     # An error tree holds a typed definition outside a local declaration: no typed receiver.
+    # A local function needs the span of its scope: the scope of a closure without a body.
+    "casync.dart": "var casync = (int x){ { a(int x){ { a; } };\n",
     "definition_outside_declaration.dart": "void f() { A x = b } void g() { x.y(); }\n",
 }
 
@@ -298,6 +301,46 @@ def test_the_copied_text_of_the_sites_counts_as_work(binary: Path, tmp_path: Pat
     assert messages == [
         "The site analysis of this Dart source stops: the work passes the limit of the site walks."
     ]
+
+
+# Four shapes where Python scans a list again for each element (review of #1069). Each must end
+# within the time bound with a low share of the work limit, or with the named gap.
+QUADRATIC_SHAPES = {
+    "list_of_calls": "var x = [\n" + "f(),\n" * 40_000 + "];\n",
+    "chain_of_members": "void f(){ a" + "".join(f".x{i}" for i in range(40_000)) + "(); }\n",
+    "arguments_on_one_line": (
+        "void h() { g(" + ", ".join(f"a{i}.b" for i in range(40_000)) + "); }\n"
+    ),
+    "cascade_on_one_line": "void h() { g" + "".join(f"..a{i}.b" for i in range(40_000)) + "; }\n",
+    # Each node of the list asks the fallback of `_callable_context` for the signatures after it.
+    "variable_before_functions": (
+        "var f = ["
+        + ", ".join(f"x{j}" for j in range(100_000))
+        + "];\n"
+        + "".join(f"void m{i}() {{}}\n" for i in range(2_000))
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(QUADRATIC_SHAPES))
+def test_a_shape_that_python_scans_again_for_each_node_ends_in_bounded_time(
+    binary: Path, tmp_path: Path, name: str
+) -> None:
+    path = _write(tmp_path, f"{name}.dart", QUADRATIC_SHAPES[name])
+    run = subprocess.run(
+        [str(binary), "--dump-syntax"],
+        input=f"{path}\n",
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    row = json.loads(run.stdout)
+    messages = [item["message"] for item in row["syntax"]["concerns"]]
+    stopped = messages == [
+        "The site analysis of this Dart source stops: the work passes the limit of the site walks."
+    ]
+    assert stopped or (messages == [] and int(row["work_permille"]) < 500), messages
 
 
 def test_a_large_flat_source_stays_far_below_the_work_limit(binary: Path, tmp_path: Path) -> None:

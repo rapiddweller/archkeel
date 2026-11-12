@@ -116,11 +116,15 @@ pub(crate) fn sites<'t>(
     let mut scopes = Scopes::new(root, source, work)?;
     let binder = Binder { root, source, work };
     let mut levels: Vec<Level> = Vec::new();
-    let mut signature_children: Vec<Option<Vec<Node<'t>>>> = Vec::new();
+    let mut signature_children: Vec<Option<Option<Node<'t>>>> = Vec::new();
     let mut result: Vec<Site> = Vec::new();
     let mut failure: Option<Gap> = None;
+    // The columns of the definitions and directives are not site work.
+    source.take_decoded();
     walk_with_path(root, |node, path| {
         work.charge(1);
+        // The bytes that the spans of the last node decoded for their columns.
+        work.charge(source.take_decoded());
         if work.exceeded() {
             failure = Some(Gap("the work passes the limit of the site walks"));
             return false;
@@ -173,7 +177,7 @@ struct Step<'s, 't> {
 impl<'t> Step<'_, 't> {
     fn sites(
         mut self,
-        signature_children: &mut [Option<Vec<Node<'t>>>],
+        signature_children: &mut [Option<Option<Node<'t>>>],
         binder: &Binder<'_, 't>,
         names: &Names<'_>,
     ) -> Result<Vec<Site>, Gap> {
@@ -186,7 +190,7 @@ impl<'t> Step<'_, 't> {
         let scope = innermost.and_then(|k| self.scopes.list.get(k));
         let mut context = Context {
             scope: scope.and_then(|scope| scope.name.clone()),
-            span: scope.map(|scope| self.source.span(scope.node)),
+            span: scope.map(|scope| scope.span(self.source)),
             depth: count,
         };
         let is_parameter = self.node.kind() == "formal_parameter";
@@ -268,7 +272,7 @@ impl<'t> Step<'_, 't> {
     fn callable_context(
         &mut self,
         here: Level,
-        signature_children: &mut [Option<Vec<Node<'t>>>],
+        signature_children: &mut [Option<Option<Node<'t>>>],
     ) -> Result<Option<Context>, Gap> {
         if let Some(at) = here.signature {
             let callable = *self
@@ -286,18 +290,17 @@ impl<'t> Step<'_, 't> {
             let slot = signature_children
                 .get_mut(at)
                 .ok_or(Gap("a level is missing"))?;
-            let candidates = slot.get_or_insert_with(|| {
-                let all = named_children(*ancestor);
-                self.work.charge(all.len());
-                all.into_iter()
-                    .filter(|child| is_signature(child.kind()))
-                    .collect()
-            });
+            if slot.is_none() {
+                *slot = Some(first_signature(*ancestor, self.work)?);
+            }
+            // The children come in the order of their start, so the first signature child is
+            // the only one that can start at or before the node: Python scans them all.
+            self.work.charge(1);
             let node = self.node;
-            let found = candidates.iter().find(|child| {
+            let found = slot.flatten().filter(|child| {
                 child.start_byte() <= node.start_byte() && node.end_byte() <= ancestor.end_byte()
             });
-            if let Some(callable) = found.copied() {
+            if let Some(callable) = found {
                 let ancestors = self.path.get(..=at).unwrap_or_default();
                 return self
                     .scopes
@@ -307,6 +310,22 @@ impl<'t> Step<'_, 't> {
         }
         Ok(None)
     }
+}
+
+/// The first signature child of `ancestor`, or a gap when the children do not come in the order
+/// of their start, which a Tree-sitter tree cannot give.
+fn first_signature<'t>(ancestor: Node<'t>, work: &Work<'t>) -> Result<Option<Node<'t>>, Gap> {
+    let all = named_children(ancestor);
+    work.charge(all.len());
+    if all
+        .windows(2)
+        .any(|pair| matches!(pair, [a, b] if a.start_byte() > b.start_byte()))
+    {
+        return Err(Gap(
+            "the children of a node are not in the order of their start",
+        ));
+    }
+    Ok(all.into_iter().find(|child| is_signature(child.kind())))
 }
 
 #[cfg(test)]

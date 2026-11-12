@@ -12,7 +12,7 @@ use tree_sitter::Node;
 
 use super::calls::{assignment_use, member_parts, member_reference, ASSIGNMENTS};
 use crate::syntax::{Context, Site, SiteKind, SiteUse};
-use crate::tree::{named, named_children, Source, Work};
+use crate::tree::{named, Source, Work};
 
 const TYPES: [&str; 3] = ["type_identifier", "generic_type", "function_type"];
 const TYPE_PARAMETERS: [&str; 2] = ["type_parameters", "type_parameter"];
@@ -74,13 +74,15 @@ pub(crate) fn reference_sites<'t>(
         return None;
     }
     let family = work.family(parent);
-    let after = family.after(node);
-    if let Some(after) = after.filter(|after| after.iter().any(|item| is_member_access(*item))) {
+    // `position >= 0 and any(...)` of Python: the selectors after the node, read once.
+    let later = family
+        .position(node)
+        .map(|at| family.later(at.saturating_add(1)));
+    if let Some(later) = later.filter(|later| later.member) {
         let name = source.text(node);
-        if names.receivers.contains(&name)
-            && !names.prefixes.contains(&name)
-            && receiver_needs_site(after)
-        {
+        // `_receiver_needs_site`: a later call or index, else a later member access.
+        let needs_site = later.call || later.index || later.member;
+        if names.receivers.contains(&name) && !names.prefixes.contains(&name) && needs_site {
             let mut site = Site::new(
                 SiteKind::Reference,
                 name.clone(),
@@ -108,7 +110,7 @@ pub(crate) fn reference_sites<'t>(
     let in_type = ancestors
         .iter()
         .any(|item| TYPE_CONTEXTS.contains(&item.kind()));
-    let callee = after.is_some_and(|after| after.iter().any(|item| has_arguments(*item)));
+    let callee = later.is_some_and(|later| later.call);
     if in_type || callee {
         return None;
     }
@@ -143,40 +145,6 @@ fn is_declaration_name<'t>(node: Node<'t>, parent: Node<'t>) -> bool {
     parent.child_by_field_name("name") == Some(node) || DECLARING_PARENTS.contains(&parent.kind())
 }
 
-/// A selector with an `unconditional_assignable_selector` child, the test of
-/// `_is_member_receiver` and of the last rule of `_receiver_needs_site`.
-fn is_member_access<'t>(item: Node<'t>) -> bool {
-    item.kind() == "selector"
-        && named_children(item)
-            .iter()
-            .any(|child| child.kind() == MEMBER_SELECTOR)
-}
-
-/// A selector with an `argument_part`, the test of `_is_call_callee` and `_is_call_selector`.
-fn has_arguments<'t>(item: Node<'t>) -> bool {
-    item.kind() == "selector" && named(item, "argument_part").is_some()
-}
-
-/// `_receiver_needs_site` on the named siblings after the receiver.
-fn receiver_needs_site<'t>(after: &[Node<'t>]) -> bool {
-    let selectors = after.iter().filter(|item| item.kind() == "selector");
-    if selectors
-        .clone()
-        .any(|item| named(*item, "argument_part").is_some() || selector_has_index(*item))
-    {
-        return true;
-    }
-    selectors.clone().any(|item| is_member_access(*item))
-}
-
-/// `_selector_has_index`.
-fn selector_has_index<'t>(node: Node<'t>) -> bool {
-    named_children(node)
-        .into_iter()
-        .find(|item| item.kind() == MEMBER_SELECTOR)
-        .is_some_and(|selector| named(selector, "index_selector").is_some())
-}
-
 /// `_is_call_selector`: a later selector of the chain holds the arguments of a call.
 fn is_call_selector<'t>(ancestors: &[Node<'t>], work: &Work<'t>) -> bool {
     let [.., chain, selector, _] = ancestors else {
@@ -190,12 +158,7 @@ fn is_call_selector<'t>(ancestors: &[Node<'t>], work: &Work<'t>) -> bool {
     let next = family
         .position(*selector)
         .map_or(0, |at| at.saturating_add(1));
-    family
-        .nodes
-        .get(next..)
-        .unwrap_or_default()
-        .iter()
-        .any(|item| has_arguments(*item))
+    family.later(next).call
 }
 
 /// `_reference_use`: the use of the left side of the nearest assignment, else a read.
