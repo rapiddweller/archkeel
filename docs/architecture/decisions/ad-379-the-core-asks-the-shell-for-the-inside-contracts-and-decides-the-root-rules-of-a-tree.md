@@ -17,14 +17,21 @@
    (exit 3); the dual run has read the request already, so it has no second check. The shell has
    the same bounds and at most 901 rounds (the depth bound of 900 and a last round).
 5. After assembly the model is the model of the root contract. The core decides the root rules as
-   S1 to S3 do. Each rule of a mount is named (`Unsupported::InsideRule`): the clipped scope of a
-   mount (`_inside_source_domain`) is not in the core. A PASS of a root rule of a tree is named
-   (`Unsupported::TreeScope`): the scope proof does not read the coverage records of the mounts.
+   S1 to S4 do. Each rule of a mount is named (`Unsupported::InsideRule`): the clipped scope of a
+   mount (`_inside_source_domain`) is not in the core. A root with mounts is never a complete
+   scope: the proof notes `Part::MountedTree` (`model/src/proof.rs`), so `Scope::complete` and
+   `Scope::run` name it and no PASS path can skip it. The `TreeScope` arm before the PASS arm of
+   `core/src/rules.rs` is the second line. The run status of a tree is never PASS.
 6. One UML target names the tree when any contract of the tree has `declarations.uml`, as
    `check/uml.py` does.
 7. Protocol change of AD-360 point 7: `archkeel-dual-run-3` adds `insides`, a list of
    `{reference, identity, hex}`. A frame that needs files has `self_test.contract.missing`.
    The harness (`tools/dual_run_tree.py`) is the shell of the dual run.
+8. The later slice that decides inside rules must add, for each scoped contract, what Python
+   adds in `evaluate.py:321`: the clipped source domain and its failures (`:728`), the inside
+   limits (`crate_scope.py:143`), the dynamic limits (`dynamic_dependency_limits`), the subject
+   check of each scoped rule, and `named`, `limits` and `rule_failures` of `proof.rs`, which read
+   only the root `contract.rules()` today. Only then can `Part::MountedTree` go.
 
 **Reason.** 248 of 2 298 differences of the S1 to S3 run named the missing tree, and 298 cases
 had no usable contract. A root rule reads the modules and owners of the root contract, so its
@@ -44,11 +51,14 @@ tree gives FAIL or a named gap, never PASS (point 5).
 
 **Limit.** Stricter than Python, each a named gap: a tree with an issue (Python evaluates the root
 and the valid mounts; 4 corpus cases and 3 `tree/*` cases); more than 1 024 files or 64 MiB; the
-six cases of AD-366; each inside rule; a PASS of a root rule of a tree. The store refuses the
+six cases of AD-366; each inside rule; each root rule of a tree that Python can PASS (42 rules of
+the `tree/*` cases). The store refuses the
 Python and Dart replies, so 288 of the 293 tree cases of the corpus still name the reply.
 
 **Tests.** `native/core/src/contract_tests.rs` (rounds, wrong identity, duplicate reference, a
 file not asked for, a file missing after it was asked, changed bytes, a cycle, depth 900 and 901,
-3 000 mounts, more than 64 MiB); `native/core/src/dual_run_tests.rs`;
+3 000 mounts, more than 64 MiB); `native/core/src/tree_tests.rs` (one mount, the second line, the
+status); `native/core/src/dual_run_tests.rs`;
 `tests/test_dual_run_shell.py` (the loop and its bounds at the boundary, a chain of 900 rounds, a link, a path outside);
-`tests/test_native_core.py` (`test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap`).
+`tests/test_native_core.py` (`test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap`,
+`test_the_run_status_of_a_tree_is_never_pass`).

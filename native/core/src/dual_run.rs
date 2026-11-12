@@ -219,9 +219,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         ));
     }
     // A section without rows is a gap of the sections, not of the rules: it changes no status.
-    let named = !matches!(&rules, RuleReasons::Each(each) if each.is_empty())
-        || !matches!(reply, ReplyCheck::Files(_))
-        || !matches!(contract, ContractState::Parsed(_));
+    let named = names_a_part(&rules, &reply, &contract);
     let frame = Frame {
         engine: ENGINE,
         status: crate::status::status(&decided.decided, named, decided.scope.is_none()),
@@ -305,6 +303,14 @@ fn rule_reasons(
     }
 }
 
+/// True when the frame names a rule reason (an inside rule of a tree among them, AD-379), a
+/// refused reply or a contract that the core cannot use: then the status is never PASS.
+fn names_a_part(rules: &RuleReasons, reply: &ReplyCheck, contract: &ContractState) -> bool {
+    !matches!(rules, RuleReasons::Each(each) if each.is_empty())
+        || !matches!(reply, ReplyCheck::Files(_))
+        || !matches!(contract, ContractState::Parsed(_))
+}
+
 /// What the engine knows of the reply of the request, after it ingests the reply.
 fn ingest(engine: &mut Engine, reply: Option<ReplyBytes>) -> Result<ReplyCheck, String> {
     let Some(bytes) = reply else {
@@ -362,3 +368,7 @@ fn hex(text: &str) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 #[path = "dual_run_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tree_tests.rs"]
+mod tree_tests;

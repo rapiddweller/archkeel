@@ -49,6 +49,12 @@ pub(crate) struct Tree {
 }
 
 impl Tree {
+    /// A tree of the given inside rules and mount state (a test builds the second line alone).
+    #[cfg(test)]
+    pub(crate) fn new(inside: Vec<(String, RuleKind)>, mounted: bool) -> Tree {
+        Tree { inside, mounted }
+    }
+
     pub(crate) fn of(usable: &Usable) -> Tree {
         Tree {
             inside: usable.inside.clone(),

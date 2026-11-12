@@ -404,3 +404,11 @@ fn a_refused_contract_after_a_good_tree_leaves_no_contract_in_the_engine() {
         "a tree with a missing file replaces the old one"
     );
 }
+
+#[test]
+fn a_tree_with_exactly_one_mount_is_mounted() {
+    let root = contract(vec![component("a", Some("a.json"))], vec![]);
+    let leaf = contract(vec![], vec![]);
+    let (_, usable) = answer(input(&root, vec![file("a.json", "a.json", &leaf)]));
+    assert!(usable.is_some_and(|usable| usable.mounted));
+}

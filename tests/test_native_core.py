@@ -19,6 +19,7 @@ import pytest
 from conftest import build_native_copy
 
 from tools import dual_run
+from tools.dual_run_oracle import Selection
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = re.compile(r"python|typescript|dart|\brust\b", re.IGNORECASE)
@@ -106,7 +107,11 @@ def test_the_s2_kinds_and_the_edges_equal_python_with_the_scope_proof(
 # AD-378: the only names that a rule of a decided kind can have instead of a verdict.
 S4_NAMES = (
     "missing input: no valid collector reply",
-    "unsupported: the contract mounts inside contracts; the tree assembly is not in the core yet",
+    # AD-379: a tree names its scope, its inside rules, a file that the shell did not send, or
+    # its refusal; the first named rule of a case decides which name the row carries.
+    "unsupported: the scope proof: the contract mounts inside contracts; the core does not read "
+    "their coverage",
+    "unsupported: a rule of an inside contract: the core does not clip a mount scope yet",
     "unsupported: the baseline of the request: no slice reads it yet",
     "unsupported: the scope proof: a gap between two modules that the contract allows; the host "
     "drops it for one profile, the core does not know the profile",
@@ -124,7 +129,10 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     differences = [line for line in lines if ": rules: " in line]
     assert not [line for line in differences if ", found " in line], differences
     limit = re.compile(r"unsupported: the scope proof: \S+ is a limit of some profiles; ")
-    assert all(line.endswith(S4_NAMES) or limit.search(line) for line in differences), differences
+    tree = re.compile(r"(has not sent: |refused: inside-contract tree: )")
+    named = [line for line in differences if line.endswith(S4_NAMES) or limit.search(line)]
+    left = [line for line in differences if line not in named and not tree.search(line)]
+    assert left == [], left
     assert code == (1 if differences else 0)
     # The s4 cases: each gap that the reply of a store-accepted profile can hold gives the
     # verdict of Python. The reply of the honest external collector is not compressed, so the
@@ -178,7 +186,8 @@ def test_a_part_without_its_input_names_the_missing_input(
 
 # The reasons that a tree case may name: each is a named gap, never an equal verdict (AD-379).
 TREE_REASONS = (
-    "unsupported: the scope proof: slice S4 ports it",
+    "unsupported: the scope proof: the contract mounts inside contracts; the core does not read "
+    "their coverage",
     "unsupported: a rule of an inside contract: the core does not clip a mount scope yet",
     "unsupported: the contract mounts inside contracts that the shell has not sent: ",
     "refused: inside-contract tree: ",
@@ -204,6 +213,24 @@ def test_the_tree_cases_equal_python_on_the_decided_kinds_or_name_each_gap(
     assert "tree/an-unresolved-import-is-unknown-beside-an-inside-contract" in named
     assert lines[-1].startswith("dual run: family complete_assignment,complete_external_scope,")
     assert "; 13 projects; 86 rules;" in lines[-1]
+    v01 = "tree/an-inside-claim-outside-its-parent-makes-passing-root-rules-unknown: rules: "
+    assert [line for line in differences if line.startswith(v01)] == [
+        f"{v01}ASSIGNMENT: 7 owned rules are unsupported, first: {TREE_REASONS[0]}"
+    ]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [case.id for case in dual_run.corpus_cases() if case.id.startswith("tree/")],
+)
+def test_the_run_status_of_a_tree_is_never_pass(core: str, name: str) -> None:
+    """AD-379: a tree has named inside rules and a scope that the proof does not complete, so
+    its run status is never PASS, and no root rule of a mounted tree is PASS."""
+    case = next(item for item in dual_run.corpus_cases() if item.id == name)
+    with dual_run.materialized(case) as root:
+        frame, _ = dual_run.engine_and_reference(case, root, core, Selection())
+    assert frame["status"] != "PASS", frame
+    assert "PASS" not in [status for _, status in frame["rules"].values()]
 
 
 def test_the_round_trip_reads_the_contract_and_the_reply_of_each_rust_case(

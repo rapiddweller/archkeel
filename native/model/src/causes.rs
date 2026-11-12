@@ -42,6 +42,9 @@ pub enum Part {
     ConstructSubjects(String),
     /// The rule is not a rule of the contract of this model.
     ForeignRule,
+    /// The contract mounts inside contracts. The reference engine reads the mounts for the root
+    /// verdicts (a mount failure makes a root rule UNKNOWN); the core does not (AD-379).
+    MountedTree,
 }
 
 impl fmt::Display for Cause {
@@ -91,6 +94,9 @@ impl fmt::Display for Part {
                 "{rule} selects no module; the core does not read the symbols of its source"
             ),
             Part::ForeignRule => formatter.write_str("the rule is not a rule of this model"),
+            Part::MountedTree => formatter.write_str(
+                "the contract mounts inside contracts; the core does not read their coverage",
+            ),
         }
     }
 }

@@ -52,6 +52,15 @@ pub(crate) fn state(
     trusted: bool,
 ) -> State {
     let mut unread: Option<Part> = None;
+    // AD-379: a root that mounts inside contracts is never complete. The reference engine reads
+    // the mounts for the root verdicts; the core decides only the root rules.
+    if contract
+        .components()
+        .iter()
+        .any(|item| item.inside().is_some())
+    {
+        note(&mut unread, Part::MountedTree);
+    }
     if let Some(incomplete) = graph.incomplete() {
         return State::Incomplete(Reason::Incomplete(incomplete));
     }
