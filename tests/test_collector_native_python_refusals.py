@@ -11,7 +11,7 @@ import unicodedata
 from pathlib import Path
 
 import pytest
-from python_refusal_probes import edge_probes, issue_probes
+from python_refusal_probes import compiler_refuses, edge_probes, issue_probes
 from test_collector_native_python_parse import _minor, _native, _write
 from test_collector_native_python_survey import _native as survey
 from test_collector_native_python_survey import _request
@@ -21,11 +21,7 @@ from archkeel.ir.protocol import CollectionError
 
 
 def _compiles(source: str) -> bool:
-    try:
-        compile(source, "probe.py", "exec")
-    except (SyntaxError, UnicodeError, ValueError, RecursionError):
-        return False
-    return True
+    return not compiler_refuses(source)
 
 
 @pytest.mark.parametrize(

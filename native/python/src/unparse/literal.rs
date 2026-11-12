@@ -148,6 +148,11 @@ pub fn repr_float(value: f64, add_dot_zero: bool) -> String {
         .saturating_sub(1);
     // Explicit precision rounds ties to even; shortest formatting can choose the odd neighbour.
     let scientific = format!("{:.*e}", precision, value.abs());
+    let scientific = if scientific.parse::<f64>().ok() == Some(value.abs()) {
+        scientific
+    } else {
+        shortest
+    };
     let (mantissa, exponent) = scientific.split_once('e').unwrap_or((&scientific, "0"));
     let exponent: i32 = exponent.parse().unwrap_or(0);
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();

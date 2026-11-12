@@ -6,6 +6,10 @@ use super::*;
 
 #[test]
 fn float_ties_use_cpython_even_digits() {
+    assert_eq!(
+        repr_float(2.0f64.powi(-1017), true),
+        "7.120236347223045e-307"
+    );
     assert_eq!(repr_float(2.0f64.powi(-25), true), "2.9802322387695312e-08");
     assert_eq!(
         repr_float(f64::from_bits(0x42e26687db6b9b04), true),

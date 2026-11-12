@@ -139,8 +139,8 @@ def _differences(
             python[rel] is None
             and native[rel] is not None
             and (
-                compiler_refuses((root / rel).read_bytes())
-                or validation_depth_gap((root / rel).read_bytes(), native[rel]["message"])
+                validation_depth_gap((root / rel).read_bytes(), native[rel]["message"])
+                or compiler_refuses((root / rel).read_bytes())
             )
         )
     ]

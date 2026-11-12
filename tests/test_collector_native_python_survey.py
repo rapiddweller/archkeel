@@ -21,10 +21,10 @@ from typing import Any
 
 import pytest
 from first_difference import same
+from python_refusal_probes import compiler_checked_collect
 from test_collector_native_python_scope import _FIXTURES
 
 from archkeel.analyzer.interpreter import interpreter, python_request
-from archkeel.analyzer.python.collect import collect
 from archkeel.cli.config import load_config
 from archkeel.ir import facts_codec
 from archkeel.ir.protocol import (
@@ -52,7 +52,7 @@ def _request(
 
 
 def _python(request: CollectionRequest) -> dict[str, Any]:
-    facts = collect(request)
+    facts = compiler_checked_collect(request)
     version = ProtocolVersion.V9
     payload = facts_codec._facts_payload(
         facts, version, facts_codec._runtime_payload(facts.runtime, version)

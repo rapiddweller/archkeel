@@ -40,8 +40,8 @@ The symbol table also imported shared module data through the higher survey laye
    The bounds also stop 3,000-level attribute and call chains that CPython 3.11 refuses.
 8. The host codec and store still refuse the native Python reply. No Python behavior changes.
 9. The L-41 float probe differs: Rust picks an odd tie digit for `2.0**-25`.
-   Explicit standard-library precision rounds the shortest digit count to even. No copy or
-   dependency is needed. A test compares every power of two and 2,000 generated floats.
+   Explicit standard-library precision rounds the shortest digit count to even, only if the
+   result reads back to the same float. Tests cover all powers of two and 2,000 generated floats.
 
 **Rejected.** A silent 3.11 default for unknown minors; a second string repr; a tree for a
 compiler-invalid source; embedding an interpreter; and new RustPython dependencies.

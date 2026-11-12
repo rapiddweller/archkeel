@@ -284,12 +284,13 @@ def _compare(binary: Path, root: Path, sources: dict[str, str | bytes]) -> list[
         if refused_by_python and not refused_by_native:
             problems.append(f"{rel}: CPython refuses ({python[rel]}), native gives a tree")
         elif refused_by_native and not refused_by_python:
-            if compiler_refuses(sources[rel]) or validation_depth_gap(
-                sources[rel], native[rel]["message"]
+            if any(rel.startswith(prefix) for prefix in STRICTER):
+                continue
+            if validation_depth_gap(sources[rel], native[rel]["message"]) or compiler_refuses(
+                sources[rel]
             ):
                 continue
-            if not any(rel.startswith(prefix) for prefix in STRICTER):
-                problems.append(f"{rel}: native refuses ({native[rel]}), not in STRICTER")
+            problems.append(f"{rel}: native refuses ({native[rel]}), not in STRICTER")
     return problems
 
 
