@@ -44,11 +44,16 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     assert "runs-on: ubuntu-24.04\n" in jobs["native-corpus"]
 
 
+# A parent make (`make pr-test`) passes MAKELEVEL on, and GNU make 4 then prints "Leaving directory"
+# after the commands of the child. The child must not know that it runs inside a make.
+_MAKE_ENV = {k: v for k, v in os.environ.items() if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL"}}
+
+
 def _dry_run(*arguments: str) -> str:
     return subprocess.run(
-        ["make", "-n", *arguments, "UV=uv"],
+        ["make", "--no-print-directory", "-n", *arguments, "UV=uv"],
         cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
+        env=_MAKE_ENV,
         capture_output=True,
         text=True,
         check=True,
@@ -154,7 +159,7 @@ def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedP
         return subprocess.run(
             ["make", target, "UV=true"],
             cwd=ROOT,
-            env={**os.environ, "MAKEFLAGS": "", "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+            env={**_MAKE_ENV, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
             capture_output=True,
             text=True,
             timeout=15,
@@ -182,9 +187,9 @@ def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
 
 def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:
     dry_run = subprocess.run(
-        ["make", "-n", "cargo-deny-install"],
+        ["make", "--no-print-directory", "-n", "cargo-deny-install"],
         cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
+        env=_MAKE_ENV,
         capture_output=True,
         text=True,
         check=True,
@@ -198,9 +203,16 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
     pyproject = (ROOT / "pyproject.toml").read_text()
     assert """addopts = "-p no:cacheprovider -m 'not browser and not native_wheel'\"""" in pyproject
     dry_run = subprocess.run(
-        ["make", "-n", "native-wheel", "NATIVE_TAG=py3-none-win_amd64", "UV=uv"],
+        [
+            "make",
+            "--no-print-directory",
+            "-n",
+            "native-wheel",
+            "NATIVE_TAG=py3-none-win_amd64",
+            "UV=uv",
+        ],
         cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
+        env=_MAKE_ENV,
         capture_output=True,
         text=True,
         check=True,
