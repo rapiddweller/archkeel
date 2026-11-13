@@ -1815,7 +1815,7 @@
         "native.archkeel_python_collector.bindings"
       ],
       "responsibilities": [
-        "The definition table, its lexical binding inputs, unused-binding records and import-local proofs, or a named gap (AD-377, AD-396, AD-404)."
+        "The definition table, its lexical binding inputs, unused-binding records and import-local provider/type protections, or a named gap (AD-377, AD-396, AD-404, AD-410)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving another module and writing the reply."
@@ -1842,7 +1842,7 @@
         },
         {
           "component": "py-parse",
-          "rationale": "Charge binding scans against the shared work budget."
+          "rationale": "Charge binding scans and preflight quoted expressions with the bounded parser."
         }
       ],
       "decided_by": "architect"

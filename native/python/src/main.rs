@@ -76,6 +76,10 @@ fn run() -> Result<(), String> {
                 let (minor, root) = (minor.clone(), root.clone());
                 return on_big_stack(move || dump::bindings(&minor, &root, true));
             }
+            if flag == "--dump-protection" {
+                let (minor, root) = (minor.clone(), root.clone());
+                return on_big_stack(move || dump::protection(&minor, &root));
+            }
         }
     }
     let mut payload = Vec::new();

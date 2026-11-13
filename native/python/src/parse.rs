@@ -42,6 +42,11 @@ mod stack;
 mod stringcheck;
 #[path = "work.rs"]
 pub(crate) mod work;
+#[cfg(any(test, feature = "dump"))]
+#[path = "quoted.rs"]
+mod quoted;
+#[cfg(any(test, feature = "dump"))]
+pub(crate) use quoted::expression as quoted_expression;
 
 /// Why a file has no tree: the class name of the Python exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]

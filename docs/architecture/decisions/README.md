@@ -1,5 +1,7 @@
 # Decision archive
 
+| AD-410 | [Native Python provider proofs before value candidates](ad-410-the-native-python-provider-proofs-stop-before-value-candidate-convergence.md) |
+
 Internal reasons and proof references. Later records can amend earlier ones.
 For current behavior, use the [contract](../../../architecture-contract.json), source and tests.
 

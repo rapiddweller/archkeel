@@ -13,7 +13,7 @@ use ruff_python_ast::{Expr, Operator, Stmt, StmtClassDef};
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, HashSet};
 
-fn static_alias(scan: &mut Scan, env: &Env<'_>, expr: &Expr) -> Result<bool> {
+pub(super) fn static_alias(scan: &mut Scan, env: &Env<'_>, expr: &Expr) -> Result<bool> {
     Ok(match expr {
         Expr::Name(_) => true,
         Expr::BinOp(n) if n.op == Operator::BitOr => true,
@@ -105,7 +105,7 @@ fn nullable(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Result<BTreeS
     Ok(out)
 }
 
-fn generic(
+pub(super) fn generic(
     scan: &mut Scan,
     env: &Env<'_>,
     stmt: &Stmt,
@@ -186,7 +186,7 @@ fn generic(
     Ok(out)
 }
 
-fn setters(scan: &mut Scan, env: &Env<'_>) -> Result<BTreeSet<(i64, i64, i64)>> {
+pub(super) fn setters(scan: &mut Scan, env: &Env<'_>) -> Result<BTreeSet<(i64, i64, i64)>> {
     let mut references = BTreeSet::new();
     for owner in &env.module.tree.body {
         scan.tick(1)?;

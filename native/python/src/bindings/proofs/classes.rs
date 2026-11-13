@@ -23,7 +23,7 @@ fn exposed(scan: &mut Scan, class: &StmtClassDef) -> Result<bool> {
     Ok(false)
 }
 
-fn unproven(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt, inert: bool) -> Result<bool> {
+pub(super) fn unproven(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt, inert: bool) -> Result<bool> {
     let Stmt::ClassDef(n) = stmt else {
         return Err("class proof needs a class".into());
     };
@@ -151,7 +151,7 @@ fn assignment_receives(scan: &mut Scan, env: &Env<'_>, node: &Node<'_>) -> Resul
     Ok(statements::binding_with(scan, node, env.module.text(), true, false)?.is_null())
 }
 
-fn receives(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
+pub(super) fn receives(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
     let Stmt::ClassDef(class) = stmt else {
         return Err("class owner proof needs a class".into());
     };
@@ -257,7 +257,7 @@ fn native_method(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
     Ok(true)
 }
 
-fn deferred(scan: &mut Scan, env: &Env<'_>, node: &Expr) -> Result<bool> {
+pub(super) fn deferred(scan: &mut Scan, env: &Env<'_>, node: &Expr) -> Result<bool> {
     if matches!(node, Expr::StringLiteral(_)) {
         return Ok(true);
     }
@@ -283,7 +283,7 @@ fn deferred(scan: &mut Scan, env: &Env<'_>, node: &Expr) -> Result<bool> {
     Ok(false)
 }
 
-fn native_body(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
+pub(super) fn native_body(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
     if unproven(scan, env, stmt, true)? {
         return Ok(false);
     }
