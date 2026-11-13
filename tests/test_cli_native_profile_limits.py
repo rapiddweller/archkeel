@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from graph_report_support import commit_tree
 from test_cli_native_core_scan import SUFFIX, built
 
 from tools.dual_run_corpus import corpus_cases, materialized
@@ -26,13 +27,10 @@ CASES = (
 
 
 def scan(built: Path, root: Path) -> dict[str, Any]:
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     request = {
         "protocol": "archkeel-core-scan-1",
         "root": str(root.resolve()),
         "config": "archkeel.toml",
-        "git_head": head,
-        "dirty": True,
     }
     done = subprocess.run(
         [str(built / f"archkeel-core{SUFFIX}"), "scan"],
@@ -47,6 +45,34 @@ def scan(built: Path, root: Path) -> dict[str, Any]:
     assert "refused" not in frame["self_test"]["collect"], frame
     frame["rules"] = {key: value[1] for key, value in frame["rules"].items()}
     return frame
+
+
+@pytest.mark.parametrize("fixture_dirty", [False, True])
+@pytest.mark.parametrize("checkout_dirty", [False, True])
+def test_scan_derives_fixture_state_not_the_callers_checkout(
+    built: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fixture_dirty: bool,
+    checkout_dirty: bool,
+) -> None:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "tracked").write_text("base")
+    commit_tree(checkout)
+    if checkout_dirty:
+        (checkout / "untracked").write_text("build output")
+    monkeypatch.chdir(checkout)
+    case = next(case for case in corpus_cases() if case.id == CASES[0])
+    with materialized(case) as root:
+        (root / "tracked-state.txt").write_text("committed fixture")
+        commit_tree(root)
+        if fixture_dirty:
+            (root / "untracked").write_text("fixture change")
+        frame = scan(built, root)
+        snapshot = frame["self_test"]["collect"]["request"]["snapshot"]
+        assert snapshot["root"] == str(root.resolve())
+        assert snapshot["dirty"] is fixture_dirty
 
 
 @pytest.mark.parametrize("case_id", CASES)

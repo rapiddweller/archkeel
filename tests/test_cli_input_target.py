@@ -120,7 +120,7 @@ def test_native_cli_guard_rejects_string_protocol_dispatch(tmp_path, probe):
     [
         ("arguments.py", "command: Command | None", "command: str | None"),
         ("arguments.py", "agent: InstallationAgent", "agent: str"),
-        ("__init__.py", ") -> CLIArguments:", ") -> argparse.Namespace:"),
+        ("legacy_parser_base.py", ") -> CLIArguments:", ") -> argparse.Namespace:"),
         (
             "arguments.py",
             "def report_mode(value: str) -> ReportMode:",

@@ -58,7 +58,6 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
         ConfigFileMissingError,
         ConfigurationSource,
         InstallationAgent,
-        NativeCore,
         Phase,
         PhaseClock,
         ReportMode,
@@ -121,6 +120,7 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
     )
     from .legacy_parser import _report_option_error
     from .legacy_parser_base import _ARCHITECTURE_JSON, _PER_RUN_LIMIT_REMEDY, _SNAPSHOT_PATH
+    from .native_core import NativeCore
 
     parser = build_parser()
     command = Command.ARGUMENTS

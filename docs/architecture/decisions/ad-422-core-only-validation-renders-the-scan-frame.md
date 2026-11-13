@@ -26,6 +26,7 @@
    Discover the repository from the current directory; preserve an explicit project root.
    Optional request provenance is checked, never trusted. A false clean claim refuses.
    Use the platform's fixed Git executable, not PATH. Missing Git refuses by name.
+   Fixture requests omit optional claims; derive their own Git state, not the caller's checkout state.
 8. `Ruling::frame` remains the only frame maker. Typed evidence explains each FAIL.
    Core uses the facts identity helpers to link contract citations; declare the core-to-facts dependency.
    UNKNOWN names its gap and location when available. Unported rules name their missing kind.
@@ -60,5 +61,6 @@ The installed `.sha256` verifies binary bytes, not source freshness. Source/buil
 **Tests.** `tests/test_cli_core_only.py` blocks imports in a subprocess.
 Boundary tests cover process failures, frame validation, exit mapping, lookup and refusals.
 Native tests cover Git state, refused collection and typed violation evidence.
+Profile probes cover clean and dirty fixtures from clean and dirty caller checkouts.
 Review tests bind foreign PASS frames and changed contracts, plant an internal error, and check typed refusals.
 Post-command import guards cover real validate/report text and JSON scans and check after refusal, with no exceptions.

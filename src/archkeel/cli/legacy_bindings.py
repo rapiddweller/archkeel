@@ -114,7 +114,6 @@ from .config import (
 )
 from .guide import GUIDE_PATH as GUIDE_PATH
 from .guide import run_guide as run_guide
-from .native_core import NativeCore as NativeCore
 from .observe import (
     collect_cycles_less_often as collect_cycles_less_often,
 )
