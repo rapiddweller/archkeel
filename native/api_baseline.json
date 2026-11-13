@@ -1915,6 +1915,12 @@
     "variant why::WhyUnknown::ScopeIncomplete",
     "variant why::WhyUnknown::Undecided"
   ],
+  "archkeel-rust-collector": [
+    "const TEST_FEATURES",
+    "fn provenance()->Provenance",
+    "fn reply(request:&RustRequest,provenance:Provenance,version:Version,)->Result<Vec<u8>,String>",
+    "fn typed_reply(request:&RustRequest,provenance:Provenance,version:Version,)->Result<Reply,String>"
+  ],
   "archkeel-snapshot": [
     "const snapshot::MAX_FILE_BYTES",
     "enum listing::Entry",

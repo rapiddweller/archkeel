@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! One run of the linked TypeScript collector in the process of the core (AD-406).
+//! One run of a linked collector in the process of the core (AD-406).
 //!
 //! The request goes through the decode of the wire, the same check that the binary runs on its
 //! stdin, so the in-process collector reads exactly the request that the binary would read. The

@@ -1541,11 +1541,12 @@
       "packages": [],
       "exact_modules": [
         "native.archkeel_rust_collector",
+        "native.archkeel_rust_collector.bin_archkeel_rust_collector",
         "native.archkeel_rust_collector.build_script",
         "native.archkeel_rust_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The binary of the Rust collector: read the request, run the collection and write the reply; the build script and the manifest of the crate."
+        "The library and binary of the Rust collector: run one collection with the typed sink or the byte sink; the build script and manifest."
       ],
       "forbidden_responsibilities": [
         "Reading TypeScript source."
@@ -2802,6 +2803,54 @@
       "target": "native.archkeel_typescript_collector",
       "include_type_checking": true,
       "rationale": "Only archkeel-collect links a collector; report must not use the TypeScript collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CORE-TO-RUST",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_core",
+      "target": "native.archkeel_rust_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; core must not use the Rust collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-EVAL-TO-RUST",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native.archkeel_rust_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; eval must not use the Rust collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODEL-TO-RUST",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native.archkeel_rust_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; model must not use the Rust collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-REPORT-TO-RUST",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_report",
+      "target": "native.archkeel_rust_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; report must not use the Rust collector (AD-406).",
       "provenance": [
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],

@@ -84,6 +84,10 @@ fn a_rust_scan_needs_no_typescript_configuration() {
     .expect("the linked Rust collector can run this configuration");
     assert!(config.exclude_test_sources);
     assert_eq!(config.profile, archkeel_facts::envelope::Profile::Rust);
+    let refused = parsed(&format!(
+        "{BASE}language = \"rust\"\ncollector_argv = [\"/x\"]\n"
+    ));
+    assert!(matches!(refused, Err(Refused::Unsupported("collector", _))));
 }
 
 #[test]

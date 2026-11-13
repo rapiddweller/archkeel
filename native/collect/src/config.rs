@@ -40,7 +40,7 @@ pub(crate) enum Refused {
     Unsupported(&'static str, String),
 }
 
-/// The settings of a TypeScript scan, as `ScanConfig` holds them.
+/// The settings of a linked scan, as `ScanConfig` holds them.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Config {
     pub profile: Profile,

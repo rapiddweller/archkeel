@@ -23,7 +23,7 @@ const FIXTURES: [&str; 4] = [
     "L-nest-realworld",
 ];
 
-fn copy(from: &Path, to: &Path) {
+pub(super) fn copy(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap();
     for entry in fs::read_dir(from).unwrap() {
         let entry = entry.unwrap();
@@ -37,7 +37,7 @@ fn copy(from: &Path, to: &Path) {
 }
 
 /// A copy of a fixture with a Git directory whose `HEAD` names `HEAD` on `main`.
-fn repository(fixture: &str) -> PathBuf {
+pub(super) fn repository(fixture: &str) -> PathBuf {
     let root = scratch(&format!("fixture-{fixture}"));
     copy(
         &Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../fixtures/{fixture}")),
@@ -49,7 +49,7 @@ fn repository(fixture: &str) -> PathBuf {
     root
 }
 
-fn identity(root: &str) -> Identity<'_> {
+pub(super) fn identity(root: &str) -> Identity<'_> {
     Identity {
         root,
         config: "archkeel.toml",

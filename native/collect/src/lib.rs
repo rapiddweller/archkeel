@@ -201,7 +201,7 @@ fn read_config(root: &repository::Root, path: &str) -> Result<config::Config, Re
     Ok(config)
 }
 
-/// The request that the shell sends to the bundled TypeScript collector (`observer_for`,
+/// The request that the shell sends to a bundled collector (`observer_for`,
 /// `collection_request`, `ProcessCollector`): 8.0.0, or 9.0.0 with the test scope.
 fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     let mut scope = json!({"roots": config.roots, "namespace": config.namespace});
@@ -229,3 +229,6 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod rust_tests;

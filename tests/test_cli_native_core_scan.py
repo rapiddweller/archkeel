@@ -1,10 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-406: with the switch, a TypeScript `report` asks the core to run the collector itself.
+"""AD-406: with the switch, a linked `report` asks the core to run the collector itself.
 
 The shell sends the scan request (the root, the configuration file, the Git head and dirty state)
-and no reply bytes. The core derives the collection request, runs the linked TypeScript collector
+and no reply bytes. The core derives the collection request, runs the linked collector
 in its own process and decides the run; stage 1 stays on, so the Python engine decides the same
 run and a difference is exit 2. The real core and collector come from one build of `native/`. A
 fake core (a script with its recorded digest) answers each request kind with a planned frame, so
@@ -41,7 +41,7 @@ from tools.dual_run_corpus import Case, corpus_cases, materialized
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
-BINARIES = ("archkeel-core", "archkeel-typescript-collector")
+BINARIES = ("archkeel-core", "archkeel-typescript-collector", "archkeel-rust-collector")
 # A corpus case that the core decides through the scan request (PASS in both engines).
 HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-honest"
 # A corpus case whose Python run completes and whose contract has a UML target.
@@ -72,6 +72,7 @@ def built() -> Path:
     (NATIVE / "target").mkdir(exist_ok=True)
     command = [cargo, "build", "--locked", "-q", "-p", "archkeel-core"]
     command += ["-p", "archkeel-typescript-collector", "--target-dir", str(target)]
+    command += ["-p", "archkeel-rust-collector"]
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
             command,
@@ -254,6 +255,118 @@ def test_a_declaration_only_scan_names_no_decided_rule_and_keeps_product_parity(
     assert "contract has no decided rule" in core_notes(result)[0]
 
 
+def test_the_core_decides_a_rust_run_through_the_scan_request(
+    install: Path, tmp_path: Path
+) -> None:
+    from rust_repository import repository
+
+    root = repository(tmp_path / "project", install / f"archkeel-rust-collector{SUFFIX}")
+    config = root / "archkeel.toml"
+    config.write_text(
+        "\n".join(
+            line
+            for line in config.read_text().splitlines()
+            if not line.startswith("collector_argv")
+        )
+        + "\n"
+    )
+    off = report(root)
+    code, result = report(root, "--native-core")
+    assert (code, result["declared_rules"]) == (off[0], "PASS")
+    [note] = core_notes(result)
+    assert "The core ran the Rust collector in its own process" in note
+    assert result["rule_assessments"] == off[1]["rule_assessments"]
+
+
+def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
+    install: Path, tmp_path: Path
+) -> None:
+    requests: list[tuple[str, Any]] = []
+    accepted = refused = 0
+    with contextlib.ExitStack() as stack:
+        for case in corpus_cases():
+            root = stack.enter_context(materialized(case)).resolve()
+            try:
+                language = tomllib.loads((root / case.config).read_text())["scan"].get("language")
+            except (OSError, KeyError, tomllib.TOMLDecodeError):
+                continue
+            if language != "rust":
+                continue
+            payload = _shell_request(root, case)
+            requests.append((case.id, json.loads(payload)))
+            request = native_scan.scan_request(payload, case.config)
+            stdout, _ = native_scan.exchange(
+                str(install / f"archkeel-core{SUFFIX}"), "scan", json.dumps(request).encode()
+            )
+            collect = json.loads(stdout)["self_test"]["collect"]
+            if "request" in collect:
+                assert native_scan.differences(collect["request"], json.loads(payload)) == [], (
+                    case.id
+                )
+                accepted += 1
+            else:
+                assert collect["refused"].startswith("collect: unsupported: collector: "), (
+                    case.id,
+                    collect,
+                )
+                refused += 1
+        current = Case("current-native", "", config="native/archkeel.toml")
+        requests.append((current.id, json.loads(_shell_request(ROOT, current))))
+        manifest = tmp_path / "requests.json"
+        manifest.write_text(json.dumps(requests))
+        done = subprocess.run(
+            [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "archkeel-collect",
+                "--lib",
+                "the_rust_corpus_uses_byte_equal_facts",
+                "--",
+                "--nocapture",
+            ],
+            cwd=NATIVE,
+            env={**os.environ, "ARCHKEEL_COLLECT_RUST_REQUESTS": str(manifest)},
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+    assert accepted > 50
+    print(
+        f"Rust scan corpus: {accepted} accepted; {refused} named refusals; "
+        f"{len(requests)} fact comparisons; 0 differences"
+    )
+
+
+def test_the_core_scans_its_own_workspace_with_no_shell_reply(built: Path, tmp_path: Path) -> None:
+    from graph_report_support import commit_tree
+
+    root = tmp_path / "project"
+    shutil.copytree(NATIVE, root / "native", ignore=shutil.ignore_patterns("target"))
+    commit_tree(root)
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    request = {
+        "protocol": native_scan.SCAN_PROTOCOL,
+        "root": str(root.resolve()),
+        "config": "native/archkeel.toml",
+        "git_head": head,
+        "dirty": False,
+    }
+    # No shell collector runs. The only program under test receives the scan identity.
+    stdout, code = native_scan.exchange(
+        str(built / f"archkeel-core{SUFFIX}"), "scan", json.dumps(request).encode()
+    )
+    frame = json.loads(stdout)
+    assert code == 3
+    assert frame["status"] in {"FAIL", "UNKNOWN"}
+    assert frame["self_test"]["collect"]["request"]["resolver"] == {"language": "rust"}
+    assert frame["self_test"]["reply"]["files"] > 200
+    assert "producer not verified" not in json.dumps(frame["unsupported"])
+
+
 def test_an_undecided_scan_goes_back_to_the_check_request_and_names_its_parts(
     install: Path,
 ) -> None:
@@ -374,7 +487,8 @@ def test_a_configured_collector_sends_no_scan_request(install: Path) -> None:
 # --- The build and the check command ----------------------------------------------------------
 
 
-def test_the_release_build_links_the_collector_without_its_test_feature() -> None:
+@pytest.mark.parametrize("collector", ["typescript", "rust"])
+def test_the_release_build_links_the_collector_without_its_test_feature(collector: str) -> None:
     """#1099 (a): the wheel builds the whole workspace without a feature (`hatch_build.py`). In
     that resolution the core links the TypeScript collector without `dump`, whose planted faults
     read the environment. A build with `dump` gives no accepted reply: `archkeel-collect` refuses
@@ -384,7 +498,7 @@ def test_the_release_build_links_the_collector_without_its_test_feature() -> Non
         pytest.skip("cargo is not installed")
     tree = subprocess.run(
         [cargo, "tree", "--locked", "--workspace", "-e", "features", "-i"]
-        + ["archkeel-typescript-collector"],
+        + [f"archkeel-{collector}-collector"],
         cwd=NATIVE,
         capture_output=True,
         text=True,
