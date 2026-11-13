@@ -107,7 +107,9 @@ def test_collection_stops_owned_descendant_for_every_completion(
         "stderr=subprocess.DEVNULL)\n"
         f"open({str(pid_file)!r}, 'w').write(str(child.pid))\n"
         f"from pathlib import Path; deadline = time.monotonic() + 2\n"
-        f"while not Path({str(heartbeat)!r}).exists() and time.monotonic() < deadline:\n"
+        # `open(path, 'w')` makes the file before `write` fills it: wait for the text.
+        f"while 'started' not in (Path({str(heartbeat)!r}).read_text() "
+        f"if Path({str(heartbeat)!r}).exists() else '') and time.monotonic() < deadline:\n"
         "    time.sleep(0.01)\n"
     )
     if case == "valid" or case == "snapshot_mismatch":

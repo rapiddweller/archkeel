@@ -123,6 +123,20 @@ def _apply(root: Path, files: Mapping[str, str | None]) -> None:
         target.write_text(content, encoding="utf-8")
 
 
+def ensure_commits(cases: list[Case], repository: Path = REPOSITORY) -> None:
+    """Fetch each pinned commit that the checkout lacks (a CI checkout has one commit)."""
+    for commit in sorted({case.commit for case in cases if case.commit}):
+        have = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"], cwd=repository, capture_output=True
+        )
+        if have.returncode:
+            subprocess.run(
+                ["git", "fetch", "-q", "--depth=1", "--no-tags", "origin", commit],
+                cwd=repository,
+                check=True,
+            )
+
+
 def _source_tree(case: Case, root: Path) -> None:
     if case.commit is not None:
         root.mkdir()

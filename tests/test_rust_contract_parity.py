@@ -272,7 +272,7 @@ def _probe() -> Path:
         built = subprocess.run(command, cwd=NATIVE, capture_output=True, text=True, check=False)
     assert built.returncode == 0, built.stderr
     return (
-        NATIVE / "target/debug/examples" / ("contract_dump" + (".exe" if os.name == "nt" else ""))
+        NATIVE / "target/parity/examples" / ("contract_dump" + (".exe" if os.name == "nt" else ""))
     )
 
 

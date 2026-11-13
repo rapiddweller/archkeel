@@ -36,6 +36,7 @@ from tools.dual_run_corpus import (
     Case,
     bench_case,
     corpus_cases,
+    ensure_commits,
     materialized,
     oracle_path,
 )
@@ -431,6 +432,7 @@ def main(argv: list[str]) -> int:
     if missing := [case.id for case in cases if not oracle_path(case).is_file()]:
         print(f"no oracle for {len(missing)} cases, first {missing[0]}: run `make dual-run-record`")
         return 2
+    ensure_commits(cases)
     started = time.perf_counter()
     # The largest oracles first, so that no large case starts last.
     cases.sort(key=lambda case: -oracle_path(case).stat().st_size)
