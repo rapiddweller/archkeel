@@ -51,6 +51,7 @@ fn subjects_with(
         .chain(planned(contract.components()))
         .collect();
     let names = Names {
+        symbols: Vec::new(),
         targets: subjects.clone(),
         subjects,
         builtins,
@@ -167,6 +168,7 @@ fn a_target_side_reads_every_module_and_a_source_side_only_the_domain() {
     };
     let check_with = |subjects: Vec<&str>, targets: Vec<&str>| {
         let names = Names {
+            symbols: Vec::new(),
             subjects,
             targets,
             builtins: &[],

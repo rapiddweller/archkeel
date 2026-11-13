@@ -151,7 +151,7 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
                 .constructs()
                 .iter()
                 .any(|kind| !examined.contains(word(kind).as_str()));
-            if unexamined || rule.selector().is_some() {
+            if unexamined || (rule.selector().is_some() && !observed.construct_selectors) {
                 found.push(Limit::Certain(id.to_owned()));
             }
         }
@@ -195,7 +195,7 @@ pub(crate) fn layer_gaps<'a>(contract: &'a Contract, rule: &LayerOrder) -> Vec<&
 }
 
 /// The word of a closed contract value (`string_literal_compare`).
-fn word<T: serde::Serialize>(value: &T) -> String {
+pub(crate) fn word<T: serde::Serialize>(value: &T) -> String {
     serde_json::to_value(value)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))

@@ -183,6 +183,9 @@ impl Snapshot {
             self.oversized.insert(rel.to_owned());
             return None;
         }
+        if !crate::work::permits(&self.root, rel, &raw) {
+            return None;
+        }
         self.inputs
             .insert(rel.to_owned(), (sha256_hex(&raw), Role::Selected));
         Some(raw)

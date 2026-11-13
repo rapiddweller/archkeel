@@ -60,6 +60,7 @@ pub(crate) struct Observed {
     pub(crate) dynamic_imports: Vec<Dynamic>,
     /// The construct kinds that the collector examines (any status but `unsupported`).
     pub(crate) constructs: Vec<String>,
+    pub(crate) construct_selectors: bool,
     /// The reply has the feature after which one profile reads symbol-level selectors.
     pub(crate) symbol_feature: bool,
     /// The collector read and parsed each selected file, and the selected inputs are the
@@ -138,6 +139,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .filter(|entry| entry.status != ConstructSupport::Unsupported)
             .map(|entry| entry.name.clone())
             .collect(),
+        construct_selectors: facts.profile.construct_selectors(),
         symbol_feature: facts
             .capabilities
             .resolution_features

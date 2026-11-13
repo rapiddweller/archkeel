@@ -84,6 +84,7 @@ mod site_names;
 mod site_paths;
 mod site_records;
 mod site_syntax;
+mod site_text;
 mod site_types;
 mod sites;
 mod source;

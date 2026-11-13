@@ -40,6 +40,7 @@ pub(crate) struct Names<'a> {
     /// The names of the builtin import targets: a `forbidden_dependency` target of this name is
     /// a subject that no scan lists as a module.
     pub(crate) builtins: &'a [String],
+    pub(crate) symbols: Vec<&'a str>,
 }
 
 /// The planned modules of the components (`_planned_subject_modules`): the part of each
@@ -78,10 +79,12 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
         }
         Rule::RootLayout(rule) => vec![vec![rule.root().as_text()]],
         Rule::ForbiddenConstruct(rule) => {
-            return if count(&[rule.source().as_text()]) {
+            return if count(&[rule.source().as_text()])
+                || any_in(&names.symbols, &[rule.source().as_text()])
+            {
                 Subjects::Found
             } else {
-                Subjects::Unread
+                Subjects::Missing
             };
         }
         // `rule_scopes` gives these kinds no side.

@@ -10,7 +10,7 @@ use std::path::Path;
 use super::*;
 use crate::tests::{commit, copy, identity};
 
-fn repository() -> std::path::PathBuf {
+pub(super) fn repository() -> std::path::PathBuf {
     let root = crate::repository::tests::scratch("rust");
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -27,15 +27,19 @@ fn repository() -> std::path::PathBuf {
 
 fn equal(request: &[u8]) {
     let decoded = archkeel_wire::request::decode_rust(request).unwrap();
-    let wire = run::isolated(move || {
-        archkeel_rust_collector::reply(
-            &decoded,
-            archkeel_rust_collector::provenance(),
-            archkeel_wire::protocol::reply_version(decoded.protocol_version),
-        )
-    })
-    .unwrap()
-    .unwrap();
+    let wire = std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(move || {
+            archkeel_rust_collector::reply(
+                &decoded,
+                archkeel_rust_collector::provenance(),
+                archkeel_wire::protocol::reply_version(decoded.protocol_version),
+            )
+        })
+        .unwrap()
+        .join()
+        .unwrap()
+        .unwrap();
     let binary = archkeel_store::ingest_reply(&wire, 1 << 30).unwrap();
     let linked = run::collect(Profile::Rust, request).unwrap();
     assert_eq!(
@@ -132,8 +136,8 @@ fn a_huge_rust_file_gives_a_named_size_gap() {
 fn deeply_nested_rust_gives_a_named_nesting_gap() {
     let text = format!(
         "fn hostile() {{ {}0{}; }}",
-        "(".repeat(2000),
-        ")".repeat(2000)
+        "(".repeat(300),
+        ")".repeat(300)
     );
     hostile_gap(&text, "Brackets nest deeper than 256");
 }

@@ -17,7 +17,9 @@ const MAX_DEPTH: usize = 128;
 /// is never read: `archkeel-snapshot` refuses it and records a problem, which is a gap.
 pub(crate) fn read_text(snapshot: &mut Snapshot, rel: &str) -> Result<String, String> {
     match snapshot.read(rel) {
-        Some(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+        Some(bytes) => {
+            String::from_utf8(bytes).map_err(|_| format!("File is not valid UTF-8: {rel}"))
+        }
         None => Err(snapshot.size_gap(rel).unwrap_or_else(|| {
             format!("Unreadable file, or a path that leaves the snapshot: {rel}")
         })),

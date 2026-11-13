@@ -60,15 +60,7 @@ fn a_cfg_attr_with_a_lint_changes_nothing_and_any_other_may_add_a_path() {
 }
 
 #[test]
-fn an_attribute_macro_on_a_module_hides_its_content() {
-    assert_eq!(
-        hidden("#[tool::rewrite]", "module").unwrap(),
-        "An attribute macro is applied to a module: a path attribute"
-    );
-    assert_eq!(
-        hidden("#[tool::rewrite_a]", "module").unwrap(),
-        "An attribute macro is applied to a module: a path attribute"
-    );
+fn builtins_and_tools_do_not_gate_a_module() {
     for text in [
         // `macro_use` only widens the scope of the macros of the module.
         "#[macro_use]",

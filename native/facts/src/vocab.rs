@@ -89,6 +89,9 @@ closed! {
         DynamicImportLimit = "dynamic_import_limit",
         PrivateAttributeAccessLimit = "private_attribute_access_limit",
         ExceptionGap = "exception_gap",
+        AssertStatement = "assert_statement",
+        PlaceholderBody = "placeholder_body",
+        DunderDict = "dunder_dict",
     }
 }
 
@@ -225,6 +228,8 @@ closed! {
         Startswith = "startswith",
         TypeProbe = "type_probe",
         Write = "write",
+        Match = "match",
+        Reflect = "reflect",
     }
 }
 
@@ -291,6 +296,15 @@ closed! {
         Endswith = "endswith",
         Membership = "membership",
         Startswith = "startswith",
+        Match = "match",
+    }
+}
+
+closed! {
+    /// The two function bodies that the collector identifies as placeholders.
+    pub enum PlaceholderForm {
+        Empty = "empty",
+        NotImplemented = "not_implemented",
     }
 }
 
@@ -317,6 +331,39 @@ closed! {
     pub enum RelationshipKind {
         Inherits = "inherits",
         Realizes = "realizes",
+    }
+}
+
+impl Signal {
+    /// The contract construct observed by this signal, if it observes one.
+    pub fn construct(self) -> Option<&'static str> {
+        Kind::parse(self.as_str()).and_then(Kind::construct)
+    }
+}
+
+impl Kind {
+    /// The construct named by the record kind, never by a redundant payload field.
+    pub fn construct(self) -> Option<&'static str> {
+        match self {
+            Self::AssertStatement => Some("assert"),
+            Self::PlaceholderBody => Some("placeholder_body"),
+            Self::BroadExcept => Some("broad_except"),
+            Self::SetattrCall => Some("setattr"),
+            Self::DelattrCall => Some("delattr"),
+            Self::VarsCall => Some("vars"),
+            Self::DunderDict => Some("dunder_dict"),
+            Self::StringLiteralCompare => Some("string_literal_compare"),
+            Self::ConstructSelector => Some("selector"),
+            Self::AnyAnnotation => Some("any_annotation"),
+            Self::CastCall => Some("cast"),
+            Self::GetattrCall => Some("getattr"),
+            Self::HasattrCall => Some("hasattr"),
+            Self::EvalCall => Some("eval"),
+            Self::ExecCall => Some("exec"),
+            Self::DynamicImport => Some("dynamic_import"),
+            Self::TypeIgnore => Some("type_ignore"),
+            _ => None,
+        }
     }
 }
 

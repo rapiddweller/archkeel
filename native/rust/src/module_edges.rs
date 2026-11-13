@@ -308,7 +308,7 @@ fn module_record(
             block,
         } => (binding.clone(), *reexport, *block, false),
         Via::Glob { reexport, block } => (None, *reexport, *block, true),
-        Via::Path => (None, false, true, false),
+        Via::Path | Via::Helper => (None, false, true, false),
     };
     let data = ImportData {
         source_module: ModuleName::new(&module.module),

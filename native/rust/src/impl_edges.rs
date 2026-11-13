@@ -207,7 +207,9 @@ impl Builder {
             return unresolved;
         };
         let paths = module.scan.references.iter();
-        for reference in paths.filter(|r| r.via == Via::Path && r.in_macro.is_none()) {
+        for reference in
+            paths.filter(|r| matches!(r.via, Via::Path | Via::Helper) && r.in_macro.is_none())
+        {
             let Some((member, ty)) = reference.names.split_last() else {
                 continue;
             };
@@ -279,7 +281,11 @@ impl Builder {
         let Some(frame) = index.frame(&module.module) else {
             return calls;
         };
-        let crate_paths = module.scan.references.iter().filter(|r| r.via == Via::Path);
+        let crate_paths = module
+            .scan
+            .references
+            .iter()
+            .filter(|r| matches!(r.via, Via::Path | Via::Helper));
         for reference in crate_paths.filter(|r| crate_path(workspace, frame, r)) {
             if let Some(name) = reference.names.last() {
                 calls.push(MethodCall {

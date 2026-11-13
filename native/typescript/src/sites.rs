@@ -64,6 +64,28 @@ pub(crate) struct Extension {
 }
 
 impl Sites {
+    pub(crate) fn retain_text(&mut self, source: &[u8]) -> Vec<u8> {
+        if self.sites.is_empty() {
+            self.paths = Default::default();
+        }
+        let mut texts: Vec<&mut Text> = self.paths.retained_texts().collect();
+        for site in &mut self.sites {
+            match &mut site.expression {
+                Expression::Node(text) => texts.push(text),
+                Expression::Member(receiver, name) => texts.extend([receiver, name]),
+            }
+            texts.extend(site.assigned_name.as_mut());
+            texts.extend(site.name.as_mut());
+            texts.extend(site.receiver.as_mut());
+            texts.extend(site.initializer.as_mut());
+            texts.extend(site.free.as_mut().map(|(_, text)| text));
+        }
+        // The shadow index already owns the decoded names. Parser node ids have no later use.
+        self.names = Default::default();
+        self.wrappers = Default::default();
+        crate::site_text::compact(source, &mut texts)
+    }
+
     /// Read the node that the walk enters: record its sites, and give the entry its extension.
     pub(crate) fn enter(&mut self, cx: &Cx, visit: &Visit) -> Extension {
         let Visit {

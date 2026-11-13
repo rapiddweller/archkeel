@@ -22,6 +22,7 @@ use archkeel_snapshot::Snapshot;
 struct Parsed {
     table: Table,
     text: String,
+    dir: String,
 }
 
 /// A place that the scan cannot read: the file (or none) and the reason.
@@ -52,6 +53,7 @@ pub(crate) struct Crate {
     pub roots: Vec<Root>,
     /// The module and file that other crates reach: the library, else the main binary.
     pub primary: Option<Root>,
+    pub registry: crate::registry::Registry,
 }
 
 pub(crate) struct Workspace {
@@ -112,7 +114,11 @@ fn manifest_table(
     let table = if source.is_file(&rel) {
         let text = read_text(source, &rel)?;
         let table = toml::parse(&text).map_err(|error| format!("Cannot read {rel}: {error}"))?;
-        Some(Rc::new(Parsed { table, text }))
+        Some(Rc::new(Parsed {
+            table,
+            text,
+            dir: dir.to_owned(),
+        }))
     } else {
         None
     };
@@ -165,15 +171,24 @@ impl Workspace {
             return;
         };
         if read.edition.is_none() {
-            read.edition = above.and_then(|above| manifest::workspace_edition(&above.table));
+            read.edition = above
+                .as_ref()
+                .and_then(|above| manifest::workspace_edition(&above.table));
         }
-        self.add(dir, read, &parsed.text, files, namespace);
+        let registry = crate::registry::read(
+            source,
+            (dir, &parsed.table),
+            above.as_ref().map(|p| (p.dir.as_str(), &p.table)),
+            &read,
+        );
+        self.add(dir, read, registry, &parsed.text, files, namespace);
     }
 
     fn add(
         &mut self,
         dir: &str,
         manifest: Manifest,
+        registry: crate::registry::Registry,
         text: &str,
         files: &[String],
         namespace: &str,
@@ -230,6 +245,7 @@ impl Workspace {
             lines: LineIndex::new(text),
             roots,
             primary,
+            registry,
         });
     }
 

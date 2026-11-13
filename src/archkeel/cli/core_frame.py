@@ -24,6 +24,8 @@ from .core_evidence import (
     _locations,
 )
 from .core_json import CoreError as CoreError
+from .core_json import Gap as Gap
+from .core_json import GapKind as GapKind
 from .core_json import _count, _fields, _object, _text, _texts
 
 
@@ -76,34 +78,6 @@ class FrameProtocol(StrEnum):
     FRAME = "archkeel-core-frame-1"
 
 
-class GapKind(StrEnum):
-    """Why a part of a run has no decision of the core."""
-
-    PRODUCER_NOT_VERIFIED = "producer_not_verified"
-    REPLY_REFUSED = "reply_refused"
-    REPLY_ABSENT = "reply_absent"
-    RULE_KIND_NOT_PORTED = "rule_kind_not_ported"
-    BASE = "base"
-    INSIDE_CONTRACT_MISSING = "inside_contract_missing"
-    INSIDE_RULE = "inside_rule"
-    TREE_SCOPE = "tree_scope"
-    UML_TARGET = "uml_target"
-    SCOPE_PROOF = "scope_proof"
-    CONTRACT_REFUSED = "contract_refused"
-    SECTION = "section"
-    REPORT = "report"
-    OTHER = "other"
-    # The reasons of the shell: the core did not run on this run.
-    PYTHON_INCOMPLETE = "python_incomplete"
-    REPLIES = "replies"
-    EXTERNAL_COLLECTOR = "external_collector"
-    NO_DECIDED_RULE = "no_decided_rule"
-    # AD-406: the scan request: the core did not run the collector, or it derived another
-    # request than the shell sent to its collector.
-    COLLECT = "collect"
-    REQUEST_DIFFERS = "request_differs"
-
-
 class Switch(StrEnum):
     """The values of the switch variable: unset, off and on."""
 
@@ -128,6 +102,10 @@ class _ReplyRead(StrEnum):
 class _CollectRead(StrEnum):
     REQUEST = "request"
     REFUSED = "refused"
+
+
+class _RefusalProtocol(StrEnum):
+    V1 = "archkeel-core-refusal-1"
 
 
 _Word = TypeVar("_Word", bound=StrEnum)
@@ -182,13 +160,18 @@ class RuleVerdict:
     status: RuleStatus
 
 
-@dataclass(frozen=True, slots=True)
-class Gap:
-    """One part that the core names and does not decide."""
-
-    kind: GapKind
-    subject: str
-    reason: str
+def read_refusal(stderr: bytes) -> Gap | None:
+    """The closed refusal message on stderr, never a verdict frame or a text-prefix inference."""
+    try:
+        value = json.loads(stderr, object_pairs_hook=_unique)
+    except (UnicodeDecodeError, ValueError):
+        return None
+    fields = _fields(value, "refusal", frozenset({"protocol", "kind", "subject", "reason"}))
+    _word(_RefusalProtocol, fields["protocol"], "refusal.protocol")
+    kind = _word(GapKind, fields["kind"], "refusal.kind")
+    if kind is not GapKind.PARSE_WORK_LIMIT:
+        raise CoreError(f"the core refusal has an unsupported kind {kind}")
+    return Gap(kind, _text(fields["subject"], "subject"), _text(fields["reason"], "reason"))
 
 
 @dataclass(frozen=True, slots=True)

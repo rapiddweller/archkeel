@@ -300,6 +300,7 @@ pub(crate) fn records(
         effects: false,
     };
     for (index, section) in facts.sections.iter().enumerate() {
+        crate::record_identity::validate(section)?;
         (pass.section, pass.position) = (index, 0);
         visit(section, 0, section.len(), &mut pass)?;
     }

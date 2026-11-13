@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import zlib
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
@@ -244,7 +245,7 @@ def test_the_peak_memory_of_twice_the_size_is_at_most_two_and_a_half_times(
     assert peaks[1] <= MEMORY_RATIO * peaks[0], f"{name}: {peaks[0]} then {peaks[1]} bytes"
 
 
-def test_every_shape_builds_a_crate_that_the_collector_reads_without_a_gap(
+def test_every_shape_builds_a_crate_with_only_the_expected_expansion_gaps(
     tmp_path: Path, collector: Path
 ) -> None:
     for shape in SHAPES.values():
@@ -254,8 +255,17 @@ def test_every_shape_builds_a_crate_that_the_collector_reads_without_a_gap(
         import zlib
 
         facts = json.loads(zlib.decompress(done.stdout))["facts"]
-        assert facts["coverage"]["gaps"] == [], shape.name
-        assert facts["coverage"]["full_scope"], shape.name
+        gaps = facts["coverage"]["gaps"]
+        expected = (
+            {
+                "The attribute macro serde can add code that the scan does not read": 6,
+                "The derive macro serde::Serialize can add code that the scan does not read": 3,
+            }
+            if shape.name == "attributes"
+            else {}
+        )
+        assert Counter(gap["title"] for gap in gaps) == expected, shape.name
+        assert facts["coverage"]["full_scope"] == (not gaps), shape.name
 
 
 def test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small(
