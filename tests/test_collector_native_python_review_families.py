@@ -9,8 +9,8 @@ import json
 from pathlib import Path
 
 import pytest
+from native_python import _minor, _native, _write
 from python_compile_review_families import RULES, families, outcome
-from test_collector_native_python_parse import _minor, _native, _write
 
 ROOT = Path(__file__).parents[1]
 SOURCES = families()

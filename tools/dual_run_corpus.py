@@ -136,6 +136,19 @@ def case_language(case: Case) -> str:
     return language
 
 
+def supported_cases(cases: list[Case]) -> tuple[list[Case], int]:
+    kept = []
+    skipped = 0
+    for case in cases:
+        language = case_language(case)
+        if language in {"python", "dart"}:
+            print(f"SKIP {case.id}: {language} projects are not supported; use archkeel 4.0.1")
+            skipped += 1
+        else:
+            kept.append(case)
+    return kept, skipped
+
+
 def _apply(root: Path, files: Mapping[str, str | None]) -> None:
     for relative, content in files.items():
         target = root / relative

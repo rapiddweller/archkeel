@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 from first_difference import same
-from test_collector_native_python_parse import _minor
+from native_python import _minor
 
 ROOT = Path(__file__).parents[1]
 # `unparse::MAX_DEPTH` of the native writer.

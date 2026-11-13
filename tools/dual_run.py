@@ -35,11 +35,11 @@ from tools.dual_run_corpus import (
     REPOSITORY,
     Case,
     bench_case,
-    case_language,
     corpus_cases,
     ensure_commits,
     materialized,
     oracle_path,
+    supported_cases,
 )
 from tools.dual_run_oracle import (
     ORACLE_DIR,
@@ -387,19 +387,6 @@ def chosen_cases(patterns: list[str] | None, bench: list[str]) -> list[Case]:
     if unknown := [p for p in patterns if not any(fnmatch.fnmatchcase(c.id, p) for c in cases)]:
         raise ValueError(f"no case matches {', '.join(unknown)}")
     return [c for c in cases if any(fnmatch.fnmatchcase(c.id, p) for p in patterns)]
-
-
-def supported_cases(cases: list[Case]) -> tuple[list[Case], int]:
-    kept = []
-    skipped = 0
-    for case in cases:
-        language = case_language(case)
-        if language in {"python", "dart"}:
-            print(f"SKIP {case.id}: {language} projects are not supported; use archkeel 4.0.1")
-            skipped += 1
-        else:
-            kept.append(case)
-    return kept, skipped
 
 
 def main(argv: list[str]) -> int:

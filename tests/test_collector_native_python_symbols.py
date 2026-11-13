@@ -4,11 +4,8 @@
 # ruff: noqa: E402
 """The native definition table equals the symbols of the Python collector (AD-377, slice 2a).
 
-The oracle is the unmodified `collect.collect` in the phase `collect`, encoded as the facts of
-protocol 9. The test keeps the records of the kinds `class`, `function` and `method` and the
-fields in `DECIDED`: the fields that the module itself decides. The other fields need the binding
-proofs, the class kinds or another module; AD-377 lists them. The evidence that a record cites is
-compared too. The reply does not carry these records yet (AD-334 point 8).
+The released oracle remains unwired. `DECIDED` lists the fields that the module itself decides.
+AD-377 lists the other binding and class-kind fields. The comparison includes cited evidence.
 """
 
 from __future__ import annotations

@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator
+from oracle_support import ORACLE_UNAVAILABLE
 
 from archkeel.analyzer.interpreter import Interpreter, interpreter, python_request
 from archkeel.analyzer.process import ProcessCollector
@@ -58,6 +59,7 @@ def _child_tables() -> dict[str, list[str]]:
     return names
 
 
+@pytest.mark.skip(reason=ORACLE_UNAVAILABLE)
 def test_the_block_holds_the_version_that_the_python_collector_child_claims(tmp_path: Path) -> None:
     (tmp_path / "src/shop").mkdir(parents=True)
     (tmp_path / "src/shop/__init__.py").write_text("import os\n", encoding="utf-8")
@@ -97,21 +99,6 @@ def test_the_request_is_version_10_and_matches_the_committed_schema(tmp_path: Pa
         assert _validator().is_valid(raw), list(_validator().iter_errors(raw))
         older = {**raw, "protocol_version": "9.0.0"}
         assert not _validator().is_valid(older)
-
-
-def test_the_unmodified_python_collector_refuses_a_version_10_request(tmp_path: Path) -> None:
-    (tmp_path / "src/shop").mkdir(parents=True)
-    completed = subprocess.run(
-        _PYTHON_COLLECTOR,
-        input=python_request(_request(tmp_path), _block()),
-        capture_output=True,
-        check=False,
-    )
-    assert completed.returncode != 0
-    assert completed.stdout == b""
-    assert completed.stderr.rstrip().endswith(
-        b"ProtocolError: unsupported collection protocol version"
-    )
 
 
 def _script(tmp_path: Path, body: str) -> str:

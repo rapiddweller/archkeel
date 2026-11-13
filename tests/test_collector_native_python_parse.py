@@ -30,14 +30,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from native_python import _native, _write
 from oracle_support import ORACLE_UNAVAILABLE
 
 pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 
 from archkeel.analyzer.python.source import RECURSION_LIMIT, parse_sources
-
-from archkeel.analyzer.interpreter import interpreter
-from archkeel.ir.protocol import CollectionError
 
 # The messages that the native parse copies from CPython: line and message must be equal.
 _COPIED = (
@@ -51,12 +49,6 @@ _COPIED = (
     "levels exceeds 5000",
 )
 _PARSER_STACK = "expression nesting exceeds the parser stack"
-
-
-def _minor() -> int:
-    block = interpreter()
-    assert not isinstance(block, CollectionError), block
-    return int(block.version.split(".")[1])
 
 
 def _python(root: Path, rels: list[str]) -> dict[str, Any]:
@@ -94,19 +86,6 @@ def _python(root: Path, rels: list[str]) -> dict[str, Any]:
         threading.stack_size(stack)
         sys.setrecursionlimit(limit)
     return found
-
-
-def _native(binary: Path, root: Path, rels: list[str]) -> dict[str, Any]:
-    completed = subprocess.run(
-        [str(binary), "--dump", str(_minor()), str(root)],
-        input="".join(f"{rel}\n" for rel in rels),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    # JSON keeps U+2028 and U+0085 raw, and `splitlines` would split there.
-    rows = [json.loads(line) for line in completed.stdout.split("\n") if line]
-    return {row["file"]: row["outcome"] for row in rows}
 
 
 # A parser error of ruff can name another place than CPython, and so another class of this family.
@@ -149,13 +128,6 @@ def _differences(
             )
         )
     ]
-
-
-def _write(root: Path, cases: dict[str, str | bytes]) -> list[str]:
-    for name, text in cases.items():
-        data = text.encode("utf-8") if isinstance(text, str) else text
-        (root / name).write_bytes(data)
-    return sorted(cases)
 
 
 _CASES: dict[str, str | bytes] = {

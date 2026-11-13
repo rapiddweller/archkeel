@@ -212,7 +212,6 @@ PR_TEST_FILES := \
 	tests/test_boundary_type_bound_aliases.py::test_literal_outer_and_sibling_survive_uncertain_alias \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_inner_alias_does_not_erase_exact_literal_outer_map_permission \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_alias_ordinary_permission_is_independent_of_union_order \
-	tests/test_typescript_control_target.py \
 	tests/test_typescript_source_input.py \
 	tests/test_typescript_string_constructs.py \
 	tests/test_analyzer.py \
@@ -271,7 +270,6 @@ PR_TEST_FILES := \
 	tests/test_selector_validation_performance.py \
 	tests/test_dart_sdk_free.py \
 	tests/test_dart_inner_collect.py \
-	tests/test_dart_target.py \
 	tests/test_dart_uml_acceptance.py::test_checkout_cli_report_fulfills_independent_target \
 	tests/test_dart_unknowns.py::test_no_show_import_hiding_a_real_crossing_is_unknown_not_pass \
 	tests/test_flutter_demo.py::test_flutter_target_has_agent_owned_responsibilities_and_closed_permissions \

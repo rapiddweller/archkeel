@@ -126,7 +126,6 @@ jobs:
         # One entry for each area in tests/areas.py.
         area:
           - demo catalog
-          - TypeScript collector target
           - boundary types
           - Python analysis
           - CLI and Studio

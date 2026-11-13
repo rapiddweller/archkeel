@@ -11,8 +11,8 @@ import unicodedata
 from pathlib import Path
 
 import pytest
+from native_python import _minor, _native, _write
 from python_refusal_probes import compiler_refuses, edge_probes, issue_probes
-from test_collector_native_python_parse import _minor, _native, _write
 from test_collector_native_python_survey import _native as survey
 from test_collector_native_python_survey import _request
 
