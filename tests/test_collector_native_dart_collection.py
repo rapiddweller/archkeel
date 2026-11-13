@@ -208,6 +208,25 @@ def test_same_count_with_a_different_site_cannot_hide_a_site(binary: Path, tmp_p
     assert "CollectionInputGap:" in actual["gaps"][0]["data"]["message"]
 
 
+def test_a_mismatched_read_half_of_a_read_write_site_is_rejected(
+    binary: Path, tmp_path: Path
+) -> None:
+    c = case(tmp_path, {"a.dart": "void f(){ var x = 0; x++; }"})
+    value = parity.layer_input(c)
+    syntax = value["files"][0]["file"]["syntax"]["sites"]
+    next(site for site in syntax if site["use"] == "read")["use"] = "read_write"
+    answers = value["resolver"]["sites"][0]["sites"]
+    index = next(index for index, answer in enumerate(answers) if answer["site"]["use"] == "read")
+    read = answers[index]
+    write = copy.deepcopy(read)
+    write["site"]["use"] = "write"
+    answers.insert(index + 1, write)
+    read["site"]["expression"] = "different"
+    actual = parity.native(binary, value)
+    assert not actual["full_scope"] and not actual["symbols"]
+    assert "CollectionInputGap:" in actual["gaps"][0]["data"]["message"]
+
+
 @pytest.mark.parametrize("sdk", ["^3.12", "^4.0", ">=2.0 <3.0", "any", "not-a-version", None])
 def test_sdk_support_controls_inventories(binary: Path, tmp_path: Path, sdk: str | None) -> None:
     case(tmp_path, {"a.dart": "class A { int x = 1; void f() {} }"})

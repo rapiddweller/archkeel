@@ -1,6 +1,6 @@
 # AD-400 The native Dart collection assembles records from typed resolver results
 
-**Status.** Accepted. Epic #880, Dart slice 4c. Stacked on #1093 and AD-392.
+**Status.** Accepted. Epic #880, Dart slice 4c. Initially stacked on #1093; now based on its merged AD-392.
 PR #1102 owns number 398. Reserve number 400 as the lead requests.
 
 **Decision.** Port all remaining functions of `analyzer/dart/collect.py` as one assembly layer.
@@ -27,7 +27,7 @@ It is not a registered collector reply. The store still refuses Dart replies.
 1. Preparation keeps selected sources, but removes unparsed files and files without a unique owner.
    Parts inherit their owner's module and have no independent file fact.
 2. Parse gaps precede snapshot problems and SDK gaps. A repeated gap keeps its first evidence.
-3. Missing language overrides are allowed. Compare only the first supported override of each file.
+3. Missing language overrides are allowed. Compare the first matching override of each file.
 4. Resolve every conditional import target. Apply ordered show/hide intersections literally.
 5. Bind local imports to selected files, then builtins, external packages or an unresolved target.
 6. Canonicalize an alias only with exactly one name result. A mixin base must prove mixin capability.
@@ -44,8 +44,15 @@ no partial records. Every loop and copied text is charged. There is no recursive
 Python's unbounded integer language versions keep the existing named digit limit.
 The test-only dump accepts no unknown field or enum member.
 
+**Bounds.** Charge one budget of `min(2^34, 2^20 + 128 * N)` for N serialized typed-input bytes.
+Reserve each loop, copy and final sort before work. Index scopes by file and name; preserve first-on-tie selection.
+Assembly has no recursive walk. Closed typed decoding uses serde_json's 128-level depth bound.
+The 64/128-file scope test checks linear charged work. A 4 MiB hostile name stops within ten seconds.
+
 **Limits.** The Python oracle supplies the typed resolver results; this does not port resolution.
-The initial draft names `CollectionPending` until the complete layer builds and its tests pass.
+Its repeated whole-site scans remain quadratic. The tool reuses real site answers, not assembly records.
+Private input: 184 123 bytes, 120 definitions, 946 members, 10 681 sites; 94.15 s before, 41.40 s after caching.
+Native takes 2.62 s after caching. Per-file timings and resumable output support 900 s corpus commands.
 4d must port the resolver, connect the snapshot pipeline, and review whole-project limits before
 slice 5 registers a Dart reply. Codec normalization belongs to facts/wire, not record assembly.
 
@@ -54,5 +61,5 @@ Copy Python logic into the parity tool: call the real functions and serialize th
 Emit partial facts after a stop: that could give a false PASS.
 
 **Tests.** Compare fixtures and all three Dart corpora with real Python collection functions.
-Use at least 100 original edge probes and 12 isolated injected faults in a removed worktree.
+Keep 120 original edge probes. Fourteen isolated injected faults fail tests in a removed worktree.
 Run the native self-contract and final-head gate. Report LOCAL VERIFIED and CI-ONLY separately.

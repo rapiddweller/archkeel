@@ -264,6 +264,16 @@ declarations stay UNKNOWN. Own-package resolution uses the package name from
 `pubspec.yaml`; snapshot resolution inputs must be present. Python-only
 type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
 
+The native Dart collection dump assembles records from typed Python resolver answers (AD-400).
+It is not a collector reply. The store still refuses Dart replies until slice 5 of #880.
+`CollectionInputGap` rejects missing, repeated or inconsistent answers. `CollectionWorkLimit`
+discards all partial records after `min(2^34, 2^20 + 128 * N)` work units for N typed-input bytes.
+`LanguageVersionOrderGap` names inconsistent parts without an overriding main library.
+`LanguageVersionDigitLimit` names a version component above 4 300 digits. Each gap revokes full scope.
+Slice 4d must port the resolver, remove its repeated whole-site scans and review whole-project work limits.
+The parity tool records per-file size, shape and timings outside the repository and resumes completed inputs.
+Run each corpus command with `timeout 900`; do not treat an unfinished run as equal.
+
 ## Rust profile
 
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
