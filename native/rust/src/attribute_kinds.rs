@@ -11,23 +11,33 @@ use syn::{Attribute, Meta, Path, Token};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
-    Builtin,
+    Inert,
+    Cfg,
+    Prelude,
     Derive,
     Conditional,
     Unsafe,
 }
 
-/// The one table of built-in attribute names and their interpretation.
+/// Non-shadowable names: Rust 1.97 compiler/rustc_feature/src/builtin_attrs.rs, BUILTIN_ATTRIBUTES.
+/// Macro names: compiler/rustc_builtin_macros/src/lib.rs, register_attr!; `derive` parses paths.
+/// Sources: https://github.com/rust-lang/rust/tree/1.97.0/compiler and the reference index above.
+/// `cfg` and `cfg_attr` are active, non-macro attributes; `unsafe` is attribute syntax.
 const BUILTINS: &[(Kind, &str)] = &[
     (
-        Kind::Builtin,
-        "cfg test ignore should_panic automatically_derived macro_export macro_use
+        Kind::Inert,
+        "ignore should_panic automatically_derived macro_export macro_use
          proc_macro proc_macro_derive proc_macro_attribute allow expect warn deny forbid
          deprecated must_use link link_name link_ordinal no_link repr crate_type no_main
          export_name link_section no_mangle used crate_name inline cold naked no_builtins
          target_feature track_caller instruction_set doc no_std no_implicit_prelude path
-         recursion_limit type_length_limit panic_handler global_allocator windows_subsystem
+         recursion_limit type_length_limit panic_handler windows_subsystem
          debugger_visualizer collapse_debuginfo feature non_exhaustive",
+    ),
+    (Kind::Cfg, "cfg"),
+    (
+        Kind::Prelude,
+        "test bench global_allocator test_case cfg_accessible cfg_eval alloc_error_handler",
     ),
     (Kind::Derive, "derive"),
     (Kind::Conditional, "cfg_attr"),
@@ -98,5 +108,25 @@ pub(crate) fn builtin_parts(parts: &[String], names: &BTreeSet<String>) -> bool 
                 && !names.contains(root)
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_table_name_has_one_class() {
+        let mut names = BTreeSet::new();
+        let mut macros = 0;
+        let mut inert = 0;
+        for (kind, group) in BUILTINS {
+            for name in group.split_whitespace() {
+                assert!(names.insert(name), "{name}");
+                macros += usize::from(matches!(kind, Kind::Prelude | Kind::Derive));
+                inert += usize::from(*kind == Kind::Inert);
+            }
+        }
+        assert_eq!((macros, inert, names.len()), (8, 46, 57));
     }
 }

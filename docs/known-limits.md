@@ -299,9 +299,14 @@ contract lets `a` use `b` and the edge closes no cycle that the edges and the ot
 close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
 trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
 PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
+The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
 Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
 Each gap names the source module and leaves the target unseen. It blocks affected rules through
-the existing pair-gap scope proof. Built-in attributes and tool attributes add no expansion gap.
+the existing pair-gap scope proof. Inert built-ins and `cfg`/`cfg_attr` cannot be shadowed by a `use`.
+Prelude attribute macros, including `test`, `global_allocator` and `derive`, need a namespace proof.
+An explicit binding, an unproved glob or an enclosing `extern crate` withholds that proof.
+A shadowed `derive` proves neither its listed derives nor their helper registrations.
+Tool attributes need their tool prelude. Unknown attributes and unproved prelude macros keep a gap.
 Built-in derives need a macro-namespace proof. Block-local and enum-variant globs cannot shadow
 a module-level derive. Workspace-module globs need a closed export proof; unseen macro output
 and external globs keep the gap. The native workspace has no proc-macro crate.
@@ -311,6 +316,12 @@ One typed table models `serde::Serialize`, `serde::Deserialize` (1.0.229), and
 The library and its derive implementation need unique crates.io registry identities in `Cargo.lock`.
 Path/git sources, workspace members, patches, replacements, stale locks and source configuration
 files withhold this proof. Renamed registry dependencies are followed through the manifest.
+Any `.cargo/config` or `.cargo/config.toml` below a scan root or on its repository ancestor path
+withholds the model, including files in nested non-crate directories. The search follows no symlink.
+It withholds the model beyond directory depth 128 or one million entries, and at unreadable directories or directory links.
+Open false PASS, not accepted (#1020): build settings outside the repository can replace registry code.
+The snapshot cannot see `$CARGO_HOME` configuration, `CARGO_*` source settings or the build invocation environment.
+Such an override can make an unseen expansion pass silently. This is a limit, not a proof of that build.
 These derives generate impl code using their own crate, written types, and documented helper paths.
 Every helper path, type and bound is read as a path use of the item's module, including bare names.
 Unknown helper keys, unsupported conditional metadata, macro values and invalid syntax keep a gap.
@@ -328,7 +339,7 @@ the edge of `c` to `b` (a `reexport` record); a module cycle through such a `pub
 (`tests/test_collector_false_pass_rust_impls.py`). The same holds for `pub use crate::b::*;` in `c`
 and `use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
-attribute macro on any item, brackets nested deeper than 256 and a module deeper than 64 levels
+unmodeled attribute macro on any item, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also
 declares or imports (`::` makes it the crate). A reachable crate name that appears in a macro body, an attribute stream or a string, with no edge to that crate in the file, is UNKNOWN too. A local variable or a field with that name is not. A dependency that a Cargo.toml declares (normal, dev, build, also the underscore forms and
 `[target.*]`) is a crate edge even when no source uses it: a crate cannot use a crate that it does

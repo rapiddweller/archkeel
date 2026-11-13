@@ -9,7 +9,7 @@ use crate::manifest::{self, Manifest};
 use crate::source::read_text;
 use crate::toml::{self, Table, Value};
 use archkeel_snapshot::paths::{dirname, join};
-use archkeel_snapshot::Snapshot;
+use archkeel_snapshot::{Entry, Snapshot};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Default)]
@@ -129,21 +129,86 @@ fn entry<'a>(value: &'a Value, inherited: Option<&'a Value>) -> Option<&'a Value
     }
 }
 
-/// A source replacement can retain a registry spelling in Cargo.lock. Do not model such builds.
-fn overrides(snapshot: &mut Snapshot, root: &str) -> bool {
-    let mut at = root;
-    loop {
-        if [".cargo/config", ".cargo/config.toml"]
-            .iter()
-            .any(|p| snapshot.is_file(&join(at, p)))
-        {
+/// Cargo starts its config lookup at the invocation directory, not the workspace manifest.
+pub(crate) fn overrides(snapshot: &mut Snapshot, roots: &[String]) -> bool {
+    let mut pending = Vec::new();
+    for root in roots {
+        let root = archkeel_snapshot::paths::normpath(root);
+        let root = if root == "." { "" } else { &root };
+        if ancestors(snapshot, root) {
             return true;
         }
-        if at.is_empty() {
-            return false;
-        }
-        at = dirname(at);
+        pending.push((root.to_owned(), 0_usize));
     }
+    let mut remaining = 1_000_000_usize;
+    while let Some((dir, depth)) = pending.pop() {
+        if depth > 128 {
+            return true;
+        }
+        let Some(entries) = Snapshot::listing(snapshot, &dir) else {
+            return true;
+        };
+        let Some(left) = remaining.checked_sub(entries.len()) else {
+            return true;
+        };
+        remaining = left;
+        if config_at(snapshot, &dir, &entries) {
+            return true;
+        }
+        for (name, kind) in entries {
+            match kind {
+                Entry::Directory => pending.push((join(&dir, &name), depth + 1)),
+                Entry::Link { to_directory: true } => return true,
+                _ => (),
+            }
+        }
+    }
+    false
+}
+
+fn config_at(snapshot: &mut Snapshot, dir: &str, entries: &[(String, Entry)]) -> bool {
+    let Some((_, kind)) = entries.iter().find(|(name, _)| name == ".cargo") else {
+        return false;
+    };
+    if *kind != Entry::Directory {
+        return true;
+    }
+    Snapshot::listing(snapshot, &join(dir, ".cargo")).is_none_or(|entries| {
+        entries
+            .iter()
+            .any(|(name, _)| name == "config" || name == "config.toml")
+    })
+}
+
+fn ancestors(snapshot: &mut Snapshot, root: &str) -> bool {
+    let mut parents = vec![root];
+    let mut at = root;
+    while !at.is_empty() {
+        at = dirname(at);
+        parents.push(at);
+    }
+    if parents.len() > 129 {
+        return true;
+    }
+    parents.reverse();
+    for (index, dir) in parents.iter().enumerate() {
+        let Some(entries) = Snapshot::listing(snapshot, dir) else {
+            return true;
+        };
+        if config_at(snapshot, dir, &entries) {
+            return true;
+        }
+        if let Some(child) = parents.get(index + 1) {
+            let name = child.rsplit('/').next().unwrap_or(child);
+            if !entries
+                .iter()
+                .any(|(n, kind)| n == name && *kind == Entry::Directory)
+            {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 pub(crate) fn read(
@@ -154,7 +219,7 @@ pub(crate) fn read(
 ) -> Registry {
     let (root, table) = workspace.unwrap_or(member);
     let rejected = |t: &Table| t.contains_key("patch") || t.contains_key("replace");
-    if rejected(table) || rejected(member.1) || overrides(snapshot, root) {
+    if rejected(table) || rejected(member.1) {
         return Registry::default();
     }
     let lock_path = join(root, "Cargo.lock");

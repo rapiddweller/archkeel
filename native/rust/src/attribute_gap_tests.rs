@@ -151,3 +151,21 @@ fn an_inline_attribute_gap_has_a_known_source_and_an_unseen_target() {
             .full_scope
     );
 }
+
+#[test]
+fn explicit_std_imports_do_not_withhold_plain_prelude_attributes() {
+    let found = run(
+        &[
+            (
+                "crates/Cargo.toml",
+                "[package]\nname=\"app\"\nedition=\"2021\"",
+            ),
+            (
+                "crates/src/lib.rs",
+                "use std::collections::BTreeMap; #[derive(Debug)] struct S; #[test] fn plain() {}",
+            ),
+        ],
+        false,
+    );
+    assert!(found.gaps.is_empty(), "{:?}", found.gaps);
+}

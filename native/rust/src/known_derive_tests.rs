@@ -225,3 +225,127 @@ fn standard_crate_aliases_and_a_missing_prelude_do_not_prove_builtin_derives() {
     ))
     .is_empty());
 }
+
+#[test]
+fn source_configs_anywhere_below_scan_roots_withhold_registry_models() {
+    let mut missed = Vec::new();
+    for config in [
+        "crates/.cargo/config",
+        "crates/app/.cargo/config.toml",
+        "crates/not-a-crate/deep/.cargo/config.toml",
+        ".cargo/config.toml",
+    ] {
+        let found = run(
+            &[
+                ("crates/Cargo.toml", "[workspace]\nmembers=[\"app\"]"),
+                ("crates/Cargo.lock", LOCK),
+                ("crates/app/Cargo.toml", MANIFEST),
+                (
+                    "crates/app/src/lib.rs",
+                    "#[derive(serde::Serialize)] struct S;",
+                ),
+                (
+                    config,
+                    "[source.crates-io]\nreplace-with = \"v\"\n[source.v]\ndirectory = \"vendor\"",
+                ),
+            ],
+            false,
+        );
+        if derive_gaps(&found).is_empty() {
+            missed.push(config);
+        }
+    }
+    assert!(missed.is_empty(), "{missed:?}");
+    assert!(derive_gaps(&facts(
+        MANIFEST,
+        "#[derive(serde::Serialize)] struct S;",
+        LOCK
+    ))
+    .is_empty());
+}
+
+#[test]
+fn registry_override_and_inheritance_plants_keep_their_proof_boundaries() {
+    for suffix in [
+        "[patch.crates-io]\nserde = { path = \"../vendor\" }",
+        "[replace]\n\"serde:1.0.229\" = { path = \"../vendor\" }",
+    ] {
+        assert!(
+            !derive_gaps(&facts(
+                &format!("{MANIFEST}\n{suffix}"),
+                "#[derive(serde::Serialize)] struct S;",
+                LOCK
+            ))
+            .is_empty(),
+            "{suffix}"
+        );
+    }
+    let missing = run(
+        &[
+            ("crates/Cargo.toml", MANIFEST),
+            ("crates/src/lib.rs", "#[derive(serde::Serialize)] struct S;"),
+        ],
+        false,
+    );
+    assert!(!derive_gaps(&missing).is_empty());
+    for inherited in ["\"1.0\"", "{ path = \"../vendor\", version = \"1.0\" }"] {
+        let workspace = format!(
+            "[workspace]\nmembers=[\"app\"]\n[workspace.dependencies]\nserde = {inherited}"
+        );
+        let member = MANIFEST.replace("serde = \"1.0\"", "serde = { workspace = true }");
+        let found = run(
+            &[
+                ("crates/Cargo.toml", &workspace),
+                ("crates/Cargo.lock", LOCK),
+                ("crates/app/Cargo.toml", &member),
+                (
+                    "crates/app/src/lib.rs",
+                    "#[derive(serde::Serialize)] struct S;",
+                ),
+            ],
+            false,
+        );
+        assert_eq!(derive_gaps(&found).is_empty(), inherited == "\"1.0\"");
+    }
+}
+
+#[test]
+fn a_shadowed_derive_attribute_does_not_prove_registered_helpers() {
+    let found = facts(
+        MANIFEST,
+        "use mac::derive; #[derive(serde::Serialize)] struct S { #[serde(default)] x: u8 }",
+        LOCK,
+    );
+    assert!(found
+        .gaps
+        .iter()
+        .any(|g| g.title.contains("attribute macro derive")));
+    assert!(found
+        .gaps
+        .iter()
+        .any(|g| g.title.contains("attribute macro serde")));
+}
+
+#[test]
+fn a_config_search_past_the_depth_bound_withholds_the_model() {
+    let path = format!("crates/{}file", "d/".repeat(130));
+    let tree = archkeel_snapshot::test_tree::Tree::new(&[(&path, "")]);
+    let mut snapshot = archkeel_snapshot::Snapshot::new(&tree.path());
+    assert!(crate::registry::overrides(
+        &mut snapshot,
+        &["crates".to_owned()]
+    ));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_config_symlink_withholds_the_model_without_following_it() {
+    let tree = archkeel_snapshot::test_tree::Tree::new(&[("crates/file", "")]);
+    std::os::unix::fs::symlink("/does-not-exist", tree.root.join("crates/.cargo")).unwrap();
+    let mut snapshot = archkeel_snapshot::Snapshot::new(&tree.path());
+    assert!(crate::registry::overrides(
+        &mut snapshot,
+        &["crates".to_owned()]
+    ));
+    assert!(snapshot.problems.is_empty());
+}

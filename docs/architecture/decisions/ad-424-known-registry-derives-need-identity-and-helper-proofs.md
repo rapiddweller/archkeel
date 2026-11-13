@@ -51,9 +51,19 @@ With this model and the declarations glob, it has 116 gaps and 0 PASS, 1 FAIL, 8
 Without this model, it has 369 gaps and the same core statuses.
 Explicit imports in the native declarations module restore all 63 PASS rows and 113 gaps.
 `words!` declares neither `Default` nor `Serialize`; the change only names the imported types.
-No collector or scope proof changes. A planted glob fixture keeps all otherwise-PASS rows UNKNOWN.
+The explicit-import change leaves the proof unchanged. A planted glob fixture keeps otherwise-PASS rows UNKNOWN.
 Tests: `known_derive_tests.rs`, the compiled core helper-edge probe, and
 `test_a_proven_serde_helper_edge_fails_the_forbidden_rule`.
 `unproved_derive_targets_hold_every_otherwise_pass_row_of_a_fixture` checks the unseen export.
 Negative tests retain gaps for workspace macros, globs, renamed path dependencies,
 patches, invalid helpers, missing locks and git sources. P8b stays UNKNOWN.
+
+Review B1: 8 modeled prelude attribute macros need the same namespace proof as built-in derives.
+The table also has 46 inert names, active `cfg`/`cfg_attr`, and the `unsafe` syntax wrapper.
+A shadowed `derive` proves no helper registration. `scan_attribute_tests.rs` compiles the three plants.
+Review B2: search every directory below scan roots and their ancestors inside the repository.
+Reject source configs, directory links, read failures, depth over 128, or more than one million entries.
+Tests cover member and non-crate configs, patches, replacements, inherited path sources and absent locks.
+Outside configuration can still replace modeled code: an open silent false PASS in #1020, not an accepted proof.
+After the review, native has 114 gaps and unchanged core rows: one new `registry -> snapshot.listing` method gap.
+Rename the engine's value function `derive` to `derive_model`; do not relax the namespace proof for it.

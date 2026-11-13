@@ -31,19 +31,30 @@ pub(crate) fn proven(
         return false;
     };
     match proof {
+        Proof::Attribute(usage) => prelude(
+            workspace,
+            index,
+            module,
+            scope,
+            usage,
+            &usage.path[0],
+            modules,
+        ),
         Proof::Derive(usage) => {
-            known(workspace, krate, module, scope, usage).is_some()
-                || builtin(workspace, index, module, scope, usage, modules)
+            prelude(workspace, index, module, scope, usage, "derive", modules)
+                && (known(workspace, krate, module, scope, usage).is_some()
+                    || builtin(workspace, index, module, scope, usage, modules))
         }
         Proof::Helper {
             namespace,
             candidates,
         } => candidates.iter().any(|usage| {
-            known(workspace, krate, module, scope, usage)
-                .is_some_and(|model| model.helpers.contains(&namespace.as_str()))
-                || (namespace == "default"
-                    && usage.path.last().is_some_and(|name| name == "Default")
-                    && builtin(workspace, index, module, scope, usage, modules))
+            prelude(workspace, index, module, scope, usage, "derive", modules)
+                && (known(workspace, krate, module, scope, usage)
+                    .is_some_and(|model| model.helpers.contains(&namespace.as_str()))
+                    || (namespace == "default"
+                        && usage.path.last().is_some_and(|name| name == "Default")
+                        && builtin(workspace, index, module, scope, usage, modules)))
         }),
     }
 }
@@ -146,6 +157,40 @@ fn builtin(
     if usage.path.len() != 1 {
         return true;
     }
+    prelude(
+        workspace,
+        index,
+        module,
+        scope,
+        usage,
+        &usage.path[0],
+        modules,
+    )
+}
+
+fn prelude(
+    workspace: &Workspace,
+    index: &Index<'_>,
+    module: &Module,
+    scope: &[String],
+    usage: &Usage,
+    name: &str,
+    modules: &[Module],
+) -> bool {
+    if !usage.prelude
+        || module.scan.names.contains(name)
+        || modules.iter().any(|parent| {
+            parent.crate_index == module.crate_index
+                && (parent.module == module.module
+                    || module
+                        .module
+                        .strip_prefix(&parent.module)
+                        .is_some_and(|tail| tail.starts_with('.')))
+                && !parent.scan.extern_crates.is_empty()
+        })
+    {
+        return false;
+    }
     module
         .scan
         .references
@@ -160,7 +205,7 @@ fn builtin(
                 index,
                 module,
                 glob,
-                &usage.path[0],
+                name,
                 modules,
                 &mut BTreeSet::new(),
             )

@@ -93,24 +93,33 @@ impl Walker<'_> {
             .map(|s| plain(&s.ident))
             .collect::<Vec<_>>()
             .join("::");
-        match (depth < 16, attribute_kinds::kind(path)) {
-            (true, Some(Kind::Builtin)) => return,
-            (true, Some(Kind::Derive)) if self.derive_expansion(meta).is_some() => return,
+        let prelude = match (depth < 16, attribute_kinds::kind(path)) {
+            (true, Some(Kind::Inert | Kind::Cfg)) => return,
+            (true, Some(Kind::Prelude)) => true,
+            (true, Some(Kind::Derive)) if self.derive_expansion(meta).is_some() => true,
             (true, Some(Kind::Conditional | Kind::Unsafe))
                 if self.nested_expansion(meta, depth).is_some() =>
             {
                 return
             }
             (true, None) if self.tools && attribute_kinds::tool(path) => return,
-            _ => (),
-        }
+            _ => false,
+        };
         let mut concern = self.expansion_concern(
             format!("The attribute macro {name} can add code that the scan does not read"),
             path.segments
                 .first()
                 .map_or(Span::call_site(), |s| s.ident.span()),
         );
-        if (name == "default"
+        if prelude {
+            concern.proof = Some(Proof::Attribute(Usage {
+                path: vec![name],
+                absolute: false,
+                complete: true,
+                block: self.blocks > 0,
+                prelude: self.tools,
+            }));
+        } else if (name == "default"
             || KNOWN
                 .iter()
                 .any(|known| known.helpers.contains(&name.as_str())))

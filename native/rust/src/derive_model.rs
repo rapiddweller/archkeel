@@ -55,6 +55,7 @@ pub(crate) struct Usage {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Proof {
+    Attribute(Usage),
     Derive(Usage),
     Helper {
         namespace: String,

@@ -115,6 +115,7 @@ fn an_attribute_path_is_a_reference_but_a_custom_derive_keeps_its_gap() {
     assert_eq!(
         reasons(text),
         [
+            "The attribute macro derive can add code that the scan does not read",
             "The attribute macro serde can add code that the scan does not read",
             "The attribute macro tool::wrap can add code that the scan does not read",
             "The attribute macro serde can add code that the scan does not read",

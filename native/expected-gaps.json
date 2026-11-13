@@ -401,6 +401,11 @@
       "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
     [
+      "native.archkeel_rust_collector.registry",
+      "native.archkeel_snapshot.snapshot.listing",
+      "A method call may reach the method listing of an impl block in native.archkeel_snapshot.snapshot.listing"
+    ],
+    [
       "native.archkeel_rust_collector.symbols",
       "native.archkeel_rust_collector.declared",
       "A method call may reach the method declared of an impl block in native.archkeel_rust_collector.declared"

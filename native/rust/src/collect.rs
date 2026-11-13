@@ -30,7 +30,13 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
         ..Builder::default()
     };
     let (scope, files) = list(&mut source, &request.scope.roots, &mut builder);
-    let workspace = discover(&mut source, &files, &request.scope.namespace);
+    let blocked = crate::registry::overrides(&mut source, &request.scope.roots);
+    let mut workspace = discover(&mut source, &files, &request.scope.namespace);
+    if blocked {
+        for krate in &mut workspace.crates {
+            krate.registry = crate::registry::Registry::default();
+        }
+    }
     let walked = walk(&mut source, &workspace, request.excludes_test_sources());
     let modules: BTreeMap<&str, &str> = walked
         .modules
