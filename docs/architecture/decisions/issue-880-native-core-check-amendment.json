@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "5a5d527d9b3aea98091eed78b99313e5b489bef2ae37419988bda48239fc2b48",
+  "after_digest": "ae7bbb4c635f98ef30e47c44b30d49f595bd22412c5711390dcb876e556b9c23",
+  "before_baseline_digest": "45870354f6b34255b5deebc4d17a671bfeb86dd7b6b7f6a38d0269453c561749",
+  "before_digest": "7d87e2a8c5d73df2ca8bf1122dd0c76749867b633fc2c8289e0a081141ba6676",
+  "decided_by": "Agent session for Alexander Kell (epic #880, lead decision L-73 step 1); review in the pull request decides",
+  "rationale": "AD-399: archkeel check --native-core takes its rule verdicts from the Rust core, and the shell reads the contract of check from Git at the baseline commit. The calls_unresolved budget goes from 1025 to 1028. The contract reader is a callback parameter of NativeCore.run (the working tree for report, the baseline commit for check), so its two calls have no proven callable value. The other new calls are PurePosixPath(path).as_posix in read_committed, base.hex on the optional base reply, and the JSON decoder with the hook that refuses a repeated key (#1099); three old calls of the same kinds are gone. One contract change: the UML signature of run_check in docs/architecture/contracts/check.json gets the keyword-only parameter rule_rows (bool, default False). The shell asks for the rule rows of the candidate only with the switch; the default keeps the result of today, whose schema has no rule rows. No rule, component or requires entry changes: the shell uses only read_blob of archkeel.check.git, which the contract already declares.",
+  "schema_version": "2.0.0"
+}

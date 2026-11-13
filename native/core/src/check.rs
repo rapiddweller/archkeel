@@ -18,6 +18,10 @@
 //! engine decides the same run from the same reply, so a difference is an error. Stage 2 must not
 //! start before the core runs the native collectors in its own process (#1095).
 //!
+//! The request of `archkeel check` also carries the base reply: the reply of the accepted commit
+//! (AD-399). The contract of that request is the contract at the baseline commit, which the shell
+//! reads from Git. The base reply goes through the same trust function (`base.rs`).
+//!
 //! The request then goes through the one engine path of the dual run (`dual_run::run`).
 
 use serde::Deserialize;
@@ -25,13 +29,15 @@ use serde::Deserialize;
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
-use crate::dual_run::{self, Answered, InsideJson, ReplyBytes, Run, Trust};
+use crate::base::Base;
+use crate::dual_run::{self, Answered, BaseOf, InsideJson, ReplyBytes, Run, Trust};
 
 /// The protocol of the check request.
-const PROTOCOL: &str = "archkeel-core-check-1";
+/// Version 2 removes `baseline` and adds `base` (AD-399).
+const PROTOCOL: &str = "archkeel-core-check-2";
 /// The code digest of this build: the digest of each native collector of the same source. It is
 /// public text, so it detects a stale build and proves no producer (AD-390).
-const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
+pub(crate) const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
 /// The first words of the reason of a reply that the core cannot verify. The shell counts it.
 pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
 
@@ -46,8 +52,14 @@ struct CheckRequest {
     reply: Option<ReplyBytes>,
     roots: Vec<String>,
     namespace: String,
-    /// True when the run compares with a validation baseline: refused by name.
-    baseline: bool,
+    /// The base of `archkeel check`: the reply of the accepted commit; `None` for `report`.
+    base: Option<BaseJson>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BaseJson {
+    reply: ReplyBytes,
 }
 
 #[derive(Deserialize)]
@@ -64,6 +76,17 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         .reply
         .map(|reply| dual_run::hex(&reply.hex))
         .transpose()?;
+    let base = request
+        .base
+        .map(|base| dual_run::hex(&base.reply.hex))
+        .transpose()?
+        .map(|reply| -> BaseOf {
+            let base = Base {
+                reply,
+                trust: Box::new(stage_one_shell_trust),
+            };
+            Box::new(move |candidate, shared| crate::base::gap(base, candidate, shared))
+        });
     dual_run::run(Run {
         case: "check".to_owned(),
         path: request.contract.path,
@@ -73,8 +96,9 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         sections: Vec::new(),
         namespace: request.namespace,
         roots: request.roots,
-        baseline: request.baseline,
+        baseline: false,
         report: false,
+        base,
         trust: Box::new(stage_one_shell_trust),
     })
 }
@@ -86,7 +110,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
 /// names the collector of its own profile and the code digest of this core build. Any other reply
 /// (another adapter, another or an empty digest) names the whole contract with
 /// `PRODUCER_NOT_VERIFIED` (exit 3). Without a valid reply the frame already names the reply.
-/// This is the only place where the check request reaches `Producer::Trusted`.
+/// This is the only place where the check request reaches `Producer::Trusted`, for the reply and
+/// for the base reply.
 pub(crate) fn stage_one_shell_trust(namespace: String, reply: Option<&Ingested>) -> Trust {
     let Some(reply) = reply else {
         return Trust {

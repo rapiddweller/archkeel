@@ -1581,6 +1581,13 @@
                 "kind": "keyword_only",
                 "default": null,
                 "default_known": true
+              },
+              {
+                "name": "rule_rows",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "False",
+                "default_known": true
               }
             ],
             "returns": "RunResult"

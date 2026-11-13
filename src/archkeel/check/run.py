@@ -33,14 +33,10 @@ from archkeel.ir.model import (
     UnresolvedCallChange,
     Verdict,
 )
-from archkeel.ir.model import (
-    Command as _Command,
-)
+from archkeel.ir.model import Command as _Command
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
-from archkeel.ir.model import (
-    ExpectationOutcome as _ExpectationOutcome,
-)
+from archkeel.ir.model import ExpectationOutcome as _ExpectationOutcome
 from archkeel.ir.store_seam import store_disabled
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
@@ -278,6 +274,7 @@ def run_check(
     environ: Mapping[str, str],
     host: Host,
     analyzer: Analyzer,
+    rule_rows: bool = False,
 ) -> RunResult:
     lock, lock_bytes, expectation = _authenticate_inputs(
         root,
@@ -354,6 +351,7 @@ def run_check(
     )
     result = evaluate_expectation(delta, expectation)
     failures = sorted([*git_failures, *ordering_failures, *result.failures])
+    rows = rule_assessments(candidate, undecided_by_rule=unknown_positions_by_rule(candidate))
     return RunResult(
         _Command.CHECK,
         1 if failures or declared == "FAIL" else 0,
@@ -384,4 +382,5 @@ def run_check(
         ),
         unresolved_call_changes=call_changes,
         unresolved_call_note=call_note,
+        rule_assessments=rows if rule_rows else None,
     )

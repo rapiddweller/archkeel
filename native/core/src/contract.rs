@@ -24,7 +24,7 @@ pub(crate) const MAX_INSIDE_BYTES: usize = 64 << 20;
 
 /// One inside contract that the shell read: the reference as the mount writes it, the
 /// repository-relative path that the shell resolved it to, and the bytes.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct InsideFile {
     pub(crate) reference: String,
     pub(crate) identity: String,
@@ -32,7 +32,7 @@ pub(crate) struct InsideFile {
 }
 
 /// The root contract at its repository path and the inside contracts that the shell sends.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ContractInput {
     pub(crate) path: String,
     pub(crate) bytes: Vec<u8>,

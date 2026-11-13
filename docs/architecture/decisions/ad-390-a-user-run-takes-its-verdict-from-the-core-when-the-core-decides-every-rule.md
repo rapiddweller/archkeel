@@ -44,7 +44,7 @@
   Without the first condition, stage 2 must not start.
 - Stage 3: the switch is on by default and a platform wheel carries `archkeel-core`. Entry: stage
   2 holds for one release, and no fall-back reason is left for a supported profile.
-- Next step: `archkeel check`. `run_check` sets `rule_assessments` with the call of
+- Next step, done by AD-399: `archkeel check`. `run_check` sets `rule_assessments` with the call of
   `inspect_observation` (`check/run.py:358-375`), so `check` and `report` share the rule rows. The
   switch goes on `check`; the core takes the candidate reply and the contract read from Git at
   the baseline; the shell compares the verdict, the rows and the exit code.
@@ -66,5 +66,5 @@ to Python for a missing or changed binary. A file read by the core (the pin of A
 evidence (`architecture.json`, HTML) is the Python evidence. The fall-back note classifies a
 reason by its first words; it decides nothing.
 
-**Tests.** `tests/test_cli_native_core.py`, `tests/test_cli_native_core_frame.py`,
+**Tests.** `tests/test_cli_native_core.py`, `tests/test_cli_native_core_trust.py`, `tests/test_cli_native_core_frame.py`,
 `native/core/src/check_tests.rs`, `tests/test_native_core.py`, `tests/test_dual_run_shell.py`.

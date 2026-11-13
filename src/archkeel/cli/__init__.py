@@ -546,6 +546,7 @@ def build_parser() -> _Parser:
         type=Path,
         help="Replay CI host records; the caller must authenticate this file.",
     )
+    add_switch(check)
 
     init = commands.add_parser(
         Command.INIT.value,
@@ -1020,7 +1021,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 notes = config.scope_notes(observer.excluded_for())
                 result = replace(result, scan_roots=config.roots, notes=(*result.notes, *notes))
-                result = core.decide(result, root, config, args.baseline is not None)
+                result = core.decide(result, root, config)
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.
@@ -1107,7 +1108,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 config = load_check_config(root, args.baseline, args.head)
                 subject = "check inputs"
-                observer = configured_observer(config, observer_for)
+                core = NativeCore.requested(args.native_core, os.environ)
+                observer = configured_observer(config, core.observer(observer_for))
                 result = run_check(
                     root,
                     config=config,
@@ -1122,15 +1124,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     environ=os.environ,
                     host=load_gitlab_records,
                     analyzer=observer,
+                    rule_rows=core.binary is not None,
                 )
-                result = replace(result, scan_roots=config.roots)
-                result = replace(
-                    result,
-                    notes=(
-                        *result.notes,
-                        *config.scope_notes(observer.excluded_for(args.head)),
-                    ),
-                )
+                result = core.decide_check(result, root, config, args.baseline)
+                notes = config.scope_notes(observer.excluded_for(args.head))
+                result = replace(result, scan_roots=config.roots, notes=(*result.notes, *notes))
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     args.output.write_bytes(render_result(result))

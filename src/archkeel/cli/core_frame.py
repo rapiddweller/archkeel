@@ -43,7 +43,7 @@ class GapKind(StrEnum):
     REPLY_REFUSED = "reply_refused"
     REPLY_ABSENT = "reply_absent"
     RULE_KIND_NOT_PORTED = "rule_kind_not_ported"
-    BASELINE = "baseline"
+    BASE = "base"
     INSIDE_CONTRACT_MISSING = "inside_contract_missing"
     INSIDE_RULE = "inside_rule"
     TREE_SCOPE = "tree_scope"
@@ -99,12 +99,13 @@ _FIELDS: Final = frozenset(
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
-# The first words of each reason of the core (`native/model/src/reason.rs`, `core/src/check.rs`).
+# The first words of each reason of the core (`native/model/src/reason.rs`, `core/src/check.rs`,
+# `core/src/base.rs`).
 # They classify a gap for the fall-back note and the measurement; they decide nothing.
 _GAP_PREFIXES: Final[tuple[tuple[str, GapKind], ...]] = (
     ("producer not verified", GapKind.PRODUCER_NOT_VERIFIED),
     ("unsupported: rule kind ", GapKind.RULE_KIND_NOT_PORTED),
-    ("unsupported: the baseline", GapKind.BASELINE),
+    ("the base reply", GapKind.BASE),
     ("unsupported: the contract mounts inside contracts", GapKind.INSIDE_CONTRACT_MISSING),
     ("unsupported: a rule of an inside contract", GapKind.INSIDE_RULE),
     ("unsupported: the scope proof of a contract tree", GapKind.TREE_SCOPE),
@@ -211,11 +212,23 @@ def _fields(value: object, where: str, names: frozenset[str]) -> dict[str, objec
     return found
 
 
+def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """One JSON object without a repeated key (#1099): a repeated rule id must not let the last
+    status win, so the frame is hostile."""
+    found: dict[str, object] = {}
+    for key, value in pairs:
+        if key in found:
+            raise CoreError(f"the core frame repeats the key {key!r}")
+        found[key] = value
+    return found
+
+
 def _document(stdout: bytes) -> dict[str, object]:
-    """The one JSON object of the output. A second document or trailing text is refused."""
+    """The one JSON object of the output. A second document, trailing text and a repeated key are
+    refused."""
     try:
         text = stdout.decode("utf-8").strip()
-        value, end = json.JSONDecoder().raw_decode(text)
+        value, end = json.JSONDecoder(object_pairs_hook=_unique).raw_decode(text)
     except (UnicodeDecodeError, ValueError) as error:
         raise CoreError(f"the core frame is not JSON: {error}") from error
     if text[end:].strip():

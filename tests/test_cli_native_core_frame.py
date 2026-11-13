@@ -226,3 +226,29 @@ def test_read_inside_refuses_a_path_outside_the_repository(tmp_path: Path) -> No
     assert read_inside(root, "../outside.json", 1 << 20) is None
     assert read_inside(root, "link.json", 1 << 20) is None
     assert read_inside(root, "inside.json", 1 << 20) == ("inside.json", b"{}")
+
+
+@pytest.mark.parametrize(
+    ("where", "text"),
+    [
+        # The last status of a repeated rule id would win: UNKNOWN, then PASS.
+        ("a rule id", '"rules": {"A": ["complete_assignment", "UNKNOWN"], "A": '),
+        ("a top-level key", '"status": "UNKNOWN", "status": '),
+    ],
+)
+def test_a_repeated_key_is_a_hostile_frame(where: str, text: str) -> None:
+    """#1099: a repeated key never lets the last value win."""
+    plain = json.dumps(raw({"A": "PASS"}))
+    if where == "a rule id":
+        hostile = plain.replace('"rules": {"A": ', text, 1)
+    else:
+        hostile = plain.replace('"status": ', text, 1)
+    assert hostile != plain
+    with pytest.raises(CoreError, match="repeats the key"):
+        read(hostile)
+
+
+def test_the_first_words_of_a_base_reason_name_the_base() -> None:
+    reason = "the base reply: producer not verified: x"
+    value = raw({}, "UNKNOWN", unsupported={"rules": reason, "sections": {}, "report": None})
+    assert [gap.kind for gap in read(value, 3).gaps] == [GapKind.BASE]
