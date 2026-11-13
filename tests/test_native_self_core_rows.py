@@ -118,7 +118,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert python == expected["rules"]
     core = {rule: row["status"] for rule, row in frame["rules"].items()}
     assert set(core) == set(python), set(core) ^ set(python)
-    assert len(core) == 79
+    assert len(core) == 83
     # No rule names a part of the scope proof: each one has a decision.
     assert [gap for gap in frame["gaps"] if gap["kind"] == "scope_proof"] == []
     assert list(frame["gaps"]) == []
@@ -128,8 +128,8 @@ def test_the_core_decides_each_rule_of_the_self_contract(
             assert (status, python[rule]) == ("PASS", "UNKNOWN"), rule
         else:
             assert status == python[rule], rule
-    assert Counter(python.values()) == {"UNKNOWN": 78, "FAIL": 1}
-    assert Counter(core.values()) == {"PASS": 59, "UNKNOWN": 19, "FAIL": 1}
+    assert Counter(python.values()) == {"UNKNOWN": 82, "FAIL": 1}
+    assert Counter(core.values()) == {"PASS": 63, "UNKNOWN": 19, "FAIL": 1}
     assert beyond == {rule for rule, status in core.items() if status == "PASS"}
     # The run names each pinned gap; it never passes.
     assert frame["status"] == "FAIL"
@@ -145,11 +145,16 @@ def test_the_core_decides_each_rule_of_the_self_contract(
 # alias (`extern crate ... as`) or a renamed dependency is a record too. A new record fails the
 # test, and the row of `core` has to be decided again.
 COLLECT = "native.archkeel_collect"
+TS, RUST = "native.archkeel_typescript_collector", "native.archkeel_rust_collector"
 COLLECT_TO_COLLECTORS = {
-    ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES"),
-    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector"),
-    ("native.archkeel_collect.run", "archkeel_typescript_collector::provenance"),
-    ("native.archkeel_collect.run", "archkeel_typescript_collector::typed_reply"),
+    ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES", TS),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector", TS),
+    ("native.archkeel_collect.run", "archkeel_typescript_collector::provenance", TS),
+    ("native.archkeel_collect.run", "archkeel_typescript_collector::typed_reply", TS),
+    ("native.archkeel_collect", "archkeel_rust_collector::TEST_FEATURES", RUST),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-rust-collector", RUST),
+    ("native.archkeel_collect.run", "archkeel_rust_collector::provenance", RUST),
+    ("native.archkeel_collect.run", "archkeel_rust_collector::typed_reply", RUST),
 }
 
 
@@ -171,11 +176,9 @@ def test_collect_hands_core_no_value_of_a_collector_type(
     # collector of #1120) is in the set without a change of this test.
     modules = {data[end] for data in records for end in ("source_module", "target_module")}
     collectors = {_crate(module) for module in modules if _crate(module).endswith("_collector")}
-    assert "native.archkeel_typescript_collector" in collectors
     found = {
         (data["source_module"], data["specifier"], _crate(data["target_module"]))
         for data in records
         if _crate(data["source_module"]) == COLLECT and _crate(data["target_module"]) in collectors
     }
-    target = "native.archkeel_typescript_collector"
-    assert found == {(source, specifier, target) for source, specifier in COLLECT_TO_COLLECTORS}
+    assert found == COLLECT_TO_COLLECTORS
