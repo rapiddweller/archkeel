@@ -19,6 +19,7 @@ from filelock import FileLock
 from python_protection_costs import COSTS
 from python_protection_probes import PROBES
 from test_collector_native_python_parse import _minor
+from test_collector_native_python_proofs import _compare as _proof_compare
 from test_collector_native_python_proofs import _rows, _same, _stricter_pin
 from test_collector_native_python_scope import _FIXTURES
 
@@ -281,6 +282,24 @@ def test_empty_protection_corpus(tmp_path: Path, python_dump_binary: Path) -> No
         _compare(python_dump_binary, tmp_path)
 
 
+@pytest.mark.parametrize("compare", (_compare, _proof_compare))
+def test_stricter_file_pins_reject_additions_and_removals(
+    compare: Any, tmp_path: Path, python_dump_binary: Path
+) -> None:
+    root = tmp_path / "pydantic"
+    known = root / "pydantic-core/wasm-preview/run_tests.py"
+    known.parent.mkdir(parents=True)
+    known.write_text("await f()\n")
+    assert compare(python_dump_binary, root) == (1, 0, 1, 0)
+    known.write_text("pass\n")
+    with pytest.raises(AssertionError):
+        compare(python_dump_binary, root)
+    known.write_text("await f()\n")
+    (root / "extra.py").write_text("await f()\n")
+    with pytest.raises(AssertionError):
+        compare(python_dump_binary, root)
+
+
 @pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     "text",
@@ -341,3 +360,32 @@ def test_quoted_surrogate_refuses_the_complete_table(
     row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
     assert not row["full_scope"] and "data" not in row
     assert row["gap"] == "quoted expression surrogate value unseen"
+
+
+@pytest.mark.parametrize(
+    "rel,text",
+    (
+        ("typing.py", "from typing import TypedDict, Generic\nclass C(TypedDict):\n x: int\n"),
+        ("dataclasses.py", "from dataclasses import dataclass\n@dataclass\nclass C: pass\n"),
+        (
+            "typing_extensions.py",
+            "from typing_extensions import TypedDict\nclass C(TypedDict): pass\n",
+        ),
+    ),
+)
+def test_a_scanned_factory_provider_is_unsafe(
+    rel: str, text: str, tmp_path: Path, python_dump_binary: Path
+) -> None:
+    (tmp_path / rel).write_text(text)
+    row = _native(python_dump_binary, tmp_path, [rel])[0]
+    assert row["full_scope"], row
+    _same(row["data"], _python(tmp_path, rel), rel)
+    assert row["data"]["classes"][0][1]["native"] is False
+
+
+def test_quoted_depth_refusal_is_pinned(tmp_path: Path, python_dump_binary: Path) -> None:
+    (tmp_path / "probe.py").write_text("x = " + repr(" | ".join(["A"] * 150)) + "\n")
+    assert _python(tmp_path, "probe.py") is not None
+    row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
+    assert not row["full_scope"] and "data" not in row
+    assert row["gap"] == "binding expression text unseen: Deep"

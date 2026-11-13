@@ -36,6 +36,8 @@ hide native-stricter files behind totals; or claim cross-module candidates from 
 **Limits.** Numeric and type class-value candidates, map unions, annotation carriers and callable
 candidates remain for the next slice. Nonempty provider-proven and incoming-escape states remain
 outside this boundary. No production reply, Python deletion or speed improvement is claimed.
+Quoted output keeps the inherited 100-level text bound. A replacement character with a backslash
+anywhere in the source gives a named surrogate refusal. This guard can refuse a genuine character.
 
 **Tests.** `test_collector_native_python_protection.py` compares canonical complete data on
 fixtures, corpora and generated branch probes. It pins exact work, refusal sets and work scaling.

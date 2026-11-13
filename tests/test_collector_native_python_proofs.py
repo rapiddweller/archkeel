@@ -220,21 +220,23 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
     private = _private(root)
     for row in _rows(binary, root, paths):
         expected = _python(root, row["file"])
-        if expected is None:
+        if private:
+            if (expected is None) != (not row["full_scope"]):
+                raise AssertionError("private corpus has an unexpected refusal")
+            if expected is not None and json.dumps(row["data"], sort_keys=True) != json.dumps(
+                expected, sort_keys=True
+            ):
+                raise AssertionError("private corpus data differs")
+            equal += 1
+        elif expected is None:
             assert not row["full_scope"], row["file"]
             equal += 1
         elif not row["full_scope"]:
             assert row["gap"], row["file"]
             stricter[row["gap"]] += 1
-            if private:
-                raise AssertionError("private corpus has an unexpected refusal")
             stricter_files[row["file"]] = row["gap"]
         else:
-            if private:
-                if json.dumps(row["data"], sort_keys=True) != json.dumps(expected, sort_keys=True):
-                    raise AssertionError("private corpus data differs")
-            else:
-                _same(row["data"], expected, row["file"])
+            _same(row["data"], expected, row["file"])
             equal += 1
         if (report := os.environ.get("ARCHKEEL_PROOF_WORK_REPORT")) and not private:
             with Path(report).open("a") as stream:
@@ -242,8 +244,8 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
                     json.dumps(
                         {
                             "minor": _minor(),
-                            "corpus": "private aggregate" if private else root.name,
-                            "file": "private aggregate" if private else row["file"],
+                            "corpus": root.name,
+                            "file": row["file"],
                             "work": row["work"],
                             "gap": row.get("gap"),
                         }
