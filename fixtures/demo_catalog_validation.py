@@ -894,7 +894,7 @@ _VALIDATION_CODED_ROWS: tuple[Variant, ...] = (
         files={},
         expected_violations=(),
         expected_codes=(),
-        evidence="docs/architecture/decisions/ad-422-delete-the-python-language-collectors.md",
+        evidence="docs/architecture/decisions/ad-430-delete-the-python-language-collectors.md",
     ),
     Variant(
         id="validation-inside-forbidden-import",
@@ -1091,7 +1091,7 @@ _VALIDATION_RULE_UNSUPPORTED_BY_PROFILE = Variant(
     files={},
     expected_violations=(),
     expected_codes=(),
-    evidence="docs/architecture/decisions/ad-422-delete-the-python-language-collectors.md",
+    evidence="docs/architecture/decisions/ad-430-delete-the-python-language-collectors.md",
 )
 _VALIDATION_EXISTING_FILES = Variant(
     id="validation-existing-files",

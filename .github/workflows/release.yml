@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # AD-422: native-only collection requires platform wheels at the next owner release.
+  # AD-430: native-only collection requires platform wheels at the next owner release.
   PUBLISH_NATIVE_WHEELS: "true"
 
 jobs:

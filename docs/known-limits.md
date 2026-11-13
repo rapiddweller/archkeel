@@ -2,7 +2,7 @@
 
 ## Supported projects on main
 
-Main supports Rust and TypeScript projects only during the native-core change (AD-422).
+Main supports Rust and TypeScript projects only during the native-core change (AD-430).
 Python and Dart projects are not supported in this version; use archkeel 4.0.1.
 Unsupported profiles give exit 2 before collection, including saved facts and baseline operations.
 The Rust Python and Dart collectors remain in development. Their replies must pass the store before support returns.

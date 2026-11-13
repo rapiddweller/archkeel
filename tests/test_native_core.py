@@ -291,7 +291,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
 def test_an_unsupported_project_is_a_counted_named_skip(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-422: a Dart case cannot become a partial native-core comparison."""
+    """AD-430: a Dart case cannot become a partial native-core comparison."""
     code, lines = _run(["compare", "--case", "fixture/J-compass", "--engine-command", core], capsys)
     assert code == 2
     assert lines == [

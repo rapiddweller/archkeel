@@ -47,7 +47,7 @@ collector-safety:
 typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
-# TypeScript uses only the native collector (AD-422).
+# TypeScript uses only the native collector (AD-430).
 typescript-native: browser-runtime-install typescript-collector
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
 		-q --durations=10 \

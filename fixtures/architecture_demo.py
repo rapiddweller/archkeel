@@ -272,7 +272,7 @@ def markdown() -> str:
     )
     return f"""# Architecture demos
 
-Main runs the TypeScript demos only (AD-422). Python and Dart examples below require archkeel 4.0.1.
+Main runs the TypeScript demos only (AD-430). Python and Dart examples below require archkeel 4.0.1.
 The catalog retains their historical expected results; main does not collect those projects.
 
 ## Full-project journeys

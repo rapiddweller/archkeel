@@ -100,7 +100,7 @@ def _is_digest(text: str) -> bool:
 def locate(name: str, directory: Path | None = None) -> Bundled | None:
     """The binary and its recorded digest, or `None` when the install has no such pair.
 
-    A missing or invalid digest never selects a Python fallback (AD-422).
+    A missing or invalid digest never selects a Python fallback (AD-430).
     """
     binary = str(executable(name, directory))
     try:
@@ -173,7 +173,7 @@ def observer_for(
     require_supported_project(language)
     bundled = collector_argv is None
     native_typescript = bundled and language == Language.TYPESCRIPT
-    # AD-422: the native collector is the only producer of this install for TypeScript.
+    # AD-430: the native collector is the only producer of this install for TypeScript.
     launched = locate(TYPESCRIPT_COLLECTOR, native_directory) if native_typescript else None
     producer = (
         ProducerKind.BUNDLED

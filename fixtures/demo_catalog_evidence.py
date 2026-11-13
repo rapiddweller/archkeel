@@ -115,7 +115,7 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         files={},
         expected_violations=(),
         expected_codes=(),
-        evidence="docs/architecture/decisions/ad-422-delete-the-python-language-collectors.md",
+        evidence="docs/architecture/decisions/ad-430-delete-the-python-language-collectors.md",
     ),
     Variant(
         id="class-d-oversized-inside",

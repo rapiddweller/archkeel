@@ -17,7 +17,7 @@ ci-check: ci-artifacts-clean ci-core-check self-validate-native
 
 ci-pr-check: ci-pr-static pr-test
 
-# AD-422: no Python self-check until the native Python collector and store support its replies.
+# AD-430: no Python self-check until the native Python collector and store support its replies.
 PYTHON_SELF_CHECK :=
 ci-pr-static: $(PYTHON_SELF_CHECK) lint typecheck browser-architecture-check
 

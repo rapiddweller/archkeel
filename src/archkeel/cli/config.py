@@ -54,7 +54,7 @@ class ConfigError(ValueError):
 
 
 class UnsupportedProjectError(DiagnosticError):
-    """The shell refuses a project without a supported collector and store path (AD-422)."""
+    """The shell refuses a project without a supported collector and store path (AD-430)."""
 
 
 def require_supported_project(language: Language | SourceProfile) -> None:

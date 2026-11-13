@@ -1,4 +1,4 @@
-# AD-422: Delete the Python language collectors
+# AD-430: Delete the Python language collectors
 
 ## Decision
 

@@ -392,7 +392,7 @@ reaching a component.
 Use the Nightly gallery for manual visual review.
 
 ArchKeel checks its Rust source with `make self-validate-native`.
-The Python self-check stops until the native Python collector and store support its replies (AD-422).
+The Python self-check stops until the native Python collector and store support its replies (AD-430).
 See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).
