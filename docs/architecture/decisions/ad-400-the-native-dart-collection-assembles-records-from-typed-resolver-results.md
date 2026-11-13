@@ -65,6 +65,6 @@ Keep 120 original edge probes. Fourteen isolated injected faults fail tests in a
 **Measured.** Equal: fixtures 150, demo variants 289, private 28, dart-http 344, Flutter 6 622; zero differences.
 Flutter has one `CollectionWorkLimit`: 713 748 bytes, 16 definitions, 17 members, 35 677 sites; no partial records.
 The whole private project also matches as one 28-file input. Slice 4d reviews the remaining work limit.
-Run the native self-contract and final-head gate. Report LOCAL VERIFIED and CI-ONLY separately.
+Recordings: none. Test snippets are original. No private corpus path, name or identifier enters this change.
 **Self-check.** Both Main and this slice: 0 rules PASS, 1 FAIL, 42 UNKNOWN; 7 violations.
 Main pins 39 gaps; this slice pins 54. Fifteen added method-pair gaps remain explicit, with no new violation.
