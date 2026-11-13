@@ -21,7 +21,7 @@ from conftest import build_native_copy
 from native_rules_support import language_names
 
 from tools import dual_run
-from tools.dual_run_oracle import Selection
+from tools.dual_run_oracle import SCHEMA, Selection
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -202,6 +202,7 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
 
 S5_NAMES = (
     *S4_NAMES,
+    SCHEMA["stricter_native_scope"]["reason"],
     "unsupported: the scope proof: a coverage gap that the dependency scope proof of "
     "complete_requires can accept",
     # AD-385: a layer_order rule of an inside contract cites the inside contract file.

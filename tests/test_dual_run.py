@@ -326,6 +326,36 @@ def test_none_owns_no_section_and_no_family() -> None:
     assert not dual_run_oracle.selection_of("modules", "none").owns_nothing()
 
 
+@pytest.mark.parametrize(
+    "change", [None, "core_pass", "live_unknown", "other_case", "other_rule", "other_gap"]
+)
+def test_named_native_scope_difference_accepts_only_the_recorded_safe_direction(change) -> None:
+    scope = dual_run_oracle.SCHEMA["stricter_native_scope"]
+    case = "fixture/L-nest-realworld"
+    rule = "API composition:REQUIRES-COMPLETE"
+    expected, actual = ["complete_requires", "PASS"], ["complete_requires", "UNKNOWN"]
+    why = scope["core_reason"]
+    if change == "core_pass":
+        expected, actual = actual, expected
+    elif change == "live_unknown":
+        expected[1] = "UNKNOWN"
+    elif change == "other_case":
+        case = "unlisted"
+    elif change == "other_rule":
+        rule = "unlisted"
+    elif change == "other_gap":
+        why = "incomplete scope: the collector reports 2 coverage gaps"
+    oracle = {"case": {"id": case}, "rules": {rule: expected}}
+    frame = {"rules": {rule: actual}, "explained": {rule: why}}
+    differences = dual_run_oracle.compare_case(oracle, frame, Selection((), None))
+    if change is None:
+        assert [item.detail for item in differences] == [scope["reason"]]
+    elif expected == actual:
+        assert differences == []
+    else:
+        assert [item.detail for item in differences] == [f"expected {expected}, found {actual}"]
+
+
 def test_a_self_test_run_owns_no_part_and_says_so(capsys: pytest.CaptureFixture[str]) -> None:
     """AD-363: the wiring check owns no rule and no section, and its summary says self-test."""
     case = _case("fixture/E-runtime")

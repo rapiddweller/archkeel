@@ -56,3 +56,5 @@ Native member inventory proof also checks the compiler version and rejects malfo
 `tests/test_dependency_runtime_identity.py` binds receipts to the verified binary digest and analyzer identity.
 `tests/test_native_ci.py` runs the release shell step with complete and incomplete artifact sets.
 The native self-check and Rust/TypeScript dual run check the retained paths.
+The comparison names fifteen stricter NestJS UNKNOWN rows; it never permits a new core PASS.
+Keep the unavailable-construct false-PASS guard with hand-built protocol facts, not a collector.
