@@ -24,8 +24,6 @@ no rule rows: the command result schema of `check` has none, so the rows are onl
 from __future__ import annotations
 
 import argparse
-import json
-import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import partial
@@ -33,7 +31,7 @@ from pathlib import Path, PurePosixPath
 from typing import Final, TypeVar
 
 from archkeel.check.git import read_blob
-from archkeel.check.ports import ScanConfig
+from archkeel.check.ports import Language, ScanConfig
 from archkeel.ir.diagnostics import Diagnostic, DiagnosticKind
 from archkeel.ir.model import RunResult
 
@@ -47,14 +45,12 @@ from .core_frame import (
     Switch,
     read_frame,
 )
+from .native_scan import Scanned, exchange, scan
 from .observe import NATIVE_STORE, verified_binary
 
 CORE_BINARY: Final = "archkeel-core"
 SWITCH_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
 PROTOCOL: Final = "archkeel-core-check-2"
-CORE_TIMEOUT_SECONDS: Final = 600
-# The exit code of a request that the core cannot read: it writes no frame.
-_REFUSED_EXIT: Final = 2
 # AD-379: the bounds of the inside contracts that the shell reads for the core
 # (`native/core/src/contract.rs`). A chain of 900 mounts needs 900 rounds and a last one.
 MAX_ROUNDS: Final = 901
@@ -178,6 +174,8 @@ class NativeCore:
 
     binary: str | None
     replies: list[bytes] = field(default_factory=list)
+    # AD-406: the request payload that the shell sent to each collector of the run.
+    requests: list[bytes] = field(default_factory=list)
 
     @staticmethod
     def requested(flag: bool, environ: Mapping[str, str]) -> NativeCore:
@@ -202,7 +200,12 @@ class NativeCore:
         digest file is a `CoreError`. With the switch off, the factory is the same object."""
         if self.binary is None:
             return factory
-        verifying = partial(factory, reply_sink=self.replies.append, verify_bundled=True)
+        verifying = partial(
+            factory,
+            reply_sink=self.replies.append,
+            request_sink=self.requests.append,
+            verify_bundled=True,
+        )
 
         def verified(*arguments: object, **options: object) -> _Observer:
             try:
@@ -287,19 +290,34 @@ class NativeCore:
             return Gap(GapKind.REPLIES, "run", reason)
         return None
 
-    def decide(self, result: RunResult, root: Path, config: ScanConfig) -> RunResult:
+    def decide(
+        self, result: RunResult, root: Path, config: ScanConfig, config_path: str = "archkeel.toml"
+    ) -> RunResult:
         """The `report` result that the user gets under the stage 1 rule; with the switch off,
-        `result`. A validation baseline adds evidence rows and changes no verdict (AD-399)."""
+        `result`. A validation baseline adds evidence rows and changes no verdict (AD-399).
+
+        AD-406: a TypeScript run first asks the core to run the collector itself (the scan
+        request). A frame that decides every rule goes through the same stage 1 rule; anything
+        else sends the run to the check request with the reply of the shell, as before."""
         if self.binary is None:
             return result
         if (gap := self._unsent(result, config, 1, frozenset({0}))) is not None:
             return _fell_back(result, (gap,))
         [reply] = self.replies
+        rows, status = _python_rows(result), Status(result.declared_rules)
+        gaps: tuple[Gap, ...] = ()
+        if config.language == Language.TYPESCRIPT and len(self.requests) == 1:
+            scanned = scan(self.binary, self.requests[0], config_path)
+            if not isinstance(scanned, Scanned):
+                gaps = scanned
+            elif isinstance(decided := stage_one(scanned.frame, rows, status), Decided):
+                return _decided(result, decided, _SCAN_PARTS)
         frame = self.run(self.binary, config, partial(read_inside, root), reply, None)
-        outcome = stage_one(frame, _python_rows(result), Status(result.declared_rules))
+        outcome = stage_one(frame, rows, status)
         if isinstance(outcome, FellBack):
-            return _fell_back(result, outcome.gaps)
-        return _decided(result, outcome)
+            # A gap that both requests name is named one time.
+            return _fell_back(result, tuple(dict.fromkeys((*gaps, *outcome.gaps))))
+        return _decided(result, outcome, _scan_note(gaps))
 
     def decide_check(
         self, result: RunResult, root: Path, config: ScanConfig, baseline: str
@@ -336,22 +354,7 @@ def _python_rows(result: RunResult) -> tuple[PythonRule, ...]:
 
 
 def _send(binary: str, request: Mapping[str, object]) -> CoreFrame:
-    try:
-        done = subprocess.run(
-            [binary, "check"],
-            input=json.dumps(request).encode(),
-            capture_output=True,
-            check=False,
-            timeout=CORE_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise CoreError(f"the core did not answer in {CORE_TIMEOUT_SECONDS} s") from error
-    except OSError as error:
-        raise CoreError(f"the core could not execute: {error}") from error
-    if done.returncode == _REFUSED_EXIT:
-        stderr = done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
-        raise CoreError(f"the core refused the request (exit 2): {stderr}")
-    return read_frame(done.stdout, done.returncode)
+    return read_frame(*exchange(binary, "check", request))
 
 
 def _note(claim: str, remedy: str) -> Diagnostic:
@@ -366,6 +369,21 @@ def _fell_back(result: RunResult, gaps: tuple[Gap, ...]) -> RunResult:
         "Run without --native-core, or wait for the slice that ports the named part (#880).",
     )
     return replace(result, notes=(*result.notes, note))
+
+
+# AD-406: the run that the core decided with the collector in its own process.
+_SCAN_PARTS: Final = (
+    " The core ran the TypeScript collector in its own process (scan request, AD-406); the shell "
+    "sent it no collector reply."
+)
+
+
+def _scan_note(gaps: tuple[Gap, ...]) -> str:
+    """The reasons of the scan request when the check request decided the run instead."""
+    if not gaps:
+        return ""
+    reasons = "; ".join(f"{gap.subject}: {gap.reason}" for gap in gaps)
+    return f" The scan request (AD-406) did not decide: {reasons}"
 
 
 # AD-399: what of a `check` run the core does not decide in stage 1.

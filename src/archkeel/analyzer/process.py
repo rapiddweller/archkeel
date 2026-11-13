@@ -106,6 +106,8 @@ class ProcessCollector:
     bundled: bool = False
     # AD-390: gets each raw reply before the decode, for the Rust core behind its switch.
     reply_sink: Callable[[bytes], None] | None = None
+    # AD-406: gets each request payload, so the shell compares it with the request of the core.
+    request_sink: Callable[[bytes], None] | None = None
 
     def __post_init__(self) -> None:
         if self.pinned_digest is not None and not is_pin(self.pinned_digest):
@@ -141,6 +143,8 @@ class ProcessCollector:
                 else request
             )
             payload = encode_request(wire_request)
+            if self.request_sink is not None:
+                self.request_sink(payload)
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "LC_ALL": "C"}  # AD-325
             platform = _process_platform(os.name)
             command = self._launch_argv(request, environment)
