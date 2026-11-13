@@ -215,13 +215,6 @@ def public_names(tokens: Sequence[Token]) -> list[tuple[str, str]]:
     return names
 
 
-def count_tokens(tokens: Sequence[Token]) -> tuple[int, int]:
-    """Return the (items, members) of the public API of one file, given as tokens."""
-    names = public_names(tokens)
-    members = sum(kind in MEMBERS for kind, _ in names)
-    return len(names) - members, members
-
-
 def production_tokens(text: str) -> list[Token]:
     """Return the tokens of a file without its inline `#[cfg(test)]` modules."""
     tokens = tokenize(text)
