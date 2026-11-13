@@ -12,6 +12,7 @@ PR_TEST_FILES := \
 	tests/test_native_ci.py \
 	tests/test_native_contract_rules.py \
 	tests/test_cli_native_profile_limits.py \
+	tests/test_native_forbidden_construct.py \
 	tests/test_pr_test_node_ids.py \
 	tests/test_native_versions.py \
 	tests/test_collector_native_python_interpreter.py \
