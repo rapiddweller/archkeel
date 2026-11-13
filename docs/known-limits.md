@@ -395,9 +395,9 @@ The system-access test of the core side (AD-382) is a text scan. It does not see
 through another crate, a method on a value of a type that it does not name (except the file
 methods of `Path` by name), a macro such as `eprintln!` or `include_str!`, or an io trait method.
 
-## The Rust core (dual run only)
+## The Rust core
 
-The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) runs only in the dual run; no command uses it. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
+The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) runs in the dual run and, with `--native-core` (off by default, [AD-390](architecture/decisions/ad-390-a-user-run-takes-its-verdict-from-the-core-when-the-core-decides-every-rule.md)), in `report` and `check`. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
 
 - A gap between two modules that the contract allows: Python drops it for the Rust profile only. The core names each rule and the run for it. For another profile both engines keep the gap ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md)).
 - `interface_boundary` in a TypeScript contract: a limit of the Rust profile only. 8 rules (PASS in Python).
