@@ -28,7 +28,7 @@ fn params(scan: &mut Scan, n: &StmtFunctionDef) -> Result<Vec<String>> {
         .collect())
 }
 
-fn class_owners(
+pub(super) fn class_owners(
     scan: &mut Scan,
     module: &Module,
 ) -> Result<HashMap<*const StmtFunctionDef, Rc<str>>> {

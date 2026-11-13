@@ -22,6 +22,56 @@ use crate::pyast::{walk, Node};
 use crate::source::{decode, Lines};
 use crate::{discover, inputs, names, requirement};
 
+/// The explicit inputs of a source-only function; no resolver or reply assembly runs here.
+pub fn facts(flag: &str, minor: &str, root: &str) -> Result<(), String> {
+    let minor = PyMinor::decode(minor)?;
+    let mut snapshot = Snapshot::new(root);
+    let mut out = std::io::stdout().lock();
+    for line in std::io::stdin().lock().lines() {
+        let line = line.map_err(|error| error.to_string())?;
+        let input: Value = serde_json::from_str(&line).map_err(|error| error.to_string())?;
+        let rel = input
+            .get("file")
+            .and_then(Value::as_str)
+            .ok_or("missing file")?;
+        let found = (|| {
+            let raw = snapshot.read(rel).ok_or("source unreadable")?;
+            let text = decode(&raw).ok_or("source unreadable")?;
+            let text = crate::source::newlines(text).into_owned();
+            let tree = parse(&text, minor).map_err(|failure| failure.message)?;
+            let first = rel.split('/').next().unwrap_or(rel);
+            let namespace = first.strip_suffix(".py").unwrap_or(first);
+            let name = names::module_for(rel, namespace, minor).ok_or("module name unseen")?;
+            Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
+        })();
+        let crate::bindings::Table { data, work } = match found {
+            Ok(module) => {
+                use crate::bindings::FactBoundary;
+                let boundary = match flag {
+                    "--dump-typing-signals" => FactBoundary::Typing,
+                    "--dump-state" => FactBoundary::State,
+                    _ => FactBoundary::Lexical,
+                };
+                crate::bindings::source_fact_table(&module, minor, boundary, &input)
+            }
+            Err(reason) => crate::bindings::Table {
+                data: Err(reason),
+                work: 0,
+            },
+        };
+        let row = match data {
+            Ok(data) => json!({"file": rel, "full_scope": true, "data": data, "work": work}),
+            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
+        };
+        let row = match crate::bindings::check_output(&row) {
+            Ok(()) => row,
+            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
+        };
+        writeln!(out, "{row}").map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 /// The outcome of one file: `null` for a tree, else the exception, the line and the message.
 fn outcome(raw: Option<Vec<u8>>, minor: PyMinor) -> Value {
     let Some(raw) = raw else {

@@ -1,0 +1,178 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! Signals whose inputs are already collected records. This module does not collect calls.
+
+use super::*;
+
+pub(super) fn array<'a>(value: &'a Value, key: &str) -> Result<&'a [Value]> {
+    match value.get(key) {
+        None => Ok(&[]),
+        Some(value) => value
+            .as_array()
+            .map(Vec::as_slice)
+            .ok_or_else(|| format!("invalid {key} array")),
+    }
+}
+
+fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("invalid signal input {key}"))
+}
+
+fn strings(scan: &mut Scan, value: &Value, key: &str) -> Result<Vec<String>> {
+    let mut result = Vec::new();
+    for value in array(value, key)? {
+        scan.tick(1)?;
+        let value = value.as_str().ok_or("invalid string array entry")?;
+        scan.tick(value.len())?;
+        result.push(value.into());
+    }
+    Ok(result)
+}
+
+impl Collector<'_> {
+    pub(super) fn dynamic(&mut self, scan: &mut Scan, input: &Value) -> Result<()> {
+        for call in array(input, "calls")? {
+            scan.tick(1)?;
+            let call_data = call.get("data").ok_or("call data unseen")?;
+            let expression = text(call_data, "expression")?;
+            let mut signal = None;
+            for target in array(call_data, "targets")? {
+                scan.tick(1)?;
+                signal = match target.as_str().ok_or("call target unseen")? {
+                    "typing.cast" | "typing_extensions.cast" => Some(Signal::CastCall),
+                    "builtins.getattr" => Some(Signal::GetattrCall),
+                    "builtins.hasattr" => Some(Signal::HasattrCall),
+                    "builtins.eval" => Some(Signal::EvalCall),
+                    "builtins.exec" => Some(Signal::ExecCall),
+                    "builtins.__import__" | "importlib.import_module" => {
+                        Some(Signal::DynamicImport)
+                    }
+                    _ => None,
+                };
+                if signal.is_some() {
+                    break;
+                }
+            }
+            let Some(signal) = signal else {
+                continue;
+            };
+            let owner = text(call_data, "source_scope")?;
+            let id = text(call, "id")?;
+            let mut evidence_ids = Vec::new();
+            for id in strings(scan, call, "evidence_ids")? {
+                scan.tick(1)?;
+                if self.evidence.contains_key(&id) {
+                    evidence_ids.push(EvidenceId::new(id));
+                }
+            }
+            evidence_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+            evidence_ids.dedup();
+            scan.tick(owner.len().saturating_add(expression.len()))?;
+            let mut data = data(owner, signal);
+            data.expression = Some(expression.into());
+            self.keep(
+                scan,
+                Record {
+                    id: FactId::new(stable_id(
+                        "TYPE",
+                        &[Part::Text(id), Part::Text(signal.as_str())],
+                    )),
+                    evidence_class: EvidenceClass::Fact,
+                    area: Area::TypeArchitecture,
+                    title: format!("{owner} uses {expression}"),
+                    subjects: vec![owner.into()],
+                    evidence_ids,
+                    fact_ids: vec![FactId::new(id)],
+                    data: fact(data),
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn boundaries(&mut self, scan: &mut Scan, input: &Value) -> Result<()> {
+        let mut used = BTreeSet::new();
+        for import in array(input, "imports")? {
+            scan.tick(1)?;
+            let data = import.get("data").ok_or("import data unseen")?;
+            if text(data, "source_package")? == text(data, "target_package")? {
+                continue;
+            }
+            let symbol = data.get("symbol").and_then(Value::as_str).unwrap_or("");
+            if symbol.is_empty() {
+                continue;
+            }
+            let module = text(data, "target_module")?;
+            scan.tick(module.len().saturating_add(symbol.len()))?;
+            used.insert(format!("{module}.{symbol}"));
+        }
+        let mut by_name = BTreeMap::new();
+        for symbol in array(input, "symbols")? {
+            scan.tick(1)?;
+            let data = symbol.get("data").ok_or("symbol data unseen")?;
+            by_name.insert(text(data, "qualified_name")?, symbol);
+        }
+        for name in used {
+            scan.tick(1)?;
+            let Some(symbol) = by_name.get(name.as_str()) else {
+                continue;
+            };
+            let signature = symbol.get("data").ok_or("symbol signature unseen")?;
+            if !matches!(
+                signature.get("symbol_category").and_then(Value::as_str),
+                Some("function" | "method")
+            ) {
+                continue;
+            }
+            let mut missing = Vec::new();
+            for parameter in array(signature, "parameters")? {
+                scan.tick(1)?;
+                if parameter
+                    .get("annotation")
+                    .ok_or("parameter annotation unseen")?
+                    .is_null()
+                {
+                    missing.push(text(parameter, "name")?.to_owned());
+                }
+            }
+            if signature.get("returns").is_none_or(Value::is_null) {
+                missing.push("return".into());
+            }
+            if missing.is_empty() {
+                continue;
+            }
+            scan.tick(missing.len())?;
+            let mut parts = vec![Part::Text(&name), Part::Text("missing-boundary-annotation")];
+            parts.extend(missing.iter().map(|n| Part::Text(n)));
+            let id = stable_id("TYPE", &parts);
+            missing.sort();
+            let mut data = data(&name, Signal::MissingCrossPackageAnnotation);
+            data.positions = Some(missing);
+            let mut evidence_ids: Vec<_> = strings(scan, symbol, "evidence_ids")?
+                .into_iter()
+                .map(EvidenceId::new)
+                .collect();
+            evidence_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+            evidence_ids.dedup();
+            self.keep(
+                scan,
+                Record {
+                    id: FactId::new(id),
+                    evidence_class: EvidenceClass::Fact,
+                    area: Area::TypeArchitecture,
+                    title: format!("{name} has unannotated cross-package boundary positions"),
+                    subjects: vec![name],
+                    evidence_ids,
+                    fact_ids: vec![FactId::new(text(symbol, "id")?)],
+                    data: fact(data),
+                },
+            )?;
+        }
+        Ok(())
+    }
+}

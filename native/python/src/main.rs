@@ -60,6 +60,13 @@ fn run() -> Result<(), String> {
             }
         }
         if let [_, flag, minor, root] = arguments.as_slice() {
+            if matches!(
+                flag.as_str(),
+                "--dump-lexical" | "--dump-typing-signals" | "--dump-state"
+            ) {
+                let (flag, minor, root) = (flag.clone(), minor.clone(), root.clone());
+                return on_big_stack(move || dump::facts(&flag, &minor, &root));
+            }
             if flag == "--dump" {
                 let (minor, root) = (minor.clone(), root.clone());
                 return on_big_stack(move || dump::run(&minor, &root));

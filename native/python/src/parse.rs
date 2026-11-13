@@ -9,6 +9,10 @@
 //! its tokens. The message of a parser error is the text of `ruff_python_parser`; the message of
 //! a tokenizer limit and of the depth rule is the text of CPython (AD-334).
 
+#[cfg(any(test, feature = "dump"))]
+#[path = "fact_tokens.rs"]
+pub mod fact_tokens;
+
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::vocab::ExceptionName;
 use ruff_python_ast::{ModModule, PythonVersion, Stmt};

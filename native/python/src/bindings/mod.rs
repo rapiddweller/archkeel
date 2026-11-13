@@ -16,6 +16,7 @@ use crate::pyast::Node;
 mod class;
 mod closure;
 mod environment;
+mod lexical;
 mod names;
 mod namespace;
 mod output;
@@ -23,7 +24,9 @@ mod proofs;
 mod records;
 mod scan;
 mod scopes;
+mod state;
 mod statements;
+mod typing;
 mod values;
 
 #[cfg(feature = "dump")]
@@ -32,6 +35,34 @@ pub use output::check as check_output;
 pub use proofs::table as proof_table;
 pub use scan::Table;
 use scan::{Result, Scan};
+
+pub enum FactBoundary {
+    Lexical,
+    Typing,
+    State,
+}
+
+pub fn source_fact_table(
+    module: &Module,
+    minor: PyMinor,
+    boundary: FactBoundary,
+    input: &Value,
+) -> Table {
+    scan::table(module, minor, |module, scan| {
+        if let Some(limit) = input.get("work_limit") {
+            let limit = limit
+                .as_u64()
+                .and_then(|n| usize::try_from(n).ok())
+                .ok_or("invalid fact work limit")?;
+            scan.work = crate::parse::work::Work::with_limit(limit.min(scan::MAX_BINDING_WORK));
+        }
+        match boundary {
+            FactBoundary::Lexical => lexical::collect(module, scan, input),
+            FactBoundary::Typing => typing::collect(module, scan, input),
+            FactBoundary::State => state::collect(module, scan, input),
+        }
+    })
+}
 
 pub fn table(module: &Module, minor: PyMinor) -> Table {
     scan::table(module, minor, collect)
@@ -113,6 +144,33 @@ fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn source_fact_work_bounds_are_inclusive_and_keep_no_partial_data() {
+        use super::FactBoundary;
+        let module = crate::test_module("def f(a: Any):\n return a.x\n", 11);
+        for boundary in [
+            FactBoundary::Lexical,
+            FactBoundary::Typing,
+            FactBoundary::State,
+        ] {
+            let table = super::source_fact_table(
+                &module,
+                crate::test_minor(11),
+                boundary,
+                &serde_json::json!({}),
+            );
+            assert!(table.data.is_ok());
+            assert!(table.work > 0);
+        }
+        let table = super::source_fact_table(
+            &module,
+            crate::test_minor(11),
+            FactBoundary::Typing,
+            &serde_json::json!({"work_limit": 0}),
+        );
+        assert!(table.data.is_err());
+        assert_eq!(table.work, 0);
+    }
     #[test]
     fn the_binding_table_keeps_complete_records_and_its_work_count() {
         let text = "def f(x):\n    local = 1\n    return 2\n";

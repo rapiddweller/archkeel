@@ -1815,7 +1815,8 @@
         "native.archkeel_python_collector.bindings"
       ],
       "responsibilities": [
-        "The definition table, its lexical binding inputs, unused-binding records and import-local proofs, or a named gap (AD-377, AD-396, AD-404)."
+        "The definition table, its lexical binding inputs, unused-binding records and import-local proofs, or a named gap (AD-377, AD-396, AD-404).",
+        "Source-only lexical ownership, typing signals and class/function state from explicit record inputs, with no runtime resolution or reply assembly (AD-412)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving another module and writing the reply."
@@ -2426,6 +2427,8 @@
       "kind": "external_dependency_scope",
       "dependency": "ruff_text_size",
       "allowed_sources": [
+        "native.archkeel_python_collector.bindings.lexical",
+        "native.archkeel_python_collector.bindings.typing",
         "native.archkeel_python_collector.bindings.class",
         "native.archkeel_python_collector.bindings.names",
         "native.archkeel_python_collector.module.definition",
