@@ -25,8 +25,22 @@ fn a_frame_without_rules_is_unknown_and_names_the_contract() {
         assert_eq!(value["rules"], json!({}));
         assert_eq!(
             value["unsupported"]["rules"],
-            "unsupported: contract has no rules"
+            "unsupported: contract has no decided rule"
         );
+        assert!(!ruling.unsupported().is_empty());
+        assert!(ruling.decided().pass().is_none());
+    }
+}
+
+#[test]
+fn a_declaration_only_frame_has_no_decision_and_no_run_pass() {
+    for trusted in [true, false] {
+        let tree = model(&parsed(&[], vec![allow()]).unwrap(), trusted);
+        let ruling = rule(Ok(&tree), Named::default()).unwrap();
+        let bytes = ruling.frame(&json!({})).unwrap().into_bytes();
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["status"], "UNKNOWN");
+        assert_eq!(value["rules"]["ALLOW"][1], "DECLARATION");
         assert!(!ruling.unsupported().is_empty());
         assert!(ruling.decided().pass().is_none());
     }

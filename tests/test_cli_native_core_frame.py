@@ -153,11 +153,29 @@ def test_a_named_zero_rule_outcome_falls_back_to_the_shipped_python_result() -> 
     value = raw(
         {},
         "UNKNOWN",
-        unsupported={"rules": "unsupported: contract has no rules", "sections": {}, "report": None},
+        unsupported={
+            "rules": "unsupported: contract has no decided rule",
+            "sections": {},
+            "report": None,
+        },
     )
     outcome = stage_one(read(value, 3), [], Status.PASS)
     assert isinstance(outcome, FellBack)
-    assert outcome.gaps[0].reason == "unsupported: contract has no rules"
+    assert outcome.gaps[0].reason == "unsupported: contract has no decided rule"
+
+
+def test_a_no_decided_rule_reason_has_its_own_gap_kind() -> None:
+    value = raw(
+        {"A": "DECLARATION"},
+        "UNKNOWN",
+        unsupported={
+            "rules": "unsupported: contract has no decided rule",
+            "sections": {},
+            "report": None,
+        },
+    )
+    [gap] = read(value, 3).gaps
+    assert gap.kind is GapKind.NO_DECIDED_RULE
 
 
 @pytest.mark.parametrize(("name", "value", "exit_code"), HOSTILE, ids=[h[0] for h in HOSTILE])

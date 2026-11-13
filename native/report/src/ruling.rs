@@ -131,10 +131,15 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
         gaps.into_iter()
             .map(|(id, reason)| (id, reason.to_string())),
     );
-    // AD-416: no rule outcome means no core verdict, not an empty PASS proof.
+    // AD-416: declarations have no decision and cannot make a run PASS by themselves.
     let contract = named.contract.or_else(|| {
-        (models.is_ok() && rows.seen.is_empty() && reasons.is_empty())
-            .then(|| Reason::Unsupported(Unsupported::NoRules).to_string())
+        (models.is_ok()
+            && rows
+                .decisions
+                .iter()
+                .all(|(_, decision)| decision.is_none())
+            && reasons.is_empty())
+        .then(|| Reason::Unsupported(Unsupported::NoRules).to_string())
     });
     let open = contract.is_some()
         || !reasons.is_empty()

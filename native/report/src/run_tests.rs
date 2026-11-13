@@ -323,6 +323,14 @@ fn each_reason_of_the_model_has_its_row_reason() {
 }
 
 #[test]
+fn no_decided_rule_is_not_a_missing_receipt() {
+    let cause = crate::WhyUnknown::of(&archkeel_model::Reason::Unsupported(
+        archkeel_model::Unsupported::NoRules,
+    ));
+    assert_eq!(cause, crate::WhyUnknown::NoDecidedRule);
+}
+
+#[test]
 fn a_pass_row_without_its_receipt_is_refused() {
     let contract = contract(&BOTH);
     let model = model(&contract, true);

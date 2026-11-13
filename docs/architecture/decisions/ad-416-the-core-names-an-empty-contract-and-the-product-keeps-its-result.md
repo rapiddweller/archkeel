@@ -1,4 +1,4 @@
-# AD-416: The core names an empty contract and the product keeps its result
+# AD-416: The core names a run without decisions and the product keeps its result
 
 Date: 2026-11-13
 Status: accepted
@@ -10,23 +10,29 @@ Issues: #1110, #1096, duplicate-rule-id item of #1099; part of #880
 Python gives PASS and exit 0 for two complete zero-rule corpus cases.
 The core also writes PASS, but the stage-1 shell refuses that frame with exit 2.
 The statement in #1110 that Python exits 2 is incorrect. An issue comment corrects it.
-A later reader must not accept a core PASS without a rule.
+A later reader must not accept a core PASS without a deciding rule. Declarations do not decide.
 
 ## Decision
 
 1. Keep one zero-rule policy beside the frame maker in `native/report/src/ruling.rs`.
-   The ruling constructor names `Unsupported::NoRules` before it folds the run status.
-   It gives UNKNOWN, no PASS proof, and the reason `unsupported: contract has no rules`.
-   `Ruling::frame` is the only maker of frame bytes. It cannot write an empty PASS.
+   The ruling constructor names `Unsupported::NoRules` when no outcome carries a decision.
+   This includes an empty contract and declaration-only contracts across the whole tree.
+   It gives UNKNOWN, no PASS proof, and the reason `unsupported: contract has no decided rule`.
+   `Ruling::frame` is the only maker of frame bytes. It cannot write a PASS without a deciding rule.
    No request kind owns another zero-rule policy: report, check and scan share the ruling.
 2. Keep the shipped Python result unchanged. The shell uses its existing fall-back path
    when the frame names this unsupported outcome. No decision compares reason strings.
    Switch off and switch on then give the same product verdict and exit code.
+   The shell classifies the reason as `GapKind.NO_DECIDED_RULE`, not `OTHER`.
+   `WhyUnknown::NoDecidedRule` is a run-only cause. Report rule rows refuse it; no schema word is added.
 3. Refuse repeated outcome ids before map insertion, with `BuildError::DuplicateRule`.
    This includes unsupported and declaration outcomes. No last row can replace an earlier row.
    The shell keeps its repeated-JSON-key refusal. A hostile duplicate frame gives exit 2.
 4. Keep `Decision`, scope proofs and the run proof unchanged. An unsupported contract does
    not weaken a rule, turn UNKNOWN into PASS, or make an evaluator receipt.
+   A tree with only declaration outcomes is UNKNOWN, even when every child scope is complete.
+   A deciding root or child beside declaration-only children can give PASS with the existing tree proof.
+   This proves the actual deciding rules and every scope; it gives no verdict to a declaration.
 
 ## Product boundary and measurement
 
@@ -37,6 +43,7 @@ The real CLI with the switch off gives UNKNOWN in 20 of these cases and PASS in 
 An invalid contract without a rule array is not counted as an empty contract.
 Changing Python to UNKNOWN is a separate breaking product decision for the owner.
 It would change these two current PASS results, not all 35 empty arrays.
+No corpus case holds only declaration rules; the new family tests plant that missing case.
 
 ## Rejected alternatives and limit
 
@@ -49,9 +56,10 @@ it cannot present it as a core PASS. Stage 1 can still show Python's established
 
 ## Checks
 
-Rust frame tests require UNKNOWN, a named reason and no PASS proof for an empty contract.
+Rust frame tests require UNKNOWN, a named reason and no PASS proof without a deciding rule.
+Tree tests cover declarations in every child, a deciding root, and a deciding sibling child.
 Repeated supported and unsupported outcomes must give the typed duplicate-id error.
-Real CLI tests compare both zero-rule corpus reports and a zero-rule check, switch off and on.
+Real CLI tests compare both zero-rule corpus reports, a declaration-only report and a zero-rule check, switch off and on.
 Removing the zero-rule refusal makes these tests fail with on exit 2 versus off exit 0.
 The shell tests refuse a duplicate rule id and a hostile zero-rule PASS frame.
 The dual-run comparison must keep zero differences against the unchanged Python oracles.

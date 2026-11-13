@@ -116,7 +116,7 @@ fn a_frame_without_rules_is_unknown_even_with_a_complete_scope() {
     );
     assert_eq!(
         got["unsupported"]["rules"],
-        "unsupported: contract has no rules"
+        "unsupported: contract has no decided rule"
     );
     empty["collector_argv"] = json!(["collector"]);
     let got = frame(&empty);

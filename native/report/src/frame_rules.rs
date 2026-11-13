@@ -45,9 +45,20 @@ fn rule_reason(verdict: RuleVerdict, why: Option<WhyUnknown>) -> Option<RuleReas
             WhyUnknown::NoReceipt => RuleReason::NoReceipt,
             WhyUnknown::Undecided => RuleReason::Undecided,
             WhyUnknown::OwnershipBlocker => RuleReason::OwnershipBlocker,
+            // No rule can carry the run-only cause; keep the report-v2 row vocabulary unchanged.
+            WhyUnknown::NoDecidedRule => return None,
         }),
         _ => None,
     }
+}
+
+#[cfg(test)]
+#[test]
+fn a_run_only_cause_cannot_name_a_rule_row() {
+    assert_eq!(
+        rule_reason(RuleVerdict::Unknown, Some(WhyUnknown::NoDecidedRule)),
+        None
+    );
 }
 
 /// The rule rows, by id; the violation count of each is the number of violation rows citing it.

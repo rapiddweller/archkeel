@@ -57,6 +57,7 @@ class GapKind(StrEnum):
     PYTHON_INCOMPLETE = "python_incomplete"
     REPLIES = "replies"
     EXTERNAL_COLLECTOR = "external_collector"
+    NO_DECIDED_RULE = "no_decided_rule"
     # AD-406: the scan request: the core did not run the collector, or it derived another
     # request than the shell sent to its collector.
     COLLECT = "collect"
@@ -114,6 +115,7 @@ _SCAN: Final = frozenset({"collect"})
 # `core/src/base.rs`).
 # They classify a gap for the fall-back note and the measurement; they decide nothing.
 _GAP_PREFIXES: Final[tuple[tuple[str, GapKind], ...]] = (
+    ("unsupported: contract has no decided rule", GapKind.NO_DECIDED_RULE),
     ("producer not verified", GapKind.PRODUCER_NOT_VERIFIED),
     ("unsupported: rule kind ", GapKind.RULE_KIND_NOT_PORTED),
     ("the base reply", GapKind.BASE),
