@@ -50,6 +50,7 @@
 #![deny(unreachable_pub)]
 
 mod assignment;
+mod constructs;
 mod cycles;
 mod decide;
 mod direction;
@@ -57,10 +58,13 @@ mod external;
 mod layout;
 mod violation;
 
+#[cfg(test)]
+mod construct_tests;
+
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
-pub use violation::{Cited, Cyclic, Layered, Violation};
+pub use violation::{Cited, ConstructViolation, Cyclic, Layered, Violation};
 
 /// The result of one rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -128,8 +132,8 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         // Each kind that no slice decides names its kind; a new kind needs an arm here.
         Rule::NoComponentCycles(rule) => Ok(cycles::check(id, rule, model)),
         Rule::InterfaceBoundary(_) => unported(kind), // S8
-        Rule::ForbiddenConstruct(_) => unported(kind), // S11
-        Rule::SymbolPlacement(_) => unported(kind),   // S12, Cut B
+        Rule::ForbiddenConstruct(rule) => constructs::check(id, rule, model),
+        Rule::SymbolPlacement(_) => unported(kind), // S12, Cut B
         Rule::SourceOwnership(_) => unported(kind),
         Rule::BoundedNumericOperand(_) => unported(kind),
         Rule::CallOwner(_) => unported(kind),             // S13

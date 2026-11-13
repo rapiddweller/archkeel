@@ -3258,6 +3258,48 @@
         {
           "properties": {
             "kind": {
+              "const": "assert_statement"
+            },
+            "data": {
+              "$ref": "#/$defs/PlainConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "placeholder_body"
+            },
+            "data": {
+              "$ref": "#/$defs/PlaceholderData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dunder_dict"
+            },
+            "data": {
+              "$ref": "#/$defs/PlainConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
               "const": "string_literal_compare"
             },
             "data": {
@@ -3382,6 +3424,52 @@
           ]
         }
       ]
+    },
+    "PlainConstructData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construct": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "construct",
+        "owner"
+      ],
+      "description": "A written construct with no additional fields."
+    },
+    "PlaceholderData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construct": {
+          "type": "string"
+        },
+        "form": {
+          "$ref": "#/$defs/PlaceholderForm"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "construct",
+        "form",
+        "owner"
+      ],
+      "description": "A function body that declares no implementation."
+    },
+    "PlaceholderForm": {
+      "type": "string",
+      "enum": [
+        "empty",
+        "not_implemented"
+      ],
+      "description": "The two function bodies that the collector identifies as placeholders."
     },
     "ConstructData": {
       "type": "object",
@@ -3554,7 +3642,9 @@
         "endswith",
         "equality",
         "membership",
+        "match",
         "read",
+        "reflect",
         "startswith",
         "type_probe",
         "write"
@@ -4265,6 +4355,9 @@
         "unused_parameter",
         "unused_local",
         "string_literal_compare",
+        "assert_statement",
+        "placeholder_body",
+        "dunder_dict",
         "broad_except",
         "getattr_call",
         "hasattr_call",

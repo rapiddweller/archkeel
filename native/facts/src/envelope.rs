@@ -124,6 +124,13 @@ closed! {
     }
 }
 
+impl Profile {
+    /// Whether the collector of this profile emits nominal construct selectors.
+    pub fn construct_selectors(self) -> bool {
+        matches!(self, Self::Python)
+    }
+}
+
 closed! {
     /// The state of the runtime requirement of the collector.
     pub enum RequirementState {

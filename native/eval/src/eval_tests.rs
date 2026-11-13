@@ -117,6 +117,7 @@ fn name(violation: &Violation) -> String {
             )
         }
         Violation::Cycle(cyclic) => cyclic.members.join(" <> "),
+        Violation::Construct(row) => row.owner.clone(),
     }
 }
 

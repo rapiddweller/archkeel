@@ -34,6 +34,9 @@ mod texts;
 mod validate;
 mod view;
 
+#[cfg(test)]
+mod construct_tests;
+
 use archkeel_facts::Section;
 use serde::Deserialize;
 

@@ -67,6 +67,9 @@ closed! {
         UnusedParameter = "unused_parameter",
         UnusedLocal = "unused_local",
         StringLiteralCompare = "string_literal_compare",
+        AssertStatement = "assert_statement",
+        PlaceholderBody = "placeholder_body",
+        DunderDict = "dunder_dict",
         BroadExcept = "broad_except",
         GetattrCall = "getattr_call",
         HasattrCall = "hasattr_call",
@@ -221,7 +224,9 @@ closed! {
         Endswith = "endswith",
         Equality = "equality",
         Membership = "membership",
+        Match = "match",
         Read = "read",
+        Reflect = "reflect",
         Startswith = "startswith",
         TypeProbe = "type_probe",
         Write = "write",
@@ -295,6 +300,14 @@ closed! {
 }
 
 closed! {
+    /// The two function bodies that the collector identifies as placeholders.
+    pub enum PlaceholderForm {
+        Empty = "empty",
+        NotImplemented = "not_implemented",
+    }
+}
+
+closed! {
     /// The typing signal of a record of `typing_signals`; the text equals the kind of the record.
     pub enum Signal {
         AnyAnnotation = "any_annotation",
@@ -317,6 +330,26 @@ closed! {
     pub enum RelationshipKind {
         Inherits = "inherits",
         Realizes = "realizes",
+    }
+}
+
+impl Signal {
+    /// The contract construct observed by this signal, if it observes one.
+    pub fn construct(self) -> Option<&'static str> {
+        match self {
+            Self::AnyAnnotation => Some("any_annotation"),
+            Self::CastCall => Some("cast"),
+            Self::GetattrCall => Some("getattr"),
+            Self::HasattrCall => Some("hasattr"),
+            Self::EvalCall => Some("eval"),
+            Self::ExecCall => Some("exec"),
+            Self::DynamicImport => Some("dynamic_import"),
+            Self::TypeIgnore => Some("type_ignore"),
+            Self::DictAnyAnnotation
+            | Self::CallableAnyAnnotation
+            | Self::ObjectAnnotation
+            | Self::MissingCrossPackageAnnotation => None,
+        }
     }
 }
 

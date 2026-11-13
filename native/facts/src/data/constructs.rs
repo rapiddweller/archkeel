@@ -9,6 +9,23 @@ use crate::nested::{BindingScope, ReceiverBinding};
 use crate::vocab::{ConstructForm, Operation, Proof, SelectorRole, Signal, Status};
 
 facts_data! {
+    /// A written construct with no additional fields.
+    pub struct PlainConstructData {
+        [read] construct: String,
+        [read] owner: String,
+    }
+}
+
+facts_data! {
+    /// A function body that declares no implementation.
+    pub struct PlaceholderData {
+        [read] construct: String,
+        [wire] form: crate::vocab::PlaceholderForm,
+        [read] owner: String,
+    }
+}
+
+facts_data! {
     /// A written construct that a rule can forbid.
     pub struct ConstructData {
         [read] construct: String,

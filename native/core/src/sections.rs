@@ -154,6 +154,7 @@ fn row(violation: &Violation) -> Value {
         }
         Violation::OuterLayer(layered) => layer_record(layered),
         Violation::Cycle(cyclic) => cycle_record(cyclic),
+        Violation::Construct(row) => archkeel_report::construct_row(row),
     }
 }
 
@@ -267,6 +268,7 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::OutsideScope { .. }
         | Violation::Undeclared { .. }
         | Violation::OuterLayer(_)
+        | Violation::Construct(_)
         | Violation::Cycle(_) => row(violation),
     }
 }

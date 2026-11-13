@@ -161,6 +161,9 @@
 
 #![deny(unreachable_pub)]
 
+mod construct;
+pub use construct::construct_row;
+
 mod build_error;
 mod build_tables;
 mod check;

@@ -133,7 +133,22 @@ fn names<'a>(
         subjects,
         targets,
         builtins: graph.builtins(),
+        symbols: graph
+            .constructs()
+            .symbols()
+            .iter()
+            .filter_map(|(module, name)| {
+                (in_module_domain(graph, domain, module)
+                    && crate::ownership::in_scope(name, module))
+                .then_some(name.as_str())
+            })
+            .collect(),
     }
+}
+
+fn in_module_domain(graph: &Graph, domain: Option<&[&str]>, module: &str) -> bool {
+    graph.modules().iter().any(|(_, m)| m.name() == module)
+        && domain.is_none_or(|d| d.contains(&module))
 }
 
 /// The profile limits and the first rule failure of one contract (`root_limits` or

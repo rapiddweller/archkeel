@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 
 use crate::data::{
     BindingData, CallData, CallableData, ClassData, ConstructData, GapData, ImportData,
-    NumericOperandData, ReferenceData, SelectorData, SignalData, SourceRoleData, UnusedBindingData,
-    ValueData,
+    NumericOperandData, PlaceholderData, PlainConstructData, ReferenceData, SelectorData,
+    SignalData, SourceRoleData, UnusedBindingData, ValueData,
 };
 use crate::readset::{self, ReadFields, ReadSet, Reads};
 use crate::record::{FactData, Record};
@@ -134,6 +134,9 @@ section_facts! {
 
 section_facts! {
     pub enum ConstructFact in Constructs {
+        AssertStatement(PlainConstructData),
+        PlaceholderBody(PlaceholderData),
+        DunderDict(PlainConstructData),
         StringLiteralCompare(ConstructData),
         BroadExcept(ConstructData),
         GetattrCall(ConstructData),

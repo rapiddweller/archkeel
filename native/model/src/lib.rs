@@ -42,6 +42,12 @@
 
 #![deny(unreachable_pub)]
 
+mod constructs;
+pub use constructs::{ConstructMatch, ConstructSite, Constructs};
+
+#[cfg(test)]
+mod construct_tests;
+
 mod condensation;
 mod coverage;
 mod cycles;
