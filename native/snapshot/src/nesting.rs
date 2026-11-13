@@ -121,17 +121,15 @@ fn raw_end(bytes: &[u8], from: usize) -> Option<usize> {
 fn comment_end(bytes: &[u8], from: usize) -> usize {
     let (mut at, mut depth) = (from + 2, 1_usize);
     while at < bytes.len() && depth > 0 {
-        match (bytes.get(at), bytes.get(at + 1)) {
-            (Some(b'/'), Some(b'*')) => {
-                depth += 1;
-                at += 2;
+        match bytes.get(at..at + 2) {
+            Some(b"/*") => depth += 1,
+            Some(b"*/") => depth -= 1,
+            _ => {
+                at += 1;
+                continue;
             }
-            (Some(b'*'), Some(b'/')) => {
-                depth -= 1;
-                at += 2;
-            }
-            _ => at += 1,
         }
+        at += 2;
     }
     at
 }

@@ -201,6 +201,20 @@ fn a_build_with_a_test_feature_and_a_panic_of_the_collector_are_refusals() {
 }
 
 #[test]
+fn each_refusal_kind_keeps_its_message() {
+    let mut refusal = refused("parse work", "parse_work_limit: src/main.rs");
+    assert_eq!(
+        refusal.to_string(),
+        "collect: unsupported: parse work: parse_work_limit: src/main.rs"
+    );
+    refusal.kind = RefusalKind::ParseWork;
+    assert_eq!(
+        refusal.to_string(),
+        "collect: parse_work_limit: src/main.rs"
+    );
+}
+
+#[test]
 fn a_contract_over_its_budget_is_refused() {
     let root = repository("H-typescript");
     let refusal = scan(&identity(root.to_str().unwrap()), 10)

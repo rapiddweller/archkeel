@@ -24,14 +24,14 @@ pub enum RefusalKind {
 
 impl std::fmt::Display for Refusal {
     fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.kind == RefusalKind::ParseWork {
-            return write!(out, "{REFUSED}: {}", self.reason);
+        match self.kind {
+            RefusalKind::ParseWork => write!(out, "{REFUSED}: {}", self.reason),
+            RefusalKind::Unsupported => write!(
+                out,
+                "{REFUSED}: unsupported: {}: {}",
+                self.part, self.reason
+            ),
         }
-        write!(
-            out,
-            "{REFUSED}: unsupported: {}: {}",
-            self.part, self.reason
-        )
     }
 }
 
