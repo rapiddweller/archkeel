@@ -50,6 +50,7 @@ The legacy split and reviewed frame binding add 42 unresolved calls and seven ch
 The amendment binds these measured budgets, moved grammar allowances and the parser's UML owner.
 No unknown-position or violation budget grows. These are collector limits, not missing runtime types.
 The final core-only CLI exception boundary has the same narrow broad-exception allowance as the legacy entry.
+After AD-420, shared `GapKind`, `Gap` and `CoreError` live in `core_json`; keep its typed parse-work refusal intact.
 F4, slice 5: `git status` reads `.git/config`; a configured `filter.<x>.clean` can execute.
 Fixed Git and cleared environment do not prevent this. Do not scan untrusted Git configuration.
 Main embeds the native code digest in the binary, but supplies no expected code-digest record for this layout.

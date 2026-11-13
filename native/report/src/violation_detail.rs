@@ -65,6 +65,12 @@ impl ViolationDetail {
                 cause: "dependency cycle",
                 evidence: cycle.evidence.clone(),
             },
+            Violation::Construct(row) => Self {
+                source: format!("{} ({})", row.owner, row.construct),
+                target: None,
+                cause: "forbidden construct",
+                evidence: row.evidence.clone(),
+            },
         }
     }
 }
