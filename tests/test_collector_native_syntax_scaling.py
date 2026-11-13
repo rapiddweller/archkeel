@@ -13,15 +13,8 @@ import json
 from pathlib import Path
 
 import pytest
-from archkeel.ir.facts_codec import encode_request
-from archkeel.ir.protocol import (
-    CollectionRequest,
-    ProtocolVersion,
-    SnapshotInput,
-    SourceScope,
-    TypeScriptSettings,
-)
 from collector_timing import Taken, interleaved_least, timed_run
+from collector_wire import request_bytes
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import (
     _shape,
@@ -53,14 +46,7 @@ def _prepare(root: Path, name: str, count: int) -> Path:
 
 def _run(binary: Path, case: Path, walk: bool = False) -> Taken:
     """One run of the collector on the prepared root `case`; `walk` times the walk alone."""
-    payload = encode_request(
-        CollectionRequest(
-            SnapshotInput(str(case), "a" * 40, False),
-            SourceScope(("src",), "app"),
-            TypeScriptSettings("tsconfig.json", False),
-            ProtocolVersion.V8,
-        )
-    )
+    payload = request_bytes(case, "app", "tsconfig.json")
     command = [str(binary)]
     if walk:  # the reply of a nest is quadratic by the data model: only the walk is timed
         payload = json.dumps({"rel": "src/a.ts", "file": str(case / "src/a.ts")}).encode() + b"\n"

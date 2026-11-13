@@ -124,7 +124,8 @@ self-validate-native:
 # AD-343: record the golden replies of the Python collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
 golden-record:
-	$(UV) run --locked python tests/golden_record.py --language "$(LANGUAGE)" --case "$(CASE)" --reason "$(REASON)" $(if $(ALLOW_DIRTY),--allow-dirty,)
+	cd native && cargo build --locked --release -p archkeel-typescript-collector
+	$(UV) run --locked python tests/golden_record.py --language "$(LANGUAGE)" --case "$(CASE)" --reason "$(REASON)" --binary native/target/release/archkeel-typescript-collector $(if $(ALLOW_DIRTY),--allow-dirty,)
 
 # AD-360: record the oracles of the Python engine again, after a reviewed change of its result.
 # REASON says why; the source must be committed (or ALLOW_DIRTY=1).

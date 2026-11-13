@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Record the golden replies of a language (AD-343): `make golden-record`.
 
-The recorder runs the current Python collector and writes the golden file of each case. It adds
-one line to `RECORDINGS.md` with the date, the case, the commit and the reason. It refuses to run
-without a reason: a changed golden reply is a deliberate decision.
+The recorder runs the native collector at `--binary` and writes the golden file of each case. It
+adds one line to `RECORDINGS.md` with the date, the case, the commit and the reason. It refuses
+to run without a reason: a changed golden reply is a deliberate decision.
 """
 
 from __future__ import annotations
@@ -49,7 +49,12 @@ def changed_sources(root: Path, paths: list[str]) -> list[str]:
 
 
 def record(
-    language: str, names: list[str], reason: str, *, allow_dirty: bool = False
+    language: str,
+    names: list[str],
+    reason: str,
+    *,
+    allow_dirty: bool = False,
+    binary: Path | None = None,
 ) -> list[Path]:
     if not reason.strip():
         raise golden_replies.GoldenError("REASON is required: say why the golden reply changes")
@@ -65,9 +70,11 @@ def record(
                 f"the source is not committed: {changed[:5]}. Commit it, or set ALLOW_DIRTY=1"
             )
         commit += "+dirty"
+    if binary is None or not binary.is_file():
+        raise golden_replies.GoldenError("--binary must name the built native collector")
     replies = {}
     for name in names:
-        run = golden_producers.producer("native", language=language, **options(language, name))
+        run = golden_producers.producer("native", binary, language=language)
         with tempfile.TemporaryDirectory() as workspace:
             root = golden_producers.materialize(known[name], Path(workspace))
             replies[name] = golden_replies.canonical(run(root), root)
@@ -103,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--case", default="", help="a case name, or `all`")
     parser.add_argument("--reason", default="", help="why the golden reply changes")
     parser.add_argument("--allow-dirty", action="store_true", help="log the commit as +dirty")
+    parser.add_argument("--binary", type=Path, help="the built native collector")
     args = parser.parse_args(argv)
     try:
         if not args.language or not args.case:
@@ -113,7 +121,10 @@ def main(argv: list[str] | None = None) -> int:
         if not (golden_replies.GOLDEN / args.language / "cases.json").is_file():
             raise golden_replies.GoldenError(f"no cases for language {args.language!r}")
         names = list(cases(args.language)) if args.case == "all" else [args.case]
-        for path in record(args.language, names, args.reason, allow_dirty=args.allow_dirty):
+        written = record(
+            args.language, names, args.reason, allow_dirty=args.allow_dirty, binary=args.binary
+        )
+        for path in written:
             print(f"recorded {path.relative_to(ROOT)}")
     except golden_replies.GoldenError as error:
         print(f"golden-record: {error}")

@@ -8,15 +8,13 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tomllib
 import zlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from archkeel.cli.config import load_config
-from archkeel.cli.observe import TYPESCRIPT_COLLECTOR, verified_binary
-from archkeel.ir.facts_codec import encode_request
-from archkeel.ir.protocol import CollectionRequest, SnapshotInput, SourceScope, TypeScriptSettings
+from collector_wire import request_bytes
 
 PRODUCER_VARIABLE = "ARCHKEEL_GOLDEN_PRODUCER"
 Producer = Callable[[Path], dict[str, Any]]
@@ -31,26 +29,30 @@ def materialize(source: Path, workspace: Path) -> Path:
     return root
 
 
-def _request(root: Path) -> CollectionRequest:
-    config = load_config(root)
-    return CollectionRequest(
-        SnapshotInput(str(root), "a" * 40, False),
-        SourceScope(config.roots, config.namespace),
-        TypeScriptSettings(config.tsconfig or "tsconfig.json", bundler=config.bundler),
+def _request(root: Path) -> bytes:
+    """The 3.0.0 request of the case, from the `[scan]` table of its `archkeel.toml`."""
+    scan = tomllib.loads((root / "archkeel.toml").read_text(encoding="utf-8"))["scan"]
+    return request_bytes(
+        root,
+        scan["namespace"],
+        scan.get("tsconfig", "tsconfig.json"),
+        roots=tuple(scan["roots"]),
+        version="3.0.0",
+        bundler=scan.get("bundler", False),
     )
 
 
 def native(binary: Path) -> Producer:
     def run(root: Path) -> dict[str, Any]:
         reply = subprocess.run(
-            [str(binary)], input=encode_request(_request(root)), capture_output=True, check=True
+            [str(binary)], input=_request(root), capture_output=True, check=True
         ).stdout
         return json.loads(reply if reply[:1] == b"{" else zlib.decompress(reply))
 
     return run
 
 
-def producer(name: str, binary: Path | None = None, *, language: str = "typescript") -> Producer:
+def producer(name: str, binary: Path, *, language: str = "typescript") -> Producer:
     if language != "typescript" or name != "native":
         raise ValueError(f"unsupported golden producer {name!r} for {language!r}")
-    return native(binary or Path(verified_binary(TYPESCRIPT_COLLECTOR).path))
+    return native(binary)

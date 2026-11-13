@@ -41,15 +41,8 @@ import time
 from pathlib import Path
 
 import pytest
-from archkeel.ir.facts_codec import encode_request
-from archkeel.ir.protocol import (
-    CollectionRequest,
-    ProtocolVersion,
-    SnapshotInput,
-    SourceScope,
-    TypeScriptSettings,
-)
 from collector_timing import Taken, interleaved_least, least_of, timed_run
+from collector_wire import request_bytes
 from scaling_shapes import (
     COVERAGE,
     FIELD_COVERAGE,
@@ -105,14 +98,7 @@ def collector(native_binary: Path) -> Path:
 
 
 def _request(root: Path) -> bytes:
-    return encode_request(
-        CollectionRequest(
-            SnapshotInput(str(root), "a" * 40, False),
-            SourceScope(("src",), "app"),
-            TypeScriptSettings("tsconfig.json", False),
-            ProtocolVersion.V8,
-        )
-    )
+    return request_bytes(root, "app", "tsconfig.json")
 
 
 CONFIG = '{"compilerOptions":{"allowJs":true},"include":["src"]}'

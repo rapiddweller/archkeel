@@ -27,9 +27,9 @@ def request_bytes(
     exclude_test_sources: bool = False,
     bundler: bool = False,
 ) -> bytes:
-    """The request for `root`. A 9.0.0 request states `exclude_test_sources`; 8.0.0 has no key."""
+    """The request for `root`. Only a 9.0.0 request states `exclude_test_sources`."""
     scope: dict[str, Any] = {"roots": list(roots), "namespace": namespace}
-    if version != "8.0.0":
+    if version == "9.0.0":
         scope["exclude_test_sources"] = exclude_test_sources
     resolver: dict[str, Any] = {"language": language}
     if tsconfig is not None:
