@@ -43,6 +43,12 @@ pub(crate) fn declarations(text: &str) -> Result<String, String> {
     })
 }
 
+pub(crate) fn collection(text: &str) -> Result<String, String> {
+    rows(text, |input: crate::collection::types::Input| {
+        crate::collection::build(&input)
+    })
+}
+
 fn rows<T: serde::de::DeserializeOwned, R: serde::Serialize>(
     text: &str,
     build: impl Fn(T) -> R,

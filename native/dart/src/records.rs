@@ -145,7 +145,7 @@ pub(crate) fn sdk_support(
 
 /// The gaps of one parse, as `_prepare_sources` writes them: the first error as `SyntaxError`,
 /// then each concern that is not a syntax error, with the kind of the concern.
-fn parse_gaps(parsed: &Syntax) -> Vec<(&Span, ExceptionName, &str)> {
+pub(crate) fn parse_gaps(parsed: &Syntax) -> Vec<(&Span, ExceptionName, &str)> {
     let mut found = Vec::new();
     if let Some(span) = &parsed.first_error {
         let message = "syntax errors prevent complete source facts";
@@ -244,7 +244,7 @@ pub(crate) fn gap(
 }
 
 /// The Python listing: the compact JSON object of each input, joined with no separator.
-fn listing_digest(inputs: &[Input]) -> String {
+pub(crate) fn listing_digest(inputs: &[Input]) -> String {
     let listing: String = inputs
         .iter()
         .map(|input| {
@@ -256,7 +256,7 @@ fn listing_digest(inputs: &[Input]) -> String {
     sha256_hex(listing.as_bytes())
 }
 
-fn pattern(root: &str) -> String {
+pub(crate) fn pattern(root: &str) -> String {
     if root == "." {
         "**/*.dart".to_owned()
     } else {

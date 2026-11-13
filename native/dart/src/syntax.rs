@@ -32,6 +32,9 @@ macro_rules! value {
     };
 }
 
+#[cfg(feature = "dump")]
+pub(crate) use value;
+
 value! {
     /// A source range: lines from 1, a UTF-16 column, the first 400 characters and the bytes.
     pub(crate) Span {

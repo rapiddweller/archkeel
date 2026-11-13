@@ -11,14 +11,13 @@ use crate::module::is_identifier;
 use crate::pytext::{is_space, lstrip, strip};
 
 /// The state of the SDK requirement, as `RuntimeRequirementState` names it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "dump", derive(serde::Deserialize))]
-#[cfg_attr(feature = "dump", serde(rename_all = "snake_case"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum SdkState {
     Declared,
-    #[cfg_attr(feature = "dump", serde(rename = "requirement_missing"))]
+    #[serde(rename = "requirement_missing")]
     Missing,
-    #[cfg_attr(feature = "dump", serde(rename = "requirement_invalid"))]
+    #[serde(rename = "requirement_invalid")]
     Invalid,
 }
 
