@@ -18,10 +18,10 @@ use crate::collected::{sorted, Records};
 use crate::kept::Pending;
 
 /// The string comparison construct of `ForbiddenConstructKind`.
-pub const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
+pub(crate) const STRING_LITERAL_COMPARE: &str = "string_literal_compare";
 
 /// `_constructs`: one record for each written string comparison.
-pub fn constructs(pending: &Pending, cited: &mut Cited, records: &mut Records) {
+pub(crate) fn constructs(pending: &Pending, cited: &mut Cited, records: &mut Records) {
     let mut out = Vec::new();
     for (rel, kept) in &pending.kept {
         for (span, scope) in &kept.comparisons {

@@ -393,3 +393,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-400 | [The native Dart collection assembles records from typed resolver results](ad-400-the-native-dart-collection-assembles-records-from-typed-resolver-results.md) |
 | AD-402 | [The Python raise-site inventory keeps unproved paths open](ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md) |
 | AD-404 | [The native Python proof dump reads import-local bindings before member convergence](ad-404-the-native-python-proof-dump-reads-import-local-bindings-before-member-convergence.md) |
+| AD-406 | [The core runs the TypeScript collector in its own process](ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md) |

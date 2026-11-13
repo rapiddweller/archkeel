@@ -17,7 +17,14 @@ pub(crate) enum ReplyState {
 
 /// The state of the reply, and the reply when the store accepts it.
 pub(crate) fn answer(reply: &[u8], inflate_limit: u64) -> (ReplyState, Option<Ingested>) {
-    match archkeel_store::ingest_reply(reply, inflate_limit) {
+    collected(archkeel_store::ingest_reply(reply, inflate_limit))
+}
+
+/// The state of a reply that the store validated or refused: the bytes of a request, or the
+/// typed reply of the collector in the core process (AD-406). Both doors of the store run the
+/// same validation, so the two give the same state for the same facts.
+pub(crate) fn collected(validated: Result<Ingested, String>) -> (ReplyState, Option<Ingested>) {
+    match validated {
         Ok(ingested) => {
             let files = ingested.reply().facts.files.len();
             (ReplyState::Ingested(files), Some(ingested))

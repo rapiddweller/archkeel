@@ -155,6 +155,20 @@ AGAINST_THE_ORDER = [
     ("model", "ts-flow"),  # chain -> collector
     ("core", "rs-flow"),
     ("eval", "py-survey"),
+    ("core", "ts-entry"),  # AD-406: only collect requires a collector
+    ("report", "ts-entry"),
+    ("eval", "collect"),  # AD-406: only the core requires collect
+    ("model", "collect"),
+    ("report", "collect"),
+    ("collect", "model"),  # collect -> core chain
+    ("collect", "core"),
+    ("ts-flow", "collect"),  # collector -> collect
+    ("collect", "snapshot"),  # collect -> a base crate outside facts, store and wire
+    ("collect", "pytext"),
+    ("ts-entry", "store"),  # collector -> store
+    ("rs-flow", "store"),
+    ("py-reply", "store"),
+    ("dart-entry", "store"),
 ]
 
 

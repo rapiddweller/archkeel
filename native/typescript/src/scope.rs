@@ -19,16 +19,16 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::named_children;
 
 /// The frame of the root node. Every other frame has a parent.
-pub const ROOT: u32 = 0;
+pub(crate) const ROOT: u32 = 0;
 
 #[derive(Default)]
-pub struct Frame {
+pub(crate) struct Frame {
     parent: u32,
     names: HashMap<String, u32>,
     ambiguous: bool,
 }
 
-pub struct Frames {
+pub(crate) struct Frames {
     list: Vec<Frame>,
 }
 
@@ -41,7 +41,7 @@ struct Range {
 }
 
 /// `Frames::free_index`.
-pub struct FreeIndex<'a> {
+pub(crate) struct FreeIndex<'a> {
     bound: HashMap<&'a str, Vec<Range>>,
     blocked: Vec<bool>,
 }
@@ -49,7 +49,7 @@ pub struct FreeIndex<'a> {
 impl FreeIndex<'_> {
     /// A frame is free of `name` when it and the frames above it bind no `name` and are not
     /// ambiguous (`_script_free` over the frames of the ancestors).
-    pub fn is_free(&self, frame: u32, name: &str) -> bool {
+    pub(crate) fn is_free(&self, frame: u32, name: &str) -> bool {
         if self.blocked.get(frame as usize).copied().unwrap_or(true) {
             return false;
         }
@@ -66,7 +66,7 @@ impl FreeIndex<'_> {
 
 /// Whether a kind opens a scope that binds names (`_SCRIPT_SCOPES`), and whether it is a `var` scope
 /// (`_SCRIPT_VAR_SCOPES`).
-pub fn scope_kind(kind: K) -> Option<bool> {
+pub(crate) fn scope_kind(kind: K) -> Option<bool> {
     match kind {
         K::FunctionDeclaration
         | K::FunctionExpression
@@ -88,7 +88,7 @@ pub fn scope_kind(kind: K) -> Option<bool> {
 }
 
 /// `_SCRIPT_FUNCTIONS`.
-pub fn is_function(kind: K) -> bool {
+pub(crate) fn is_function(kind: K) -> bool {
     matches!(
         kind,
         K::FunctionDeclaration
@@ -106,13 +106,13 @@ fn frame_id(at: usize) -> u32 {
 }
 
 impl Frames {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             list: vec![Frame::default()],
         }
     }
 
-    pub fn push(&mut self, parent: u32) -> u32 {
+    pub(crate) fn push(&mut self, parent: u32) -> u32 {
         self.list.push(Frame {
             parent,
             ..Frame::default()
@@ -120,26 +120,26 @@ impl Frames {
         (self.list.len() - 1) as u32
     }
 
-    pub fn blur(&mut self, frame: u32) {
+    pub(crate) fn blur(&mut self, frame: u32) {
         if let Some(frame) = self.list.get_mut(frame as usize) {
             frame.ambiguous = true;
         }
     }
 
-    pub fn is_ambiguous(&self, frame: u32) -> bool {
+    pub(crate) fn is_ambiguous(&self, frame: u32) -> bool {
         self.list
             .get(frame as usize)
             .is_some_and(|frame| frame.ambiguous)
     }
 
-    pub fn bind(&mut self, frame: u32, name: String) {
+    pub(crate) fn bind(&mut self, frame: u32, name: String) {
         if let Some(frame) = self.list.get_mut(frame as usize) {
             *frame.names.entry(name).or_default() += 1;
         }
     }
 
     /// How many bindings of `name` the frame holds.
-    pub fn count(&self, frame: u32, name: &str) -> u32 {
+    pub(crate) fn count(&self, frame: u32, name: &str) -> u32 {
         self.list
             .get(frame as usize)
             .and_then(|frame| frame.names.get(name))
@@ -148,7 +148,7 @@ impl Frames {
     }
 
     /// The names of one frame, sorted as `sorted(bindings.get(scope))` does.
-    pub fn sorted_names(&self, frame: u32) -> Vec<String> {
+    pub(crate) fn sorted_names(&self, frame: u32) -> Vec<String> {
         let mut names: Vec<String> = self
             .list
             .get(frame as usize)
@@ -160,7 +160,7 @@ impl Frames {
 
     /// The names that the root frame binds and that another frame binds too. A write of any other
     /// name of the root has the root as its nearest binding, whatever the depth, and needs no climb.
-    pub fn shadowed_root_names(&self) -> HashSet<&str> {
+    pub(crate) fn shadowed_root_names(&self) -> HashSet<&str> {
         let root = &self.list[ROOT as usize];
         self.list[1..]
             .iter()
@@ -173,7 +173,7 @@ impl Frames {
     /// `_script_bound_scope`: the nearest frame, from `from` up, that binds `name`. The walk uses
     /// the memo; the tests compare the two.
     #[cfg(test)]
-    pub fn bound_scope(&self, from: u32, name: &str) -> Option<u32> {
+    pub(crate) fn bound_scope(&self, from: u32, name: &str) -> Option<u32> {
         let mut at = from;
         loop {
             if self.count(at, name) > 0 {
@@ -188,7 +188,7 @@ impl Frames {
 
     /// `bound_scope` with a memo. Every frame that the climb passes has the same answer, so a
     /// chain of n frames costs n steps for each name, not n steps for each write.
-    pub fn bound_scope_memo(
+    pub(crate) fn bound_scope_memo(
         &self,
         memo: &mut HashMap<String, HashMap<u32, Option<u32>>>,
         from: u32,
@@ -223,7 +223,7 @@ impl Frames {
     /// any frame and name, without a climb. The frames are numbered in document order, so the
     /// frames below a frame are the numbers up to its last descendant. A name keeps the ranges of
     /// the frames that bind it, and a frame is below a binding frame when its number is in a range.
-    pub fn free_index(&self) -> FreeIndex<'_> {
+    pub(crate) fn free_index(&self) -> FreeIndex<'_> {
         let count = self.list.len();
         let mut last: Vec<u32> = (0..count).map(frame_id).collect();
         for at in (1..count).rev() {
@@ -252,7 +252,7 @@ impl Frames {
     }
 
     /// Bind each name that `pattern` assigns; a target that is no plain name blurs the frame.
-    pub fn bind_pattern(&mut self, cx: &Cx, frame: u32, pattern: Node) {
+    pub(crate) fn bind_pattern(&mut self, cx: &Cx, frame: u32, pattern: Node) {
         for target in assignment_targets(cx, pattern) {
             let plain = matches!(
                 cx.k(target),
@@ -270,7 +270,7 @@ impl Frames {
 
 /// `_assignment_targets`: the nodes that a pattern assigns, in document order. An explicit stack
 /// replaces the recursion, so a pattern nested 30 000 levels deep gives its targets.
-pub fn assignment_targets<'t>(cx: &Cx, pattern: Node<'t>) -> Vec<Node<'t>> {
+pub(crate) fn assignment_targets<'t>(cx: &Cx, pattern: Node<'t>) -> Vec<Node<'t>> {
     let mut found = Vec::new();
     let mut pending = vec![pattern];
     while let Some(node) = pending.pop() {

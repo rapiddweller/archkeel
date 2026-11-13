@@ -14,7 +14,7 @@ use crate::source::Span;
 
 /// The facts of one file that the script analysis reads.
 #[derive(Default)]
-pub struct ScriptFile {
+pub(crate) struct ScriptFile {
     pub script: Script,
     /// The file is a global script, and no other fact in the project reads it as a module
     /// (`collect._file` clears a script that a resolver format or a `require` makes a module).
@@ -33,7 +33,7 @@ pub struct ScriptFile {
 impl ScriptFile {
     /// Take the script facts of a parsed file. `cleared` is `collect._file`'s test: the file has a
     /// resolver format, or it uses `require` or `import x = require()`.
-    pub fn take(parsed: &mut Parsed, format_known: bool, dependency_scope: bool) -> Self {
+    pub(crate) fn take(parsed: &mut Parsed, format_known: bool, dependency_scope: bool) -> Self {
         let uses_loader = parsed
             .references
             .iter()

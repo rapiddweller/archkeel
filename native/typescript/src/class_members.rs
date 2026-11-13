@@ -97,11 +97,11 @@ impl Cx<'_> {
         })
     }
 
-    pub fn decorator_sources(&self, node: Node, place: &Place) -> Vec<(String, Span)> {
+    pub(crate) fn decorator_sources(&self, node: Node, place: &Place) -> Vec<(String, Span)> {
         self.decorator_sources_in(node, &children(node), place)
     }
 
-    pub fn decorator_sources_in(
+    pub(crate) fn decorator_sources_in(
         &self,
         node: Node,
         kids: &[Node],
@@ -118,7 +118,7 @@ impl Cx<'_> {
         clippy::excessive_nesting,
         reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
     )]
-    pub fn declared_members(&self, body: Node, owner: K) -> Vec<Member> {
+    pub(crate) fn declared_members(&self, body: Node, owner: K) -> Vec<Member> {
         let (class, enumeration) = (owner == K::ClassDeclaration, owner == K::EnumDeclaration);
         let mut members = Vec::new();
         let mut properties: Vec<Member> = Vec::new();
@@ -232,7 +232,7 @@ impl Cx<'_> {
         clippy::excessive_nesting,
         reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
     )]
-    pub fn members_complete(&self, body: Option<Node>, owner: K) -> bool {
+    pub(crate) fn members_complete(&self, body: Option<Node>, owner: K) -> bool {
         let Some(body) = body else {
             return false;
         };

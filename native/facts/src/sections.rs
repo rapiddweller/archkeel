@@ -290,6 +290,39 @@ pub enum Section {
 
 impl Section {
     /// The name of the section on the wire.
+    /// The value invariants of each record of the section (`Record::invariants`). Each fact
+    /// type reads its own section (`IntoSection::records`), so a new section must list its type.
+    pub fn invariants(&self) -> Result<(), &'static str> {
+        fn each<D: IntoSection>(section: &Section) -> Result<(), &'static str> {
+            D::records(section)
+                .unwrap_or_default()
+                .iter()
+                .try_for_each(Record::invariants)
+        }
+        type Check = fn(&Section) -> Result<(), &'static str>;
+        let checks: [Check; 8] = [
+            each::<ImportFact>,
+            each::<SymbolFact>,
+            each::<CallFact>,
+            each::<ReferenceFact>,
+            each::<BindingFact>,
+            each::<ConstructFact>,
+            each::<SignalFact>,
+            each::<GapFact>,
+        ];
+        // Exhaustive on purpose: a new section fails to compile here until `checks` names it.
+        match self {
+            Section::Imports(_)
+            | Section::Symbols(_)
+            | Section::Calls(_)
+            | Section::References(_)
+            | Section::Bindings(_)
+            | Section::Constructs(_)
+            | Section::TypingSignals(_)
+            | Section::Unknowns(_) => checks.iter().try_for_each(|check| check(self)),
+        }
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             Section::Imports(_) => "imports",

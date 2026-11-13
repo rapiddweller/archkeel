@@ -16,7 +16,7 @@ use crate::scan::Kinds;
 use crate::umd::Templates;
 
 /// One grammar with the node kinds that import extraction matches.
-pub struct Grammar {
+pub(crate) struct Grammar {
     pub language: Language,
     pub kinds: Kinds,
     /// The kind of each node id, for the syntax walk.
@@ -40,14 +40,14 @@ impl Grammar {
 }
 
 /// The parser, the two grammars and their queries, built once for a collection.
-pub struct Parsers {
+pub(crate) struct Parsers {
     parser: Parser,
     typescript: Grammar,
     tsx: Grammar,
 }
 
 impl Parsers {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             parser: Parser::new(),
             typescript: Grammar::new(LANGUAGE_TYPESCRIPT.into()),
@@ -56,7 +56,7 @@ impl Parsers {
     }
 
     /// Parse with the grammar without JSX when `typescript` is set, else with the TSX grammar.
-    pub fn parse(
+    pub(crate) fn parse(
         &mut self,
         typescript: bool,
         data: &[u8],

@@ -136,6 +136,7 @@ def observer_for(
     pinned_digest: str | None = None,
     native_directory: Path | None = None,
     reply_sink: Callable[[bytes], None] | None = None,
+    request_sink: Callable[[bytes], None] | None = None,
     verify_bundled: bool = False,
 ) -> Observer:
     bundled = collector_argv is None
@@ -178,6 +179,7 @@ def observer_for(
         pinned_digest=pinned_digest if launched is not None or not bundled else None,
         bundled=launched is not None,
         reply_sink=reply_sink,
+        request_sink=request_sink,
     )
     if output_limit_bytes is not None:
         collector = replace(collector, output_limit_bytes=output_limit_bytes)

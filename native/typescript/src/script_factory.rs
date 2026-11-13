@@ -16,7 +16,7 @@ use crate::tree::nodes::named_children;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_destructures`: `const { a, b } = window.object`.
-    pub fn destructures(&self) -> Vec<ScriptDestructure> {
+    pub(crate) fn destructures(&self) -> Vec<ScriptDestructure> {
         self.collect_nodes(|node| self.destructure(node))
     }
 
@@ -87,7 +87,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_factories`: `function make() { return { a, b: x.y }; }` and what it publishes.
-    pub fn factories(&self) -> Vec<ScriptFactory> {
+    pub(crate) fn factories(&self) -> Vec<ScriptFactory> {
         self.collect_nodes(|node| self.factory(node))
     }
 

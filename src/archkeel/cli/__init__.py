@@ -1021,7 +1021,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 notes = config.scope_notes(observer.excluded_for())
                 result = replace(result, scan_roots=config.roots, notes=(*result.notes, *notes))
-                result = core.decide(result, root, config)
+                result = core.decide(result, root, config, args.config or CONFIG_PATH)
                 if architecture is not None:
                     artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.

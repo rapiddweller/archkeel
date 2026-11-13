@@ -24,7 +24,7 @@ use archkeel_snapshot::Snapshot;
 use crate::layer::CONFIG_DIRECTORY;
 
 /// What the resolver and the collector need from one TSConfig.
-pub struct Config {
+pub(crate) struct Config {
     pub options: Options,
     /// The snapshot-relative files that the config selects inside the requested roots, sorted.
     pub files: Vec<String>,
@@ -59,7 +59,7 @@ impl Layer {
     }
 
     /// `allowJs`, or `checkJs` when `allowJs` is absent.
-    pub fn allow_js(&self) -> bool {
+    pub(crate) fn allow_js(&self) -> bool {
         let flag = match self.compiler.get("allowJs") {
             Some(Value::Null) | None => self.compiler.get("checkJs"),
             found => found,
@@ -69,7 +69,7 @@ impl Layer {
 }
 
 /// `config.load_config`: the settings and the selected files of the TSConfig.
-pub fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) -> Config {
+pub(crate) fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[String]) -> Config {
     let mut problems = Vec::new();
     let own = match dirname(tsconfig) {
         "" => ".",
@@ -147,7 +147,7 @@ fn read_json(snapshot: &mut Snapshot, rel: &str) -> (Option<Map<String, Value>>,
 /// `config._strip`: replace each comment with a space, then drop each trailing comma.
 ///
 /// Each look-ahead starts only at a comment or a comma, so the work grows linearly with the text.
-pub fn strip_jsonc(text: &str) -> String {
+pub(crate) fn strip_jsonc(text: &str) -> String {
     // After one unclosed `/*`, no later `/*` can close either.
     let unclosed = Cell::new(false);
     let plain = scan(text, |rest| {

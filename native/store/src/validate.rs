@@ -14,6 +14,7 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{Facts, Profile, ProtocolVersion, Role};
 use archkeel_facts::identity::inside;
+use archkeel_facts::Section;
 
 /// The resolution features of the profiles whose records the store checks completely.
 const TYPESCRIPT_FEATURES: [&str; 8] = [
@@ -111,6 +112,18 @@ pub(crate) fn version(version: ProtocolVersion) -> Result<(), String> {
             Err("the store does not read protocol 10.0.0 replies yet (AD-334)".to_owned())
         }
     }
+}
+
+/// The value invariants of each record (`Record::invariants`): the gaps of the coverage and the
+/// records of each section. They were checks of the decode; here both doors run them (AD-406).
+pub(crate) fn invariants(facts: &Facts) -> Result<(), String> {
+    facts
+        .coverage
+        .gaps
+        .iter()
+        .try_for_each(archkeel_facts::Record::invariants)
+        .and_then(|()| facts.sections.iter().try_for_each(Section::invariants))
+        .map_err(str::to_owned)
 }
 
 /// The store checks only the replies whose every claim it can check (AD-346).

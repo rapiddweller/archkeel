@@ -13,21 +13,21 @@ use archkeel_snapshot::Snapshot;
 
 /// A value that the resolver does not observe, with its reason.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Unknown {
+pub(crate) struct Unknown {
     pub reason: String,
     /// The reason concerns package metadata inside a dependency, which a bundler decides itself.
     pub package_internal: bool,
 }
 
 impl Unknown {
-    pub fn new(reason: impl Into<String>) -> Self {
+    pub(crate) fn new(reason: impl Into<String>) -> Self {
         Self {
             reason: reason.into(),
             package_internal: false,
         }
     }
 
-    pub fn internal(reason: impl Into<String>) -> Self {
+    pub(crate) fn internal(reason: impl Into<String>) -> Self {
         Self {
             reason: reason.into(),
             package_internal: true,
@@ -37,7 +37,7 @@ impl Unknown {
 
 /// A lookup result: a hit, a reason it is not known, or no hit.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Lookup<T> {
+pub(crate) enum Lookup<T> {
     Hit(T),
     Unknown(Unknown),
     Missing,
@@ -45,7 +45,7 @@ pub enum Lookup<T> {
 
 impl<T> Lookup<T> {
     /// `Some` for a hit or an unknown; the search stops there.
-    pub fn stops(self) -> Option<Lookup<T>> {
+    pub(crate) fn stops(self) -> Option<Lookup<T>> {
         match self {
             Lookup::Missing => None,
             other => Some(other),
@@ -53,17 +53,17 @@ impl<T> Lookup<T> {
     }
 }
 
-pub type Json = Map<String, Value>;
+pub(crate) type Json = Map<String, Value>;
 
 /// `config.decode`: the text of a JSON file without its byte order marks.
-pub fn decode(raw: &[u8]) -> String {
+pub(crate) fn decode(raw: &[u8]) -> String {
     String::from_utf8_lossy(raw)
         .trim_start_matches('\u{feff}')
         .to_owned()
 }
 
 /// `Resolver._manifest`: the `package.json` of a directory.
-pub fn read(snapshot: &mut Snapshot, directory: &str) -> (Option<String>, Lookup<Json>) {
+pub(crate) fn read(snapshot: &mut Snapshot, directory: &str) -> (Option<String>, Lookup<Json>) {
     let path = join(directory, "package.json");
     let Some(raw) = snapshot.read(&path) else {
         return (None, Lookup::Missing);
@@ -81,7 +81,7 @@ pub fn read(snapshot: &mut Snapshot, directory: &str) -> (Option<String>, Lookup
 }
 
 /// Whether `exports` is truthy in JavaScript, where an empty object still counts.
-pub fn declares_exports(manifest: &Json) -> bool {
+pub(crate) fn declares_exports(manifest: &Json) -> bool {
     match manifest.get("exports") {
         None | Some(Value::Null | Value::Bool(false)) => false,
         Some(Value::String(text)) => !text.is_empty(),
@@ -91,19 +91,19 @@ pub fn declares_exports(manifest: &Json) -> bool {
 }
 
 /// `_package_type`: whether the manifest says `"type": "module"`.
-pub fn is_module(manifest: &Json) -> bool {
+pub(crate) fn is_module(manifest: &Json) -> bool {
     manifest.get("type").and_then(Value::as_str) == Some("module")
 }
 
 /// What `exports` selects for a condition set: a path, a reason, or nothing.
-pub enum Condition {
+pub(crate) enum Condition {
     Target(String),
     Unknown(Unknown),
     Nothing,
 }
 
 /// `Resolver._export_condition`: the first target that an active condition names.
-pub fn condition(value: &Value, esm: bool) -> Condition {
+pub(crate) fn condition(value: &Value, esm: bool) -> Condition {
     let object = match value {
         Value::String(text) => return Condition::Target(text.clone()),
         Value::Object(object) => object,
@@ -135,7 +135,7 @@ pub fn condition(value: &Value, esm: bool) -> Condition {
 }
 
 /// The `exports` entry for `key`, or why none can be chosen: `Ok(None)` names no entry.
-pub fn selected<'a>(
+pub(crate) fn selected<'a>(
     exports: &'a Value,
     name: &str,
     rest: &str,
@@ -171,7 +171,7 @@ pub fn selected<'a>(
 }
 
 /// `\./[^/%?#\\]+(?:/[^/%?#\\]+)*\Z` without a `.`, `..` or `node_modules` segment.
-pub fn plain_target(target: &str) -> bool {
+pub(crate) fn plain_target(target: &str) -> bool {
     let Some(rest) = target.strip_prefix("./") else {
         return false;
     };

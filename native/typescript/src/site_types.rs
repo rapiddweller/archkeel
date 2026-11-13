@@ -10,7 +10,7 @@ use crate::site_syntax::{ReceiverKind, Target};
 use crate::source::Span;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum SiteKind {
+pub(crate) enum SiteKind {
     Call,
     New,
     Reference,
@@ -27,7 +27,7 @@ impl SiteKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SiteUse {
+pub(crate) enum SiteUse {
     Type,
     Value,
     Member,
@@ -35,7 +35,7 @@ pub enum SiteUse {
 
 /// The text of a site: a node, or a receiver and a name that a reference joins with a dot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Expression {
+pub(crate) enum Expression {
     Node(Text),
     Member(Text, Text),
 }
@@ -43,7 +43,7 @@ pub enum Expression {
 /// A call, a `new` or a reference. The texts are ranges of the file and the paths and names are
 /// shared (`site_paths.rs`, `site_names.rs`), so a site costs the same for any chain around it.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Site {
+pub(crate) struct Site {
     pub kind: SiteKind,
     pub expression: Expression,
     pub span: Span,
@@ -71,7 +71,7 @@ pub struct Site {
 
 /// What every site has. `Site::new` is the one place that lists all fields; a caller sets the
 /// few that only its kind has.
-pub struct Common {
+pub(crate) struct Common {
     pub kind: SiteKind,
     pub expression: Expression,
     pub span: Span,
@@ -83,7 +83,7 @@ pub struct Common {
 }
 
 impl Site {
-    pub fn new(common: Common) -> Self {
+    pub(crate) fn new(common: Common) -> Self {
         let Common {
             kind,
             expression,
@@ -121,7 +121,7 @@ impl Site {
 
 /// A string that an equality or a `case` writes, and the definition that holds it.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Comparison {
+pub(crate) struct Comparison {
     pub span: Span,
     pub scope: Option<u32>,
 }

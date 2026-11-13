@@ -71,7 +71,7 @@ def test_ci_runs_each_native_check_test_once_in_the_native_job_or_a_corpus_leg()
     """Issue #880: the corpus tests run in parallel legs; the jobs run all of native-check."""
     jobs = _jobs("ci.yml")
     corpus = _corpus_tests()
-    assert len(corpus) == 2
+    assert len(corpus) == 3
     assert "run: make native-check NATIVE_SPLIT=1\n" in jobs["native"]
     legs = re.search(r"\n        leg: \[(.+)\]\n", jobs["native-corpus"])
     assert legs is not None
@@ -96,7 +96,7 @@ def test_each_corpus_test_names_one_collected_test() -> None:
         timeout=120,
     )
     assert collected.returncode == 0, collected.stdout + collected.stderr
-    assert re.search(r"^2 tests collected", collected.stdout, re.MULTILINE), collected.stdout
+    assert re.search(r"^3 tests collected", collected.stdout, re.MULTILINE), collected.stdout
 
 
 def test_full_builds_each_platform_wheel_on_its_own_target() -> None:

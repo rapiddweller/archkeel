@@ -28,7 +28,7 @@ struct Scope {
 type Entry = (usize, Text);
 
 #[derive(Default)]
-pub struct Names {
+pub(crate) struct Names {
     scopes: Vec<Scope>,
     /// The identifiers that are the name of their parent (`_declaration_name`), in document order.
     declared: Vec<Entry>,
@@ -38,7 +38,7 @@ pub struct Names {
 
 impl Names {
     /// Open a scope below `parent`: the chain of its sites ends here.
-    pub fn open(
+    pub(crate) fn open(
         &mut self,
         parent: Option<u32>,
         parameters: Option<(usize, usize)>,
@@ -53,12 +53,12 @@ impl Names {
     }
 
     /// An identifier that names its parent.
-    pub fn declared(&mut self, start: usize, name: Text) {
+    pub(crate) fn declared(&mut self, start: usize, name: Text) {
         self.declared.push((start, name));
     }
 
     /// A declarator or an assignment that names an identifier.
-    pub fn written(&mut self, start: usize, name: Text) {
+    pub(crate) fn written(&mut self, start: usize, name: Text) {
         self.written.push((start, name));
     }
 
@@ -72,7 +72,7 @@ impl Names {
 
     /// The names that the scopes of a chain hide, sorted and without repeats.
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-    pub fn shadowed(&self, chain: Option<u32>, data: &[u8]) -> Vec<String> {
+    pub(crate) fn shadowed(&self, chain: Option<u32>, data: &[u8]) -> Vec<String> {
         let mut names = BTreeSet::new();
         let mut next = chain;
         while let Some(scope) = next.and_then(|at| self.scopes.get(at as usize)) {
@@ -95,7 +95,7 @@ impl Names {
 /// nest, so each item keeps the list of the ranges that its ancestors do not already cover, and a
 /// question reads that short list and does one binary search in the positions of the name.
 #[derive(Default)]
-pub struct NameIndex {
+pub(crate) struct NameIndex {
     declared: HashMap<String, Vec<usize>>,
     written: HashMap<String, Vec<usize>>,
     /// For each scope, the head of its list of body ranges and of parameter ranges.
@@ -107,7 +107,7 @@ pub struct NameIndex {
 
 impl Names {
     /// Index the names of the file. `data` is the text that the positions point into.
-    pub fn index(&self, data: &[u8]) -> NameIndex {
+    pub(crate) fn index(&self, data: &[u8]) -> NameIndex {
         let mut index = NameIndex::default();
         for (list, target) in [
             (&self.declared, &mut index.declared),
@@ -165,7 +165,7 @@ impl NameIndex {
     }
 
     /// `name in site.shadowed_names` for the site whose chain ends at `chain`.
-    pub fn shadows(&self, chain: Option<u32>, name: &str) -> bool {
+    pub(crate) fn shadows(&self, chain: Option<u32>, name: &str) -> bool {
         let Some(at) = chain.map(|at| at as usize) else {
             return false;
         };

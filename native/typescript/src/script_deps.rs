@@ -25,7 +25,7 @@ use crate::source::Span;
 /// `collect._SCRIPT_ROOTS`: the names of the global object, and `top` and `parent`, which are the
 /// window outside a frame. The analysis of a use reads them as roots; the walk of a file does not,
 /// so a write through them publishes nothing, and a local variable named `parent` is no root.
-pub fn is_root(name: &str) -> bool {
+pub(crate) fn is_root(name: &str) -> bool {
     crate::source_input::is_script_root(name.as_bytes()) || FRAME_ROOTS.contains(&name)
 }
 
@@ -34,12 +34,12 @@ const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
 
 /// `ScriptRoot.unrooted`: how many leading names of a path name the global object, so that
 /// `window.self.x` is `x` (#1007).
-pub fn leading_roots(path: &[String]) -> usize {
+pub(crate) fn leading_roots(path: &[String]) -> usize {
     path.iter().take_while(|name| is_root(name)).count()
 }
 
 /// A site as the analysis reads it: a site of the file, or a name that a destructuring brings.
-pub struct Probe {
+pub(crate) struct Probe {
     pub kind: SiteKind,
     pub span: Span,
     pub path: Vec<String>,
@@ -47,13 +47,13 @@ pub struct Probe {
 }
 
 impl Probe {
-    pub fn key(&self) -> SiteKey {
+    pub(crate) fn key(&self) -> SiteKey {
         SiteKey::new(self.kind, &self.span, &self.path)
     }
 }
 
 /// The state of one analysis. The project is read; the sink is written.
-pub struct Run<'a, 'p> {
+pub(crate) struct Run<'a, 'p> {
     pub project: &'p Project<'a>,
     pub partial: bool,
     pub standard: HashSet<String>,
@@ -140,7 +140,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_dependencies`: every use of a global in the files that can use one.
-    pub fn analyze(&mut self, import_sites: &HashSet<FileSiteKey<'_>>) {
+    pub(crate) fn analyze(&mut self, import_sites: &HashSet<FileSiteKey<'_>>) {
         let loaders = self.loader_sites(import_sites);
         let project = self.project;
         for (rel, file) in &project.files {
@@ -227,7 +227,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// The publications of a name, in file order.
-    pub fn publishers(&self, name: Option<&String>) -> &'p [Publisher<'a>] {
+    pub(crate) fn publishers(&self, name: Option<&String>) -> &'p [Publisher<'a>] {
         let found = name.and_then(|name| self.project.publications.get(name.as_str()));
         found.map_or(&[][..], Vec::as_slice)
     }
@@ -293,7 +293,7 @@ impl<'a, 'p> Run<'a, 'p> {
 
     /// `_script_unbounded_effects` and `_script_runtime_effect`: the writes that no publication
     /// bounds. A gap names each, and a record is made when the reply is written.
-    pub fn effects(&mut self, all: &[Write<'a>], early: Vec<(String, Span)>) {
+    pub(crate) fn effects(&mut self, all: &[Write<'a>], early: Vec<(String, Span)>) {
         let mut pending = early;
         for (rel, file) in &self.project.files {
             let spans = file
@@ -331,21 +331,21 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// The module of a file.
-    pub fn module(&self, rel: &str) -> String {
+    pub(crate) fn module(&self, rel: &str) -> String {
         let at = self.project.index.get(rel).copied();
         at.and_then(|at| self.project.files.get(at))
             .map_or_else(String::new, |(_, file)| file.module.clone())
     }
 
     /// The file of a path; the facts of a file that the walk read.
-    pub fn file(&self, rel: &str) -> Option<&'a Kept> {
+    pub(crate) fn file(&self, rel: &str) -> Option<&'a Kept> {
         let at = self.project.index.get(rel).copied()?;
         self.project.files.get(at).map(|(_, file)| *file)
     }
 
     /// `(rel, name, span)` of every write that a script makes, an escaped object included
     /// (`_script_global_writes`).
-    pub fn global_writes(project: &Project<'a>) -> Vec<Write<'a>> {
+    pub(crate) fn global_writes(project: &Project<'a>) -> Vec<Write<'a>> {
         let mut writes: Vec<Write<'a>> = Vec::new();
         for (rel, file) in &project.files {
             let listed = file.script.script.writes.iter();

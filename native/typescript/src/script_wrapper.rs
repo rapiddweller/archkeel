@@ -14,7 +14,7 @@ use crate::tree::nodes::named_children;
 impl<'a, 't> Tree<'a, 't> {
     /// The object literal that a body returns, when one of its statements is the only `return` and
     /// returns just that object: the statement and the object.
-    pub fn only_returned_object(&self, body: Node<'t>) -> Option<(Node<'t>, Node<'t>)> {
+    pub(crate) fn only_returned_object(&self, body: Node<'t>) -> Option<(Node<'t>, Node<'t>)> {
         let mut returns = named_children(body)
             .into_iter()
             .filter(|item| self.k(*item) == K::ReturnStatement);
@@ -26,7 +26,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// Whether `_script_wrapper` finds a wrapper, without a copy of the names that it gives.
-    pub fn is_wrapper(&self, node: Node<'t>) -> bool {
+    pub(crate) fn is_wrapper(&self, node: Node<'t>) -> bool {
         if !matches!(self.k(node), K::FunctionExpression | K::ArrowFunction) {
             return false;
         }
@@ -40,7 +40,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_wrapper`: only a direct, synchronous function that the script calls once.
-    pub fn wrapper(&self, node: Node<'t>) -> Option<Wrapper<'t>> {
+    pub(crate) fn wrapper(&self, node: Node<'t>) -> Option<Wrapper<'t>> {
         if !matches!(self.k(node), K::FunctionExpression | K::ArrowFunction) {
             return None;
         }

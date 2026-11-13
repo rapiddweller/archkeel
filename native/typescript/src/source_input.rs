@@ -19,7 +19,7 @@ pub(crate) fn is_script_root(text: &[u8]) -> bool {
 
 /// The source category that one resolution pass enables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SourceKind {
+pub(crate) enum SourceKind {
     TypeScript,
     Declaration,
     JavaScript,
@@ -28,14 +28,14 @@ pub enum SourceKind {
 
 /// The loading format that a suffix or a package scope gives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ModuleFormat {
+pub(crate) enum ModuleFormat {
     Esm,
     Cjs,
 }
 
 /// `FileSuffix`: a recognized suffix, or no suffix at all.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Suffix {
+pub(crate) enum Suffix {
     Absent,
     Dts,
     Dmts,
@@ -62,7 +62,7 @@ const JSX_FAMILY: [Suffix; 5] = [Tsx, Ts, Dts, Jsx, Js];
 const RECOGNIZED: [Suffix; 12] = [Dmts, Dcts, Dts, Json, Mjs, Mts, Cjs, Cts, Tsx, Jsx, Ts, Js];
 
 impl Suffix {
-    pub fn text(self) -> &'static str {
+    pub(crate) fn text(self) -> &'static str {
         match self {
             Absent => "",
             Dts => ".d.ts",
@@ -81,7 +81,7 @@ impl Suffix {
         }
     }
 
-    pub fn source_kind(self) -> Option<SourceKind> {
+    pub(crate) fn source_kind(self) -> Option<SourceKind> {
         match self {
             Absent | Json => None,
             Dts | Dmts | Dcts | JsonDeclaration => Some(SourceKind::Declaration),
@@ -90,7 +90,7 @@ impl Suffix {
         }
     }
 
-    pub fn format_hint(self) -> Option<ModuleFormat> {
+    pub(crate) fn format_hint(self) -> Option<ModuleFormat> {
         match self {
             Dmts | Mjs | Mts => Some(ModuleFormat::Esm),
             Dcts | Cjs | Cts => Some(ModuleFormat::Cjs),
@@ -99,24 +99,24 @@ impl Suffix {
     }
 
     /// A source suffix without a format: the package scope decides the format.
-    pub fn scoped_format(self) -> bool {
+    pub(crate) fn scoped_format(self) -> bool {
         self.source_kind().is_some() && self.format_hint().is_none()
     }
 
     /// The grammar without JSX; `<T>x` assertions exist only there.
-    pub fn parser_typescript(self) -> bool {
+    pub(crate) fn parser_typescript(self) -> bool {
         matches!(
             self.source_kind(),
             Some(SourceKind::TypeScript | SourceKind::Declaration)
         ) && self != Tsx
     }
 
-    pub fn explicit_runtime(self) -> bool {
+    pub(crate) fn explicit_runtime(self) -> bool {
         matches!(self, Js | Mjs | Cjs)
     }
 
     /// The suffixes that shadow this one, best first.
-    pub fn priority(self) -> &'static [Suffix] {
+    pub(crate) fn priority(self) -> &'static [Suffix] {
         match self {
             Dts | Ts | Js | Tsx | Jsx => &PLAIN,
             Dmts | Mjs | Mts => &ESM,
@@ -137,7 +137,7 @@ impl Suffix {
     }
 
     /// The suffixes that replace this one, when the pass reads only `kinds`.
-    pub fn replacements(self, kinds: &[SourceKind]) -> Vec<Suffix> {
+    pub(crate) fn replacements(self, kinds: &[SourceKind]) -> Vec<Suffix> {
         self.family()
             .iter()
             .copied()
@@ -154,7 +154,7 @@ impl Suffix {
 }
 
 /// `classify_file`: the longest known suffix, no suffix, or `None` for an unsupported suffix.
-pub fn classify_file(name: &str) -> Option<Suffix> {
+pub(crate) fn classify_file(name: &str) -> Option<Suffix> {
     let longest = RECOGNIZED
         .iter()
         .copied()
@@ -168,7 +168,7 @@ pub fn classify_file(name: &str) -> Option<Suffix> {
 }
 
 /// `split_file`: the stem and a recognized suffix; an unsupported name has no family.
-pub fn split_file(name: &str) -> Option<(&str, Suffix)> {
+pub(crate) fn split_file(name: &str) -> Option<(&str, Suffix)> {
     match classify_file(name)? {
         Absent => None,
         suffix => Some((&name[..name.len() - suffix.text().len()], suffix)),
@@ -176,7 +176,7 @@ pub fn split_file(name: &str) -> Option<(&str, Suffix)> {
 }
 
 /// `config._shadowed`: a sibling with the same stem and a higher-priority suffix wins.
-pub fn shadowed(path: &str, known: &dyn Fn(&str) -> bool) -> bool {
+pub(crate) fn shadowed(path: &str, known: &dyn Fn(&str) -> bool) -> bool {
     let Some((stem, suffix)) = split_file(path) else {
         return false;
     };
@@ -190,7 +190,7 @@ pub fn shadowed(path: &str, known: &dyn Fn(&str) -> bool) -> bool {
 
 /// `SpecifierKind`, in the order of the Python pattern.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SpecifierKind {
+pub(crate) enum SpecifierKind {
     Current,
     Parent,
     CurrentPath,
@@ -203,7 +203,7 @@ pub enum SpecifierKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct Specifier {
+pub(crate) struct Specifier {
     pub kind: SpecifierKind,
     pub name: String,
     pub package: String,
@@ -284,7 +284,7 @@ const BUILTINS: &[&str] = &[
 const SCHEME_ONLY: [&str; 4] = ["sea", "sqlite", "test", "test/reporters"];
 
 /// `classify_specifier`: classify the reserved syntax once; the rest is open input data.
-pub fn classify_specifier(text: &str) -> Specifier {
+pub(crate) fn classify_specifier(text: &str) -> Specifier {
     let kind = if text == "." {
         SpecifierKind::Current
     } else if text == ".." {
@@ -330,24 +330,24 @@ pub fn classify_specifier(text: &str) -> Specifier {
 }
 
 impl Specifier {
-    pub fn relative_path(&self) -> bool {
+    pub(crate) fn relative_path(&self) -> bool {
         matches!(
             self.kind,
             SpecifierKind::CurrentPath | SpecifierKind::ParentPath
         )
     }
 
-    pub fn relative(&self) -> bool {
+    pub(crate) fn relative(&self) -> bool {
         self.relative_path() || matches!(self.kind, SpecifierKind::Current | SpecifierKind::Parent)
     }
 
-    pub fn builtin(&self) -> bool {
+    pub(crate) fn builtin(&self) -> bool {
         BUILTINS.contains(&self.name.as_str())
             || (self.kind == SpecifierKind::Node && SCHEME_ONLY.contains(&self.name.as_str()))
     }
 
     /// Whether `package` is a registry-shaped name; a project alias such as `@/lib` is not.
-    pub fn npm_package(&self) -> bool {
+    pub(crate) fn npm_package(&self) -> bool {
         let shaped = |name: &str| {
             let mut chars = name.chars();
             chars
@@ -376,7 +376,7 @@ const ASSET_SUFFIXES: &[&str] = &[
 const ASSET_QUERIES: &[&str] = &["url", "raw", "inline", "worker", "sharedworker"];
 
 /// `posixpath.splitext`: the extension of the last component; leading dots do not count.
-pub fn splitext(path: &str) -> (&str, &str) {
+pub(crate) fn splitext(path: &str) -> (&str, &str) {
     let slash = path.rfind('/').map_or(0, |index| index + 1);
     let Some(dot) = path.rfind('.').filter(|dot| *dot >= slash) else {
         return (path, "");
@@ -390,7 +390,7 @@ pub fn splitext(path: &str) -> (&str, &str) {
 /// `classify_asset`: the path of a specifier that a bundler loads as an asset, else `None`.
 ///
 /// A query alone never turns a source file (`./w.ts?worker`) into an asset.
-pub fn classify_asset(specifier: &str) -> Option<&str> {
+pub(crate) fn classify_asset(specifier: &str) -> Option<&str> {
     let (path, query) = specifier.split_once('?').unwrap_or((specifier, ""));
     if ASSET_SUFFIXES.contains(&splitext(path).1) {
         return Some(path);
@@ -406,7 +406,7 @@ mod tests;
 
 /// The options that can map a name to a file of the project (#976, #988).
 #[derive(Clone, Copy)]
-pub struct Reach {
+pub(crate) struct Reach {
     /// `paths` or `baseUrl` is set.
     pub aliased: bool,
     /// A type root may lie inside the project.

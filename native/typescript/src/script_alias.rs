@@ -18,10 +18,10 @@ use crate::source::Span;
 use crate::tree::nodes::children;
 
 /// The calls, the reads and the escapes of a factory alias.
-pub type Uses = (Vec<Span>, Vec<Span>, Vec<Vec<String>>);
+pub(crate) type Uses = (Vec<Span>, Vec<Span>, Vec<Vec<String>>);
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
-    pub fn optional_chain(&self, node: Node<'t>) -> bool {
+    pub(crate) fn optional_chain(&self, node: Node<'t>) -> bool {
         children(node)
             .into_iter()
             .any(|child| self.tree.k(child) == K::OptionalChain)
@@ -185,7 +185,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_aliases`: `const name = window.member` and `const name = window.make()`.
-    pub fn aliases(&self) -> Vec<ScriptAlias> {
+    pub(crate) fn aliases(&self) -> Vec<ScriptAlias> {
         self.collect_nodes(|node| self.alias(node))
     }
 

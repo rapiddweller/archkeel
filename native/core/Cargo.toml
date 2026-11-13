@@ -18,6 +18,7 @@ name = "archkeel-core"
 path = "src/main.rs"
 
 [dependencies]
+archkeel-collect = { path = "../collect" }
 archkeel-contract = { path = "../contract" }
 archkeel-eval = { path = "../eval" }
 archkeel-model = { path = "../model" }

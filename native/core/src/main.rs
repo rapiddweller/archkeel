@@ -6,8 +6,9 @@
 //!
 //! The one process after the collector. It takes typed requests (`request`): the contract bytes,
 //! the collector reply and the sections to write. Today it speaks the engine command of the dual
-//! run (`archkeel-core dual-run`, AD-360) and the check request of the shell (`archkeel-core check`,
-//! AD-390). It decides the rule kinds of slice S1
+//! run (`archkeel-core dual-run`, AD-360), the check request of the shell (`archkeel-core check`,
+//! AD-390) and the scan request (`archkeel-core scan`, AD-406): for it the core runs the linked
+//! collector in its own process through `archkeel-collect` and takes no reply bytes. It decides the rule kinds of slice S1
 //! (`complete_assignment`, `root_layout`; AD-370) and S2 (`external_dependency_scope`,
 //! `complete_external_scope`; AD-372) and writes their `violations` rows; each part
 //! that no slice has ported answers with its name. The shell takes a verdict from a check frame only
@@ -28,6 +29,7 @@ mod ingest;
 mod report;
 mod request;
 mod rules;
+mod scan;
 mod sections;
 mod topology;
 
@@ -39,14 +41,17 @@ use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    // Two request kinds and one engine path: the dual run of the harness (AD-360) and the check
-    // request of the shell (AD-390).
+    // Three request kinds and one engine path: the dual run of the harness (AD-360), the check
+    // request of the shell (AD-390) and the scan request, for which the core runs the collector in
+    // its own process (AD-406).
     let answer: Answer = match arguments.as_slice() {
         [kind] if kind == "dual-run" => dual_run::answer,
         [kind] if kind == "check" => check::answer,
+        [kind] if kind == "scan" => scan::answer,
         _ => {
             eprintln!(
-                "usage: archkeel-core dual-run|check  (a JSON request on stdin, AD-360, AD-390)"
+                "usage: archkeel-core dual-run|check|scan  (a JSON request on stdin, AD-360, AD-390, \
+                 AD-406)"
             );
             return ExitCode::from(2);
         }

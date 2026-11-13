@@ -12,7 +12,7 @@
 use archkeel_snapshot::paths::normpath;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Usage {
+pub(crate) enum Usage {
     Files,
     Directories,
     Exclude,
@@ -35,14 +35,14 @@ const RESERVED: [&str; 3] = ["node_modules", "bower_components", "jspm_packages"
 
 /// One compiled include or exclude spec.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Pattern {
+pub(crate) struct Pattern {
     usage: Usage,
     parts: Vec<Part>,
 }
 
 impl Pattern {
     /// Compile a snapshot-relative spec; `None` when an include ends in `**`.
-    pub fn new(spec: &str, usage: Usage) -> Option<Self> {
+    pub(crate) fn new(spec: &str, usage: Usage) -> Option<Self> {
         let path = normpath(&format!("/{spec}"));
         let mut names: Vec<&str> = path.split('/').skip(1).filter(|n| !n.is_empty()).collect();
         let last = names.last().copied().unwrap_or("");
@@ -65,7 +65,7 @@ impl Pattern {
     }
 
     /// Whether the pattern selects the root-anchored `path`.
-    pub fn matches(&self, path: &str) -> bool {
+    pub(crate) fn matches(&self, path: &str) -> bool {
         let names: Vec<&str> = path.split('/').filter(|n| !n.is_empty()).collect();
         match self.usage {
             Usage::Files => self.full(&self.parts, &names),

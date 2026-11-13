@@ -31,7 +31,7 @@ use crate::symbols;
 
 /// What the producer holds before the first record is written: the targets of the imports, the
 /// table of symbols and the evidence, which the records cite while they are written.
-pub struct Plan<'p> {
+pub(crate) struct Plan<'p> {
     pending: &'p Pending,
     table: SymbolTable<'p>,
     imports: Imports,
@@ -46,7 +46,7 @@ pub struct Plan<'p> {
 /// each section to a sink. The stream of the reply and the lists of the tests and the dump both run
 /// this code, so a record that it drops or changes is dropped or changed in both. `track` keeps the
 /// ids of the cited evidence, which only the dump needs.
-pub fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, Plan<'_>) {
+pub(crate) fn plan(mut facts: Facts, pending: &Pending, track: bool) -> (Head, Plan<'_>) {
     let mut cited = Cited::owning(std::mem::take(&mut facts.evidence), track);
     let mut expanded = Records::default();
     expand(&facts, pending, &mut cited, &mut expanded);
@@ -99,7 +99,7 @@ impl Plan<'_> {
     /// the references are made and given one at a time, so the records of a project are never alive
     /// together. The evidence is cited in the order of Python: imports, symbols, calls, references,
     /// constructs. The tail has the evidence; the second value has the ids that the records cited.
-    pub fn write(mut self, sink: &mut impl SectionSink) -> io::Result<(Tail, Vec<String>)> {
+    pub(crate) fn write(mut self, sink: &mut impl SectionSink) -> io::Result<(Tail, Vec<String>)> {
         let Self {
             pending,
             table,
@@ -172,7 +172,7 @@ fn sections() -> Vec<&'static str> {
 }
 
 /// The reply of the facts of a request, written into `out` (a compressed 8.0.0 or 9.0.0 reply).
-pub fn write_reply(
+pub(crate) fn write_reply(
     version: Version,
     facts: Facts,
     pending: &Pending,
@@ -182,6 +182,17 @@ pub fn write_reply(
     encode_stream(version, head, out, |writer| {
         plan.write(writer).map(|(tail, _)| tail)
     })
+}
+
+/// The typed reply of the facts of a request (AD-406): the same plan and the same sections as
+/// `write_reply`, given to the typed sink of the wire instead of the compressor.
+pub(crate) fn typed_reply(
+    version: Version,
+    facts: Facts,
+    pending: &Pending,
+) -> Result<archkeel_facts::envelope::Reply, String> {
+    let (head, plan) = plan(facts, pending, false);
+    archkeel_wire::typed::assemble(version, head, |sink| plan.write(sink).map(|(tail, _)| tail))
 }
 
 #[cfg(test)]

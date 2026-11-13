@@ -11,14 +11,14 @@ use archkeel_snapshot::paths::{is_outside, join};
 
 /// A vendored library: its source and the file that says where it came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ScriptProvider {
+pub(crate) struct ScriptProvider {
     pub source: String,
     pub provenance: String,
 }
 
 /// The script environment that a project declares.
 #[derive(Clone, Debug, Default)]
-pub struct ScriptEnvironment {
+pub(crate) struct ScriptEnvironment {
     /// An explicit classic browser has neither CommonJS nor AMD loader globals.
     pub classic_browser: bool,
     pub providers: Vec<ScriptProvider>,
@@ -38,7 +38,10 @@ fn is_snapshot_path(path: &Value) -> bool {
 }
 
 /// `config._script_environment`.
-pub fn read(raw: Option<&Map<String, Value>>, problems: &mut Vec<String>) -> ScriptEnvironment {
+pub(crate) fn read(
+    raw: Option<&Map<String, Value>>,
+    problems: &mut Vec<String>,
+) -> ScriptEnvironment {
     let Some(found) = raw
         .and_then(|raw| raw.get("archkeel"))
         .filter(|v| !v.is_null())

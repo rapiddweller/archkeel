@@ -61,7 +61,7 @@ fn a_reply_of_the_collector_of_this_build_is_decided_without_a_gap() {
     assert!(!names_a_gap);
     // The frame names no report part: the check request asks for no report payload.
     assert_eq!(got["unsupported"]["report"], Value::Null);
-    assert_eq!(got["rules"].as_object().map_or(0, |rules| rules.len()), 43);
+    assert_eq!(got["rules"].as_object().map_or(0, |rules| rules.len()), 79);
     // The contract does not fit this reply: each rule is a decided UNKNOWN with its reason.
     assert_eq!(got["status"], "UNKNOWN");
 }

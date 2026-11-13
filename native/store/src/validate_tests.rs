@@ -49,8 +49,19 @@ pub(crate) fn compressed(value: &Value) -> Vec<u8> {
     encoder.finish().unwrap_or_default()
 }
 
+/// The refusal of the byte door; the typed door (`ingest_typed`, AD-406) must give the same one.
 fn error_of(value: &Value) -> String {
-    ingest(&compressed(value), LIMIT).err().unwrap_or_default()
+    let bytes = ingest(&compressed(value), LIMIT).err().unwrap_or_default();
+    assert_eq!(typed_error_of(value), bytes, "the two front doors differ");
+    bytes
+}
+
+/// The refusal of the typed door: the decode of the value, then `ingest_typed`.
+fn typed_error_of(value: &Value) -> String {
+    match serde_json::from_value::<archkeel_facts::envelope::Reply>(value.clone()) {
+        Ok(reply) => crate::ingest_typed(reply).err().unwrap_or_default(),
+        Err(error) => error.to_string(),
+    }
 }
 
 fn section(value: &mut Value, name: &str) -> Option<usize> {
@@ -189,4 +200,88 @@ fn a_reply_of_protocol_10_is_refused_until_a_native_python_reply_can_pass() {
         error,
         "the store does not read protocol 10.0.0 replies yet (AD-334)"
     );
+}
+
+#[test]
+fn the_typed_door_accepts_the_frozen_reply_and_refuses_a_planted_record() {
+    assert_eq!(typed_error_of(&reply()), "");
+    // A record that the byte door refuses: an import that cites evidence of no input.
+    let mut value = reply();
+    records(&mut value, "imports")[0]["evidence_ids"] = json!(["EVD-planted"]);
+    let refused = typed_error_of(&value);
+    assert!(!refused.is_empty());
+    assert_eq!(
+        refused,
+        ingest(&compressed(&value), LIMIT).err().unwrap_or_default()
+    );
+    // A protocol 10 reply is refused by the typed door too.
+    let mut value = reply();
+    value["protocol_version"] = json!("10.0.0");
+    assert_eq!(
+        typed_error_of(&value),
+        "the store does not read protocol 10.0.0 replies yet (AD-334)"
+    );
+}
+
+/// AD-406 review F1: the decode-time refusals of the byte door, enumerated from the code. The
+/// decode of a reply has 6 refusals of its own (`Error::custom` in `archkeel-facts` and `decode.rs`
+/// aside, which read bytes): `NoEntries` that is not empty (`envelope.rs`), a kind outside its fact
+/// data (`macros.rs`), a gap kind that is not known (`sections.rs`), `rule_ids` or `provenance`
+/// that is not empty (`record.rs`, two keys), and an analyzer failure outside the area
+/// `analysis_coverage` (`record.rs`). Only the last one is a state that a typed value can hold;
+/// the other five, and the missing, repeated and unknown keys and words of serde, have no typed
+/// form. Its check is a value invariant of the record (`Record::invariants`), which the one
+/// validation of the store runs for both doors. Each typed value below is changed after the
+/// decode and goes to the typed door without a second decode.
+#[test]
+fn each_decode_time_refusal_that_a_typed_value_can_hold_is_refused_by_both_doors() {
+    use archkeel_facts::envelope::{ProtocolVersion, Reply};
+    use archkeel_facts::vocab::{Area, ExceptionName};
+    use archkeel_facts::{GapFact, Section};
+
+    fn failure(gap: &mut archkeel_facts::Record<GapFact>) {
+        let data = match &gap.data {
+            GapFact::CollectionGap(data)
+            | GapFact::SourceResolutionGap(data)
+            | GapFact::DynamicImportLimit(data)
+            | GapFact::PrivateAttributeAccessLimit(data)
+            | GapFact::ExceptionGap { data, .. } => data.clone(),
+        };
+        gap.data = GapFact::ExceptionGap {
+            exception: ExceptionName::SyntaxError,
+            data,
+        };
+        gap.area = Area::Source;
+    }
+    type Change = fn(&mut Reply);
+    let cases: [(&str, Change); 2] = [
+        (
+            "an analyzer failure has the area analysis_coverage",
+            |reply| {
+                let facts = &mut reply.facts;
+                let id = facts.coverage.gaps[0].id.clone();
+                failure(&mut facts.coverage.gaps[0]);
+                for section in &mut facts.sections {
+                    if let Section::Unknowns(records) = section {
+                        records.iter_mut().filter(|r| r.id == id).for_each(failure);
+                    }
+                }
+            },
+        ),
+        (
+            "the store does not read protocol 10.0.0 replies yet (AD-334)",
+            |reply| reply.protocol_version = ProtocolVersion::V10,
+        ),
+    ];
+    let decoded: Reply = serde_json::from_value(golden("f-typescript-story")).unwrap();
+    assert_eq!(crate::ingest_typed(decoded.clone()).err(), None);
+    for (reason, change) in cases {
+        let mut typed = decoded.clone();
+        change(&mut typed);
+        let bytes = compressed(&serde_json::to_value(&typed).unwrap());
+        let byte_door = ingest(&bytes, LIMIT).err().unwrap_or_default();
+        let typed_door = crate::ingest_typed(typed).err().unwrap_or_default();
+        assert_eq!(typed_door, reason);
+        assert_eq!(byte_door, reason);
+    }
 }

@@ -14,7 +14,7 @@ use serde_json::Value;
 
 /// The facts of one collection, in the order the reply writes them.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Facts {
+pub(crate) struct Facts {
     pub provenance: Provenance,
     pub git_head: String,
     pub dirty: Value,
@@ -35,11 +35,11 @@ pub struct Facts {
 }
 
 /// An import record of archkeel-facts (AD-345).
-pub type ImportRecord = Record<ImportFact>;
+pub(crate) type ImportRecord = Record<ImportFact>;
 
 /// The records of this phase, as the Python collector builds them.
 #[derive(Default)]
-pub struct Records {
+pub(crate) struct Records {
     /// All import records, sorted by id: a statement with bound names is replaced by one record for
     /// each name.
     pub imports: Vec<ImportRecord>,
@@ -71,7 +71,7 @@ pub(crate) fn sorted(mut values: Vec<String>) -> Vec<String> {
 }
 
 /// The typed import records of the facts.
-pub fn import_section(facts: &Facts) -> &[ImportRecord] {
+pub(crate) fn import_section(facts: &Facts) -> &[ImportRecord] {
     facts
         .sections
         .iter()

@@ -21,7 +21,7 @@ type Pattern<'t> = (Node<'t>, Node<'t>);
 impl<'a, 't> Tree<'a, 't> {
     /// `_script_bindings`: the names that each scope binds, and the scopes that are not statically
     /// known. `nodes` is the whole tree, or the nodes that a closed envelope selects.
-    pub fn bind(&mut self, nodes: &[Node<'t>], imports: &[ImportBinding]) {
+    pub(crate) fn bind(&mut self, nodes: &[Node<'t>], imports: &[ImportBinding]) {
         let mut patterns: Vec<Pattern<'t>> = Vec::new();
         for node in nodes.iter().copied() {
             self.patterns_of(node, &mut patterns);
@@ -142,7 +142,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_callable_bindings`: the names that bind a function or a class, with their scope.
-    pub fn callable_bindings(&self) -> HashSet<(usize, String)> {
+    pub(crate) fn callable_bindings(&self) -> HashSet<(usize, String)> {
         let mut result = HashSet::new();
         for node in self.nodes.iter().copied() {
             if let Some((scope, name)) = self.callable_binding(node) {

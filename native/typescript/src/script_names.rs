@@ -29,7 +29,7 @@ impl<'a, 't> Tree<'a, 't> {
     /// `_script_bound_scope`: the nearest ancestor that binds the name. The scopes that bind a name
     /// are a list in document order with links to the scope that holds each; the nearest ancestor
     /// is the last scope that starts before the node, or the first of its links that holds it.
-    pub fn bound_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
+    pub(crate) fn bound_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
         let at = u32::try_from(self.pos(node)?).ok()?;
         let list = self.names_index.get(name)?;
         let mut found = list
@@ -86,14 +86,14 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `name in bindings.get(scope, ())`.
-    pub fn binds(&self, scope: Node, name: &str) -> bool {
+    pub(crate) fn binds(&self, scope: Node, name: &str) -> bool {
         self.bindings
             .get(&scope.id())
             .is_some_and(|names| names.contains_key(name))
     }
 
     /// `bindings[scope][name]`, zero when there is none.
-    pub fn count(&self, scope: Node, name: &str) -> u32 {
+    pub(crate) fn count(&self, scope: Node, name: &str) -> u32 {
         self.bindings
             .get(&scope.id())
             .and_then(|names| names.get(name))

@@ -35,6 +35,10 @@ CARGO = {
     "eval": 'archkeel-eval = { path = "../eval" }',
     "model": 'archkeel-model = { path = "../model" }',
     "core": 'archkeel-core = { path = "../core" }',
+    "typescript": 'archkeel-typescript-collector = { path = "../typescript" }',
+    "collect": 'archkeel-collect = { path = "../collect" }',
+    "contract": 'archkeel-contract = { path = "../contract" }',
+    "store": 'archkeel-store = { path = "../store" }',
     "facts": "archkeel-facts.workspace = true",
     "toml": "toml.workspace = true",
     "syn": "syn.workspace = true",
@@ -48,6 +52,10 @@ ITEM = {
     "eval": "archkeel_eval::evaluate",
     "model": "archkeel_model::Model",
     "core": "archkeel_core::run",
+    "typescript": "archkeel_typescript_collector::provenance",
+    "collect": "archkeel_collect::scan",
+    "contract": "archkeel_contract::parse",
+    "store": "archkeel_store::ingest_reply",
 }
 CHAIN_RULES = [
     ("eval", "report"),
@@ -60,7 +68,26 @@ CHAIN_RULES = [
     ("model", "core"),
     ("eval", "core"),
     ("report", "core"),
+    # AD-406: only archkeel-collect links a collector, and only the core uses archkeel-collect.
+    ("core", "typescript"),
+    ("eval", "typescript"),
+    ("model", "typescript"),
+    ("report", "typescript"),
+    ("eval", "collect"),
+    ("model", "collect"),
+    ("report", "collect"),
+    # AD-406 review F4: collect uses only facts, store, wire and the collectors; a collector uses
+    # no store and no crate of the core side.
+    *[("collect", target) for target in ("contract", "model", "eval", "report", "core")],
+    *[
+        (collector, target)
+        for collector in ("typescript", "rust", "python", "dart")
+        for target in ("store", "model", "eval", "report", "core", "collect")
+    ],
 ]
+COLLECTORS = ("typescript", "rust", "python", "dart")
+# The component label of a planted target crate whose label is not its crate name.
+LABEL = {"typescript": "ts-entry", "rust": "rs-entry", "python": "py-entry", "dart": "dart-entry"}
 # (crate, Cargo key, file text, rule): plants of the external and requires rules.
 OTHER = [
     ("eval", "toml", "pub use toml::Table;\n", "NATIVE-EXTERNAL-TOML"),
@@ -132,8 +159,8 @@ def _plant(native: Path, crate: str, cargo: str, name: str, text: str) -> str:
     line = CARGO[cargo]
     if line not in manifest.read_text():
         manifest.write_text(manifest.read_text().replace(DEPENDENCY, f"{DEPENDENCY}{line}\n", 1))
-    root = native / crate / "src" / ("main.rs" if crate in {"core", "typescript"} else "lib.rs")
-    if crate == "typescript":  # a new module of a collector has no owner: plant in the entry
+    root = native / crate / "src" / ("main.rs" if crate in {"core", *COLLECTORS} else "lib.rs")
+    if crate in COLLECTORS:  # a new module of a collector has no owner: plant in the entry
         root.write_text(f"{root.read_text()}\n{text}")
         return f"native/{crate}/src/main.rs"
     root.write_text(f"{root.read_text()}\nmod {name};\n")
@@ -169,7 +196,9 @@ def _with_requires(native: Path) -> list[Plant]:
     parts = {part["label"]: part for part in contract["components"]}
     plants = []
     for number, (source, target) in enumerate(CHAIN_RULES):
-        parts[source].setdefault("requires", []).append({"component": target, "rationale": "x"})
+        label = LABEL.get(target, target)
+        part = parts[LABEL.get(source, source)]
+        part.setdefault("requires", []).append({"component": label, "rationale": "x"})
         text = f"pub use {ITEM[target]} as planted;\n"
         plants.append((_rule(source, target), _plant(native, source, target, f"p_{number}", text)))
     path.write_text(json.dumps(contract, indent=2))

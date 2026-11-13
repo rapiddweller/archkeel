@@ -256,7 +256,7 @@ jobs:
       fail-fast: false
       matrix:
         # One leg for each test of NATIVE_CORPUS_TESTS in the Makefile.
-        leg: [1, 2]
+        leg: [1, 2, 3]
     runs-on: ubuntu-24.04
     # Each corpus test runs the Python engine on all dual-run cases. The limit only stops a hung job.
     timeout-minutes: 30

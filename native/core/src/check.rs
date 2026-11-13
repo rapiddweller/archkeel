@@ -72,10 +72,12 @@ struct ContractJson {
 /// The frame of one check request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let request: CheckRequest = dual_run::decode(input, PROTOCOL)?;
-    let reply = request
-        .reply
-        .map(|reply| dual_run::hex(&reply.hex))
-        .transpose()?;
+    let reply = dual_run::ReplyInput::bytes(
+        request
+            .reply
+            .map(|reply| dual_run::hex(&reply.hex))
+            .transpose()?,
+    );
     let base = request
         .base
         .map(|base| dual_run::hex(&base.reply.hex))
@@ -100,6 +102,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         report: false,
         base,
         trust: Box::new(stage_one_shell_trust),
+        collect: None,
     })
 }
 

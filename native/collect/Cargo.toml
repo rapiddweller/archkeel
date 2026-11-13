@@ -1,0 +1,30 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "archkeel-collect"
+description = "The composition of Archkeel between the core and the collectors: the one crate that names a language (AD-406)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# AD-406: the core links the collectors only through this crate. It reads the configuration of the
+# repository, derives the collection request, runs the linked collector in the process of the core
+# and gives the store its typed reply. Each other profile and a configured collector are refused by
+# name.
+[dependencies]
+archkeel-facts.workspace = true
+archkeel-store = { path = "../store" }
+archkeel-typescript-collector = { path = "../typescript" }
+archkeel-wire.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true
+
+[lints]
+workspace = true

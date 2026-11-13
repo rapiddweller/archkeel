@@ -15,7 +15,7 @@ use crate::kinds::K;
 use crate::tree::cx::Cx;
 
 /// The functions that a return statement belongs to: the four kinds that a wrapper can be.
-pub fn is_function_like(kind: K) -> bool {
+pub(crate) fn is_function_like(kind: K) -> bool {
     matches!(
         kind,
         K::FunctionDeclaration | K::FunctionExpression | K::ArrowFunction | K::MethodDefinition
@@ -26,7 +26,7 @@ pub fn is_function_like(kind: K) -> bool {
 /// the low bits that a table indexes by. The default hasher is slower and has no use for the
 /// protection that it gives against chosen keys: the ids are not chosen by the input.
 #[derive(Default)]
-pub struct IdHasher(u64);
+pub(crate) struct IdHasher(u64);
 
 impl Hasher for IdHasher {
     fn finish(&self) -> u64 {
@@ -47,7 +47,7 @@ impl Hasher for IdHasher {
 }
 
 /// A map by the id of a node.
-pub type IdMap<V> = HashMap<usize, V, BuildHasherDefault<IdHasher>>;
+pub(crate) type IdMap<V> = HashMap<usize, V, BuildHasherDefault<IdHasher>>;
 
 /// The position of the parent of the root, and of a node that is not recorded.
 pub(crate) const NONE: u32 = u32::MAX;
@@ -75,7 +75,7 @@ fn is_type_parent(kind: K) -> bool {
 
 /// The named nodes in document order, with what a pass over them needs.
 #[derive(Default)]
-pub struct Layout<'t> {
+pub(crate) struct Layout<'t> {
     pub(crate) nodes: Vec<Node<'t>>,
     /// The position of each node by its id.
     pub(crate) position: IdMap<usize>,
@@ -91,7 +91,13 @@ impl<'t> Layout<'t> {
     /// Enter a node whose parent was recorded at `parent` (`NONE` for the root, or for a parent
     /// that was not recorded). Only a named node of a recorded parent is recorded. Returns the
     /// position of the node, or `NONE`; hand it to `leave`.
-    pub fn enter(&mut self, cx: &Cx, node: Node<'t>, named: bool, parent: Option<u32>) -> u32 {
+    pub(crate) fn enter(
+        &mut self,
+        cx: &Cx,
+        node: Node<'t>,
+        named: bool,
+        parent: Option<u32>,
+    ) -> u32 {
         let up = match parent {
             Some(NONE) => return NONE,
             Some(at) => at,
@@ -111,7 +117,7 @@ impl<'t> Layout<'t> {
     }
 
     /// The node at `at` is left: its subtree ends here.
-    pub fn leave(&mut self, at: u32) {
+    pub(crate) fn leave(&mut self, at: u32) {
         let end = u32::try_from(self.nodes.len()).unwrap_or(NONE);
         if let Some(slot) = self.ends.get_mut(at as usize) {
             *slot = end;
@@ -158,7 +164,7 @@ impl<'t> Layout<'t> {
 
     /// The layout of a tree that no walk has visited: one pass with a cursor, so a tree that is
     /// nested 30 000 levels deep does not overflow the call stack.
-    pub fn of(cx: &Cx, root: Node<'t>) -> Self {
+    pub(crate) fn of(cx: &Cx, root: Node<'t>) -> Self {
         let mut layout = Self::default();
         let mut open: Vec<u32> = Vec::new();
         let mut cursor: TreeCursor<'t> = root.walk();

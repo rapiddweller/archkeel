@@ -12,7 +12,7 @@ use crate::script_scope::{Tree, NONE};
 impl<'a, 't> Tree<'a, 't> {
     /// For each position, the position of the nearest node above it that `pick` accepts, or `NONE`. A parent comes before its
     /// children in the document order, so the answer of a node is read from its parent.
-    pub fn nearest_above(&self, pick: impl Fn(Node<'t>) -> bool) -> Vec<u32> {
+    pub(crate) fn nearest_above(&self, pick: impl Fn(Node<'t>) -> bool) -> Vec<u32> {
         let mut found: Vec<u32> = Vec::with_capacity(self.nodes.len());
         for above in &self.parents {
             let parent = self.nodes.get(*above as usize).filter(|_| *above != NONE);
@@ -29,7 +29,7 @@ impl<'a, 't> Tree<'a, 't> {
     /// The node is, through members, subscripts and parentheses, the function of a call or the
     /// constructor of a `new`. The answer of a node is the answer of the node above it, so the
     /// answers of a chain of n subscripts cost n and not n squared.
-    pub fn leads_to_call(&self, node: Node<'t>) -> bool {
+    pub(crate) fn leads_to_call(&self, node: Node<'t>) -> bool {
         let mut memo = self.memo.borrow_mut();
         if memo.calls.len() != self.nodes.len() {
             memo.calls = vec![0; self.nodes.len()];

@@ -24,13 +24,13 @@ use crate::source::FileSiteKey;
 use crate::symbol_table::{Entry, SymbolTable};
 
 /// What a local import binds: `(target module, imported name, namespace, type only)`.
-pub type Bound = (String, String, bool, bool);
+pub(crate) type Bound = (String, String, bool, bool);
 
 /// The local imports of each module, by the local name (`_local_import_bindings`).
-pub type Imports = HashMap<(String, String), Vec<Bound>>;
+pub(crate) type Imports = HashMap<(String, String), Vec<Bound>>;
 
 /// `_local_import_bindings`: a binding is found by the position of its statement.
-pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
+pub(crate) fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
     let by_site: HashMap<FileSiteKey<'_>, &str> = pending
         .sites
         .iter()
@@ -68,7 +68,7 @@ pub fn local_imports(pending: &Pending, facts: &Facts) -> Imports {
 }
 
 /// What the resolver found for one site.
-pub struct Resolved {
+pub(crate) struct Resolved {
     pub candidates: Vec<String>,
     pub status: Status,
     pub reason: Option<&'static str>,
@@ -84,7 +84,7 @@ fn fits(kind: SiteKind, definition: DefinitionKind) -> bool {
 }
 
 /// The inputs that the resolution of all sites shares.
-pub struct Resolver<'a> {
+pub(crate) struct Resolver<'a> {
     pub table: &'a SymbolTable<'a>,
     pub imports: &'a Imports,
 }
@@ -139,7 +139,7 @@ impl Resolver<'_> {
     }
 
     /// `_site_resolution`. `script` is what the script analysis resolved the site to, if it did.
-    pub fn resolve(
+    pub(crate) fn resolve(
         &self,
         kept: &Kept,
         module: &str,

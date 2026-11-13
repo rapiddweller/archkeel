@@ -57,6 +57,10 @@ class GapKind(StrEnum):
     PYTHON_INCOMPLETE = "python_incomplete"
     REPLIES = "replies"
     EXTERNAL_COLLECTOR = "external_collector"
+    # AD-406: the scan request: the core did not run the collector, or it derived another
+    # request than the shell sent to its collector.
+    COLLECT = "collect"
+    REQUEST_DIFFERS = "request_differs"
 
 
 class Switch(StrEnum):
@@ -79,6 +83,11 @@ class _ReplyRead(StrEnum):
     ABSENT = "absent"
 
 
+class _CollectRead(StrEnum):
+    REQUEST = "request"
+    REFUSED = "refused"
+
+
 _Word = TypeVar("_Word", bound=StrEnum)
 # The exit codes of the core: a frame without a named part, and a frame that names one.
 DECIDED_EXIT: Final = 0
@@ -99,6 +108,8 @@ _FIELDS: Final = frozenset(
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
+# AD-406: the self-test of a scan frame has the `collect` part too.
+_SCAN: Final = frozenset({"collect"})
 # The first words of each reason of the core (`native/model/src/reason.rs`, `core/src/check.rs`,
 # `core/src/base.rs`).
 # They classify a gap for the fall-back note and the measurement; they decide nothing.
@@ -149,6 +160,8 @@ class CoreFrame:
     gaps: tuple[Gap, ...]
     # The inside contracts that the core asks the shell to send (AD-379).
     missing: tuple[str, ...]
+    # AD-406: the JSON text of the collection request that the core derived for a scan request.
+    derived: str | None = None
 
     @property
     def decided(self) -> bool:
@@ -268,7 +281,9 @@ def _reply_gaps(value: object) -> list[Gap]:
     return [Gap(kind, "reply", _text(found, f"self_test.reply.{tag}"))]
 
 
-def _gaps(frame: Mapping[str, object]) -> tuple[tuple[Gap, ...], tuple[str, ...]]:
+def _gaps(
+    frame: Mapping[str, object], scan: bool
+) -> tuple[tuple[Gap, ...], tuple[str, ...], str | None]:
     unsupported = _fields(frame["unsupported"], "unsupported", _UNSUPPORTED)
     gaps: list[Gap] = []
     named = unsupported["rules"]
@@ -282,9 +297,19 @@ def _gaps(frame: Mapping[str, object]) -> tuple[tuple[Gap, ...], tuple[str, ...]
     if unsupported["report"] is not None:
         report = _text(unsupported["report"], "unsupported.report")
         gaps.append(Gap(GapKind.REPORT, "report", report))
-    test = _fields(frame["self_test"], "self_test", _SELF_TEST)
+    test = _fields(frame["self_test"], "self_test", _SELF_TEST | _SCAN if scan else _SELF_TEST)
     contract, missing = _contract_gaps(test["contract"])
-    return (*gaps, *contract, *_reply_gaps(test["reply"])), missing
+    # AD-406: the `collect` part of a scan frame: the derived request, or the refusal.
+    collected: list[Gap] = []
+    derived: str | None = None
+    if scan:
+        tag, found = _one(test["collect"], "self_test.collect", _CollectRead)
+        if tag is _CollectRead.REQUEST:
+            derived = json.dumps(_object(found, "self_test.collect.request"))
+        else:
+            reason = _text(found, "self_test.collect.refused")
+            collected = [Gap(GapKind.COLLECT, "collect", reason)]
+    return (*collected, *gaps, *contract, *_reply_gaps(test["reply"])), missing, derived
 
 
 def _explained(
@@ -307,8 +332,9 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
-def read_frame(stdout: bytes, exit_code: int) -> CoreFrame:
-    """The typed frame of one run of the core, or `CoreError`."""
+def read_frame(stdout: bytes, exit_code: int, *, scan: bool = False) -> CoreFrame:
+    """The typed frame of one run of the core, or `CoreError`. `scan` reads the frame of a scan
+    request, whose self-test has the `collect` part (AD-406)."""
     if exit_code not in (DECIDED_EXIT, NAMES_A_GAP_EXIT):
         raise CoreError(f"the core exits with {exit_code}")
     frame = _document(stdout)
@@ -319,7 +345,7 @@ def read_frame(stdout: bytes, exit_code: int) -> CoreFrame:
     explained = _texts(frame["explained"], "explained")
     _explained(rules, violations, explained)
     _object(frame["sections"], "sections")
-    gaps, missing = _gaps(frame)
+    gaps, missing, derived = _gaps(frame, scan)
     beyond = _texts(frame["beyond"], "beyond")
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
     if not passing.issuperset(beyond):
@@ -348,4 +374,5 @@ def read_frame(stdout: bytes, exit_code: int) -> CoreFrame:
         beyond=beyond,
         gaps=gaps,
         missing=missing,
+        derived=derived,
     )

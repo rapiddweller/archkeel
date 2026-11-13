@@ -123,6 +123,18 @@ impl<D: FactData> Serialize for Record<D> {
     }
 }
 
+impl<D: FactData> Record<D> {
+    /// The value invariants of one record (AD-406): the checks that no type holds. The decode
+    /// makes none of them, and the store runs them on each record of each reply, from bytes or
+    /// typed, in its one validation.
+    pub fn invariants(&self) -> Result<(), &'static str> {
+        if self.data.kind() == Kind::ExceptionGap && self.area != Area::AnalysisCoverage {
+            return Err("an analyzer failure has the area analysis_coverage");
+        }
+        Ok(())
+    }
+}
+
 /// The read-set of a record: `id`, `kind`, `area`, `subjects`, `evidence_ids` and the read data.
 /// `kind` is the closed kind; an analyzer failure carries its exception name in the data.
 impl<D: FactData> ReadSet for Record<D> {
@@ -191,11 +203,8 @@ impl<D: FactData> Fields<D> {
             (None, None) => return Err(de::Error::missing_field("data")),
         };
         let area = missing(self.area, "area")?;
-        if data.kind() == Kind::ExceptionGap && area != Area::AnalysisCoverage {
-            return Err(E::custom(
-                "an analyzer failure has the area analysis_coverage",
-            ));
-        }
+        // The value invariants of a record are not checked here: `Record::invariants` is their
+        // one home, so a typed record that never passes the decode gets them too (AD-406).
         Ok(Record {
             id: missing(self.id, "id")?,
             evidence_class: missing(self.evidence_class, "evidence_class")?,

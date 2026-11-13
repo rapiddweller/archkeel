@@ -12,21 +12,21 @@ use crate::tree::nodes::each_child;
 
 /// The grammar and the text of one file: what every reader of a node needs.
 #[derive(Clone, Copy)]
-pub struct Cx<'a> {
+pub(crate) struct Cx<'a> {
     pub kinds: &'a KindMap,
     pub source: &'a Source<'a>,
 }
 
 impl Cx<'_> {
-    pub fn k(&self, node: Node) -> K {
+    pub(crate) fn k(&self, node: Node) -> K {
         self.kinds.of(node)
     }
 
-    pub fn text(&self, node: Node) -> String {
+    pub(crate) fn text(&self, node: Node) -> String {
         self.source.text(node)
     }
 
-    pub fn span(&self, node: Node) -> Span {
+    pub(crate) fn span(&self, node: Node) -> Span {
         self.source.span(node, None)
     }
 
@@ -37,12 +37,12 @@ impl Cx<'_> {
             .unwrap_or(&[])
     }
 
-    pub fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
+    pub(crate) fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
         self.kinds.field(node, field)
     }
 
     /// Whether a child of `node` has the kind `kind`.
-    pub fn has_child(&self, node: Node, kind: K) -> bool {
+    pub(crate) fn has_child(&self, node: Node, kind: K) -> bool {
         let mut found = false;
         each_child(node, |child| found |= self.k(child) == kind);
         found

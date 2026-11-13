@@ -19,17 +19,17 @@ const QUERY: &str = "(import_statement) @place
     (call_expression function: (identifier) @callee (#eq? @callee \"require\")) @place";
 
 /// The query of the references of `parse.py`, compiled for one grammar.
-pub struct PlaceQuery(Option<Query>);
+pub(crate) struct PlaceQuery(Option<Query>);
 
 impl PlaceQuery {
-    pub fn new(language: &Language) -> Self {
+    pub(crate) fn new(language: &Language) -> Self {
         Self(Query::new(language, QUERY).ok())
     }
 
     /// How many import-bearing nodes the tree has under `root`. A node counts once, and a grammar
     /// without the query counts none. The count is of nodes and not of positions: a reference
     /// that names a type query starts at the `typeof`, not at the call.
-    pub fn count(&self, source: &Source, root: Node) -> usize {
+    pub(crate) fn count(&self, source: &Source, root: Node) -> usize {
         let Some(query) = &self.0 else {
             return 0;
         };

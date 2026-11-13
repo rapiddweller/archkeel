@@ -25,6 +25,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "archkeel-collect"
+version = "0.0.0"
+dependencies = [
+ "archkeel-facts",
+ "archkeel-store",
+ "archkeel-typescript-collector",
+ "archkeel-wire",
+ "flate2",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "archkeel-contract"
 version = "0.0.0"
 dependencies = [
@@ -39,6 +52,7 @@ name = "archkeel-core"
 version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
+ "archkeel-collect",
  "archkeel-contract",
  "archkeel-eval",
  "archkeel-model",

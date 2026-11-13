@@ -17,7 +17,7 @@ use crate::walk::Walk;
 
 /// The ids of the node kinds that the walk matches, resolved once for a grammar.
 #[derive(Clone, Copy)]
-pub struct Kinds {
+pub(crate) struct Kinds {
     import_statement: u16,
     export_statement: u16,
     call_expression: u16,
@@ -37,7 +37,7 @@ pub struct Kinds {
 }
 
 impl Kinds {
-    pub fn new(language: &Language) -> Self {
+    pub(crate) fn new(language: &Language) -> Self {
         let named = |name: &str| language.id_for_node_kind(name, true);
         Self {
             import_statement: named("import_statement"),
@@ -62,7 +62,7 @@ impl Kinds {
 
 /// The nodes of each kind that import extraction reads, in document order.
 #[derive(Default)]
-pub struct Scan<'t> {
+pub(crate) struct Scan<'t> {
     pub imports: Vec<Node<'t>>,
     /// `export ... from`: an export statement with a source.
     pub exports: Vec<Node<'t>>,
@@ -206,7 +206,7 @@ fn subscript<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Sca
 
 /// Walk the tree once, in document order, and sort each node into its list. `walk` sees each node
 /// on the way down and on the way up, so it keeps the ancestors of the node that it visits.
-pub fn scan<'t>(
+pub(crate) fn scan<'t>(
     kinds: &Kinds,
     source: &Source,
     root: Node<'t>,

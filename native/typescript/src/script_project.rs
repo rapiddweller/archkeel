@@ -16,23 +16,23 @@ use crate::script_types::{ScriptGlobal, ScriptNamespace};
 use crate::source::Span;
 
 /// A file that publishes a global, and the publication.
-pub type Publisher<'a> = (&'a str, &'a ScriptGlobal);
+pub(crate) type Publisher<'a> = (&'a str, &'a ScriptGlobal);
 
 /// A write of a name that a script makes: the file, the name (`None` where it is not known) and the
 /// place.
-pub type Write<'a> = (&'a str, Option<&'a str>, &'a Span);
+pub(crate) type Write<'a> = (&'a str, Option<&'a str>, &'a Span);
 
 /// The writes that can name one global: those of the name and those of no known name.
 /// `stable_publication` asks whether exactly one write does, and which. A name keeps its first
 /// write and how many there are, so n writes cost n entries and no list for each name.
 #[derive(Default)]
-pub struct WriteIndex<'a> {
+pub(crate) struct WriteIndex<'a> {
     unknown: Option<(Write<'a>, usize)>,
     named: HashMap<&'a str, (Write<'a>, usize)>,
 }
 
 impl<'a> WriteIndex<'a> {
-    pub fn new(writes: impl IntoIterator<Item = Write<'a>>) -> Self {
+    pub(crate) fn new(writes: impl IntoIterator<Item = Write<'a>>) -> Self {
         let mut index = Self::default();
         for write in writes {
             let slot = match write.1 {
@@ -45,7 +45,7 @@ impl<'a> WriteIndex<'a> {
     }
 
     /// The only write that is of the name or of no known name: its file and place.
-    pub fn sole(&self, name: &str) -> Option<(&'a str, &'a Span)> {
+    pub(crate) fn sole(&self, name: &str) -> Option<(&'a str, &'a Span)> {
         let count = |slot: Option<&(Write<'a>, usize)>| slot.map_or(0, |(_, count)| *count);
         let named = self.named.get(name);
         let total = count(named).saturating_add(count(self.unknown.as_ref()));
@@ -55,7 +55,11 @@ impl<'a> WriteIndex<'a> {
 }
 
 /// `script_publication.stable_publication`.
-pub fn stable_publication(name: &str, publishers: &[Publisher], writes: &WriteIndex) -> bool {
+pub(crate) fn stable_publication(
+    name: &str,
+    publishers: &[Publisher],
+    writes: &WriteIndex,
+) -> bool {
     let [(rel, publication)] = publishers else {
         return false;
     };
@@ -63,7 +67,7 @@ pub fn stable_publication(name: &str, publishers: &[Publisher], writes: &WriteIn
 }
 
 /// `script_publication.source_origin`.
-pub fn source_origin(name: &str, publishers: &[Publisher], writes: &WriteIndex) -> bool {
+pub(crate) fn source_origin(name: &str, publishers: &[Publisher], writes: &WriteIndex) -> bool {
     let [(rel, publication)] = publishers else {
         return false;
     };
@@ -73,7 +77,7 @@ pub fn source_origin(name: &str, publishers: &[Publisher], writes: &WriteIndex) 
 
 /// The global write paths of the project, as the questions about them need them.
 #[derive(Default)]
-pub struct WritePaths<'a> {
+pub(crate) struct WritePaths<'a> {
     /// A write has no path (`()`): it may name anything.
     pub any_empty: bool,
     /// Some write has a path at all.
@@ -90,7 +94,7 @@ pub struct WritePaths<'a> {
 impl<'a> WritePaths<'a> {
     /// Some path starts with `prefix` (`path[:len(prefix)] == prefix`). The set of the prefixes of
     /// all paths is built when the first factory asks, so a project without one pays nothing.
-    pub fn has_prefix(&self, prefix: &[String]) -> bool {
+    pub(crate) fn has_prefix(&self, prefix: &[String]) -> bool {
         if prefix.is_empty() {
             return self.any_path;
         }
@@ -108,7 +112,7 @@ impl<'a> WritePaths<'a> {
 /// The files that hold something, kept as the first file and whether another file holds it too:
 /// the questions ask for "a file other than this one", never for the list.
 #[derive(Clone, Copy)]
-pub struct Owners {
+pub(crate) struct Owners {
     first: usize,
     more: bool,
 }
@@ -123,27 +127,27 @@ impl Owners {
     }
 
     /// A file other than `file` holds it.
-    pub fn other_than(self, file: usize) -> bool {
+    pub(crate) fn other_than(self, file: usize) -> bool {
         self.first != file || self.more
     }
 }
 
 /// The names of the module loaders: a script may not write them under a vendor's name.
-pub const LOADER_NAMES: [&str; 3] = ["exports", "module", "define"];
+pub(crate) const LOADER_NAMES: [&str; 3] = ["exports", "module", "define"];
 
 pub(crate) use crate::source_input::HOST_NAMES;
 
 /// The first project `declare` of a name, and whether a global script of another file binds the
 /// name (`_script_declared_global`: a `declare const` also binds its own file; only another
 /// binding blocks).
-pub struct Declared<'a> {
+pub(crate) struct Declared<'a> {
     pub file: usize,
     pub span: &'a Span,
     pub bound_elsewhere: bool,
 }
 
 /// What the project knows once every file is read.
-pub struct Project<'a> {
+pub(crate) struct Project<'a> {
     pub files: Vec<(&'a str, &'a Kept)>,
     pub index: HashMap<&'a str, usize>,
     /// `script_globals` by name, in file order.
@@ -162,11 +166,11 @@ pub struct Project<'a> {
 
 impl<'a> Project<'a> {
     /// `collect._global_script`: the top-level names of the file belong to the global scope.
-    pub fn global_script(file: &Kept, scripts_are_global: bool) -> bool {
+    pub(crate) fn global_script(file: &Kept, scripts_are_global: bool) -> bool {
         file.script.declaration_file || (scripts_are_global && !file.script.module_file)
     }
 
-    pub fn new(
+    pub(crate) fn new(
         order: &'a [String],
         kept: &'a std::collections::BTreeMap<String, Kept>,
         scripts_are_global: bool,
@@ -297,7 +301,7 @@ impl<'a> Project<'a> {
     }
 
     /// Another file than `file` binds `name`, or writes the path `(name,)`.
-    pub fn bound_or_written_elsewhere(&self, name: &str, file: usize) -> bool {
+    pub(crate) fn bound_or_written_elsewhere(&self, name: &str, file: usize) -> bool {
         let other = |owners: Option<&Owners>| owners.is_some_and(|owners| owners.other_than(file));
         other(self.bound_anywhere.get(name)) || other(self.paths.singles.get(name))
     }

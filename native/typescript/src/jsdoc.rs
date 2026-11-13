@@ -92,7 +92,7 @@ fn token_at(text: &[char], index: usize) -> Option<(Token<'_>, usize)> {
 }
 
 /// An `@import` tag, or `import(` in the type of a tag; prose is no type (#744).
-pub fn imports(body: &str) -> bool {
+pub(crate) fn imports(body: &str) -> bool {
     let text: Vec<char> = body.chars().collect();
     // Only a `/**` comment is a JSDoc block.
     if !text.starts_with(&['/', '*', '*']) {
@@ -157,7 +157,7 @@ pub fn imports(body: &str) -> bool {
 /// name and reads the attributes in any order: `path` or `lib` in `reference`, `path` in
 /// `amd-dependency`, and a `types` that names a path (or any name, with a type root inside the
 /// project, `type_roots`). #976, #988.
-pub fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
+pub(crate) fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
     let rest = body.strip_prefix("///")?.trim_start_matches(is_space);
     let rest = rest.strip_prefix('<')?;
     let name_end = rest

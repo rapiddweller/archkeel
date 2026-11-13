@@ -14,3 +14,4 @@ mod pieces;
 pub mod protocol;
 pub mod request;
 pub mod stream;
+pub mod typed;

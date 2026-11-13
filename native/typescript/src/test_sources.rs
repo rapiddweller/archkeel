@@ -7,11 +7,11 @@
 //! A recognized test source leaves the scan. The host refuses a reply that selects one.
 
 /// `explore_scope.NO_PRODUCTION_SOURCE`: the exclusion removed every file, so the scan is not complete.
-pub const NO_PRODUCTION_SOURCE: &str =
+pub(crate) const NO_PRODUCTION_SOURCE: &str =
     "No production source files in scope after the test exclusion";
 
 /// `profiles.is_test_source(path, Language.TYPESCRIPT)`: a test directory or a test file name.
-pub fn is_test_source(path: &str) -> bool {
+pub(crate) fn is_test_source(path: &str) -> bool {
     let parts: Vec<&str> = path
         .split('/')
         .filter(|part| !part.is_empty() && *part != ".")

@@ -15,7 +15,7 @@ use crate::script_scope::{is_function, is_root, Tree};
 /// The references of a file, found once: the identifiers by name, and where an identifier makes
 /// the aliases of its scope unprovable.
 #[derive(Default)]
-pub struct References<'t> {
+pub(crate) struct References<'t> {
     by_name: HashMap<String, Vec<(usize, Node<'t>)>>,
     /// The positions of the identifiers that hold an escape or a repair.
     bad: Vec<usize>,
@@ -26,7 +26,7 @@ pub struct References<'t> {
 }
 
 impl<'t> References<'t> {
-    pub fn new(tree: &Tree<'_, 't>, targets: &[(Node<'t>, Node<'t>)]) -> Self {
+    pub(crate) fn new(tree: &Tree<'_, 't>, targets: &[(Node<'t>, Node<'t>)]) -> Self {
         let mut found = Self::default();
         for (at, node) in tree.nodes.iter().copied().enumerate() {
             match tree.k(node) {
@@ -64,13 +64,17 @@ impl<'t> References<'t> {
     }
 
     /// Whether an identifier in the range holds an escape or a repair.
-    pub fn any_bad(&self, range: (usize, usize)) -> bool {
+    pub(crate) fn any_bad(&self, range: (usize, usize)) -> bool {
         let first = self.bad.partition_point(|at| *at < range.0);
         self.bad.get(first).is_some_and(|at| *at < range.1)
     }
 
     /// The references to `name` inside the range, in document order.
-    pub fn named(&self, name: &str, range: (usize, usize)) -> impl Iterator<Item = Node<'t>> + '_ {
+    pub(crate) fn named(
+        &self,
+        name: &str,
+        range: (usize, usize),
+    ) -> impl Iterator<Item = Node<'t>> + '_ {
         let list: &[(usize, Node<'t>)] = self.by_name.get(name).map_or(&[], Vec::as_slice);
         let first = list.partition_point(|(at, _)| *at < range.0);
         list.iter()

@@ -9,11 +9,11 @@
 use crate::source::Span;
 
 /// A member of a published object: `(published name, local name, span of its declaration)`.
-pub type Member = (String, String, Span);
+pub(crate) type Member = (String, String, Span);
 
 /// `ScriptGlobal`: a written browser-global object publication.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct ScriptGlobal {
+pub(crate) struct ScriptGlobal {
     pub name: String,
     pub span: Span,
     pub members: Vec<Member>,
@@ -25,7 +25,7 @@ pub struct ScriptGlobal {
 
 /// `ScriptNamespace`.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct ScriptNamespace {
+pub(crate) struct ScriptNamespace {
     pub name: String,
     pub span: Span,
     pub initialization: Span,
@@ -33,7 +33,7 @@ pub struct ScriptNamespace {
 
 /// `ScriptFactoryMember`.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct FactoryMember {
+pub(crate) struct FactoryMember {
     pub name: String,
     pub span: Span,
     pub target: Option<String>,
@@ -44,7 +44,7 @@ pub struct FactoryMember {
 
 /// `ScriptFactory`.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct ScriptFactory {
+pub(crate) struct ScriptFactory {
     pub name: String,
     pub span: Span,
     pub members: Vec<FactoryMember>,
@@ -52,7 +52,7 @@ pub struct ScriptFactory {
 
 /// `ScriptDestructure`.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct ScriptDestructure {
+pub(crate) struct ScriptDestructure {
     pub span: Span,
     pub path: Vec<String>,
     pub members: Vec<Member>,
@@ -60,7 +60,7 @@ pub struct ScriptDestructure {
 
 /// `ScriptAlias`.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct ScriptAlias {
+pub(crate) struct ScriptAlias {
     pub name: String,
     pub span: Span,
     pub reference_span: Span,
@@ -73,12 +73,12 @@ pub struct ScriptAlias {
 }
 
 /// A write: the published name, or `None` where the write is not known, and where it is.
-pub type Write = (Option<String>, Span);
+pub(crate) type Write = (Option<String>, Span);
 
 /// The script fields of `Syntax`.
 #[derive(Default)]
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Script {
+pub(crate) struct Script {
     pub globals: Vec<ScriptGlobal>,
     pub writes: Vec<Write>,
     pub aliases: Vec<ScriptAlias>,

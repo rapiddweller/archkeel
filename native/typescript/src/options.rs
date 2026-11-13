@@ -12,12 +12,12 @@ use serde_json::{Map, Value};
 
 use crate::layer::Layer;
 use crate::options_target::{detection_kind, target_kind};
-pub use crate::options_target::{Detection, Target};
+pub(crate) use crate::options_target::{Detection, Target};
 
 use crate::layer::CONFIG_DIRECTORY;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ModuleKind {
+pub(crate) enum ModuleKind {
     None,
     CommonJs,
     Amd,
@@ -36,7 +36,7 @@ pub enum ModuleKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Resolution {
+pub(crate) enum Resolution {
     Node10,
     Classic,
     Node16,
@@ -46,7 +46,7 @@ pub enum Resolution {
 
 /// What the resolver reads; explicit values only, as the compiler keeps them.
 #[derive(Clone, Debug, Default)]
-pub struct Options {
+pub(crate) struct Options {
     pub module: Option<ModuleKind>,
     pub module_resolution: Option<Resolution>,
     pub target: Option<Target>,
@@ -73,7 +73,7 @@ const NODE16_MODULES: [ModuleKind; 3] =
 
 impl Options {
     /// The emit mode after the compiler's target-dependent default.
-    pub fn emit_module(&self) -> ModuleKind {
+    pub(crate) fn emit_module(&self) -> ModuleKind {
         match (self.module, self.target) {
             (Some(module), _) => module,
             (None, None | Some(Target::Es3 | Target::Es5)) => ModuleKind::CommonJs,
@@ -82,7 +82,7 @@ impl Options {
     }
 
     /// The compiler's target when none is set: by the module, and ES5 without one.
-    pub fn module_default_target(&self) -> Target {
+    pub(crate) fn module_default_target(&self) -> Target {
         match self.module {
             Some(ModuleKind::Node16 | ModuleKind::Node18) => Target::Es2022,
             Some(ModuleKind::Node20) => Target::Es2023,
@@ -93,14 +93,14 @@ impl Options {
 
     /// Whether a source file without `import` or `export` still is a global script. Under `force`
     /// and under the Node module modes the compiler treats every source file as a module.
-    pub fn scripts_are_global(&self) -> bool {
+    pub(crate) fn scripts_are_global(&self) -> bool {
         self.module_detection != Some(Detection::Force)
             && !NODE16_MODULES.contains(&self.emit_module())
             && self.emit_module() != ModuleKind::NodeNext
     }
 
     /// Which options can map a bare name to a file of the project.
-    pub fn reach(&self) -> Reach {
+    pub(crate) fn reach(&self) -> Reach {
         Reach {
             aliased: self.base_url.is_some() || !self.paths.is_empty(),
             type_roots: self.project_type_roots,
@@ -108,7 +108,7 @@ impl Options {
     }
 
     /// The effective resolution mode.
-    pub fn resolution(&self) -> Resolution {
+    pub(crate) fn resolution(&self) -> Resolution {
         if let Some(resolution) = self.module_resolution {
             return resolution;
         }
@@ -125,7 +125,7 @@ impl Options {
     }
 
     /// Whether JSON resolves: the explicit setting, else Node20, NodeNext or Bundler.
-    pub fn resolve_json(&self) -> bool {
+    pub(crate) fn resolve_json(&self) -> bool {
         self.json_modules.unwrap_or_else(|| {
             matches!(
                 self.emit_module(),
@@ -243,7 +243,7 @@ fn is_string_list(value: &Value) -> bool {
 type Accepts = fn(&str) -> bool;
 
 /// `config._invalid`: name unknown options and refuse malformed values.
-pub fn invalid(options: &Map<String, Value>) -> Vec<String> {
+pub(crate) fn invalid(options: &Map<String, Value>) -> Vec<String> {
     let mut found: Vec<String> = options
         .keys()
         .filter(|name| !KNOWN_OPTIONS.split(' ').any(|known| known == name.as_str()))
@@ -284,7 +284,10 @@ pub fn invalid(options: &Map<String, Value>) -> Vec<String> {
 }
 
 /// `config._paths`: the patterns in file order; a malformed entry is a problem.
-pub fn paths(raw: &Map<String, Value>, problems: &mut Vec<String>) -> Vec<(String, Vec<String>)> {
+pub(crate) fn paths(
+    raw: &Map<String, Value>,
+    problems: &mut Vec<String>,
+) -> Vec<(String, Vec<String>)> {
     let Some(value) = raw.get("paths").filter(|value| !value.is_null()) else {
         return Vec::new();
     };
@@ -345,7 +348,7 @@ fn declared(raw: &Map<String, Value>, name: &str) -> bool {
 
 /// `config._options`: the settings of one layer, with the problems of the pairs that the
 /// compiler refuses.
-pub fn build(layer: &Layer, problems: &mut Vec<String>) -> Options {
+pub(crate) fn build(layer: &Layer, problems: &mut Vec<String>) -> Options {
     let raw = &layer.compiler;
     let paths = paths(raw, problems);
     let mut unmodeled: Vec<String> = UNMODELED

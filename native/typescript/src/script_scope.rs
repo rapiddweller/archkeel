@@ -24,12 +24,12 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::children;
 
 /// `_SCRIPT_ROOTS`: the names of the browser global object.
-pub fn is_root(name: &str) -> bool {
+pub(crate) fn is_root(name: &str) -> bool {
     crate::source_input::is_script_root(name.as_bytes())
 }
 
 /// `_SCRIPT_FUNCTIONS`.
-pub fn is_function(kind: K) -> bool {
+pub(crate) fn is_function(kind: K) -> bool {
     matches!(
         kind,
         K::FunctionDeclaration
@@ -63,12 +63,12 @@ pub(crate) fn is_scope(kind: K) -> bool {
 }
 
 /// `_SCRIPT_RECEIVER_SCOPES`.
-pub fn is_receiver_scope(kind: K) -> bool {
+pub(crate) fn is_receiver_scope(kind: K) -> bool {
     (is_function(kind) && kind != K::ArrowFunction) || kind == K::ClassStaticBlock
 }
 
 /// `_SCRIPT_CALLABLE_VALUES`.
-pub fn is_callable_value(kind: K) -> bool {
+pub(crate) fn is_callable_value(kind: K) -> bool {
     is_function(kind) || matches!(kind, K::Class | K::ClassDeclaration)
 }
 
@@ -76,7 +76,7 @@ pub(crate) use crate::layout::{
     is_function_like, IdHasher, IdMap, Layout, IN_AMBIGUOUS, IN_ERROR, IN_FUNCTION, IN_TYPE, NONE,
 };
 
-pub type Names = HashMap<String, u32>;
+pub(crate) type Names = HashMap<String, u32>;
 
 /// A scope that binds a name, with the range of its subtree and the nearest scope that binds the
 /// same name and holds it (`up`, or `NONE`).
@@ -89,14 +89,14 @@ pub(crate) struct ScopeEntry {
 
 /// An immediately called function of a script: its call and the names that it gives the roots.
 #[derive(Clone)]
-pub struct Wrapper<'t> {
+pub(crate) struct Wrapper<'t> {
     pub call: Node<'t>,
     pub aliases: Vec<String>,
     /// The same names as a set, for the question "is this name an alias".
     pub names: HashSet<String>,
 }
 
-pub struct Tree<'a, 't> {
+pub(crate) struct Tree<'a, 't> {
     pub cx: Cx<'a>,
     pub root: Node<'t>,
     /// The named nodes in document order (`_walk`).
@@ -128,7 +128,7 @@ pub(crate) struct Memo<'t> {
 
 impl<'a, 't> Tree<'a, 't> {
     /// The tree of a file from the layout that the walk recorded.
-    pub fn from_layout(cx: Cx<'a>, root: Node<'t>, layout: Layout<'t>) -> Self {
+    pub(crate) fn from_layout(cx: Cx<'a>, root: Node<'t>, layout: Layout<'t>) -> Self {
         Self {
             cx,
             root,
@@ -144,31 +144,31 @@ impl<'a, 't> Tree<'a, 't> {
         }
     }
 
-    pub fn k(&self, node: Node) -> K {
+    pub(crate) fn k(&self, node: Node) -> K {
         self.cx.k(node)
     }
 
-    pub fn text(&self, node: Node) -> String {
+    pub(crate) fn text(&self, node: Node) -> String {
         self.cx.text(node)
     }
 
-    pub fn field(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
+    pub(crate) fn field(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
         self.cx.field(node, field)
     }
 
-    pub fn span(&self, node: Node) -> Span {
+    pub(crate) fn span(&self, node: Node) -> Span {
         self.cx.span(node)
     }
 
     /// Whether `node` is the field `field` of its parent.
-    pub fn is_field_of_parent(&self, node: Node<'t>, field: F) -> bool {
+    pub(crate) fn is_field_of_parent(&self, node: Node<'t>, field: F) -> bool {
         self.parent(node)
             .and_then(|parent| self.field(parent, field))
             .is_some_and(|found| found.id() == node.id())
     }
 
     /// `node.parent`, from the table of the file.
-    pub fn parent(&self, node: Node<'t>) -> Option<Node<'t>> {
+    pub(crate) fn parent(&self, node: Node<'t>) -> Option<Node<'t>> {
         let Some(at) = self.pos(node) else {
             return node.parent();
         };
@@ -181,7 +181,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_ancestors`.
-    pub fn ancestors(&self, node: Node<'t>) -> impl Iterator<Item = Node<'t>> + '_ {
+    pub(crate) fn ancestors(&self, node: Node<'t>) -> impl Iterator<Item = Node<'t>> + '_ {
         std::iter::successors(self.parent(node), |parent| self.parent(*parent))
     }
 
@@ -191,23 +191,23 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `parse._in_error`: the node holds a repair, or lies inside one.
-    pub fn in_error(&self, node: Node<'t>) -> bool {
+    pub(crate) fn in_error(&self, node: Node<'t>) -> bool {
         node.has_error() || self.flag(node, IN_ERROR)
     }
 
     /// `parse._in_type`.
-    pub fn in_type(&self, node: Node<'t>) -> bool {
+    pub(crate) fn in_type(&self, node: Node<'t>) -> bool {
         self.flag(node, IN_TYPE)
     }
 
     /// The node lies inside a function declaration, a function expression, an arrow function or a
     /// method.
-    pub fn inside_function(&self, node: Node<'t>) -> bool {
+    pub(crate) fn inside_function(&self, node: Node<'t>) -> bool {
         self.flag(node, IN_FUNCTION)
     }
 
     /// The nodes of the subtree of `node` in document order, the node first (`_walk`).
-    pub fn subtree(&self, node: Node) -> &[Node<'t>] {
+    pub(crate) fn subtree(&self, node: Node) -> &[Node<'t>] {
         match self.position.get(&node.id()) {
             Some(&at) => self.nodes.get(at..self.end_of(at)).unwrap_or(&[]),
             None => &[],
@@ -220,19 +220,19 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// The document-order range of the subtree of `node`.
-    pub fn range(&self, node: Node) -> (usize, usize) {
+    pub(crate) fn range(&self, node: Node) -> (usize, usize) {
         match self.position.get(&node.id()) {
             Some(&at) => (at, self.end_of(at)),
             None => (0, 0),
         }
     }
 
-    pub fn at(&self, node: Node) -> usize {
+    pub(crate) fn at(&self, node: Node) -> usize {
         self.position.get(&node.id()).copied().unwrap_or(0)
     }
 
     /// The child that is not wrapped in parentheses.
-    pub fn unparenthesized(&self, node: Node<'t>) -> Node<'t> {
+    pub(crate) fn unparenthesized(&self, node: Node<'t>) -> Node<'t> {
         let mut node = node;
         while self.k(node) == K::ParenthesizedExpression {
             match node.named_child(0) {
@@ -245,7 +245,7 @@ impl<'a, 't> Tree<'a, 't> {
 
     /// `while value is not None and kind is PARENTHESIZED: value = first named child`: ends with
     /// `None` for an empty pair of parentheses.
-    pub fn strip_parentheses(&self, node: Option<Node<'t>>) -> Option<Node<'t>> {
+    pub(crate) fn strip_parentheses(&self, node: Option<Node<'t>>) -> Option<Node<'t>> {
         let mut value = node;
         while let Some(current) = value {
             if self.k(current) != K::ParenthesizedExpression {
@@ -256,14 +256,14 @@ impl<'a, 't> Tree<'a, 't> {
         value
     }
 
-    pub fn has_child_kind(&self, node: Node, kind: K) -> bool {
+    pub(crate) fn has_child_kind(&self, node: Node, kind: K) -> bool {
         children(node)
             .into_iter()
             .any(|child| self.k(child) == kind)
     }
 
     /// `_static_path`: the names of `a`, `a.b` and `a.b.c`; empty for any other node.
-    pub fn static_path(&self, node: Node<'t>) -> Vec<String> {
+    pub(crate) fn static_path(&self, node: Node<'t>) -> Vec<String> {
         // The members of the chain, outermost first; the base decides the rest.
         let mut names: Vec<String> = Vec::new();
         let mut at = node;
@@ -300,18 +300,18 @@ impl<'a, 't> Tree<'a, 't> {
         Some(receiver)
     }
 
-    pub fn in_ambiguous_scope(&self, node: Node<'t>) -> bool {
+    pub(crate) fn in_ambiguous_scope(&self, node: Node<'t>) -> bool {
         self.parent(node)
             .is_some_and(|parent| self.flag(parent, IN_AMBIGUOUS))
     }
 
     /// `_script_free`: the root of the path of `target` is not bound by a scope above `node`.
-    pub fn script_free(&self, target: Node<'t>, node: Node<'t>) -> bool {
+    pub(crate) fn script_free(&self, target: Node<'t>, node: Node<'t>) -> bool {
         self.script_free_in(target, node, true)
     }
 
     /// `_script_free`, with or without the scopes that are not statically known (`ambiguous`).
-    pub fn script_free_in(&self, target: Node<'t>, node: Node<'t>, ambiguous: bool) -> bool {
+    pub(crate) fn script_free_in(&self, target: Node<'t>, node: Node<'t>, ambiguous: bool) -> bool {
         if self.in_type(node) {
             return false;
         }
@@ -329,7 +329,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_declaration_name`.
-    pub fn declaration_name(&self, node: Node<'t>) -> bool {
+    pub(crate) fn declaration_name(&self, node: Node<'t>) -> bool {
         let Some(parent) = self.parent(node) else {
             return false;
         };
@@ -344,7 +344,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_assignment_targets`.
-    pub fn script_targets(&self, node: Node<'t>) -> Vec<Node<'t>> {
+    pub(crate) fn script_targets(&self, node: Node<'t>) -> Vec<Node<'t>> {
         let kind = self.k(node);
         let left = match kind {
             K::AssignmentExpression | K::AugmentedAssignmentExpression | K::ForInStatement => {

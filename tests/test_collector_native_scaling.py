@@ -422,7 +422,12 @@ def test_each_shape_equals_the_python_parser_at_small_sizes(
 
 def _kinds() -> list[str]:
     source = (Path(__file__).parents[1] / "native/typescript/src/kinds.rs").read_text()
-    body = source[source.index("pub enum K {") :].split("\n}\n", 1)[0]
+    # AD-406: the library target narrows the enum to `pub(crate)`; either visibility is the one
+    # declaration, and a missing enum still fails here.
+    found = re.search(r"^pub(?:\(crate\))? enum K \{", source, flags=re.MULTILINE)
+    if found is None:
+        raise ValueError("kinds.rs declares no enum K")
+    body = source[found.start() :].split("\n}\n", 1)[0]
     return re.findall(r"^    (\w+),", body, flags=re.MULTILINE)
 
 

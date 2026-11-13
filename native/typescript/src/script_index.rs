@@ -16,7 +16,7 @@ use crate::script_scope::Tree;
 pub(crate) type Key = (usize, String);
 
 #[derive(Default)]
-pub struct DeclIndex<'t> {
+pub(crate) struct DeclIndex<'t> {
     /// The function declarations and the declarators that bind a name in a scope, in order.
     pub(crate) declared: HashMap<Key, Vec<Node<'t>>>,
     /// The declarators with a plain name, by the scope that binds it.
@@ -26,7 +26,7 @@ pub struct DeclIndex<'t> {
 }
 
 impl<'t> DeclIndex<'t> {
-    pub fn new(tree: &Tree<'_, 't>, targets: &[(Node<'t>, Node<'t>)]) -> Self {
+    pub(crate) fn new(tree: &Tree<'_, 't>, targets: &[(Node<'t>, Node<'t>)]) -> Self {
         let mut found = Self::default();
         for node in tree.nodes.iter().copied() {
             found.declare(tree, node);

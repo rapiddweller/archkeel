@@ -48,7 +48,7 @@ fn object_members<'t>(tree: &Tree<'_, 't>, object: Node<'t>) -> Option<Keyed> {
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_members`: the functions that an object literal publishes under their own name.
-    pub fn members(&self, object: Node<'t>, wrapper: Option<Node<'t>>) -> Vec<Member> {
+    pub(crate) fn members(&self, object: Node<'t>, wrapper: Option<Node<'t>>) -> Vec<Member> {
         let tree = self.tree;
         let Some((members, keys)) = object_members(tree, object) else {
             return Vec::new();
@@ -125,7 +125,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_assignment_publication`.
-    pub fn assignment_publication(
+    pub(crate) fn assignment_publication(
         &self,
         node: Node<'t>,
         target: Node<'t>,
@@ -162,7 +162,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_return_publication`: `var name = (function () { return {...}; })();`.
-    pub fn return_publication(&self, node: Node<'t>, call: Node<'t>) -> Option<ScriptGlobal> {
+    pub(crate) fn return_publication(
+        &self,
+        node: Node<'t>,
+        call: Node<'t>,
+    ) -> Option<ScriptGlobal> {
         let tree = self.tree;
         let binding = tree.parent(call)?;
         let declaration = tree.parent(binding)?;

@@ -37,7 +37,7 @@ use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
-pub const FEATURES: [&str; 4] = [
+pub(crate) const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
     "node-builtins",
@@ -95,14 +95,14 @@ pub fn reply(
 
 /// The same facts with every section in a list, for the unit tests: the producer of `reply`.
 #[cfg(test)]
-pub fn collect(request: &TypeScriptRequest, provenance: Provenance) -> Facts {
+pub(crate) fn collect(request: &TypeScriptRequest, provenance: Provenance) -> Facts {
     let (facts, pending) = gather(request, provenance);
     listed(facts, &pending).unwrap().0
 }
 
 /// The facts as `collect` gives them and the records by the names of the tests and the dump.
 #[cfg(any(test, feature = "dump"))]
-pub fn records(
+pub(crate) fn records(
     request: &TypeScriptRequest,
     provenance: Provenance,
 ) -> Result<(Facts, Records), String> {

@@ -77,12 +77,13 @@ CARGO_DENY_VERSION := 0.20.2
 CARGO_DENY_SHA256 := 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
 CARGO_AUDITABLE_VERSION := 0.7.7
 
-# Issue #880: these two tests run the whole dual-run corpus and use about 75 % of the CPU time of
+# Issue #880: these tests run the whole dual-run corpus and use about 75 % of the CPU time of
 # the native-check tests. CI runs each in a leg of the native-corpus job, parallel to the native
 # job, and that job runs native-check with NATIVE_SPLIT=1. Locally, native-check runs all tests.
 NATIVE_CORPUS_TESTS := \
 	tests/test_native_core.py::test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_case \
-	tests/test_native_core.py::test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts
+	tests/test_native_core.py::test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accepts \
+	tests/test_cli_native_core_scan.py::test_the_derived_request_equals_the_request_of_the_shell_on_every_typescript_case
 # pytest reads its options from PYTEST_ADDOPTS, so the test list below stays one line.
 native-check: export PYTEST_ADDOPTS = -n 4 --max-worker-restart=0 $(if $(NATIVE_SPLIT),$(addprefix --deselect ,$(NATIVE_CORPUS_TESTS)))
 
@@ -99,7 +100,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_collector_native_rust_receivers_compiled.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py tests/test_collector_native_dart_syntax.py tests/test_collector_native_dart_sites.py tests/test_collector_native_dart_definitions.py tests/test_collector_native_dart_sdk.py tests/test_collector_native_dart_declarations.py tests/test_collector_native_dart_collection.py tests/test_rust_contract_tree_parity.py tests/test_rust_contract_against_parity.py tests/test_rust_contract_amendment_parity.py tests/test_rust_contract_baseline_parity.py
+	$(UV) run --locked python -m pytest -q tests/test_rust_clones.py tests/test_rust_api.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_rust_source.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_symbols.py tests/test_collector_native_rust_receivers_compiled.py tests/test_rust_contract_parity.py tests/test_native_core.py tests/test_cli_native_core_scan.py tests/test_collector_native_dart_discovery.py tests/test_native_report.py tests/test_collector_native_dart_syntax.py tests/test_collector_native_dart_sites.py tests/test_collector_native_dart_definitions.py tests/test_collector_native_dart_sdk.py tests/test_collector_native_dart_declarations.py tests/test_collector_native_dart_collection.py tests/test_rust_contract_tree_parity.py tests/test_rust_contract_against_parity.py tests/test_rust_contract_amendment_parity.py tests/test_rust_contract_baseline_parity.py
 	$(UV) run --locked python -m pytest -q -n 0 tests/test_native_self_rules.py tests/test_native_self_contract.py
 	$(MAKE) self-validate-native
 

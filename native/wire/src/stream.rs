@@ -231,9 +231,12 @@ fn invalid(reason: String) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, reason)
 }
 
-/// The text up to the records: the keys of `facts` that come before `sections`, in the order of
-/// the Python reply, and the opening of the list of sections. The envelope types write the keys.
-fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
+/// The capabilities and the coverage of a reply. The stream and the typed reply (`typed.rs`) both
+/// take them from here, so the two forms cannot say different things.
+pub(crate) fn counted(
+    head: &Head,
+    tail: Tail,
+) -> io::Result<(Capabilities, Coverage, Vec<Evidence>)> {
     let capabilities =
         Capabilities::of(&head.sections, &head.features, &head.constructs).map_err(invalid)?;
     let coverage = Coverage::of(
@@ -241,6 +244,33 @@ fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
         tail.selected_files,
         tail.gaps,
     );
+    Ok((capabilities, coverage, tail.evidence))
+}
+
+/// The source of a reply: the request identity and the digest of the inputs.
+pub(crate) fn source_of(head: &Head) -> io::Result<Source> {
+    let mut source =
+        Source::of((&head.git_head, &head.dirty), &head.scope, &head.inputs).map_err(invalid)?;
+    if let Some(digest) = &head.source_digest {
+        source.source_digest.clone_from(digest);
+    }
+    Ok(source)
+}
+
+/// The protocol version of the compressed reply of `version`.
+pub(crate) fn compressed(version: Version) -> io::Result<ProtocolVersion> {
+    version.compressed().ok_or_else(|| {
+        invalid(format!(
+            "no compressed reply for version {}",
+            version.as_str()
+        ))
+    })
+}
+
+/// The text up to the records: the keys of `facts` that come before `sections`, in the order of
+/// the Python reply, and the opening of the list of sections. The envelope types write the keys.
+fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
+    let (capabilities, coverage, evidence) = counted(head, tail)?;
     let Provenance {
         profile,
         adapter,
@@ -254,7 +284,7 @@ fn write_before(out: &mut Piece, head: &Head, tail: Tail) -> io::Result<()> {
     facts.serialize_entry("candidate_evidence", &NoEntries)?;
     facts.serialize_entry("capabilities", &capabilities)?;
     facts.serialize_entry("coverage", &coverage)?;
-    facts.serialize_entry("evidence", &tail.evidence)?;
+    facts.serialize_entry("evidence", &evidence)?;
     facts.serialize_entry("files", &head.files)?;
     facts.serialize_entry("imports", &head.imports)?;
     facts.serialize_entry("inputs", &head.inputs)?;
@@ -273,17 +303,8 @@ fn write_fields(out: &mut Piece, value: &impl Serialize) -> io::Result<()> {
 /// The text after the records: the end of the list of sections, the keys of `facts` that come
 /// after `sections`, and the keys of the reply that come after `facts`.
 fn write_after(out: &mut Piece, head: &Head, version: Version) -> io::Result<()> {
-    let mut source =
-        Source::of((&head.git_head, &head.dirty), &head.scope, &head.inputs).map_err(invalid)?;
-    if let Some(digest) = &head.source_digest {
-        source.source_digest.clone_from(digest);
-    }
-    let protocol_version = version.compressed().ok_or_else(|| {
-        invalid(format!(
-            "no compressed reply for version {}",
-            version.as_str()
-        ))
-    })?;
+    let source = source_of(head)?;
+    let protocol_version = compressed(version)?;
     out.write_all(b"],")?;
     let after = After {
         source: &source,
