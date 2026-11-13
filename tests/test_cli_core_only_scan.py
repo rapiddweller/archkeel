@@ -208,6 +208,16 @@ def test_an_explicit_project_root_inside_a_repository_keeps_its_own_config(built
         assert done.returncode == 0, done.stdout + done.stderr
         snapshot = json.loads(done.stdout)["frame"]["self_test"]["collect"]["request"]["snapshot"]
         assert snapshot["root"] == str(project)
+        assert snapshot["dirty"] is True
+
+
+def test_an_explicit_project_outside_any_repository_refuses(built: Path, tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    with case_root(HONEST) as root:
+        shutil.copytree(root, project, ignore=shutil.ignore_patterns(".git"))
+    done = command(built / f"archkeel-core{SUFFIX}", project, "--json")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "git head" in done.stdout and "is in no Git repository" in done.stdout
 
 
 def test_an_unreadable_config_names_no_contract_parse_gap(built: Path) -> None:
