@@ -22,3 +22,4 @@
 | 2026-11-12 | 1 | 0432f0cc1 | AD-383 on AD-384: self edges of the Rust collector on the rust/native case |
 | 2026-11-12 | 1 | 44749e5c7 | AD-388: a pinned external collector that Python trusts and the core does not |
 | 2026-11-13 | 6 | 19bbc4282 | Name unseen attribute and custom derive expansions (#1020); eight rule verdicts change only from PASS to UNKNOWN. |
+| 2026-11-13 | 1 | 522bdc7ab | AD-424: model proven registry derives and helpers; remove 253 native expansion gaps without changing a verdict. |
