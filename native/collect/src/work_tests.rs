@@ -42,5 +42,7 @@ fn a_file_just_below_the_charge_keeps_every_fact() {
         .err()
         .unwrap();
     assert_eq!(refusal.kind, RefusalKind::ParseWork);
-    assert!(reply_of(&request).unwrap_err().contains("parse_work_limit"));
+    assert!(reply_of(Profile::TypeScript, &request)
+        .unwrap_err()
+        .contains("parse_work_limit"));
 }

@@ -207,9 +207,8 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
 mod tests;
 
 #[cfg(test)]
-<<<<<<< HEAD
 mod rust_tests;
-=======
+
+#[cfg(test)]
 #[path = "work_tests.rs"]
 mod work_tests;
->>>>>>> ba513d3cc (Bound parse work before collectors can allocate deep syntax trees)

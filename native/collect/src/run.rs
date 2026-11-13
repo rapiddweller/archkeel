@@ -11,8 +11,8 @@
 //! release build `panic = "abort"` ends the whole core process, as a stack overflow does; the
 //! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
 
-use archkeel_facts::envelope::{Profile, Reply};
 use crate::refusal::{refused, Refusal, RefusalKind};
+use archkeel_facts::envelope::{Profile, Reply};
 use archkeel_store::Ingested;
 use archkeel_wire::protocol::reply_version;
 
@@ -22,8 +22,8 @@ const STACK_BYTES: usize = 256 << 20;
 /// The typed reply of the request bytes, validated by the store, or why there is none.
 pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refusal> {
     let request = request.to_vec();
-    let reply = isolated(move || reply_of(profile, &request))?
-        .map_err(|why| refused("collector", why))?;
+    let reply =
+        isolated(move || reply_of(profile, &request))?.map_err(|why| refused("collector", why))?;
     archkeel_store::ingest_typed(reply).map_err(|reason| {
         refused(
             "collector",
