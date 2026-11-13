@@ -130,6 +130,7 @@ pub(crate) fn export_bindings(
         return Vec::new();
     }
     let mut declarations: HashMap<String, Vec<Span>> = HashMap::new();
+    let mut unproved = HashSet::new();
     let mut exports: Vec<(String, Span)> = Vec::new();
     for statement in top.iter().copied() {
         let exported = cx.k(statement) == K::ExportStatement;
@@ -156,15 +157,17 @@ pub(crate) fn export_bindings(
         };
         for node in candidates {
             let name = cx.field(node, F::Name);
-            let Some(name) = name.filter(|name| {
-                matches!(
-                    cx.k(node),
-                    K::VariableDeclarator | K::FunctionDeclaration | K::ClassDeclaration
-                ) && cx.valid_unicode_member_name(*name)
-            }) else {
+            let Some(name) = name.filter(|name| cx.valid_unicode_member_name(*name)) else {
                 continue;
             };
             let text = cx.text(name);
+            if !matches!(
+                cx.k(node),
+                K::VariableDeclarator | K::FunctionDeclaration | K::ClassDeclaration
+            ) {
+                unproved.insert(text);
+                continue;
+            }
             declarations
                 .entry(text.clone())
                 .or_default()
@@ -207,6 +210,7 @@ pub(crate) fn export_bindings(
         .iter()
         .filter(|(name, _)| {
             counts.get(name.as_str()) == Some(&1)
+                && !unproved.contains(name)
                 && declarations.get(name).map(Vec::len) == Some(1)
                 && frames.count(ROOT, name) == 1
         })

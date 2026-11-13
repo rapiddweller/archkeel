@@ -29,6 +29,7 @@ The Rust collector supplies no complete publication surface, so this rule remain
 The Rust collector does not change.
 The TypeScript collector adds the missing known bit for static imports without bindings.
 It uses the existing import fact; namespace bindings remain unknown.
+The collector also withholds a direct witness when an unread declaration can merge with the named declaration.
 
 Public-interface lifecycle validation is not part of this import verdict.
 Facade signature types and unused public entries remain outside this port until deletion stage D2.
