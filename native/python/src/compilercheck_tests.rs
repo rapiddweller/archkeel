@@ -27,11 +27,14 @@ fn every_new_input_loop_has_an_exact_work_charge() {
         ("@decorator\nclass C[T: int = str, *Ts = *tuple[()]](Base, metaclass=Meta):\n def f(__x, y): pass", 29),
         ("'\\ud800'", 19),
         ("((a) := 1)", 4),
+        ("a[(b, *c)]: int", 7),
+        ("from __future__ import annotations, division", 4),
     ] {
         let module = crate::test_tree(source, 14).unwrap();
         let mut check = Check {
             source, minor: crate::test_minor(14), work: Work::new(), depth: 0,
-            blocks: 0, star: false, star_annotation: None, restricted: false, private: None, reason: None,
+            blocks: 0, star: false, star_annotation: None, scope: Scope::Outer, comprehensions: 0, private: None, reason: None,
+            class_body: false, class_visible: false, generic_annotations: false, future_annotations: false,
         };
         check.docstring(&module.body);
         check.visit_body(&module.body);

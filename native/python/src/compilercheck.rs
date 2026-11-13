@@ -4,6 +4,7 @@
 
 //! Compiler limits and expression contexts that the Ruff grammar does not enforce.
 
+use super::scopecheck::AnnotationScope as Scope;
 use super::work::Work;
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{
@@ -21,7 +22,12 @@ struct Check<'a> {
     blocks: usize,
     star: bool,
     star_annotation: Option<usize>,
-    restricted: bool,
+    scope: Scope,
+    comprehensions: usize,
+    class_body: bool,
+    class_visible: bool,
+    generic_annotations: bool,
+    future_annotations: bool,
     private: Option<String>,
     reason: Option<(usize, &'static str)>,
 }
@@ -35,7 +41,12 @@ pub fn check(module: &ModModule, source: &str, minor: PyMinor) -> Option<(usize,
         blocks: 0,
         star: false,
         star_annotation: None,
-        restricted: false,
+        scope: Scope::Outer,
+        comprehensions: 0,
+        class_body: false,
+        class_visible: false,
+        generic_annotations: false,
+        future_annotations: false,
         private: None,
         reason: None,
     };
@@ -52,14 +63,22 @@ impl Check<'_> {
             PyMinor::Py311 | PyMinor::Py312 | PyMinor::Py313 => false,
             PyMinor::Py314 => true,
         };
-        let old = self.restricted;
+        let old = (self.scope, self.class_visible);
         let star = std::mem::replace(
             &mut self.star,
             self.star_annotation == Some(expr.start().to_usize()),
         );
-        self.restricted |= restricted;
+        self.scope = if self.generic_annotations {
+            Scope::Type
+        } else if restricted || self.future_annotations {
+            Scope::Annotation
+        } else {
+            self.scope
+        };
+        self.class_visible =
+            self.generic_annotations && self.class_body && !self.future_annotations;
         self.visit_expr(expr);
-        self.restricted = old;
+        (self.scope, self.class_visible) = old;
         self.star = star;
     }
 
@@ -67,7 +86,9 @@ impl Check<'_> {
         let Some(params) = params else {
             return;
         };
-        let old = std::mem::replace(&mut self.restricted, true);
+        let old = (self.scope, self.class_visible);
+        self.scope = Scope::Type;
+        self.class_visible = self.class_body;
         let mut names = HashSet::new();
         let mut default_seen = false;
         for param in &params.type_params {
@@ -96,7 +117,7 @@ impl Check<'_> {
                 self.type_default(param, default);
             }
         }
-        self.restricted = old;
+        (self.scope, self.class_visible) = old;
     }
 
     fn type_default(&mut self, param: &TypeParam, default: &Expr) {
@@ -214,6 +235,30 @@ impl Check<'_> {
         }
         self.body(&node.body, node.items.len());
     }
+
+    fn annotation_slice(&mut self, expr: &Expr, depth: usize) {
+        if !self.work.charge(1) {
+            return;
+        }
+        if depth >= 1000 {
+            self.fail(expr, "CPython validation depth limit exceeded");
+            return;
+        }
+        match expr {
+            Expr::Starred(_) => self.fail(expr, "starred expression is not allowed here"),
+            Expr::Tuple(node) => self.annotation_slices(&node.elts, depth),
+            _ => {}
+        }
+    }
+
+    fn annotation_slices(&mut self, items: &[Expr], depth: usize) {
+        for item in items {
+            if !self.work.charge(1) {
+                break;
+            }
+            self.annotation_slice(item, depth + 1);
+        }
+    }
 }
 
 impl<'a> Visitor<'a> for Check<'_> {
@@ -240,26 +285,40 @@ impl<'a> Visitor<'a> for Check<'_> {
             Stmt::FunctionDef(node) => {
                 self.type_parameters(node.type_params.as_deref());
                 self.decorators(&node.decorator_list);
+                let generic =
+                    std::mem::replace(&mut self.generic_annotations, node.type_params.is_some());
                 self.visit_parameters(&node.parameters);
                 if let Some(expr) = &node.returns {
                     self.visit_annotation(expr);
                 }
+                self.generic_annotations = generic;
+                let scope = (self.class_body, self.class_visible, self.scope);
+                (self.class_body, self.class_visible, self.scope) = (false, false, Scope::Outer);
                 let old = std::mem::replace(&mut self.blocks, usize::from(node.is_async));
                 self.docstring(&node.body);
                 self.visit_body(&node.body);
                 self.blocks = old;
+                (self.class_body, self.class_visible, self.scope) = scope;
             }
             Stmt::ClassDef(node) => {
                 let private = self.private.replace(node.name.to_string());
                 self.type_parameters(node.type_params.as_deref());
+                let scope = (self.scope, self.class_visible);
+                if node.type_params.is_some() {
+                    self.scope = Scope::Type;
+                    self.class_visible = self.class_body;
+                }
                 if let Some(args) = &node.arguments {
                     self.visit_arguments(args);
                 }
+                (self.scope, self.class_visible) = scope;
                 self.decorators(&node.decorator_list);
                 let old = std::mem::replace(&mut self.blocks, 0);
+                let class = std::mem::replace(&mut self.class_body, true);
                 self.docstring(&node.body);
                 self.visit_body(&node.body);
                 self.blocks = old;
+                self.class_body = class;
                 self.private = private;
             }
             Stmt::For(node) => {
@@ -275,11 +334,22 @@ impl<'a> Visitor<'a> for Check<'_> {
             }
             Stmt::With(node) => self.with_statement(node),
             Stmt::Try(node) => self.try_statement(node),
+            Stmt::ImportFrom(node) if self.depth == 1 => {
+                self.future_annotations |=
+                    super::scopecheck::future_annotations(node, self.minor, &mut self.work);
+            }
+            Stmt::AnnAssign(node) if node.value.is_none() => {
+                if let Expr::Subscript(target) = &*node.target {
+                    self.annotation_slice(&target.slice, 0);
+                }
+                visitor::walk_stmt(self, stmt);
+            }
             Stmt::TypeAlias(node) => {
                 self.type_parameters(node.type_params.as_deref());
-                let old = std::mem::replace(&mut self.restricted, true);
+                let old = (self.scope, self.class_visible);
+                (self.scope, self.class_visible) = (Scope::Type, self.class_body);
                 self.visit_expr(&node.value);
-                self.restricted = old;
+                (self.scope, self.class_visible) = old;
             }
             _ => visitor::walk_stmt(self, stmt),
         }
@@ -295,13 +365,19 @@ impl<'a> Visitor<'a> for Check<'_> {
             matches!(expr, Expr::Tuple(_) | Expr::List(_) | Expr::Set(_)),
         );
         match expr {
-            Expr::Name(node) if matches!(node.id.as_str(), "True" | "False" | "None") => {
-                match self.minor {
-                    PyMinor::Py311 | PyMinor::Py312 => {}
-                    PyMinor::Py313 | PyMinor::Py314 => {
-                        self.fail(expr, "identifier field cannot represent a constant");
-                    }
-                }
+            Expr::Lambda(_) if self.class_visible && self.minor == PyMinor::Py312 => {
+                self.fail(
+                    expr,
+                    "Cannot use lambda in annotation scope within class scope",
+                );
+            }
+            Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_)
+                if self.class_visible && self.minor == PyMinor::Py312 =>
+            {
+                self.fail(
+                    expr,
+                    "Cannot use comprehension in annotation scope within class scope",
+                );
             }
             Expr::Starred(_) if !star => self.fail(expr, "starred expression is not allowed here"),
             Expr::Named(node) => {
@@ -313,21 +389,28 @@ impl<'a> Visitor<'a> for Check<'_> {
                 if prefix.contains('(') {
                     self.fail(expr, "assignment expression target cannot be parenthesized");
                 }
-                if self.restricted {
+                if self.scope == Scope::Type
+                    || (self.scope == Scope::Annotation && self.comprehensions == 0)
+                {
                     self.fail(expr, "assignment expression in an annotation scope");
                 }
                 visitor::walk_expr(self, expr);
             }
-            Expr::Yield(_) | Expr::YieldFrom(_) | Expr::Await(_) if self.restricted => {
+            Expr::Yield(_) | Expr::YieldFrom(_) | Expr::Await(_) if self.scope != Scope::Outer => {
                 self.fail(expr, "yield or await in an annotation scope");
             }
             Expr::Lambda(node) => {
                 if let Some(params) = &node.parameters {
                     self.visit_parameters(params);
                 }
-                let old = std::mem::replace(&mut self.restricted, false);
+                let old = std::mem::replace(&mut self.scope, Scope::Outer);
                 self.visit_expr(&node.body);
-                self.restricted = old;
+                self.scope = old;
+            }
+            Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_) => {
+                self.comprehensions = self.comprehensions.saturating_add(1);
+                visitor::walk_expr(self, expr);
+                self.comprehensions -= 1;
             }
             _ => visitor::walk_expr(self, expr),
         }

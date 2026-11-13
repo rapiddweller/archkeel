@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -57,8 +58,56 @@ def test_the_source_extractor_keeps_nested_calls_and_ignores_comments(tmp_path: 
 def test_pinned_sources_match_when_the_read_only_checkout_is_available() -> None:
     source = os.environ.get("ARCHKEEL_CPYTHON_SOURCES")
     if source is None:
-        pytest.skip("set ARCHKEEL_CPYTHON_SOURCES to the four downloaded source directories")
+        pytest.skip("ARCHKEEL_CPYTHON_SOURCES is unset; no gate supplies the CPython source trees")
     assert inventory(Path(source)) == PINS
+
+
+def check_witness(row) -> None:
+    with pytest.raises(
+        (SyntaxError, ValueError, OverflowError, RecursionError, MemoryError, UnicodeError)
+    ) as raised:
+        compile(row["source"], "p.py", "exec", dont_inherit=True)
+    error = raised.value
+    assert getattr(error, "msg", str(error)) == row["compiler_message"], (
+        row["site"],
+        "compiler message changed",
+        str(error),
+    )
+    assert type(error).__name__ == row["exception"]
+
+
+def test_a_different_compiler_message_cannot_share_a_native_reason() -> None:
+    row = next(
+        row
+        for row in ROWS
+        if row.get("compiler_message") == "nonlocal declaration not allowed at module level"
+    ).copy()
+    row["source"] = "def f():\n nonlocal x"
+    with pytest.raises(AssertionError, match="compiler message changed"):
+        check_witness(row)
+
+
+def test_the_optional_source_check_reports_its_skip_reason() -> None:
+    env = dict(os.environ)
+    env.pop("ARCHKEEL_CPYTHON_SOURCES", None)
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-n",
+            "0",
+            f"{__file__}::test_pinned_sources_match_when_the_read_only_checkout_is_available",
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "SKIPPED" in done.stdout
+    assert "ARCHKEEL_CPYTHON_SOURCES is unset" in done.stdout
 
 
 def test_each_raise_site_witness_is_still_a_compiler_refusal(
@@ -67,10 +116,7 @@ def test_each_raise_site_witness_is_still_a_compiler_refusal(
     assert sys.getrecursionlimit() == TABLE["recursion_limit"] == 1000
     witnessed = [row for row in ROWS if row["source"] is not None]
     for row in witnessed:
-        with pytest.raises(
-            (SyntaxError, ValueError, OverflowError, RecursionError, MemoryError, UnicodeError)
-        ):
-            compile(row["source"], "p.py", "exec", dont_inherit=True)
+        check_witness(row)
     rels = _write(tmp_path, {f"r{index}.py": row["source"] for index, row in enumerate(witnessed)})
     native = _native(python_dump_binary, tmp_path, rels)
     for index, row in enumerate(witnessed):

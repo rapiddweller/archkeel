@@ -20,6 +20,7 @@ PR_TEST_FILES := \
 	tests/test_collector_native_python_bindings.py \
 	tests/test_collector_native_python_refusals.py \
 	tests/test_collector_native_python_review.py \
+	tests/test_collector_native_python_review_families.py \
 	tests/test_collector_native_python_compile_sites.py \
 	tests/test_collector_native_python_compiler.py \
 	tests/test_rust_clones.py \

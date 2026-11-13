@@ -202,6 +202,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_collector_native_python_compile_sites.py",
         "test_collector_native_python_compiler.py",
         "test_collector_native_python_review.py",
+        "test_collector_native_python_review_families.py",
         "test_pr_test_node_ids.py",
         "test_native_versions.py",
         "test_rust_*.py",

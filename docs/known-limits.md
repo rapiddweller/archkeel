@@ -419,13 +419,21 @@ work or depth bounds. Each refusal names the file and gives incomplete scope
 ([AD-389](architecture/decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)).
 **Python reply acceptance — entry condition:** the store must not accept the native Python reply
 before #1072 is closed. [AD-402](architecture/decisions/ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md)
-fixes the 17 reviewed classes. The source inventory has 252 message witnesses and 1,082 unproved
+refuses the 100 reviewed sources and checks the H1–H5 scope/name families.
+The source inventory has 252 message witnesses and 1,082 unproved
 rows. A matching message does not prove every compiler path. Indirect errors, dynamic messages,
 AST-only failure reachability, memory exhaustion and interpreter settings still need proof.
 Issue #1072 stays open. The oracle uses the default recursion limit of 1,000, not the host's 20,000.
 Native checks every static-block branch and reserves an async cleanup block. CPython can remove
 some branches. Native also bounds 3.11 `elif` chains at depth plus clause count 900. These bounds
 can be stricter, with a named gap. Neither measured corpus has a new refusal on any supported minor.
+Two parser false-refusal classes remain. On 3.13/3.14, Tangut named escapes such as
+`'\N{TANGUT IDEOGRAPH-17000}'` get `Got unexpected unicode` from Ruff, although CPython accepts them.
+On 3.12, a single-quoted f-string format spec with a literal newline gets the named newline gap,
+although CPython accepts it. The annotation-comprehension walrus false refusal (F2) on 3.14 is fixed.
+Ordinary annotation comprehensions can bind; type-parameter and type-alias scopes still cannot.
+The CPython source hash/extractor comparison is not gated: no target or workflow supplies
+`ARCHKEEL_CPYTHON_SOURCES`. Without it, the test visibly skips with its reason.
 
 ## Scope and nested contracts
 

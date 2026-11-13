@@ -5,11 +5,60 @@
 //! Lexical bindings for the enclosing-function check of a nonlocal declaration.
 
 use super::work::Work;
+use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{
     visitor::{self, Visitor},
     Expr, ExprContext, Stmt,
 };
 use std::collections::HashSet;
+
+pub fn is_future(node: &ruff_python_ast::StmtImportFrom, minor: PyMinor) -> bool {
+    let relative = match minor {
+        PyMinor::Py311 | PyMinor::Py312 => true,
+        PyMinor::Py313 | PyMinor::Py314 => false,
+    };
+    (node.level == 0 || relative)
+        && node
+            .module
+            .as_ref()
+            .is_some_and(|name| name == "__future__")
+}
+
+pub fn imported_name(alias: &ruff_python_ast::Alias) -> &str {
+    alias
+        .asname
+        .as_ref()
+        .unwrap_or(&alias.name)
+        .as_str()
+        .split('.')
+        .next()
+        .unwrap_or("")
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum AnnotationScope {
+    Outer,
+    Annotation,
+    Type,
+}
+
+pub fn future_annotations(
+    node: &ruff_python_ast::StmtImportFrom,
+    minor: PyMinor,
+    work: &mut Work,
+) -> bool {
+    if !is_future(node, minor) {
+        return false;
+    }
+    let mut found = false;
+    for alias in &node.names {
+        if !work.charge(1) {
+            break;
+        }
+        found |= alias.name.as_str() == "annotations";
+    }
+    found
+}
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum LexicalScope {
@@ -81,9 +130,7 @@ impl Bindings<'_> {
             if !self.work.charge(1) {
                 break;
             }
-            let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
-            self.names
-                .insert(name.split('.').next().unwrap_or("").to_owned());
+            self.names.insert(imported_name(alias).to_owned());
         }
     }
 

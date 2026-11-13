@@ -298,11 +298,7 @@ impl Check {
         if !self.work.charge(node.names.len()) {
             return;
         }
-        let future = node.level == 0
-            && node
-                .module
-                .as_ref()
-                .is_some_and(|name| name == "__future__");
+        let future = super::scopecheck::is_future(node, self.minor);
         if future && (self.scope != Scope::Module || self.depth != 1) {
             self.fail("future import is not at the start of the module");
         }
@@ -453,7 +449,7 @@ impl<'a> Visitor<'a> for Check {
         if !self.work.charge(1) {
             return;
         }
-        let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+        let name = super::scopecheck::imported_name(alias);
         if name == "__debug__" {
             self.fail("cannot bind __debug__");
         }

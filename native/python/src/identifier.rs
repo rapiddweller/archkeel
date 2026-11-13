@@ -17,6 +17,79 @@
 /// One range a line: `<version> <start|continue> <first> <last>` (see `identifier.txt`).
 const TABLE: &str = include_str!("identifier.txt");
 use archkeel_facts::pyminor::PyMinor;
+use ruff_python_ast::{
+    visitor::source_order::{self, SourceOrderVisitor, TraversalSignal},
+    AnyNodeRef, Expr, Identifier, ModModule,
+};
+use ruff_text_size::Ranged;
+
+struct Constants {
+    work: super::work::Work,
+    depth: usize,
+    reason: Option<(usize, &'static str)>,
+}
+
+pub fn constant_names(module: &ModModule, minor: PyMinor) -> Option<(usize, &'static str)> {
+    match minor {
+        PyMinor::Py311 | PyMinor::Py312 => return None,
+        PyMinor::Py313 | PyMinor::Py314 => {}
+    }
+    let mut check = Constants {
+        work: super::work::Work::new(),
+        depth: 0,
+        reason: None,
+    };
+    check.visit_body(&module.body);
+    check
+        .reason
+        .or_else(|| check.work.failure().map(|reason| (0, reason)))
+}
+
+impl Constants {
+    fn name(&mut self, name: &str, offset: usize) {
+        if self.reason.is_some() || !self.work.charge(name.len()) {
+            return;
+        }
+        for segment in name.split('.') {
+            if !self.work.charge(1) {
+                break;
+            }
+            if matches!(segment, "True" | "False" | "None") {
+                self.reason = Some((offset, "identifier field cannot represent a constant"));
+                break;
+            }
+        }
+    }
+}
+
+impl<'a> SourceOrderVisitor<'a> for Constants {
+    fn enter_node(&mut self, node: AnyNodeRef<'a>) -> TraversalSignal {
+        self.depth = self.depth.saturating_add(1);
+        if self.depth > 1000 && self.reason.is_none() {
+            self.reason = Some((
+                node.start().to_usize(),
+                "CPython validation depth limit exceeded",
+            ));
+        }
+        if self.reason.is_some() || !self.work.charge(1) {
+            TraversalSignal::Skip
+        } else {
+            TraversalSignal::Traverse
+        }
+    }
+    fn leave_node(&mut self, _: AnyNodeRef<'a>) {
+        self.depth = self.depth.saturating_sub(1);
+    }
+    fn visit_identifier(&mut self, name: &'a Identifier) {
+        self.name(name.as_str(), name.start().to_usize());
+    }
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Name(node) = expr {
+            self.name(node.id.as_str(), node.start().to_usize());
+        }
+        source_order::walk_expr(self, expr);
+    }
+}
 
 /// Whether CPython 3.`minor` refuses `c` in an identifier that ruff accepts: `first` for the first
 /// character of the name. Only a name with a character outside ASCII comes here.
@@ -40,4 +113,22 @@ pub fn refused(minor: PyMinor, first: bool, c: char) -> bool {
             && range(low).is_some_and(|low| low <= code)
             && range(high).is_some_and(|high| code <= high)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_identifier_walk_charges_nodes_names_and_dotted_segments() {
+        let tree = crate::test_tree("import alpha.beta as gamma", 14).unwrap();
+        let mut check = Constants {
+            work: super::super::work::Work::new(),
+            depth: 0,
+            reason: None,
+        };
+        check.visit_body(&tree.body);
+        assert_eq!(check.reason, None);
+        assert_eq!(check.work.used(), 20);
+    }
 }
