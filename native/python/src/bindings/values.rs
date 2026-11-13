@@ -97,8 +97,6 @@ fn literal(scan: &mut Scan, node: &Expr, depth: usize) -> Result<Option<bool>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{inert, Scan};
-
     #[test]
     fn literal_admission_stops_at_its_named_depth_bound() {
         let tree = crate::test_tree("x = 1\n", 11).expect("fixture");
@@ -110,9 +108,9 @@ mod tests {
                 _ => None,
             })
             .expect("fixture assignment");
-        let mut scan = Scan::new(crate::test_minor(11));
+        let mut scan = super::Scan::new(crate::test_minor(11));
         assert_eq!(
-            inert(&mut scan, &node.value, 100),
+            super::inert(&mut scan, &node.value, 100),
             Err("creation operand depth limit exceeded (100 levels)".into())
         );
     }

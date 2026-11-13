@@ -316,6 +316,14 @@ fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<HashSet<String>> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn the_proof_adapter_returns_a_complete_table() {
+        let module = crate::test_module("class C: pass\n", 11);
+        let table = super::table(&module, crate::test_minor(11));
+        assert!(table.data.is_ok());
+        assert!(table.work > 0);
+    }
+
+    #[test]
     fn an_exhausted_scan_keeps_no_partial_proof_table() {
         let text = "class C:\n    @staticmethod\n    def f(): pass\n";
         let module = crate::test_module(text, 11);

@@ -26,7 +26,9 @@ mod scopes;
 mod statements;
 mod values;
 
+#[cfg(feature = "dump")]
 pub use output::check as check_output;
+#[cfg(feature = "dump")]
 pub use proofs::table as proof_table;
 pub use scan::Table;
 use scan::{Result, Scan};
