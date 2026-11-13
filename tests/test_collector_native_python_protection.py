@@ -30,6 +30,8 @@ from archkeel.analyzer.python.imports import collect_imports
 @pytest.fixture(scope="session")
 def python_dump_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     cargo = shutil.which("cargo")
+    if cargo is None and os.environ.get("CI"):
+        pytest.fail("CI must provide cargo for the protection dump")
     if cargo is None:
         pytest.skip("the protection dump needs cargo")
     native = Path(__file__).parents[1] / "native"

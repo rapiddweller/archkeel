@@ -267,13 +267,13 @@ mod tests {
     }
 
     #[test]
-    fn generic_recursion_has_a_named_bound() {
+    fn generic_recursion_has_a_named_bound() -> Result<(), String> {
         let module = crate::test_module("class C(Base): pass\n", 11);
         let mut scan = super::Scan::new(crate::test_minor(11));
         let (env, _, _) = super::super::prepare(&module, &mut scan).expect("inputs");
         let stmt = module.tree.body.first().expect("class");
         let ruff_python_ast::Stmt::ClassDef(class) = stmt else {
-            panic!("fixture class")
+            return Err("fixture class missing".into());
         };
         let mut visited = (0..100).map(|n| n.to_string()).collect();
         assert_eq!(
@@ -288,5 +288,6 @@ mod tests {
             ),
             Err("generic proof depth limit exceeded (100 levels)".into())
         );
+        Ok(())
     }
 }
