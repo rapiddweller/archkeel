@@ -17,6 +17,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 from collections import Counter
@@ -122,3 +123,24 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert frame["status"] == "FAIL"
     kept = f"incomplete scope: {len(expected['gaps'])} gaps between two modules that the contract"
     assert frame["scope"].startswith(kept), frame["scope"]
+
+
+# Review B2 of #1121: `core` reaches the collector crates only through `archkeel_collect`. The scan
+# lists no method in the file of its type and no trait method as a candidate (open classes, see
+# docs/known-limits.md), so a value of a collector type in `core` could reach one without a gap.
+# The items that `collect` takes from a collector crate return only facts types and text, so no
+# such value reaches `core`. A new item fails this test and needs that check again.
+COLLECTOR_ITEMS = {"TEST_FEATURES", "typed_reply", "provenance"}
+
+
+def test_collect_hands_core_no_value_of_a_collector_type() -> None:
+    sources = [
+        path
+        for path in (NATIVE / "collect" / "src").rglob("*.rs")
+        if not path.name.endswith("_tests.rs")
+    ]
+    assert sources
+    text = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+    used = set(re.findall(r"archkeel_\w+_collector::(\w+)", text))
+    assert used == COLLECTOR_ITEMS, used
+    assert not re.search(r"\buse\s+archkeel_\w+_collector\b", text)

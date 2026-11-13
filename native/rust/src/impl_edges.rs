@@ -132,7 +132,9 @@ fn visible(
     }
 }
 
-/// Whether the crate of `caller` names the crate of `target` as a dependency.
+/// Whether the crate of `caller` reaches the crate of `target` through its dependencies. A value
+/// of a crate that the caller reaches only through another crate can carry a method call into it
+/// (review B2 of #1121), so the walk follows the dependencies of each crate of the workspace.
 fn depends(workspace: &Workspace, caller: &Module, target: &Module) -> bool {
     let (Some(from), Some(to)) = (
         workspace.crates.get(caller.crate_index),
@@ -140,10 +142,26 @@ fn depends(workspace: &Workspace, caller: &Module, target: &Module) -> bool {
     ) else {
         return false;
     };
-    from.manifest
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut work: Vec<&str> = from
+        .manifest
         .dependencies
         .values()
-        .any(|name| *name == to.ident)
+        .map(String::as_str)
+        .collect();
+    while let Some(name) = work.pop() {
+        if name == to.ident {
+            return true;
+        }
+        if !seen.insert(name) {
+            continue;
+        }
+        let next = workspace.crates.iter().filter(|krate| krate.ident == name);
+        work.extend(
+            next.flat_map(|krate| krate.manifest.dependencies.values().map(String::as_str)),
+        );
+    }
+    false
 }
 
 impl Builder {
@@ -322,3 +340,7 @@ mod receivers;
 #[cfg(test)]
 #[path = "impl_edges_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "transitive_edges_tests.rs"]
+mod transitive_tests;
