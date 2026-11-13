@@ -66,10 +66,10 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
         patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
         patch("archkeel.check.uml.git_bytes", return_value=b""),
         patch(
-            "archkeel.cli.load_config",
+            "archkeel.cli.legacy_bindings.load_config",
             return_value=ScanConfig((".",), "sample", "contract.json", "d" * 64),
         ),
-        patch("archkeel.cli.observer_for", return_value=analyzer),
+        patch("archkeel.cli.legacy_bindings.observer_for", return_value=analyzer),
     ):
         assert main(["report", "--root", str(root), "--output", str(output)]) == 0
     result = json.loads(capsys.readouterr().out)

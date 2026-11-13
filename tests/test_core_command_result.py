@@ -18,8 +18,8 @@ from test_dependency_api_target import _source_members
 from test_result_schema import _validator
 from test_uml_evaluation import _model
 
-from archkeel import cli
 from archkeel.check.ports import ScanConfig
+from archkeel.cli import legacy_bindings as cli
 from archkeel.ir import model
 from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.architecture_projection import ArchitectureProjection

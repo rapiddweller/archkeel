@@ -145,7 +145,7 @@ ALLOWED_LONG_FUNCTIONS = {
     ("src/archkeel/cli/__init__.py::build_parser"): (
         "Declarative argparse setup, one subparser per command; help text is the length."
     ),
-    ("src/archkeel/cli/__init__.py::main"): (
+    ("src/archkeel/cli/__init__.py::_legacy_main"): (
         "Composition root; one error boundary maps every command to a result."
     ),
     ("src/archkeel/ir/codec_contract.py::parse_contract"): (

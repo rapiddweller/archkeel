@@ -25,6 +25,10 @@ use crate::request::{self, Request};
 use archkeel_model::{Reason, Unsupported};
 use archkeel_report::Named;
 
+#[path = "scan_refusal.rs"]
+mod scan_refusal;
+pub(crate) use scan_refusal::refused_scan;
+
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
 /// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
@@ -103,6 +107,13 @@ struct Parts {
     sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     unsupported: UnsupportedParts,
     self_test: SelfTest,
+    locations: BTreeMap<String, Location>,
+}
+
+#[derive(Serialize)]
+struct Location {
+    path: String,
+    line: i64,
 }
 
 #[derive(Serialize)]
@@ -128,6 +139,7 @@ enum ContractCheck {
     /// The repository paths of the inside contracts that the shell must still send.
     Missing(Vec<String>),
     Refused(String),
+    NotRead(String),
 }
 
 #[derive(Serialize)]
@@ -319,6 +331,20 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
             reply,
             collect: run.collect,
         },
+        locations: engine
+            .reply()
+            .into_iter()
+            .flat_map(|reply| &reply.reply().facts.evidence)
+            .map(|evidence| {
+                (
+                    evidence.id.as_str().to_owned(),
+                    Location {
+                        path: evidence.file.clone(),
+                        line: evidence.line.max(0),
+                    },
+                )
+            })
+            .collect(),
     };
     let frame = ruling
         .frame(&parts)

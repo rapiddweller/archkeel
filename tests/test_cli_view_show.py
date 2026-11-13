@@ -219,7 +219,7 @@ def test_a_snapshot_without_an_explorer_prints_the_check_and_exits_2(
     tmp_path: Path, packet: bytes, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The check ran, so its result prints; only the page is missing, and stderr says so."""
-    import archkeel.cli as cli
+    from archkeel.cli import legacy_bindings as cli
 
     saved = cli.run_saved_report
     monkeypatch.setattr(

@@ -41,7 +41,6 @@ from test_cli_native_core import (
 )
 from test_cli_native_core_trust import _script
 
-import archkeel.cli
 from archkeel.cli import main, native_core
 from archkeel.cli.config import parse_config
 from archkeel.cli.core_frame import GapKind, gap_kind
@@ -280,14 +279,16 @@ def test_a_difference_in_the_exit_code_alone_is_a_named_error(
     install: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _, arguments = protocol(tmp_path, install, monkeypatch)
-    original = archkeel.cli.run_check
+    from archkeel.cli import legacy_bindings
+
+    original = legacy_bindings.run_check
 
     def exits_one(*values: Any, **options: Any) -> RunResult:
         result = original(*values, **options)
         assert (result.exit_code, result.failures) == (0, ())
         return replace(result, exit_code=1)
 
-    monkeypatch.setattr(archkeel.cli, "run_check", exits_one)
+    monkeypatch.setattr(legacy_bindings, "run_check", exits_one)
     code, result = check(arguments, "--native-core")
     assert code == 2
     assert "the exit code: core 0, Python 1" in diagnostics(result)

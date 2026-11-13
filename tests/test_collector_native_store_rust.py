@@ -209,7 +209,7 @@ def _report_files(
     capsys: pytest.CaptureFixture[str],
 ) -> dict[str, bytes]:
     """`archkeel report --json`: the result document and the three files it writes."""
-    import archkeel.cli as cli
+    from archkeel.cli import legacy_bindings as cli
 
     if store is None:
         monkeypatch.delenv(NATIVE_STORE, raising=False)

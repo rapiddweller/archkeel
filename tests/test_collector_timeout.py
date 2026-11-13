@@ -12,9 +12,9 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_onboarding import _repository
 
-from archkeel import cli
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
+from archkeel.cli import legacy_bindings as cli
 from archkeel.cli import main
 from archkeel.cli.config import ConfigError, parse_config
 from archkeel.cli.observe import observer_for

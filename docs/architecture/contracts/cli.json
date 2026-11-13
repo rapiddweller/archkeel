@@ -126,7 +126,11 @@
         "archkeel.cli.studio",
         "archkeel.cli.core_frame",
         "archkeel.cli.native_core",
-        "archkeel.cli.native_scan"
+        "archkeel.cli.native_scan",
+        "archkeel.cli.core_only",
+        "archkeel.cli.core_binary",
+        "archkeel.cli.legacy_bindings",
+        "archkeel.cli.legacy_output"
       ],
       "packages": []
     }

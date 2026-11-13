@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-GUARD = '''
+GUARD = """
 import importlib.abc, sys
 class Guard(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
@@ -22,7 +22,7 @@ class Guard(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, Guard())
 from archkeel.cli import main
 raise SystemExit(main(sys.argv[1:]))
-'''
+"""
 
 
 @pytest.mark.parametrize("command", ["validate", "report", "check", "explore"])

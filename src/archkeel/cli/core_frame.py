@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final, TypeVar
 
@@ -27,6 +27,22 @@ class Status(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class CoreCommand(StrEnum):
+    VALIDATE = "validate"
+    REPORT = "report"
+    CHECK = "check"
+    EXPLORE = "explore"
+
+
+class CheckKind(StrEnum):
+    LOCK = "accepted lock authentication"
+    RATCHETS = "measurement ratchets"
+    GUARDRAILS = "architecture guardrails"
+    SELECTED_CHANGES = "selected changes and empty declaration"
+    GIT = "Git order and accepted policy checks"
+    HOST = "host publication order"
+
+
 class RuleStatus(StrEnum):
     """The status of a rule: a permission declaration has no verdict."""
 
@@ -34,6 +50,14 @@ class RuleStatus(StrEnum):
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
     DECLARATION = "DECLARATION"
+
+
+class UnknownKind(StrEnum):
+    SCOPE_INCOMPLETE = "scope_incomplete"
+    NO_RECEIPT = "no_receipt"
+    UNDECIDED = "undecided"
+    OWNERSHIP_BLOCKER = "ownership_blocker"
+    NO_DECIDED_RULE = "no_decided_rule"
 
 
 class GapKind(StrEnum):
@@ -76,6 +100,7 @@ class _ContractRead(StrEnum):
     RULES = "rules"
     MISSING = "missing"
     REFUSED = "refused"
+    NOT_READ = "not_read"
 
 
 class _ReplyRead(StrEnum):
@@ -107,6 +132,9 @@ _FIELDS: Final = frozenset(
         "self_test",
     }
 )
+FRAME_PROTOCOL: Final = "archkeel-core-frame-1"
+STAGE_ONE_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
+_EVIDENCE_FIELDS: Final = frozenset({"protocol", "details", "locations", "unknown_kinds"})
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
 # AD-406: the self-test of a scan frame has the `collect` part too.
@@ -151,6 +179,20 @@ class Gap:
 
 
 @dataclass(frozen=True, slots=True)
+class ViolationDetail:
+    source: str
+    target: str | None
+    cause: str
+    evidence: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Location:
+    path: str
+    line: int
+
+
+@dataclass(frozen=True, slots=True)
 class CoreFrame:
     engine: str
     status: Status
@@ -164,6 +206,9 @@ class CoreFrame:
     missing: tuple[str, ...]
     # AD-406: the JSON text of the collection request that the core derived for a scan request.
     derived: str | None = None
+    details: Mapping[str, tuple[ViolationDetail, ...]] = field(default_factory=dict)
+    locations: Mapping[str, Location] = field(default_factory=dict)
+    unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
 
     @property
     def decided(self) -> bool:
@@ -244,11 +289,12 @@ def _document(stdout: bytes) -> dict[str, object]:
     try:
         text = stdout.decode("utf-8").strip()
         value, end = json.JSONDecoder(object_pairs_hook=_unique).raw_decode(text)
-    except (UnicodeDecodeError, ValueError) as error:
+    except (UnicodeDecodeError, ValueError, RecursionError) as error:
         raise CoreError(f"the core frame is not JSON: {error}") from error
     if text[end:].strip():
         raise CoreError("the core wrote more than one frame")
-    return _fields(value, "frame", _FIELDS)
+    found = _object(value, "frame")
+    return _fields(found, "frame", _FIELDS | (_EVIDENCE_FIELDS & found.keys()))
 
 
 def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
@@ -263,6 +309,9 @@ def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
 
 def _contract_gaps(value: object) -> tuple[list[Gap], tuple[str, ...]]:
     tag, found = _one(value, "self_test.contract", _ContractRead)
+    if tag is _ContractRead.NOT_READ:
+        _text(found, "self_test.contract.not_read")
+        return [], ()
     if tag is _ContractRead.MISSING:
         if not isinstance(found, list) or not found:
             raise CoreError("the core frame field self_test.contract.missing is not a path list")
@@ -334,18 +383,76 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
-def read_frame(stdout: bytes, exit_code: int, *, scan: bool = False) -> CoreFrame:
+def _details(value: object) -> dict[str, tuple[ViolationDetail, ...]]:
+    result: dict[str, tuple[ViolationDetail, ...]] = {}
+    for rule, rows in _object(value, "details").items():
+        if not isinstance(rows, list):
+            raise CoreError(f"the core frame details of {rule} are not a list")
+        details: list[ViolationDetail] = []
+        for row in rows:
+            item = _fields(row, "detail", frozenset({"source", "target", "cause", "evidence"}))
+            evidence = item["evidence"]
+            if not isinstance(evidence, list):
+                raise CoreError("the core frame evidence is not a list")
+            details.append(
+                ViolationDetail(
+                    _text(item["source"], "detail.source"),
+                    None if item["target"] is None else _text(item["target"], "detail.target"),
+                    _text(item["cause"], "detail.cause"),
+                    tuple(_text(key, "detail.evidence") for key in evidence),
+                )
+            )
+        result[rule] = tuple(details)
+    return result
+
+
+def _locations(value: object) -> dict[str, Location]:
+    result: dict[str, Location] = {}
+    for key, row in _object(value, "locations").items():
+        item = _fields(row, "location", frozenset({"path", "line"}))
+        result[key] = Location(
+            _text(item["path"], "location.path"), _count(item["line"], "location.line")
+        )
+    return result
+
+
+def read_frame(
+    stdout: bytes,
+    exit_code: int,
+    *,
+    scan: bool = False,
+    require_protocol: bool = False,
+) -> CoreFrame:
     """The typed frame of one run of the core, or `CoreError`. `scan` reads the frame of a scan
     request, whose self-test has the `collect` part (AD-406)."""
     if exit_code not in (DECIDED_EXIT, NAMES_A_GAP_EXIT):
-        raise CoreError(f"the core exits with {exit_code}")
+        signal = f" (signal {-exit_code})" if exit_code < 0 else ""
+        raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
+    if require_protocol and frame.get("protocol") != FRAME_PROTOCOL:
+        raise CoreError("the core frame has a missing or wrong protocol")
+    if "protocol" in frame and frame["protocol"] != FRAME_PROTOCOL:
+        raise CoreError("the core frame has a wrong protocol")
     status = _word(Status, frame["status"], "status")
     rules = _rules(frame)
     counts = _object(frame["violations"], "violations")
     violations = {rule: _count(count, f"violations.{rule}") for rule, count in counts.items()}
     explained = _texts(frame["explained"], "explained")
     _explained(rules, violations, explained)
+    details = _details(frame.get("details", {}))
+    locations = _locations(frame.get("locations", {}))
+    unknown_kinds = {
+        rule: _word(UnknownKind, kind, "unknown_kinds")
+        for rule, kind in _object(frame.get("unknown_kinds", {}), "unknown_kinds").items()
+    }
+    if require_protocol:
+        if unknown_kinds.keys() != explained.keys():
+            raise CoreError("the core frame UNKNOWN rules lack their typed cause kinds")
+        for rule, count in violations.items():
+            if len(details.get(rule, ())) != count:
+                raise CoreError(f"the core frame FAIL rule {rule} lacks its violation details")
+    if not details.keys() <= violations.keys():
+        raise CoreError("the core frame gives violation details to a rule without violations")
     _object(frame["sections"], "sections")
     gaps, missing, derived = _gaps(frame, scan)
     beyond = _texts(frame["beyond"], "beyond")
@@ -377,4 +484,7 @@ def read_frame(stdout: bytes, exit_code: int, *, scan: bool = False) -> CoreFram
         gaps=gaps,
         missing=missing,
         derived=derived,
+        details=details,
+        locations=locations,
+        unknown_kinds=unknown_kinds,
     )

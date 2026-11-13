@@ -14,7 +14,6 @@ use flate2::read::ZlibDecoder;
 use super::*;
 use crate::repository::tests::scratch;
 
-const HEAD: &str = "0123456789abcdef0123456789abcdef01234567";
 /// The TypeScript fixtures of the repository with a scan configuration.
 const FIXTURES: [&str; 4] = [
     "H-typescript",
@@ -43,18 +42,39 @@ pub(super) fn repository(fixture: &str) -> PathBuf {
         &Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../fixtures/{fixture}")),
         &root,
     );
-    fs::create_dir_all(root.join(".git/refs/heads")).unwrap();
-    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
-    fs::write(root.join(".git/refs/heads/main"), format!("{HEAD}\n")).unwrap();
+    commit(&root);
     root
+}
+
+pub(super) fn commit(root: &Path) {
+    for args in [
+        vec!["init", "-q"],
+        vec!["add", "."],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+    ] {
+        assert!(std::process::Command::new("git")
+            .args(args)
+            .current_dir(root)
+            .status()
+            .unwrap()
+            .success());
+    }
 }
 
 pub(super) fn identity(root: &str) -> Identity<'_> {
     Identity {
         root,
         config: "archkeel.toml",
-        git_head: HEAD,
-        dirty: false,
+        git_head: Some(git::head(Path::new(root)).unwrap().leak()),
+        dirty: Some(git::dirty(Path::new(root)).unwrap()),
     }
 }
 
@@ -127,7 +147,7 @@ fn another_head_profile_or_collector_is_refused_by_name() {
     let root = repository("H-typescript");
     let text = root.to_str().unwrap();
     let other = Identity {
-        git_head: "f".repeat(40).leak(),
+        git_head: Some("f".repeat(40).leak()),
         ..identity(text)
     };
     let refusal = scan(&other, 1 << 26)

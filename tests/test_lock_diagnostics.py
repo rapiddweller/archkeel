@@ -33,7 +33,7 @@ def test_bad_lock_is_exit_two_with_diagnostic_and_never_replaced(
 
     with (
         patch(
-            "archkeel.cli.load_check_config",
+            "archkeel.cli.legacy_bindings.load_check_config",
             return_value=ScanConfig(("sample",), "sample", "contract.json", "b" * 64),
         ),
         patch("archkeel.check.run.remote_tip", return_value="b" * 40),

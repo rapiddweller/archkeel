@@ -179,6 +179,7 @@ mod problem;
 mod report;
 mod ruling;
 mod status;
+mod violation_detail;
 mod why;
 
 pub use build_error::BuildError;

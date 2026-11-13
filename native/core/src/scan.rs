@@ -46,8 +46,12 @@ struct ScanRequest {
     _protocol: String,
     root: String,
     config: String,
-    git_head: String,
-    dirty: bool,
+    #[serde(default)]
+    git_head: Option<String>,
+    #[serde(default)]
+    dirty: Option<bool>,
+    #[serde(default)]
+    root_only: bool,
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
@@ -56,11 +60,26 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let identity = Identity {
         root: &request.root,
         config: &request.config,
-        git_head: &request.git_head,
+        git_head: request.git_head.as_deref(),
         dirty: request.dirty,
     };
     match archkeel_collect::scan(&identity, MAX_BYTES) {
-        Ok(scanned) => decide(scanned),
+        Ok(scanned) => {
+            if request.root_only {
+                let input = ContractInput {
+                    path: scanned.contract.0.clone(),
+                    bytes: scanned.contract.1.clone(),
+                    insides: Vec::new(),
+                };
+                if let ContractState::Missing(paths) = crate::contract::answer(input).0 {
+                    return dual_run::refused_scan(&format!(
+                        "collect: unsupported: inside contracts: {}",
+                        paths.join(", ")
+                    ));
+                }
+            }
+            decide(scanned)
+        }
         Err(refusal) => refused(&refusal),
     }
 }
@@ -97,28 +116,7 @@ fn decide(scanned: Scanned) -> Result<Answered, String> {
 /// The frame of a scan that `archkeel-collect` refused: no reply and no contract, and the
 /// `collect` part names why. The frame decides nothing, so the shell keeps its stage 1 path.
 fn refused(refusal: &Refusal) -> Result<Answered, String> {
-    let reason = refusal.to_string();
-    dual_run::run(Run {
-        case: "scan".to_owned(),
-        path: String::new(),
-        contract: Vec::new(),
-        insides: Vec::new(),
-        reply: ReplyInput::Absent,
-        sections: Vec::new(),
-        namespace: String::new(),
-        roots: Vec::new(),
-        baseline: false,
-        report: false,
-        base: None,
-        trust: Box::new({
-            let reason = reason.clone();
-            move |namespace, _| Trust {
-                settings: Settings::new(namespace, String::new(), Vec::new()),
-                gap: Some(reason),
-            }
-        }),
-        collect: Some(json!({ "refused": reason })),
-    })
+    dual_run::refused_scan(&refusal.to_string())
 }
 
 /// The trust of the scan request: the reply comes from the collector that this process ran.

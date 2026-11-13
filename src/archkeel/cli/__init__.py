@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -15,15 +14,10 @@ import sys
 from collections.abc import Sequence
 from contextlib import redirect_stdout
 from dataclasses import replace
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, NoReturn
 
-from rich_argparse import RawDescriptionRichHelpFormatter
-
 if TYPE_CHECKING:
-    from ..ir.phases import PhaseClock
-    from ..ir.view_spec import ViewCheck
     from .arguments import CLIArguments, Command
 
 
@@ -37,6 +31,12 @@ def root_digest(root: Path) -> str:
     from .arguments import root_digest as digest
 
     return digest(root)
+
+
+def html_path(output: Path, command: str) -> Path:
+    """Name an HTML sidecar by JSON stem and command."""
+    return output.parent / f"{output.stem}.{command}.html"
+
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 _ARCHITECTURE_JSON: Final = "architecture.json"
@@ -83,102 +83,6 @@ class _Parser(argparse.ArgumentParser):
         raise ValueError(message)
 
 
-def _write_files(root: Path, files: tuple[tuple[str, bytes], ...], artifacts: list[Path]) -> None:
-    for relative, payload in files:
-        target = root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(payload)
-        artifacts.append(target)
-
-
-def _write_timings(path: Path, clock: PhaseClock) -> None:
-    os.makedirs(path.parent, exist_ok=True)
-    path.write_text(json.dumps(clock.to_dict(), indent=2) + "\n")
-
-
-def html_path(output: Path, command: str) -> Path:
-    """Name an HTML sidecar by JSON stem and command."""
-    return output.parent / f"{output.stem}.{command}.html"
-
-
-def _write_json(artifact: Path, architecture: bytes) -> None:
-    """Write architecture.json first, so a render failure still leaves the evidence."""
-    artifact.parent.mkdir(parents=True, exist_ok=True)
-    artifact.write_bytes(architecture)
-
-
-def _write_pages(
-    artifact: Path, pages: tuple[tuple[str, bytes], ...], artifacts: list[Path]
-) -> None:
-    """Write the report pages beside architecture.json and drop obsolete details."""
-    report_html = html_path(artifact, "report")
-    for name, payload in pages:
-        detail = artifact.parent / name
-        detail.write_bytes(payload)
-        if detail != report_html:
-            artifacts.append(detail)
-    written = {name for name, _ in pages}
-    if written != {report_html.name}:
-        for previous in _report_pages(artifact):
-            if previous.name not in written:
-                previous.unlink()
-    artifacts.extend((artifact, report_html))
-
-
-def _report_pages(artifact: Path) -> list[Path]:
-    """The report pages a run writes beside architecture.json: main, detail and per component."""
-    pages = (
-        rf"{re.escape(artifact.stem)}\."
-        r"(?:report|detail(?:-(?:component-[0-9a-f]{16}|unknown))?)\.html"
-    )
-    return [
-        previous
-        for previous in artifact.parent.glob(f"{artifact.stem}.*.html")
-        if re.fullmatch(pages, previous.name)
-    ]
-
-
-def _clear_report(artifact: Path) -> None:
-    """Remove the files a run writes, so a link in their place is never followed."""
-    for previous in (artifact, *_report_pages(artifact)):
-        previous.unlink(missing_ok=True)
-
-
-def _show_view(
-    view: ViewCheck, text: str, spec: bytes, snapshot_path: Path, output: Path | None
-) -> Path | None:
-    """AD-287: write the Explorer of the checked snapshot with the check result in it.
-
-    An incomplete scan still has its Explorer: its gaps show as unknown references. Without
-    an Explorer projection there is no page to draw, and the result is None.
-    """
-    from ..check.report import run_saved_report
-    from ..render.html import render_architecture_pages
-    from .arguments import Command
-
-    snapshot = snapshot_path.read_bytes()
-    report = run_saved_report(snapshot_path)
-    if report.architecture_projection is None:
-        return None
-    # Each view of each snapshot gets its own folder, so no view overwrites another.
-    key = hashlib.sha256(
-        f"{view.snapshot.source_digest}:{view.snapshot.contract_digest}:".encode() + spec
-    ).hexdigest()[:16]
-    artifact = (output or cache_folder(Command.VIEW, key)) / _ARCHITECTURE_JSON
-    _clear_report(artifact)
-    _write_json(artifact, snapshot)
-    pages = render_architecture_pages(
-        report,
-        snapshot,
-        # The snapshot names no repository; the page heading names the view.
-        repository=view.title,
-        architecture_href=artifact.name,
-        view_check=text,
-    )
-    _write_pages(artifact, pages, [])
-    return html_path(artifact, Command.REPORT)
-
-
 def _observing(parser: _Parser, output_help: str | None) -> None:
     parser.add_argument(
         "--root",
@@ -206,6 +110,10 @@ def _collector_output_limit(parser: _Parser) -> None:
 
 
 def build_parser() -> _Parser:
+    from importlib.metadata import PackageNotFoundError, version
+
+    from rich_argparse import RawDescriptionRichHelpFormatter
+
     from ..check.ports import Language
     from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
     from .arguments import (
@@ -218,6 +126,7 @@ def build_parser() -> _Parser:
         source_language,
     )
     from .config import CONFIG_PATH
+    from .core_only import add_switch as add_core_only
     from .native_core import add_switch
     from .skill import InstallationAgent
 
@@ -312,6 +221,7 @@ def build_parser() -> _Parser:
     )
     report.set_defaults(root=None, config=None, timings=None)
     add_switch(report)
+    add_core_only(report)
     report.add_argument(
         "--input",
         type=Path,
@@ -441,6 +351,7 @@ def build_parser() -> _Parser:
         ),
     )
     _observing(validate, None)
+    add_core_only(validate)
     for option, help_text in (
         (
             "--compact-open-decisions",
@@ -532,6 +443,7 @@ def build_parser() -> _Parser:
         help="Replay CI host records; the caller must authenticate this file.",
     )
     add_switch(check)
+    add_core_only(check)
 
     init = commands.add_parser(
         Command.INIT.value,
@@ -888,6 +800,25 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
         unknown_result,
         view_check_json,
         view_summary,
+    )
+    from .legacy_output import (
+        clear_report as _clear_report,
+    )
+    from .legacy_output import (
+        html_path,
+    )
+    from .legacy_output import show_view as _show_view
+    from .legacy_output import (
+        write_files as _write_files,
+    )
+    from .legacy_output import (
+        write_json as _write_json,
+    )
+    from .legacy_output import (
+        write_pages as _write_pages,
+    )
+    from .legacy_output import (
+        write_timings as _write_timings,
     )
 
     parser = build_parser()

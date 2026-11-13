@@ -11,9 +11,48 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// The longest file of the Git directory that the core reads.
 const MAX_GIT_FILE: u64 = 64 << 20;
+
+#[cfg(not(windows))]
+const GIT: &str = "/usr/bin/git";
+#[cfg(windows)]
+const GIT: &str = "C:/Program Files/Git/cmd/git.exe";
+
+/// The work tree that contains the requested directory, including a linked work tree.
+pub(crate) fn root(path: &Path) -> Result<PathBuf, String> {
+    path.ancestors()
+        .find(|path| path.join(".git").exists())
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "the root is in no Git work tree".to_owned())
+}
+
+/// Read tracked and untracked changes through the fixed system executable, never PATH.
+pub(crate) fn dirty(root: &Path) -> Result<bool, String> {
+    let output = Command::new(GIT)
+        .env_clear()
+        .args([
+            "--no-optional-locks",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+        ])
+        .arg("-C")
+        .arg(root)
+        .args(["status", "--porcelain=v1", "--untracked-files=normal"])
+        .output()
+        .map_err(|error| format!("cannot run the fixed Git executable: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "cannot read the work tree state: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(!output.stdout.is_empty())
+}
 
 /// The commit id of `HEAD` of the repository that holds `root`.
 pub(crate) fn head(root: &Path) -> Result<String, String> {

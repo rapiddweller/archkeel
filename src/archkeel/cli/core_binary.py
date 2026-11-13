@@ -4,7 +4,7 @@
 """Find the core of this install, never a binary selected by the scanned repository."""
 
 import hashlib
-import os
+import sysconfig
 from pathlib import Path
 
 from .core_frame import CoreError
@@ -12,12 +12,13 @@ from .core_frame import CoreError
 
 def locate_core(package: Path | None = None) -> Path:
     package = package or Path(__file__).resolve().parents[1]
-    name = "archkeel-core.exe" if os.name == "nt" else "archkeel-core"
+    name = "archkeel-core" + (sysconfig.get_config_var("EXE") or "")
     bundled = package / "_native" / name
-    if bundled.parent.exists():
+    if bundled.exists() or bundled.with_name(name + ".sha256").exists():
         try:
             recorded = bundled.with_name(name + ".sha256").read_text(encoding="ascii")
-            actual = hashlib.sha256(bundled.read_bytes()).hexdigest()
+            with bundled.open("rb") as stream:
+                actual = hashlib.file_digest(stream, "sha256").hexdigest()
         except (OSError, UnicodeError) as error:
             raise CoreError(f"the installed core binary or digest is missing: {bundled}") from error
         if recorded != actual:
@@ -29,4 +30,6 @@ def locate_core(package: Path | None = None) -> Path:
             binary = checkout / "native" / "target" / profile / name
             if binary.is_file():
                 return binary
-    raise CoreError("the core binary is missing; build native/ with cargo build --release -p archkeel-core")
+    raise CoreError(
+        "the core binary is missing; build native/ with cargo build --release -p archkeel-core"
+    )

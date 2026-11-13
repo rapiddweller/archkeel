@@ -51,10 +51,9 @@ needs facts that the core made itself.
 **Rejected.** The core spawns a verified binary (the digest beside it proves nothing). Bytes in
 a buffer. A trust field in the scan request. The core runs `git` (`PATH` would choose it).
 
-**Limit.** The shell still gives `root`, `config` and `dirty`. The core reads `HEAD` and refuses
-another `git_head`, but it takes `dirty` as provenance; only an unknown state changes a verdict,
-and the request cannot carry one. The survey bounds the repository, not the work inside the
-collector. No byte of output changes and no core starts without the switch.
+**Limit, amended by AD-422.** The shell chooses `root` and `config`. `collect` derives HEAD and dirty
+through fixed Git. Optional request provenance is checked. Core-only renders without a Python verdict.
+The survey bounds the repository, not the work inside the collector. The default stays off.
 
 **Needed before stage 2.** (1) Zero rules must give UNKNOWN: `report::rule` writes a PASS frame
 with zero rules (`native/report/src/ruling.rs`); today the shell refuses that frame. (2) A memory

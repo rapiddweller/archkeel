@@ -30,6 +30,8 @@ use crate::engine_frame::{EngineFrame, FrameError};
 use crate::head::{RuleVerdict, Status};
 use crate::report::Decided;
 use crate::status::{run_status, Unexplained};
+use crate::violation_detail::ViolationDetail;
+use crate::why::WhyUnknown;
 
 /// The gaps that the core names next to the model. No field holds a verdict: each gap only
 /// holds back a PASS.
@@ -66,6 +68,7 @@ impl RuleReasons {
 /// The decided head of the engine frame. The fields are private: only `rule` makes one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Ruling {
+    protocol: &'static str,
     #[serde(skip)]
     decided: Decided,
     status: Status,
@@ -75,6 +78,8 @@ pub struct Ruling {
     explained: BTreeMap<String, String>,
     /// The number of violations of each FAIL rule.
     violations: BTreeMap<String, usize>,
+    details: BTreeMap<String, Vec<ViolationDetail>>,
+    unknown_kinds: BTreeMap<String, WhyUnknown>,
     /// Each PASS rule of a run with kept pair gaps: the reference engine gives it UNKNOWN, and
     /// the model proves that no kept gap can change it (AD-384 point 4).
     beyond: BTreeMap<String, String>,
@@ -160,6 +165,7 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
         None => RuleReasons::Each(reasons),
     };
     Ok(Ruling {
+        protocol: "archkeel-core-frame-1",
         decided: Decided {
             status,
             pass,
@@ -170,6 +176,8 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
         rules: rows.rules,
         explained: rows.explained,
         violations: rows.violations,
+        details: rows.details,
+        unknown_kinds: rows.unknown_kinds,
         beyond: rows.beyond,
         scope,
         unsupported,
@@ -183,6 +191,8 @@ struct Rows {
     rules: BTreeMap<String, (String, RuleVerdict)>,
     explained: BTreeMap<String, String>,
     violations: BTreeMap<String, usize>,
+    details: BTreeMap<String, Vec<ViolationDetail>>,
+    unknown_kinds: BTreeMap<String, WhyUnknown>,
     beyond: BTreeMap<String, String>,
     decisions: Vec<(String, Option<Decision>)>,
 }
@@ -238,6 +248,10 @@ impl Rows {
                         return Err(BuildError::Unexplained(found));
                     }
                     self.explained.insert(id.clone(), why);
+                    if let Some(reason) = reason {
+                        self.unknown_kinds
+                            .insert(id.clone(), WhyUnknown::of(reason));
+                    }
                     RuleVerdict::Unknown
                 }
             },
@@ -245,6 +259,14 @@ impl Rows {
         fits(verdict, count, &id)?;
         if verdict == RuleVerdict::Fail {
             self.violations.insert(id.clone(), count);
+            self.details.insert(
+                id.clone(),
+                outcome
+                    .violations()
+                    .iter()
+                    .map(ViolationDetail::of)
+                    .collect(),
+            );
         }
         let kind = crate::kind::word(outcome.kind()).to_owned();
         self.rules.insert(id.clone(), (kind, verdict));

@@ -69,7 +69,8 @@ def report_counts(project: Path) -> dict[str, int]:
     calls = {key: _count(patch, *target) for key, target in watched.items()}
     try:
         patch.setattr(
-            "archkeel.cli.observer_for", lambda *a, **k: trusted(_Collector("typescript"))
+            "archkeel.cli.legacy_bindings.observer_for",
+            lambda *a, **k: trusted(_Collector("typescript")),
         )
         main(["report", "--root", str(root), "--output", str(root / "out" / "architecture.json")])
     finally:

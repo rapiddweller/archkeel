@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from collector_pin import pin_of
 
-from archkeel import cli
+from archkeel.cli import legacy_bindings as cli
 from archkeel.cli import main
 from archkeel.cli.config import parse_config
 from archkeel.cli.observe import observer_for

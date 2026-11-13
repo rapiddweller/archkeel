@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-import archkeel.cli as cli
+from archkeel.cli import legacy_bindings as cli
 from archkeel.cli import studio
 
 

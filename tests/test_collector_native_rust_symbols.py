@@ -20,7 +20,7 @@ import pytest
 from collector_pin import pin_of
 from rust_repository import repository, statuses, validate
 
-from archkeel import cli
+from archkeel.cli import legacy_bindings as cli
 from archkeel.cli import main
 from archkeel.ir.architecture_graph import ArchitectureGraph, CoverageStatus, EntityKind
 from archkeel.ir.codec import decode_canonical_model, parse_observation
