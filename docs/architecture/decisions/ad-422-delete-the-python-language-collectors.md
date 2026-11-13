@@ -22,6 +22,7 @@ Lint, type checks and tests of retained code stay mandatory.
 Delete tests that serve only the deleted implementations. Do not create recordings for them.
 The owner also accepts removal of neutral tests that need retired Python inputs; list them in the PR.
 Keep native unit tests. Name parity tests as skipped until their released oracle is connected.
+Keep the frozen replies that the Rust schema tests read, without recording new replies.
 The dual run names and counts each unsupported Python and Dart case.
 
 ## Rejected alternatives
