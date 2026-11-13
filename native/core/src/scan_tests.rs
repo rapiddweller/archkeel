@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 
 use serde_json::json;
 
+use archkeel_store::Ingested;
+
 use super::*;
 
 const HEAD: &str = "89abcdef0123456789abcdef0123456789abcdef";
@@ -154,4 +156,63 @@ fn a_native_directory_in_the_repository_and_the_path_change_nothing() {
     }
     assert_eq!(before["rules"], after["rules"]);
     assert_eq!(before["self_test"]["reply"], after["self_test"]["reply"]);
+}
+
+fn ingested(change: impl FnOnce(&mut Value)) -> Ingested {
+    let reply = crate::engine::tests::golden_reply_with(change);
+    archkeel_store::ingest_reply(&reply, 1 << 30).ok().unwrap()
+}
+
+fn ours(value: &mut Value) {
+    value["facts"]["adapter"]["code_digest"] = json!(CODE_DIGEST);
+}
+
+#[test]
+fn the_in_process_trust_needs_the_profile_the_adapter_and_the_digest_of_this_build() {
+    let trust = |profile, reply: &Ingested| in_process(profile)("shop".to_owned(), Some(reply));
+    assert_eq!(trust(Profile::TypeScript, &ingested(ours)).gap, None);
+    let refused = [
+        trust(Profile::TypeScript, &ingested(|_| {})),
+        trust(Profile::Rust, &ingested(ours)),
+        trust(
+            Profile::TypeScript,
+            &ingested(|value| {
+                ours(value);
+                value["facts"]["adapter"]["name"] = json!("archkeel-rust-imports");
+            }),
+        ),
+    ];
+    for trust in refused {
+        let gap = trust.gap.unwrap_or_default();
+        assert!(gap.starts_with(PRODUCER_NOT_VERIFIED), "{gap}");
+    }
+}
+
+#[test]
+fn the_core_reads_the_inside_contracts_itself_and_names_a_missing_one() {
+    let root = repository("inside");
+    let path = root.join("architecture-contract.json");
+    let mut contract: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    for item in contract["components"].as_array_mut().unwrap() {
+        if item["label"] == "domain" {
+            item["inside"] = json!("inside.json");
+        }
+    }
+    fs::write(&path, contract.to_string()).unwrap();
+    let (missing, names_a_gap) = frame(&request(&root));
+    assert!(names_a_gap);
+    let wanted = missing["self_test"]["contract"]["missing"][0]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let component = json!({"id": "C-0", "label": "c0", "role": "component",
+        "packages": ["shop.src.domain"], "responsibilities": ["Own it."],
+        "forbidden_responsibilities": [], "provenance": ["docs/a.md"]});
+    let rule = json!({"id": "IN", "kind": "complete_assignment", "source": "shop.src.domain",
+        "rationale": "r", "provenance": ["docs/a.md"], "decided_by": "architect"});
+    let inside = json!({"schema_version": "2.2.0", "components": [component], "rules": [rule]});
+    fs::write(root.join(&wanted), inside.to_string()).unwrap();
+    let (read, _) = frame(&request(&root));
+    let rules = read["self_test"]["contract"]["rules"].as_object().unwrap();
+    assert!(rules.keys().any(|rule| rule.ends_with("IN")), "{read}");
 }
