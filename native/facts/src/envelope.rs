@@ -214,6 +214,19 @@ object! {
     }
 }
 
+/// The one runtime whose reply the host accepts a dependency scope proof from
+/// (`ir/decisions.py` `_native_scope_runtime_valid`).
+const SCOPE_PROOF_RUNTIME: &str = "python";
+
+impl Runtime {
+    /// True when the host can accept a dependency scope proof of `complete_requires` from a
+    /// reply of this runtime (`_native_scope_runtime_valid`, AD-418). The host checks more; a
+    /// `false` here is enough to say that it accepts none.
+    pub fn carries_scope_proof(&self) -> bool {
+        self.name == SCOPE_PROOF_RUNTIME
+    }
+}
+
 /// `dirty` is a Boolean, or the text `unknown` when the host could not read the work tree.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(untagged)]

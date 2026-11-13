@@ -14,6 +14,9 @@ pub enum Cause {
     /// Gaps between two modules that the contract does not allow and that can change the rule
     /// (slice S7, AD-384): or, for the run, every such gap.
     PairGaps(Held),
+    /// Gaps that the drop rule drops for the profile and that can change the rule (AD-418): or,
+    /// for the run, that can change a rule of the contract.
+    AllowedPairGaps(Held),
     /// The host could not read the head or the state of the work tree.
     WorkTree,
     /// The collector runtime does not satisfy its declared requirement.
@@ -72,13 +75,25 @@ impl Held {
     pub fn shown(&self) -> &[String] {
         &self.shown
     }
+
+    /// `{count} {what}: a -> b, ...` and the number of the gaps that it does not show.
+    fn write(&self, formatter: &mut fmt::Formatter<'_>, what: &str) -> fmt::Result {
+        write!(
+            formatter,
+            "{} {what}: {}",
+            self.count,
+            self.shown.join(", ")
+        )?;
+        match self.count - self.shown.len() {
+            0 => Ok(()),
+            more => write!(formatter, " and {more} more"),
+        }
+    }
 }
 
 /// A part of the scope proof that the core cannot read. The rule is a named gap.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Part {
-    /// A gap between two modules that the contract allows: the host drops it for one profile.
-    AllowedPairGap,
     /// A runtime requirement form or state that the core does not read.
     RuntimeRequirement,
     /// A limit of some profiles only: the subject that it names.
@@ -95,7 +110,8 @@ pub enum Part {
     /// (`scope_receipts_complete`, `_cycle_scan_coverage`).
     ScanRoots,
     /// `complete_requires`: a coverage gap that the dependency scope proof of the host can
-    /// accept (`ir/decisions.py` `_scoped_dependency_receipt`).
+    /// accept (`ir/decisions.py` `_scoped_dependency_receipt`). Only a runtime that can carry the
+    /// proof names it; for any other runtime the gap is a fact (AD-418).
     ScopedRequires,
     /// `layer_order`: the request carries no source of the contract with the parsed bytes.
     ContractSource,
@@ -116,18 +132,14 @@ pub enum Part {
 impl fmt::Display for Cause {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Cause::PairGaps(held) => {
-                write!(
-                    formatter,
-                    "{} gaps between two modules that the contract does not allow: {}",
-                    held.count,
-                    held.shown.join(", ")
-                )?;
-                match held.count - held.shown.len() {
-                    0 => Ok(()),
-                    more => write!(formatter, " and {more} more"),
-                }
-            }
+            Cause::PairGaps(held) => held.write(
+                formatter,
+                "gaps between two modules that the contract does not allow",
+            ),
+            Cause::AllowedPairGaps(held) => held.write(
+                formatter,
+                "gaps between two modules that the contract allows and that can change the rule",
+            ),
             Cause::WorkTree => formatter.write_str("the host could not read the work tree"),
             Cause::Runtime => {
                 formatter.write_str("the collector runtime does not satisfy its requirement")
@@ -163,10 +175,6 @@ impl fmt::Display for Cause {
 impl fmt::Display for Part {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Part::AllowedPairGap => formatter.write_str(
-                "a gap between two modules that the contract allows; the host drops it for one \
-                 profile, the core does not know the profile",
-            ),
             Part::RuntimeRequirement => {
                 formatter.write_str("a runtime requirement that the core does not read")
             }

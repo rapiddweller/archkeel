@@ -7,8 +7,9 @@
 //!
 //! A pair gap `a -> b` says: the collector cannot tell whether `a` uses `b`. The host drops it
 //! when the contract allows the edge (`check/pair_gaps.py` `drop_allowed_pair_gaps`); this file
-//! ports that rule with its cycle part, so a gap that it drops is `allowed` and a gap that it
-//! keeps is `kept`. The reference engine then makes every rule UNKNOWN for a kept gap. The core
+//! ports that rule with its cycle part, so a gap that it drops is `dropped` and a gap that it
+//! keeps is `kept`. A dropped gap holds the rules whose reading it can change
+//! (`dropped_gaps.rs`, AD-NNN). The reference engine then makes every rule UNKNOWN for a kept gap. The core
 //! makes UNKNOWN only the rules whose reading (`Reads`) the gap can change: this is the one place
 //! where the core decides a rule that the reference engine does not decide (AD-384 point 4).
 //!
@@ -27,27 +28,27 @@ use crate::imports::Resolved;
 use crate::ownership::{in_scope, owner_of};
 use crate::selection::{dependency_sides, Selection};
 
-/// One kept gap and the facts of its two ends that a reading needs.
+/// One pair gap and the facts of its two ends that a reading needs.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Kept {
+pub(crate) struct PairGap {
     pub(crate) source: String,
     pub(crate) target: String,
     /// Both ends are modules of the reply.
-    observed: bool,
+    pub(crate) observed: bool,
     /// The one owner of each end, or `None` for zero or many.
-    owned: [bool; 2],
+    pub(crate) owned: [bool; 2],
     /// The target module imports an external package: it can re-export it.
-    target_external: bool,
+    pub(crate) target_external: bool,
 }
 
 /// The pair gaps of a run, classified one time per model.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Pairs {
-    pub(crate) kept: Vec<Kept>,
-    /// One gap is a gap that the drop rule drops for a profile whose host drops it. Such a gap
-    /// names each rule and the run (`Part::AllowedPairGap`): the core does not prove that the
-    /// drop rule sees every selection of a rule (AD-384 point 4).
-    pub(crate) allowed: bool,
+    pub(crate) kept: Vec<PairGap>,
+    /// The gaps that the drop rule drops for a profile whose host drops them. The drop rule reads
+    /// the selector texts, not the sides of a rule (AD-384 point 4), so a dropped gap still holds
+    /// each rule whose reading it can change (`dropped_gaps.rs`, AD-NNN).
+    pub(crate) dropped: Vec<PairGap>,
 }
 
 /// What a rule reads of the import edges between two modules. A rule kind states its reading;
@@ -107,7 +108,7 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
     }
 }
 
-impl Kept {
+impl PairGap {
     /// True when the gap can change what the rule reads.
     pub(crate) fn holds(&self, reads: &Reads<'_>) -> bool {
         if !self.observed {
@@ -164,16 +165,17 @@ pub(crate) fn pairs(
             }
             _ => false,
         };
+        let gap = PairGap {
+            source: source.clone(),
+            target: target.clone(),
+            observed: modules.contains(source.as_str()) && modules.contains(target.as_str()),
+            owned: ends.map(|end| end.is_some()),
+            target_external: external.contains(target.as_str()),
+        };
         if dropped {
-            found.allowed = true;
+            found.dropped.push(gap);
         } else {
-            found.kept.push(Kept {
-                source: source.clone(),
-                target: target.clone(),
-                observed: modules.contains(source.as_str()) && modules.contains(target.as_str()),
-                owned: ends.map(|end| end.is_some()),
-                target_external: external.contains(target.as_str()),
-            });
+            found.kept.push(gap);
         }
     }
     found

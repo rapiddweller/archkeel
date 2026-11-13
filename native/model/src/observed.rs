@@ -69,6 +69,8 @@ pub(crate) struct Observed {
     pub(crate) layout: Layout,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
+    /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
+    pub(crate) scope_receipt: bool,
 }
 
 /// One dynamic import limit of the `unknowns` section (`dynamic_dependency_limits`).
@@ -144,6 +146,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
+        scope_receipt: facts.runtime.carries_scope_proof(),
     }
 }
 

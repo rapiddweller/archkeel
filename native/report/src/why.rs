@@ -74,6 +74,7 @@ fn not_complete(cause: &Cause) -> WhyUnknown {
         Cause::Undecided(_) => WhyUnknown::Undecided,
         Cause::DynamicImport | Cause::Receipt(_) => WhyUnknown::NoReceipt,
         Cause::PairGaps(_)
+        | Cause::AllowedPairGaps(_)
         | Cause::WorkTree
         | Cause::Runtime
         | Cause::Producer
