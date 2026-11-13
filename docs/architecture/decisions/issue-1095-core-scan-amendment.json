@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "6538bb180f3e2228a25d7f888a5a477d65903fa165196529ba7c4ebd037e8860",
+  "after_digest": "2b4406ce57dbceb00765b6667cea9d0dfdec6d6553ae0aa1e66d5edd20ca4020",
+  "before_baseline_digest": "5a5d527d9b3aea98091eed78b99313e5b489bef2ae37419988bda48239fc2b48",
+  "before_digest": "ae7bbb4c635f98ef30e47c44b30d49f595bd22412c5711390dcb876e556b9c23",
+  "decided_by": "Agent session for Alexander Kell (epic #880, issue #1095, lead decision L-74); review in the pull request decides",
+  "rationale": "AD-406: with --native-core, a TypeScript report asks the core to run the collector in its own process (the scan request). One contract change follows from it and from nothing else: the new module archkeel.cli.native_scan (the scan request, the field-by-field comparison of the derived request with the request of the shell, and the exchange with the core) joins the exact modules of the composition component of cli, beside archkeel.cli.native_core and archkeel.cli.core_frame. It adds no requires entry, no public name and no budget: the calls_unresolved budget of the baseline goes down from 1028 to 1027, and typing_positions stays at 71.",
+  "schema_version": "2.0.0"
+}
