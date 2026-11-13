@@ -1981,11 +1981,14 @@
   "archkeel-snapshot": [
     "const snapshot::MAX_FILE_BYTES",
     "const work::MAX_PARSE_WORK",
+    "const work::MAX_SCAN_BYTES",
     "enum listing::Entry",
     "enum listing::RootCheck",
     "enum snapshot::Hidden",
+    "enum work::WorkScope",
     "field snapshot::Snapshot.problems: BTreeSet<String>",
     "field work::WorkLimit.path: String",
+    "field work::WorkLimit.scope: WorkScope",
     "fn listing::check_root(&mut self,rel:&str)->RootCheck",
     "fn listing::is_link(&self,rel:&str)->bool",
     "fn listing::listing(&mut self,rel:&str)->Option<Vec<(String,Entry)>>",
@@ -2029,7 +2032,9 @@
     "variant listing::RootCheck::NotDirectory",
     "variant snapshot::Hidden::Dangling",
     "variant snapshot::Hidden::NotUtf8",
-    "variant snapshot::Hidden::Special"
+    "variant snapshot::Hidden::Special",
+    "variant work::WorkScope::File",
+    "variant work::WorkScope::Scan"
   ],
   "archkeel-store": [
     "fn ingest_reply(payload:&[u8],inflate_limit:u64)->Result<Ingested,String>",

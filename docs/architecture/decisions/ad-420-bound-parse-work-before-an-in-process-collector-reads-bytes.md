@@ -39,7 +39,7 @@ A parser timeout: it is not deterministic and is not a memory bound.
 
 **Limit.** These are per-file work and whole-scan input bounds, not an absolute process RSS bound.
 It conservatively charges wide files and text in comments too.
-It does not enable parallel parsing. A future collector thread must enter the same boundary.
+It does not enable parallel parsing. Future parse threads must share one scan total, not start independent totals.
 The repository survey still bounds entries, directory depth and total file bytes.
 Stage 1 retains the Python decision for accepted files. A refused file has no verdict.
 The current self-collector names `thread_local!` as one additional macro path gap (#1075).

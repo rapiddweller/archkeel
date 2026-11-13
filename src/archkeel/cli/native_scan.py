@@ -118,6 +118,8 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
         if done.stdout:
             raise CoreError("the core wrote frame bytes with exit 2")
         gap = read_refusal(done.stderr)
-        message = gap.reason if gap else done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
+        message = (
+            gap.reason if gap else done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
+        )
         raise CoreError(f"the core refused the request (exit 2): {message}", gap=gap)
     return done.stdout, done.returncode

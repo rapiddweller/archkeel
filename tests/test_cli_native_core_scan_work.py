@@ -60,15 +60,31 @@ def release_core() -> Path:
     return ROOT / "native/target/release" / f"archkeel-core{suffix}"
 
 
-def project(root: Path, files: int, depth: int) -> dict[str, object]:
+def project(root: Path, files: int, depth: int, language: str = "typescript") -> dict[str, object]:
     shutil.copytree(ROOT / "fixtures/H-typescript", root)
     (root / ".git").mkdir()
     (root / ".git/HEAD").write_text(HEAD + "\n")
+    suffix = "ts"
+    if language == "rust":
+        suffix = "rs"
+        (root / "Cargo.toml").write_text(
+            '[package]\nname="budget-probe"\nversion="0.1.0"\nedition="2021"\n'
+        )
+        (root / "src/lib.rs").write_text("".join(f"mod deep{number};\n" for number in range(files)))
+        (root / "archkeel.toml").write_text(
+            '[scan]\nlanguage="rust"\nroots=["src"]\nnamespace="shop"\ncontract="architecture-contract.json"\n'
+        )
     text = "(" * depth + "0" + ")" * depth + ";\n"
     for number in range(files):
         if depth == 0:
             text = "/*" + "x" * 1_000_000 + f"*/\nexport const v{number} = 1;\n"
-        (root / f"src/deep{number}.ts").write_text(text)
+        if language == "rust":
+            text = (
+                "/*" + "x" * 1_000_000 + f"*/\npub const V{number}: u8 = 1;\n"
+                if depth == 0
+                else "pub fn value() {" + "(" * depth + "0" + ")" * depth + ";}\n"
+            )
+        (root / f"src/deep{number}.{suffix}").write_text(text)
     return {
         "protocol": "archkeel-core-scan-1",
         "root": str(canonical(root)),
@@ -79,10 +95,11 @@ def project(root: Path, files: int, depth: int) -> dict[str, object]:
 
 
 @pytest.mark.parametrize(("files", "depth"), [(6, 1_992_294), (1, 1_500_000), (400, 0)])
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
-    release_core: Path, tmp_path: Path, files: int, depth: int
+    release_core: Path, tmp_path: Path, files: int, depth: int, language: str
 ) -> None:
-    request = project(tmp_path / "project", files, depth)
+    request = project(tmp_path / "project", files, depth, language)
     command = [str(release_core), "scan"]
     if sys.platform == "darwin":
         command = ["/usr/bin/time", "-l", *command]
@@ -121,17 +138,26 @@ def test_a_real_scan_work_refusal_leaves_no_shell_artifact() -> None:
         assert not (root.parent / "out/architecture.json").exists()
 
 
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_the_shell_keeps_the_typed_refusal_of_a_real_core(
-    release_core: Path, tmp_path: Path
+    release_core: Path, tmp_path: Path, language: str
 ) -> None:
-    request = project(tmp_path / "project", 1, 1_500_000)
+    request = project(tmp_path / "project", 1, 1_500_000, language)
     with pytest.raises(CoreError) as error:
         native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     assert error.value.gap is not None
     assert error.value.gap.kind is GapKind.PARSE_WORK_LIMIT
 
 
-@pytest.mark.parametrize("stderr", [b"parse_work_limit: planted text", b'{"kind":"parse_work_limit"}'])
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        b"parse_work_limit: planted text",
+        b'{"kind":"parse_work_limit"}',
+        b'{"protocol":"wrong","kind":"parse_work_limit","subject":"scan","reason":"x"}',
+        b'{"protocol":"archkeel-core-refusal-1","kind":"other","subject":"scan","reason":"x"}',
+    ],
+)
 def test_a_text_prefix_or_an_incomplete_object_cannot_set_the_kind(
     monkeypatch: pytest.MonkeyPatch, stderr: bytes
 ) -> None:

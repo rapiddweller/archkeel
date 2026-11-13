@@ -116,3 +116,30 @@ fn comments_are_facts_but_not_retained_parse_state() {
     assert_eq!(evidence, 4_000_016);
     assert_eq!(retained, 0, "no site refers to the comment bytes");
 }
+
+#[test]
+fn retained_sites_keep_their_paths_and_initializer_after_large_comments() {
+    let source = format!(
+        "/*{}*/\nimport {{ B }} from './b'; export const value = new B('é😀');\n",
+        "é".repeat(500_000)
+    );
+    let tree = Tree::new(&[
+        ("tsconfig.json", "{}"),
+        ("src/a.ts", &source),
+        ("src/b.ts", "export class B { constructor(x: unknown) {} }"),
+    ]);
+    let (_, pending) = gather(&request(&tree, false), provenance());
+    let file = &pending.kept["src/a.ts"];
+    assert!(file.text.len() < 256);
+    let call = file
+        .sites
+        .sites
+        .iter()
+        .find(|site| site.kind == crate::sites::SiteKind::New)
+        .unwrap();
+    assert_eq!(call.initializer.unwrap().decode(&file.text), "new B('é😀')");
+    assert_eq!(
+        file.sites.paths.names(call.path.unwrap(), &file.text),
+        ["B"]
+    );
+}
