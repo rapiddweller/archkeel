@@ -290,6 +290,23 @@ pub enum Section {
 
 impl Section {
     /// The name of the section on the wire.
+    /// The value invariants of each record of the section (`Record::invariants`).
+    pub fn invariants(&self) -> Result<(), &'static str> {
+        fn each<D: FactData>(records: &[Record<D>]) -> Result<(), &'static str> {
+            records.iter().try_for_each(Record::invariants)
+        }
+        match self {
+            Section::Imports(records) => each(records),
+            Section::Symbols(records) => each(records),
+            Section::Calls(records) => each(records),
+            Section::References(records) => each(records),
+            Section::Bindings(records) => each(records),
+            Section::Constructs(records) => each(records),
+            Section::TypingSignals(records) => each(records),
+            Section::Unknowns(records) => each(records),
+        }
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             Section::Imports(_) => "imports",

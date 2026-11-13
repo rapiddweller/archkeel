@@ -102,9 +102,18 @@ fn a_gap_kind_outside_the_closed_lists_is_a_decode_error() {
     }
 }
 
+/// AD-406: the area of an analyzer failure is a value invariant, not a decode error, so a typed
+/// record that never passes the decode is checked too.
 #[test]
-fn an_analyzer_failure_outside_analysis_coverage_is_a_decode_error() {
-    assert!(serde_json::from_str::<Record<GapFact>>(&gap("SyntaxError", "source")).is_err());
+fn an_analyzer_failure_outside_analysis_coverage_breaks_the_record_invariant() {
+    let outside: Record<GapFact> = serde_json::from_str(&gap("SyntaxError", "source")).unwrap();
+    assert_eq!(
+        outside.invariants(),
+        Err("an analyzer failure has the area analysis_coverage")
+    );
+    let inside: Record<GapFact> =
+        serde_json::from_str(&gap("SyntaxError", "analysis_coverage")).unwrap();
+    assert_eq!(inside.invariants(), Ok(()));
 }
 
 /// The WP1 read fields that a wire record carries, and the keys of its read-set data, sorted.

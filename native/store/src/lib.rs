@@ -72,6 +72,7 @@ fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
 /// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
 fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validate::version(reply.protocol_version)?;
+    validate::invariants(&reply.facts)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;
     let places = records::records(&reply.facts, &validate::index(&reply.facts))?;
