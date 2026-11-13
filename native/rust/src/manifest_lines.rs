@@ -12,7 +12,7 @@ use crate::manifest::{Kind, DEPENDENCY_SECTIONS};
 /// A line number (from 1) and the trimmed text of the line.
 type Cited = (i64, String);
 
-pub struct LineIndex {
+pub(crate) struct LineIndex {
     first: Cited,
     /// The line of the key in its section.
     keys: BTreeMap<(Kind, String), Cited>,
@@ -21,7 +21,7 @@ pub struct LineIndex {
 }
 
 impl LineIndex {
-    pub fn new(text: &str) -> Self {
+    pub(crate) fn new(text: &str) -> Self {
         let first = (1, text.lines().next().unwrap_or("").trim().to_owned());
         let mut index = Self {
             first,
@@ -53,7 +53,7 @@ impl LineIndex {
     }
 
     /// The line of a dependency: its table header, else its key, else the first line.
-    pub fn find(&self, kind: Kind, key: &str) -> Cited {
+    pub(crate) fn find(&self, kind: Kind, key: &str) -> Cited {
         let entry = (kind, key.to_owned());
         let found = self.headers.get(&entry).or_else(|| self.keys.get(&entry));
         found.unwrap_or(&self.first).clone()

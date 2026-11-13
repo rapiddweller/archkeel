@@ -19,6 +19,7 @@ publish.workspace = true
 archkeel-facts.workspace = true
 archkeel-store = { path = "../store" }
 archkeel-typescript-collector = { path = "../typescript" }
+archkeel-rust-collector = { path = "../rust" }
 archkeel-wire.workspace = true
 serde_json.workspace = true
 toml.workspace = true

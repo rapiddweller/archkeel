@@ -34,7 +34,11 @@ const MODULE_ATTRIBUTES: [&str; 11] = [
 const TOOLS: [&str; 3] = ["clippy", "rustfmt", "rustdoc"];
 
 /// The first reason that an attribute list hides something, or `None`.
-pub fn hidden_by(attrs: &[Attribute], what: &str, features: &BTreeSet<String>) -> Option<String> {
+pub(crate) fn hidden_by(
+    attrs: &[Attribute],
+    what: &str,
+    features: &BTreeSet<String>,
+) -> Option<String> {
     attrs.iter().find_map(|attr| reason(attr, what, features))
 }
 
@@ -143,7 +147,7 @@ fn top_level_parts(text: &str) -> Vec<&str> {
 /// Whether rustc builds the item only in a test build: `#[test]`, a test attribute of a crate
 /// (`#[tokio::test]`, `#[rstest]`), `#[cfg(test)]` and `#[cfg(all(test, ..))]`. `any(test, x)`, `not(test)` and `cfg_attr(test, ..)` do not count:
 /// production code can still build them, so the scan keeps their edges.
-pub fn is_test_attributes(attrs: &[Attribute]) -> bool {
+pub(crate) fn is_test_attributes(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| match &attr.meta {
         Meta::List(list) if attr.path().is_ident("cfg") => {
             let compact: String = list.tokens.to_string().split_whitespace().collect();
@@ -189,16 +193,16 @@ macro_rules! member_attributes {
     };
 }
 
-pub fn impl_item_attributes(item: &syn::ImplItem) -> &[Attribute] {
+pub(crate) fn impl_item_attributes(item: &syn::ImplItem) -> &[Attribute] {
     member_attributes!(item, ImplItem)
 }
 
-pub fn trait_item_attributes(item: &syn::TraitItem) -> &[Attribute] {
+pub(crate) fn trait_item_attributes(item: &syn::TraitItem) -> &[Attribute] {
     member_attributes!(item, TraitItem)
 }
 
 /// The attributes of a statement that is no item: a `let` or a macro call.
-pub fn statement_attributes(stmt: &syn::Stmt) -> &[Attribute] {
+pub(crate) fn statement_attributes(stmt: &syn::Stmt) -> &[Attribute] {
     match stmt {
         syn::Stmt::Local(local) => &local.attrs,
         syn::Stmt::Macro(mac) => &mac.attrs,
@@ -207,7 +211,7 @@ pub fn statement_attributes(stmt: &syn::Stmt) -> &[Attribute] {
 }
 
 /// The attributes of an item, whatever its kind.
-pub fn item_attributes(item: &Item) -> &[Attribute] {
+pub(crate) fn item_attributes(item: &Item) -> &[Attribute] {
     match item {
         Item::Const(item) => &item.attrs,
         Item::Enum(item) => &item.attrs,
@@ -229,7 +233,7 @@ pub fn item_attributes(item: &Item) -> &[Attribute] {
 }
 
 /// The literal of `#[path = "x.rs"]`; `Err` when the attribute has no string literal.
-pub fn path_literal(attrs: &[Attribute]) -> Result<Option<String>, String> {
+pub(crate) fn path_literal(attrs: &[Attribute]) -> Result<Option<String>, String> {
     let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("path")) else {
         return Ok(None);
     };

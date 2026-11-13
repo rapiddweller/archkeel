@@ -22,7 +22,7 @@ use crate::tokens::{
 /// A `macro_rules!` definition: the macros that its body calls, and the reasons why the scan
 /// cannot read all of its body. Each call of the macro takes these reasons as UNKNOWN.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MacroDef {
+pub(crate) struct MacroDef {
     pub name: String,
     /// The place of the definition in the macro list of its file.
     pub id: usize,
@@ -40,14 +40,14 @@ pub struct MacroDef {
 /// The text where a `macro_rules!` of a block is visible: from its definition to the end of the
 /// block. A position is a line and a column.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Local {
+pub(crate) struct Local {
     pub from: (i64, i64),
     pub until: (i64, i64),
 }
 
 impl Local {
     /// Whether the call at `site` is in the text of the block after the definition.
-    pub fn sees(&self, site: &Site) -> bool {
+    pub(crate) fn sees(&self, site: &Site) -> bool {
         let at = (site.line, site.column);
         self.from < at && at <= self.until
     }
@@ -57,7 +57,7 @@ impl Local {
 /// a plain or a `crate::`, `self::` or `super::` path. A call in the tokens of another macro, or
 /// by the path of a module, is not placed: the scan does not know which macro it names.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MacroCall {
+pub(crate) struct MacroCall {
     pub name: String,
     pub site: Site,
     pub placed: bool,

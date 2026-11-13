@@ -9,14 +9,14 @@
 //! directory, so the collector must treat each such file as test scope.
 
 /// `explore_scope.NO_PRODUCTION_SOURCE`: the exclusion removed every file, so the scan is not complete.
-pub const NO_PRODUCTION_SOURCE: &str =
+pub(crate) const NO_PRODUCTION_SOURCE: &str =
     "No production source files in scope after the test exclusion";
 
 /// `profiles.is_test_source(path, Language.RUST)`: a directory of test, bench or example code.
 const TEST_DIRECTORIES: [&str; 5] = ["test", "tests", "__tests__", "benches", "examples"];
 
 /// Whether a directory of `rel` is a test directory.
-pub fn in_test_directory(rel: &str) -> bool {
+pub(crate) fn in_test_directory(rel: &str) -> bool {
     let mut parts = rel
         .split('/')
         .filter(|part| !part.is_empty() && *part != ".");

@@ -61,22 +61,22 @@ fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
 }
 
 /// Whether each attribute is inert or a tool attribute such as `rustfmt::skip`.
-pub fn inert(attrs: &[Attribute]) -> bool {
+pub(super) fn inert(attrs: &[Attribute]) -> bool {
     only(attrs, &[])
 }
 
 /// Whether a `mod` item, or the inner attributes of a file, keep the module in every configuration.
-pub fn module_inert(attrs: &[Attribute]) -> bool {
+pub(super) fn module_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &MODULE)
 }
 
 /// Whether a struct or an enum keeps its type as written in every configuration.
-pub fn type_inert(attrs: &[Attribute]) -> bool {
+pub(super) fn type_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &TYPE)
 }
 
 /// The kind of the `self` parameter as written, or `None` for a typed `self: X` or no `self`.
-pub fn kind_of(sig: &Signature) -> Option<SelfKind> {
+pub(super) fn kind_of(sig: &Signature) -> Option<SelfKind> {
     match &sig.receiver()?.kind {
         ReceiverKind::Value => Some(SelfKind::Value),
         ReceiverKind::Reference(_, _, None) => Some(SelfKind::Shared),
@@ -94,7 +94,7 @@ fn binds_type(argument: &GenericArgument) -> bool {
 
 /// The path of the type of an `impl` block when the block is exact: a plain relative path with
 /// no type or const argument, no type or const parameter on the block, and only inert attributes.
-pub fn exact_path(item: &ItemImpl) -> Option<Vec<String>> {
+pub(super) fn exact_path(item: &ItemImpl) -> Option<Vec<String>> {
     let generic =
         (item.generics.params.iter()).any(|param| !matches!(param, GenericParam::Lifetime(_)));
     if generic || !inert(&item.attrs) {
@@ -119,7 +119,7 @@ pub fn exact_path(item: &ItemImpl) -> Option<Vec<String>> {
 }
 
 /// The last segment of a path `Self::m` in an expression.
-pub fn self_member(node: &syn::ExprPath) -> Option<&syn::Ident> {
+pub(super) fn self_member(node: &syn::ExprPath) -> Option<&syn::Ident> {
     let segments = &node.path.segments;
     let first = segments.first().filter(|first| first.ident == "Self")?;
     let last = segments
@@ -143,28 +143,28 @@ enum Frame {
 /// The stack of frames of the walk, and the depth of the inline modules that a `cfg` or another
 /// attribute may remove.
 #[derive(Debug, Default)]
-pub struct Selves {
+pub(super) struct Selves {
     frames: Vec<Frame>,
     gated: Vec<bool>,
 }
 
 impl Selves {
     /// Whether an enclosing inline module of the walk is not in every configuration.
-    pub fn gated(&self) -> bool {
+    pub(super) fn gated(&self) -> bool {
         self.gated.iter().any(|gated| *gated)
     }
 
-    pub fn enter_module(&mut self, attrs: &[Attribute]) {
+    pub(super) fn enter_module(&mut self, attrs: &[Attribute]) {
         self.gated.push(!module_inert(attrs));
     }
 
-    pub fn leave_module(&mut self) {
+    pub(super) fn leave_module(&mut self) {
         self.gated.pop();
     }
 
     /// Enter an `impl` block. A block in a body (`blocks > 0`) or in a gated module is not exact:
     /// a local item can hide the type name, and a gate can remove the block.
-    pub fn enter_impl(&mut self, item: &ItemImpl, scope: &[String], blocks: usize) {
+    pub(super) fn enter_impl(&mut self, item: &ItemImpl, scope: &[String], blocks: usize) {
         let exact = exact_path(item)
             .filter(|_| blocks == 0 && !self.gated())
             .map(|path| (path, scope.to_vec()));
@@ -172,13 +172,13 @@ impl Selves {
     }
 
     /// Enter a free `fn`, a `trait` or a `fn` of a `trait`: no `self` of an `impl` reaches in.
-    pub fn enter_opaque(&mut self) {
+    pub(super) fn enter_opaque(&mut self) {
         self.frames.push(Frame::Opaque);
     }
 
     /// Enter a `fn` of an `impl` block: it sees `self` when the block is exact, the `self`
     /// parameter has a kind, and each attribute of the `fn` is inert.
-    pub fn enter_method(&mut self, sig: &Signature, attrs: &[Attribute]) {
+    pub(super) fn enter_method(&mut self, sig: &Signature, attrs: &[Attribute]) {
         let block = match self.frames.last() {
             Some(Frame::Impl(Some(found))) => Some(found.clone()),
             _ => None,
@@ -191,12 +191,12 @@ impl Selves {
         self.frames.push(Frame::Method(on_self, inert));
     }
 
-    pub fn leave(&mut self) {
+    pub(super) fn leave(&mut self) {
         self.frames.pop();
     }
 
     /// The `self` of a call whose receiver is `receiver`: only a plain `self` path has one.
-    pub fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
+    pub(super) fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
         let syn::Expr::Path(path) = receiver else {
             return None;
         };
@@ -213,7 +213,7 @@ impl Selves {
     /// The type of `Self` for a path `Self::m`: the exact type of the nearest `impl` block, when
     /// no free `fn`, no `trait` and no method with an attribute that is not inert is between. A
     /// path has no `self` form.
-    pub fn of_type(&self) -> Option<OnSelf> {
+    pub(super) fn of_type(&self) -> Option<OnSelf> {
         let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Method(_, true)));
         match frame {
             Some(Frame::Impl(Some((path, scope)))) => Some(OnSelf {

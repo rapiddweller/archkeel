@@ -25,7 +25,7 @@ const MAX_HOPS: usize = 8;
 
 /// A module that a path names: the file that holds it and the first segment after it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Edge {
+pub(crate) struct Edge {
     /// The module id of the file that holds the target.
     pub module: String,
     /// The module of the target itself: an inline `mod` has its own, below its file.
@@ -38,7 +38,7 @@ pub struct Edge {
 
 /// The type that a path names, for the members of its `impl` blocks (#953).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TypeOf {
+pub(crate) enum TypeOf {
     /// The lexical module that defines the type, and its name.
     Known(String, String),
     /// The scan cannot say which type it is: a glob may bring it in, or the path is UNKNOWN.
@@ -48,7 +48,7 @@ pub enum TypeOf {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Outcome {
+pub(crate) enum Outcome {
     /// The path names no module of this crate (a crate, a type, a function).
     None,
     Edge(Edge),
@@ -57,7 +57,7 @@ pub enum Outcome {
 }
 
 /// One file of the walk, with the names that it binds.
-pub struct Frame<'a> {
+pub(crate) struct Frame<'a> {
     pub module: &'a Module,
     krate: &'a Crate,
     /// The module id of the root of the target that holds the file.
@@ -66,13 +66,13 @@ pub struct Frame<'a> {
     globs: Vec<&'a Reference>,
 }
 
-pub struct Index<'a> {
+pub(crate) struct Index<'a> {
     /// A module or inline module, by its dotted id, to the module id of its file.
     lexical: BTreeMap<String, &'a str>,
     frames: BTreeMap<&'a str, Frame<'a>>,
 }
 
-pub fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
+pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
     let mut built = Index {
         lexical: BTreeMap::new(),
         frames: BTreeMap::new(),
@@ -143,7 +143,7 @@ fn climb(
 }
 
 /// Whether `module` is `root` or a module below it.
-pub fn inside(module: &str, root: &str) -> bool {
+pub(crate) fn inside(module: &str, root: &str) -> bool {
     module == root
         || module
             .strip_prefix(root)
@@ -158,34 +158,34 @@ fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
 
 impl Frame<'_> {
     /// The lexical module of a place in the file: the file module and the enclosing inline ones.
-    pub fn lexical_at(&self, scope: &[String]) -> String {
+    pub(crate) fn lexical_at(&self, scope: &[String]) -> String {
         lexical(self, scope)
     }
 
     /// The glob `use` items of the file.
-    pub fn globs(&self) -> impl Iterator<Item = &Reference> {
+    pub(crate) fn globs(&self) -> impl Iterator<Item = &Reference> {
         self.globs.iter().copied()
     }
 
     /// The `use` leaves of the file that bind `name`.
-    pub fn bound(&self, name: &str) -> &[&Reference] {
+    pub(crate) fn bound(&self, name: &str) -> &[&Reference] {
         self.bindings.get(name).map_or(&[], Vec::as_slice)
     }
 
     /// The `use` leaves of the file that bind a name, also `_`.
-    pub fn leaves(&self) -> impl Iterator<Item = &Reference> {
+    pub(crate) fn leaves(&self) -> impl Iterator<Item = &Reference> {
         self.bindings.values().flatten().copied()
     }
 }
 
 impl<'a> Index<'a> {
     /// The file module that holds a module or an inline module.
-    pub fn file_of(&self, lexical: &str) -> Option<&str> {
+    pub(crate) fn file_of(&self, lexical: &str) -> Option<&str> {
         self.lexical.get(lexical).copied()
     }
 
     /// From the module `start` of the walk, down the modules that `rest` names.
-    pub fn reach(&self, start: &str, rest: &[String]) -> Outcome {
+    pub(crate) fn reach(&self, start: &str, rest: &[String]) -> Outcome {
         self.follow(start, 0, rest)
     }
 
@@ -193,7 +193,7 @@ impl<'a> Index<'a> {
     /// module defines a struct, enum, union or trait of that name. A type alias, a re-export, a
     /// type that a macro or a function body defines, and a name that a glob may bring in are
     /// `Unknown`: the scan cannot say which type they are (#953).
-    pub fn type_of(&self, frame: &Frame<'_>, scope: &[String], ty: &[String]) -> TypeOf {
+    pub(crate) fn type_of(&self, frame: &Frame<'_>, scope: &[String], ty: &[String]) -> TypeOf {
         let Some(name) = ty.last().filter(|name| *name != "Self") else {
             return TypeOf::Other;
         };
@@ -238,19 +238,19 @@ impl<'a> Index<'a> {
         })
     }
 
-    pub fn frame(&self, module: &str) -> Option<&Frame<'a>> {
+    pub(crate) fn frame(&self, module: &str) -> Option<&Frame<'a>> {
         self.frames.get(module)
     }
 
     /// The file of a module of the walk.
-    pub fn rel(&self, module: &str) -> Option<&str> {
+    pub(crate) fn rel(&self, module: &str) -> Option<&str> {
         self.frames
             .get(module)
             .map(|frame| frame.module.rel.as_str())
     }
 
     /// What the path of `reference`, written in `frame`, names.
-    pub fn resolve(&self, frame: &Frame<'_>, reference: &Reference) -> Outcome {
+    pub(crate) fn resolve(&self, frame: &Frame<'_>, reference: &Reference) -> Outcome {
         let lexical = lexical(frame, &reference.scope);
         let globs = matches!(reference.via, crate::scan::Via::Path);
         self.path(
@@ -314,7 +314,7 @@ impl<'a> Index<'a> {
     }
 
     /// The file module of the deepest module that `rest` names below `start`.
-    pub fn deepest(&self, start: &str, rest: &[String]) -> String {
+    pub(crate) fn deepest(&self, start: &str, rest: &[String]) -> String {
         match self.follow(start, 0, rest) {
             Outcome::Edge(edge) => edge.module,
             _ => start.to_owned(),

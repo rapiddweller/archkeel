@@ -7,7 +7,7 @@
 use archkeel_snapshot::paths::{is_outside, normpath};
 
 /// Remove `.` and `..` parts. `None` when the path leaves the snapshot or is not relative.
-pub fn normalize(path: &str) -> Option<String> {
+pub(crate) fn normalize(path: &str) -> Option<String> {
     if path.starts_with('/') || path.contains('\\') || path.contains('\0') {
         return None;
     }

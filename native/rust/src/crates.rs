@@ -26,14 +26,14 @@ struct Parsed {
 
 /// A place that the scan cannot read: the file (or none) and the reason.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Problem {
+pub(crate) struct Problem {
     pub reason: String,
     pub file: String,
 }
 
 /// The file that starts one module tree of a crate.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Root {
+pub(crate) struct Root {
     pub module: String,
     pub rel: String,
     /// A `tests/`, `benches/` or `examples/` target: Cargo builds it for tests only. A build
@@ -41,7 +41,7 @@ pub struct Root {
     pub test: bool,
 }
 
-pub struct Crate {
+pub(crate) struct Crate {
     pub ident: String,
     /// The directory of the manifest, relative to the snapshot.
     pub dir: String,
@@ -54,7 +54,7 @@ pub struct Crate {
     pub primary: Option<Root>,
 }
 
-pub struct Workspace {
+pub(crate) struct Workspace {
     pub crates: Vec<Crate>,
     pub problems: Vec<Problem>,
     /// The primary root of each crate by name; the first crate of a name wins.
@@ -62,7 +62,7 @@ pub struct Workspace {
 }
 
 /// Find the crates among `files`, all the files below the scan roots.
-pub fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Workspace {
+pub(crate) fn discover(source: &mut Snapshot, files: &[String], namespace: &str) -> Workspace {
     let mut found = Workspace {
         crates: Vec::new(),
         problems: Vec::new(),
@@ -143,7 +143,7 @@ fn workspace_manifest(
 impl Workspace {
     /// The module and file that other crates reach in the crate `package`, when it is in the
     /// workspace and has a library or a main binary.
-    pub fn primary_of(&self, package: &str) -> Option<&Root> {
+    pub(crate) fn primary_of(&self, package: &str) -> Option<&Root> {
         self.primaries.get(package)?.as_ref()
     }
 
@@ -275,12 +275,12 @@ fn within(dir: &str, rel: &str) -> bool {
 
 impl Crate {
     /// Whether a root file is in the directory of this crate.
-    pub fn holds(&self, root: &Root) -> bool {
+    pub(crate) fn holds(&self, root: &Root) -> bool {
         self.contains(&root.rel)
     }
 
     /// Whether a file is in the directory of this crate.
-    pub fn contains(&self, rel: &str) -> bool {
+    pub(crate) fn contains(&self, rel: &str) -> bool {
         within(&self.dir, rel)
     }
 }

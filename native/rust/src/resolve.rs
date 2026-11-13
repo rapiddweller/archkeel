@@ -23,7 +23,7 @@ const EXTERN_SYSROOT: &str = "proc_macro test";
 const RELATIVE: [&str; 4] = ["crate", "self", "super", "Self"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Named {
+pub(crate) enum Named {
     /// A crate of the sysroot, such as `std`.
     Sysroot(String),
     /// A dependency: the package name as source writes it.
@@ -32,7 +32,7 @@ pub enum Named {
 
 /// What a first segment is.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Found {
+pub(crate) enum Found {
     /// A crate that the scanned crate reaches: an edge.
     Edge(Named),
     /// The root names a reachable crate and the file also declares or imports that name. The scan
@@ -43,7 +43,7 @@ pub enum Found {
 /// `absolute` is a path that starts with `::`: it names a crate and nothing local (Rust 2018 and
 /// later), so it is an edge whatever the file declares. A path that starts with `crate`, `self` or
 /// `super` is local. Any other root that is no reachable crate is no edge.
-pub fn classify(
+pub(crate) fn classify(
     root: &str,
     krate: &Crate,
     names: &BTreeSet<String>,
@@ -71,7 +71,7 @@ pub fn classify(
 
 /// Whether the build gives `extern crate name;` without a link that a `build.rs` prints: a crate
 /// of the sysroot, an entry of the manifest, or the library of the own package.
-pub fn linked(name: &str, krate: &Crate) -> bool {
+pub(crate) fn linked(name: &str, krate: &Crate) -> bool {
     let sysroot = SYSROOT.split(' ').chain(EXTERN_SYSROOT.split(' '));
     sysroot
         .chain([krate.ident.as_str()])

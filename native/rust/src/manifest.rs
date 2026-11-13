@@ -16,7 +16,7 @@ use crate::toml::{Table, Value};
 
 /// Which build of the crate a dependency belongs to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Kind {
+pub(crate) enum Kind {
     Normal,
     Dev,
     Build,
@@ -24,7 +24,7 @@ pub enum Kind {
 
 impl Kind {
     /// The name of the section as Cargo writes it.
-    pub fn section(self) -> &'static str {
+    pub(crate) fn section(self) -> &'static str {
         match self {
             Kind::Normal => "dependencies",
             Kind::Dev => "dev-dependencies",
@@ -45,20 +45,20 @@ pub(crate) const DEPENDENCY_SECTIONS: [(&str, Kind); 5] = [
 
 /// One dependency of one manifest: the key as written, the package it stands for and its kind.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Declared {
+pub(crate) struct Declared {
     pub key: String,
     pub package: String,
     pub kind: Kind,
 }
 
 /// The name of a crate as source writes it: `-` becomes `_`.
-pub fn ident(name: &str) -> String {
+pub(crate) fn ident(name: &str) -> String {
     name.replace('-', "_")
 }
 
 /// What Cargo builds from a target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TargetKind {
+pub(crate) enum TargetKind {
     Lib,
     Bin,
     Test,
@@ -69,7 +69,7 @@ pub enum TargetKind {
 
 impl TargetKind {
     /// The word in a module name, as Cargo writes it.
-    pub fn word(self) -> &'static str {
+    pub(crate) fn word(self) -> &'static str {
         match self {
             Self::Lib => "lib",
             Self::Bin => "bin",
@@ -81,14 +81,14 @@ impl TargetKind {
     }
 
     /// Cargo builds `tests/`, `benches/` and `examples/` targets for tests only.
-    pub fn is_test(self) -> bool {
+    pub(crate) fn is_test(self) -> bool {
         matches!(self, Self::Test | Self::Bench | Self::Example)
     }
 }
 
 /// The target of one module tree, as the manifest declares it or Cargo finds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Target {
+pub(crate) struct Target {
     pub kind: TargetKind,
     pub name: String,
     /// Relative to the directory of the manifest.
@@ -96,7 +96,7 @@ pub struct Target {
 }
 
 #[derive(Clone, Debug)]
-pub struct Manifest {
+pub(crate) struct Manifest {
     pub package: String,
     /// The `[lib] name` when it differs from the package name; source uses this name.
     pub lib_name: Option<String>,
@@ -121,7 +121,7 @@ pub struct Manifest {
 impl Manifest {
     /// Edition 2015, also when the manifest names no edition or one that is not known: a `use`
     /// path or a `::` path starts at the crate root there.
-    pub fn legacy(&self) -> bool {
+    pub(crate) fn legacy(&self) -> bool {
         !matches!(self.edition.as_deref(), Some("2018" | "2021" | "2024"))
     }
 }
@@ -140,7 +140,7 @@ fn text<'a>(table: &'a Table, path: &[&str]) -> Option<&'a str> {
 }
 
 /// The `[workspace.dependencies]` table of a workspace manifest, empty when there is none.
-pub fn workspace_dependencies(table: &Table) -> Table {
+pub(crate) fn workspace_dependencies(table: &Table) -> Table {
     get(table, &["workspace", "dependencies"])
         .and_then(Value::table)
         .cloned()
@@ -148,16 +148,16 @@ pub fn workspace_dependencies(table: &Table) -> Table {
 }
 
 /// `[workspace.package] edition` of a workspace manifest.
-pub fn workspace_edition(table: &Table) -> Option<String> {
+pub(crate) fn workspace_edition(table: &Table) -> Option<String> {
     text(table, &["workspace", "package", "edition"]).map(str::to_owned)
 }
 
-pub fn is_workspace(table: &Table) -> bool {
+pub(crate) fn is_workspace(table: &Table) -> bool {
     table.contains_key("workspace")
 }
 
 /// The package of a manifest, or `None` for a virtual workspace.
-pub fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
+pub(crate) fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
     let package = text(table, &["package", "name"])?.to_owned();
     let lib_name = text(table, &["lib", "name"])
         .filter(|name| *name != package && *name != ident(&package))

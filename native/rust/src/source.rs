@@ -15,7 +15,7 @@ const MAX_DEPTH: usize = 128;
 
 /// Read a file as text. The reason of a failure names the file. A path that leaves the snapshot
 /// is never read: `archkeel-snapshot` refuses it and records a problem, which is a gap.
-pub fn read_text(snapshot: &mut Snapshot, rel: &str) -> Result<String, String> {
+pub(crate) fn read_text(snapshot: &mut Snapshot, rel: &str) -> Result<String, String> {
     match snapshot.read(rel) {
         Some(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
         None => Err(snapshot.size_gap(rel).unwrap_or_else(|| {
@@ -30,7 +30,7 @@ const BUILD_MARKERS: [&str; 2] = ["CACHEDIR.TAG", ".rustc_info.json"];
 /// The files below `rel`, relative to the snapshot, sorted. A hidden directory and the build
 /// output are not entered: a directory with a Cargo marker file, and the `target` directory
 /// beside a `Cargo.toml`. A module directory named `target` is read like any other. A directory is entered once, so a link cannot make a loop.
-pub fn walk(snapshot: &mut Snapshot, rel: &str) -> Vec<String> {
+pub(crate) fn walk(snapshot: &mut Snapshot, rel: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut seen = BTreeSet::new();
     walk_into(snapshot, rel, 0, &mut seen, &mut found);

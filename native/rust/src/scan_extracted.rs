@@ -19,7 +19,7 @@ use crate::tokens::LINTS;
 
 /// What the count of a file needs, besides the references and macro calls that the scan holds.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Tally {
+pub(crate) struct Tally {
     /// Use leaves, `extern crate` items, qualified paths and macro calls of the tree.
     pub expected: usize,
     /// References that the tree does not show as nodes: paths of attributes and paths that the
@@ -33,7 +33,7 @@ pub struct Tally {
 
 impl Tally {
     /// The count of the nodes of the tree that must end as an outcome.
-    pub fn of(file: &syn::File, exclude_tests: bool) -> Self {
+    pub(crate) fn of(file: &syn::File, exclude_tests: bool) -> Self {
         let mut nodes = Nodes {
             exclude_tests,
             found: 0,

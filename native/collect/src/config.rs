@@ -10,6 +10,7 @@
 //! A configuration that the in-process path cannot run yet (another profile, a configured
 //! collector) is an `Unsupported` part, so the shell keeps its stage 1 path for it.
 
+use archkeel_facts::envelope::Profile;
 use toml::{Table, Value};
 
 /// The fields that `[scan]` must have and may have (`_REQUIRED_SCAN`, `_OPTIONAL_SCAN`).
@@ -42,6 +43,7 @@ pub(crate) enum Refused {
 /// The settings of a TypeScript scan, as `ScanConfig` holds them.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Config {
+    pub profile: Profile,
     pub roots: Vec<String>,
     pub namespace: String,
     pub contract: String,
@@ -102,13 +104,17 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         "exclude_test_sources",
         "scan.exclude_test_sources must be a boolean",
     )?;
-    if language != "typescript" {
-        // AD-406: each other profile stays on stage 1 by name.
-        return Err(Refused::Unsupported(
-            "profile",
-            format!("the profile {language} has no collector in the core process yet"),
-        ));
-    }
+    let profile = match language {
+        "typescript" => Profile::TypeScript,
+        "rust" => Profile::Rust,
+        _ => {
+            // AD-406: each other profile stays on stage 1 by name.
+            return Err(Refused::Unsupported(
+                "profile",
+                format!("the profile {language} has no collector in the core process yet"),
+            ));
+        }
+    };
     if let Some(argv) = scan.get("collector_argv") {
         let first = match argv {
             Value::Array(items) => items.first().and_then(Value::as_str).unwrap_or_default(),
@@ -120,6 +126,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         ));
     }
     Ok(Config {
+        profile,
         roots,
         namespace,
         contract,

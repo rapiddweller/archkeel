@@ -326,6 +326,10 @@
         {
           "component": "ts-entry",
           "rationale": "Run the TypeScript collector through its library: the typed reply, the provenance and its test features (AD-406)."
+        },
+        {
+          "component": "rs-entry",
+          "rationale": "Run the Rust collector through the same typed library path (AD-406, issue #1095 slice 2)."
         }
       ],
       "decided_by": "architect"

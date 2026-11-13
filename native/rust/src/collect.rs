@@ -23,7 +23,7 @@ use crate::test_scope::NO_PRODUCTION_SOURCE;
 use crate::tree::walk;
 
 /// Collect the facts of one request.
-pub fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
+pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.snapshot.root);
     let mut builder = Builder {
         exclude_tests: request.excludes_test_sources(),
