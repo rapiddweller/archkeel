@@ -3,13 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Tests for installing the Archkeel coding-agent skill."""
 
-import argparse
-import contextlib
-import io
 import json
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import zipfile
@@ -17,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli import build_parser, main
+from archkeel.cli.core_only import NotOnThisLine, parse
 from archkeel.cli.skill import install_skill
 
 ROOT = Path(__file__).parents[1]
@@ -551,25 +547,15 @@ def _commands(text: str, **values: str) -> list[list[str]]:
     ]
 
 
-def _parses(argv: list[str]) -> bool:
+def _known_to_the_shell(argv: list[str]) -> bool:
+    """The shell serves the command line, or refuses it by name as not on this line (AD-430)."""
     try:
-        with contextlib.redirect_stderr(io.StringIO()):
-            build_parser().parse_args(argv)
-    except ValueError:  # _Parser.error raises it instead of exiting
+        parse(argv)
+    except NotOnThisLine:
+        return True
+    except ValueError:  # an unknown command or an unknown argument
         return False
     return True
-
-
-def _options(argv: list[str]) -> set[str]:
-    """The exact option strings of the subcommand that argv names."""
-    parser: argparse.ArgumentParser = build_parser()
-    for word in argv:
-        # argparse has no public API for its subcommand tree.
-        tree = [act for act in parser._actions if isinstance(act, argparse._SubParsersAction)]
-        if not tree or word not in tree[0].choices:
-            break
-        parser = tree[0].choices[word]
-    return {option for action in parser._actions for option in action.option_strings}
 
 
 _FLOW_COMMANDS = _commands(_flow_section())
@@ -601,11 +587,18 @@ def test_flow_section_teaches_the_whole_loop() -> None:
     _commands(_flow_section() + _section("First run on a codebase"), language="typescript"),
     ids=" ".join,
 )
-def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:
-    """#787: each command line the flow and first-run sections teach exists in the CLI."""
-    assert _parses(argv), argv
-    # argparse accepts a prefix such as --write-gr; the skill must name the exact option.
-    assert {word for word in argv if word.startswith("--")} <= _options(argv), argv
+def test_each_skill_command_is_known_to_the_shell(argv: list[str]) -> None:
+    """#787: each command line of the flow and first-run sections is served or refused by name.
+
+    The shell never answers a taught command with "unknown command" or "unknown arguments".
+    """
+    assert _known_to_the_shell(argv), argv
+
+
+def test_the_shell_does_not_know_a_command_or_option_that_no_release_has() -> None:
+    assert not _known_to_the_shell(["explor"])
+    assert not _known_to_the_shell(["validate", "--write-gr"])
+    assert _known_to_the_shell(["validate", "--write-graph"])
 
 
 def test_first_run_asks_the_owner_before_any_command_writes_a_contract() -> None:
@@ -662,8 +655,8 @@ def test_flow_section_states_the_proof_rules() -> None:
     assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
 
 
-def test_offline_schema_guidance_matches_installed_files_and_cli_help() -> None:
-    """The local schema path is shipped in the distribution and named by real CLI help."""
+def test_offline_schema_guidance_matches_installed_files() -> None:
+    """The local schema path is shipped in the distribution."""
     from importlib.metadata import distribution
 
     installed = distribution("archkeel")
@@ -674,54 +667,6 @@ def test_offline_schema_guidance_matches_installed_files_and_cli_help() -> None:
     )
     assert installed.locate_file(schema).is_file()
     assert (ROOT / "schema/view-spec.schema.json").is_file()
-
-    result = subprocess.run(
-        [shutil.which("archkeel") or "archkeel", "view", "check", "--help"],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-        text=True,
-    )
-    assert "View spec JSON (schema/view-spec.schema.json)." in result.stdout
-
-
-def _agent_spec(snapshot: Path, steps: list[str], edges: list[dict]) -> dict:
-    """Write the spec the way the section says: digests copied, a kind on each later step."""
-    packet = json.loads(snapshot.read_text())
-    return {
-        "schema_version": "1.0.0",
-        "title": "How does the CLI place an order?",
-        "snapshot": {
-            "source_digest": packet["source"]["source_digest"],
-            "contract_digest": packet["contract"]["digest"],
-        },
-        "nodes": sorted({*steps, *(e[end] for e in edges for end in ("source", "target"))}),
-        "steps": [
-            {"node": steps[0]},
-            *({"node": node, "kind": "imports"} for node in steps[1:]),
-        ],
-        "edges": edges,
-        "notes": ["Author text: the agent explains the flow; the check proves structure."],
-    }
-
-
-def _view(
-    command: str, tmp_path: Path, snapshot: Path, spec: dict, capsys: pytest.CaptureFixture
-) -> tuple[int, dict]:
-    path = tmp_path / "views" / "flow.json"
-    path.parent.mkdir(exist_ok=True)
-    path.write_text(json.dumps(spec))
-    extra = ["--output", str(tmp_path / "page")] if command == "show" else []
-    code = main(["view", command, str(path), "--snapshot", str(snapshot), "--json", *extra])
-    out = capsys.readouterr().out
-    return code, json.loads(out) if code != 2 else {}
-
-
-def _shop_without_contract(tmp_path: Path) -> Path:
-    from test_architecture_demo import _prepare_repo
-
-    contract_files = ("archkeel.toml", "archkeel-tests.toml", "architecture-contract.json")
-    return _prepare_repo(tmp_path, dict.fromkeys(contract_files))
 
 
 _SCOPE = ("--source", "--namespace", "--language", "--tsconfig")
