@@ -18,6 +18,8 @@ use crate::tokens::{first_name, split_commas};
 
 #[path = "attribute_kinds.rs"]
 pub(crate) mod kinds;
+#[path = "derive_model.rs"]
+pub(crate) mod model;
 
 /// The first reason that an attribute list hides something, or `None`.
 pub(crate) fn hidden_by(

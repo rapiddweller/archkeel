@@ -44,10 +44,11 @@ fn an_array_of_tables_adds_one_table_for_each_header() {
 }
 
 #[test]
-fn a_number_and_a_boolean_are_other() {
+fn numbers_stay_other_and_booleans_retain_their_value() {
     let table = parse("a = 1\nb = true\nd = [1, 2]\n").unwrap();
     assert_eq!(table["a"], Value::Other);
-    assert_eq!(table["b"], Value::Other);
+    assert_eq!(table["b"], Value::Boolean(true));
+    assert_eq!(parse("b = false").unwrap()["b"], Value::Boolean(false));
     assert_eq!(table["d"], Value::Array(vec![Value::Other, Value::Other]));
 }
 

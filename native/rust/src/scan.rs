@@ -51,6 +51,8 @@ pub(crate) enum Via {
     /// A path in code, in an attribute or in the body of a macro call.
     #[default]
     Path,
+    /// A validated derive-helper path, including a bare child-module name.
+    Helper,
     /// A leaf of a `use` item: the local name that it binds.
     Use {
         binding: Option<String>,
@@ -68,6 +70,7 @@ pub(crate) struct Concern {
     pub site: Site,
     /// Known source module, relative to the file. The expansion target is unseen.
     pub source: Option<Vec<String>>,
+    pub proof: Option<crate::attrs::model::Proof>,
 }
 
 /// A `mod name;` declaration: its file is not in this file.
@@ -146,7 +149,7 @@ pub(crate) fn scan(
         via: Via::Path,
         holder: Holder::default(),
         selves: Selves::default(),
-        helpers: Vec::new(),
+        helpers: crate::attrs::model::Context::default(),
         tools: !crate::attrs::kinds::no_tools(&file.attrs),
         derives: Vec::new(),
         out: Scan {
@@ -181,7 +184,7 @@ struct Walker<'a> {
     holder: Holder,
     /// What a plain `self` is at the walk (AD-383).
     selves: Selves,
-    helpers: Vec<String>,
+    helpers: crate::attrs::model::Context,
     tools: bool,
     derives: Vec<(syn::Path, Concern)>,
     out: Scan,
@@ -297,7 +300,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         };
         let helpers = std::mem::replace(
             &mut self.helpers,
-            crate::attrs::kinds::helpers(item_attributes(item)),
+            crate::attrs::model::Context::of(item, self.blocks > 0),
         );
         let tools = self.tools;
         self.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));

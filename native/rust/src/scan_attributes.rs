@@ -13,6 +13,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 use super::Concern;
 use super::Walker;
 use crate::attrs::kinds::{self as attribute_kinds, Kind};
+use crate::attrs::model::{Proof, Usage, KNOWN};
 use crate::net;
 use crate::tokens::{attribute_chains, plain, read_value, string_paths, LINTS, MESSAGE_KEYS};
 
@@ -23,6 +24,7 @@ impl Walker<'_> {
             reason,
             site,
             source: None,
+            proof: None,
         });
     }
 
@@ -59,7 +61,21 @@ impl Walker<'_> {
                     list.delimiter.span().join(),
                 ),
             }
-            self.attribute_strings(list);
+            let helper = !self.helpers.candidates.is_empty()
+                && KNOWN
+                    .iter()
+                    .any(|k| k.helpers.iter().any(|name| path.is_ident(name)));
+            if helper {
+                let via = std::mem::replace(&mut self.via, super::Via::Helper);
+                if let Some(found) = crate::attrs::model::helper_paths(attr) {
+                    self.refer_chains(found);
+                } else {
+                    self.attribute_strings(list);
+                }
+                self.via = via;
+            } else {
+                self.attribute_strings(list);
+            }
         }
         if let (Meta::NameValue(pair), false) = (&attr.meta, lint) {
             self.name_value(&names, &pair.value);
@@ -83,18 +99,29 @@ impl Walker<'_> {
                 return
             }
             (true, None)
-                if (self.tools && attribute_kinds::tool(path)) || self.helpers.contains(&name) =>
+                if (self.tools && attribute_kinds::tool(path))
+                    || self.helpers.names.contains(&name) =>
             {
                 return
             }
             _ => (),
         }
-        let concern = self.expansion_concern(
+        let mut concern = self.expansion_concern(
             format!("The attribute macro {name} can add code that the scan does not read"),
             path.segments
                 .first()
                 .map_or(Span::call_site(), |s| s.ident.span()),
         );
+        if KNOWN
+            .iter()
+            .any(|known| known.helpers.contains(&name.as_str()))
+            && !self.helpers.candidates.is_empty()
+        {
+            concern.proof = Some(Proof::Helper {
+                namespace: name,
+                candidates: self.helpers.candidates.clone(),
+            });
+        }
         self.out.concerns.push(concern);
     }
 
@@ -110,10 +137,23 @@ impl Walker<'_> {
                 .segments
                 .first()
                 .map_or(Span::call_site(), |s| s.ident.span());
-            let concern = self.expansion_concern(
+            let mut concern = self.expansion_concern(
                 format!("The derive macro {name} can add code that the scan does not read"),
                 span,
             );
+            let parts: Vec<_> = path.segments.iter().map(|s| plain(&s.ident)).collect();
+            let complete = self
+                .helpers
+                .candidates
+                .iter()
+                .find(|c| c.path == parts)
+                .is_some_and(|c| c.complete);
+            concern.proof = Some(Proof::Derive(Usage {
+                path: parts,
+                absolute: path.leading_colon.is_some(),
+                complete,
+                block: self.blocks > 0,
+            }));
             self.derives.push((path, concern));
         }
         Some(())
@@ -135,6 +175,7 @@ impl Walker<'_> {
             reason,
             site: self.site(span),
             source: Some(self.inline.clone()),
+            proof: None,
         }
     }
 

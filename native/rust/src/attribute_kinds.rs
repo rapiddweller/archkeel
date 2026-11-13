@@ -79,6 +79,10 @@ pub(crate) fn paths(meta: &Meta) -> Option<Vec<Path>> {
 /// Source: https://doc.rust-lang.org/reference/attributes/derive.html.
 pub(crate) fn builtin_derive(path: &Path, names: &BTreeSet<String>) -> bool {
     let parts: Vec<_> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+    builtin_parts(&parts, names)
+}
+
+pub(crate) fn builtin_parts(parts: &[String], names: &BTreeSet<String>) -> bool {
     let Some(last) = parts.last() else {
         return false;
     };
@@ -91,10 +95,12 @@ pub(crate) fn builtin_derive(path: &Path, names: &BTreeSet<String>) -> bool {
         "Hash" => "hash",
         _ => return false,
     };
-    match parts.as_slice() {
+    match parts {
         [name] => !names.contains(name),
         [root, owner, _] => {
-            ["std", "core"].contains(&root.as_str()) && owner == module && !names.contains(root)
+            "std core".split_whitespace().any(|name| name == root)
+                && owner == module
+                && !names.contains(root)
         }
         _ => false,
     }
