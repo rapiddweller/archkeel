@@ -372,10 +372,9 @@ def test_class_reexport_with_the_module_name_keeps_collection_finite(tmp_path):
 def test_long_assignment_aliases_do_not_recurse_in_loader_identity():
     import ast
 
-    from test_analyzer import _parsed_module
-
     from archkeel.analyzer.python.imports import _import_targets, collect_imports
     from archkeel.analyzer.python.scopes import LexicalScopes
+    from test_analyzer import _parsed_module
 
     body = (
         "import importlib\nalias0 = importlib\n"
@@ -539,6 +538,7 @@ def test_builtin_import_fallback_respects_lexical_owner(tmp_path, body, expected
 @pytest.mark.parametrize("target", ["name", "'sample.errors'"])
 def test_chained_loader_keeps_exact_call_identity(tmp_path, loader, suffix, target):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import decode_response, encode_response, record_payload
     from archkeel.ir.protocol import (
         CollectionRequest,

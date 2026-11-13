@@ -9,11 +9,11 @@ import json
 from pathlib import Path
 
 import pytest
-from test_analyzer import _component
-
 from archkeel.analyzer.python.collect import collect
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.source import parse_sources, stable_direct_module_bindings
+from test_analyzer import _component
+
 from archkeel.check.evaluation.evaluate import evaluate_source
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import parse_contract

@@ -7,12 +7,12 @@ import json
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.python.collect import collect
 from collector_pin import assembled
 from jsonschema import Draft202012Validator
 from test_inherited_properties import _property, _validate
 from test_local_inherited_methods import _report
 
-from archkeel.analyzer.python.collect import collect
 from archkeel.check.ratchets import unknown_positions
 from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
 from archkeel.ir.protocol import (

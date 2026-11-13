@@ -12,8 +12,6 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
-from test_typescript_standard_globals import _environment
-
 from archkeel.analyzer.typescript import standard_libs
 from archkeel.analyzer.typescript.config import (
     ModuleKind,
@@ -28,6 +26,7 @@ from archkeel.analyzer.typescript.standard_libs import (
     TYPESCRIPT_VERSION,
     StandardLibrary,
 )
+from test_typescript_standard_globals import _environment
 
 ROOT = Path(__file__).resolve().parents[1]
 TYPESCRIPT_LIB = ROOT / "tools/browser-runtime/node_modules/typescript/lib"

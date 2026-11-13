@@ -20,11 +20,11 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from archkeel.analyzer.typescript.collect import collect
 from collector_pin import pin_of
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.runtime import package_version
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.check.report import run_report
 from archkeel.cli import observe as bundled
 from archkeel.cli.config import load_config

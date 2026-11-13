@@ -881,9 +881,9 @@ def test_ast_class_or_constant_origin_does_not_prove_its_runtime_binding_kind(
 
 @pytest.mark.parametrize("header", [True, False, None])
 def test_public_class_route_needs_positive_native_header_evidence(header):
+    from archkeel.analyzer.python.symbols import collect_symbols
     from test_analyzer import _parsed_module
 
-    from archkeel.analyzer.python.symbols import collect_symbols
     from archkeel.check.evaluation.boundary_types import _public_alias_definition_proven
 
     [symbol], _, _ = collect_symbols([_parsed_module("class Empty: pass\n", "sample.api")], {})
@@ -2849,6 +2849,7 @@ def test_native_dataclass_source_header_rejects_cross_module_factory_mutation(tm
     import subprocess
 
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.check.evaluation.boundary_types import _public_alias_definition_proven
     from archkeel.ir.facts_codec import raw_record
     from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope

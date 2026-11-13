@@ -532,9 +532,8 @@ def test_numeric_alias_ignores_bindings_in_nested_sibling_scopes(tmp_path, colum
         + "    def choose(): return job_nonce % WIDTH\n"
         + "    return choose()\n"
     )
-    from test_analyzer import _parsed_module
-
     from archkeel.analyzer.python.constructs import collect_constructs
+    from test_analyzer import _parsed_module
 
     module = _parsed_module(source, "sample.core", rel_path="sample/core.py")
     [collected] = [
@@ -588,9 +587,8 @@ def test_numeric_alias_rejects_enclosing_rebinding_from_nested_scope(tmp_path, c
         + "    return choose()\n"
     )
     (tmp_path / "sample/core.py").write_text(source)
-    from test_analyzer import _parsed_module
-
     from archkeel.analyzer.python.constructs import collect_constructs
+    from test_analyzer import _parsed_module
 
     module = _parsed_module(source, "sample.core", rel_path="sample/core.py")
     [collected] = [

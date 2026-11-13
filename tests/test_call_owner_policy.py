@@ -2178,6 +2178,7 @@ def test_uncalled_target_requires_its_binding_proof(tmp_path, provider, target, 
 @pytest.fixture
 def owner_facts(tmp_path):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.protocol import (
         CollectionRequest,
         PythonSettings,
@@ -2253,6 +2254,7 @@ def test_extended_call_proofs_validate_against_published_source_schema(
     tmp_path, caller, target, provider
 ):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import decode_response, encode_response
     from archkeel.ir.protocol import (
         CollectionRequest,
@@ -2318,6 +2320,7 @@ def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
 @pytest.mark.parametrize("change", ["field", "parameter", "write_evidence", "annotation_evidence"])
 def test_forged_stored_receiver_links_are_rejected(tmp_path, change):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
     from archkeel.ir.protocol import (
         CollectionRequest,
@@ -2357,6 +2360,7 @@ def test_forged_stored_receiver_links_are_rejected(tmp_path, change):
 
 def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
     from archkeel.ir.protocol import (
         CollectionRequest,
@@ -2414,6 +2418,7 @@ def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
 @pytest.mark.parametrize("change", ["assignment_name", "assignment_evidence"])
 def test_forged_construction_assignment_link_is_rejected(tmp_path, change):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
     from archkeel.ir.protocol import (
         CollectionRequest,

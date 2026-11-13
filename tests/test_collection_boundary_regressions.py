@@ -8,9 +8,9 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.python.collect import collect
 from collector_pin import assembled
 
-from archkeel.analyzer.python.collect import collect
 from archkeel.check.evaluation.evaluate import evaluate_source
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response

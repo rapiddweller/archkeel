@@ -11,13 +11,13 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.python.collect import collect
 from collector_pin import trusted
 from jsonschema import Draft202012Validator
 from test_catalog_policy_native import _argument, _raw, _use
 from test_exact_module_ownership import _component, _rule
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.python.collect import collect
 from archkeel.check.ports import Language, ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli.observe import analyze_snapshot, observer_for

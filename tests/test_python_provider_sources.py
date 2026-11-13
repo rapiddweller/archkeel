@@ -27,16 +27,16 @@ from pathlib import Path
 from types import FunctionType, ModuleType
 
 import pytest
-from collector_pin import assembled
-
-from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.python import collect as collect_owner
 from archkeel.analyzer.python.collect import (
     PythonProviderCollector,
     collect,
     complete_collection,
     provider_sources,
 )
+from collector_pin import assembled
+
+from archkeel.analyzer.process import ProcessCollector
+from archkeel.analyzer.python import collect as collect_owner
 from archkeel.analyzer.reply_checks import (
     check_provider_sources,
     check_reply,

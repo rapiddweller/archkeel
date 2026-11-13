@@ -476,11 +476,11 @@ def test_core_uses_collected_shapes_without_parsing_and_keeps_late_alias_finding
 ) -> None:
     from unittest.mock import patch
 
-    from test_analyzer import _parsed_module
-
     from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
     from archkeel.analyzer.python.symbols import collect_symbols
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
+    from test_analyzer import _parsed_module
+
     from archkeel.check.evaluation.boundary_types import (
         _boundary_type_verdict,
         boundary_type_indexes,
@@ -531,10 +531,10 @@ def test_core_uses_collected_shapes_without_parsing_and_keeps_late_alias_finding
     ],
 )
 def test_callable_core_needs_positive_provider_flags(missing: str) -> None:
-    from test_analyzer import _parsed_module
-
     from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
+    from test_analyzer import _parsed_module
+
     from archkeel.check.evaluation.boundary_types import (
         _boundary_type_verdict,
         boundary_type_indexes,

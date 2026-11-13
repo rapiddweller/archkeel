@@ -13,10 +13,10 @@ import ast
 import json
 from pathlib import Path
 
-from test_analyzer import _component, _observe
-
 from archkeel.analyzer.python.source import ParsedModule
 from archkeel.analyzer.python.symbols import collect_symbols
+from test_analyzer import _component, _observe
+
 from archkeel.check.evaluation.boundary_types import boundary_type_indexes
 from archkeel.ir.facts_codec import RawRecord
 from archkeel.ir.trace import trace_valid_violations

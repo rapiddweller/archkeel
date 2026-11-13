@@ -11,20 +11,9 @@ from pathlib import Path
 
 import pytest
 from collector_pin import trusted
-from dart_native_helpers import collect_native_dart, require_native_dart
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.python.collect import collect as collect_python
 from archkeel.ir.codec import decode_canonical_model
-from archkeel.ir.facts_codec import encode_response
-from archkeel.ir.protocol import (
-    CollectionRequest,
-    CollectionResponse,
-    DartSettings,
-    PythonSettings,
-    SnapshotInput,
-    SourceScope,
-)
 
 _FIXTURES = Path(__file__).parent / "fixtures/collection-protocol"
 _GIT_HEAD = "a" * 40
@@ -32,23 +21,10 @@ _SOURCE_SUFFIX = {"python": "py", "dart": "dart", "typescript": "ts"}
 
 
 def _response(language: str, root: Path) -> dict[str, object]:
-    if language == "typescript":
-        response = json.loads((_FIXTURES / f"response-{language}.json").read_bytes())
-        response["facts"]["source"]["git_head"] = _GIT_HEAD
-        response["facts"]["source"]["dirty"] = False
-        return response
-
-    settings = PythonSettings() if language == "python" else DartSettings()
-    request = CollectionRequest(
-        SnapshotInput(str(root), _GIT_HEAD, False),
-        SourceScope(("src",), "project"),
-        settings,
-    )
-    if language == "python":
-        facts = collect_python(request)
-    else:
-        facts = require_native_dart(collect_native_dart(request))
-    return json.loads(encode_response(CollectionResponse(facts)))
+    response = json.loads((_FIXTURES / "response-typescript.json").read_bytes())
+    response["facts"]["source"]["git_head"] = _GIT_HEAD
+    response["facts"]["source"]["dirty"] = False
+    return response
 
 
 def _run_report(
@@ -124,7 +100,7 @@ def _replace_fact_value(value: object, previous: str, replacement: str) -> None:
                 _replace_fact_value(item, previous, replacement)
 
 
-@pytest.mark.parametrize("language", ["python", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 @pytest.mark.parametrize(
     ("module_identity", "package_identity"),
     [
@@ -149,23 +125,10 @@ def test_process_observer_accepts_in_namespace_collector_identity(
     assert canonical["coverage"]["status"] == "PASS"
 
 
-def test_process_observer_accepts_native_dart_collector_facts(tmp_path: Path) -> None:
-    result, report = _run_report(tmp_path, "dart")
-
-    assert result.observation is not None
-    assert report is not None
-    canonical = decode_canonical_model(json.loads(report))
-    assert canonical["coverage"]["status"] == "PASS"
-
-
 @pytest.mark.parametrize(
     ("language", "escaped_field"),
     [
-        ("python", "module"),
-        ("dart", "module"),
         ("typescript", "module"),
-        ("python", "package"),
-        ("dart", "package"),
         ("typescript", "package"),
     ],
 )

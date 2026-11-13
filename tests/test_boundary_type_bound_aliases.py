@@ -12,11 +12,11 @@ from itertools import permutations
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.python.type_shapes import collect_type_shapes
 from test_analyzer import _observe
 from test_boundary_type_opaque_map_values import _app
 from test_boundary_types_contained_mapping import _commit_report_fixture
 
-from archkeel.analyzer.python.type_shapes import collect_type_shapes
 from archkeel.check.evaluation.boundary_types import _boundary_type_verdict, boundary_type_indexes
 from archkeel.ir.codec import (
     decode_canonical_model,

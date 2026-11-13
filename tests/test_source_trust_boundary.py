@@ -476,6 +476,7 @@ def test_reference_context_cannot_reclassify_an_annotated_occurrence(
     tmp_path: Path, statement: str
 ) -> None:
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.protocol import PythonSettings
 
     package = tmp_path / "sample"
@@ -511,6 +512,7 @@ def test_reference_context_cannot_reclassify_an_annotated_occurrence(
 
 def test_reference_context_rejects_an_incomplete_multiline_witness(tmp_path: Path) -> None:
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.protocol import PythonSettings
 
     package = tmp_path / "sample"
@@ -575,6 +577,7 @@ def test_reference_context_excerpt_requires_a_complete_occurrence(excerpt, expec
 
 def test_reference_context_accepts_a_complete_value_occurrence(tmp_path: Path) -> None:
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.protocol import PythonSettings
 
     package = tmp_path / "sample"

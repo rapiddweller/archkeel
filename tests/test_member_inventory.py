@@ -395,6 +395,7 @@ def test_source_process_preserves_and_validates_inventory(tmp_path, alter):
     import json
 
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
     from archkeel.ir.protocol import (
         CollectionRequest,

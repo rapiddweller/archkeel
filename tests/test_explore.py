@@ -13,10 +13,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.python.collect import PythonProviderCollector
 from rich.console import Console
 from test_result_schema import _validator
 
-from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check import observation as observation_module
 from archkeel.check import report as report_module
 from archkeel.check.ports import Language, ScanConfig
@@ -1230,6 +1230,7 @@ def test_an_empty_public_list_is_a_declared_interface(
 
 def test_python_scope_with_only_test_sources_is_not_complete(tmp_path: Path) -> None:
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import decode_response, encode_response
     from archkeel.ir.facts_validation import validate_source_facts
     from archkeel.ir.protocol import (

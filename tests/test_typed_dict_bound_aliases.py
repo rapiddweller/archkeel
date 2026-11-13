@@ -314,6 +314,7 @@ def test_ce_total_false_keeps_unrelated_failures_and_grants_only_selected(
 
 def _collect(root: Path):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
 
     return collect(
@@ -442,6 +443,7 @@ def test_unproven_header_or_provider_never_emits_proof_or_permission(
 @pytest.mark.parametrize("flag", [None, False])
 def test_missing_or_false_source_flag_cannot_grant_keyword_header(tmp_path: Path, flag):
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
+
     from archkeel.check.evaluation.boundary_types import (
         _boundary_type_verdict,
         boundary_type_indexes,

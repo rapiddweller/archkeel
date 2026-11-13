@@ -350,6 +350,7 @@ def test_literal_mapping_arm_missing_provenance_refuses(missing: str) -> None:
     from dataclasses import replace
 
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
+
     from archkeel.check.evaluation import boundary_types as core
     from archkeel.ir.model import ArchitectureContract, BoundaryTypeAllowance
 

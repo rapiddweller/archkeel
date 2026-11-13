@@ -9,9 +9,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+from archkeel.analyzer.python.collect import collect as collect_python
 from dart_native_helpers import collect_native_dart, require_native_dart
 
-from archkeel.analyzer.python.collect import collect as collect_python
 from archkeel.ir.facts import ExternalPackageTarget, LocalTarget
 from archkeel.ir.facts_codec import (
     decode_request,

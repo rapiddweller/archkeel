@@ -24,10 +24,11 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.analyzer.python.explore_scope import wire_protocol
 from archkeel.analyzer.typescript.collect import collect
+
+from archkeel.analyzer.process import ProcessCollector
 from archkeel.cli.config import load_config
 from archkeel.ir.facts import GATED_RESOLUTION_FEATURES
 from archkeel.ir.facts_codec import encode_request, encode_response

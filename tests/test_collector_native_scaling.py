@@ -41,6 +41,7 @@ import time
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.typescript.syntax import Definition
 from collector_timing import Taken, interleaved_least, least_of, timed_run
 from scaling_script_shapes import SCRIPT_FIELD_COVERAGE, SCRIPT_SHAPES
 from scaling_shapes import (
@@ -55,7 +56,6 @@ from scaling_shapes import (
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
 
-from archkeel.analyzer.typescript.syntax import Definition
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionRequest,

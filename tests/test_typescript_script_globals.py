@@ -7,13 +7,13 @@ import json
 from importlib import import_module
 
 import pytest
+from archkeel.analyzer.typescript.collect import collect
+from archkeel.analyzer.typescript.parse import parse
 from collector_pin import assembled, trusted
 from test_architecture_demo import _prepare_repo
 from test_source_graph import _graph_from_source_facts
 from test_typescript_partial_uml import _TypeScriptCollector
 
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.analyzer.typescript.parse import parse
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.uml_compare import compare_graphs

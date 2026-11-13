@@ -73,9 +73,9 @@ def test_candidate_arrays(value):
 )
 @pytest.mark.parametrize("imported_base", [False, True], ids=["local-base", "imported-base"])
 def test_missing_symbol_proof_is_unknown(tmp_path, missing, imported_base):
+    from archkeel.analyzer.python.collect import collect
     from test_boundary_types_non_init_facades import _write_app
 
-    from archkeel.analyzer.python.collect import collect
     from archkeel.check.ratchets import unknown_positions
     from archkeel.ir.facts_codec import encode_response
     from archkeel.ir.protocol import (

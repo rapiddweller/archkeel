@@ -5,12 +5,12 @@
 from dataclasses import replace
 
 import pytest
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
+from archkeel.analyzer.python.resolve import build_symbol_index
 from test_analyzer import _parsed_module
 from test_delta import _model, _record
 from test_result_schema import _validator
 
-from archkeel.analyzer.python.calls import collect_calls_with_resolvers
-from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.ir.codec import observation_payload, parse_observation
 
 

@@ -9,12 +9,12 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-
 from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.analyzer.python.source import parse_sources
 from archkeel.analyzer.python.symbols import collect_symbols
+
 from archkeel.ir.facts_codec import freeze_data, parse_record
 from archkeel.ir.state_codec import parse_state_data, state_data
 
@@ -64,6 +64,7 @@ def test_state_collection_replays_two_contracts_without_parsing_or_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from archkeel.analyzer.python.state import collect_state
+
     from archkeel.check.evaluation.state import evaluate_contexts
 
     source = tmp_path / "sample.py"
@@ -147,6 +148,7 @@ def test_duplicate_simple_names_and_nested_class_owners_keep_original_resolution
     tmp_path: Path,
 ) -> None:
     from archkeel.analyzer.python.state import collect_state
+
     from archkeel.check.evaluation.state import evaluate_contexts
 
     paths = []

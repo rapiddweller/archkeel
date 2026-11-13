@@ -10,13 +10,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from test_analyzer import _parsed_module
-
 from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.constructs import collect_constructs
 from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
 from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.analyzer.python.symbols import collect_symbols
+from test_analyzer import _parsed_module
+
 from archkeel.check.evaluation.rules import _construct_violations
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report

@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 from collector_pin import trusted
 from dart_native_helpers import collect_native_dart
+from native_typescript import collect as collect_typescript
 
-from archkeel.analyzer.typescript.collect import collect as collect_typescript
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation

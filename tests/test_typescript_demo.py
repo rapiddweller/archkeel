@@ -580,6 +580,7 @@ def test_native_typescript_uses_v8_compression_and_explicit_collector_keeps_v3(
     from unittest.mock import patch
 
     from archkeel.analyzer.python.collect import PythonProviderCollector
+
     from archkeel.cli.observe import observer_for
     from archkeel.ir.facts_codec import decode_response
     from archkeel.ir.profiles import Language

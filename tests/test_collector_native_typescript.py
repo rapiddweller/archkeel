@@ -17,12 +17,12 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.typescript.collect import collect
+from archkeel.analyzer.typescript.explore_scope import NO_PRODUCTION_SOURCE
 from collector_pin import pin_of
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.analyzer.typescript.explore_scope import NO_PRODUCTION_SOURCE
 from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for

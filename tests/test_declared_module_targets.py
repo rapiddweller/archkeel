@@ -113,6 +113,7 @@ def _report(
         from dataclasses import replace
 
         from archkeel.analyzer.python.collect import collect
+
         from archkeel.ir.facts import CollectionCoverage, EvidenceClass
         from archkeel.ir.facts_codec import classified, parse_record
         from archkeel.ir.protocol import (

@@ -7,9 +7,6 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-from test_typescript_control_target import _repository
-from test_uml_evaluation import _model
-
 from archkeel.analyzer.typescript.config import (
     Options,
     _base_path,
@@ -23,6 +20,9 @@ from archkeel.analyzer.typescript.resolve import (
     package_name,
 )
 from archkeel.analyzer.typescript.source_input import classify_specifier
+from test_typescript_control_target import _repository
+from test_uml_evaluation import _model
+
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -250,6 +250,7 @@ def test_nominal_suffix_boundary_distinguishes_absence_and_unsupported(name, mem
 
 def test_moved_vocabulary_reexports_retain_identity():
     from archkeel.analyzer.typescript import config, resolve, source_input
+
     from archkeel.ir.facts import ResolutionRole
 
     assert config.PathToken is source_input.PathToken
@@ -261,6 +262,7 @@ def test_moved_vocabulary_reexports_retain_identity():
 @pytest.mark.parametrize("role", ["selected", "resolution"])
 def test_snapshot_normalizes_valid_legacy_roles_once_at_read_boundary(tmp_path, role):
     from archkeel.analyzer.typescript.config import Snapshot
+
     from archkeel.ir.facts import ResolutionRole
 
     (tmp_path / "a.ts").write_text("export const a = 1;")
@@ -387,6 +389,7 @@ def test_declaration_cts_keeps_written_commonjs_loader_semantics(tmp_path):
     import json
 
     from archkeel.analyzer.typescript.collect import collect
+
     from archkeel.ir.facts import BuiltinTarget
     from archkeel.ir.protocol import (
         CollectionRequest,

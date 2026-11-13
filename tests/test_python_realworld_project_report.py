@@ -13,9 +13,9 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.python.collect import collect, provider_sources
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.python.collect import collect, provider_sources
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.protocol import ProtocolVersion, PythonCollectionPhase, PythonSettings

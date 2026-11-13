@@ -401,6 +401,7 @@ def test_saved_argument_receipt_binds_result_section_and_contents(
 
 def test_source_facts_reject_a_forged_string_literal_value(tmp_path):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import (
         CollectionResponse,
         ProtocolError,
@@ -517,6 +518,7 @@ def test_argument_inventory_is_required_only_for_potentially_selected_calls(
 
 def test_source_facts_reject_reordered_actual_evidence(tmp_path):
     from archkeel.analyzer.python.collect import collect
+
     from archkeel.ir.facts_codec import (
         CollectionResponse,
         ProtocolError,

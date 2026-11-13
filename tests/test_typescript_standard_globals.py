@@ -7,8 +7,6 @@ import hashlib
 import json
 
 import pytest
-from test_typescript_config import _config
-
 from archkeel.analyzer.typescript.config import (
     ModuleDetection,
     Options,
@@ -17,6 +15,7 @@ from archkeel.analyzer.typescript.config import (
     standard_globals,
 )
 from archkeel.analyzer.typescript.resolve import Found, Resolver
+from test_typescript_config import _config
 
 
 def _environment(tmp_path, options):

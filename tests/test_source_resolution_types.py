@@ -10,13 +10,13 @@ from pathlib import Path
 from typing import get_args, get_type_hints
 
 import pytest
+from archkeel.analyzer.python.resolve import resolve_name
+from archkeel.analyzer.python.symbols import collect_symbols
 from test_analyzer import _parsed_module
 from test_architecture_demo import _prepare_repo
 from test_lexical_resolution import _facts
 from test_uml_evaluation import _model
 
-from archkeel.analyzer.python.resolve import resolve_name
-from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import facts
 from archkeel.ir.architecture_graph import ResolutionKind

@@ -20,9 +20,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from archkeel.analyzer.typescript.collect import collect as python_collect
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.typescript.collect import collect as python_collect
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (

@@ -32,6 +32,7 @@ def test_facade_resolution_reuses_only_one_invocations_native_context(
     from archkeel.analyzer.python.source import parse_sources
     from archkeel.analyzer.python.symbols import collect_symbols
     from archkeel.analyzer.python.type_shapes import collect_type_shapes, symbol_type_expressions
+
     from archkeel.check.evaluation import boundary_types
 
     package = tmp_path / "sample"

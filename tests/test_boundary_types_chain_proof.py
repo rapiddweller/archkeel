@@ -81,6 +81,7 @@ def test_source_import_hops_do_not_require_export_promotion(bridge, proven):
     from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
     from archkeel.analyzer.python.source import stable_direct_module_bindings
     from archkeel.analyzer.python.symbols import collect_symbols
+
     from archkeel.check.evaluation.boundary_types import _public_alias_route_has_unproven_hop
 
     modules = [

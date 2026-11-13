@@ -95,6 +95,7 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
         "archkeel.check.report.run_report": ("function", "public_name", "archkeel.check.report"),
     }
     from archkeel.analyzer.typescript.config import Role
+
     from archkeel.ir.facts import ResolutionRole
 
     assert Role is ResolutionRole

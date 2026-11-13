@@ -172,7 +172,6 @@ PR_TEST_FILES := \
 	tests/test_source_trust_boundary.py \
 	tests/test_source_validate_once.py \
 	tests/test_local_inherited_methods.py \
-	tests/test_inherited_generic_facade_negative.py \
 	tests/test_python_provider_sources.py \
 	tests/test_boundary_types_contextmanager.py \
 	'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-inherited-generic-return]' \
@@ -194,19 +193,15 @@ PR_TEST_FILES := \
 	tests/test_architecture_coverage_characterization.py \
 	tests/test_projection_ownership_reuse.py \
 	tests/test_dependency_profile_selection.py \
-	tests/test_python_crossing_policy.py \
+	tests/test_source_crossing_policy.py \
 	tests/test_duplication.py \
 	tests/test_duplication_call_evidence.py \
 	tests/test_boundary_types_chain_proof.py \
 	tests/test_boundary_types_reexport_proofs.py \
 	tests/test_boundary_types_facades.py \
-	tests/test_boundary_type_recursive_aliases.py \
 	tests/test_callable_boundaries.py \
 	tests/test_boundary_type_literal_mapping_arms.py \
 	tests/test_boundary_type_native_payloads.py \
-	tests/test_boundary_types_mappings.py \
-	tests/test_boundary_type_native_open_maps.py \
-	tests/test_boundary_type_enum_literals.py \
 	tests/test_boundary_type_bound_aliases.py::test_opaque_alias_transfer_keeps_source_identity_without_an_exact_permission \
 	tests/test_boundary_type_bound_aliases.py::test_redirected_metadata_class_cannot_grant_an_exact_alias_permission \
 	tests/test_boundary_type_bound_aliases.py::test_alias_body_separates_source_identity_from_runtime_member_proof \
@@ -241,7 +236,6 @@ PR_TEST_FILES := \
 	tests/test_native_violation_filter.py \
 	tests/test_scoped_dependency_proof.py \
 	tests/test_call_owner_policy.py \
-	tests/test_call_owner_source_facts.py \
 	tests/test_call_owner_wire_compatibility.py \
 	tests/test_call_scope_receipt_identity.py \
 	tests/test_call_owner_scan_completeness.py \
@@ -260,7 +254,6 @@ PR_TEST_FILES := \
 	tests/test_guarded_effect_saved_report.py \
 	tests/test_guarded_effect_source.py \
 	tests/test_guarded_effect_wire_compatibility.py \
-	tests/test_guarded_effect_source_validation.py \
 	tests/test_guarded_effect_scan_completeness.py \
 	tests/test_guarded_effect_hidden_calls.py \
 	tests/test_protocol_conditional_identity.py \
@@ -314,19 +307,15 @@ PR_TEST_FILES := \
 	tests/test_typescript_onboarding.py \
 	tests/test_unknown_positions.py \
 	tests/test_inside_rule_coverage.py \
-	tests/test_inside_rule_parity.py \
 	tests/test_report_rule_evidence.py \
 	tests/test_target_navigation_graph.py \
 	tests/test_absent_import_namespace.py \
 	tests/test_dynamic_dependency_policy.py \
-	tests/test_local_string_comparisons.py \
-	tests/test_string_predicate_observation.py \
 	tests/test_python_string_predicate_target.py \
 	tests/test_typed_host_events.py \
 	tests/test_empty_literal_all.py \
 	tests/test_review_workflow_fixture.py \
 	tests/test_contract_edits.py \
-	tests/test_collector_real_world_shapes.py \
 	tests/test_rule_driven_collection.py \
 	tests/test_findings.py \
 	tests/test_contract_provenance.py \
