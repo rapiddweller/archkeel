@@ -605,14 +605,6 @@
     "reason": "Each linked collector declares its own build provenance and compile-time test features (AD-406). These must bind to that crate's build and feature resolution. No collection logic repeats.",
     "tokens": 111
   },
-  "rust/src/lib.rs|typescript/src/lib.rs|9ac1f99895": {
-    "files": [
-      "rust/src/lib.rs",
-      "typescript/src/lib.rs"
-    ],
-    "reason": "The Rust module list moves unchanged from main.rs to lib.rs for AD-406 slice 2. This replaces the pinned main.rs module-list shape; no code was copied.",
-    "tokens": 71
-  },
   "rust/src/manifest.rs|typescript/src/site_types.rs|54d9ebe401": {
     "files": [
       "rust/src/manifest.rs",

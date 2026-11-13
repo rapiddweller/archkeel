@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! What an attribute on a `mod` or a `use` item can hide from the scan.
+//! What a conditional attribute on a `mod` or a `use` item can hide from the scan.
 //!
 //! A `cfg` can remove a module, a `cfg_attr` can add a `path`, and an attribute macro can rewrite
 //! the module. The scan cannot prove an edge across such an item, so it says UNKNOWN.
@@ -16,22 +16,10 @@ use syn::{Attribute, Expr, ExprLit, ImplItem, Item, Lit, Meta, TraitItem};
 
 use crate::tokens::{first_name, split_commas};
 
-/// Attributes that a module can carry without a change to its content.
-const MODULE_ATTRIBUTES: [&str; 11] = [
-    "path",
-    "allow",
-    "warn",
-    "deny",
-    "forbid",
-    "expect",
-    "doc",
-    "deprecated",
-    "must_use",
-    "no_implicit_prelude",
-    "macro_use",
-];
-/// Tool attributes: `clippy::x` and `rustfmt::skip` change no module.
-const TOOLS: [&str; 3] = ["clippy", "rustfmt", "rustdoc"];
+#[path = "attribute_kinds.rs"]
+pub(crate) mod kinds;
+#[path = "derive_model.rs"]
+pub(crate) mod model;
 
 /// The first reason that an attribute list hides something, or `None`.
 pub(crate) fn hidden_by(
@@ -56,20 +44,8 @@ fn reason(attr: &Attribute, what: &str, features: &BTreeSet<String>) -> Option<S
             .skip(1)
             .any(|part| !first_name(part).is_some_and(|name| lint_like(&name)))
             .then(|| format!("A cfg_attr gates a {what}: cfg_attr({})", list.tokens)),
-        (Some(name), _) if what == "module" && !MODULE_ATTRIBUTES.contains(&name) => {
-            Some(format!("An attribute macro is applied to a module: {name}"))
-        }
-        (None, _) if what == "module" && !is_tool(path) => {
-            Some("An attribute macro is applied to a module: a path attribute".to_owned())
-        }
         _ => None,
     }
-}
-
-fn is_tool(path: &syn::Path) -> bool {
-    path.segments
-        .first()
-        .is_some_and(|segment| TOOLS.contains(&segment.ident.to_string().as_str()))
 }
 
 fn lint_like(name: &str) -> bool {

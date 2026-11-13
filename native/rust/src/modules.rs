@@ -252,14 +252,27 @@ impl<'a> Index<'a> {
     /// What the path of `reference`, written in `frame`, names.
     pub(crate) fn resolve(&self, frame: &Frame<'_>, reference: &Reference) -> Outcome {
         let lexical = lexical(frame, &reference.scope);
-        let globs = matches!(reference.via, crate::scan::Via::Path);
-        self.path(
+        let globs = matches!(
+            reference.via,
+            crate::scan::Via::Path | crate::scan::Via::Helper
+        );
+        let helper =
+            matches!(reference.via, crate::scan::Via::Helper) && reference.names.len() == 1;
+        let single = helper.then(|| vec![reference.names[0].clone(), String::new()]);
+        let outcome = self.path(
             frame,
-            &reference.names,
+            single.as_deref().unwrap_or(&reference.names),
             reference.absolute,
             (&lexical, globs),
             0,
-        )
+        );
+        match outcome {
+            Outcome::Edge(mut edge) if helper && edge.symbol.as_deref() == Some("") => {
+                edge.symbol = None;
+                Outcome::Edge(edge)
+            }
+            other => other,
+        }
     }
 
     /// `place` is the lexical module and whether a glob may bind the first name. A `use` path

@@ -132,6 +132,15 @@ def repository(
 
 def validate(root: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
     """Run `archkeel validate --json` on the fixture and return the result document."""
+    return _run(root, capsys, ["validate"])
+
+
+def report(root: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
+    """Keep rule assessments and written violations beside coverage gaps."""
+    return _run(root, capsys, ["report", "--output", str(root / "out" / "architecture.json")])
+
+
+def _run(root: Path, capsys: pytest.CaptureFixture[str], arguments: list[str]) -> dict[str, Any]:
     capsys.readouterr()
     program = load_config(root).collector_argv[0]  # type: ignore[index]
     build = cli.observer_for
@@ -139,7 +148,7 @@ def validate(root: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
     with mock.patch.object(
         cli, "observer_for", lambda *a, **k: build(*a, **k, pinned_digest=pin_of(program))
     ):
-        main(["validate", "--root", str(root), "--json"])
+        main([*arguments, "--root", str(root), "--json"])
     return json.loads(capsys.readouterr().out)  # type: ignore[no-any-return]
 
 

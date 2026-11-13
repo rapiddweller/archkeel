@@ -23,7 +23,13 @@ use crate::scan::Reference;
 use crate::tree::Module;
 
 impl Builder {
-    pub(crate) fn module(&mut self, workspace: &Workspace, index: &Index<'_>, module: &Module) {
+    pub(crate) fn module(
+        &mut self,
+        workspace: &Workspace,
+        index: &Index<'_>,
+        module: &Module,
+        modules: &[Module],
+    ) {
         let first = module.first_line.as_str();
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
         let cited = Evidence::at(&module.rel, line, line, column, first);
@@ -31,8 +37,19 @@ impl Builder {
         self.edges(workspace, index, module);
         self.symbols(module);
         for concern in &module.scan.concerns {
+            if crate::derive_identity::proven(workspace, index, module, concern, modules) {
+                continue;
+            }
             let evidence = self.cite(&module.rel, &concern.site);
-            self.gap(&concern.reason, Some(&evidence), &module.module);
+            if let Some(scope) = &concern.source {
+                let source = std::iter::once(module.module.as_str())
+                    .chain(scope.iter().map(String::as_str))
+                    .collect::<Vec<_>>()
+                    .join(".");
+                self.pair_gap(&concern.reason, &evidence, (&source, ""));
+            } else {
+                self.gap(&concern.reason, Some(&evidence), &module.module);
+            }
         }
     }
 

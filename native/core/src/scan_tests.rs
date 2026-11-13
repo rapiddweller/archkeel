@@ -14,6 +14,9 @@ use archkeel_store::Ingested;
 
 use super::*;
 
+#[path = "scan_attribute_tests.rs"]
+mod attribute_review;
+
 const HEAD: &str = "89abcdef0123456789abcdef0123456789abcdef";
 
 fn copy(from: &Path, to: &Path) {
@@ -80,6 +83,147 @@ fn the_core_runs_the_collector_and_derives_the_request() {
     // The core trusts the reply that it made: no rule names the producer.
     let named = frame["unsupported"]["rules"].to_string();
     assert!(!named.contains(PRODUCER_NOT_VERIFIED), "{named}");
+}
+
+fn attribute_repository(name: &str) -> PathBuf {
+    let root = repository(name);
+    fs::write(root.join("archkeel.toml"), "[scan]\nlanguage = \"rust\"\nroots = [\"crates\"]\nnamespace = \"app\"\ncontract = \"architecture-contract.json\"\n").unwrap();
+    let files = [
+        ("crates/Cargo.toml", "[workspace]\nmembers = [\"example\", \"mac\"]\nresolver = \"2\"\n"),
+        ("crates/example/Cargo.toml", "[package]\nname = \"example\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nmac = { path = \"../mac\" }\n"),
+        ("crates/example/src/lib.rs", "pub mod a; pub mod b;\n"),
+        ("crates/example/src/a.rs", "pub fn x() {}\n"),
+        ("crates/example/src/b.rs", "#[mac::hide] pub fn y() {}\n"),
+        ("crates/mac/Cargo.toml", "[package]\nname = \"mac\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[lib]\nproc-macro = true\n"),
+        ("crates/mac/src/lib.rs", "extern crate proc_macro;\n#[proc_macro_attribute]\npub fn hide(_: proc_macro::TokenStream, _: proc_macro::TokenStream) -> proc_macro::TokenStream { \"pub fn y() { crate::a::x(); }\".parse().unwrap() }\n#[proc_macro_derive(Hide)]\npub fn derive(_: proc_macro::TokenStream) -> proc_macro::TokenStream { \"pub fn generated() { crate::a::x(); }\".parse().unwrap() }\n"),
+    ];
+    for (name, text) in files {
+        let path = root.join(name);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, text).unwrap();
+    }
+    let component = json!({"id": "C-APP", "label": "app", "role": "component",
+        "packages": ["app"], "responsibilities": ["Own the fixture."],
+        "forbidden_responsibilities": [], "provenance": ["docs/a.md"]});
+    let rule = json!({"id": "NO-HIDDEN", "kind": "forbidden_dependency",
+        "source": "app.example.b", "target": "app.example.a",
+        "include_type_checking": true,
+        "rationale": "The hidden edge must not pass.", "provenance": ["docs/a.md"], "decided_by": "architect"});
+    fs::write(
+        root.join("architecture-contract.json"),
+        json!({"schema_version": "2.1.0", "components": [component], "rules": [rule]}).to_string(),
+    )
+    .unwrap();
+    root
+}
+
+#[test]
+fn an_attribute_expansion_with_an_unseen_edge_cannot_pass() {
+    let root = attribute_repository("attribute-expansion");
+    for text in [
+        "#[mac::hide] pub fn y() {}",
+        "#[derive(mac::Hide)] pub struct S;",
+    ] {
+        fs::write(root.join("crates/example/src/b.rs"), text).unwrap();
+        let (gap, _) = frame(&request(&root));
+        assert_eq!(gap["rules"]["NO-HIDDEN"][1], "UNKNOWN", "{gap}");
+        assert_eq!(gap["status"], "UNKNOWN");
+        // No external dependencies: check each probe against the compiler without a registry.
+        let checked = std::process::Command::new(env!("CARGO"))
+            .args(["check", "--offline", "--quiet"])
+            .env("PATH", env!("PATH"))
+            .current_dir(root.join("crates"))
+            .output()
+            .unwrap();
+        assert!(
+            checked.status.success(),
+            "{}",
+            String::from_utf8_lossy(&checked.stderr)
+        );
+    }
+    // A control with the written edge still fails; the gap must not erase evidence.
+    fs::write(
+        root.join("crates/example/src/b.rs"),
+        "pub fn y() { crate::a::x(); }\n",
+    )
+    .unwrap();
+    let (visible, _) = frame(&request(&root));
+    assert_eq!(visible["rules"]["NO-HIDDEN"][1], "FAIL", "{visible}");
+}
+
+#[test]
+fn invalid_utf8_cannot_make_a_complete_scan() {
+    let root = attribute_repository("invalid-utf8");
+    fs::write(
+        root.join("crates/example/src/b.rs"),
+        b"pub fn y() {} //\xff",
+    )
+    .unwrap();
+    let (gap, _) = frame(&request(&root));
+    assert_eq!(gap["rules"]["NO-HIDDEN"][1], "UNKNOWN", "{gap}");
+    assert_eq!(gap["status"], "UNKNOWN");
+}
+
+#[test]
+fn a_proven_registry_derive_exposes_its_forbidden_helper_edge() {
+    let root = attribute_repository("known-derive-helper");
+    let manifest = root.join("crates/example/Cargo.toml");
+    let text = fs::read_to_string(&manifest).unwrap();
+    fs::write(
+        manifest,
+        format!("{text}serde = {{ version = \"1.0\", features = [\"derive\"] }}\n"),
+    )
+    .unwrap();
+    let lock = include_str!("../../../tests/rust_known_derives.lock")
+        .replace("name = \"app\"", "name = \"example\"");
+    fs::write(root.join("crates/Cargo.lock"), lock).unwrap();
+    fs::write(root.join("crates/example/src/a.rs"), "use serde::Serialize; #[derive(Serialize)] pub struct S { #[serde(with = \"crate::b::helper\")] x: u8 }").unwrap();
+    fs::write(root.join("crates/example/src/b.rs"), "pub mod helper {}").unwrap();
+    let path = root.join("architecture-contract.json");
+    let mut contract: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    contract["rules"][0]["source"] = json!("app.example.a");
+    contract["rules"][0]["target"] = json!("app.example.b");
+    fs::write(path, contract.to_string()).unwrap();
+    let (found, _) = frame(&request(&root));
+    assert_eq!(found["rules"]["NO-HIDDEN"][1], "FAIL", "{found}");
+    assert_eq!(found["scope"], "complete", "{found}");
+}
+
+#[test]
+fn unproved_derive_targets_hold_every_otherwise_pass_row_of_a_fixture() {
+    let root = attribute_repository("glob-derive");
+    fs::write(
+        root.join("crates/example/src/b.rs"),
+        "macro_rules! words { () => { pub struct Marker; pub use mac::Hide as Default; }; } words!();",
+    )
+    .unwrap();
+    let path = root.join("architecture-contract.json");
+    let mut contract: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let rules = contract["rules"].as_array_mut().unwrap();
+    rules.push(json!({"id": "ASSIGNED", "kind": "complete_assignment", "source": "app",
+        "rationale": "Every module has one owner.", "provenance": ["docs/a.md"], "decided_by": "architect"}));
+    rules.push(json!({"id": "NO-CYCLES", "kind": "no_component_cycles", "level": "module",
+        "rationale": "Modules have no cycle.", "provenance": ["docs/a.md"], "decided_by": "architect"}));
+    fs::write(path, contract.to_string()).unwrap();
+    for (import, status) in [("Marker", "PASS"), ("*", "UNKNOWN")] {
+        fs::write(root.join("crates/example/src/a.rs"), format!("use crate::b::{import}; #[derive(Default)] pub struct S; pub fn x() {{}} fn marker(_: Marker) {{}}")).unwrap();
+        let (found, _) = frame(&request(&root));
+        let rows = found["rules"].as_object().unwrap();
+        assert_eq!(rows.len(), 3, "{found}");
+        assert!(rows.values().all(|row| row[1] == status), "{found}");
+        assert_eq!(found["status"], status, "{found}");
+        if status == "UNKNOWN" {
+            assert!(
+                found["scope"]
+                    .as_str()
+                    .unwrap()
+                    .contains("app.example.a -> "),
+                "{found}"
+            );
+        } else {
+            assert_eq!(found["scope"], "complete", "{found}");
+        }
+    }
 }
 
 #[test]

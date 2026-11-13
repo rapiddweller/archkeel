@@ -10,6 +10,17 @@ use archkeel_snapshot::test_tree::Tree;
 use super::*;
 
 #[test]
+fn invalid_utf8_names_the_file_instead_of_replacing_bytes() {
+    let root = Tree::new(&[("bad.rs", "")]);
+    std::fs::write(root.root.join("bad.rs"), b"fn f() {} //\xff").unwrap();
+    let mut snapshot = Snapshot::new(&root.path());
+    assert_eq!(
+        read_text(&mut snapshot, "bad.rs").unwrap_err(),
+        "File is not valid UTF-8: bad.rs"
+    );
+}
+
+#[test]
 fn walks_sorted_files_and_skips_the_build_output_and_hidden_directories() {
     let root = Tree::new(&[
         ("Cargo.toml", ""),
