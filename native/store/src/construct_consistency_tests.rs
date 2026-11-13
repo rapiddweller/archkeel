@@ -5,7 +5,7 @@
 //! Cross-product of the public construct/signal vocabulary, before profile acceptance.
 
 use archkeel_facts::envelope::Facts;
-use archkeel_facts::vocab::Signal;
+use archkeel_facts::vocab::{ConstructForm, Operation, Signal};
 use serde_json::{json, Value};
 
 use crate::validate::tests::golden;
@@ -122,7 +122,7 @@ fn every_kind_payload_disagreement_is_refused_by_record_validation() {
 
 #[test]
 fn roles_forms_owners_and_areas_cannot_give_two_identities() {
-    use archkeel_facts::vocab::{ConstructForm, Operation, SelectorRole};
+    use archkeel_facts::vocab::SelectorRole;
     let mut pairs = 0;
     for role in SelectorRole::ALL {
         let expected = match role.as_str() {
@@ -234,7 +234,6 @@ fn agreeing_kinds_and_payloads_keep_the_existing_proof_refusals() {
 
 #[test]
 fn numeric_form_and_operation_still_need_the_numeric_proof() {
-    use archkeel_facts::vocab::{ConstructForm, Operation};
     let mut pairs = 0;
     for form in ConstructForm::ALL {
         for operation in Operation::ALL {
