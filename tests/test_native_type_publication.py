@@ -124,6 +124,12 @@ def release() -> Path:
             "UNKNOWN",
         ),
         (
+            "export interface Published {}",
+            "",
+            'import type { Published as Published } from "./api";',
+            "UNKNOWN",
+        ),
+        (
             "export default interface Published {}",
             "",
             'import type Published from "./api";',

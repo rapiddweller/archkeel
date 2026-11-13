@@ -80,7 +80,7 @@ fn type_witnesses<'a>(
         || source.has_error
         || !binding.source_unique
         || binding.namespace
-        || binding.imported != binding.local
+        || binding.aliased
         || binding.imported == "default"
         || source.type_exports.declared.contains(&binding.local)
     {
