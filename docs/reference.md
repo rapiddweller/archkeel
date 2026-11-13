@@ -594,8 +594,9 @@ No package carries the core yet, so an installed package refuses with `core_bina
 The scan reads Git through the fixed system executable, not PATH. Missing Git is a named refusal.
 
 The repository survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries.
-Below a directory that holds a `CACHEDIR.TAG` file with the standard signature, the survey counts
-the entries but not the file bytes. Cargo writes this file into `target/`. The rule selects no source
+Below a directory that holds a `CACHEDIR.TAG` file with the standard signature, the survey does not
+count the file bytes, and it counts the entries against a separate limit of 1,000,000.
+Cargo writes this file into `target/`. The rule selects no source
 and hides none: a source file below such a directory is still collected when the project names it.
 
 ## Focused agent reports

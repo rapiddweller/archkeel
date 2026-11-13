@@ -80,8 +80,25 @@ fn the_survey_refuses_more_entries_than_the_budget() {
     let refusal = survey(&root).unwrap_err();
     assert!(refusal.contains("more than 100000 entries"), "{refusal}");
     assert!(started.elapsed().as_secs() < 30);
-    // AD-432: a cache directory tag does not release the entries, because a collector lists them.
-    fs::write(base.join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    // AD-432: the entries below a proven cache directory have a budget of their own, so the
+    // build output of a used checkout does not use the budget of the source.
+    for directory in ["d0", "d1"] {
+        fs::write(base.join(directory).join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    }
+    assert_eq!(survey(&root), Ok(()));
+    // The budget of the cache directories is a limit too: 2002 entries are below the two tags.
+    assert_eq!(survey_within(&root, 2002), Ok(()));
+    let refusal = survey_within(&root, 2001).unwrap_err();
+    assert!(
+        refusal.contains("more than 2001 entries below its cache directories"),
+        "{refusal}"
+    );
+    // The source budget holds beside a cache directory: one more source directory is refused.
+    let more = base.join("more");
+    fs::create_dir_all(&more).unwrap();
+    for file in 0..1100 {
+        fs::write(more.join(format!("f{file}.ts")), "").unwrap();
+    }
     let refusal = survey(&root).unwrap_err();
     assert!(refusal.contains("more than 100000 entries"), "{refusal}");
     let _ = fs::remove_dir_all(base);

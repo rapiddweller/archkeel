@@ -17,6 +17,8 @@ use std::path::{Component, Path, PathBuf};
 pub(crate) const MAX_CONFIG_BYTES: u64 = 1 << 20;
 /// The work budget of the survey: the most directory entries below the root (AD-406, #1099).
 pub(crate) const MAX_ENTRIES: usize = 100_000;
+/// The most directory entries below the proven cache directories of the root (AD-432).
+pub(crate) const MAX_CACHE_ENTRIES: usize = 1_000_000;
 /// The deepest directory below the root that the survey enters.
 pub(crate) const MAX_DEPTH: usize = 256;
 /// The most bytes of all regular files below the root.
@@ -142,13 +144,19 @@ fn is_cache(directory: &Path) -> bool {
 /// without following a symlink and without `.git`. A root over the count, the depth or the byte
 /// total is refused by name, so the collector never starts on it.
 ///
-/// The files below a proven cache directory are build output (AD-432). Their entries and their
-/// depth are charged, because a collector can list them. Their bytes are not charged: the
+/// The files below a proven cache directory are build output (AD-432). Their depth is charged, and
+/// their entries are charged to a budget of their own, because a collector can list them and a
+/// used build directory holds more entries than the source. Their bytes are not charged: the
 /// snapshot charges each byte that a collector reads there (AD-420). The survey selects no
 /// source, so this rule cannot remove a file from a scan.
 pub(crate) fn survey(root: &Root) -> Result<(), String> {
+    survey_within(root, MAX_CACHE_ENTRIES)
+}
+
+/// The survey with a stated budget for the entries below the proven cache directories.
+fn survey_within(root: &Root, cache_entries: usize) -> Result<(), String> {
     let mut stack: Vec<(PathBuf, usize, bool)> = vec![(root.path().to_path_buf(), 0, false)];
-    let (mut entries, mut bytes) = (0usize, 0u64);
+    let (mut entries, mut cached, mut bytes) = (0usize, 0usize, 0u64);
     while let Some((directory, depth, inherited)) = stack.pop() {
         if depth > MAX_DEPTH {
             return Err(format!(
@@ -159,11 +167,21 @@ pub(crate) fn survey(root: &Root) -> Result<(), String> {
         let listing = fs::read_dir(&directory)
             .map_err(|error| format!("cannot list {}: {error}", directory.display()))?;
         for entry in listing {
-            entries = entries.saturating_add(1);
+            if cache {
+                cached = cached.saturating_add(1);
+            } else {
+                entries = entries.saturating_add(1);
+            }
             if entries > MAX_ENTRIES {
                 return Err(format!(
                     "the repository has more than {MAX_ENTRIES} entries, the work budget of \
                      the collector in the core process"
+                ));
+            }
+            if cached > cache_entries {
+                return Err(format!(
+                    "the repository has more than {cache_entries} entries below its cache \
+                     directories, the work budget of the collector in the core process"
                 ));
             }
             let entry =

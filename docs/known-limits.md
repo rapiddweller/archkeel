@@ -28,8 +28,9 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
   Below a directory with a `CACHEDIR.TAG` file that starts with the standard signature, the survey
-  counts entries and depth but not file bytes. So Cargo `target/` output does not use the byte limit.
-  The entry limit still applies: a root with more than 100,000 entries, build output included, is refused.
+  counts the depth but not the file bytes, and it counts the entries against a separate limit of
+  1,000,000. So Cargo `target/` output does not use the byte limit or the entry limit of the source.
+  A root with more than 1,000,000 entries below such directories is refused by name.
   A tool that writes build output without this file gets no exclusion.
 - The exclusion selects no source. A Rust module that a `#[path]` attribute places below `target/` or
   below another tagged directory gives UNKNOWN, exit 2, with "impossible collection coverage counts".

@@ -23,8 +23,10 @@ AD-422 stays the record of the core-only path: frame, exit table, lookup and ref
 6. The frame reader compares the root, the contract SHA-256, and a stated Git head and dirty state
    with the frame. The rule rows are trusted to the located binary. The lookup reads only the
    package directory or its checkout, never the scanned project, the current directory or `PATH`.
-7. Build output: below a directory with a valid `CACHEDIR.TAG`, the survey charges entries and
-   depth but no file bytes. The survey selects no source, so the rule cannot hide source.
+7. Build output: below a directory with a valid `CACHEDIR.TAG`, the survey charges the depth,
+   no file bytes, and the entries to a budget of their own of 1,000,000. The used build directory
+   of this repository alone has more entries than the source budget of 100,000.
+   The survey selects no source, so the rule cannot hide source.
    A source that a module path selects below such a directory is collected or gives UNKNOWN.
 8. The 11 rule kinds without a port keep the typed UNKNOWN of the core. This change ports no rule
    and does not change `native/model` or `native/eval`.
@@ -48,8 +50,8 @@ with `core_binary_not_found`, exit 2. The wheel hook still bundles only the two 
 Reports as HTML, `architecture.json`, explore, Studio and the merge gate `check` need ports.
 Python and Dart projects stay unsupported (AD-430). Release 4.0.1 has `check`, `init`, full
 reports and Python, Dart and TypeScript projects. It has no Rust profile, explore or Studio.
-A tree with more than 100,000 entries below the root is refused by name, also when most entries
-are build output. A module path into a tagged directory gives UNKNOWN with the coverage refusal
+A tree with more than 100,000 entries outside its tagged directories, or more than 1,000,000
+below them, is refused by name. A module path into a tagged directory gives UNKNOWN with the coverage refusal
 of the store. The trust limits of AD-422 for Git configuration and binary freshness stay.
 
 **Way back.** `git revert` of the squash commit of this change restores the Python core, the
