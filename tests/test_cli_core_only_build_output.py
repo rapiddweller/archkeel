@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-430: the cache rule of the survey cannot hide a source file from a verdict.
+"""AD-432: the cache rule of the survey cannot hide a source file from a verdict.
 
 Consumer: `archkeel validate`. The survey does not charge the file bytes below a directory that a
 valid `CACHEDIR.TAG` proves as a cache. The survey selects no source: each collector still finds

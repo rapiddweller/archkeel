@@ -1,5 +1,5 @@
 // The API vocabulary of the Studio UI. This file owns it: the Python server that wrote it is
-// not on this development line (AD-430).
+// not on this development line (AD-432).
 export const API_VERSION = "1.5.0";
 export const AgentKind = {
   CLAUDE: "claude",

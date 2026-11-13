@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-418, AD-430: the core decides each rule of the self-contract of native/ (#880).
+"""AD-418, AD-432: the core decides each rule of the self-contract of native/ (#880).
 
 The test runs the default `archkeel validate` on `native/` of this tree with the core of this
 build. Each rule has a row: no rule names a part of the scope proof. The rows equal the pinned

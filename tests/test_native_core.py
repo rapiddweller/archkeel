@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-430: the core binary decides, and the shell names it in four modules only.
+"""AD-432: the core binary decides, and the shell names it in four modules only.
 
 The tests that compared the core with the Python checker went away with the Python checker. The
 tests that stay read the core binary or the native sources and need no Python reference.
@@ -71,7 +71,7 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(
 
 
 def test_the_shell_names_the_core_in_four_modules_and_no_wheel_carries_it() -> None:
-    """AD-430: the entry, its frame reader, its scan request and the binary lookup name the core.
+    """AD-432: the entry, its frame reader, its scan request and the binary lookup name the core.
     No wheel carries the core yet, so an installed package refuses with `core_binary_not_found`."""
     names = {
         path.relative_to(ROOT).as_posix()

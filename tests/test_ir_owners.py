@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-430: the Python core has no owner, because its packages do not exist.
+"""AD-432: the Python core has no owner, because its packages do not exist.
 
 AD-315 gave the Python IR four owners. This file checked their direction. The Rust core owns the
 model, the facts and the verdicts now, so the check that stays is that the packages are gone and
@@ -18,7 +18,7 @@ import pytest
 ROOT = Path(__file__).parents[1]
 SOURCE = ROOT / "src/archkeel"
 DELETED = ("ir", "check", "analyzer")
-# Each module of the shell. A new module is a decision: add it here with its task in AD-430.
+# Each module of the shell. A new module is a decision: add it here with its task in AD-432.
 SHELL = frozenset(
     (
         "__init__.py",
@@ -54,7 +54,7 @@ def test_the_python_core_package_does_not_exist(package: str) -> None:
 
 def test_the_python_shell_is_a_closed_set_of_modules() -> None:
     tracked = _tracked_python()
-    assert sorted(tracked - SHELL) == [], "a Python module that AD-430 does not name"
+    assert sorted(tracked - SHELL) == [], "a Python module that AD-432 does not name"
     assert sorted(SHELL - tracked) == []
 
 

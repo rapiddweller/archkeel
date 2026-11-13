@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-430: the exit table of the default path, on one real project for each line of the table.
+"""AD-432: the exit table of the default path, on one real project for each line of the table.
 
 Consumer: a CI job that reads the exit code of `archkeel validate` or `archkeel report`. Code 0 is
 only for a verdict that the core proved. A failure is 1. Each other result is 2: a source gap, a

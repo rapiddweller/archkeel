@@ -45,7 +45,7 @@ class RefusalKind(StrEnum):
     COLLECTION_REFUSED = "collection_refused"
     REQUEST_MISMATCH = "request_mismatch"
     INVALID_INPUT = "invalid_input"
-    # AD-430: the command or option exists only on the release line; nothing ran.
+    # AD-432: the command or option exists only on the release line; nothing ran.
     NOT_ON_THIS_LINE = "not_on_this_development_line"
     CORE_BINARY_NOT_FOUND = "core_binary_not_found"
     IO_ERROR = "io_error"
@@ -53,7 +53,7 @@ class RefusalKind(StrEnum):
 
 
 class CoreCommand(StrEnum):
-    """Each registered command. Only `validate`, `report` and `skill` run (AD-430)."""
+    """Each registered command. Only `validate`, `report` and `skill` run (AD-432)."""
 
     VALIDATE = "validate"
     REPORT = "report"
@@ -359,7 +359,7 @@ def _explained(
 def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:
     """Bind the response to the requested root, Git identity and exact contract bytes.
 
-    This is not a second verdict: the rule rows are trusted to the located core binary (AD-430).
+    This is not a second verdict: the rule rows are trusted to the located core binary (AD-432).
     """
     root = Path(_text(request["root"], "request.root")).resolve()
     if request.get("discover_root") is True:
@@ -368,7 +368,7 @@ def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], de
     snapshot = _object(collected.get("snapshot"), "collect.request.snapshot")
     if _text(snapshot.get("root"), "snapshot.root") != str(root):
         raise RequestMismatch("the core frame answers another root")
-    # AD-430: the shell states the commit and the dirty state; the frame must name the same.
+    # AD-432: the shell states the commit and the dirty state; the frame must name the same.
     head, dirty = request.get("git_head"), request.get("dirty")
     if not isinstance(head, str) or snapshot.get("git_head") != head:
         raise RequestMismatch("the core frame answers another commit than the shell read")

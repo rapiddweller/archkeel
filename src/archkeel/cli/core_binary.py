@@ -5,7 +5,7 @@
 
 The lookup reads only the directory of this package: the bundled binary with its digest, else the
 build output of the checkout that holds this package. It never reads the scanned project, the
-current directory or `PATH` (AD-430).
+current directory or `PATH` (AD-432).
 """
 
 import hashlib

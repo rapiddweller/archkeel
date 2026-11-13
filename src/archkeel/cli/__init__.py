@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The command-line shell of Archkeel. The Rust core decides each run (AD-430)."""
+"""The command-line shell of Archkeel. The Rust core decides each run (AD-432)."""
 
 from __future__ import annotations
 

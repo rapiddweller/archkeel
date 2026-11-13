@@ -132,7 +132,7 @@ def test_the_stage_one_switch_is_refused_by_name(
 def test_a_frame_of_another_commit_or_work_tree_state_is_refused(
     fault: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-430: the shell states the commit and the dirty state that it read. A frame that names
+    """AD-432: the shell states the commit and the dirty state that it read. A frame that names
     another one answers another tree, so it is no verdict of this request."""
     claims = {"git_head": ("b" * 40, False), "dirty": (HEAD, True), "no-claim": None}
     monkeypatch.setattr(core_only, "identity", lambda _: claims[fault])

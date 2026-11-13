@@ -80,7 +80,7 @@ fn the_survey_refuses_more_entries_than_the_budget() {
     let refusal = survey(&root).unwrap_err();
     assert!(refusal.contains("more than 100000 entries"), "{refusal}");
     assert!(started.elapsed().as_secs() < 30);
-    // AD-430: a cache directory tag does not release the entries, because a collector lists them.
+    // AD-432: a cache directory tag does not release the entries, because a collector lists them.
     fs::write(base.join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
     let refusal = survey(&root).unwrap_err();
     assert!(refusal.contains("more than 100000 entries"), "{refusal}");

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Compare a self-check of the core with its pinned result (AD-357, AD-382, AD-383, AD-430).
+"""Compare a self-check of the core with its pinned result (AD-357, AD-382, AD-383, AD-432).
 
 `make self-validate-native` writes the result of `archkeel validate` on native/ with its own
 contract. The scan of native/ has pair gaps: method calls that may reach `impl` blocks of other

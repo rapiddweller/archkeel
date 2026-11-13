@@ -6,7 +6,7 @@
 The shell sends the scan identity only: the repository root, the configuration file, and the Git
 head and dirty state that the shell read. It sends no facts. The core reads the configuration and
 the contract, checks the Git claim against the repository, derives the collection request and runs
-the linked collector. `read_frame` then binds the frame to the same identity (AD-430).
+the linked collector. `read_frame` then binds the frame to the same identity (AD-432).
 
 A dead core (an abort, a stack overflow, an allocation failure) has an exit code that
 `read_frame` refuses, so the run has no verdict (exit 2), never a PASS. The shell stops the core

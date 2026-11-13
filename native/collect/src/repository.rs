@@ -142,7 +142,7 @@ fn is_cache(directory: &Path) -> bool {
 /// without following a symlink and without `.git`. A root over the count, the depth or the byte
 /// total is refused by name, so the collector never starts on it.
 ///
-/// The files below a proven cache directory are build output (AD-430). Their entries and their
+/// The files below a proven cache directory are build output (AD-432). Their entries and their
 /// depth are charged, because a collector can list them. Their bytes are not charged: the
 /// snapshot charges each byte that a collector reads there (AD-420). The survey selects no
 /// source, so this rule cannot remove a file from a scan.

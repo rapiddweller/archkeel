@@ -548,7 +548,7 @@ def _commands(text: str, **values: str) -> list[list[str]]:
 
 
 def _known_to_the_shell(argv: list[str]) -> bool:
-    """The shell serves the command line, or refuses it by name as not on this line (AD-430)."""
+    """The shell serves the command line, or refuses it by name as not on this line (AD-432)."""
     try:
         parse(argv)
     except NotOnThisLine:

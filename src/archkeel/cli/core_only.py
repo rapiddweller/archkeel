@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The command shell: the Rust core decides each run and the shell prints its frame (AD-430).
+"""The command shell: the Rust core decides each run and the shell prints its frame (AD-432).
 
 The shell parses the arguments, finds the core binary, sends the scan identity, reads one frame
 with `read_frame`, prints it as text or JSON, and maps the status to the exit code. It holds no

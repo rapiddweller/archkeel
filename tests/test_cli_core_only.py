@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The shell loads no Python decision package: the three packages do not exist (AD-430)."""
+"""The shell loads no Python decision package: the three packages do not exist (AD-432)."""
 
 import importlib
 import json
@@ -78,7 +78,7 @@ def test_a_switch_with_a_value_refuses_without_python_decision_imports(value: st
 def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kind(
     command: str, extra: tuple[str, ...]
 ) -> None:
-    """AD-430: the command is known, so the refusal is not `invalid_input`. It names the release
+    """AD-432: the command is known, so the refusal is not `invalid_input`. It names the release
     that serves the command and the tracking issue. Nothing runs and nothing reports success."""
     done = shell(command, *extra, "--json")
     assert done.returncode == 2
