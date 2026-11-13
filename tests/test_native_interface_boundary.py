@@ -117,7 +117,7 @@ def run_core(built: Path, root: Path) -> dict[str, Any]:
         ('import { Published } from "./api";', "app.api:Other", None, "FAIL"),
         ('import "./impl";', "app.api", None, "FAIL"),
         ('import "./impl";', "app.api", "app.other", "FAIL"),
-        ('import { Secret } from "./impl";', "app.api", "app.client", "UNKNOWN"),
+        ('import { Secret } from "./impl";', "app.api", "app.client", "FAIL"),
     ],
 )
 def test_direct_imports_and_exact_module_object_grants(
@@ -192,6 +192,145 @@ def test_excluded_types_and_forbidden_imports_are_not_subjects(built: Path, tmp_
     assert frame["rules"]["FORBID"][1] == "FAIL", frame
 
 
+@pytest.mark.parametrize("source", ['import "../impl";', ""])
+def test_an_unowned_file_with_or_without_imports_holds_the_interface(
+    built: Path, tmp_path: Path, source: str
+) -> None:
+    scan(built, tmp_path, 'import { Published } from "./api";')
+    extra = tmp_path / "src/client/extra.ts"
+    extra.parent.mkdir()
+    extra.write_text(source)
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"][0]["requires"] = [
+        {"component": "service", "rationale": "Use the public service."}
+    ]
+    contract["rules"].append(
+        {**contract["rules"][0], "id": "REQUIRES", "kind": "complete_requires"}
+    )
+    path.write_text(json.dumps(contract))
+    frame = run_core(built, tmp_path)
+    for rule in ("INTERFACE", "REQUIRES"):
+        assert frame["rules"][rule][1] == "UNKNOWN", frame
+        assert "a module has not exactly one owner" in frame["explained"][rule], frame
+
+
+@pytest.mark.parametrize("scope", ["app.src.client_x2e_ts", "app.src"])
+def test_duplicate_and_nested_ownership_hold_the_interface(
+    built: Path, tmp_path: Path, scope: str
+) -> None:
+    scan(built, tmp_path, 'import { Published } from "./api";')
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"].append(
+        {**contract["components"][0], "id": "COMP-OTHER", "label": "other", "packages": [scope]}
+    )
+    path.write_text(json.dumps(contract))
+    frame = run_core(built, tmp_path)
+    assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
+    assert "a module has not exactly one owner" in frame["explained"]["INTERFACE"], frame
+
+
+def test_a_disjoint_nested_package_has_one_owner(built: Path, tmp_path: Path) -> None:
+    scan(built, tmp_path, 'import { Published } from "./api";')
+    extra = tmp_path / "src/client/extra.ts"
+    extra.parent.mkdir()
+    extra.write_text('import "../api";')
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"].append(
+        {
+            **contract["components"][0],
+            "id": "COMP-NESTED",
+            "label": "nested",
+            "packages": ["app.src.client"],
+        }
+    )
+    path.write_text(json.dumps(contract))
+    assert run_core(built, tmp_path)["rules"]["INTERFACE"][1] == "PASS"
+
+
+def test_a_direct_private_import_fails_beside_an_unread_binding(
+    built: Path, tmp_path: Path
+) -> None:
+    frame = scan(
+        built, tmp_path, 'import { Secret } from "./impl"; import * as hidden from "./impl";'
+    )
+    assert frame["rules"]["INTERFACE"][1] == "FAIL", frame
+    assert frame["violations"], frame
+
+
+def test_a_path_alias_does_not_publish_a_private_name(built: Path, tmp_path: Path) -> None:
+    scan(built, tmp_path, 'import { Published } from "./api";')
+    config = tmp_path / "tsconfig.json"
+    value = json.loads(config.read_text())
+    value["compilerOptions"].update(baseUrl=".", paths={"@private": ["src/impl.ts"]})
+    config.write_text(json.dumps(value))
+    (tmp_path / "src/client.ts").write_text('import { Secret } from "@private";')
+    frame = run_core(built, tmp_path)
+    assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
+
+
+@pytest.mark.parametrize(
+    ("implementation", "source"),
+    [
+        (
+            "const hidden = { Secret: 1 }; export = hidden;",
+            'import hidden = require("./impl"); hidden.Secret;',
+        ),
+        ("export class Secret {} export namespace Secret {}", 'import { Secret } from "./impl";'),
+    ],
+)
+def test_an_unproved_export_cannot_use_a_module_object_grant(
+    built: Path, tmp_path: Path, implementation: str, source: str
+) -> None:
+    scan(built, tmp_path, source, grant="app.client")
+    (tmp_path / "src/impl.ts").write_text(implementation)
+    frame = run_core(built, tmp_path)
+    assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
+    assert "unread import binding" in frame["explained"]["INTERFACE"], frame
+
+
+def test_an_exact_module_object_grant_goes_beyond_the_python_profile(
+    built: Path, tmp_path: Path
+) -> None:
+    from archkeel.check.evaluation.rules import profile_failures
+    from archkeel.ir.codec import parse_contract
+    from archkeel.ir.profiles import TYPESCRIPT
+
+    frame = scan(built, tmp_path, 'import "./impl";', grant="app.client")
+    assert frame["rules"]["INTERFACE"][1] == "PASS", frame
+    contract = parse_contract(json.loads((tmp_path / "architecture-contract.json").read_text()))
+    failures = profile_failures(contract, TYPESCRIPT, ())
+    assert any(
+        r["kind"] == "rule-unsupported-by-profile" and r["rule_ids"] == ["INTERFACE"]
+        for r in failures
+    )
+
+
+def test_a_symbol_selector_cannot_hide_a_forbidden_side_effect_import(
+    built: Path, tmp_path: Path
+) -> None:
+    scan(built, tmp_path, 'import "./impl"; import { Published } from "./api";')
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    forbidden = {
+        **contract["rules"][0],
+        "id": "FORBID",
+        "kind": "forbidden_dependency",
+        "source": "app.src.client_x2e_ts",
+        "target": "app.src.impl_x2e_ts",
+        "include_type_checking": True,
+    }
+    contract["rules"].extend([forbidden, {**forbidden, "id": "SYMBOL", "target_symbol": "Secret"}])
+    path.write_text(json.dumps(contract))
+    frame = run_core(built, tmp_path)
+    assert frame["scope"] == "complete", frame
+    assert frame["rules"]["SYMBOL"][1] == "PASS", frame
+    assert frame["rules"]["FORBID"][1] == "FAIL", frame
+    assert frame["status"] == "FAIL", frame
+
+
 def test_rust_names_its_missing_publication_surface(built: Path, tmp_path: Path) -> None:
     from tests.test_cli_native_core_scan import _rust_repository
 
@@ -231,4 +370,5 @@ def test_non_subject_imports_do_not_fail(built: Path, tmp_path: Path, case: str)
     else:
         contract["components"] = [client]
     path.write_text(json.dumps(contract))
-    assert run_core(built, tmp_path)["rules"]["INTERFACE"][1] == "PASS"
+    expected = "UNKNOWN" if case.startswith("unowned") else "PASS"
+    assert run_core(built, tmp_path)["rules"]["INTERFACE"][1] == expected
