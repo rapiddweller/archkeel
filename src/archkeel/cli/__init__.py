@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Run repository observations and declaration checks."""
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import io
@@ -15,66 +17,26 @@ from contextlib import redirect_stdout
 from dataclasses import replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Final, NoReturn
+from typing import TYPE_CHECKING, Final, NoReturn
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-from ..check.git import read_blob
-from ..check.onboarding import run_init
-from ..check.ports import Language
-from ..check.report import (
-    read_saved_snapshot,
-    render_result,
-    run_explore,
-    run_report_with_observation,
-    run_saved_report,
-    unknown_result,
-)
-from ..check.run import run_check
-from ..check.snapshot import resolve_commit
-from ..check.validation import invalid_result, run_validate
-from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_json
-from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
-from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
-from ..ir.story import trace_flow, trace_json, trace_summary
-from ..ir.view_spec import (
-    ViewCheck,
-    check_view,
-    parse_view_spec,
-    view_check_json,
-    view_summary,
-)
-from ..render.html import render_architecture_pages, render_check_html
-from ..render.summary import check_summary, init_summary, report_summary
-from ..render.terminal import print_result, progress
-from .arguments import (
-    CLIArguments,
-    Command,
-    ConfigurationSource,
-    ReportMode,
-    SkillAction,
-    cache_folder,
-    configuration_source,
-    installation_agent,
-    report_mode,
-    root_digest,
-    skill_action,
-    source_language,
-)
-from .config import (
-    ADOPTED_BASELINE_PATH,
-    CONFIG_PATH,
-    ConfigFileMissingError,
-    load_check_config,
-    load_config,
-    parse_config,
-    project_name,
-)
-from .guide import GUIDE_PATH, run_guide
-from .native_core import NativeCore, add_switch
-from .observe import collect_cycles_less_often, configured_observer, observer_for
-from .skill import InstallationAgent, install_skill
+if TYPE_CHECKING:
+    from ..ir.phases import PhaseClock
+    from ..ir.view_spec import ViewCheck
+    from .arguments import CLIArguments, Command
+
+
+def cache_folder(command: Command, digest: str) -> Path:
+    from .arguments import cache_folder as folder
+
+    return folder(command, digest)
+
+
+def root_digest(root: Path) -> str:
+    from .arguments import root_digest as digest
+
+    return digest(root)
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 _ARCHITECTURE_JSON: Final = "architecture.json"
@@ -89,6 +51,8 @@ def _sha(value: str) -> str:
 
 def _positive_bytes(value: str) -> int:
     """Parse a finite positive byte limit for one observation."""
+    from ..ir.facts_codec import MAX_RESPONSE_LIMIT_BYTES
+
     try:
         limit = int(value)
     except ValueError as error:
@@ -108,6 +72,8 @@ _PER_RUN_LIMIT_REMEDY: Final = (
 
 class _Parser(argparse.ArgumentParser):
     def parse_cli_args(self, args: Sequence[str] | None = None) -> CLIArguments:
+        from .arguments import CLIArguments, Command
+
         arguments = argparse.ArgumentParser.parse_args(self, args, CLIArguments())
         if arguments.command is not None:
             arguments.command = Command(arguments.command)
@@ -145,7 +111,7 @@ def _write_pages(
     artifact: Path, pages: tuple[tuple[str, bytes], ...], artifacts: list[Path]
 ) -> None:
     """Write the report pages beside architecture.json and drop obsolete details."""
-    report_html = html_path(artifact, Command.REPORT)
+    report_html = html_path(artifact, "report")
     for name, payload in pages:
         detail = artifact.parent / name
         detail.write_bytes(payload)
@@ -186,6 +152,10 @@ def _show_view(
     An incomplete scan still has its Explorer: its gaps show as unknown references. Without
     an Explorer projection there is no page to draw, and the result is None.
     """
+    from ..check.report import run_saved_report
+    from ..render.html import render_architecture_pages
+    from .arguments import Command
+
     snapshot = snapshot_path.read_bytes()
     report = run_saved_report(snapshot_path)
     if report.architecture_projection is None:
@@ -236,6 +206,21 @@ def _collector_output_limit(parser: _Parser) -> None:
 
 
 def build_parser() -> _Parser:
+    from ..check.ports import Language
+    from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
+    from .arguments import (
+        Command,
+        ReportMode,
+        SkillAction,
+        installation_agent,
+        report_mode,
+        skill_action,
+        source_language,
+    )
+    from .config import CONFIG_PATH
+    from .native_core import add_switch
+    from .skill import InstallationAgent
+
     parser = _Parser(
         prog="archkeel",
         description=(
@@ -832,6 +817,8 @@ def build_parser() -> _Parser:
 
 def _report_option_error(args: CLIArguments) -> str | None:
     """The one priority for report option conflicts, live or saved, before any file is read."""
+    from .arguments import ReportMode
+
     if args.full and args.only is not ReportMode.ARCHITECTURE:
         return "--full requires --only architecture"
     if args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE} and args.rule is not None:
@@ -840,6 +827,69 @@ def _report_option_error(args: CLIArguments) -> str | None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from .core_only import requested, run
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if requested(arguments, os.environ):
+        return run(arguments)
+    return _legacy_main(arguments)
+
+
+def _legacy_main(argv: Sequence[str] | None = None) -> int:
+    from .legacy_bindings import (
+        ADOPTED_BASELINE_PATH,
+        CONFIG_PATH,
+        GUIDE_PATH,
+        Command,
+        ConfigFileMissingError,
+        ConfigurationSource,
+        InstallationAgent,
+        NativeCore,
+        Phase,
+        PhaseClock,
+        ReportMode,
+        WorkCounter,
+        check_summary,
+        check_view,
+        collect_cycles_less_often,
+        configuration_source,
+        configured_observer,
+        decode_json,
+        init_summary,
+        install_skill,
+        invalid_result,
+        load_check_config,
+        load_config,
+        load_gitlab_records,
+        measured,
+        observer_for,
+        parse_config,
+        parse_view_spec,
+        print_result,
+        progress,
+        project_name,
+        read_blob,
+        read_saved_snapshot,
+        render_architecture_pages,
+        render_check_html,
+        render_result,
+        report_summary,
+        resolve_commit,
+        run_check,
+        run_explore,
+        run_guide,
+        run_init,
+        run_report_with_observation,
+        run_saved_report,
+        run_validate,
+        trace_flow,
+        trace_json,
+        trace_summary,
+        unknown_result,
+        view_check_json,
+        view_summary,
+    )
+
     parser = build_parser()
     command = Command.ARGUMENTS
     subject = "command-line arguments"

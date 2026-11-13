@@ -26,8 +26,6 @@ import subprocess
 from dataclasses import dataclass
 from typing import Final
 
-from archkeel.ir.codec import RawJson
-
 from .core_frame import CoreError, CoreFrame, Gap, GapKind, read_frame
 
 SCAN_PROTOCOL: Final = "archkeel-core-scan-1"
@@ -43,7 +41,7 @@ class Scanned:
     frame: CoreFrame
 
 
-def scan_request(shell_request: bytes, config_path: str) -> dict[str, RawJson] | Gap:
+def scan_request(shell_request: bytes, config_path: str) -> dict[str, object] | Gap:
     """The scan request of the identity in the request that the shell sent to its collector."""
     try:
         snapshot = json.loads(shell_request)["snapshot"]
@@ -63,7 +61,7 @@ def scan_request(shell_request: bytes, config_path: str) -> dict[str, RawJson] |
     }
 
 
-def differences(derived: RawJson, sent: RawJson, path: str = "") -> list[str]:
+def differences(derived: object, sent: object, path: str = "") -> list[str]:
     """Each field where the request of the core and the request of the shell differ."""
     if isinstance(derived, dict) and isinstance(sent, dict):
         found: list[str] = []

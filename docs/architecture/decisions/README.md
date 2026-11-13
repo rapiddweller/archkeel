@@ -5,6 +5,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 
 | Decision | Title |
 |---|---|
+| AD-422 | [Core-only validation](ad-422-core-only-validation-renders-the-scan-frame.md) |
 | AD-1 | [Flat analyzer modules](ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
 | AD-2 | [One JSON type](ad-02-json-has-one-type.md) |
 | AD-3 | [Analyzer comparability](ad-03-the-analyzer-digest-decides-comparability-the-version-names.md) |
