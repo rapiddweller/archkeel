@@ -46,11 +46,6 @@
   },
   "gaps": [
     [
-      "",
-      "native.archkeel_dart_collector.collection.types",
-      "The macro value! holds a path that the scan cannot read"
-    ],
-    [
       "native.archkeel_dart_collector.collection",
       "native.archkeel_dart_collector.collection.imports",
       "A method call may reach the method imports of an impl block in native.archkeel_dart_collector.collection.imports"

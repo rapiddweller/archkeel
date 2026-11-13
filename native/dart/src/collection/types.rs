@@ -5,7 +5,7 @@
 //! Typed resolver answers and raw assembly records; no resolver executes here (AD-400).
 
 use crate::declarations::types::{File, Symbol};
-use crate::syntax::{Site, Span};
+use crate::syntax::{Site, Span, Visibility};
 pub(crate) use archkeel_facts::data::ImportData;
 use archkeel_facts::envelope::{Capabilities, Dirty, Evidence, FileFact, Input as Digest, Target};
 use archkeel_facts::ids::EvidenceId;
@@ -100,7 +100,7 @@ pub(crate) enum BindingKind {
 
 crate::syntax::value! { pub(crate) Binding {
     module: String, name: String, kind: BindingKind, via_prefix: Option<String>,
-    declaration_id: String, rel_path: String, span: Span, visibility: crate::syntax::Visibility,
+    declaration_id: String, rel_path: String, span: Span, visibility: Visibility,
 }
 }
 

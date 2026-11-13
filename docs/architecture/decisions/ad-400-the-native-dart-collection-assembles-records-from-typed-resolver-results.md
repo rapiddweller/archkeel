@@ -67,4 +67,4 @@ Flutter has one `CollectionWorkLimit`: 713 748 bytes, 16 definitions, 17 members
 The whole private project also matches as one 28-file input. Slice 4d reviews the remaining work limit.
 Run the native self-contract and final-head gate. Report LOCAL VERIFIED and CI-ONLY separately.
 **Self-check.** Both Main and this slice: 0 rules PASS, 1 FAIL, 42 UNKNOWN; 7 violations.
-Main pins 39 gaps; this slice pins 55. Sixteen added scan gaps remain explicit, with no new violation.
+Main pins 39 gaps; this slice pins 54. Fifteen added method-pair gaps remain explicit, with no new violation.
