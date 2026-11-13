@@ -31,7 +31,7 @@ fn every_new_input_loop_has_an_exact_work_charge() {
         let module = crate::test_tree(source, 14).unwrap();
         let mut check = Check {
             source, minor: crate::test_minor(14), work: Work::new(), depth: 0,
-            blocks: 0, star: false, restricted: false, private: None, reason: None,
+            blocks: 0, star: false, star_annotation: None, restricted: false, private: None, reason: None,
         };
         check.docstring(&module.body);
         check.visit_body(&module.body);

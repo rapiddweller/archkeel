@@ -96,7 +96,7 @@
       "reason": "assignment expression target cannot be parenthesized",
       "exception": "SyntaxError",
       "compiler_message": "cannot use assignment expressions with name",
-      "native_check": "native/python/src/compilercheck.rs:307"
+      "native_check": "native/python/src/compilercheck.rs:314"
     },
     {
       "site": "3.11:Grammar/python.gram:1121:9",
@@ -830,7 +830,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.11:Parser/pegen.c:810:27",
@@ -1257,7 +1257,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/ast.c:215:9",
@@ -1267,7 +1267,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/ast.c:247:13",
@@ -1343,7 +1343,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/ast.c:557:17",
@@ -1409,7 +1409,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/ast.c:837:13",
@@ -1475,7 +1475,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/ast_opt.c:871:9",
@@ -1485,7 +1485,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/ast_opt.c:1023:9",
@@ -1495,7 +1495,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/compile.c:400:12",
@@ -1561,7 +1561,7 @@
       "reason": "too many statically nested blocks",
       "exception": "SyntaxError",
       "compiler_message": "too many statically nested blocks",
-      "native_check": "native/python/src/compilercheck.rs:145"
+      "native_check": "native/python/src/compilercheck.rs:152"
     },
     {
       "site": "3.11:Python/compile.c:2122:16",
@@ -1581,7 +1581,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot assign to __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.11:Python/compile.c:2548:9",
@@ -1591,7 +1591,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot delete __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.11:Python/compile.c:3145:16",
@@ -1651,7 +1651,7 @@
       "reason": "default except must be last",
       "exception": "SyntaxError",
       "compiler_message": "default 'except:' must be last",
-      "native_check": "native/python/src/compilercheck.rs:162"
+      "native_check": "native/python/src/compilercheck.rs:169"
     },
     {
       "site": "3.11:Python/compile.c:3986:16",
@@ -1691,7 +1691,7 @@
       "reason": "keyword argument repeated",
       "exception": "SyntaxError",
       "compiler_message": "keyword argument repeated: a",
-      "native_check": "native/python/src/compilercheck.rs:184"
+      "native_check": "native/python/src/compilercheck.rs:191"
     },
     {
       "site": "3.11:Python/compile.c:5480:9",
@@ -1771,7 +1771,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "starred assignment target must be in a list or tuple",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.11:Python/compile.c:5945:20",
@@ -1781,7 +1781,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.11:Python/compile.c:6192:5",
@@ -2087,7 +2087,7 @@
       "reason": "duplicate parameter name",
       "exception": "SyntaxError",
       "compiler_message": "duplicate argument 'a' in function definition",
-      "native_check": "native/python/src/compilercheck.rs:379"
+      "native_check": "native/python/src/compilercheck.rs:386"
     },
     {
       "site": "3.11:Python/symtable.c:1099:13",
@@ -2107,7 +2107,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/symtable.c:1300:17",
@@ -2168,7 +2168,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/symtable.c:1777:9",
@@ -2178,7 +2178,7 @@
       "reason": "CPython validation depth limit exceeded",
       "exception": "RecursionError",
       "compiler_message": "maximum recursion depth exceeded during compilation",
-      "native_check": "native/python/src/compilercheck.rs:129"
+      "native_check": "native/python/src/compilercheck.rs:136"
     },
     {
       "site": "3.11:Python/symtable.c:2008:13",
@@ -2333,7 +2333,7 @@
       "reason": "assignment expression target cannot be parenthesized",
       "exception": "SyntaxError",
       "compiler_message": "cannot use assignment expressions with name",
-      "native_check": "native/python/src/compilercheck.rs:307"
+      "native_check": "native/python/src/compilercheck.rs:314"
     },
     {
       "site": "3.12:Grammar/python.gram:1180:9",
@@ -3162,7 +3162,7 @@
       "reason": "type parameter defaults require Python 3.13",
       "exception": "SyntaxError",
       "compiler_message": "expected '('",
-      "native_check": "native/python/src/compilercheck.rs:98"
+      "native_check": "native/python/src/compilercheck.rs:105"
     },
     {
       "site": "3.12:Parser/pegen.c:707:16",
@@ -3186,7 +3186,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.12:Parser/pegen.c:842:27",
@@ -3758,7 +3758,7 @@
       "reason": "too many statically nested blocks",
       "exception": "SyntaxError",
       "compiler_message": "too many statically nested blocks",
-      "native_check": "native/python/src/compilercheck.rs:145"
+      "native_check": "native/python/src/compilercheck.rs:152"
     },
     {
       "site": "3.12:Python/compile.c:1653:16",
@@ -3778,7 +3778,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot assign to __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.12:Python/compile.c:2077:9",
@@ -3788,7 +3788,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot delete __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.12:Python/compile.c:3065:16",
@@ -3848,7 +3848,7 @@
       "reason": "default except must be last",
       "exception": "SyntaxError",
       "compiler_message": "default 'except:' must be last",
-      "native_check": "native/python/src/compilercheck.rs:162"
+      "native_check": "native/python/src/compilercheck.rs:169"
     },
     {
       "site": "3.12:Python/compile.c:3848:16",
@@ -3888,7 +3888,7 @@
       "reason": "keyword argument repeated",
       "exception": "SyntaxError",
       "compiler_message": "keyword argument repeated: a",
-      "native_check": "native/python/src/compilercheck.rs:184"
+      "native_check": "native/python/src/compilercheck.rs:191"
     },
     {
       "site": "3.12:Python/compile.c:5713:9",
@@ -3968,7 +3968,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "starred assignment target must be in a list or tuple",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.12:Python/compile.c:6200:20",
@@ -3978,7 +3978,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.12:Python/compile.c:6456:5",
@@ -4302,7 +4302,7 @@
       "reason": "duplicate parameter name",
       "exception": "SyntaxError",
       "compiler_message": "duplicate argument 'a' in function definition",
-      "native_check": "native/python/src/compilercheck.rs:379"
+      "native_check": "native/python/src/compilercheck.rs:386"
     },
     {
       "site": "3.12:Python/symtable.c:1300:13",
@@ -4312,7 +4312,7 @@
       "reason": "duplicate type parameter",
       "exception": "SyntaxError",
       "compiler_message": "duplicate type parameter 'T'",
-      "native_check": "native/python/src/compilercheck.rs:74"
+      "native_check": "native/python/src/compilercheck.rs:81"
     },
     {
       "site": "3.12:Python/symtable.c:1321:13",
@@ -4470,7 +4470,7 @@
       "reason": "yield or await in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "yield expression cannot be used within a TypeVar bound",
-      "native_check": "native/python/src/compilercheck.rs:315"
+      "native_check": "native/python/src/compilercheck.rs:322"
     },
     {
       "site": "3.12:Python/symtable.c:2646:9",
@@ -4480,7 +4480,7 @@
       "reason": "assignment expression in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "named expression cannot be used within a type alias",
-      "native_check": "native/python/src/compilercheck.rs:310"
+      "native_check": "native/python/src/compilercheck.rs:317"
     },
     {
       "site": "3.12:Python/symtable.c:2648:9",
@@ -4639,7 +4639,7 @@
       "reason": "assignment expression target cannot be parenthesized",
       "exception": "SyntaxError",
       "compiler_message": "cannot use assignment expressions with name",
-      "native_check": "native/python/src/compilercheck.rs:307"
+      "native_check": "native/python/src/compilercheck.rs:314"
     },
     {
       "site": "3.13:Grammar/python.gram:1193:9",
@@ -5782,7 +5782,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.13:Parser/pegen.c:811:27",
@@ -6022,7 +6022,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.13:Parser/tokenizer/helpers.c:186:9",
@@ -6399,7 +6399,7 @@
       "reason": "too many statically nested blocks",
       "exception": "SyntaxError",
       "compiler_message": "too many statically nested blocks",
-      "native_check": "native/python/src/compilercheck.rs:145"
+      "native_check": "native/python/src/compilercheck.rs:152"
     },
     {
       "site": "3.13:Python/compile.c:1628:16",
@@ -6419,7 +6419,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot assign to __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.13:Python/compile.c:2079:9",
@@ -6429,7 +6429,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot delete __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.13:Python/compile.c:2208:24",
@@ -6439,7 +6439,7 @@
       "reason": "non-default type parameter follows a default",
       "exception": "SyntaxError",
       "compiler_message": "non-default type parameter 'U' follows default type parameter",
-      "native_check": "native/python/src/compilercheck.rs:85"
+      "native_check": "native/python/src/compilercheck.rs:92"
     },
     {
       "site": "3.13:Python/compile.c:2228:24",
@@ -6449,7 +6449,7 @@
       "reason": "non-default type parameter follows a default",
       "exception": "SyntaxError",
       "compiler_message": "non-default type parameter 'U' follows default type parameter",
-      "native_check": "native/python/src/compilercheck.rs:85"
+      "native_check": "native/python/src/compilercheck.rs:92"
     },
     {
       "site": "3.13:Python/compile.c:2248:24",
@@ -6459,7 +6459,7 @@
       "reason": "non-default type parameter follows a default",
       "exception": "SyntaxError",
       "compiler_message": "non-default type parameter 'U' follows default type parameter",
-      "native_check": "native/python/src/compilercheck.rs:85"
+      "native_check": "native/python/src/compilercheck.rs:92"
     },
     {
       "site": "3.13:Python/compile.c:3176:16",
@@ -6519,7 +6519,7 @@
       "reason": "default except must be last",
       "exception": "SyntaxError",
       "compiler_message": "default 'except:' must be last",
-      "native_check": "native/python/src/compilercheck.rs:162"
+      "native_check": "native/python/src/compilercheck.rs:169"
     },
     {
       "site": "3.13:Python/compile.c:3959:16",
@@ -6559,7 +6559,7 @@
       "reason": "keyword argument repeated",
       "exception": "SyntaxError",
       "compiler_message": "keyword argument repeated: a",
-      "native_check": "native/python/src/compilercheck.rs:184"
+      "native_check": "native/python/src/compilercheck.rs:191"
     },
     {
       "site": "3.13:Python/compile.c:5856:9",
@@ -6639,7 +6639,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "starred assignment target must be in a list or tuple",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.13:Python/compile.c:6349:20",
@@ -6649,7 +6649,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.13:Python/compile.c:6605:5",
@@ -7035,7 +7035,7 @@
       "reason": "duplicate parameter name",
       "exception": "SyntaxError",
       "compiler_message": "duplicate argument 'a' in function definition",
-      "native_check": "native/python/src/compilercheck.rs:379"
+      "native_check": "native/python/src/compilercheck.rs:386"
     },
     {
       "site": "3.13:Python/symtable.c:1429:13",
@@ -7045,7 +7045,7 @@
       "reason": "duplicate type parameter",
       "exception": "SyntaxError",
       "compiler_message": "duplicate type parameter 'T'",
-      "native_check": "native/python/src/compilercheck.rs:74"
+      "native_check": "native/python/src/compilercheck.rs:81"
     },
     {
       "site": "3.13:Python/symtable.c:1450:13",
@@ -7189,7 +7189,7 @@
       "reason": "assignment expression in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "named expression cannot be used within a type alias",
-      "native_check": "native/python/src/compilercheck.rs:310"
+      "native_check": "native/python/src/compilercheck.rs:317"
     },
     {
       "site": "3.13:Python/symtable.c:2797:9",
@@ -7199,7 +7199,7 @@
       "reason": "assignment expression in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "named expression cannot be used within a type alias",
-      "native_check": "native/python/src/compilercheck.rs:310"
+      "native_check": "native/python/src/compilercheck.rs:317"
     },
     {
       "site": "3.13:Python/symtable.c:2802:9",
@@ -7372,7 +7372,7 @@
       "reason": "assignment expression target cannot be parenthesized",
       "exception": "SyntaxError",
       "compiler_message": "cannot use assignment expressions with name",
-      "native_check": "native/python/src/compilercheck.rs:307"
+      "native_check": "native/python/src/compilercheck.rs:314"
     },
     {
       "site": "3.14:Grammar/python.gram:1266:9",
@@ -8732,7 +8732,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.14:Parser/pegen.c:813:27",
@@ -8972,7 +8972,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.14:Parser/tokenizer/helpers.c:244:9",
@@ -9275,7 +9275,7 @@
       "reason": "non-default type parameter follows a default",
       "exception": "SyntaxError",
       "compiler_message": "non-default type parameter 'U' follows default type parameter",
-      "native_check": "native/python/src/compilercheck.rs:85"
+      "native_check": "native/python/src/compilercheck.rs:92"
     },
     {
       "site": "3.14:Python/codegen.c:1278:24",
@@ -9285,7 +9285,7 @@
       "reason": "non-default type parameter follows a default",
       "exception": "SyntaxError",
       "compiler_message": "non-default type parameter 'U' follows default type parameter",
-      "native_check": "native/python/src/compilercheck.rs:85"
+      "native_check": "native/python/src/compilercheck.rs:92"
     },
     {
       "site": "3.14:Python/codegen.c:1297:24",
@@ -9295,7 +9295,7 @@
       "reason": "non-default type parameter follows a default",
       "exception": "SyntaxError",
       "compiler_message": "non-default type parameter 'U' follows default type parameter",
-      "native_check": "native/python/src/compilercheck.rs:85"
+      "native_check": "native/python/src/compilercheck.rs:92"
     },
     {
       "site": "3.14:Python/codegen.c:2199:16",
@@ -9345,7 +9345,7 @@
       "reason": "default except must be last",
       "exception": "SyntaxError",
       "compiler_message": "default 'except:' must be last",
-      "native_check": "native/python/src/compilercheck.rs:162"
+      "native_check": "native/python/src/compilercheck.rs:169"
     },
     {
       "site": "3.14:Python/codegen.c:3400:24",
@@ -9375,7 +9375,7 @@
       "reason": "keyword argument repeated",
       "exception": "SyntaxError",
       "compiler_message": "keyword argument repeated: a",
-      "native_check": "native/python/src/compilercheck.rs:184"
+      "native_check": "native/python/src/compilercheck.rs:191"
     },
     {
       "site": "3.14:Python/codegen.c:5177:9",
@@ -9422,7 +9422,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "starred assignment target must be in a list or tuple",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.14:Python/codegen.c:5309:20",
@@ -9432,7 +9432,7 @@
       "reason": "starred expression is not allowed here",
       "exception": "SyntaxError",
       "compiler_message": "can't use starred expression here",
-      "native_check": "native/python/src/compilercheck.rs:299"
+      "native_check": "native/python/src/compilercheck.rs:306"
     },
     {
       "site": "3.14:Python/codegen.c:5682:9",
@@ -9594,7 +9594,7 @@
       "reason": "too many statically nested blocks",
       "exception": "SyntaxError",
       "compiler_message": "too many statically nested blocks",
-      "native_check": "native/python/src/compilercheck.rs:145"
+      "native_check": "native/python/src/compilercheck.rs:152"
     },
     {
       "site": "3.14:Python/compile.c:1204:5",
@@ -9863,7 +9863,7 @@
       "reason": "duplicate parameter name",
       "exception": "SyntaxError",
       "compiler_message": "duplicate argument 'a' in function definition",
-      "native_check": "native/python/src/compilercheck.rs:379"
+      "native_check": "native/python/src/compilercheck.rs:386"
     },
     {
       "site": "3.14:Python/symtable.c:1527:13",
@@ -9873,7 +9873,7 @@
       "reason": "duplicate type parameter",
       "exception": "SyntaxError",
       "compiler_message": "duplicate type parameter 'T'",
-      "native_check": "native/python/src/compilercheck.rs:74"
+      "native_check": "native/python/src/compilercheck.rs:81"
     },
     {
       "site": "3.14:Python/symtable.c:1546:13",
@@ -9893,7 +9893,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot assign to __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.14:Python/symtable.c:1606:9",
@@ -9903,7 +9903,7 @@
       "reason": "cannot bind __debug__",
       "exception": "SyntaxError",
       "compiler_message": "cannot delete __debug__",
-      "native_check": "native/python/src/compilercheck.rs:71"
+      "native_check": "native/python/src/compilercheck.rs:78"
     },
     {
       "site": "3.14:Python/symtable.c:1776:5",
@@ -10049,7 +10049,7 @@
       "reason": "assignment expression in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "named expression cannot be used within an annotation",
-      "native_check": "native/python/src/compilercheck.rs:310"
+      "native_check": "native/python/src/compilercheck.rs:317"
     },
     {
       "site": "3.14:Python/symtable.c:3126:9",
@@ -10059,7 +10059,7 @@
       "reason": "assignment expression in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "named expression cannot be used within an annotation",
-      "native_check": "native/python/src/compilercheck.rs:310"
+      "native_check": "native/python/src/compilercheck.rs:317"
     },
     {
       "site": "3.14:Python/symtable.c:3131:9",
@@ -10069,7 +10069,7 @@
       "reason": "assignment expression in an annotation scope",
       "exception": "SyntaxError",
       "compiler_message": "named expression cannot be used within a type alias",
-      "native_check": "native/python/src/compilercheck.rs:310"
+      "native_check": "native/python/src/compilercheck.rs:317"
     },
     {
       "site": "3.14:Python/symtable.c:3136:9",

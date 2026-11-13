@@ -223,7 +223,8 @@ PROBES: dict[str, str] = {
     "attribute-int": "x = 1 .real, 1.0.real, True.real, (1).bit_length, 1j.imag\n",
     "dict-set": "x = {}, {**a}, {a: b, **c}, set(), {*()}, {1}, {(1, 2): [3]}\n",
     "comprehensions": (
-        "x = [a async for a in b if c if d], {a: b for a, b in c}, (a for a in (b, c))\n"
+        "async def f():\n"
+        "    x = [a async for a in b if c if d], {a: b for a, b in c}, (a for a in (b, c))\n"
     ),
     "call-generator": "f(a for a in b)\nf(x, (a for a in b))\n",
     "floats": "x = 1e16, 1e15, 0.00001, 0.0001, 1e400, 1.5e-310, 0.1 + 0.2, 1_000.000_1\n",

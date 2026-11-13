@@ -20,6 +20,7 @@ struct Check<'a> {
     depth: usize,
     blocks: usize,
     star: bool,
+    star_annotation: Option<usize>,
     restricted: bool,
     private: Option<String>,
     reason: Option<(usize, &'static str)>,
@@ -33,6 +34,7 @@ pub fn check(module: &ModModule, source: &str, minor: PyMinor) -> Option<(usize,
         depth: 0,
         blocks: 0,
         star: false,
+        star_annotation: None,
         restricted: false,
         private: None,
         reason: None,
@@ -51,9 +53,14 @@ impl Check<'_> {
             PyMinor::Py314 => true,
         };
         let old = self.restricted;
+        let star = std::mem::replace(
+            &mut self.star,
+            self.star_annotation == Some(expr.start().to_usize()),
+        );
         self.restricted |= restricted;
         self.visit_expr(expr);
         self.restricted = old;
+        self.star = star;
     }
 
     fn type_parameters(&mut self, params: Option<&TypeParams>) {
@@ -379,7 +386,16 @@ impl<'a> Visitor<'a> for Check<'_> {
                 self.fail(params, "duplicate parameter name");
             }
         }
+        let annotation = params
+            .vararg
+            .as_deref()
+            .and_then(|param| param.annotation.as_deref());
+        let old = std::mem::replace(
+            &mut self.star_annotation,
+            annotation.map(|expr| expr.start().to_usize()),
+        );
         visitor::walk_parameters(self, params);
+        self.star_annotation = old;
     }
 }
 

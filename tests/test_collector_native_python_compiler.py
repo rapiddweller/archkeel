@@ -28,6 +28,8 @@ SOURCES = {
     "unicode15-name": "'\\N{KAWI LETTER A}'",
     "lambda-yield-alias": "type X = lambda: (yield)",
     "lambda-walrus-alias": "type X = lambda: (x := 1)",
+    "unpacked-vararg-annotation": "def f(*args: *Ts): pass",
+    "starred-regular-annotation": "def f(arg: *Ts): pass",
 }
 
 
