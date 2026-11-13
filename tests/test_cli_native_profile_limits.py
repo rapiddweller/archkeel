@@ -50,9 +50,7 @@ def scan(built: Path, root: Path) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize("case_id", CASES)
-def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(
-    built: Path, case_id: str
-) -> None:
+def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case_id: str) -> None:
     case = next(case for case in corpus_cases() if case.id == case_id)
     with materialized(case) as root:
         frame = scan(built, root)
@@ -91,3 +89,23 @@ def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
     assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
     assert frame["rules"].get("SYMBOL") == "UNKNOWN", frame
     assert "undecided" in frame["explained"]["SYMBOL"], frame
+
+
+def test_a_symbol_public_interface_releases_no_actual_gap(built: Path) -> None:
+    case = next(case for case in corpus_cases() if case.id == "fixture/H-typescript")
+    with materialized(case) as root:
+        path = root / "architecture-contract.json"
+        contract = json.loads(path.read_text())
+        component = next(c for c in contract["components"] if c["label"] == "data")
+        component["public"] = ["shop.src.data.local_x2e_ts:local"]
+        contract["declarations"] = {}
+        contract["rules"] = [r for r in contract["rules"] if r["id"] == "DOMAIN-NO-DATA"]
+        path.write_text(json.dumps(contract))
+        before = scan(built, root)
+        assert before["rules"] == {"DOMAIN-NO-DATA": "PASS"}, before
+        assert before["status"] == "PASS", before
+        source = root / "src/domain/order.ts"
+        source.write_text(source.read_text() + '\nimport(globalThis["forbiddenModule"]);\n')
+        planted = scan(built, root)
+    assert planted["rules"]["DOMAIN-NO-DATA"] in {"UNKNOWN", "FAIL"}, planted
+    assert planted["status"] != "PASS"

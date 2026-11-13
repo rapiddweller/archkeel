@@ -48,6 +48,30 @@ fn provenance() -> Provenance {
 const CONFIG: &str = r#"{"compilerOptions":{"module":"commonjs"},"include":["src"]}"#;
 
 #[test]
+fn the_linked_reply_states_its_profile_limits_but_wire_bytes_cannot_carry_them() {
+    use archkeel_facts::envelope::{LimitSupport, Reply};
+    for source in ["export const one = 1;", "const one = 1;"] {
+        let tree = Tree::new(&[("tsconfig.json", CONFIG), ("src/a.ts", source)]);
+        let reply = crate::typed_reply(&request(&tree), provenance(), Version::V9).unwrap();
+        let limits = reply.facts.profile_limits.unwrap();
+        assert_eq!(limits.interface_boundary, LimitSupport::Supported);
+        let symbols = reply
+            .facts
+            .capabilities
+            .resolution_features
+            .iter()
+            .any(|feature| feature == "script-globals-v1");
+        assert_eq!(
+            limits.dependency_symbols == LimitSupport::Supported,
+            symbols
+        );
+        let saved = serde_json::to_vec(&reply).unwrap();
+        let replay: Reply = serde_json::from_slice(&saved).unwrap();
+        assert!(replay.facts.profile_limits.is_none());
+    }
+}
+
+#[test]
 fn a_statement_with_bound_names_becomes_one_record_for_each_name() {
     let tree = Tree::new(&[
         ("tsconfig.json", CONFIG),

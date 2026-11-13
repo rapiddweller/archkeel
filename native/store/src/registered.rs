@@ -18,7 +18,7 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_facts::envelope::{ConstructSupport, Facts, Profile};
+use archkeel_facts::envelope::{ConstructSupport, Facts, LimitSupport, Profile};
 
 const NATIVE_IMPORTS: [&str; 4] = [
     "literal-imports",
@@ -36,6 +36,16 @@ fn names<'a>(items: impl IntoIterator<Item = &'a str>) -> BTreeSet<&'a str> {
 
 /// The reply refused by name unless its capability sets are a registered set of its profile.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
+    if let Some(limits) = facts.profile_limits {
+        let symbols = facts
+            .capabilities
+            .resolution_features
+            .iter()
+            .any(|feature| feature == "script-globals-v1");
+        if (limits.dependency_symbols == LimitSupport::Supported) != symbols {
+            return Err("profile symbol statement does not match its capability".to_owned());
+        }
+    }
     let sections = names(facts.capabilities.sections.iter().map(|name| name.as_str()));
     match facts.profile {
         Profile::TypeScript => typescript(facts, &sections),

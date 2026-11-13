@@ -79,6 +79,11 @@ Clippy, `cargo deny` and the file size rule stay outside the contract
 
 ## The dual run
 
+The linked collector states its profile limits in the typed in-process reply
+([AD-426](decisions/ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md)).
+The model reads these statements before the existing scope proof. They remove no actual source gap.
+The statements are not serialized. The wire path keeps its conservative profile refusals.
+
 Slice S11 decides `forbidden_construct` from construct and typing-signal facts (AD-408).
 A known occurrence can FAIL with incomplete coverage. Absence needs the existing scope proof,
 a matching receipt and a complete construct capability. A partial capability remains UNKNOWN.
