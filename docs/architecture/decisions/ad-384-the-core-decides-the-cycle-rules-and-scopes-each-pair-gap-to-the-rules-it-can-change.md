@@ -2,6 +2,8 @@
 
 **Status.** Accepted. Epic #880, WP6 slice S7 (design WP6-0, section C; AD-357, AD-374, AD-378, AD-380).
 
+**Amended by AD-418.** A dropped gap holds each rule whose reading it can change, not each rule ([AD-418](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+
 **Decision.**
 1. Scan roots. The dual-run request carries `roots` (protocol `archkeel-dual-run-4`). The model binds them to the reply: each root must be the scope label that the collector wrote (`root/**` or `root`), one for each root, in order, without `*` (`Settings::bind_roots`). Other roots refuse the settings (exit 3). No roots name `Part::ScanRoots`. So a caller cannot widen a root by word.
 2. Receipts (`model/src/receipts.rs`). `Scope::scan` gives a `ScanProof` only with bound roots and a profile whose files the core maps (`Layout::ProjectFiles`, from `archkeel-facts`; else `Part::ScanLayout`). The cycle receipts are `rules.py:516` and `:597` with `_cycle_scan_coverage`; the receipt of `complete_requires` is `scope_receipts_complete` with `_inside_rule_scope_is_complete`. A selector rule in the contract names `Part::ReceiptSources`. A receipt that fails is a fact (`Cause::Receipt`).

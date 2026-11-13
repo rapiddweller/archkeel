@@ -8,10 +8,10 @@
 //! A pair gap `a -> b` says: the collector cannot tell whether `a` uses `b`. The host drops it
 //! when the contract allows the edge (`check/pair_gaps.py` `drop_allowed_pair_gaps`); this file
 //! ports that rule with its cycle part, so a gap that it drops is `dropped` and a gap that it
-//! keeps is `kept`. A dropped gap holds the rules whose reading it can change
-//! (`dropped_gaps.rs`, AD-NNN). The reference engine then makes every rule UNKNOWN for a kept gap. The core
+//! keeps is `kept`. The reference engine then makes every rule UNKNOWN for a kept gap. The core
 //! makes UNKNOWN only the rules whose reading (`Reads`) the gap can change: this is the one place
-//! where the core decides a rule that the reference engine does not decide (AD-384 point 4).
+//! where the core decides a rule that the reference engine does not decide (AD-384 point 4). A
+//! dropped gap holds the rules whose reading it can change too (`dropped_gaps.rs`, AD-418).
 //!
 //! A gap is a proven pair only when both ends are modules of the reply. Any other gap holds
 //! every rule, because it can stand for a module that the scan did not see.
@@ -47,7 +47,7 @@ pub(crate) struct Pairs {
     pub(crate) kept: Vec<PairGap>,
     /// The gaps that the drop rule drops for a profile whose host drops them. The drop rule reads
     /// the selector texts, not the sides of a rule (AD-384 point 4), so a dropped gap still holds
-    /// each rule whose reading it can change (`dropped_gaps.rs`, AD-NNN).
+    /// each rule whose reading it can change (`dropped_gaps.rs`, AD-418).
     pub(crate) dropped: Vec<PairGap>,
 }
 
