@@ -23,8 +23,7 @@ Delete tests that serve only the deleted implementations. Do not create recordin
 The owner also accepts removal of neutral tests that need retired Python inputs; list them in the PR.
 Keep native unit tests. Name parity tests as skipped until their released oracle is connected.
 Keep the frozen replies that the Rust schema tests read, without recording new replies.
-Keep the clone guard strict after AD-420: share its comment walk and exhaustively format refusals.
-Declare rs-text's use of the pure snapshot comment walk; its ban on snapshot I/O stays unchanged.
+Keep native source, APIs, contracts and expected-gap pins unchanged from main.
 The dual run names and counts each unsupported Python and Dart case.
 
 ## Rejected alternatives
@@ -53,7 +52,6 @@ Historical Python and Dart configurations refuse before a supported candidate is
 Python version claims do not authorize dependency receipts.
 The host-only identity also binds the runtime read from the verified process, not matching reply text.
 Changed runtime claims give UNKNOWN with a named reason. Saved results do not carry host verification.
-The Rust core names native TypeScript scope proof as an unread part, never as a proven PASS.
 Native member inventory proof also checks the compiler version and rejects malformed runtime claims.
 `tests/test_dependency_runtime_identity.py` binds receipts to the verified binary digest and analyzer identity.
 `tests/test_native_ci.py` runs the release shell step with complete and incomplete artifact sets.

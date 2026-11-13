@@ -39,7 +39,7 @@ pub(crate) fn over(bytes: &[u8], limit: usize) -> bool {
                     .position(|b| *b == b'\n')
                     .unwrap_or(bytes.len() - at)
             }
-            (b'/', Some(b'*')) => at = block_comment_end(bytes, at),
+            (b'/', Some(b'*')) => at = comment_end(bytes, at),
             (b'"' | b'\'', _) => at = quote_end(bytes, at, byte),
             (b'`', _) => {
                 template = true;
@@ -118,9 +118,8 @@ fn raw_end(bytes: &[u8], from: usize) -> Option<usize> {
     Some(bytes.len())
 }
 
-/// The end of the nested block comment at `from`, or the slice end when truncated.
-pub fn block_comment_end(bytes: &[u8], from: usize) -> usize {
-    let (mut at, mut depth) = (from.saturating_add(2).min(bytes.len()), 1_usize);
+fn comment_end(bytes: &[u8], from: usize) -> usize {
+    let (mut at, mut depth) = (from + 2, 1_usize);
     while at < bytes.len() && depth > 0 {
         match bytes.get(at..at + 2) {
             Some(b"/*") => depth += 1,

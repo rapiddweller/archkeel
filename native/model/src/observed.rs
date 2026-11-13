@@ -151,7 +151,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
-        scope_receipt: facts.runtime.carries_scope_proof(facts.profile),
+        scope_receipt: facts.runtime.carries_scope_proof(),
     }
 }
 

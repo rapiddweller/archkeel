@@ -73,20 +73,6 @@ fn a_kept_gap_of_the_runtime_with_the_proof_stays_a_named_part() {
 }
 
 #[test]
-fn native_typescript_scope_proof_stays_a_named_part_without_becoming_pass() {
-    let native = |reply: &mut Value| {
-        reply["facts"]["runtime"] = json!({
-            "name": "rust", "version": "1.97.0", "required": ">=1.97",
-            "requirement_state": "declared"
-        });
-    };
-    let found = run(unchanged, both(native, gap(PAGE, MAIN.0)), rooted()).unwrap_or_else(failed);
-    assert_eq!(requires(&found), ("UNKNOWN".to_owned(), part()));
-    let clean = run(unchanged, native, rooted()).unwrap_or_else(failed);
-    assert_eq!(requires(&clean), ("PASS".to_owned(), None));
-}
-
-#[test]
 fn a_coverage_gap_follows_the_runtime_too() {
     let found = run(unchanged, coverage_gap, rooted()).unwrap_or_else(failed);
     let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
