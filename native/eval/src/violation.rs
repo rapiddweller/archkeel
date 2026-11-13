@@ -84,6 +84,12 @@ pub enum Violation {
         source_component: String,
         target_component: String,
     },
+    /// `layer_order`: a `requires` entry from an inner to an outer layer.
+    OuterLayer(Box<Layered>),
+    /// `no_component_cycles`: a component or a module cycle (slice S7, AD-384).
+    Cycle(Box<Cyclic>),
+    /// A forbidden construct, with the original observation's identity and evidence.
+    Construct(Box<ConstructViolation>),
     /// An import outside the target component's public interface.
     PrivateImport {
         id: String,
@@ -93,12 +99,6 @@ pub enum Violation {
         source_component: String,
         target_component: String,
     },
-    /// `layer_order`: a `requires` entry from an inner to an outer layer.
-    OuterLayer(Box<Layered>),
-    /// `no_component_cycles`: a component or a module cycle (slice S7, AD-384).
-    Cycle(Box<Cyclic>),
-    /// A forbidden construct, with the original observation's identity and evidence.
-    Construct(Box<ConstructViolation>),
 }
 
 /// The row data of a forbidden construct, without a verdict or a scope claim.

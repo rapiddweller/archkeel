@@ -154,7 +154,10 @@ fn assess(
             .ok_or(InterfaceGap::PublicationSurface);
     }
     // A different public module can publish this name. This slice proves no such route.
-    if !public.is_empty() {
+    if public
+        .iter()
+        .any(|entry| entry.split(':').next() != Some(module))
+    {
         return Err(InterfaceGap::PublicationRoute);
     }
     Ok(false)

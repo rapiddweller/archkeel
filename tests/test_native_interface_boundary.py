@@ -36,7 +36,10 @@ def scan(
         )
         component.pop("public", None)
         if label == "service":
-            component["public"] = [public.replace("app.", "app.src.") + "_x2e_ts"]
+            module, separator, name = public.partition(":")
+            component["public"] = [
+                module.replace("app.", "app.src.") + "_x2e_ts" + separator + name
+            ]
         components.append(component)
     rule: dict[str, Any] = {
         "id": "INTERFACE",
@@ -111,6 +114,7 @@ def run_core(built: Path, root: Path) -> dict[str, Any]:
         ('import "./api";', "app.api", None, "PASS"),
         ('import "./impl";', "app.api", "app.client", "PASS"),
         ('import { _private } from "./api";', "app.api", None, "FAIL"),
+        ('import { Published } from "./api";', "app.api:Other", None, "FAIL"),
         ('import "./impl";', "app.api", None, "FAIL"),
         ('import "./impl";', "app.api", "app.other", "FAIL"),
         ('import { Secret } from "./impl";', "app.api", "app.client", "UNKNOWN"),
@@ -207,3 +211,24 @@ def test_rust_names_its_missing_publication_surface(built: Path, tmp_path: Path)
     frame = run_core(built, root)
     assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
     assert "interface_boundary: incomplete publication surface" in json.dumps(frame), frame
+
+
+@pytest.mark.parametrize(
+    "case", ["no_public", "same_component", "unowned_source", "unowned_target"]
+)
+def test_non_subject_imports_do_not_fail(built: Path, tmp_path: Path, case: str) -> None:
+    scan(built, tmp_path, 'import "./impl";')
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    client, service = contract["components"]
+    if case == "no_public":
+        service.pop("public")
+    elif case == "same_component":
+        service["packages"].extend(client["packages"])
+        contract["components"] = [service]
+    elif case == "unowned_source":
+        contract["components"] = [service]
+    else:
+        contract["components"] = [client]
+    path.write_text(json.dumps(contract))
+    assert run_core(built, tmp_path)["rules"]["INTERFACE"][1] == "PASS"
