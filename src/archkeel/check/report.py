@@ -65,7 +65,6 @@ from archkeel.ir.facts_codec import (
 )
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.findings import findings
-from archkeel.ir.languages import SourceProfile, UnsupportedProjectError, require_supported_project
 from archkeel.ir.model import (
     ArchitectureContract,
     BaselineViolationComparison,
@@ -244,7 +243,7 @@ def _baseline_status(
 
 
 def unknown_result(command: _Command, subject: str, error: Exception) -> RunResult:
-    if isinstance(error, DiagnosticError | UnsupportedProjectError):
+    if isinstance(error, DiagnosticError):
         diagnostic = error.diagnostic
     else:
         diagnostic = Diagnostic(
@@ -839,9 +838,6 @@ def read_saved_snapshot(path: Path) -> Observation:
     raw = decode_json(path.read_bytes())
     if not isinstance(raw, dict):
         raise ValueError("architecture.json must be an object")
-    analyzer = raw.get("analyzer")
-    if isinstance(analyzer, dict) and isinstance(analyzer.get("name"), str):
-        require_supported_project(SourceProfile(analyzer["name"]))
     model = parse_observation(decode_canonical_model(raw))
     validate_evidence_classes(model)
     _validate_saved_sources(model)

@@ -154,7 +154,6 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
             item["data"]["symbol"],
             item["data"]["source_package"],
             item["data"]["target_package"],
-            item["data"]["target_module"],
             private=True,
         )
     ]

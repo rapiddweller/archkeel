@@ -19,7 +19,6 @@ from typing import Final, NoReturn
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.ports import Language
 from ..check.report import (
@@ -36,7 +35,6 @@ from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..ir.codec import decode_json
 from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
-from ..ir.languages import UnsupportedProjectError, require_supported_project
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
@@ -67,10 +65,12 @@ from .config import (
     ADOPTED_BASELINE_PATH,
     CONFIG_PATH,
     ConfigFileMissingError,
+    UnsupportedProjectError,
+    load_against_config,
     load_check_config,
     load_config,
-    parse_config,
-    project_name,
+    require_supported_project,
+    require_supported_saved_input,
 )
 from .guide import GUIDE_PATH, run_guide
 from .native_core import NativeCore, add_switch
@@ -873,6 +873,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
         if command is Command.STORY:
             subject = str(args.snapshot)
+            require_supported_saved_input(args.snapshot)
             trace_result = trace_flow(
                 read_saved_snapshot(args.snapshot),
                 args.source,
@@ -889,6 +890,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             spec_bytes = Path.read_bytes(args.spec)
             spec = parse_view_spec(decode_json(spec_bytes))
             subject = str(args.snapshot)
+            require_supported_saved_input(args.snapshot)
             view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)
             text = view_check_json(view)
             # Exit 2: the check did not run, so there is no picture to write.
@@ -989,6 +991,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 if conflicts:
                     parser.error(f"--input cannot be combined with {', '.join(conflicts)}")
+                require_supported_saved_input(args.input)
                 result = run_saved_report(
                     args.input,
                     only_violations=args.only is ReportMode.VIOLATIONS,
@@ -1040,7 +1043,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         pages = render_architecture_pages(
                             result,
                             architecture,
-                            repository=project_name(root, config),
+                            repository=config.namespace,
                             architecture_href=artifact.name,
                             observation=observation,
                         )
@@ -1075,13 +1078,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         # Keep the existing `against.invalid` diagnostic for an unknown ref.
                         pass
                     else:
-                        try:
-                            against_config = parse_config(
-                                read_blob(root, against, args.config), args.config
-                            )
-                        except ValueError:
-                            # Missing or invalid historical config cannot authorize a rename.
-                            against_config = None
+                        against_config = load_against_config(root, against, args.config)
                 observer = configured_observer(config, observer_for)
                 result, requested_files = run_validate(
                     root,
@@ -1134,7 +1131,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     check_html.write_bytes(
                         render_check_html(
                             result,
-                            repository=project_name(root, config),
+                            repository=config.namespace,
                             result_href=args.output.name,
                         )
                     )

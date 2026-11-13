@@ -15,17 +15,26 @@ from tools import report_pages
 from tools.report_pages import _entry, _write_index, build_demos
 
 
-def test_gallery_never_collects_unsupported_profiles(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("explore", [False, True])
+def test_gallery_never_collects_unsupported_profiles(tmp_path, monkeypatch, capsys, explore):
     variants = []
     for language in ("python", "dart"):
         fixture = tmp_path / language
         fixture.mkdir()
-        (fixture / "archkeel.toml").write_text(
-            f'[scan]\nlanguage = "{language}"\nroots = ["src"]\n'
-            'namespace = "app"\ncontract = "contract.json"\n'
-        )
+        if not explore:
+            (fixture / "archkeel.toml").write_text(
+                f'[scan]\nlanguage = "{language}"\nroots = ["src"]\n'
+                'namespace = "app"\ncontract = "contract.json"\n'
+            )
         variants.append(
-            SimpleNamespace(id=language, fixture=fixture, config="archkeel.toml", files={})
+            SimpleNamespace(
+                id=language,
+                fixture=fixture,
+                config="archkeel.toml",
+                files={},
+                explore=explore,
+                explore_options=("--language", language),
+            )
         )
     monkeypatch.setattr(report_pages, "CATALOG", variants)
     monkeypatch.setattr(report_pages, "VARIANTS", ())

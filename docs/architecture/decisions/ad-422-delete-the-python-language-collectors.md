@@ -11,6 +11,7 @@ Rust and TypeScript projects remain supported through the native collectors.
 Python and Dart projects are not supported in this version.
 Use archkeel 4.0.1 for those projects, including saved facts and baseline commands.
 An unsupported profile gives a typed refusal before collection, exit 2, and no partial verdict.
+The CLI owns this support policy. Generic IR readers do not enforce product support.
 A configuration cannot authorize a supported subset of an unsupported project.
 
 The root Python self-check stops because it needs the deleted Python collector.
@@ -45,6 +46,7 @@ The colocated digest detects a changed binary, not an attacker with install-writ
 The typed exception retains a `missing_tool` diagnostic, exit 2 and the released-version remedy.
 Studio refuses an unsupported profile before it can start or reuse a server.
 Historical Python and Dart configurations refuse before a supported candidate is collected.
-`tests/test_dependency_runtime_identity.py` checks the analyzer identity before Python runtime trust.
+Python version claims do not authorize dependency receipts.
+`tests/test_dependency_runtime_identity.py` binds receipts to the verified binary digest and analyzer identity.
 `tests/test_native_ci.py` runs the release shell step with complete and incomplete artifact sets.
 The native self-check and Rust/TypeScript dual run check the retained paths.

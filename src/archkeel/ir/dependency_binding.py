@@ -5,10 +5,8 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable as _Iterable
 
-from .facts import RuntimeRequirementState
 from .identity_memo import IdentityMemo
 from .model import Evidence, Observation, Record, RecordData, RuntimeInfo, Section, stable_id
 from .state_facts import ProducerKind, VerifiedBinary
@@ -27,29 +25,13 @@ def dependency_runtime_identity(runtime: RuntimeInfo, binary: VerifiedBinary | N
     return RecordData(((("code_digest", binary.digest),) if binary is not None else ()) + fields)
 
 
-def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
-    if (
-        runtime.name != "python"
-        or runtime.requirement_state != RuntimeRequirementState.DECLARED
-        or runtime.required is None
-        or re.fullmatch(r">=[0-9]+\.[0-9]+(?:\.[0-9]+)?", runtime.required) is None
-        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", runtime.version) is None
-    ):
-        return False
-    lower = tuple(int(value) for value in re.findall(r"[0-9]+", runtime.required))
-    return tuple(map(int, runtime.version.split("."))) >= (*lower, 0)[:3]
-
-
 def dependency_runtime_rejection(observation: Observation, proof: RecordData) -> str | None:
     verified = observation.verified_binary
     if (
         verified is None
-        and observation.producer_kind != ProducerKind.BUNDLED
-        and observation.analyzer.name == "archkeel-python-analyzer"
+        or observation.producer_kind != ProducerKind.BUNDLED
+        or observation.analyzer.name != verified.analyzer
     ):
-        if observation.runtime is not None and _native_scope_runtime_valid(observation.runtime):
-            return None
-    if verified is None or observation.producer_kind != ProducerKind.BUNDLED:
         return "dependency_scope_runtime_unverified"
     runtime = proof.get("runtime")
     digest = runtime.get("code_digest") if isinstance(runtime, RecordData) else None

@@ -22,6 +22,7 @@ class VerifiedBinary:
     """Host-only evidence of a bundled executable checked in this run; never read from wire."""
 
     digest: str
+    analyzer: str
 
 
 class BindingState(StrEnum):

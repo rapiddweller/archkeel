@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Raw metrics and decoded change/ratchet reporting share Python crossing policy."""
+"""Raw metrics and decoded change/ratchet reporting share symbol crossing policy."""
 
 from dataclasses import replace
 
@@ -45,11 +45,7 @@ def test_raw_metric_decoded_ratchet_and_delta_agree(
             "target_package": target_package,
         },
     )
-    expected_api = (
-        bool(symbol)
-        and not same_package
-        and not (target_module == "__future__" and symbol == "annotations")
-    )
+    expected_api = bool(symbol) and not same_package
     expected_private = expected_api and symbol.startswith("_")
     model = parse_observation(_model(git_head="a" * 40, imports=[record]))
     imports = model.records("imports")
@@ -67,10 +63,7 @@ def test_raw_metric_decoded_ratchet_and_delta_agree(
     assert [item.id for item in _section(model, "private_crossings")] == private_ids
     assert [item.id for item in _section(model, "api_crossings")] == api_ids
     for private, expected in ((True, expected_private), (False, expected_api)):
-        assert (
-            is_crossing_import(symbol, "project", target_package, target_module, private=private)
-            is expected
-        )
+        assert is_crossing_import(symbol, "project", target_package, private=private) is expected
         assert crossing_imports(imports, private=private) == (imports if expected else ())
 
 

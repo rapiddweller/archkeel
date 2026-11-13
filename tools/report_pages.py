@@ -17,9 +17,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import shorten
 
+from archkeel.cli import build_parser
 from archkeel.cli import main as archkeel_main
-from archkeel.cli.config import parse_config
-from archkeel.ir.languages import UnsupportedProjectError
+from archkeel.cli.config import UnsupportedProjectError, parse_config, require_supported_project
 from fixtures.architecture_demo import CATALOG, PROJECT_REPORT_GROUPS, REPORT_CASES, replay
 from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
@@ -57,14 +57,18 @@ def build_demos(output: Path) -> list[dict[str, object]]:
         exit_code = coverage = rules = None
         started = time.perf_counter()
         try:
-            config = (
-                variant.files[variant.config]
-                if variant.config in variant.files
-                else (variant.fixture / variant.config).read_text()
-            )
-            if config is None:
-                raise ValueError("the demo deletes its configuration")
-            parse_config(config.encode(), variant.config)
+            if variant.explore:
+                args = build_parser().parse_cli_args(["explore", *variant.explore_options])
+                require_supported_project(args.language)
+            else:
+                config = (
+                    variant.files[variant.config]
+                    if variant.config in variant.files
+                    else (variant.fixture / variant.config).read_text()
+                )
+                if config is None:
+                    raise ValueError("the demo deletes its configuration")
+                parse_config(config.encode(), variant.config)
             stdout = io.StringIO()
             with contextlib.redirect_stdout(stdout):
                 if variant in VARIANTS:

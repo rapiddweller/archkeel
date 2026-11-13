@@ -17,8 +17,7 @@ from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ObservationResult, ProducerKind, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
-from archkeel.ir.facts import SourceFacts
-from archkeel.ir.languages import require_supported_project
+from archkeel.ir.facts import SourceFacts, SourceProfile
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import (
     CollectionError,
@@ -27,6 +26,8 @@ from archkeel.ir.protocol import (
     ProtocolVersion,
 )
 from archkeel.ir.state_facts import VerifiedBinary
+
+from .config import require_supported_project
 
 _CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 RUST_COLLECTOR = "archkeel-rust-collector"
@@ -84,7 +85,10 @@ class _VerifiedCollector(ProcessCollector):
                 CollectionErrorKind.MISSING_TOOL, self.argv[0], "The binary changed."
             )
         return ProcessCollector.collect(
-            replace(self, verified_binary=VerifiedBinary(verified.digest)), request
+            replace(
+                self, verified_binary=VerifiedBinary(verified.digest, SourceProfile.TYPESCRIPT)
+            ),
+            request,
         )
 
 

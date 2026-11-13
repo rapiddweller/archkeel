@@ -91,7 +91,7 @@ def test_unsupported_project_refuses_before_collection(
 
 @pytest.mark.parametrize("language", [Language.PYTHON, Language.DART])
 def test_direct_observer_and_config_have_typed_refusal(language: Language) -> None:
-    from archkeel.ir.languages import UnsupportedProjectError
+    from archkeel.cli.config import UnsupportedProjectError
 
     with pytest.raises(UnsupportedProjectError):
         observer_for(language, collector_argv=("must-not-run",))

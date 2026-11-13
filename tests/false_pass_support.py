@@ -164,8 +164,9 @@ TAMPERS: dict[str, Tamper] = {
 def _reply(language: str) -> tuple[Reply, bool]:
     """The reply of the real collector, and whether its protocol compresses it (8.0.0, 9.0.0)."""
     payload = sys.stdin.buffer.read()
+    from archkeel.cli.config import require_supported_project
     from archkeel.cli.observe import TYPESCRIPT_COLLECTOR, verified_binary
-    from archkeel.ir.languages import Language, require_supported_project
+    from archkeel.ir.languages import Language
 
     require_supported_project(Language(language))
     binary = (
