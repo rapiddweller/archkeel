@@ -107,6 +107,9 @@ impl<'id, 'm> Scope<'id, 'm> {
         if !self.model.contract().rules().contains(rule) {
             return Err(Part::ForeignRule.into());
         }
+        if let Rule::InterfaceBoundary(rule) = rule {
+            crate::interface::receipt(self.model, rule)?;
+        }
         let unread = match self.model.scope_state() {
             State::Incomplete(reason) => return Err(rescued(self.model, rule, reason)),
             State::Unread(part) => Some(part.clone()),
@@ -246,6 +249,7 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             observed().any(|(_, module)| in_scope(module.name(), rule.root().as_text()))
         }
         Rule::ExternalDependencyScope(_) => observed().next().is_some(),
+        Rule::InterfaceBoundary(_) => observed().next().is_some(),
         Rule::ForbiddenConstruct(rule) => {
             crate::construct_match::receipt(model, rule)?;
             true
@@ -296,7 +300,6 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         | Rule::AllowedDependency(_)
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
-        | Rule::InterfaceBoundary(_)
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
@@ -358,6 +361,10 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
             owner_of(model.components(), source.module).is_some()
                 && !(source.type_only && !rule.include_type_checking())
         }
+        Rule::InterfaceBoundary(rule) => {
+            owner_of(model.components(), source.module).is_some()
+                && !(source.type_only && !rule.include_type_checking())
+        }
         // Slice S7: a module cycle can close through any module; a component cycle through an
         // owned module. The type-only flag does not narrow a cycle rule.
         Rule::NoComponentCycles(rule) => {
@@ -378,7 +385,6 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::SourceOwnership(_)
-        | Rule::InterfaceBoundary(_)
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)

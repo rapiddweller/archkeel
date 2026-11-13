@@ -84,6 +84,15 @@ pub enum Violation {
         source_component: String,
         target_component: String,
     },
+    /// An import outside the target component's public interface.
+    PrivateImport {
+        id: String,
+        rule: String,
+        cited: Cited,
+        symbol: Option<String>,
+        source_component: String,
+        target_component: String,
+    },
     /// `layer_order`: a `requires` entry from an inner to an outer layer.
     OuterLayer(Box<Layered>),
     /// `no_component_cycles`: a component or a module cycle (slice S7, AD-384).
@@ -254,6 +263,20 @@ impl Violation {
     }
 
     /// The id of the violation record.
+    pub(crate) fn private_import(rule: &str, components: [&str; 2], import: &Import) -> Self {
+        let (id, rule, cited) = Cited::of(rule, import);
+        let [source_component, target_component] = components.map(str::to_owned);
+        Self::PrivateImport {
+            id,
+            rule,
+            cited,
+            source_component,
+            target_component,
+            symbol: import.symbol().map(str::to_owned),
+        }
+    }
+
+    /// The id of the violation record.
     pub fn id(&self) -> &str {
         self.head()[0]
     }
@@ -272,7 +295,8 @@ impl Violation {
             | Violation::Undeclared { id, rule, .. }
             | Violation::Forbidden { id, rule, .. }
             | Violation::Peer { id, rule, .. }
-            | Violation::Unrequired { id, rule, .. } => [id, rule],
+            | Violation::Unrequired { id, rule, .. }
+            | Violation::PrivateImport { id, rule, .. } => [id, rule],
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
             Violation::Construct(row) => [&row.id, &row.rule],

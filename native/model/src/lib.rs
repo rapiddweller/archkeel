@@ -60,6 +60,8 @@ mod edges;
 mod graph;
 mod ids;
 mod imports;
+mod interface;
+pub use interface::{interface_crossings, InterfaceGap};
 mod model;
 mod modules;
 mod ownership;

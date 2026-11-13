@@ -149,9 +149,10 @@ fn row(violation: &Violation) -> Value {
             json!({"source": source, "source_module": cited.source_module,
                    "target_module": cited.target_module, "dependency": dependency}),
         ),
-        Violation::Forbidden { .. } | Violation::Peer { .. } | Violation::Unrequired { .. } => {
-            direction_record(violation)
-        }
+        Violation::PrivateImport { .. }
+        | Violation::Forbidden { .. }
+        | Violation::Peer { .. }
+        | Violation::Unrequired { .. } => direction_record(violation),
         Violation::OuterLayer(layered) => layer_record(layered),
         Violation::Cycle(cyclic) => cycle_record(cyclic),
         Violation::Construct(row) => archkeel_report::construct_row(row),
@@ -206,6 +207,24 @@ fn cycle_record(cyclic: &Cyclic) -> Value {
 /// The record of a direction violation that cites one import (slice S5, AD-380).
 fn direction_record(violation: &Violation) -> Value {
     match violation {
+        Violation::PrivateImport {
+            id,
+            rule,
+            cited,
+            symbol,
+            source_component,
+            target_component,
+        } => import_record(
+            [id, rule],
+            cited,
+            "interface_boundary",
+            format!(
+                "{} imports a private name of {target_component}",
+                cited.source_module
+            ),
+            json!({"source_module": cited.source_module, "target_module": cited.target_module,
+                   "symbol": symbol, "source_component": source_component, "target_component": target_component}),
+        ),
         Violation::Forbidden {
             id,
             rule,

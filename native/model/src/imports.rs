@@ -44,6 +44,7 @@ pub struct Import {
     pub(crate) under_type_checking: bool,
     pub(crate) symbol: Option<String>,
     pub(crate) symbols_known: bool,
+    pub(crate) reexport_chain: Vec<String>,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
     pub(crate) evidence: Vec<String>,
@@ -89,6 +90,11 @@ impl Import {
     /// True when the collector knows each name that the import uses.
     pub fn symbols_known(&self) -> bool {
         self.symbols_known
+    }
+
+    /// The publication names whose route the collector records.
+    pub fn reexport_chain(&self) -> &[String] {
+        &self.reexport_chain
     }
 
     pub fn relative(&self) -> bool {
@@ -184,6 +190,7 @@ pub(crate) fn split(facts: &Facts) -> Split {
             under_type_checking: data.under_type_checking,
             symbol: data.symbol.clone(),
             symbols_known: data.symbols_known,
+            reexport_chain: data.reexport_chain.clone().unwrap_or_default(),
             relative: data.relative_level != 0,
             resolved,
             evidence: sorted(evidence(record)),
