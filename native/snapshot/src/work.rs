@@ -51,6 +51,16 @@ struct Budget {
     hit: Option<WorkLimit>,
 }
 
+#[cfg(any(test, feature = "test-tree"))]
+pub(crate) fn charged_bytes() -> Option<u64> {
+    LIMIT.with(|limit| {
+        limit
+            .borrow()
+            .as_ref()
+            .map(|budget| MAX_SCAN_BYTES - budget.remaining)
+    })
+}
+
 /// Bound every snapshot read on this thread. A hit discards the whole result, including facts
 /// that the collector made before the hit. The binary collector keeps its existing host limit.
 pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {

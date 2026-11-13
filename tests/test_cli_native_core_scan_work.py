@@ -72,7 +72,7 @@ def project(root: Path, files: int, depth: int, language: str = "typescript") ->
         )
         (root / "src/lib.rs").write_text("".join(f"mod deep{number};\n" for number in range(files)))
         (root / "archkeel.toml").write_text(
-            '[scan]\nlanguage="rust"\nroots=["src"]\nnamespace="shop"\ncontract="architecture-contract.json"\n'
+            '[scan]\nlanguage="rust"\nroots=["."]\nnamespace="shop"\ncontract="architecture-contract.json"\n'
         )
     text = "(" * depth + "0" + ")" * depth + ";\n"
     for number in range(files):

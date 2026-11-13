@@ -46,3 +46,128 @@ fn a_file_just_below_the_charge_keeps_every_fact() {
         .unwrap_err()
         .contains("parse_work_limit"));
 }
+
+#[test]
+fn measure_scan_input_from_public_corpus_roots() {
+    let Some(manifest) = std::env::var_os("ARCHKEEL_SCAN_INPUT_ROOTS") else {
+        return;
+    };
+    let cases: Vec<(String, String, String)> =
+        serde_json::from_slice(&std::fs::read(manifest).unwrap()).unwrap();
+    for (name, path, config_path) in cases {
+        let root = crate::repository::Root::of(&path).unwrap();
+        let Ok(config) = read_config(&root, &config_path) else {
+            continue;
+        };
+        let identity = Identity {
+            config: &config_path,
+            ..identity(&path)
+        };
+        let request = serde_json::to_vec(&request(&identity, &config)).unwrap();
+        let profile = config.profile;
+        let (reply, charged) = run::isolated(move || {
+            let reply = reply_of(profile, &request).unwrap();
+            (
+                reply,
+                archkeel_snapshot::test_tree::charged_bytes().unwrap(),
+            )
+        })
+        .unwrap();
+        let distinct: u64 = reply
+            .facts
+            .inputs
+            .iter()
+            .map(|input| {
+                std::fs::metadata(std::path::Path::new(&path).join(&input.path))
+                    .unwrap()
+                    .len()
+            })
+            .sum();
+        println!(
+            "SCAN_INPUT {}",
+            json!({
+                "case": name, "charged": charged, "distinct": distinct,
+                "files": reply.facts.files.len(), "inputs": reply.facts.inputs.len(),
+                "bound": archkeel_snapshot::work::MAX_SCAN_BYTES,
+            })
+        );
+    }
+}
+
+fn guarded_rust(request: &[u8]) -> (archkeel_facts::envelope::Reply, u64) {
+    let request = request.to_vec();
+    run::isolated(move || {
+        let reply = reply_of(Profile::Rust, &request).unwrap();
+        (
+            reply,
+            archkeel_snapshot::test_tree::charged_bytes().unwrap(),
+        )
+    })
+    .unwrap()
+}
+
+#[test]
+fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
+    use std::fs;
+    let root = crate::rust_tests::repository();
+    let prefix = format!("/*{}", "*".repeat(1020));
+    let suffix = "*/\npub const VALUE: u8 = 1;\n";
+    let limit = archkeel_snapshot::work::MAX_PARSE_WORK;
+    let mut count = 1_000_000;
+    let source = format!("{prefix}{}{suffix}", "a".repeat(count));
+    count += ((limit - charge(source.as_bytes())) / 1024) as usize;
+    let source = format!("{prefix}{}{suffix}", "a".repeat(count));
+    assert!(charge(source.as_bytes()) <= limit);
+    assert!(charge(format!("{prefix}a{}{suffix}", "a".repeat(count)).as_bytes()) > limit);
+    fs::write(root.join("src/work.rs"), source).unwrap();
+    let mut modules = "mod work;\n".to_owned();
+    for number in 0..8 {
+        modules += &format!("mod padding{number};\n");
+        fs::write(
+            root.join(format!("src/padding{number}.rs")),
+            format!("/*{}*/\npub const VALUE: u8 = 1;\n", "a".repeat(1 << 20)),
+        )
+        .unwrap();
+    }
+    fs::write(root.join("src/lib.rs"), modules).unwrap();
+    let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
+    let request = serde_json::to_vec(&scanned.request).unwrap();
+    drop(scanned);
+    let (_, charged) = guarded_rust(&request);
+    let total = archkeel_snapshot::work::MAX_SCAN_BYTES;
+    let mut remaining = (total - charged - 1) as usize;
+    for number in 0..8 {
+        let path = root.join(format!("src/padding{number}.rs"));
+        let mut text = fs::read_to_string(&path).unwrap();
+        let extra = remaining.min(archkeel_snapshot::MAX_FILE_BYTES as usize - text.len());
+        text.insert_str(2, &"a".repeat(extra));
+        fs::write(path, text).unwrap();
+        remaining -= extra;
+    }
+    assert_eq!(remaining, 0);
+    let decoded = archkeel_wire::request::decode_rust(&request).unwrap();
+    let before = archkeel_rust_collector::typed_reply(
+        &decoded,
+        archkeel_rust_collector::provenance(),
+        archkeel_wire::protocol::reply_version(decoded.protocol_version),
+    )
+    .unwrap();
+    let (after, charged) = guarded_rust(&request);
+    assert_eq!(charged, total - 1);
+    let after = archkeel_store::ingest_typed(after).unwrap();
+    assert_eq!(
+        serde_json::to_vec(&before).unwrap(),
+        serde_json::to_vec(after.reply()).unwrap()
+    );
+    let path = root.join("src/padding7.rs");
+    use std::io::Write;
+    fs::OpenOptions::new()
+        .append(true)
+        .open(path)
+        .unwrap()
+        .write_all(b"  ")
+        .unwrap();
+    let refused = run::collect(Profile::Rust, &request).err().unwrap();
+    assert_eq!(refused.kind, RefusalKind::ParseWork);
+    assert!(refused.reason.contains("scan input exceeds"));
+}

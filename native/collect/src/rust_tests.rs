@@ -10,7 +10,7 @@ use std::path::Path;
 use super::*;
 use crate::tests::{copy, identity};
 
-fn repository() -> std::path::PathBuf {
+pub(super) fn repository() -> std::path::PathBuf {
     let root = crate::repository::tests::scratch("rust");
     fs::create_dir_all(root.join("src")).unwrap();
     fs::create_dir_all(root.join(".git")).unwrap();

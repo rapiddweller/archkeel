@@ -55,4 +55,11 @@ the named refusal, no artifact, and the measured peak memory bound.
 Six 3.8 MiB deep files: 3 772.5 MiB before, 19.9 MiB after.
 One file with 1.5 million levels: 1 361.9 MiB before, 19.0 MiB after.
 Both tests require less than 128 MiB. All guarded runs give exit 2 with no frame.
-The 655-project scan sweep has 223 linked scans and zero parse-work refusals.
+The initial TypeScript-only 655-project sweep has 223 linked scans and zero parse-work refusals.
+
+**Fix round (2026-11-13).** The 400-file comment case falls from 817.16 to 32.02 MiB after the aggregate fix.
+The Rust arm uses the same bounds. Its three release cases stay below 128 MiB.
+At exactly 16 MiB charged input, the comment workload peaks at 33.53 MiB (TypeScript) and 57.05 MiB (Rust).
+The current workspace charges 3 949 305 bytes (23.54 %). The five largest distinct linked corpus
+projects charge 9.06 %, 3.67 %, 0.60 %, 0.15 % and 0.02 %. None exceeds 25 %.
+Keep 16 MiB. Counts include repeated reads, not just distinct retained inputs.
