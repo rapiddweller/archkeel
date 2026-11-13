@@ -104,3 +104,39 @@ fn the_legacy_typescript_set_needs_a_legacy_feature_set() {
         NOT_REGISTERED
     );
 }
+
+/// A reply of the Rust profile made from the frozen TypeScript reply: the registered Rust set
+/// (`imports`, `symbols`, `unknowns`, feature `rust-crate-edges`) and no fact ids.
+fn rust_profile(v: &mut Value) {
+    v["facts"]["profile"] = json!("archkeel-rust-imports");
+    v["facts"]["capabilities"]["resolution_features"] = json!(["rust-crate-edges"]);
+    v["facts"]["capabilities"]["constructs"] = json!([]);
+    for name in ["calls", "references", "bindings", "constructs"] {
+        drop_section(v, name);
+    }
+    if let Some(sections) = v["facts"]["sections"].as_array_mut() {
+        for section in sections {
+            if let Some(records) = section["records"].as_array_mut() {
+                records
+                    .iter_mut()
+                    .for_each(|record| record["fact_ids"] = json!([]));
+            }
+        }
+    }
+}
+
+/// AD-406 review F2: the store makes no producer claim. A reply may name another adapter than
+/// its profile, as in the Python codec (`facts_codec.py` reads `adapter.name` as text), because a
+/// configured collector writes its own name. The trust of each request kind owns the claim
+/// (`scan::in_process`, `check::stage_one_shell_trust`).
+#[test]
+fn the_store_accepts_a_reply_whose_adapter_is_not_its_profile() {
+    let mut value = golden("h-typescript");
+    rust_profile(&mut value);
+    assert_eq!(
+        value["facts"]["adapter"]["name"],
+        "archkeel-typescript-imports"
+    );
+    assert_eq!(value["facts"]["profile"], "archkeel-rust-imports");
+    assert_eq!(ingest(&compressed(&value), 1 << 30).err(), None);
+}

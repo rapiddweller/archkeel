@@ -216,3 +216,33 @@ fn the_core_reads_the_inside_contracts_itself_and_names_a_missing_one() {
     let rules = read["self_test"]["contract"]["rules"].as_object().unwrap();
     assert!(rules.keys().any(|rule| rule.ends_with("IN")), "{read}");
 }
+
+/// AD-406 review F2: a reply of another profile that names the adapter of the profile that ran
+/// and the code digest of this build. The store accepts it (it holds the registered Rust set), so
+/// the profile compare of `in_process` is the only check that refuses it.
+#[test]
+fn the_in_process_trust_refuses_a_reply_of_another_profile_with_the_adapter_of_this_one() {
+    let foreign = ingested(|value| {
+        ours(value);
+        value["facts"]["profile"] = json!("archkeel-rust-imports");
+        value["facts"]["capabilities"]["resolution_features"] = json!(["rust-crate-edges"]);
+        value["facts"]["capabilities"]["constructs"] = json!([]);
+        let kept = ["imports", "symbols", "unknowns"];
+        let facts = &mut value["facts"];
+        if let Some(sections) = facts["sections"].as_array_mut() {
+            sections.retain(|section| kept.iter().any(|name| section["name"] == *name));
+            for section in sections {
+                for record in section["records"].as_array_mut().into_iter().flatten() {
+                    record["fact_ids"] = json!([]);
+                }
+            }
+        }
+        facts["capabilities"]["sections"] = json!(kept);
+    });
+    assert_eq!(
+        foreign.reply().facts.adapter.name,
+        Profile::TypeScript.as_str()
+    );
+    let gap = in_process(Profile::TypeScript)("shop".to_owned(), Some(&foreign)).gap;
+    assert!(gap.is_some_and(|gap| gap.starts_with(PRODUCER_NOT_VERIFIED)));
+}
