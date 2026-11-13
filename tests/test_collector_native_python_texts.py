@@ -173,8 +173,9 @@ def _tree_equal(binary: Path, root: Path) -> int:
 
 
 # The least number of compared expressions for each tree, so that no run is empty. The Python
-# trees of this repository are smaller since the Python core is not here (#880).
-TREES = {"tools": 10_000, "fixtures": 7_000}
+# trees of this repository are smaller since the Python core and its tools are not here (#880):
+# `tools` has 9,681 expressions and `fixtures` has 7,983.
+TREES = {"tools": 9_000, "fixtures": 7_000}
 
 
 @pytest.mark.parametrize("tree", TREES)
@@ -199,7 +200,7 @@ def test_the_source_with_other_line_ends_has_the_cpython_text(
 ) -> None:
     """A Windows checkout: each line end, also inside a triple-quoted string, is a CR LF."""
     root = _converted(ROOT / "tools", tmp_path / "tools", newline)
-    assert _tree_equal(python_dump_binary, root) > 10_000
+    assert _tree_equal(python_dump_binary, root) > TREES["tools"]
 
 
 @pytest.mark.skipif(
