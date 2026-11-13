@@ -8,12 +8,7 @@ use crate::collect::tests::run;
 use crate::reply::Collected;
 
 const MANIFEST: &str = "[package]\nname = \"app\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nserde = \"1.0\"\nschemars = \"=1.2.3\"\n";
-const LOCK: &str = "version = 4\n\
-[[package]]\nname = \"app\"\nversion = \"0.0.0\"\ndependencies = [\"serde\", \"schemars\"]\n\
-[[package]]\nname = \"serde\"\nversion = \"1.0.229\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\ndependencies = [\"serde_derive\"]\n\
-[[package]]\nname = \"serde_derive\"\nversion = \"1.0.229\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n\
-[[package]]\nname = \"schemars\"\nversion = \"1.2.3\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"\ndependencies = [\"schemars_derive\"]\n\
-[[package]]\nname = \"schemars_derive\"\nversion = \"1.2.3\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"\n";
+const LOCK: &str = include_str!("../../../tests/rust_known_derives.lock");
 
 fn facts(manifest: &str, source: &str, lock: &str) -> Collected {
     run(
@@ -41,12 +36,13 @@ fn derive_gaps(facts: &Collected) -> Vec<&str> {
 fn proven_registry_derives_keep_helper_paths_as_edges_without_an_expansion_gap() {
     for source in [
         "use serde::Serialize; #[derive(Serialize)] struct S { #[serde(with = \"crate::b::helper\")] x: u8 }",
+        "use serde::Serialize; #[derive(Serialize)] struct S { #[serde(with = \"crate::r#b::helper\")] x: u8 }",
         "use serde::Deserialize as De; #[derive(De)] struct S { #[serde(default)] x: u8 }",
         "#[derive(schemars::JsonSchema)] struct S { #[schemars(with = \"crate::b::T\")] x: u8 }",
     ] {
         let found = facts(MANIFEST, source, LOCK);
         assert!(derive_gaps(&found).is_empty(), "{:?}", derive_gaps(&found));
-        if source.contains("crate::b") {
+        if source.contains("crate::b") || source.contains("crate::r#b") {
             assert!(found.imports.iter().any(|r| r.data.data().source_module.as_str() == "ns.app.a"
                 && r.data.data().target_module.as_str() == "ns.app.b"));
         }
@@ -94,10 +90,36 @@ fn unproved_sources_globs_patches_and_helper_values_keep_the_gap() {
             "#[derive(serde::Serialize)] struct S;",
             String::new(),
         ),
-        (MANIFEST.replace("version = \"0.0.0\"", "version = \"0.0.1\""), "#[derive(serde::Serialize)] struct S;", LOCK.to_owned()),
-        (MANIFEST.replace("serde = \"1.0\"", "serde = \"2\""), "#[derive(serde::Serialize)] struct S;", LOCK.to_owned()),
-        (MANIFEST.to_owned(), "#[derive(serde::Serialize)] #[cfg_attr(unix, serde(with = \"helper\"))] struct S;", LOCK.to_owned()),
-        (MANIFEST.to_owned(), "#[derive(serde::Serialize)] struct S { #[serde(bound = \"T: Trait<{m!()}>\")] x: u8 }", LOCK.to_owned()),
+        (
+            MANIFEST.to_owned(),
+            "#[derive(serde::Serialize)] struct S;",
+            LOCK.replace("version = 4", "version = 9"),
+        ),
+        (
+            MANIFEST.to_owned(),
+            "#[derive(serde::Serialize)] struct S;",
+            LOCK.replace("name = \"serde_derive\"", "name = \"unverified_derive\""),
+        ),
+        (
+            MANIFEST.replace("version = \"0.0.0\"", "version = \"0.0.1\""),
+            "#[derive(serde::Serialize)] struct S;",
+            LOCK.to_owned(),
+        ),
+        (
+            MANIFEST.replace("serde = \"1.0\"", "serde = \"2\""),
+            "#[derive(serde::Serialize)] struct S;",
+            LOCK.to_owned(),
+        ),
+        (
+            MANIFEST.to_owned(),
+            "#[derive(serde::Serialize)] #[cfg_attr(unix, serde(with = \"helper\"))] struct S;",
+            LOCK.to_owned(),
+        ),
+        (
+            MANIFEST.to_owned(),
+            "#[derive(serde::Serialize)] struct S { #[serde(bound = \"T: Trait<{m!()}>\")] x: u8 }",
+            LOCK.to_owned(),
+        ),
         (
             MANIFEST.to_owned(),
             "#[derive(serde::Serialize)] struct S;",
@@ -121,13 +143,31 @@ fn a_bare_helper_module_is_an_edge_not_an_unplaced_name() {
         ("crates/src/a/codec.rs", ""),
     ], false);
     assert!(derive_gaps(&found).is_empty());
-    assert!(found.imports.iter().any(|r| r.data.data().source_module.as_str() == "ns.app.a"
-        && r.data.data().target_module.as_str() == "ns.app.a.codec"));
+    assert!(found
+        .imports
+        .iter()
+        .any(|r| r.data.data().source_module.as_str() == "ns.app.a"
+            && r.data.data().target_module.as_str() == "ns.app.a.codec"));
+}
+
+#[test]
+fn deeply_nested_helper_type_strings_keep_a_gap_without_reaching_the_parser() {
+    let ty = format!("{}u8{}", "Vec<".repeat(2000), ">".repeat(2000));
+    let source =
+        format!("#[derive(schemars::JsonSchema)] struct S {{ #[schemars(with = {ty:?})] x: u8 }}");
+    assert!(!derive_gaps(&facts(MANIFEST, &source, LOCK)).is_empty());
 }
 
 #[test]
 fn a_registry_dependency_can_be_renamed_but_a_workspace_macro_is_not_registry_code() {
-    let found = facts(&MANIFEST.replace("serde = \"1.0\"", "renamed = { package = \"serde\", version = \"1.0\" }"), "#[derive(renamed::Serialize)] struct S;", LOCK);
+    let found = facts(
+        &MANIFEST.replace(
+            "serde = \"1.0\"",
+            "renamed = { package = \"serde\", version = \"1.0\" }",
+        ),
+        "#[derive(renamed::Serialize)] struct S;",
+        LOCK,
+    );
     assert!(derive_gaps(&found).is_empty());
     let found = run(&[
         ("crates/Cargo.toml", "[workspace]\nmembers=[\"app\", \"mac\"]"),
@@ -167,4 +207,21 @@ fn external_and_macro_reexporting_globs_still_withhold_builtin_identity() {
             "{source}"
         );
     }
+}
+
+#[test]
+fn standard_crate_aliases_and_a_missing_prelude_do_not_prove_builtin_derives() {
+    let manifest = format!("{MANIFEST}std = {{ path = \"../custom\" }}\n");
+    assert!(!derive_gaps(&facts(
+        &manifest,
+        "#[derive(std::clone::Clone)] struct S;",
+        LOCK
+    ))
+    .is_empty());
+    assert!(!derive_gaps(&facts(
+        MANIFEST,
+        "#![no_implicit_prelude] #[derive(Clone)] struct S;",
+        LOCK
+    ))
+    .is_empty());
 }

@@ -186,7 +186,7 @@ struct Walker<'a> {
     selves: Selves,
     helpers: crate::attrs::model::Context,
     tools: bool,
-    derives: Vec<(syn::Path, Concern)>,
+    derives: Vec<Concern>,
     out: Scan,
 }
 
@@ -298,12 +298,12 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
             _ => None,
         };
-        let helpers = std::mem::replace(
-            &mut self.helpers,
-            crate::attrs::model::Context::of(item, self.blocks > 0),
-        );
         let tools = self.tools;
         self.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));
+        let helpers = std::mem::replace(
+            &mut self.helpers,
+            crate::attrs::model::Context::of(item, self.blocks > 0, self.tools),
+        );
         visit::visit_item(self, item);
         self.helpers = helpers;
         self.tools = tools;

@@ -299,11 +299,25 @@ contract lets `a` use `b` and the edge closes no cycle that the edges and the ot
 close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
 trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
 PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
-Attribute macros and custom derives have named expansion gaps on every scanned syntax position.
+Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
 Each gap names the source module and leaves the target unseen. It blocks affected rules through
 the existing pair-gap scope proof. Built-in attributes and tool attributes add no expansion gap.
-Built-in derives add no gap unless a local name can shadow them. Known `serde` and `schemars`
-helpers add no gap under their derive; the custom derive itself always has a gap.
+Built-in derives need a macro-namespace proof. Block-local and enum-variant globs cannot shadow
+a module-level derive. Workspace-module globs need a closed export proof; unseen macro output
+and external globs keep the gap. The native workspace has no proc-macro crate.
+One typed table models `serde::Serialize`, `serde::Deserialize` (1.0.229), and
+`schemars::JsonSchema` (1.2.3). File use records must prove the identity without a glob or shadow.
+The library and its derive implementation need unique crates.io registry identities in `Cargo.lock`.
+Path/git sources, workspace members, patches, replacements, stale locks and source configuration
+files withhold this proof. Renamed registry dependencies are followed through the manifest.
+These derives generate impl code using their own crate, written types, and documented helper paths.
+Every helper path, type and bound is read as a path use of the item's module, including bare names.
+Unknown helper keys, unsupported conditional metadata, macro values and invalid syntax keep a gap.
+The model covers written dependencies, not trait dispatch (#1004). Other versions keep a gap.
+See [AD-424](architecture/decisions/ad-424-known-registry-derives-need-identity-and-helper-proofs.md),
+the [Serde container](https://serde.rs/container-attrs.html), [field](https://serde.rs/field-attrs.html)
+and [variant](https://serde.rs/variant-attrs.html) docs, and the
+[Schemars helper docs](https://graham.cool/schemars/deriving/attributes/).
 An unclassified attribute or helper has a gap. A file with invalid UTF-8 has a named read gap.
 Not seen, and the verdict can be PASS:
 a path into another crate that goes through a `pub use` of its root. A rule on a module pair

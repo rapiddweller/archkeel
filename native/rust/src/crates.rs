@@ -181,16 +181,14 @@ impl Workspace {
             above.as_ref().map(|p| (p.dir.as_str(), &p.table)),
             &read,
         );
-        self.add(dir, read, &parsed.text, files, namespace);
-        if let Some(krate) = self.crates.last_mut() {
-            krate.registry = registry;
-        }
+        self.add(dir, read, registry, &parsed.text, files, namespace);
     }
 
     fn add(
         &mut self,
         dir: &str,
         manifest: Manifest,
+        registry: crate::registry::Registry,
         text: &str,
         files: &[String],
         namespace: &str,
@@ -247,7 +245,7 @@ impl Workspace {
             lines: LineIndex::new(text),
             roots,
             primary,
-            registry: crate::registry::Registry::default(),
+            registry,
         });
     }
 

@@ -6,7 +6,6 @@
 //! of `key = value`. The walker of `scan.rs` owns the facts; this file only fills them.
 
 use proc_macro2::Span;
-use syn::parse::Parser;
 use syn::visit::Visit;
 use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
@@ -66,13 +65,7 @@ impl Walker<'_> {
                     .iter()
                     .any(|k| k.helpers.iter().any(|name| path.is_ident(name)));
             if helper {
-                let via = std::mem::replace(&mut self.via, super::Via::Helper);
-                if let Some(found) = crate::attrs::model::helper_paths(attr) {
-                    self.refer_chains(found);
-                } else {
-                    self.attribute_strings(list);
-                }
-                self.via = via;
+                self.helper_strings(attr, list);
             } else {
                 self.attribute_strings(list);
             }
@@ -80,6 +73,16 @@ impl Walker<'_> {
         if let (Meta::NameValue(pair), false) = (&attr.meta, lint) {
             self.name_value(&names, &pair.value);
         }
+    }
+
+    fn helper_strings(&mut self, attr: &Attribute, list: &syn::MetaList) {
+        let via = std::mem::replace(&mut self.via, super::Via::Helper);
+        if let Some(found) = crate::attrs::model::helper_paths(attr) {
+            self.refer_chains(found);
+        } else {
+            self.attribute_strings(list);
+        }
+        self.via = via;
     }
 
     fn expansion(&mut self, meta: &Meta, depth: usize) {
@@ -98,12 +101,7 @@ impl Walker<'_> {
             {
                 return
             }
-            (true, None)
-                if (self.tools && attribute_kinds::tool(path))
-                    || self.helpers.names.contains(&name) =>
-            {
-                return
-            }
+            (true, None) if self.tools && attribute_kinds::tool(path) => return,
             _ => (),
         }
         let mut concern = self.expansion_concern(
@@ -112,9 +110,10 @@ impl Walker<'_> {
                 .first()
                 .map_or(Span::call_site(), |s| s.ident.span()),
         );
-        if KNOWN
-            .iter()
-            .any(|known| known.helpers.contains(&name.as_str()))
+        if (name == "default"
+            || KNOWN
+                .iter()
+                .any(|known| known.helpers.contains(&name.as_str())))
             && !self.helpers.candidates.is_empty()
         {
             concern.proof = Some(Proof::Helper {
@@ -126,7 +125,7 @@ impl Walker<'_> {
     }
 
     fn derive_expansion(&mut self, meta: &Meta) -> Option<()> {
-        for path in attribute_kinds::paths(meta)? {
+        for path in attribute_kinds::list::<syn::Path>(meta)? {
             let name = path
                 .segments
                 .iter()
@@ -153,16 +152,15 @@ impl Walker<'_> {
                 absolute: path.leading_colon.is_some(),
                 complete,
                 block: self.blocks > 0,
+                prelude: self.tools,
             }));
-            self.derives.push((path, concern));
+            self.derives.push(concern);
         }
         Some(())
     }
 
     fn nested_expansion(&mut self, meta: &Meta, depth: usize) -> Option<()> {
-        let Meta::List(list) = meta else { return None };
-        let parser = syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated;
-        let nested = parser.parse2(list.tokens.clone()).ok()?;
+        let nested = attribute_kinds::list::<Meta>(meta)?;
         let skip = usize::from(meta.path().is_ident("cfg_attr"));
         for nested in nested.iter().skip(skip) {
             self.expansion(nested, depth + 1);
@@ -213,21 +211,8 @@ impl Walker<'_> {
 }
 
 pub(super) fn finish(walker: &mut Walker<'_>) {
-    for (path, concern) in std::mem::take(&mut walker.derives) {
-        let ambiguous = !walker.out.extern_crates.is_empty()
-            || walker.out.references.iter().any(|r| {
-                matches!(r.via, super::Via::Glob { .. })
-                    && concern
-                        .source
-                        .as_ref()
-                        .is_some_and(|scope| scope.starts_with(&r.scope))
-            });
-        if (ambiguous && path.segments.len() == 1)
-            || !attribute_kinds::builtin_derive(&path, &walker.out.names)
-        {
-            walker.out.concerns.push(concern);
-        }
-    }
+    // Namespace and lock proofs require the complete workspace, not this syntax walk.
+    walker.out.concerns.append(&mut walker.derives);
 }
 
 pub(super) fn gate(walker: &mut Walker<'_>, attrs: &[Attribute], what: &str, span: Span) {

@@ -50,6 +50,7 @@ pub(crate) struct Usage {
     pub absolute: bool,
     pub complete: bool,
     pub block: bool,
+    pub prelude: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -63,12 +64,11 @@ pub(crate) enum Proof {
 
 #[derive(Default)]
 pub(crate) struct Context {
-    pub names: Vec<String>,
     pub candidates: Vec<Usage>,
 }
 
 impl Context {
-    pub(crate) fn of(item: &Item, block: bool) -> Self {
+    pub(crate) fn of(item: &Item, block: bool, prelude: bool) -> Self {
         let attrs = crate::attrs::item_attributes(item);
         if !attrs.iter().any(|a| a.path().is_ident("derive")) {
             return Self::default();
@@ -78,19 +78,21 @@ impl Context {
         let candidates = attrs
             .iter()
             .filter(|a| a.path().is_ident("derive"))
-            .filter_map(|a| super::kinds::paths(&a.meta))
+            .filter_map(|a| super::kinds::list::<syn::Path>(&a.meta))
             .flatten()
             .map(|path| Usage {
-                path: path.segments.iter().map(|s| s.ident.to_string()).collect(),
+                path: path
+                    .segments
+                    .iter()
+                    .map(|s| crate::tokens::plain(&s.ident))
+                    .collect(),
                 absolute: path.leading_colon.is_some(),
                 complete: checked.0,
                 block,
+                prelude,
             })
             .collect();
-        Self {
-            names: super::kinds::helpers(attrs),
-            candidates,
-        }
+        Self { candidates }
     }
 }
 
@@ -159,21 +161,13 @@ fn string(meta: &Meta) -> Option<&syn::LitStr> {
     Some(value)
 }
 
-fn list(meta: &Meta) -> Option<Vec<Meta>> {
-    let Meta::List(list) = meta else { return None };
-    syn::punctuated::Punctuated::<Meta, Token![,]>::parse_terminated
-        .parse2(list.tokens.clone())
-        .ok()
-        .map(|items| items.into_iter().collect())
-}
-
 fn value(kind: ValueKind, meta: &Meta, found: &mut Vec<crate::tokens::Chain>) -> bool {
     use ValueKind as K;
     if matches!(kind, K::Flag | K::Default | K::Borrow) && matches!(meta, Meta::Path(_)) {
         return true;
     }
     if matches!(kind, K::SplitText | K::Bounds) && matches!(meta, Meta::List(_)) {
-        return list(meta).is_some_and(|items| {
+        return super::kinds::list::<Meta>(meta).is_some_and(|items| {
             items.iter().all(|item| {
                 (item.path().is_ident("serialize") || item.path().is_ident("deserialize"))
                     && value(kind, item, found)
@@ -184,10 +178,10 @@ fn value(kind: ValueKind, meta: &Meta, found: &mut Vec<crate::tokens::Chain>) ->
         return false;
     };
     let text = literal.value();
-    let mut paths = Paths {
-        span: literal.span(),
-        found,
-    };
+    if !matches!(kind, K::Text | K::SplitText | K::Borrow) && !crate::tokens::bounded_value(&text) {
+        return false;
+    }
+    let mut paths = Paths { literal, found };
     match kind {
         K::Text | K::SplitText | K::Borrow => true,
         K::Path | K::Default => syn::parse_str::<syn::Path>(&text).is_ok_and(|path| {
@@ -219,16 +213,20 @@ fn value(kind: ValueKind, meta: &Meta, found: &mut Vec<crate::tokens::Chain>) ->
 }
 
 struct Paths<'a> {
-    span: proc_macro2::Span,
+    literal: &'a syn::LitStr,
     found: &'a mut Vec<crate::tokens::Chain>,
 }
 
 impl<'a> Visit<'a> for Paths<'_> {
     fn visit_path(&mut self, path: &'a syn::Path) {
         self.found.push(crate::tokens::Chain {
-            names: path.segments.iter().map(|s| s.ident.to_string()).collect(),
+            names: path
+                .segments
+                .iter()
+                .map(|s| crate::tokens::plain(&s.ident))
+                .collect(),
             absolute: path.leading_colon.is_some(),
-            span: self.span,
+            span: self.literal.span(),
         });
         visit::visit_path(self, path);
     }
@@ -237,7 +235,7 @@ impl<'a> Visit<'a> for Paths<'_> {
 pub(crate) fn helper_paths(attr: &Attribute) -> Option<Vec<crate::tokens::Chain>> {
     let namespace = attr.path().get_ident()?.to_string();
     let mut found = Vec::new();
-    for item in list(&attr.meta)? {
+    for item in super::kinds::list::<Meta>(&attr.meta)? {
         let key = item.path().get_ident()?.to_string();
         let (_, _, kind) = HELPERS
             .iter()
@@ -253,7 +251,10 @@ struct Check(bool);
 
 impl<'a> Visit<'a> for Check {
     fn visit_attribute(&mut self, attr: &'a Attribute) {
-        if attr.path().is_ident("cfg_attr") { self.0 = false; return; }
+        if attr.path().is_ident("cfg_attr") {
+            self.0 = false;
+            return;
+        }
         let namespace = attr.path().get_ident().map(ToString::to_string);
         if !namespace.is_some_and(|n| KNOWN.iter().any(|k| k.helpers.contains(&n.as_str()))) {
             return;

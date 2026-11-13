@@ -218,6 +218,33 @@ def test_invalid_utf8_has_a_named_gap(tmp_path: Path, rust_binary: Path, capsys:
     assert any("File is not valid UTF-8: crates/app/src/lib.rs" in c for c in _claims(result))
 
 
+def test_a_proven_serde_helper_edge_fails_the_forbidden_rule(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    forbidden = rule(
+        "NO-HELPER",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    root = repository(
+        tmp_path,
+        rust_binary,
+        {
+            "crates/app/Cargo.toml": APP + 'serde = { version = "1.0", features = ["derive"] }\n',
+            "crates/Cargo.lock": Path(__file__).with_name("rust_known_derives.lock").read_text(),
+            "crates/app/src/lib.rs": "mod a; mod b;",
+            "crates/app/src/a.rs": 'use serde::Serialize; #[derive(Serialize)] struct S { #[serde(with = "crate::b::helper")] x: u8 }',
+            "crates/app/src/b.rs": "pub mod helper {}",
+        },
+        rules=(forbidden,),
+    )
+    result = report(root, capsys)
+    assert statuses(result)["NO-HELPER"] == "FAIL", _claims(result)
+    assert result["coverage"]["failures"] == []
+
+
 def test_a_derive_and_a_feature_gate_do_not_hide_anything(
     tmp_path: Path, rust_binary: Path, capsys: Capsys
 ) -> None:

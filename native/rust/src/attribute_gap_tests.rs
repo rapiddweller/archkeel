@@ -71,23 +71,24 @@ fn excluded_items_do_not_leave_deferred_derive_gaps() {
 }
 
 #[test]
-fn builtins_tools_and_helpers_do_not_add_attribute_gaps() {
+fn builtins_and_tools_do_not_add_attribute_gaps() {
     let text = r#"
         #[derive(Clone, Debug, Default)] #[repr(C)] #[must_use] #[non_exhaustive] struct Plain;
         #[derive(Default)] enum E { #[default] A }
         #[rustfmt::skip] #[clippy::has_significant_drop] #[diagnostic::on_unimplemented(message = "x")]
         #[allow(dead_code)] fn f() {}
-        #[derive(serde::Serialize, schemars::JsonSchema)] #[serde(rename = "S")]
-        #[schemars(rename = "S")] struct S { #[serde(default)] f: u8 }
     "#;
-    let found = scan(text, &BTreeSet::new(), false).unwrap();
-    let other: Vec<_> = found
-        .concerns
-        .iter()
-        .filter(|c| !c.reason.contains("derive macro"))
-        .collect();
-    assert!(other.is_empty(), "{other:?}");
-    assert_eq!(found.concerns.len(), 2);
+    let facts = run(
+        &[
+            (
+                "crates/Cargo.toml",
+                "[package]\nname=\"app\"\nedition=\"2021\"",
+            ),
+            ("crates/src/lib.rs", text),
+        ],
+        false,
+    );
+    assert!(facts.gaps.is_empty());
     assert!(
         !scan("#[serde(default)] struct S;", &BTreeSet::new(), false)
             .unwrap()

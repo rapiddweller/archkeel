@@ -41,6 +41,9 @@ pub(crate) fn proven(
         } => candidates.iter().any(|usage| {
             known(workspace, krate, module, scope, usage)
                 .is_some_and(|model| model.helpers.contains(&namespace.as_str()))
+                || (namespace == "default"
+                    && usage.path.last().is_some_and(|name| name == "Default")
+                    && builtin(workspace, index, module, scope, usage, modules))
         }),
     }
 }
@@ -85,11 +88,9 @@ fn known(
     if !usage.complete || krate.manifest.legacy() || !module.scan.extern_crates.is_empty() {
         return None;
     }
-    let glob = module
-        .scan
-        .references
-        .iter()
-        .any(|r| r.scope == scope && matches!(r.via, Via::Glob { block: false, .. }));
+    let glob = module.scan.references.iter().any(|r| {
+        r.scope == scope && matches!(r.via, Via::Glob { block, .. } if !block || usage.block)
+    });
     if glob && !usage.absolute {
         return None;
     }
@@ -127,6 +128,16 @@ fn builtin(
     usage: &Usage,
     modules: &[Module],
 ) -> bool {
+    let Some(krate) = workspace.crates.get(module.crate_index) else {
+        return false;
+    };
+    if "std core alloc"
+        .split_whitespace()
+        .any(|name| krate.manifest.dependencies.contains_key(name))
+        || (usage.path.len() == 1 && !usage.prelude)
+    {
+        return false;
+    }
     if !kinds::builtin_parts(&usage.path, &module.scan.names)
         || !module.scan.extern_crates.is_empty()
     {
@@ -169,6 +180,10 @@ fn no_macro(
         if "std core alloc".split_whitespace().any(|s| s == root)
             && prelude == "prelude"
             && !module.scan.names.contains(root)
+            && workspace
+                .crates
+                .get(module.crate_index)
+                .is_some_and(|c| !c.manifest.dependencies.contains_key(root))
         {
             return true;
         }
@@ -188,7 +203,9 @@ fn no_macro(
     };
     let resolved = if glob.names.len() == 1 {
         index.reach(&frame.lexical_at(&glob.scope), &glob.names)
-    } else { index.resolve(frame, glob) };
+    } else {
+        index.resolve(frame, glob)
+    };
     let Outcome::Edge(edge) = resolved else {
         return false;
     };

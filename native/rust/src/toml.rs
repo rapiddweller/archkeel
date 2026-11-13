@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The part of TOML that a `Cargo.toml` needs: tables, arrays of tables, dotted keys, strings,
-//! inline tables, arrays and booleans. A number or a date is `Value::Other`, because the
+//! inline tables, arrays, booleans and unsigned integers. Other numbers and dates are `Value::Other`, because the
 //! collector never reads one. A file that this reader cannot read gives an error, and the
 //! collector reports it as UNKNOWN: it never guesses.
 
@@ -17,6 +17,7 @@ pub(crate) enum Value {
     Table(Table),
     Array(Vec<Value>),
     Boolean(bool),
+    Integer(u64),
     Other,
 }
 
@@ -252,7 +253,11 @@ impl Reader<'_> {
                 Ok(match self.bytes[start..self.at].trim_ascii() {
                     b"true" => Value::Boolean(true),
                     b"false" => Value::Boolean(false),
-                    _ => Value::Other,
+                    raw => std::str::from_utf8(raw)
+                        .ok()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .filter(|n| n.to_string().as_bytes() == raw)
+                        .map_or(Value::Other, Value::Integer),
                 })
             }
         }

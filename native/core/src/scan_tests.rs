@@ -162,6 +162,31 @@ fn invalid_utf8_cannot_make_a_complete_scan() {
 }
 
 #[test]
+fn a_proven_registry_derive_exposes_its_forbidden_helper_edge() {
+    let root = attribute_repository("known-derive-helper");
+    let manifest = root.join("crates/example/Cargo.toml");
+    let text = fs::read_to_string(&manifest).unwrap();
+    fs::write(
+        manifest,
+        format!("{text}serde = {{ version = \"1.0\", features = [\"derive\"] }}\n"),
+    )
+    .unwrap();
+    let lock = include_str!("../../../tests/rust_known_derives.lock")
+        .replace("name = \"app\"", "name = \"example\"");
+    fs::write(root.join("crates/Cargo.lock"), lock).unwrap();
+    fs::write(root.join("crates/example/src/a.rs"), "use serde::Serialize; #[derive(Serialize)] pub struct S { #[serde(with = \"crate::b::helper\")] x: u8 }").unwrap();
+    fs::write(root.join("crates/example/src/b.rs"), "pub mod helper {}").unwrap();
+    let path = root.join("architecture-contract.json");
+    let mut contract: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    contract["rules"][0]["source"] = json!("app.example.a");
+    contract["rules"][0]["target"] = json!("app.example.b");
+    fs::write(path, contract.to_string()).unwrap();
+    let (found, _) = frame(&request(&root));
+    assert_eq!(found["rules"]["NO-HIDDEN"][1], "FAIL", "{found}");
+    assert_eq!(found["scope"], "complete", "{found}");
+}
+
+#[test]
 fn a_scan_request_with_a_reply_or_a_trust_field_is_refused() {
     let root = repository("forged");
     for (field, value) in [

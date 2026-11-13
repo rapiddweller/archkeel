@@ -67,9 +67,9 @@ pub(crate) fn no_tools(attrs: &[Attribute]) -> bool {
     })
 }
 
-pub(crate) fn paths(meta: &Meta) -> Option<Vec<Path>> {
+pub(crate) fn list<T: syn::parse::Parse>(meta: &Meta) -> Option<Vec<T>> {
     let Meta::List(list) = meta else { return None };
-    syn::punctuated::Punctuated::<Path, Token![,]>::parse_terminated
+    syn::punctuated::Punctuated::<T, Token![,]>::parse_terminated
         .parse2(list.tokens.clone())
         .ok()
         .map(|p| p.into_iter().collect())
@@ -77,11 +77,6 @@ pub(crate) fn paths(meta: &Meta) -> Option<Vec<Path>> {
 
 /// Built-in derives can be shadowed by an imported macro. Such a name is not a proof.
 /// Source: https://doc.rust-lang.org/reference/attributes/derive.html.
-pub(crate) fn builtin_derive(path: &Path, names: &BTreeSet<String>) -> bool {
-    let parts: Vec<_> = path.segments.iter().map(|s| s.ident.to_string()).collect();
-    builtin_parts(&parts, names)
-}
-
 pub(crate) fn builtin_parts(parts: &[String], names: &BTreeSet<String>) -> bool {
     let Some(last) = parts.last() else {
         return false;
@@ -104,27 +99,4 @@ pub(crate) fn builtin_parts(parts: &[String], names: &BTreeSet<String>) -> bool 
         }
         _ => false,
     }
-}
-
-/// Known helper registrations. A custom derive still has its own gap; these names add no expansion.
-/// Sources: serde_derive and schemars_derive `proc_macro_derive(..., attributes(...))` declarations.
-pub(crate) fn helpers(attrs: &[Attribute]) -> Vec<String> {
-    attrs
-        .iter()
-        .filter(|a| a.path().is_ident("derive"))
-        .filter_map(|a| paths(&a.meta))
-        .flatten()
-        .filter_map(|p| {
-            let name = p.segments.last()?.ident.to_string();
-            match name.as_str() {
-                "Serialize" | "Deserialize" => Some(&["serde"][..]),
-                "JsonSchema" => Some(&["schemars", "serde", "validate", "garde"][..]),
-                "JsonSchema_repr" => Some(&["schemars", "serde"][..]),
-                "Default" => Some(&["default"][..]),
-                _ => None,
-            }
-        })
-        .flatten()
-        .map(|name| (*name).to_owned())
-        .collect()
 }

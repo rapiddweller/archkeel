@@ -314,6 +314,36 @@ fn is_name(text: &str) -> bool {
         && characters.all(|next| next == '_' || next.is_ascii_alphanumeric())
 }
 
+/// Helper strings become type syntax only after this bounded token check.
+pub(crate) fn bounded_value(text: &str) -> bool {
+    !crate::nesting::too_deep(text)
+        && text
+            .parse::<TokenStream>()
+            .ok()
+            .is_some_and(|stream| value_depth(stream, 0))
+}
+
+fn value_depth(stream: TokenStream, depth: usize) -> bool {
+    if depth > 64 {
+        return false;
+    }
+    let mut angles = 0_usize;
+    for token in stream {
+        match token {
+            TokenTree::Punct(p) if p.as_char() == '<' => angles += 1,
+            TokenTree::Punct(p) if p.as_char() == '>' => angles = angles.saturating_sub(1),
+            TokenTree::Group(group) if !value_depth(group.stream(), depth + angles + 1) => {
+                return false
+            }
+            _ => (),
+        }
+        if depth + angles > 64 {
+            return false;
+        }
+    }
+    true
+}
+
 /// Split a stream at its top-level commas: `cfg_attr(a, b, c)` gives three parts.
 pub(crate) fn split_commas(stream: TokenStream) -> Vec<Vec<TokenTree>> {
     let mut parts = vec![Vec::new()];

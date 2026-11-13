@@ -80,9 +80,8 @@ fn version_matches(requirement: &str, locked: &str) -> bool {
     let requirement = requirement.strip_prefix('^').unwrap_or(requirement);
     let parse = |s: &str| {
         s.split('.')
-            .map(str::parse::<u64>)
-            .collect::<Result<Vec<_>, _>>()
-            .ok()
+            .map(|part| part.parse::<u64>().ok().filter(|n| n.to_string() == part))
+            .collect::<Option<Vec<_>>>()
     };
     let (Some(wanted), Some(actual)) = (parse(requirement), parse(locked)) else {
         return false;
@@ -165,6 +164,12 @@ pub(crate) fn read(
     let lock = read_text(snapshot, &lock_path)
         .ok()
         .and_then(|s| toml::parse(&s).ok());
+    if !matches!(
+        lock.as_ref().and_then(|t| t.get("version")),
+        Some(Value::Integer(3 | 4))
+    ) {
+        return Registry::default();
+    }
     let Some(Value::Array(tables)) = lock.as_ref().and_then(|t| t.get("package")) else {
         return Registry::default();
     };
