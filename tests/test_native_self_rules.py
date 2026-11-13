@@ -163,6 +163,12 @@ AGAINST_THE_ORDER = [
     ("collect", "model"),  # collect -> core chain
     ("collect", "core"),
     ("ts-flow", "collect"),  # collector -> collect
+    ("collect", "snapshot"),  # collect -> a base crate outside facts, store and wire
+    ("collect", "pytext"),
+    ("ts-entry", "store"),  # collector -> store
+    ("rs-flow", "store"),
+    ("py-reply", "store"),
+    ("dart-entry", "store"),
 ]
 
 

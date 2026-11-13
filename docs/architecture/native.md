@@ -44,8 +44,10 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1c-2d: the reply of the import survey, which the host does not read yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
-Only `archkeel-collect` uses a collector crate, and only `archkeel-core` uses `archkeel-collect`
-(`NATIVE-NO-*-TO-TYPESCRIPT`, `NATIVE-NO-*-TO-COLLECT`, and the crate order of
+Only `archkeel-collect` uses a collector crate, and only `archkeel-core` uses `archkeel-collect`.
+`archkeel-collect` uses only `facts`, `store`, `wire` and the collectors, and a collector uses no
+`store` and no crate of the core side (`NATIVE-NO-*-TO-TYPESCRIPT`, `NATIVE-NO-*-TO-COLLECT`,
+`NATIVE-NO-COLLECT-TO-*`, `NATIVE-NO-<collector>-TO-*`, and the crate order of
 `tests/native_rules_support.py`, AD-406).
 
 The Python collection spine has four layers ([AD-389](decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)):

@@ -2838,6 +2838,354 @@
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-COLLECT-TO-CONTRACT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_collect",
+      "target": "native.archkeel_contract",
+      "include_type_checking": true,
+      "rationale": "archkeel-collect uses only facts, store, wire and the collector crates; it must not use contract (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-COLLECT-TO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_collect",
+      "target": "native.archkeel_model",
+      "include_type_checking": true,
+      "rationale": "archkeel-collect uses only facts, store, wire and the collector crates; it must not use model (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-COLLECT-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_collect",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "archkeel-collect uses only facts, store, wire and the collector crates; it must not use eval (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-COLLECT-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_collect",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "archkeel-collect uses only facts, store, wire and the collector crates; it must not use report (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-COLLECT-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_collect",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "archkeel-collect uses only facts, store, wire and the collector crates; it must not use core (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-TYPESCRIPT-TO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_typescript_collector",
+      "target": "native.archkeel_store",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the typescript collector must not use store (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-TYPESCRIPT-TO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_typescript_collector",
+      "target": "native.archkeel_model",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the typescript collector must not use model (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-TYPESCRIPT-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_typescript_collector",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the typescript collector must not use eval (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-TYPESCRIPT-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_typescript_collector",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the typescript collector must not use report (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-TYPESCRIPT-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_typescript_collector",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the typescript collector must not use core (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-TYPESCRIPT-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_typescript_collector",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the typescript collector must not use collect (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-RUST-TO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_rust_collector",
+      "target": "native.archkeel_store",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the rust collector must not use store (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-RUST-TO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_rust_collector",
+      "target": "native.archkeel_model",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the rust collector must not use model (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-RUST-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_rust_collector",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the rust collector must not use eval (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-RUST-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_rust_collector",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the rust collector must not use report (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-RUST-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_rust_collector",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the rust collector must not use core (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-RUST-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_rust_collector",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the rust collector must not use collect (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-PYTHON-TO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector",
+      "target": "native.archkeel_store",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the python collector must not use store (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-PYTHON-TO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector",
+      "target": "native.archkeel_model",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the python collector must not use model (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-PYTHON-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the python collector must not use eval (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-PYTHON-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the python collector must not use report (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-PYTHON-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the python collector must not use core (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-PYTHON-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_python_collector",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the python collector must not use collect (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-DART-TO-STORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_dart_collector",
+      "target": "native.archkeel_store",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use store (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-DART-TO-MODEL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_dart_collector",
+      "target": "native.archkeel_model",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use model (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-DART-TO-EVAL",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_dart_collector",
+      "target": "native.archkeel_eval",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use eval (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-DART-TO-REPORT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_dart_collector",
+      "target": "native.archkeel_report",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use report (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-DART-TO-CORE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_dart_collector",
+      "target": "native.archkeel_core",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use core (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-DART-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_dart_collector",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use collect (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
     }
   ]
 }

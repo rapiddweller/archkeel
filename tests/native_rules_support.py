@@ -34,6 +34,8 @@ BASE |= {"snapshot": 1, "wire": 1, "store": 1}
 CHAIN = ("contract", "model", "model_barrier", "eval", "report", "core")
 # AD-406: the one crate between the core and the collectors.
 COMPOSITION = "collect"
+# AD-406 review F4: the exact base crates that collect uses besides the collectors.
+COMPOSITION_USES = frozenset({"facts", "store", "wire"})
 
 
 def production_sources(native: Path, crate: str) -> dict[str, str]:
@@ -166,13 +168,14 @@ def allowed(source: str, target: str) -> bool:
     A base crate requires only a base crate of a lower level. The contract crate requires
     nothing. A crate of the core chain requires a base crate or a lower crate of the chain;
     nothing requires the core. A collector requires only base crates. No crate requires a
-    collector of another crate. AD-406: only `collect` requires a collector, it requires base
-    crates and collectors only, and only the core requires it.
+    collector of another crate. AD-406: only `collect` requires a collector; it requires only
+    facts, store, wire and the collectors, and only the core requires it. A collector does not
+    require the store.
     """
     if source == target:
         return True
     if source == COMPOSITION:
-        return target in BASE or target in COLLECTORS
+        return target in COMPOSITION_USES or target in COLLECTORS
     if target == COMPOSITION:
         return source == "core"
     if target in COLLECTORS or target in {"core", "model_barrier"} or source == "contract":
@@ -180,7 +183,7 @@ def allowed(source: str, target: str) -> bool:
     if source in BASE:
         return target in BASE and BASE[target] < BASE[source]
     if source in COLLECTORS:
-        return target in BASE
+        return target in BASE and target != "store"
     return target in BASE or CHAIN.index(target) < CHAIN.index(source)
 
 

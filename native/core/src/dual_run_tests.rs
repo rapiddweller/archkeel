@@ -50,7 +50,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
     // with its reason (AD-378).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
-    assert_eq!(decided.len(), 50);
+    assert_eq!(decided.len(), 79);
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],
