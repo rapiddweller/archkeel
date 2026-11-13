@@ -140,3 +140,40 @@ fn the_store_accepts_a_reply_whose_adapter_is_not_its_profile() {
     assert_eq!(value["facts"]["profile"], "archkeel-rust-imports");
     assert_eq!(ingest(&compressed(&value), 1 << 30).err(), None);
 }
+
+#[test]
+fn a_wire_reply_cannot_supply_live_profile_statements() {
+    let error = error_after(|value| {
+        value["facts"]["profile_limits"] = json!({
+            "dependency_symbols": "supported",
+            "interface_boundary": "supported"
+        });
+    });
+    assert!(error.contains("unknown field `profile_limits`"), "{error}");
+}
+
+#[test]
+fn typed_profile_statements_must_match_the_symbol_capability() {
+    use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};
+    let mut reply: Reply = serde_json::from_value(golden("h-typescript")).unwrap();
+    assert!(reply.facts.profile_limits.is_none());
+    let supported = reply
+        .facts
+        .capabilities
+        .resolution_features
+        .iter()
+        .any(|feature| feature == "script-globals-v1");
+    reply.facts.profile_limits = Some(ProfileLimits {
+        dependency_symbols: if supported {
+            LimitSupport::Unsupported
+        } else {
+            LimitSupport::Supported
+        },
+        interface_boundary: LimitSupport::Supported,
+    });
+    let error = crate::ingest_typed(reply).err().unwrap_or_default();
+    assert_eq!(
+        error,
+        "profile symbol statement does not match its capability"
+    );
+}

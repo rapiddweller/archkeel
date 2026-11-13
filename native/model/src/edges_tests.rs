@@ -177,6 +177,88 @@ fn import_records(reply: &mut Reply) -> Option<&mut Vec<Record<ImportFact>>> {
         })
 }
 
+#[test]
+fn supported_profile_does_not_remove_the_per_import_symbol_check(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::{Cause, Decision, Graph, Model, Producer, Reason, Settings, Verdict};
+    use archkeel_contract::ParsedContract;
+    use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
+
+    let mut reply = golden().ok_or("the golden reply")?;
+    reply.facts.runtime.required = Some(">=1.88".to_owned());
+    reply.facts.profile_limits = Some(ProfileLimits {
+        dependency_symbols: LimitSupport::Supported,
+        interface_boundary: LimitSupport::Supported,
+    });
+    let id = reply
+        .facts
+        .imports
+        .iter()
+        .find_map(|target| match target {
+            Target::Local { import_id, .. } => Some(import_id.clone()),
+            _ => None,
+        })
+        .ok_or("a local import")?;
+    let selected = import_records(&mut reply)
+        .ok_or("imports")?
+        .iter()
+        .find(|record| record.id == id)
+        .ok_or("the selected import")?
+        .data
+        .data();
+    let contract = serde_json::json!({
+        "schema_version": "3.14.0", "components": [{"id": "COMP-APP", "label": "app",
+        "role": "component", "packages": ["shop"], "responsibilities": ["Own the source."],
+        "forbidden_responsibilities": [], "provenance": ["p"], "decided_by": "architect"}],
+        "rules": [{"id": "SYMBOL", "kind": "forbidden_dependency",
+        "source": selected.source_module, "target": selected.target_module,
+        "target_symbol": "blocked", "include_type_checking": true,
+        "rationale": "Keep the boundary.", "provenance": ["p"], "decided_by": "architect"}]
+    });
+    let ParsedContract::Complete(contract) =
+        archkeel_contract::parse(contract.to_string().as_bytes())?
+    else {
+        return Err("a complete contract".into());
+    };
+    for known in [true, false] {
+        let selected = import_records(&mut reply)
+            .ok_or("imports")?
+            .iter_mut()
+            .find(|record| record.id == id)
+            .ok_or("the selected import")?
+            .data
+            .data_mut();
+        selected.symbol = None;
+        selected.symbols_known = known;
+        let settings = Settings::new(
+            "shop".to_owned(),
+            reply.facts.profile.as_str().to_owned(),
+            vec![],
+        )
+        .with_producer(Producer::Trusted);
+        let graph = Graph::recorded(&reply.facts, settings).map_err(|r| r.to_string())?;
+        let model = Model::of(&contract, graph).map_err(|r| r.1.to_string())?;
+        let rule = contract.rules().first().ok_or("the selector rule")?;
+        let decision = model.scope(|scope| match scope.complete(rule) {
+            Ok(proof) => scope.pass(proof),
+            Err(reason) => Decision::unknown(reason),
+        });
+        assert_eq!(
+            matches!(decision.verdict(), Verdict::Pass(_)),
+            known,
+            "{decision:?}"
+        );
+        if !known {
+            assert_eq!(decision.verdict(), &Verdict::Unknown);
+            assert_eq!(
+                decision.reason(),
+                Some(&Reason::NotComplete(Cause::Undecided(1)))
+            );
+        }
+    }
+    Ok(())
+}
+
 /// The golden reply with its first import unresolved; the id and site of that import.
 fn unresolved() -> Option<(Reply, String, String, Vec<EvidenceId>)> {
     let mut reply = golden()?;

@@ -399,3 +399,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-416 | [The core names a run without decisions and the product keeps its result](ad-416-the-core-names-an-empty-contract-and-the-product-keeps-its-result.md) |
 | AD-418 | [A dropped pair gap holds the rules it can change, and a scoped requires needs its runtime](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md) |
 | AD-424 | [Known registry derives need identity and helper proofs](ad-424-known-registry-derives-need-identity-and-helper-proofs.md) |
+| AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |

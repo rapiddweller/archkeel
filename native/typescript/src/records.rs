@@ -192,7 +192,25 @@ pub(crate) fn typed_reply(
     pending: &Pending,
 ) -> Result<archkeel_facts::envelope::Reply, String> {
     let (head, plan) = plan(facts, pending, false);
-    archkeel_wire::typed::assemble(version, head, |sink| plan.write(sink).map(|(tail, _)| tail))
+    let mut reply = archkeel_wire::typed::assemble(version, head, |sink| {
+        plan.write(sink).map(|(tail, _)| tail)
+    })?;
+    use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
+    reply.facts.profile_limits = Some(ProfileLimits {
+        dependency_symbols: if reply
+            .facts
+            .capabilities
+            .resolution_features
+            .iter()
+            .any(|feature| feature == "script-globals-v1")
+        {
+            LimitSupport::Supported
+        } else {
+            LimitSupport::Unsupported
+        },
+        interface_boundary: LimitSupport::Supported,
+    });
+    Ok(reply)
 }
 
 #[cfg(test)]

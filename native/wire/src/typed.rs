@@ -74,6 +74,7 @@ pub fn assemble(
         provider_sources: NoEntries,
         facts: Facts {
             profile: provenance.profile,
+            profile_limits: None,
             adapter: provenance.adapter,
             runtime: provenance.runtime,
             source,
