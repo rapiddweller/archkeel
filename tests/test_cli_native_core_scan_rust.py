@@ -126,7 +126,9 @@ def test_the_core_scans_its_own_workspace_with_no_shell_reply(built: Path, tmp_p
         str(built / f"archkeel-core{SUFFIX}"), "scan", json.dumps(request).encode()
     )
     frame = json.loads(stdout)
-    assert code == 3
+    # AD-418: the core decides each rule of its own contract, so the frame names no part (exit 0).
+    assert code == 0, frame["unsupported"]
+    assert not frame["unsupported"]["rules"]
     assert frame["status"] in {"FAIL", "UNKNOWN"}
     assert frame["self_test"]["collect"]["request"]["resolver"] == {"language": "rust"}
     assert frame["self_test"]["reply"]["files"] > 200
