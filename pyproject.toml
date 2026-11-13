@@ -18,17 +18,8 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
     "Typing :: Typed",
 ]
-# Stdlib has no PEP 440 specifier parser and no styled terminal or help output.
-# Dart and TypeScript need grammar parsers to observe declarations and expression sites.
-dependencies = [
-    "packaging>=24.2,<27",
-    "filelock==4.0.10",
-    "rich>=13.9,<16",
-    "rich-argparse>=1.6,<2",
-    "tree-sitter>=0.26,<0.27",
-    "tree-sitter-dart==0.1.0",
-    "tree-sitter-typescript>=0.23.2,<0.24",
-]
+# The shell uses only the standard library; the Rust core decides each run (AD-432).
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/rapiddweller/archkeel"
@@ -92,18 +83,23 @@ path = "native/hatch_build.py"
 only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py"]
 
 [dependency-groups]
-# Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.
+# Pytest runs the tests, Ruff checks style, and MyPy checks the types of the shell and the tools.
+# The tests lock the native build and read wheel tags; a tool compares the Dart grammar.
 dev = [
     "ruff==0.16.0",
     "pytest>=8.3.4,<9",
     "pytest-xdist==3.8.0",
     "mypy==1.18.2",
     "jsonschema==4.25.1",
+    "filelock==4.0.10",
+    "packaging>=24.2,<27",
+    "tree-sitter>=0.26,<0.27",
+    "tree-sitter-dart==0.1.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Tests import repository tools such as tools/against.py.
+# Tests import repository tools such as tools/publish_release.py.
 pythonpath = ["."]
 addopts = "-rs -p no:cacheprovider -m 'not browser and not native_wheel'"
 markers = [
