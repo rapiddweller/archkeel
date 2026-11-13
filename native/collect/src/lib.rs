@@ -23,12 +23,12 @@ mod git;
 mod repository;
 mod run;
 
-use archkeel_facts::envelope::Profile;
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
 pub use crate::repository::Over;
 pub use crate::run::reply_of;
+pub use archkeel_facts::envelope::Profile;
 
 /// The first words of each refusal; the shell counts them.
 pub const REFUSED: &str = "collect";

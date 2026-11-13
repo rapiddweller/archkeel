@@ -52,6 +52,7 @@ name = "archkeel-core"
 version = "0.0.0"
 dependencies = [
  "archkeel-build-support",
+ "archkeel-collect",
  "archkeel-contract",
  "archkeel-eval",
  "archkeel-model",

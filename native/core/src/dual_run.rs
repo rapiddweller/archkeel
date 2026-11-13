@@ -116,6 +116,9 @@ struct UnsupportedParts {
 struct SelfTest {
     contract: ContractCheck,
     reply: ReplyCheck,
+    /// The scan request only (AD-406): the request that the core derived, or why it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    collect: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -173,7 +176,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         path,
         contract: contract.into_bytes(),
         insides: insides(request.insides)?,
-        reply: request.reply.map(|bytes| hex(&bytes.hex)).transpose()?,
+        reply: ReplyInput::bytes(request.reply.map(|bytes| hex(&bytes.hex)).transpose()?),
         sections: request::sections(&request.sections)?,
         namespace: request.namespace,
         roots: request.roots,
@@ -184,7 +187,22 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
             gap: None,
         }),
+        collect: None,
     })
+}
+
+/// The reply of a run: none, the bytes of a request, or the reply of the collector that the core
+/// ran in its own process (AD-406). Only the scan request makes the last one.
+pub(crate) enum ReplyInput {
+    Absent,
+    Bytes(Vec<u8>),
+    Collected(Box<Result<Ingested, String>>),
+}
+
+impl ReplyInput {
+    pub(crate) fn bytes(reply: Option<Vec<u8>>) -> ReplyInput {
+        reply.map_or(ReplyInput::Absent, ReplyInput::Bytes)
+    }
 }
 
 /// What a request kind gives to the one engine path (`run`): the dual run of the harness
@@ -194,7 +212,7 @@ pub(crate) struct Run {
     pub(crate) path: String,
     pub(crate) contract: Vec<u8>,
     pub(crate) insides: Vec<InsideFile>,
-    pub(crate) reply: Option<Vec<u8>>,
+    pub(crate) reply: ReplyInput,
     pub(crate) sections: Vec<archkeel_model::Section>,
     pub(crate) namespace: String,
     pub(crate) roots: Vec<String>,
@@ -207,6 +225,8 @@ pub(crate) struct Run {
     /// The settings of the namespace for the validated reply (or none), and a reason that names
     /// the whole contract when the request kind does not trust the reply.
     pub(crate) trust: TrustOf,
+    /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
+    pub(crate) collect: Option<serde_json::Value>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
@@ -297,6 +317,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
                 ContractState::Refused(message) => ContractCheck::Refused(message),
             },
             reply,
+            collect: run.collect,
         },
     };
     let frame = ruling
@@ -364,21 +385,23 @@ fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) 
 }
 
 /// What the engine knows of the reply of the request, after it ingests the reply.
-fn ingest(engine: &mut Engine, reply: Option<Vec<u8>>) -> Result<ReplyCheck, String> {
-    let Some(bytes) = reply else {
-        let absent = "the request carries no collector reply".to_owned();
-        return Ok(ReplyCheck::Absent(absent));
-    };
-    Ok(
-        match engine.answer(Request::Ingest {
+fn ingest(engine: &mut Engine, reply: ReplyInput) -> Result<ReplyCheck, String> {
+    let request = match reply {
+        ReplyInput::Absent => {
+            let absent = "the request carries no collector reply".to_owned();
+            return Ok(ReplyCheck::Absent(absent));
+        }
+        ReplyInput::Bytes(bytes) => Request::Ingest {
             reply: bytes,
             inflate_limit: INFLATE_LIMIT,
-        }) {
-            Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
-            Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
-            other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
         },
-    )
+        ReplyInput::Collected(collected) => Request::Collected(request::Collected(collected)),
+    };
+    Ok(match engine.answer(request) {
+        Answer::Reply(ReplyState::Ingested(files)) => ReplyCheck::Files(files),
+        Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
+        other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
+    })
 }
 
 /// The inside contracts of the request, decoded. The whole request is already read, so the

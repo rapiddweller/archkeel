@@ -89,6 +89,12 @@ impl Engine {
                 self.derived = None;
                 Answer::Reply(state)
             }
+            Request::Collected(collected) => {
+                let (state, ingested) = crate::ingest::collected(*collected.0);
+                self.reply = ingested;
+                self.derived = None;
+                Answer::Reply(state)
+            }
             Request::Settings(settings) => {
                 self.settings = Some(settings);
                 self.derived = None;
