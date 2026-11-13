@@ -18,8 +18,8 @@ use crate::pyast::Node;
 
 mod classes;
 mod methods;
-mod types;
 mod protection;
+mod types;
 
 #[cfg(feature = "dump")]
 pub fn protection_table(module: &Module, minor: PyMinor) -> Table {
@@ -43,7 +43,10 @@ fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
     )
 }
 
-fn prepare<'a>(module: &'a Module, scan: &mut Scan) -> Result<(Env<'a>, Vec<Node<'a>>, BTreeSet<String>)> {
+fn prepare<'a>(
+    module: &'a Module,
+    scan: &mut Scan,
+) -> Result<(Env<'a>, Vec<Node<'a>>, BTreeSet<String>)> {
     scan.tick(module.tree.body.len())?;
     let mut pending: VecDeque<_> = module.tree.body.iter().map(Node::Stmt).collect();
     let mut nodes = Vec::new();

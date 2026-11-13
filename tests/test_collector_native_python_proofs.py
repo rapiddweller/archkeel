@@ -168,12 +168,14 @@ def test_generated_proof(index: int, tmp_path: Path, python_dump_binary: Path) -
     _same(row["data"], expected, index)
 
 
-def _rows(binary: Path, root: Path, paths: list[str]) -> Iterator[dict[str, Any]]:
+def _rows(
+    binary: Path, root: Path, paths: list[str], flag: str = "--dump-proofs"
+) -> Iterator[dict[str, Any]]:
     with tempfile.TemporaryFile(mode="w+") as source, tempfile.TemporaryFile(mode="w+") as errors:
         source.writelines(f"{p}\n" for p in paths)
         source.seek(0)
         process = subprocess.Popen(
-            [str(binary), "--dump-proofs", str(_minor()), str(root)],
+            [str(binary), flag, str(_minor()), str(root)],
             stdin=source,
             stdout=subprocess.PIPE,
             stderr=errors,
@@ -194,6 +196,17 @@ def _rows(binary: Path, root: Path, paths: list[str]) -> Iterator[dict[str, Any]
                 process.stdout.close()
 
 
+def _stricter_pin(root: Path) -> dict[str, str]:
+    if root.name != "pydantic":
+        return {}
+    prefix = "repo/" if (root / "repo").is_dir() else ""
+    return {prefix + "pydantic-core/wasm-preview/run_tests.py": "await outside an async function"}
+
+
+def _private(root: Path) -> bool:
+    return str(root) in os.environ.get("ARCHKEEL_PROOF_PRIVATE_CORPORA", "").split(os.pathsep)
+
+
 def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
     paths = sorted(
         str(p.relative_to(root))
@@ -203,6 +216,8 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
     assert paths, "proof corpus has no Python files"
     equal = 0
     stricter: Counter[str] = Counter()
+    stricter_files = {}
+    private = _private(root)
     for row in _rows(binary, root, paths):
         expected = _python(root, row["file"])
         if expected is None:
@@ -211,11 +226,17 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
         elif not row["full_scope"]:
             assert row["gap"], row["file"]
             stricter[row["gap"]] += 1
+            if private:
+                raise AssertionError("private corpus has an unexpected refusal")
+            stricter_files[row["file"]] = row["gap"]
         else:
-            _same(row["data"], expected, row["file"])
+            if private:
+                if json.dumps(row["data"], sort_keys=True) != json.dumps(expected, sort_keys=True):
+                    raise AssertionError("private corpus data differs")
+            else:
+                _same(row["data"], expected, row["file"])
             equal += 1
-        if report := os.environ.get("ARCHKEEL_PROOF_WORK_REPORT"):
-            private = root.name.startswith("priv")
+        if (report := os.environ.get("ARCHKEEL_PROOF_WORK_REPORT")) and not private:
             with Path(report).open("a") as stream:
                 stream.write(
                     json.dumps(
@@ -230,6 +251,7 @@ def _compare(binary: Path, root: Path) -> tuple[int, int, int, int]:
                     + "\n"
                 )
     assert equal + sum(stricter.values()) == len(paths)
+    assert stricter_files == ({} if private else _stricter_pin(root))
     print(f"proof stricter {_minor()}: {dict(stricter)}")
     return len(paths), equal, sum(stricter.values()), 0
 
@@ -257,6 +279,21 @@ def test_corpus_proofs(python_dump_binary: Path) -> None:
 def test_empty_corpus(tmp_path: Path, python_dump_binary: Path) -> None:
     with pytest.raises(AssertionError, match="proof corpus has no Python files"):
         _compare(python_dump_binary, tmp_path)
+
+
+@pytest.mark.parametrize("scope", ("def f():", "class C:"))
+def test_nested_star_refusal_is_pinned(
+    scope: str, tmp_path: Path, python_dump_binary: Path
+) -> None:
+    (tmp_path / "probe.py").write_text(scope + "\n from m import *\n")
+    assert _python(tmp_path, "probe.py") is not None
+    row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
+    assert row == {
+        "file": "probe.py",
+        "full_scope": False,
+        "gap": "star import outside module scope",
+        "work": 0,
+    }
 
 
 def test_proof_output_limit_keeps_no_partial_table(

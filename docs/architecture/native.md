@@ -64,9 +64,11 @@ records (AD-396). `--dump-bindings` compares them with the unchanged Python func
 the alias map empty until the import-proof slice. Work exhaustion gives a named incomplete-file
 gap, not a partial inventory. No new section enters the production reply.
 `--dump-proofs` compares the import-local binding, decorator, property, class-body and type-alias
-`--dump-protection` compares provider headers, overloads and member/type protections before value candidates (AD-410).
 proofs that member convergence needs (AD-404). It reads one module after static import binding.
 Provider proof sets are empty at this boundary. It does not claim cross-module convergence.
+`--dump-protection` compares provider headers, overloads and member/type protections before value
+candidates (AD-410). It also compares local constructor candidates, without installing them into
+the earlier proof state. Both dumps pin the complete count and set of native-stricter corpus files.
 A grammar crate links a vendored C parser and gives its language; only a grammar crate depends on
 `tree-sitter-language` (rule `NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE`).
 Clippy, `cargo deny` and the file size rule stay outside the contract

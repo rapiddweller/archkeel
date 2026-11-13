@@ -69,14 +69,26 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 
 /// The binding inputs of a file before import convergence, or a named incomplete-file gap.
 pub fn bindings(minor: &str, root: &str, proofs: bool) -> Result<(), String> {
-    binding_tables(minor, root, if proofs { crate::bindings::proof_table } else { crate::bindings::table })
+    binding_tables(
+        minor,
+        root,
+        if proofs {
+            crate::bindings::proof_table
+        } else {
+            crate::bindings::table
+        },
+    )
 }
 
 pub fn protection(minor: &str, root: &str) -> Result<(), String> {
     binding_tables(minor, root, crate::bindings::protection_table)
 }
 
-fn binding_tables(minor: &str, root: &str, table: fn(&crate::module::Module, PyMinor) -> crate::bindings::Table) -> Result<(), String> {
+fn binding_tables(
+    minor: &str,
+    root: &str,
+    table: fn(&crate::module::Module, PyMinor) -> crate::bindings::Table,
+) -> Result<(), String> {
     each_file(minor, root, |raw, rel, minor| {
         let found = (|| {
             let text = raw.as_deref().and_then(decode).ok_or("source unreadable")?;

@@ -42,11 +42,14 @@ mod stack;
 mod stringcheck;
 #[path = "work.rs"]
 pub(crate) mod work;
+/// Reuse the bounded module preflight before parsing a syntax-only quoted expression.
 #[cfg(any(test, feature = "dump"))]
-#[path = "quoted.rs"]
-mod quoted;
-#[cfg(any(test, feature = "dump"))]
-pub(crate) use quoted::expression as quoted_expression;
+pub(crate) fn quoted_expression(text: &str, minor: PyMinor) -> Option<ruff_python_ast::Expr> {
+    parse(text, minor).ok()?;
+    ruff_python_parser::parse_expression(text)
+        .ok()
+        .map(|n| *n.into_syntax().body)
+}
 
 /// Why a file has no tree: the class name of the Python exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]

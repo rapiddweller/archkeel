@@ -1,7 +1,5 @@
 # Decision archive
 
-| AD-410 | [Native Python provider proofs before value candidates](ad-410-the-native-python-provider-proofs-stop-before-value-candidate-convergence.md) |
-
 Internal reasons and proof references. Later records can amend earlier ones.
 For current behavior, use the [contract](../../../architecture-contract.json), source and tests.
 
@@ -394,3 +392,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-399 | [archkeel check takes its rule verdicts from the core with the base reply](ad-399-archkeel-check-takes-its-rule-verdicts-from-the-core-with-the-base-reply.md) |
 | AD-402 | [The Python raise-site inventory keeps unproved paths open](ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md) |
 | AD-404 | [The native Python proof dump reads import-local bindings before member convergence](ad-404-the-native-python-proof-dump-reads-import-local-bindings-before-member-convergence.md) |
+| AD-410 | [Native Python provider proofs before value candidates](ad-410-the-native-python-provider-proofs-stop-before-value-candidate-convergence.md) |

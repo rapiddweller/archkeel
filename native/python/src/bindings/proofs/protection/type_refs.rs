@@ -4,12 +4,12 @@
 
 //! Syntax-only type protection; executable operands stay unprotected.
 
-use std::collections::HashSet;
-use ruff_python_ast::{Expr, Operator, Stmt};
 use super::super::super::environment::Env;
 use super::super::super::scan::{Result, Scan};
 use super::super::types;
 use crate::pyast::Node;
+use ruff_python_ast::{Expr, Operator, Stmt};
+use std::collections::HashSet;
 
 pub(super) type Refs = HashSet<(&'static str, usize)>;
 
@@ -49,7 +49,10 @@ pub(super) fn root<'a>(scan: &mut Scan, mut expr: &'a Expr) -> Result<Option<&'a
         scan.tick(1)?;
         expr = &n.value;
     }
-    Ok(match expr { Expr::Name(n) => Some(n.id.as_str()), _ => None })
+    Ok(match expr {
+        Expr::Name(n) => Some(n.id.as_str()),
+        _ => None,
+    })
 }
 
 pub(super) fn bare(env: &Env<'_>, node: &Expr, names: &[&str]) -> bool {
@@ -58,12 +61,14 @@ pub(super) fn bare(env: &Env<'_>, node: &Expr, names: &[&str]) -> bool {
 
 pub(super) fn references(scan: &mut Scan, env: &Env<'_>, expressions: &[&Expr]) -> Result<Refs> {
     scan.tick(expressions.len())?;
-    let mut pending: Vec<_> = expressions.iter().copied().collect();
+    let mut pending = expressions.to_vec();
     let mut protected = HashSet::new();
     while let Some(node) = pending.pop() {
         scan.tick(1)?;
         match node {
-            Expr::Name(_) => { protected.insert(key(&Node::Expr(node))); }
+            Expr::Name(_) => {
+                protected.insert(key(&Node::Expr(node)));
+            }
             Expr::Attribute(_) if root(scan, node)?.is_some() => {
                 for child in scan.walk(Node::Expr(node))? {
                     scan.tick(1)?;
@@ -72,20 +77,44 @@ pub(super) fn references(scan: &mut Scan, env: &Env<'_>, expressions: &[&Expr]) 
             }
             Expr::Subscript(n) => {
                 pending.push(&n.value);
-                if types::static_alias(scan, env, node)? && root(scan, &n.value)?.is_some_and(|root| !env.bound.contains(root) || scan.aliases.contains_key(root) && env.stable.contains(root) && env.unique.contains(root)) {
+                if types::static_alias(scan, env, node)?
+                    && root(scan, &n.value)?.is_some_and(|root| {
+                        !env.bound.contains(root)
+                            || scan.aliases.contains_key(root)
+                                && env.stable.contains(root)
+                                && env.unique.contains(root)
+                    })
+                {
                     pending.push(&n.slice);
                 }
             }
-            Expr::Tuple(n) => { scan.tick(n.elts.len())?; pending.extend(&n.elts); }
-            Expr::List(n) => { scan.tick(n.elts.len())?; pending.extend(&n.elts); }
-            Expr::BinOp(n) if n.op == Operator::BitOr && (matches!(&*n.left, Expr::NoneLiteral(_)) || matches!(&*n.right, Expr::NoneLiteral(_))) => { pending.extend([&*n.left, &*n.right]); }
+            Expr::Tuple(n) => {
+                scan.tick(n.elts.len())?;
+                pending.extend(&n.elts);
+            }
+            Expr::List(n) => {
+                scan.tick(n.elts.len())?;
+                pending.extend(&n.elts);
+            }
+            Expr::BinOp(n)
+                if n.op == Operator::BitOr
+                    && (matches!(&*n.left, Expr::NoneLiteral(_))
+                        || matches!(&*n.right, Expr::NoneLiteral(_))) =>
+            {
+                pending.extend([&*n.left, &*n.right]);
+            }
             _ => {}
         }
     }
     Ok(protected)
 }
 
-pub(super) fn sites(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>], selected: &Refs) -> Result<Vec<(i64, i64, i64)>> {
+pub(super) fn sites(
+    scan: &mut Scan,
+    env: &Env<'_>,
+    nodes: &[Node<'_>],
+    selected: &Refs,
+) -> Result<Vec<(i64, i64, i64)>> {
     let mut out = Vec::new();
     let mut seen = HashSet::new();
     for node in nodes {
@@ -96,7 +125,10 @@ pub(super) fn sites(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>], selected
                 Node::Expr(n) => env.module.location(*n),
                 Node::Arg(n) => env.module.location(*n),
                 Node::Keyword(n) => env.module.location(*n),
-                _ => { out.push((1, 1, 0)); continue; }
+                _ => {
+                    out.push((1, 1, 0));
+                    continue;
+                }
             };
             out.push((at.line, at.end_line, at.column));
         }
