@@ -1294,13 +1294,6 @@
       "forbidden_responsibilities": [
         "Reading the snapshot, resolving a path and building facts."
       ],
-      "requires": [
-        {
-          "component": "snapshot",
-          "rationale": "Use only the pure nested-comment byte walk shared with the parse-work gate; rs-text does not read snapshot files.",
-          "decided_by": "agent"
-        }
-      ],
       "provenance": [
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
       ],

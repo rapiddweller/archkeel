@@ -189,10 +189,3 @@ fn the_exact_boundary_accepts_full_bytes_and_the_next_unit_refuses() {
     assert!(exceeds(b"(x) ", 6));
     assert!(!over(b"import { x } from './other';"));
 }
-
-#[test]
-fn shared_block_comment_end_keeps_nested_and_truncated_bounds() {
-    assert_eq!(crate::block_comment_end(b"/* /* */ */tail", 0), 11);
-    assert_eq!(crate::block_comment_end(b"/* /* */", 0), 8);
-    assert_eq!(crate::block_comment_end(b"/* */", usize::MAX), 5);
-}

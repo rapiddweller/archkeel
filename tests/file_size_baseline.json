@@ -27,7 +27,7 @@
   "src/archkeel/ir/codec_observation.py": 1008,
   "src/archkeel/ir/decisions.py": 1762,
   "src/archkeel/ir/facts.py": 1325,
-  "src/archkeel/ir/facts_codec.py": 1743,
+  "src/archkeel/ir/facts_codec.py": 1716,
   "src/archkeel/ir/facts_validation.py": 6251,
   "src/archkeel/ir/findings.py": 525,
   "src/archkeel/ir/graph_codec.py": 741,

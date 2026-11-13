@@ -34,7 +34,6 @@ from .facts import (
     CollectionCoverage,
     ConstructCapability,
     ConstructSupport,
-    ContextManagerSignature,
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
@@ -145,32 +144,6 @@ def call_excerpt_matches(
 ) -> bool:
     """Check a call expression against its bounded evidence excerpt."""
     return _call_excerpt_matches(expression, excerpt, line, column, end_line)
-
-
-def contextmanager_signature_data(signature: ContextManagerSignature) -> RawData:
-    """Retain both source evidence and the distinct effective return on the wire."""
-    return {
-        "kind": signature.kind,
-        "factory": signature.factory,
-        "effective_return": {
-            "wrapper": signature.effective_return.wrapper,
-            "payload": signature.effective_return.payload,
-        },
-        "support_evidence_ids": list(signature.support_evidence_ids),
-        "abc": {
-            "kind": signature.abc.kind,
-            "module": signature.abc.module,
-            "origin": signature.abc.origin,
-            "members": list(signature.abc.members),
-        },
-        "partial": {
-            "kind": signature.partial.kind,
-            "implementation": signature.partial.implementation,
-            "version": signature.partial.version,
-            "cache_tag": signature.partial.cache_tag,
-            "origin": signature.partial.origin,
-        },
-    }
 
 
 def property_binding_data(binding: PropertyBinding) -> RawData:

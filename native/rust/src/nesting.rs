@@ -19,9 +19,7 @@ pub(crate) fn too_deep(text: &str) -> bool {
     while let Some(&byte) = bytes.get(at) {
         at = match byte {
             b'/' if bytes.get(at + 1) == Some(&b'/') => line_end(bytes, at),
-            b'/' if bytes.get(at + 1) == Some(&b'*') => {
-                archkeel_snapshot::block_comment_end(bytes, at)
-            }
+            b'/' if bytes.get(at + 1) == Some(&b'*') => comment_end(bytes, at),
             b'"' => quote_end(bytes, at, 0),
             b'r' if starts_raw(bytes, at) => raw_end(bytes, at),
             b'\'' => character_end(bytes, at),
@@ -47,6 +45,25 @@ fn line_end(bytes: &[u8], from: usize) -> usize {
         .iter()
         .position(|byte| *byte == b'\n')
         .map_or(bytes.len(), |offset| from + offset)
+}
+
+/// A block comment nests in Rust.
+fn comment_end(bytes: &[u8], from: usize) -> usize {
+    let (mut at, mut level) = (from + 2, 1_usize);
+    while level > 0 && at < bytes.len() {
+        match (bytes.get(at), bytes.get(at + 1)) {
+            (Some(b'/'), Some(b'*')) => {
+                level += 1;
+                at += 2;
+            }
+            (Some(b'*'), Some(b'/')) => {
+                level -= 1;
+                at += 2;
+            }
+            _ => at += 1,
+        }
+    }
+    at.min(bytes.len())
 }
 
 /// The end of a string whose quote is at `from`, which `hashes` `#` must follow.
