@@ -86,6 +86,11 @@
   },
   "gaps": [
     [
+      "native.archkeel_core.engine",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
       "native.archkeel_dart_collector.collection",
       "native.archkeel_dart_collector.collection.imports",
       "A method call may reach the method imports of an impl block in native.archkeel_dart_collector.collection.imports"

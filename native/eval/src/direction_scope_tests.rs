@@ -366,7 +366,9 @@ fn a_dynamic_import_of_an_owned_module_holds_complete_requires_back() {
 }
 
 #[test]
-fn a_coverage_gap_is_a_fact_for_each_kind_but_a_part_for_complete_requires() {
+fn a_coverage_gap_is_a_fact_for_each_kind_also_for_complete_requires_of_this_runtime() {
+    // AD-418: this reply's runtime cannot carry the dependency scope proof of the host, so the
+    // gap is a fact for `complete_requires` too (`scoped_requires_tests.rs` has the other one).
     let gap = |reply: &mut Value| {
         let gap = json!({
             "id": "UNKNOWN-00000000000000cc", "evidence_class": "UNKNOWN", "area": "source",
@@ -381,12 +383,9 @@ fn a_coverage_gap_is_a_fact_for_each_kind_but_a_part_for_complete_requires() {
     let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
     assert_eq!(
         word(seen("DOMAIN-NO-DATA", unchanged, gap, PLAIN)),
-        unknown(fact)
+        unknown(fact.clone())
     );
-    assert_eq!(
-        word(seen("REQUIRES", unchanged, gap, PLAIN)),
-        unknown(unread(Part::ScopedRequires))
-    );
+    assert_eq!(word(seen("REQUIRES", unchanged, gap, PLAIN)), unknown(fact));
 }
 
 #[test]

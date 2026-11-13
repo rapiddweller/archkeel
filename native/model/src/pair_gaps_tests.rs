@@ -4,11 +4,11 @@
 
 //! The reading of each rule kind and the gaps that hold it (slice S7, AD-384 point 4).
 
-use super::{Kept, Reads};
+use super::{PairGap, Reads};
 use crate::selection::Selection;
 
-fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: bool) -> Kept {
-    Kept {
+fn kept(source: &str, target: &str, observed: bool, owned: [bool; 2], external: bool) -> PairGap {
+    PairGap {
         source: source.to_owned(),
         target: target.to_owned(),
         observed,

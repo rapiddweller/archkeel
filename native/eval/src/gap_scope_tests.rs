@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_model::{Cause, Model, Part, Reason, Settings, Unsupported, Verdict};
+use archkeel_model::{Cause, Model, Reason, Settings, Verdict};
 use serde_json::{json, Value};
 
 use crate::direction_tests::{both, point, unchanged, MAIN, PAGE_IMPORT};
@@ -98,13 +98,14 @@ pub(crate) fn run_held(found: &Run, shown: &[&str]) -> bool {
     matches!(&found.1, Err(Reason::NotComplete(Cause::PairGaps(gaps))) if gaps.shown() == shown)
 }
 
-/// `complete_requires` accepts a coverage gap with its dependency scope proof in the host, so a
-/// gap that holds it is a named part (AD-380 point 3).
-pub(crate) fn scoped(found: &Run) -> bool {
-    found.0.get("REQUIRES").and_then(|(_, why)| why.clone())
-        == Some(Reason::Unsupported(Unsupported::ScopeProof(
-            Part::ScopedRequires,
-        )))
+/// The host accepts a coverage gap of `complete_requires` with its dependency scope proof only
+/// from a runtime that can carry it (AD-380 point 3, AD-418). This reply's runtime cannot, so a
+/// kept gap holds the rule as a fact.
+pub(crate) fn requires_held(found: &Run) -> bool {
+    matches!(
+        found.0.get("REQUIRES"),
+        Some((word, Some(Reason::NotComplete(Cause::PairGaps(_))))) if word == "UNKNOWN"
+    )
 }
 
 #[test]
@@ -135,7 +136,7 @@ fn a_kept_gap_outside_every_selection_holds_only_the_rules_that_read_every_edge(
     }
     assert!(held(&found, "COMPONENT-CYCLES", &shown));
     assert!(held(&found, "MODULE-CYCLES", &shown));
-    assert!(scoped(&found));
+    assert!(requires_held(&found), "{:?}", found.0.get("REQUIRES"));
     assert!(run_held(&found, &shown));
 }
 
@@ -160,7 +161,7 @@ fn a_gap_to_a_module_that_the_scan_did_not_see_holds_every_rule() {
             found.0.get(rule)
         );
     }
-    assert!(scoped(&found));
+    assert!(requires_held(&found), "{:?}", found.0.get("REQUIRES"));
     assert!(run_held(&found, &shown));
 }
 

@@ -296,13 +296,20 @@ fn each_reason_of_the_model_has_its_row_reason() {
         (Reason::UncitedChild("a".into()), NoReceipt),
         (Reason::Unsupported(Unsupported::Rule(kind)), NoReceipt),
         (Reason::Unsupported(Unsupported::InsideRule), NoReceipt),
-        (Part::AllowedPairGap.into(), ScopeIncomplete),
+        (Part::ScopedRequires.into(), ScopeIncomplete),
         (
             Reason::Unsupported(Unsupported::Section(Section::Cycles)),
             ScopeIncomplete,
         ),
         (Reason::Unsupported(Unsupported::TreeScope), ScopeIncomplete),
-        (Reason::NotComplete(Cause::PairGaps(held)), ScopeIncomplete),
+        (
+            Reason::NotComplete(Cause::PairGaps(held.clone())),
+            ScopeIncomplete,
+        ),
+        (
+            Reason::NotComplete(Cause::AllowedPairGaps(held)),
+            ScopeIncomplete,
+        ),
         (Reason::NotComplete(Cause::Receipt("a")), NoReceipt),
         (Reason::NotComplete(Cause::Producer), ScopeIncomplete),
         (

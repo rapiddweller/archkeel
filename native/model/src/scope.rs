@@ -56,6 +56,7 @@ use archkeel_contract::{head_of, kind_of, CycleLevel, Rule};
 use crate::causes::{Cause, Held, Part};
 use crate::coverage::Incomplete;
 use crate::direction;
+use crate::dropped_gaps;
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
 use crate::pair_gaps::reads;
@@ -107,14 +108,15 @@ impl<'id, 'm> Scope<'id, 'm> {
             return Err(Part::ForeignRule.into());
         }
         let unread = match self.model.scope_state() {
-            State::Incomplete(reason) => return Err(rescued(rule, reason)),
+            State::Incomplete(reason) => return Err(rescued(self.model, rule, reason)),
             State::Unread(part) => Some(part.clone()),
-            // A gap that the host drops for its profile names each rule (AD-384 point 4).
-            State::Complete if self.model.pairs().allowed => Some(Part::AllowedPairGap),
             State::Complete => None,
         };
-        // Slice S7 (AD-384): a kept pair gap holds only the rules whose reading it can change.
-        let gaps = self.gaps(rule).map_err(|reason| rescued(rule, &reason))?;
+        // Slice S7 (AD-384): a kept pair gap holds only the rules whose reading it can change;
+        // AD-418: so does a gap that the drop rule drops.
+        let gaps = self
+            .gaps(rule)
+            .map_err(|reason| rescued(self.model, rule, &reason))?;
         // The doubt sources of the rule come before its receipt, so each kind states them.
         if dynamic_import(self.model, rule) {
             return Err(Reason::NotComplete(Cause::DynamicImport));
@@ -142,8 +144,9 @@ impl<'id, 'm> Scope<'id, 'm> {
     /// complete is never PASS, also with zero rules. It reads the one state that
     /// `complete` reads.
     ///
-    /// Slice S7 (AD-384): each kept pair gap holds the run, and a gap that the drop rule drops
-    /// for one profile is a named part of the run.
+    /// Slice S7 (AD-384): each kept pair gap holds the run. AD-418: a gap that the drop rule
+    /// drops holds the run when it can change a rule of the contract; one that changes no rule
+    /// cannot change the run, as in the reference engine, which forgets it.
     pub fn run(&self) -> Result<(), Reason> {
         let pairs = self.model.pairs();
         let kept = pairs
@@ -156,9 +159,19 @@ impl<'id, 'm> Scope<'id, 'm> {
         if let Some(held) = Held::of(kept) {
             return Err(Reason::NotComplete(Cause::PairGaps(held)));
         }
+        let rules = self.model.contract().rules();
+        let components = self.model.contract().components();
+        let dropped = pairs.dropped.iter().filter(|gap| {
+            rules
+                .iter()
+                .any(|rule| dropped_gaps::holds(gap, rule, &reads(rule, components)))
+        });
+        if let Some(held) = Held::of(dropped.map(|gap| (gap.source.as_str(), gap.target.as_str())))
+        {
+            return Err(Reason::NotComplete(Cause::AllowedPairGaps(held)));
+        }
         match self.model.scope_state() {
             State::Unread(part) => Err(part.clone().into()),
-            _ if pairs.allowed => Err(Part::AllowedPairGap.into()),
             _ => Ok(()),
         }
     }
@@ -182,8 +195,17 @@ impl<'id, 'm> Scope<'id, 'm> {
             .iter()
             .filter(|gap| gap.holds(&reading))
             .map(|gap| (gap.source.as_str(), gap.target.as_str()));
-        match Held::of(held) {
-            Some(held) => Err(Reason::NotComplete(Cause::PairGaps(held))),
+        if let Some(held) = Held::of(held) {
+            return Err(Reason::NotComplete(Cause::PairGaps(held)));
+        }
+        let dropped = model
+            .pairs()
+            .dropped
+            .iter()
+            .filter(|gap| dropped_gaps::holds(gap, rule, &reading))
+            .map(|gap| (gap.source.as_str(), gap.target.as_str()));
+        match Held::of(dropped) {
+            Some(held) => Err(Reason::NotComplete(Cause::AllowedPairGaps(held))),
             None => Ok(GapScope::of()),
         }
     }
@@ -386,14 +408,17 @@ struct Source<'a> {
 
 /// The reason of an incomplete state for one rule. The host can accept a coverage gap for a
 /// `complete_requires` rule with its dependency scope proof (`_scoped_dependency_receipt`), so
-/// for that kind such a gap is a part that the core cannot read, not a fact.
-fn rescued(rule: &Rule, reason: &Reason) -> Reason {
+/// for that kind such a gap is a part that the core cannot read, not a fact. AD-418: the host
+/// accepts the proof only from a runtime that can carry it (`_native_scope_runtime_valid`); for
+/// any other runtime the gap is a fact, and the reference engine gives UNKNOWN too.
+fn rescued(model: &Model, rule: &Rule, reason: &Reason) -> Reason {
     let accepted = matches!(
         reason,
         Reason::Incomplete(Incomplete::CoverageGaps(_) | Incomplete::UnknownImports(_))
             | Reason::NotComplete(Cause::PairGaps(_))
     );
-    if accepted && matches!(rule, Rule::CompleteRequires(_)) {
+    let carried = model.graph().observed().scope_receipt;
+    if accepted && carried && matches!(rule, Rule::CompleteRequires(_)) {
         Part::ScopedRequires.into()
     } else {
         reason.clone()

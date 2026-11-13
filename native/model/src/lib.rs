@@ -100,6 +100,7 @@ pub use run::{RunComplete, RunGap, RunPass};
 // pair gap can change (AD-384).
 mod brand;
 mod component_cycles;
+mod dropped_gaps;
 mod pair_gaps;
 mod receipts;
 mod roots;

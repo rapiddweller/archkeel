@@ -66,13 +66,14 @@ def test_each_owned_part_is_unsupported_by_name_and_never_equal(
     # section and rule names its part.
     assert len(differences) == 1 + 15
     assert differences[0].startswith("rust/native: rules: ")
-    # AD-384: every kind of the native contract is decided. The reply has pair gaps that the
-    # drop rule drops for its profile, so two rules name them; the kept gaps hold the others.
-    assert (
-        "2 owned rules are unsupported, first: unsupported: the scope proof: a gap between"
-        in (differences[0])
+    # AD-384, AD-418: every rule of the native contract is decided. A dropped pair gap holds
+    # only the rules whose reading it can change, so no rule names it; the kept gaps hold the
+    # others, and no kept gap can change the module set (a PASS beyond the reference engine).
+    assert differences[0] == (
+        "rust/native: rules: NATIVE-ASSIGNMENT-COMPLETE: core decides, Python does not: no one "
+        "of the 20 kept pair gaps can change the rule"
     )
-    assert not [line for line in differences if BEYOND.search(line)]
+    assert not [line for line in differences if "unsupported: the scope proof" in line]
     assert "rust/native: metrics: -: unsupported: section metrics: slice S10 ports it" in lines
     owned = ("violations", "dependency_edges", "modules", "packages", "cycles", "edges")
     assert not [line for line in differences if line.split(": ")[1] in owned]
@@ -115,9 +116,6 @@ def test_the_s2_kinds_and_the_edges_equal_python_with_the_scope_proof(
 S4_NAMES = (
     "missing input: no valid collector reply",
     "unsupported: the baseline of the request: no slice reads it yet",
-    # AD-384: a pair gap that the drop rule drops for its profile names each rule.
-    "unsupported: the scope proof: a gap between two modules that the contract allows; the host "
-    "drops it for one profile, the core does not know the profile",
 )
 
 # AD-384 point 4: the one direction change. Python gives a rule UNKNOWN for any kept pair gap;
@@ -126,6 +124,8 @@ BEYOND = re.compile(
     r": rules: \S+: core decides, Python does not: no one of the \d+ kept pair gaps "
 )
 BEYOND_CASES = {
+    # AD-418: the module set of the self-check, which no kept gap can change.
+    "rust/native",
     "s7/rust-a-forbidden-and-a-sibling-rule-across-the-gap-hold-and-away-pass",
     "s7/rust-a-kept-pair-gap-holds-the-cycle-rules-and-not-the-module-set",
     "s7/rust-an-external-import-away-from-the-gap-passes-the-external-rules",

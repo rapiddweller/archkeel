@@ -6,31 +6,26 @@
 //!
 //! The host drops an allowed pair gap only for a profile whose host drops it
 //! (`check/pair_gaps.py:66`); the model reads that from the typed profile fact
-//! (`PairGapDrop`). A gap that the drop rule drops names each rule and the run. A gap that it
-//! keeps holds the rules that it can change. The H-typescript reply keeps every gap; the
+//! (`PairGapDrop`). A gap that it keeps holds the rules that it can change; so does a gap that
+//! it drops (AD-418, `dropped_gap_tests.rs`). The H-typescript reply keeps every gap; the
 //! `dropping` form of the same reply is a reply of a profile whose host drops.
 
-use archkeel_model::{Part, Reason, Unsupported};
 use serde_json::{json, Value};
 
 use crate::direction_tests::{both, unchanged, MAIN};
 use crate::gap_scope_tests::{
-    dropping, dropping_settings, failed, gap, held, rooted, run, run_held, scoped, word, Run,
-    INDEX, ORDER, PAGE,
+    dropping, dropping_settings, failed, gap, held, requires_held, rooted, run, run_held, word,
+    Run, INDEX, ORDER, PAGE,
 };
 
-fn allowed() -> Reason {
-    Reason::Unsupported(Unsupported::ScopeProof(Part::AllowedPairGap))
-}
-
-/// Each rule and the run name the dropped gap.
-fn all_named(found: &Run) -> bool {
+/// Each rule passes and the run is complete: the dropped gap changes no reading.
+fn all_pass(found: &Run) -> bool {
     !found.0.is_empty()
         && found
             .0
             .values()
-            .all(|(_, why)| why.as_ref() == Some(&allowed()))
-        && found.1 == Err(allowed())
+            .all(|(word, why)| word == "PASS" && why.is_none())
+        && found.1 == Ok(())
 }
 
 fn texts(gaps: &[String]) -> Vec<&str> {
@@ -65,7 +60,7 @@ fn a_planted_allowed_gap_on_a_profile_whose_host_keeps_it_holds_its_readings_and
         found.0
     );
     assert!(held(&found, "MODULE-CYCLES", &texts(&shown)));
-    assert!(scoped(&found));
+    assert!(requires_held(&found));
     assert!(run_held(&found, &texts(&shown)));
     for rule in [
         "LAYOUT",
@@ -79,21 +74,16 @@ fn a_planted_allowed_gap_on_a_profile_whose_host_keeps_it_holds_its_readings_and
 }
 
 #[test]
-fn a_gap_that_the_drop_rule_drops_names_each_rule_and_the_run() {
+fn a_gap_that_the_drop_rule_drops_and_no_rule_reads_passes_each_rule_and_the_run() {
     let found = run(
         unchanged,
         both(dropping, gap(MAIN.0, PAGE)),
         dropping_settings(),
     )
     .unwrap_or_else(failed);
-    assert!(all_named(&found), "{found:?}");
-    // The same reply without the gap passes each rule: the name comes from the gap.
+    assert!(all_pass(&found), "{found:?}");
     let clean = run(unchanged, dropping, dropping_settings()).unwrap_or_else(failed);
-    assert!(
-        clean.0.values().all(|(word, _)| word == "PASS"),
-        "{:?}",
-        clean.0
-    );
+    assert!(all_pass(&clean), "{:?}", clean.0);
 }
 
 #[test]
@@ -163,7 +153,7 @@ fn a_gap_inside_one_component_that_closes_a_module_cycle_is_kept() {
         dropping_settings(),
     )
     .unwrap_or_else(failed);
-    assert!(all_named(&dropped), "{dropped:?}");
+    assert!(all_pass(&dropped), "{dropped:?}");
 }
 
 #[test]

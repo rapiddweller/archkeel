@@ -223,3 +223,11 @@ mod tree_scope_tests;
 #[cfg(test)]
 #[path = "tree_edge_tests.rs"]
 mod tree_edge_tests;
+
+#[cfg(test)]
+#[path = "dropped_gap_tests.rs"]
+mod dropped_gap_tests;
+
+#[cfg(test)]
+#[path = "scoped_requires_tests.rs"]
+mod scoped_requires_tests;
