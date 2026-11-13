@@ -263,7 +263,14 @@ fn type_ignore_allowances_bind_each_field_and_cannot_hide_an_unread_file(
         json!({"constructs": ["type_ignore"], "allowed_type_ignores": [allowance]}),
         |v| {
             v["facts"]["capabilities"]["constructs"] =
-                json!([{"name": "type_ignore", "status": "partial"}]);
+                json!([{"name": "type_ignore", "status": "decided"}]);
+            if let Some(sections) = v["facts"]["sections"].as_array_mut() {
+                sections.push(json!({"name": "typing_signals", "records": []}));
+            }
+            v["facts"]["coverage"]["full_scope"] = json!(false);
+            v["facts"]["coverage"]["gaps"] = json!([{"id": "UNKNOWN-ignore-file", "evidence_class": "UNKNOWN",
+                "area": "source", "kind": "collection_gap", "title": "unread file", "subjects": [OWNER],
+                "evidence_ids": [], "fact_ids": [], "rule_ids": [], "provenance": [], "data": {"reason": "unread file", "module": OWNER}}]);
         },
     )?;
     assert!(matches!(decide(&unknown)?.verdict(), Verdict::Unknown));
