@@ -39,8 +39,10 @@ These limits are separate from the missing typed fact kinds.
 The recorded Python verdicts are 1 407 PASS, 34 FAIL and 65 UNKNOWN.
 The PR lists the option combinations. Counts join oracle rule ids to the fixture contracts and their overlays.
 Of these, 1 503 use the Python profile, one Dart and two TypeScript. None uses the Rust profile.
-Only the two TypeScript replies can pass the current store profile boundary.
-One uses a configured collector, so the stage-one shell still falls back there.
+The store accepts one TypeScript reply; its rule gives UNKNOWN. All other 1 505 rules have refused replies.
+The configured TypeScript collector sends an uncompressed reply, which the store refuses before profile checks.
+The actual CLI sweep decides 2/655 runs before and after; 651 fall back and two zero-rule PASS frames are rejected.
+Both zero-rule rejections reproduce with the pre-port core; neither case contains a construct rule. No new CLI difference appears.
 Recorded-input unit tests enter below the store only under `cfg(test)`; the binary has no such entry.
 The replay checks 1 467 Python-profile rules: 33 FAIL/FAIL, 38 UNKNOWN/UNKNOWN and 1 396 named stricter UNKNOWNs.
 The stricter outcomes name another, unported rule kind of the same run. No replay outcome is a weaker PASS.
