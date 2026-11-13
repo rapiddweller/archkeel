@@ -102,7 +102,10 @@ fn with_large_build_output(name: &str) -> (PathBuf, Root) {
 fn the_survey_charges_no_bytes_below_a_proven_cache_directory() {
     let (base, root) = with_large_build_output("cache");
     let refusal = survey(&root).unwrap_err();
-    assert!(refusal.contains("holds more than 1073741824 bytes"), "{refusal}");
+    assert!(
+        refusal.contains("holds more than 1073741824 bytes"),
+        "{refusal}"
+    );
     let mut tag = CACHE_SIGNATURE.to_vec();
     tag.extend_from_slice(b"\n# This file is a cache directory tag created by cargo.\n");
     fs::write(base.join("target").join(CACHE_TAG), tag).unwrap();
@@ -118,9 +121,16 @@ fn the_survey_charges_no_bytes_below_a_proven_cache_directory() {
 fn a_tag_without_the_signature_or_behind_a_link_proves_no_cache_directory() {
     let (base, root) = with_large_build_output("no-cache");
     let tag = base.join("target").join(CACHE_TAG);
-    for text in ["", "Signature: 0", "# Signature: 8a477f597d28d172789f06886806bc55"] {
+    for text in [
+        "",
+        "Signature: 0",
+        "# Signature: 8a477f597d28d172789f06886806bc55",
+    ] {
         fs::write(&tag, text).unwrap();
-        assert!(survey(&root).unwrap_err().contains("holds more than"), "{text}");
+        assert!(
+            survey(&root).unwrap_err().contains("holds more than"),
+            "{text}"
+        );
     }
     fs::remove_file(&tag).unwrap();
     fs::create_dir(&tag).unwrap();
@@ -137,7 +147,11 @@ fn a_tag_without_the_signature_or_behind_a_link_proves_no_cache_directory() {
     fs::create_dir_all(base.join("other")).unwrap();
     fs::write(base.join("other").join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
     fs::create_dir_all(base.join("target/debug/deps")).unwrap();
-    fs::write(base.join("target/debug/deps").join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    fs::write(
+        base.join("target/debug/deps").join(CACHE_TAG),
+        CACHE_SIGNATURE,
+    )
+    .unwrap();
     assert!(survey(&root).unwrap_err().contains("holds more than"));
     let _ = fs::remove_dir_all(base);
 }
