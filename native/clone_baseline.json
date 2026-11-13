@@ -1,34 +1,4 @@
 {
-  "dart/src/declarations/types.rs|rust/src/manifest.rs|4352a47949": {
-    "files": ["dart/src/declarations/types.rs", "rust/src/manifest.rs"],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 71
-  },
-  "dart/src/syntax.rs|rust/src/manifest.rs|95736307bd": {
-    "files": ["dart/src/syntax.rs", "rust/src/manifest.rs"],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 77
-  },
-  "dart/src/syntax.rs|rust/src/manifest.rs|233481258c": {
-    "files": ["dart/src/syntax.rs", "rust/src/manifest.rs"],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 70
-  },
-  "rust/src/lib.rs|typescript/src/lib.rs|9ac1f99895": {
-    "files": ["rust/src/lib.rs", "typescript/src/lib.rs"],
-    "reason": "The Rust module list moves unchanged from main.rs to lib.rs for AD-406 slice 2. This replaces the pinned main.rs module-list shape; no code was copied.",
-    "tokens": 71
-  },
-  "rust/src/lib.rs|typescript/src/lib.rs|0e6f6d8725": {
-    "files": ["rust/src/lib.rs", "typescript/src/lib.rs"],
-    "reason": "Each linked collector declares its own build provenance and compile-time test features (AD-406). These must bind to that crate's build and feature resolution. No collection logic repeats.",
-    "tokens": 111
-  },
-  "rust/src/manifest.rs|typescript/src/site_types.rs|54d9ebe401": {
-    "files": ["rust/src/manifest.rs", "typescript/src/site_types.rs"],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 77
-  },
   "contract/src/declarations.rs|contract/src/declarations.rs|0e79b575cf": {
     "files": [
       "contract/src/declarations.rs"
@@ -90,6 +60,22 @@
     ],
     "reason": "Exhaustive match tables of two closed enums (contract features to versions, reference forms to kinds) have one token shape; each arm names its own variant, and a new variant must fail to compile there. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
     "tokens": 75
+  },
+  "dart/src/syntax.rs|rust/src/manifest.rs|233481258c": {
+    "files": [
+      "dart/src/syntax.rs",
+      "rust/src/manifest.rs"
+    ],
+    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
+    "tokens": 70
+  },
+  "dart/src/syntax.rs|rust/src/manifest.rs|95736307bd": {
+    "files": [
+      "dart/src/syntax.rs",
+      "rust/src/manifest.rs"
+    ],
+    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
+    "tokens": 77
   },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
@@ -626,6 +612,30 @@
     ],
     "reason": "Derive lines and pub field lists of wire structs have one shape. No logic repeats.",
     "tokens": 80
+  },
+  "rust/src/lib.rs|typescript/src/lib.rs|0e6f6d8725": {
+    "files": [
+      "rust/src/lib.rs",
+      "typescript/src/lib.rs"
+    ],
+    "reason": "Each linked collector declares its own build provenance and compile-time test features (AD-406). These must bind to that crate's build and feature resolution. No collection logic repeats.",
+    "tokens": 111
+  },
+  "rust/src/lib.rs|typescript/src/lib.rs|9ac1f99895": {
+    "files": [
+      "rust/src/lib.rs",
+      "typescript/src/lib.rs"
+    ],
+    "reason": "The Rust module list moves unchanged from main.rs to lib.rs for AD-406 slice 2. This replaces the pinned main.rs module-list shape; no code was copied.",
+    "tokens": 71
+  },
+  "rust/src/manifest.rs|typescript/src/site_types.rs|54d9ebe401": {
+    "files": [
+      "rust/src/manifest.rs",
+      "typescript/src/site_types.rs"
+    ],
+    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
+    "tokens": 77
   },
   "store/src/shell.rs|store/src/shell.rs|161cd47fd0": {
     "files": [
