@@ -1,8 +1,8 @@
 {
-  "after_baseline_digest": "6897e8fbb3c533e37279b35437bede83579503a60860b5cac946c748dc42ec08",
-  "after_digest": "4d40c72d158d7faff47a545502cc1ecb2fb3d677afddfe823cbd2965401f1ef4",
-  "before_baseline_digest": "45870354f6b34255b5deebc4d17a671bfeb86dd7b6b7f6a38d0269453c561749",
-  "before_digest": "7d87e2a8c5d73df2ca8bf1122dd0c76749867b633fc2c8289e0a081141ba6676",
+  "after_baseline_digest": "9c9412395c69d1686d7c93b54755c52d8276d817f9e4b93bf9e449f46ee4c9b3",
+  "after_digest": "7d8606ecd81198f2d8771ea342f1830fbb50b7900cd865470d4054bd1c5cd857",
+  "before_baseline_digest": "5a5d527d9b3aea98091eed78b99313e5b489bef2ae37419988bda48239fc2b48",
+  "before_digest": "ae7bbb4c635f98ef30e47c44b30d49f595bd22412c5711390dcb876e556b9c23",
   "decided_by": "architect",
   "rationale": "AD-394 and the lead's L-75 decisions remove the Python TypeScript implementation and its exclusive nested owners, entry guard, enum placements and grammar rule. D1 adds only the exact SourceFacts and VerifiedBinary shell ports, the shared dependency runtime identity function, and the existing WideningFinding type at its amendment owner. The SourceFacts Target includes the host-only verification field, not a new wire field. The store fix uses the existing validate_decoded_facts and accept_store_facts decoder ports before identity registration; it changes no frame, schema or trust field. Exact Windows type-ignore permissions follow their statements after the decoder edit. After the conflict-required rebase onto 65d5df05a (#1102), the measured Python self-scan has zero violations and 1050 unresolved calls after deletion and this fix, versus that main's pinned 1028. Both counts rise by three from the preceding base. Pin that measured count; keep every other budget, Any restriction, receipt check and rule unchanged.",
   "schema_version": "2.0.0"
