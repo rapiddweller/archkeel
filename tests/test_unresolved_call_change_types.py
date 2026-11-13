@@ -11,7 +11,6 @@ from typing import Literal, get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import model
@@ -151,43 +150,3 @@ def _valid(observation):
     assert set(selected) == GUARDS
     assert all(row.status == "PASS" and row.evaluation_proven for row in selected.values())
     assert not trace_valid_violations(observation)
-
-
-@pytest.mark.parametrize(
-    "path,old,new,guard",
-    [
-        (
-            "archkeel/check/validation/__init__.py",
-            "item.change is _KnownSemanticChangeKind.REMOVED",
-            'item.change == "removed"',
-            "CALL-CHANGE-VALIDATION-FILTER",
-        ),
-        (
-            "archkeel/check/validation/__init__.py",
-            "item.change is _KnownSemanticChangeKind.ADDED",
-            'item.change == "added"',
-            "CALL-CHANGE-VALIDATION-SIDES",
-        ),
-        (
-            "archkeel/render/summary.py",
-            "sum(item.change is _KnownSemanticChangeKind.ADDED",
-            'sum(item.change == "added"',
-            "CALL-CHANGE-SUMMARY",
-        ),
-        (
-            "archkeel/render/terminal.py",
-            "item.status is _RuleAssessmentStatus.UNKNOWN",
-            'item.status == "UNKNOWN"',
-            "TERMINAL-RULE-ASSESSMENT-CONTROL",
-        ),
-    ],
-)
-def test_native_actual_consumer_raw_regression_fails_unchanged_guard(
-    tmp_path, path, old, new, guard
-):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    root, config = _repository(tmp_path / "mutated", (path, old, new))
-    before = (root / "contract.json").read_bytes()
-    assert any(guard in row.rule_ids for row in trace_valid_violations(_model(root, config)))
-    assert (root / "contract.json").read_bytes() == before

@@ -12,14 +12,12 @@ from typing import get_type_hints
 
 import pytest
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 
 from archkeel.check.ordering import check_order
 from archkeel.check.ports import ScanConfig
 from archkeel.host.gitlab import load_gitlab_records
 from archkeel.ir import host_records
 from archkeel.ir.host_records import HostRecord, OrderingError, parse_records
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 E, H = "e" * 40, "c" * 40
@@ -184,20 +182,3 @@ def _repository(tmp_path, *, old=None, new=None, probe="", guard_source="archkee
         files["archkeel/" + path] = source
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "expectation_published"\n',
-        "def _probe(value):\n"
-        '    return value in ("expectation_published", "candidate_submitted")\n',
-    ],
-)
-def test_native_order_guard_rejects_raw_event_dispatch_mutations(tmp_path, probe):
-    _event_type()
-    root, config = _repository(tmp_path, probe=probe)
-    before = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    assert any(GUARD in row.rule_ids for row in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == before

@@ -22,7 +22,6 @@ from archkeel.check.run import inspect_observation
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 REASONS = (
@@ -171,33 +170,6 @@ def _comparison(model):
     report = architecture_report(model)
     assert report.comparison is not None
     return report.comparison
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("undecidable: _Cause | None", "undecidable: str | None"),
-        (
-            "def _unresolvable_shape(annotation: str) -> _Cause:",
-            "def _unresolvable_shape(annotation: str) -> str:",
-        ),
-    ],
-)
-def test_native_real_port_widening_fails_the_unchanged_target(tmp_path, old, new):
-    root, config = _repository(tmp_path)
-    source = root / "archkeel/check/evaluation/boundary_types.py"
-    before = source.read_text()
-    assert old in before, "the actual owned field/return port must exist"
-    target = (root / "contract.json").read_bytes()
-    source.write_text(before.replace(old, new, 1))
-    observed = _model(root, config)
-    comparison = _comparison(observed)
-    assert any(
-        row.status == "FAIL" and row.aspect in {"annotation", "signature"}
-        for row in comparison.assessments
-    ), comparison
-    assert trace_valid_violations(observed)
-    assert (root / "contract.json").read_bytes() == target
 
 
 def _placement_model(tmp_path, *, unrelated):

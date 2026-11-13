@@ -11,13 +11,13 @@ import copy
 import io
 import json
 import random
-import tomllib
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
 
 import jsonschema
 import pytest
+from report_payload_support import CASES, EXPLORE, EXPLORE_ARGS
 
 from archkeel.cli import main
 from archkeel.report.payload import Evaluation, build_payload, codes, evaluation
@@ -28,14 +28,6 @@ from archkeel.report.payload.records import SECTIONS
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "schema" / "report-2.0.schema.json").read_text(encoding="utf-8"))
 VALIDATOR = jsonschema.Draft202012Validator(SCHEMA)
-CONFIGS = sorted(
-    str(path.relative_to(ROOT))
-    for pattern in ("fixtures/*/archkeel*.toml", "fixtures/*/*/archkeel*.toml")
-    for path in ROOT.glob(pattern)
-    if tomllib.loads(path.read_text())["scan"].get("language", "python") in {"rust", "typescript"}
-)
-EXPLORE = "explore:fixtures/H-uml-typescript"
-CASES = (*CONFIGS, EXPLORE)
 
 
 @cache
@@ -43,7 +35,7 @@ def _run(case: str, workdir: str) -> tuple[bytes, str]:
     """Run the current report once per case and return architecture.json and its result line."""
     output = Path(workdir) / case.replace("/", "_").replace(":", "_") / "architecture.json"
     if case == EXPLORE:
-        argv = ["explore", "--language", "typescript", "--root", str(ROOT / case.split(":", 1)[1])]
+        argv = [*EXPLORE_ARGS, "--root", str(ROOT / case.split(":", 1)[1])]
     else:
         config = ROOT / case
         argv = ["report", "--root", str(config.parent), "--config", config.name]

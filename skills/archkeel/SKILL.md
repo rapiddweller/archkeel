@@ -31,7 +31,7 @@ After the draft, continue with "Onboarding" below. When the owner wants to see t
 browser, use the `explore` skill with the same scope options as `explore`. Studio is local and
 writes nothing into the repository (AD-290).
 
-1. Run `archkeel explore --language <rust|typescript> --source <dir> --namespace <name> --json`.
+1. Run `archkeel explore --language <language> --source <dir> --namespace <name> --json`.
    Add `--tsconfig <file>` for TypeScript. It writes nothing into the repository. Check `scan_roots` as
    "Show a flow" step 2 tells. Keep the `findings` of the result.
 2. Run `archkeel report --input <snapshot> --only architecture --json`.
@@ -87,7 +87,7 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    `archkeel explore --source <dir> --namespace <package> --language <language> --json`.
    Use the same options when `scan_roots` is not the code in question. Keep `--language` when
    the language is not Python. If `src/` has no Python package, detection searches the root.
-   `<language>` is `python`, `typescript` or `dart`. For TypeScript, also pass `--tsconfig <file>`.
+   `<language>` is `rust` or `typescript`. For TypeScript, also pass `--tsconfig <file>`.
    The snapshot path is `artifact` in the result.
 3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
    the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`

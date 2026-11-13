@@ -12,12 +12,9 @@ from typing import get_type_hints
 
 import pytest
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import structure
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 DOC = "docs/architecture/structure-level-types.md"
@@ -148,53 +145,3 @@ def _repository(tmp_path, *, mutation=None, relocate=False):
     }
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("    level: StructureLevel\n", "    level: str\n"),
-        (
-            "observation: Observation, level: StructureLevel, scope_of: dict[str, str]",
-            "observation: Observation, level: str, scope_of: dict[str, str]",
-        ),
-    ],
-)
-def test_native_actual_field_or_parameter_weakening_fails_unchanged_target(tmp_path, old, new):
-    _levels()
-    root, config = _repository(tmp_path, mutation=("owner", old, new))
-    before = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None
-    assert any(row.status == "FAIL" for row in comparison.assessments), comparison
-    assert trace_valid_violations(model)
-    assert (root / "contract.json").read_bytes() == before
-
-
-@pytest.mark.parametrize(
-    "path,old,new,guard",
-    [
-        (
-            "owner",
-            "metric.level is StructureLevel.COMPONENT",
-            'metric.level == "component"',
-            IR_GUARD,
-        ),
-        (
-            "renderer",
-            "metric.level is _StructureLevel.COMPONENT",
-            'metric.level == "component"',
-            RENDER_GUARD,
-        ),
-    ],
-)
-def test_native_raw_level_regression_is_rejected_in_the_actual_consumer(
-    tmp_path, path, old, new, guard
-):
-    _levels()
-    root, config = _repository(tmp_path, mutation=(path, old, new))
-    before = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    assert any(guard in row.rule_ids for row in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == before

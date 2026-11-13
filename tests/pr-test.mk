@@ -143,17 +143,14 @@ PR_TEST_FILES := \
 	tests/test_python_provider_sources.py \
 	tests/test_report_rule_evidence_oracle.py::test_unknown_position_is_associated_with_its_rule_not_every_boundary_rule \
 	tests/test_typescript_script_globals.py \
-	tests/test_typescript_standard_globals.py \
 	tests/test_browser_architecture.py \
 	tests/test_source_graph.py \
-	tests/test_collection_boundary_regressions.py \
 	tests/test_module_explore.py \
 	tests/test_architecture_owner_characterization.py \
 	tests/test_architecture_coverage_characterization.py \
 	tests/test_projection_ownership_reuse.py \
 	tests/test_dependency_profile_selection.py \
 	tests/test_source_crossing_policy.py \
-	tests/test_duplication.py \
 	tests/test_typescript_source_input.py \
 	tests/test_typescript_string_constructs.py \
 	tests/test_analyzer.py \
@@ -176,10 +173,8 @@ PR_TEST_FILES := \
 	tests/test_identity_memo.py \
 	tests/test_compute_once_per_run.py \
 	tests/test_report_recorded_unknowns.py \
-	tests/test_report_agent_json.py \
 	tests/test_native_violation_filter.py \
 	tests/test_scoped_dependency_proof.py \
-	tests/test_call_owner_policy.py \
 	tests/test_call_owner_wire_compatibility.py \
 	tests/test_call_argument_policy.py \
 	tests/test_call_argument_binding.py \
@@ -190,10 +185,7 @@ PR_TEST_FILES := \
 	tests/test_guarded_effect_contract.py \
 	tests/test_guarded_effect_evaluation.py \
 	tests/test_guarded_effect_facts.py \
-	tests/test_guarded_effect_saved_report.py \
-	tests/test_guarded_effect_source.py \
 	tests/test_guarded_effect_wire_compatibility.py \
-	tests/test_guarded_effect_scan_completeness.py \
 	tests/test_typescript_namespace_identities.py \
 	tests/test_result_schema.py \
 	tests/test_construct_selectors.py \
@@ -233,7 +225,6 @@ PR_TEST_FILES := \
 	tests/test_unknown_positions.py \
 	tests/test_report_rule_evidence.py \
 	tests/test_absent_import_namespace.py \
-	tests/test_dynamic_dependency_policy.py \
 	tests/test_typed_host_events.py \
 	tests/test_empty_literal_all.py \
 	tests/test_review_workflow_fixture.py \

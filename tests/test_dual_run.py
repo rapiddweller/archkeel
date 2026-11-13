@@ -260,11 +260,10 @@ def test_the_oracles_hold_for_any_installed_version(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the venv layout of the test is POSIX")
 def test_the_oracles_hold_when_the_python_source_changes(tmp_path: Path) -> None:
-    """The binding reads the code digest of the package and of the collector. A comment in a
-    collector file changes both digests; the harness pins them, so the oracles stay valid."""
+    """The harness pins the package digest when a host support comment changes."""
     source = tmp_path / "src"
     shutil.copytree(REPOSITORY / "src", source, ignore=shutil.ignore_patterns("__pycache__"))
-    changed = source / "archkeel/analyzer/typescript/__init__.py"
+    changed = source / "archkeel/analyzer/__init__.py"
     changed.write_text(changed.read_text() + "# A planted comment changes the code digest.\n")
     python = _python_with(tmp_path, "0.0.0", source)
     imported = subprocess.run(

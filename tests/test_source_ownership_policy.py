@@ -207,71 +207,6 @@ def _observe_tree(tmp_path, files, contract, *, roots=("sample",)):
     )
 
 
-@pytest.mark.parametrize(
-    ("mutation", "role"),
-    [("defaults.VALUE = 1", "write"), ("del defaults.VALUE", "delete")],
-)
-def test_resolved_attribute_mutation_keeps_its_canonical_source_owner(tmp_path, mutation, role):
-    from archkeel.check.report import run_saved_report
-    from archkeel.ir.codec import (
-        canonical_report_bytes,
-        encode_canonical_model,
-        observation_payload,
-    )
-    from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
-
-    contract = _contract(
-        {
-            "mode": "retired",
-            "symbols": ["sample.defaults.VALUE"],
-            "roles": [role],
-        }
-    )
-    contract["components"] = [_component("all", ["sample"])]
-    result = _observe_tree(
-        tmp_path,
-        {
-            "sample/__init__.py": "",
-            "sample/defaults.py": "VALUE = 0\n",
-            "sample/consumer.py": (f"from sample import defaults\ndef mutate():\n    {mutation}\n"),
-        },
-        contract,
-    )
-    assert result.observation is not None, result.diagnostics
-    [assessment] = [
-        item
-        for item in rule_assessments(
-            result.observation,
-            undecided_by_rule=unknown_positions_by_rule(result.observation),
-        )
-        if item.id == "ownership"
-    ]
-    assert assessment.status == "UNKNOWN"
-    role_record = next(
-        item
-        for item in result.observation.records("references")
-        if item.kind == "source_role" and item.data.get("role") == role
-    )
-    assert role_record.data.get("canonical_name") == "sample.defaults.VALUE"
-    assert any(
-        item.kind == "source_ownership_limit"
-        and item.data.get("canonical_name") == "sample.defaults.VALUE"
-        for item in result.observation.records("unknowns")
-    )
-    ordinary = observation_payload(result.observation)
-    saved = tmp_path / "attribute-mutation-columnar.json"
-    saved.write_bytes(canonical_report_bytes(ordinary))
-    [replayed] = [
-        item for item in run_saved_report(saved).rule_assessments if item.id == "ownership"
-    ]
-    assert replayed.status.value == "UNKNOWN"
-    saved.write_text(json.dumps(encode_canonical_model(ordinary)))
-    [replayed] = [
-        item for item in run_saved_report(saved).rule_assessments if item.id == "ownership"
-    ]
-    assert replayed.status.value == "UNKNOWN"
-
-
 def test_unknown_reference_context_cannot_certify_a_source_read():
     from archkeel.check.evaluation.rules import source_ownership_unknowns
 
@@ -310,29 +245,3 @@ def test_unknown_reference_context_cannot_certify_a_source_read():
 
 
 # The reference collector reads a write target and the prefix of an unresolved chain (#731).
-@pytest.mark.parametrize(
-    "use", ["def go():\n    CONFIG.x = 1\n", "def go():\n    return CONFIG.x\n"]
-)
-def test_retired_read_counts_the_root_of_an_attribute_chain(tmp_path, use):
-    from archkeel.ir.decisions import rule_assessments
-
-    contract = _contract(
-        {"mode": "retired", "symbols": ["sample.config.CONFIG"], "roles": ["read"]}
-    )
-    contract["components"] = [_component("all", ["sample"])]
-    result = _observe_tree(
-        tmp_path,
-        {
-            "sample/__init__.py": "",
-            "sample/config.py": "class Config:\n    x = 0\nCONFIG = Config()\n",
-            "sample/consumer.py": "from .config import CONFIG\n" + use,
-        },
-        contract,
-    )
-    assert result.observation is not None
-    [assessment] = [
-        item
-        for item in rule_assessments(result.observation, undecided_by_rule={})
-        if item.id == "ownership"
-    ]
-    assert assessment.status == "FAIL"

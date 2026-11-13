@@ -24,6 +24,17 @@ CONFIGS = sorted(
 )
 EXPLORE = "explore:fixtures/H-uml-typescript"
 CASES = (*CONFIGS, EXPLORE)
+EXPLORE_ARGS = (
+    "explore",
+    "--language",
+    "typescript",
+    "--source",
+    "src",
+    "--namespace",
+    "demo",
+    "--tsconfig",
+    "tsconfig.json",
+)
 
 
 @dataclass(frozen=True)
@@ -58,7 +69,7 @@ def run_case(case: str, workdir: str) -> Run:
     """Run the current report once per case, then `report --input ... --only architecture`."""
     output = Path(workdir) / case.replace("/", "_").replace(":", "_") / "architecture.json"
     if case == EXPLORE:
-        argv = ["explore", "--language", "typescript", "--root", str(ROOT / case.split(":", 1)[1])]
+        argv = [*EXPLORE_ARGS, "--root", str(ROOT / case.split(":", 1)[1])]
         line = _main([*argv, "--output", str(output.parent), "--json"])
     else:
         config = ROOT / case

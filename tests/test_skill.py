@@ -598,7 +598,7 @@ def test_flow_section_teaches_the_whole_loop() -> None:
 
 @pytest.mark.parametrize(
     "argv",
-    _commands(_flow_section() + _section("First run on a codebase"), language="python"),
+    _commands(_flow_section() + _section("First run on a codebase"), language="typescript"),
     ids=" ".join,
 )
 def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:

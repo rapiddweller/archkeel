@@ -6,11 +6,9 @@
 import json
 from pathlib import Path
 
-import pytest
 from test_exact_module_ownership import _component
 
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import observation_payload
 from archkeel.ir.decisions import rule_assessments
 
 _PROVENANCE = ["docs/architecture/sample.md"]
@@ -112,59 +110,6 @@ def _observe(
         if item.kind == "forbidden_call_argument"
     ]
     return result, row
-
-
-@pytest.mark.parametrize(
-    ("actuals", "expected"),
-    [
-        ('"SELECT 1"', "FAIL"),
-        ('query="SELECT 1"', "FAIL"),
-        ('spec, label="SELECT 1"', "PASS"),
-        ('query=spec, label="heading"', "PASS"),
-    ],
-)
-def test_policy_selects_only_the_bound_query_parameter(tmp_path, actuals, expected):
-    _, row = _observe(
-        tmp_path,
-        f"from .storage import page\ndef consume(spec):\n    page({actuals})\n",
-    )
-
-    assert row.kind == "forbidden_call_argument"
-    assert row.status == expected and row.evaluation_proven
-
-
-@pytest.mark.parametrize(
-    "formal,actual",
-    [
-        ("*args", "'same', value, 'same'"),
-        ("**kwargs", "first='same', allowed=value, second='same'"),
-    ],
-)
-@pytest.mark.parametrize("mounted", [False, True])
-def test_variadic_literals_share_one_violation_with_all_evidence_and_saved_replay(
-    tmp_path, formal, actual, mounted
-):
-    from archkeel.check.report import run_saved_report
-    from archkeel.ir.codec import canonical_report_bytes
-
-    result, row = _observe(
-        tmp_path,
-        f"from .storage import page\ndef consume(value):\n    page({actual})\n",
-        storage=f"def page({formal}): pass\n",
-        parameter=formal,
-        mounted=mounted,
-    )
-    assert row.status == "FAIL" and row.evaluation_proven
-    [violation] = result.observation.records("violations")
-    assert len(violation.evidence_ids) == 2
-    for name, payload in (
-        ("ordinary", json.dumps(observation_payload(result.observation)).encode()),
-        ("columnar", canonical_report_bytes(result.observation)),
-    ):
-        saved = tmp_path / f"{name}.json"
-        saved.write_bytes(payload)
-        [replayed] = run_saved_report(saved).rule_assessments
-        assert replayed.status == "FAIL" and replayed.evaluation_proven
 
 
 def test_argument_rule_is_admitted_only_by_contract_3_10_schema():

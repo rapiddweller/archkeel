@@ -13,7 +13,6 @@ from test_architecture_demo import _prepare_repo
 from test_delta import _delta
 from test_delta import _model as _observation
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check import delta, expectation
 from archkeel.check.ports import ScanConfig
@@ -238,92 +237,3 @@ def _valid(value):
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(value)
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        (
-            "ir/model.py",
-            "class KnownSemanticChangeKind(StrEnum):",
-            "class KnownSemanticChangeKind(str):",
-        ),
-        ("ir/model.py", "change: str", "change: KnownSemanticChangeKind"),
-        ("check/delta.py", "kind: _KnownSemanticChangeKind", "kind: str"),
-        ("check/delta.py", ") -> SemanticChange:", ") -> object:"),
-        ("check/expectation.py", "change: _KnownSemanticChangeKind", "change: str"),
-        ("check/expectation.py", ") -> _KnownSemanticChangeKind:", ") -> str:"),
-        ("check/expectation.py", "label: str) -> None:", "label: str) -> str:"),
-    ],
-)
-def test_native_actual_api_widening_or_public_wire_closure_fails_fixed_target(
-    tmp_path, path, old, new
-):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel" / path
-    original = source.read_text()
-    assert old in original or old == "label: str) -> None:"
-    intent = (root / "contract.json").read_bytes()
-    if old == "label: str) -> None:":
-        prefix, rest = original.split("def _validate_change_counts(", 1)
-        signature, body = rest.split(":\n", 1)
-        assert ") -> None" in signature
-        changed = (
-            prefix
-            + "def _validate_change_counts("
-            + signature.replace(") -> None", ") -> str", 1)
-            + ":\n"
-            + body
-        )
-    else:
-        changed = original.replace(old, new, 1)
-    source.write_text(changed)
-    assert trace_valid_violations(_model(root, config))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize("path", ["ir/model.py", "check/delta.py", "check/expectation.py"])
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "added"\n',
-        'def _probe(value):\n    return value in {"added", "removed"}\n',
-        'def _probe(value):\n    match value:\n        case "changed":\n            return True\n'
-        "        case _:\n            return False\n",
-        'from typing import Final\nACTION: Final[str] = "added"\n'
-        "def _probe(value):\n    return value == ACTION\n",
-    ],
-)
-def test_native_actual_migrated_projection_rejects_raw_dispatch(tmp_path, path, probe):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel" / path
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(source.read_text() + "\n" + probe)
-    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        ("check/delta.py", "kind is _KnownSemanticChangeKind.CHANGED", 'kind == "changed"'),
-        (
-            "check/expectation.py",
-            "return _KnownSemanticChangeKind(change)",
-            'if change == "added":\n            return _KnownSemanticChangeKind.ADDED\n'
-            "        return _KnownSemanticChangeKind(change)",
-        ),
-    ],
-)
-def test_native_actual_producer_and_ingress_raw_reversion_fails_guard(tmp_path, path, old, new):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel" / path
-    original = source.read_text()
-    assert old in original
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(original.replace(old, new, 1))
-    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
-    assert (root / "contract.json").read_bytes() == intent

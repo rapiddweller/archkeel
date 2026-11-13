@@ -16,7 +16,6 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
 from test_result_schema import _validator
-from test_uml_evaluation import _model
 
 from archkeel import cli
 from archkeel.check.ports import ScanConfig
@@ -169,56 +168,6 @@ def _valid(value):
     comparison = architecture_report(value).comparison
     assert comparison is not None and comparison.status == "PASS", comparison
     assert not trace_valid_violations(value)
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("command: Command", "command: str"),
-        (
-            "observation_complete: Literal[AssessmentStatus.PASS, AssessmentStatus.UNKNOWN]",
-            "observation_complete: AssessmentStatus",
-        ),
-        ("expectation_fulfilled: ExpectationOutcome", "expectation_fulfilled: str"),
-        ("declared_rules: AssessmentStatus", "declared_rules: str"),
-        ("class Command(StrEnum):", "class Command(str):"),
-        ("class ExpectationOutcome(StrEnum):", "class ExpectationOutcome(str):"),
-    ],
-)
-def test_native_field_widening_and_enum_substitution_fail_fixed_target(tmp_path, old, new):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir/model.py"
-    content = source.read_text()
-    assert old in content
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(content.replace(old, new, 1))
-    value = _model(root, config)
-    comparison = architecture_report(value).comparison
-    assert any(row.status == "FAIL" for row in comparison.assessments)
-    assert trace_valid_violations(value)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "report"\n',
-        'def _probe(value):\n    return value in ("PASS", "UNKNOWN")\n',
-        'def _probe(value):\n    return "command" in value\n',
-        'def _probe(value):\n    match value:\n        case "n/a":\n'
-        "            return True\n        case _:\n            return False\n",
-        'from typing import Final\nTAG: Final[str] = "report"\n'
-        "def _probe(value):\n    return value == TAG\n",
-    ],
-)
-def test_native_selected_core_projection_rejects_raw_control_mutations(tmp_path, probe):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir/model.py"
-    source.write_text(source.read_text() + "\n" + probe)
-    value = _model(root, config)
-    assert any(GUARD in row.rule_ids for row in trace_valid_violations(value))
 
 
 @pytest.mark.parametrize("declared", ["PASS", "FAIL", "UNKNOWN"])

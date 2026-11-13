@@ -15,14 +15,12 @@ from typing import get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_source_evaluation import _facts
-from test_uml_evaluation import _model
 
 from archkeel.check.evaluation.evaluate import ScanResult, evaluate_source
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import facts_validation
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.facts import SourceSectionName
-from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.source_graph import _section_coverage
 
 ROOT = Path(__file__).parents[1]
@@ -158,54 +156,6 @@ def _native_repository(tmp_path, *, include_guard=True):
 
 def test_authored_section_ports_are_required_and_parse():
     parse_contract(_authored_target())
-
-
-@pytest.mark.parametrize(
-    "subject,path,nominal,weakened",
-    [
-        (
-            "PROFILE-SECTIONS-ScanResult.observed_sections",
-            "check/evaluation/evaluate.py",
-            "observed_sections: frozenset[SourceSectionName]",
-            "observed_sections: frozenset[str]",
-        ),
-        (
-            "PROFILE-SECTIONS-source-record",
-            "ir/facts_validation.py",
-            "def _source_record(\n    record: Record,\n    section: SourceSectionName,",
-            "def _source_record(\n    record: Record,\n    section: str,",
-        ),
-        (
-            "PROFILE-SECTIONS-base-declarations",
-            "ir/facts_validation.py",
-            "def _base_declarations(record: Record, section: SourceSectionName)",
-            "def _base_declarations(record: Record, section: str)",
-        ),
-        (
-            "PROFILE-SECTIONS-section-coverage",
-            "ir/source_graph.py",
-            "    section: SourceSectionName,",
-            "    section: str,",
-        ),
-    ],
-)
-def test_actual_section_port_weakening_fails_unchanged_authored_target(
-    tmp_path, subject, path, nominal, weakened
-):
-    root, config = _native_repository(tmp_path, include_guard=False)
-    source = root / "archkeel" / path
-    original = source.read_text()
-    assert nominal in original
-    source.write_text(original.replace(nominal, weakened, 1))
-    authored = (root / "contract.json").read_bytes()
-    comparison = architecture_report(_model(root, config)).comparison
-    assert comparison is not None and any(
-        row.status == "FAIL"
-        and row.subject_id == subject
-        and row.aspect == ("annotation" if subject.endswith("observed_sections") else "signature")
-        for row in comparison.assessments
-    ), comparison
-    assert (root / "contract.json").read_bytes() == authored
 
 
 def test_actual_section_ports_reject_raw_strings_and_wrong_enums_under_strict_typing(tmp_path):

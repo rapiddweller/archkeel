@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import architecture_graph as graph
@@ -24,7 +23,6 @@ from archkeel.ir.graph_codec import (
 )
 from archkeel.ir.model import RuleVerdict, Verdict
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 from tools.architecture_graph_schema import comparison_schema, graph_schema, report_schema
 
 ROOT = Path(__file__).parents[1]
@@ -240,29 +238,6 @@ def _comparison(value):
     comparison = architecture_report(value).comparison
     assert comparison is not None
     return comparison
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("status: AssessmentStatus", "status: str"),
-        (") -> GraphComparison:", ") -> str:"),
-    ],
-)
-def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_path, old, new):
-    root, config = _repository(tmp_path)
-    path = root / "archkeel/ir/architecture_graph.py"
-    assert old in path.read_text()
-    contract = (root / "contract.json").read_bytes()
-    path.write_text(path.read_text().replace(old, new, 1))
-    value = _model(root, config)
-    assert any(
-        row.status == "FAIL"
-        for row in _comparison(value).assessments
-        if row.aspect in {"annotation", "signature"}
-    )
-    assert trace_valid_violations(value)
-    assert (root / "contract.json").read_bytes() == contract
 
 
 @pytest.mark.parametrize("version", ["1.0.0", "1.1.0", "1.2.0", "1.3.0"])

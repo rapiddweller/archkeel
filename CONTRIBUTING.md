@@ -102,7 +102,7 @@ still gives each area its files, matches the Full job matrix and keeps a valid `
 selection. A change to a `Makefile` variable (`UV`, `TEST_WORKERS`) does not start Full: the
 nightly run covers it. Full on `main` checks it after the merge. Name a new test file
 so that an area pattern matches it. Pages publishes only a passed Full run of the current
-`main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
+`main`. It uses the supported demo and native self-check output of that run, so it builds nothing
 again.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
@@ -167,7 +167,7 @@ Architecture contracts, baselines and amendments remain reviewed source files.
   the binary and its SBOM, then installs it and runs the binary
   ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
-  before and after, on the run the change targets (`make report-timing`, or a large repository).
+   before and after, on the supported project that the change targets.
   Below 10 % the change is discarded; record the measurement on the issue instead.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 - **Rust code follows measured rules** ([AD-327](docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md)).

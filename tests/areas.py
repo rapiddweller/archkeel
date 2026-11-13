@@ -72,7 +72,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_recursive_*.py",
         "test_requires_*.py",
         "test_dependency_*.py",
-        "test_dynamic_dependency_policy.py",
         "test_exact_*.py",
         "test_public_api_boundary.py",
         "test_module_object_grants.py",

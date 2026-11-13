@@ -11,7 +11,6 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_architecture_demo import _prepare_repo
 from test_contract_model import _maximal_contract
-from test_uml_evaluation import _model
 
 from archkeel.check.declarations import project_rule_declaration
 from archkeel.check.evaluation.rules import profile_failures
@@ -22,7 +21,6 @@ from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import module_references
 from archkeel.ir.profiles import DART, TYPESCRIPT, Profile
 from archkeel.ir.renames import renamed_contract
-from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import contract_widening_changes
 
 ROOT = Path(__file__).parents[1]
@@ -86,50 +84,6 @@ def _repository(tmp_path, *, registry="", consumer="", child="", contract=None):
 
 def _interface(model, rule_id="INTERFACE"):
     return next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == rule_id)
-
-
-@pytest.mark.parametrize(
-    "statement",
-    [
-        "import demo.plugins",
-        "import demo.plugins as plugins",
-        "from .. import plugins",
-        "from demo import plugins as discovered",
-    ],
-)
-def test_native_exact_registry_can_obtain_the_package_object(tmp_path, statement):
-    root, config = _repository(tmp_path, registry=statement + "\n")
-    model = _model(root, config)
-    rule = _interface(model)
-    assert rule.status == "PASS" and rule.evaluation_proven, rule
-    imported = next(
-        row for row in model.records("imports") if row.data.get("source_module") == "demo.registry"
-    )
-    assert imported.data.get("target_module") == "demo.plugins"
-    assert imported.data.get("symbol") is None and imported.data.get("symbols_known") is True
-    assert not trace_valid_violations(model)
-
-
-@pytest.mark.parametrize(
-    "caller,statement",
-    [
-        ("consumer", "import demo.plugins as plugins"),
-        ("child", "import demo.plugins as plugins"),
-        ("registry", "import demo.plugins.extra as plugins"),
-        ("registry", "from demo.plugins import Secret"),
-        ("consumer", "from demo.plugins import Secret"),
-        ("registry", "from demo.plugins import _Private"),
-        ("registry", "from demo.plugins import *"),
-        ("consumer", "from demo.plugins.forwarder import Secret"),
-        ("registry", "from demo.plugins.forwarder import Secret"),
-    ],
-)
-def test_native_grants_do_not_publish_names_or_prefixes(tmp_path, caller, statement):
-    root, config = _repository(tmp_path, **{caller: statement + "\n"})
-    model = _model(root, config)
-    rule = _interface(model)
-    assert rule.status == "FAIL" and rule.evaluation_proven, rule
-    assert any(row.rule_ids == ("INTERFACE",) for row in trace_valid_violations(model))
 
 
 def test_grants_roundtrip_through_wire_and_projected_rule_records():

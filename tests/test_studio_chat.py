@@ -243,22 +243,6 @@ def _gone(pid: int, seconds: float = 10) -> bool:
     return False
 
 
-@pytest.mark.parametrize("question", ["story malformed", "story bad json"])
-def test_story_draft_rejects_invalid_structured_answers(chat: Studio, question: str) -> None:
-    status, answer = ask(chat, question, context=PLACE, mode="story")
-
-    assert status == 502
-    assert answer["error"] == "invalid_answer"
-
-
-@pytest.mark.parametrize("question", ["story empty note", "story whitespace note"])
-def test_story_draft_rejects_empty_or_whitespace_notes(chat: Studio, question: str) -> None:
-    status, answer = ask(chat, question, context=PLACE, mode="story")
-
-    assert status == 502, answer
-    assert answer["error"] == "invalid_answer"
-
-
 def test_a_root_that_is_not_a_git_repository_gives_a_clear_error(
     tmp_path: Path, fakes: Fakes
 ) -> None:

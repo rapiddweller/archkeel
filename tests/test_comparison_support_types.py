@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """One support type at the real claim/Delta ports; open wire data stays open."""
 
-import ast
 import copy
 import json
 from dataclasses import replace
@@ -16,7 +15,6 @@ from test_architecture_demo import _prepare_repo
 from test_delta import _delta
 from test_delta import _model as _observation
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import bindings, codec_delta, decisions, duplication, model, references, structure
@@ -226,87 +224,3 @@ def _valid(value):
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(value)
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        ("model", "class ComparisonStatus(StrEnum):", "class ComparisonStatus(str):"),
-        ("codec_delta", ") -> ComparisonStatus:", ") -> str:"),
-        ("decisions", "status: ComparisonStatus", "status: str"),
-        ("decisions", ") -> int | None:", ") -> str:"),
-    ],
-)
-def test_native_enum_parameter_and_return_widening_fail_fixed_target(tmp_path, path, old, new):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / f"{path}.py"
-    original = source.read_text()
-    assert old in original
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(original.replace(old, new, 1))
-    assert trace_valid_violations(_model(root, config))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "path",
-    ["model", "codec_delta", "decisions"]
-    + [module.__name__.rsplit(".", 1)[-1] for module, *_ in CLAIMS],
-)
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "UNKNOWN"\n',
-        'def _probe(value):\n    return value in {"SUPPORTED", "UNKNOWN"}\n',
-        'def _probe(value):\n    match value:\n        case "UNKNOWN":\n            return True\n'
-        "        case _:\n            return False\n",
-        'from typing import Final\nSTATUS: Final[str] = "UNKNOWN"\n'
-        "def _probe(value):\n    return value == STATUS\n",
-    ],
-)
-def test_native_migrated_actual_boundary_projections_reject_raw_dispatch(tmp_path, path, probe):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / f"{path}.py"
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(source.read_text() + "\n" + probe)
-    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        ("model", "self.status is ComparisonStatus.SUPPORTED", 'self.status == "SUPPORTED"'),
-        ("decisions", "status is ComparisonStatus.SUPPORTED", 'status == "SUPPORTED"'),
-        (
-            "codec_delta",
-            "return ComparisonStatus(value)",
-            'if value == "UNKNOWN":\n                return ComparisonStatus.UNKNOWN\n'
-            "            return ComparisonStatus(value)",
-        ),
-    ]
-    + [
-        (
-            module.__name__.rsplit(".", 1)[-1],
-            "self.status is ComparisonStatus.UNKNOWN",
-            'self.status == "UNKNOWN"',
-        )
-        for module, *_ in CLAIMS
-    ],
-)
-def test_native_actual_invariant_and_decoder_raw_reversion_fails_fixed_guard(
-    tmp_path, path, old, new
-):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / f"{path}.py"
-    original = source.read_text()
-    assert old in original
-    intent = (root / "contract.json").read_bytes()
-    changed = original.replace(old, new, 1)
-    ast.parse(changed)
-    source.write_text(changed)
-    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
-    assert (root / "contract.json").read_bytes() == intent

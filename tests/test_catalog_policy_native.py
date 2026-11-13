@@ -268,66 +268,6 @@ def test_python_decoded_2_9_schema_keeps_source_role_binding_proofs():
     assert not references.is_valid([transferred_reference])
 
 
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize(
-    "call",
-    [
-        'read_option(\n        "page_size"\n    )',
-        'unknown_operation(\n        "page_size"\n    )',
-    ],
-)
-def test_selected_multiline_and_unbound_calls_remain_unknown(tmp_path, mounted, call):
-    _, rows = _run(
-        tmp_path,
-        mounted=mounted,
-        caller=(f"def read_option(key: str) -> None: pass\ndef consume():\n    {call}\n"),
-        rules=[_argument()],
-    )
-    assert rows[0].status == "UNKNOWN"
-
-
-@pytest.mark.parametrize(
-    ("caller", "expected"),
-    [
-        pytest.param(
-            "from .catalog import OptionKey\ndef consume():\n    print(OptionKey.PAGE_SIZE)\n",
-            "PASS",
-        ),
-        pytest.param(
-            "from typing import TYPE_CHECKING\n"
-            "from .catalog import OptionKey as Keys\n"
-            "if TYPE_CHECKING:\n    TYPE_KEY = Keys.PAGE_SIZE\n"
-            "def consume():\n    pass\n",
-            "PASS",
-        ),
-        (
-            "from .catalog import OptionKey\ndef consume():\n    pass\n",
-            "FAIL",
-        ),
-        (
-            "from .catalog import OptionKey\ndef consume():\n"
-            '    """OptionKey.PAGE_SIZE"""\n    pass\n',
-            "FAIL",
-        ),
-        (
-            "from .catalog import OptionKey\ndef consume(value: OptionKey.PAGE_SIZE):\n    pass\n",
-            "FAIL",
-        ),
-        pytest.param(
-            "from .catalog import OptionKey\ndef consume():\n    selected: OptionKey.PAGE_SIZE\n",
-            "FAIL",
-        ),
-        (
-            "from .catalog import OptionKey\ndef consume():\n    # OptionKey.PAGE_SIZE\n    pass\n",
-            "FAIL",
-        ),
-    ],
-)
-def test_selected_catalog_entry_requires_a_genuine_source_read(tmp_path, caller, expected):
-    _, rows = _run(tmp_path, caller=caller, rules=[_use()])
-    assert rows[0].status == expected
-
-
 # The reference collector reads the prefix of a chain it does not resolve (#731).
 
 

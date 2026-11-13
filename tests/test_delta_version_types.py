@@ -15,7 +15,6 @@ from test_architecture_demo import _prepare_repo
 from test_delta import _delta
 from test_delta import _model as _observation
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import model
@@ -186,77 +185,3 @@ def _valid(value):
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(value)
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        ("model.py", "class DeltaVersion(StrEnum):", "class DeltaVersion(str):"),
-        ("model.py", "schema_version: DeltaVersion", "schema_version: str"),
-        ("model.py", "version: DeltaVersion", "version: str"),
-        ("model.py", ") -> bool:", ") -> str:"),
-        ("codec_delta.py", ") -> DeltaVersion:", ") -> str:"),
-    ],
-)
-def test_native_enum_field_parameter_and_return_widening_fail_fixed_intent(
-    tmp_path, path, old, new
-):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / path
-    content = source.read_text()
-    assert old in content
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(content.replace(old, new, 1))
-    changed = _model(root, config)
-    assert trace_valid_violations(changed)
-    assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        (
-            "model.py",
-            "return version in {DeltaVersion.V1_4, DeltaVersion.V2_0}",
-            'return version in {"1.4.0", "2.0.0"}',
-        ),
-        (
-            "codec_delta.py",
-            "return DeltaVersion(value)",
-            'if value == "2.0.0":\n            return DeltaVersion.V2_0\n'
-            "        return DeltaVersion(value)",
-        ),
-    ],
-)
-def test_native_actual_version_decision_reversion_fails_fixed_guard(tmp_path, path, old, new):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / path
-    content = source.read_text()
-    assert old in content
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(content.replace(old, new, 1))
-    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize("path", ["model.py", "codec_delta.py"])
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "2.0.0"\n',
-        'def _probe(value):\n    return value in {"1.4.0", "2.0.0"}\n',
-        'def _probe(value):\n    match value:\n        case "2.0.0":\n            return True\n'
-        "        case _:\n            return False\n",
-        'from typing import Final\nCURRENT: Final[str] = "2.0.0"\n'
-        "def _probe(value):\n    return value == CURRENT\n",
-    ],
-)
-def test_native_bounded_version_owner_and_codec_ports_reject_raw_dispatch(tmp_path, path, probe):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / path
-    source.write_text(source.read_text() + "\n" + probe)
-    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))

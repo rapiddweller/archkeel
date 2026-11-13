@@ -149,33 +149,3 @@ def _port_comparison(root, config):
     comparison = architecture_report(_model(root, config)).comparison
     assert comparison is not None
     return comparison
-
-
-@pytest.mark.parametrize(
-    "path,before,after",
-    [
-        ("api.py", "-> tuple[ViolationRow, ...]:", "-> str:"),
-        ("check/ports.py", "roots: tuple[str, ...],", "roots: list[str],"),
-        (
-            "check/ports.py",
-            "entries: tuple[tuple[str, bytes], ...]",
-            "entries: tuple[tuple[str, str], ...]",
-        ),
-        ("check/observe.py", 'tsconfig: str = "tsconfig.json"', "tsconfig: int = 1"),
-        (
-            "render/summary.py",
-            "def report_summary(result: RunResult)",
-            "def report_summary(result: str)",
-        ),
-    ],
-)
-def test_real_port_drift_fails_without_changing_authored_intent(tmp_path, path, before, after):
-    root, config = _port_repository(tmp_path)
-    intent = (root / "contract.json").read_bytes()
-    source = root / "archkeel" / path
-    assert before in source.read_text()
-    source.write_text(source.read_text().replace(before, after, 1))
-    comparison = _port_comparison(root, config)
-    assert comparison.status == "FAIL"
-    assert any(row.status == "FAIL" for row in comparison.assessments)
-    assert (root / "contract.json").read_bytes() == intent

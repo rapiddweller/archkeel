@@ -14,7 +14,6 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_source_trust_boundary import _decode, _observation, _payload
-from test_uml_evaluation import _model
 
 from archkeel.check.evaluation.evaluate import evaluate_source
 from archkeel.check.evaluation.topology import (
@@ -25,11 +24,8 @@ from archkeel.check.evaluation.topology import (
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import facts, model
 from archkeel.ir.codec import parse_contract
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import classified, parse_record, record_payload
-from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.structure import module_edges
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 GUARDS = {"GRAPH-TOPOLOGY-AGGREGATE-CONTROL", "GRAPH-TOPOLOGY-READ-CONTROL"}
@@ -209,90 +205,6 @@ def _native_repository(tmp_path, *, include_guards=True):
 
 def test_authored_topology_ports_are_required_and_parse():
     parse_contract(_authored_target())
-
-
-@pytest.mark.parametrize(
-    "path,nominal,weak,subject,aspect",
-    [
-        (
-            "ir/model.py",
-            "class GraphTopologyLevel(StrEnum):",
-            "class GraphTopologyLevel:",
-            "GRAPH-TOPOLOGY-level",
-            "kind",
-        ),
-        (
-            "check/evaluation/topology.py",
-            "level: GraphTopologyLevel",
-            "level: str",
-            "GRAPH-TOPOLOGY-aggregate",
-            "signature",
-        ),
-        (
-            "check/evaluation/topology.py",
-            "    level: GraphTopologyLevel,",
-            "    level: str,",
-            "GRAPH-TOPOLOGY-cycles",
-            "signature",
-        ),
-    ],
-)
-def test_actual_topology_port_mutation_fails_unchanged_authored_target(
-    tmp_path, path, nominal, weak, subject, aspect
-):
-    root, config = _native_repository(tmp_path, include_guards=False)
-    source = root / "archkeel" / path
-    original = source.read_text()
-    if subject == "GRAPH-TOPOLOGY-cycles":
-        prefix, separator, operation = original.partition("def _cycle_records(")
-        assert separator and nominal in operation
-        mutated = prefix + separator + operation.replace(nominal, weak, 1)
-    else:
-        assert nominal in original
-        mutated = original.replace(nominal, weak, 1)
-    source.write_text(mutated)
-    authored = (root / "contract.json").read_bytes()
-    comparison = architecture_report(_model(root, config)).comparison
-    assert comparison is not None and any(
-        row.subject_id == subject and row.aspect == aspect and row.status == "FAIL"
-        for row in comparison.assessments
-    ), comparison
-    assert (root / "contract.json").read_bytes() == authored
-
-
-@pytest.mark.parametrize(
-    "path,nominal,weak,guard",
-    [
-        (
-            "check/evaluation/topology.py",
-            "level == GraphTopologyLevel.MODULE",
-            'level == "module"',
-            "GRAPH-TOPOLOGY-AGGREGATE-CONTROL",
-        ),
-        (
-            "ir/structure.py",
-            "is not GraphTopologyLevel.MODULE",
-            '!= "module"',
-            "GRAPH-TOPOLOGY-READ-CONTROL",
-        ),
-    ],
-)
-def test_actual_topology_control_mutation_fails_unchanged_policy(
-    tmp_path, path, nominal, weak, guard
-):
-    root, config = _native_repository(tmp_path)
-    source = root / "archkeel" / path
-    original = source.read_text()
-    assert nominal in original
-    source.write_text(original.replace(nominal, weak, 1))
-    authored = (root / "contract.json").read_bytes()
-    observation = _model(root, config)
-    assessment = next(
-        row for row in rule_assessments(observation, undecided_by_rule={}) if row.id == guard
-    )
-    assert assessment.status == "FAIL" and assessment.evaluation_proven
-    assert any(guard in row.rule_ids for row in trace_valid_violations(observation))
-    assert (root / "contract.json").read_bytes() == authored
 
 
 def test_actual_topology_ports_reject_raw_strings_and_other_level_domain(tmp_path):

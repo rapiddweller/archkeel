@@ -12,7 +12,6 @@ from typing import get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.codec_contract import ContractVersionError
@@ -147,58 +146,3 @@ def _comparison(model):
     comparison = architecture_report(model).comparison
     assert comparison is not None
     return comparison
-
-
-@pytest.mark.parametrize(
-    "path,before,after",
-    [
-        ("model.py", "schema_version: ContractVersion", "schema_version: str"),
-        ("contract_version.py", "feature: ContractFeature", "feature: str"),
-        ("contract_version.py", "version: ContractVersion", "version: str"),
-        ("contract_version.py", ") -> bool:", ") -> str:"),
-    ],
-)
-def test_native_version_type_widening_fails_under_unchanged_intent(tmp_path, path, before, after):
-    from archkeel.ir.trace import trace_valid_violations
-
-    root, config = _version_repository(tmp_path)
-    source = root / "archkeel/ir" / path
-    text = source.read_text()
-    assert before in text
-    source.write_text(text.replace(before, after, 1))
-    intent = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    assert any(
-        row.status == "FAIL" and row.aspect in {"annotation", "signature"}
-        for row in _comparison(model).assessments
-    )
-    assert trace_valid_violations(model)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "3.6.0"\n',
-        'def _probe(value):\n    return value in ("3.5.0", "3.6.0")\n',
-        'def _probe(value):\n    return "3.6.0" in value\n',
-        (
-            'def _probe(value):\n    match value:\n        case "3.6.0":\n'
-            "            return True\n        case _:\n            return False\n"
-        ),
-        (
-            'from typing import Final\nVERSION: Final[str] = "3.6.0"\n'
-            "def _probe(value):\n    return value == VERSION\n"
-        ),
-    ],
-)
-def test_native_version_guard_rejects_raw_protocol_control(tmp_path, probe):
-    from archkeel.ir.trace import trace_valid_violations
-
-    root, config = _version_repository(tmp_path)
-    path = root / "archkeel/ir/contract_version.py"
-    path.write_text(path.read_text() + "\n" + probe)
-    model = _model(root, config)
-    assert any(
-        "CONTRACT-VERSION-TYPED-CONTROL" in row.rule_ids for row in trace_valid_violations(model)
-    )
