@@ -89,7 +89,21 @@ def test_only_the_decoder_records_a_proof() -> None:
         for path in src.rglob("*.py")
         if re.search(r"\bvalidate_decoded_facts\b", path.read_text("utf-8"))
     }
-    assert users == {"ir/facts_codec.py", "ir/validated_facts.py"}
+    assert users == {"ir/facts_codec.py", "ir/validated_facts.py", "analyzer/process.py"}
+    # AD-394: the process decoder validates the new object after it attaches host metadata.
+    tree = ast.parse((src / "analyzer/process.py").read_text("utf-8"))
+    owners = {
+        function.name
+        for function in ast.walk(tree)
+        if isinstance(function, ast.FunctionDef)
+        and any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "validate_decoded_facts"
+            for node in ast.walk(function)
+        )
+    }
+    assert owners == {"_decode_response"}
 
 
 _SCALARS = (str, int, float, bool, bytes, type(None))

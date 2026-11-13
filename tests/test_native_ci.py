@@ -124,23 +124,54 @@ def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
 ) -> None:
     workflow = (WORKFLOWS / "release.yml").read_text()
     # PR 4.4 of issue #880 opens the gate in a reviewed change.
-    assert '\n  PUBLISH_NATIVE_WHEELS: "false"\n' in workflow
+    assert '\n  PUBLISH_NATIVE_WHEELS: "true"\n' in workflow
     build = _jobs("release.yml")["build"]
     assert "pattern: native-wheel-*\n" in build and "path: native-wheels/\n" in build
     step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")
     script = dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
     (tmp_path / "dist").mkdir()
     (tmp_path / "native-wheels").mkdir()
+    (tmp_path / "dist/archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
+    (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").write_bytes(b"pure")
     for tag in PLATFORM_TAGS:
         (tmp_path / "native-wheels" / f"archkeel-5.0.0-{tag}.whl").write_bytes(b"wheel")
-    subprocess.run(
+    result = subprocess.run(
         ["bash", "-c", script],
         cwd=tmp_path,
         env={**os.environ, "PUBLISH_NATIVE_WHEELS": gate},
-        check=True,
+        check=False,
         capture_output=True,
     )
-    assert len(list((tmp_path / "dist").iterdir())) == (len(PLATFORM_TAGS) if published else 0)
+    assert (result.returncode == 0) is published
+    assert len(list((tmp_path / "dist").glob("*.whl"))) == (len(PLATFORM_TAGS) if published else 1)
+    assert len(list((tmp_path / "dist").glob("*.tar.gz"))) == 1
+
+
+@pytest.mark.parametrize("wheels,sdists", [(n, 1) for n in range(8)] + [(6, 0), (6, 2)])
+def test_release_requires_exactly_six_platform_wheels_and_one_sdist(tmp_path, wheels, sdists):
+    build = _jobs("release.yml")["build"]
+    step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")
+    script = dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
+    (tmp_path / "dist").mkdir()
+    (tmp_path / "native-wheels").mkdir()
+    (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").write_bytes(b"pure")
+    for index in range(wheels):
+        (tmp_path / "native-wheels" / f"archkeel-5.0.0-py3-none-platform{index}.whl").write_bytes(
+            b"wheel"
+        )
+    for index in range(sdists):
+        (tmp_path / "dist" / f"archkeel-5.0.{index}.tar.gz").write_bytes(b"sdist")
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=tmp_path,
+        env={**os.environ, "PUBLISH_NATIVE_WHEELS": "true"},
+        capture_output=True,
+        text=True,
+    )
+    assert (result.returncode == 0) is (wheels == 6 and sdists == 1)
+    if result.returncode == 0:
+        assert len(list((tmp_path / "dist").glob("*.whl"))) == 6
+        assert not (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").exists()
 
 
 def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedProcess[str]:
@@ -157,7 +188,7 @@ def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedP
     existed = built.exists()
     try:
         return subprocess.run(
-            ["make", target, "UV=true"],
+            ["make", "-o", "typescript-collector", target, "UV=true"],
             cwd=ROOT,
             env={**_MAKE_ENV, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
             capture_output=True,
@@ -227,6 +258,9 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
 
 def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert (
+        "test full-test demos dual-run native-check native-corpus: typescript-collector" in makefile
+    )
     check = makefile.split("\nnative-check:\n")[1].split("\n# AD-335")[0]
     assert "tests/test_rust_clones.py tests/test_rust_api.py" in check
     assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check

@@ -131,6 +131,40 @@ archkeel --version
 This installs the current `main`, which includes Studio. The release on PyPI (`uv tool install archkeel`)
 does not have `archkeel studio` yet. Run it once without installing: `uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio`.
 
+TypeScript collection requires the native collector and its verified digest. There is no Python fallback.
+The next owner-started release publishes the six native platform wheels below.
+A pure wheel, an sdist install and an editable install do not contain the binary.
+On these installs, a TypeScript scan stops with `typescript_collector_missing_binary` and exit code 2.
+Install a platform wheel with `python -m pip install --only-binary=:all: --upgrade archkeel`.
+
+| Platform | Wheel target |
+|---|---|
+| Linux glibc 2.17+, x86_64 | `manylinux_2_17_x86_64` |
+| Linux glibc 2.17+, aarch64 | `manylinux_2_17_aarch64` |
+| Linux musl 1.2+, x86_64 | `musllinux_1_2_x86_64` |
+| macOS 10.12+, x86_64 | `macosx_10_12_x86_64` |
+| macOS 11+, arm64 | `macosx_11_0_arm64` |
+| Windows, x86_64 | `win_amd64` |
+
+Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lose TypeScript scanning
+with the Python fallback removed. Without a supported native collector, scans fail closed with exit 2.
+The release contains exactly six platform wheels and one sdist; it does not publish the pure wheel.
+
+Full verification builds and tests each target with its native binaries and SHA-256 files.
+The sdist omits the Rust workspace. Build native tools from a Git checkout, not from the sdist.
+For TypeScript in a source checkout, install Rust and run:
+
+```bash
+uv sync --locked
+make typescript-collector
+uv run archkeel --version
+```
+
+To install outside the checkout, run `make native-tools native-wheel`, then install the wheel from `dist/native/`.
+The wheel build supports Linux glibc x86_64/aarch64, Linux musl x86_64, macOS x86_64/arm64 and Windows x86_64.
+An install without a verified collector stops with `missing_tool`, exit code 2, and no report.
+An explicit `[scan].collector_argv` remains supported.
+
 ### Claude Code
 
 ```bash
@@ -370,8 +404,9 @@ Read the [docs](docs/README.md).
 
 ## Development
 
-Python, TypeScript and Dart analysis use the Python installation. Building or running the
-Flutter demo itself still requires Flutter; report generation does not.
+The Python and Dart collectors use Python. The TypeScript collector uses the bundled Rust binary.
+Run `make typescript-collector` after `uv sync --locked` in a source checkout.
+Building or running the Flutter demo still requires Flutter; report generation does not.
 
 ```bash
 make check              # lint, types, logic tests

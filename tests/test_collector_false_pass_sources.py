@@ -217,7 +217,9 @@ def test_a_construct_that_reaches_a_forbidden_module_gives_no_pass(
         # A crash or an invalid reply ends the scan as a parse error: no verdict, not an UNKNOWN.
         assert "parse_error" not in item["diagnostics"], f"{name}: {producer}: no valid reply"  # type: ignore[operator]
         requires = dict(item["rules"]).get("REQUIRES")  # type: ignore[call-overload]
-        assert requires != "PASS", f"{name}: REQUIRES passes with the {producer} collector"
+        assert requires is not None and requires[1] != "PASS", (
+            f"{name}: REQUIRES is absent or passes with the {producer} collector"
+        )
 
 
 def test_a_real_edge_stays_fail_beside_an_effect_gap_in_another_file(
@@ -227,4 +229,6 @@ def test_a_real_edge_stays_fail_beside_an_effect_gap_in_another_file(
     # A runtime-effect gap makes a PASS impossible; it must not turn a found violation into UNKNOWN.
     found = _verdicts(tmp_path, "edge-and-effect-gap", bundled_directory)
     for producer, item in zip(("Python", "native"), found, strict=True):
-        assert dict(item["rules"]).get("REQUIRES") == "FAIL", f"{producer}: {item['rules']}"  # type: ignore[call-overload]
+        assert dict(item["rules"]).get("REQUIRES") == ["complete_requires", "FAIL"], (  # type: ignore[call-overload]
+            f"{producer}: {item['rules']}"
+        )

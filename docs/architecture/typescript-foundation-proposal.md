@@ -1,8 +1,7 @@
 # TypeScript adapter decision
 
-Status: superseded by [AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md).
-The frontend in `archkeel.analyzer.typescript` collects TypeScript; the old npm collector is
-removed.
+Status: superseded by [AD-394](decisions/ad-394-typescript-collection-requires-the-verified-native-binary.md).
+The native collector in `native/typescript` collects TypeScript. The Python analyzer is deleted.
 
 The collector emits validated `SourceFacts`; Core owns policy and verdicts. See the
 [language-adapter target](language-adapter-target.md) for the boundary.

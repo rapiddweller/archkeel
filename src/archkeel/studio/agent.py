@@ -160,10 +160,19 @@ def _tree_state(root: Path) -> tuple[bytes, tuple[tuple[int, int] | None, ...]]:
     return done.stdout, tuple(places)
 
 
+def _signal_group(child: "subprocess.Popen[bytes]", signum: int) -> None:
+    try:
+        os.killpg(child.pid, signum)
+    except PermissionError:
+        # macOS returns EPERM for an exited group leader until its parent reaps it.
+        child.poll()
+        os.killpg(child.pid, signum)
+
+
 def _end(child: "subprocess.Popen[bytes]") -> None:
     """Interrupt the process group of the child, kill it after the grace time and reap the child."""
     try:
-        os.killpg(child.pid, signal.SIGINT)
+        _signal_group(child, signal.SIGINT)
     except ProcessLookupError:
         pass
     except AttributeError:  # Windows has no process groups: only the child ends
@@ -172,7 +181,7 @@ def _end(child: "subprocess.Popen[bytes]") -> None:
         child.wait(_GRACE_SECONDS)
     # The group can hold grandchildren after the child has gone.
     try:
-        os.killpg(child.pid, signal.SIGKILL)
+        _signal_group(child, signal.SIGKILL)
     except ProcessLookupError:
         pass
     except AttributeError:

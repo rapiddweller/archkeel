@@ -21,7 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 # Stdlib has no PEP 440 specifier parser and no styled terminal or help output.
-# Dart and TypeScript need grammar parsers to observe declarations and expression sites.
+# The Python-hosted Dart collector needs its grammar parser.
 dependencies = [
     "packaging>=24.2,<27",
     "filelock==4.0.10",
@@ -29,7 +29,6 @@ dependencies = [
     "rich-argparse>=1.6,<2",
     "tree-sitter>=0.26,<0.27",
     "tree-sitter-dart==0.1.0",
-    "tree-sitter-typescript>=0.23.2,<0.24",
 ]
 
 [project.urls]
@@ -68,6 +67,7 @@ replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 packages = ["src/archkeel"]
 # AD-290: the Studio sources build studio.js; the wheel ships only what the server serves.
 exclude = [
+  "src/archkeel/_native",
   "src/archkeel/cli/assets/SKILL.md",
   "src/archkeel/studio/ui/*.ts",
   "src/archkeel/studio/ui/*.tsx",
@@ -92,6 +92,7 @@ path = "native/hatch_build.py"
 # tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
 # The wheel hook is a build input; the native sources are not, so an sdist never runs cargo.
 only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py"]
+exclude = ["src/archkeel/_native"]
 
 [dependency-groups]
 # Pytest preserves analyzer tests, Ruff checks style, and MyPy enforces the static boundary.

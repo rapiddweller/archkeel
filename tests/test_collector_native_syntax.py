@@ -4,7 +4,7 @@
 """AD-323: the native walk reads the same syntax facts as `parse.parse()`.
 
 Consumer: the later phases of the native collector, which build records on these facts. The oracle
-is the unmodified Python `parse.parse()`. The `dump` feature of the native collector prints the
+is the recorded output of the unchanged Python parser. The native `dump` feature prints the
 facts of each file as JSON, and this test compares them field by field with the fields of
 `Syntax`: definitions, import bindings, module exports, rebound names, ambient names, the module
 flags, the names bound at the top of the file, and the sites with the string comparisons (calls,
@@ -15,8 +15,6 @@ and escape flags of a script). The release binary has no `dump` feature.
 from __future__ import annotations
 
 import contextlib
-import dataclasses
-import enum
 import json
 import locale
 import os
@@ -29,6 +27,7 @@ from pathlib import Path
 
 import pytest
 from conftest import build_native_copy
+from recorded_typescript import read as recorded
 from script_fields import SCRIPT_FIELDS
 from test_collector_native_imports import (
     COMMONJS,
@@ -42,8 +41,6 @@ from test_collector_native_imports import (
     _random_source,
     _write,
 )
-
-from archkeel.analyzer.typescript import parse
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
@@ -69,8 +66,8 @@ FIELDS = (
     "sites",
     "string_comparisons",
 )
-# A private corpus: the folder of a local React UI. Only totals are printed.
-PRIVATE_UI = "ARCHKEEL_PRIVATE_UI"
+# A named public corpus. The recorder verifies its repository origin before reading it.
+PUBLIC_UI = "ARCHKEEL_PUBLIC_EXCALIDRAW"
 # The number of mutated copies of real files. The review of PR 4.2 used 3 000.
 MUTANTS = "ARCHKEEL_SYNTAX_MUTANTS"
 
@@ -101,17 +98,6 @@ def _c_locale() -> Iterator[None]:
         locale.setlocale(locale.LC_CTYPE, saved)
 
 
-def _plain(value: object) -> object:
-    """Turn a fact of `Syntax` into JSON data, so that a difference prints as text."""
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {f.name: _plain(getattr(value, f.name)) for f in dataclasses.fields(value)}
-    if isinstance(value, enum.Enum):
-        return value.value
-    if isinstance(value, (list, tuple)):
-        return [_plain(item) for item in value]
-    return value
-
-
 def _in_document_order(bindings: object) -> object:
     """The import bindings with their statements in document order.
 
@@ -123,15 +109,8 @@ def _in_document_order(bindings: object) -> object:
     return sorted(bindings, key=lambda item: (item["span"]["line"], item["span"]["column"]))
 
 
-def _python(rel: str, data: bytes) -> dict[str, object] | None:
-    """The facts of the oracle; `None` where it fails on the depth of the tree."""
-    try:
-        syntax = parse.parse(rel, data)
-    except RecursionError:
-        return None
-    facts = {name: _plain(getattr(syntax, name)) for name in FIELDS}
-    facts["import_bindings"] = _in_document_order(facts["import_bindings"])
-    return facts
+def _python(rel: str, data: bytes, source: Path = ROOT) -> dict[str, object] | None:
+    return recorded("syntax", rel, data, source)  # type: ignore[no-any-return]
 
 
 def _native(binary: Path, files: list[File]) -> list[dict[str, object]]:
@@ -198,11 +177,15 @@ def compare(binary: Path, files: Iterable[File]) -> Result:
                 continue
             native = reply["syntax"]
             native["import_bindings"] = _in_document_order(native["import_bindings"])
-            result.add(rel, native, _python(rel, path.read_bytes()))
+            result.add(rel, native, _python(rel, path.read_bytes(), path))
     return result
 
 
 def _sources(root: Path, under: str = ".") -> list[File]:
+    if os.environ.get("ARCHKEEL_RECORD_MAIN_WORKTREE"):
+        from tools.record_typescript_calls import source_tree
+
+        source_tree(root / under)
     base = root / under
     found = [
         path
@@ -713,16 +696,18 @@ def test_the_release_binary_has_no_dump_feature(native_binary: Path) -> None:
     assert done.stdout == b""
 
 
-def test_a_private_corpus_syntax_equals_the_python_parser(dump_binary: Path) -> None:
-    folder = os.environ.get(PRIVATE_UI)
+def test_a_public_corpus_syntax_equals_the_python_parser(dump_binary: Path) -> None:
+    folder = os.environ.get(PUBLIC_UI)
     if not folder or not Path(folder).is_dir():
-        pytest.skip(f"{PRIVATE_UI} names no folder")
+        pytest.skip(f"{PUBLIC_UI} names no folder")
     root = Path(folder)
+    from tools.record_typescript_calls import source_name
+
+    source_name(root)
     files = _sources(root)
     result = compare(dump_binary, files)
-    # Totals only: a private corpus must not leak a name into a report.
     print(
-        f"private corpus: {result.files} files, {len(result.differences)} differences, "
+        f"public corpus: {result.files} files, {len(result.differences)} differences, "
         f"{result.python_failed} oracle failures, "
         + ", ".join(f"{name} {count}" for name, count in sorted(result.counts.items()))
     )

@@ -3,6 +3,8 @@
 **Status.** Accepted. Epic #880, PR 4.3a-5. It extends AD-340 and AD-344 and removes the gap of
 AD-320.
 
+**Replaced by AD-394.** The Python analyzer is deleted. The oracle is recorded, and a missing or unverified native binary stops with exit code 2.
+
 **Decision.**
 1. The reply of `archkeel-typescript-collector` equals the reply of the unmodified Python
    collector in every field: files, inputs, evidence, targets, capabilities, the seven sections,
@@ -27,7 +29,7 @@ AD-320.
 4. `ProducerKind.BUNDLED` is the native collector of this package. A platform wheel carries the
    binary and `<binary>.sha256` (`native/hatch_build.py`). `observer_for` gives the TypeScript
    scan this binary when both files are there, with the digest as its pin and the version check of
-   AD-319. Without the pair the Python collector runs, as before. A `collector_argv` stays
+   AD-319. AD-394 removes the former Python fallback. A `collector_argv` stays
    `external` or `pinned` whatever the install holds. Observation schema 2.10.0 allows `bundled`.
 5. `bundled` is trusted like `python`: it can give PASS. The member inventory proof accepts the
    runtime of a bundled binary (it demanded Python 3.11, which the Rust runtime cannot declare).

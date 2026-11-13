@@ -197,6 +197,22 @@ checks 3.12, 3.13 and 3.14 (#724, #743).
 
 ## TypeScript profile
 
+TypeScript requires the verified native collector. A missing binary, missing digest, unreadable binary
+or incorrect digest stops the run with exit code 2 and no report. There is no Python fallback.
+The next owner-started release publishes the six platform wheels that Full verification builds:
+`manylinux_2_17_x86_64`, `manylinux_2_17_aarch64`, `musllinux_1_2_x86_64`,
+`macosx_10_12_x86_64`, `macosx_11_0_arm64`, and `win_amd64`.
+Install one with `python -m pip install --only-binary=:all: --upgrade archkeel`.
+A pure wheel, sdist or editable install has no binary. The sdist also omits the Rust workspace.
+These installs give `typescript_collector_missing_binary`, not an empty scan or PASS.
+Run `make typescript-collector` from a source checkout, or configure an external `collector_argv`.
+Only this run's verified bundled binary can certify native partial dependency scopes.
+A saved native receipt alone has no live verification fact and stays UNKNOWN when replayed.
+The `.sha256` file sits beside the binary. Verification assumes that the install is not writable
+by an attacker. Replacing both files, or the installed Python code, is outside this trust claim.
+Runtime-name claims from configured or saved TypeScript, Dart or Rust observations do not prove a scope.
+Only observations of the Python analyzer keep the existing Python lower-bound receipt path.
+
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;
 they do not provide compiler type checking or Python-style symbol/type rules.

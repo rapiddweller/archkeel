@@ -6,8 +6,7 @@
 import sys
 from typing import Final
 
-# The Python TypeScript collector peaks at 973 MiB of address space on the 907 files of the React UI
-# corpus (Linux, 3 runs: 966 to 973 MiB). The limit is about four times that peak (AD-319).
+# AD-319: keep the 4 GiB address-space limit for supported collector processes.
 COLLECTOR_MEMORY_LIMIT_BYTES: Final = 4 * 1024**3
 _MIB: Final = 1024**2
 # The text that Python, Rust, glibc and Node.js write when an allocation fails.

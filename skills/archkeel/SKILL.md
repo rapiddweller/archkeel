@@ -5,6 +5,9 @@ description: Use when meeting a new or unknown codebase ("explain this codebase"
 
 # Archkeel
 
+TypeScript requires the verified native collector. In a source checkout, run `make typescript-collector` after `uv sync --locked`.
+A missing binary or digest stops with `missing_tool`, exit code 2, and no report. There is no Python fallback.
+
 Archkeel is a deterministic architecture checker. It observes Python, TypeScript and Dart imports, evaluates a
 declared contract of components and rules against that observation, and distinguishes
 PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested

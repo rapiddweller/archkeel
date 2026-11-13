@@ -1,5 +1,7 @@
 # AD-261 TypeScript standard globals come from TypeScript's own lib files
 
+**Updated by AD-394.** The generator now writes only `native/typescript/standard_libs.json`. The Python copy is deleted.
+
 **Decision.**
 - A JSX attribute name (`className`, `onClick`, `data-x`) names a prop. It is never
   a reference to a binding, so it creates no site. A variable with the same name still does.

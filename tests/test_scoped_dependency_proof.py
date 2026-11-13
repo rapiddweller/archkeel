@@ -11,13 +11,14 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from collector_pin import trusted
+from native_typescript import trusted
 from test_result_schema import current_validator as current_validator
 from test_typescript_partial_uml import _TypeScriptCollector
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
-from archkeel.ir.codec import decode_canonical_model, parse_observation, result_payload
+from archkeel.check.report import run_report_with_observation as observed
+from archkeel.ir.codec import parse_observation, result_payload
 from archkeel.ir.decisions import rule_assessments, rule_uncertainty_evidence
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import Evidence, EvidenceClass, Record, RecordData, Section, stable_id
@@ -211,9 +212,9 @@ def _project(root: Path, *, dynamic_a: bool = False, forbidden: bool = False):
 
 def _report(root: Path, **options):
     config = _project(root, **options)
-    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
-    assert encoded is not None
-    return result, encoded, parse_observation(decode_canonical_model(json.loads(encoded)))
+    result, encoded, model = observed(root, config=config, analyzer=trusted(_TypeScriptCollector()))
+    assert encoded is not None and model is not None
+    return result, encoded, model
 
 
 def _rows(model):
@@ -378,9 +379,7 @@ def test_unaffected_nested_requires_passes_with_partial_global_coverage(tmp_path
     saved_path = tmp_path / "saved.json"
     saved_path.write_bytes(encoded)
     saved = run_saved_report(saved_path)
-    assert {row.id: row.status for row in saved.rule_assessments or ()} == {
-        key: row.status for key, row in rows.items()
-    }
+    assert {r.id: r.status for r in saved.rule_assessments or ()} == {k: "UNKNOWN" for k in rows}
     _, repeated = run_report(
         tmp_path / "project",
         config=ScanConfig(
@@ -417,36 +416,33 @@ def test_target_authentication_failure_revokes_scoped_proof(tmp_path: Path):
     assert _rows(changed.observation)["a:requires"].status == "UNKNOWN"
 
 
-def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
-    from dataclasses import replace as variant_replace
-
-    from fixtures.architecture_demo import materialized_fixture
+def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules(tmp_path: Path):
     from fixtures.demo_catalog_nest_realworld import VARIANTS
+    from fixtures.reproduce_typescript import repository
 
     baseline = VARIANTS[0]
     relative = "src/user/user.service.ts"
-    changed = variant_replace(
+    changed = replace(
         baseline,
         files={
             relative: (baseline.fixture / relative).read_text()
             + "\nexport const loader = (id: string) => import(id);\n"
         },
     )
-    with materialized_fixture(changed) as root:
-        result, encoded = run_report(
-            root,
-            config=ScanConfig(
-                ("src",),
-                "nestjs.realworld",
-                "architecture-contract.json",
-                "unused",
-                language="typescript",
-                tsconfig="tsconfig.build.json",
-            ),
-            analyzer=trusted(_TypeScriptCollector(), tsconfig="tsconfig.build.json"),
-        )
-    assert encoded is not None and result.exit_code == 2
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    root = repository(tmp_path, changed)
+    result, encoded, model = observed(
+        root,
+        config=ScanConfig(
+            ("src",),
+            "nestjs.realworld",
+            "architecture-contract.json",
+            "unused",
+            language="typescript",
+            tsconfig="tsconfig.build.json",
+        ),
+        analyzer=trusted(_TypeScriptCollector(), tsconfig="tsconfig.build.json"),
+    )
+    assert encoded is not None and model is not None and result.exit_code == 2
     rows = _rows(model)
     assert rows["Account and authentication:REQUIRES-COMPLETE"].status == "UNKNOWN"
     assert rows["REQUIRES-COMPLETE"].status == "UNKNOWN"
@@ -642,24 +638,14 @@ def test_gap_origin_cannot_contradict_other_attribution(tmp_path: Path, change: 
 
 
 def test_invalid_matching_runtime_proof_and_late_diagnostic_are_blocked(tmp_path: Path):
+    from test_collector_native_receipts import _proof
     from test_typescript_partial_uml import _runtime_blocker
 
     from archkeel.ir.codec import canonical_report_bytes
-    from archkeel.ir.facts_codec import parse_record, raw_record
 
     _, _, model = _report(tmp_path / "project")
-    sections = []
-    for section in model.sections:
-        records = []
-        for record in section.records:
-            raw = raw_record(record)
-            if raw["data"].get("dependency_scope_proof"):
-                raw["data"]["dependency_scope_proof"]["runtime"]["version"] = "0.0.0"
-            records.append(parse_record(raw))
-        sections.append(replace(section, records=tuple(records)))
-    changed = replace(
-        model, runtime=replace(model.runtime, version="0.0.0"), sections=tuple(sections)
-    )
+    changed = replace(model, runtime=replace(model.runtime, version="0.0.0"), verified_binary=None)
+    changed = _proof(changed, version="0.0.0")
     assert _rows(changed)["a:requires"].status == "UNKNOWN"
     path = tmp_path / "runtime.json"
     path.write_bytes(canonical_report_bytes(changed))
@@ -687,23 +673,12 @@ def test_invalid_matching_runtime_proof_and_late_diagnostic_are_blocked(tmp_path
 
 
 def test_unicode_numeric_runtime_cannot_authenticate_scope(tmp_path: Path):
-    from archkeel.ir.facts_codec import parse_record, raw_record
+    from test_collector_native_receipts import _proof
 
     _, _, model = _report(tmp_path / "project")
     version = "٣.١١.١٢"
-    sections = []
-    for section in model.sections:
-        records = []
-        for record in section.records:
-            raw = raw_record(record)
-            if raw["data"].get("dependency_scope_proof"):
-                raw["data"]["dependency_scope_proof"]["runtime"]["version"] = version
-            records.append(parse_record(raw))
-        sections.append(replace(section, records=tuple(records)))
-    changed = replace(
-        model, runtime=replace(model.runtime, version=version), sections=tuple(sections)
-    )
-    assert _rows(changed)["a:requires"].status == "UNKNOWN"
+    changed = replace(model, runtime=replace(model.runtime, version=version), verified_binary=None)
+    assert _rows(_proof(changed, version=version))["a:requires"].status == "UNKNOWN"
 
 
 def test_known_violation_lenses_survive_when_every_scope_is_uncertain(
@@ -733,7 +708,8 @@ def test_known_violation_lenses_survive_when_every_scope_is_uncertain(
         assert current_validator.is_valid(result_payload(saved))
 
 
-def test_unresolved_dart_super_signature_does_not_block_dependencies(tmp_path: Path):
+def test_unresolved_dart_super_signature_cannot_prove_dependencies(tmp_path: Path):
+    from collector_pin import trusted as dart_trusted
     from test_dart_partial_uml import _DartCollector
     from test_dart_partial_uml import _project as dart_project
 
@@ -744,10 +720,10 @@ def test_unresolved_dart_super_signature_does_not_block_dependencies(tmp_path: P
     contract = json.loads(path.read_bytes())
     contract["rules"] = [RULE]
     path.write_text(json.dumps(contract))
-    result, encoded = run_report(root, config=config, analyzer=trusted(_DartCollector()))
-    assert encoded is not None
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    assert _rows(model)["requires"].status == "PASS"
+    result, encoded, model = observed(root, config=config, analyzer=dart_trusted(_DartCollector()))
+    assert encoded is not None and model is not None
+    assert _rows(model)["requires"].status == "UNKNOWN"
+    assert "dependency_scope_runtime_unverified" in _rows(model)["requires"].reason
     assert model.coverage.status == "FAIL" and result.exit_code == 2
     gap = model.coverage.failures[0]
     assert gap.data.get("resolution_dimension") == "signature"

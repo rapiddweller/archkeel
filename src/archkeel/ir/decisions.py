@@ -10,7 +10,6 @@ component edges, so validation and reports share one derivation.
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter as _Counter
 from collections.abc import Iterable as _Iterable
 from collections.abc import Mapping as _Mapping
@@ -25,10 +24,11 @@ from .bindings import unread_bindings
 from .coverage import observation_complete, observation_covers_rule
 from .dependency import parse_dependency_selector
 from .dependency_binding import dependency_binding_id as dependency_binding_id
+from .dependency_binding import dependency_runtime_identity as _runtime_identity
+from .dependency_binding import dependency_runtime_rejection as _runtime_rejection
 from .dependency_binding import replayed_dependency_binding_id
 from .duplication import repeated_logic
 from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
-from .facts import RuntimeRequirementState as _RuntimeRequirementState
 from .facts_codec import thaw_data as _thaw_data
 from .facts_validation import validate_source_bindings
 from .interfaces import component_owners
@@ -53,7 +53,6 @@ from .model import (
     ReviewClaims,
     RuleAssessment,
     RuleAssessmentStatus,
-    RuntimeInfo,
     Section,
     Verdict,
     ViolationCounts,
@@ -1304,21 +1303,6 @@ def selector_inventory_binding_id(
     )
 
 
-def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
-    """Replay only a simple numeric Python lower bound already validated by Core."""
-    if (
-        runtime.name != "python"
-        or runtime.requirement_state != _RuntimeRequirementState.DECLARED
-        or runtime.required is None
-        or re.fullmatch(r">=[0-9]+\.[0-9]+(?:\.[0-9]+)?", runtime.required) is None
-        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", runtime.version) is None
-    ):
-        return False
-    actual = tuple(int(value) for value in re.findall(r"[0-9]+", runtime.version))
-    lower = tuple(int(value) for value in re.findall(r"[0-9]+", runtime.required))
-    return actual >= (*lower, 0)[:3]
-
-
 def _dependency_gaps_complete(
     observation: Observation,
     receipt: Record,
@@ -1367,20 +1351,12 @@ def _scoped_dependency_receipt(
     if (
         not isinstance(proof, RecordData)
         or runtime is None
-        or not _native_scope_runtime_valid(runtime)
+        or _runtime_rejection(observation, proof) is not None
         or coverage.rules != Verdict.PASS
         or proof.get("source_digest") != observation.source.source_digest
         or proof.get("contract_digest") != observation.contract.digest
         or proof.get("binding_id") != replayed_dependency_binding_id(observation)
-        or proof.get("runtime")
-        != RecordData(
-            (
-                ("name", runtime.name),
-                ("required", runtime.required),
-                ("requirement_state", runtime.requirement_state),
-                ("version", runtime.version),
-            )
-        )
+        or proof.get("runtime") != _runtime_identity(runtime, observation.verified_binary)
     ):
         return False
     selected = proof.get("selected_files")
@@ -1610,17 +1586,18 @@ def rule_assessments(
             receipt=receipt_complete,
             undecided=undecided,
         )
+        if status == RuleAssessmentStatus.UNKNOWN and receipt is not None:
+            proof = receipt.data.get("dependency_scope_proof")
+            if isinstance(proof, RecordData):
+                reason = _runtime_rejection(observation, proof) or reason
         if declaration.kind == "layer_order" and status == RuleAssessmentStatus.PASS:
             reason = "Declared requires permissions follow the selected layer order."
         if status == RuleAssessmentStatus.UNKNOWN and scope_complete and not receipt_complete:
-            ownership_reason = _ownership_blocker_reason(observation, identifier)
-            if ownership_reason is not None:
+            if (ownership_reason := _ownership_blocker_reason(observation, identifier)) is not None:
                 reason = ownership_reason
         parent_id = declaration.data.get("parent_id")
         scope = str(parent_id) if isinstance(parent_id, str) else "root"
-        parent = records.get(scope)
-        if parent is not None:
-            scope = parent.title
+        scope = records[scope].title if scope in records else scope
         rule_components = {
             component.title
             for component in components

@@ -17,10 +17,12 @@ import sys
 from pathlib import Path
 
 import pytest
+from recorded_typescript import read as recorded
+from test_collector_native_imports import _view
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.ir.facts import SourceFacts
-from archkeel.ir.facts_codec import decode_response, encode_request
+from archkeel.ir.facts_codec import decode_response
 from archkeel.ir.protocol import (
     CollectionRequest,
     CollectionResponse,
@@ -31,7 +33,6 @@ from archkeel.ir.protocol import (
 )
 
 SOURCE = "const a = 1\u3000\nconst b = 2\n"
-PYTHON_COLLECTOR = (sys.executable, "-I", "-B", "-m", "archkeel.analyzer.typescript.entry")
 
 
 def _utf8_locale() -> str | None:
@@ -64,22 +65,7 @@ def _request(root: Path) -> CollectionRequest:
 
 
 def _oracle(root: Path, locale_name: str) -> SourceFacts:
-    """Run the collector entry directly, so that `locale_name` is the only locale it gets.
-
-    This path skips `ProcessCollector`, so it does not depend on the value that the host pins.
-    """
-    environment = {key: value for key, value in os.environ.items() if not key.startswith("LC_")}
-    environment.pop("LANG", None)
-    environment["LC_ALL"] = locale_name
-    done = subprocess.run(
-        PYTHON_COLLECTOR,
-        input=encode_request(_request(root)),
-        cwd=root,
-        env=environment,
-        capture_output=True,
-        check=True,
-    )
-    return decode_response(done.stdout).facts
+    return decode_response(recorded("locale", root, locale_name)).facts
 
 
 def _facts(root: Path, argv: tuple[str, ...], parent_locale: dict[str, str]) -> SourceFacts:
@@ -120,15 +106,17 @@ def test_the_child_environment_pins_the_c_locale(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Windows has no LC_ALL: the C library ignores it.")
-def test_python_collector_gives_the_same_facts_under_any_user_locale(tmp_path: Path) -> None:
+def test_python_collector_gives_the_same_facts_under_any_user_locale(
+    tmp_path: Path, native_binary: Path
+) -> None:
     name = _utf8_locale()
     if name is None:
         pytest.skip("this machine has no UTF-8 locale")
     _tree(tmp_path)
 
-    pinned = _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": "C"})
-    user = _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": name, "LANG": name})
-    plain = _facts(tmp_path, PYTHON_COLLECTOR, {"LANG": name})
+    pinned = _facts(tmp_path, (str(native_binary),), {"LC_ALL": "C"})
+    user = _facts(tmp_path, (str(native_binary),), {"LC_ALL": name, "LANG": name})
+    plain = _facts(tmp_path, (str(native_binary),), {"LANG": name})
 
     assert user == pinned
     assert plain == pinned
@@ -138,28 +126,30 @@ def test_python_collector_gives_the_same_facts_under_any_user_locale(tmp_path: P
 @pytest.mark.skipif(os.name == "nt", reason="Windows has no LC_ALL: the C library ignores it.")
 @pytest.mark.parametrize("space", ["　", " ", " ", " ", " "])
 def test_a_non_ascii_space_before_a_newline_reads_like_the_c_locale(
-    tmp_path: Path, space: str
+    tmp_path: Path, space: str, native_binary: Path
 ) -> None:
     name = _utf8_locale()
     if name is None:
         pytest.skip("this machine has no UTF-8 locale")
     _tree(tmp_path, f"const a = 1{space}\nconst b = 2\n")
 
-    pinned = _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": "C"})
-    user = _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": name})
+    pinned = _facts(tmp_path, (str(native_binary),), {"LC_ALL": "C"})
+    user = _facts(tmp_path, (str(native_binary),), {"LC_ALL": name})
 
     assert user == pinned
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Windows has no LC_ALL: the C library ignores it.")
-def test_a_non_ascii_file_name_and_text_keep_their_path_and_facts(tmp_path: Path) -> None:
+def test_a_non_ascii_file_name_and_text_keep_their_path_and_facts(
+    tmp_path: Path, native_binary: Path
+) -> None:
     name = _utf8_locale()
     if name is None:
         pytest.skip("this machine has no UTF-8 locale")
     _tree(tmp_path, "export const größe = 'Straße';\nexport const b = 2;\n", "grüße-é.ts")
 
-    pinned = _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": "C"})
-    user = _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": name})
+    pinned = _facts(tmp_path, (str(native_binary),), {"LC_ALL": "C"})
+    user = _facts(tmp_path, (str(native_binary),), {"LC_ALL": name})
 
     assert user == pinned
     assert [item.rel_path for item in pinned.files] == ["src/grüße-é.ts"]
@@ -168,7 +158,7 @@ def test_a_non_ascii_file_name_and_text_keep_their_path_and_facts(tmp_path: Path
 @pytest.mark.skipif(os.name == "nt", reason="Windows has no LC_ALL: the C library ignores it.")
 @pytest.mark.parametrize(("space", "differs"), [("\u3000", True), ("\u00a0", False)])
 def test_the_host_gives_the_facts_of_the_c_locale_under_a_utf8_parent(
-    tmp_path: Path, space: str, differs: bool
+    tmp_path: Path, space: str, differs: bool, native_binary: Path
 ) -> None:
     name = _utf8_locale()
     if name is None:
@@ -179,5 +169,5 @@ def test_the_host_gives_the_facts_of_the_c_locale_under_a_utf8_parent(
     if differs:
         # The oracle must show the divergence on this machine, or the test would prove nothing.
         assert _oracle(tmp_path, name) != expected
-    assert _facts(tmp_path, PYTHON_COLLECTOR, {"LC_ALL": name}) == expected
-    assert _facts(tmp_path, PYTHON_COLLECTOR, {"LANG": name}) == expected
+    assert _view(_facts(tmp_path, (str(native_binary),), {"LC_ALL": name})) == _view(expected)
+    assert _view(_facts(tmp_path, (str(native_binary),), {"LANG": name})) == _view(expected)

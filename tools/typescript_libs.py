@@ -5,10 +5,8 @@
 
 The compiler's lib table names the values a `lib` option accepts, and each name is one
 `lib.*.d.ts` file. A file's top-level value declarations are the globals it proves, and its
-`/// <reference lib>` lines are its dependencies. The result is one JSON file that the Python
-collector loads and the native collector embeds (from a copy in `native/`). `--check` fails when a
-checked-in copy differs from what the pinned compiler produces; `--write` (the default) regenerates
-both.
+`/// <reference lib>` lines are its dependencies. The native collector embeds the one JSON file.
+`--check` fails when it differs from the pinned compiler. `--write` regenerates that file.
 """
 
 from __future__ import annotations
@@ -21,9 +19,7 @@ from typing import Final
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 TYPESCRIPT: Final = ROOT / "tools/browser-runtime/node_modules/typescript"
-OUTPUT: Final = ROOT / "src/archkeel/analyzer/typescript/standard_libs.json"
-# The native collector embeds a copy inside `native/`: the digest of the workspace covers it.
-NATIVE: Final = ROOT / "native/typescript/standard_libs.json"
+OUTPUT: Final = ROOT / "native/typescript/standard_libs.json"
 
 _LIB_TABLE: Final = re.compile(r"var libEntries = \[(.*?)\];", re.DOTALL)
 _TARGET_TABLE: Final = re.compile(r"var targetToLibMap = .*?new Map\(\[(.*?)\]\);", re.DOTALL)
@@ -101,14 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     # Bytes, not text: the native collector embeds this file, so it is LF on every platform.
     catalog = build_catalog().encode("utf-8")
     if args.check:
-        stale = [
-            path for path in (OUTPUT, NATIVE) if not path.is_file() or path.read_bytes() != catalog
-        ]
+        stale = [path for path in (OUTPUT,) if not path.is_file() or path.read_bytes() != catalog]
         for path in stale:
             print(f"{path.relative_to(ROOT)} is stale; run python -m tools.typescript_libs")
         return 1 if stale else 0
-    for path in (OUTPUT, NATIVE):
-        path.write_bytes(catalog)
+    OUTPUT.write_bytes(catalog)
     return 0
 
 

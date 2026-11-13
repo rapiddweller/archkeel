@@ -16,8 +16,8 @@ from __future__ import annotations
 import dataclasses
 import subprocess
 import sys
+from pathlib import Path
 
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.ir.facts import FactSection, SourceSectionName
 from archkeel.ir.facts_codec import decode_request, decode_response, encode_response
 from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
@@ -25,8 +25,15 @@ from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
 
 def _reply(inner: str, payload: bytes) -> bytes:
     request = decode_request(payload)
-    if inner == "python":
-        return encode_response(CollectionResponse(collect(request), request.protocol_version))
+    if inner.startswith("recorded-file:"):
+        facts = decode_response(Path(inner.removeprefix("recorded-file:")).read_bytes()).facts
+        facts = dataclasses.replace(
+            facts,
+            source=dataclasses.replace(
+                facts.source, git_head=request.snapshot.git_head, dirty=request.snapshot.dirty
+            ),
+        )
+        return encode_response(CollectionResponse(facts, request.protocol_version))
     return subprocess.run([inner], input=payload, capture_output=True, check=True).stdout
 
 

@@ -11,16 +11,16 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
-from collector_pin import trusted
 from dart_native_helpers import collect_native_dart
+from native_typescript import collect as collect_typescript
+from native_typescript import observer_by_language as trusted
 
-from archkeel.analyzer.typescript.collect import collect as collect_typescript
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
 from archkeel.ir.facts import RecordData, ResolutionInput, SourceFacts
 from archkeel.ir.member_inventory import MEMBER_INVENTORY_PROOF, member_inventory_proof
-from archkeel.ir.model import TARGET_GRAPH_RECORD_KINDS, Observation
+from archkeel.ir.model import TARGET_GRAPH_RECORD_KINDS, Observation, ProducerKind
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.source_graph import observed_graph
@@ -320,10 +320,10 @@ def test_invalid_matching_runtime_metadata_cannot_mint_inventory_proof(
     state,
 ):
     model, inputs = certified
-    changed = replace(
-        model,
-        runtime=replace(model.runtime, version=version, required=required, requirement_state=state),
+    runtime = replace(
+        model.runtime, name="python", version=version, required=required, requirement_state=state
     )
+    changed = replace(model, producer_kind=ProducerKind.PYTHON, runtime=runtime)
     assert member_inventory_proof(changed, inputs) is None
 
 

@@ -5,6 +5,14 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 Run `make self-validate-native` to check it.
 
+TypeScript uses only `native/typescript` ([AD-394](decisions/ad-394-typescript-collection-requires-the-verified-native-binary.md)).
+The host requires the binary and its SHA-256 file. A missing, unreadable or unverified binary
+gives `missing_tool`, exit code 2, and no report. An explicit `collector_argv` is unchanged.
+Run `make typescript-collector` in an editable source checkout, or install a platform wheel.
+`make native-tools native-wheel` builds a platform wheel. Default wheels and sdist installs contain no binary.
+The next owner-started release publishes exactly six platform wheels and one sdist.
+The tests compare native output with the last recorded Python output. The Python TypeScript analyzer is deleted.
+
 The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and

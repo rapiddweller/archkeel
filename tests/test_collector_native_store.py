@@ -23,13 +23,18 @@ from typing import Any
 
 import false_pass_support as support
 import pytest
+from test_collector_bundled_launcher import _install
+from test_collector_native_typescript import _request
 
+from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import NATIVE_STORE, observer_for
 from archkeel.ir.codec import canonical_report_bytes
-from archkeel.ir.store_seam import active_store, close_store
+from archkeel.ir.facts import SourceFacts
+from archkeel.ir.store_seam import active_store, close_store, keep_store_for
+from archkeel.ir.validated_facts import is_decoded
 from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 from tools import python_printable
@@ -87,6 +92,22 @@ def _run(
             (str(item.kind.value), item.subject, item.unknown_claim) for item in result.diagnostics
         ),
     }
+
+
+def test_bundled_attestation_keeps_the_store_checked_object(
+    tmp_path: Path, native_binary: Path, store_binary: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repository(ROOT / "fixtures/H-typescript", tmp_path / "project")
+    directory = _install(tmp_path / "native", native_binary)
+    monkeypatch.setenv(NATIVE_STORE, str(store_binary))
+    monkeypatch.setattr(process_owner, "package_version", lambda: "0+unknown")
+    collector = observer_for("typescript", native_directory=directory).collector
+    facts = collector.collect(_request(root))
+    assert isinstance(facts, SourceFacts), facts
+    assert facts.verified_binary is not None
+    assert is_decoded(facts), "bundled attestation lost the store's validation identity"
+    keep_store_for(facts)
+    assert active_store() is not None, "bundled attestation lost the store's owner"
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case["case"] for case in CASES])

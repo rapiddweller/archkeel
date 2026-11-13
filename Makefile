@@ -21,7 +21,7 @@ ci-pr-static: $(if $(strip $(BASE)),against,self-validate) lint typecheck browse
 
 ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
 
-pr-test: browser-runtime-install
+pr-test: browser-runtime-install typescript-collector
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
 		$(PR_TEST_FILES)
@@ -139,6 +139,15 @@ native-report:
 	done
 
 # Build the pinned tools from crates.io with their own Cargo.lock; cargo skips an installed tool.
+.PHONY: typescript-collector
+typescript-collector:
+	cd native && ARCHKEEL_VERSION="$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')" \
+		cargo build --locked --bin archkeel-typescript-collector --target-dir target/bundled
+	@mkdir -p src/archkeel/_native
+	$(UV) run --locked python -c 'import hashlib, pathlib, shutil, sysconfig; n="archkeel-typescript-collector"+(sysconfig.get_config_var("EXE") or ""); p=pathlib.Path("src/archkeel/_native")/n; shutil.copy2(pathlib.Path("native/target/bundled/debug")/n,p); pathlib.Path(str(p)+".sha256").write_text(hashlib.sha256(p.read_bytes()).hexdigest(), encoding="ascii")'
+
+test full-test demos dual-run native-check native-corpus: typescript-collector
+
 native-tools:
 	cargo install --locked cargo-deny@$(CARGO_DENY_VERSION) cargo-auditable@$(CARGO_AUDITABLE_VERSION)
 
@@ -163,6 +172,8 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	tools/dart_sdk_parity.py tools/dart_declarations_parity.py tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
 	tools/dual_run_capture.py tools/dual_run_tree.py \
 	native/hatch_build.py
+
+LINT_PATHS += tools/record_typescript_oracle.py tools/record_typescript_calls.py tools/record_typescript_parser.py
 
 # Builds the demo gallery in test-artifacts/pages; Full publishes this same build.
 demos:

@@ -1,6 +1,6 @@
 # AD-323 The native collector reads the syntax facts of a file in one walk
 
-**Decision.** PR 4.3a-1 of issue #880 ports the per-file syntax facts of `analyzer/typescript/parse.py`
+**Decision.** PR 4.3a-1 of issue #880 ports the per-file syntax facts of `analyzer/typescript/parse.py` (retired by AD-394)
 to `archkeel-typescript-collector`. The wire reply stays the legacy reply of AD-320, and the 4.2
 gap "Script-global dependencies are not examined" stays.
 

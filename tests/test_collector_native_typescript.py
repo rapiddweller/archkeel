@@ -4,7 +4,7 @@
 """AD-316: the native TypeScript collector is a drop-in behind `[scan].collector_argv`.
 
 Consumer: the host process port (`analyzer/process.py`) and `evaluate_source`. The Python
-TypeScript collector is the difference oracle for the files that the native skeleton reports.
+TypeScript collector's recorded output is the independent oracle for the native facts.
 """
 
 from __future__ import annotations
@@ -18,11 +18,10 @@ from pathlib import Path
 
 import pytest
 from collector_pin import pin_of
+from recorded_typescript import collect
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.analyzer.typescript.explore_scope import NO_PRODUCTION_SOURCE
 from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
@@ -43,6 +42,7 @@ from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 
 ROOT = Path(__file__).parents[1]
+NO_PRODUCTION_SOURCE = "No production source files in scope after the test exclusion"
 NATIVE = ROOT / "native"
 FIXTURES = (
     "fixtures/H-typescript",

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "27715c46f0f53bc0378b2f3a910892a81c22d88391599f2ea15d57a0c61446a2",
+  "after_digest": "7d8606ecd81198f2d8771ea342f1830fbb50b7900cd865470d4054bd1c5cd857",
+  "before_baseline_digest": "5a5d527d9b3aea98091eed78b99313e5b489bef2ae37419988bda48239fc2b48",
+  "before_digest": "ae7bbb4c635f98ef30e47c44b30d49f595bd22412c5711390dcb876e556b9c23",
+  "decided_by": "architect",
+  "rationale": "AD-394 removes the Python TypeScript implementation and its exclusive owners, entry guard, enum placements and grammar rule. Keep only the exact SourceFacts and VerifiedBinary shell ports, the shared dependency runtime identity function, and the existing WideningFinding type at its amendment owner. The SourceFacts Target includes the host-only verification field, not a new wire field. An earlier implementation in this change introduced the store defect; main did not have it. The fix attaches metadata through validate_decoded_facts and accept_store_facts before identity registration. Exact Windows type-ignore permissions follow their statements after the decoder edit. The inventory has 1051 unresolved calls versus main's pinned 1028. The deletion removes the only in-repository candidates for retained calls such as resolve, decode, read and is_file. Those calls change from partially resolved to unresolved. This is the main cause of the net increase of 23; verification and cleanup also add calls. The macOS cleanup reaps an exited Studio group leader and retries the same signal once; repeated denial still fails closed. Pin the measured count and retain every other budget, Any restriction, receipt check and rule. The Python lower-bound receipt path now requires the Python analyzer identity; native-language name claims get no trust.",
+  "schema_version": "2.0.0"
+}

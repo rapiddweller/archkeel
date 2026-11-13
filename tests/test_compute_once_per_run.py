@@ -17,7 +17,7 @@ from importlib import import_module
 from pathlib import Path
 
 import pytest
-from collector_pin import trusted
+from native_typescript import trusted
 from test_partial_member_inventory import _Collector, _project
 
 from archkeel.check.ports import ScanConfig

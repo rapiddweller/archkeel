@@ -158,8 +158,14 @@ PR_TEST_FILES := \
 	tests/test_collector_native_unextracted.py \
 	tests/test_collector_native_rust_unextracted.py \
 	tests/test_collector_bundled_launcher.py \
+	tests/test_collector_typescript_oracle.py \
 	tests/test_collector_native_syntax_scaling.py \
 	tests/test_collector_native_verdicts.py \
+	tests/test_collector_native_nested_verdicts.py \
+	tests/test_collector_native_receipts.py \
+	tests/test_collector_native_receipt_claims.py \
+	tests/test_native_profile_receipt_ports.py \
+	tests/test_collector_native_legacy_parser.py \
 	'tests/test_collector_native_store.py::test_the_store_path_writes_the_bytes_and_verdicts_of_the_python_path' \
 	'tests/test_collector_native_store.py::test_the_python_writer_refuses_an_observation_that_the_store_holds' \
 	'tests/test_collector_native_store.py::test_a_changed_typescript_reply_gives_no_pass_on_the_store_path' \
@@ -190,7 +196,6 @@ PR_TEST_FILES := \
 	tests/test_report_rule_evidence_oracle.py::test_unknown_position_is_associated_with_its_rule_not_every_boundary_rule \
 	tests/test_typescript_script_globals.py \
 	tests/test_typescript_standard_globals.py \
-	tests/test_typescript_umd_providers.py \
 	tests/test_browser_architecture.py \
 	tests/test_source_graph.py \
 	tests/test_binding_proof_reuse.py \
@@ -226,18 +231,12 @@ PR_TEST_FILES := \
 	tests/test_boundary_type_bound_aliases.py::test_literal_outer_and_sibling_survive_uncertain_alias \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_inner_alias_does_not_erase_exact_literal_outer_map_permission \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_alias_ordinary_permission_is_independent_of_union_order \
-	tests/test_typescript_owned_types.py \
-	tests/test_typescript_syntax_types.py \
-	tests/test_typescript_syntax_compatibility.py \
-	tests/test_typescript_json_fields.py \
-	tests/test_typescript_control_target.py \
+	tests/test_collector_native_legacy_parser.py \
 	tests/test_typescript_source_input.py \
 	tests/test_typescript_string_constructs.py \
 	tests/test_python_source_evidence_lines.py \
 	tests/test_definition_source_owners.py \
 	tests/test_analyzer.py \
-	tests/test_typescript_config.py \
-	tests/test_typescript_resolve.py \
 	tests/test_typescript_bundler.py \
 	tests/test_type_shapes.py \
 	tests/test_typescript_array_constants.py \
@@ -252,6 +251,7 @@ PR_TEST_FILES := \
 	tests/test_cli_story.py \
 	tests/test_studio.py \
 	tests/test_studio_chat.py \
+	tests/test_studio_agent_cleanup.py \
 	tests/test_studio_launcher.py \
 	tests/test_cli_typed_inputs.py \
 	tests/test_cli_input_target.py \

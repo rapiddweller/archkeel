@@ -30,4 +30,5 @@ def trusted(collector: SourceCollector, **options: Any) -> Observer:
 
 def assembled(facts: SourceFacts, **options: Any) -> tuple[Observation, int]:
     """The observation of facts that the host collected itself, for the tests of Core."""
-    return assemble_observation(facts, producer=ProducerKind.PYTHON, **options)
+    kind = ProducerKind.BUNDLED if facts.verified_binary is not None else ProducerKind.PYTHON
+    return assemble_observation(facts, producer=kind, **options)

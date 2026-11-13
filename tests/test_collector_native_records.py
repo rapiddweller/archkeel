@@ -1,19 +1,14 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340 (PR 4.3a-3a): the native records of the expanded imports and the constructs equal Python.
+"""AD-394: the native record dump equals the recorded output of the unchanged Python collector.
 
-Consumer: PR 4.3a-3d, which puts the records on the wire. The reply of the native collector does
-not carry them yet, and its capability stays legacy, so the host never reads them. The `dump`
-feature prints them (`--dump-records`), and this test compares them with the records of the
-unmodified Python collector: the import records with one record for each bound name, their
-targets, the `ESM_EXPORT` witnesses, the `TSCONSTRUCT` records and the evidence that they cite.
-The Python methods run in the order of `_Collection.facts()` up to `_constructs()`.
+The independent oracle includes expanded imports, targets, witnesses, constructs, symbols,
+calls, references, bindings and their cited evidence. It cannot be regenerated after deletion.
 """
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import os
 import random
@@ -23,6 +18,7 @@ from pathlib import Path
 
 import pytest
 from conftest import build_native_copy
+from recorded_typescript import read as recorded
 from test_collector_native_imports import (
     CONFIGS,
     PACKAGES,
@@ -33,8 +29,6 @@ from test_collector_native_imports import (
 )
 from test_collector_native_syntax import FIXTURES, STUDIO_UI, SYNTAX_PIECES, _mutants, _sources
 
-from archkeel.analyzer.typescript import collect as python_collector
-from archkeel.ir.facts import Record
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionRequest,
@@ -45,9 +39,7 @@ from archkeel.ir.protocol import (
 )
 
 ROOT = Path(__file__).parents[1]
-# Folders of further corpora (the x35 tree, a measured corpus project (aggregate counts only)):
-# `path:scope:namespace`, separated by `;`. Only totals are printed.
-CORPORA = "ARCHKEEL_RECORDS_CORPORA"
+CORPORA = "ARCHKEEL_PUBLIC_EXCALIDRAW"
 
 # Statements that bind names across files: named, default, namespace and type-only imports, a
 # re-export, a name that is exported twice, a file with a syntax error, and string comparisons.
@@ -117,104 +109,8 @@ def _request(root: Path, scope: str = "src", namespace: str = "app") -> Collecti
     )
 
 
-def _plain_record(record: Record) -> dict[str, object]:
-    data = {key: _plain_value(value) for key, value in record.data.entries}
-    return {
-        "id": record.id,
-        "evidence_class": record.evidence_class.value,
-        "area": record.area,
-        "kind": record.kind,
-        "title": record.title,
-        "subjects": list(record.subjects),
-        "evidence_ids": list(record.evidence_ids),
-        "rule_ids": list(record.rule_ids),
-        "fact_ids": list(record.fact_ids),
-        "provenance": list(record.provenance),
-        "data": data,
-    }
-
-
-def _plain_value(value: object) -> object:
-    if isinstance(value, tuple):
-        return [_plain_value(item) for item in value]
-    return value
-
-
-def _target(target: object) -> dict[str, object]:
-    assert dataclasses.is_dataclass(target)
-    kind = {
-        "LocalTarget": "local",
-        "ExternalPackageTarget": "external",
-        "BuiltinTarget": "builtin",
-        "UnresolvedTarget": "unresolved",
-    }[type(target).__name__]
-    return {"kind": kind, **dataclasses.asdict(target)}
-
-
-def _evidence_of(value: object) -> list[str]:
-    """Every evidence id that a record or its data holds."""
-    found: list[str] = []
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if key in ("evidence_ids", "decorator_evidence_ids"):
-                found += item
-            else:
-                found += _evidence_of(item)
-    elif isinstance(value, list):
-        for item in value:
-            found += _evidence_of(item)
-    return found
-
-
 def python_records(request: CollectionRequest) -> dict[str, object]:
-    """The records of the Python collector, built in the order of `_Collection.facts()`."""
-    settings = request.resolver
-    assert isinstance(settings, TypeScriptSettings)
-    collection = python_collector._Collection(request, settings)
-    index = 0
-    while index < len(collection.queue):
-        collection._file(collection.queue[index])
-        index += 1
-    collection._named_imports()
-    # The citations of the script analysis count as the citations of this phase.
-    script_cited: set[str] = set()
-    original = collection._cite
-
-    def recording(rel: str, span: object) -> str:
-        identity: str = original(rel, span)  # type: ignore[arg-type]
-        script_cited.add(identity)
-        return identity
-
-    collection._cite = recording  # type: ignore[method-assign]
-    collection._script_dependencies()
-    collection._cite = original  # type: ignore[method-assign]
-    symbols, calls, references, bindings = collection._inner_facts()
-    collection._cite = recording  # type: ignore[method-assign]
-    for rel, span in dict.fromkeys(collection.script_pending_effects):
-        collection._script_runtime_effect(rel, span)
-    collection._cite = original  # type: ignore[method-assign]
-    references += collection.script_effects
-    constructs = [_plain_record(record) for record in collection._constructs()]
-    witnesses = list(collection.import_binding_facts.values())
-    publications = list(collection.script_publications.values())
-    imports = sorted(collection.imports, key=lambda item: item["id"])
-    cited = script_cited | {
-        evidence
-        for record in [*witnesses, *constructs, *symbols, *calls, *references, *bindings]
-        for evidence in _evidence_of(record)
-    }
-    return {
-        "imports": imports,
-        "targets": [_target(target) for target in collection.targets],
-        "witnesses": witnesses,
-        "constructs": constructs,
-        "symbols": symbols,
-        "calls": calls,
-        "references": references,
-        # The witnesses come first in the bindings of Python; the native dump lists them apart.
-        "site_bindings": publications + bindings[len(publications) + len(witnesses) :],
-        "evidence": [collection.evidence[key] for key in sorted(cited)],
-    }
+    return recorded("records", request)  # type: ignore[no-any-return]
 
 
 @pytest.fixture(scope="session")
@@ -271,6 +167,9 @@ def _compare(binary: Path, request: CollectionRequest) -> dict[str, int]:
 def test_fixture_records_equal_the_python_collector(records_binary: Path, path: str) -> None:
     root = ROOT / path
     if (root / "tsconfig.json").is_file() and path == STUDIO_UI:
+        from test_collector_native_imports import require_studio_dependencies
+
+        require_studio_dependencies()
         request = _request(root, ".", "ui")
     else:
         from test_collector_native_typescript import _request as fixture_request
@@ -328,15 +227,18 @@ def test_mutated_projects_equal_python(tmp_path: Path, records_binary: Path) -> 
         _compare(records_binary, _request(project))
 
 
-def test_private_corpora_equal_python(records_binary: Path) -> None:
+def test_public_math_records_equal_python(records_binary: Path) -> None:
     value = os.environ.get(CORPORA)
     if not value:
         pytest.skip(f"{CORPORA} names no corpus")
-    for entry in value.split(";"):
-        path, scope, namespace = entry.split(":")
-        counts = _compare(records_binary, _request(Path(path), scope, namespace))
-        # Totals only: a private corpus must not leak a name into a report.
-        print("corpus:", ", ".join(f"{key} {count}" for key, count in sorted(counts.items())))
+    from tools.record_typescript_calls import source_name
+
+    source_name(Path(value))
+    counts = _compare(
+        records_binary, _request(Path(value) / "packages/math", "src", "excalidraw.math")
+    )
+    assert counts["imports"] > 0
+    print("corpus:", ", ".join(f"{key} {count}" for key, count in sorted(counts.items())))
 
 
 # The records pass must be linear in time and in memory. Python scans the bindings of the file for

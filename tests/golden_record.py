@@ -53,6 +53,10 @@ def record(
 ) -> list[Path]:
     if not reason.strip():
         raise golden_replies.GoldenError("REASON is required: say why the golden reply changes")
+    if language == "typescript":
+        raise golden_replies.GoldenError(
+            "typescript_oracle_retired: the Python TypeScript recordings cannot be regenerated"
+        )
     known = cases(language)
     if unknown := [name for name in names if name not in known]:
         raise golden_replies.GoldenError(f"unknown case {unknown}; known cases: {sorted(known)}")

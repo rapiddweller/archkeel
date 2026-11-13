@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from collector_pin import trusted
+from native_typescript import trusted
 from test_scoped_dependency_proof import _project, _rows
 from test_typescript_partial_uml import _TypeScriptCollector
 

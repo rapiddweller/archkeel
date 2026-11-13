@@ -5,16 +5,20 @@
 
 Consumer: `analyzer/bundled.py` and `observer_for`. A platform wheel carries the binary and the
 file `<binary>.sha256`. The host gives the binary the producer kind `bundled`, checks its file
-against the digest before each start and keeps the Python collector for an install without the
-pair. A configured collector stays `external` or `pinned`, whatever an install holds.
+against the digest before each start. An install without the pair stops with a named error.
+A configured collector stays `external` or `pinned`, whatever an install holds.
 """
 
 from __future__ import annotations
 
+import ast
 import hashlib
+import importlib.util
 import json
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -27,10 +31,51 @@ from archkeel.check.report import run_report
 from archkeel.cli import observe as bundled
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
+from archkeel.ir.protocol import CollectionError
 from archkeel.ir.state_facts import ProducerKind
 
 ROOT = Path(__file__).parents[1]
 FIXTURE = "fixtures/H-typescript"
+
+
+def test_native_only_release_must_publish_native_wheels() -> None:
+    if not (ROOT / "src/archkeel/analyzer/typescript/collect.py").is_file():
+        release = (ROOT / ".github/workflows/release.yml").read_text()
+        assert 'PUBLISH_NATIVE_WHEELS: "true"' in release
+
+
+def test_real_cli_without_native_directory_gives_an_environment_error(tmp_path: Path) -> None:
+    root = _project(tmp_path / "repo")
+    site = tmp_path / "site"
+    package = shutil.copytree(ROOT / "src/archkeel", site / "archkeel")
+    if (package / "_native").exists():
+        shutil.rmtree(package / "_native")
+    completed = subprocess.run(
+        [sys.executable, "-m", "archkeel.cli", "report", "--root", str(root), "--json"],
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": str(site), "PYTHONDONTWRITEBYTECODE": "1"},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 2, (completed.stdout, completed.stderr)
+    result = json.loads(completed.stdout)
+    assert result["observation_complete"] != "PASS"
+    assert not result["rule_assessments"]
+    assert "typescript_collector_missing_binary" in completed.stdout
+    assert "--only-binary=:all:" in completed.stdout
+
+
+def test_no_python_typescript_collection_imports_remain() -> None:
+    name = ".".join(("archkeel", "analyzer", "typescript"))
+    assert importlib.util.find_spec(name) is None
+    for directory in ("src", "tests", "tools"):
+        for path in (ROOT / directory).rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.ImportFrom):
+                    assert not (node.module or "").startswith(name), path
+                elif isinstance(node, ast.Import):
+                    assert not any(alias.name.startswith(name) for alias in node.names), path
 
 
 def _install(directory: Path, binary: Path, digest: str | None = None) -> Path:
@@ -68,7 +113,9 @@ def _scan(root: Path, directory: Path | None, **options: object):  # type: ignor
         **options,  # type: ignore[arg-type]
     )
     # The debug binary has no build version; a wheel sets it to the version of the host (AD-317).
-    launched = directory is not None and bundled.locate(bundled.TYPESCRIPT_COLLECTOR, directory)
+    launched = directory is not None and isinstance(
+        bundled.locate(bundled.TYPESCRIPT_COLLECTOR, directory), bundled.Bundled
+    )
     version = "0+unknown" if launched else package_version()
     with mock.patch.object(process_owner, "package_version", lambda: version):
         return run_report(root, config=config, analyzer=observer)
@@ -79,7 +126,7 @@ def test_an_install_with_the_binary_and_its_digest_is_located(
 ) -> None:
     directory = _install(tmp_path / "_native", native_binary)
     found = bundled.locate(bundled.TYPESCRIPT_COLLECTOR, directory)
-    assert found is not None
+    assert isinstance(found, bundled.Bundled)
     assert found.path == str(bundled.executable(bundled.TYPESCRIPT_COLLECTOR, directory))
     assert found.digest == pin_of(found.path)
 
@@ -88,14 +135,16 @@ def test_an_install_without_the_pair_has_no_bundled_collector(
     native_binary: Path, tmp_path: Path
 ) -> None:
     binary = bundled.executable(bundled.TYPESCRIPT_COLLECTOR, tmp_path / "none")
-    assert bundled.locate(bundled.TYPESCRIPT_COLLECTOR, tmp_path / "none") is None
+    assert isinstance(
+        bundled.locate(bundled.TYPESCRIPT_COLLECTOR, tmp_path / "none"), CollectionError
+    )
     directory = _install(tmp_path / "_native", native_binary)
     Path(f"{binary.parent.parent / '_native' / binary.name}{bundled.DIGEST_SUFFIX}").unlink()
-    assert bundled.locate(bundled.TYPESCRIPT_COLLECTOR, directory) is None
+    assert isinstance(bundled.locate(bundled.TYPESCRIPT_COLLECTOR, directory), CollectionError)
     shorter = _install(tmp_path / "short", native_binary, digest="abc")
-    assert bundled.locate(bundled.TYPESCRIPT_COLLECTOR, shorter) is None
+    assert isinstance(bundled.locate(bundled.TYPESCRIPT_COLLECTOR, shorter), CollectionError)
     upper = _install(tmp_path / "upper", native_binary, digest="A" * 64)
-    assert bundled.locate(bundled.TYPESCRIPT_COLLECTOR, upper) is None
+    assert isinstance(bundled.locate(bundled.TYPESCRIPT_COLLECTOR, upper), CollectionError)
 
 
 def test_the_bundled_collector_gives_a_pass_and_records_its_kind(
@@ -106,20 +155,50 @@ def test_the_bundled_collector_gives_a_pass_and_records_its_kind(
     result, artifact = _scan(root, directory)
     assert artifact is not None
     assert json.loads(artifact)["producer_kind"] == ProducerKind.BUNDLED.value
-    python, _ = _scan(root, tmp_path / "nowhere")
-    assert (result.observation_complete, result.declared_rules, result.exit_code) == (
-        python.observation_complete,
-        python.declared_rules,
-        python.exit_code,
-    )
+    assert result.observation_complete.value == "PASS"
     assert not [item for item in result.diagnostics if item.kind.value == "incomplete_scan"]
 
 
-def test_an_install_without_the_pair_keeps_the_python_collector(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("damage", "error"),
+    [
+        ("missing-binary", "typescript_collector_missing_binary"),
+        ("missing-digest", "typescript_collector_missing_digest"),
+        ("wrong-digest", "typescript_collector_digest_mismatch"),
+        ("unreadable-binary", "typescript_collector_unreadable_binary"),
+        ("invalid-digest", "typescript_collector_invalid_digest"),
+    ],
+)
+def test_an_unavailable_native_collector_stops_without_a_verdict(
+    tmp_path: Path, native_binary: Path, damage: str, error: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = _project(tmp_path / "repo")
-    _, artifact = _scan(root, tmp_path / "nowhere")
-    assert artifact is not None
-    assert json.loads(artifact)["producer_kind"] == ProducerKind.PYTHON.value
+    directory = _install(tmp_path / "_native", native_binary)
+    binary = bundled.executable(bundled.TYPESCRIPT_COLLECTOR, directory)
+    digest = Path(f"{binary}{bundled.DIGEST_SUFFIX}")
+    if damage == "missing-binary":
+        binary.unlink()
+    elif damage == "missing-digest":
+        digest.unlink()
+    elif damage == "wrong-digest":
+        digest.write_text("0" * 64)
+    elif damage == "invalid-digest":
+        digest.write_text("abc")
+    else:
+        real = Path.read_bytes
+
+        def unreadable(path: Path) -> bytes:
+            if path == binary:
+                raise PermissionError("denied")
+            return real(path)
+
+        monkeypatch.setattr(Path, "read_bytes", unreadable)
+    result, artifact = _scan(root, directory)
+    assert result.exit_code == 2
+    assert artifact is None
+    assert not result.rule_assessments
+    assert any(error in item.unknown_claim for item in result.diagnostics)
+    assert any("make typescript-collector" in item.unknown_claim for item in result.diagnostics)
 
 
 def test_a_binary_that_does_not_have_the_recorded_digest_is_not_started(

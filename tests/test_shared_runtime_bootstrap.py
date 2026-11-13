@@ -24,12 +24,11 @@ from archkeel.ir.protocol import (
     PythonSettings,
     SnapshotInput,
     SourceScope,
-    TypeScriptSettings,
 )
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
-LANGUAGES = ("python", "dart", "typescript")
+LANGUAGES = ("python", "dart")
 BOOTSTRAP = "archkeel.analyzer.bootstrap"
 DOC = "docs/architecture/shared-runtime-bootstrap.md"
 
@@ -69,19 +68,16 @@ def _request(tmp_path, language):
     project.mkdir()
     (project / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     (project / "pubspec.yaml").write_text("name: sample\n")
-    (project / "tsconfig.json").write_text('{"include": ["src/**/*.ts"]}\n')
     (project / "src").mkdir()
-    suffix = {"python": "py", "dart": "dart", "typescript": "ts"}[language]
+    suffix = {"python": "py", "dart": "dart"}[language]
     body = {
         "python": "VALUE = 1\n",
         "dart": "final value = 1;\n",
-        "typescript": "export const value = 1;\n",
     }[language]
     (project / "src" / f"probe.{suffix}").write_text(body)
     settings = {
         "python": PythonSettings(),
         "dart": DartSettings(),
-        "typescript": TypeScriptSettings(),
     }[language]
     return encode_request(
         CollectionRequest(

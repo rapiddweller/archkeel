@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from collector_pin import trusted
+from native_typescript import trusted
 from test_source_graph import _graph_from_source_facts
 from test_typescript_inner import _collected
 from test_typescript_partial_uml import _project, _TypeScriptCollector

@@ -343,7 +343,7 @@ def test_the_oracles_hold_when_the_python_source_changes(tmp_path: Path) -> None
     collector file changes both digests; the harness pins them, so the oracles stay valid."""
     source = tmp_path / "src"
     shutil.copytree(REPOSITORY / "src", source, ignore=shutil.ignore_patterns("__pycache__"))
-    changed = source / "archkeel/analyzer/typescript/__init__.py"
+    changed = source / "archkeel/analyzer/python/__init__.py"
     changed.write_text(changed.read_text() + "# A planted comment changes the code digest.\n")
     python = _python_with(tmp_path, "0.0.0", source)
     imported = subprocess.run(
