@@ -91,6 +91,19 @@ def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
     assert "undecided" in frame["explained"]["SYMBOL"], frame
 
 
+def test_a_namespace_import_has_a_named_unknown_row_not_a_profile_refusal(built: Path) -> None:
+    case_id = "s4/a-symbol-selector-is-a-limit-of-some-profiles"
+    case = next(case for case in corpus_cases() if case.id == case_id)
+    with materialized(case) as root:
+        source = root / "src/presentation/page.ts"
+        source.write_text(source.read_text() + '\nimport * as domain from "../domain";\n')
+        frame = scan(built, root)
+    assert frame["rules"]["SYMBOL"] == "UNKNOWN", frame
+    assert frame["explained"]["SYMBOL"] == "incomplete scope: the rule left 1 imports undecided"
+    assert frame["scope"] == "complete", frame["scope"]
+    assert "limit of some profiles" not in json.dumps(frame["unsupported"])
+
+
 def test_a_symbol_public_interface_releases_no_actual_gap(built: Path) -> None:
     case = next(case for case in corpus_cases() if case.id == "fixture/H-typescript")
     with materialized(case) as root:

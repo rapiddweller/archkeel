@@ -29,6 +29,7 @@ This does not exempt an unread source construct. Actual source gaps remain separ
 
 **Soundness.** A profile statement says which collection model applies. It does not claim source completeness.
 The symbol rule still reads `symbols_known` for every selected import.
+`Supported` is a flag, not a proof: the store only compares the capability, `interface_boundary: Supported` is constant, and PASS still needs `symbols_known` on every selected import plus all coverage and pair-gap checks.
 A namespace import with an unread symbol position stays UNKNOWN.
 An unresolved dynamic import can hide a forbidden edge and still holds that rule.
 An unported interface rule holds the run, but does not hold an unrelated rule.
@@ -44,6 +45,7 @@ They are not serialized. A wire field with this name is refused, not trusted.
 Saved replies and the dual-run wire path retain their conservative profile refusals.
 The mounted layer receipt, interface evaluator and UML evaluator remain unported.
 This change makes no new claim about constructs that the collector cannot read.
+Until D2, the capability table has two owners, `src/archkeel/ir/profiles.py` with `check/evaluation/evaluate.py`, and `native/typescript/src/records.rs`; this duplication is debt.
 
 **Tests.** `tests/test_cli_native_profile_limits.py` checks symbol selectors, required symbol ports,
 public symbol ports and interface rules. Each class has a planted dynamic forbidden edge.
