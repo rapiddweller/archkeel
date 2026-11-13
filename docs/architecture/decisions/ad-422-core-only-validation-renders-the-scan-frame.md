@@ -42,6 +42,9 @@ Do not close #1095 or #1103. Stage 1 remains for the operations that core-only r
 
 **Limits.** The default, wheel packaging and Makefile switch belong to slice 5.
 No proof in model or eval changes. No analyzer is removed. No rule kind is added.
+The legacy split and frame readers add 33 unresolved calls and seven checked `object` input positions.
+The amendment binds these measured budgets, moved grammar allowances and the parser's UML owner.
+No unknown-position or violation budget grows. These are collector limits, not missing runtime types.
 
 **Tests.** `tests/test_cli_core_only.py` blocks imports in a subprocess.
 Boundary tests cover process failures, frame validation, exit mapping, lookup and refusals.

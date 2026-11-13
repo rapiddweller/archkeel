@@ -11,7 +11,6 @@ from pathlib import Path
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-
 from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
 from .arguments import (
     Command,

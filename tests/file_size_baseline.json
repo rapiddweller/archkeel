@@ -144,7 +144,7 @@
   "tests/test_renames.py": 781,
   "tests/test_report_agent_json.py": 616,
   "tests/test_report_rule_evidence_oracle.py": 1147,
-  "tests/test_repository_hygiene.py": 662,
+  "tests/test_repository_hygiene.py": 661,
   "tests/test_result_schema.py": 957,
   "tests/test_rule_driven_collection.py": 680,
   "tests/test_schema_drift.py": 819,

@@ -11,7 +11,6 @@ from pathlib import Path
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-
 from .arguments import (
     Command,
 )

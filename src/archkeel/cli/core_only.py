@@ -184,7 +184,8 @@ def render_text(command: Command, frame: CoreFrame) -> None:
         ]
         where = f" ({', '.join(places)})" if places else ""
         print(
-            f"Source gap: {source_gap.kind}: {', '.join(source_gap.subjects)}: {source_gap.reason}{where}"
+            f"Source gap: {source_gap.kind}: {', '.join(source_gap.subjects)}: "
+            f"{source_gap.reason}{where}"
         )
         print("Action: Resolve the collector cause and run again.")
     for rule, rows in frame.details.items():

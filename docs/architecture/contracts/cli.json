@@ -339,7 +339,7 @@
           "kind": "class",
           "qualified_name": "archkeel.cli.legacy_parser_base._Parser",
           "language": "python",
-          "parent_id": "CLI-INPUT-composition",
+          "parent_id": "CLI-INPUT-parser-base",
           "presence": "planned",
           "responsibilities": [
             "Own the typed CLI parsing entry point and preserve argparse's ordinary Namespace API."
@@ -347,6 +347,16 @@
           "provenance": [
             "docs/architecture/cli-input-types.md"
           ]
+        },
+        {
+          "id": "CLI-INPUT-parser-base",
+          "kind": "module",
+          "qualified_name": "archkeel.cli.legacy_parser_base",
+          "language": "python",
+          "parent_id": "CLI-COMPOSITION",
+          "presence": "planned",
+          "responsibilities": ["Own the legacy typed parser entry without loading an engine."],
+          "provenance": ["docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"]
         },
         {
           "id": "CLI-INPUT-Parser.parse_cli_args",
