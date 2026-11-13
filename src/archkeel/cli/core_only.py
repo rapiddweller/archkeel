@@ -55,11 +55,16 @@ class Parser(argparse.ArgumentParser):
 
 
 def requested(argv: Sequence[str], environ: Mapping[str, str]) -> bool:
-    return (
-        "--core-only" in argv
-        or any(argument.startswith("--core-only=") for argument in argv)
-        or environ.get(VARIABLE, Switch.UNSET) not in {Switch.UNSET, Switch.OFF}
-    )
+    selector = Parser(add_help=False)
+    add_switch(selector)
+    try:
+        selection, _ = selector.parse_known_args(argv, Options())
+    except CoreError:
+        return True
+    return selection.core_only or environ.get(VARIABLE, Switch.UNSET) not in {
+        Switch.UNSET,
+        Switch.OFF,
+    }
 
 
 def add_switch(parser: argparse.ArgumentParser) -> None:
@@ -83,7 +88,7 @@ def active_checks(_options: Options) -> tuple[CheckKind, ...]:
 def parse(argv: Sequence[str]) -> Options:
     parser = Parser(prog="archkeel --core-only", description=__doc__)
     parser.add_argument("command", type=Command, choices=list(Command))
-    parser.add_argument("--core-only", action="store_true")
+    add_switch(parser)
     parser.add_argument("--native-core", action="store_true")
     parser.add_argument("--root", type=Path)
     parser.add_argument("--config", default="archkeel.toml")
@@ -95,33 +100,6 @@ def parse(argv: Sequence[str]) -> Options:
     for flag in ("output", "input"):
         parser.add_argument(f"--{flag}", type=Path)
     parser.add_argument("--only")
-    # These inputs select checks or data that scan does not carry. Never ignore them.
-    for flag in (
-        "baseline",
-        "expectation-commit",
-        "head",
-        "expected",
-        "expected-digest",
-        "branch",
-        "accepted-branch",
-        "host-records",
-        "against",
-        "amendment",
-        "decided-by",
-        "rationale",
-        "timings",
-        "rule",
-        "component",
-    ):
-        parser.add_argument(f"--{flag}")
-    for flag in (
-        "write-graph",
-        "write-baseline",
-        "accept-new",
-        "write-amendment",
-        "compact-open-decisions",
-    ):
-        parser.add_argument(f"--{flag}", action="store_true")
     options, extra = parser.parse_known_args(argv, Options())
     if extra:
         raise CoreError(
@@ -131,8 +109,13 @@ def parse(argv: Sequence[str]) -> Options:
 
 
 def run(argv: Sequence[str]) -> int:
-    as_json = "--json" in argv or (not sys.stdout.isatty() and "--text" not in argv)
+    as_json = not sys.stdout.isatty()
     try:
+        output = Parser(add_help=False)
+        output.add_argument("--json", action="store_true")
+        output.add_argument("--text", action="store_true")
+        selection, _ = output.parse_known_args(argv, Options())
+        as_json = selection.json or (not sys.stdout.isatty() and not selection.text)
         try:
             Switch(os.environ.get(VARIABLE, ""))
         except ValueError as error:
@@ -153,12 +136,6 @@ def run(argv: Sequence[str]) -> int:
         if options.input is not None or options.only is not None or options.full:
             raise CoreError(
                 "saved reports and report projections are not carried; run without --core-only"
-            )
-        selected = {key: value for key, value in vars(options).items() if value}
-        allowed = {"command", "core_only", "root", "config", "json", "text"}
-        if unsupported := sorted(selected.keys() - allowed):
-            raise CoreError(
-                f"core-only scan does not carry {', '.join(unsupported)}; run without --core-only"
             )
         request = {
             "protocol": SCAN_PROTOCOL,
@@ -199,6 +176,17 @@ def render_text(command: Command, frame: CoreFrame) -> None:
     if not frame.complete_scope:
         print(f"Scope: {frame.scope}")
         print("Action: Resolve the named scope gap and run again.")
+    for source_gap in frame.collection_gaps:
+        places = [
+            f"{location.path}:{location.line}" if location.line else location.path
+            for key in source_gap.evidence
+            if (location := frame.locations.get(key))
+        ]
+        where = f" ({', '.join(places)})" if places else ""
+        print(
+            f"Source gap: {source_gap.kind}: {', '.join(source_gap.subjects)}: {source_gap.reason}{where}"
+        )
+        print("Action: Resolve the collector cause and run again.")
     for rule, rows in frame.details.items():
         for row in rows:
             edge = row.source if row.target is None else f"{row.source} -> {row.target}"

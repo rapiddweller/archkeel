@@ -22,6 +22,33 @@ pub(super) struct Parts {
     pub(super) unsupported: UnsupportedParts,
     pub(super) self_test: SelfTest,
     pub(super) locations: BTreeMap<String, Location>,
+    pub(super) collection_gaps: Vec<CollectionGap>,
+}
+
+#[derive(Serialize)]
+pub(super) struct CollectionGap {
+    kind: String,
+    subjects: Vec<String>,
+    reason: String,
+    evidence: Vec<String>,
+}
+
+/// Copy collector coverage gaps for display, without deciding which rules they affect.
+pub(super) fn collection_gaps(reply: Option<&Ingested>) -> Vec<CollectionGap> {
+    reply
+        .into_iter()
+        .flat_map(|reply| &reply.reply().facts.coverage.gaps)
+        .map(|gap| CollectionGap {
+            kind: gap.kind().as_str().to_owned(),
+            subjects: gap.subjects.clone(),
+            reason: gap.title.clone(),
+            evidence: gap
+                .evidence_ids
+                .iter()
+                .map(|id| id.as_str().to_owned())
+                .collect(),
+        })
+        .collect()
 }
 
 #[derive(Serialize)]
@@ -119,6 +146,7 @@ pub(crate) fn refused_scan(reason: &str) -> Result<Answered, String> {
         engine: ENGINE,
         sections: BTreeMap::new(),
         locations: BTreeMap::new(),
+        collection_gaps: Vec::new(),
         unsupported: UnsupportedParts {
             sections: BTreeMap::new(),
             report: None,

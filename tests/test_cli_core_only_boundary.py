@@ -15,6 +15,31 @@ from archkeel.cli import core_binary, core_only, native_scan
 from archkeel.cli.core_frame import CoreError, Status
 
 
+@pytest.mark.parametrize(
+    "gap",
+    [
+        None,
+        {},
+        [{"kind": "source"}],
+        [
+            {
+                "kind": "source",
+                "subjects": [1],
+                "reason": "unreadable",
+                "evidence": [],
+            }
+        ],
+    ],
+)
+def test_malformed_collection_gap_metadata_refuses(gap: object) -> None:
+    from archkeel.cli.core_frame import read_frame
+
+    document = json.loads(frame())
+    document["collection_gaps"] = gap
+    with pytest.raises(CoreError):
+        read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+
+
 def frame(status: Status = Status.PASS) -> bytes:
     return json.dumps(
         {
@@ -214,7 +239,7 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
         (["--full"], "projections"),
         (["--baseline", "a.json"], "baseline"),
         (["--against", "main"], "against"),
-        (["--write-graph"], "write_graph"),
+        (["--write-graph"], "write-graph"),
     ],
 )
 def test_uncarried_forms_refuse_by_name(

@@ -854,7 +854,7 @@
         "broad_except"
       ],
       "exact_sources": [
-        "archkeel.cli.main"
+        "archkeel.cli._legacy_main"
       ],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
       "provenance": [
@@ -928,7 +928,10 @@
       "kind": "external_dependency_scope",
       "dependency": "rich_argparse",
       "exact_sources": [
-        "archkeel.cli"
+        "archkeel.cli.legacy_parser",
+        "archkeel.cli.legacy_reports_options",
+        "archkeel.cli.legacy_policy_options",
+        "archkeel.cli.legacy_tools_options"
       ],
       "rationale": "Help formatting belongs to the composition root that owns the argument parser.",
       "provenance": [

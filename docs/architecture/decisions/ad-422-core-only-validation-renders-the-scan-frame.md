@@ -29,6 +29,7 @@
 8. `Ruling::frame` remains the only frame maker. Typed evidence explains each FAIL.
    Core uses the facts identity helpers to link contract citations; declare the core-to-facts dependency.
    UNKNOWN names its gap and location when available. Unported rules name their missing kind.
+   Copy collector coverage causes and evidence for display; never infer which rule a gap affects.
    Refused collection does not parse an empty contract or report a false contract error.
 9. One lookup finds the installed `_native` binary with its digest, or a checkout build.
    A broken installed binary never falls back to a checkout binary.

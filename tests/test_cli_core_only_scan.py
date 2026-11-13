@@ -72,6 +72,15 @@ def test_a_real_failure_names_its_edge_and_source_location(built: Path) -> None:
         assert text in done.stdout
 
 
+def test_an_unknown_source_gap_names_its_collector_cause_and_file(built: Path) -> None:
+    with case_root(HONEST) as root:
+        (root / "src/b/t.ts").write_text("export type T = ;\n")
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--text")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "src/b/t.ts" in done.stdout
+    assert "Source gap" in done.stdout and "Action:" in done.stdout
+
+
 @pytest.mark.parametrize("language", ["python", "dart"])
 def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> None:
     with case_root(HONEST) as root:

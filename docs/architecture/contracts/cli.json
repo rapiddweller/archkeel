@@ -128,6 +128,8 @@
         "archkeel.cli.native_core",
         "archkeel.cli.native_scan",
         "archkeel.cli.core_only",
+        "archkeel.cli.core_json",
+        "archkeel.cli.core_evidence",
         "archkeel.cli.core_binary",
         "archkeel.cli.legacy_bindings",
         "archkeel.cli.legacy_output",
@@ -335,7 +337,7 @@
         {
           "id": "CLI-INPUT-Parser",
           "kind": "class",
-          "qualified_name": "archkeel.cli._Parser",
+          "qualified_name": "archkeel.cli.legacy_parser_base._Parser",
           "language": "python",
           "parent_id": "CLI-INPUT-composition",
           "presence": "planned",
@@ -349,7 +351,7 @@
         {
           "id": "CLI-INPUT-Parser.parse_cli_args",
           "kind": "method",
-          "qualified_name": "archkeel.cli._Parser.parse_cli_args",
+          "qualified_name": "archkeel.cli.legacy_parser_base._Parser.parse_cli_args",
           "language": "python",
           "parent_id": "CLI-INPUT-Parser",
           "presence": "planned",

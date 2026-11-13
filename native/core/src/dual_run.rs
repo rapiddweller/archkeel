@@ -222,6 +222,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let trust = (run.trust)(run.namespace, engine.reply());
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
+    let collection_gaps = frame_parts::collection_gaps(engine.reply());
     engine.answer(Request::Settings(settings));
     let path = input.path.clone();
     let contract = match engine.answer(Request::Contract(input)) {
@@ -252,6 +253,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        collection_gaps,
         engine: ENGINE,
         sections: rows,
         unsupported: UnsupportedParts {
