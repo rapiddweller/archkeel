@@ -231,11 +231,11 @@ fn the_in_process_trust_refuses_a_reply_of_another_profile_with_the_adapter_of_t
         let facts = &mut value["facts"];
         if let Some(sections) = facts["sections"].as_array_mut() {
             sections.retain(|section| kept.iter().any(|name| section["name"] == *name));
-            for section in sections {
-                for record in section["records"].as_array_mut().into_iter().flatten() {
-                    record["fact_ids"] = json!([]);
-                }
-            }
+            sections
+                .iter_mut()
+                .filter_map(|section| section["records"].as_array_mut())
+                .flatten()
+                .for_each(|record| record["fact_ids"] = json!([]));
         }
         facts["capabilities"]["sections"] = json!(kept);
     });
