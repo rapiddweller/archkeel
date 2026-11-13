@@ -109,12 +109,11 @@ fn class_rows(
 fn typed_providers(
     scan: &mut Scan,
     env: &Env<'_>,
-    nodes: &[Node<'_>],
+    bound: Vec<String>,
     unsafe_names: &HashSet<String>,
     escaped: &HashSet<String>,
 ) -> Result<Vec<String>> {
     let mut typed_providers = Vec::new();
-    let bound = super::super::names::bound(scan, nodes)?;
     let mut provider_names = HashSet::new();
     for stmt in &env.module.tree.body {
         scan.tick(1)?;
@@ -229,7 +228,8 @@ pub(super) fn collect(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Res
     }
     let annotations = type_refs::annotations(scan, nodes)?;
     let references = type_refs::references(scan, env, &annotations)?;
-    let typed_providers = typed_providers(scan, env, nodes, &unsafe_names, &escaped)?;
+    let bound = super::super::names::bound(scan, nodes)?;
+    let typed_providers = typed_providers(scan, env, bound, &unsafe_names, &escaped)?;
     Ok(json!({
         "overloads":overloads::collect(scan, env, nodes, &escaped)?, "explicit":explicit,
         "classes":classes, "owners":owner_rows, "static_containment":pairs, "modes":modes,

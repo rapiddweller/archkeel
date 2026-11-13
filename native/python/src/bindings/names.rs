@@ -62,6 +62,19 @@ pub(super) fn bound(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<Vec<String>> 
 
 pub(super) fn stored_names(scan: &mut Scan, targets: Vec<&Expr>) -> Result<Vec<String>> {
     let mut out = Vec::new();
+    target_names(scan, targets, |n| {
+        if n.ctx == ExprContext::Store {
+            out.push(n.id.to_string());
+        }
+    })?;
+    Ok(out)
+}
+
+pub(super) fn target_names(
+    scan: &mut Scan,
+    targets: Vec<&Expr>,
+    mut visit: impl FnMut(&ruff_python_ast::ExprName),
+) -> Result<()> {
     for target in targets {
         scan.tick(1)?;
         for child in scan.walk(Node::Expr(target))? {
@@ -69,12 +82,18 @@ pub(super) fn stored_names(scan: &mut Scan, targets: Vec<&Expr>) -> Result<Vec<S
             let Node::Expr(Expr::Name(n)) = child else {
                 continue;
             };
-            if n.ctx == ExprContext::Store {
-                out.push(n.id.to_string());
-            }
+            visit(n);
         }
     }
-    Ok(out)
+    Ok(())
+}
+
+pub(super) fn escape_children<'a>(scan: &mut Scan, node: &Node<'a>) -> Result<Vec<Node<'a>>> {
+    match node {
+        Node::Expr(Expr::Attribute(n)) => Ok(vec![Node::Expr(&n.value)]),
+        Node::Expr(Expr::Call(_)) => Ok(Vec::new()),
+        _ => scan.children(node),
+    }
 }
 
 pub(super) fn targets(stmt: &Stmt) -> Vec<&Expr> {

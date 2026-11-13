@@ -11,6 +11,15 @@ use super::scan::{constant, Result, Scan};
 use super::{class, names};
 use crate::pyast::Node;
 
+pub(super) fn annotation_field(stmt: &Stmt) -> Option<&Expr> {
+    match stmt {
+        Stmt::AnnAssign(n) if matches!(&*n.target, Expr::Name(_)) && n.value.is_none() => {
+            Some(&n.annotation)
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<Value> {
     binding_with(scan, node, source, false, true)
 }

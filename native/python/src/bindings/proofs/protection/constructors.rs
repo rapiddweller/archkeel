@@ -16,6 +16,15 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 const BUILTIN: &[&str] = &["str", "int", "float", "bool", "bytes", "object"];
 
+fn stable_definition(env: &Env<'_>, stmt: &Stmt) -> bool {
+    let (name, decorators) = match stmt {
+        Stmt::ClassDef(n) => (n.name.as_str(), &n.decorator_list),
+        Stmt::FunctionDef(n) => (n.name.as_str(), &n.decorator_list),
+        _ => return false,
+    };
+    decorators.is_empty() && env.stable.contains(name) && env.unique.contains(name)
+}
+
 fn shadowed(
     scan: &mut Scan,
     env: &Env<'_>,
@@ -39,9 +48,11 @@ fn shadowed(
 
 pub(super) fn class_values(scan: &mut Scan, env: &Env<'_>) -> Result<Vec<(i64, i64, i64)>> {
     let mut out = Vec::new();
-    for stmt in &env.module.tree.body {
-        scan.tick(1)?;
-        let Stmt::ClassDef(n) = stmt else { continue };
+    scan.tick(env.module.tree.body.len())?;
+    for n in env.module.tree.body.iter().filter_map(|stmt| match stmt {
+        Stmt::ClassDef(n) => Some(n),
+        _ => None,
+    }) {
         for stmt in &n.body {
             scan.tick(1)?;
             let (_, value) = statements::assignment(&Node::Stmt(stmt));
@@ -64,9 +75,7 @@ fn inert_classes<'a>(scan: &mut Scan, env: &'a Env<'_>) -> Result<BTreeMap<&'a s
     for stmt in &env.module.tree.body {
         scan.tick(1)?;
         let Stmt::ClassDef(n) = stmt else { continue };
-        if !env.stable.contains(n.name.as_str())
-            || !env.unique.contains(n.name.as_str())
-            || !n.decorator_list.is_empty()
+        if !stable_definition(env, stmt)
             || n.arguments
                 .as_ref()
                 .is_some_and(|a| !a.args.is_empty() || !a.keywords.is_empty())
@@ -79,12 +88,13 @@ fn inert_classes<'a>(scan: &mut Scan, env: &'a Env<'_>) -> Result<BTreeMap<&'a s
             inert &= match stmt {
                 Stmt::Pass(_) => true,
                 Stmt::Expr(n) => matches!(&*n.value, Expr::StringLiteral(_)),
-                Stmt::AnnAssign(n) => {
-                    matches!(&*n.target, Expr::Name(_))
-                        && n.value.is_none()
-                        && (values::inert(scan, &n.annotation, 0)?
-                            || type_refs::bare(env, &n.annotation, BUILTIN))
-                }
+                Stmt::AnnAssign(_) => match statements::annotation_field(stmt) {
+                    Some(annotation) => {
+                        values::inert(scan, annotation, 0)?
+                            || type_refs::bare(env, annotation, BUILTIN)
+                    }
+                    None => false,
+                },
                 _ => false,
             };
             if !inert {
@@ -164,10 +174,7 @@ pub(super) fn candidates(scan: &mut Scan, env: &Env<'_>) -> Result<Vec<Value>> {
     for stmt in &env.module.tree.body {
         scan.tick(1)?;
         let Stmt::FunctionDef(n) = stmt else { continue };
-        if !env.stable.contains(n.name.as_str())
-            || !env.unique.contains(n.name.as_str())
-            || !n.decorator_list.is_empty()
-        {
+        if !stable_definition(env, stmt) {
             continue;
         }
         let Some(header_names) = header(scan, env, stmt, n, &classes)? else {

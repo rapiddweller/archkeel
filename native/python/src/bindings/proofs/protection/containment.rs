@@ -30,18 +30,11 @@ fn lambda_owners<'a>(
         return Ok(Vec::new());
     }
     let mut owners = Vec::new();
-    for target in targets {
-        scan.tick(1)?;
-        for target in scan.walk(Node::Expr(target))? {
-            scan.tick(1)?;
-            let Node::Expr(Expr::Name(n)) = target else {
-                continue;
-            };
-            if n.ctx == ExprContext::Store || module_assignment {
-                owners.push((n.id.to_string(), Node::Expr(value)));
-            }
+    names::target_names(scan, targets, |n| {
+        if n.ctx == ExprContext::Store || module_assignment {
+            owners.push((n.id.to_string(), Node::Expr(value)));
         }
-    }
+    })?;
     Ok(owners)
 }
 
@@ -240,30 +233,6 @@ pub(super) fn unproven(
     }
     let bindings = names::bound(scan, &scope)?;
     let mut changed = close(scan, nodes, roots, contained, locals, owners, &bindings)?;
-    let mut origins = HashSet::new();
-    for node in nodes {
-        scan.tick(1)?;
-        let Node::Stmt(Stmt::Import(n)) = node else {
-            continue;
-        };
-        for alias in &n.names {
-            scan.tick(1)?;
-            let root = crate::module::first_part(alias.name.as_str());
-            if changed.contains(alias.asname.as_ref().map_or(root, |n| n.as_str())) {
-                origins.insert(alias.asname.as_ref().map_or(root, |_| alias.name.as_str()));
-            }
-        }
-    }
-    scan.tick(scan.aliases.len())?;
-    for (name, (target, module)) in &scan.aliases {
-        let origin = if *module {
-            target.as_str()
-        } else {
-            target.rsplit_once('.').map_or("", |(p, _)| p)
-        };
-        if origins.contains(origin) {
-            changed.insert(name.clone());
-        }
-    }
+    super::super::super::environment::propagate_origins(scan, nodes, &mut changed)?;
     Ok(changed)
 }

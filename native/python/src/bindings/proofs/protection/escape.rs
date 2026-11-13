@@ -93,10 +93,8 @@ fn owner_expressions<'a>(scan: &mut Scan, nodes: &[Node<'a>]) -> Result<Vec<&'a 
             Node::Stmt(Stmt::FunctionDef(n)) => n.decorator_list.as_slice(),
             _ => &[],
         };
-        for d in decorators {
-            scan.tick(1)?;
-            expressions.push(&d.expression);
-        }
+        scan.tick(decorators.len())?;
+        expressions.extend(decorators.iter().map(|d| &d.expression));
     }
     Ok(expressions)
 }
@@ -203,9 +201,7 @@ pub(super) fn references<'a>(
                     out.push(n);
                 }
                 Node::Expr(Expr::Name(_)) => {}
-                Node::Expr(Expr::Attribute(n)) => pending.push(Node::Expr(&n.value)),
-                Node::Expr(Expr::Call(_)) => {}
-                _ => pending.extend(scan.children(&target)?),
+                _ => pending.extend(super::super::super::names::escape_children(scan, &target)?),
             }
         }
     }

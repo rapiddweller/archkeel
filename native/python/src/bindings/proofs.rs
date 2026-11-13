@@ -262,7 +262,7 @@ fn stable(
     Ok(out)
 }
 
-fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<HashSet<String>> {
+fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<BTreeSet<String>> {
     let mut roots = HashSet::new();
     for node in nodes {
         scan.tick(1)?;
@@ -279,9 +279,7 @@ fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<HashSet<String>> {
                 Node::Expr(Expr::Name(n)) => {
                     roots.insert(n.id.to_string());
                 }
-                Node::Expr(Expr::Attribute(n)) => pending.push(Node::Expr(&n.value)),
-                Node::Expr(Expr::Call(_)) => {}
-                _ => pending.extend(scan.children(&node)?),
+                _ => pending.extend(names::escape_children(scan, &node)?),
             }
         }
     }
@@ -300,33 +298,8 @@ fn changed(scan: &mut Scan, nodes: &[Node<'_>]) -> Result<HashSet<String>> {
         },
     )?;
     scan.tick(changed.len())?;
-    let mut changed: HashSet<_> = changed.into_iter().collect();
-    let mut origins = HashSet::new();
-    for node in nodes {
-        scan.tick(1)?;
-        let Node::Stmt(Stmt::Import(n)) = node else {
-            continue;
-        };
-        for alias in &n.names {
-            scan.tick(1)?;
-            let root = crate::module::first_part(alias.name.as_str());
-            let binding = alias.asname.as_ref().map_or(root, |n| n.as_str());
-            if changed.contains(binding) {
-                origins.insert(alias.asname.as_ref().map_or(root, |_| alias.name.as_str()));
-            }
-        }
-    }
-    scan.tick(scan.aliases.len())?;
-    for (name, (target, module)) in &scan.aliases {
-        let origin = if *module {
-            target.as_str()
-        } else {
-            target.rsplit_once('.').map_or("", |(p, _)| p)
-        };
-        if origins.contains(origin) {
-            changed.insert(name.to_owned());
-        }
-    }
+    let mut changed: BTreeSet<_> = changed.into_iter().collect();
+    super::environment::propagate_origins(scan, nodes, &mut changed)?;
     Ok(changed)
 }
 

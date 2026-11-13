@@ -154,9 +154,6 @@ pub(super) fn native(
     unsafe_names: &HashSet<String>,
     escaped: &HashSet<String>,
 ) -> Result<bool> {
-    let Stmt::ClassDef(n) = stmt else {
-        return Ok(false);
-    };
     if !methods::direct(env, stmt) {
         return Ok(false);
     }
@@ -166,24 +163,35 @@ pub(super) fn native(
     if !typed(scan, env, stmt, unsafe_names, escaped)? {
         return Ok(false);
     }
+    let Stmt::ClassDef(n) = stmt else {
+        return Err("native header lost its class".into());
+    };
     for child in &n.body {
         scan.tick(1)?;
-        match child {
-            Stmt::Pass(_) => {}
-            Stmt::Expr(n) if matches!(&*n.value, Expr::StringLiteral(_)) => {}
-            Stmt::AnnAssign(n)
-                if matches!(&*n.target, Expr::Name(_))
-                    && n.value.is_none()
-                    && (classes::deferred(scan, env, &n.annotation)?
-                        || type_refs::bare(
-                            env,
-                            &n.annotation,
-                            &["str", "int", "float", "bool", "bytes", "object"],
-                        )) => {}
-            _ => return Ok(false),
+        if !typed_item(scan, env, child)? {
+            return Ok(false);
         }
     }
     Ok(true)
+}
+
+fn typed_item(scan: &mut Scan, env: &Env<'_>, child: &Stmt) -> Result<bool> {
+    Ok(match child {
+        Stmt::Pass(_) => true,
+        Stmt::Expr(n) => matches!(&*n.value, Expr::StringLiteral(_)),
+        Stmt::AnnAssign(_) => {
+            let Some(annotation) = statements::annotation_field(child) else {
+                return Ok(false);
+            };
+            classes::deferred(scan, env, annotation)?
+                || type_refs::bare(
+                    env,
+                    annotation,
+                    &["str", "int", "float", "bool", "bytes", "object"],
+                )
+        }
+        _ => false,
+    })
 }
 
 pub(super) fn bases(scan: &mut Scan, env: &Env<'_>, n: &StmtClassDef) -> Result<bool> {

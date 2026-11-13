@@ -7,6 +7,7 @@
 use super::scan::{Result, Scan};
 use super::{class, names, namespace};
 use crate::module::Module;
+use crate::pyast::Node;
 use ruff_python_ast::{Expr, Stmt};
 use std::collections::{BTreeSet, HashSet};
 
@@ -58,4 +59,38 @@ pub(super) fn resolve(scan: &mut Scan, module: &Module, expr: &Expr) -> Result<S
         return Ok(text);
     }
     Ok(text)
+}
+
+pub(super) fn propagate_origins(
+    scan: &mut Scan,
+    nodes: &[Node<'_>],
+    changed: &mut BTreeSet<String>,
+) -> Result<()> {
+    let mut origins = HashSet::new();
+    for node in nodes {
+        scan.tick(1)?;
+        let Node::Stmt(Stmt::Import(n)) = node else {
+            continue;
+        };
+        for alias in &n.names {
+            scan.tick(1)?;
+            let root = crate::module::first_part(alias.name.as_str());
+            let binding = alias.asname.as_ref().map_or(root, |n| n.as_str());
+            if changed.contains(binding) {
+                origins.insert(alias.asname.as_ref().map_or(root, |_| alias.name.as_str()));
+            }
+        }
+    }
+    scan.tick(scan.aliases.len())?;
+    for (name, (target, module)) in &scan.aliases {
+        let origin = if *module {
+            target.as_str()
+        } else {
+            target.rsplit_once('.').map_or("", |(p, _)| p)
+        };
+        if origins.contains(origin) {
+            changed.insert(name.to_owned());
+        }
+    }
+    Ok(())
 }
