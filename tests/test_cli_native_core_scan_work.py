@@ -214,6 +214,7 @@ def test_the_shell_keeps_the_typed_refusal_of_a_real_core(
         native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     assert error.value.gap is not None
     assert error.value.gap.kind is GapKind.PARSE_WORK_LIMIT
+    assert "parse_work_limit" in str(error.value)
 
 
 @pytest.mark.parametrize("workspace", [False, True], ids=["typescript-corpus", "native"])

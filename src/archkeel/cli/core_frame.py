@@ -90,6 +90,10 @@ class _CollectRead(StrEnum):
     REFUSED = "refused"
 
 
+class _RefusalProtocol(StrEnum):
+    V1 = "archkeel-core-refusal-1"
+
+
 _Word = TypeVar("_Word", bound=StrEnum)
 # The exit codes of the core: a frame without a named part, and a frame that names one.
 DECIDED_EXIT: Final = 0
@@ -136,7 +140,7 @@ class CoreError(Exception):
     refuses, or the two engines differ. The run then gives no verdict (exit 2)."""
 
     def __init__(self, message: str, *, gap: Gap | None = None) -> None:
-        super().__init__(message)
+        Exception.__init__(self, message)
         self.gap = gap
 
 
@@ -162,8 +166,7 @@ def read_refusal(stderr: bytes) -> Gap | None:
     except (UnicodeDecodeError, ValueError):
         return None
     fields = _fields(value, "refusal", frozenset({"protocol", "kind", "subject", "reason"}))
-    if fields["protocol"] != "archkeel-core-refusal-1":
-        raise CoreError("the core refusal has an unknown protocol")
+    _word(_RefusalProtocol, fields["protocol"], "refusal.protocol")
     kind = _word(GapKind, fields["kind"], "refusal.kind")
     if kind is not GapKind.PARSE_WORK_LIMIT:
         raise CoreError(f"the core refusal has an unsupported kind {kind}")
