@@ -56,13 +56,13 @@ run 147.0 to 138.8 s, host peak 3 141 to 2 751 MiB. The check still copies each 
 - **Python keeps the whole records for the digests.** That undoes the read-set.
 - **A collector subclass for the CLI.** It adds a coupling name; one optional field does not.
 
-**Limit.** The store checks only the generic part. It refuses Python and Dart replies and the
-Python source proofs; it does not check them. `repr` follows Unicode 14.0 (Python 3.11): a code
-point that a later Python assigns can change a digest. A `\d` of Python matches every decimal
-digit; the reference test of `canonical.rs` reads only ASCII digits. A large derived shell costs
-memory: on 289 Rust crates host + store peak at 7.2 GiB against 6.7 GiB (median of 3): the store
-holds the typed reply (1.3 GiB) and peaks at 1.9 GiB in the write step. The WP1 read lists are a
-lower bound: a field that no corpus case reads can miss.
+**Limit.** The store checks only the generic part. It refuses Python and Dart replies and the Python
+source proofs; it does not check them. `repr` follows Unicode 14.0 (Python 3.11): a code point that
+a later Python assigns can change a digest. So can a text of `$` and a digit: the store pins the 660
+digits of Unicode 14.0, so on Python 3.12 or later a newer digit gives other bytes and the same text
+(#1061). A large derived shell costs memory: on 289 Rust crates host + store peak at 7.2 GiB against
+6.7 GiB (median of 3): the store holds the typed reply (1.3 GiB), peak 1.9 GiB in the write step.
+The WP1 read lists are a lower bound: a field that no corpus case reads can miss.
 
 **Checked by** `native/store/src/*_tests.rs` (Python bytes and messages),
 `tests/test_collector_native_store.py` (14 golden cases with both collectors, 53 demo variants,
