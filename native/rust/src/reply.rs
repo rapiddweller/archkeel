@@ -4,11 +4,12 @@
 
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
-use archkeel_facts::envelope::{Evidence, Provenance};
+use archkeel_facts::envelope::{Evidence, Provenance, Reply};
 use archkeel_facts::request::RustRequest;
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
+use archkeel_wire::typed::assemble;
 
 use crate::builder::Builder;
 use crate::tree::Walked;
@@ -19,7 +20,7 @@ const FEATURES: [&str; 1] = ["rust-crate-edges"];
 
 /// The facts of one request, as the typed records of `archkeel-facts` (AD-345) and the small lists.
 /// `encode` writes the gaps once: they are the section `unknowns` and the gaps of the coverage.
-pub struct Collected {
+pub(crate) struct Collected {
     pub head: Head,
     pub imports: Vec<Record<ImportFact>>,
     pub symbols: Vec<Record<SymbolFact>>,
@@ -31,7 +32,20 @@ pub struct Collected {
 
 impl Collected {
     /// The compressed reply for `version`.
-    pub fn encode(self, version: Version) -> Result<Vec<u8>, String> {
+    pub(crate) fn encode(self, version: Version) -> Result<Vec<u8>, String> {
+        let (head, records) = self.parts();
+        let mut bytes = Vec::new();
+        encode_stream(version, head, &mut bytes, |writer| records.produce(writer))?;
+        Ok(bytes)
+    }
+
+    /// The typed reply uses the same record producer as the compressed stream.
+    pub(crate) fn typed(self, version: Version) -> Result<Reply, String> {
+        let (head, records) = self.parts();
+        assemble(version, head, |writer| records.produce(writer))
+    }
+
+    fn parts(self) -> (Head, Records) {
         let Self {
             head,
             imports,
@@ -41,19 +55,39 @@ impl Collected {
             files_read,
             evidence,
         } = self;
-        let mut bytes = Vec::new();
-        encode_stream(version, head, &mut bytes, |writer| {
-            writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
-            writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
-            writer.write_typed_section::<GapFact>(|emit| gaps.iter().for_each(emit))?;
-            Ok(Tail {
-                selected_files,
-                files_read,
-                gaps,
-                evidence,
-            })
-        })?;
-        Ok(bytes)
+        (
+            head,
+            Records {
+                imports,
+                symbols,
+                tail: Tail {
+                    selected_files,
+                    files_read,
+                    gaps,
+                    evidence,
+                },
+            },
+        )
+    }
+}
+
+struct Records {
+    imports: Vec<Record<ImportFact>>,
+    symbols: Vec<Record<SymbolFact>>,
+    tail: Tail,
+}
+
+impl Records {
+    fn produce(self, writer: &mut impl SectionSink) -> std::io::Result<Tail> {
+        let Self {
+            imports,
+            symbols,
+            tail,
+        } = self;
+        writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
+        writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
+        writer.write_typed_section::<GapFact>(|emit| tail.gaps.iter().for_each(emit))?;
+        Ok(tail)
     }
 }
 

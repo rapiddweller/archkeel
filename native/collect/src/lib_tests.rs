@@ -23,7 +23,7 @@ const FIXTURES: [&str; 4] = [
     "L-nest-realworld",
 ];
 
-fn copy(from: &Path, to: &Path) {
+pub(super) fn copy(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap();
     for entry in fs::read_dir(from).unwrap() {
         let entry = entry.unwrap();
@@ -37,7 +37,7 @@ fn copy(from: &Path, to: &Path) {
 }
 
 /// A copy of a fixture with a Git directory whose `HEAD` names `HEAD` on `main`.
-fn repository(fixture: &str) -> PathBuf {
+pub(super) fn repository(fixture: &str) -> PathBuf {
     let root = scratch(&format!("fixture-{fixture}"));
     copy(
         &Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../fixtures/{fixture}")),
@@ -49,7 +49,7 @@ fn repository(fixture: &str) -> PathBuf {
     root
 }
 
-fn identity(root: &str) -> Identity<'_> {
+pub(super) fn identity(root: &str) -> Identity<'_> {
     Identity {
         root,
         config: "archkeel.toml",
@@ -95,7 +95,7 @@ fn each_fixture_scans_in_the_process_and_equals_the_reply_of_the_binary() {
         assert_eq!(scanned.request["snapshot"]["root"], text);
         assert_eq!(scanned.request["resolver"]["language"], "typescript");
         let bytes = serde_json::to_vec(&scanned.request).unwrap();
-        let typed = serde_json::to_vec(&reply_of(&bytes).unwrap()).unwrap();
+        let typed = serde_json::to_vec(&reply_of(scanned.profile, &bytes).unwrap()).unwrap();
         assert_eq!(typed, binary_bytes(&bytes), "{fixture}");
         assert_eq!(
             serde_json::to_vec(scanned.reply.reply()).unwrap(),
@@ -111,11 +111,11 @@ fn a_planted_environment_changes_no_byte_of_the_reply() {
     let root = repository("H-typescript");
     let text = root.to_str().unwrap();
     let request = serde_json::to_vec(&scan(&identity(text), 1 << 26).unwrap().request).unwrap();
-    let before = serde_json::to_vec(&reply_of(&request).unwrap()).unwrap();
+    let before = serde_json::to_vec(&reply_of(Profile::TypeScript, &request).unwrap()).unwrap();
     // The planted faults of `plant.rs` read these variables only in a build with `dump`.
     std::env::set_var("ARCHKEEL_PLANT_SKIP", "src/catalog/index.ts:0");
     std::env::set_var("ARCHKEEL_PLANT_SCAN", "import");
-    let after = serde_json::to_vec(&reply_of(&request).unwrap()).unwrap();
+    let after = serde_json::to_vec(&reply_of(Profile::TypeScript, &request).unwrap()).unwrap();
     std::env::remove_var("ARCHKEEL_PLANT_SKIP");
     std::env::remove_var("ARCHKEEL_PLANT_SCAN");
     assert_eq!(before, after);
@@ -208,4 +208,17 @@ fn a_contract_over_its_budget_is_refused() {
         refusal.to_string(),
         "collect: unsupported: contract: architecture-contract.json holds more than 10 bytes"
     );
+}
+
+#[test]
+fn the_profile_selects_its_strict_decoder_and_refuses_unlinked_collectors() {
+    let root = repository("H-typescript");
+    let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
+    let request = serde_json::to_vec(&scanned.request).unwrap();
+    assert!(run::collect(Profile::Rust, &request).is_err());
+    for profile in [Profile::Python, Profile::Dart] {
+        let error = reply_of(profile, &request).unwrap_err();
+        assert!(error.contains(profile.as_str()), "{error}");
+        assert!(error.contains("no collector in the core process yet"));
+    }
 }

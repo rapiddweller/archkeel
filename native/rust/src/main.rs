@@ -9,56 +9,15 @@
 
 #![forbid(unsafe_code)]
 
-mod attrs;
-mod builder;
-mod collect;
-mod crates;
-mod declared;
-mod definitions;
-mod edges;
-mod edges_extracted;
-mod impl_edges;
-mod impl_globs;
-mod manifest;
-mod manifest_lines;
-mod module_edges;
-mod modules;
-mod nesting;
-mod net;
-mod paths;
-mod plant;
-mod reply;
-mod resolve;
-mod scan;
-mod site;
-mod source;
-mod symbols;
-mod test_scope;
-mod tokens;
-mod toml;
-mod tree;
-
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
-use archkeel_facts::envelope::Profile;
-use archkeel_facts::envelope::Provenance;
+use archkeel_rust_collector::{provenance, reply};
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode_rust;
 
 /// The stack of the scan thread. The system gives address space, not memory, until it is used.
 const STACK_BYTES: usize = 256 * 1024 * 1024;
-
-fn provenance() -> Provenance {
-    Provenance::native(
-        Profile::Rust,
-        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
-        (
-            env!("ARCHKEEL_RUSTC_VERSION"),
-            env!("CARGO_PKG_RUST_VERSION"),
-        ),
-    )
-}
 
 fn run() -> Result<Vec<u8>, String> {
     let mut payload = Vec::new();
@@ -71,7 +30,11 @@ fn run() -> Result<Vec<u8>, String> {
     let worker = std::thread::Builder::new()
         .stack_size(STACK_BYTES)
         .spawn(move || {
-            collect::collect(&request, provenance()).encode(reply_version(request.protocol_version))
+            reply(
+                &request,
+                provenance(),
+                reply_version(request.protocol_version),
+            )
         })
         .map_err(|error| format!("cannot start the scan: {error}"))?;
     worker

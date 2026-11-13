@@ -76,7 +76,8 @@ def _collector_rows(binary: Path) -> set[Row]:
     return rows
 
 
-def _rustdoc(target: Path) -> dict[str, Any]:
+def _rustdoc(target: Path, library: bool) -> dict[str, Any]:
+    selection = ["--lib"] if library else ["--bin", "archkeel-rust-collector"]
     done = subprocess.run(
         [
             "cargo",
@@ -84,8 +85,7 @@ def _rustdoc(target: Path) -> dict[str, Any]:
             "--offline",
             "--package",
             "archkeel-rust-collector",
-            "--bin",
-            "archkeel-rust-collector",
+            *selection,
             "--",
             "-Z",
             "unstable-options",
@@ -178,8 +178,10 @@ def compared(
 ) -> tuple[set[Row], set[Row]]:
     if shutil.which("cargo") is None:
         pytest.skip("cargo is not installed; install Rust to run the oracle.")
-    docs = _Docs(_rustdoc(tmp_path_factory.mktemp("rustdoc")))
-    return _collector_rows(rust_binary), docs.rows()
+    target = tmp_path_factory.mktemp("rustdoc")
+    rows = _Docs(_rustdoc(target, library=True)).rows()
+    rows |= _Docs(_rustdoc(target, library=False)).rows()
+    return _collector_rows(rust_binary), rows
 
 
 def test_the_only_definition_that_rustdoc_lacks_is_the_build_script(

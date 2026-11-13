@@ -19,7 +19,7 @@ use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
 
 /// One file of a module tree, read and scanned.
-pub struct Module {
+pub(crate) struct Module {
     pub rel: String,
     pub module: String,
     pub crate_index: usize,
@@ -33,7 +33,7 @@ pub struct Module {
     pub gated: bool,
 }
 
-pub struct Walked {
+pub(crate) struct Walked {
     pub modules: Vec<Module>,
     pub problems: Vec<Problem>,
     /// The files that no module tree reaches are those of `files` that are not here.
@@ -48,7 +48,7 @@ pub struct Walked {
 
 impl Walked {
     /// Whether the request leaves this file out as test scope.
-    pub fn is_excluded(&self, rel: &str) -> bool {
+    pub(crate) fn is_excluded(&self, rel: &str) -> bool {
         self.exclude_tests && (self.tests.contains(rel) || in_test_directory(rel))
     }
 }
@@ -69,9 +69,9 @@ struct Pending {
 
 /// The deepest module that the walk reads. A name holds the whole path, so the reply grows with
 /// the square of the depth; the deepest module of the `uv` corpus has depth 4.
-pub const MAX_MODULE_DEPTH: usize = 64;
+pub(crate) const MAX_MODULE_DEPTH: usize = 64;
 
-pub fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -> Walked {
+pub(crate) fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -> Walked {
     let mut walked = Walked {
         modules: Vec::new(),
         problems: Vec::new(),

@@ -23,23 +23,23 @@ fn planted(_name: &str) -> Option<String> {
 }
 
 /// Whether the edges must skip the reference with this index in this file.
-pub fn skip(rel: &str, index: usize) -> bool {
+pub(crate) fn skip(rel: &str, index: usize) -> bool {
     planted("ARCHKEEL_PLANT_SKIP").is_some_and(|value| value == format!("{rel}:{index}"))
 }
 
 /// Whether the edges must end nothing for the edge with this index in this file, as an arm that
 /// forgot to write its record would.
-pub fn arm(rel: &str, index: usize) -> bool {
+pub(crate) fn arm(rel: &str, index: usize) -> bool {
     planted("ARCHKEEL_PLANT_ARM").is_some_and(|value| value == format!("{rel}:{index}"))
 }
 
 /// Whether the edges must skip the method call with this index in this file.
-pub fn method(rel: &str, index: usize) -> bool {
+pub(crate) fn method(rel: &str, index: usize) -> bool {
     planted("ARCHKEEL_PLANT_METHOD").is_some_and(|value| value == format!("{rel}:{index}"))
 }
 
 /// Whether the scan must lose this thing (`reference`, `call` or `method`).
-pub fn lose(kind: &str) -> bool {
+pub(crate) fn lose(kind: &str) -> bool {
     static LOST: AtomicBool = AtomicBool::new(false);
     planted("ARCHKEEL_PLANT_SCAN").is_some_and(|value| value == kind)
         && !LOST.swap(true, Ordering::Relaxed)

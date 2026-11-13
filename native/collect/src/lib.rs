@@ -10,7 +10,7 @@
 //! namespace, the test scope and the resolver settings, runs the linked collector of the profile
 //! in the process of the core, and gives the store the typed reply. It returns the validated
 //! reply and the contract bytes, or a `Refusal` that names the part it cannot run. No plugin, no
-//! trait: one function, one profile today (TypeScript).
+//! trait: one function for the linked TypeScript and Rust profiles.
 //!
 //! Trust: the core trusts the reply because it ran the collector itself; no digest and no reply
 //! bytes come from the caller. The caller still chooses the root and the configuration file, and
@@ -99,7 +99,11 @@ impl Scanned {
 
 /// The test features of the linked collectors. A build with one cannot give an accepted reply.
 pub fn test_features() -> &'static [&'static str] {
-    archkeel_typescript_collector::TEST_FEATURES
+    if archkeel_rust_collector::TEST_FEATURES.is_empty() {
+        archkeel_typescript_collector::TEST_FEATURES
+    } else {
+        archkeel_rust_collector::TEST_FEATURES
+    }
 }
 
 /// Scan the repository of `identity` with the collector of its profile. `contract_budget` bounds
@@ -122,7 +126,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     repository::survey(&root).map_err(|why| refused("work budget", why))?;
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
-    let reply = run::collect(&bytes).map_err(|why| refused("collector", why))?;
+    let reply = run::collect(config.profile, &bytes).map_err(|why| refused("collector", why))?;
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
@@ -134,7 +138,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
         }
     };
     Ok(Scanned {
-        profile: Profile::TypeScript,
+        profile: config.profile,
         roots: config.roots,
         namespace: config.namespace,
         contract: (config.contract, contract),
@@ -190,14 +194,14 @@ fn read_config(root: &repository::Root, path: &str) -> Result<config::Config, Re
         let reason = format!("scan contract is not a file: {}", config.contract);
         return Err(refused("config", reason));
     }
-    if !root.is_file(&config.tsconfig) {
+    if config.profile == Profile::TypeScript && !root.is_file(&config.tsconfig) {
         let reason = format!("scan TypeScript config is not a file: {}", config.tsconfig);
         return Err(refused("config", reason));
     }
     Ok(config)
 }
 
-/// The request that the shell sends to the bundled TypeScript collector (`observer_for`,
+/// The request that the shell sends to a bundled collector (`observer_for`,
 /// `collection_request`, `ProcessCollector`): 8.0.0, or 9.0.0 with the test scope.
 fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     let mut scope = json!({"roots": config.roots, "namespace": config.namespace});
@@ -207,7 +211,10 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     } else {
         "8.0.0"
     };
-    let mut resolver = json!({"language": "typescript", "tsconfig": config.tsconfig});
+    let mut resolver = match config.profile {
+        Profile::Rust => json!({"language": "rust"}),
+        _ => json!({"language": "typescript", "tsconfig": config.tsconfig}),
+    };
     if config.bundler {
         resolver["bundler"] = Value::Bool(true);
     }
@@ -222,3 +229,6 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod rust_tests;

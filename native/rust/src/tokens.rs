@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 use proc_macro2::{Span, TokenStream, TokenTree};
 
 /// The name of an identifier as the compiler compares it: a raw identifier `r#name` is `name`.
-pub fn plain(ident: &impl std::fmt::Display) -> String {
+pub(crate) fn plain(ident: &impl std::fmt::Display) -> String {
     let text = ident.to_string();
     text.strip_prefix("r#")
         .map_or_else(|| text.clone(), str::to_owned)
@@ -20,7 +20,7 @@ pub fn plain(ident: &impl std::fmt::Display) -> String {
 
 /// A written path: its identifiers and the span of the first one.
 #[derive(Clone, Debug)]
-pub struct Chain {
+pub(crate) struct Chain {
     pub names: Vec<String>,
     pub span: Span,
     /// The path starts with `::`, so its first name is a crate and never a local item.
@@ -33,7 +33,7 @@ const MAX_DEPTH: usize = 64;
 
 /// Each `a::b` chain (two names or more) in `stream`, in source order.
 /// The result is `None` when the stream nests deeper than `MAX_DEPTH`.
-pub fn chains(stream: TokenStream) -> Option<Vec<Chain>> {
+pub(crate) fn chains(stream: TokenStream) -> Option<Vec<Chain>> {
     let mut found = Vec::new();
     collect(stream, 0, false, &mut found).then_some(found)
 }
@@ -41,7 +41,7 @@ pub fn chains(stream: TokenStream) -> Option<Vec<Chain>> {
 /// Whether the stream writes a relative module path that no chain reads: `super`, `self::`, or
 /// `crate` that is not followed by `::` and a name (`crate::{a, b}`, `crate::*`). A deeper
 /// stream counts as yes, so the caller never reads it as free of module paths.
-pub fn names_relative(stream: TokenStream) -> bool {
+pub(crate) fn names_relative(stream: TokenStream) -> bool {
     relative_in(stream, 0)
 }
 
@@ -98,7 +98,7 @@ fn each_name(
 }
 
 /// The names that the stream defines as functions: `fn` and an identifier (AD-383).
-pub fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+pub(crate) fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
     each_name(stream, depth, fn_name, found);
 }
 
@@ -111,7 +111,7 @@ fn fn_name(token: &TokenTree, rest: &Rest) -> Option<String> {
 }
 
 /// The names that the stream calls as macros: an identifier, `!`, and a group.
-pub fn macro_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+pub(crate) fn macro_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
     each_name(stream, depth, macro_name, found);
 }
 
@@ -125,7 +125,7 @@ fn macro_name(token: &TokenTree, rest: &Rest) -> Option<String> {
 }
 
 /// The names that the stream calls as methods: `.`, an identifier, and a `(` group or `::`.
-pub fn method_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+pub(crate) fn method_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
     each_name(stream, depth, method_name, found);
 }
 
@@ -147,13 +147,13 @@ fn method_name(token: &TokenTree, rest: &Rest) -> Option<String> {
 
 /// The chains of an attribute. A lint list (`allow(...)`, `expect(...)`) holds lint names, not
 /// paths of the file, so the chains skip its group.
-pub fn attribute_chains(stream: TokenStream) -> Option<Vec<Chain>> {
+pub(crate) fn attribute_chains(stream: TokenStream) -> Option<Vec<Chain>> {
     let mut found = Vec::new();
     collect(stream, 0, true, &mut found).then_some(found)
 }
 
 /// The lint attributes: their groups hold names of lints and reasons.
-pub const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];
+pub(crate) const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];
 
 fn collect(stream: TokenStream, depth: usize, attribute: bool, found: &mut Vec<Chain>) -> bool {
     if depth > MAX_DEPTH {
@@ -218,7 +218,7 @@ fn separator_then_name(tokens: &mut Rest) -> Option<String> {
 /// `since`, `should_panic(expected = ...)`, `rename`, `alias`, `doc`, and the text keys of help.
 /// A string under any other key is read as a path, because the crates that read attributes (serde,
 /// serde_with, schemars, validator, derivative, ...) take paths under keys that no list can name.
-pub const MESSAGE_KEYS: [&str; 18] = [
+pub(crate) const MESSAGE_KEYS: [&str; 18] = [
     "note",
     "since",
     "reason",
@@ -244,7 +244,11 @@ pub const MESSAGE_KEYS: [&str; 18] = [
 /// A string can hold a whole path (`"crate::codec"`) or a bound (`"T: a::B"`), so the text is read
 /// as tokens, like the body of a macro. A text with `::` that does not read as tokens, or that
 /// nests too deep, makes the result `None`: the caller reports it, and never drops a path silently.
-pub fn string_paths(stream: TokenStream, depth: usize, found: &mut Vec<Chain>) -> Option<()> {
+pub(crate) fn string_paths(
+    stream: TokenStream,
+    depth: usize,
+    found: &mut Vec<Chain>,
+) -> Option<()> {
     if depth > MAX_DEPTH {
         return None;
     }
@@ -285,7 +289,7 @@ fn read_string(literal: &proc_macro2::Literal, found: &mut Vec<Chain>) -> Option
 /// The paths in the text of a string under a key that holds paths. A text with `::` reads as
 /// tokens, and `None` means that it does not read. A text that is one name (`with =
 /// "humantime_serde"`) is a path of one segment: the caller decides whether it names a crate.
-pub fn read_value(value: &str, span: Span, found: &mut Vec<Chain>) -> Option<()> {
+pub(crate) fn read_value(value: &str, span: Span, found: &mut Vec<Chain>) -> Option<()> {
     if value.contains("::") {
         for mut chain in chains(value.parse::<TokenStream>().ok()?)? {
             chain.span = span;
@@ -311,7 +315,7 @@ fn is_name(text: &str) -> bool {
 }
 
 /// Split a stream at its top-level commas: `cfg_attr(a, b, c)` gives three parts.
-pub fn split_commas(stream: TokenStream) -> Vec<Vec<TokenTree>> {
+pub(crate) fn split_commas(stream: TokenStream) -> Vec<Vec<TokenTree>> {
     let mut parts = vec![Vec::new()];
     for token in stream {
         if matches!(&token, TokenTree::Punct(punct) if punct.as_char() == ',') {
@@ -325,7 +329,7 @@ pub fn split_commas(stream: TokenStream) -> Vec<Vec<TokenTree>> {
 }
 
 /// The identifier that starts a token list, as text.
-pub fn first_name(tokens: &[TokenTree]) -> Option<String> {
+pub(crate) fn first_name(tokens: &[TokenTree]) -> Option<String> {
     match tokens.first()? {
         TokenTree::Ident(name) => Some(plain(name)),
         _ => None,

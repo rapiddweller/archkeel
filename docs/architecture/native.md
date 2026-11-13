@@ -34,13 +34,13 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`, slice S5 the direction kinds (`forbidden_dependency`, `allowed_dependency` as a declaration, `sibling_isolation`, `layer_order`, `complete_requires`), slice S7 `no_component_cycles`; each other kind names its slice (AD-370, AD-372, AD-380, AD-384). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
 | `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). A rule row comes from an outcome of the evaluator; a PASS row, a PASS observation and a PASS status each need the model (AD-381). The core writes its status and rule verdicts only through its `Ruling` (AD-388). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run (AD-363), the check request of the shell and the scan request; `archkeel report --native-core` and `archkeel check --native-core` take their rule verdicts when it decides every rule (AD-390, AD-399). For the scan request it runs the collector in its own process (AD-406). It takes the status of a frame from the report (AD-388). | `archkeel-collect`, `archkeel-report`, `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
-| `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). | `archkeel-typescript-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts` |
+| `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript or Rust collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). | `archkeel-typescript-collector`, `archkeel-rust-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-pytext` | The text rules of Python `str` that more than one collector repeats, such as `str.splitlines` (AD-327). | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse; only the Dart collector uses it (`deny.toml`). | no crate of the workspace |
 | `archkeel-dart-collector` | Reads Dart source. It holds discovery (AD-365), request decoding (AD-368), syntax and sites (AD-369, AD-376), SDK checks (AD-387), declarations (AD-392) and complete collection assembly from typed resolver answers (AD-400). Resolution stays Python until 4d. It writes no reply before slice 5 of #880. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
 | `archkeel-typescript-collector` | Reads TypeScript source. A library that `archkeel-collect` links, and a binary that the host starts (AD-406). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-build-support` |
-| `archkeel-rust-collector` | Reads Rust source. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
+| `archkeel-rust-collector` | Reads Rust source. A linked library and a binary use one record producer (AD-406, #1095 slice 2). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1c-2d: the reply of the import survey, which the host does not read yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
@@ -164,7 +164,7 @@ of `report` changes no verdict, so the request has no baseline field.
 ([AD-406](decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md)).
 It carries the repository root, the configuration file, and the Git head and dirty state of the
 shell, and no reply. `archkeel-collect` reads the configuration and the contract, derives the
-collection request and runs the linked TypeScript collector; the store validates its typed reply
+collection request and runs the linked TypeScript or Rust collector; the store validates its typed reply
 through the same validation as a reply of bytes. The trust comes from the fact that the core ran
 the collector. The frame has a `collect` part: the derived request, which the shell compares with
 its own request field by field, or the refusal that names the part. Stage 1 stays on.
@@ -272,6 +272,7 @@ flowchart LR
     n_53 --> n_15
     n_53 --> n_30
     n_53 --> n_19
+    n_53 --> n_8
     n_19 --> n_23
     n_20 --> n_14
     n_20 --> n_17

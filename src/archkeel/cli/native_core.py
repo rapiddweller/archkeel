@@ -297,7 +297,7 @@ class NativeCore:
         """The `report` result that the user gets under the stage 1 rule; with the switch off,
         `result`. A validation baseline adds evidence rows and changes no verdict (AD-399).
 
-        AD-406: a TypeScript run first asks the core to run the collector itself (the scan
+        AD-406: a linked profile first asks the core to run the collector itself (the scan
         request). A frame that decides every rule goes through the same stage 1 rule; anything
         else sends the run to the check request with the reply of the shell, as before."""
         if self.binary is None:
@@ -307,12 +307,13 @@ class NativeCore:
         [reply] = self.replies
         rows, status = _python_rows(result), Status(result.declared_rules)
         gaps: tuple[Gap, ...] = ()
-        if config.language == Language.TYPESCRIPT and len(self.requests) == 1:
+        if config.language in {Language.TYPESCRIPT, Language.RUST} and len(self.requests) == 1:
             scanned = scan(self.binary, self.requests[0], config_path)
             if not isinstance(scanned, Scanned):
                 gaps = scanned
             elif isinstance(decided := stage_one(scanned.frame, rows, status), Decided):
-                return _decided(result, decided, _SCAN_PARTS)
+                language = "Rust" if config.language == Language.RUST else "TypeScript"
+                return _decided(result, decided, f" The core ran the {language}{_SCAN_PARTS}")
         frame = self.run(self.binary, config, partial(read_inside, root), reply, None)
         outcome = stage_one(frame, rows, status)
         if isinstance(outcome, FellBack):
@@ -374,8 +375,7 @@ def _fell_back(result: RunResult, gaps: tuple[Gap, ...]) -> RunResult:
 
 # AD-406: the run that the core decided with the collector in its own process.
 _SCAN_PARTS: Final = (
-    " The core ran the TypeScript collector in its own process (scan request, AD-406); the shell "
-    "sent it no collector reply."
+    " collector in its own process (scan request, AD-406); the shell sent it no collector reply."
 )
 
 

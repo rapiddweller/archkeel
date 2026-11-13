@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-406: the scan request of `archkeel-core`: the core runs the collector in its own process.
 
-With the switch of the core and a TypeScript scan with the bundled collector, the shell sends the
+With the switch of the core and a linked profile with the bundled collector, the shell sends the
 core the scan identity only: the repository root, the configuration file, and the Git head and
 dirty state of the request that the shell sent to its own collector. It sends no reply bytes.
 The core reads the configuration and the contract, derives the collection request and runs the

@@ -4,7 +4,7 @@
 
 [package]
 name = "archkeel-rust-collector"
-description = "Native Rust collector of Archkeel; it runs as a subprocess of the host"
+description = "Native Rust collector of Archkeel; a linked library and a subprocess of the host"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

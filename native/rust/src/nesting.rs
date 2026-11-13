@@ -10,10 +10,10 @@
 
 /// The deepest nesting of `()`, `[]` and `{}` that the scan reads. The deepest file of the `uv`
 /// corpus (764 files) nests 22 levels.
-pub const MAX_NESTING: usize = 256;
+pub(crate) const MAX_NESTING: usize = 256;
 
 /// Whether the brackets of `text` nest deeper than `MAX_NESTING`.
-pub fn too_deep(text: &str) -> bool {
+pub(crate) fn too_deep(text: &str) -> bool {
     let bytes = text.as_bytes();
     let (mut at, mut depth) = (0, 0_usize);
     while let Some(&byte) = bytes.get(at) {

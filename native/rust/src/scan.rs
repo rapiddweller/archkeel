@@ -21,14 +21,14 @@ use crate::attrs::{
 use crate::definitions::{Definition, Holder, ImplBlock, MethodCall, OnSelf};
 use crate::net;
 use crate::plant;
-pub use crate::site::Site;
+pub(crate) use crate::site::Site;
 use crate::tokens::{plain, Chain};
 use define::{foreign_name, item_name};
 use receivers::Selves;
 
 /// A qualified path, or a `use` leaf: its first segment and the path as written.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Reference {
+pub(crate) struct Reference {
     pub root: String,
     pub path: String,
     pub site: Site,
@@ -47,7 +47,7 @@ pub struct Reference {
 
 /// How a reference comes into the file.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub enum Via {
+pub(crate) enum Via {
     /// A path in code, in an attribute or in the body of a macro call.
     #[default]
     Path,
@@ -63,14 +63,14 @@ pub enum Via {
 
 /// A place that the scan cannot read.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Concern {
+pub(crate) struct Concern {
     pub reason: String,
     pub site: Site,
 }
 
 /// A `mod name;` declaration: its file is not in this file.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Child {
+pub(crate) struct Child {
     pub name: String,
     pub path: Option<String>,
     /// The names of the inline modules that enclose the declaration.
@@ -83,7 +83,7 @@ pub struct Child {
 }
 
 #[derive(Debug, Default)]
-pub struct Scan {
+pub(crate) struct Scan {
     pub references: Vec<Reference>,
     pub concerns: Vec<Concern>,
     pub children: Vec<Child>,
@@ -120,7 +120,11 @@ pub struct Scan {
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
 /// a test build compiles gives no fact, except the `mod x;` files below it, which are test scope.
-pub fn scan(text: &str, features: &BTreeSet<String>, exclude_tests: bool) -> Result<Scan, String> {
+pub(crate) fn scan(
+    text: &str,
+    features: &BTreeSet<String>,
+    exclude_tests: bool,
+) -> Result<Scan, String> {
     let file = syn::parse_file(text).map_err(|error| {
         format!(
             "unparseable construct at line {}",
@@ -452,12 +456,12 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
-pub use macros::{MacroCall, MacroDef};
+pub(crate) use macros::{MacroCall, MacroDef};
 
 /// The second count of the nodes that must end as an outcome (`edges_extracted.rs`).
 #[path = "scan_extracted.rs"]
 mod extracted;
-pub use extracted::Tally;
+pub(crate) use extracted::Tally;
 
 /// The read of the items that a file defines: names, forms and visibility.
 #[path = "scan_definitions.rs"]

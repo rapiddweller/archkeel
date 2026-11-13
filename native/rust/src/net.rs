@@ -50,7 +50,7 @@ impl Level {
 /// Add the names that a token stream writes: each identifier, and the first segment of each
 /// string that is a name or starts with `name::`. The caller passes the places that syn does not
 /// read as code: a macro body and an attribute stream.
-pub fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
+pub(crate) fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
     let mut levels = vec![Level::new(stream, false)];
     // The walk keeps its own stack, so the depth of the brackets costs no stack frame.
     while let Some(level) = levels.last_mut() {
@@ -106,7 +106,7 @@ fn note_literal(literal: &str, found: &mut BTreeSet<String>) {
 }
 
 /// The first segment of a string value that is a name or starts with `name::`.
-pub fn note_string(value: &str, found: &mut BTreeSet<String>) {
+pub(crate) fn note_string(value: &str, found: &mut BTreeSet<String>) {
     let first = value.split("::").next().unwrap_or("");
     let named = value == first || value.starts_with(&format!("{first}::"));
     if named && !first.is_empty() && first.chars().all(|c| c == '_' || c.is_ascii_alphanumeric()) {

@@ -9,10 +9,10 @@
 
 use std::collections::BTreeMap;
 
-pub type Table = BTreeMap<String, Value>;
+pub(crate) type Table = BTreeMap<String, Value>;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value {
+pub(crate) enum Value {
     Text(String),
     Table(Table),
     Array(Vec<Value>),
@@ -22,7 +22,7 @@ pub enum Value {
 /// The deepest nesting of arrays and inline tables that the reader follows.
 const MAX_DEPTH: usize = 64;
 
-pub fn parse(text: &str) -> Result<Table, String> {
+pub(crate) fn parse(text: &str) -> Result<Table, String> {
     let mut reader = Reader {
         bytes: text.as_bytes(),
         at: 0,
@@ -385,14 +385,14 @@ fn insert(table: &mut Table, keys: &[String], value: Value) -> Result<(), String
 }
 
 impl Value {
-    pub fn text(&self) -> Option<&str> {
+    pub(crate) fn text(&self) -> Option<&str> {
         match self {
             Value::Text(text) => Some(text),
             _ => None,
         }
     }
 
-    pub fn table(&self) -> Option<&Table> {
+    pub(crate) fn table(&self) -> Option<&Table> {
         match self {
             Value::Table(table) => Some(table),
             _ => None,

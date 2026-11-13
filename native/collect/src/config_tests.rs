@@ -21,6 +21,7 @@ fn a_typescript_scan_gives_its_settings_with_the_python_defaults() {
     assert_eq!(
         typescript(""),
         Ok(Config {
+            profile: archkeel_facts::envelope::Profile::TypeScript,
             roots: vec!["src".to_owned()],
             namespace: "app".to_owned(),
             contract: "c.json".to_owned(),
@@ -60,7 +61,6 @@ fn another_profile_and_a_configured_collector_are_unsupported_by_name() {
     for (language, name) in [
         ("", "python"),
         ("language = \"python\"\n", "python"),
-        ("language = \"rust\"\n", "rust"),
         ("language = \"dart\"\n", "dart"),
     ] {
         let refused = parsed(&format!("{BASE}{language}"));
@@ -74,6 +74,20 @@ fn another_profile_and_a_configured_collector_are_unsupported_by_name() {
         matches!(&refused, Err(Refused::Unsupported("collector", why)) if why.contains("/bin/x")),
         "{refused:?}"
     );
+}
+
+#[test]
+fn a_rust_scan_needs_no_typescript_configuration() {
+    let config = parsed(&format!(
+        "{BASE}language = \"rust\"\nexclude_test_sources = true\n"
+    ))
+    .expect("the linked Rust collector can run this configuration");
+    assert!(config.exclude_test_sources);
+    assert_eq!(config.profile, archkeel_facts::envelope::Profile::Rust);
+    let refused = parsed(&format!(
+        "{BASE}language = \"rust\"\ncollector_argv = [\"/x\"]\n"
+    ));
+    assert!(matches!(refused, Err(Refused::Unsupported("collector", _))));
 }
 
 #[test]

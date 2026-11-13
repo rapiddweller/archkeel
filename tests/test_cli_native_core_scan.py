@@ -1,10 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-406: with the switch, a TypeScript `report` asks the core to run the collector itself.
+"""AD-406: with the switch, a linked `report` asks the core to run the collector itself.
 
 The shell sends the scan request (the root, the configuration file, the Git head and dirty state)
-and no reply bytes. The core derives the collection request, runs the linked TypeScript collector
+and no reply bytes. The core derives the collection request, runs the linked collector
 in its own process and decides the run; stage 1 stays on, so the Python engine decides the same
 run and a difference is exit 2. The real core and collector come from one build of `native/`. A
 fake core (a script with its recorded digest) answers each request kind with a planned frame, so
@@ -41,7 +41,7 @@ from tools.dual_run_corpus import Case, corpus_cases, materialized
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
-BINARIES = ("archkeel-core", "archkeel-typescript-collector")
+BINARIES = ("archkeel-core", "archkeel-typescript-collector", "archkeel-rust-collector")
 # A corpus case that the core decides through the scan request (PASS in both engines).
 HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-honest"
 # A corpus case whose Python run completes and whose contract has a UML target.
@@ -72,6 +72,7 @@ def built() -> Path:
     (NATIVE / "target").mkdir(exist_ok=True)
     command = [cargo, "build", "--locked", "-q", "-p", "archkeel-core"]
     command += ["-p", "archkeel-typescript-collector", "--target-dir", str(target)]
+    command += ["-p", "archkeel-rust-collector"]
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
             command,
@@ -217,10 +218,18 @@ def test_the_core_decides_a_typescript_run_through_the_scan_request(install: Pat
     assert result["rule_assessments"] == off[1]["rule_assessments"]
 
 
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_a_declaration_only_scan_names_no_decided_rule_and_keeps_product_parity(
     install: Path,
+    tmp_path: Path,
+    language: str,
 ) -> None:
-    with case_root(HONEST) as root:
+    with contextlib.ExitStack() as stack:
+        root = (
+            _rust_repository(install, tmp_path)
+            if language == "rust"
+            else stack.enter_context(case_root(HONEST))
+        )
         config = load_config(root)
         path = root / config.contract
         contract = json.loads(path.read_text())
@@ -252,6 +261,22 @@ def test_a_declaration_only_scan_names_no_decided_rule_and_keeps_product_parity(
     assert (code, result["declared_rules"]) == (off[0], off[1]["declared_rules"]) == (0, "PASS")
     assert result["rule_assessments"] == off[1]["rule_assessments"]
     assert "contract has no decided rule" in core_notes(result)[0]
+
+
+def _rust_repository(install: Path, tmp_path: Path) -> Path:
+    from rust_repository import repository
+
+    root = repository(tmp_path / "project", install / f"archkeel-rust-collector{SUFFIX}")
+    config = root / "archkeel.toml"
+    config.write_text(
+        "\n".join(
+            line
+            for line in config.read_text().splitlines()
+            if not line.startswith("collector_argv")
+        )
+        + "\n"
+    )
+    return root
 
 
 def test_an_undecided_scan_goes_back_to_the_check_request_and_names_its_parts(
@@ -374,7 +399,8 @@ def test_a_configured_collector_sends_no_scan_request(install: Path) -> None:
 # --- The build and the check command ----------------------------------------------------------
 
 
-def test_the_release_build_links_the_collector_without_its_test_feature() -> None:
+@pytest.mark.parametrize("collector", ["typescript", "rust"])
+def test_the_release_build_links_the_collector_without_its_test_feature(collector: str) -> None:
     """#1099 (a): the wheel builds the whole workspace without a feature (`hatch_build.py`). In
     that resolution the core links the TypeScript collector without `dump`, whose planted faults
     read the environment. A build with `dump` gives no accepted reply: `archkeel-collect` refuses
@@ -384,7 +410,7 @@ def test_the_release_build_links_the_collector_without_its_test_feature() -> Non
         pytest.skip("cargo is not installed")
     tree = subprocess.run(
         [cargo, "tree", "--locked", "--workspace", "-e", "features", "-i"]
-        + ["archkeel-typescript-collector"],
+        + [f"archkeel-{collector}-collector"],
         cwd=NATIVE,
         capture_output=True,
         text=True,
