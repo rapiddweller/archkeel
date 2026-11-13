@@ -241,18 +241,14 @@ fn type_ignore_allowances_bind_each_field_and_cannot_hide_an_unread_file(
                 data["owner"] = json!(OWNER);
                 data["signal"] = json!("type_ignore");
                 if let Some(field) = field {
-                    data[field] = if field == "line" {
-                        json!(18)
-                    } else {
-                        json!("different")
-                    };
+                    data[field] = different(field);
                 }
                 let record = json!({"id": "SIGNAL-ignore", "evidence_class": "FACT", "area": "type_architecture",
                 "kind": "type_ignore", "title": "ignore", "subjects": [OWNER], "evidence_ids": [evidence],
                 "fact_ids": [], "rule_ids": [], "provenance": [], "data": data});
-                v["facts"]["sections"]
-                    .as_array_mut()
-                    .map(|s| s.push(json!({"name": "typing_signals", "records": [record]})));
+                if let Some(sections) = v["facts"]["sections"].as_array_mut() {
+                    sections.push(json!({"name": "typing_signals", "records": [record]}));
+                }
             },
         )?;
         let decision = decide(&model)?;
@@ -271,5 +267,76 @@ fn type_ignore_allowances_bind_each_field_and_cannot_hide_an_unread_file(
         },
     )?;
     assert!(matches!(decide(&unknown)?.verdict(), Verdict::Unknown));
+    Ok(())
+}
+
+fn different(field: &str) -> Value {
+    if field == "line" {
+        json!(18)
+    } else {
+        json!("different")
+    }
+}
+
+#[test]
+fn selectors_with_wrong_or_missing_identity_are_unknown() -> Result<(), Box<dyn std::error::Error>>
+{
+    let options = json!({"constructs": ["string_literal_compare"], "selector": {
+        "receiver": "shop.Connection", "member": "backend", "role": "equality", "literal": "forbidden"}});
+    for (role, receiver, status, literal) in [
+        (
+            "equality",
+            Some("other.Connection"),
+            "decided",
+            Some("forbidden"),
+        ),
+        (
+            "match",
+            Some("shop.Connection"),
+            "decided",
+            Some("forbidden"),
+        ),
+        ("equality", None, "unknown", Some("forbidden")),
+        ("equality", Some("shop.Connection"), "decided", None),
+    ] {
+        let model = model(options.clone(), |v| {
+            v["facts"]["profile"] = json!(Profile::Python.as_str());
+            v["facts"]["adapter"]["name"] = json!(Profile::Python.as_str());
+            v["facts"]["capabilities"]["constructs"] =
+                json!([{"name": "string_literal_compare", "status": "decided"}]);
+            record(
+                v,
+                "construct_selector",
+                json!({"construct": "string_literal_compare", "owner": OWNER,
+                "selector_role": role, "receiver_type": receiver, "member": "backend", "literal": literal,
+                "status": status, "operation": "compare", "receiver_binding": null, "receiver_parameter": null}),
+            );
+        })?;
+        let decision = decide(&model)?;
+        assert!(
+            matches!(decision.verdict(), Verdict::Unknown),
+            "{role} {receiver:?} {decision:?}"
+        );
+        assert!(decision.reason().is_some());
+    }
+    Ok(())
+}
+
+#[test]
+fn actual_symbol_subjects_do_not_widen_to_the_containing_module(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let owner = "shop.src.presentation.page_x2e_ts.page";
+    let present = model(json!({"source": owner}), |_| {})?;
+    assert!(matches!(decide(&present)?.verdict(), Verdict::Pass(_)));
+    let missing = model(json!({"source": format!("{owner}.missing")}), |_| {})?;
+    assert!(matches!(decide(&missing)?.verdict(), Verdict::Unknown));
+    let not_selected = model(json!({"source": owner}), |v| {
+        record(
+            v,
+            "assert_statement",
+            json!({"owner": OWNER, "construct": "assert"}),
+        );
+    })?;
+    assert!(matches!(decide(&not_selected)?.verdict(), Verdict::Pass(_)));
     Ok(())
 }

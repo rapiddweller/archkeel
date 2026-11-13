@@ -3514,6 +3514,7 @@
         "compare",
         "endswith",
         "membership",
+        "match",
         "startswith"
       ],
       "description": "The written form of a construct or of a numeric operand (Python)."

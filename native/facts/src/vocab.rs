@@ -295,6 +295,7 @@ closed! {
         Compare = "compare",
         Endswith = "endswith",
         Membership = "membership",
+        Match = "match",
         Startswith = "startswith",
     }
 }

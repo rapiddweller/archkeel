@@ -19,6 +19,7 @@ The frozen `tests/golden/python/synthetic-constructs.json.gz` reply contains all
 L-87 permits these variants because the wire and the frozen replies already contain them.
 Their closed data types reject missing and unknown fields. Placeholder forms are `empty` and `not_implemented`.
 The golden test also found the missing selector role `reflect`; the decoder now includes it and `match`.
+Recorded replies also require capability status `decided` and construct form `match`; both now decode by their original words.
 No collector or wire format changes. No fourth record kind was missing.
 The generated facts schema is corrected from these types; the protocol and every emitted reply stay unchanged.
 The store retains its generic evidence and owner checks (`store/src/records.rs:181`, `bindings.rs:103`).
@@ -40,6 +41,8 @@ Of these, 1 503 use the Python profile, one Dart and two TypeScript. None uses t
 Only the two TypeScript replies can pass the current store profile boundary.
 One uses a configured collector, so the stage-one shell still falls back there.
 Recorded-input unit tests enter below the store only under `cfg(test)`; the binary has no such entry.
+The replay checks 1 467 Python-profile rules: 33 FAIL/FAIL, 38 UNKNOWN/UNKNOWN and 1 396 named stricter UNKNOWNs.
+The stricter outcomes name another, unported rule kind of the same run. No replay outcome is a weaker PASS.
 
 **Rejected.** Infer absence from an unsupported or partial inventory: that can create a false PASS.
 Remove the store refusal to increase the end-to-end count: collector acceptance remains separate (AD-389).
@@ -48,7 +51,10 @@ Give the core another trust entry: the shell trust and `Ruling::frame` stay unch
 **Limit.** Python replies still fall back, even when this evaluator can decide their rule combinations.
 The PR separates end-to-end parity from recorded-input and synthetic proof tests.
 The matcher has a bounded work count; exhaustion is a named UNKNOWN, never PASS.
+The replay leaves 36 rules unproved: two unrelated import/callable fields and four refused contract trees.
+Those fields are `reexport_candidates` and `annotation_binding_uncertainties`; neither is read by this construct matcher.
 
 **Tests.** `facts/src/construct_golden_tests.rs` decodes all construct and typing-signal records in every golden reply.
 `model/src/construct_tests.rs` checks the scope proof, exemptions and selector roles without opening a production input path.
 `eval/src/construct_tests.rs` checks partial evidence, FAIL before a gap and the absence of vacuous PASS.
+`tests/test_native_forbidden_construct.py` checks 48 frozen matching cases and 21 byte-equal violation rows against Python.

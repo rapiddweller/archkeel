@@ -28,7 +28,9 @@ fn reply(path: &Path, seen: &mut BTreeSet<String>) -> Result<(), Box<dyn std::er
     let value: Value = serde_json::from_str(&text)?;
     for section in value["facts"]["sections"].as_array().into_iter().flatten() {
         let name = section["name"].as_str().ok_or("section without name")?;
-        if !matches!(name, "constructs" | "typing_signals") { continue; }
+        if !matches!(name, "constructs" | "typing_signals") {
+            continue;
+        }
         for record in section["records"].as_array().into_iter().flatten() {
             let kind = record["kind"].as_str().ok_or("record without kind")?;
             seen.insert(format!("{name}/{kind}"));

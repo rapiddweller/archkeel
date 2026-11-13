@@ -39,15 +39,16 @@ fn run(options: Value, records: bool, support: &str, gap: bool) -> Result<crate:
             "kind": "string_literal_compare", "title": "original", "subjects": [OWNER],
             "evidence_ids": [evidence], "fact_ids": [], "rule_ids": [], "provenance": [],
             "data": {"owner": OWNER, "construct": "string_literal_compare"}});
-        if let Some(sections) = v["facts"]["sections"].as_array_mut() {
-            for section in sections {
-                if section["name"] == "constructs" {
-                    section["records"] = if records {
-                        json!([record.clone()])
-                    } else {
-                        json!([])
-                    };
-                }
+        let mut duplicate = record.clone();
+        duplicate["id"] = json!("CONSTRUCT-neighbor");
+        let records = if records {
+            json!([record, duplicate])
+        } else {
+            json!([])
+        };
+        for section in v["facts"]["sections"].as_array_mut().into_iter().flatten() {
+            if section["name"] == "constructs" {
+                section["records"] = records.clone();
             }
         }
         if gap {
@@ -99,6 +100,19 @@ fn construct_fail_comes_before_a_gap_and_exemptions_do_not_drop_neighbors() -> R
             "{fail:?}"
         );
         assert_eq!(fail.violations().len(), 1);
+        let Some(crate::Violation::Construct(row)) = fail.violations().first() else {
+            return Err("no construct row".to_owned());
+        };
+        let expected = archkeel_facts::identity::stable_id(
+            "VIO",
+            &[
+                archkeel_facts::identity::Part::Text("CONSTRUCT"),
+                archkeel_facts::identity::Part::Text("CONSTRUCT-site"),
+            ],
+        );
+        assert_eq!(row.id, expected);
+        assert_eq!(row.facts, ["CONSTRUCT-neighbor", "CONSTRUCT-site"]);
+        assert_eq!(row.evidence.len(), 1);
     }
     for key in ["allowed_sources", "exact_sources"] {
         let pass = run(json!({key: [OWNER]}), true, "partial", false)?;
