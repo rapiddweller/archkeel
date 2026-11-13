@@ -17,9 +17,9 @@ import hashlib
 import io
 import json
 import os
-import re
 import shutil
 import subprocess
+import zlib
 from collections import Counter
 from dataclasses import asdict
 from functools import partial
@@ -64,8 +64,9 @@ def built() -> Path:
 
 def _self_check(
     built: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The core frame and the Python result of the report of `native/archkeel.toml`."""
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """The core frame, the Python result and the collector reply of the report of
+    `native/archkeel.toml`."""
     install = tmp_path / "native"
     install.mkdir()
     for name in BINARIES:
@@ -77,10 +78,12 @@ def _self_check(
     monkeypatch.delenv(native_core.SWITCH_VARIABLE, raising=False)
     monkeypatch.delenv(observe.NATIVE_STORE, raising=False)
     frames: list[Any] = []
+    replies: list[bytes] = []
 
     def decide(self: native_core.NativeCore, result: Any, root: Path, config: Any, *_: Any) -> Any:
         assert self.binary is not None
         read = partial(native_core.read_inside, root)
+        replies.append(self.replies[0])
         frames.append(self.run(self.binary, config, read, self.replies[0], None))
         return result
 
@@ -93,14 +96,23 @@ def _self_check(
             ["report", "--config", "native/archkeel.toml", "--json", "--output", str(artifact)]
             + ["--native-core"]
         )
-    [frame] = frames
-    return asdict(frame), json.loads(output.getvalue())
+    [frame], [reply] = frames, replies
+    return asdict(frame), json.loads(output.getvalue()), json.loads(zlib.decompress(reply))
+
+
+@pytest.fixture(scope="module")
+def checked(
+    built: Path, tmp_path_factory: pytest.TempPathFactory
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """One self-check run for the tests of this file."""
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        return _self_check(built, tmp_path_factory.mktemp("self"), monkeypatch)
 
 
 def test_the_core_decides_each_rule_of_the_self_contract(
-    built: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    checked: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
 ) -> None:
-    frame, result = _self_check(built, tmp_path, monkeypatch)
+    frame, result, _ = checked
     python = {row["id"]: row["status"] for row in result["rule_assessments"]}
     expected = json.loads((NATIVE / "expected-gaps.json").read_text())
     assert python == expected["rules"]
@@ -125,22 +137,45 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert frame["scope"].startswith(kept), frame["scope"]
 
 
-# Review B2 of #1121: `core` reaches the collector crates only through `archkeel_collect`. The scan
-# lists no method in the file of its type and no trait method as a candidate (open classes, see
-# docs/known-limits.md), so a value of a collector type in `core` could reach one without a gap.
-# The items that `collect` takes from a collector crate return only facts types and text, so no
-# such value reaches `core`. A new item fails this test and needs that check again.
-COLLECTOR_ITEMS = {"TEST_FEATURES", "typed_reply", "provenance"}
+# Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.
+# The scan lists no method in the file of its type and no trait method as a candidate (open
+# classes, docs/known-limits.md), so a value of a collector type in `core` could reach one without
+# a gap. The items that `collect` takes from a collector crate return only facts types and text, so
+# no such value reaches `core`. The pin reads the import records of the reply, not source text: an
+# alias (`extern crate ... as`) or a renamed dependency is a record too. A new record fails the
+# test, and the row of `core` has to be decided again.
+COLLECT = "native.archkeel_collect"
+COLLECT_TO_COLLECTORS = {
+    ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES"),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector"),
+    ("native.archkeel_collect.run", "archkeel_typescript_collector::provenance"),
+    ("native.archkeel_collect.run", "archkeel_typescript_collector::typed_reply"),
+}
 
 
-def test_collect_hands_core_no_value_of_a_collector_type() -> None:
-    sources = [
-        path
-        for path in (NATIVE / "collect" / "src").rglob("*.rs")
-        if not path.name.endswith("_tests.rs")
+def _crate(module: str) -> str:
+    return ".".join(module.split(".")[:2])
+
+
+def test_collect_hands_core_no_value_of_a_collector_type(
+    checked: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+) -> None:
+    _, _, reply = checked
+    records = [
+        record["data"]
+        for section in reply["facts"]["sections"]
+        if section["name"] == "imports"
+        for record in section["records"]
     ]
-    assert sources
-    text = "\n".join(path.read_text(encoding="utf-8") for path in sources)
-    used = set(re.findall(r"archkeel_\w+_collector::(\w+)", text))
-    assert used == COLLECTOR_ITEMS, used
-    assert not re.search(r"\buse\s+archkeel_\w+_collector\b", text)
+    # The collector crates are the crates of the reply whose name says so; a new one (the Rust
+    # collector of #1120) is in the set without a change of this test.
+    modules = {data[end] for data in records for end in ("source_module", "target_module")}
+    collectors = {_crate(module) for module in modules if _crate(module).endswith("_collector")}
+    assert "native.archkeel_typescript_collector" in collectors
+    found = {
+        (data["source_module"], data["specifier"], _crate(data["target_module"]))
+        for data in records
+        if _crate(data["source_module"]) == COLLECT and _crate(data["target_module"]) in collectors
+    }
+    target = "native.archkeel_typescript_collector"
+    assert found == {(source, specifier, target) for source, specifier in COLLECT_TO_COLLECTORS}
