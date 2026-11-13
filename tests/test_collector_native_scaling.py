@@ -53,7 +53,6 @@ from scaling_shapes import (
 )
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import _native
-from test_collector_native_syntax import dump_binary  # noqa: F401
 
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (

@@ -106,20 +106,17 @@ def test_the_bundled_collector_gives_a_pass_and_records_its_kind(
     result, artifact = _scan(root, directory)
     assert artifact is not None
     assert json.loads(artifact)["producer_kind"] == ProducerKind.BUNDLED.value
-    python, _ = _scan(root, tmp_path / "nowhere")
-    assert (result.observation_complete, result.declared_rules, result.exit_code) == (
-        python.observation_complete,
-        python.declared_rules,
-        python.exit_code,
-    )
+    assert result.observation_complete.value == "PASS"
+    assert result.exit_code == 0
     assert not [item for item in result.diagnostics if item.kind.value == "incomplete_scan"]
 
 
-def test_an_install_without_the_pair_keeps_the_python_collector(tmp_path: Path) -> None:
+def test_an_install_without_the_pair_refuses_without_a_fallback(tmp_path: Path) -> None:
     root = _project(tmp_path / "repo")
-    _, artifact = _scan(root, tmp_path / "nowhere")
-    assert artifact is not None
-    assert json.loads(artifact)["producer_kind"] == ProducerKind.PYTHON.value
+    result, artifact = _scan(root, tmp_path / "nowhere")
+    assert artifact is None
+    assert result.exit_code == 2
+    assert any(item.kind.value == "missing_tool" for item in result.diagnostics)
 
 
 def test_a_binary_that_does_not_have_the_recorded_digest_is_not_started(

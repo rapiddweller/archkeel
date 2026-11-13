@@ -18,7 +18,10 @@ from archkeel.cli.observe import observer_for
 from archkeel.ir.facts import Language
 
 ROOT = Path(__file__).parents[1]
-CONFIG = '[scan]\nroots = ["src/sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+CONFIG = (
+    '[scan]\nlanguage = "typescript"\nroots = ["src/sample"]\n'
+    'namespace = "sample"\ncontract = "contract.json"\n'
+)
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "true", "false", "1.5", '"1000"', "[]", str(2**60)])
@@ -32,7 +35,21 @@ def test_output_limit_rejects_out_of_range_or_noninteger_configuration(value: st
 
 def test_init_persists_the_limit_that_made_its_scope_observable(tmp_path: Path, capsys) -> None:
     root = _repository(tmp_path, packages=("sample",))
-    args = ["init", "--root", str(root), "--json", "--collector-output-limit-bytes"]
+    args = [
+        "init",
+        "--language",
+        "typescript",
+        "--source",
+        "src",
+        "--namespace",
+        "sample",
+        "--tsconfig",
+        "tsconfig.json",
+        "--root",
+        str(root),
+        "--json",
+        "--collector-output-limit-bytes",
+    ]
 
     assert main([*args, "1000"]) == 2
     failed = json.loads(capsys.readouterr().out)
@@ -54,7 +71,25 @@ def test_configured_limit_bounds_the_same_complete_cli_scope(
     tmp_path: Path, capsys, command: str
 ) -> None:
     root = _repository(tmp_path, packages=("sample",))
-    assert main(["init", "--root", str(root), "--json"]) == 0
+    assert (
+        main(
+            [
+                "init",
+                "--language",
+                "typescript",
+                "--source",
+                "src",
+                "--namespace",
+                "sample",
+                "--tsconfig",
+                "tsconfig.json",
+                "--root",
+                str(root),
+                "--json",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     config_path = root / "archkeel.toml"
     config = config_path.read_text()
@@ -72,7 +107,7 @@ def test_configured_limit_bounds_the_same_complete_cli_scope(
     assert main(args) == (0 if command == "report" else 2)
     observed = json.loads(capsys.readouterr().out)
     assert observed["observation_complete"] == "PASS"
-    assert observed["coverage"]["files_read"] == len(list((root / "src").rglob("*.py")))
+    assert observed["coverage"]["files_read"] == len(list((root / "src").rglob("*.ts")))
     assert not any("byte limit" in item["unknown_claim"] for item in observed["diagnostics"])
 
 

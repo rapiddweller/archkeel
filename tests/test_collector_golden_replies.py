@@ -311,8 +311,8 @@ def test_the_native_producer_reads_a_compressed_reply(tmp_path: Path) -> None:
     )
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     assert golden_producers.producer("native", fake)(root) == expected
-    with pytest.raises(ValueError, match="native producer without a binary"):
-        golden_producers.producer("native")
+    with pytest.raises(ValueError, match="unsupported golden producer"):
+        golden_producers.producer("python")
 
 
 def test_a_full_golden_file_is_canonical_gzip() -> None:

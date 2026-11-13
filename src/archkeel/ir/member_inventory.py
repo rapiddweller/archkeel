@@ -89,14 +89,15 @@ def _inventory_binding(model: Observation) -> str:
     return _inventory_digest(value) if store is None else store.digest(value)
 
 
-def _python_runtime(runtime: RuntimeInfo, version: str) -> bool:
-    """The collector ran under a Python of at least 3.11 that its reply declares."""
+def _native_runtime(runtime: RuntimeInfo) -> bool:
+    lower = re.fullmatch(r">=([0-9]+)\.([0-9]+)(?:\.([0-9]+))?", runtime.required or "")
+    version = re.fullmatch(r"([0-9]+)\.([0-9]+)\.([0-9]+)", runtime.version)
     return (
-        runtime.name == "python"
-        and runtime.required == ">=3.11"
+        runtime.name == "rust"
         and runtime.requirement_state == _RuntimeRequirementState.DECLARED
-        and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is not None
-        and tuple(int(v) for v in version.split(".")) >= (3, 11, 0)
+        and lower is not None
+        and version is not None
+        and tuple(map(int, version.groups())) >= tuple(int(v or 0) for v in lower.groups())
     )
 
 
@@ -104,11 +105,11 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
     if model.analyzer.name not in {"archkeel-dart-analyzer", "archkeel-typescript-imports"}:
         return set()
     runtime = model.runtime
-    version: str = runtime.version if runtime is not None else ""
-    # The host started the binary of this package with the digest that its wheel recorded: its
-    # facts equal those of the Python collector, which runs under Python (AD-352).
-    bundled = model.producer_kind is ProducerKind.BUNDLED
-    if runtime is None or (not bundled and not _python_runtime(runtime, version)):
+    if (
+        runtime is None
+        or model.producer_kind is not ProducerKind.BUNDLED
+        or not _native_runtime(runtime)
+    ):
         return set()
     if model.producer is None or model.producer.name != model.analyzer.name:
         return set()

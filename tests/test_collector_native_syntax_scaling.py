@@ -17,7 +17,6 @@ from collector_timing import Taken, interleaved_least, timed_run
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import (
     _shape,
-    dump_binary,  # noqa: F401
 )
 
 from archkeel.ir.facts_codec import encode_request

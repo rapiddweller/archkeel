@@ -26,8 +26,6 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
-import pytest
-from conftest import build_native_copy
 from script_fields import SCRIPT_FIELDS
 
 ROOT = Path(__file__).parents[1]
@@ -60,13 +58,6 @@ PRIVATE_UI = "ARCHKEEL_PRIVATE_UI"
 MUTANTS = "ARCHKEEL_SYNTAX_MUTANTS"
 
 File = tuple[str, Path]
-
-
-@pytest.fixture(scope="session")
-def dump_binary(native_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The collector built with the test-only `dump` feature, in a target directory of its own."""
-    assert native_binary.is_file()
-    return build_native_copy(tmp_path_factory, "native-dump", ("dump",))
 
 
 @contextlib.contextmanager

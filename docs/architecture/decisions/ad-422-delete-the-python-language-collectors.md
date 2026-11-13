@@ -49,6 +49,7 @@ Studio refuses an unsupported profile before it can start or reuse a server.
 Historical Python and Dart configurations refuse before a supported candidate is collected.
 Python version claims do not authorize dependency receipts.
 The Rust core names native TypeScript scope proof as an unread part, never as a proven PASS.
+Native member inventory proof also checks the compiler version and rejects malformed runtime claims.
 `tests/test_dependency_runtime_identity.py` binds receipts to the verified binary digest and analyzer identity.
 `tests/test_native_ci.py` runs the release shell step with complete and incomplete artifact sets.
 The native self-check and Rust/TypeScript dual run check the retained paths.

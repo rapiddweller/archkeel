@@ -51,6 +51,17 @@ from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_check import build_and_run_check
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
 from fixtures.demo_catalog_widening import build_and_run_against
+from tools.dual_run_corpus import Case, case_language
+
+CATALOG = tuple(
+    variant
+    for variant in CATALOG
+    if not variant.explore
+    and case_language(
+        Case(variant.id, str(variant.fixture), variant.config, files=dict(variant.files))
+    )
+    in {"rust", "typescript"}
+)
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)

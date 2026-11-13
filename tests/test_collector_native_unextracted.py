@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 from test_collector_native_imports import _request
-from test_collector_native_syntax import dump_binary  # noqa: F401
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.ir.facts import SourceFacts

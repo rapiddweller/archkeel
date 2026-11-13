@@ -7,7 +7,6 @@ import hashlib
 import json
 import subprocess
 import sys
-from importlib.resources import files
 from pathlib import Path
 
 import pytest
@@ -41,7 +40,7 @@ def _digest(value: object) -> str:
 
 
 def _catalog_text() -> str:
-    return files("archkeel.analyzer.typescript").joinpath("standard_libs.json").read_text("utf-8")
+    return (ROOT / "native/typescript/standard_libs.json").read_text("utf-8")
 
 
 def test_the_native_collector_embeds_a_copy_of_the_catalog_that_equals_it():
@@ -63,7 +62,7 @@ def test_catalog_file_is_compact_sorted_and_ends_in_one_newline():
 
 def test_python_module_holds_no_second_copy_of_the_data():
     module = ROOT / "src/archkeel/analyzer/typescript/standard_libs.py"
-    assert len(module.read_text(encoding="utf-8").splitlines()) < 100
+    assert not module.exists()
 
 
 def _generator():
@@ -76,25 +75,23 @@ def _generator():
 
 def test_generator_output_has_no_carriage_return():
     assert b"\r" not in _generator().build_catalog().encode("utf-8")
-    assert b"\r" not in (ROOT / "src/archkeel/analyzer/typescript/standard_libs.json").read_bytes()
+    assert b"\r" not in _catalog_text().encode("utf-8")
 
 
 def test_check_compares_bytes_and_write_emits_lf(tmp_path, monkeypatch):
     generator = _generator()
     target = tmp_path / "standard_libs.json"
     monkeypatch.setattr(generator, "ROOT", tmp_path)
-    copy = tmp_path / "native.json"
     monkeypatch.setattr(generator, "OUTPUT", target)
-    monkeypatch.setattr(generator, "NATIVE", copy)
     expected = generator.build_catalog().encode("utf-8")
     assert generator.main(["--write"]) == 0
-    assert target.read_bytes() == copy.read_bytes() == expected
+    assert target.read_bytes() == expected
     assert generator.main(["--check"]) == 0
     # The same text with Windows line endings is a different file: Rust embeds the bytes.
     target.write_bytes(expected.replace(b"\n", b"\r\n"))
     assert generator.main(["--check"]) == 1
     target.write_bytes(expected)
-    copy.write_bytes(b"{}\n")
+    target.write_bytes(b"{}\n")
     assert generator.main(["--check"]) == 1
 
 

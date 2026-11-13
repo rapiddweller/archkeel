@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import tomllib
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -19,8 +20,9 @@ CONFIGS = sorted(
     str(path.relative_to(ROOT))
     for pattern in ("fixtures/*/archkeel*.toml", "fixtures/*/*/archkeel*.toml")
     for path in ROOT.glob(pattern)
+    if tomllib.loads(path.read_text())["scan"].get("language", "python") in {"rust", "typescript"}
 )
-EXPLORE = "explore:fixtures/N-explore"
+EXPLORE = "explore:fixtures/H-uml-typescript"
 CASES = (*CONFIGS, EXPLORE)
 
 
@@ -56,7 +58,7 @@ def run_case(case: str, workdir: str) -> Run:
     """Run the current report once per case, then `report --input ... --only architecture`."""
     output = Path(workdir) / case.replace("/", "_").replace(":", "_") / "architecture.json"
     if case == EXPLORE:
-        argv = ["explore", "--root", str(ROOT / case.split(":", 1)[1])]
+        argv = ["explore", "--language", "typescript", "--root", str(ROOT / case.split(":", 1)[1])]
         line = _main([*argv, "--output", str(output.parent), "--json"])
     else:
         config = ROOT / case

@@ -11,6 +11,7 @@ import copy
 import io
 import json
 import random
+import tomllib
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
@@ -31,8 +32,9 @@ CONFIGS = sorted(
     str(path.relative_to(ROOT))
     for pattern in ("fixtures/*/archkeel*.toml", "fixtures/*/*/archkeel*.toml")
     for path in ROOT.glob(pattern)
+    if tomllib.loads(path.read_text())["scan"].get("language", "python") in {"rust", "typescript"}
 )
-EXPLORE = "explore:fixtures/N-explore"
+EXPLORE = "explore:fixtures/H-uml-typescript"
 CASES = (*CONFIGS, EXPLORE)
 
 
@@ -41,7 +43,7 @@ def _run(case: str, workdir: str) -> tuple[bytes, str]:
     """Run the current report once per case and return architecture.json and its result line."""
     output = Path(workdir) / case.replace("/", "_").replace(":", "_") / "architecture.json"
     if case == EXPLORE:
-        argv = ["explore", "--root", str(ROOT / case.split(":", 1)[1])]
+        argv = ["explore", "--language", "typescript", "--root", str(ROOT / case.split(":", 1)[1])]
     else:
         config = ROOT / case
         argv = ["report", "--root", str(config.parent), "--config", config.name]

@@ -17,7 +17,10 @@ from archkeel.cli import main
 from archkeel.cli.config import ConfigError, parse_config
 
 ROOT = Path(__file__).parents[1]
-CONFIG = '[scan]\nroots = ["src/sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+CONFIG = (
+    '[scan]\nlanguage = "typescript"\nroots = ["src/sample"]\n'
+    'namespace = "sample"\ncontract = "contract.json"\n'
+)
 OVER_LIMIT = str(int(TIMEOUT_MAX) + 1)
 
 
@@ -38,7 +41,22 @@ def test_timeout_rejects_values_beyond_the_thread_deadline() -> None:
 
 def test_init_persists_the_configured_timeout(tmp_path: Path, capsys) -> None:
     root = _repository(tmp_path, packages=("sample",))
-    args = ["init", "--root", str(root), "--json", "--collector-timeout-seconds", "600"]
+    args = [
+        "init",
+        "--language",
+        "typescript",
+        "--source",
+        "src",
+        "--namespace",
+        "sample",
+        "--tsconfig",
+        "tsconfig.json",
+        "--root",
+        str(root),
+        "--json",
+        "--collector-timeout-seconds",
+        "600",
+    ]
 
     assert main(args) == 0
     initialized = json.loads(capsys.readouterr().out)
@@ -52,7 +70,27 @@ def test_configured_timeout_reaches_the_collector(
     tmp_path: Path, monkeypatch, capsys, command: str
 ) -> None:
     root = _repository(tmp_path, packages=("sample",))
-    assert main(["init", "--root", str(root), "--json", "--collector-timeout-seconds", "600"]) == 0
+    assert (
+        main(
+            [
+                "init",
+                "--language",
+                "typescript",
+                "--source",
+                "src",
+                "--namespace",
+                "sample",
+                "--tsconfig",
+                "tsconfig.json",
+                "--root",
+                str(root),
+                "--json",
+                "--collector-timeout-seconds",
+                "600",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     requested: list[object] = []
     build_observer = cli.observer_for

@@ -4,7 +4,6 @@
 """Browser-global dependencies use native evidence and keep unproved dispatch UNKNOWN."""
 
 import json
-from importlib import import_module
 
 import pytest
 from collector_pin import assembled, trusted
@@ -25,34 +24,6 @@ from archkeel.ir.source_graph import observed_graph
 
 SCENE = "var Scene = (function () { function create() {} return { create }; })();\n"
 LAYOUT = "(function (global) { function layout() {} global.Layout = { layout }; })(window);\n"
-
-
-def test_scope_names_are_reused_only_inside_one_parse(monkeypatch):
-    parser = import_module("archkeel.analyzer.typescript.parse")
-    original = parser._scope_names
-    reads = {}
-
-    def tracked(node):
-        reads[node.id] = reads.get(node.id, 0) + 1
-        return original(node)
-
-    monkeypatch.setattr(parser, "_scope_names", tracked)
-    outputs = []
-    for binding in ("Scene", "Other", "Scene"):
-        reads.clear()
-        syntax = parser.parse(
-            "source.js",
-            (
-                f"(function () {{ const {binding} = {{}}; function render() {{"
-                "Scene.create(); Scene.create(); } render(); })();"
-            ).encode(),
-        )
-        calls = [site for site in syntax.sites if site.expression == "Scene.create"]
-        assert len(calls) == 2
-        assert all(site.script_free is (binding != "Scene") for site in calls)
-        assert reads and max(reads.values()) == 1
-        outputs.append(syntax)
-    assert outputs[0] == outputs[2]
 
 
 def _collect(tmp_path, source=SCENE, consumer="Scene.create();", extra=""):

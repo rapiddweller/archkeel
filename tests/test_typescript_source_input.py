@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Real guarded source sites and compiler input grammar compatibility."""
 
-import importlib.util
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -76,10 +75,6 @@ SITES = [
         'if self._exports_aware and specifier.startswith("#"):',
     ],
 ]
-
-
-def test_shared_source_input_port_exists():
-    assert importlib.util.find_spec("archkeel.analyzer.typescript.source_input") is not None
 
 
 def test_declaration_cts_keeps_written_commonjs_loader_semantics(tmp_path):

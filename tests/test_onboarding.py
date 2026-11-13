@@ -49,29 +49,20 @@ def _contract(path: Path) -> ArchitectureContract:
 def _repository(root: Path, packages: tuple[str, ...] = ("archkeel",)) -> Path:
     for package in packages:
         files = {
-            "__init__.py": "",
-            "ir/__init__.py": "",
-            "ir/model.py": '__all__ = ["VALUE"]\nVALUE = 1\n',
-            "cli/__init__.py": "",
-            "cli/app.py": f"from {package}.ir import model\nVALUE = model.VALUE\n",
-            "check/__init__.py": "",
-            "check/rules.py": (
-                f"from {package}.ir import model\n"
-                "from .nested import extra\nVALUE = model.VALUE + extra.VALUE\n"
+            "ir/model.ts": "export const VALUE = 1;\n",
+            "cli/app.ts": "import { VALUE } from '../ir/model';\nexport { VALUE };\n",
+            "check/rules.ts": (
+                "import { VALUE } from '../ir/model';\n"
+                "import { EXTRA } from './nested/extra';\nexport const TOTAL = VALUE + EXTRA;\n"
             ),
-            "check/nested/__init__.py": "",
-            "check/nested/extra.py": (
-                f"from {package}.ir import model\n"
-                f"from {package}.cli import app\nVALUE = model.VALUE + app.VALUE\n"
-            ),
+            "check/nested/extra.ts": "export const EXTRA = 2;\n",
         }
         for name, source in files.items():
             path = root / "src" / package / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(source)
-    (root / "pyproject.toml").write_text(
-        '[project]\nname = "archkeel"\nrequires-python = ">=3.11"\n'
-    )
+    (root / "package.json").write_text(json.dumps({"name": packages[0]}))
+    (root / "tsconfig.json").write_text('{"include":["src"]}\n')
     for args in (
         ("init", "-q"),
         ("config", "user.email", "init@example.invalid"),
