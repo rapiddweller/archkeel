@@ -23,8 +23,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{
-    ConstructSupport, Dirty, Facts, Layout, PairGapDrop, Profile, ProfileLimits, RequirementState,
-    Role,
+    ConstructSupport, Dirty, Facts, Layout, PairGapDrop, ProfileLimits, RequirementState, Role,
     Runtime as RuntimeFact,
 };
 use archkeel_facts::sections::{GapFact, Section};
@@ -152,9 +151,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
-        // AD-422: native TypeScript can carry host proof. This names an unread part, not PASS.
-        scope_receipt: facts.runtime.carries_scope_proof()
-            || facts.profile == Profile::TypeScript && facts.runtime.name == "rust",
+        scope_receipt: facts.runtime.carries_scope_proof(facts.profile),
     }
 }
 
