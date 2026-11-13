@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Exact work for every pair of generated import-local proof forms (AD-404)."""
 
+EXTRA_COSTS = (700, 133, 216, 932, 1438, 1338, 1889, 1102)
+
 COSTS = (
     2172,
     2920,

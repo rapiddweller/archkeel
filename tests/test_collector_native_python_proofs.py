@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 from first_difference import same
-from python_proof_costs import COSTS
+from python_proof_costs import COSTS, EXTRA_COSTS
 from test_collector_native_python_parse import _minor
 from test_collector_native_python_scope import _FIXTURES
 
@@ -142,16 +142,29 @@ FRAGMENTS = (
     "    def x(self, x):\n        return [x for x in x]\n",
 )
 
+EXTRA = (
+    "import builtins as b\nx = b.foo() + 1\n",
+    "from ...os import path as x\n",
+    "def f():\n    global x\n    x = 1\n",
+    "from __future__ import annotations\n"
+    "class C:\n    def f(self, x: int, *args: str, **kw: bool) -> int: pass\n",
+    "class C(B.D):\n    @B.D.x.getter\n    def x(self): return 1\n",
+    "class C:\n    @property\n    def x(self): return 1\n"
+    "    @x.setter\n    def x(self, x):\n        global other\n        return x\n",
+    "class C:\n    x = {'x': (1, [2])}\n    y = {1, 2}\n    z = -1 + 2j\n",
+    "class C:\n    x = (y := 1)\n    _f = lambda x=1: x\n",
+)
 
-@pytest.mark.parametrize("index", range(256))
+
+@pytest.mark.parametrize("index", range(256 + len(EXTRA)))
 def test_generated_proof(index: int, tmp_path: Path, python_dump_binary: Path) -> None:
-    text = FRAGMENTS[index % 16] + FRAGMENTS[index // 16]
+    text = FRAGMENTS[index % 16] + FRAGMENTS[index // 16] if index < 256 else EXTRA[index - 256]
     (tmp_path / "probe.py").write_text(text)
     row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
     expected = _python(tmp_path, "probe.py")
     assert expected is not None
     assert row["full_scope"], row
-    assert row["work"] == COSTS[index]
+    assert row["work"] == (COSTS[index] if index < 256 else EXTRA_COSTS[index - 256])
     _same(row["data"], expected, index)
 
 
@@ -244,6 +257,20 @@ def test_corpus_proofs(python_dump_binary: Path) -> None:
 def test_empty_corpus(tmp_path: Path, python_dump_binary: Path) -> None:
     with pytest.raises(AssertionError, match="proof corpus has no Python files"):
         _compare(python_dump_binary, tmp_path)
+
+
+def test_proof_output_limit_keeps_no_partial_table(
+    tmp_path: Path, python_dump_binary: Path
+) -> None:
+    text = (".".join(["a" * 1000] * 40) + "\n") * 45
+    (tmp_path / "probe.py").write_text(text)
+    row = _native(python_dump_binary, tmp_path, ["probe.py"])[0]
+    assert row == {
+        "file": "probe.py",
+        "full_scope": False,
+        "gap": "binding output limit exceeded (33554432 bytes)",
+        "work": 461949,
+    }
 
 
 @pytest.mark.parametrize(

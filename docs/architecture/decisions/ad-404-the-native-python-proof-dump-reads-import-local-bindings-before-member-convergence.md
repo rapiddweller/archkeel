@@ -1,10 +1,14 @@
 # AD-404 The native Python proof dump reads import-local bindings before member convergence
 
-**Status.** Proposed. Part of #880, Python slice 3.
+**Status.** Accepted. Part of #880, Python slice 3.
 
 **Reason.** Member convergence consumes stable bindings, property operations and class-body
 admission. Slice 2 measures these inputs with an empty alias map. That map cannot prove imported
 builtin decorators. Port the local proofs before the cross-module convergence loop.
+
+**Measurement.** The selected 27 function spans in `source.py` contain 619 lines.
+The PR maps each analyzer file and each function span. It separates compared boundary spans
+from deletion eligibility. No partly assembled runtime function earns deletion credit.
 
 **Decision.**
 1. Add `--dump-proofs <minor> <root>` under the existing `dump` feature. Each input line names
@@ -34,6 +38,6 @@ prove those states. The PR lists measured spans, partial historical coverage and
 No Python deletion or general speed improvement is claimed.
 
 **Tests.** `test_collector_native_python_proofs.py` compares the unchanged Python functions,
-fixtures, corpora and 256 generated probes. Exact work counts hold loop charges.
+fixtures, corpora and 264 generated probes. Exact work counts hold all 78 new loop charges.
 It checks hostile input, time and peak memory scaling, and an empty corpus failure.
 The PR records the four-minor matrix, isolated fault injections and the final gates.

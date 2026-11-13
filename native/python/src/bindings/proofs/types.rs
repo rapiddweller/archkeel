@@ -261,10 +261,14 @@ fn setter_references(
             Node::Expr(
                 Expr::ListComp(_) | Expr::SetComp(_) | Expr::DictComp(_) | Expr::Generator(_)
             )
-        ) { continue; }
+        ) {
+            continue;
+        }
         for node in scan.walk(node.clone())? {
             scan.tick(1)?;
-            let Some(expr) = node.expr() else { continue; };
+            let Some(expr) = node.expr() else {
+                continue;
+            };
             nested.insert(std::ptr::from_ref(expr));
         }
     }
