@@ -8,11 +8,13 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import zipfile
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
+from tools import release_core
 from tools.publish_release import PLATFORM_TAGS
 
 ROOT = Path(__file__).parents[1]
@@ -82,8 +84,6 @@ def test_full_builds_each_platform_wheel_on_its_own_target() -> None:
 def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
     tmp_path: Path, gate: str, published: bool
 ) -> None:
-    workflow = (WORKFLOWS / "release.yml").read_text()
-    assert '\n  PUBLISH_NATIVE_WHEELS: "true"\n' in workflow
     build = _jobs("release.yml")["build"]
     assert "pattern: native-wheel-*\n" in build and "path: native-wheels/\n" in build
     step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")
@@ -131,6 +131,99 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(tmp_path, wh
     if result.returncode == 0:
         assert len(list((tmp_path / "dist").glob("*.whl"))) == 6
         assert not (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").exists()
+
+
+@pytest.mark.parametrize("gate,opened", [("false", False), ("", False), ("true", True)])
+def test_a_release_stops_before_full_verification_while_it_is_closed(
+    gate: str, opened: bool
+) -> None:
+    """AD-432: no wheel carries the core, so the first job of a release refuses the release."""
+    workflow = (WORKFLOWS / "release.yml").read_text()
+    flag = re.findall(r'^  PUBLISH_NATIVE_WHEELS: "(\w+)"$', workflow, re.MULTILINE)
+    # Only a wheel hook that bundles the core can open the release.
+    hook = (ROOT / "native/hatch_build.py").read_text()
+    assert flag == ["true" if '"archkeel-core"' in hook else "false"]
+    jobs = _jobs("release.yml")
+    first = jobs["core-in-wheel"]
+    assert "    needs: core-in-wheel\n" in jobs["verify"]
+    assert "needs:" not in first and "uses:" not in first and "if:" not in first
+    assert "    permissions: {}\n" in first
+    script = dedent(first.split("        run: |\n", 1)[1])
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={**os.environ, "PUBLISH_NATIVE_WHEELS": gate},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == (0 if opened else 2)
+    assert ("no wheel carries archkeel-core" in result.stdout) is not opened
+
+
+def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them() -> None:
+    build = _jobs("release.yml")["build"]
+    check = "run: python3 -m tools.release_core dist dist/archkeel-*-py3-none-manylinux_2_17_x86_64"
+    added = build.index("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true")
+    assert added < build.index(check) < build.index("- name: Upload distributions")
+    assert "if:" not in build and "continue-on-error" not in build
+
+
+def _wheel(directory: Path, tag: str, *members: str) -> Path:
+    wheel = directory / f"archkeel-5.0.0-{tag}.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for member in ("archkeel/__init__.py", *members):
+            archive.writestr(member, "x")
+    return wheel
+
+
+def test_a_wheel_carries_the_core_only_with_the_binary_and_its_digest(tmp_path: Path) -> None:
+    core = release_core.MEMBER
+    assert core == "archkeel/_native/archkeel-core"
+    assert not release_core.carries_core(_wheel(tmp_path, "a", "archkeel/_native/collector"))
+    assert not release_core.carries_core(_wheel(tmp_path, "b", core))
+    assert not release_core.carries_core(_wheel(tmp_path, "c", core + ".sha256"))
+    assert not release_core.carries_core(_wheel(tmp_path, "d", core, core + ".exe.sha256"))
+    assert release_core.carries_core(_wheel(tmp_path, "e", core, core + ".sha256"))
+    assert release_core.carries_core(_wheel(tmp_path, "f", core + ".exe", core + ".exe.sha256"))
+    (tmp_path / "no-archive.whl").write_bytes(b"wheel")
+    assert not release_core.carries_core(tmp_path / "no-archive.whl")
+
+
+def test_the_release_check_refuses_each_wheel_without_the_core(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    core = release_core.MEMBER
+    assert release_core.main([str(tmp_path), "x.whl"]) == 2
+    host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
+    bare = _wheel(tmp_path, "py3-none-other")
+    ran: list[Path] = []
+    monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
+    assert release_core.main([str(tmp_path), str(host)]) == 2
+    assert f"release refused: {bare.name} does not carry {core}" in capsys.readouterr().err
+    # No installed run stands in for a wheel without the core.
+    assert ran == []
+    bare.unlink()
+    assert release_core.main([str(tmp_path), str(tmp_path / "absent.whl")]) == 2 and ran == []
+    assert release_core.main([str(tmp_path), str(host)]) == 0 and ran == [host]
+    monkeypatch.setattr(release_core, "smoke", lambda wheel: "refusal core_binary_not_found")
+    assert release_core.main([str(tmp_path), str(host)]) == 2
+    assert "gives no verdict of its core: refusal core_binary_not_found" in capsys.readouterr().err
+    assert release_core.main([str(tmp_path)]) == 2
+
+
+def test_only_a_verdict_of_the_bundled_core_passes_the_installed_run() -> None:
+    frame = {"engine": "archkeel-core 0a", "rules": {"R": ["root_layout", "PASS"]}}
+    core = {"path": "/venv/site-packages/archkeel/_native/archkeel-core"}
+    good = {"status": "UNKNOWN", "exit_code": 2, "frame": frame, "core": core}
+    assert release_core.undecided(good, 2) == ""
+    refusal = {"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_binary_not_found"}}
+    assert release_core.undecided(refusal, 2) == "refusal core_binary_not_found"
+    assert release_core.undecided([], 2) == "no result object: []"
+    assert "no frame" in release_core.undecided({**good, "frame": {**frame, "engine": "x"}}, 2)
+    checkout = {"path": "/checkout/native/target/release/archkeel-core"}
+    assert "not the binary of the package" in release_core.undecided({**good, "core": checkout}, 2)
+    unknown = {**frame, "rules": {"R": ["root_layout", "UNKNOWN"]}}
+    assert "no rule has PASS" in release_core.undecided({**good, "frame": unknown}, 2)
+    assert "exit code 0 differs" in release_core.undecided(good, 0)
 
 
 def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedProcess[str]:

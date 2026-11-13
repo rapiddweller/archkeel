@@ -16,7 +16,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 ## The core path on main
 
 - No package carries the core binary. An installed package refuses each run with
-  `core_binary_not_found`, exit 2. Run `main` from a source checkout after `make core`.
+  `core_binary_not_found`, exit 2. Run `main` from a source checkout after `make core`. A release
+  from `main` is closed until each wheel carries the core (`tools/release_core.py`).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. HTML reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.

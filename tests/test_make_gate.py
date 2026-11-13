@@ -199,14 +199,14 @@ def _needs(body: str) -> set[str]:
 
 
 def test_each_release_job_runs_after_full_verification() -> None:
-    """AD-280 decision 3: a release runs Full first."""
+    """AD-280 decision 3: a release runs Full first. Only the gate of AD-432 is before Full."""
     jobs = _jobs("release.yml")
     assert "uses: ./.github/workflows/full-verification.yml" in jobs["verify"]
 
     def after_verify(job: str) -> bool:
         return any(need == "verify" or after_verify(need) for need in _needs(jobs[job]))
 
-    assert [job for job in jobs if job != "verify" and not after_verify(job)] == []
+    assert [job for job in jobs if job != "verify" and not after_verify(job)] == ["core-in-wheel"]
 
 
 def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() -> None:

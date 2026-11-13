@@ -47,6 +47,8 @@ prove. Success stubs for refused commands. Porting reports or rule kinds in the 
 
 **Limits.** No platform wheel carries the core yet. An installed package refuses each command
 with `core_binary_not_found`, exit 2. The wheel hook still bundles only the two collector binaries.
+So a release is closed: the first job of `release.yml` stops while `PUBLISH_NATIVE_WHEELS` is not
+"true", and the build refuses wheels that do not pass `tools/release_core.py`.
 Reports as HTML, `architecture.json`, explore, Studio and the merge gate `check` need ports.
 Python and Dart projects stay unsupported (AD-430). Release 4.0.1 has `check`, `init`, full
 reports and Python, Dart and TypeScript projects. It has no Rust profile, explore or Studio.
@@ -63,3 +65,4 @@ refused command and the import guard. `tests/test_cli_core_only_build_output.py`
 build output. `tests/test_ir_owners.py` checks that the deleted packages do not exist.
 `tests/test_native_self_core_rows.py` and `tests/test_native_expected_gaps.py` check the pinned
 self-check. `tests/test_make_gate.py` checks that a refusal or an empty result fails the gates.
+`tests/test_native_ci.py` checks the closed release.
