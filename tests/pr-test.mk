@@ -4,6 +4,7 @@
 PR_TEST_FILES := \
 	tests/test_cli_unsupported_projects.py \
 	tests/test_dependency_runtime_identity.py \
+	tests/test_collection_capabilities.py \
 	tests/test_boundary_reason_types.py \
 	tests/test_dual_run_supported_profiles.py \
 	tests/test_collector_native_catalog.py \

@@ -96,6 +96,7 @@ AREAS: dict[str, tuple[str, ...]] = {
     ),
     "native TypeScript collector": ("test_collector_native_*.py",),
     "collectors": (
+        "test_collection_capabilities.py",
         "test_typescript_*.py",
         "test_dart_*.py",
         "test_flutter_*.py",
