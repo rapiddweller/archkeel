@@ -27,9 +27,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from archkeel.analyzer.runtime import package_version
 from filelock import FileLock
 
-from archkeel.analyzer.runtime import package_version
 from archkeel.cli import main, native_core, observe
 
 ROOT = Path(__file__).resolve().parents[1]

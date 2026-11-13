@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import core_binary
 from rust_repository import (
     CRATE_RULES,
     PROVENANCE,
@@ -31,8 +30,6 @@ from rust_repository import (
     statuses,
     validate,
 )
-
-__all__ = ["core_binary"]
 
 LIB = "mod a;\nmod b;\nmod c;\n"
 TYPE = "pub struct S;\n"

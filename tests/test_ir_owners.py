@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from archkeel.check.validation import mermaid_edges
 from archkeel.check.validation.closed_world import target_component_edges
 from archkeel.ir import codec, decisions, dependency

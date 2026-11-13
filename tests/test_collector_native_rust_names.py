@@ -15,10 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import core_binary
 from rust_repository import APP, claims, component, report, repository, rule, statuses, validate
-
-__all__ = ["core_binary"]
 
 Capsys = pytest.CaptureFixture[str]
 

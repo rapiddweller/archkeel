@@ -41,6 +41,14 @@ import time
 from pathlib import Path
 
 import pytest
+from archkeel.ir.facts_codec import encode_request
+from archkeel.ir.protocol import (
+    CollectionRequest,
+    ProtocolVersion,
+    SnapshotInput,
+    SourceScope,
+    TypeScriptSettings,
+)
 from collector_timing import Taken, interleaved_least, least_of, timed_run
 from scaling_shapes import (
     COVERAGE,
@@ -53,15 +61,6 @@ from scaling_shapes import (
 )
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import _native
-
-from archkeel.ir.facts_codec import encode_request
-from archkeel.ir.protocol import (
-    CollectionRequest,
-    ProtocolVersion,
-    SnapshotInput,
-    SourceScope,
-    TypeScriptSettings,
-)
 
 # A file may not be larger than this: the collector reads at most 4 MiB (AD-319).
 MAX_BYTES = 3_500_000

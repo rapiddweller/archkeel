@@ -20,10 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from first_difference import same
-from python_refusal_probes import compiler_checked_collect
-from test_collector_native_python_scope import _FIXTURES
-
 from archkeel.analyzer.interpreter import interpreter, python_request
 from archkeel.cli.config import load_config
 from archkeel.ir import facts_codec
@@ -36,6 +32,9 @@ from archkeel.ir.protocol import (
     SnapshotInput,
     SourceScope,
 )
+from first_difference import same
+from python_refusal_probes import compiler_checked_collect
+from test_collector_native_python_scope import _FIXTURES
 
 ROOT = Path(__file__).parents[1]
 

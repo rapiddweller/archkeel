@@ -9,9 +9,9 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from archkeel.ir.codec import contract_bytes, parse_contract
 from test_architecture_demo import _prepare_repo
 
-from archkeel.ir.codec import contract_bytes, parse_contract
 from tools.browser_architecture import main
 
 ROOT = Path(__file__).parents[1]
@@ -117,8 +117,9 @@ def test_browser_gate_rejects_incomplete_or_unowned_physical_scope(tmp_path, mut
 def test_browser_runner_serializes_windows_config_as_a_posix_port(tmp_path, monkeypatch):
     from pathlib import PureWindowsPath
 
-    import tools.browser_architecture as browser_tool
     from archkeel.cli.config import ConfigError, load_config
+
+    import tools.browser_architecture as browser_tool
 
     root = _repository(tmp_path)
     configuration = "docs/architecture/browser.toml"

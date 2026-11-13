@@ -122,18 +122,40 @@ impl Root {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Over(pub String);
 
+/// The name of a cache directory tag (<https://bford.info/cachedir/>), and how its text starts.
+/// Cargo writes the tag into each target directory; other build tools write it into their caches.
+const CACHE_TAG: &str = "CACHEDIR.TAG";
+const CACHE_SIGNATURE: [u8; 43] = *b"Signature: 8a477f597d28d172789f06886806bc55";
+
+/// Whether a tag proves `directory` as a cache: a regular file, not a link, with the signature.
+fn is_cache(directory: &Path) -> bool {
+    let tag = directory.join(CACHE_TAG);
+    let mut start = [0u8; CACHE_SIGNATURE.len()];
+    fs::symlink_metadata(&tag).is_ok_and(|data| data.is_file())
+        && fs::File::open(&tag)
+            .and_then(|mut file| file.read_exact(&mut start))
+            .is_ok()
+        && start == CACHE_SIGNATURE
+}
+
 /// The work budget of a collection: each directory entry below the root is charged one unit,
 /// without following a symlink and without `.git`. A root over the count, the depth or the byte
 /// total is refused by name, so the collector never starts on it.
+///
+/// The files below a proven cache directory are build output (AD-430). Their entries and their
+/// depth are charged, because a collector can list them. Their bytes are not charged: the
+/// snapshot charges each byte that a collector reads there (AD-420). The survey selects no
+/// source, so this rule cannot remove a file from a scan.
 pub(crate) fn survey(root: &Root) -> Result<(), String> {
-    let mut stack: Vec<(PathBuf, usize)> = vec![(root.path().to_path_buf(), 0)];
+    let mut stack: Vec<(PathBuf, usize, bool)> = vec![(root.path().to_path_buf(), 0, false)];
     let (mut entries, mut bytes) = (0usize, 0u64);
-    while let Some((directory, depth)) = stack.pop() {
+    while let Some((directory, depth, inherited)) = stack.pop() {
         if depth > MAX_DEPTH {
             return Err(format!(
                 "the repository has a directory deeper than {MAX_DEPTH} levels"
             ));
         }
+        let cache = inherited || is_cache(&directory);
         let listing = fs::read_dir(&directory)
             .map_err(|error| format!("cannot list {}: {error}", directory.display()))?;
         for entry in listing {
@@ -150,8 +172,8 @@ pub(crate) fn survey(root: &Root) -> Result<(), String> {
                 continue;
             };
             if kind.is_dir() && entry.file_name() != ".git" {
-                stack.push((entry.path(), depth.saturating_add(1)));
-            } else if kind.is_file() {
+                stack.push((entry.path(), depth.saturating_add(1), cache));
+            } else if kind.is_file() && !cache {
                 bytes = charged(bytes, entry.metadata().map_or(0, |data| data.len()))?;
             }
         }

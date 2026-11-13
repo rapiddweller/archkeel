@@ -19,9 +19,9 @@ from pathlib import Path
 import pytest
 from conftest import build_native_copy
 from native_rules_support import language_names
+from tools.dual_run_oracle import Selection
 
 from tools import dual_run
-from tools.dual_run_oracle import Selection
 
 ROOT = Path(__file__).resolve().parents[1]
 

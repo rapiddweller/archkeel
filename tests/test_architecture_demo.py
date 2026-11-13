@@ -11,12 +11,10 @@ from pathlib import Path
 from typing import get_args, get_type_hints
 
 import pytest
-
 from archkeel.check.expectation import GUARDRAIL_DIMENSIONS
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.validation import run_validate
-from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe, observer_for
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -34,6 +32,8 @@ from archkeel.render.html import render_architecture_html
 from archkeel.render.summary import badge, report_summary
 from fixtures.architecture_demo import CATALOG, markdown
 from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, apply_overlay
+
+from archkeel.cli import main
 from tools.dual_run_corpus import Case, case_language
 
 SUPPORTED_CATALOG = tuple(

@@ -12,7 +12,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from core_support import core_binary
 from rust_repository import (
     APP,
     CRATE_RULES,
@@ -23,8 +22,6 @@ from rust_repository import (
     statuses,
     validate,
 )
-
-__all__ = ["core_binary"]
 
 NO_REQUIRES = (component("base", "base_crate"), component("app", "app"))
 

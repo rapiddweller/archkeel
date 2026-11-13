@@ -14,10 +14,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from core_support import core_binary
 from rust_repository import CRATE_RULES, claims, repository, rule, statuses, validate
-
-__all__ = ["core_binary"]
 
 USE_BASE = "use base_crate::make;\n"
 NO_BASE = "NO-TEST-TO-BASE"

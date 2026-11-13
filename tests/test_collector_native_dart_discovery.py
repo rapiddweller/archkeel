@@ -24,8 +24,6 @@ import pytest
 from oracle_support import ORACLE_UNAVAILABLE
 
 pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
-from conftest import install_rust_toolchain
-
 from archkeel.check.ports import Language, ProducerKind
 from archkeel.cli.observe import observer_for
 from archkeel.ir.facts_codec import encode_request
@@ -36,6 +34,7 @@ from archkeel.ir.protocol import (
     TypeScriptSettings,
     collection_request,
 )
+from conftest import install_rust_toolchain
 
 ROOT = Path(__file__).parents[1]
 spec = importlib.util.spec_from_file_location(

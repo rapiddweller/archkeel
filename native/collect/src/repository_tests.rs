@@ -80,6 +80,65 @@ fn the_survey_refuses_more_entries_than_the_budget() {
     let refusal = survey(&root).unwrap_err();
     assert!(refusal.contains("more than 100000 entries"), "{refusal}");
     assert!(started.elapsed().as_secs() < 30);
+    // AD-430: a cache directory tag does not release the entries, because a collector lists them.
+    fs::write(base.join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    let refusal = survey(&root).unwrap_err();
+    assert!(refusal.contains("more than 100000 entries"), "{refusal}");
+    let _ = fs::remove_dir_all(base);
+}
+
+/// A project with one file over the byte total in `target/debug`; the file has no data blocks.
+fn with_large_build_output(name: &str) -> (PathBuf, Root) {
+    let base = scratch(name);
+    fs::create_dir_all(base.join("target/debug")).unwrap();
+    fs::write(base.join("lib.rs"), "pub fn a() {}\n").unwrap();
+    let large = fs::File::create(base.join("target/debug/large.rlib")).unwrap();
+    large.set_len(MAX_TOTAL_BYTES + 1).unwrap();
+    let root = Root::of(base.to_str().unwrap()).unwrap();
+    (base, root)
+}
+
+#[test]
+fn the_survey_charges_no_bytes_below_a_proven_cache_directory() {
+    let (base, root) = with_large_build_output("cache");
+    let refusal = survey(&root).unwrap_err();
+    assert!(refusal.contains("holds more than 1073741824 bytes"), "{refusal}");
+    let mut tag = CACHE_SIGNATURE.to_vec();
+    tag.extend_from_slice(b"\n# This file is a cache directory tag created by cargo.\n");
+    fs::write(base.join("target").join(CACHE_TAG), tag).unwrap();
+    assert_eq!(survey(&root), Ok(()));
+    // The bytes of a file outside the cache directory are charged as before.
+    let outside = fs::File::create(base.join("large.bin")).unwrap();
+    outside.set_len(MAX_TOTAL_BYTES + 1).unwrap();
+    assert!(survey(&root).unwrap_err().contains("holds more than"));
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn a_tag_without_the_signature_or_behind_a_link_proves_no_cache_directory() {
+    let (base, root) = with_large_build_output("no-cache");
+    let tag = base.join("target").join(CACHE_TAG);
+    for text in ["", "Signature: 0", "# Signature: 8a477f597d28d172789f06886806bc55"] {
+        fs::write(&tag, text).unwrap();
+        assert!(survey(&root).unwrap_err().contains("holds more than"), "{text}");
+    }
+    fs::remove_file(&tag).unwrap();
+    fs::create_dir(&tag).unwrap();
+    assert!(survey(&root).unwrap_err().contains("holds more than"));
+    fs::remove_dir(&tag).unwrap();
+    #[cfg(unix)]
+    {
+        fs::write(base.join("real.tag"), CACHE_SIGNATURE).unwrap();
+        std::os::unix::fs::symlink(base.join("real.tag"), &tag).unwrap();
+        assert!(survey(&root).unwrap_err().contains("holds more than"));
+    }
+    // A tag in a sibling directory or below the build output proves nothing about the output.
+    let _ = fs::remove_file(&tag);
+    fs::create_dir_all(base.join("other")).unwrap();
+    fs::write(base.join("other").join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    fs::create_dir_all(base.join("target/debug/deps")).unwrap();
+    fs::write(base.join("target/debug/deps").join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    assert!(survey(&root).unwrap_err().contains("holds more than"));
     let _ = fs::remove_dir_all(base);
 }
 

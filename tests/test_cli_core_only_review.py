@@ -11,14 +11,12 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_support import HONEST, SUFFIX, built, case_root
+from core_support import HONEST, SUFFIX, case_root
 from test_cli_core_only import GUARD, ROOT
 from test_cli_core_only_boundary import HEAD, frame
 
 from archkeel.cli import core_only
 from archkeel.cli.native_scan import exchange
-
-__all__ = ["built"]
 
 
 @pytest.fixture(autouse=True)

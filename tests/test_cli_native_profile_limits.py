@@ -11,11 +11,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import SUFFIX, built
+from core_support import SUFFIX
 from corpus_support import case as corpus_case
 from corpus_support import commit_tree, materialized
-
-__all__ = ["built"]
 
 CASES = (
     "s4/a-symbol-selector-is-a-limit-of-some-profiles",

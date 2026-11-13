@@ -21,12 +21,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import core_binary, run
+from core_support import run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
-
-__all__ = ["core_binary"]
 
 CONTRACT = {
     "schema_version": "2.2.0",

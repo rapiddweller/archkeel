@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-406: Rust scan decisions, corpus parity and the native workspace without a shell reply."""
+"""AD-406: the Rust corpus through both store doors, and the native workspace by a scan."""
 
 from __future__ import annotations
 
@@ -14,70 +14,44 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from test_cli_native_core_scan import (
-    NATIVE,
-    ROOT,
-    SUFFIX,
-    _rust_repository,
-    _shell_request,
-    built,
-    core_notes,
-    install,
-    report,
-)
+from core_support import NATIVE, ROOT, SUFFIX
+from corpus_support import commit_tree, corpus_cases, materialized
 
 from archkeel.cli import native_scan
-from tools.dual_run_corpus import Case, corpus_cases, materialized
-
-__all__ = ["built", "install"]
 
 
-def test_the_core_decides_a_rust_run_through_the_scan_request(
-    install: Path, tmp_path: Path
-) -> None:
-    root = _rust_repository(install, tmp_path)
-    off = report(root)
-    code, result = report(root, "--native-core")
-    assert (code, result["declared_rules"]) == (off[0], "PASS")
-    [note] = core_notes(result)
-    assert "The core ran the Rust collector in its own process" in note
-    assert result["rule_assessments"] == off[1]["rule_assessments"]
+def _derived(core: Path, root: Path, config: str) -> dict[str, Any]:
+    """What the core says about the collection of `root`: its request, or its refusal."""
+    request = {"protocol": native_scan.SCAN_PROTOCOL, "root": str(root), "config": config}
+    stdout, _ = native_scan.exchange(str(core), "scan", json.dumps(request).encode())
+    collect: dict[str, Any] = json.loads(stdout)["self_test"]["collect"]
+    return collect
 
 
 def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
-    install: Path, tmp_path: Path
+    built: Path, tmp_path: Path
 ) -> None:
+    """The core derives the request of each Rust case. The Rust test then reads the facts of that
+    request through both doors of the store and finds no difference."""
+    core = built / f"archkeel-core{SUFFIX}"
     requests: list[tuple[str, Any]] = []
-    accepted = refused = 0
+    refused = 0
     with contextlib.ExitStack() as stack:
         for case in corpus_cases():
             root = stack.enter_context(materialized(case)).resolve()
             try:
-                language = tomllib.loads((root / case.config).read_text())["scan"].get("language")
+                scan = tomllib.loads((root / "archkeel.toml").read_text())["scan"]
             except (OSError, KeyError, tomllib.TOMLDecodeError):
                 continue
-            if language != "rust":
+            if scan.get("language") != "rust":
                 continue
-            payload = _shell_request(root, case)
-            requests.append((case.id, json.loads(payload)))
-            request = native_scan.scan_request(payload, case.config)
-            stdout, _ = native_scan.exchange(
-                str(install / f"archkeel-core{SUFFIX}"), "scan", json.dumps(request).encode()
-            )
-            collect = json.loads(stdout)["self_test"]["collect"]
+            collect = _derived(core, root, "archkeel.toml")
             if "request" in collect:
-                assert native_scan.differences(collect["request"], json.loads(payload)) == [], (
-                    case.id
-                )
-                accepted += 1
+                requests.append((case.id, collect["request"]))
             else:
-                assert collect["refused"].startswith("collect: unsupported: collector: "), (
-                    case.id,
-                    collect,
-                )
+                assert collect["refused"].startswith("collect: unsupported: "), (case.id, collect)
                 refused += 1
-        current = Case("current-native", "", config="native/archkeel.toml")
-        requests.append((current.id, json.loads(_shell_request(ROOT, current))))
+        requests.append(("current-native", _derived(core, ROOT, "native/archkeel.toml")["request"]))
         manifest = tmp_path / "requests.json"
         manifest.write_text(json.dumps(requests))
         done = subprocess.run(
@@ -100,16 +74,12 @@ def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
             check=False,
         )
         assert done.returncode == 0, done.stdout + done.stderr
-    assert accepted > 50
-    print(
-        f"Rust scan corpus: {accepted} accepted; {refused} named refusals; "
-        f"{len(requests)} fact comparisons; 0 differences"
-    )
+    assert f"Rust fact parity: {len(requests)} equal; 0 differences" in done.stderr
+    assert len(requests) > 50
+    print(f"Rust scan corpus: {len(requests)} equal fact sets; {refused} named refusals")
 
 
 def test_the_core_scans_its_own_workspace_with_no_shell_reply(built: Path, tmp_path: Path) -> None:
-    from graph_report_support import commit_tree
-
     root = tmp_path / "project"
     shutil.copytree(NATIVE, root / "native", ignore=shutil.ignore_patterns("target"))
     commit_tree(root)

@@ -10,9 +10,13 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from core_support import built as built
+from core_support import core_binary as core_binary
+from core_support import release_core as release_core
 from filelock import FileLock
 
 ROOT = Path(__file__).parents[1]
+
 
 @pytest.fixture(autouse=True)
 def no_step_summary(monkeypatch: pytest.MonkeyPatch) -> None:

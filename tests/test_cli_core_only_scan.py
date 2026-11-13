@@ -11,11 +11,9 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_support import HONEST, SUFFIX, built, case_root
+from core_support import HONEST, SUFFIX, case_root
 from rust_repository import repository
 from test_cli_core_only import GUARD, ROOT
-
-__all__ = ["built"]
 
 
 def command(

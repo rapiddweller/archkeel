@@ -8,7 +8,6 @@ from __future__ import annotations
 import sys
 
 import pytest
-
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.protocol import CollectionError, CollectionRequest

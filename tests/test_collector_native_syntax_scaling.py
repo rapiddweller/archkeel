@@ -13,12 +13,6 @@ import json
 from pathlib import Path
 
 import pytest
-from collector_timing import Taken, interleaved_least, timed_run
-from scaling_walk_only import WALK_ONLY
-from test_collector_native_syntax import (
-    _shape,
-)
-
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionRequest,
@@ -26,6 +20,11 @@ from archkeel.ir.protocol import (
     SnapshotInput,
     SourceScope,
     TypeScriptSettings,
+)
+from collector_timing import Taken, interleaved_least, timed_run
+from scaling_walk_only import WALK_ONLY
+from test_collector_native_syntax import (
+    _shape,
 )
 
 # The time of the collector process (the debug build) grows linearly with the size: time(2n) over

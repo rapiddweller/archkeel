@@ -4,10 +4,10 @@
 """AD-382: each rule of the self-contract fails on a violation planted in a copy of native/.
 
 Consumer: `make native-check`. Two self-checks run through `archkeel validate`, each on its own
-copy of `native/` without `target/`. The first copy holds each chain rule in two code forms (a `use`,
-and a qualified path without `use`), each in a file of its own, and the external and assignment
-plants. The second copy adds a matching `requires` entry for each chain rule. A rule that does
-not fail at its planted file fails here.
+copy of `native/` without `target/`. The first copy holds each chain rule in two code forms (a
+`use`, and a qualified path without `use`), each in a file of its own, and the external and
+assignment plants. The second copy adds a matching `requires` entry for each chain rule. A rule
+that does not fail at its planted file fails here.
 """
 
 from __future__ import annotations
@@ -18,12 +18,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import core_binary, run
+from core_support import run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
-
-__all__ = ["core_binary"]
 
 ROOT = Path(__file__).parents[1]
 DEPENDENCY = "[dependencies]\n"

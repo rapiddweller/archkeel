@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: MIT
 """AD-335, AD-313: a 9.0.0 request makes the Rust collector leave test code out.
 
-Consumer: the core. It sends `scope.exclude_test_sources`. The collector owns the `cfg(test)` rule, so the sources below cover each form
-of test code of Rust: a sibling file, a `path` file, an inline module with a file, a `#[test]`
-function, the `tests/`, `benches/` and `examples/` targets and a production file that only has a
-name like a test. A build script stays in scope.
+Consumer: the core. It sends `scope.exclude_test_sources`. The collector owns the `cfg(test)`
+rule, so the sources below cover each form of test code of Rust: a sibling file, a `path` file,
+an inline module with a file, a `#[test]` function, the `tests/`, `benches/` and `examples/`
+targets and a production file that only has a name like a test. A build script stays in scope.
 """
 
 from __future__ import annotations

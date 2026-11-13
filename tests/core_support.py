@@ -42,6 +42,9 @@ def _cargo() -> str:
     return cargo
 
 
+COLLECTORS = ("archkeel-typescript-collector", "archkeel-rust-collector")
+
+
 def _build(*arguments: str, timeout: int = 1200) -> None:
     (NATIVE / "target").mkdir(exist_ok=True)
     command = [_cargo(), "build", "--locked", "-q", "-p", "archkeel-core", *arguments]
@@ -55,9 +58,10 @@ def _build(*arguments: str, timeout: int = 1200) -> None:
 
 @pytest.fixture(scope="session")
 def built() -> Path:
-    """The directory of the debug core, in a target directory of its own."""
+    """The directory of the debug core and of both collector binaries, in its own target."""
     target = NATIVE / "target" / "shell"
-    _build("--target-dir", str(target))
+    packages = [argument for name in COLLECTORS for argument in ("-p", name)]
+    _build(*packages, "--target-dir", str(target))
     return target / "debug"
 
 
@@ -69,11 +73,9 @@ def release_core() -> Path:
 
 
 @pytest.fixture(scope="session")
-def core_binary() -> Path:
+def core_binary(built: Path) -> Path:
     """The debug core. A test names it as the core of the install for its runs."""
-    target = NATIVE / "target" / "shell"
-    _build("--target-dir", str(target))
-    return target / "debug" / f"archkeel-core{SUFFIX}"
+    return built / f"archkeel-core{SUFFIX}"
 
 
 @contextlib.contextmanager
