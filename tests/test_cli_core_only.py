@@ -79,7 +79,8 @@ def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kin
     command: str, extra: tuple[str, ...]
 ) -> None:
     """AD-432: the command is known, so the refusal is not `invalid_input`. It names the release
-    that serves the command and the tracking issue. Nothing runs and nothing reports success."""
+    that has the command, or states that no release has it, and the tracking issue. Nothing runs
+    and nothing reports success."""
     done = shell(command, *extra, "--json")
     assert done.returncode == 2
     assert done.stderr == ""
@@ -88,7 +89,10 @@ def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kin
     assert document["refusal"]["kind"] == "not_on_this_development_line"
     message = document["refusal"]["message"]
     assert message.startswith(f"{command} is not available on this development line")
-    assert "use release 4.0.1" in message and "#880" in message
+    # Release 4.0.1 has only `check` and `init` of the refused commands.
+    remedy = "use release 4.0.1" if command in {"check", "init"} else "no release has it"
+    assert remedy in message and "#880" in message
+    assert ("use release" in message) == (command in {"check", "init"})
     text = shell(command, *extra, "--text")
     assert text.returncode == 2 and text.stderr == ""
     assert text.stdout == f"REFUSED: not_on_this_development_line: {message}\n"

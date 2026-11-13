@@ -36,11 +36,17 @@ from .native_scan import SCAN_PROTOCOL, exchange, identity
 # Accepted and ignored: the core is the only path, so the switch selects nothing.
 VARIABLE: Final = "ARCHKEEL_CORE_ONLY"
 RELEASE: Final = "4.0.1"
-_LINE: Final = f"not available on this development line; use release {RELEASE}"
+_LINE: Final = "not available on this development line"
 # The process exit of the core is not a command verdict (0 and 3 describe frame completeness).
 EXIT_CODES: Final[Mapping[Status, int]] = {Status.PASS: 0, Status.FAIL: 1, Status.UNKNOWN: 2}
 SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT})
-# Each option of release 4.0.1 that this line does not serve. The shell refuses it by name.
+# Release 4.0.1 has `check` and `init`. No release has the other refused commands.
+RELEASED: Final = frozenset({Command.CHECK, Command.INIT})
+# The options of the deleted Python shell that release 4.0.1 does not have.
+UNRELEASED_OPTIONS: Final = frozenset(
+    {"--collector-timeout-seconds", "--html", "--native-core", "--strict", "--timings"}
+)
+# Each option of the deleted Python shell. The shell refuses it by name.
 REMOVED_OPTIONS: Final = frozenset(
     {
         "--accept-new",
@@ -82,7 +88,8 @@ commands:
   skill      Install the agent skill: archkeel skill install {{claude,codex}} [--root PATH]
 
 {_LINE} (#880), exit 2:
-  check, explore, init, guide, story, view, studio
+  check, init                           Use release {RELEASE}.
+  explore, guide, story, view, studio   No release has them.
 
 options:
   --root PATH     Repository root. Default: the Git work tree of the current directory.
@@ -95,7 +102,14 @@ options:
 
 
 class NotOnThisLine(CoreError):
-    """A command or option of the release line that this development line does not serve."""
+    """A command or option of the deleted Python shell that this development line does not serve."""
+
+
+def _remedy(released: bool) -> str:
+    """The true way to get the refused part: a release that has it, or the fact that none has."""
+    return (
+        f"use release {RELEASE}" if released else f"no release has it; release {RELEASE} is older"
+    )
 
 
 class Options(argparse.Namespace):
@@ -131,9 +145,11 @@ def _command(argv: Sequence[str]) -> Command:
         raise ValueError(f"unknown command {argv[0]!r}; run archkeel --help") from error
     if command is Command.CHECK:
         names = "; ".join(active_checks())
-        raise NotOnThisLine(f"check is {_LINE} (#880); not ported: {names} (#1103)")
+        raise NotOnThisLine(
+            f"check is {_LINE}; {_remedy(True)} (#880); not ported: {names} (#1103)"
+        )
     if command not in SERVED and command is not Command.SKILL:
-        raise NotOnThisLine(f"{command} is {_LINE} (#880)")
+        raise NotOnThisLine(f"{command} is {_LINE}; {_remedy(command in RELEASED)} (#880)")
     return command
 
 
@@ -154,7 +170,8 @@ def parse(argv: Sequence[str]) -> Options:
     options, extra = parser.parse_known_args(argv[1:], Options(command=command))
     for argument in extra:
         if (name := argument.split("=", 1)[0]) in REMOVED_OPTIONS:
-            raise NotOnThisLine(f"{command} {name} is {_LINE} (#880)")
+            remedy = _remedy(name not in UNRELEASED_OPTIONS)
+            raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy} (#880)")
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
     return options
@@ -303,7 +320,9 @@ def render_text(command: Command, frame: CoreFrame) -> None:
     for gap in frame.gaps:
         if gap.kind is GapKind.RULE_KIND_NOT_PORTED:
             print(f"{gap.subject}: UNKNOWN: rule kind not decided by the core: {gap.reason}")
-            print(f"Action: Use release {RELEASE} for this rule kind (#880).")
+            print(
+                "Action: Do not treat this rule as passed. The core has no port of its kind (#880)."
+            )
         else:
             print(f"{gap.subject}: UNKNOWN: {gap.kind}: {gap.reason}")
-            print(f"Action: Resolve the named part, or use release {RELEASE} for it (#880).")
+            print("Action: Resolve the named part and run again (#880).")

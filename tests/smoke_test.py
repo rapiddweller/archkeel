@@ -151,9 +151,11 @@ def commands() -> None:
             message = refusal(
                 cli(command, "--root", str(root), "--json"), "not_on_this_development_line"
             )
-            assert "use release 4.0.1" in message and "#880" in message, message
+            remedy = "use release 4.0.1" if command in {"check", "init"} else "no release has it"
+            assert remedy in message and "#880" in message, message
         removed = cli("validate", "--root", str(root), "--native-core", "--json")
-        assert "--native-core" in refusal(removed, "not_on_this_development_line")
+        message = refusal(removed, "not_on_this_development_line")
+        assert "--native-core" in message and "no release has it" in message, message
         skill = cli("skill", "install", "codex", "--root", str(root), "--json")
         assert skill.returncode == 0, (skill.stdout, skill.stderr)
         installed = (root / ".agents/skills/archkeel/SKILL.md").read_text(encoding="utf-8")

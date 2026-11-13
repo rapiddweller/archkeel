@@ -13,8 +13,9 @@ AD-422 stays the record of the core-only path: frame, exit table, lookup and ref
 3. PASS, FAIL and UNKNOWN give exit 0, 1 and 2 for `validate` and for `report`.
    A refusal gives exit 2. Nothing gives PASS or exit 0 that the core did not prove.
 4. `check`, `explore`, `init`, `guide`, `story`, `view` and `studio` stay registered.
-   Each gives the typed refusal `not_on_this_development_line`, exit 2, with the remedy
-   "use release 4.0.1" and the tracking issue. `check` names each check that it cannot run (#1103).
+   Each gives the typed refusal `not_on_this_development_line`, exit 2, with the tracking issue.
+   Release 4.0.1 has `check` and `init`, so their remedy is "use release 4.0.1". No release has
+   the other five commands, and the refusal says so. `check` names each check it cannot run (#1103).
    There is no fallback and no success stub. `skill install` stays, because it copies one file.
 5. The Python shell parses arguments, reads the config location, finds the binary, reads the frame,
    prints text or JSON and maps the exit code. It does not read facts, contracts or verdict logic.
@@ -45,7 +46,8 @@ prove. Success stubs for refused commands. Porting reports or rule kinds in the 
 **Limits.** No platform wheel carries the core yet. An installed package refuses each command
 with `core_binary_not_found`, exit 2. The wheel hook still bundles only the two collector binaries.
 Reports as HTML, `architecture.json`, explore, Studio and the merge gate `check` need ports.
-Python and Dart projects stay unsupported (AD-430). Use release 4.0.1 for all of these.
+Python and Dart projects stay unsupported (AD-430). Release 4.0.1 has `check`, `init`, full
+reports and Python, Dart and TypeScript projects. It has no Rust profile, explore or Studio.
 A tree with more than 100,000 entries below the root is refused by name, also when most entries
 are build output. A module path into a tagged directory gives UNKNOWN with the coverage refusal
 of the store. The trust limits of AD-422 for Git configuration and binary freshness stay.

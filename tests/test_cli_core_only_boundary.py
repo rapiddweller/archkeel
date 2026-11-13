@@ -125,7 +125,7 @@ def test_the_stage_one_switch_is_refused_by_name(
     assert core_only.run([command, "--native-core", "--json"]) == 2
     refusal = json.loads(capsys.readouterr().out)["refusal"]
     assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
-    assert "--native-core" in refusal["message"] and "4.0.1" in refusal["message"]
+    assert "--native-core" in refusal["message"] and "no release has it" in refusal["message"]
 
 
 @pytest.mark.parametrize("fault", ["git_head", "dirty", "no-claim"])
@@ -311,7 +311,10 @@ def test_each_option_of_the_release_line_refuses_by_name(
         refusal = json.loads(capsys.readouterr().out)["refusal"]
         assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
         assert f"{command} {option} is not available" in refusal["message"]
-        assert "use release 4.0.1" in refusal["message"] and "#880" in refusal["message"]
+        released = option not in core_only.UNRELEASED_OPTIONS
+        assert ("use release 4.0.1" in refusal["message"]) == released
+        assert ("no release has it" in refusal["message"]) != released
+        assert "#880" in refusal["message"]
 
 
 @pytest.mark.parametrize(
