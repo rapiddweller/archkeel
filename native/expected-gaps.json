@@ -18,12 +18,23 @@
     "NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE": "UNKNOWN",
     "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT": "UNKNOWN",
     "NATIVE-EXTERNAL-UNICODE-IDENT": "UNKNOWN",
+    "NATIVE-NO-COLLECT-TO-CONTRACT": "UNKNOWN",
+    "NATIVE-NO-COLLECT-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-COLLECT-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-COLLECT-TO-MODEL": "UNKNOWN",
+    "NATIVE-NO-COLLECT-TO-REPORT": "UNKNOWN",
     "NATIVE-NO-COMPONENT-CYCLES": "UNKNOWN",
     "NATIVE-NO-CONTRACT-TO-CORE": "UNKNOWN",
     "NATIVE-NO-CONTRACT-TO-EVAL": "UNKNOWN",
     "NATIVE-NO-CONTRACT-TO-MODEL": "UNKNOWN",
     "NATIVE-NO-CONTRACT-TO-REPORT": "UNKNOWN",
     "NATIVE-NO-CORE-TO-TYPESCRIPT": "UNKNOWN",
+    "NATIVE-NO-DART-TO-COLLECT": "UNKNOWN",
+    "NATIVE-NO-DART-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-DART-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-DART-TO-MODEL": "UNKNOWN",
+    "NATIVE-NO-DART-TO-REPORT": "UNKNOWN",
+    "NATIVE-NO-DART-TO-STORE": "UNKNOWN",
     "NATIVE-NO-EVAL-TO-COLLECT": "UNKNOWN",
     "NATIVE-NO-EVAL-TO-CORE": "UNKNOWN",
     "NATIVE-NO-EVAL-TO-REPORT": "UNKNOWN",
@@ -34,9 +45,27 @@
     "NATIVE-NO-MODEL-TO-REPORT": "UNKNOWN",
     "NATIVE-NO-MODEL-TO-TYPESCRIPT": "UNKNOWN",
     "NATIVE-NO-MODULE-CYCLES": "FAIL",
+    "NATIVE-NO-PYTHON-TO-COLLECT": "UNKNOWN",
+    "NATIVE-NO-PYTHON-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-PYTHON-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-PYTHON-TO-MODEL": "UNKNOWN",
+    "NATIVE-NO-PYTHON-TO-REPORT": "UNKNOWN",
+    "NATIVE-NO-PYTHON-TO-STORE": "UNKNOWN",
     "NATIVE-NO-REPORT-TO-COLLECT": "UNKNOWN",
     "NATIVE-NO-REPORT-TO-CORE": "UNKNOWN",
     "NATIVE-NO-REPORT-TO-TYPESCRIPT": "UNKNOWN",
+    "NATIVE-NO-RUST-TO-COLLECT": "UNKNOWN",
+    "NATIVE-NO-RUST-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-RUST-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-RUST-TO-MODEL": "UNKNOWN",
+    "NATIVE-NO-RUST-TO-REPORT": "UNKNOWN",
+    "NATIVE-NO-RUST-TO-STORE": "UNKNOWN",
+    "NATIVE-NO-TYPESCRIPT-TO-COLLECT": "UNKNOWN",
+    "NATIVE-NO-TYPESCRIPT-TO-CORE": "UNKNOWN",
+    "NATIVE-NO-TYPESCRIPT-TO-EVAL": "UNKNOWN",
+    "NATIVE-NO-TYPESCRIPT-TO-MODEL": "UNKNOWN",
+    "NATIVE-NO-TYPESCRIPT-TO-REPORT": "UNKNOWN",
+    "NATIVE-NO-TYPESCRIPT-TO-STORE": "UNKNOWN",
     "NATIVE-PY-MODULE-NO-SURVEY": "UNKNOWN",
     "NATIVE-PY-MODULE-NO-SYMBOLS": "UNKNOWN",
     "NATIVE-PY-MODULE-NO-UNPARSE": "UNKNOWN",
@@ -73,14 +102,59 @@
       "A method call may reach the method sites of an impl block in native.archkeel_dart_collector.collection.sites"
     ],
     [
+      "native.archkeel_dart_collector.collection",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_dart_collector.collection.imports",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method copies of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.collection.imports",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
       "native.archkeel_dart_collector.collection.sites",
       "native.archkeel_dart_collector.collection.targets",
       "A method call may reach the method scope of an impl block in native.archkeel_dart_collector.collection.targets"
     ],
     [
+      "native.archkeel_dart_collector.collection.sites",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method copies of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.collection.sites",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_dart_collector.collection.targets",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
       "native.archkeel_dart_collector.declarations",
       "native.archkeel_dart_collector.declarations.members",
       "A method call may reach the method class of an impl block in native.archkeel_dart_collector.declarations.members"
+    ],
+    [
+      "native.archkeel_dart_collector.declarations",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_dart_collector.declarations",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_dart_collector.declarations.members",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
     ],
     [
       "native.archkeel_dart_collector.definitions",
@@ -93,6 +167,16 @@
       "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
     ],
     [
+      "native.archkeel_dart_collector.discover",
+      "native.archkeel_snapshot.snapshot.listing",
+      "A method call may reach the method check_root of an impl block in native.archkeel_snapshot.snapshot.listing"
+    ],
+    [
+      "native.archkeel_dart_collector.dump",
+      "native.archkeel_snapshot.snapshot.listing",
+      "A method call may reach the method open_root of an impl block in native.archkeel_snapshot.snapshot.listing"
+    ],
+    [
       "native.archkeel_dart_collector.members",
       "native.archkeel_dart_collector.declarations.work",
       "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
@@ -101,6 +185,16 @@
       "native.archkeel_dart_collector.parameters",
       "native.archkeel_dart_collector.declarations.work",
       "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.records",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_dart_collector.records",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
     [
       "native.archkeel_dart_collector.sites.bindings",
@@ -153,6 +247,11 @@
       "A method call may reach the method check of an impl block in native.archkeel_facts.request_rules"
     ],
     [
+      "native.archkeel_python_collector.discover",
+      "native.archkeel_snapshot.snapshot.listing",
+      "A method call may reach the method is_link of an impl block in native.archkeel_snapshot.snapshot.listing"
+    ],
+    [
       "native.archkeel_python_collector.module",
       "native.archkeel_facts.envelope.build",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
@@ -161,6 +260,16 @@
       "native.archkeel_python_collector.module",
       "native.archkeel_facts.gap",
       "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_python_collector.reply",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_python_collector.requirement",
+      "native.archkeel_snapshot.snapshot.listing",
+      "A method call may reach the method is_link of an impl block in native.archkeel_snapshot.snapshot.listing"
     ],
     [
       "native.archkeel_python_collector.survey.excluded",
@@ -226,6 +335,61 @@
       "native.archkeel_report.ruling",
       "native.archkeel_model.scope",
       "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
+    ],
+    [
+      "native.archkeel_rust_collector.builder",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_rust_collector.builder",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method collection of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_rust_collector.collect",
+      "native.archkeel_rust_collector.declared",
+      "A method call may reach the method declared of an impl block in native.archkeel_rust_collector.declared"
+    ],
+    [
+      "native.archkeel_rust_collector.collect",
+      "native.archkeel_rust_collector.edges",
+      "A method call may reach the method module of an impl block in native.archkeel_rust_collector.edges"
+    ],
+    [
+      "native.archkeel_rust_collector.collect",
+      "native.archkeel_rust_collector.edges_extracted",
+      "A method call may reach the method check_extracted of an impl block in native.archkeel_rust_collector.edges_extracted"
+    ],
+    [
+      "native.archkeel_rust_collector.collect",
+      "native.archkeel_rust_collector.impl_edges",
+      "A method call may reach the method impl_members of an impl block in native.archkeel_rust_collector.impl_edges"
+    ],
+    [
+      "native.archkeel_rust_collector.collect",
+      "native.archkeel_rust_collector.module_edges",
+      "A method call may reach the method macro_calls of an impl block in native.archkeel_rust_collector.module_edges"
+    ],
+    [
+      "native.archkeel_rust_collector.declared",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_rust_collector.declared",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "native.archkeel_rust_collector.edges",
+      "native.archkeel_facts.envelope.build",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "native.archkeel_rust_collector.edges",
+      "native.archkeel_facts.gap",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
     [
       "native.archkeel_rust_collector.symbols",
