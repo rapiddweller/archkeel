@@ -15,7 +15,6 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-import pytest
 import rust_repository
 from corpus_support import commit_tree
 from native_rules_support import language_names
@@ -63,7 +62,11 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(
         "roots": [],
     }
     done = subprocess.run(
-        [str(core_binary), "dual-run"], input=json.dumps(request), capture_output=True, text=True, check=False
+        [str(core_binary), "dual-run"],
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert done.returncode == 2
     assert done.stdout == ""
