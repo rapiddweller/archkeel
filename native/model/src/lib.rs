@@ -42,6 +42,17 @@
 
 #![deny(unreachable_pub)]
 
+mod construct_match;
+pub use construct_match::matches as construct_matches;
+mod constructs;
+pub use constructs::{ConstructMatch, ConstructSite};
+
+#[cfg(test)]
+mod construct_tests;
+
+#[cfg(test)]
+mod construct_replay_tests;
+
 mod condensation;
 mod coverage;
 mod cycles;

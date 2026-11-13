@@ -88,6 +88,22 @@ pub enum Violation {
     OuterLayer(Box<Layered>),
     /// `no_component_cycles`: a component or a module cycle (slice S7, AD-384).
     Cycle(Box<Cyclic>),
+    /// A forbidden construct, with the original observation's identity and evidence.
+    Construct(Box<ConstructViolation>),
+}
+
+/// The row data of a forbidden construct, without a verdict or a scope claim.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstructViolation {
+    pub id: String,
+    pub rule: String,
+    pub source: String,
+    pub owner: String,
+    pub construct: String,
+    pub facts: Vec<String>,
+    pub evidence: Vec<String>,
+    pub provenance: Vec<String>,
+    pub selector: Option<archkeel_contract::ConstructSelector>,
 }
 
 /// The record of a cycle violation: its members and the imports between two members.
@@ -259,6 +275,7 @@ impl Violation {
             | Violation::Unrequired { id, rule, .. } => [id, rule],
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
+            Violation::Construct(row) => [&row.id, &row.rule],
         }
     }
 }

@@ -121,6 +121,14 @@ closed! {
         Supported = "supported",
         Partial = "partial",
         Unsupported = "unsupported",
+        Decided = "decided",
+    }
+}
+
+impl Profile {
+    /// Whether the collector of this profile emits nominal construct selectors.
+    pub fn construct_selectors(self) -> bool {
+        matches!(self, Self::Python)
     }
 }
 

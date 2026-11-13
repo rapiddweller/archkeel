@@ -133,6 +133,7 @@ pub(crate) fn rows(outcomes: &[Outcome], rule: &str) -> Vec<String> {
         }
         Violation::OuterLayer(layered) => layered.id.clone(),
         Violation::Cycle(..) => "cycle".to_owned(),
+        Violation::Construct(row) => row.owner.clone(),
     };
     find(outcomes, rule).map_or_else(Vec::new, |o| o.violations().iter().map(cite).collect())
 }

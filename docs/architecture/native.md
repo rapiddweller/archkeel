@@ -79,6 +79,11 @@ Clippy, `cargo deny` and the file size rule stay outside the contract
 
 ## The dual run
 
+Slice S11 decides `forbidden_construct` from construct and typing-signal facts (AD-408).
+A known occurrence can FAIL with incomplete coverage. Absence needs the existing scope proof,
+a matching receipt and a complete construct capability. A partial capability remains UNKNOWN.
+The store still refuses Python replies; recorded-input unit tests do not change that boundary.
+
 The Rust model and evaluator (WP6 of #880) must give the verdicts and rows of the Python engine.
 `make dual-run` compares a candidate engine with the recorded oracles in `tests/dual_run/`
 ([AD-360](decisions/ad-360-a-second-engine-is-compared-with-recorded-oracles-per-section-and-rule-family.md)).

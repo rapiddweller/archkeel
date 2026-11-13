@@ -105,6 +105,7 @@ dependencies = [
 name = "archkeel-facts"
 version = "0.0.0"
 dependencies = [
+ "flate2",
  "schemars",
  "serde",
  "serde_json",

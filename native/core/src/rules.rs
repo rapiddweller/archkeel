@@ -32,9 +32,9 @@ fn decided(kind: RuleKind) -> bool {
         | RuleKind::SiblingIsolation
         | RuleKind::LayerOrder
         | RuleKind::CompleteRequires
-        | RuleKind::NoComponentCycles => true,
+        | RuleKind::NoComponentCycles
+        | RuleKind::ForbiddenConstruct => true,
         RuleKind::InterfaceBoundary => false,
-        RuleKind::ForbiddenConstruct => false,
         RuleKind::SymbolPlacement => false,
         RuleKind::SourceOwnership => false,
         RuleKind::BoundedNumericOperand => false,
