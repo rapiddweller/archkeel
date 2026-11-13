@@ -6,115 +6,19 @@
 //!
 //! The host spawns this binary like any collector from `[scan].collector_argv`. It bounds time
 //! and output, and it validates the reply. A failure exits nonzero with its reason on stderr.
+//! The collection is the library of this package (`lib.rs`, AD-406); this file is its thin
+//! process wrapper.
 
 #![forbid(unsafe_code)]
-
-mod ancestors;
-mod bound_names;
-mod cited;
-mod class_data;
-mod class_members;
-mod collect;
-mod collected;
-mod concerns;
-mod config;
-mod construct_records;
-mod constructors;
-mod definitions;
-mod discover;
-#[cfg(feature = "dump")]
-mod dump;
-mod exports;
-mod glob;
-mod import_bindings;
-mod installed;
-mod jsdoc;
-mod kept;
-mod kept_script;
-mod kinds;
-mod layer;
-mod layout;
-mod manifest;
-mod members;
-mod options;
-mod options_target;
-mod parse;
-mod places;
-mod plant;
-mod pytext;
-mod records;
-#[cfg(any(test, feature = "dump"))]
-mod records_lists;
-mod references;
-mod resolution;
-mod resolve;
-mod scan;
-mod scope;
-mod script;
-mod script_alias;
-mod script_bind;
-mod script_declarations;
-mod script_declare;
-mod script_depend;
-mod script_deps;
-mod script_effects;
-mod script_environment;
-mod script_factory;
-mod script_flags;
-mod script_global;
-mod script_index;
-mod script_names;
-mod script_namespace;
-mod script_project;
-mod script_proof;
-mod script_publish;
-mod script_records;
-mod script_refs;
-mod script_scope;
-mod script_syntax;
-mod script_types;
-mod script_vendor;
-mod script_wrapper;
-mod script_writes;
-mod site_names;
-mod site_paths;
-mod site_records;
-mod site_syntax;
-mod site_types;
-mod sites;
-mod source;
-mod source_input;
-mod std_globals;
-mod symbol_table;
-mod symbols;
-mod syntax;
-mod test_sources;
-mod tree;
-mod umd;
-#[cfg_attr(not(feature = "dump"), allow(dead_code))]
-mod umd_publication;
-mod walk;
 
 use std::io::Read;
 #[cfg(feature = "dump")]
 use std::io::Write;
 use std::process::ExitCode;
 
-use archkeel_facts::envelope::Profile;
-use archkeel_facts::envelope::Provenance;
+use archkeel_typescript_collector::{provenance, reply};
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode;
-
-fn provenance() -> Provenance {
-    Provenance::native(
-        Profile::TypeScript,
-        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
-        (
-            env!("ARCHKEEL_RUSTC_VERSION"),
-            env!("CARGO_PKG_RUST_VERSION"),
-        ),
-    )
-}
 
 fn run() -> Result<(), String> {
     let mut payload = Vec::new();
@@ -125,7 +29,7 @@ fn run() -> Result<(), String> {
     // The compressed reply goes to stdout as it is made. A failure after the first byte leaves a
     // partial reply and a nonzero exit, which the host refuses.
     let stdout = std::io::stdout();
-    collect::reply(
+    reply(
         &request,
         provenance(),
         reply_version(request.protocol_version),
@@ -141,9 +45,9 @@ fn dump_requested() -> Option<ExitCode> {
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout().lock();
     let result = match mode.as_str() {
-        "--dump" => dump::run(stdin.lock(), &mut stdout),
-        "--dump-count" => dump::count(stdin.lock(), &mut stdout),
-        "--dump-umd" => dump::umd(stdin.lock(), &mut stdout),
+        "--dump" => archkeel_typescript_collector::dump::run(stdin.lock(), &mut stdout),
+        "--dump-count" => archkeel_typescript_collector::dump::count(stdin.lock(), &mut stdout),
+        "--dump-umd" => archkeel_typescript_collector::dump::umd(stdin.lock(), &mut stdout),
         "--dump-records" => dump_records(stdin.lock(), &mut stdout),
         _ => return None,
     };
@@ -163,7 +67,7 @@ fn dump_records(mut input: impl Read, output: &mut impl Write) -> Result<(), Str
         .read_to_end(&mut payload)
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode(&payload)?;
-    let value = dump::records(&request, provenance())?;
+    let value = archkeel_typescript_collector::dump::records(&request, provenance())?;
     writeln!(output, "{value}").map_err(|error| error.to_string())
 }
 

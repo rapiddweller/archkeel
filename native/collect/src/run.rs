@@ -1,0 +1,63 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! One run of the linked TypeScript collector in the process of the core (AD-406).
+//!
+//! The request goes through the decode of the wire, the same check that the binary runs on its
+//! stdin, so the in-process collector reads exactly the request that the binary would read. The
+//! collector runs on a thread with a large stack. A panic of the collector ends that thread: in a
+//! test build (unwind) the join gives the panic and this boundary names it as a refusal. In the
+//! release build `panic = "abort"` ends the whole core process, as a stack overflow does; the
+//! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
+
+use archkeel_facts::envelope::Reply;
+use archkeel_store::Ingested;
+use archkeel_wire::protocol::reply_version;
+
+/// The stack of the collector thread, as the Rust collector binary has it.
+const STACK_BYTES: usize = 256 << 20;
+
+/// The typed reply of the request bytes, validated by the store, or why there is none.
+pub fn collect(request: &[u8]) -> Result<Ingested, String> {
+    let request = archkeel_wire::request::decode(request)?;
+    let version = reply_version(request.protocol_version);
+    let reply = isolated(move || {
+        archkeel_typescript_collector::typed_reply(
+            &request,
+            archkeel_typescript_collector::provenance(),
+            version,
+        )
+    })??;
+    archkeel_store::ingest_typed(reply)
+        .map_err(|reason| format!("the store refuses the reply of the collector: {reason}"))
+}
+
+/// Run `work` on its own thread. A panic is a named error of a test build; see the module text
+/// for the release build.
+pub fn isolated<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+    let handle = std::thread::Builder::new()
+        .name("archkeel-collect".to_owned())
+        .stack_size(STACK_BYTES)
+        .spawn(work)
+        .map_err(|error| format!("cannot start the collector thread: {error}"))?;
+    handle.join().map_err(|panic| {
+        let text = panic
+            .downcast_ref::<&str>()
+            .map(|text| (*text).to_owned())
+            .or_else(|| panic.downcast_ref::<String>().cloned())
+            .unwrap_or_default();
+        format!("the collector stopped with a panic: {text}")
+    })
+}
+
+/// The typed reply without the store, for the comparison with the bytes of the binary.
+pub fn reply_of(request: &[u8]) -> Result<Reply, String> {
+    let request = archkeel_wire::request::decode(request)?;
+    let version = reply_version(request.protocol_version);
+    archkeel_typescript_collector::typed_reply(
+        &request,
+        archkeel_typescript_collector::provenance(),
+        version,
+    )
+}

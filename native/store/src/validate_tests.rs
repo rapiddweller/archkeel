@@ -49,8 +49,19 @@ pub(crate) fn compressed(value: &Value) -> Vec<u8> {
     encoder.finish().unwrap_or_default()
 }
 
+/// The refusal of the byte door; the typed door (`ingest_typed`, AD-406) must give the same one.
 fn error_of(value: &Value) -> String {
-    ingest(&compressed(value), LIMIT).err().unwrap_or_default()
+    let bytes = ingest(&compressed(value), LIMIT).err().unwrap_or_default();
+    assert_eq!(typed_error_of(value), bytes, "the two front doors differ");
+    bytes
+}
+
+/// The refusal of the typed door: the decode of the value, then `ingest_typed`.
+fn typed_error_of(value: &Value) -> String {
+    match serde_json::from_value::<archkeel_facts::envelope::Reply>(value.clone()) {
+        Ok(reply) => crate::ingest_typed(reply).err().unwrap_or_default(),
+        Err(error) => error.to_string(),
+    }
 }
 
 fn section(value: &mut Value, name: &str) -> Option<usize> {
@@ -187,6 +198,27 @@ fn a_reply_of_protocol_10_is_refused_until_a_native_python_reply_can_pass() {
     let error = error_of(&value);
     assert_eq!(
         error,
+        "the store does not read protocol 10.0.0 replies yet (AD-334)"
+    );
+}
+
+#[test]
+fn the_typed_door_accepts_the_frozen_reply_and_refuses_a_planted_record() {
+    assert_eq!(typed_error_of(&reply()), "");
+    // A record that the byte door refuses: an import that cites evidence of no input.
+    let mut value = reply();
+    records(&mut value, "imports")[0]["evidence_ids"] = json!(["EVD-planted"]);
+    let refused = typed_error_of(&value);
+    assert!(!refused.is_empty());
+    assert_eq!(
+        refused,
+        ingest(&compressed(&value), LIMIT).err().unwrap_or_default()
+    );
+    // A protocol 10 reply is refused by the typed door too.
+    let mut value = reply();
+    value["protocol_version"] = json!("10.0.0");
+    assert_eq!(
+        typed_error_of(&value),
         "the store does not read protocol 10.0.0 replies yet (AD-334)"
     );
 }

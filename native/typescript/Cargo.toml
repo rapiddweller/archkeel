@@ -4,13 +4,23 @@
 
 [package]
 name = "archkeel-typescript-collector"
-description = "Native TypeScript collector of Archkeel; it runs as a subprocess of the host"
+description = "Native TypeScript collector of Archkeel; a library that the core links and a subprocess of the host"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 build = "build.rs"
+
+# AD-406: the collection is a library that `archkeel-collect` links into the core; the binary is
+# its thin process wrapper and writes the same bytes as before.
+[lib]
+name = "archkeel_typescript_collector"
+path = "src/lib.rs"
+
+[[bin]]
+name = "archkeel-typescript-collector"
+path = "src/main.rs"
 
 [dependencies]
 archkeel-facts.workspace = true

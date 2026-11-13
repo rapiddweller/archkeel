@@ -56,9 +56,21 @@ pub fn ingest_reply(payload: &[u8], inflate_limit: u64) -> Result<Ingested, Stri
     ingest(payload, inflate_limit).map(Ingested)
 }
 
+/// Validate one typed reply of a collector that runs in the process of the core (AD-406). It is
+/// the second front door of the same validation: `validated` runs every check that a decoded
+/// reply gets, and nothing else makes an `Ingested`.
+pub fn ingest_typed(reply: archkeel_facts::envelope::Reply) -> Result<Ingested, String> {
+    validated(reply).map(Ingested)
+}
+
 /// Decode, validate and keep one reply in its typed form.
 fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
-    let reply = decode::reply(payload, inflate_limit)?;
+    validated(decode::reply(payload, inflate_limit)?)
+}
+
+/// The one validation of a reply after its decode: the version, the envelope, the registered
+/// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
+fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validate::version(reply.protocol_version)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;

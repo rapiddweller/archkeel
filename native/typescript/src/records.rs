@@ -184,6 +184,17 @@ pub fn write_reply(
     })
 }
 
+/// The typed reply of the facts of a request (AD-406): the same plan and the same sections as
+/// `write_reply`, given to the typed sink of the wire instead of the compressor.
+pub fn typed_reply(
+    version: Version,
+    facts: Facts,
+    pending: &Pending,
+) -> Result<archkeel_facts::envelope::Reply, String> {
+    let (head, plan) = plan(facts, pending, false);
+    archkeel_wire::typed::assemble(version, head, |sink| plan.write(sink).map(|(tail, _)| tail))
+}
+
 #[cfg(test)]
 #[path = "records_tests.rs"]
 mod tests;
