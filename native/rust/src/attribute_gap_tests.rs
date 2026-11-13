@@ -131,9 +131,11 @@ fn an_inline_attribute_gap_has_a_known_source_and_an_unseen_target() {
         .iter()
         .find(|g| g.title.contains("mac::hide"))
         .unwrap();
-    let archkeel_facts::GapFact::CollectionGap(data) = &gap.data else {
-        panic!("wrong kind")
-    };
+    let data = match &gap.data {
+        archkeel_facts::GapFact::CollectionGap(data) => Some(data),
+        _ => None,
+    }
+    .unwrap();
     assert_eq!(
         data.source_module.as_ref().map(|s| s.as_str()),
         Some("ns.app.b")

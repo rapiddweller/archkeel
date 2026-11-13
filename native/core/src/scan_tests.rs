@@ -126,8 +126,9 @@ fn an_attribute_expansion_with_an_unseen_edge_cannot_pass() {
         assert_eq!(gap["rules"]["NO-HIDDEN"][1], "UNKNOWN", "{gap}");
         assert_eq!(gap["status"], "UNKNOWN");
         // No external dependencies: check each probe against the compiler without a registry.
-        let checked = std::process::Command::new("cargo")
+        let checked = std::process::Command::new(env!("CARGO"))
             .args(["check", "--offline", "--quiet"])
+            .env("PATH", env!("PATH"))
             .current_dir(root.join("crates"))
             .output()
             .unwrap();

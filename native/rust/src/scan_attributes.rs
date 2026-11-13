@@ -74,48 +74,20 @@ impl Walker<'_> {
             .map(|s| plain(&s.ident))
             .collect::<Vec<_>>()
             .join("::");
-        if depth < 16 {
-            match attribute_kinds::kind(path) {
-                Some(Kind::Builtin) => return,
-                Some(Kind::Derive) => {
-                    if let Some(paths) = attribute_kinds::paths(meta) {
-                        for path in paths {
-                            let name = path
-                                .segments
-                                .iter()
-                                .map(|s| plain(&s.ident))
-                                .collect::<Vec<_>>()
-                                .join("::");
-                            let span = path
-                                .segments
-                                .first()
-                                .map_or(Span::call_site(), |s| s.ident.span());
-                            let concern = self.expansion_concern(format!("The derive macro {name} can add code that the scan does not read"), span);
-                            self.derives.push((path, concern));
-                        }
-                        return;
-                    }
-                }
-                Some(Kind::Conditional | Kind::Unsafe) => {
-                    if let Meta::List(list) = meta {
-                        let parser =
-                            syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated;
-                        if let Ok(nested) = parser.parse2(list.tokens.clone()) {
-                            let skip = usize::from(path.is_ident("cfg_attr"));
-                            for nested in nested.iter().skip(skip) {
-                                self.expansion(nested, depth + 1);
-                            }
-                            return;
-                        }
-                    }
-                }
-                None if (self.tools && attribute_kinds::tool(path))
-                    || self.helpers.contains(&name) =>
-                {
-                    return
-                }
-                None => (),
+        match (depth < 16, attribute_kinds::kind(path)) {
+            (true, Some(Kind::Builtin)) => return,
+            (true, Some(Kind::Derive)) if self.derive_expansion(meta).is_some() => return,
+            (true, Some(Kind::Conditional | Kind::Unsafe))
+                if self.nested_expansion(meta, depth).is_some() =>
+            {
+                return
             }
+            (true, None)
+                if (self.tools && attribute_kinds::tool(path)) || self.helpers.contains(&name) =>
+            {
+                return
+            }
+            _ => (),
         }
         let concern = self.expansion_concern(
             format!("The attribute macro {name} can add code that the scan does not read"),
@@ -124,6 +96,38 @@ impl Walker<'_> {
                 .map_or(Span::call_site(), |s| s.ident.span()),
         );
         self.out.concerns.push(concern);
+    }
+
+    fn derive_expansion(&mut self, meta: &Meta) -> Option<()> {
+        for path in attribute_kinds::paths(meta)? {
+            let name = path
+                .segments
+                .iter()
+                .map(|s| plain(&s.ident))
+                .collect::<Vec<_>>()
+                .join("::");
+            let span = path
+                .segments
+                .first()
+                .map_or(Span::call_site(), |s| s.ident.span());
+            let concern = self.expansion_concern(
+                format!("The derive macro {name} can add code that the scan does not read"),
+                span,
+            );
+            self.derives.push((path, concern));
+        }
+        Some(())
+    }
+
+    fn nested_expansion(&mut self, meta: &Meta, depth: usize) -> Option<()> {
+        let Meta::List(list) = meta else { return None };
+        let parser = syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated;
+        let nested = parser.parse2(list.tokens.clone()).ok()?;
+        let skip = usize::from(meta.path().is_ident("cfg_attr"));
+        for nested in nested.iter().skip(skip) {
+            self.expansion(nested, depth + 1);
+        }
+        Some(())
     }
 
     fn expansion_concern(&self, reason: String, span: Span) -> Concern {
