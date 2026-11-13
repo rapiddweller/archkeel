@@ -29,7 +29,12 @@ fn the_process_writes_exactly_one_frame_or_none() {
     assert_eq!((code, message), (3, None));
     // Two frames in a row are no JSON value: `from_slice` refuses the trailing bytes.
     let frame: Value = serde_json::from_slice(&out).unwrap_or(Value::Null);
-    assert_eq!(frame["status"], "UNKNOWN", "{}", String::from_utf8_lossy(&out));
+    assert_eq!(
+        frame["status"],
+        "UNKNOWN",
+        "{}",
+        String::from_utf8_lossy(&out)
+    );
     let mut out = Vec::new();
     let (code, message) = respond(b"{}", &mut out);
     assert_eq!(code, 2);
