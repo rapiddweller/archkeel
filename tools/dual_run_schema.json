@@ -1,0 +1,118 @@
+{
+  "comment": "AD-360. The compared sections of architecture.json and the rule families. Remove a section from `sections` when the schema drops it; put a section in `not_compared` when no slice ports it.",
+  "sections": [
+    "metrics",
+    "declarations",
+    "scope_observations",
+    "packages",
+    "modules",
+    "symbols",
+    "imports",
+    "dependency_edges",
+    "path_observations",
+    "cycles",
+    "calls",
+    "references",
+    "bindings",
+    "typing_signals",
+    "constructs",
+    "contexts",
+    "context_evidence",
+    "violations",
+    "unknowns",
+    "evidence"
+  ],
+  "not_compared": ["transitive_paths"],
+  "rule_sections": ["violations", "unknowns"],
+  "key_fields": ["kind", "title", "subjects", "file", "line"],
+  "rule_kinds": [
+    "allowed_dependency",
+    "bounded_numeric_operand",
+    "boundary_types",
+    "call_owner",
+    "catalog_argument",
+    "catalog_use",
+    "complete_assignment",
+    "complete_external_scope",
+    "complete_requires",
+    "external_dependency_scope",
+    "forbidden_call_argument",
+    "forbidden_construct",
+    "forbidden_dependency",
+    "forbidden_effect_under_condition",
+    "interface_boundary",
+    "layer_order",
+    "no_component_cycles",
+    "protocol_declarations",
+    "root_layout",
+    "sibling_isolation",
+    "source_ownership",
+    "symbol_placement",
+    "uml_target"
+  ],
+  "fail_case_minimum": 3,
+  "fail_case_gap": [
+    "allowed_dependency",
+    "bounded_numeric_operand",
+    "catalog_argument",
+    "catalog_use",
+    "forbidden_call_argument",
+    "protocol_declarations",
+    "source_ownership"
+  ],
+  "stricter_native_scope": {
+    "core_reason": "incomplete scope: the collector reports 1 coverage gaps",
+    "reason": "core stricter than Python: computed dynamic_import in mikro-orm.config.ts; the core does not read the host-verified scope proof from the native launcher",
+    "cases": {
+      "fixture/L-nest-realworld": [
+        "API composition:REQUIRES-COMPLETE",
+        "Account and authentication:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE"
+      ],
+      "demo/nest-realworld-project": [
+        "API composition:REQUIRES-COMPLETE",
+        "Account and authentication:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE"
+      ],
+      "demo/nest-realworld-forbidden-edge": [
+        "API composition:REQUIRES-COMPLETE",
+        "Account and authentication:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE"
+      ],
+      "demo/nest-realworld-signature-fail": [
+        "API composition:REQUIRES-COMPLETE",
+        "Account and authentication:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE"
+      ],
+      "demo/nest-realworld-dynamic-unknown": [
+        "API composition:REQUIRES-COMPLETE",
+        "Account and authentication:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE"
+      ]
+    }
+  },
+  "families": {
+    "direction": [
+      "forbidden_dependency",
+      "allowed_dependency",
+      "sibling_isolation",
+      "layer_order",
+      "complete_requires"
+    ],
+    "completeness": [
+      "complete_assignment",
+      "root_layout",
+      "external_dependency_scope",
+      "complete_external_scope"
+    ],
+    "cycles": ["no_component_cycles"],
+    "interface": ["interface_boundary"],
+    "construct": ["forbidden_construct"],
+    "placement": ["symbol_placement", "source_ownership", "bounded_numeric_operand"],
+    "call_owner": ["call_owner"],
+    "call_argument": ["forbidden_call_argument", "catalog_argument", "catalog_use"],
+    "guarded_effect": ["forbidden_effect_under_condition"],
+    "protocol": ["protocol_declarations"],
+    "boundary_types": ["boundary_types"]
+  }
+}
