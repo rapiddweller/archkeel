@@ -5,13 +5,17 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import pytest
 from filelock import FileLock
@@ -26,7 +30,7 @@ from test_cli_native_core_scan import (  # noqa: F401 - shared pytest fixtures
 )
 
 from archkeel.analyzer.runtime import package_version
-from archkeel.cli import native_scan
+from archkeel.cli import main, native_core, native_scan
 from archkeel.cli.core_frame import CoreError, GapKind
 
 PEAK_BOUND = 128 * 1024 * 1024
@@ -94,12 +98,9 @@ def project(root: Path, files: int, depth: int, language: str = "typescript") ->
     }
 
 
-@pytest.mark.parametrize(("files", "depth"), [(6, 1_992_294), (1, 1_500_000), (400, 0)])
-@pytest.mark.parametrize("language", ["typescript", "rust"])
-def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
-    release_core: Path, tmp_path: Path, files: int, depth: int, language: str
-) -> None:
-    request = project(tmp_path / "project", files, depth, language)
+def measured_scan(
+    release_core: Path, request: dict[str, object]
+) -> tuple[subprocess.CompletedProcess[bytes], int | None]:
     command = [str(release_core), "scan"]
     if sys.platform == "darwin":
         command = ["/usr/bin/time", "-l", *command]
@@ -108,9 +109,6 @@ def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
     done = subprocess.run(
         command, input=json.dumps(request).encode(), capture_output=True, timeout=60, check=False
     )
-    assert done.returncode == 2, done.stderr.decode()
-    assert done.stdout == b""
-    assert b"parse_work_limit" in done.stderr
     if sys.platform == "darwin":
         found = re.search(rb"(\d+)\s+maximum resident set size", done.stderr)
         assert found is not None, done.stderr
@@ -120,9 +118,76 @@ def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
         assert found is not None, done.stderr
         peak = int(found[1]) * 1024
     else:
-        return  # The work bound and typed refusal above also run on Windows.
-    print(f"{files} files, depth {depth}: peak {peak} bytes; bound {PEAK_BOUND} bytes")
-    assert peak < PEAK_BOUND
+        return done, None
+    return done, peak
+
+
+@pytest.mark.parametrize(("files", "depth"), [(6, 1_992_294), (1, 1_500_000), (400, 0)])
+@pytest.mark.parametrize("language", ["typescript", "rust"])
+def test_release_scans_refuse_without_a_frame_under_the_rss_bound(
+    release_core: Path, tmp_path: Path, files: int, depth: int, language: str
+) -> None:
+    request = project(tmp_path / "project", files, depth, language)
+    done, peak = measured_scan(release_core, request)
+    assert done.returncode == 2, done.stderr.decode()
+    assert done.stdout == b""
+    assert b"parse_work_limit" in done.stderr
+    bound = 300 << 20 if depth == 0 else PEAK_BOUND
+    print(f"{language}: {files} files, depth {depth}: peak {peak} bytes; bound {bound} bytes")
+    assert peak is None or peak < bound
+
+
+def charged_input(root: Path, manifest: Path) -> int:
+    manifest.write_text(json.dumps([("at-bound", str(canonical(root)), "archkeel.toml")]))
+    done = subprocess.run(
+        [
+            "cargo",
+            "test",
+            "--locked",
+            "-p",
+            "archkeel-collect",
+            "--lib",
+            "measure_scan_input_from_public_corpus_roots",
+            "--",
+            "--nocapture",
+        ],
+        cwd=ROOT / "native",
+        env={**os.environ, "ARCHKEEL_SCAN_INPUT_ROOTS": str(manifest)},
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    [row] = [
+        json.loads(line.removeprefix("SCAN_INPUT "))
+        for line in done.stdout.splitlines()
+        if line.startswith("SCAN_INPUT ")
+    ]
+    assert row["bound"] == 64 << 20
+    return int(row["charged"])
+
+
+@pytest.mark.parametrize("language", ["typescript", "rust"])
+def test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib(
+    release_core: Path, tmp_path: Path, language: str
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 64, 0, language)
+    manifest = tmp_path / "roots.json"
+    padding = (64 << 20) - charged_input(root, manifest)
+    suffix = "rs" if language == "rust" else "ts"
+    path = root / f"src/deep0.{suffix}"
+    text = path.read_text()
+    text = text[:2] + "x" * padding + text[2:]
+    assert 0 < padding and len(text) <= 4 << 20
+    path.write_text(text)
+    assert charged_input(root, manifest) == 64 << 20
+    done, peak = measured_scan(release_core, request)
+    assert done.returncode in (0, 3), done.stderr
+    assert "request" in json.loads(done.stdout)["self_test"]["collect"]
+    print(f"{language}: exactly 64 MiB input; peak {peak} bytes")
+    assert peak is None or peak < 300 << 20
 
 
 @pytest.mark.usefixtures("install")
@@ -147,6 +212,67 @@ def test_the_shell_keeps_the_typed_refusal_of_a_real_core(
         native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     assert error.value.gap is not None
     assert error.value.gap.kind is GapKind.PARSE_WORK_LIMIT
+
+
+@pytest.mark.parametrize("workspace", [False, True], ids=["typescript-corpus", "native"])
+def test_a_scan_below_both_bounds_gives_the_same_frame_as_without_the_guard(
+    install: Path, monkeypatch: pytest.MonkeyPatch, workspace: bool
+) -> None:
+    checked = []
+    plain_frames = []
+
+    def exchange(binary: str, kind: str, payload: bytes) -> tuple[bytes, int]:
+        stdout, code = native_scan.exchange(binary, kind, payload)
+        plain_frames.append(json.loads(stdout))
+        return stdout, code
+
+    monkeypatch.setattr(native_core, "exchange", exchange)
+
+    def decide(self: native_core.NativeCore, result: Any, root: Path, config: Any, *_: Any) -> Any:
+        assert self.binary is not None
+        # The bundled subprocess collector has no in-process guard.
+        plain = self.run(
+            self.binary, config, partial(native_core.read_inside, root), self.replies[0], None
+        )
+        config_path = "native/archkeel.toml" if workspace else "archkeel.toml"
+        request = native_scan.scan_request(self.requests[0], config_path)
+        stdout, _ = native_scan.exchange(str(self.binary), "scan", json.dumps(request).encode())
+        scanned = json.loads(stdout)
+        # Only scan carries self_test.collect; every other wire-frame field must match.
+        assert "request" in scanned["self_test"].pop("collect")
+        [unbounded] = plain_frames
+        assert scanned == unbounded
+        if workspace:
+            assert "the collector reports" not in plain.scope, plain.scope
+        checked.append(plain)
+        return result
+
+    monkeypatch.setattr(native_core.NativeCore, "decide", decide)
+    if workspace:
+        from graph_report_support import commit_tree
+
+        root = install.parent / "project"
+        shutil.copytree(ROOT / "native", root / "native", ignore=shutil.ignore_patterns("target"))
+        commit_tree(root)
+        monkeypatch.chdir(root)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            main(
+                [
+                    "report",
+                    "--config",
+                    "native/archkeel.toml",
+                    "--json",
+                    "--native-core",
+                    "--output",
+                    str(install.parent / "out/architecture.json"),
+                ]
+            )
+        assert checked, output.getvalue()
+    else:
+        with case_root(HONEST) as root:
+            report(root, "--native-core")
+    assert len(checked) == 1
 
 
 @pytest.mark.parametrize(

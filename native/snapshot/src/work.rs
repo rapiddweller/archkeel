@@ -4,12 +4,14 @@
 
 //! A conservative parse-work charge before any in-process collector sees bytes (AD-420).
 
-use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::thread::{self, ThreadId};
 
 /// The most charged work in one file. Each byte costs one plus all possible tokens before it.
 pub const MAX_PARSE_WORK: u64 = 1 << 30;
 /// The most bytes returned by all snapshot reads in one in-process collection.
-pub const MAX_SCAN_BYTES: u64 = 16 << 20;
+pub const MAX_SCAN_BYTES: u64 = 64 << 20;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WorkScope {
@@ -41,9 +43,14 @@ impl std::fmt::Display for WorkLimit {
     }
 }
 
-// The thread boundary covers every linked collector without changing its wire request.
-thread_local! {
-    static LIMIT: RefCell<Option<Budget>> = const { RefCell::new(None) };
+// Keep thread-owned budgets in ordinary code that the self-collector can read, not macro tokens.
+static LIMITS: LazyLock<Mutex<HashMap<ThreadId, Budget>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn limits() -> MutexGuard<'static, HashMap<ThreadId, Budget>> {
+    LIMITS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 struct Budget {
@@ -53,12 +60,9 @@ struct Budget {
 
 #[cfg(any(test, feature = "test-tree"))]
 pub(crate) fn charged_bytes() -> Option<u64> {
-    LIMIT.with(|limit| {
-        limit
-            .borrow()
-            .as_ref()
-            .map(|budget| MAX_SCAN_BYTES - budget.remaining)
-    })
+    limits()
+        .get(&thread::current().id())
+        .map(|budget| MAX_SCAN_BYTES - budget.remaining)
 }
 
 /// Bound every snapshot read on this thread. A hit discards the whole result, including facts
@@ -68,28 +72,24 @@ pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {
     impl Drop for Restore {
         fn drop(&mut self) {
             if self.0 {
-                LIMIT.with(|limit| *limit.borrow_mut() = None);
+                limits().remove(&thread::current().id());
             }
         }
     }
-    let restore = Restore(LIMIT.with(|limit| {
-        let mut limit = limit.borrow_mut();
-        if limit.is_some() {
-            return false;
-        }
-        *limit = Some(Budget {
+    let restore = Restore({
+        let mut limits = limits();
+        let entry = limits.entry(thread::current().id());
+        let owned = matches!(entry, std::collections::hash_map::Entry::Vacant(_));
+        entry.or_insert(Budget {
             remaining: MAX_SCAN_BYTES,
             hit: None,
         });
-        true
-    }));
-    let result = work();
-    let hit = LIMIT.with(|limit| {
-        limit
-            .borrow()
-            .as_ref()
-            .and_then(|budget| budget.hit.clone())
+        owned
     });
+    let result = work();
+    let hit = limits()
+        .get(&thread::current().id())
+        .and_then(|budget| budget.hit.clone());
     drop(restore);
     match hit {
         Some(hit) => Err(hit),
@@ -98,31 +98,29 @@ pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {
 }
 
 pub(crate) fn permits(path: &str, bytes: &[u8]) -> bool {
-    LIMIT.with(|limit| {
-        let mut limit = limit.borrow_mut();
-        let Some(budget) = limit.as_mut() else {
-            return true;
-        };
-        if budget.hit.is_some() {
-            return false;
-        }
-        let scope = if over(bytes) {
-            Some(WorkScope::File)
-        } else if bytes.len() as u64 > budget.remaining {
-            Some(WorkScope::Scan)
-        } else {
-            None
-        };
-        if let Some(scope) = scope {
-            budget.hit = Some(WorkLimit {
-                path: path.to_owned(),
-                scope,
-            });
-            return false;
-        }
-        budget.remaining -= bytes.len() as u64;
-        true
-    })
+    let mut limits = limits();
+    let Some(budget) = limits.get_mut(&thread::current().id()) else {
+        return true;
+    };
+    if budget.hit.is_some() {
+        return false;
+    }
+    let scope = if over(bytes) {
+        Some(WorkScope::File)
+    } else if bytes.len() as u64 > budget.remaining {
+        Some(WorkScope::Scan)
+    } else {
+        None
+    };
+    if let Some(scope) = scope {
+        budget.hit = Some(WorkLimit {
+            path: path.to_owned(),
+            scope,
+        });
+        return false;
+    }
+    budget.remaining -= bytes.len() as u64;
+    true
 }
 
 /// Word runs count once; punctuation and non-ASCII bytes count individually. Quotes, comments

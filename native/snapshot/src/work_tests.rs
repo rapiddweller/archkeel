@@ -60,12 +60,31 @@ fn individually_accepted_reads_share_one_scan_budget() {
     let text = vec![b'a'; 1 << 20];
     assert!(!over(&text));
     let result = bounded(|| {
-        for _ in 0..16 {
+        for _ in 0..MAX_SCAN_BYTES / text.len() as u64 {
             assert!(bounded(|| permits("source", &text)).unwrap());
         }
         assert!(!permits("next", b"a"));
     });
     assert_eq!(result.unwrap_err().path, "next");
+}
+
+#[test]
+fn concurrent_threads_do_not_share_or_reset_each_others_budget() {
+    let barrier = std::sync::Barrier::new(2);
+    std::thread::scope(|scope| {
+        let refused = scope.spawn(|| {
+            bounded(|| {
+                assert!(!permits("deep", &vec![b'('; 50_000]));
+                barrier.wait();
+                barrier.wait();
+                assert!(!permits("after", b"fact"));
+            })
+        });
+        barrier.wait();
+        assert_eq!(bounded(|| permits("other", b"fact")), Ok(true));
+        barrier.wait();
+        assert_eq!(refused.join().unwrap().unwrap_err().path, "deep");
+    });
 }
 
 #[test]

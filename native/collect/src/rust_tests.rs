@@ -32,15 +32,19 @@ pub(super) fn repository() -> std::path::PathBuf {
 
 fn equal(request: &[u8]) {
     let decoded = archkeel_wire::request::decode_rust(request).unwrap();
-    let wire = run::isolated(move || {
-        archkeel_rust_collector::reply(
-            &decoded,
-            archkeel_rust_collector::provenance(),
-            archkeel_wire::protocol::reply_version(decoded.protocol_version),
-        )
-    })
-    .unwrap()
-    .unwrap();
+    let wire = std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(move || {
+            archkeel_rust_collector::reply(
+                &decoded,
+                archkeel_rust_collector::provenance(),
+                archkeel_wire::protocol::reply_version(decoded.protocol_version),
+            )
+        })
+        .unwrap()
+        .join()
+        .unwrap()
+        .unwrap();
     let binary = archkeel_store::ingest_reply(&wire, 1 << 30).unwrap();
     let linked = run::collect(Profile::Rust, request).unwrap();
     assert_eq!(

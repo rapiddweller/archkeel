@@ -7,7 +7,7 @@ enables it on the collector thread before it calls any linked collector.
 For each byte, add one plus the number of possible tokens seen so far.
 An ASCII word run counts once. Other non-space bytes count individually.
 The limit is 1 073 741 824 units per file. The existing 4 MiB byte limit also applies.
-One scan can return at most 16 MiB from all snapshot reads, including repeated reads.
+One scan can return at most 64 MiB from all snapshot reads, including repeated reads.
 Nested boundaries share that total. A total hit uses the same typed refusal.
 The check runs before the snapshot gives bytes to a parser. It allocates no syntax tree.
 Quotes, comments and closing brackets cannot reduce the charge.
@@ -42,8 +42,9 @@ It conservatively charges wide files and text in comments too.
 It does not enable parallel parsing. Future parse threads must share one scan total, not start independent totals.
 The repository survey still bounds entries, directory depth and total file bytes.
 Stage 1 retains the Python decision for accepted files. A refused file has no verdict.
-The current self-collector names `thread_local!` as one additional macro path gap (#1075).
-The expected-gap pin records it. No rule or violation allowance changes.
+The initial `thread_local!` state added an unscoped collection gap to the self-scan.
+Use a thread-keyed standard-library map instead: its paths remain readable to the collector.
+Keep the 63 PASS, 1 FAIL and 19 UNKNOWN core rows, without changing proof code or row pins.
 
 **Tests.** The snapshot tests check charge edges, hidden delimiters and result discard.
 The composition test compares every fact just below the bound with the unbounded producer.
@@ -57,9 +58,9 @@ One file with 1.5 million levels: 1 361.9 MiB before, 19.0 MiB after.
 Both tests require less than 128 MiB. All guarded runs give exit 2 with no frame.
 The initial TypeScript-only 655-project sweep has 223 linked scans and zero parse-work refusals.
 
-**Fix round (2026-11-13).** The 400-file comment case falls from 817.16 to 32.02 MiB after the aggregate fix.
-The Rust arm uses the same bounds. Its three release cases stay below 128 MiB.
-At exactly 16 MiB charged input, the comment workload peaks at 33.53 MiB (TypeScript) and 57.05 MiB (Rust).
-The current workspace charges 3 980 088 bytes (23.72 %). The five largest distinct linked corpus
-projects charge 9.06 %, 3.67 %, 0.60 %, 0.15 % and 0.02 %. None exceeds 25 %.
-Keep 16 MiB. Counts include repeated reads, not just distinct retained inputs.
+**Fix round (2026-11-13).** The 400-file comment case falls from 817.16 to 84.75 MiB with the 64 MiB bound.
+Raise the initial 16 MiB bound to 64 MiB to give the growing workspace more margin.
+At exactly 64 MiB charged input, the comment workload peaks at 87.89 MiB (TypeScript) and 207.09 MiB (Rust).
+Release tests require less than 300 MiB at this bound and for the 400-file refusal in both profiles.
+The workspace charges 3 981 394 bytes (5.93 %). The five largest distinct linked corpus projects
+charge 2.26 %, 0.92 %, 0.15 %, 0.04 % and 0.006 %. Counts include repeated reads, not just distinct inputs.

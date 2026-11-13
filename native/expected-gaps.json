@@ -86,11 +86,6 @@
   },
   "gaps": [
     [
-      "",
-      "native.archkeel_snapshot.work",
-      "The macro thread_local! holds a path that the scan cannot read"
-    ],
-    [
       "native.archkeel_core.engine",
       "native.archkeel_facts.envelope.build",
       "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"

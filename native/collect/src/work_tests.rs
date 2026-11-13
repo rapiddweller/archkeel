@@ -19,6 +19,17 @@ fn charge(bytes: &[u8]) -> u64 {
 }
 
 #[test]
+fn a_typescript_corpus_project_below_both_bounds_keeps_byte_equal_reply() {
+    let root = repository("H-typescript");
+    let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
+    let request = serde_json::to_vec(&scanned.request).unwrap();
+    assert_eq!(
+        crate::tests::binary_bytes(&request),
+        serde_json::to_vec(scanned.reply.reply()).unwrap()
+    );
+}
+
+#[test]
 fn a_file_just_below_the_charge_keeps_every_fact() {
     let root = repository("H-typescript");
     let prefix = format!("/*{}", "*".repeat(1020));
@@ -121,7 +132,7 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
     assert!(charge(format!("{prefix}a{}{suffix}", "a".repeat(count)).as_bytes()) > limit);
     fs::write(root.join("src/work.rs"), source).unwrap();
     let mut modules = "mod work;\n".to_owned();
-    for number in 0..8 {
+    for number in 0..20 {
         modules += &format!("mod padding{number};\n");
         fs::write(
             root.join(format!("src/padding{number}.rs")),
@@ -136,7 +147,7 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
     let (_, charged) = guarded_rust(&request);
     let total = archkeel_snapshot::work::MAX_SCAN_BYTES;
     let mut remaining = (total - charged - 1) as usize;
-    for number in 0..8 {
+    for number in 0..20 {
         let path = root.join(format!("src/padding{number}.rs"));
         let mut text = fs::read_to_string(&path).unwrap();
         let extra = remaining.min(archkeel_snapshot::MAX_FILE_BYTES as usize - text.len());
@@ -159,7 +170,7 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
         serde_json::to_vec(&before).unwrap(),
         serde_json::to_vec(after.reply()).unwrap()
     );
-    let path = root.join("src/padding7.rs");
+    let path = root.join("src/padding19.rs");
     use std::io::Write;
     fs::OpenOptions::new()
         .append(true)
