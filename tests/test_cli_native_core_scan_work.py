@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 from filelock import FileLock
-from test_cli_native_core_scan import (  # noqa: F401 - shared pytest fixtures
+from test_cli_native_core_scan import (
     HONEST,
     ROOT,
     built,
@@ -32,6 +32,8 @@ from test_cli_native_core_scan import (  # noqa: F401 - shared pytest fixtures
 from archkeel.analyzer.runtime import package_version
 from archkeel.cli import main, native_core, native_scan
 from archkeel.cli.core_frame import CoreError, GapKind
+
+__all__ = ["built", "install"]
 
 PEAK_BOUND = 128 * 1024 * 1024
 HEAD = "0123456789abcdef0123456789abcdef01234567"
