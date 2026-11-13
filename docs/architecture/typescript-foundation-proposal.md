@@ -11,7 +11,7 @@ The collector emits validated `SourceFacts`; Core owns policy and verdicts. See 
 
 The collector measures import graphs, ownership, external scopes, cycles and
 layout. It also publishes lexical UML declarations, members, signatures and proven
-local relationships; see the [UML demos](typescript-demo.md).
+local relationships; see the [UML demos](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture/typescript-demo.md).
 Python-style symbol/type rules, construct and call metrics, and private-use metrics
 remain unavailable. Those signals stay null/UNKNOWN; reports show n/a and budgets refuse them.
 Older lock/delta zero sentinels remain readable as unmeasured.
@@ -33,6 +33,6 @@ cases, 69 conservative cases and 0 defects. That comparison is retired
 `fixtures/typescript-hidden-loader-allowed-unknowns.json` keeps only the 44 hidden-loader cases, with
 their reasons, because the hidden-loader acceptance test reads them.
 
-[The demo](typescript-demo.md) replays import-rule and revision cases. Process,
+[The demo](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture/typescript-demo.md) replays import-rule and revision cases. Process,
 collector and snapshot tests cover executable replacement, malformed facts,
 coverage and immutable inputs.

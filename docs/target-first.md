@@ -1,5 +1,10 @@
 # The target-first loop
 
+> **Not on `main`.** This page describes the Python engine before [AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md). On `main`, the Rust core decides
+> `archkeel validate` and `archkeel report` for Rust and TypeScript projects, and each other
+> command gives a typed refusal with exit 2. See the [state of `main`](reference.md#state-of-main). Release 4.0.1 has
+> `check`, `init` and full reports. No release has `explore` or Studio.
+
 Start with a decided contract from [onboarding](onboarding.md). Keep intent while
 refactoring code toward it; do not allow existing imports merely to get green.
 
@@ -36,7 +41,7 @@ archkeel validate --baseline known-violations.json --write-graph --write-baselin
 
 `--accept-new` accepts measured debt only.
 The Shop whole-pair `render -> store` case in the
-[forbidden-pair fixture](../fixtures/demo_catalog_dependencies.py) still emits
+[forbidden-pair fixture](https://github.com/rapiddweller/archkeel/blob/4.0.1/fixtures/demo_catalog_dependencies.py) still emits
 `closed_world.observed_forbidden` and exits 2, even with `--write-graph`, `--write-baseline` or
 `--accept-new`; no baseline is written. A narrower case such as
 `forbidden_dependency:target_symbol` remains baseline-capable because it does not forbid the

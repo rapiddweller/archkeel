@@ -1,5 +1,10 @@
 # Get started with ArchKeel
 
+> **Not on `main`.** This page describes the Python engine before [AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md). On `main`, the Rust core decides
+> `archkeel validate` and `archkeel report` for Rust and TypeScript projects, and each other
+> command gives a typed refusal with exit 2. See the [state of `main`](reference.md#state-of-main). Release 4.0.1 has
+> `check`, `init` and full reports. No release has `explore` or Studio.
+
 This guide takes you from a repository with no contract to a first overview.
 It takes about 15 minutes. The commands run in your repository root.
 

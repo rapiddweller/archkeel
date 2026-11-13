@@ -242,7 +242,7 @@ they do not acquire missing native proofs by being opened with the new CLI.
 Compass and Nest demos retain source gaps and dynamic behavior as UNKNOWN. The
 release does not establish compiler parity, runtime correctness or complete UML
 conformance. See [known limits](docs/known-limits.md), the
-[report guide](docs/report-visual-system.md) and [demo catalog](docs/architecture-demo.md).
+[report guide](docs/report-visual-system.md) and [demo catalog](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture-demo.md).
 
 # ArchKeel 2.0.0 — ArchQ Explorer and exact permissions
 
@@ -398,7 +398,7 @@ Static analysis does not prove runtime dispatch, live object identity or complet
 coverage. Compass still has source-resolution gaps; Python RealWorld retains incomplete
 class and inheritance evidence; Nest retains unresolved dynamic imports and framework
 semantics. The demos show these limits, not compiler parity or verified Flutter execution.
-See [demo evidence](docs/architecture-demo.md) and [known limits](docs/known-limits.md).
+See [demo evidence](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture-demo.md) and [known limits](docs/known-limits.md).
 
 # Older releases
 

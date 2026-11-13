@@ -2,6 +2,8 @@
 
 Internal reasons and proof references. Later records can amend earlier ones.
 For current behavior, use the [contract of `native/`](../../../native/architecture-contract.json), source and tests.
+Records before AD-432 can link to source and tests of the Python engine. AD-432 deleted these files, so
+such a link has no target on `main`. The files are in the Git history before that change (commit `c838a00cb`).
 
 | Decision | Title |
 |---|---|

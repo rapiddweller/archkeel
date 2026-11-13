@@ -1,14 +1,26 @@
 # Archkeel reference
 
-## Support during the native-core change
+## State of `main`
 
-Main supports Rust and TypeScript projects. Python and Dart projects are not supported in this version; use archkeel 4.0.1.
-Unsupported profiles give exit 2 before collection. This applies to check, report, validate, explore, init, baseline operations and saved facts.
-There is no partial PASS for mixed configurations. Native Python and Dart support returns only after the store accepts their replies.
-See AD-430. Historical Python and Dart examples below apply to 4.0.1, not main.
+The Rust core `archkeel-core` is the only decision path on `main` (AD-432, issue #880).
+The Python engine is deleted. The shell reads the arguments, starts the core and prints its frame.
 
-Use `archkeel <command> --help` for exact options. [Onboarding](onboarding.md)
-sets up policy; [target-first](target-first.md) maintains it.
+| Command | On `main` |
+| --- | --- |
+| `validate`, `report` | Served by the core, as text or JSON. See [the core path](#the-core-path). |
+| `skill install claude\|codex` | Served by the shell. It writes the skill file. |
+| `check`, `init` | Typed refusal, exit 2. Release 4.0.1 has them. |
+| `explore`, `guide`, `story`, `view`, `studio` | Typed refusal, exit 2. No release has them. |
+
+`main` supports Rust and TypeScript projects. Python and Dart profiles give exit 2 before collection (AD-430).
+A config without `language` selects the Python profile, so it is refused. There is no partial PASS.
+HTML reports, `architecture.json`, saved reports, focused reports, baselines, amendments and
+`--write-graph` are not on `main`. The shell refuses each of their options by name with exit 2.
+
+All sections below, other than [Exit codes](#exit-codes) and [The core path](#the-core-path),
+describe the Python engine that `main` had before this change. They are not behavior of `main`.
+Release 4.0.1 has a part of that engine: `check`, `init`, full reports and baselines for Python,
+Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views.
 
 <a id="compatibility-in-1x"></a>
 
@@ -230,7 +242,7 @@ printed URL carries a token for this run; a request without it gets 403. At star
 `archkeel explore` on the root into a private folder of this run below the explore cache.
 The Briefing shows the progress. When the snapshot is done, Studio opens on the Map:
 
-`make demo-studio` runs the `studio-scope-mismatch-stop` CLI catalog case on a temporary Python
+
 project. It starts one scope, rejects a conflicting scope with exit 2, then stops the active
 session and checks its state and run folder were removed. The demo skips on Windows because the
 current Windows stop path cannot clean up the Explore child before terminating it.
@@ -447,6 +459,20 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 
 ### Exit codes
 
+On `main`:
+
+| Command | 0 | 1 | 2 |
+| --- | --- | --- | --- |
+| `validate`, `report` | PASS: the core decided each rule and no rule fails | FAIL: a rule fails | UNKNOWN: a rule or a part is not decided. Or a refusal: nothing was decided |
+| `skill install` | Instructions written | — | Target could not be updated |
+| Each other command | — | — | Typed refusal `not_on_this_development_line` |
+
+Exit 0 needs a frame of the core. No path of the shell gives exit 0 for `validate` or `report` without it.
+In JSON, a refusal has the field `refusal` with `kind` and `message`, and no frame. In text, it starts with `REFUSED:`.
+A gap has `kind`, `subject` and `reason`. A rule kind without a port is UNKNOWN with the gap `rule_kind_not_ported`.
+
+The Python engine before this change:
+
 | Command | 0 | 1 | 2 |
 | --- | --- | --- | --- |
 | `check` | Accepted | Rejected | Input/evidence unverifiable |
@@ -544,74 +570,33 @@ retrieves every pair on the initial draft.
 imports or Target permissions. Exactly one observed marker is required; Target
 is optional. Subgraphs, labels and styles require manual editing.
 
-## Core-only architecture gate
+<a id="core-only-architecture-gate"></a>
 
-`archkeel validate --core-only` or `ARCHKEEL_CORE_ONLY=1` uses `archkeel-core scan` only (AD-422).
-The switch is off by default. The shell imports no Python IR or decision package.
-The core reads the configuration and Git state, collects the source and decides the architecture rules.
-The shell renders the frame. PASS exits 0, FAIL exits 1, and UNKNOWN or a refusal exits 2.
-Exit 2 means UNKNOWN or refusal; JSON distinguishes a refusal by its typed `refusal` field, and text starts with `REFUSED:`.
-This is an architecture gate, not the legacy contract policy validator.
-Baseline, amendment, provenance graph and policy-edit operations refuse rather than disappear.
+## The core path
 
-`report --core-only --json` gives the verdict frame as JSON. Use `--text` for the text summary.
-Neither form is a complete `architecture.json` or HTML report.
-Full reports, saved reports, report projections and `explore` refuse with a named cause and exit 2.
-Core-only `check` always refuses: its mandatory expectation, lock, Git and host checks need #1103.
-Run without `--core-only` for these forms. Existing `--native-core` stage 1 remains available.
-Do not combine the two switches. No core-only failure falls back to Python.
+`archkeel validate` and `archkeel report` use `archkeel-core scan` and nothing else (AD-432, AD-422).
+The core reads the configuration and the Git state, collects the source and decides the architecture rules.
+The shell prints the frame. PASS exits 0, FAIL exits 1, and UNKNOWN or a refusal exits 2.
+The shell also compares the root, the commit and the dirty state of the frame with its request.
+A difference is a refusal. The rule rows are trusted to the located core binary.
 
-The installed binary lives in `archkeel/_native` with its SHA-256 file.
-A source checkout uses `native/target/release/archkeel-core`, or its debug build.
-Build it with `cargo build --release -p archkeel-core` from `native/`.
-The existing 1 GiB repository survey includes build output; a large built checkout can refuse.
+`--core-only` is accepted and changes nothing. `ARCHKEEL_CORE_ONLY` and `ARCHKEEL_NATIVE_CORE` are ignored.
+`--native-core`, `--timings`, `--html` and each option of the Python engine give a typed refusal with exit 2.
+`report --json` gives the verdict frame as JSON, and `--text` gives the text summary.
+Neither form is a complete `architecture.json` or an HTML report.
+`check` always refuses and names each check it cannot run: its expectation, lock, Git and host checks need #1103.
+No failure falls back to Python.
+
+The shell looks for the core only below its own package: `archkeel/_native` with a SHA-256 file,
+else `native/target/release/archkeel-core` of the checkout that holds the package, else its debug build.
+It never reads the scanned project, the current directory or `PATH`. Build the core with `make core`.
+No package carries the core yet, so an installed package refuses with `core_binary_not_found`.
 The scan reads Git through the fixed system executable, not PATH. Missing Git is a named refusal.
 
-## Phase timings
-
-`archkeel report --native-core` (or `ARCHKEEL_NATIVE_CORE=1`) also runs the Rust core
-`archkeel-core` of the install (AD-390). The switch is off by default. When the core decides
-every rule, the run status and the rule statuses come from the core, and a note says so. A
-difference to the Python engine, a missing core or bundled collector, or one with another
-digest gives exit 2 and no verdict. The switch refuses `ARCHKEEL_NATIVE_STORE`. When the core
-names a part that it does not decide, the result is the Python result, and a note names each
-reason. A validation baseline (`--baseline`) changes no verdict, so the core decides such a run
-too; the comparison rows are those of the Python engine.
-
-`archkeel check --native-core` takes the rule verdicts of the candidate from the core in the
-same way (AD-399). The core reads the candidate reply, the reply of the accepted commit and the
-contract at the baseline commit, which the shell reads from Git. The shell also compares the exit
-code. The expectation, the Git order and the host order stay the verdicts of the Python engine.
-The result of `check` shows no rule rows, as before; the shell only compares them.
-
-`archkeel report --timings PATH` writes one JSON file after a successful live report.
-Without the flag, nothing is measured and nothing is written. The report, the HTML
-pages and the `--json` result do not change. `--input` refuses the flag.
-
-```json
-{"schema_version": 1, "phases": {"collect": 0.412}, "counters": {"files_parsed": 160}}
-```
-
-Keys are sorted. Seconds have three decimals. A phase that did not run is absent. A
-failed run writes no file. Only the Python run measures `providers`.
-
-| Name | Kind | Meaning |
-| --- | --- | --- |
-| `providers` | phase | Python survey pass, including its process |
-| `collect` | phase | Collector process |
-| `decode` | phase | Decode and validate the collector response |
-| `assemble` | phase | Build the observation from the collected facts, including UML graphs and checks |
-| `result` | phase | Rule results and the report result |
-| `encode` | phase | Canonical `architecture.json` bytes |
-| `render` | phase | Both HTML pages |
-| `files_parsed` | counter | Source files parsed |
-| `modules` | counter | Module records |
-| `calls_analyzed` | counter | Calls in the coverage record; absent when unknown |
-| `records` | counter | Records in all observation sections |
-| `evidence_records` | counter | Evidence records |
-| `collector_wire_bytes` | counter | Collector response bytes, from the clocked pass only |
-| `architecture_bytes` | counter | `architecture.json` bytes |
-| `report_page_bytes` | counter | HTML page bytes |
+The repository survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries.
+Below a directory that holds a `CACHEDIR.TAG` file with the standard signature, the survey counts
+the entries but not the file bytes. Cargo writes this file into `target/`. The rule selects no source
+and hides none: a source file below such a directory is still collected when the project names it.
 
 ## Focused agent reports
 
@@ -720,8 +705,8 @@ Existing UNKNOWN stays UNKNOWN on a passing revision check.
 
 Empty `selected_changes` declares no semantic change. Nonempty selections cannot
 waive regression guardrails; added dependencies must be declared. See
-[expectation tests](../tests/test_expectation.py) and
-[regression implementation](../src/archkeel/check/ratchets.py).
+[expectation tests](https://github.com/rapiddweller/archkeel/blob/4.0.1/tests/test_expectation.py) and
+[regression implementation](https://github.com/rapiddweller/archkeel/blob/4.0.1/src/archkeel/check/ratchets.py).
 
 ## Git predicate
 
@@ -729,7 +714,7 @@ The protocol is M → B → E → H: accepted source, lock-only commit, expectat
 commit, candidate. Fetched refs, ancestry and unchanged bound inputs are required.
 E must be published before H submission; commit dates prove no host ordering.
 Trusted host receipts are required. Local/synthetic replays do not prove authenticity;
-GitHub event history alone cannot prove first publication. [Protocol tests](../tests/test_git_lock.py)
+GitHub event history alone cannot prove first publication. [Protocol tests](https://github.com/rapiddweller/archkeel/blob/4.0.1/tests/test_git_lock.py)
 and [host evidence boundaries](architecture/archkeel.md#host-evidence) define supported evidence.
 
 Plugins reuse the CLI skill. New [GitHub releases](https://github.com/rapiddweller/archkeel/releases)

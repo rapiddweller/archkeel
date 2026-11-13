@@ -1,5 +1,9 @@
 # Architecture rules
 
+> **State of `main`.** The contract format on this page is current. The Rust core decides each rule
+> ([AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)). A rule kind without a port in the core is UNKNOWN with the gap
+> `rule_kind_not_ported`, never PASS. Baselines, amendments and `check` are not on `main`.
+
 Choose policy from observable evidence. [The contract schema](../schema/architecture-contract.schema.json)
 owns fields and versions; [valid examples](../tests/contracts/valid/) show accepted
 syntax. [Known limits](known-limits.md) define what a scan cannot prove.
@@ -261,7 +265,7 @@ path and unique alias-free declaration; a root accepts only `dict` or `dict | No
 Other selectors cannot be combined with this flag. Facts retain accepted opacity,
 provenance and UNKNOWNs. These permissions require 3.3; absent grants preserve
 older behavior.
-See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
+See [boundary examples](https://github.com/rapiddweller/archkeel/blob/4.0.1/tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 
 `forbidden_construct` is syntactic, not a type checker. Its `source` may select a
