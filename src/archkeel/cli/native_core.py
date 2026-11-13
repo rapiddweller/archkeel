@@ -313,7 +313,7 @@ class NativeCore:
                 gaps = scanned
             elif isinstance(decided := stage_one(scanned.frame, rows, status), Decided):
                 language = "Rust" if config.language == Language.RUST else "TypeScript"
-                return _decided(result, decided, _SCAN_PARTS.format(language=language))
+                return _decided(result, decided, f" The core ran the {language}{_SCAN_PARTS}")
         frame = self.run(self.binary, config, partial(read_inside, root), reply, None)
         outcome = stage_one(frame, rows, status)
         if isinstance(outcome, FellBack):
@@ -375,8 +375,7 @@ def _fell_back(result: RunResult, gaps: tuple[Gap, ...]) -> RunResult:
 
 # AD-406: the run that the core decided with the collector in its own process.
 _SCAN_PARTS: Final = (
-    " The core ran the {language} collector in its own process (scan request, AD-406); the shell "
-    "sent it no collector reply."
+    " collector in its own process (scan request, AD-406); the shell sent it no collector reply."
 )
 
 
