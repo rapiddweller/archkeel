@@ -708,3 +708,9 @@ both plugin manifests and the canonical skill; install the CLI separately.
 The repository root is the plugin: `.claude-plugin/marketplace.json` and
 `.agents/plugins/marketplace.json` list it with `source ./`. Directory listing and
 host activation remain separate acceptance steps.
+# Support during the native-core change
+
+Main supports Rust and TypeScript projects. Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+Unsupported profiles give exit 2 before collection. This applies to check, report, validate, explore, init, baseline operations and saved facts.
+There is no partial PASS for mixed configurations. Native Python and Dart support returns only after the store accepts their replies.
+See AD-422. Historical Python and Dart examples below apply to 4.0.1, not main.

@@ -510,3 +510,12 @@ Only explicit `inside` mounts evaluate child contracts. Invalid mounts prevent
 complete observations and baseline/graph writes. Child public interfaces govern
 siblings, not the parent's outward API. Unmapped scope prevents proof. Use
 [reference](reference.md) for path and gate semantics.
+# Supported projects on main
+
+Main supports Rust and TypeScript projects only during the native-core change (AD-422).
+Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+Unsupported profiles give exit 2 before collection, including saved facts and baseline operations.
+The Rust Python and Dart collectors remain in development. Their replies must pass the store before support returns.
+TypeScript needs a native binary. There is no Python fallback.
+Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
+The colocated digest detects file changes. It does not protect against an attacker with install-write access.

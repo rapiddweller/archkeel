@@ -1,5 +1,14 @@
 # ArchKeel 5.0.0 — Explicit architecture ports and native ownership evidence
 
+## Support reduction on main
+
+Rust and TypeScript projects use native collectors. The Python collector implementations are deleted.
+Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+This includes mixed configurations, saved facts and baseline commands. Unsupported profiles give exit 2, never PASS.
+The future Rust Python and Dart collectors stay under `native/`. Support returns when the store accepts their replies.
+TypeScript has no Python fallback. Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lack shipped binaries.
+Those platforms cannot scan TypeScript without a native build and fail closed with exit 2.
+
 Declare component responsibilities, exact interfaces and invocation ownership, with
 native source evidence and conservative UNKNOWNs.
 

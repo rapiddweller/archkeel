@@ -6,7 +6,6 @@
 import gc
 import hashlib
 import os
-import sys
 import sysconfig
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -14,11 +13,11 @@ from pathlib import Path
 from typing import Final, Literal
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ObservationResult, ProducerKind, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
+from archkeel.ir.languages import require_supported_project
 from archkeel.ir.phases import PhaseClock
 from archkeel.ir.protocol import ProtocolVersion
 
@@ -68,8 +67,7 @@ def _is_digest(text: str) -> bool:
 def locate(name: str, directory: Path | None = None) -> Bundled | None:
     """The binary and its recorded digest, or `None` when the install has no such pair.
 
-    A digest file of another shape is no digest: the binary is then not trusted and the host falls
-    back to the Python collector, as for an install without the binary (AD-352).
+    A missing or invalid digest never selects a Python fallback (AD-422).
     """
     binary = str(executable(name, directory))
     try:
@@ -139,12 +137,10 @@ def observer_for(
     request_sink: Callable[[bytes], None] | None = None,
     verify_bundled: bool = False,
 ) -> Observer:
+    require_supported_project(language)
     bundled = collector_argv is None
-    native_python = bundled and language == Language.PYTHON
     native_typescript = bundled and language == Language.TYPESCRIPT
-    # AD-352: the launcher. A platform wheel carries the native TypeScript collector and the
-    # digest of its file; the host starts the binary only with that digest. An install without
-    # the pair keeps the Python collector. `native_directory` is for the tests of the launcher.
+    # AD-422: the native collector is the only producer of this install for TypeScript.
     launched = locate(TYPESCRIPT_COLLECTOR, native_directory) if native_typescript else None
     producer = (
         ProducerKind.BUNDLED
@@ -166,7 +162,7 @@ def observer_for(
         collector_argv = (launched.path,)
         pinned_digest = launched.digest
     if collector_argv is None:
-        collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
+        collector_argv = (str(executable(TYPESCRIPT_COLLECTOR, native_directory)),)
     store = os.environ.get(NATIVE_STORE) if language in STORE_LANGUAGES else None
     collector = ProcessCollector(
         collector_argv,
@@ -188,7 +184,7 @@ def observer_for(
     if timeout_seconds is not None:
         collector = replace(collector, timeout_seconds=timeout_seconds)
     return Observer(
-        PythonProviderCollector(collector) if native_python else collector,
+        collector,
         tsconfig,
         bundler,
         clock,

@@ -1367,6 +1367,7 @@ def _scoped_dependency_receipt(
     if (
         not isinstance(proof, RecordData)
         or runtime is None
+        or observation.analyzer.name != "archkeel-python-analyzer"
         or not _native_scope_runtime_valid(runtime)
         or coverage.rules != Verdict.PASS
         or proof.get("source_digest") != observation.source.source_digest

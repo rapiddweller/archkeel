@@ -1,5 +1,10 @@
 # ArchKeel
 
+> Main supports **Rust and TypeScript projects only** during the native-core change.
+> Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+> These profiles give exit 2, including saved facts and baseline commands. No partial scan gives PASS.
+> TypeScript needs the native binary. There is no Python fallback.
+
 **See what your code really does. Check it against what you decided.**
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)

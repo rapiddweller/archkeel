@@ -17,6 +17,7 @@ from typing import Final
 from archkeel.check.git import read_blob
 from archkeel.check.ports import Language, ScanConfig
 from archkeel.ir.facts_codec import MAX_RESPONSE_LIMIT_BYTES
+from archkeel.ir.languages import require_supported_project
 
 CONFIG_PATH: Final = "archkeel.toml"
 # AD-266: the baseline `init --adopt` writes; `validate --baseline` reads the same name.
@@ -145,6 +146,7 @@ def _language_settings(scan: Mapping[str, object]) -> tuple[Language, str | None
         raise ConfigError(
             'scan.language must be "python", "dart", "typescript", or "rust"'
         ) from error
+    require_supported_project(language)
     tsconfig_raw = scan.get("tsconfig")
     if tsconfig_raw is not None and language != Language.TYPESCRIPT:
         raise ConfigError("scan.tsconfig is only valid when scan.language is typescript")
