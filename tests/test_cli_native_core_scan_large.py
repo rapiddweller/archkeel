@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from test_cli_native_core_scan import built
+from test_cli_native_core_scan import SUFFIX, built
 from test_cli_native_core_scan_work import ROOT, input_measurement, project, release_core
 
 from archkeel.cli import native_scan
@@ -73,7 +73,7 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
     request = frame["self_test"]["collect"]["request"]
     language = request["resolver"]["language"]
     reply = subprocess.run(
-        [str(built / f"archkeel-{language}-collector")],
+        [str(built / f"archkeel-{language}-collector{SUFFIX}")],
         input=json.dumps(request).encode(),
         capture_output=True,
         check=True,
