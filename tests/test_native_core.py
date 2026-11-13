@@ -446,6 +446,7 @@ def test_the_host_uses_the_core_only_behind_its_switch() -> None:
         "src/archkeel/cli/native_core.py",
         "src/archkeel/cli/core_frame.py",
         "src/archkeel/cli/native_scan.py",
+        "src/archkeel/cli/core_binary.py",
     }
     assert "archkeel-core" not in (ROOT / "native/hatch_build.py").read_text()
 

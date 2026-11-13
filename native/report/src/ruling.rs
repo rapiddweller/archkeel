@@ -25,13 +25,15 @@ use archkeel_eval::{evaluate, Outcome};
 use archkeel_model::{Decision, Model, ModelTree, Reason, Unsupported, Verdict as ModelVerdict};
 use serde::Serialize;
 
-use crate::build_error::BuildError;
-use crate::engine_frame::{EngineFrame, FrameError};
-use crate::head::{RuleVerdict, Status};
-use crate::report::Decided;
-use crate::status::{run_status, Unexplained};
-use crate::violation_detail::ViolationDetail;
-use crate::why::WhyUnknown;
+use crate::{
+    build_error::BuildError,
+    engine_frame::{EngineFrame, FrameError},
+    head::{RuleVerdict, Status},
+    report::Decided,
+    status::{run_status, Unexplained},
+    violation_detail::ViolationDetail,
+    why::WhyUnknown,
+};
 
 /// The gaps that the core names next to the model. No field holds a verdict: each gap only
 /// holds back a PASS.
