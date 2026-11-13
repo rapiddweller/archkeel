@@ -46,9 +46,89 @@
   },
   "gaps": [
     [
+      "",
+      "native.archkeel_dart_collector.collection.types",
+      "The macro value! holds a path that the scan cannot read"
+    ],
+    [
+      "native.archkeel_dart_collector.collection",
+      "native.archkeel_dart_collector.collection.imports",
+      "A method call may reach the method imports of an impl block in native.archkeel_dart_collector.collection.imports"
+    ],
+    [
+      "native.archkeel_dart_collector.collection",
+      "native.archkeel_dart_collector.collection.inventories",
+      "A method call may reach the method duplicates of an impl block in native.archkeel_dart_collector.collection.inventories"
+    ],
+    [
+      "native.archkeel_dart_collector.collection",
+      "native.archkeel_dart_collector.collection.prepare",
+      "A method call may reach the method prepare of an impl block in native.archkeel_dart_collector.collection.prepare"
+    ],
+    [
+      "native.archkeel_dart_collector.collection",
+      "native.archkeel_dart_collector.collection.sites",
+      "A method call may reach the method sites of an impl block in native.archkeel_dart_collector.collection.sites"
+    ],
+    [
+      "native.archkeel_dart_collector.collection.sites",
+      "native.archkeel_dart_collector.collection.targets",
+      "A method call may reach the method scope of an impl block in native.archkeel_dart_collector.collection.targets"
+    ],
+    [
       "native.archkeel_dart_collector.declarations",
       "native.archkeel_dart_collector.declarations.members",
       "A method call may reach the method class of an impl block in native.archkeel_dart_collector.declarations.members"
+    ],
+    [
+      "native.archkeel_dart_collector.definitions",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.directives",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.members",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.parameters",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.sites.bindings",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.sites.calls",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.sites.canonical",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.sites.references",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.sites.scopes",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
+    ],
+    [
+      "native.archkeel_dart_collector.tree",
+      "native.archkeel_dart_collector.declarations.work",
+      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
     ],
     [
       "native.archkeel_eval",
