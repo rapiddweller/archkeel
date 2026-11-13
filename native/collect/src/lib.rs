@@ -40,6 +40,8 @@ pub struct Identity<'a> {
     pub root: &'a str,
     /// The repository-relative path of the configuration file.
     pub config: &'a str,
+    /// Discover the work tree from `root` only when the caller supplied no explicit root.
+    pub discover_root: bool,
     /// An optional claim about `HEAD`; the core reads it and refuses a difference.
     pub git_head: Option<&'a str>,
     /// An optional claim about the work tree; the core reads it and refuses a difference.
@@ -111,11 +113,19 @@ pub fn test_features() -> &'static [&'static str] {
 pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Refusal> {
     built(test_features())?;
     let supplied = repository::Root::of(identity.root).map_err(|why| refused("root", why))?;
-    let repository = git::root(supplied.path()).map_err(|why| refused("root", why))?;
-    let root_text = repository
+    let root = if identity.discover_root {
+        let repository = git::root(supplied.path()).map_err(|why| refused("root", why))?;
+        let text = repository
+            .to_str()
+            .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
+        repository::Root::of(text).map_err(|why| refused("root", why))?
+    } else {
+        supplied
+    };
+    let root_text = root
+        .path()
         .to_str()
         .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
-    let root = repository::Root::of(root_text).map_err(|why| refused("root", why))?;
     let config = read_config(&root, identity.config)?;
     let head = git::head(root.path()).map_err(|why| refused("git head", why))?;
     if let Some(claimed) = identity.git_head {
@@ -134,6 +144,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     let derived = Identity {
         root: root_text,
         config: identity.config,
+        discover_root: false,
         git_head: Some(&head),
         dirty: Some(dirty),
     };

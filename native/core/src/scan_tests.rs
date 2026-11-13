@@ -75,7 +75,12 @@ fn repository(name: &str) -> PathBuf {
             "fixture",
         ],
     ] {
-        assert!(std::process::Command::new("git")
+        let git = if cfg!(windows) {
+            "C:/Program Files/Git/cmd/git.exe"
+        } else {
+            "/usr/bin/git"
+        };
+        assert!(std::process::Command::new(git)
             .args(args)
             .current_dir(&root)
             .status()

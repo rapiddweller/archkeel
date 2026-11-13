@@ -130,7 +130,13 @@
         "archkeel.cli.core_only",
         "archkeel.cli.core_binary",
         "archkeel.cli.legacy_bindings",
-        "archkeel.cli.legacy_output"
+        "archkeel.cli.legacy_output",
+        "archkeel.cli.output_path",
+        "archkeel.cli.legacy_parser",
+        "archkeel.cli.legacy_parser_base",
+        "archkeel.cli.legacy_policy_options",
+        "archkeel.cli.legacy_reports_options",
+        "archkeel.cli.legacy_tools_options"
       ],
       "packages": []
     }

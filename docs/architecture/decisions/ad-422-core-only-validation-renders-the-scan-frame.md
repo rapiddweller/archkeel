@@ -6,6 +6,7 @@
 1. Add `--core-only` or `ARCHKEEL_CORE_ONLY=1`, off by default. Keep `--native-core` as stage 1.
    Refuse conflicting switches. Never fall back after a core-only request.
 2. The core-only entry imports no `archkeel.ir` or `archkeel.check` module.
+   Keep legacy imports behind dispatch. Split its grammar and output to keep source files under 500 lines.
    The shell sends only the root and configuration location to `archkeel-core scan`.
    The core collects, builds the model and decides. The shell reads and renders its frame.
 3. One typed shell table maps PASS to 0, FAIL to 1 and UNKNOWN to 2.
@@ -22,9 +23,11 @@
    Ratchets and selected changes live in those bytes, not in a disabling command option.
    Git and host ordering also run unconditionally. There is no verdict-only check form.
 7. `collect` owns repository discovery and Git state. Derive HEAD and dirty in the core.
+   Discover the repository from the current directory; preserve an explicit project root.
    Optional request provenance is checked, never trusted. A false clean claim refuses.
    Use the platform's fixed Git executable, not PATH. Missing Git refuses by name.
 8. `Ruling::frame` remains the only frame maker. Typed evidence explains each FAIL.
+   Core uses the facts identity helpers to link contract citations; declare the core-to-facts dependency.
    UNKNOWN names its gap and location when available. Unported rules name their missing kind.
    Refused collection does not parse an empty contract or report a false contract error.
 9. One lookup finds the installed `_native` binary with its digest, or a checkout build.

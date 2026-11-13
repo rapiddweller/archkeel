@@ -215,6 +215,10 @@ class CoreFrame:
         """True when the frame names no part: the core decides every rule of the run."""
         return not self.gaps and not self.missing
 
+    @property
+    def complete_scope(self) -> bool:
+        return self.scope == "complete"
+
 
 def gap_kind(reason: str) -> GapKind:
     for prefix, kind in _GAP_PREFIXES:
@@ -462,6 +466,8 @@ def read_frame(
     engine = _text(frame["engine"], "engine")
     if status is Status.PASS and not rules:
         raise CoreError("the core frame is PASS with zero rules")
+    if status is Status.PASS and frame["scope"] != "complete":
+        raise CoreError("the core frame is PASS without a complete scope")
     # A run PASS needs each row PASS or a declaration, and one PASS row (AD-390, review S1).
     verdicts = {verdict.status for verdict in rules.values()}
     if status is Status.PASS and not verdicts <= {RuleStatus.PASS, RuleStatus.DECLARATION}:

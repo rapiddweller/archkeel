@@ -73,8 +73,6 @@ from ..render.summary import (
 )
 from ..render.terminal import print_result as print_result
 from ..render.terminal import progress as progress
-from . import build_parser as build_parser
-from . import main as main
 from .arguments import (
     Command as Command,
 )

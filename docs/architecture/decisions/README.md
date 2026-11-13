@@ -5,7 +5,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 
 | Decision | Title |
 |---|---|
-| AD-422 | [Core-only validation](ad-422-core-only-validation-renders-the-scan-frame.md) |
 | AD-1 | [Flat analyzer modules](ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
 | AD-2 | [One JSON type](ad-02-json-has-one-type.md) |
 | AD-3 | [Analyzer comparability](ad-03-the-analyzer-digest-decides-comparability-the-version-names.md) |
@@ -397,3 +396,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-406 | [The core runs the TypeScript collector in its own process](ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md) |
 | AD-416 | [The core names a run without decisions and the product keeps its result](ad-416-the-core-names-an-empty-contract-and-the-product-keeps-its-result.md) |
 | AD-418 | [A dropped pair gap holds the rules it can change, and a scoped requires needs its runtime](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md) |
+| AD-422 | [Core-only validation](ad-422-core-only-validation-renders-the-scan-frame.md) |

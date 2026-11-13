@@ -21,6 +21,7 @@ path = "src/main.rs"
 archkeel-collect = { path = "../collect" }
 archkeel-contract = { path = "../contract" }
 archkeel-eval = { path = "../eval" }
+archkeel-facts.workspace = true
 archkeel-model = { path = "../model" }
 archkeel-report = { path = "../report" }
 archkeel-store = { path = "../store" }

@@ -210,6 +210,7 @@ def _report_files(
 ) -> dict[str, bytes]:
     """`archkeel report --json`: the result document and the three files it writes."""
     from archkeel.cli import legacy_bindings as cli
+    from archkeel.cli import main
 
     if store is None:
         monkeypatch.delenv(NATIVE_STORE, raising=False)
@@ -226,7 +227,7 @@ def _report_files(
     out.mkdir(parents=True)
     argv = ["report", "--root", str(root), "--output", str(out / "architecture.json"), "--json"]
     capsys.readouterr()
-    cli.main([*argv, *(["--config", config] if config else [])])
+    main([*argv, *(["--config", config] if config else [])])
     close_store()
     files = {path.name: path.read_bytes() for path in sorted(out.iterdir())}
     return {"result": capsys.readouterr().out.encode(), **files}

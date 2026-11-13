@@ -36,7 +36,7 @@ EXIT_CODES: Final[Mapping[Status, int]] = {Status.PASS: 0, Status.FAIL: 1, Statu
 
 class Options(argparse.Namespace):
     command: Command
-    root: Path = Path.cwd()
+    root: Path | None = None
     config: str = "archkeel.toml"
     json: bool = False
     text: bool = False
@@ -55,10 +55,11 @@ class Parser(argparse.ArgumentParser):
 
 
 def requested(argv: Sequence[str], environ: Mapping[str, str]) -> bool:
-    return "--core-only" in argv or environ.get(VARIABLE, Switch.UNSET) not in {
-        Switch.UNSET,
-        Switch.OFF,
-    }
+    return (
+        "--core-only" in argv
+        or any(argument.startswith("--core-only=") for argument in argv)
+        or environ.get(VARIABLE, Switch.UNSET) not in {Switch.UNSET, Switch.OFF}
+    )
 
 
 def add_switch(parser: argparse.ArgumentParser) -> None:
@@ -84,7 +85,7 @@ def parse(argv: Sequence[str]) -> Options:
     parser.add_argument("command", type=Command, choices=list(Command))
     parser.add_argument("--core-only", action="store_true")
     parser.add_argument("--native-core", action="store_true")
-    parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--root", type=Path)
     parser.add_argument("--config", default="archkeel.toml")
     form = parser.add_mutually_exclusive_group()
     for flag in ("json", "text"):
@@ -161,9 +162,10 @@ def run(argv: Sequence[str]) -> int:
             )
         request = {
             "protocol": SCAN_PROTOCOL,
-            "root": str(options.root.resolve()),
+            "root": str((options.root or Path.cwd()).resolve()),
             "config": options.config,
             "root_only": True,
+            "discover_root": options.root is None,
         }
         stdout, code = exchange(str(locate_core()), "scan", json.dumps(request).encode())
         frame = read_frame(stdout, code, scan=True, require_protocol=True)
@@ -194,13 +196,18 @@ def run(argv: Sequence[str]) -> int:
 
 def render_text(command: Command, frame: CoreFrame) -> None:
     print(f"{command}: {frame.status}")
+    if not frame.complete_scope:
+        print(f"Scope: {frame.scope}")
+        print("Action: Resolve the named scope gap and run again.")
     for rule, rows in frame.details.items():
         for row in rows:
             edge = row.source if row.target is None else f"{row.source} -> {row.target}"
             places = []
             for key in row.evidence:
                 if location := frame.locations.get(key):
-                    places.append(f"{location.path}:{location.line}")
+                    places.append(
+                        f"{location.path}:{location.line}" if location.line else location.path
+                    )
             where = f" ({', '.join(places)})" if places else ""
             print(f"{rule}: FAIL: {row.cause}: {edge}{where}")
             print("Action: Remove the violation or review the declared restriction.")

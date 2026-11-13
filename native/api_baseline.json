@@ -6,6 +6,7 @@
     "const REFUSED",
     "field Identity.config: &'a str",
     "field Identity.dirty: Option<bool>",
+    "field Identity.discover_root: bool",
     "field Identity.git_head: Option<&'a str>",
     "field Identity.root: &'a str",
     "field Refusal.part: &'static str",

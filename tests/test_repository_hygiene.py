@@ -142,7 +142,13 @@ ALLOWED_LONG_FUNCTIONS = {
         "Sequences baseline, contract, observation and artifact decisions; the "
         "branches are the validation protocol."
     ),
-    ("src/archkeel/cli/__init__.py::build_parser"): (
+    ("src/archkeel/cli/legacy_reports_options.py::add_reports"): (
+        "Declarative argparse setup, one subparser per command; help text is the length."
+    ),
+    ("src/archkeel/cli/legacy_policy_options.py::add_policy"): (
+        "Declarative argparse setup, one subparser per command; help text is the length."
+    ),
+    ("src/archkeel/cli/legacy_tools_options.py::add_tools"): (
         "Declarative argparse setup, one subparser per command; help text is the length."
     ),
     ("src/archkeel/cli/__init__.py::_legacy_main"): (

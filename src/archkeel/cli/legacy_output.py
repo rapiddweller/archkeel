@@ -4,13 +4,24 @@
 """Publish the existing shell's artifacts; core-only commands never load this module."""
 
 import hashlib
+import io
 import json
 import re
+import sys
 from pathlib import Path
 
+from ..ir.model import RunResult
 from ..ir.phases import PhaseClock
 from ..ir.view_spec import ViewCheck
-from . import html_path as html_path
+from .arguments import Command
+from .legacy_bindings import (
+    check_summary,
+    init_summary,
+    print_result,
+    render_result,
+    report_summary,
+)
+from .output_path import html_path as html_path
 
 
 def write_files(root: Path, files: tuple[tuple[str, bytes], ...], artifacts: list[Path]) -> None:
@@ -97,3 +108,31 @@ def show_view(
     )
     write_pages(artifact, pages, [])
     return html_path(artifact, Command.REPORT)
+
+
+def show_result(
+    result: RunResult, command: Command, interactive: bool, artifacts: list[Path]
+) -> int:
+    if interactive and command in {Command.VIEW, Command.STORY}:
+        # A view check or trace that did not run has no scan or rule verdicts to show.
+        name = "view check" if command is Command.VIEW else "story trace"
+        for item in result.diagnostics:
+            print(f"archkeel {name} did not run on {item.subject}: {item.unknown_claim}")
+            print(item.remedy)
+        return result.exit_code
+    if interactive:
+        summary = (
+            check_summary(result)
+            if command is Command.CHECK
+            else init_summary(result)
+            if command is Command.INIT
+            else report_summary(result)
+        )
+        print_result(result, summary, artifacts=tuple(str(path) for path in artifacts))
+    else:
+        payload = render_result(result)
+        if isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.buffer.write(payload)
+        else:
+            sys.stdout.write(payload.decode("utf-8"))
+    return result.exit_code

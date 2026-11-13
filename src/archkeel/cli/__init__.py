@@ -5,20 +5,21 @@
 
 from __future__ import annotations
 
-import argparse
 import io
 import json
 import os
-import re
 import sys
 from collections.abc import Sequence
 from contextlib import redirect_stdout
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, NoReturn
+from typing import TYPE_CHECKING
+
+from .legacy_parser_base import _Parser as _Parser
+from .output_path import html_path as html_path
 
 if TYPE_CHECKING:
-    from .arguments import CLIArguments, Command
+    from .arguments import Command
 
 
 def cache_folder(command: Command, digest: str) -> Path:
@@ -33,711 +34,6 @@ def root_digest(root: Path) -> str:
     return digest(root)
 
 
-def html_path(output: Path, command: str) -> Path:
-    """Name an HTML sidecar by JSON stem and command."""
-    return output.parent / f"{output.stem}.{command}.html"
-
-
-_DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
-_ARCHITECTURE_JSON: Final = "architecture.json"
-_SNAPSHOT_PATH: Final = Path("test-artifacts/architecture") / _ARCHITECTURE_JSON
-
-
-def _sha(value: str) -> str:
-    if re.fullmatch("[0-9a-f]{40}", value) is None:
-        raise argparse.ArgumentTypeError("must be a full lowercase Git SHA")
-    return value
-
-
-def _positive_bytes(value: str) -> int:
-    """Parse a finite positive byte limit for one observation."""
-    from ..ir.facts_codec import MAX_RESPONSE_LIMIT_BYTES
-
-    try:
-        limit = int(value)
-    except ValueError as error:
-        raise argparse.ArgumentTypeError("must be a positive integer") from error
-    if not 0 < limit <= MAX_RESPONSE_LIMIT_BYTES:
-        raise argparse.ArgumentTypeError(
-            f"must be a positive integer no greater than {MAX_RESPONSE_LIMIT_BYTES} bytes"
-        )
-    return limit
-
-
-_PER_RUN_LIMIT_REMEDY: Final = (
-    "Retry with a larger finite --collector-output-limit-bytes value; "
-    "larger values need more memory."
-)
-
-
-class _Parser(argparse.ArgumentParser):
-    def parse_cli_args(self, args: Sequence[str] | None = None) -> CLIArguments:
-        from .arguments import CLIArguments, Command
-
-        arguments = argparse.ArgumentParser.parse_args(self, args, CLIArguments())
-        if arguments.command is not None:
-            arguments.command = Command(arguments.command)
-        return arguments
-
-    def error(self, message: str) -> NoReturn:
-        raise ValueError(message)
-
-
-def _observing(parser: _Parser, output_help: str | None) -> None:
-    parser.add_argument(
-        "--root",
-        type=Path,
-        default=Path.cwd(),
-        help="Repository root. Default: the current directory.",
-    )
-    if output_help is not None:
-        parser.add_argument("--output", type=Path, help=output_help)
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Print the JSON result even in an interactive terminal.",
-    )
-
-
-def _collector_output_limit(parser: _Parser) -> None:
-    parser.add_argument(
-        "--collector-output-limit-bytes",
-        type=_positive_bytes,
-        metavar="BYTES",
-        help="Finite collector stdout limit for this run. Default: 67108864 (64 MiB). "
-        "Higher values can use much more memory; no unlimited mode exists.",
-    )
-
-
-def build_parser() -> _Parser:
-    from importlib.metadata import PackageNotFoundError, version
-
-    from rich_argparse import RawDescriptionRichHelpFormatter
-
-    from ..check.ports import Language
-    from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
-    from .arguments import (
-        Command,
-        ReportMode,
-        SkillAction,
-        installation_agent,
-        report_mode,
-        skill_action,
-        source_language,
-    )
-    from .config import CONFIG_PATH
-    from .core_only import add_switch as add_core_only
-    from .native_core import add_switch
-    from .skill import InstallationAgent
-
-    parser = _Parser(
-        prog="archkeel",
-        description=(
-            "Deterministic architecture checks for AI-assisted code.\n\n"
-            "Declare the architecture once, let the agent change the code, and let Archkeel\n"
-            "observe the result. A terminal shows a readable summary; pipes and --json get JSON."
-        ),
-        epilog=(
-            "Start here:\n"
-            "  archkeel explore    see the code as it is, with no contract\n"
-            "  archkeel init       draft the contract from the observed imports\n"
-            "  archkeel validate   check the contract against this repository\n"
-            "  archkeel report     observe the repository and write evidence\n\n"
-            f"Rules: {_DOCS}/rules.md\nReference: {_DOCS}/reference.md"
-        ),
-        formatter_class=RawDescriptionRichHelpFormatter,
-    )
-    try:
-        installed = version("archkeel")
-    except PackageNotFoundError:
-        # A source checkout on PYTHONPATH has no distribution metadata.
-        installed = "from source without package metadata"
-    parser.add_argument("--version", action="version", version=f"archkeel {installed}")
-    parser.set_defaults(command=None, json=False, config=CONFIG_PATH, show=False)
-    commands = parser.add_subparsers(dest="command", title="commands", metavar="<command>")
-    # The two commands that read a scan configuration from the working tree share one option.
-    configured = _Parser(add_help=False)
-    configured.add_argument(
-        "--config",
-        default=CONFIG_PATH,
-        help="Scan configuration, relative to --root. Default: archkeel.toml. A second file "
-        "scans a second namespace, such as tests, against its own contract (AD-101).",
-    )
-    # AD-285: init and explore read the same scope options; without them, Python is detected.
-    scoped = _Parser(add_help=False)
-    scoped.add_argument(
-        "--source",
-        action="append",
-        help="Source directory or TypeScript file relative to --root; repeat for more roots.",
-    )
-    for option, help_text in (
-        ("--namespace", "Dotted namespace for the observed source modules."),
-        ("--tsconfig", "TypeScript project config relative to --root."),
-    ):
-        scoped.add_argument(option, help=help_text)
-    scoped.add_argument(
-        "--language",
-        choices=list(Language),
-        type=source_language,
-        default=Language.PYTHON,
-        help="Source language of --source. Dart needs --source and --namespace (the pubspec "
-        "name). TypeScript also needs --tsconfig. Default: python.",
-    )
-
-    report = commands.add_parser(
-        Command.REPORT.value,
-        parents=[configured],
-        help="Observe the repository and write architecture evidence.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Scans the configured Python sources, evaluates the declared rules and writes the\n"
-            "canonical architecture.json with an HTML report next to it. Report never rejects:\n"
-            "a rule violation is a FAIL verdict with exit code 0. architecture.json always\n"
-            "carries every violation; --only, --rule and --component narrow what the HTML page\n"
-            "and --json's own filtered_violations show, never what was judged (AD-60).\n"
-            "--input queries a saved snapshot without scanning or writing files. Its source\n"
-            "identity describes recorded evidence, not the current working tree.\n\n"
-            "Examples:\n"
-            "  archkeel report\n"
-            "  archkeel report --output build/architecture.json --json\n"
-            "  archkeel report --only violations --rule DEP-STORE-NO-MONEY --json\n"
-            "  archkeel report --component store\n"
-            "  archkeel report --input build/architecture.json --only architecture \\\n"
-            "    --component COMP-STORE --json\n"
-            "  archkeel report --config archkeel-tests.toml \\\n"
-            "    --output test-artifacts/tests/architecture.json\n"
-            "  archkeel report --timings build/timings.json\n\n"
-            "Exit codes:\n"
-            "  0  the observation is complete\n"
-            "  2  not checked: configuration, tool or source evidence is missing, or --rule or\n"
-            "     --component names a rule or component this contract does not declare\n\n"
-            f"Rules: {_DOCS}/rules.md"
-        ),
-    )
-    _observing(
-        report,
-        "Path of architecture.json; the HTML report is written next to it. "
-        f"Default: {_SNAPSHOT_PATH}.",
-    )
-    report.set_defaults(root=None, config=None, timings=None)
-    add_switch(report)
-    add_core_only(report)
-    report.add_argument(
-        "--input",
-        type=Path,
-        help="Query a saved snapshot of architecture.json; no scan or file output. Recorded "
-        "source identity does not verify the current working tree. Conflicts with --root, "
-        "--config, --baseline, --output and --timings.",
-    )
-    report.add_argument(
-        "--timings",
-        type=Path,
-        help="Write phase seconds and work counters as JSON after a successful live report. "
-        "Nothing is measured without this flag. Conflicts with --input.",
-    )
-    report.add_argument(
-        "--baseline",
-        type=Path,
-        help="Compare findings with this read-only validation baseline, relative to --root.",
-    )
-    report.add_argument(
-        "--only",
-        choices=list(ReportMode),
-        type=report_mode,
-        help="violations: show only the declared-rule violations table, hiding component flow, "
-        "component communication, review claims and size and coupling, for a small review "
-        "surface on a large repository (AD-60). calls: list every unresolved and partially "
-        "resolved call with its status, caller, path, line, expression, reason and component, "
-        "as --json's filtered_calls and one HTML table; combines with --component, not --rule "
-        "(AD-100). architecture: project authenticated ownership, permissions, use and "
-        "required relationships; combines with --component, not --rule.",
-    )
-    report.add_argument(
-        "--full",
-        action="store_true",
-        help="With --only architecture, include projection, violations and UNKNOWN records.",
-    )
-    report.add_argument(
-        "--rule",
-        help="Show only violations naming this rule id - top-level, or <component>:<rule id> "
-        "for one an inside declares (AD-36). Unknown to this contract: exit 2.",
-    )
-    report.add_argument(
-        "--component",
-        help="Narrow the violations, or with --only calls the calls, by top-level label. "
-        "With --only architecture or violations, use an exact component id or scoped "
-        "label from architecture_projection.components; violations include local findings "
-        "and descendants. With violations, top-level labels take precedence. Otherwise, "
-        "use a top-level label for crossing endpoints or --only calls. "
-        "Unknown to this contract: exit 2.",
-    )
-
-    explore = commands.add_parser(
-        Command.EXPLORE.value,
-        parents=[scoped],
-        help="See the code as it is: an observed overview that needs no contract.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Observes the one top-level Python package, or the --source and --namespace you pass,\n"
-            "and groups its modules by layout. It needs no archkeel.toml and no contract, and it\n"
-            "writes nothing into the repository. No rule is declared, so the result says target:\n"
-            "unavailable and gives no rule verdict. TypeScript and Dart need the scope options\n"
-            "because they are not detected (AD-285).\n\n"
-            "Examples:\n"
-            "  archkeel explore\n"
-            "  archkeel explore --root ../service --output ../service-explore\n"
-            "  archkeel explore --language dart --source lib --namespace my_app\n\n"
-            "Exit codes:\n"
-            "  0  the observation is complete\n"
-            "  2  not checked: no single Python package, no Git commit, an output inside the\n"
-            "     repository, or incomplete coverage\n\n"
-            f"Start here: {_DOCS}/getting-started.md"
-        ),
-    )
-    _observing(
-        explore,
-        "Folder for architecture.json and the report pages, outside the repository. "
-        "Default: $XDG_CACHE_HOME/archkeel/explore/<root hash> (~/.cache by default).",
-    )
-    _collector_output_limit(explore)
-
-    validate = commands.add_parser(
-        Command.VALIDATE.value,
-        parents=[configured],
-        help="Validate the architecture contract for this repository.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Checks the contract structure, package and provenance references, that every\n"
-            "component pair is decided by one allowed_dependency or forbidden_dependency\n"
-            "rule, rule rationales, the marked component graph against observed imports and,\n"
-            "where a page draws one, the marked target graph against the edges the contract\n"
-            "permits. Run it after every contract edit; --write-graph first rewrites each\n"
-            "marked graph's edges, leaving the rest of the page untouched.\n\n"
-            "JSON includes every open component pair by default. --compact-open-decisions\n"
-            "lists observed undecided crossings and reports the exact total; omitted pairs\n"
-            "remain undecided, and validation verdicts and diagnostics are unchanged.\n\n"
-            "A contract that states the target architecture is violated by the code that\n"
-            "has yet to reach it. --baseline names a file of those known violations and\n"
-            "contract-selected measurement values. The run fails when either drifts.\n"
-            "--write-baseline compares an existing file before updating it: reductions may\n"
-            "be written, while new or increased debt requires --accept-new.\n\n"
-            "--against <ref> classifies every difference from the contract at that Git\n"
-            "revision (and, with --baseline, the baseline file there too) as a widening -\n"
-            "a new permission or a dropped restriction, including a padded violation or\n"
-            "raised or removed measurement budget -\n"
-            "or a narrowing, its harmless reverse. A contract the revision does not hold yet\n"
-            "is one widening, its introduction. A widening fails unless --amendment names\n"
-            "a file binding both recursive contracts and, with v2, both baseline policies;\n"
-            "write it with --write-amendment, --decided-by and --rationale.\n\n"
-            "Examples:\n"
-            "  archkeel validate\n"
-            "  archkeel validate --json\n"
-            "  archkeel validate --compact-open-decisions --json\n"
-            "  archkeel validate --write-graph\n"
-            "  archkeel validate --baseline known-violations.json --write-baseline\n"
-            "  archkeel validate --baseline known-violations.json --write-baseline --accept-new\n"
-            "  archkeel validate --baseline known-violations.json\n"
-            "  archkeel validate --against main --amendment widening.json \\\n"
-            '    --write-amendment --decided-by "Jordan (architect)" --rationale "..."\n'
-            "  archkeel validate --against main --amendment widening.json\n"
-            "  archkeel validate --config archkeel-tests.toml\n"
-            "  archkeel validate --root mobile --baseline known-violations.json\n\n"
-            "Exit codes:\n"
-            "  0  the contract is valid for this repository\n"
-            "  1  with --baseline: a violation or selected measurement changed; with\n"
-            "     --against: an unamended widening\n"
-            "  2  validation diagnostics; completed inspections retain their rule verdict\n\n"
-            f"Rules: {_DOCS}/rules.md"
-        ),
-    )
-    _observing(validate, None)
-    add_core_only(validate)
-    for option, help_text in (
-        (
-            "--compact-open-decisions",
-            "List observed undecided crossings with the exact open-pair total and completeness. "
-            "Omitted pairs remain undecided. Default: include every open pair.",
-        ),
-        (
-            "--write-graph",
-            "Rewrite the edges of each marked graph - the component graph from observed "
-            "imports, the target graph from the edges the contract permits - then validate.",
-        ),
-    ):
-        validate.add_argument(option, action="store_true", help=help_text)
-    validate.add_argument(
-        "--baseline",
-        type=Path,
-        help="File of known violations and contract-selected measurement values, relative to "
-        "--root like the contract, or absolute inside it (AD-103). Fail when either differs "
-        "from the current observation.",
-    )
-    validate.add_argument(
-        "--write-baseline",
-        action="store_true",
-        help="Create or update --baseline after comparing an existing file.",
-    )
-    validate.add_argument(
-        "--accept-new",
-        action="store_true",
-        help="Allow --write-baseline to accept new or increased debt.",
-    )
-    validate.add_argument(
-        "--against",
-        help="Git revision to compare the contract against; fail on an unamended widening.",
-    )
-    validate.add_argument(
-        "--amendment",
-        type=Path,
-        help="File recording who decided a widening from --against, and why, relative to "
-        "--root or absolute inside it. V2 binds contract and baseline policies. Needs --against.",
-    )
-    validate.add_argument(
-        "--write-amendment",
-        action="store_true",
-        help="Write --amendment for this --against comparison instead of checking it.",
-    )
-    validate.add_argument("--decided-by", help="Free text for --write-amendment: who decided.")
-    validate.add_argument("--rationale", help="Free text for --write-amendment: why.")
-
-    check = commands.add_parser(
-        Command.CHECK.value,
-        help="Check a candidate against its published expectation.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Reobserves the accepted commit and the candidate, compares them with the\n"
-            "digest-locked expectation and verifies Git and publication order (M → B → E → H).\n\n"
-            "Example:\n"
-            "  archkeel check --baseline <B> --expectation-commit <E> --head <H> \\\n"
-            "    --expected expectation.json --expected-digest <sha256> \\\n"
-            "    --branch origin/feature --accepted-branch origin/main --output result.json\n\n"
-            "Exit codes:\n"
-            "  0  merge: all five verdicts passed\n"
-            "  1  reject: a rule, regression check or order predicate failed\n"
-            "  2  not checked: required evidence is missing or invalid\n\n"
-            f"Protocol: {_DOCS}/reference.md#git-predicate"
-        ),
-    )
-    _observing(check, "Write the check result JSON here and the HTML report next to it.")
-    check.add_argument("--baseline", type=_sha, required=True, help="Lock commit B (full SHA).")
-    check.add_argument(
-        "--expectation-commit",
-        type=_sha,
-        required=True,
-        help="Commit E that publishes the expectation (full SHA).",
-    )
-    check.add_argument("--head", type=_sha, required=True, help="Candidate commit H (full SHA).")
-    check.add_argument("--expected", required=True, help="Repository path of the expectation.")
-    check.add_argument("--expected-digest", required=True, help="SHA-256 of the expectation.")
-    check.add_argument(
-        "--branch", required=True, help="Fetched origin branch containing the expectation."
-    )
-    check.add_argument(
-        "--accepted-branch",
-        required=True,
-        help="Fetched protected origin branch containing the accepted lock.",
-    )
-    check.add_argument(
-        "--host-records",
-        type=Path,
-        help="Replay CI host records; the caller must authenticate this file.",
-    )
-    add_switch(check)
-    add_core_only(check)
-
-    init = commands.add_parser(
-        Command.INIT.value,
-        parents=[scoped],
-        help="Draft archkeel.toml, a closed contract and its architecture page.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Observes the configured source roots and proposes components from their layout.\n"
-            "Python can detect its top-level package from pyproject.toml or package markers.\n"
-            "It writes no dependency rule: every undecided ordered component pair remains open.\n"
-            "The default JSON lists observed crossings and reports the exact total; --full\n"
-            "includes unobserved pairs too.\n\n"
-            "Examples:\n"
-            "  archkeel init\n"
-            "  archkeel init --source lib/shop --namespace shop --json\n"
-            "  archkeel init --language dart --source lib --namespace my_app\n"
-            "  archkeel init --language typescript --source src --namespace app "
-            "--tsconfig tsconfig.json\n\n"
-            "Exit codes:\n"
-            "  0  draft written\n"
-            "  2  not checked: no single package, existing files or incomplete observation\n\n"
-            f"Start here: {_DOCS}/getting-started.md\n"
-            f"Onboarding: {_DOCS}/onboarding.md"
-        ),
-    )
-    _observing(init, None)
-    init.add_argument(
-        "--full",
-        action="store_true",
-        help="Include every open component pair in JSON, including unobserved pairs.",
-    )
-    init.add_argument(
-        "--collector-output-limit-bytes",
-        type=_positive_bytes,
-        metavar="BYTES",
-        help="Finite collector stdout limit in bytes, saved in archkeel.toml. "
-        f"Default: {DEFAULT_RESPONSE_LIMIT_BYTES} (64 MiB). Higher values need more memory.",
-    )
-    init.add_argument(
-        "--collector-timeout-seconds",
-        type=int,
-        metavar="SECONDS",
-        help="Positive collector deadline in seconds, saved in archkeel.toml. Default: 300.",
-    )
-    init.add_argument(
-        "--collector-argv",
-        nargs="+",
-        metavar="ARG",
-        help="Collector command and arguments. Every language defaults to its own collector "
-        "inside this package. On Windows, pass an executable and its script, not a .cmd shim.",
-    )
-    for flag, help_text in (
-        ("--force", "Replace existing onboarding files."),
-        (
-            "--adopt",
-            "Record each observed crossing as an agent requires entry, forbid the other pairs, "
-            "and write architecture-baseline.json with today's violations.",
-        ),
-    ):
-        init.add_argument(flag, action="store_true", help=help_text)
-
-    skill = commands.add_parser(
-        Command.SKILL.value,
-        help="Install the Archkeel instructions for a coding agent.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Writes .claude/skills/archkeel/SKILL.md for Claude Code or\n"
-            ".agents/skills/archkeel/SKILL.md for Codex. Reinstalling updates the skill.\n"
-            "Codex also removes a legacy managed AGENTS.md section, preserving user text.\n\n"
-            "Examples:\n"
-            "  archkeel skill install claude\n"
-            "  archkeel skill install codex --root ../service\n\n"
-            "Exit codes:\n"
-            "  0  instructions written\n"
-            "  2  the target file could not be updated\n\n"
-            f"Onboarding: {_DOCS}/onboarding.md"
-        ),
-    )
-    skill.add_argument(
-        "action", choices=list(SkillAction), type=skill_action, help="The only supported action."
-    )
-    skill.add_argument(
-        "agent",
-        choices=list(InstallationAgent),
-        type=installation_agent,
-        help="Coding agent to instruct.",
-    )
-    _observing(skill, None)
-
-    guide: argparse.ArgumentParser = commands.add_parser(
-        Command.GUIDE.value,
-        parents=[configured],
-        help="Write a Markdown guide that explains the architecture contract.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Reads the architecture contract and writes docs/architecture/contract-guide.md.\n"
-            "The guide needs no source scan and never changes the contract. The same contract\n"
-            "gives the same bytes, so --check can keep the file fresh in CI.\n\n"
-            "Examples:\n"
-            "  archkeel guide\n"
-            "  archkeel guide --check\n\n"
-            "Exit codes:\n"
-            "  0  guide written, or --check finds the file up to date\n"
-            "  1  --check finds the file missing or different\n"
-            "  2  no contract, or the contract cannot be read\n\n"
-            f"Reference: {_DOCS}/reference.md"
-        ),
-    )
-    guide.add_argument(
-        "--root",
-        type=Path,
-        default=Path.cwd(),
-        help="Repository root. Default: the current directory.",
-    )
-    guide.add_argument(
-        "--output",
-        type=Path,
-        help="Guide file, relative to --root. Default: docs/architecture/contract-guide.md.",
-    )
-    guide.add_argument(
-        "--check",
-        action="store_true",
-        help="Write nothing; exit 1 when the guide file is missing or differs from the contract.",
-    )
-
-    view = commands.add_parser(
-        Command.VIEW.value,
-        help="Check a view spec against a saved architecture.json, or draw it in the Explorer.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Checks each node, edge and step of a view spec against one saved snapshot. Each\n"
-            "reference is proven (observed, with evidence), declared (contract), claim (author\n"
-            "text, not checked), unknown (the snapshot cannot decide) or missing. A proven step\n"
-            "is one direct edge of its kind: structure, not runtime order. The spec\n"
-            "names the digests of the snapshot it was written for (AD-284).\n\n"
-            "show prints the same result and writes the Explorer report of the snapshot with\n"
-            "the checked view drawn in it, to --output or a cache folder (AD-287). It writes\n"
-            "nothing when the check did not run (exit 2). Stderr names the written page.\n\n"
-            "Examples:\n"
-            "  archkeel view check flow.json\n"
-            "  archkeel view check flow.json --snapshot build/architecture.json --json\n"
-            "  archkeel view check flow.json --strict\n"
-            "  archkeel view show flow.json --output build/flow\n\n"
-            "Exit codes:\n"
-            "  0  no reference is missing (with --strict: and none is unknown)\n"
-            "  1  a reference is missing, or unknown with --strict\n"
-            "  2  not checked: invalid spec or snapshot, or the spec names another snapshot\n\n"
-            f"Reference: {_DOCS}/reference.md#checked-views"
-        ),
-    )
-    # The checked options are shared; only show writes files, so only show takes --output.
-    viewed = _Parser(add_help=False)
-    viewed.add_argument("spec", type=Path, help="View spec JSON (schema/view-spec.schema.json).")
-    viewed.add_argument(
-        "--snapshot",
-        type=Path,
-        default=_SNAPSHOT_PATH,
-        help=f"Saved architecture.json. Default: {_SNAPSHOT_PATH}.",
-    )
-    for option, help_text in (
-        ("--strict", "Also reject each unknown reference."),
-        ("--json", "Print the JSON result even in an interactive terminal."),
-    ):
-        viewed.add_argument(option, action="store_true", help=help_text)
-    actions = view.add_subparsers(dest="view_action", required=True, metavar="action")
-    actions.add_parser("check", parents=[viewed], help="Print the check result.")
-    show = actions.add_parser(
-        "show", parents=[viewed], help="Print the check result and draw it in the Explorer."
-    )
-    show.add_argument(
-        "--output",
-        type=Path,
-        help="Folder for the report pages and a copy of the snapshot. Default: "
-        "$XDG_CACHE_HOME/archkeel/view/<source digest>/.",
-    )
-    show.set_defaults(show=True)
-
-    story = commands.add_parser(
-        Command.STORY.value,
-        help="Propose the path of a story from a saved architecture.json.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "trace lists candidate paths over the call graph of a saved snapshot, from one\n"
-            "function or method to another (--to), or to the farthest functions. A hop is\n"
-            "proven (a resolved call) or a claim (a partial call, marked as a seam). Unresolved\n"
-            "calls are listed as seams of their function. Each function has its lane and the\n"
-            "external systems whose client library its module imports. The result is one JSON\n"
-            "document. You choose a path and write the words; view check proves the story\n"
-            "(AD-291).\n\n"
-            "Examples:\n"
-            "  archkeel story trace --from shop.cli.main.main --to shop.render.text._indent\n"
-            "  archkeel story trace --from shop.cli.main.main --snapshot build/arch.json\n\n"
-            "Exit codes:\n"
-            "  0  the trace ran; no path is an empty list\n"
-            "  2  invalid input: a name not in the snapshot, a bad option, an invalid snapshot\n\n"
-            f"Reference: {_DOCS}/reference.md#stories"
-        ),
-    )
-    story_actions = story.add_subparsers(dest="story_action", required=True, metavar="action")
-    trace = story_actions.add_parser("trace", help="Print the candidate paths as JSON.")
-    trace.add_argument(
-        "--from",
-        dest="source",
-        required=True,
-        metavar="NAME",
-        help="Qualified name of the first function or method.",
-    )
-    trace.add_argument(
-        "--to", dest="target", metavar="NAME", help="Qualified name of the last function or method."
-    )
-    trace.add_argument(
-        "--snapshot",
-        type=Path,
-        default=_SNAPSHOT_PATH,
-        help=f"Saved architecture.json. Default: {_SNAPSHOT_PATH}.",
-    )
-    trace.add_argument("--max-paths", type=int, default=5, help="Paths to list. Default: 5.")
-    trace.add_argument("--max-hops", type=int, default=12, help="Longest path. Default: 12.")
-    trace.add_argument(
-        "--json", action="store_true", help="Print the JSON result even in an interactive terminal."
-    )
-
-    studio = commands.add_parser(
-        Command.STUDIO.value,
-        parents=[scoped],
-        help="Open ArchKeel Studio: the local web app for the code as it is.",
-        formatter_class=RawDescriptionRichHelpFormatter,
-        description=(
-            "Serves the Studio on 127.0.0.1 and opens it in the browser. The printed URL carries\n"
-            "a token for this run; without it each request gets 403. Studio runs explore, with\n"
-            "the scope options of explore, into a private cache folder of this run and writes\n"
-            "nothing into the repository. The static report stays the CI and Pages artifact\n"
-            "(AD-290).\n\n"
-            "A running server writes studio.json (pid, URL, port) into the explore cache folder\n"
-            "of the root, readable by you only. A second start for the same root prints the same\n"
-            "URL and starts no second server. The scope options of the first start stay in force.\n"
-            "An agent starts it in the background with --no-open and --idle-exit.\n\n"
-            "Examples:\n"
-            "  archkeel studio\n"
-            "  archkeel studio --root ../service --no-open --idle-exit 60\n"
-            "  archkeel studio --stop --root ../service\n"
-            "  archkeel studio --language typescript --source src --namespace shop \\\n"
-            "    --tsconfig tsconfig.json\n\n"
-            "Exit codes:\n"
-            "  0  stopped by Ctrl-C, SIGTERM or --idle-exit; --stop done; or server reused\n"
-            "  1  --stop: the server still runs after 15 seconds\n"
-            "  2  the server could not start"
-        ),
-    )
-    _collector_output_limit(studio)
-    studio.add_argument(
-        "--root", type=Path, default=Path.cwd(), help="Repository root. Default: this folder."
-    )
-    studio.add_argument(
-        "--no-open", action="store_true", help="Print the URL; do not open a browser."
-    )
-    studio.add_argument(
-        "--stop",
-        action="store_true",
-        help="Stop the running Studio of --root (SIGTERM) and exit. It checks first that the "
-        "server answers as a Studio.",
-    )
-    studio.add_argument(
-        "--idle-exit",
-        type=float,
-        default=0.0,
-        metavar="MINUTES",
-        help="Stop when no request came for MINUTES. Default: 0 (never).",
-    )
-    studio.add_argument(
-        "--agent",
-        dest="chat_agent",
-        choices=list(InstallationAgent),
-        type=installation_agent,
-        default=InstallationAgent.CLAUDE,
-        help="Coding agent that answers the chat. Default: claude (read and search tools only). "
-        "codex also runs shell commands in its read-only sandbox, so it is an opt-in. The agent "
-        "runs on your own sign-in.",
-    )
-
-    return parser
-
-
-def _report_option_error(args: CLIArguments) -> str | None:
-    """The one priority for report option conflicts, live or saved, before any file is read."""
-    from .arguments import ReportMode
-
-    if args.full and args.only is not ReportMode.ARCHITECTURE:
-        return "--full requires --only architecture"
-    if args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE} and args.rule is not None:
-        return "--rule narrows violations; --only calls or architecture cannot select a rule"
-    return None
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     from .core_only import requested, run
 
@@ -745,6 +41,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if requested(arguments, os.environ):
         return run(arguments)
     return _legacy_main(arguments)
+
+
+def build_parser() -> _Parser:
+    from .legacy_parser import build_parser as parser
+
+    return parser()
 
 
 def _legacy_main(argv: Sequence[str] | None = None) -> int:
@@ -761,13 +63,11 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
         PhaseClock,
         ReportMode,
         WorkCounter,
-        check_summary,
         check_view,
         collect_cycles_less_often,
         configuration_source,
         configured_observer,
         decode_json,
-        init_summary,
         install_skill,
         invalid_result,
         load_check_config,
@@ -777,7 +77,6 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
         observer_for,
         parse_config,
         parse_view_spec,
-        print_result,
         progress,
         project_name,
         read_blob,
@@ -785,7 +84,6 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
         render_architecture_pages,
         render_check_html,
         render_result,
-        report_summary,
         resolve_commit,
         run_check,
         run_explore,
@@ -806,6 +104,7 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
     )
     from .legacy_output import (
         html_path,
+        show_result,
     )
     from .legacy_output import show_view as _show_view
     from .legacy_output import (
@@ -820,6 +119,8 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
     from .legacy_output import (
         write_timings as _write_timings,
     )
+    from .legacy_parser import _report_option_error
+    from .legacy_parser_base import _ARCHITECTURE_JSON, _PER_RUN_LIMIT_REMEDY, _SNAPSHOT_PATH
 
     parser = build_parser()
     command = Command.ARGUMENTS
@@ -1172,26 +473,4 @@ def _legacy_main(argv: Sequence[str] | None = None) -> int:
                 Command.REPORT if command is Command.EXPLORE else command, subject, error
             )
         )
-    if interactive and command in {Command.VIEW, Command.STORY}:
-        # A view check or trace that did not run has no scan or rule verdicts to show.
-        name = "view check" if command is Command.VIEW else "story trace"
-        for item in result.diagnostics:
-            print(f"archkeel {name} did not run on {item.subject}: {item.unknown_claim}")
-            print(item.remedy)
-        return result.exit_code
-    if interactive:
-        summary = (
-            check_summary(result)
-            if command is Command.CHECK
-            else init_summary(result)
-            if command is Command.INIT
-            else report_summary(result)
-        )
-        print_result(result, summary, artifacts=tuple(str(path) for path in artifacts))
-    else:
-        payload = render_result(result)
-        if isinstance(sys.stdout, io.TextIOWrapper):
-            sys.stdout.buffer.write(payload)
-        else:
-            sys.stdout.write(payload.decode("utf-8"))
-    return result.exit_code
+    return show_result(result, command, interactive, artifacts)

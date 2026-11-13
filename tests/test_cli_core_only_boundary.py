@@ -106,6 +106,18 @@ def test_text_names_each_failure_cause_edge_location_and_action(
         assert word in text
 
 
+def test_text_names_each_unknown_kind_cause_location_and_action(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
+    monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(Status.UNKNOWN), 0))
+    assert core_only.run(["validate", "--core-only", "--text"]) == 2
+    text = capsys.readouterr().out
+    for word in ("R1", "scope_incomplete", "pair gap", "src/a.ts:4", "Action:"):
+        assert word in text
+
+
 def test_an_unported_rule_names_its_missing_kind(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

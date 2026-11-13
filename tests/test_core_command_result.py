@@ -20,6 +20,7 @@ from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.cli import legacy_bindings as cli
+from archkeel.cli import main
 from archkeel.ir import model
 from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.architecture_projection import ArchitectureProjection
@@ -106,7 +107,7 @@ def test_actual_cli_error_context_keeps_legacy_wire_tag(tmp_path, monkeypatch, c
 
         monkeypatch.setattr(cli, "install_skill", fail_install)
     monkeypatch.setattr(sys, "argv", argv)
-    assert cli.main() == 2
+    assert main() == 2
     payload = json.loads(capsys.readouterr().out)
     assert payload["command"] == failure
     assert payload["exit_code"] == 2

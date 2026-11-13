@@ -31,8 +31,21 @@ pub(crate) fn root(path: &Path) -> Result<PathBuf, String> {
 
 /// Read tracked and untracked changes through the fixed system executable, never PATH.
 pub(crate) fn dirty(root: &Path) -> Result<bool, String> {
-    let output = Command::new(GIT)
-        .env_clear()
+    let mut command = Command::new(GIT);
+    command.env_clear();
+    // Keep normal user excludes and the system loader, but no Git redirection variable.
+    for key in [
+        "HOME",
+        "USERPROFILE",
+        "XDG_CONFIG_HOME",
+        "SystemRoot",
+        "SYSTEMROOT",
+    ] {
+        if let Some(value) = std::env::var_os(key) {
+            command.env(key, value);
+        }
+    }
+    let output = command
         .args([
             "--no-optional-locks",
             "-c",

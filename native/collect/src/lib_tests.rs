@@ -73,6 +73,7 @@ pub(super) fn identity(root: &str) -> Identity<'_> {
     Identity {
         root,
         config: "archkeel.toml",
+        discover_root: false,
         git_head: Some(git::head(Path::new(root)).unwrap().leak()),
         dirty: Some(git::dirty(Path::new(root)).unwrap()),
     }

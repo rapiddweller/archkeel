@@ -52,6 +52,8 @@ struct ScanRequest {
     dirty: Option<bool>,
     #[serde(default)]
     root_only: bool,
+    #[serde(default)]
+    discover_root: bool,
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
@@ -60,6 +62,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let identity = Identity {
         root: &request.root,
         config: &request.config,
+        discover_root: request.discover_root,
         git_head: request.git_head.as_deref(),
         dirty: request.dirty,
     };

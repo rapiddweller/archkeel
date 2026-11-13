@@ -24,7 +24,7 @@ pub(crate) enum Answer {
     Reply(ReplyState),
     Sections(Vec<SectionAnswer>),
     /// The ruling of the report, or why the frame breaks a rule of the report (no frame).
-    Rules(Result<Ruling, String>),
+    Rules(Box<Result<Ruling, String>>),
     Report(Reason),
     Settings,
 }
@@ -106,7 +106,7 @@ impl Engine {
                 let derivation = (derived.graph(), derived.model());
                 Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
-            Request::Rules(named) => Answer::Rules(self.rule(named)),
+            Request::Rules(named) => Answer::Rules(Box::new(self.rule(named))),
             Request::Report => Answer::Report(crate::report::answer()),
         }
     }
