@@ -24,6 +24,7 @@ The owner also accepts removal of neutral tests that need retired Python inputs;
 Keep native unit tests. Name parity tests as skipped until their released oracle is connected.
 Keep the frozen replies that the Rust schema tests read, without recording new replies.
 Keep the clone guard strict after AD-420: share its comment walk and exhaustively format refusals.
+Declare rs-text's use of the pure snapshot comment walk; its ban on snapshot I/O stays unchanged.
 The dual run names and counts each unsupported Python and Dart case.
 
 ## Rejected alternatives
