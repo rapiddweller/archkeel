@@ -8,16 +8,19 @@ from __future__ import annotations
 import argparse
 import copy
 import dataclasses
+import hashlib
 import json
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from archkeel.analyzer.dart.collect import _Collection
 from archkeel.analyzer.dart.parse import parse
-from archkeel.analyzer.dart.snapshot import read_snapshot
+from archkeel.analyzer.dart.resolve import ResolvedSite, Resolver
+from archkeel.analyzer.dart.snapshot import Snapshot, read_snapshot
 from archkeel.analyzer.dart.syntax import DefinitionKind, DirectiveKind, SiteKind, Syntax
 from archkeel.ir.facts_codec import _target_payload
 
@@ -32,6 +35,19 @@ from dart_discovery_parity import (  # noqa: E402
     demo_variants,
     request,
 )
+
+
+class CachedResolver(Resolver):
+    """Keep real site answers for one input instead of repeating the quadratic Python walk."""
+
+    def __init__(self, snapshot: Snapshot, syntax: dict[str, Syntax]) -> None:
+        super().__init__(snapshot, syntax)
+        self.site_answers: dict[str, tuple[ResolvedSite, ...]] = {}
+
+    def resolved_sites(self, rel_path: str) -> tuple[ResolvedSite, ...]:
+        if rel_path not in self.site_answers:
+            self.site_answers[rel_path] = super().resolved_sites(rel_path)
+        return self.site_answers[rel_path]
 
 
 def canonical(value: object) -> str:
@@ -182,9 +198,7 @@ def native_rows(binary: Path, values: list[dict[str, Any]]) -> list[dict[str, An
 def prepared(corpus: Corpus, binary: Path | None = None) -> _Collection:
     snapshot = read_snapshot(request(corpus))
     if binary is None:
-        syntax = {
-            source.rel_path: parse(source.content) for source in snapshot.sources
-        }
+        syntax = {source.rel_path: parse(source.content) for source in snapshot.sources}
     else:
         run = subprocess.run(
             [str(binary), "--dump-syntax"],
@@ -199,7 +213,9 @@ def prepared(corpus: Corpus, binary: Path | None = None) -> _Collection:
             source.rel_path: declarations.decode(Syntax, value)
             for source, value in zip(snapshot.sources, parsed, strict=True)
         }
-    return declarations.collection(corpus, snapshot, syntax)
+    result = _Collection(request(corpus), snapshot, syntax, CachedResolver(snapshot, syntax))
+    result._prepare_sources()
+    return result
 
 
 def compare(binary: Path, c: _Collection) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -209,10 +225,128 @@ def compare(binary: Path, c: _Collection) -> tuple[dict[str, Any], dict[str, Any
     return actual, python(c)
 
 
+def timed_compare(binary: Path, c: _Collection) -> dict[str, Any]:
+    sources = c.snapshot.sources
+    shapes = list(c.syntax.values())
+    result: dict[str, Any] = {
+        "rel": sources[0].rel_path if len(sources) == 1 else "<project>",
+        "files": len(sources),
+        "bytes": sum(len(source.content) for source in sources),
+        "definitions": sum(len(syntax.definitions) for syntax in shapes),
+        "members": sum(
+            len(definition.members) for syntax in shapes for definition in syntax.definitions
+        ),
+        "sites": sum(len(syntax.sites) for syntax in shapes),
+    }
+    print("START", canonical(result), flush=True)
+    start = time.monotonic()
+    value = layer_input(c)
+    after_input = time.monotonic()
+    print("INPUT-DONE", result["rel"], f"{after_input - start:.3f}s", flush=True)
+    actual = native(binary, value)
+    after_native = time.monotonic()
+    result["work"] = actual.pop("work")
+    expected = python(c)
+    after_python = time.monotonic()
+    result.update(
+        input_seconds=after_input - start,
+        native_seconds=after_native - after_input,
+        python_seconds=after_python - after_native,
+        wall_seconds=after_python - start,
+    )
+    named = [
+        gap["data"]["message"]
+        for gap in actual["gaps"]
+        if gap["data"]["message"].startswith(
+            ("CollectionWorkLimit:", "LanguageVersionOrderGap:", "LanguageVersionDigitLimit:")
+        )
+    ]
+    result["status"] = (
+        "equal" if canonical(actual) == canonical(expected) else "gap" if named else "different"
+    )
+    result["named_gaps"] = named
+    if result["status"] == "different":
+        result["different_sections"] = [
+            key for key in actual if canonical(actual[key]) != canonical(expected[key])
+        ]
+    print("FINISH", canonical(result), flush=True)
+    return result
+
+
+def references(c: _Collection, whole: bool) -> Iterator[_Collection]:
+    if whole:
+        yield c
+        return
+    for source in c.snapshot.sources:
+        snapshot = dataclasses.replace(
+            c.snapshot,
+            sources=(source,),
+            inputs=tuple(
+                item
+                for item in c.snapshot.inputs
+                if not item.path.endswith(".dart") or item.path == source.rel_path
+            ),
+        )
+        resolver = copy.copy(c.resolver)
+        resolver.problems = list(c.resolver.problems)
+        if isinstance(resolver, CachedResolver):
+            resolver.site_answers = {}
+        reference = _Collection(
+            c.request, snapshot, {source.rel_path: c.syntax[source.rel_path]}, resolver
+        )
+        reference._prepare_sources()
+        yield reference
+
+
+def checked_corpus(binary: Path, corpus: Corpus, output: Path | None) -> list[int]:
+    print("CORPUS", corpus.name, "prepare", flush=True)
+    c = prepared(corpus, binary)
+    run = hashlib.sha256(
+        binary.read_bytes()
+        + Path(__file__).read_bytes()
+        + canonical([dataclasses.asdict(item) for item in c.snapshot.inputs]).encode()
+    ).hexdigest()
+    path = None if output is None else output / f"{corpus.name.replace('/', '_')}.jsonl"
+    done = {}
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            data = path.read_bytes()
+            if data and not data.endswith(b"\n"):
+                path.write_bytes(data[: data.rfind(b"\n") + 1])
+            done = {
+                row["rel"]: row
+                for line in path.read_text().splitlines()
+                if (row := json.loads(line))["run"] == run
+            }
+    totals = [0, 0, 0, 0]
+    for c in references(c, corpus.name in FIXTURES or corpus.name == "demo variants"):
+        rel = c.snapshot.sources[0].rel_path if len(c.snapshot.sources) == 1 else "<project>"
+        row = done.get(rel)
+        if row is None:
+            row = {"run": run, **timed_compare(binary, c)}
+            if path is not None:
+                with path.open("a") as stream:
+                    stream.write(canonical(row) + "\n")
+        count = row["files"]
+        totals[0] += count
+        totals[{"equal": 1, "gap": 2, "different": 3}[row["status"]]] += count
+        if row["wall_seconds"] > 60:
+            print("OVER-60-SECONDS", canonical(row), flush=True)
+        if row["status"] == "different":
+            break
+    return totals
+
+
 def main() -> int:
     args = argparse.ArgumentParser(description=__doc__)
     args.add_argument("--demos", action="store_true")
     args.add_argument("--corpus", action="append", default=[])
+    args.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Append per-file timings and resume matching inputs and binary",
+    )
     options = args.parse_args()
     binary = build()
     rows: dict[str, list[int]] = {}
@@ -225,72 +359,12 @@ def main() -> int:
             name, _, path = item.partition("=")
             corpora.append(Corpus(name, Path(path), (".",), "bench"))
         for corpus in corpora:
-            c = prepared(corpus, binary)
             row = rows.setdefault(corpus.name, [0, 0, 0, 0])
-            references = [c]
-            if corpus.name not in FIXTURES and corpus.name != "demo variants":
-                references = []
-                for source in c.snapshot.sources:
-                    snapshot = dataclasses.replace(
-                        c.snapshot,
-                        sources=(source,),
-                        inputs=tuple(
-                            item
-                            for item in c.snapshot.inputs
-                            if not item.path.endswith(".dart") or item.path == source.rel_path
-                        ),
-                    )
-                    resolver = copy.copy(c.resolver)
-                    resolver.problems = list(c.resolver.problems)
-                    reference = _Collection(
-                        c.request,
-                        snapshot,
-                        {source.rel_path: c.syntax[source.rel_path]},
-                        resolver,
-                    )
-                    reference._prepare_sources()
-                    references.append(reference)
-            for start in range(0, len(references), 16):
-                batch = references[start : start + 16]
-                inputs, expecteds = [], []
-                for reference in batch:
-                    inputs.append(layer_input(reference))
-                    expecteds.append(python(reference))
-                actuals = native_rows(binary, inputs)
-                for reference, actual, expected in zip(batch, actuals, expecteds, strict=True):
-                    actual.pop("work")
-                    count = len(reference.snapshot.sources)
-                    row[0] += count
-                    if canonical(actual) == canonical(expected):
-                        row[1] += count
-                    elif any(
-                        gap["data"]["message"].startswith(
-                            ("CollectionWorkLimit:", "LanguageVersionOrderGap:")
-                        )
-                        for gap in actual["gaps"]
-                    ):
-                        row[2] += count
-                    else:
-                        row[3] += count
-                        print(
-                            "DIFFERENT",
-                            corpus.name,
-                            reference.snapshot.sources[0].rel_path,
-                            flush=True,
-                        )
-                        print(
-                            "different sections",
-                            [
-                                key
-                                for key in actual
-                                if canonical(actual[key]) != canonical(expected[key])
-                            ],
-                            flush=True,
-                        )
-                        return 1
-                    if row[0] % 100 == 0:
-                        print(corpus.name, row, flush=True)
+            measured = checked_corpus(binary, corpus, options.output_dir)
+            row[:] = [a + b for a, b in zip(row, measured, strict=True)]
             print(corpus.name, row, flush=True)
+            if row[3]:
+                return 1
     return int(any(row[3] for row in rows.values()))
 
 

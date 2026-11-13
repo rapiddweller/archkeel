@@ -338,3 +338,50 @@ def test_parts_without_a_main_override_have_a_named_order_gap(binary: Path, tmp_
     actual = parity.native(binary, parity.layer_input(c))
     assert not actual["full_scope"]
     assert any("LanguageVersionOrderGap:" in gap["data"]["message"] for gap in actual["gaps"])
+
+
+def test_real_resolver_cache_does_not_change_the_python_oracle(
+    binary: Path, tmp_path: Path
+) -> None:
+    c = case(
+        tmp_path,
+        {
+            "a.dart": "import 'base.dart'; void f(){ final b = Base(1); b.f(); unknown(); }",
+            "base.dart": BASE,
+        },
+    )
+    actual, cached = parity.compare(binary, c)
+    plain = parity._Collection(
+        c.request, c.snapshot, c.syntax, parity.Resolver(c.snapshot, c.syntax)
+    )
+    assert parity.canonical(cached) == parity.canonical(parity.python(plain))
+    assert parity.canonical(actual) == parity.canonical(cached)
+
+
+def test_scope_work_scales_by_file_not_by_project_scope_count(binary: Path, tmp_path: Path) -> None:
+    work = []
+    for count in (64, 128):
+        c = case(
+            tmp_path, {f"file{index:03}.dart": "void f(){ unknown(); }" for index in range(count)}
+        )
+        actual = parity.native(binary, parity.layer_input(c))
+        assert not actual["gaps"] and len(actual["calls"]) == count
+        work.append(actual["work"])
+    assert work[1] < work[0] * 2.5
+
+
+def test_parity_output_resumes_only_completed_matching_inputs(
+    binary: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case(tmp_path, {"a.dart": "class A {}"})
+    corpus = parity.Corpus("resume", tmp_path, ("lib",), "shop")
+    output = tmp_path / "timings"
+    assert parity.checked_corpus(binary, corpus, output) == [1, 1, 0, 0]
+    with (output / "resume.jsonl").open("a") as stream:
+        stream.write('{"interrupted":')
+
+    def no_repeat(*args: object) -> None:
+        pytest.fail("a completed matching input must not run again")
+
+    monkeypatch.setattr(parity, "timed_compare", no_repeat)
+    assert parity.checked_corpus(binary, corpus, output) == [1, 1, 0, 0]
