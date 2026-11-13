@@ -22,6 +22,7 @@ def command(
     root: Path | None,
     *flags: str,
     cwd: Path | None = None,
+    verb: str = "validate",
 ) -> subprocess.CompletedProcess[str]:
     guard = GUARD.replace(
         "from archkeel.cli import main",
@@ -33,7 +34,7 @@ def command(
             sys.executable,
             "-c",
             guard,
-            "validate",
+            verb,
             "--core-only",
             *([] if root is None else ["--root", str(root)]),
             *flags,
@@ -47,11 +48,24 @@ def command(
     )
 
 
-def test_a_real_pass_has_no_python_collector_ir_or_checker(built: Path) -> None:
+@pytest.mark.parametrize(
+    "verb,form",
+    [
+        ("validate", "--text"),
+        ("validate", "--json"),
+        ("report", "--text"),
+        ("report", "--json"),
+        ("check", "--json"),
+    ],
+)
+def test_a_real_pass_has_no_python_collector_ir_or_checker(
+    built: Path, verb: str, form: str
+) -> None:
     with case_root(HONEST) as root:
-        done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
-    assert done.returncode == 0, done.stdout + done.stderr
-    assert json.loads(done.stdout)["status"] == "PASS"
+        done = command(built / f"archkeel-core{SUFFIX}", root, form, verb=verb)
+    assert done.returncode == (2 if verb == "check" else 0), done.stdout + done.stderr
+    assert "Traceback" not in done.stderr
+    assert "#1103" in done.stdout if verb == "check" else "PASS" in done.stdout
 
 
 def test_a_real_rust_pass_also_blocks_python_decision_imports(built: Path, tmp_path: Path) -> None:

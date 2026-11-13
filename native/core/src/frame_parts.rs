@@ -23,6 +23,7 @@ pub(super) struct Parts {
     pub(super) self_test: SelfTest,
     pub(super) locations: BTreeMap<String, Location>,
     pub(super) collection_gaps: Vec<CollectionGap>,
+    pub(super) contract_digest: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -147,6 +148,7 @@ pub(crate) fn refused_scan(reason: &str) -> Result<Answered, String> {
         sections: BTreeMap::new(),
         locations: BTreeMap::new(),
         collection_gaps: Vec::new(),
+        contract_digest: None,
         unsupported: UnsupportedParts {
             sections: BTreeMap::new(),
             report: None,

@@ -9,10 +9,13 @@ A PASS needs a complete scope and a deciding rule. Refuse a frame with `CoreErro
 
 from __future__ import annotations
 
+import hashlib
 import json
+import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Final, TypeVar
 
 from .core_evidence import (
@@ -26,7 +29,7 @@ from .core_evidence import (
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import _count, _fields, _object, _text, _texts
+from .core_json import RequestMismatch, _count, _fields, _object, _text, _texts
 
 
 class Status(StrEnum):
@@ -35,6 +38,15 @@ class Status(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
+
+
+class RefusalKind(StrEnum):
+    CORE_ERROR = "core_error"
+    COLLECTION_REFUSED = "collection_refused"
+    REQUEST_MISMATCH = "request_mismatch"
+    INVALID_INPUT = "invalid_input"
+    IO_ERROR = "io_error"
+    INTERNAL_ERROR = "internal_error"
 
 
 class CoreCommand(StrEnum):
@@ -129,7 +141,7 @@ _FIELDS: Final = frozenset(
 FRAME_PROTOCOL: Final = FrameProtocol.FRAME
 STAGE_ONE_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
 _EVIDENCE_FIELDS: Final = frozenset(
-    {"protocol", "details", "locations", "unknown_kinds", "collection_gaps"}
+    {"protocol", "details", "locations", "unknown_kinds", "collection_gaps", "contract_digest"}
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
@@ -201,6 +213,10 @@ class CoreFrame:
     @property
     def complete_scope(self) -> bool:
         return self.scope == _ScopeWord.COMPLETE
+
+    @property
+    def code_digest(self) -> str:
+        return self.engine.removeprefix("archkeel-core ")
 
 
 def gap_kind(reason: str) -> GapKind:
@@ -338,12 +354,41 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
+def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:
+    """Bind the response to the requested root and exact contract bytes, not a second verdict."""
+    root = Path(_text(request["root"], "request.root")).resolve()
+    if request.get("discover_root") is True:
+        root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
+    collected = _object(json.loads(derived), "collect.request")
+    snapshot = _object(collected.get("snapshot"), "collect.request.snapshot")
+    if _text(snapshot.get("root"), "snapshot.root") != str(root):
+        raise RequestMismatch("the core frame answers another root")
+    config = (root / _text(request["config"], "request.config")).resolve(strict=True)
+    if not config.is_relative_to(root):
+        raise RequestMismatch("the configuration leaves the requested root")
+    with config.open("rb") as stream:
+        raw = stream.read((1 << 20) + 1)
+    if len(raw) > 1 << 20:
+        raise RequestMismatch("the configuration exceeds the core byte limit")
+    scan = _object(tomllib.loads(raw.decode("utf-8")).get("scan"), "scan")
+    contract = (root / _text(scan.get("contract"), "scan.contract")).resolve(strict=True)
+    if not contract.is_relative_to(root):
+        raise RequestMismatch("the contract leaves the requested root")
+    with contract.open("rb") as stream:
+        payload = stream.read((64 << 20) + 1)
+    if len(payload) > 64 << 20:
+        raise RequestMismatch("the contract exceeds the core byte limit")
+    if frame.get("contract_digest") != hashlib.sha256(payload).hexdigest():
+        raise RequestMismatch("the core frame contract digest differs from the requested contract")
+
+
 def read_frame(
     stdout: bytes,
     exit_code: int,
     *,
     scan: bool = False,
     require_protocol: bool = False,
+    request: Mapping[str, object] | None = None,
 ) -> CoreFrame:
     """The typed frame of one run of the core, or `CoreError`. `scan` reads the frame of a scan
     request, whose self-test has the `collect` part (AD-406)."""
@@ -378,6 +423,8 @@ def read_frame(
         raise CoreError("the core frame gives violation details to a rule without violations")
     _object(frame["sections"], "sections")
     gaps, missing, derived = _gaps(frame, scan)
+    if request is not None and derived is not None:
+        _bind_request(frame, request, derived)
     beyond = _texts(frame["beyond"], "beyond")
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
     if not passing.issuperset(beyond):
