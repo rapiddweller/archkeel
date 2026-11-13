@@ -17,16 +17,9 @@ native source evidence and conservative UNKNOWNs.
 - **Detailed architecture contracts.** ArchKeel's own Target defines lower-level
   owners, ports and responsibilities across Core, language collectors and reports.
   Observation, policy evaluation and rendering have separate owners.
-- **Bounded native Python proof.** Supported provider sources, class creation,
-  inherited generic signatures and context-manager signatures retain source-bound
-  evidence. Missing binding identity and unsupported forms remain UNKNOWN;
-  known declaration violations remain visible beside runtime uncertainty.
-  Source declaration identity does not establish runtime immutability.
-- **Literal dynamic dependencies.** Dependency rules include proven literal
-  `importlib.import_module` and builtin `__import__` calls. Uncertain loader
-  bindings remove complete proof only from affected rule scopes. Conditional and
-  later bindings retain the possible builtin fallback. Mounted rules use their
-  clipped source domain; module-cycle uncertainty follows the full scanned graph.
+- **Native Rust and TypeScript collectors.** The bundled binaries replace the Python
+  collector implementations. Unsupported forms retain UNKNOWN. Python and Dart projects
+  require archkeel 4.0.1 until their native collectors and the store support their replies.
 - **JavaScript script-global dependencies.** The TypeScript adapter records supported
   script-global crossings for existing dependency rules, including bounded alias,
   factory-member and destructuring forms. Standard globals follow supported

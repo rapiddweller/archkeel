@@ -29,7 +29,7 @@ CI_CHECK_STEPS = [
     "demo-typescript",
     "browser-runtime-check",
     "typescript-libs-check",
-    "report-timing",
+    "self-validate-native",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
@@ -107,7 +107,7 @@ def test_gate_keeps_supported_checks_without_the_python_self_check(
     [
         None,
         "ci-artifacts-clean",
-        "report-timing",
+        "self-validate-native",
         "typescript-compiler-check",
         "demo-typescript",
         "mermaid",

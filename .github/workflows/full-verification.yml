@@ -48,8 +48,8 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
-      - name: Measure architecture report
-        run: make report-timing
+      - name: Check the native architecture report
+        run: make self-validate-native
 
       - name: Check documentation diagrams
         run: make mermaid
@@ -64,7 +64,7 @@ jobs:
           name: report-check-evidence
           path: |
             test-artifacts/pytest/*.xml
-            test-artifacts/report-timing/architecture.timing.json
+            test-artifacts/validation-native/result.json
           if-no-files-found: warn
           retention-days: 1
 
@@ -73,9 +73,9 @@ jobs:
         with:
           name: current-report
           path: |
-            test-artifacts/report-timing/architecture.json
-            test-artifacts/report-timing/architecture.report.html
-            test-artifacts/report-timing/architecture.detail*.html
+            test-artifacts/validation-native/architecture.json
+            test-artifacts/validation-native/architecture.report.html
+            test-artifacts/validation-native/architecture.detail*.html
           if-no-files-found: error
           retention-days: 1
 

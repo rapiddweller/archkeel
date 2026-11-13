@@ -13,7 +13,7 @@ FLUTTER_EXECUTABLE ?= flutter
 
 ci: ci-check mermaid
 
-ci-check: ci-artifacts-clean ci-core-check report-timing
+ci-check: ci-artifacts-clean ci-core-check self-validate-native
 
 ci-pr-check: ci-pr-static pr-test
 
@@ -185,9 +185,9 @@ demos:
 demo-studio:
 	$(UV) run --locked python -m fixtures.demo_catalog_studio
 
-report-pages: report-timing demos
-	cp test-artifacts/report-timing/architecture.json test-artifacts/report-timing/architecture.report.html \
-		test-artifacts/report-timing/architecture.detail*.html test-artifacts/pages/
+report-pages: self-validate-native demos
+	cp test-artifacts/validation-native/architecture.json test-artifacts/validation-native/architecture.report.html \
+		test-artifacts/validation-native/architecture.detail*.html test-artifacts/pages/
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --contract schema/architecture-contract-3.7.schema.json --contract schema/architecture-contract-3.8.schema.json --contract schema/architecture-contract-3.9.schema.json --contract schema/architecture-contract-3.10.schema.json --contract schema/architecture-contract-3.11.schema.json --contract schema/architecture-contract-3.12.schema.json --contract schema/architecture-contract-3.13.schema.json --contract schema/architecture-contract-3.14.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json --view-spec schema/view-spec.schema.json --view-check schema/view-check.schema.json --story-trace schema/story-trace.schema.json

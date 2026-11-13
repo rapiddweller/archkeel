@@ -238,12 +238,7 @@ SELECTIONS: dict[str, tuple[str, ...]] = {
         "test_analyzer.py",
         "test_architecture_projection.py",
         "test_boundary_types_contextmanager.py",
-        "test_numeric_operand_observation.py",
-        "test_python_class_value_proofs.py",
-        "test_python_contextmanager_signatures.py",
         "test_python_provider_sources.py",
-        "test_python_source_evidence_lines.py",
-        "test_typed_python_receivers.py",
         "test_validation.py",
         # AD-388: the pinned standard library equals `sys.stdlib_module_names` of each minor.
         "test_native_standard_library.py",

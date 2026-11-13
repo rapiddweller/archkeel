@@ -51,7 +51,7 @@ replace testing the behavior you change. Python and Dart project tests do not ru
 the native collectors and the store support their replies. No new recordings replace those tests.
 
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
-includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`,
+includes the UML TypeScript compiler check. It also runs `make self-validate-native`, `make mermaid`,
 `make report-browser-tests` and `make demos`. It runs the retained suite in area jobs on Linux/Python 3.11,
 TypeScript collector compatibility on Linux/Python 3.12, and Windows process and path safety checks.
 Browser module boundaries stay in the full suite. Manual dispatch uses the same checks.

@@ -15,6 +15,8 @@ A configuration cannot authorize a supported subset of an unsupported project.
 
 The root Python self-check stops because it needs the deleted Python collector.
 The native self-check stays mandatory, with its pinned gaps and violations.
+CI publishes the Rust self-report instead of measuring the unsupported Python root report.
+The gallery names and counts unsupported demos before collection. Its TypeScript demos stay live.
 Lint, type checks and tests of retained code stay mandatory.
 Delete tests that serve only the deleted implementations. Do not create recordings for them.
 Keep native unit tests. Name parity tests as skipped until their released oracle is connected.

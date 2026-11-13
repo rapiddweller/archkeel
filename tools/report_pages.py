@@ -18,6 +18,8 @@ from tempfile import TemporaryDirectory
 from textwrap import shorten
 
 from archkeel.cli import main as archkeel_main
+from archkeel.cli.config import parse_config
+from archkeel.ir.languages import UnsupportedProjectError
 from fixtures.architecture_demo import CATALOG, PROJECT_REPORT_GROUPS, REPORT_CASES, replay
 from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
@@ -43,6 +45,7 @@ def build_demos(output: Path) -> list[dict[str, object]]:
     }
     rows: list[dict[str, object]] = []
     failures: list[str] = []
+    skipped = 0
     table = [
         "| demo | expected exit | exit | coverage | rules | seconds |",
         "|---|---|---|---|---|---|",
@@ -54,6 +57,14 @@ def build_demos(output: Path) -> list[dict[str, object]]:
         exit_code = coverage = rules = None
         started = time.perf_counter()
         try:
+            config = (
+                variant.files[variant.config]
+                if variant.config in variant.files
+                else (variant.fixture / variant.config).read_text()
+            )
+            if config is None:
+                raise ValueError("the demo deletes its configuration")
+            parse_config(config.encode(), variant.config)
             stdout = io.StringIO()
             with contextlib.redirect_stdout(stdout):
                 if variant in VARIANTS:
@@ -81,6 +92,10 @@ def build_demos(output: Path) -> list[dict[str, object]]:
                     name, variant.summary, report, artifact, requires_uml=name in project_case_ids
                 )
             )
+        except UnsupportedProjectError as error:
+            skipped += 1
+            coverage = rules = "SKIP"
+            print(f"SKIP {name}: {error}", flush=True)
         except Exception as error:
             traceback.print_exc()
             failures.append(f"{name}: {error}")
@@ -94,6 +109,7 @@ def build_demos(output: Path) -> list[dict[str, object]]:
             f"| {name} | {expected_exit} | {exit_code} | {coverage} | {rules} | {seconds:.1f} |"
         )
     text = "\n".join(table) + "\n"
+    text += f"\n{skipped} unsupported projects skipped; use archkeel 4.0.1.\n"
     if failures:
         text += "\nFailed demos:\n" + "".join(f"- {failure}\n" for failure in failures)
     print(text, flush=True)
@@ -176,6 +192,7 @@ def _write_index(output: Path, rows: list[dict[str, object]]) -> None:
             "variants": [by_id[case_id] for case_id in group["variants"]],
         }
         for group in PROJECT_REPORT_GROUPS
+        if all(case_id in by_id for case_id in (group["baseline"], *group["variants"]))
     ]
     controls = [
         {
@@ -307,7 +324,8 @@ footer {{border-top:1px solid #343b3f;color:#bcc3c7;font-size:.9rem}}
 <p>ArchKeel compares observed code with declared architecture. Explore dependencies,
 findings and explicit gaps in what can be proven.</p></div>
 <a class="current" href="architecture.report.html?theme=dark">
-<h2>ArchKeel’s current architecture</h2><p>The latest report from Main. Navigate observed code,
+<h2>ArchKeel’s current Rust architecture</h2><p>The latest native report from Main.
+Navigate observed code,
 declared intent and their differences — down to the source evidence.</p>
 <span>Open current report →</span></a>
 <section aria-labelledby="projects"><h2 id="projects">Explore full-project journeys</h2>
@@ -315,8 +333,8 @@ declared intent and their differences — down to the source evidence.</p>
 source-only changes. Observation, coverage, declared rules and UML comparison remain separate.</p>
 {project_html}</section>
 <section aria-labelledby="controls"><h2 id="controls">Rule fixtures and smaller control</h2>
-<p>These focused examples show individual rules and interactions. I-flutter-shop is a smaller
-runnable control, not a full-project demo.</p>
+<p>These focused examples show individual rules and interactions in supported projects.
+Python and Dart projects require archkeel 4.0.1 during the native-core change.</p>
 <div class="grid">{controls_html}</div></section></main>
 <footer><span>Generated alongside the current Main report.</span>
 <a href="https://github.com/rapiddweller/archkeel#start-here">Get started with ArchKeel ↗</a>
