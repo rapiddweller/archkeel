@@ -21,13 +21,6 @@ from test_baseline import (
     _repo,
 )
 from test_html_report import _start_tags
-from test_recursive_inside_independent_contracts import (
-    COMPONENT_GRAPH_MARKER,
-    TARGET_GRAPH_MARKER,
-    _commit_tree,
-    _forbidden_edge,
-    _write_three_levels,
-)
 from test_report_filter import _tour_root
 from test_report_rule_evidence import _flow_data, _linked_audit
 
@@ -1098,50 +1091,3 @@ def test_real_html_keeps_each_native_scope_filter_label_with_its_control(
     controls = {item["id"] for tag in ("input", "select") for item in _start_tags(page, tag)}
     assert {item["for"] for item in labels} == {"flow-focus", "flow-violations-only"}
     assert all(item["for"] in controls for item in labels)
-
-
-def test_real_report_scopes_root_intermediate_and_leaf_assessments_to_receipts(
-    tmp_path: Path, capsys
-) -> None:
-    _write_three_levels(
-        tmp_path,
-        deep_rules=[_forbidden_edge()],
-        source_import="from sample.layer.target.api import VALUE\n",
-    )
-    deep_contract_path = tmp_path / "contracts/two.json"
-    deep_contract = json.loads(deep_contract_path.read_text())
-    source = next(item for item in deep_contract["components"] if item["label"] == "source")
-    source["requires"] = [{"component": "target", "rationale": "The probe crosses here."}]
-    deep_contract_path.write_text(json.dumps(deep_contract))
-    (tmp_path / "archkeel.toml").write_text(
-        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
-    )
-    (tmp_path / "docs/architecture/sample.md").write_text(
-        f"{COMPONENT_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
-        f"{TARGET_GRAPH_MARKER}\n```mermaid\ngraph TD\n```\n"
-    )
-    _commit_tree(tmp_path)
-
-    result, observation = _cli_report(tmp_path, tmp_path, capsys)
-    assessments = {item["id"]: item for item in result["rule_assessments"]}
-    receipts = {
-        rule_id: record
-        for record in observation.records("scope_observations") or ()
-        if record.kind == "rule_evaluation"
-        for rule_id in record.rule_ids
-    }
-
-    assert assessments["REQUIRES-COMPLETE"]["status"] == "PASS"
-    assert assessments["app:REQUIRES-COMPLETE"]["status"] == "PASS"
-    assert assessments["REQUIRES-COMPLETE"]["evaluation_proven"] is True
-    assert assessments["app:REQUIRES-COMPLETE"]["evaluation_proven"] is True
-    assert receipts["REQUIRES-COMPLETE"].data.get("scope") == "root"
-    assert receipts["app:REQUIRES-COMPLETE"].data.get("scope") == "app"
-
-    assert assessments["app:app:REQUIRES-COMPLETE"]["status"] == "PASS"
-    assert assessments["app:app:REQUIRES-COMPLETE"]["evaluation_proven"] is True
-    assert receipts["app:app:REQUIRES-COMPLETE"].data.get("scope") == "app"
-
-    assert assessments["app:app:DEEP-NO-EDGE"]["status"] == "FAIL"
-    assert assessments["app:app:DEEP-NO-EDGE"]["evaluation_proven"] is True
-    assert receipts["app:app:DEEP-NO-EDGE"].data.get("scope") == "app"

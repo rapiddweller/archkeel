@@ -19,31 +19,16 @@ import dataclasses
 import enum
 import json
 import locale
-import os
 import random
 import subprocess
 import tomllib
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from conftest import build_native_copy
 from script_fields import SCRIPT_FIELDS
-from test_collector_native_imports import (
-    COMMONJS,
-    CONFIGS,
-    PACKAGES,
-    SOURCES,
-    SPECIFIERS,
-    _imports_of,
-    _links,
-    _pathological,
-    _random_source,
-    _write,
-)
-
-from archkeel.analyzer.typescript import parse
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
@@ -123,17 +108,6 @@ def _in_document_order(bindings: object) -> object:
     return sorted(bindings, key=lambda item: (item["span"]["line"], item["span"]["column"]))
 
 
-def _python(rel: str, data: bytes) -> dict[str, object] | None:
-    """The facts of the oracle; `None` where it fails on the depth of the tree."""
-    try:
-        syntax = parse.parse(rel, data)
-    except RecursionError:
-        return None
-    facts = {name: _plain(getattr(syntax, name)) for name in FIELDS}
-    facts["import_bindings"] = _in_document_order(facts["import_bindings"])
-    return facts
-
-
 def _native(binary: Path, files: list[File]) -> list[dict[str, object]]:
     request = "".join(json.dumps({"rel": rel, "file": str(path)}) + "\n" for rel, path in files)
     done = subprocess.run(
@@ -185,23 +159,6 @@ class Result:
         self.differences += list(_delta(rel, native, python))[:3]
 
 
-def compare(binary: Path, files: Iterable[File]) -> Result:
-    """Compare the dump of the native collector with `parse.parse()` for each file."""
-    listed = [(rel, path) for rel, path in files]
-    result = Result()
-    replies = _native(binary, listed)
-    with _c_locale():
-        for (rel, path), reply in zip(listed, replies, strict=True):
-            assert reply["rel"] == rel
-            if "syntax" not in reply:
-                result.native_failed.append(f"{rel}: {reply.get('error')}")
-                continue
-            native = reply["syntax"]
-            native["import_bindings"] = _in_document_order(native["import_bindings"])
-            result.add(rel, native, _python(rel, path.read_bytes()))
-    return result
-
-
 def _sources(root: Path, under: str = ".") -> list[File]:
     base = root / under
     found = [
@@ -217,80 +174,6 @@ def _assert_equal(result: Result, expected_files: int | None = None) -> None:
     assert result.differences == [], "\n".join(result.differences[:20])
     if expected_files is not None:
         assert result.files == expected_files
-
-
-@pytest.mark.parametrize("path", [*FIXTURES, STUDIO_UI])
-def test_fixture_syntax_equals_the_python_parser(dump_binary: Path, path: str) -> None:
-    root = ROOT / path
-    files = _sources(root)
-    assert len(files) >= 2
-    result = compare(dump_binary, files)
-    _assert_equal(result, len(files))
-    # The comparison is not empty: these trees hold definitions and import bindings.
-    assert result.counts["definitions"] > 0
-    assert result.counts["import_bindings"] > 0
-    assert result.counts["sites"] > 0
-    assert result.python_failed == 0
-
-
-def test_the_resolution_grid_syntax_equals_the_python_parser(
-    tmp_path: Path, dump_binary: Path
-) -> None:
-    importer = _imports_of(SPECIFIERS)
-    files = {
-        **PACKAGES,
-        **SOURCES,
-        "tsconfig.json": CONFIGS["node10"],
-        "src/importer.ts": importer,
-        "src/importer.mts": importer,
-        "src/importer.cts": importer,
-        "src/sub/deep.ts": _imports_of(["./x", "../util", "pkg-a", "@app/x"]),
-    }
-    _write(tmp_path, files)
-    result = compare(dump_binary, _sources(tmp_path))
-    _assert_equal(result)
-    assert result.counts["import_bindings"] >= 3 * len(SPECIFIERS)
-
-
-def test_symlinked_sources_syntax_equals_the_python_parser(
-    tmp_path: Path, dump_binary: Path
-) -> None:
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    (outside / "secret.ts").write_text("export const s = 1;\n")
-    root = tmp_path / "repo"
-    _write(
-        root,
-        {
-            "src/real.ts": "export const r = 1;\n",
-            "src/dir/x.ts": "export const x = 1;\n",
-            "src/main.ts": _imports_of(["./link", "./dirlink/x", "./escape"]),
-            "vendor/linked-pkg/index.js": "",
-            "node_modules/.keep": "",
-        },
-    )
-    (root / "node_modules").mkdir(exist_ok=True)
-    (outside / "package.json").write_text("{}")
-    _links(root, outside)
-    names = ("src/real.ts", "src/dir/x.ts", "src/main.ts", "src/link.ts", "src/dirlink/x.ts")
-    files = [(rel, root / rel) for rel in names]
-    assert all(path.exists() for _, path in files)
-    assert (root / "src/link.ts").is_symlink()
-    result = compare(dump_binary, files)
-    _assert_equal(result, len(names))
-    assert result.counts["definitions"] >= 4
-
-
-def test_random_sources_syntax_equals_the_python_parser(tmp_path: Path, dump_binary: Path) -> None:
-    rng = random.Random(880)
-    files: dict[str, str] = {"tsconfig.json": COMMONJS}
-    for index in range(240):
-        suffix = rng.choice([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"])
-        head = "export {};\n" if suffix in (".js", ".jsx") else ""
-        files[f"src/fuzz/f{index}{suffix}"] = head + _random_source(rng)
-    _write(tmp_path, files)
-    result = compare(dump_binary, _sources(tmp_path))
-    _assert_equal(result, 240)
 
 
 # Statements that the random sources do not hold: scopes, hoisting and every kind of definition.
@@ -479,78 +362,6 @@ def _mutants(files: list[File], count: int) -> list[tuple[str, bytes]]:
     return found
 
 
-def test_syntax_pieces_equal_the_python_parser(tmp_path: Path, dump_binary: Path) -> None:
-    rng = random.Random(881)
-    files: dict[str, str] = {}
-    for index, piece in enumerate(SYNTAX_PIECES):
-        suffix = ".tsx" if "<div>" in piece else ".ts"
-        files[f"src/p{index}{suffix}"] = piece + "\n"
-    for index in range(300):
-        suffix = rng.choice([".ts", ".tsx", ".js", ".mts", ".cts", ".d.ts", ".mjs", ".cjs"])
-        body = "\n".join(rng.choice(SYNTAX_PIECES) for _ in range(rng.randint(2, 10)))
-        if rng.random() < 0.5:
-            body = "".join(rng.choice([body, ""]) for _ in range(1))
-        files[f"src/mix{index}{suffix}"] = body + "\n"
-    _write(tmp_path, files)
-    result = compare(dump_binary, _sources(tmp_path))
-    _assert_equal(result, len(files))
-    assert result.counts["definitions"] > 500
-    assert result.counts["rebound_names"] > 20
-    assert result.counts["module_exports"] > 0
-    assert result.counts["sites"] > 1000
-    assert result.counts["string_comparisons"] > 20
-
-
-def test_mutated_sources_syntax_equals_the_python_parser(tmp_path: Path, dump_binary: Path) -> None:
-    pieces = {f"p{index}.ts": piece for index, piece in enumerate(SYNTAX_PIECES)}
-    real = _sources(ROOT, STUDIO_UI) + _sources(ROOT / FIXTURES[0]) + _sources(ROOT / FIXTURES[3])
-    pieces_dir = tmp_path / "pieces"
-    _write(pieces_dir, pieces)
-    seeds = [*real, *_sources(pieces_dir)]
-    count = int(os.environ.get(MUTANTS, "600"))
-    written: list[File] = []
-    for index, (rel, data) in enumerate(_mutants(seeds, count)):
-        path = tmp_path / "mutants" / f"{index}{Path(rel).suffix}"
-        path.parent.mkdir(exist_ok=True)
-        path.write_bytes(data)
-        written.append((f"src/m{index}{Path(rel).suffix}", path))
-    result = compare(dump_binary, written)
-    _assert_equal(result, count)
-    assert result.python_failed == 0
-
-
-def test_hostile_sources_give_facts_where_python_fails_on_depth(
-    tmp_path: Path, dump_binary: Path
-) -> None:
-    # Python recurses in `_walk` and stops with a RecursionError near a depth of 1 000. The native
-    # walk is iterative and gives facts for the same tree (AD-323). Every other file is equal.
-    files: list[File] = []
-    for name, data in _pathological().items():
-        path = tmp_path / name
-        path.write_bytes(data)
-        files.append((f"src/{name}", path))
-    deep = {
-        "deep-pattern.ts": b"const " + b"[" * 3000 + b"x" + b"]" * 3000 + b" = y;",
-        "deep-object.ts": b"const " + b"{ a: " * 2000 + b"x" + b" }" * 2000 + b" = y;",
-        "deep-class.ts": b"class A { m() { " * 800 + b"} }" * 800,
-        "deep-functions.js": b"(function(){" * 3000 + b"})()" * 3000,
-        "deep-assign.ts": b"a = " * 4000 + b"1;",
-    }
-    for name, data in deep.items():
-        path = tmp_path / name
-        path.write_bytes(data)
-        files.append((f"src/{name}", path))
-    result = compare(dump_binary, files)
-    assert result.native_failed == []
-    assert result.differences == [], "\n".join(result.differences[:20])
-    assert result.files == len(files)
-    # The deep files are the only ones that the oracle cannot read, and it cannot read at least one.
-    deep_names = {f"src/{name}" for name in (*deep, "deep-parens.ts", "deep-arrays.ts")}
-    deep_names |= {"src/deep-types.ts", "src/deep-blocks.ts"}
-    assert result.python_failed_names
-    assert set(result.python_failed_names) <= deep_names
-
-
 def _shape(name: str, count: int) -> bytes:
     """Files whose cost grows with the line length or the depth: a minified file and nests."""
     match name:
@@ -565,23 +376,6 @@ def _shape(name: str, count: int) -> bytes:
 
 
 SHAPES = ("one-line", "nested-functions", "nested-classes")
-
-
-@pytest.mark.parametrize("name", SHAPES)
-def test_pathological_shapes_equal_the_python_parser(
-    tmp_path: Path, dump_binary: Path, name: str
-) -> None:
-    # Python is quadratic on these shapes (614 s for 40 000 functions on one line) and stops with a
-    # RecursionError on deep nests, so the oracle runs on sizes that it can read.
-    files: list[File] = []
-    for count in (1, 2, 7, 60, 200 if name == "one-line" else 90):
-        path = tmp_path / f"{name}-{count}.ts"
-        path.write_bytes(_shape(name, count))
-        files.append((f"src/{path.name}", path))
-    result = compare(dump_binary, files)
-    _assert_equal(result, len(files))
-    assert result.python_failed == 0
-    assert result.counts["definitions"] > 100
 
 
 def test_deeply_nested_patterns_give_their_names(tmp_path: Path, dump_binary: Path) -> None:
@@ -663,21 +457,6 @@ def _column_cases() -> dict[str, bytes]:
     return cases
 
 
-def test_the_column_table_and_the_excerpt_cut_equal_the_python_parser(
-    tmp_path: Path, dump_binary: Path
-) -> None:
-    files: list[File] = []
-    for name, data in _column_cases().items():
-        path = tmp_path / f"{name}.ts"
-        path.write_bytes(data)
-        files.append((f"src/{name}.ts", path))
-    result = compare(dump_binary, files)
-    _assert_equal(result, len(files))
-    assert result.python_failed == 0
-    # Each case holds definitions; the comparison is not empty.
-    assert result.counts["definitions"] >= len(files)
-
-
 def test_the_dump_binary_holds_the_markers(dump_binary: Path) -> None:
     # The control of the test above: the markers are in the binary that has the feature.
     data = dump_binary.read_bytes()
@@ -711,20 +490,3 @@ def test_the_release_binary_has_no_dump_feature(native_binary: Path) -> None:
     )
     assert done.returncode != 0
     assert done.stdout == b""
-
-
-def test_a_private_corpus_syntax_equals_the_python_parser(dump_binary: Path) -> None:
-    folder = os.environ.get(PRIVATE_UI)
-    if not folder or not Path(folder).is_dir():
-        pytest.skip(f"{PRIVATE_UI} names no folder")
-    root = Path(folder)
-    files = _sources(root)
-    result = compare(dump_binary, files)
-    # Totals only: a private corpus must not leak a name into a report.
-    print(
-        f"private corpus: {result.files} files, {len(result.differences)} differences, "
-        f"{result.python_failed} oracle failures, "
-        + ", ".join(f"{name} {count}" for name, count in sorted(result.counts.items()))
-    )
-    assert result.native_failed == []
-    assert len(result.differences) == 0

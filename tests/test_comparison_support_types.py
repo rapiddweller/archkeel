@@ -12,11 +12,10 @@ from pathlib import Path
 from typing import get_type_hints
 
 import pytest
-from test_architecture_demo import CONFIG, _prepare_repo
+from test_architecture_demo import _prepare_repo
 from test_delta import _delta
 from test_delta import _model as _observation
 from test_dependency_api_target import _source_members
-from test_duplication import _TOUR
 from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
@@ -73,19 +72,6 @@ def test_all_five_unknown_invariants_keep_the_original_error_and_empty_supported
     assert getattr(cls("SUPPORTED", **{count: 0}), count) == 0
     with pytest.raises(ValueError, match=f"^an unsupported claim names no {noun}$"):
         cls("UNKNOWN", **{count: 1})
-
-
-@pytest.mark.parametrize(("module", "name", "producer", "count", "noun"), CLAIMS)
-def test_actual_claim_producers_return_nominal_support_in_both_signal_paths(
-    tmp_path, module, name, producer, count, noun
-):
-    observation = _model(_prepare_repo(tmp_path, dict(_TOUR.files)), CONFIG)
-    derive = getattr(module, producer)
-    complete = derive(observation)
-    assert isinstance(complete.status, StrEnum)
-    assert complete.status is model.ComparisonStatus.SUPPORTED
-    missing = replace(observation, sections=())
-    assert derive(missing).status is model.ComparisonStatus.UNKNOWN
 
 
 @pytest.mark.parametrize("wire", ["SUPPORTED", "UNKNOWN"])
@@ -242,36 +228,6 @@ def _valid(value):
     assert not trace_valid_violations(value)
 
 
-@pytest.mark.parametrize("producers", [False, True])
-def test_native_actual_boundaries_and_all_five_producer_ports_match_fixed_intent(
-    tmp_path, producers
-):
-    root, config = _repository(tmp_path, producers=producers)
-    _valid(_model(root, config))
-
-
-@pytest.mark.parametrize(
-    ("path", "name"),
-    [("model", "DimensionDelta"), ("model", "RatchetObservations")]
-    + [(module.__name__.rsplit(".", 1)[-1], name) for module, name, *_ in CLAIMS],
-)
-def test_native_actual_status_field_widening_fails_independent_intent(tmp_path, path, name):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / f"{path}.py"
-    original = source.read_text()
-    start, rest = original.split(f"class {name}:", 1)
-    assert "status: ComparisonStatus" in rest
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(
-        start + f"class {name}:" + rest.replace("status: ComparisonStatus", "status: str", 1)
-    )
-    changed = _model(root, config)
-    assert trace_valid_violations(changed)
-    assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
-    assert (root / "contract.json").read_bytes() == intent
-
-
 @pytest.mark.parametrize(
     ("path", "old", "new"),
     [
@@ -289,21 +245,6 @@ def test_native_enum_parameter_and_return_widening_fail_fixed_target(tmp_path, p
     assert old in original
     intent = (root / "contract.json").read_bytes()
     source.write_text(original.replace(old, new, 1))
-    assert trace_valid_violations(_model(root, config))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(("module", "name", "producer", "count", "noun"), CLAIMS)
-def test_native_each_actual_producer_return_widening_fails_fixed_target(
-    tmp_path, module, name, producer, count, noun
-):
-    root, config = _repository(tmp_path, producers=True)
-    _valid(_model(root, config))
-    source = root / Path(*module.__name__.split(".")).with_suffix(".py")
-    original = source.read_text()
-    assert f") -> {name}:" in original
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(original.replace(f") -> {name}:", ") -> object:", 1))
     assert trace_valid_violations(_model(root, config))
     assert (root / "contract.json").read_bytes() == intent
 

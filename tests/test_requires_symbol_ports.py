@@ -97,42 +97,6 @@ def test_actual_named_import_port_is_exact_and_legacy_module_permissions_stay(
     assert imports and all(item.data.get("symbols_known") is True for item in imports)
 
 
-def test_source_mutation_to_sibling_cannot_borrow_approved_command_port(tmp_path):
-    root, row, _ = _report(tmp_path, "from sample.core import Command")
-    assert row.status == "PASS"
-    intent = (root / "contract.json").read_bytes()
-    (root / "sample/caller.py").write_text("from sample.core import Other\n")
-    result, _ = run_report(
-        root, config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64), analyzer=observe
-    )
-    assert next(item for item in result.rule_assessments if item.id == RULE["id"]).status == "FAIL"
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "exports",
-    [None, ["Command"], ["Command", "Other"]],
-)
-def test_unexpanded_wildcard_cannot_invent_name_proof_from_export_list(tmp_path, exports):
-    _, row, model = _report(tmp_path, "from sample.core import *", exports=exports)
-    imports = [
-        item
-        for item in model.records("imports") or ()
-        if item.data.get("source_module") == "sample.caller"
-    ]
-    assert imports and all(item.data.get("symbols_known") is True for item in imports)
-    assert {item.data.get("symbol") for item in imports} == {"*"}
-    assert {item.data.get("target_module") for item in imports} == {"sample.core"}
-    assert row.status == "UNKNOWN"
-    limits = [item for item in model.records("unknowns") or () if RULE["id"] in item.rule_ids]
-    assert limits
-
-
-def test_unknown_wildcard_from_other_module_is_still_decisively_forbidden(tmp_path):
-    _, row, _ = _report(tmp_path, "from sample.other import *")
-    assert row.status == "FAIL"
-
-
 def test_existing_requires_query_remains_compatible_and_symbol_query_is_precise():
     entries = (RequiredComponent("core", "Use one port.", ("sample.core:Command",)),)
     assert requires_covers(entries, "core")

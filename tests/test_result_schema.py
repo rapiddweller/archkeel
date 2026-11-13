@@ -18,8 +18,7 @@ from referencing import Registry, Resource
 from test_delta import _model
 
 from archkeel.check.delta import SUPPORTED_DIMENSIONS, build_architecture_delta
-from archkeel.check.run import _incomplete
-from archkeel.ir.codec import delta_payload, observation_payload, result_payload
+from archkeel.ir.codec import delta_payload, observation_payload
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     SCHEMA_VERSION,
@@ -29,7 +28,6 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.profiles import PYTHON
 from fixtures.architecture_demo import CATALOG, materialized_fixture
-from tests.test_dart_profile import _observe
 from tests.test_exact_module_ownership import _contract, _observe_tree
 from tests.test_onboarding import _repository as _onboarding_repository
 
@@ -608,24 +606,6 @@ def test_real_cli_validate_decision_summaries_match_supported_schemas(
             assert not schema.is_valid(malformed), (field, value)
 
 
-def test_real_dart_delta_matches_the_published_schema(validator, tmp_path: Path) -> None:
-    result = _observe(tmp_path, {"lib/a.dart": ""})
-    assert result.exit_code == 0 and result.observation is not None
-    delta = delta_payload(
-        build_architecture_delta(
-            result.observation,
-            result.observation,
-            baseline_digest="a" * 64,
-            head_digest="a" * 64,
-            checker_digest="b" * 64,
-        )
-    )
-    schema = validator.evolve(schema={"$ref": "urn:archkeel:command-result:6.0.0#/$defs/delta"})
-    assert not list(schema.iter_errors(delta))
-    delta["analyzer"]["name"] = "unknown-analyzer"
-    assert not schema.is_valid(delta)
-
-
 def test_delta_schema_keeps_legacy_integer_call_totals(legacy_validator, tmp_path: Path) -> None:
     result = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
     assert result.observation is not None
@@ -648,26 +628,6 @@ def test_delta_schema_keeps_legacy_integer_call_totals(legacy_validator, tmp_pat
         for side in ("baseline", "head"):
             legacy["ratchets"][side]["calls_total"] = None
         assert schema.is_valid(legacy) is (version == "1.4.0")
-
-
-def test_incomplete_dart_check_preserves_profile_sections(validator, tmp_path: Path) -> None:
-    result = _observe(tmp_path, {"lib/a.dart": "import 'x.dart'\n"})
-    assert result.exit_code == 2 and result.observation is not None
-    payload = result_payload(_incomplete(result))
-    assert not list(validator.iter_errors(payload))
-    python = validator.evolve(
-        schema={"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"}
-    )
-    assert not python.is_valid(payload["observation"])
-    for section in ("symbols", "references", "bindings", "imports"):
-        assert isinstance(payload["observation"][section], list), section
-        malformed = copy.deepcopy(payload)
-        malformed["observation"][section] = None
-        assert not validator.is_valid(malformed), section
-        del malformed["observation"][section]
-        assert not validator.is_valid(malformed), section
-    payload["observation"]["analyzer"]["name"] = "unknown-analyzer"
-    assert not validator.is_valid(payload)
 
 
 def test_python_observation_sections_remain_required(validator, tmp_path: Path) -> None:

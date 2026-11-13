@@ -7,17 +7,12 @@ import json
 import shutil
 
 import pytest
-from test_analyzer import _observe_one_rule
 from test_architecture_projection import _repository
-from test_boundary_type_allowances import _ALLOWANCE, _observe_app
-from test_dart_profile import _committed, _component
-from test_exact_type_ignore import RULE as TYPE_IGNORE_RULE
-from test_exact_type_ignore import SOURCE as TYPE_IGNORE_SOURCE
 from test_result_schema import current_validator as current_validator
 from test_target_graph import _nested_repository
 from test_typescript_onboarding import arguments, repository
 
-from archkeel.check.report import run_report, run_saved_report
+from archkeel.check.report import run_report
 from archkeel.cli import build_parser, main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, result_bytes
@@ -298,31 +293,6 @@ def test_saved_query_rejects_rule_facet_for_non_violation_modes(tmp_path, capsys
     assert list(tmp_path.iterdir()) == []
 
 
-def test_saved_dart_query_preserves_current_profile_sections(tmp_path, capsys):
-    root = tmp_path / "repo"
-    root.mkdir()
-    config = _committed(
-        root,
-        {"lib/main.dart": "import 'store.dart';\n", "lib/store.dart": ""},
-        {
-            "components": [
-                _component("core", "app.main", namespace="app.main", public=["app.main"]),
-                _component("store", "app.store", namespace="app.store", public=["app.store"]),
-            ]
-        },
-    )
-    live, packet = run_report(root, config=config, analyzer=observe, only_architecture=True)
-    assert live.exit_code == 0
-    saved = tmp_path / "dart.json"
-    saved.write_bytes(packet)
-    shutil.rmtree(root)
-    assert main(["report", "--input", str(saved), "--only", "architecture", "--json"]) == 0
-    assert capsys.readouterr().out.encode() == result_bytes(live)
-    raw = decode_canonical_model(json.loads(packet))
-    assert raw["coverage"]["calls_analyzed"] == 0
-    assert raw["symbols"] == []
-
-
 def test_saved_typescript_query_matches_native_cli_without_collector_or_repository(
     tmp_path, monkeypatch, capsys
 ):
@@ -360,32 +330,3 @@ def test_saved_typescript_query_matches_native_cli_without_collector_or_reposito
     raw = decode_canonical_model(json.loads(packet))
     assert raw["calls"] == [] and raw["symbols"] == []
     assert raw["typing_signals"] is None and raw["constructs"] == []
-
-
-@pytest.mark.parametrize("kind", ["boundary_type_allowance", "type_ignore_allowance"])
-@pytest.mark.parametrize("fault", [None, "evidence", "rule", "fact", "source_kind"])
-def test_saved_core_allowance_keeps_trace_checks_without_raw_source_payload(tmp_path, kind, fault):
-    if kind == "boundary_type_allowance":
-        observed = _observe_app(tmp_path / "repo", _ALLOWANCE)
-    else:
-        (tmp_path / "repo").mkdir()
-        observed = _observe_one_rule(
-            tmp_path / "repo", TYPE_IGNORE_RULE, {"operations.py": TYPE_IGNORE_SOURCE}
-        )
-    raw = decode_canonical_model(json.loads(canonical_report_bytes(observed.observation)))
-    allowance = next(row for row in raw["typing_signals"] if row["kind"] == kind)
-    assert "owner" not in allowance["data"] and "source_module" not in allowance["data"]
-    if fault == "source_kind":
-        allowance["kind"] = "object_annotation"
-    elif fault is not None:
-        allowance[f"{fault}_ids"] = ["MISSING"]
-    saved = tmp_path / "allowance.json"
-    saved.write_bytes(canonical_report_bytes(raw))
-    shutil.rmtree(tmp_path / "repo")
-    result = run_saved_report(saved, only_architecture=True)
-    if fault is None:
-        assert result.exit_code == 0 and not result.diagnostics
-        assert result.coverage == observed.coverage
-    else:
-        assert result.exit_code == 2 and result.observation_complete == "UNKNOWN"
-        assert result.diagnostics[0].kind == "parse_error"

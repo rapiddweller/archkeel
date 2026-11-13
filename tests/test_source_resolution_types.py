@@ -10,49 +10,20 @@ from pathlib import Path
 from typing import get_args, get_type_hints
 
 import pytest
-from archkeel.analyzer.python.resolve import resolve_name
-from archkeel.analyzer.python.symbols import collect_symbols
-from test_analyzer import _parsed_module
 from test_architecture_demo import _prepare_repo
-from test_lexical_resolution import _facts
 from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import facts
-from archkeel.ir.architecture_graph import ResolutionKind
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import parse_record, record_payload
 from archkeel.ir.model import CallRow
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.source_graph import _source_resolution
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 GUARD = "SOURCE-RESOLUTION-CONTROL"
-
-
-def test_actual_python_call_and_base_producers_return_nominal_source_resolution():
-    _, _, calls, _ = _facts(
-        "def target(): pass\ntarget()\nmissing()\nobj.target()\nclass Base: pass\nBase()\n"
-    )
-    status = calls[0]["data"]["status"]
-    assert isinstance(status, StrEnum), type(status)
-    resolution = facts.SourceResolution
-    statuses = {item["data"]["expression"]: item["data"]["status"] for item in calls}
-    assert statuses["target"] is resolution.RESOLVED
-    assert statuses["missing"] is resolution.UNRESOLVED
-    assert statuses["obj.target"] is resolution.PARTIALLY_RESOLVED
-    assert statuses["Base"] is resolution.RESOLVED
-    construction = next(
-        item["data"]["construction"] for item in calls if item["data"]["expression"] == "Base"
-    )
-    assert construction["status"] is resolution.RESOLVED
-    module = _parsed_module("class Base: pass\nclass Child(Base): pass\n", module="sample.core")
-    symbols, _, _ = collect_symbols([module], {})
-    child = next(item for item in symbols if item["data"]["qualified_name"] == "sample.core.Child")
-    assert child["data"]["base_declarations"][0]["status"] is resolution.RESOLVED
-    assert get_args(get_type_hints(resolve_name)["return"])[0] is resolution
 
 
 @pytest.mark.parametrize("raw", ["resolved", "partially_resolved", "unresolved", "future", None, 1])
@@ -78,17 +49,6 @@ def test_resolution_boundary_preserves_open_wire_metadata(raw):
     else:
         assert recognized is None
     assert record_payload(parsed) == record
-
-
-def test_graph_and_dart_resolver_keep_separate_resolution_domains():
-    from archkeel.analyzer.dart.resolve import ResolutionStatus
-
-    assert _source_resolution("partially_resolved", "bad") is ResolutionKind.PARTIAL
-    assert _source_resolution("resolved", "bad") is ResolutionKind.RESOLVED
-    assert _source_resolution("unresolved", "bad") is ResolutionKind.UNRESOLVED
-    assert facts.parse_source_resolution(ResolutionStatus.UNKNOWN) is None
-    with pytest.raises(ValueError, match="bad"):
-        _source_resolution("unknown", "bad")
 
 
 def test_call_rows_normalize_only_the_unresolved_source_subset():

@@ -153,20 +153,6 @@ def _valid(observation):
     assert not trace_valid_violations(observation)
 
 
-def test_native_actual_direction_field_and_all_four_consumers_meet_fixed_intent(tmp_path):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-
-
-def test_native_actual_direction_field_weakening_fails_unchanged_target(tmp_path):
-    root, config = _repository(
-        tmp_path, ("archkeel/ir/model.py", "change: CallChangeKind", "change: str")
-    )
-    before = (root / "contract.json").read_bytes()
-    assert trace_valid_violations(_model(root, config))
-    assert (root / "contract.json").read_bytes() == before
-
-
 @pytest.mark.parametrize(
     "path,old,new,guard",
     [

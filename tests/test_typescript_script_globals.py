@@ -7,9 +7,8 @@ import json
 from importlib import import_module
 
 import pytest
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.analyzer.typescript.parse import parse
 from collector_pin import assembled, trusted
+from native_typescript import collect
 from test_architecture_demo import _prepare_repo
 from test_source_graph import _graph_from_source_facts
 from test_typescript_partial_uml import _TypeScriptCollector
@@ -509,17 +508,6 @@ def test_read_only_alias_cannot_repair_an_unproven_publication(tmp_path, source)
     assert facts.coverage.gaps and len(facts.files) == 3
 
 
-@pytest.mark.parametrize(
-    ("path", "source"),
-    [
-        ("consumer.ts", "const port = window.Scene; port.create();"),
-        ("consumer.js", "export {}; const port = window.Scene; port.create();"),
-    ],
-)
-def test_read_only_alias_proof_applies_only_to_javascript_scripts(path, source):
-    assert not parse(path, source.encode()).script_aliases
-
-
 def test_script_namespace_coverage_follows_the_existing_module_mode(tmp_path):
     _collect(tmp_path, consumer='eval("Scene.create = 7");')
     (tmp_path / "tsconfig.json").write_text(
@@ -755,81 +743,6 @@ def test_selected_es_module_global_write_invalidates_script_publication(
     call = next(row for row in _records(facts, "calls") if row.data.get("expression") == expression)
     assert call.data.get("status") == "unresolved"
     assert not facts.coverage.full_scope
-
-
-@pytest.mark.parametrize(
-    "consumer",
-    [
-        "(function () { const {Scene} = {}; Scene.create(); })();",
-        "(function () { let {key: Scene = {}} = {}; Scene.create(); })();",
-        "(function () { const [Scene, ...rest] = []; Scene.create(); })();",
-        "(function () { var {Scene} = {}; Scene.create(); })();",
-        "function use({Scene}) { Scene.create(); }",
-        "function* use({Scene}) { Scene.create(); }",
-        "const use = ({Scene}) => Scene.create();",
-        "const use = Scene => Scene.create();",
-        "const use = function Scene() { Scene.create(); };",
-        "const use = function* Scene() { Scene.create(); };",
-        "try {} catch ({Scene}) { Scene.create(); }",
-        "for (const {Scene} of []) { Scene.create(); }",
-        "for (let Scene in {}) { Scene.create(); }",
-        "for (let {Scene} = {}; false;) { Scene.create(); }",
-        "class Holder { method({Scene}) { Scene.create(); } }",
-        "class Holder { static { var {Scene} = {}; Scene.create(); } }",
-        "const Holder = class Scene { method() { Scene.create(); } };",
-        "{ class Scene {} Scene.create(); }",
-        "switch (0) { case 0: const {Scene} = {}; Scene.create(); }",
-        "(function () { if (true) { function Scene() {} } Scene.create(); })();",
-        "(function () { if (true) function Scene() {} Scene.create(); })();",
-    ],
-)
-def test_script_receiver_bindings_cover_lexical_positions(consumer):
-    syntax = parse("consumer.js", consumer.encode())
-    calls = [site for site in syntax.sites if site.path == ("Scene", "create")]
-    assert calls and all(not site.script_free for site in calls)
-    assert not syntax.concerns
-
-
-@pytest.mark.parametrize(
-    "consumer",
-    [
-        "{ const {Scene} = {}; } Scene.create();",
-        "for (let Scene of []) {} Scene.create();",
-        "try {} catch ({Scene}) {} Scene.create();",
-        "class Holder { static { var Scene = {}; } } Scene.create();",
-        "const Holder = class Scene {}; Scene.create();",
-        "const {Scene: local = 0} = {}; Scene.create();",
-        "const {local = Scene.create()} = {};",
-    ],
-)
-def test_script_bindings_do_not_capture_keys_defaults_or_outer_scopes(consumer):
-    syntax = parse("consumer.js", consumer.encode())
-    calls = [site for site in syntax.sites if site.path == ("Scene", "create")]
-    assert calls and all(site.script_free for site in calls)
-    assert not syntax.concerns
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        rb"const \u0053cene = {}; Scene.create();",
-        rb"const \u{53}cene = {}; Scene.create();",
-        rb"const {\u0053cene} = {}; Scene.create();",
-        rb"function use(\u0053cene) { Scene.create(); }",
-    ],
-)
-def test_escaped_binding_spelling_is_an_explicit_unproved_scope(source):
-    syntax = parse("consumer.js", source)
-    call = next(site for site in syntax.sites if site.path == ("Scene", "create"))
-    assert not call.script_free
-    assert any("binding" in concern.reason.lower() for concern in syntax.concerns)
-
-
-def test_literal_unicode_binding_keeps_its_lexical_identity():
-    syntax = parse("consumer.js", "const Scène = {}; Scène.create();".encode())
-    call = next(site for site in syntax.sites if site.path == ("Scène", "create"))
-    assert not call.script_free
-    assert not syntax.concerns
 
 
 def test_shorthand_shadow_does_not_resolve_to_selected_global_publisher(tmp_path):
@@ -1099,31 +1012,6 @@ def test_classic_data_reads_preserve_source_bound_publication_and_member_witness
     (tmp_path / "tsconfig.json").write_text(
         json.dumps({"compilerOptions": {"allowJs": True}, "include": ["src"]})
     )
-    for path, name, members in (
-        ("src/scene.js", "ArchkeelGraphScene", {"create"}),
-        (
-            "src/layout.js",
-            "ArchkeelReportLayout",
-            {
-                "layout",
-                "decodeLayout",
-                "buildAtlasGraph",
-                "layoutUml",
-                "layoutAtlas",
-                "routeUmlRelationships",
-                "hasCompleteManualPositions",
-            },
-        ),
-    ):
-        syntax = parse(path, files[path])
-        [publication] = syntax.script_globals
-        assert publication.name == name and publication.stable
-        assert {published for published, _, _ in publication.members} == members
-        assert publication.span.excerpt in files[path].decode()
-        assert all(
-            any(item.name == local and item.span == span for item in syntax.definitions)
-            for _, local, span in publication.members
-        )
     facts = collect(
         CollectionRequest(
             SnapshotInput(str(tmp_path), "a" * 40, False),

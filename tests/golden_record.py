@@ -67,7 +67,7 @@ def record(
         commit += "+dirty"
     replies = {}
     for name in names:
-        run = golden_producers.producer("python", language=language, **options(language, name))
+        run = golden_producers.producer("native", language=language, **options(language, name))
         with tempfile.TemporaryDirectory() as workspace:
             root = golden_producers.materialize(known[name], Path(workspace))
             replies[name] = golden_replies.canonical(run(root), root)

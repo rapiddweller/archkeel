@@ -10,11 +10,8 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from test_module_explore import _sample
 
-import archkeel.ir.module_explore as explore
 from archkeel.ir.architecture_graph import ArchitectureReport, GraphAssessment, ReportFinding
-from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.report_graph import CellFindings
 
 Found = tuple[tuple[ReportFinding, ...], tuple[GraphAssessment, ...]]
@@ -84,55 +81,3 @@ def test_the_index_keeps_report_order_and_lists_a_finding_once() -> None:
     assert [item.id for item in cast(Any, findings)] == ["f0", "f1", "f2"]
     assert assessments == ()
     assert CellFindings(report).of({"b"})[0] == (first,)
-
-
-@pytest.mark.parametrize(
-    "options",
-    [
-        {},
-        {"permitted": True},
-        {"permitted": True, "own_importer": True, "unowned_importer": True},
-        {
-            "permitted": True,
-            "other_component": True,
-            "other_requires_core": True,
-            "extra_files": {
-                "sample/other.py": "import sample.core\n",
-                "sample/peer.py": "import sample.core\nimport sample.other\n",
-            },
-        },
-    ],
-)
-def test_explore_equals_the_scan_on_a_native_report(
-    tmp_path, monkeypatch: pytest.MonkeyPatch, options: dict[str, Any]
-) -> None:
-    model = _sample(tmp_path, **options)
-    indexed = module_exploration(model)
-    assert any(level.cells for level in indexed)
-    monkeypatch.setattr(explore, "CellFindings", _Scan)
-    assert module_exploration(model) == indexed
-
-
-def test_explore_indexes_each_report_once_for_all_its_cells(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    model = _sample(
-        tmp_path,
-        permitted=True,
-        other_component=True,
-        extra_files={
-            "sample/other.py": "import sample.core\n",
-            "sample/peer.py": "import sample.core\nimport sample.other\n",
-        },
-    )
-    built = 0
-
-    class Counted(CellFindings):
-        def __init__(self, report: ArchitectureReport) -> None:
-            nonlocal built
-            built += 1
-            super().__init__(report)
-
-    monkeypatch.setattr(explore, "CellFindings", Counted)
-    levels = module_exploration(model)
-    assert sum(len(level.cells) for level in levels) > built >= 1

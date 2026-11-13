@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
-from test_catalog_policy_native import _argument, _read_option_use, _run, _use
+from test_catalog_policy_native import _argument, _run
 
 from archkeel.check.report import run_saved_report
 from archkeel.ir.codec import encode_canonical_model, observation_payload
@@ -60,23 +60,6 @@ CALL_ESCAPES = {
 }
 
 
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize("where", ["outside-source", "inside-source"])
-@pytest.mark.parametrize("form", CALL_ESCAPES)
-def test_member_reaching_any_call_but_the_selected_target_keeps_argument_unknown(
-    tmp_path, form, where, mounted
-):
-    body = CALL_ESCAPES[form]
-    if where == "inside-source":
-        caller, extra = HEAD + CONSUME + body, {}
-    else:
-        caller, extra = HEAD + CONSUME, {"sample/other.py": HEAD + body}
-    verdict = _verdicts(
-        tmp_path, caller=caller, rules=[_argument_rule()], extra_files=extra, mounted=mounted
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
 # These forms already fail closed in the collector. They stay UNKNOWN; this guards the class.
 COLLECTOR_ESCAPES = {
     "container-list": "ITEMS = [OptionKey.PAGE_SIZE]\n",
@@ -103,91 +86,6 @@ COLLECTOR_ESCAPES = {
     "owner-local-alias": "def go():\n    A = OptionKey\n    A('page_size')._value_ = 'x'\n",
     "missing-hook-assignment": "OptionKey._missing_ = classmethod(lambda cls, v: None)\n",
 }
-
-
-@pytest.mark.parametrize("where", ["outside-source", "inside-source"])
-@pytest.mark.parametrize("form", COLLECTOR_ESCAPES)
-def test_member_stored_or_mutated_without_a_call_keeps_argument_unknown(tmp_path, form, where):
-    body = COLLECTOR_ESCAPES[form]
-    if where == "inside-source":
-        caller, extra = HEAD + CONSUME + body, {}
-    else:
-        caller, extra = HEAD + CONSUME, {"sample/other.py": HEAD + body}
-    verdict = _verdicts(tmp_path, caller=caller, rules=[_argument_rule()], extra_files=extra)
-    assert verdict == ("UNKNOWN", False)
-
-
-@pytest.mark.parametrize("mounted", [False, True])
-def test_member_passed_to_the_selected_target_from_another_module_still_passes(tmp_path, mounted):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={"sample/other.py": HEAD + "def go():\n    read_option(OptionKey.PAGE_SIZE)\n"},
-        mounted=mounted,
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_member_named_only_in_an_annotation_elsewhere_still_passes(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/other.py": "from typing import Literal\n"
-            "from .catalog import OptionKey\n"
-            "def typed(value: Literal[OptionKey.PAGE_SIZE]) -> None: ...\n"
-        },
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_member_passed_to_a_selected_target_that_calls_something_is_unknown(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller="from .ops import read_option\n"
-        "from .catalog import OptionKey\n"
-        "def consume():\n    read_option(OptionKey.PAGE_SIZE)\n",
-        rules=[_argument_rule("sample.ops.read_option")],
-        extra_files={"sample/ops.py": "def read_option(key):\n    print(key)\n"},
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-def test_member_passed_to_a_mutating_selected_target_from_another_module_is_unknown(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller="from .ops import read_option\n"
-        "from .catalog import OptionKey\n"
-        "def consume():\n    read_option(OptionKey.PAGE_SIZE)\n",
-        rules=[_argument_rule("sample.ops.read_option")],
-        extra_files={
-            "sample/ops.py": "def read_option(key):\n    key._value_ = 'changed'\n",
-            "sample/other.py": "from .ops import read_option\nfrom .catalog import OptionKey\n"
-            "def go():\n    read_option(OptionKey.PAGE_SIZE)\n",
-        },
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize("where", ["outside-source", "inside-source"])
-def test_catalog_use_by_member_reference_is_unaffected_by_escape(tmp_path, where, mounted):
-    # A read stays a read; AD-251 counts syntactic reads and the use inventory ignores exposure.
-    body = MUTATE + "def go():\n    mutate(OptionKey.PAGE_SIZE)\n"
-    if where == "inside-source":
-        caller, extra = HEAD + CONSUME + body, {}
-    else:
-        caller, extra = HEAD + CONSUME, {"sample/other.py": HEAD + body}
-    verdict = _verdicts(
-        tmp_path,
-        caller=caller,
-        rules=[{**_read_option_use(), "target": TARGET}],
-        extra_files=extra,
-        mounted=mounted,
-    )
-    assert verdict == ("PASS", True)
 
 
 # --- (a) continued: any owner read that is not a member read is an escape (#731) -----------
@@ -230,23 +128,6 @@ OWNER_ESCAPES = {
 
 
 # The policy reads the whole snapshot, so one form covers the source and mount variants.
-@pytest.mark.parametrize(
-    ("form", "where", "mounted"),
-    [(form, "outside-source", False) for form in OWNER_ESCAPES]
-    + [("call-in-function", "inside-source", False), ("call-in-function", "outside-source", True)],
-)
-def test_owner_read_that_is_not_a_member_read_keeps_argument_unknown(
-    tmp_path, form, where, mounted
-):
-    body = OWNER_ESCAPES[form]
-    if where == "inside-source":
-        caller, extra = HEAD + CONSUME + body, {}
-    else:
-        caller, extra = HEAD + CONSUME, {"sample/other.py": HEAD + body}
-    verdict = _verdicts(
-        tmp_path, caller=caller, rules=[_argument_rule()], extra_files=extra, mounted=mounted
-    )
-    assert verdict == ("UNKNOWN", False)
 
 
 # A module that imports the owner gives it away again as its own attribute.
@@ -346,83 +227,6 @@ REEXPORT_ESCAPES = {
 }
 
 
-@pytest.mark.parametrize("form", REEXPORT_ESCAPES)
-def test_owner_read_through_a_reexport_keeps_argument_unknown(tmp_path, form):
-    files, other = REEXPORT_ESCAPES[form]
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={**files, "sample/other.py": other},
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-def test_rebound_owner_import_in_a_reexporting_module_keeps_argument_unknown(tmp_path):
-    # Sound but strict: `OptionKey` in api is not unique, so the check cannot tell which
-    # value `api.OptionKey` holds and treats it as the owner.
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/api.py": "from .catalog import OptionKey, ExtraKey\nOptionKey = ExtraKey\n",
-            "sample/other.py": "from . import api\napi.OptionKey('new')._value_ = 'x'\n",
-        },
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-@pytest.mark.parametrize(
-    "other",
-    [
-        "from .api import OptionKey\ndef typed(value: OptionKey) -> None: ...\n",
-        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from .api import OptionKey\n"
-        "def typed(value: 'OptionKey') -> None: ...\n",
-    ],
-    ids=["annotation", "type-checking"],
-)
-def test_owner_named_through_a_reexport_only_in_annotations_still_passes(tmp_path, other):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={**API, "sample/other.py": other},
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_owner_named_only_in_annotations_elsewhere_still_passes(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/other.py": HEAD + "def typed(value: OptionKey) -> OptionKey: ...\n"
-            "LATEST: OptionKey | None = None\n"
-        },
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_owner_call_through_a_star_import_keeps_argument_unknown(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/other.py": "from .catalog import *\n"
-            "def go():\n    OptionKey('page_size')._value_ = 'x'\n"
-        },
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-def test_owner_call_as_the_selected_argument_keeps_argument_unknown(tmp_path):
-    caller = HEAD + "def consume():\n    read_option(OptionKey('page_size'))\n"
-    assert _verdicts(tmp_path, caller=caller, rules=[_argument_rule()]) == ("UNKNOWN", False)
-
-
 # --- (b) keyword argument evidence matches the member reference it contains ----------------
 
 OPS = "def read_option(key: str) -> None: pass\n"
@@ -458,13 +262,6 @@ PASSING_CALLS = {
 }
 
 
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize("case", PASSING_CALLS)
-def test_catalog_argument_proves_the_call_forms_it_can_bind(tmp_path, case, mounted):
-    operation, call = PASSING_CALLS[case]
-    assert _call_verdict(tmp_path, operation, call, mounted=mounted) == ("PASS", True)
-
-
 UNPROVEN_CALLS = {
     "keyword-plus-expression": (OPS, "read_option(key=OptionKey.PAGE_SIZE + 'x')"),
     "positional-plus-expression": (OPS, "read_option(OptionKey.PAGE_SIZE + 'x')"),
@@ -480,48 +277,6 @@ UNPROVEN_CALLS = {
     "star-dynamic": (OPS, "read_option(*args)"),
     "star-literal": (OPS, "read_option(*[OptionKey.PAGE_SIZE])"),
 }
-
-
-@pytest.mark.parametrize("case", UNPROVEN_CALLS)
-def test_catalog_argument_keeps_unprovable_call_forms_unknown(tmp_path, case):
-    operation, call = UNPROVEN_CALLS[case]
-    assert _call_verdict(tmp_path, operation, call) == ("UNKNOWN", False)
-
-
-def test_catalog_argument_still_reports_an_invalid_keyword_literal(tmp_path):
-    assert _call_verdict(tmp_path, OPS, "read_option(key='bogus')") == ("FAIL", True)
-
-
-def test_keyword_member_does_not_hide_an_escape_elsewhere(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller="from .ops import read_option\nfrom .catalog import OptionKey\n"
-        "def consume():\n    read_option(key=OptionKey.PAGE_SIZE)\n",
-        rules=[_argument_rule("sample.ops.read_option")],
-        extra_files={
-            "sample/ops.py": OPS,
-            "sample/other.py": "from .catalog import OptionKey\n"
-            + MUTATE
-            + "def go():\n    mutate(OptionKey.PAGE_SIZE)\n",
-        },
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-@pytest.mark.parametrize(
-    "call", ["read_option(key=OptionKey.PAGE_SIZE)", "read_option('page_size')"]
-)
-def test_catalog_use_counts_keyword_and_literal_reads_of_a_selected_operation(tmp_path, call):
-    rule = _use(target="sample.ops.read_option", parameter="key", member="PAGE_SIZE")
-    assert _call_verdict(tmp_path, OPS, call, rule=rule) == ("PASS", True)
-
-
-def test_catalog_use_reports_a_member_no_keyword_call_reads(tmp_path):
-    rule = _use(target="sample.ops.read_option", parameter="key", member="RETIRED")
-    assert _call_verdict(tmp_path, OPS, "read_option(key=OptionKey.PAGE_SIZE)", rule=rule) == (
-        "FAIL",
-        True,
-    )
 
 
 # --- non-ASCII identifiers: Python allows them, and evidence columns count UTF-8 bytes ------
@@ -552,70 +307,6 @@ UNICODE_ALIAS_CALLS = {
     ),
     "unicode-alias-spaced": ("Clé", "read_option( Clé.PAGE_SIZE )", OPS),
 }
-
-
-@pytest.mark.parametrize("case", UNICODE_ALIAS_CALLS)
-def test_catalog_argument_proves_members_reached_through_an_alias(tmp_path, case):
-    alias, statement, operation = UNICODE_ALIAS_CALLS[case]
-    assert _alias_verdict(tmp_path, alias, statement, operation) == ("PASS", True)
-
-
-def test_catalog_argument_proves_a_keyword_for_a_non_ascii_formal(tmp_path):
-    verdict = _alias_verdict(
-        tmp_path,
-        "Keys",
-        "read_option(clé=Keys.PAGE_SIZE)",
-        "def read_option(clé: str) -> None: pass\n",
-        parameter="clé",
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_catalog_argument_proves_a_catalog_in_a_non_ascii_module(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller="from .ops import read_option\nfrom .café import OptionKey\n"
-        "def consume():\n    read_option(OptionKey.PAGE_SIZE)\n",
-        rules=[{**_argument_rule("sample.ops.read_option"), "catalog": "sample.café.OptionKey"}],
-        extra_files={
-            "sample/ops.py": OPS,
-            "sample/café.py": "from enum import StrEnum\n"
-            "class OptionKey(StrEnum):\n    PAGE_SIZE = 'page_size'\n",
-        },
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_unicode_alias_member_in_a_selected_operation_call_elsewhere_is_accounted(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/other.py": "from .catalog import OptionKey as Clé, read_option\n"
-            "def go():\n    read_option(Clé.PAGE_SIZE)\n"
-        },
-    )
-    assert verdict == ("PASS", True)
-
-
-def test_unicode_alias_member_passed_elsewhere_is_an_escape(tmp_path):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/other.py": "from .catalog import OptionKey as Clé\n"
-            "def go():\n    print(Clé.PAGE_SIZE)\n"
-        },
-    )
-    assert verdict == ("UNKNOWN", False)
-
-
-@pytest.mark.parametrize("alias", ["\ufb01le", "Cle\u0301", "\U0001d40aeys"])
-def test_catalog_argument_proves_an_alias_the_parser_normalises(tmp_path, alias):
-    # Python reads identifiers in NFKC form: a ligature, a combining mark and a styled letter.
-    assert _alias_verdict(tmp_path, alias, f"read_option({alias}.PAGE_SIZE)") == ("PASS", True)
 
 
 @pytest.mark.parametrize(

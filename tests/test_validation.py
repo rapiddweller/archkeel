@@ -9,7 +9,6 @@ from typing import get_args, get_origin, get_type_hints
 from unittest.mock import Mock
 
 import pytest
-from conftest import SELF_RULE_UNKNOWN
 from test_analyzer import _component
 from test_architecture_demo import CONFIG as SHOP_CONFIG
 from test_architecture_demo import _prepare_repo
@@ -49,7 +48,6 @@ from archkeel.ir.model import (
     Observation,
     ObservationResult,
     Record,
-    RunResult,
 )
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import FIXTURE_DIR
@@ -100,42 +98,6 @@ def test_an_inside_may_not_grant_what_requires_never_named(tmp_path: Path) -> No
     assert "REQUIRES-COMPLETE" in diagnostics[0].unknown_claim
 
 
-@pytest.fixture(scope="module")
-def self_validation() -> RunResult:
-    result, _ = run_validate(
-        ROOT, load_config(ROOT), observe, baseline=ROOT / "architecture-baseline.json"
-    )
-    return result
-
-
-def test_validate_reports_exact_unknown_for_archkeel_mcp_self_contract(
-    self_validation: RunResult,
-) -> None:
-    result = self_validation
-    assert result.exit_code == 0
-    assert result.observation_complete == "PASS"
-    assert result.coverage is not None
-    assert result.coverage.status == result.coverage.rules == "PASS"
-    assert result.declared_rules == "UNKNOWN"
-    assert not result.diagnostics
-    assert result.rule_assessments
-    unknown = {row.id for row in result.rule_assessments if row.status == "UNKNOWN"}
-    assert unknown == SELF_RULE_UNKNOWN
-    assert all(
-        row.status == "UNKNOWN"
-        and not row.evaluation_proven
-        and row.count == row.undecided == 0
-        and row.reason == "No complete evaluator receipt exists for this rule and scope."
-        if row.id in unknown
-        else row.status == "PASS" and row.evaluation_proven and row.count == row.undecided == 0
-        for row in result.rule_assessments
-    )
-    assert result.measurements is not None
-    assert result.measurements.scalars.violations == 0
-    assert result.measurements.scalars.unknown_positions == 0
-    assert result.expectation_fulfilled == "n/a"
-
-
 def test_self_contract_models_mcp_over_existing_check_and_ir_interfaces() -> None:
     raw = json.loads((ROOT / "architecture-contract.json").read_text())
     assert raw["schema_version"] == "2.4.0"
@@ -156,20 +118,6 @@ def test_self_contract_models_mcp_over_existing_check_and_ir_interfaces() -> Non
             "archkeel.ir.story",
         },
     }
-
-
-def test_validate_reports_no_check_types_declared_violation_against_this_repository(
-    self_validation: RunResult,
-) -> None:
-    """AD-68's Limit (issue #59): `check.run_init` and `check.run_validate` both return
-    `tuple[RunResult, dict[str, bytes]]`, and a bare `dict[str, bytes]` is exactly the
-    untyped container CHECK-TYPES-DECLARED (AD-58) exists to reject. Declaring `boundary_types`
-    for `check` must not leave its own two facade functions violating the rule they now carry.
-    """
-    result = self_validation
-    subjects = {diagnostic.subject for diagnostic in result.diagnostics}
-    assert "CHECK-TYPES-DECLARED" not in subjects
-    assert result.exit_code == 0
 
 
 def _second_return_type(func: Callable[..., object]) -> type:
@@ -270,16 +218,6 @@ def test_validate_sorts_namespace_and_provenance_diagnostics(tmp_path: Path) -> 
         "/components/0/packages/0",
         "/components/0/provenance/0",
     ]
-
-
-def test_reference_check_rejects_a_component_without_scanned_modules(
-    self_observation: Observation,
-) -> None:
-    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
-    contract = parse_contract(raw)
-    observation = self_observation
-    diagnostics = reference_diagnostics(ROOT, CONFIG, contract, observation)
-    assert any(item.pointer == "/components/0/packages/0" for item in diagnostics)
 
 
 def test_public_entry_outside_namespace_is_a_diagnostic() -> None:

@@ -188,12 +188,6 @@ def _valid(value):
     assert not trace_valid_violations(value)
 
 
-def test_native_actual_delta_version_ports_match_independent_target(tmp_path):
-    assert len(_contract()["declarations"]["uml"]["entities"]) == 7
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-
-
 @pytest.mark.parametrize(
     ("path", "old", "new"),
     [

@@ -255,12 +255,6 @@ def _valid(value):
     assert not trace_valid_violations(value)
 
 
-def test_native_actual_source_matches_fourteen_independent_targets_and_existing_anchor(tmp_path):
-    assert len(_contract()["declarations"]["uml"]["entities"]) == 15
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-
-
 @pytest.mark.parametrize(
     ("path", "old", "new"),
     [

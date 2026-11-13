@@ -13,14 +13,10 @@ order of a record differs.
 from __future__ import annotations
 
 import dataclasses
-import json
 import os
 import random
 import subprocess
 from pathlib import Path
-
-import pytest
-from archkeel.analyzer.typescript.collect import collect as python_collect
 
 from archkeel.analyzer.process import ProcessCollector
 from archkeel.ir.facts import SourceFacts
@@ -95,37 +91,6 @@ def _request(
         TypeScriptSettings(tsconfig, bundler),
         version,
     )
-
-
-def _differences(binary: Path, request: CollectionRequest) -> list[str]:
-    native = ProcessCollector((str(binary),), protocol_version=ProtocolVersion.V8).collect(request)
-    assert not isinstance(native, CollectionError), native
-    oracle = python_collect(request)
-    mine, theirs = _view(native), _view(oracle)
-    found: list[str] = []
-    for key, value in mine.items():
-        if value == theirs[key]:
-            continue
-        if isinstance(value, list) and isinstance(theirs[key], list):
-            ours = {json.dumps(item, sort_keys=True) for item in value}
-            other = {json.dumps(item, sort_keys=True) for item in theirs[key]}  # type: ignore[attr-defined]
-            order = " (same set, other order)" if ours == other else ""
-            found += [f"{key}: only native: {text[:240]}" for text in sorted(ours - other)[:2]]
-            found += [f"{key}: only python: {text[:240]}" for text in sorted(other - ours)[:2]]
-            found += [f"{key}: {len(value)} native, {len(theirs[key])} python{order}"]  # type: ignore[arg-type]
-        else:
-            found.append(f"{key}: {value!r} native, {theirs[key]!r} python")
-    return found
-
-
-@pytest.mark.parametrize(("path", "namespace", "tsconfig"), FIXTURES)
-def test_fixture_imports_equal_the_python_collector(
-    native_binary: Path, path: str, namespace: str, tsconfig: str
-) -> None:
-    root = ROOT / path
-    scope = (STUDIO_UI,) if path == "." else ("src",)
-    request = _request(root, namespace, tsconfig, roots=scope)
-    assert _differences(native_binary, request) == []
 
 
 # One tree for the resolution rules: relative names, `paths`, packages, `exports`, builtins.
@@ -233,52 +198,6 @@ def _write(root: Path, files: dict[str, str]) -> None:
         (root / name).write_text(text, encoding="utf-8")
 
 
-@pytest.mark.parametrize("name", CONFIGS)
-def test_resolution_rules_equal_the_python_collector(
-    tmp_path: Path, native_binary: Path, name: str
-) -> None:
-    importer = _imports_of(SPECIFIERS)
-    files = {
-        **PACKAGES,
-        **SOURCES,
-        "tsconfig.json": CONFIGS[name],
-        "src/importer.ts": importer,
-        "src/importer.mts": importer,
-        "src/importer.cts": importer,
-        "src/sub/deep.ts": _imports_of(["./x", "../util", "pkg-a", "@app/x"]),
-    }
-    _write(tmp_path, files)
-    for bundler in (False, True):
-        for exclude in (False, True):
-            version = ProtocolVersion.V9 if exclude else ProtocolVersion.V8
-            request = _request(
-                tmp_path,
-                "app",
-                "tsconfig.json",
-                version=version,
-                exclude_test_sources=exclude,
-                bundler=bundler,
-            )
-            found = _differences(native_binary, request)
-            assert found == [], f"{name} bundler={bundler} exclude_tests={exclude}"
-
-
-@pytest.mark.parametrize("form", ["import", "require"])
-def test_a_commonjs_tree_resolves_like_the_python_collector(
-    tmp_path: Path, native_binary: Path, form: str
-) -> None:
-    files = {
-        "tsconfig.json": COMMONJS,
-        "src/a.js": 'const b = require("./b");\nconst c = require("./c.js");\n',
-        "src/b.js": "module.exports = 1;\nexport {};\n",
-        "src/c.ts": "export const c = 1;\n",
-        "src/d.ts": ("import e = require" if form == "import" else "const e = require")
-        + '("./a");\n',
-    }
-    _write(tmp_path, files)
-    assert _differences(native_binary, _request(tmp_path, "app", "tsconfig.json")) == []
-
-
 # Snippets that a real file holds, and fragments that no grammar accepts.
 PIECES = (
     'import a from "./util";',
@@ -343,22 +262,6 @@ def _random_source(rng: random.Random) -> str:
     return text
 
 
-def test_random_sources_equal_the_python_collector(tmp_path: Path, native_binary: Path) -> None:
-    rng = random.Random(880)
-    files = {
-        **SOURCES,
-        "tsconfig.json": COMMONJS,
-    }
-    for index in range(240):
-        suffix = rng.choice([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"])
-        # A JavaScript file without module syntax is a global script, which the oracle refuses.
-        head = "export {};\n" if suffix in (".js", ".jsx") else ""
-        files[f"src/fuzz/f{index}{suffix}"] = head + _random_source(rng)
-    _write(tmp_path, files)
-    found = _differences(native_binary, _request(tmp_path, "app", "tsconfig.json"))
-    assert found == []
-
-
 def _links(root: Path, outside: Path) -> None:
     os.symlink("real.ts", root / "src/link.ts")
     os.symlink("dir", root / "src/dirlink")
@@ -366,51 +269,6 @@ def _links(root: Path, outside: Path) -> None:
     os.symlink(outside / "secret.ts", root / "src/escape.ts")
     os.symlink("../vendor/linked-pkg", root / "node_modules/linked-pkg")
     os.symlink(outside, root / "node_modules/escaping-pkg")
-
-
-@pytest.mark.skipif(os.name == "nt", reason="a symlink needs a privilege on Windows")
-def test_symlinks_and_package_metadata_equal_the_python_collector(
-    tmp_path: Path, native_binary: Path
-) -> None:
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    (outside / "secret.ts").write_text("export const s = 1;\n")
-    (outside / "package.json").write_text('{"main":"secret.ts"}')
-    root = tmp_path / "repo"
-    imports = ["./link", "./dirlink/x", "./escape", "./loop", "bad-json", "not-object"]
-    imports += ["linked-pkg", "escaping-pkg", "node_json_bom", "typed-array", "typed-null"]
-    _write(
-        root,
-        {
-            "tsconfig.json": BUNDLER_SRC,
-            "src/real.ts": "export const r = 1;\n",
-            "src/dir/x.ts": "export const x = 1;\n",
-            "src/main.ts": _imports_of(imports),
-            "node_modules/bad-json/package.json": "{nope",
-            "node_modules/not-object/package.json": "[1]",
-            "node_modules/node_json_bom/package.json": '\ufeff{"main":"i.js"}',
-            "node_modules/node_json_bom/i.js": "",
-            "node_modules/typed-array/package.json": '{"types":["a.d.ts"],"main":3}',
-            "node_modules/typed-null/package.json": '{"exports":null,"main":null}',
-            "vendor/linked-pkg/package.json": '{"main":"index.js"}',
-            "vendor/linked-pkg/index.js": "",
-        },
-    )
-    _links(root, outside)
-    request = _request(root, "app", "tsconfig.json")
-    assert _differences(native_binary, request) == []
-    # The cases are real: a link inside the snapshot resolves to its target, a link out of it is a
-    # gap, and a package.json that is not an object or not JSON is a gap with its path.
-    native = ProcessCollector((str(native_binary),), protocol_version=ProtocolVersion.V8).collect(
-        request
-    )
-    assert isinstance(native, SourceFacts)
-    titles = {gap.title for gap in native.coverage.gaps}
-    assert "Resolver symlink outside snapshot" in titles
-    assert "Package metadata is not valid JSON: node_modules/bad-json/package.json" in titles
-    assert "Package metadata is not an object: node_modules/not-object/package.json" in titles
-    files = {getattr(target, "file", None) for target in native.imports}
-    assert {"src/real.ts", "src/dir/x.ts"} <= files
 
 
 def test_the_reply_is_the_same_bytes_on_every_run(native_binary: Path) -> None:

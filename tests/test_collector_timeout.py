@@ -9,37 +9,16 @@ from pathlib import Path
 from threading import TIMEOUT_MAX
 
 import pytest
-from archkeel.analyzer.python.collect import PythonProviderCollector
 from jsonschema import Draft202012Validator
 from test_onboarding import _repository
 
 from archkeel import cli
-from archkeel.analyzer.process import ProcessCollector
 from archkeel.cli import main
 from archkeel.cli.config import ConfigError, parse_config
-from archkeel.cli.observe import observer_for
 
 ROOT = Path(__file__).parents[1]
 CONFIG = '[scan]\nroots = ["src/sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
 OVER_LIMIT = str(int(TIMEOUT_MAX) + 1)
-
-
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
-@pytest.mark.parametrize("seconds", [None, 600])
-def test_configured_timeout_keeps_a_300_second_default(language: str, seconds: int | None) -> None:
-    payload = CONFIG + f'language = "{language}"\n'
-    if seconds is not None:
-        payload += f"collector_timeout_seconds = {seconds}\n"
-    config = parse_config(payload.encode())
-    selected = observer_for(config.language, timeout_seconds=config.collector_timeout_seconds)
-    collector = selected.collector
-    if isinstance(collector, PythonProviderCollector):
-        collector = collector.collector
-
-    assert isinstance(collector, ProcessCollector)
-    assert collector.timeout_seconds == (300 if seconds is None else seconds)
-    schema = json.loads((ROOT / "schema/archkeel.schema.json").read_bytes())
-    Draft202012Validator(schema).validate(tomllib.loads(payload))
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "true", "false", "1.5", '"600"', "[]"])

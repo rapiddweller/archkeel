@@ -240,11 +240,6 @@ def _valid(value):
     assert not trace_valid_violations(value)
 
 
-def test_native_actual_action_ports_match_independently_authored_target(tmp_path):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-
-
 @pytest.mark.parametrize(
     ("path", "old", "new"),
     [

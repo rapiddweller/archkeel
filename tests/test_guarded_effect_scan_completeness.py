@@ -8,11 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from test_exact_module_ownership import _component, _observe_tree, _rule
 
-from archkeel.check.report import run_saved_report
-from archkeel.ir.codec import encode_canonical_model, observation_payload
 from archkeel.ir.decisions import rule_assessments
 
 
@@ -87,68 +84,3 @@ def _assessment(observation):
         if item.kind == "forbidden_effect_under_condition"
     ]
     return row
-
-
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize("columnar", [False, True])
-@pytest.mark.parametrize("violating", [False, True])
-def test_omitted_sibling_keeps_guarded_effect_unknown_and_known_failure(
-    tmp_path: Path, mounted: bool, columnar: bool, violating: bool
-) -> None:
-    result = _observe(
-        tmp_path,
-        roots=("sample/safe",),
-        mounted=mounted,
-        source="sample",
-        violating=violating,
-    )
-    assert result.observation is not None, result.diagnostics
-    row = _assessment(result.observation)
-    assert row.status == ("FAIL" if violating else "UNKNOWN")
-    assert not row.evaluation_proven
-    assert row.count == (1 if violating else 0)
-    assert any(
-        item.kind == "guarded_effect_limit" for item in result.observation.records("unknowns")
-    )
-
-    payload = observation_payload(result.observation)
-    encoded = encode_canonical_model(payload) if columnar else payload
-    saved = tmp_path / "guarded-partial-report.json"
-    saved.write_text(json.dumps(encoded))
-    [replayed] = run_saved_report(saved).rule_assessments
-    assert (replayed.status, replayed.count, replayed.evaluation_proven) == (
-        row.status,
-        row.count,
-        row.evaluation_proven,
-    )
-
-
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize("columnar", [False, True])
-def test_narrow_guarded_effect_source_can_pass_inside_partial_scan(
-    tmp_path: Path, mounted: bool, columnar: bool
-) -> None:
-    result = _observe(
-        tmp_path,
-        roots=("sample/safe",),
-        mounted=mounted,
-        source="sample.safe",
-        violating=False,
-    )
-    assert result.observation is not None, result.diagnostics
-    row = _assessment(result.observation)
-    assert row.status == "PASS" and row.count == 0 and row.evaluation_proven
-    assert not any(
-        item.kind == "guarded_effect_limit" for item in result.observation.records("unknowns")
-    )
-
-    payload = observation_payload(result.observation)
-    encoded = encode_canonical_model(payload) if columnar else payload
-    saved = tmp_path / "guarded-narrow-report.json"
-    saved.write_text(json.dumps(encoded))
-    [replayed] = run_saved_report(saved).rule_assessments
-    assert (replayed.status, replayed.count, replayed.evaluation_proven) == (
-        "PASS",
-        0,
-        True,
-    )

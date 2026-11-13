@@ -171,32 +171,3 @@ def test_native_absent_namespace_has_proven_verdicts(tmp_path, mounted, body, st
     ]
     assert row.status == status and row.evaluation_proven
     assert not (tmp_path / "sample/retired").exists()
-
-
-def test_native_ordinary_missing_target_remains_unknown(tmp_path):
-    from archkeel.ir.decisions import rule_assessments
-
-    result = _observe_namespace(tmp_path, "", ordinary=True)
-    assert result.observation is not None, result.diagnostics
-    [row] = rule_assessments(result.observation, undecided_by_rule={})
-    assert row.status == "UNKNOWN" and not row.evaluation_proven
-    assert any(item.kind == "rule_without_subjects" for item in result.diagnostics)
-
-
-def test_native_source_parse_gap_cannot_pass_namespace_policy(tmp_path):
-    from archkeel.ir.decisions import rule_assessments
-
-    result = _observe_namespace(tmp_path, "def broken(:\n")
-    assert result.observation is not None, result.diagnostics
-    [row] = rule_assessments(result.observation, undecided_by_rule={})
-    assert row.status == "UNKNOWN" and not row.evaluation_proven
-
-
-@pytest.mark.parametrize("match,status", [("prefix", "FAIL"), ("exact", "PASS")])
-def test_native_absent_namespace_respects_exact_target_selection(tmp_path, match, status):
-    from archkeel.ir.decisions import rule_assessments
-
-    result = _observe_namespace(tmp_path, "import sample.retired.tasks\n", target_match=match)
-    assert result.observation is not None, result.diagnostics
-    [row] = rule_assessments(result.observation, undecided_by_rule={})
-    assert row.status == status and row.evaluation_proven

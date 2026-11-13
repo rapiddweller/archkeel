@@ -173,16 +173,6 @@ def _comparison(model):
     return report.comparison
 
 
-def test_native_real_private_ports_match_the_independent_target(tmp_path):
-    root, config = _repository(tmp_path)
-    comparison = _comparison(_model(root, config))
-    assert comparison.status == "PASS", [
-        (row.subject_id, row.aspect, row.status, row.evidence_ids)
-        for row in comparison.assessments
-        if row.status != "PASS"
-    ]
-
-
 @pytest.mark.parametrize(
     "old,new",
     [
@@ -226,23 +216,3 @@ def _placement_model(tmp_path, *, unrelated):
             "from enum import StrEnum\nclass Unrelated(StrEnum):\n    VALUE = 'value'\n"
         )
     return _model(root, config)
-
-
-def test_native_placement_policy_accepts_the_actual_private_reason_owner(tmp_path):
-    model = _placement_model(tmp_path, unrelated=False)
-    assert not trace_valid_violations(model)
-
-
-def test_native_placement_policy_still_rejects_an_unrelated_check_owner(tmp_path):
-    model = _placement_model(tmp_path, unrelated=True)
-    found = [
-        row
-        for row in trace_valid_violations(model)
-        if row.data.get("qualified_name") == "archkeel.check.evaluation.unrelated.Unrelated"
-    ]
-    assert len(found) == 1
-    assert found[0].rule_ids == ("TYPES-ENUM-IN-MODEL",)
-    cited = {e.id: e for e in model.evidence}
-    assert any(
-        cited[e].file == "archkeel/check/evaluation/unrelated.py" for e in found[0].evidence_ids
-    )

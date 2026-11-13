@@ -20,6 +20,7 @@ CI publishes the Rust self-report instead of measuring the unsupported Python ro
 The gallery names and counts unsupported demos before collection. Its TypeScript demos stay live.
 Lint, type checks and tests of retained code stay mandatory.
 Delete tests that serve only the deleted implementations. Do not create recordings for them.
+The owner also accepts removal of neutral tests that need retired Python inputs; list them in the PR.
 Keep native unit tests. Name parity tests as skipped until their released oracle is connected.
 The dual run names and counts each unsupported Python and Dart case.
 

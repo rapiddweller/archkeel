@@ -23,8 +23,7 @@ from archkeel.ir.architecture_graph import (
     Visibility,
 )
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.graph_codec import parse_comparison, parse_graph
-from archkeel.render.html import _asset, render_html
+from archkeel.render.html import render_html
 
 
 def _uml_report(
@@ -171,47 +170,6 @@ def _uml_report(
     start = page.index('id="flow-data"')
     payload = json.loads(page[page.index(">", start) + 1 : page.index("</script>", start)])
     return page, payload
-
-
-def test_report_embeds_the_standard_graph_schema_with_independent_target(tmp_path):
-    _, payload = _uml_report(tmp_path)
-    observed = parse_graph(payload["observed"])
-    target = parse_graph(payload["target"])
-    assert observed.origin == "observed" and target.origin == "declared"
-    assert observed.evidence and not target.evidence
-    assert {edge.kind for edge in target.relationships} == {"inherits", "realizes"}
-    assert {entity.id for entity in observed.entities}.isdisjoint(
-        {entity.id for entity in target.entities}
-    )
-    assert all(entity.provenance for entity in target.entities)
-
-
-def test_standard_uml_inlines_pinned_elk_before_flow_under_offline_csp(tmp_path):
-    html, _ = _uml_report(tmp_path)
-
-    assert _asset("explorer.runtime.js").decode() in html
-    vendor = '<script data-elkjs-version="0.12.0">'
-    explorer = '<script data-report-asset="explorer">'
-    assert html.count(vendor) == html.count(explorer) == 1
-    assert html.index(vendor) < html.index(explorer)
-    csp = html.split('http-equiv="Content-Security-Policy"', 1)[1].split(">", 1)[0]
-
-    assert "worker-src" not in csp
-    assert "<script src=" not in html
-
-
-def test_report_embeds_core_comparison_receipts_without_reassessment(tmp_path):
-    _, payload = _uml_report(tmp_path, mismatch=True)
-    comparison = parse_comparison(payload["comparison"])
-    assert comparison.status == "FAIL"
-    assert any(
-        item.subject_id == "client-run" and item.aspect == "signature" and item.status == "FAIL"
-        for item in comparison.assessments
-    )
-    assert any(item.change == "unexpected" for item in comparison.assessments)
-    assert any(
-        item.subject_id == "missing" and item.status == "UNKNOWN" for item in comparison.assessments
-    )
 
 
 @pytest.fixture

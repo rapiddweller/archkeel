@@ -4,15 +4,13 @@
 """Nested declaration fields must be evaluated or rejected, never silently ignored."""
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import inside_diagnostics, run_validate
-from archkeel.cli.observe import observe
-from archkeel.ir.codec import declaration_paths, parse_contract
+from archkeel.check.validation import inside_diagnostics
+from archkeel.ir.codec import parse_contract
 
 _DECLARATIONS: dict[str, list[object]] = {
     "capabilities": [
@@ -118,73 +116,6 @@ def test_nonempty_nested_declaration_field_is_rejected(tmp_path: Path, field: st
     assert any(
         item.code == "contract.invalid" and field in item.unknown_claim for item in diagnostics
     )
-
-
-def test_validate_fails_on_unmeasured_nested_declaration(tmp_path: Path) -> None:
-    _diagnostics(tmp_path, {"public_api": ["sample.api:run"]})
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs/sample.md").write_text("Inside contract evidence.\n", encoding="utf-8")
-    (tmp_path / "pyproject.toml").write_text(
-        '[project]\nrequires-python = ">=3.11"\n', encoding="utf-8"
-    )
-    (tmp_path / "sample").mkdir()
-    (tmp_path / "sample/__init__.py").write_text("value = 1\n", encoding="utf-8")
-    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "arch@example.invalid"], cwd=tmp_path, check=True
-    )
-    subprocess.run(["git", "config", "user.name", "Archkeel test"], cwd=tmp_path, check=True)
-    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "fixture"], cwd=tmp_path, check=True)
-
-    result, _ = run_validate(
-        tmp_path,
-        ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
-        observe,
-    )
-
-    assert result.exit_code == 2
-    assert any(
-        "unsupported non-empty declarations: public_api" in diagnostic.unknown_claim
-        for diagnostic in result.diagnostics
-    ), result.diagnostics
-
-
-def test_report_keeps_unsupported_nested_declaration_as_unknown(tmp_path: Path) -> None:
-    _diagnostics(tmp_path, {"public_api": ["sample.api:run"]})
-    (tmp_path / "sample").mkdir()
-    (tmp_path / "sample/__init__.py").write_text("value = 1\n", encoding="utf-8")
-    (tmp_path / "pyproject.toml").write_text(
-        '[project]\nrequires-python = ">=3.11"\n', encoding="utf-8"
-    )
-
-    result = observe(
-        tmp_path,
-        roots=("sample",),
-        namespace="sample",
-        contract="contract.json",
-        git_head="a" * 40,
-        dirty=False,
-        contract_root=tmp_path,
-    )
-
-    assert result.observation is not None
-    failures = tuple(result.observation.records("unknowns") or ())
-    assert any(
-        item.kind == "inside_contract_incomplete"
-        and "unsupported non-empty declarations: public_api" in item.title
-        for item in failures
-    )
-
-    def read_contract(path: str) -> tuple[bytes, str]:
-        return (tmp_path / path).read_bytes(), path
-
-    with pytest.raises(ValueError, match="unsupported non-empty declarations: public_api"):
-        declaration_paths(
-            (tmp_path / "contract.json").read_bytes(),
-            "contract.json",
-            read_contract=read_contract,
-        )
 
 
 def test_validate_checks_nested_contract_provenance_files(tmp_path: Path) -> None:

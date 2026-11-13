@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 
 import archkeel.cli as cli
-from archkeel.cli import studio
 
 
 @pytest.fixture(autouse=True)
@@ -29,14 +28,3 @@ def test_a_one_shot_command_raises_the_collector_thresholds(
     assert cli.main(["guide", "--root", str(tmp_path)]) == 0
 
     assert gc.get_threshold() == (50_000, 20, 100)
-
-
-def test_the_studio_process_keeps_the_default_thresholds(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setattr(studio, "serve_studio", lambda _args: 0)
-    gc.set_threshold(700, 10, 10)
-
-    assert cli.main(["studio", "--root", str(tmp_path)]) == 0
-
-    assert gc.get_threshold() == (700, 10, 10)

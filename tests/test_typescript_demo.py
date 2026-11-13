@@ -579,8 +579,6 @@ def test_native_typescript_uses_v8_compression_and_explicit_collector_keeps_v3(
     import zlib
     from unittest.mock import patch
 
-    from archkeel.analyzer.python.collect import PythonProviderCollector
-
     from archkeel.cli.observe import observer_for
     from archkeel.ir.facts_codec import decode_response
     from archkeel.ir.profiles import Language
@@ -604,11 +602,6 @@ def test_native_typescript_uses_v8_compression_and_explicit_collector_keeps_v3(
         TypeScriptSettings(),
     )
     native = observer_for(Language.TYPESCRIPT).collector
-    python = observer_for(Language.PYTHON).collector
-    dart = observer_for(Language.DART).collector
-    assert isinstance(python, PythonProviderCollector)
-    assert python.collector.protocol_version is None
-    assert dart.protocol_version is None
     frames: list[bytes] = []
 
     def decode(frame: bytes, *, output_limit: int) -> CollectionResponse:

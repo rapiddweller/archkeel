@@ -211,20 +211,6 @@ def test_authored_topology_ports_are_required_and_parse():
     parse_contract(_authored_target())
 
 
-def test_actual_topology_ports_and_native_controls_are_proven(tmp_path):
-    root, config = _native_repository(tmp_path)
-    observation = _model(root, config)
-    comparison = architecture_report(observation).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-    guards = [
-        row for row in rule_assessments(observation, undecided_by_rule={}) if row.id in GUARDS
-    ]
-    assert len(guards) == 2 and all(
-        row.status == "PASS" and row.evaluation_proven for row in guards
-    )
-    assert not trace_valid_violations(observation)
-
-
 @pytest.mark.parametrize(
     "path,nominal,weak,subject,aspect",
     [

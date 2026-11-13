@@ -8,7 +8,6 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from archkeel.analyzer.python.collect import PythonProviderCollector
 from jsonschema import Draft202012Validator
 from test_onboarding import _repository
 
@@ -20,25 +19,6 @@ from archkeel.ir.facts import Language
 
 ROOT = Path(__file__).parents[1]
 CONFIG = '[scan]\nroots = ["src/sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
-
-
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
-@pytest.mark.parametrize("limit", [None, 1, 256 * 1024 * 1024])
-def test_configured_output_limit_keeps_a_finite_default(language: str, limit: int | None) -> None:
-    payload = CONFIG + f'language = "{language}"\n'
-    if limit is not None:
-        payload += f"collector_output_limit_bytes = {limit}\n"
-    config = parse_config(payload.encode())
-    selected = observer_for(
-        config.language, output_limit_bytes=config.collector_output_limit_bytes
-    ).collector
-    assert isinstance(selected, PythonProviderCollector) is (language == "python")
-    collector = selected.collector if isinstance(selected, PythonProviderCollector) else selected
-
-    assert isinstance(collector, ProcessCollector)
-    assert collector.output_limit_bytes == (64 * 1024 * 1024 if limit is None else limit)
-    schema = json.loads((ROOT / "schema/archkeel.schema.json").read_bytes())
-    Draft202012Validator(schema).validate(tomllib.loads(payload))
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "true", "false", "1.5", '"1000"', "[]", str(2**60)])

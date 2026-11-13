@@ -9,11 +9,8 @@ import ast
 import random
 import textwrap
 import time
-from pathlib import Path
 
 import pytest
-from test_exact_module_ownership import _observe_tree
-from test_guarded_effect_scan_completeness import _contract
 
 from archkeel.ir.guard_paths import GuardedCallPath, guarded_call_paths
 
@@ -155,28 +152,3 @@ def test_an_unrelated_block_never_changes_the_distinct_records_of_other_calls(se
     after = _by_call(_paths(longer))
     after.pop("unrelated", None)
     assert after == before
-
-
-def test_a_guarded_rule_reports_one_violation_for_twelve_sequential_blocks(
-    tmp_path: Path,
-) -> None:
-    blocks = 12
-    sequence = "".join(f"    if other{i}:\n        helper{i}()\n" for i in range(blocks))
-    parameters = ", ".join(f"other{i}" for i in range(blocks))
-    files = {
-        "sample/__init__.py": "",
-        "sample/safe/__init__.py": "",
-        "sample/safe/core.py": (
-            "def _effect():\n    return None\n\n"
-            f"def generate(seeded: bool, {parameters}):\n{sequence}"
-            "    if seeded:\n        _effect()\n"
-        ),
-    }
-    started = time.perf_counter()
-    result = _observe_tree(
-        tmp_path, files, _contract(mounted=False, source="sample"), roots=("sample",)
-    )
-    assert time.perf_counter() - started < 30
-    assert result.observation is not None
-    # The old walker made 2^12 identical copies of this one violation.
-    assert len(result.observation.records("violations") or ()) == 1

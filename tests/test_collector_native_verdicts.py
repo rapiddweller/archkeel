@@ -20,8 +20,8 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from archkeel.analyzer.typescript.collect import collect
 from collector_pin import pin_of
+from native_typescript import collect
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.runtime import package_version

@@ -13,7 +13,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from archkeel.analyzer.python.collect import PythonProviderCollector
 from rich.console import Console
 from test_result_schema import _validator
 
@@ -299,24 +298,6 @@ def test_explore_without_a_commit_exits_2(
 
     assert code == 2
     assert "Git commit" in payload["diagnostics"][0]["remedy"]
-
-
-def test_explore_collects_the_source_once(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The nested levels add inside contracts; the second pass must still reuse the facts.
-    root = _repository(tmp_path / "repo", {**_SOURCES, **nested_engine_files()})
-    collect = PythonProviderCollector.collect
-    calls: list[object] = []
-
-    def counted(self: PythonProviderCollector, request: object):  # type: ignore[no-untyped-def]
-        calls.append(request)
-        return collect(self, request)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(PythonProviderCollector, "collect", counted)
-
-    assert _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))[0] == 0
-    assert len(calls) == 1
 
 
 def test_report_on_a_contract_without_a_rule_gives_no_verdict(
@@ -1226,48 +1207,6 @@ def test_an_empty_public_list_is_a_declared_interface(
 
     assert code == 0, payload
     assert "target" not in payload
-
-
-def test_python_scope_with_only_test_sources_is_not_complete(tmp_path: Path) -> None:
-    from archkeel.analyzer.python.collect import collect
-
-    from archkeel.ir.facts_codec import decode_response, encode_response
-    from archkeel.ir.facts_validation import validate_source_facts
-    from archkeel.ir.protocol import (
-        CollectionRequest,
-        CollectionResponse,
-        ProtocolVersion,
-        PythonSettings,
-        SnapshotInput,
-        SourceScope,
-    )
-
-    (tmp_path / "shop/tests").mkdir(parents=True)
-    (tmp_path / "shop/tests/__init__.py").write_text("")
-    (tmp_path / "shop/tests/test_orders.py").write_text("def test_order() -> None:\n    pass\n")
-
-    def collected(exclude: bool):
-        request = CollectionRequest(
-            SnapshotInput(str(tmp_path), "a" * 40, False),
-            SourceScope(("shop",), "shop", exclude_test_sources=exclude),
-            PythonSettings(),
-            ProtocolVersion.V9 if exclude else ProtocolVersion.V3,
-        )
-        facts = decode_response(
-            encode_response(CollectionResponse(collect(request), request.protocol_version))
-        ).facts
-        validate_source_facts(facts)
-        return facts
-
-    excluded = collected(True)
-    assert excluded.coverage.selected_files == ()
-    assert not excluded.coverage.full_scope
-    assert [gap.title for gap in excluded.coverage.gaps] == [
-        "No production source files in scope after the test exclusion"
-    ]
-    kept = collected(False)
-    assert kept.coverage.full_scope
-    assert kept.coverage.gaps == ()
 
 
 def test_explore_checks_its_observation_once_per_pass(

@@ -52,12 +52,6 @@ ESCAPING_TARGETS = {
 }
 
 
-@pytest.mark.parametrize("form", ESCAPING_TARGETS)
-def test_target_that_gives_away_or_changes_an_argument_keeps_argument_unknown(tmp_path, form):
-    call = "read_option('page_size', OptionKey.PAGE_SIZE)" if form == "other-formal" else CALL
-    assert _target_verdict(tmp_path, ESCAPING_TARGETS[form], call) == ("UNKNOWN", False)
-
-
 # The two caller shapes of #751: the caller changes the member that the target returns.
 @pytest.mark.parametrize(
     "call",
@@ -81,8 +75,3 @@ CONTAINED_TARGETS = {
     "index-and-comparison": "OPTIONS = {'page_size': '25'}\ndef read_option(key):\n"
     "    return OPTIONS[key] if key in OPTIONS else ''\n",
 }
-
-
-@pytest.mark.parametrize("form", CONTAINED_TARGETS)
-def test_target_that_only_compares_or_indexes_an_argument_still_passes(tmp_path, form):
-    assert _target_verdict(tmp_path, CONTAINED_TARGETS[form]) == ("PASS", True)

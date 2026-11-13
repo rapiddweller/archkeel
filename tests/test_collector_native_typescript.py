@@ -17,8 +17,6 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.analyzer.typescript.explore_scope import NO_PRODUCTION_SOURCE
 from collector_pin import pin_of
 
 from archkeel.analyzer import process as process_owner
@@ -27,7 +25,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observer_for
 from archkeel.ir.facts import SourceFacts
-from archkeel.ir.facts_codec import encode_request, encode_response
+from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionError,
     CollectionErrorKind,
@@ -119,35 +117,30 @@ def test_reply_decodes_with_consistent_coverage(binary: Path, version: ProtocolV
         "constructs",
     }
     assert "inner-uml-v1" in facts.capabilities.resolution_features
-    # The native collector declares what the Python collector declares (PR 4.3a-5).
-    python = collect(_request(ROOT / "fixtures/H-typescript", version))
-    assert facts.capabilities == python.capabilities
     assert [(c.name.value, c.status.value) for c in facts.capabilities.constructs] == [
         ("string_literal_compare", "partial")
     ]
     assert len(coverage.selected_files) == coverage.files_read == coverage.files_parsed == 7
     assert len(facts.files) == 7
-    # The gaps are the gaps of the Python collector: the script globals are examined (AD-340).
-    assert coverage.full_scope == python.coverage.full_scope
-    assert coverage.gaps == python.coverage.gaps
+    assert coverage.full_scope
+    assert not coverage.gaps
     sections = {section.name.value: section.records for section in facts.sections}
-    assert len(sections["imports"]) == len(facts.imports) == len(python.imports)
+    assert len(sections["imports"]) == len(facts.imports)
     assert sections["unknowns"] == coverage.gaps
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)
-def test_files_evidence_and_inputs_match_the_python_collector(binary: Path, fixture: str) -> None:
+def test_files_evidence_and_inputs_cover_the_selected_native_scope(
+    binary: Path, fixture: str
+) -> None:
     request = _request(ROOT / fixture)
     native = _facts(ProcessCollector((str(binary),)).collect(request))
-    python = collect(request)
-
-    assert native.coverage.selected_files == python.coverage.selected_files
-    assert native.files == python.files
-    assert native.source.scope == python.source.scope
-    evidence = {item.id: item for item in python.evidence}
-    assert [evidence.get(item.id) for item in native.evidence] == list(native.evidence)
-    # The native resolver reads the same files as the Python resolver, so the inputs are equal.
-    assert native.inputs == python.inputs
+    assert {item.rel_path for item in native.files} == set(native.coverage.selected_files)
+    assert {item.path for item in native.inputs if item.role == "selected"} == set(
+        native.coverage.selected_files
+    )
+    evidence = {item.id: item for item in native.evidence}
+    assert all(item.evidence_id in evidence for item in native.files)
 
 
 def test_a_bundled_binary_with_another_adapter_version_is_a_protocol_error(
@@ -242,9 +235,7 @@ def test_protocol_9_request_excludes_test_sources(tmp_path: Path, binary: Path) 
     [(), ("src/app.ts", "src/latest.ts")],
     ids=["production-and-tests", "only-tests"],
 )
-def test_v9_host_excludes_test_sources_like_python(
-    tmp_path: Path, binary: Path, drop: tuple[str, ...]
-) -> None:
+def test_v9_host_excludes_test_sources(tmp_path: Path, binary: Path, drop: tuple[str, ...]) -> None:
     root = _tree(tmp_path)
     for name in drop:
         (root / name).unlink()
@@ -256,17 +247,12 @@ def test_v9_host_excludes_test_sources_like_python(
     )
     pinned = ProtocolVersion.V8
     native = _facts(ProcessCollector((str(binary),), protocol_version=pinned).collect(request))
-    python = collect(request)
-
-    assert native.coverage.selected_files == python.coverage.selected_files
-    assert native.files == python.files
     # An import into an excluded test source, or a scope of tests only, is never complete.
-    assert not native.coverage.full_scope and not python.coverage.full_scope
+    assert not native.coverage.full_scope
     if drop:
         assert native.coverage.selected_files == ()
-        expected = {NO_PRODUCTION_SOURCE}
+        expected = {"No production source files in scope after the test exclusion"}
         assert {gap.title for gap in native.coverage.gaps} == expected
-        assert expected <= {gap.title for gap in python.coverage.gaps}
 
 
 def test_the_collector_refuses_a_protocol_version_it_does_not_know(binary: Path) -> None:
@@ -295,7 +281,7 @@ def test_the_host_refuses_a_reply_of_another_protocol_version(binary: Path) -> N
     assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
 
 
-def test_the_native_reply_has_the_keys_of_the_python_reply_in_the_same_order(
+def test_the_native_reply_has_sorted_keys_and_evidence_before_sections(
     tmp_path: Path, binary: Path
 ) -> None:
     """`facts` has its keys sorted, as the Python reply has them, so `evidence` comes before
@@ -306,10 +292,8 @@ def test_the_native_reply_has_the_keys_of_the_python_reply_in_the_same_order(
     payload = encode_request(request)
     reply = subprocess.run([str(binary)], input=payload, capture_output=True, check=True).stdout
     native = json.loads(zlib.decompress(reply), object_pairs_hook=lambda pairs: pairs)
-    python = encode_response(CollectionResponse(collect(request), request.protocol_version))
-    wanted = json.loads(zlib.decompress(python), object_pairs_hook=lambda pairs: pairs)
     keys = lambda pairs: [key for key, _ in pairs]  # noqa: E731
-    assert keys(native) == keys(wanted) == sorted(keys(wanted))
-    native_facts, python_facts = dict(native)["facts"], dict(wanted)["facts"]
-    assert keys(native_facts) == keys(python_facts)
+    assert keys(native) == sorted(keys(native))
+    native_facts = dict(native)["facts"]
+    assert keys(native_facts) == sorted(keys(native_facts))
     assert keys(native_facts).index("evidence") < keys(native_facts).index("sections")

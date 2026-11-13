@@ -24,7 +24,6 @@ from archkeel.ir import model
 from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.codec_result import result_payload
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 
@@ -172,12 +171,6 @@ def _valid(value):
     assert not trace_valid_violations(value)
 
 
-def test_native_selected_core_source_matches_eight_independent_target_entities(tmp_path):
-    root, config = _repository(tmp_path)
-    assert len(_contract()["declarations"]["uml"]["entities"]) == 8
-    _valid(_model(root, config))
-
-
 @pytest.mark.parametrize(
     "old,new",
     [
@@ -306,41 +299,3 @@ def _result_guard_repository(tmp_path):
         )
     )
     return root, config
-
-
-def test_native_actual_result_control_owners_have_complete_guard_proof(tmp_path):
-    root, config = _result_guard_repository(tmp_path)
-    value = _model(root, config)
-    assessments = {row.id: row for row in rule_assessments(value, undecided_by_rule={})}
-    for identifier in RESULT_GUARDS:
-        assert assessments[identifier].status == "PASS"
-        assert assessments[identifier].evaluation_proven
-    assert not trace_valid_violations(value)
-
-
-@pytest.mark.parametrize("identifier,owner", RESULT_GUARDS.items())
-def test_native_actual_result_control_owners_reject_literal_regressions(
-    tmp_path, identifier, owner
-):
-    root, config = _result_guard_repository(tmp_path)
-    module, name = owner.rsplit(".", 1)
-    source = root.joinpath(*module.split(".")).with_suffix(".py")
-    content = source.read_text()
-    member = next(node for node in ast.parse(content).body if getattr(node, "name", None) == name)
-    if isinstance(member, ast.ClassDef):
-        member = next(
-            node for node in member.body if getattr(node, "name", None) == "__post_init__"
-        )
-    line = member.body[0].lineno - 1
-    indent = " " * (member.col_offset + 4)
-    receiver = "self" if name == "RunResult" else "result"
-    lines = content.splitlines(keepends=True)
-    lines.insert(
-        line,
-        f'{indent}if {receiver}.declared_rules == "PASS":\n{indent}    pass\n',
-    )
-    source.write_text("".join(lines))
-    intent = (root / "contract.json").read_bytes()
-    value = _model(root, config)
-    assert any(identifier in row.rule_ids for row in trace_valid_violations(value))
-    assert (root / "contract.json").read_bytes() == intent

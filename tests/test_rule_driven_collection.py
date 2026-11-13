@@ -5,19 +5,15 @@
 
 import json
 import subprocess
-import sys
-import zlib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pytest
-from archkeel.analyzer.python.collect import collect
 from collector_pin import trusted
 from jsonschema import Draft202012Validator
 from test_catalog_policy_native import _argument, _raw, _use
 from test_exact_module_ownership import _component, _rule
 
-from archkeel.analyzer.process import ProcessCollector
 from archkeel.check.ports import Language, ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli.observe import analyze_snapshot, observer_for
@@ -43,20 +39,15 @@ from archkeel.ir.facts import (
 from archkeel.ir.facts_codec import (
     ProtocolError,
     decode_request,
-    decode_response,
     encode_request,
-    encode_response,
 )
 from archkeel.ir.protocol import (
     CollectionError,
-    CollectionErrorKind,
     CollectionRequest,
-    CollectionResponse,
     ProtocolVersion,
     PythonSettings,
     SnapshotInput,
     SourceScope,
-    collected_resolution_features,
 )
 
 ROOT = Path(__file__).parents[1]
@@ -314,23 +305,6 @@ def test_member_write_witnesses_follow_extended_bindings_and_selectors(tmp_path,
         assert item.data.get("instance_member_writes") is not None
 
 
-@pytest.mark.parametrize("version", [ProtocolVersion.V3, ProtocolVersion.V6])
-def test_protocols_before_7_collect_every_family(tmp_path, version):
-    _write_tree(tmp_path, _contract(), mounted=False)
-    request = CollectionRequest(
-        SnapshotInput(str(tmp_path), "a" * 40, False),
-        SourceScope(("sample",), "sample"),
-        PythonSettings(),
-        version,
-    )
-
-    facts = collect(request)
-
-    assert facts.capabilities.resolution_features == _declared_in_order(*GATED_RESOLUTION_FEATURES)
-    assert _present(facts) == frozenset(GATED_RESOLUTION_FEATURES)
-    assert len(_witnesses(facts)) == 2
-
-
 @pytest.mark.parametrize("name", list(RULES))
 def test_a_rule_whose_family_was_not_collected_is_a_coverage_failure_never_a_pass(tmp_path, name):
     _write_tree(tmp_path, _contract(name), name, mounted=False)
@@ -551,47 +525,6 @@ def test_older_requests_carry_no_features_on_the_wire(version):
         decode_request(json.dumps(payload).encode())
 
 
-@pytest.mark.parametrize("version", GATED)
-@pytest.mark.parametrize("features", [(), tuple(sorted(GATED_RESOLUTION_FEATURES))])
-def test_v7_response_round_trips_what_the_collector_declared(tmp_path, features, version):
-    _write_tree(tmp_path, _contract(), mounted=False)
-    request = _request(*features, root=str(tmp_path), version=version)
-
-    facts = collect(request)
-    response = CollectionResponse(facts, version)
-    encoded = encode_response(response)
-
-    assert facts.capabilities.resolution_features == collected_resolution_features(
-        version, request.resolver.features
-    )
-    assert _present(facts) == frozenset(features)
-    document = zlib.decompress(encoded) if version is ProtocolVersion.V8 else encoded
-    _schema_validator().validate(json.loads(document))
-    assert decode_response(encoded) == response
-
-
-def test_a_collector_older_than_protocol_7_cannot_name_the_new_families(tmp_path):
-    # Review (#662): its records of a family it cannot declare count as not collected.
-    _write_tree(tmp_path, _contract(), mounted=False)
-    request = _request(root=str(tmp_path), version=ProtocolVersion.V6)
-    facts = collect(request)
-    unnamed = {SOURCE_ROLES_FEATURE, CONSTRUCT_SELECTORS_FEATURE, NUMERIC_OPERANDS_FEATURE}
-    legacy = replace(
-        facts,
-        capabilities=replace(
-            facts.capabilities,
-            resolution_features=tuple(
-                item for item in facts.capabilities.resolution_features if item not in unnamed
-            ),
-        ),
-    )
-    assert _present(legacy) & unnamed
-
-    decoded = decode_response(encode_response(CollectionResponse(legacy, ProtocolVersion.V6)))
-
-    assert not _present(decoded.facts) & unnamed
-
-
 def _without(facts: SourceFacts, family: str) -> SourceFacts:
     return replace(
         facts,
@@ -602,38 +535,6 @@ def _without(facts: SourceFacts, family: str) -> SourceFacts:
             ),
         ),
     )
-
-
-@pytest.mark.parametrize("version", GATED)
-@pytest.mark.parametrize("family", GATED_RESOLUTION_FEATURES)
-def test_records_of_an_undeclared_family_are_rejected(tmp_path, family, version):
-    _write_tree(tmp_path, _contract(), mounted=False)
-    facts = collect(_request(family, root=str(tmp_path), version=version))
-    assert family in _present(facts)
-
-    with pytest.raises(ProtocolError, match="declared (Python )?capability"):
-        decode_response(encode_response(CollectionResponse(_without(facts, family), version)))
-
-
-@pytest.mark.parametrize("version", GATED)
-@pytest.mark.parametrize("family", [EXTENDED_CALL_BINDINGS_FEATURE, CONSTRUCT_SELECTORS_FEATURE])
-def test_a_member_write_witness_needs_one_of_the_families_that_replay_it(tmp_path, family, version):
-    _write_tree(tmp_path, _contract(), mounted=False)
-    facts = collect(_request(family, root=str(tmp_path), version=version))
-    assert _witnesses(facts)
-
-    with pytest.raises(ProtocolError, match="member-write witnesses require"):
-        decode_response(encode_response(CollectionResponse(_without(facts, family), version)))
-
-
-@pytest.mark.parametrize("version", GATED)
-def test_a_scan_without_witnesses_validates_without_a_class_body_excerpt(tmp_path, version):
-    _write_tree(tmp_path, _contract(), mounted=False)
-
-    facts = collect(_request(root=str(tmp_path), version=version))
-
-    assert not _witnesses(facts)
-    assert decode_response(encode_response(CollectionResponse(facts, version)))
 
 
 def test_a_scan_without_call_arguments_still_writes_the_field_and_round_trips(tmp_path):
@@ -650,31 +551,3 @@ def test_a_scan_without_call_arguments_still_writes_the_field_and_round_trips(tm
         for call in calls
     )
     assert parse_observation(observation_payload(result.observation)) == result.observation
-
-
-@pytest.mark.parametrize("version", GATED)
-def test_response_features_that_differ_from_the_request_are_a_protocol_error(tmp_path, version):
-    _write_tree(tmp_path, _contract(), mounted=False)
-    request = _request(root=str(tmp_path), version=version)
-    facts = collect(request)
-    extra = replace(
-        facts,
-        capabilities=replace(
-            facts.capabilities,
-            resolution_features=(*facts.capabilities.resolution_features, SOURCE_ROLES_FEATURE),
-        ),
-    )
-    payload = encode_response(CollectionResponse(extra, version))
-    script = f"import sys\nsys.stdin.read()\nsys.stdout.buffer.write({payload!r})\n"
-
-    result = ProcessCollector((sys.executable, "-B", "-c", script)).collect(request)
-
-    assert isinstance(result, CollectionError)
-    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
-    assert "resolution features disagree" in result.message
-
-    honest = encode_response(CollectionResponse(facts, version))
-    script = f"import sys\nsys.stdin.read()\nsys.stdout.buffer.write({honest!r})\n"
-    assert isinstance(
-        ProcessCollector((sys.executable, "-B", "-c", script)).collect(request), SourceFacts
-    )

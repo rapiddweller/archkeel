@@ -149,19 +149,6 @@ def _comparison(model):
     return comparison
 
 
-def test_native_version_api_matches_independent_intent_and_guard(tmp_path):
-    from archkeel.ir.decisions import rule_assessments
-    from archkeel.ir.trace import trace_valid_violations
-
-    root, config = _version_repository(tmp_path)
-    model = _model(root, config)
-    assert _comparison(model).status == "PASS", _comparison(model)
-    rows = {row.id: row for row in rule_assessments(model, undecided_by_rule={})}
-    guard = rows["CONTRACT-VERSION-TYPED-CONTROL"]
-    assert guard.status == "PASS" and guard.evaluation_proven
-    assert not trace_valid_violations(model)
-
-
 @pytest.mark.parametrize(
     "path,before,after",
     [

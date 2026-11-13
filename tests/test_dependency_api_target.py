@@ -8,14 +8,11 @@ import copy
 import json
 from pathlib import Path
 
-import pytest
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 TARGET_PREFIX = "IR-DEPENDENCY-"
@@ -155,127 +152,3 @@ def _assert_dependency_boundary_positions(model, rule_id):
             for row in model.records("unknowns")
             if row.data.get("qualified_name") == name and row.data.get("position") == "components"
         ]
-
-
-def test_own_native_dependency_boundary_covers_both_ownership_parameters(self_observation):
-    _assert_dependency_boundary_positions(self_observation, "ir:TARGET-DEPENDENCY-BOUNDARY-TYPES")
-
-
-def test_native_dependency_api_matches_the_independent_target(tmp_path):
-    root, config = _dependency_repository(tmp_path)
-    model = _model(root, config)
-    comparison = _comparison(model)
-    assert comparison.assessments, "The bounded dependency API Target must be authored"
-    assert comparison.status == "PASS", comparison
-    rule = next(
-        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
-    )
-    assert rule.status == "PASS" and rule.evaluation_proven
-    protected = {
-        "archkeel.ir.dependency.DependencyOwner.identity": "annotation",
-        "archkeel.ir.dependency.DependencyOwner.modules": "annotation",
-        "archkeel.ir.dependency.DependencySelector.source_match": "annotation",
-        "archkeel.ir.dependency.DependencySelector.target_kind": "annotation",
-        "archkeel.ir.dependency.DependencySelector.select": "signature",
-        "archkeel.ir.model.dependency_owners": "signature",
-        "archkeel.ir.model.declared_package_pair": "signature",
-        "archkeel.ir.model.forbidden_dependency_scopes": "signature",
-        "archkeel.ir.model.ForbiddenDependencyRule.selector": "signature",
-        "archkeel.ir.dependency.parse_dependency_selector": "signature",
-    }
-    target = _dependency_contract()["declarations"]["uml"]["entities"]
-    for name, aspect in protected.items():
-        entity = next(item for item in target if item["qualified_name"] == name)
-        assert any(
-            row.subject_id == entity["id"] and row.aspect == aspect and row.status == "PASS"
-            for row in comparison.assessments
-        ), (name, aspect, comparison)
-    _assert_dependency_boundary_positions(model, "TARGET-DEPENDENCY-BOUNDARY-TYPES")
-    assert not trace_valid_violations(model)
-
-
-@pytest.mark.parametrize("mutation", ["field", "parameter", "selection", "property"])
-def test_native_source_type_widening_fails_with_the_target_unchanged(tmp_path, mutation):
-    root, config = _dependency_repository(tmp_path)
-    before = (root / "contract.json").read_bytes()
-    if mutation == "field":
-        path, old, new = "dependency.py", "source_match: SelectorMatch", "source_match: str"
-    elif mutation == "parameter":
-        path, old, new = (
-            "model.py",
-            "source_match: SelectorMatch = SelectorMatch.PREFIX,",
-            "source_match: str = SelectorMatch.PREFIX,",
-        )
-    elif mutation == "selection":
-        path, old, new = "model.py", ") -> DependencySelection:", ") -> tuple:"
-    else:
-        path, old, new = (
-            "model.py",
-            "def selector(self) -> DependencySelector:",
-            "def selector(self) -> str:",
-        )
-    source = root / "archkeel/ir" / path
-    assert old in source.read_text()
-    source.write_text(source.read_text().replace(old, new, 1))
-    model = _model(root, config)
-    assert (root / "contract.json").read_bytes() == before
-    assert any(row.status == "FAIL" for row in _comparison(model).assessments)
-    rules = [
-        row for row in rule_assessments(model, undecided_by_rule={}) if row.kind == "uml_target"
-    ]
-    assert len(rules) == 1 and rules[0].status == "FAIL"
-    assert any(row.rule_ids == (rules[0].id,) for row in trace_valid_violations(model))
-
-
-def test_native_consumer_must_use_the_declared_dependency_api(tmp_path):
-    root, config = _dependency_repository(
-        tmp_path,
-        consumer_source="from .ir.dependency import in_scope\n",
-    )
-    model = _model(root, config)
-    assert any("TARGET-INTERFACE_BOUNDARY" in row.rule_ids for row in trace_valid_violations(model))
-
-
-@pytest.mark.parametrize(
-    ("conditional", "inventory_status", "assessment_status"),
-    [(False, "complete", "FAIL"), (True, "partial", "UNKNOWN")],
-)
-def test_native_missing_member_requires_its_declaration_inventory(
-    tmp_path, conditional, inventory_status, assessment_status
-):
-    root, config = _dependency_repository(tmp_path)
-    target_before = (root / "contract.json").read_bytes()
-    source = root / "archkeel/ir/dependency.py"
-    changed = source.read_text().replace("def select(", "def unavailable_select(", 1)
-    if conditional:
-        changed = changed.replace(
-            "class DependencySelector:\n",
-            "class DependencySelector:\n    if choose_selector:\n"
-            "        select = select_factory()\n",
-            1,
-        )
-    source.write_text(changed)
-    model = _model(root, config)
-    assert (root / "contract.json").read_bytes() == target_before
-    owner = next(
-        row
-        for row in model.records("symbols")
-        if row.data.get("qualified_name") == "archkeel.ir.dependency.DependencySelector"
-    )
-    assert owner.data.get("source_binding_unique") is True
-    assert owner.data.get("source_class_header_static") is True
-    inventory = next(
-        row for row in owner.data.get("member_inventories") if row.get("kind") == "method"
-    )
-    assert inventory.get("status") == inventory_status
-    entity = next(
-        item
-        for item in _dependency_contract()["declarations"]["uml"]["entities"]
-        if item["qualified_name"] == "archkeel.ir.dependency.DependencySelector.select"
-    )
-    assert any(
-        row.subject_id == entity["id"]
-        and row.aspect == "existence"
-        and row.status == assessment_status
-        for row in _comparison(model).assessments
-    )

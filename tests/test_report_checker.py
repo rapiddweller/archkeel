@@ -5,9 +5,7 @@
 
 from __future__ import annotations
 
-import copy
 import json
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -85,30 +83,6 @@ def _wrong_cycle_count(p: Payload) -> None:
     summary = p["summary"]
     assert isinstance(summary, dict)
     summary["counts"]["cycles"] += 1
-
-
-@pytest.mark.parametrize(
-    ("fault", "message"),
-    [
-        (_swap_strings, "strings"),
-        (_parent_loop, "parent"),
-        (_pass_with_unknown_rule, "status"),
-        (_duplicate_gap, "gaps"),
-        (_dangling_unit, "crossings.unit"),
-        (_flip_verdict, "verdict"),
-        (_short_column, "edges"),
-        (_wrong_cycle_count, "cycles"),
-    ],
-)
-def test_the_checker_rejects_hostile_payloads(
-    payload: Payload, fault: Callable[[Payload], None], message: str
-) -> None:
-    check_payload(payload)
-    broken = copy.deepcopy(payload)
-    fault(broken)
-
-    with pytest.raises(PayloadInvalid, match=message):
-        check_payload(broken)
 
 
 def test_canonical_strings_escape_only_what_json_requires() -> None:

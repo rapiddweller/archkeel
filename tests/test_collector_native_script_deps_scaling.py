@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 from collector_timing import Taken, interleaved_least, timed_run
-from test_collector_native_imports import _differences, _request
 from test_collector_native_scaling import (
     CAP,
     CONFIG,
@@ -117,17 +116,6 @@ def _write(root: Path, files: Files) -> Path:
     for name, text in files.items():
         (root / "src" / name).write_text(text, encoding="utf-8")
     return root
-
-
-@pytest.mark.parametrize("name", sorted(SHAPES))
-def test_the_dependencies_equal_the_python_collector_at_small_sizes(
-    native_binary: Path, tmp_path: Path, name: str
-) -> None:
-    make, _ = SHAPES[name]
-    for count in (1, 3, 25):
-        root = _write(tmp_path / f"n{count}", make(count))
-        found = _differences(native_binary, _request(root, "app", "tsconfig.json"))
-        assert found == [], (name, count)
 
 
 def _run(binary: Path, root: Path) -> Taken:

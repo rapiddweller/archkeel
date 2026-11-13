@@ -733,29 +733,6 @@ def test_known_violation_lenses_survive_when_every_scope_is_uncertain(
         assert current_validator.is_valid(result_payload(saved))
 
 
-def test_unresolved_dart_super_signature_does_not_block_dependencies(tmp_path: Path):
-    from test_dart_partial_uml import _DartCollector
-    from test_dart_partial_uml import _project as dart_project
-
-    root, config = dart_project(
-        tmp_path / "dart", "class Child extends MissingParent { Child({super.key}); }\n"
-    )
-    path = root / "architecture-contract.json"
-    contract = json.loads(path.read_bytes())
-    contract["rules"] = [RULE]
-    path.write_text(json.dumps(contract))
-    result, encoded = run_report(root, config=config, analyzer=trusted(_DartCollector()))
-    assert encoded is not None
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    assert _rows(model)["requires"].status == "PASS"
-    assert model.coverage.status == "FAIL" and result.exit_code == 2
-    gap = model.coverage.failures[0]
-    assert gap.data.get("resolution_dimension") == "signature"
-    assert gap.fact_ids
-    method = next(r for r in model.records("symbols") if r.id in gap.fact_ids)
-    assert method.data.get("signature_complete") is False
-
-
 @pytest.mark.parametrize(
     "change",
     [

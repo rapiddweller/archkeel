@@ -98,46 +98,6 @@ HELPERS = {
 GENERATE = "def generate(seeded: bool, other=False):\n    if seeded:\n        {call}\n"
 
 
-@pytest.mark.parametrize("name", HELPERS)
-def test_helper_in_another_module_gets_the_verdict_of_a_helper_in_the_source(tmp_path, name):
-    helper, call, expected = HELPERS[name]
-    same_module = {
-        "sample/core.py": f"def _effect():\n    return None\n\n{helper}\n"
-        + GENERATE.format(call=call)
-    }
-    other_module = {
-        "sample/util.py": f"def _effect():\n    return None\n\n{helper}\n",
-        "sample/core.py": f"from .util import {call.partition('(')[0]}\n\n"
-        + GENERATE.format(call=call),
-    }
-    inside = _verdict(tmp_path / "in", same_module, target="sample.core._effect")
-    outside = _verdict(tmp_path / "out", other_module, target="sample.util._effect")
-    assert (inside, outside) == (expected, expected)
-
-
-def test_the_selected_source_does_not_change_the_verdict_for_the_same_helper(tmp_path):
-    files = {
-        "sample/util.py": "def _effect():\n    return None\n\n" + EFFECT_UNDER_FLAG,
-        "sample/core.py": "from .util import _helper\n\n" + GENERATE.format(call="_helper(seeded)"),
-    }
-    narrow = _verdict(tmp_path / "narrow", files, target="sample.util._effect")
-    wide = _verdict(tmp_path / "wide", files, target="sample.util._effect", source="sample")
-    assert (narrow, wide) == (FAIL, FAIL)
-
-
-@pytest.mark.parametrize(
-    "mounted,expected",
-    [("sample", FAIL), ("sample.core", UNKNOWN)],
-    ids=["helper-inside-the-mount", "helper-outside-the-mount"],
-)
-def test_a_mounted_contract_sees_a_helper_only_inside_its_mount(tmp_path, mounted, expected):
-    files = {
-        "sample/util.py": "def _effect():\n    return None\n\n" + EFFECT_UNDER_FLAG,
-        "sample/core.py": "from .util import _helper\n\n" + GENERATE.format(call="_helper(seeded)"),
-    }
-    assert _verdict(tmp_path, files, target="sample.util._effect", mounted=mounted) == expected
-
-
 # --- item d: any rebinding of the guarded name makes the guard unknown ---
 
 REBINDINGS = {
@@ -178,34 +138,6 @@ REBINDINGS = {
 }
 
 
-@pytest.mark.parametrize("name", REBINDINGS)
-def test_rebinding_the_guarded_parameter_inside_the_branch(tmp_path, name):
-    statement, expected = REBINDINGS[name]
-    body = textwrap.indent(statement, "        ")
-    source = (
-        "def _effect():\n    return None\n\n"
-        f"def generate(seeded: bool, other=False):\n    if seeded:\n{body}\n        _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect") == expected
-
-
-def test_a_deleted_parameter_before_the_guard_makes_the_guard_unknown(tmp_path):
-    source = (
-        "def _effect():\n    return None\n\n"
-        "def generate(seeded: bool):\n    del seeded\n    if seeded:\n        _effect()\n"
-    )
-    assert _verdict(tmp_path, {"sample/core.py": source}, target="sample.core._effect") == UNKNOWN
-
-
-def test_a_deletion_after_the_effect_does_not_hide_the_proven_failure(tmp_path):
-    source = (
-        "def _effect():\n    return None\n\n"
-        "def generate(seeded: bool):\n    if seeded:\n        _effect()\n        del seeded\n"
-    )
-    assert _verdict(tmp_path, {"sample/core.py": source}, target="sample.core._effect") == FAIL
-
-
 NONLOCAL_CLEARS_THE_GUARD = """
     def _effect():
         return None
@@ -227,21 +159,6 @@ def test_a_nested_function_that_rebinds_the_parameter_makes_the_guard_unknown(tm
     assert status is RuleAssessmentStatus.UNKNOWN
 
 
-def test_a_nested_function_that_rebinds_another_name_keeps_the_guard(tmp_path):
-    source = """
-    def _effect():
-        return None
-
-    def generate(seeded: bool, other=False):
-        def clear():
-            nonlocal other
-            other = False
-        if seeded:
-            _effect()
-    """
-    assert _verdict(tmp_path, {"sample/core.py": source}, target="sample.core._effect") == FAIL
-
-
 MEMBER_REBINDINGS = {
     "del_attribute": ("del self.seeded", UNKNOWN),
     "del_attribute_in_tuple": ("del (self.other, self.seeded)", UNKNOWN),
@@ -253,63 +170,12 @@ MEMBER_REBINDINGS = {
 }
 
 
-@pytest.mark.parametrize("name", MEMBER_REBINDINGS)
-def test_rebinding_the_guarded_member_or_its_receiver_inside_the_branch(tmp_path, name):
-    statement, expected = MEMBER_REBINDINGS[name]
-    body = textwrap.indent(statement, "            ")
-    source = (
-        "def _effect():\n    return None\n\n"
-        "class Generator:\n"
-        "    def __init__(self):\n        self.seeded: bool = False\n\n"
-        "    def generate(self, other=None):\n"
-        f"        if self.seeded:\n{body}\n            _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
-
-
 # A class body runs when the class statement runs, so it can change the guard like any statement.
 CLASS_BODY_REBINDINGS = {
     "opaque_call": "self.reset()",
     "assign_attribute": "self.seeded = False",
     "plain_class_attribute": "limit = 1",
 }
-
-
-@pytest.mark.parametrize("name", CLASS_BODY_REBINDINGS)
-def test_a_class_body_that_can_change_the_guarded_member_makes_the_guard_unknown(tmp_path, name):
-    body = textwrap.indent(CLASS_BODY_REBINDINGS[name], "                ")
-    source = (
-        "def _effect():\n    return None\n\n"
-        "class Generator:\n"
-        "    def __init__(self):\n        self.seeded: bool = False\n\n"
-        "    def reset(self):\n        return None\n\n"
-        "    def generate(self):\n"
-        "        if self.seeded:\n"
-        f"            class Local:\n{body}\n"
-        "            _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    expected = FAIL if name == "plain_class_attribute" else UNKNOWN
-    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
-
-
-def test_a_class_body_that_rebinds_the_parameter_through_nonlocal_makes_the_guard_unknown(
-    tmp_path,
-):
-    source = """
-    def _effect():
-        return None
-
-    def generate(seeded: bool):
-        if seeded:
-            class Local:
-                nonlocal seeded
-                seeded = False
-            _effect()
-    """
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
 
 
 # A definition header runs when the statement runs, before the body: a call there can change the
@@ -338,91 +204,13 @@ HEADERS = {
 }
 
 
-@pytest.mark.parametrize("name", HEADERS)
-def test_a_call_in_a_definition_header_makes_the_guarded_member_unknown(tmp_path, name):
-    statement, expected = HEADERS[name]
-    body = textwrap.indent(statement, "            ")
-    source = (
-        "def _effect():\n    return None\n\n"
-        "class Generator:\n"
-        "    def __init__(self):\n        self.seeded: bool = False\n\n"
-        "    def reset(self):\n        return None\n\n"
-        "    def generate(self):\n"
-        f"        if self.seeded:\n{body}\n            _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
-
-
-def test_a_named_expression_in_an_annotation_makes_the_parameter_guard_unknown(tmp_path):
-    source = """
-    def _effect():
-        return None
-
-    def generate(seeded: bool):
-        if seeded:
-            def local(a: (seeded := False)):
-                return a
-            _effect()
-    """
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
-
-
 # Accepted cost: a class-local store of the guard name does not change the guard in Python, but
 # the walker cannot tell it from a store in the enclosing scope, so the verdict is UNKNOWN.
-def test_a_class_local_store_of_the_parameter_name_gives_a_false_unknown(tmp_path):
-    source = """
-    def _effect():
-        return None
-
-    def generate(seeded: bool):
-        if seeded:
-            class Local:
-                seeded = False
-            _effect()
-    """
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
-
-
-def test_a_class_field_with_the_member_name_gives_a_false_unknown(tmp_path):
-    source = (
-        "def _effect():\n    return None\n\n"
-        "class Generator:\n"
-        "    def __init__(self):\n        self.seeded: bool = False\n\n"
-        "    def generate(self):\n"
-        "        if self.seeded:\n"
-        "            class Local:\n                seeded: bool = False\n"
-        "            _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN
 
 
 # After the body, a class statement runs hooks that have no call node in the source:
 # __init_subclass__ of a base, a metaclass __new__ or __init__, and __set_name__ of a body value.
 # Such a hook can set the member, so a value from before or inside the class is not safe.
-@pytest.mark.parametrize(
-    "statement",
-    [
-        "class Local(Base):\n    pass",
-        "class Local(metaclass=Meta):\n    pass",
-        "class Local:\n    field = shared",
-    ],
-    ids=["base", "metaclass", "set_name"],
-)
-def test_a_class_hook_cannot_certify_the_effect_as_safe(tmp_path, statement):
-    body = textwrap.indent(statement, "            ")
-    source = (
-        "def _effect():\n    return None\n\n"
-        "class Generator:\n"
-        "    def __init__(self):\n        self.seeded: bool = False\n\n"
-        "    def generate(self):\n"
-        f"        if not self.seeded:\n{body}\n            _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN
 
 
 # The evaluator already gives UNKNOWN for a class body that holds a guard branch, so only the
@@ -458,14 +246,6 @@ CLASS_SCOPING = {
 }
 
 
-@pytest.mark.parametrize("name", CLASS_SCOPING)
-def test_a_class_body_scope_decides_if_its_branches_set_the_parameter_guard(tmp_path, name):
-    outer, body, expected = CLASS_SCOPING[name]
-    source = PARAMETER_SCOPING.format(outer=outer, body=textwrap.indent(body, " " * 16))
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect") == expected
-
-
 MEMBER_SCOPING = {
     "rebound_after_read": ("other", "if self.seeded:\n    limit = 1\nself = other", UNKNOWN),
     "global_receiver": (
@@ -474,19 +254,3 @@ MEMBER_SCOPING = {
         UNKNOWN,
     ),
 }
-
-
-@pytest.mark.parametrize("name", MEMBER_SCOPING)
-def test_a_class_body_scope_decides_if_its_branches_set_the_member_guard(tmp_path, name):
-    outer, body, expected = MEMBER_SCOPING[name]
-    source = (
-        "def _effect():\n    return None\n\n"
-        "class Generator:\n"
-        "    def __init__(self):\n        self.seeded: bool = False\n\n"
-        "    def generate(self, other=None):\n"
-        f"        if {outer}:\n            class Local:\n"
-        f"{textwrap.indent(body, ' ' * 16)}\n"
-        "            _effect()\n"
-    )
-    files = {"sample/core.py": source}
-    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected

@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 
 import pytest
-from collector_pin import assembled
 from jsonschema import Draft202012Validator
 from test_source_trust_boundary import _payload
 
@@ -60,79 +59,3 @@ def test_candidate_arrays(value):
     facts = decode_response(json.dumps(payload).encode()).facts
     assert facts.sections[0].records[0].data.get("reexport_candidates") == tuple(value)
     assert not _schema_errors(payload)
-
-
-@pytest.mark.parametrize(
-    "missing",
-    [
-        "source_binding_unique",
-        "source_member_binding_static",
-        "class_header_static",
-        "signature_decorators_proven",
-    ],
-)
-@pytest.mark.parametrize("imported_base", [False, True], ids=["local-base", "imported-base"])
-def test_missing_symbol_proof_is_unknown(tmp_path, missing, imported_base):
-    from archkeel.analyzer.python.collect import collect
-    from test_boundary_types_non_init_facades import _write_app
-
-    from archkeel.check.ratchets import unknown_positions
-    from archkeel.ir.facts_codec import encode_response
-    from archkeel.ir.protocol import (
-        CollectionRequest,
-        CollectionResponse,
-        PythonSettings,
-        SnapshotInput,
-        SourceScope,
-    )
-
-    _write_app(
-        tmp_path,
-        public=["sample.app.api:Child"],
-        api=(
-            "from .impl import Base\nclass Child(Base): pass\n"
-            if imported_base
-            else "class Base:\n    def convert(self) -> str: ...\nclass Child(Base): pass\n"
-        ),
-        implementation="class Base:\n    def convert(self) -> str: ...\n" if imported_base else "",
-        init="",
-    )
-    facts = collect(
-        CollectionRequest(
-            SnapshotInput(str(tmp_path), "a" * 40, False),
-            SourceScope(("sample",), "sample"),
-            PythonSettings(),
-        )
-    )
-    complete = assembled(
-        facts,
-        contract_root=tmp_path,
-        contract_path=tmp_path / "contract.json",
-        roots=("sample",),
-        namespace="sample",
-    )[0]
-    assert unknown_positions(complete) == 0
-    payload = json.loads(encode_response(CollectionResponse(facts)))
-    for section in payload["facts"]["sections"]:
-        for record in section["records"]:
-            record["data"].pop(missing, None)
-    if missing == "source_binding_unique":
-        # The collector's final-method claim depends on this owner proof. First retain
-        # the contradictory claim to exercise strict rejection, then remove it so this
-        # case isolates the intended missing-proof behavior.
-        with pytest.raises(
-            ProtocolError, match="final method binding needs its last undecorated definition"
-        ):
-            decode_response(json.dumps(payload).encode())
-        for section in payload["facts"]["sections"]:
-            for record in section["records"]:
-                record["data"].pop("source_final_method_binding", None)
-    facts = decode_response(json.dumps(payload).encode()).facts
-    observation = assembled(
-        facts,
-        contract_root=tmp_path,
-        contract_path=tmp_path / "contract.json",
-        roots=("sample",),
-        namespace="sample",
-    )[0]
-    assert unknown_positions(observation) > 0

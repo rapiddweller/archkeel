@@ -21,11 +21,9 @@ from archkeel.check.evaluation.evaluate import ScanResult, evaluate_source
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import facts_validation
 from archkeel.ir.codec import parse_contract
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts import SourceSectionName
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.source_graph import _section_coverage
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 GUARD = "PROFILE-SECTION-CONTROL"
@@ -160,35 +158,6 @@ def _native_repository(tmp_path, *, include_guard=True):
 
 def test_authored_section_ports_are_required_and_parse():
     parse_contract(_authored_target())
-
-
-def test_actual_section_ports_fulfil_unchanged_authored_target(tmp_path):
-    root, config = _native_repository(tmp_path, include_guard=False)
-    comparison = architecture_report(_model(root, config)).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-
-
-def test_actual_section_coverage_native_control_is_proven(tmp_path):
-    root, config = _native_repository(tmp_path)
-    model = _model(root, config)
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "PASS" and guard.evaluation_proven
-    assert not trace_valid_violations(model)
-
-
-def test_actual_section_coverage_raw_control_mutation_fails_unchanged_policy(tmp_path):
-    root, config = _native_repository(tmp_path)
-    path = root / "archkeel/ir/source_graph.py"
-    source = path.read_text()
-    nominal = "section == SourceSectionName.CALLS"
-    assert nominal in source
-    path.write_text(source.replace(nominal, 'section == "calls"', 1))
-    authored = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "FAIL" and guard.evaluation_proven
-    assert any(GUARD in row.rule_ids for row in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == authored
 
 
 @pytest.mark.parametrize(
