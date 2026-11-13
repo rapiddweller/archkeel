@@ -17,6 +17,7 @@ publish.workspace = true
 # name.
 [dependencies]
 archkeel-facts.workspace = true
+archkeel-snapshot.workspace = true
 archkeel-store = { path = "../store" }
 archkeel-typescript-collector = { path = "../typescript" }
 archkeel-rust-collector = { path = "../rust" }

@@ -138,6 +138,9 @@ impl Snapshot {
                 None
             }
             Ok(_) => {
+                if !crate::work::permits(rel, &raw) {
+                    return None;
+                }
                 let role = self
                     .inputs
                     .get(rel)

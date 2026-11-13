@@ -193,7 +193,10 @@ fn a_build_with_a_test_feature_and_a_panic_of_the_collector_are_refusals() {
     let panicked = run::isolated(move || planted.expect("planted"));
     assert_eq!(
         panicked,
-        Err("the collector stopped with a panic: planted".to_owned())
+        Err(refused(
+            "collector",
+            "the collector stopped with a panic: planted"
+        ))
     );
 }
 

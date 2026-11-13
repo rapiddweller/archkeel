@@ -30,6 +30,7 @@ version = "0.0.0"
 dependencies = [
  "archkeel-facts",
  "archkeel-rust-collector",
+ "archkeel-snapshot",
  "archkeel-store",
  "archkeel-typescript-collector",
  "archkeel-wire",

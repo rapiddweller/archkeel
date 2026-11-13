@@ -35,7 +35,7 @@ CHAIN = ("contract", "model", "model_barrier", "eval", "report", "core")
 # AD-406: the one crate between the core and the collectors.
 COMPOSITION = "collect"
 # AD-406 review F4: the exact base crates that collect uses besides the collectors.
-COMPOSITION_USES = frozenset({"facts", "store", "wire"})
+COMPOSITION_USES = frozenset({"facts", "store", "wire", "snapshot"})
 
 
 def production_sources(native: Path, crate: str) -> dict[str, str]:

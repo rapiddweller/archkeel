@@ -12,6 +12,7 @@
 //! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
 
 use archkeel_facts::envelope::{Profile, Reply};
+use crate::{refused, Refusal};
 use archkeel_store::Ingested;
 use archkeel_wire::protocol::reply_version;
 
@@ -19,31 +20,51 @@ use archkeel_wire::protocol::reply_version;
 const STACK_BYTES: usize = 256 << 20;
 
 /// The typed reply of the request bytes, validated by the store, or why there is none.
-pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, String> {
+pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refusal> {
     let request = request.to_vec();
-    let reply = isolated(move || reply_of(profile, &request))??;
-    archkeel_store::ingest_typed(reply)
-        .map_err(|reason| format!("the store refuses the reply of the collector: {reason}"))
+    let reply = isolated(move || reply_of(profile, &request))?
+        .map_err(|why| refused("collector", why))?;
+    archkeel_store::ingest_typed(reply).map_err(|reason| {
+        refused(
+            "collector",
+            format!("the store refuses the reply of the collector: {reason}"),
+        )
+    })
 }
 
 /// Run `work` on its own thread. A panic is a named error of a test build; see the module text
 /// for the release build.
 pub(crate) fn isolated<T: Send + 'static>(
     work: impl FnOnce() -> T + Send + 'static,
-) -> Result<T, String> {
+) -> Result<T, Refusal> {
     let handle = std::thread::Builder::new()
         .name("archkeel-collect".to_owned())
         .stack_size(STACK_BYTES)
-        .spawn(work)
-        .map_err(|error| format!("cannot start the collector thread: {error}"))?;
-    handle.join().map_err(|panic| {
-        let text = panic
-            .downcast_ref::<&str>()
-            .map(|text| (*text).to_owned())
-            .or_else(|| panic.downcast_ref::<String>().cloned())
-            .unwrap_or_default();
-        format!("the collector stopped with a panic: {text}")
-    })
+        .spawn(move || archkeel_snapshot::work::bounded(work))
+        .map_err(|error| {
+            refused(
+                "collector",
+                format!("cannot start the collector thread: {error}"),
+            )
+        })?;
+    handle
+        .join()
+        .map_err(|panic| {
+            let text = panic
+                .downcast_ref::<&str>()
+                .map(|text| (*text).to_owned())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_default();
+            refused(
+                "collector",
+                format!("the collector stopped with a panic: {text}"),
+            )
+        })?
+        .map_err(|limit| Refusal {
+            part: "parse work",
+            reason: limit.to_string(),
+            kind: crate::RefusalKind::ParseWork,
+        })
 }
 
 /// The typed reply without the store, for the comparison with the bytes of the binary.

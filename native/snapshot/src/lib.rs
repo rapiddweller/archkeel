@@ -14,6 +14,7 @@
 
 pub mod paths;
 mod snapshot;
+pub mod work;
 // The temporary tree of the unit tests. A test of another crate enables the `test-tree` feature.
 #[cfg(any(test, feature = "test-tree"))]
 #[allow(

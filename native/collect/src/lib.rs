@@ -51,6 +51,14 @@ pub struct Identity<'a> {
 pub struct Refusal {
     pub part: &'static str,
     pub reason: String,
+    pub kind: RefusalKind,
+}
+
+/// Whether the shell can use its stage 1 path, or must stop without an artifact.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RefusalKind {
+    Unsupported,
+    ParseWork,
 }
 
 impl std::fmt::Display for Refusal {
@@ -67,6 +75,7 @@ fn refused(part: &'static str, reason: impl Into<String>) -> Refusal {
     Refusal {
         part,
         reason: reason.into(),
+        kind: RefusalKind::Unsupported,
     }
 }
 
@@ -126,7 +135,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     repository::survey(&root).map_err(|why| refused("work budget", why))?;
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
-    let reply = run::collect(config.profile, &bytes).map_err(|why| refused("collector", why))?;
+    let reply = run::collect(config.profile, &bytes)?;
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
@@ -231,4 +240,9 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
 mod tests;
 
 #[cfg(test)]
+<<<<<<< HEAD
 mod rust_tests;
+=======
+#[path = "work_tests.rs"]
+mod work_tests;
+>>>>>>> ba513d3cc (Bound parse work before collectors can allocate deep syntax trees)
