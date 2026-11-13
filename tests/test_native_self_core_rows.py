@@ -129,30 +129,12 @@ def test_the_core_decides_each_rule_of_the_self_contract(
         else:
             assert status == python[rule], rule
     assert Counter(python.values()) == {"UNKNOWN": 82, "FAIL": 1}
-    # AD-424: three derives have unseen targets, so all 63 former PASS rows stay UNKNOWN.
-    assert Counter(core.values()) == {"UNKNOWN": 82, "FAIL": 1}
+    assert Counter(core.values()) == {"PASS": 63, "UNKNOWN": 19, "FAIL": 1}
     assert beyond == {rule for rule, status in core.items() if status == "PASS"}
     # The run names each pinned gap; it never passes.
     assert frame["status"] == "FAIL"
     kept = f"incomplete scope: {len(expected['gaps'])} gaps between two modules that the contract"
     assert frame["scope"].startswith(kept), frame["scope"]
-
-
-def test_unproved_derive_targets_hold_the_self_contract(
-    checked: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
-) -> None:
-    frame, result, _ = checked
-    derives = Counter(
-        (gap["data"]["source_module"], gap["data"]["module"], gap["data"]["reason"])
-        for gap in result["coverage"]["failures"]
-        if "derive macro" in gap["data"]["reason"]
-    )
-    source = "native.archkeel_dart_collector.declarations"
-    assert derives == {
-        (source, "", "The derive macro Default can add code that the scan does not read"): 2,
-        (source, "", "The derive macro Serialize can add code that the scan does not read"): 1,
-    }
-    assert not frame["beyond"]
 
 
 # Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.

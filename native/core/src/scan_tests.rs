@@ -187,6 +187,43 @@ fn a_proven_registry_derive_exposes_its_forbidden_helper_edge() {
 }
 
 #[test]
+fn unproved_derive_targets_hold_every_otherwise_pass_row_of_a_fixture() {
+    let root = attribute_repository("glob-derive");
+    fs::write(
+        root.join("crates/example/src/b.rs"),
+        "macro_rules! words { () => { pub struct Marker; }; } words!();",
+    )
+    .unwrap();
+    let path = root.join("architecture-contract.json");
+    let mut contract: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let rules = contract["rules"].as_array_mut().unwrap();
+    rules.push(json!({"id": "ASSIGNED", "kind": "complete_assignment", "source": "app",
+        "rationale": "Every module has one owner.", "provenance": ["docs/a.md"], "decided_by": "architect"}));
+    rules.push(json!({"id": "NO-CYCLES", "kind": "no_component_cycles", "level": "module",
+        "rationale": "Modules have no cycle.", "provenance": ["docs/a.md"], "decided_by": "architect"}));
+    fs::write(path, contract.to_string()).unwrap();
+    for (import, status) in [("Marker", "PASS"), ("*", "UNKNOWN")] {
+        fs::write(root.join("crates/example/src/a.rs"), format!("use crate::b::{import}; #[derive(Default)] pub struct S; fn marker(_: Marker) {{}}")).unwrap();
+        let (found, _) = frame(&request(&root));
+        let rows = found["rules"].as_object().unwrap();
+        assert_eq!(rows.len(), 3, "{found}");
+        assert!(rows.values().all(|row| row[1] == status), "{found}");
+        assert_eq!(found["status"], status, "{found}");
+        if status == "UNKNOWN" {
+            assert!(
+                found["scope"]
+                    .as_str()
+                    .unwrap()
+                    .contains("app.example.a -> "),
+                "{found}"
+            );
+        } else {
+            assert_eq!(found["scope"], "complete", "{found}");
+        }
+    }
+}
+
+#[test]
 fn a_scan_request_with_a_reply_or_a_trust_field_is_refused() {
     let root = repository("forged");
     for (field, value) in [

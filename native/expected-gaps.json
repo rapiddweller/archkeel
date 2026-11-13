@@ -147,21 +147,6 @@
     ],
     [
       "native.archkeel_dart_collector.declarations",
-      "",
-      "The derive macro Default can add code that the scan does not read"
-    ],
-    [
-      "native.archkeel_dart_collector.declarations",
-      "",
-      "The derive macro Default can add code that the scan does not read"
-    ],
-    [
-      "native.archkeel_dart_collector.declarations",
-      "",
-      "The derive macro Serialize can add code that the scan does not read"
-    ],
-    [
-      "native.archkeel_dart_collector.declarations",
       "native.archkeel_dart_collector.declarations.members",
       "A method call may reach the method class of an impl block in native.archkeel_dart_collector.declarations.members"
     ],

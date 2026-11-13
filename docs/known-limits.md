@@ -305,6 +305,7 @@ the existing pair-gap scope proof. Built-in attributes and tool attributes add n
 Built-in derives need a macro-namespace proof. Block-local and enum-variant globs cannot shadow
 a module-level derive. Workspace-module globs need a closed export proof; unseen macro output
 and external globs keep the gap. The native workspace has no proc-macro crate.
+A glob that can reach macro output withholds built-in derive identity; use explicit imports.
 One typed table models `serde::Serialize`, `serde::Deserialize` (1.0.229), and
 `schemars::JsonSchema` (1.2.3). File use records must prove the identity without a glob or shadow.
 The library and its derive implementation need unique crates.io registry identities in `Cargo.lock`.

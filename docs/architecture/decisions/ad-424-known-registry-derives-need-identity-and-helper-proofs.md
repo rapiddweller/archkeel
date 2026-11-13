@@ -46,12 +46,14 @@ No model changes the gap record or the core's PASS proof.
 ## Limits and checks
 
 Other versions, helper extensions and function-like expansion remain unmodeled.
-`words!` output in the native declarations module still withholds its glob proof.
-On main `90a5088fd`, the Python gap count changes from 113 to 116 with this model.
-The core changes from 63 PASS, 1 FAIL, 19 UNKNOWN to 0 PASS, 1 FAIL, 82 UNKNOWN.
-Without this model, the gap count is 369 and the core has the same statuses.
-The three unseen derive targets hold all 63 former PASS rows under AD-418.
+Main `90a5088fd` has 113 gaps and 63 PASS, 1 FAIL, 19 UNKNOWN core rows.
+With this model and the declarations glob, it has 116 gaps and 0 PASS, 1 FAIL, 82 UNKNOWN.
+Without this model, it has 369 gaps and the same core statuses.
+Explicit imports in the native declarations module restore all 63 PASS rows and 113 gaps.
+`words!` declares neither `Default` nor `Serialize`; the change only names the imported types.
+No collector or scope proof changes. A planted glob fixture keeps all otherwise-PASS rows UNKNOWN.
 Tests: `known_derive_tests.rs`, the compiled core helper-edge probe, and
 `test_a_proven_serde_helper_edge_fails_the_forbidden_rule`.
+`unproved_derive_targets_hold_every_otherwise_pass_row_of_a_fixture` checks the unseen export.
 Negative tests retain gaps for workspace macros, globs, renamed path dependencies,
 patches, invalid helpers, missing locks and git sources. P8b stays UNKNOWN.
