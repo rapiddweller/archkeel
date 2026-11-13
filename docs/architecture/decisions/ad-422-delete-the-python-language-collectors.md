@@ -23,6 +23,7 @@ Delete tests that serve only the deleted implementations. Do not create recordin
 The owner also accepts removal of neutral tests that need retired Python inputs; list them in the PR.
 Keep native unit tests. Name parity tests as skipped until their released oracle is connected.
 Keep the frozen replies that the Rust schema tests read, without recording new replies.
+Keep the clone guard strict after AD-420: share its comment walk and exhaustively format refusals.
 The dual run names and counts each unsupported Python and Dart case.
 
 ## Rejected alternatives

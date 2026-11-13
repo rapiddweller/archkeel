@@ -24,5 +24,6 @@ pub mod work;
 )]
 pub mod test_tree;
 
+pub use nesting::block_comment_end;
 pub use snapshot::listing::{Entry, RootCheck};
 pub use snapshot::{Hidden, Snapshot, MAX_FILE_BYTES};
