@@ -28,7 +28,7 @@
         "native.archkeel_snapshot"
       ],
       "responsibilities": [
-        "The one owner of how a collector reads a snapshot: POSIX paths, contained reads, the symlink rule, the size limit and the digest of each input."
+        "The one owner of how a collector reads a snapshot: POSIX paths, contained reads, the symlink rule, the size limit, the parse-work charge before a collector sees bytes, and the digest of each input (AD-420)."
       ],
       "forbidden_responsibilities": [
         "Language rules, such as which directory holds installed packages, and parsing source."
@@ -302,7 +302,7 @@
         "native.archkeel_collect"
       ],
       "responsibilities": [
-        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406)."
+        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406). The refusal module owns typed failures. The collector thread enables the shared snapshot parse-work bound (AD-420)."
       ],
       "forbidden_responsibilities": [
         "Deciding a rule, writing a frame, and trusting a reply or a digest that a caller gives."
@@ -318,6 +318,10 @@
         {
           "component": "store",
           "rationale": "Validate the typed reply through the same validation as a reply of bytes (AD-406)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Bound every read on the collector thread before any linked collector parses bytes (AD-420)."
         },
         {
           "component": "wire",
@@ -725,10 +729,11 @@
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
+        "native.archkeel_typescript_collector.site_text",
         "native.archkeel_typescript_collector.site_types"
       ],
       "responsibilities": [
-        "Read the use sites of a file: the names, the paths and the syntax of each site."
+        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420)."
       ],
       "forbidden_responsibilities": [
         "Resolving a site to a target and building facts."

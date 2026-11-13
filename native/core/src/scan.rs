@@ -23,7 +23,7 @@ use serde_json::json;
 #[cfg(test)]
 use serde_json::Value;
 
-use archkeel_collect::{Identity, Over, Profile, Refusal, Scanned};
+use archkeel_collect::{Identity, Over, Profile, Refusal, RefusalKind, Scanned};
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
@@ -51,7 +51,7 @@ struct ScanRequest {
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
-pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
+pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
     let request: ScanRequest = dual_run::decode(input, PROTOCOL)?;
     let identity = Identity {
         root: &request.root,
@@ -60,8 +60,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         dirty: request.dirty,
     };
     match archkeel_collect::scan(&identity, MAX_BYTES) {
-        Ok(scanned) => decide(scanned),
-        Err(refusal) => refused(&refusal),
+        Ok(scanned) => decide(scanned).map_err(Into::into),
+        Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
+            Err(crate::refusal::Error::Refused(refusal))
+        }
+        Err(refusal) => refused(&refusal).map_err(Into::into),
     }
 }
 
@@ -222,3 +225,7 @@ pub(crate) fn derived(frame: &Value) -> Option<&Value> {
 #[cfg(test)]
 #[path = "scan_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "scan_work_tests.rs"]
+mod work_tests;

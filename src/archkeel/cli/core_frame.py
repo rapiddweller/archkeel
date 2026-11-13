@@ -62,6 +62,7 @@ class GapKind(StrEnum):
     # request than the shell sent to its collector.
     COLLECT = "collect"
     REQUEST_DIFFERS = "request_differs"
+    PARSE_WORK_LIMIT = "parse_work_limit"
 
 
 class Switch(StrEnum):
@@ -87,6 +88,10 @@ class _ReplyRead(StrEnum):
 class _CollectRead(StrEnum):
     REQUEST = "request"
     REFUSED = "refused"
+
+
+class _RefusalProtocol(StrEnum):
+    V1 = "archkeel-core-refusal-1"
 
 
 _Word = TypeVar("_Word", bound=StrEnum)
@@ -134,6 +139,15 @@ class CoreError(Exception):
     """The core binary is missing or not verified, failed, or wrote a frame that the shell
     refuses, or the two engines differ. The run then gives no verdict (exit 2)."""
 
+    def __init__(self, message: str, *, gap: Gap | None = None) -> None:
+        Exception.__init__(self, message)
+        self.gap = gap
+
+    def __str__(self) -> str:
+        if self.gap is not None:
+            return f"core refusal [{self.gap.kind}]: {self.gap.subject}: {self.gap.reason}"
+        return Exception.__str__(self)
+
 
 @dataclass(frozen=True, slots=True)
 class RuleVerdict:
@@ -148,6 +162,20 @@ class Gap:
     kind: GapKind
     subject: str
     reason: str
+
+
+def read_refusal(stderr: bytes) -> Gap | None:
+    """The closed refusal message on stderr, never a verdict frame or a text-prefix inference."""
+    try:
+        value = json.loads(stderr, object_pairs_hook=_unique)
+    except (UnicodeDecodeError, ValueError):
+        return None
+    fields = _fields(value, "refusal", frozenset({"protocol", "kind", "subject", "reason"}))
+    _word(_RefusalProtocol, fields["protocol"], "refusal.protocol")
+    kind = _word(GapKind, fields["kind"], "refusal.kind")
+    if kind is not GapKind.PARSE_WORK_LIMIT:
+        raise CoreError(f"the core refusal has an unsupported kind {kind}")
+    return Gap(kind, _text(fields["subject"], "subject"), _text(fields["reason"], "reason"))
 
 
 @dataclass(frozen=True, slots=True)

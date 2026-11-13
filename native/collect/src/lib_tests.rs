@@ -65,7 +65,7 @@ fn refusal(root: &Path) -> Refusal {
 }
 
 /// The reply of the producer of the binary (`reply`), decoded, as JSON bytes.
-fn binary_bytes(request: &[u8]) -> Vec<u8> {
+pub(super) fn binary_bytes(request: &[u8]) -> Vec<u8> {
     let request = archkeel_wire::request::decode(request).unwrap();
     let mut wire = Vec::new();
     archkeel_typescript_collector::reply(
@@ -193,7 +193,10 @@ fn a_build_with_a_test_feature_and_a_panic_of_the_collector_are_refusals() {
     let panicked = run::isolated(move || planted.expect("planted"));
     assert_eq!(
         panicked,
-        Err("the collector stopped with a panic: planted".to_owned())
+        Err(refused(
+            "collector",
+            "the collector stopped with a panic: planted"
+        ))
     );
 }
 

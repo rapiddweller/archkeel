@@ -451,6 +451,23 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 
+## Scan work bounds are not process-memory bounds
+
+[AD-420](architecture/decisions/ad-420-bound-parse-work-before-an-in-process-collector-reads-bytes.md)
+bounds per-file work, bracket nesting and distinct input, not process memory.
+The limits are 4 MiB per file, 8,388,608 byte/token units, 512 bracket levels and 64 MiB distinct scan input.
+Flat statement and expression chains do not count as bracket nesting.
+
+The review measured an accepted TypeScript scan of 15 files of 4 MiB, about 63 MiB input, at about 10 GiB RSS.
+Main is within 3 %. The collector retains about 160 RSS bytes per input byte across files.
+The syntax tree or source of each file must be released when its facts are taken.
+Single-file peaks reached about 1.0 GiB for 4 MiB of TypeScript and 1.2 GiB for a 4 MiB Rust array.
+
+A 4 MiB Rust long expression aborts the core process with SIGABRT, on main too.
+That run produces no verdict. It must become a typed refusal instead of an abort.
+These remain open in #1111. The target is a 300 MiB peak RSS line plus a stated RSS/input factor.
+The selected 300 MiB regression probes do not prove this target for every accepted input.
+
 ## The native Python collector
 
 The native Python collector (not yet the default) cannot read the target of a dangling `*.py`

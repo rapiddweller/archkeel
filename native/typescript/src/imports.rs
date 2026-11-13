@@ -21,7 +21,17 @@ impl Collection<'_> {
     /// Parse a file, report what it cannot prove, and record each of its references.
     pub(super) fn references(&mut self, rel: &str, module: &str, file_evidence: &str, text: &str) {
         let reach = self.resolver.options.reach();
-        let mut parsed = parse_for(&mut self.parsers, rel, text.as_bytes(), reach);
+        let mut parsed = parse_for(
+            &mut self.parsers,
+            rel,
+            text.as_bytes(),
+            reach,
+            archkeel_snapshot::work::depth_limit(),
+        );
+        if parsed.depth_limited {
+            archkeel_snapshot::work::refuse_depth(rel);
+            return;
+        }
         if let Some(line) = parsed.first_error {
             let reason = format!("Syntax error in {rel}: unparseable construct at line {line}");
             self.gap(&reason, Some(file_evidence), module, GapKind::Collection);

@@ -64,6 +64,13 @@ pub(crate) struct Paths {
 pub(crate) use crate::source_input::is_script_root;
 
 impl Paths {
+    pub(crate) fn retained_texts(&mut self) -> impl Iterator<Item = &mut Text> {
+        self.memo = HashMap::new();
+        self.items
+            .iter_mut()
+            .flat_map(|item| [&mut item.name, &mut item.head])
+    }
+
     fn push(&mut self, parent: Option<u32>, name: Text) -> u32 {
         let (head, length) = match parent.and_then(|at| self.items.get(at as usize)) {
             Some(item) => (item.head, item.length.saturating_add(1)),

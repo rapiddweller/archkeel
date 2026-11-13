@@ -129,7 +129,7 @@ impl<'a> AliasIndex<'a> {
 impl<'a, 'p> Run<'a, 'p> {
     /// The probe of a site of `file`.
     fn probe(file: &Kept, site: &Site) -> Probe {
-        let data = file.text.as_bytes();
+        let data = &file.text;
         let path = site.path.map(|at| file.sites.paths.names(at, data));
         Probe {
             kind: site.kind,
@@ -360,7 +360,7 @@ impl<'a, 'p> Run<'a, 'p> {
 
 /// A published name that a site reads as a value that escapes: an unknown write of the name.
 fn escaped<'a>(project: &Project<'a>, rel: &'a str, file: &'a Kept) -> Vec<Write<'a>> {
-    let data = file.text.as_bytes();
+    let data = &file.text;
     let mut found = Vec::new();
     for site in &file.sites.sites {
         if site.kind != SiteKind::Reference || !site.script_escape {
