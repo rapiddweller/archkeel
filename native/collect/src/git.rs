@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 const MAX_GIT_FILE: u64 = 64 << 20;
 
 /// The commit id of `HEAD` of the repository that holds `root`.
-pub fn head(root: &Path) -> Result<String, String> {
+pub(crate) fn head(root: &Path) -> Result<String, String> {
     let git = git_directory(root)?;
     let common = match small(&git.join("commondir")) {
         Some(text) => git.join(text.trim()),

@@ -23,7 +23,7 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::{children, named_children};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DefinitionKind {
+pub(crate) enum DefinitionKind {
     Class,
     Interface,
     Enum,
@@ -34,7 +34,7 @@ pub enum DefinitionKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Definition {
+pub(crate) struct Definition {
     pub name: String,
     pub kind: DefinitionKind,
     pub span: Span,
@@ -63,7 +63,7 @@ pub struct Definition {
 /// A definition that other definitions can nest in. The qualified name is the chain of the names
 /// from the root scope, so a scope costs one name and not a copy of the whole chain.
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Scope {
+pub(crate) struct Scope {
     name: String,
     parent: Option<u32>,
     line: i64,
@@ -72,7 +72,7 @@ pub struct Scope {
 
 /// The scopes of one file, in the order of their definitions.
 #[derive(Default)]
-pub struct Scopes(Vec<Scope>);
+pub(crate) struct Scopes(Vec<Scope>);
 
 /// The definition that holds a site, with its qualified name and start position.
 pub(crate) struct ScopeDescription {
@@ -84,7 +84,7 @@ pub(crate) struct ScopeDescription {
 impl Scopes {
     /// `parent_name` of Python: `parent.name` joined with a dot, from the outermost scope in.
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-    pub fn qualified(&self, at: u32) -> String {
+    pub(crate) fn qualified(&self, at: u32) -> String {
         let mut names = Vec::new();
         let mut next = Some(at);
         while let Some(index) = next {
@@ -112,7 +112,7 @@ impl Scopes {
 }
 
 #[derive(Default)]
-pub struct Defs {
+pub(crate) struct Defs {
     /// The definitions of the first walk (`_inner`).
     found: Vec<Definition>,
     scopes: Scopes,
@@ -164,7 +164,7 @@ fn top_of_file(stack: &[Entry], up: usize) -> bool {
 
 impl Defs {
     /// `_inner`: record `node` when it is a definition. Returns the scope that it opens.
-    pub fn definition(
+    pub(crate) fn definition(
         &mut self,
         cx: &Cx,
         node: Node,
@@ -250,7 +250,7 @@ impl Defs {
     }
 
     /// `_variables` and `_uncollected_module_binding` for one node.
-    pub fn variable(&mut self, cx: &Cx, node: Node, kind: K, stack: &[Entry], seen: u8) {
+    pub(crate) fn variable(&mut self, cx: &Cx, node: Node, kind: K, stack: &[Entry], seen: u8) {
         let (peer, opaque) = uncollected(cx, node, kind, stack, seen);
         self.omitted.extend(peer);
         self.opaque |= opaque;
@@ -317,7 +317,7 @@ impl Defs {
     }
 
     /// The definitions in file order after the filter for module arrays and the module visibility.
-    pub fn finish(
+    pub(crate) fn finish(
         mut self,
         imported: &HashSet<String>,
         exports: &ModuleExports,

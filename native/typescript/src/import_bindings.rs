@@ -12,7 +12,7 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::children;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ImportBinding {
+pub(crate) struct ImportBinding {
     pub span: Span,
     pub imported: String,
     pub local: String,
@@ -33,7 +33,7 @@ fn binding(span: &Span, imported: String, local: String, type_only: bool) -> Imp
 }
 
 /// The bindings of one `import_statement`, in the order of the default, named and namespace names.
-pub fn of_statement(cx: &Cx, statement: Node) -> Vec<ImportBinding> {
+pub(crate) fn of_statement(cx: &Cx, statement: Node) -> Vec<ImportBinding> {
     let parts = children(statement);
     let Some(clause) = parts.iter().find(|part| cx.k(**part) == K::ImportClause) else {
         return Vec::new();

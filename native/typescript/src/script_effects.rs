@@ -16,7 +16,7 @@ use crate::script_records::Effect;
 
 /// The record of one effect. Its `expression` is the excerpt that the evidence of the write has
 /// when the record is made, as in Python.
-pub fn effect_record(cited: &mut Cited, effect: &Effect) -> Record<ReferenceFact> {
+pub(crate) fn effect_record(cited: &mut Cited, effect: &Effect) -> Record<ReferenceFact> {
     let evidence = cited.cite(&effect.rel, &effect.span);
     let parts = [
         Part::Text(&effect.module),

@@ -35,6 +35,8 @@ CARGO = {
     "eval": 'archkeel-eval = { path = "../eval" }',
     "model": 'archkeel-model = { path = "../model" }',
     "core": 'archkeel-core = { path = "../core" }',
+    "typescript": 'archkeel-typescript-collector = { path = "../typescript" }',
+    "collect": 'archkeel-collect = { path = "../collect" }',
     "facts": "archkeel-facts.workspace = true",
     "toml": "toml.workspace = true",
     "syn": "syn.workspace = true",
@@ -48,6 +50,8 @@ ITEM = {
     "eval": "archkeel_eval::evaluate",
     "model": "archkeel_model::Model",
     "core": "archkeel_core::run",
+    "typescript": "archkeel_typescript_collector::provenance",
+    "collect": "archkeel_collect::scan",
 }
 CHAIN_RULES = [
     ("eval", "report"),
@@ -60,6 +64,14 @@ CHAIN_RULES = [
     ("model", "core"),
     ("eval", "core"),
     ("report", "core"),
+    # AD-406: only archkeel-collect links a collector, and only the core uses archkeel-collect.
+    ("core", "typescript"),
+    ("eval", "typescript"),
+    ("model", "typescript"),
+    ("report", "typescript"),
+    ("eval", "collect"),
+    ("model", "collect"),
+    ("report", "collect"),
 ]
 # (crate, Cargo key, file text, rule): plants of the external and requires rules.
 OTHER = [

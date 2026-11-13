@@ -15,7 +15,7 @@ use crate::pytext::{decode, first_chars, utf16_len};
 
 /// A 1-based line and UTF-16 column, as the TypeScript compiler reports them.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Span {
+pub(crate) struct Span {
     pub line: i64,
     pub end_line: i64,
     pub column: i64,
@@ -48,7 +48,7 @@ pub(crate) struct FileSiteKey<'a> {
 }
 
 /// The text of one file with its line starts.
-pub struct Source<'a> {
+pub(crate) struct Source<'a> {
     pub data: &'a [u8],
     starts: Vec<usize>,
     /// The columns of the long lines, by line (see `column`).
@@ -57,7 +57,7 @@ pub struct Source<'a> {
 
 impl<'a> Source<'a> {
     /// The line starts of `_LINE_BREAK`: `\r\n`, `\n`, `\r`, U+2028 and U+2029.
-    pub fn new(data: &'a [u8]) -> Self {
+    pub(crate) fn new(data: &'a [u8]) -> Self {
         let mut starts = vec![0];
         let mut index = 0;
         while index < data.len() {
@@ -79,7 +79,7 @@ impl<'a> Source<'a> {
         }
     }
 
-    pub fn text(&self, node: Node) -> String {
+    pub(crate) fn text(&self, node: Node) -> String {
         decode(&self.data[node.start_byte()..node.end_byte()]).into_owned()
     }
 
@@ -121,7 +121,7 @@ impl<'a> Source<'a> {
     }
 
     /// `_Source.span`: the position of `node`, with the excerpt and column of `start` if given.
-    pub fn span(&self, node: Node, start: Option<Node>) -> Span {
+    pub(crate) fn span(&self, node: Node, start: Option<Node>) -> Span {
         let first = start.unwrap_or(node);
         let line = self.line_of(first.start_byte());
         Span {

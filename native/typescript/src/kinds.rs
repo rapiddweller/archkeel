@@ -11,7 +11,7 @@
 use tree_sitter::{Language, Node};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum K {
+pub(crate) enum K {
     Other,
     Asterisk,
     Abstract,
@@ -298,7 +298,7 @@ const NAMES: &[(&str, K)] = &[
 /// The fields of a node that the syntax walk reads. Their ids are looked up once for a grammar:
 /// a lookup by name compares strings.
 #[derive(Clone, Copy)]
-pub enum F {
+pub(crate) enum F {
     Alias,
     Argument,
     Arguments,
@@ -355,20 +355,20 @@ const ERROR_ID: u16 = u16::MAX;
 
 /// What the walk needs to know about a node id: its kind and whether the grammar names it.
 #[derive(Clone, Copy)]
-pub struct Info {
+pub(crate) struct Info {
     pub kind: K,
     pub named: bool,
     pub error: bool,
 }
 
 /// The kind of each node id of one grammar.
-pub struct KindMap {
+pub(crate) struct KindMap {
     table: Vec<(K, bool)>,
     fields: Vec<u16>,
 }
 
 impl KindMap {
-    pub fn new(language: &Language) -> Self {
+    pub(crate) fn new(language: &Language) -> Self {
         let table = (0..language.node_kind_count() as u16)
             .map(|id| {
                 let text = language.node_kind_for_id(id).unwrap_or("");
@@ -391,7 +391,7 @@ impl KindMap {
     }
 
     /// The kind, the name flag and the repair flag of a node, from one read of its id.
-    pub fn info(&self, node: Node) -> Info {
+    pub(crate) fn info(&self, node: Node) -> Info {
         let id = node.kind_id();
         let (kind, named) = self
             .table
@@ -406,14 +406,14 @@ impl KindMap {
     }
 
     /// `node.child_by_field_name`, by the id of the field.
-    pub fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
+    pub(crate) fn field<'t>(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
         match self.fields.get(field as usize) {
             Some(id) if *id != 0 => node.child_by_field_id(*id),
             _ => None,
         }
     }
 
-    pub fn of(&self, node: Node) -> K {
+    pub(crate) fn of(&self, node: Node) -> K {
         self.info(node).kind
     }
 }

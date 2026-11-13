@@ -32,7 +32,7 @@ use crate::tree::nodes::named_children;
 /// The facts of `Syntax` that this phase produces. The reply does not read them yet; the `dump`
 /// feature does (AD-323).
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-pub struct Syntax {
+pub(crate) struct Syntax {
     pub definitions: Vec<Definition>,
     /// The parents of the definitions: `parent_name` gives the qualified name of a definition.
     pub scopes: Scopes,
@@ -56,12 +56,12 @@ pub struct Syntax {
 impl Syntax {
     /// The qualified name of the parent of a definition (`Definition.parent` in Python).
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
-    pub fn parent_name(&self, definition: &Definition) -> Option<String> {
+    pub(crate) fn parent_name(&self, definition: &Definition) -> Option<String> {
         definition.parent.map(|at| self.scopes.qualified(at))
     }
 
     /// The facts of a file that could not be parsed: none.
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self {
             definitions: Vec::new(),
             scopes: Scopes::default(),
@@ -81,7 +81,7 @@ impl Syntax {
     }
 }
 
-pub struct Walk<'a, 't> {
+pub(crate) struct Walk<'a, 't> {
     cx: Cx<'a>,
     stack: Vec<Entry<'t>>,
     frames: Frames,
@@ -96,7 +96,7 @@ pub struct Walk<'a, 't> {
 }
 
 impl<'a, 't> Walk<'a, 't> {
-    pub fn new(cx: Cx<'a>) -> Self {
+    pub(crate) fn new(cx: Cx<'a>) -> Self {
         let layout = Layout::default();
         Self {
             cx,
@@ -113,7 +113,7 @@ impl<'a, 't> Walk<'a, 't> {
 
     /// Enter a node; `leave` ends it. A token without a name in the grammar is a leaf: it joins
     /// the stack and has no other effect.
-    pub fn enter(&mut self, node: Node<'t>) {
+    pub(crate) fn enter(&mut self, node: Node<'t>) {
         let cx = self.cx;
         let info = cx.kinds.info(node);
         let kind = info.kind;
@@ -195,11 +195,11 @@ impl<'a, 't> Walk<'a, 't> {
     }
 
     /// The layout of the named nodes that the walk has seen; `finish` does not keep it.
-    pub fn take_layout(&mut self) -> Layout<'t> {
+    pub(crate) fn take_layout(&mut self) -> Layout<'t> {
         std::mem::take(&mut self.layout)
     }
 
-    pub fn leave(&mut self) {
+    pub(crate) fn leave(&mut self) {
         if let Some(entry) = self.stack.pop() {
             self.layout.leave(entry.at);
         }
@@ -352,7 +352,7 @@ impl<'a, 't> Walk<'a, 't> {
     }
 
     /// Close the walk: the facts that need the whole file.
-    pub fn finish(mut self, root: Node, suffix: Option<Suffix>) -> Syntax {
+    pub(crate) fn finish(mut self, root: Node, suffix: Option<Suffix>) -> Syntax {
         let cx = self.cx;
         let top = named_children(root);
         let exports = module_exports(&cx, &top);

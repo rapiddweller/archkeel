@@ -32,7 +32,7 @@ const MAX_RESPONSE_LIMIT_BYTES: i64 = 1 << 32;
 
 /// Why the configuration gives no collection request.
 #[derive(Debug, PartialEq, Eq)]
-pub enum Refused {
+pub(crate) enum Refused {
     /// The Python parser refuses it too.
     Invalid(String),
     /// Valid, but the in-process path does not run it yet: the part and why.
@@ -41,7 +41,7 @@ pub enum Refused {
 
 /// The settings of a TypeScript scan, as `ScanConfig` holds them.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Config {
+pub(crate) struct Config {
     pub roots: Vec<String>,
     pub namespace: String,
     pub contract: String,
@@ -55,7 +55,7 @@ fn invalid(text: &str) -> Refused {
 }
 
 /// Parse and check the configuration bytes. `name` is the file in the messages.
-pub fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
+pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
     let text = std::str::from_utf8(payload)
         .map_err(|error| Refused::Invalid(format!("invalid {name}: {error}")))?;
     let raw = text
@@ -256,7 +256,7 @@ fn safe_path(value: &Value, field: &str, allow_dot: bool) -> Result<String, Refu
 
 /// `PurePosixPath(value).as_posix()` of a relative path: no empty part, no `.` part, and `.`
 /// for a path that has no other part.
-pub fn posix(value: &str) -> String {
+pub(crate) fn posix(value: &str) -> String {
     let parts: Vec<&str> = value
         .split('/')
         .filter(|part| !part.is_empty() && *part != ".")

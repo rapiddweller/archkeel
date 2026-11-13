@@ -20,12 +20,12 @@ use crate::sites::SiteKind;
 use crate::source::Span;
 
 /// The reason of the gap of an effect that no publication bounds.
-pub const UNBOUNDED_EFFECT: &str = "Script namespace effects are not statically bounded";
+pub(crate) const UNBOUNDED_EFFECT: &str = "Script namespace effects are not statically bounded";
 
 /// The identity of a site that the maps below use: its place, its kind and its path. A site that
 /// the analysis makes up (the member of a destructuring) has its own place and path.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct SiteKey {
+pub(crate) struct SiteKey {
     pub line: i64,
     pub end_line: i64,
     pub column: i64,
@@ -34,7 +34,7 @@ pub struct SiteKey {
 }
 
 impl SiteKey {
-    pub fn new(kind: SiteKind, span: &Span, path: &[String]) -> Self {
+    pub(crate) fn new(kind: SiteKind, span: &Span, path: &[String]) -> Self {
         Self {
             line: span.line,
             end_line: span.end_line,
@@ -47,7 +47,7 @@ impl SiteKey {
 
 /// What the records of a module read about its sites.
 #[derive(Default)]
-pub struct ModuleScript {
+pub(crate) struct ModuleScript {
     /// `script_resolution`: the targets of a site that a published global resolves.
     pub resolution: HashMap<SiteKey, Vec<String>>,
     /// `script_evidence`: the evidence of a site that an alias proves.
@@ -57,7 +57,7 @@ pub struct ModuleScript {
 }
 
 /// A script runtime effect that no publication bounds: the place of a write.
-pub struct Effect {
+pub(crate) struct Effect {
     pub rel: String,
     pub module: String,
     pub span: Span,
@@ -65,7 +65,7 @@ pub struct Effect {
 
 /// Everything that the records after the imports read from the script analysis.
 #[derive(Default)]
-pub struct ScriptFacts {
+pub(crate) struct ScriptFacts {
     pub modules: HashMap<String, ModuleScript>,
     /// `script_publications`: the bindings that the imports cite, in the order of insertion.
     pub publications: Vec<Record<BindingFact>>,
@@ -78,18 +78,18 @@ pub struct ScriptFacts {
 }
 
 impl ScriptFacts {
-    pub fn module(&mut self, module: &str) -> &mut ModuleScript {
+    pub(crate) fn module(&mut self, module: &str) -> &mut ModuleScript {
         self.modules.entry(module.to_owned()).or_default()
     }
 
     /// `self.script_fact_ids.get((module, site), ())`.
-    pub fn fact_ids(&self, module: &str, key: &SiteKey) -> Vec<String> {
+    pub(crate) fn fact_ids(&self, module: &str, key: &SiteKey) -> Vec<String> {
         let found = self.modules.get(module).and_then(|m| m.fact_ids.get(key));
         found.cloned().unwrap_or_default()
     }
 
     /// Add a binding record: a repeated id keeps its place and takes the new record.
-    pub fn publish(&mut self, record: Record<BindingFact>) {
+    pub(crate) fn publish(&mut self, record: Record<BindingFact>) {
         match self.published.get(record.id.as_str()) {
             Some(at) => {
                 if let Some(slot) = self.publications.get_mut(*at) {
@@ -106,11 +106,11 @@ impl ScriptFacts {
 }
 
 /// An UNKNOWN record of the gaps.
-pub type GapRecord = Record<GapFact>;
+pub(crate) type GapRecord = Record<GapFact>;
 
 /// The output of the analysis.
 #[derive(Default)]
-pub struct Sink {
+pub(crate) struct Sink {
     pub facts: ScriptFacts,
     /// The UNKNOWN records of the analysis with their ids, as the collection keeps them.
     pub gaps: Vec<(String, GapRecord)>,
@@ -120,7 +120,7 @@ pub struct Sink {
 
 impl Sink {
     /// `collect._cite`: the id of the location; the excerpt is registered when the reply is written.
-    pub fn cite(&mut self, rel: &str, span: &Span) -> String {
+    pub(crate) fn cite(&mut self, rel: &str, span: &Span) -> String {
         // A citation that repeats the one before changes nothing, so it is not kept.
         let repeated = self
             .facts
@@ -134,7 +134,7 @@ impl Sink {
     }
 
     /// A resolution gap with the given evidence (`collect._gap`).
-    pub fn gap(&mut self, reason: &str, evidence: &[String], module: &str) {
+    pub(crate) fn gap(&mut self, reason: &str, evidence: &[String], module: &str) {
         let fact = GapFact::resolution(reason, module);
         let first = evidence.first().map(String::as_str);
         self.gaps
@@ -143,7 +143,7 @@ impl Sink {
 
     /// The gap of a runtime effect: its id is made from the effect, and it names the effect as its
     /// fact (`_script_runtime_effect`).
-    pub fn effect_gap(&mut self, module: &str, effect: &str, evidence: &str) {
+    pub(crate) fn effect_gap(&mut self, module: &str, effect: &str, evidence: &str) {
         let id = stable_id("UNKNOWN_RUNTIME_EFFECT", &[Part::Text(effect)]);
         let mut fact = GapFact::resolution(UNBOUNDED_EFFECT, module);
         if let GapFact::SourceResolutionGap(data) = &mut fact {
@@ -167,7 +167,7 @@ fn sorted(mut values: Vec<String>) -> Vec<String> {
 }
 
 /// `classified` for a record of the `bindings` section.
-pub fn binding(
+pub(crate) fn binding(
     id: String,
     title: String,
     module: &str,
@@ -187,7 +187,7 @@ pub fn binding(
 }
 
 /// What `_script_import_record` needs.
-pub struct Use<'a> {
+pub(crate) struct Use<'a> {
     pub module: &'a str,
     pub kind: SiteKind,
     pub span: &'a Span,
@@ -202,7 +202,7 @@ pub struct Use<'a> {
 }
 
 /// The id of the global record of a site (`stable_id("TSGLOBAL", ...)`).
-pub fn global_id(module: &str, kind: SiteKind, span: &Span) -> String {
+pub(crate) fn global_id(module: &str, kind: SiteKind, span: &Span) -> String {
     let kind = kind.as_str();
     let parts = [
         Part::Text(module),
@@ -214,7 +214,7 @@ pub fn global_id(module: &str, kind: SiteKind, span: &Span) -> String {
 }
 
 /// `_script_import_record`.
-pub fn import_record(item: &Use) -> Record<ImportFact> {
+pub(crate) fn import_record(item: &Use) -> Record<ImportFact> {
     let first = item.path.first().map_or("", String::as_str);
     let module = item.module;
     let mut subjects: Vec<String> = [module, item.target_module]

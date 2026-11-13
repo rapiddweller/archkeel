@@ -20,11 +20,11 @@ use crate::script_types::{ScriptAlias, ScriptGlobal};
 const UNPUBLISHED: &str = " has no unique unconditional publication";
 
 /// The aliases of a use: the alias that the use calls, and the alias that it reads or initializes.
-pub type Aliases<'x> = (Option<&'x ScriptAlias>, Option<&'x ScriptAlias>);
+pub(crate) type Aliases<'x> = (Option<&'x ScriptAlias>, Option<&'x ScriptAlias>);
 
 impl<'a, 'p> Run<'a, 'p> {
     /// `_script_dependency`.
-    pub fn dependency(
+    pub(crate) fn dependency(
         &mut self,
         rel: &str,
         probe: &Probe,
@@ -145,7 +145,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// Add facts to the proofs of a site, once each (`dict.fromkeys`).
-    pub fn add_fact_ids(&mut self, module: &str, probe: &Probe, ids: Vec<String>) {
+    pub(crate) fn add_fact_ids(&mut self, module: &str, probe: &Probe, ids: Vec<String>) {
         let key = probe.key();
         let mut all = self.sink.facts.fact_ids(module, &key);
         for id in ids {
@@ -199,7 +199,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_alias_evidence`: the evidence and the facts that an alias gives a use.
-    pub fn alias_evidence(
+    pub(crate) fn alias_evidence(
         &mut self,
         rel: &str,
         probe: &Probe,
@@ -230,7 +230,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_publication_evidence`: the binding that says a file publishes a global.
-    pub fn publication_evidence(&mut self, rel: &str, publication: &ScriptGlobal) -> String {
+    pub(crate) fn publication_evidence(&mut self, rel: &str, publication: &ScriptGlobal) -> String {
         let module = self.module(rel);
         let parts = [
             Part::Text(&module),
@@ -259,4 +259,4 @@ impl<'a, 'p> Run<'a, 'p> {
 }
 
 /// A member that the file declares: its local name and where.
-pub type LocalMember<'a> = (String, &'a crate::source::Span);
+pub(crate) type LocalMember<'a> = (String, &'a crate::source::Span);

@@ -45,7 +45,7 @@ impl Borrow<str> for ById {
 /// citation of a location decides its excerpt, as in Python (`record_evidence` overwrites), so the
 /// evidence of the reply comes first and the new records cite after it, in the order of Python.
 #[derive(Default)]
-pub struct Cited {
+pub(crate) struct Cited {
     all: BTreeSet<ById>,
     /// The ids that the records cite, kept only when asked: the dump needs them, the reply not.
     touched: Option<BTreeSet<String>>,
@@ -54,7 +54,7 @@ pub struct Cited {
 impl Cited {
     /// Take the evidence of the collection. It is moved, not copied: on the wire path the
     /// evidence is the largest list of the reply.
-    pub fn owning(evidence: Vec<Evidence>, track: bool) -> Self {
+    pub(crate) fn owning(evidence: Vec<Evidence>, track: bool) -> Self {
         let all = evidence.into_iter().map(ById).collect();
         Self {
             all,
@@ -63,7 +63,7 @@ impl Cited {
     }
 
     /// All the evidence sorted by id, and the ids that the new records cite.
-    pub fn finish(self) -> (Vec<Evidence>, Vec<String>) {
+    pub(crate) fn finish(self) -> (Vec<Evidence>, Vec<String>) {
         (
             self.all.into_iter().map(|item| item.0).collect(),
             self.touched.into_iter().flatten().collect(),
@@ -71,14 +71,14 @@ impl Cited {
     }
 
     /// The excerpt that the evidence of an id has now (`self.evidence[id]["excerpt"]`).
-    pub fn excerpt(&self, id: &str) -> String {
+    pub(crate) fn excerpt(&self, id: &str) -> String {
         self.all
             .get(id)
             .map_or_else(String::new, |item| item.0.excerpt.clone())
     }
 
     /// `collect._cite`.
-    pub fn cite(&mut self, rel: &str, span: &Span) -> String {
+    pub(crate) fn cite(&mut self, rel: &str, span: &Span) -> String {
         let evidence = Evidence::at(rel, span.line, span.end_line, span.column, &span.excerpt);
         let id = evidence.id.as_str().to_owned();
         if let Some(touched) = &mut self.touched {

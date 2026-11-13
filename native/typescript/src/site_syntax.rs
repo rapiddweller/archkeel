@@ -17,7 +17,7 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::named_children;
 
 /// `_TYPE_PARENTS`.
-pub fn holds_types(kind: K) -> bool {
+pub(crate) fn holds_types(kind: K) -> bool {
     matches!(
         kind,
         K::TypeAnnotation
@@ -30,14 +30,14 @@ pub fn holds_types(kind: K) -> bool {
     )
 }
 
-pub fn is_function_scope(kind: K) -> bool {
+pub(crate) fn is_function_scope(kind: K) -> bool {
     matches!(
         kind,
         K::ArrowFunction | K::FunctionExpression | K::GeneratorFunction
     )
 }
 
-pub fn is_reference_kind(kind: K) -> bool {
+pub(crate) fn is_reference_kind(kind: K) -> bool {
     matches!(
         kind,
         K::Identifier | K::TypeIdentifier | K::PropertyIdentifier | K::ShorthandPropertyIdentifier
@@ -45,7 +45,7 @@ pub fn is_reference_kind(kind: K) -> bool {
 }
 
 /// `_target_name`: the name and the receiver that a call or a reference spells.
-pub struct Target {
+pub(crate) struct Target {
     pub name: Option<Text>,
     pub receiver: Option<Text>,
     pub computed: bool,
@@ -53,21 +53,23 @@ pub struct Target {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ReceiverKind {
+pub(crate) enum ReceiverKind {
     None,
     This,
     Other,
 }
 
 /// The node of the parent entry and of the grandparent entry of the node that the walk enters.
-pub fn relatives<'a, 't>(stack: &'a [Entry<'t>]) -> (Option<&'a Entry<'t>>, Option<&'a Entry<'t>>) {
+pub(crate) fn relatives<'a, 't>(
+    stack: &'a [Entry<'t>],
+) -> (Option<&'a Entry<'t>>, Option<&'a Entry<'t>>) {
     let parent = stack.last();
     let grand = stack.len().checked_sub(2).and_then(|at| stack.get(at));
     (parent, grand)
 }
 
 /// `_target_name`.
-pub fn target_name(cx: &Cx, node: Node) -> Target {
+pub(crate) fn target_name(cx: &Cx, node: Node) -> Target {
     match cx.k(node) {
         K::Identifier | K::TypeIdentifier => Target {
             name: Some(Text::of(node)),
@@ -100,7 +102,7 @@ pub fn target_name(cx: &Cx, node: Node) -> Target {
 }
 
 /// `_declaration_name`: the node is the name that its parent declares.
-pub fn declaration_name(cx: &Cx, node: Node, parent: Option<&Entry>) -> bool {
+pub(crate) fn declaration_name(cx: &Cx, node: Node, parent: Option<&Entry>) -> bool {
     let Some(parent) = parent else {
         return false;
     };
@@ -125,7 +127,11 @@ fn jsx_attribute_name(node: Node, parent: &Entry, grand: Option<&Entry>) -> bool
 }
 
 /// `_is_member_name`: the name of a method, a field or an attribute, which is not a reference.
-pub fn is_member_name(cx: &Cx, node: Node, relatives: (Option<&Entry>, Option<&Entry>)) -> bool {
+pub(crate) fn is_member_name(
+    cx: &Cx,
+    node: Node,
+    relatives: (Option<&Entry>, Option<&Entry>),
+) -> bool {
     let (Some(parent), grand) = relatives else {
         return false;
     };
@@ -142,7 +148,7 @@ pub fn is_member_name(cx: &Cx, node: Node, relatives: (Option<&Entry>, Option<&E
 }
 
 /// `_class_member`, for a node whose parent and grandparent are given.
-pub fn class_member(relatives: (Option<&Entry>, Option<&Entry>)) -> bool {
+pub(crate) fn class_member(relatives: (Option<&Entry>, Option<&Entry>)) -> bool {
     let (Some(parent), Some(grand)) = relatives else {
         return false;
     };
@@ -151,7 +157,7 @@ pub fn class_member(relatives: (Option<&Entry>, Option<&Entry>)) -> bool {
 }
 
 /// `_subscript_receiver`: the node is the object of a subscript.
-pub fn subscript_receiver(cx: &Cx, node: Node, parent: Option<&Entry>) -> bool {
+pub(crate) fn subscript_receiver(cx: &Cx, node: Node, parent: Option<&Entry>) -> bool {
     parent.is_some_and(|parent| {
         parent.kind == K::SubscriptExpression && cx.field(parent.node, F::Object) == Some(node)
     })
@@ -166,7 +172,7 @@ fn nth<'a, 't>(stack: &'a [Entry<'t>], count: usize) -> Option<&'a Entry<'t>> {
 /// `_script_wrapper` is not `None` for a function expression or an arrow function: a direct,
 /// synchronous call that stands alone at the top of a script and passes `window` or `globalThis`
 /// for each of its required parameters. `stack` ends with the parent of `node`.
-pub fn is_wrapper(cx: &Cx, node: Node, stack: &[Entry]) -> bool {
+pub(crate) fn is_wrapper(cx: &Cx, node: Node, stack: &[Entry]) -> bool {
     if cx.has_child(node, K::Async) {
         return false;
     }
@@ -227,7 +233,7 @@ fn passes_roots(cx: &Cx, function: Node, call: Node) -> bool {
 
 /// `_written_string`: the literal that a comparison writes, through the wrappers that keep the
 /// value. A node inside a repair is no fact; a caller that skips repaired nodes has none below it.
-pub fn written_string<'t>(cx: &Cx, start: Option<Node<'t>>) -> Option<Node<'t>> {
+pub(crate) fn written_string<'t>(cx: &Cx, start: Option<Node<'t>>) -> Option<Node<'t>> {
     let mut node = start?;
     while matches!(
         cx.k(node),
@@ -275,7 +281,11 @@ fn compares(cx: &Cx, node: Node) -> bool {
 
 /// `_script_escape`: whether a reference to a name lets the value leave the script. `callee_wraps`
 /// tells whether the call that holds the arguments is a wrapper of a script.
-pub fn script_escape(cx: &Cx, node: Node, relatives: (Option<&Entry>, Option<&Entry>)) -> bool {
+pub(crate) fn script_escape(
+    cx: &Cx,
+    node: Node,
+    relatives: (Option<&Entry>, Option<&Entry>),
+) -> bool {
     let (parent, grand) = relatives;
     let member = parent.filter(|parent| {
         parent.kind == K::MemberExpression && cx.field(parent.node, F::Property) == Some(node)

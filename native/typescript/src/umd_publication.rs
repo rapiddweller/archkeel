@@ -25,7 +25,7 @@ use crate::umd::Templates;
 
 /// What a closed UMD envelope declares: the name that it publishes, where, and the names that its
 /// factory writes on the global object (`None` where the factory may write others).
-pub struct Publication {
+pub(crate) struct Publication {
     pub name: String,
     pub span: Span,
     pub writes: Option<BTreeSet<String>>,
@@ -35,7 +35,7 @@ pub struct Publication {
 type Declared<'t> = HashMap<(usize, String), Vec<Node<'t>>>;
 
 /// `umd_publication(rel, content)`.
-pub fn publication(parsers: &mut Parsers, rel: &str, content: &[u8]) -> Option<Publication> {
+pub(crate) fn publication(parsers: &mut Parsers, rel: &str, content: &[u8]) -> Option<Publication> {
     let suffix = classify_file(rel)?;
     if suffix.source_kind() != Some(SourceKind::JavaScript) || suffix.format_hint().is_some() {
         return None;

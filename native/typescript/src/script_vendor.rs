@@ -21,7 +21,7 @@ use crate::umd_publication::publication;
 
 /// The globals that the declared vendors publish.
 #[derive(Default)]
-pub struct Vendors {
+pub(crate) struct Vendors {
     /// The packages that publish each name.
     pub packages: HashMap<String, Vec<String>>,
     /// Every provider was read and published one name.
@@ -33,7 +33,7 @@ pub struct Vendors {
 }
 
 /// What the resolver may use to read a provider.
-pub struct Setting<'a> {
+pub(crate) struct Setting<'a> {
     pub environment: &'a ScriptEnvironment,
     pub options: &'a Options,
     pub partial: bool,
@@ -155,7 +155,7 @@ fn provider(
 }
 
 /// `collect._script_vendor_publications`.
-pub fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, setting: &Setting) -> Vendors {
+pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, setting: &Setting) -> Vendors {
     let mut found = Vendors::default();
     let mut packages: HashMap<String, Vec<String>> = HashMap::new();
     for declared in &setting.environment.providers {

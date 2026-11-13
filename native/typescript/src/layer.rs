@@ -16,7 +16,7 @@ pub(crate) const CONFIG_DIRECTORY: &str = "${configDir}";
 
 /// The settings of one TSConfig with what it inherits, its paths relative to the snapshot.
 #[derive(Clone, Debug, Default)]
-pub struct Layer {
+pub(crate) struct Layer {
     pub compiler: Map<String, Value>,
     /// `files`, `include` and `exclude` of the nearest config that sets each.
     pub specs: BTreeMap<&'static str, Vec<String>>,

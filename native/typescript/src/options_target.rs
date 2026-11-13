@@ -6,7 +6,7 @@
 
 /// `target`: every value, because the default libs depend on it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Target {
+pub(crate) enum Target {
     Es3,
     Es5,
     Es6,
@@ -43,24 +43,24 @@ impl Target {
     ];
 
     /// The lower-case name of the value, as the compiler and the lib catalog write it.
-    pub fn name(self) -> String {
+    pub(crate) fn name(self) -> String {
         format!("{self:?}").to_lowercase()
     }
 }
 
 /// `moduleDetection`: whether a file without `import` or `export` is a script.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Detection {
+pub(crate) enum Detection {
     Auto,
     Legacy,
     Force,
 }
 
-pub fn target_kind(name: &str) -> Option<Target> {
+pub(crate) fn target_kind(name: &str) -> Option<Target> {
     Target::ALL.into_iter().find(|target| target.name() == name)
 }
 
-pub fn detection_kind(name: &str) -> Option<Detection> {
+pub(crate) fn detection_kind(name: &str) -> Option<Detection> {
     let all = [Detection::Auto, Detection::Legacy, Detection::Force];
     all.into_iter()
         .find(|kind| format!("{kind:?}").to_lowercase() == name)

@@ -13,7 +13,7 @@ use archkeel_snapshot::paths::{basename, dirname, is_outside, join, within};
 use archkeel_snapshot::Snapshot;
 
 /// The listed files first, then the found files in sorted order, as the compiler lists them.
-pub fn discover(
+pub(crate) fn discover(
     snapshot: &mut Snapshot,
     layer: &Layer,
     own: &str,

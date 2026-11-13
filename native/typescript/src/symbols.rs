@@ -41,7 +41,11 @@ fn methods_of(table: &SymbolTable) -> Methods {
 
 /// The records of all definitions, in the order of the table, one at a time: a record is written
 /// and dropped, so the records of a whole project are never alive together.
-pub fn each(table: &SymbolTable, cited: &mut Cited, emit: &mut dyn FnMut(Record<SymbolFact>)) {
+pub(crate) fn each(
+    table: &SymbolTable,
+    cited: &mut Cited,
+    emit: &mut dyn FnMut(Record<SymbolFact>),
+) {
     let methods = methods_of(table);
     for entry in &table.entries {
         emit(record(table, &methods, cited, entry));

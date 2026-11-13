@@ -32,6 +32,8 @@ COLLECTORS = ("typescript_collector", "rust_collector", "python_collector", "dar
 BASE = {"facts": 0, "pytext": 0, "build_support": 0, "dart_grammar": 0}
 BASE |= {"snapshot": 1, "wire": 1, "store": 1}
 CHAIN = ("contract", "model", "model_barrier", "eval", "report", "core")
+# AD-406: the one crate between the core and the collectors.
+COMPOSITION = "collect"
 
 
 def production_sources(native: Path, crate: str) -> dict[str, str]:
@@ -164,10 +166,15 @@ def allowed(source: str, target: str) -> bool:
     A base crate requires only a base crate of a lower level. The contract crate requires
     nothing. A crate of the core chain requires a base crate or a lower crate of the chain;
     nothing requires the core. A collector requires only base crates. No crate requires a
-    collector of another crate.
+    collector of another crate. AD-406: only `collect` requires a collector, it requires base
+    crates and collectors only, and only the core requires it.
     """
     if source == target:
         return True
+    if source == COMPOSITION:
+        return target in BASE or target in COLLECTORS
+    if target == COMPOSITION:
+        return source == "core"
     if target in COLLECTORS or target in {"core", "model_barrier"} or source == "contract":
         return False
     if source in BASE:
@@ -186,7 +193,7 @@ def requires_problems(contract: dict[str, Any]) -> list[str]:
     `NATIVE-REQUIRES-COMPLETE`.
     """
     crates = {part["label"]: _crate(part) for part in contract["components"]}
-    placed = {*BASE, *CHAIN, *COLLECTORS}
+    placed = {*BASE, *CHAIN, *COLLECTORS, COMPOSITION}
     unplaced = [
         f"crate {crate} has no place in the crate order"
         for crate in sorted(set(crates.values()) - placed)

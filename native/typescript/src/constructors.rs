@@ -18,7 +18,7 @@ use crate::tree::nodes::{children, named_children};
 
 impl Cx<'_> {
     /// `_valid_unicode_member_name`: a code point that an escape names must exist.
-    pub fn valid_unicode_member_name(&self, name: Node) -> bool {
+    pub(crate) fn valid_unicode_member_name(&self, name: Node) -> bool {
         match self.k(name) {
             K::Other => false,
             K::String => named_children(name)
@@ -30,7 +30,7 @@ impl Cx<'_> {
     }
 
     /// `_instance_constructor`: the restricted name `constructor` of a class method.
-    pub fn instance_constructor(&self, node: Node, place: &Place) -> bool {
+    pub(crate) fn instance_constructor(&self, node: Node, place: &Place) -> bool {
         let name = self.field(node, F::Name);
         let Some(name) = name else {
             return false;
@@ -56,7 +56,7 @@ impl Cx<'_> {
     }
 
     /// `_supported_constructor`.
-    pub fn supported_constructor(&self, node: Node, place: &Place) -> bool {
+    pub(crate) fn supported_constructor(&self, node: Node, place: &Place) -> bool {
         let Some(name) = self.field(node, F::Name) else {
             return false;
         };

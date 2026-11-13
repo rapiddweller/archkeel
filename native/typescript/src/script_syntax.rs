@@ -21,7 +21,7 @@ use crate::tree::nodes::named_children;
 use crate::umd::Templates;
 
 /// What the producers read, built once for a file.
-pub struct Producer<'x, 'a, 't> {
+pub(crate) struct Producer<'x, 'a, 't> {
     pub tree: &'x Tree<'a, 't>,
     pub wrappers: HashMap<usize, Wrapper<'t>>,
     pub callables: HashSet<(usize, String)>,
@@ -55,11 +55,11 @@ struct Found {
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The definitions that start at a span, in order.
-    pub fn definitions_at(&self, span: &Span) -> &[&'x Definition] {
+    pub(crate) fn definitions_at(&self, span: &Span) -> &[&'x Definition] {
         self.by_span.get(span).map_or(&[], Vec::as_slice)
     }
 
-    pub fn new(
+    pub(crate) fn new(
         tree: &'x Tree<'a, 't>,
         definitions: &'x [Definition],
         scopes: &'x Scopes,
@@ -102,12 +102,12 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// What `make` finds at each node of the file, in document order.
-    pub fn collect_nodes<T>(&self, make: impl Fn(Node<'t>) -> Option<T>) -> Vec<T> {
+    pub(crate) fn collect_nodes<T>(&self, make: impl Fn(Node<'t>) -> Option<T>) -> Vec<T> {
         self.tree.nodes.iter().copied().filter_map(make).collect()
     }
 
     /// The nearest wrapper function above `node`.
-    pub fn wrapper_of(&self, node: Node<'t>) -> Option<Node<'t>> {
+    pub(crate) fn wrapper_of(&self, node: Node<'t>) -> Option<Node<'t>> {
         let at = self.tree.at(node);
         let above = self.wrapper_above.get(at).copied()?;
         (above != NONE)
@@ -117,14 +117,14 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// Whether a name is an alias of the global object for a node: a root, or a name that the
     /// wrapper above the node gives to a root.
-    pub fn is_alias(&self, wrapper: Option<Node<'t>>, name: &str) -> bool {
+    pub(crate) fn is_alias(&self, wrapper: Option<Node<'t>>, name: &str) -> bool {
         let info = wrapper.and_then(|node| self.wrappers.get(&node.id()));
         is_root(name) || info.is_some_and(|info| info.names.contains(name))
     }
 
     /// The function declarations among the statements of `body` that have the name, in order. The
     /// statements of a body are read once for all the objects that the body publishes.
-    pub fn functions_named(&self, body: Node<'t>, name: &str) -> Vec<Node<'t>> {
+    pub(crate) fn functions_named(&self, body: Node<'t>, name: &str) -> Vec<Node<'t>> {
         let mut cache = self.bodies.borrow_mut();
         let known = cache
             .entry(body.id())
@@ -133,7 +133,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_prior_returns`: the statements with a `return` before `node` in the wrapper.
-    pub fn prior_returns(&self, node: Node<'t>, wrapper: Option<Node<'t>>) -> Vec<Node<'t>> {
+    pub(crate) fn prior_returns(&self, node: Node<'t>, wrapper: Option<Node<'t>>) -> Vec<Node<'t>> {
         let Some(wrapper) = wrapper else {
             return Vec::new();
         };
@@ -149,7 +149,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_reaches`: no `return` comes before the node.
-    pub fn reaches(&self, node: Node<'t>, wrapper: Option<Node<'t>>) -> bool {
+    pub(crate) fn reaches(&self, node: Node<'t>, wrapper: Option<Node<'t>>) -> bool {
         self.prior_returns(node, wrapper).is_empty()
     }
 
@@ -196,7 +196,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_globals`: the publications of the file and the writes that a script may make.
-    pub fn globals(&self) -> (Vec<ScriptGlobal>, Vec<Write>) {
+    pub(crate) fn globals(&self) -> (Vec<ScriptGlobal>, Vec<Write>) {
         let tree = self.tree;
         let mut found = Found::default();
         let wrapper_calls: HashSet<usize> = self.wrappers.values().map(|w| w.call.id()).collect();
@@ -276,7 +276,7 @@ fn functions_by_name<'t>(tree: &Tree<'_, 't>, body: Node<'t>) -> HashMap<String,
 }
 
 /// `dict.fromkeys(items)`: each item once, in the order of its first appearance.
-pub fn unique<T: std::hash::Hash + Eq + Clone>(items: Vec<T>) -> Vec<T> {
+pub(crate) fn unique<T: std::hash::Hash + Eq + Clone>(items: Vec<T>) -> Vec<T> {
     let mut seen = HashSet::new();
     items
         .into_iter()

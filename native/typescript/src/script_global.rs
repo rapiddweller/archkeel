@@ -78,7 +78,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_external_dependency`.
-    pub fn external_dependency(
+    pub(crate) fn external_dependency(
         &mut self,
         rel: &str,
         probe: &Probe,
@@ -163,7 +163,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_namespace_dependency`: a use of a namespace that one file declares.
-    pub fn namespace_dependency(
+    pub(crate) fn namespace_dependency(
         &mut self,
         rel: &str,
         probe: &Probe,

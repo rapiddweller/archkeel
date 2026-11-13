@@ -18,7 +18,7 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::{children, named_children};
 
 /// Names with the span of each.
-pub type Named = Vec<(String, Span)>;
+pub(crate) type Named = Vec<(String, Span)>;
 
 /// One unique local name with its declaration and its export witness.
 pub(crate) struct ExportBinding {
@@ -28,7 +28,7 @@ pub(crate) struct ExportBinding {
 }
 
 /// `_module_exports`: the runtime and visible local exports, and whether they are certain.
-pub struct ModuleExports {
+pub(crate) struct ModuleExports {
     pub module_syntax: bool,
     pub exported: HashSet<String>,
     pub visible: HashSet<String>,
@@ -49,7 +49,7 @@ fn is_declaration(kind: K) -> bool {
     )
 }
 
-pub fn module_exports(cx: &Cx, top: &[Node]) -> ModuleExports {
+pub(crate) fn module_exports(cx: &Cx, top: &[Node]) -> ModuleExports {
     let statements: Vec<Node> = top
         .iter()
         .copied()
@@ -273,7 +273,7 @@ fn declared_names(cx: &Cx, declaration: Node) -> Vec<(String, Span)> {
 
 /// `_ambient_globals`: the names of `declare global { }` blocks, and of the top-level `declare`
 /// statements of a file without module syntax.
-pub fn ambient(cx: &Cx, top: &[Node], module_syntax: bool) -> (Named, Named) {
+pub(crate) fn ambient(cx: &Cx, top: &[Node], module_syntax: bool) -> (Named, Named) {
     let mut block = Vec::new();
     let mut top_level = Vec::new();
     for statement in top.iter().copied() {

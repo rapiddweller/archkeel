@@ -16,13 +16,13 @@ use crate::source_input::{Reach, SourceKind, Suffix};
 
 const LOADER: &str = "Node module loader is not observed";
 
-pub struct Concern {
+pub(crate) struct Concern {
     pub reason: String,
     pub span: Span,
 }
 
 /// What `require_concerns` finds, with whether a name `require` may be rebound.
-pub struct Found {
+pub(crate) struct Found {
     pub list: Vec<Concern>,
     pub shadows_require: bool,
 }
@@ -164,7 +164,7 @@ fn augmentation_concerns(
 }
 
 /// The concerns of one file, in the order that `parse.parse` collects them.
-pub fn read(
+pub(crate) fn read(
     source: &Source,
     root: Node,
     scan: &Scan,

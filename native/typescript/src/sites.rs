@@ -29,12 +29,12 @@ use crate::site_syntax::{
     written_string, ReceiverKind, Target,
 };
 use crate::site_types::Common;
-pub use crate::site_types::{Comparison, Expression, Site, SiteKind, SiteUse};
+pub(crate) use crate::site_types::{Comparison, Expression, Site, SiteKind, SiteUse};
 use crate::tree::cx::Cx;
 
 /// The sites and the written string comparisons of one file.
 #[derive(Default)]
-pub struct Sites {
+pub(crate) struct Sites {
     pub sites: Vec<Site>,
     pub comparisons: Vec<Comparison>,
     pub paths: Paths,
@@ -44,7 +44,7 @@ pub struct Sites {
 }
 
 /// What the walk offers about the node that it enters.
-pub struct Visit<'a, 't> {
+pub(crate) struct Visit<'a, 't> {
     pub node: Node<'t>,
     pub kind: K,
     pub stack: &'a [Entry<'t>],
@@ -56,7 +56,7 @@ pub struct Visit<'a, 't> {
 }
 
 /// What a node adds to the entry that the walk pushes for it.
-pub struct Extension {
+pub(crate) struct Extension {
     pub flags: u8,
     pub shadow: Shadow,
     pub callee: bool,
@@ -65,7 +65,7 @@ pub struct Extension {
 
 impl Sites {
     /// Read the node that the walk enters: record its sites, and give the entry its extension.
-    pub fn enter(&mut self, cx: &Cx, visit: &Visit) -> Extension {
+    pub(crate) fn enter(&mut self, cx: &Cx, visit: &Visit) -> Extension {
         let Visit {
             node, kind, stack, ..
         } = *visit;
@@ -386,7 +386,7 @@ impl Sites {
     }
 
     /// Close the file: the frames and the mode of the script decide what the walk could not.
-    pub fn finish(&mut self, frames: &Frames, data: &[u8], script_mode: bool) {
+    pub(crate) fn finish(&mut self, frames: &Frames, data: &[u8], script_mode: bool) {
         self.sites.retain(|site| !site.shorthand || script_mode);
         let index = frames.free_index();
         for site in &mut self.sites {

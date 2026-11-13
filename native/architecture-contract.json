@@ -253,13 +253,14 @@
         "native.archkeel_core"
       ],
       "responsibilities": [
-        "Run the one process after the collector: take the typed requests (contract bytes, collector reply, rules, sections, report) and answer each part, or name the slice that ports it (AD-359, AD-363, AD-370)."
+        "Run the one process after the collector: take the typed requests (contract bytes, collector reply, rules, sections, report) and answer each part, or name the slice that ports it (AD-359, AD-363, AD-370); for the scan request, take the typed reply of the collector that archkeel-collect ran in the process (AD-406)."
       ],
       "forbidden_responsibilities": [
         "Reading a file, naming a language, and giving a verdict to the host before a slice owns it."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "requires": [
         {
@@ -285,6 +286,46 @@
         {
           "component": "build",
           "rationale": "Record the code digest of the binary when it is built (AD-335)."
+        },
+        {
+          "component": "collect",
+          "rationale": "Run the linked collector of the scan request in the process of the core and take its typed reply (AD-406)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-COLLECT",
+      "label": "collect",
+      "role": "component",
+      "packages": [
+        "native.archkeel_collect"
+      ],
+      "responsibilities": [
+        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a rule, writing a frame, and trusting a reply or a digest that a caller gives."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Name the profile of the reply with the typed facts (AD-345)."
+        },
+        {
+          "component": "store",
+          "rationale": "Validate the typed reply through the same validation as a reply of bytes (AD-406)."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the derived request with the check of the binary (AD-406)."
+        },
+        {
+          "component": "ts-entry",
+          "rationale": "Run the TypeScript collector through its library: the typed reply, the provenance and its test features (AD-406)."
         }
       ],
       "decided_by": "architect"
@@ -1168,17 +1209,19 @@
       "packages": [],
       "exact_modules": [
         "native.archkeel_typescript_collector",
+        "native.archkeel_typescript_collector.bin_archkeel_typescript_collector",
         "native.archkeel_typescript_collector.build_script",
         "native.archkeel_typescript_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The binary of the TypeScript collector: read the request, run the collection and write the reply; the build script and the manifest of the crate."
+        "The library root and the binary of the TypeScript collector: the typed reply for archkeel-collect, the binary that reads the request and writes the reply, the build script and the manifest of the crate (AD-406)."
       ],
       "forbidden_responsibilities": [
         "Reading TypeScript source."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "requires": [
         {
@@ -1208,6 +1251,10 @@
         {
           "component": "pytext",
           "rationale": "The manifest declares the shared Python text rules."
+        },
+        {
+          "component": "ts-records",
+          "rationale": "Give the typed reply from the one producer of the records (AD-406)."
         }
       ],
       "decided_by": "architect"
@@ -2397,11 +2444,14 @@
       "dependency": "toml",
       "allowed_sources": [
         "native.archkeel_python_collector.requirement",
-        "native.archkeel_python_collector.cargo_toml"
+        "native.archkeel_python_collector.cargo_toml",
+        "native.archkeel_collect.config",
+        "native.archkeel_collect.cargo_toml"
       ],
-      "rationale": "Only the Python collector reads pyproject.toml; the core side (model, eval, report, core) reads no TOML, because the shell sends it typed bytes.",
+      "rationale": "Only the Python collector reads pyproject.toml and only archkeel-collect reads archkeel.toml (AD-406); the core side (model, eval, report, core) reads no TOML.",
       "provenance": [
-        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "decided_by": "architect"
     },
@@ -2545,6 +2595,7 @@
       "kind": "external_dependency_scope",
       "dependency": "serde_json",
       "allowed_sources": [
+        "native.archkeel_collect",
         "native.archkeel_contract",
         "native.archkeel_core",
         "native.archkeel_dart_collector",
@@ -2559,7 +2610,8 @@
       ],
       "rationale": "These crates read or write JSON; the evaluator reads typed values only.",
       "provenance": [
-        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+        "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "decided_by": "architect"
     },
@@ -2700,6 +2752,90 @@
       "provenance": [
         "docs/architecture/decisions/ad-359-the-rust-core-after-the-collector-crates-and-boundaries.md",
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-CORE-TO-TYPESCRIPT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_core",
+      "target": "native.archkeel_typescript_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; core must not use the TypeScript collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-EVAL-TO-TYPESCRIPT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native.archkeel_typescript_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; eval must not use the TypeScript collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODEL-TO-TYPESCRIPT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native.archkeel_typescript_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; model must not use the TypeScript collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-REPORT-TO-TYPESCRIPT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_report",
+      "target": "native.archkeel_typescript_collector",
+      "include_type_checking": true,
+      "rationale": "Only archkeel-collect links a collector; report must not use the TypeScript collector (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-EVAL-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "Only the core runs a collector through archkeel-collect; eval must not use it (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-MODEL-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "Only the core runs a collector through archkeel-collect; model must not use it (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NO-REPORT-TO-COLLECT",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_report",
+      "target": "native.archkeel_collect",
+      "include_type_checking": true,
+      "rationale": "Only the core runs a collector through archkeel-collect; report must not use it (AD-406).",
+      "provenance": [
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "decided_by": "architect"
     }

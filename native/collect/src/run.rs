@@ -19,7 +19,7 @@ use archkeel_wire::protocol::reply_version;
 const STACK_BYTES: usize = 256 << 20;
 
 /// The typed reply of the request bytes, validated by the store, or why there is none.
-pub fn collect(request: &[u8]) -> Result<Ingested, String> {
+pub(crate) fn collect(request: &[u8]) -> Result<Ingested, String> {
     let request = archkeel_wire::request::decode(request)?;
     let version = reply_version(request.protocol_version);
     let reply = isolated(move || {
@@ -35,7 +35,9 @@ pub fn collect(request: &[u8]) -> Result<Ingested, String> {
 
 /// Run `work` on its own thread. A panic is a named error of a test build; see the module text
 /// for the release build.
-pub fn isolated<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+pub(crate) fn isolated<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, String> {
     let handle = std::thread::Builder::new()
         .name("archkeel-collect".to_owned())
         .stack_size(STACK_BYTES)

@@ -17,6 +17,7 @@
 //! the shell still gives the dirty state as provenance (AD-406 names what stage 2 needs).
 
 #![forbid(unsafe_code)]
+#![deny(unreachable_pub)]
 
 mod config;
 mod git;

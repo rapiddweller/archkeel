@@ -16,7 +16,7 @@ use crate::script_types::{Member, Write};
 use crate::source::Span;
 
 /// What `_script_declarations` returns.
-pub struct Declarations {
+pub(crate) struct Declarations {
     pub members: HashMap<Span, Vec<Member>>,
     pub writes: Vec<Write>,
     pub paths: Vec<Vec<String>>,
@@ -121,7 +121,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `_script_declarations`: the members that each published object takes from local
     /// definitions, the writes of the file, and the paths that it writes.
-    pub fn declarations(&self) -> Declarations {
+    pub(crate) fn declarations(&self) -> Declarations {
         let tree = self.tree;
         let mut found = Gathered::default();
         let mut targets = self.targets.iter().peekable();

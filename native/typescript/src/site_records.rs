@@ -28,19 +28,19 @@ use crate::symbol_table::SymbolTable;
 /// The records that one pass writes, and where they go. Python makes both in one pass and writes
 /// two lists; a pass for each list writes each record when it is made. The sites of one position
 /// have the order of their kinds in both orders, so the last citation of a location is the same.
-pub enum Pass<'e> {
+pub(crate) enum Pass<'e> {
     Calls(TypedEmit<'e, CallFact>),
     References(TypedEmit<'e, ReferenceFact>),
 }
 
 /// A binding record and the place of its site (the file and the site in the file), so that the
 /// bindings of the two passes come in the order of the sites, as Python makes them in one pass.
-pub type Placed = ((usize, usize), Record<BindingFact>);
+pub(crate) type Placed = ((usize, usize), Record<BindingFact>);
 
 /// `_inner_sites` for one list: resolve each site of the pass and write its record. A `new`
 /// expression that is assigned to a name gives a binding record, and so does the alias that a
 /// script reference initializes; the pass returns them.
-pub fn pass(
+pub(crate) fn pass(
     table: &SymbolTable,
     pending: &Pending,
     imports: &Imports,

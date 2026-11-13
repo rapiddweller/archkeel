@@ -17,7 +17,7 @@ use crate::script_types::Write;
 use crate::source::Span;
 
 /// `_SCRIPT_EFFECT_NAMES`: a name that reaches the global object or runs text as code.
-pub fn is_effect_name(name: &str) -> bool {
+pub(crate) fn is_effect_name(name: &str) -> bool {
     matches!(
         name,
         "constructor"
@@ -47,7 +47,7 @@ fn written_name(path: &[String], alias: bool) -> Option<String> {
 
 impl<'a, 't> Tree<'a, 't> {
     /// `_script_escape`: the value of the node leaves the place where it is written.
-    pub fn script_escape(&self, node: Node<'t>) -> bool {
+    pub(crate) fn script_escape(&self, node: Node<'t>) -> bool {
         let target = match self.parent(node) {
             Some(parent)
                 if self.k(parent) == K::MemberExpression
@@ -171,7 +171,11 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_opaque_writes`: the places where a script writes a name that is not known.
-    pub fn opaque_writes(&self, node: Node<'t>, callables: &HashSet<(usize, String)>) -> Vec<Span> {
+    pub(crate) fn opaque_writes(
+        &self,
+        node: Node<'t>,
+        callables: &HashSet<(usize, String)>,
+    ) -> Vec<Span> {
         let mut found = Vec::new();
         let kind = self.k(node);
         if matches!(
@@ -210,7 +214,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_declaration_write`: a top-level declaration publishes its name.
-    pub fn declaration_write(&self, node: Node<'t>) -> Option<Write> {
+    pub(crate) fn declaration_write(&self, node: Node<'t>) -> Option<Write> {
         if !matches!(
             self.k(node),
             K::VariableDeclarator | K::FunctionDeclaration | K::ClassDeclaration
@@ -230,7 +234,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_target_write`: the name that an assignment writes on the global object.
-    pub fn target_write(
+    pub(crate) fn target_write(
         &self,
         node: Node<'t>,
         target: Node<'t>,
@@ -248,7 +252,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `_script_call_writes`: a global that a call receives as an argument may be written there.
-    pub fn call_writes(&self, node: Node<'t>, wrapper_calls: &HashSet<usize>) -> Vec<Write> {
+    pub(crate) fn call_writes(&self, node: Node<'t>, wrapper_calls: &HashSet<usize>) -> Vec<Write> {
         let mut found = Vec::new();
         if self.k(node) != K::CallExpression || wrapper_calls.contains(&node.id()) {
             return found;

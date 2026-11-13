@@ -18,7 +18,7 @@ use crate::source::{FileSite, Span};
 
 /// What one parsed file keeps for the cross-file passes. The walk fills it only when a caller asks
 /// for the records, so a plain collection pays nothing.
-pub struct Kept {
+pub(crate) struct Kept {
     pub module: String,
     pub has_error: bool,
     /// The definitions with the qualified name of their parent inside the module.
@@ -45,7 +45,12 @@ pub struct Kept {
 
 impl Kept {
     /// What a parsed file keeps for the records of this phase.
-    pub fn from_parsed(module: &str, parsed: &mut Parsed, text: &str, script: ScriptFile) -> Self {
+    pub(crate) fn from_parsed(
+        module: &str,
+        parsed: &mut Parsed,
+        text: &str,
+        script: ScriptFile,
+    ) -> Self {
         let syntax = &mut parsed.syntax;
         let definitions = syntax
             .definitions
@@ -122,7 +127,7 @@ impl Kept {
 
 /// The cross-file input of the passes.
 #[derive(Default)]
-pub struct Pending {
+pub(crate) struct Pending {
     pub kept: BTreeMap<String, Kept>,
     /// The files in the order that the walk parsed them (`self.syntax` of Python).
     pub order: Vec<String>,

@@ -22,7 +22,7 @@ use crate::tree::nodes::named_children;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `f"{definition.parent}.{definition.name}" if definition.parent else definition.name`.
-    pub fn qualified(&self, definition: &Definition) -> String {
+    pub(crate) fn qualified(&self, definition: &Definition) -> String {
         match definition.parent {
             Some(at) => {
                 let parent = self.scopes.qualified(at);
@@ -38,7 +38,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `_script_local_definition`: the one declaration of the name that a value refers to, when
     /// the scope binds the name once and nothing writes it.
-    pub fn local_definition(&self, value: Node<'t>) -> Option<(Option<&'x Definition>, Node<'t>)> {
+    pub(crate) fn local_definition(
+        &self,
+        value: Node<'t>,
+    ) -> Option<(Option<&'x Definition>, Node<'t>)> {
         let tree = self.tree;
         let name = tree.text(value);
         let scope = tree.bound_scope(value, &name)?;
@@ -71,7 +74,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_object_values`: `(name, value)` of an object literal with plain, distinct keys.
-    pub fn object_values(&self, object: Node<'t>) -> Vec<(String, Node<'t>)> {
+    pub(crate) fn object_values(&self, object: Node<'t>) -> Vec<(String, Node<'t>)> {
         let mut values: Vec<(String, Node<'t>)> = Vec::new();
         for member in named_children(object) {
             let Some(entry) = self.object_value(member) else {
@@ -102,7 +105,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_object_members`: the local definitions that an object literal publishes.
-    pub fn object_members(&self, object: Node<'t>) -> Vec<Member> {
+    pub(crate) fn object_members(&self, object: Node<'t>) -> Vec<Member> {
         let mut found = Vec::new();
         for (published, value) in self.object_values(object) {
             found.extend(self.published_member(published, value));
@@ -194,7 +197,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `_script_write_alias_path`: the path on the global object that an assignment target
     /// reaches through local aliases, `None` where it cannot be known.
-    pub fn write_alias_path(
+    pub(crate) fn write_alias_path(
         &self,
         target: Node<'t>,
         seen: &[usize],

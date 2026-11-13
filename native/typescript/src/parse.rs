@@ -14,7 +14,7 @@ use crate::syntax::Parsers;
 use crate::tree::cx::Cx;
 use crate::walk::{Syntax, Walk};
 
-pub struct Parsed {
+pub(crate) struct Parsed {
     pub references: Vec<Reference>,
     /// The number of import-bearing nodes of the tree, to check that each has an outcome.
     pub places: usize,
@@ -31,7 +31,7 @@ pub struct Parsed {
 
 /// Parse one file of a project without `paths` and `baseUrl`; the dump and the tests read it.
 #[cfg(any(test, feature = "dump"))]
-pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
+pub(crate) fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
     let reach = Reach {
         aliased: false,
         type_roots: false,
@@ -40,7 +40,7 @@ pub fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
 }
 
 /// Parse one file of a project; `reach` says which options can map a name to a project file.
-pub fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], reach: Reach) -> Parsed {
+pub(crate) fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], reach: Reach) -> Parsed {
     // The filename test of the Python collector ignores one final newline.
     let suffix = classify_file(rel.strip_suffix('\n').unwrap_or(rel));
     // JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.

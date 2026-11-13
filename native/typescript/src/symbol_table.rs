@@ -20,7 +20,7 @@ use crate::definitions::{Definition, DefinitionKind};
 use crate::kept::Pending;
 
 /// One definition with its file, module, qualified name and `TSDEF` id.
-pub struct Entry<'a> {
+pub(crate) struct Entry<'a> {
     /// The place of the entry in `SymbolTable::entries`.
     pub at: usize,
     pub rel: &'a str,
@@ -35,19 +35,19 @@ pub struct Entry<'a> {
 
 impl Entry<'_> {
     /// The qualified name of the parent definition with its module (`parent_name` of Python).
-    pub fn parent_qualified(&self) -> Option<String> {
+    pub(crate) fn parent_qualified(&self) -> Option<String> {
         self.parent
             .map(|parent| format!("{}.{parent}", self.module))
     }
 
     /// The package of the module.
-    pub fn package(&self) -> &str {
+    pub(crate) fn package(&self) -> &str {
         package_of(self.module)
     }
 }
 
 /// `kind.value` of `DefinitionKind`.
-pub fn kind_value(kind: DefinitionKind) -> &'static str {
+pub(crate) fn kind_value(kind: DefinitionKind) -> &'static str {
     match kind {
         DefinitionKind::Class => "class",
         DefinitionKind::Interface => "interface",
@@ -79,7 +79,7 @@ fn lookup<'m>(index: &'m ByName, module: &str, name: &str) -> &'m [usize] {
 }
 
 /// The definitions of all files, with the lookups of `_inner_facts`.
-pub struct SymbolTable<'a> {
+pub(crate) struct SymbolTable<'a> {
     /// All definitions, in the order of the Python list.
     pub entries: Vec<Entry<'a>>,
     ids: HashMap<(&'a str, i64, i64), usize>,
@@ -95,7 +95,7 @@ pub struct SymbolTable<'a> {
 
 impl<'a> SymbolTable<'a> {
     /// Build the table from the syntax that the walk kept (`records::Pending`).
-    pub fn build(pending: &'a Pending) -> Self {
+    pub(crate) fn build(pending: &'a Pending) -> Self {
         let mut table = Self {
             entries: Vec::new(),
             ids: HashMap::new(),
@@ -188,48 +188,48 @@ impl<'a> SymbolTable<'a> {
     }
 
     /// `by_qualified[qualified]`: the definitions that share a qualified name, in order.
-    pub fn with_qualified(&self, qualified: &str) -> impl Iterator<Item = &Entry<'a>> {
+    pub(crate) fn with_qualified(&self, qualified: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = self.by_qualified.get(qualified).map_or(&[], Vec::as_slice);
         found.iter().map(|&at| &self.entries[at])
     }
 
     /// `len(by_qualified[qualified])`, in constant time: a name with k definitions costs k, not k
     /// squared, when each of them asks.
-    pub fn count(&self, qualified: &str) -> usize {
+    pub(crate) fn count(&self, qualified: &str) -> usize {
         self.by_qualified.get(qualified).map_or(0, Vec::len)
     }
 
     /// The definitions of a qualified name that are a class or an interface (`classifier_targets`).
-    pub fn classifier_count(&self, qualified: &str) -> usize {
+    pub(crate) fn classifier_count(&self, qualified: &str) -> usize {
         self.classifiers.get(qualified).copied().unwrap_or(0)
     }
 
     /// The definitions of a qualified name that are a class (`DefinitionKind::Class`).
-    pub fn class_count(&self, qualified: &str) -> usize {
+    pub(crate) fn class_count(&self, qualified: &str) -> usize {
         self.classes.get(qualified).copied().unwrap_or(0)
     }
 
     /// The top-level definitions of a module with this name, in order (index `top_named`).
-    pub fn top_named(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
+    pub(crate) fn top_named(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = lookup(&self.top_named, module, name);
         found.iter().map(|&at| &self.entries[at])
     }
 
     /// The definitions of a module with this name, in order (index `named`).
-    pub fn named_in(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
+    pub(crate) fn named_in(&self, module: &str, name: &str) -> impl Iterator<Item = &Entry<'a>> {
         let found: &[usize] = lookup(&self.named, module, name);
         found.iter().map(|&at| &self.entries[at])
     }
 
     /// Whether a class or an interface declares a member of this name.
-    pub fn has_member(&self, entry: &Entry, name: &str) -> bool {
+    pub(crate) fn has_member(&self, entry: &Entry, name: &str) -> bool {
         self.members
             .get(&entry.at)
             .is_some_and(|names| names.contains(name))
     }
 
     /// `scope_ids[(qualified, line, column)]`: the definition with that name and position.
-    pub fn scope(&self, qualified: &str, line: i64, column: i64) -> Option<&Entry<'a>> {
+    pub(crate) fn scope(&self, qualified: &str, line: i64, column: i64) -> Option<&Entry<'a>> {
         let at = self.scope_ids.get(qualified)?.get(&(line, column))?;
         self.entries.get(*at)
     }

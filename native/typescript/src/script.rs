@@ -22,7 +22,7 @@ use crate::walk::Syntax;
 
 /// The script facts of a file whose other facts are in `syntax`, and the places where a scope that
 /// binds names cannot be known (a concern of a global script).
-pub fn read<'t>(
+pub(crate) fn read<'t>(
     cx: Cx,
     root: Node<'t>,
     layout: Layout<'t>,

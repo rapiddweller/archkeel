@@ -22,7 +22,7 @@ use archkeel_snapshot::Snapshot;
 
 /// A file that a specifier names.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Found {
+pub(crate) struct Found {
     pub path: String,
     /// Reached through a `node_modules` search, so it is a dependency wherever the file lives.
     pub external: bool,
@@ -36,7 +36,7 @@ type Kinds<'a> = &'a [SourceKind];
 const TS_AND_DECLARATION: Kinds = &[SourceKind::TypeScript, SourceKind::Declaration];
 const DECLARATION: Kinds = &[SourceKind::Declaration];
 
-pub struct Resolver {
+pub(crate) struct Resolver {
     pub options: Options,
     partial: bool,
     /// A reason that nothing can be resolved: the settings in force are not all understood.
@@ -106,7 +106,7 @@ fn package_subpath<'a>(specifier_path: &'a str, name: &str) -> Option<&'a str> {
 }
 
 impl Resolver {
-    pub fn new(options: Options, partial: bool) -> Self {
+    pub(crate) fn new(options: Options, partial: bool) -> Self {
         let mut resolver = Self {
             options,
             partial,
@@ -145,7 +145,7 @@ impl Resolver {
     }
 
     /// The nearest `package.json` above a file, searched up to the filesystem root.
-    pub fn scope(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<Json> {
+    pub(crate) fn scope(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<Json> {
         let mut chain = ancestors(rel);
         chain.extend((1..=snapshot.depth()).map(|level| vec![".."; level].join("/")));
         for current in chain {
@@ -160,7 +160,7 @@ impl Resolver {
     }
 
     /// Whether Node loads a file as ESM or CommonJS; `Missing` where no format is defined.
-    pub fn format_of(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<ModuleFormat> {
+    pub(crate) fn format_of(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<ModuleFormat> {
         if !matches!(
             self.options.resolution(),
             Resolution::Node16 | Resolution::NodeNext
@@ -184,7 +184,7 @@ impl Resolver {
 
     /// The snapshot file that `specifier` names, `Missing` when it names none.
     #[cfg(test)]
-    pub fn resolve(
+    pub(crate) fn resolve(
         &mut self,
         snapshot: &mut Snapshot,
         specifier: &str,
@@ -207,7 +207,7 @@ impl Resolver {
         clippy::excessive_nesting,
         reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
     )]
-    pub fn resolve_classified(
+    pub(crate) fn resolve_classified(
         &mut self,
         snapshot: &mut Snapshot,
         (specifier, source): (&str, &Specifier),
@@ -354,7 +354,7 @@ impl Resolver {
     }
 
     /// Whether a relative specifier names a file in the snapshot, with no extension search.
-    pub fn file_exists(
+    pub(crate) fn file_exists(
         &self,
         snapshot: &mut Snapshot,
         importer: &str,
@@ -364,7 +364,7 @@ impl Resolver {
     }
 
     /// Whether an installed package holds the file that a package subpath names, inside itself.
-    pub fn package_file_exists(
+    pub(crate) fn package_file_exists(
         &self,
         snapshot: &mut Snapshot,
         importer: &str,
@@ -381,7 +381,7 @@ impl Resolver {
     }
 
     /// Whether a `paths` entry maps a specifier onto an existing file.
-    pub fn alias_file_exists(&self, snapshot: &mut Snapshot, specifier_path: &str) -> bool {
+    pub(crate) fn alias_file_exists(&self, snapshot: &mut Snapshot, specifier_path: &str) -> bool {
         let Some((star, targets)) = best_pattern(&self.options.paths, specifier_path) else {
             return false;
         };

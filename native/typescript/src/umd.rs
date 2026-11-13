@@ -52,7 +52,7 @@ impl Template {
 }
 
 /// The templates of one grammar.
-pub struct Templates {
+pub(crate) struct Templates {
     namespace: Option<Template>,
     #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     envelope: Option<Template>,
@@ -67,7 +67,7 @@ pub(crate) struct Captures<'t> {
 }
 
 impl Templates {
-    pub fn new(language: &Language) -> Self {
+    pub(crate) fn new(language: &Language) -> Self {
         let mut parser = Parser::new();
         let namespace = parser
             .set_language(language)
@@ -91,7 +91,7 @@ impl Templates {
     }
 
     /// `_umd_matches(argument, namespace template)`: the name that the argument publishes.
-    pub fn publication(&self, cx: Cx, argument: Node) -> Option<String> {
+    pub(crate) fn publication(&self, cx: Cx, argument: Node) -> Option<String> {
         let template = self.namespace.as_ref()?;
         let pattern = template.expression()?;
         let mut captures = Captures::default();

@@ -168,7 +168,7 @@ fn comparison(item: &Comparison, found: &Syntax) -> Value {
 
 /// The fields of `Syntax` that this phase produces. `data` is the text of the file, which the
 /// sites cut their texts from.
-pub fn syntax(found: &Syntax, data: &[u8]) -> Value {
+pub(crate) fn syntax(found: &Syntax, data: &[u8]) -> Value {
     let mut shadowed = Shadowed::new();
     json!({
         "sites": found.sites.sites.iter().map(|item| site(item, found, data, &mut shadowed)).collect::<Vec<_>>(),

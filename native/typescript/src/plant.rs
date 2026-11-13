@@ -9,13 +9,13 @@
 
 /// Whether the extraction must skip the reference with this index in this file.
 #[cfg(feature = "dump")]
-pub fn skip(rel: &str, index: usize) -> bool {
+pub(crate) fn skip(rel: &str, index: usize) -> bool {
     std::env::var("ARCHKEEL_PLANT_SKIP").is_ok_and(|planted| planted == format!("{rel}:{index}"))
 }
 
 /// The release binary skips nothing.
 #[cfg(not(feature = "dump"))]
-pub fn skip(_rel: &str, _index: usize) -> bool {
+pub(crate) fn skip(_rel: &str, _index: usize) -> bool {
     false
 }
 
@@ -23,12 +23,12 @@ pub fn skip(_rel: &str, _index: usize) -> bool {
 /// as a bug in `scan.rs` would. The invariant counts the nodes with a query apart from the scan,
 /// so it must see the loss.
 #[cfg(feature = "dump")]
-pub fn lose(list: &str) -> bool {
+pub(crate) fn lose(list: &str) -> bool {
     std::env::var("ARCHKEEL_PLANT_SCAN").is_ok_and(|planted| planted == list)
 }
 
 /// The release binary loses nothing.
 #[cfg(not(feature = "dump"))]
-pub fn lose(_list: &str) -> bool {
+pub(crate) fn lose(_list: &str) -> bool {
     false
 }

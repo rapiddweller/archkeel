@@ -14,7 +14,7 @@ use crate::scan::Scan;
 use crate::source::{Source, Span};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Form {
+pub(crate) enum Form {
     Import,
     Reexport,
     ImportEquals,
@@ -25,7 +25,7 @@ pub enum Form {
 
 impl Form {
     /// The record kind of the form (archkeel-facts, AD-345).
-    pub fn kind(self) -> Kind {
+    pub(crate) fn kind(self) -> Kind {
         match self {
             Form::Import => Kind::Import,
             Form::Reexport => Kind::Reexport,
@@ -36,13 +36,13 @@ impl Form {
         }
     }
 
-    pub fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         self.kind().as_str()
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Reference {
+pub(crate) struct Reference {
     pub form: Form,
     /// `None` when the argument is not a plain string, so no module can be named.
     pub specifier: Option<String>,
@@ -70,7 +70,7 @@ fn has_type_keyword(node: Node) -> bool {
 }
 
 /// `parse._in_error`: the node holds a repair, or lies inside one.
-pub fn in_error(node: Node) -> bool {
+pub(crate) fn in_error(node: Node) -> bool {
     if node.has_error() {
         return true;
     }
@@ -85,7 +85,7 @@ pub fn in_error(node: Node) -> bool {
 }
 
 /// `parse._literal`: the module text of a string without escapes or substitutions.
-pub fn literal(node: Option<Node>, source: &Source) -> Option<String> {
+pub(crate) fn literal(node: Option<Node>, source: &Source) -> Option<String> {
     let node = node.filter(|node| matches!(node.kind(), "string" | "template_string"))?;
     let text = source.text(node);
     if text.contains('\\') {
@@ -234,12 +234,12 @@ fn require(node: Node, source: &Source) -> Reference {
 }
 
 /// The references of a file that the collector trusts, in the order of their position.
-pub struct Extracted {
+pub(crate) struct Extracted {
     pub trusted: Vec<Reference>,
 }
 
 /// The trusted references of a file, in the order of their position.
-pub fn trusted(source: &Source, root: Node, scan: &Scan) -> Extracted {
+pub(crate) fn trusted(source: &Source, root: Node, scan: &Scan) -> Extracted {
     let mut candidates: Vec<(Node, Reference)> = Vec::new();
     candidates.extend(scan.imports.iter().map(|n| (*n, import(*n, source))));
     candidates.extend(scan.exports.iter().map(|n| (*n, export(*n, source))));

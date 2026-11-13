@@ -11,6 +11,7 @@
 //! (`records::plan`); only the sink differs.
 
 #![forbid(unsafe_code)]
+#![deny(unreachable_pub)]
 
 mod ancestors;
 mod bound_names;

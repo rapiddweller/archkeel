@@ -16,7 +16,7 @@ use crate::tree::cx::Cx;
 use crate::tree::nodes::{children, each_child, named_children};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Visibility {
+pub(crate) enum Visibility {
     Public,
     Protected,
     Private,
@@ -36,7 +36,7 @@ impl Visibility {
 /// the walk or from the list of the siblings, so that no question climbs the tree. A climb costs the
 /// depth of the node, and a nest 8 000 deep would make the walk quadratic.
 #[derive(Clone, Copy)]
-pub struct Place<'a, 't> {
+pub(crate) struct Place<'a, 't> {
     pub parent: Option<Node<'t>>,
     pub parent_kind: K,
     pub grand_kind: K,
@@ -46,7 +46,7 @@ pub struct Place<'a, 't> {
 
 impl Place<'_, '_> {
     /// A node that has no sibling run: a parameter, for example.
-    pub const fn apart(parent_kind: K) -> Self {
+    pub(crate) const fn apart(parent_kind: K) -> Self {
         Place {
             parent: None,
             parent_kind,
@@ -56,7 +56,7 @@ impl Place<'_, '_> {
     }
 
     /// `_class_member`: a method or field of the body of a class or interface declaration.
-    pub fn class_member(&self) -> bool {
+    pub(crate) fn class_member(&self) -> bool {
         matches!(self.parent_kind, K::ClassBody | K::InterfaceBody)
             && matches!(
                 self.grand_kind,
@@ -67,7 +67,7 @@ impl Place<'_, '_> {
 
 /// The modifiers of a node as a set of bits.
 #[derive(Clone, Copy, Default)]
-pub struct Modifiers(u8);
+pub(crate) struct Modifiers(u8);
 
 const PUBLIC: u8 = 1;
 const PROTECTED: u8 = 2;
@@ -77,26 +77,26 @@ const ABSTRACT: u8 = 16;
 const READONLY: u8 = 32;
 
 impl Modifiers {
-    pub fn has_static(self) -> bool {
+    pub(crate) fn has_static(self) -> bool {
         self.0 & STATIC != 0
     }
 
-    pub fn has_abstract(self) -> bool {
+    pub(crate) fn has_abstract(self) -> bool {
         self.0 & ABSTRACT != 0
     }
 
     /// The count of public, private and protected.
-    pub fn access_count(self) -> u32 {
+    pub(crate) fn access_count(self) -> u32 {
         (self.0 & (PUBLIC | PROTECTED | PRIVATE)).count_ones()
     }
 
-    pub fn is_property(self) -> bool {
+    pub(crate) fn is_property(self) -> bool {
         self.0 & (PUBLIC | PRIVATE | PROTECTED | READONLY) != 0
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Parameter {
+pub(crate) struct Parameter {
     pub name: String,
     pub annotation: Option<String>,
     pub optional: bool,
@@ -105,7 +105,7 @@ pub struct Parameter {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Member {
+pub(crate) struct Member {
     pub name: String,
     pub span: Span,
     pub annotation: Option<String>,
@@ -116,14 +116,14 @@ pub struct Member {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Base {
+pub(crate) struct Base {
     pub name: String,
     pub realizes: bool,
     pub span: Span,
 }
 
 /// `_static_member_name`: the name without its quotes, or `None` when it holds an escape.
-pub fn static_member_name(raw: &str) -> Option<String> {
+pub(crate) fn static_member_name(raw: &str) -> Option<String> {
     if has_backslash(raw) {
         return None;
     }
@@ -142,14 +142,14 @@ pub fn static_member_name(raw: &str) -> Option<String> {
 
 impl Cx<'_> {
     /// `_modifiers`.
-    pub fn modifiers(&self, node: Node) -> Modifiers {
+    pub(crate) fn modifiers(&self, node: Node) -> Modifiers {
         let mut bits = 0;
         each_child(node, |child| bits |= self.modifier_bit(child));
         Modifiers(bits)
     }
 
     /// `_modifiers` for the children of a node that the caller already has.
-    pub fn modifiers_in(&self, kids: &[Node]) -> Modifiers {
+    pub(crate) fn modifiers_in(&self, kids: &[Node]) -> Modifiers {
         Modifiers(
             kids.iter()
                 .fold(0, |bits, child| bits | self.modifier_bit(*child)),
@@ -181,12 +181,12 @@ impl Cx<'_> {
     }
 
     /// `_visibility`.
-    pub fn visibility(&self, node: Node) -> Option<Visibility> {
+    pub(crate) fn visibility(&self, node: Node) -> Option<Visibility> {
         self.visibility_in(node, &children(node))
     }
 
     /// `_visibility` for the children of a node that the caller already has.
-    pub fn visibility_in(&self, node: Node, kids: &[Node]) -> Option<Visibility> {
+    pub(crate) fn visibility_in(&self, node: Node, kids: &[Node]) -> Option<Visibility> {
         if kids
             .iter()
             .any(|child| self.k(*child) == K::PrivatePropertyIdentifier)
@@ -210,7 +210,7 @@ impl Cx<'_> {
     }
 
     /// `_type`: the text of a type; the colon of an annotation is removed.
-    pub fn type_text(&self, node: Option<Node>) -> Option<String> {
+    pub(crate) fn type_text(&self, node: Option<Node>) -> Option<String> {
         let node = node?;
         let value = self.text(node);
         if self.k(node) == K::TypeAnnotation {
@@ -221,7 +221,7 @@ impl Cx<'_> {
     }
 
     /// `_parameters`.
-    pub fn parameters(&self, node: Option<Node>) -> Vec<Parameter> {
+    pub(crate) fn parameters(&self, node: Option<Node>) -> Vec<Parameter> {
         let Some(node) = node else {
             return Vec::new();
         };
@@ -250,7 +250,7 @@ impl Cx<'_> {
 
     /// `_decorators`: the attached decorators and the sibling decorators of a class member.
     /// `_decorators`, from the children of the node (the caller has them).
-    pub fn decorators_in<'t>(
+    pub(crate) fn decorators_in<'t>(
         &self,
         node: Node<'t>,
         kids: &[Node<'t>],
@@ -289,7 +289,7 @@ impl Cx<'_> {
 
     /// `_decorated_member` for the member that follows a run of decorators and comments: whether
     /// a decorator at body level belongs to it.
-    pub fn decorated_member(&self, candidate: Node, place: &Place) -> bool {
+    pub(crate) fn decorated_member(&self, candidate: Node, place: &Place) -> bool {
         if candidate.has_error()
             || !matches!(
                 self.k(candidate),
@@ -307,7 +307,7 @@ impl Cx<'_> {
     }
 
     /// `_signature_complete`.
-    pub fn signature_complete(&self, node: Node) -> bool {
+    pub(crate) fn signature_complete(&self, node: Node) -> bool {
         let Some(parameters) = self.field(node, F::Parameters) else {
             return true;
         };
@@ -327,7 +327,7 @@ impl Cx<'_> {
         clippy::excessive_nesting,
         reason = "the function nests blocks deeper than 4: flatten it (AD-327)"
     )]
-    pub fn bases(&self, node: Node) -> Vec<Base> {
+    pub(crate) fn bases(&self, node: Node) -> Vec<Base> {
         let mut bases = Vec::new();
         for heritage in named_children(node) {
             let clauses = match self.k(heritage) {

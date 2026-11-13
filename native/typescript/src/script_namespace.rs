@@ -81,7 +81,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_namespaces`: `var name;` followed by `(function (name) {...})(name || (name = {}))`.
-    pub fn namespaces(&self) -> Vec<ScriptNamespace> {
+    pub(crate) fn namespaces(&self) -> Vec<ScriptNamespace> {
         let tree = self.tree;
         let mut result = Vec::new();
         let mut written: Option<HashMap<String, Vec<Node<'t>>>> = None;

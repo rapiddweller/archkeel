@@ -64,7 +64,7 @@ fn catalog() -> &'static Catalog {
 
 /// `config._libraries`: the `lib` values in order, each once, and whether one is not a lib of the
 /// pinned compiler (or the value is not a list of text).
-pub fn libraries(raw: &Map<String, Value>) -> (Option<Vec<String>>, bool) {
+pub(crate) fn libraries(raw: &Map<String, Value>) -> (Option<Vec<String>>, bool) {
     let Some(value) = raw.get("lib").filter(|value| !value.is_null()) else {
         return (None, false);
     };
@@ -85,7 +85,7 @@ pub fn libraries(raw: &Map<String, Value>) -> (Option<Vec<String>>, bool) {
 }
 
 /// Read the `lib` setting into the options: the libs and whether one is unknown to the compiler.
-pub fn apply(options: &mut Options, raw: &Map<String, Value>) {
+pub(crate) fn apply(options: &mut Options, raw: &Map<String, Value>) {
     let (libs, unsupported) = libraries(raw);
     options.libs = libs;
     options.lib_unmodeled |= unsupported;
@@ -116,7 +116,7 @@ fn closure(libraries: &[String]) -> HashSet<&str> {
 
 /// `config.standard_globals`: the names that the libs of the options declare; none where the
 /// options replace the libs in a way that the catalog cannot know.
-pub fn standard_globals(options: &Options) -> HashSet<String> {
+pub(crate) fn standard_globals(options: &Options) -> HashSet<String> {
     if options.no_lib || !options.unmodeled.is_empty() || options.lib_unmodeled {
         return HashSet::new();
     }

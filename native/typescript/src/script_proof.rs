@@ -16,7 +16,7 @@ use crate::sites::SiteKind;
 use crate::source::Span;
 
 /// The places that prove a factory member, and whether the member is a function.
-pub type Proof = (Vec<(String, Span)>, bool);
+pub(crate) type Proof = (Vec<(String, Span)>, bool);
 
 /// What following one forwarding alias gives: a proof, a stop of the whole search, or the next alias.
 enum Step {
@@ -30,7 +30,7 @@ type Seen = (String, String, String);
 
 impl<'a, 'p> Run<'a, 'p> {
     /// `_script_factory_proof`.
-    pub fn factory_proof(
+    pub(crate) fn factory_proof(
         &self,
         alias: &ScriptAlias,
         rel: &str,
@@ -144,7 +144,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_factory_source`: the binding of a declaration that proves a factory member.
-    pub fn factory_source(&mut self, rel: &str, span: &Span) -> String {
+    pub(crate) fn factory_source(&mut self, rel: &str, span: &Span) -> String {
         let module = self.module(rel);
         let parts = [
             Part::Text(&module),

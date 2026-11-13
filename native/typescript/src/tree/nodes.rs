@@ -10,7 +10,7 @@ use tree_sitter::Node;
 /// A node with this many children or fewer is read by index, which costs no cursor.
 const FEW_CHILDREN: usize = 12;
 
-pub fn named_children(node: Node) -> Vec<Node> {
+pub(crate) fn named_children(node: Node) -> Vec<Node> {
     if node.child_count() <= FEW_CHILDREN {
         return (0..node.child_count())
             .filter_map(|index| node.child(index))
@@ -22,7 +22,7 @@ pub fn named_children(node: Node) -> Vec<Node> {
 }
 
 /// Call `visit` for each child, without a vector: a node with few children is read by index.
-pub fn each_child<'t>(node: Node<'t>, mut visit: impl FnMut(Node<'t>)) {
+pub(crate) fn each_child<'t>(node: Node<'t>, mut visit: impl FnMut(Node<'t>)) {
     if node.child_count() <= FEW_CHILDREN {
         (0..node.child_count())
             .filter_map(|index| node.child(index))
@@ -35,7 +35,7 @@ pub fn each_child<'t>(node: Node<'t>, mut visit: impl FnMut(Node<'t>)) {
     }
 }
 
-pub fn children(node: Node) -> Vec<Node> {
+pub(crate) fn children(node: Node) -> Vec<Node> {
     if node.child_count() <= FEW_CHILDREN {
         return (0..node.child_count())
             .filter_map(|index| node.child(index))

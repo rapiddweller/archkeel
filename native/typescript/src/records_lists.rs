@@ -15,7 +15,7 @@ use crate::records::plan;
 
 /// The lists of a producer run: the sink of the unit tests and the test-only dump.
 #[derive(Default)]
-pub struct Lists {
+pub(crate) struct Lists {
     pub sections: Vec<Section>,
 }
 
@@ -33,7 +33,7 @@ impl SectionSink for Lists {
 
 /// The facts with every section in a list, and the ids that the records cite. This runs the
 /// producer of the reply, so what a test sees is what the reply holds.
-pub fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), String> {
+pub(crate) fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), String> {
     let (head, plan) = plan(facts, pending, true);
     let mut lists = Lists::default();
     let (tail, touched) = plan.write(&mut lists).map_err(|error| error.to_string())?;
@@ -57,7 +57,7 @@ pub fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<String>), S
 }
 
 /// The records of the section of `D`.
-pub fn section_of<D: IntoSection>(sections: &[Section]) -> Vec<Record<D>> {
+pub(crate) fn section_of<D: IntoSection>(sections: &[Section]) -> Vec<Record<D>> {
     sections
         .iter()
         .find_map(D::records)
@@ -72,7 +72,7 @@ fn is_witness(record: &Record<BindingFact>) -> bool {
 
 /// The records of the sections by the names that the tests and the dump use: the result bindings
 /// are the records of `bindings` that are not export witnesses.
-pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
+pub(crate) fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
     #[cfg(not(feature = "dump"))]
     drop(touched);
     let (witnesses, bindings) = section_of(&facts.sections)
@@ -95,7 +95,7 @@ pub fn records_of(facts: &Facts, touched: Vec<String>) -> Records {
 /// A record as plain JSON: the tests read the fields by the names of the wire.
 #[cfg(test)]
 #[derive(Clone)]
-pub struct Plain {
+pub(crate) struct Plain {
     pub id: String,
     pub kind: String,
     pub title: String,
@@ -103,7 +103,7 @@ pub struct Plain {
 }
 
 #[cfg(test)]
-pub fn plains<D: archkeel_facts::FactData>(records: &[Record<D>]) -> Vec<Plain> {
+pub(crate) fn plains<D: archkeel_facts::FactData>(records: &[Record<D>]) -> Vec<Plain> {
     let plain = |record: &Record<D>| {
         let value = serde_json::to_value(record).unwrap();
         Plain {

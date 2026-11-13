@@ -27,7 +27,7 @@ use crate::source::Span;
 use crate::symbol_table::{Entry, SymbolTable};
 
 /// The fields that every definition has.
-pub struct Core {
+pub(crate) struct Core {
     pub qualified_name: String,
     pub module: ModuleName,
     pub package: PackageName,
@@ -44,7 +44,7 @@ pub struct Core {
 }
 
 /// What a class, an interface and an enum add (`_classifier_data`).
-pub struct Classifier {
+pub(crate) struct Classifier {
     pub class_kind: Option<ClassKind>,
     pub enum_members: Option<Vec<String>>,
     pub member_inventories: Vec<MemberInventory>,
@@ -70,7 +70,7 @@ fn nullable(value: &Option<String>) -> Nullable<String> {
     value.clone().map_or(Nullable::Null, Nullable::Value)
 }
 
-pub fn class_data(core: Core, more: Classifier) -> ClassData {
+pub(crate) fn class_data(core: Core, more: Classifier) -> ClassData {
     ClassData {
         attribute_declarations: more.attribute_declarations,
         base_declarations: more.base_declarations,
@@ -119,7 +119,7 @@ pub fn class_data(core: Core, more: Classifier) -> ClassData {
 }
 
 /// The data of a function or a method: `async` and `method_kind` only when they are true.
-pub fn callable_data(core: Core, entry: &Entry) -> CallableData {
+pub(crate) fn callable_data(core: Core, entry: &Entry) -> CallableData {
     let definition = entry.definition;
     let method_kind = match (definition.kind, definition.is_static) {
         (DefinitionKind::Method, true) => Some(MethodKind::Static),
@@ -169,7 +169,7 @@ pub fn callable_data(core: Core, entry: &Entry) -> CallableData {
 }
 
 /// The data of a constant or a type alias.
-pub fn value_data(core: Core, entry: &Entry) -> ValueData {
+pub(crate) fn value_data(core: Core, entry: &Entry) -> ValueData {
     let definition = entry.definition;
     ValueData {
         alias: None,
@@ -204,7 +204,7 @@ pub fn value_data(core: Core, entry: &Entry) -> ValueData {
 }
 
 /// `_classifier_data`.
-pub fn classifier(
+pub(crate) fn classifier(
     table: &SymbolTable,
     methods: &Methods,
     cited: &mut Cited,
@@ -363,10 +363,10 @@ fn base_record(
 
 /// The methods of each class, by the module, the name that the methods give as their parent and
 /// the position of the class: Python scans all definitions for each class.
-pub type Methods = HashMap<(String, String, i64, i64), Vec<String>>;
+pub(crate) type Methods = HashMap<(String, String, i64, i64), Vec<String>>;
 
 /// The names and the evidence of the decorators of a definition or a member.
-pub fn decorators(
+pub(crate) fn decorators(
     cited: &mut Cited,
     rel: &str,
     sources: &[(String, Span)],
